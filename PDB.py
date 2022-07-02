@@ -21,10 +21,10 @@ from sklearn.neighbors import BallTree
 
 # from JobResources import Database  # Todo
 from PathUtils import orient_exe_path, orient_dir, pdb_db, qs_bio
-from Query.PDB import get_pdb_info_by_entry, retrieve_entity_id_by_sequence, get_pdb_info_by_assembly
+from Query.PDB import retrieve_entity_id_by_sequence, query_pdb_by
 from SequenceProfile import generate_alignment
 from Structure import Structure, Chain, Entity, Atom, Residues, Structures, superposition3d, Atoms, Residue, Coords
-from SymDesignUtils import remove_duplicates, start_log, DesignError, to_iterable, unpickle
+from SymDesignUtils import remove_duplicates, start_log, DesignError, to_iterable, unpickle, digit_translate_table
 from utils.SymmetryUtils import valid_subunit_number, multicomponent_valid_subunit_number, valid_symmetries
 
 # Globals
@@ -117,7 +117,7 @@ def read_pdb_file(file: str | bytes, pdb_lines: list[str] = None, separate_coord
         path, extension = os.path.splitext(file)
 
     # PDB
-    assembly: bool = False
+    assembly: str = None
     # type to info index:   1    2    3    4    5    6    7     11     12   13   14
     temp_info: list[tuple[int, str, str, str, str, int, str, float, float, str, str]] = []
     # if separate_coords:
@@ -147,7 +147,7 @@ def read_pdb_file(file: str | bytes, pdb_lines: list[str] = None, separate_coord
 
     if extension[-1].isdigit():
         # If last character is not a letter, then the file is an assembly, or the extension was provided weird
-        assembly = True
+        assembly = extension.translate(digit_translate_table)
 
     entity = None
     current_operation = -1
@@ -267,7 +267,7 @@ def read_pdb_file(file: str | bytes, pdb_lines: list[str] = None, separate_coord
     if not temp_info:
         raise ValueError(f'The file {file} has no ATOM records!')
 
-    return dict(assembly=assembly,
+    return dict(biological_assembly=assembly,
                 atoms=[Atom.without_coordinates(idx, *info) for idx, info in enumerate(temp_info)] if separate_coords
                 else
                 # initialize with individual coords. Not sure why anyone would do this, but include for compatibility
@@ -326,7 +326,7 @@ class PDB(Structure):
     # space_group: str | None
     # uc_dimensions: list[float] | None
 
-    def __init__(self,
+    def __init__(self, biological_assembly: str = None,
                  chains: list[Chain] | Structures | bool = None, entities: list[Entity] | Structures | bool = None,
                  cryst_record: str = None, design: bool = False,
                  dbref: dict[str, dict[str, str]] = None, entity_info: list[dict[str, list | str]] = None,
@@ -344,7 +344,7 @@ class PDB(Structure):
         self.api_entry = None
         # {'entity': {1: {'A', 'B'}, ...}, 'res': resolution, 'dbref': {chain: {'accession': ID, 'db': UNP}, ...},
         #  'struct': {'space': space_group, 'a_b_c': (a, b, c), 'ang_a_b_c': (ang_a, ang_b, ang_c)}
-        self.biological_assembly = False
+        self.biological_assembly = biological_assembly
         self.chain_ids = []  # unique chain IDs
         self.chains = []
         # self.cryst = cryst
@@ -1166,23 +1166,53 @@ class PDB(Structure):
         """
         if self.api_entry:
             return
-        # if self.resource_db:  # Todo
-        #     self.api_entry = self.resource_db.pdb_api.retrieve_file(name=self.name)
+        # if self.source_db:  # Todo
+        #     self.api_entry = self.source_db.pdb_api.retrieve_file(name=self.name)
         #     if self.api_entry:
         #         return
 
-        if self.name and len(self.name) == 4:
-            self.api_entry = get_pdb_info_by_entry(self.name)
-            if self.biological_assembly:
-                # self.api_entry.update(get_pdb_info_by_assembly(self.name))
-                self.api_entry['assembly'] = get_pdb_info_by_assembly(self.name)
-            if not self.api_entry:
-                self.log.debug(f'PDB code "{self.name}" was not found with the PDB API')
-            # elif self.resource_db:
-            #     self.resource_db.pdb_api.store_data(self.api_entry, name=self.name)
+        if self.name:
+            parsed_name = self.name
+            splitter = ['_', '-']  # entity, assembly
+            idx = 0
+            extra = None
+            while len(parsed_name) != 4:
+                try:
+                    parsed_name, *extra = parsed_name.split(splitter[idx])
+                except IndexError:
+                    break  # the while loop, we can't find from splitting typical PDB formatted strings
+                idx += 1
 
+            if idx >= len(splitter):  # we got to the end with no success
+                self.log.debug(f'PDB entry "{self.name}" is not of the required format and wasn\'t queried from the PDB'
+                               f' API')
+            else:  # len(parsed_name) == 4:
+                # query_args = dict(entry=parsed_name)
+                # # self.api_entry = _get_entry_info(parsed_name)
+                if self.biological_assembly:
+                    # query_args.update(assembly_integer=self.assembly)
+                    # # self.api_entry.update(_get_assembly_info(self.name))
+                    self.api_entry = query_pdb_by(entry=parsed_name)
+                    self.api_entry['assembly'] = query_pdb_by(entry=self.name, assembly_integer=self.biological_assembly)
+
+                elif extra:  # elif means we couldn't have 1ABC_1.pdb2
+                    integer, *_ = extra
+                    if idx == 1:  # entity integer, such as 1ABC_1.pdb
+                        # query_args.update(entity_integer=integer)
+                        self.api_entry = query_pdb_by(entry=parsed_name, entity_integer=integer)
+                    else:  # get entry alone. This is an assembly or unknown conjugation. Either way we need
+                        self.api_entry = query_pdb_by(entry=parsed_name)
+
+                    if idx == 2:  # assembly integer, such as 1ABC-1.pdb
+                        # query_args.update(assembly_integer=integer)
+                        self.api_entry['assembly'] = query_pdb_by(entry=parsed_name, assembly_integer=integer)
+
+                if not self.api_entry:
+                    self.log.debug(f'PDB entry "{self.name}" was not found with the PDB API')
+                # elif self.source_db:
+                #     self.source_db.pdb_api.store_data(self.api_entry, name=self.name)
         else:
-            self.log.debug(f'PDB code "{self.name}" is not of the required format and wasn\'t queried from the PDB API')
+            self.log.debug('No name was found for this Model. PDB API won\'t be searched')
 
     def entity(self, entity_id: str) -> Entity | None:  # Todo ready for Pose
         """Retrieve an Entity by name from the PDB object
@@ -1276,8 +1306,8 @@ class PDB(Structure):
             # except (IndexError, AttributeError):
             #     raise DesignError('Missing Chain object for %s %s! entity_info=%s, assembly=%s and multimodel=%s '
             #                       'api_entry=%s, original_chain_ids=%s'
-            #                       % (self.name, self.create_entities.__name__, self.entity_info, self.assembly,
-            #                          self.multimodel, self.api_entry, self.original_chain_ids))
+            #                       % (self.name, self.create_entities.__name__, self.entity_info,
+            #                       self.biological_assembly, self.multimodel, self.api_entry, self.original_chain_ids))
             data['uniprot_id'] = accession['accession'] if accession and accession['db'] == 'UNP' else accession
             # data['chains'] = [chain for chain in chains if chain]  # remove any missing chains
             #                                               generated from a PDB API sequence search v

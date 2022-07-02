@@ -295,9 +295,9 @@ def find_matching_expression_tags(uniprot_id=None, pdb_code=None, chain=None):
     # #     # partner_d = AnalyzeMutatedSequences.get_pdb_sequences(Pose.retrieve_pdb_file_path(matching_pdb),
     # #     #                                                       chain=pdb_chain_d[matching_pdb], source='seqres')
     # #     partner_sequences.append(partner_pdb.reference_sequence[chain])
-    #     # api_info = get_pdb_info_by_entry(matching_pdb)
+    #     # api_info = _get_entry_info(matching_pdb)
     #     # chain_entity = {chain: entity_idx for entity_idx, chains in api_info.get('entity').items() for ch in chains}
-    #     partner_sequences.append(get_entity_reference_sequence(pdb=matching_pdb, chain=chain))
+    #     partner_sequences.append(get_entity_reference_sequence(entry=matching_pdb, chain=chain))
 
     # matching_pdb_tags = {idx: find_expression_tags(seq) for idx, seq in enumerate(partner_sequences)}
     # [[{'name': tag_name, 'termini': 'n', 'sequence': 'MSGHHHHHHGKLKPNDLRI'}, ...], ...]

@@ -3,7 +3,6 @@ from __future__ import annotations
 import argparse
 import os
 import sys
-from typing import Dict
 
 from psutil import cpu_count
 
@@ -202,9 +201,30 @@ def generate_chain_mask(chains: str) -> set[str]:
 
 
 # ---------------------------------------------------
-class Formatter(argparse.RawTextHelpFormatter, argparse.RawDescriptionHelpFormatter):
-    pass
+class Formatter(argparse.RawTextHelpFormatter, argparse.RawDescriptionHelpFormatter, argparse.HelpFormatter):
 
+    def _format_action_invocation(self, action):
+        if not action.option_strings:
+            metavar, = self._metavar_formatter(action, action.dest)(1)
+            return metavar
+        else:
+            parts = []
+            # if the Optional doesn't take a value, format is:
+            #    -s, --long
+            if action.nargs == 0:
+                parts.extend(action.option_strings)
+
+            # if the Optional takes a value, format is:
+            #    -s ARGS, --long ARGS
+            # change to
+            #    -s, --long ARGS
+            else:
+                default = action.dest.upper()
+                args_string = self._format_args(action, default)
+                for option_string in action.option_strings:
+                    parts.append(f'{option_string}')
+                parts[-1] += f' {args_string.upper()}'
+            return ', '.join(parts)
 
 # The help strings can include various format specifiers to avoid repetition of things like the program name or the
 # argument default. The available specifiers include the program name, %(prog)s and most keyword arguments to
@@ -214,11 +234,23 @@ class Formatter(argparse.RawTextHelpFormatter, argparse.RawDescriptionHelpFormat
 #  {'refine': ArgumentParser(prog='python SymDesign.py module [module_arguments] [input_arguments]'
 #                                 '[optional_arguments] refine'
 # TODO add action=argparse.BooleanOptionalAction to all action='store_true'/'store_false'
-usage_string = '\n\tpython %(prog)s module [module_arguments] [input_arguments] [optional_arguments]'
-# parser_options = argparse.ArgumentParser(add_help=False)
-parser_options_group = dict(title='optional arguments',
-                            description=f'Additional options control symmetry, the extent of file output, various '
-                                        f'{program_name} runtime considerations, and programatic options for '
+optional_title = 'Optional Arguments'
+design_selector_title = 'Design Selector Arguments'
+input_title = 'Input Arguments'
+output_title = 'Output Arguments'
+module_title = 'Module Arguments'
+usage_string = f'\n      python %s.py %%s [{module_title.lower()}] [{input_title.lower()}] [{output_title.lower()}] ' \
+               f'[{design_selector_title.lower()}] [{optional_title.lower()}]' % program_name
+guide_args = ('--guide',)
+guide_kwargs = dict(action='store_true', help=f'Display the {program_name} or {program_name} Module specific guide\nEx:'
+                                              f' "{program_command} --guide" or "{submodule_guide}"')
+# Todo allow SetUp.py main
+setup_args = ('--set_up',)
+setup_kwargs = dict(action='store_true', help='Show the %(prog)s set up instructions\nDefault=%(default)s')
+
+parser_options_group = dict(title=f'{"_" * len(optional_title)}\n{optional_title}',
+                            description=f'\nAdditional options control symmetry, the extent of file output, various '
+                                        f'{program_name} runtime considerations, and programmatic options for '
                                         f'determining design outcomes')
 parser_options_arguments = {
     ('-C', '--cores'): dict(type=int, default=cpu_count(logical=False) - 1,
@@ -229,7 +261,7 @@ parser_options_arguments = {
                        help='Whether to log debugging messages to stdout\nDefault=%(default)s'),
     ('--fuse_chains',): dict(type=str, nargs='*', default=[],
                              help='The name of a pair of chains to fuse during design.\nPairs should be separated'
-                                  ' by a colon, with the n-terminal\npreceeding the c-terminal chain new instances by a'
+                                  ' by a colon, with the n-terminal\npreceding the c-terminal chain new instances by a'
                                   ' space\nEx --fuse_chains A:B C:D'),
     ('-F', f'--{force_flags}'): dict(action='store_true',
                                      help='Force generation of a new flags file to update script parameters'
@@ -237,9 +269,10 @@ parser_options_arguments = {
     # ('-gf', f'--{generate_fragments}'): dict(action='store_true',
     #                                          help='Generate interface fragment observations for poses of interest'
     #                                               '\nDefault=%(default)s'),
-    ('--guide',): dict(action='store_true',
-                       help='Access the %s guide! Display the program or module specific guide\nEx: "%s --guide" '
-                            'or "%s"' % (program_name, program_command, submodule_guide)),
+    guide_args: guide_kwargs,
+    # ('--guide',): dict(action='store_true',
+    #                    help='Access the %s guide! Display the program or module specific guide\nEx: "%s --guide" '
+    #                         'or "%s"' % (program_name, program_command, submodule_guide)),
     ('-i', '--fragment_database'): dict(type=str, choices=fragment_dbs, default=biological_interfaces,
                                         help='Database to match fragments for interface specific scoring matrices\n'
                                              'Default=%(default)s'),
@@ -284,8 +317,9 @@ parser_options_arguments = {
                                         'fail on a single trajectory mistake.\nDefault=%(default)s'),
     ('-e', '--entry', f'--{sym_entry}'): dict(type=int, default=None, dest=sym_entry,
                                               help=f'The entry number of {nano.title()} docking combinations to use'),
-    ('--set_up',): dict(action='store_true',
-                        help='Show the %(prog)s set up instructions\nDefault=%(default)s'),  # Todo allow SetUp.py main
+    setup_args: setup_kwargs,
+    # ('--set_up',): dict(action='store_true',
+    #                     help='Show the %(prog)s set up instructions\nDefault=%(default)s'),  # Todo allow SetUp.py main
     ('--skip_logging',): dict(action='store_true',
                               help='Skip logging output to files and direct all logging to stream?'
                                    '\nDefault=%(default)s'),
@@ -295,53 +329,53 @@ parser_options_arguments = {
                                     ' symmetry'),
 }
 parser_residue_selector_group = \
-    dict(title='residue selector arguments', description='Residue selectors control which parts of the Pose are '
-                                                         'included in calculations')
+    dict(title=f'{"_" * len(design_selector_title)}\n{design_selector_title}',
+         description='\nResidue selectors control which parts of the Pose are included in calculations')
 parser_residue_selector_arguments = {
     ('--require_design_at_residues',):
         dict(type=str, default=None,
-             help='Regardless of participation in an interface,\nif certain residues should be included in'
+             help='Regardless of participation in an interface, if certain\n residues should be included in'
                   'design, specify the\nresidue POSE numbers as a comma separated string.\n'
                   'Ex: "23,24,35,41,100-110,267,289-293" Ranges are allowed'),
     ('--require_design_at_chains',):
         dict(type=str, default=None,
-             help='Regardless of participation in an interface,\nif certain chains should be included in'
+             help='Regardless of participation in an interface, if certain\n chains should be included in'
                   'design, specify the\nchain ID\'s as a comma separated string.\n'
                   'Ex: "A,D"'),
-    ('--select_designable_residues_by_sequence',):
-        dict(type=str, default=None,
-             help='If design should occur ONLY at certain residues,\nspecify the location of a .fasta file '
-                  f'containing the design selection.\nRun "{program_command} --single my_pdb_file.pdb design_selector" '
-                  'to set this up.'),
+    # ('--select_designable_residues_by_sequence',):
+    #     dict(type=str, default=None,
+    #          help='If design should occur ONLY at certain residues, specify\nthe location of a .fasta file '
+    #               f'containing the design selection\nRun "{program_command} --single my_pdb_file.pdb design_selector" '
+    #               'to set this up'),
     ('--select_designable_residues_by_pdb_number',):
-        dict(type=str, default=None,
-             help='If design should occur ONLY at certain residues,\nspecify the residue PDB number(s) '
-                  'as a comma separated string.\nRanges are allowed Ex: "40-45,170-180,227,231"'),
+        dict(type=str, default=None, metavar=None,
+             help='If design should occur ONLY at certain residues, specify\nthe residue PDB number(s) '
+                  'as a comma separated string\nRanges are allowed Ex: "40-45,170-180,227,231"'),
     ('--select_designable_residues_by_pose_number',):
         dict(type=str, default=None,
-             help='If design should occur ONLY at certain residues,\nspecify the residue POSE number(s) '
-                  'as a comma separated string.\nRanges are allowed Ex: "23,24,35,41,100-110,267,289-293"'),
+             help='If design should occur ONLY at certain residues, specify\nthe residue POSE number(s) '
+                  'as a comma separated string\nRanges are allowed Ex: "23,24,35,41,100-110,267,289-293"'),
     ('--select_designable_chains',):
         dict(type=str, default=None,
-             help='If a design should occur ONLY at certain chains,\nprovide the chain ID\'s as a comma '
-                  'separated string.\nEx: "A,C,D"'),
-    ('--mask_designable_residues_by_sequence',):
-        dict(type=str, default=None,
-             help='If design should NOT occur at certain residues,\nspecify the location of a .fasta file '
-                  f'containing the design mask.\nRun "{program_command} --single my_pdb_file.pdb design_selector" '
-                  'to set this up.'),
+             help='If a design should occur ONLY at certain chains, specify\nthe chain ID\'s as a comma '
+                  'separated string\nEx: "A,C,D"'),
+    # ('--mask_designable_residues_by_sequence',):
+    #     dict(type=str, default=None,
+    #          help='If design should NOT occur at certain residues, specify\nthe location of a .fasta file '
+    #               f'containing the design mask\nRun "{program_command} --single my_pdb_file.pdb design_selector" '
+    #               'to set this up'),
     ('--mask_designable_residues_by_pdb_number',):
         dict(type=str, default=None,
-             help='If design should NOT occur at certain residues,\nspecify the residue PDB number(s) '
-                  'as a comma separated string.\nEx: "27-35,118,281" Ranges are allowed'),
+             help='If design should NOT occur at certain residues, specify\nthe residue PDB number(s) '
+                  'as a comma separated string\nEx: "27-35,118,281" Ranges are allowed'),
     ('--mask_designable_residues_by_pose_number',):
         dict(type=str, default=None,
-             help='If design should NOT occur at certain residues,\nspecify the residue POSE number(s) '
-                  'as a comma separated string.\nEx: "27-35,118,281" Ranges are allowed'),
+             help='If design should NOT occur at certain residues, specify\nthe residue POSE number(s) '
+                  'as a comma separated string\nEx: "27-35,118,281" Ranges are allowed'),
     ('--mask_designable_chains',):
         dict(type=str, default=None,
-             help='If a design should NOT occur at certain chains,\nprovide the chain ID\'s as a comma '
-                  'separated string.\nEx: "C"')
+             help='If a design should NOT occur at certain chains, provide\nthe chain ID\'s as a comma '
+                  'separated string\nEx: "C"')
 }
 # ---------------------------------------------------
 # Set Up SubModule Parsers
@@ -366,8 +400,8 @@ parser_refine_arguments = {
 parser_nanohedra = dict(nanohedra=dict(help=f'Run or submit jobs to {nano.title()}.py'))
 # parser_dock = subparsers.add_parser(nano, help='Run or submit jobs to %s.py.\nUse the Module arguments -c1/-c2, -o1/-o2, or -q to specify PDB Entity codes, building block directories, or query the PDB for building blocks to dock' % nano.title())
 parser_nanohedra_arguments = {
-    ('-e', '--entry', f'--{sym_entry}'): dict(type=int, default=None, dest=sym_entry,  # required=True,
-                                              help=f'The entry number of {nano.title()} docking combinations to use'),
+    # ('-e', '--entry', f'--{sym_entry}'): dict(type=int, default=None, dest=sym_entry,  # required=True,
+    #                                           help=f'The entry number of {nano.title()} docking combinations to use'),
     ('-mv', '--match_value'): dict(type=float, default=0.5, dest='high_quality_match_value',
                                    help='What is the minimum match score required for a high quality fragment?'),
     ('-iz', '--initial_z_value'): dict(type=float, default=1.,
@@ -381,8 +415,6 @@ parser_nanohedra_arguments = {
                                                     help='Where should the output from commands be written?\nDefault=%s'
                                                          % ex_path(program_output, data.title(),
                                                                    'NanohedraEntry[ENTRYNUMBER]DockedPoses')),
-    ('--query',): dict(action='store_true', help='Run Nanohedra in query mode\nDefault=%(default)s'),
-    # ('-q', '--query'): dict(action='store_true', help=f'Run {nano.title()} in query mode\nDefault=%(default)s'),
     ('-r1', '--rotation_step1'): dict(type=float, default=3.,
                                       help='The number of degrees to increment the rotational degrees of freedom '
                                            'search\nDefault=%(default)s'),
@@ -393,13 +425,23 @@ parser_nanohedra_arguments = {
                                              help='Whether the surrounding unit cells should be output? Only for '
                                                   'infinite materials\nDefault=%(default)s')
 }
+parser_nanohedra_mutual_run_type_group = dict()  # required=True <- adding below to different parsers depending on need
+parser_nanohedra_mutual_run_type_arguments = {
+    ('-e', '-entry', '--entry', f'--{sym_entry}'):
+        dict(type=int, default=None, dest=sym_entry, help='The symmetry to use. See --query for possible symmetries'),
+    ('-query', '--query',): dict(action='store_true', help='Run in query mode\nDefault=%(default)s'),
+    # todo alias analysis -metric
+    ('-postprocess', '--postprocess',): dict(action='store_true',
+                                             help='Run in post processing mode\nDefault=%(default)s')
+}
 # parser_dock_mutual1 = parser_dock.add_mutually_exclusive_group(required=True)
 parser_nanohedra_mutual1_group = dict()  # required=True <- adding kwarg below to different parsers depending on need
 parser_nanohedra_mutual1_arguments = {
     ('-c1', '--pdb_codes1'): dict(type=os.path.abspath, default=None,
                                   help=f'File with list of PDB_entity codes for {nano} component 1'),
-    ('-o1', f'--{nano_entity_flag1}'): dict(type=os.path.abspath, default=None,
-                                            help=f'Disk location where {nano} component 1 file(s) are located'),
+    ('-o1', f'-{nano_entity_flag1}'): dict(type=os.path.abspath, default=None,
+                                           help=f'Disk location where {nano} component 1 file(s) are located'),
+    # ('--query',): dict(action='store_true', help='Run Nanohedra in query mode\nDefault=%(default)s'),
     ('-Q', '--query_codes'): dict(action='store_true', help='Query the PDB API for corresponding codes')
 }
 # parser_dock_mutual2 = parser_dock.add_mutually_exclusive_group()
@@ -407,8 +449,8 @@ parser_nanohedra_mutual2_group = dict()  # required=False
 parser_nanohedra_mutual2_arguments = {
     ('-c2', '--pdb_codes2'): dict(type=os.path.abspath, default=None,
                                   help=f'File with list of PDB_entity codes for {nano} component 2'),
-    ('-o2', f'--{nano_entity_flag2}'): dict(type=os.path.abspath, default=None,
-                                            help=f'Disk location where {nano} component 2 file(s) are located'),
+    ('-o2', f'-{nano_entity_flag2}'): dict(type=os.path.abspath, default=None,
+                                           help=f'Disk location where {nano} component 2 file(s) are located'),
 }
 # ---------------------------------------------------
 parser_cluster = dict(cluster_poses=dict(help='Cluster all poses by their spatial or interfacial similarity.\nThis is'
@@ -416,6 +458,8 @@ parser_cluster = dict(cluster_poses=dict(help='Cluster all poses by their spatia
 # parser_cluster = subparsers.add_parser(cluster_poses, help='Cluster all poses by their spatial similarity. This can remove redundancy or be useful in identifying conformationally flexible docked configurations')
 parser_cluster_poses_arguments = {
     ('-m', '--mode'): dict(type=str, choices=['transform', 'ialign'], default='transform'),
+    ('--as_objects',): dict(action='store_true', help='Whether to store the resulting pose cluster file as '
+                                                      'PoseDirectory objects\nDefault stores as pose IDs'),
     ('-Of', '--output_file'): dict(type=str, default=clustered_poses,
                                    help='Name of the output .pkl file containing pose clusters. Will be saved to the '
                                         '%s folder of the output.\nDefault=%s'
@@ -521,7 +565,7 @@ parser_select_poses = \
 parser_select_poses_arguments = {
     ('--filter',): dict(action='store_true', help='Whether to filter pose selection using metrics'),
     (f'--{protocol}',): dict(type=str, default=None, nargs='*', help='Use specific protocol(s) to filter metrics?'),
-    ('-n', '--select_number'): dict(type=int, default=sys.maxsize, metavar='INT',
+    ('-n', '--select_number'): dict(type=int, default=sys.maxsize, metavar='int',
                                     help='Number of poses to return\nDefault=No Limit'),
     # ('--prefix',): dict(type=str, metavar='string', help='String to prepend to selection output name'),
     ('--save_total',): dict(action='store_false',
@@ -572,7 +616,7 @@ parser_select_sequences_arguments = {
                                                                'multicistronic expression output'),
     ('--nucleotide',): dict(action='store_true', help='Whether to output codon optimized nucleotide sequences'
                                                       '\nDefault=%(default)s'),
-    ('-n', '--select_number'): dict(type=int, default=sys.maxsize, metavar='INT',
+    ('-n', '--select_number'): dict(type=int, default=sys.maxsize, metavar='int',
                                     help='Number of sequences to return\nIf total is True, returns the '
                                          'specified number of sequences (Where Default=No Limit).\nOtherwise the '
                                          'specified number will be selected from each pose (Where Default=1/pose)'),
@@ -622,7 +666,7 @@ parser_select_designs_arguments = {
                                        'each pose?\nDefault=%(default)s'),
     ('--filter',): dict(action='store_true', help='Whether to filter sequence selection using metrics'
                                                   '\nDefault=%(default)s'),
-    ('-s', '--select_number'): dict(type=int, default=sys.maxsize, metavar='INT',
+    ('-s', '--select_number'): dict(type=int, default=sys.maxsize, metavar='int',
                                     help='Number of sequences to return\nIf total is True, returns the '
                                          'specified number of sequences (Where Default=No Limit).\nOtherwise the '
                                          'specified number will be selected from each pose (Where Default=1/pose)'),
@@ -692,23 +736,24 @@ parser_rename_chains = dict(rename_chains=dict(help='For given poses, rename the
 # ---------------------------------------------------
 directory_needed = f'Provide your working {program_output} with -d/--directory to locate poses\nfrom a file utilizing '\
                    f'pose IDs (-df, -pf, and -sf)'
-parser_input_group = dict(title='input arguments', description=f'Specify where/which poses should be included in '
-                                                               f'processing.\n{directory_needed}')
+parser_input_group = dict(title=f'{"_" * len(input_title)}\n{input_title}',
+                          description=f'\nSpecify where/which poses should be included in processing\n'
+                                      f'{directory_needed}')
 parser_input_arguments = {
     ('-c', '--cluster_map'): dict(type=os.path.abspath,
-                                  help='The location of a serialized file containing spatially or interfacial '
+                                  help='The location of a serialized file containing spatially\nor interfacial '
                                        'clustered poses'),
     ('-df', '--dataframe'): dict(type=os.path.abspath, metavar=ex_path('Metrics.csv'),
-                                 help=f'A DataFrame created by {program_name} analysis containing pose info.\nFile is '
-                                      f'.csv, named such as Metrics.csv'),
+                                 help=f'A DataFrame created by {program_name} analysis containing\npose info. File is '
+                                      f'output in .csv format'),
     ('-N', f'--{nano}_output'): dict(action='store_true',
                                      help='Is the input a Nanohedra docking output?\nDefault=%(default)s'),
     ('-pf', '--pose_file'): dict(type=str, dest='specification_file', metavar=ex_path('pose_design_specifications.csv'),
-                                 help=f'If pose IDs are specified in a file, say as the result of {select_poses} or '
+                                 help=f'If pose IDs are specified in a file, say as the result of\n{select_poses} or '
                                       f'{select_designs}'),
-    ('-r', '--range'): dict(type=float, default=None,
-                            help='The range of poses to consider from a larger chunk of work to complete.\nSpecify a '
-                                 '%% of work between the values of 0 to 100, then separate the range by a single "-"\n'
+    ('-r', '--range'): dict(type=float, default=None, metavar='int-int',
+                            help='The range of poses to process from a larger specification.\n'
+                                 'Specify a %% between 0 and 100, separating the range by "-"\n'
                                  'Ex: 0-25'),
     ('-sf', '--specification_file'): dict(type=str, metavar=ex_path('pose_design_specifications.csv'),
                                           help='Name of comma separated file with each line formatted:\nposeID, '
@@ -736,7 +781,8 @@ parser_input_mutual_arguments = {
                              metavar=ex_path('SymDesignOutput', 'Projects', 'yourProject', 'single_design[.pdb]'),
                              help='Operate on single pose(s) in a project'),
 }
-parser_output_group = dict(title='output arguments', description='Specify where output should be written')
+parser_output_group = dict(title=f'{"_" * len(output_title)}\n{output_title}',
+                           description='\nSpecify where output should be written')
 parser_output_arguments = {
     ('-Od', '--outdir', '--output_directory'): dict(type=os.path.abspath, dest='output_directory', default=None,
                                                     help='If provided, the name of the directory to output all created '
@@ -749,7 +795,8 @@ parser_output_arguments = {
     ('--prefix',): dict(type=str, metavar='string', help='String to prepend to output name'),
     ('--suffix',): dict(type=str, metavar='string', help='String to append to output name'),
 }
-module_parsers = dict(refine=parser_refine,
+module_parsers = dict(orient=parser_orient,
+                      refine=parser_refine,
                       nanohedra=parser_nanohedra,
                       nanohedra_mutual1=parser_nanohedra_mutual1_group,  # _mutual1,
                       nanohedra_mutual2=parser_nanohedra_mutual2_group,  # _mutual2,
@@ -803,18 +850,20 @@ parser_residue_selector = 'parser_residue_selector'
 parser_input = 'parser_input'
 parser_output = 'parser_output'
 parser_module = 'parser_module'
-parser_guide_module = 'parser_guide_module'
+parser_guide = 'parser_guide'
 parser_entire = 'parser_entire'
 options_argparser = dict(add_help=False, allow_abbrev=False, formatter_class=Formatter)  # Todo? , usage=usage_string)
-residue_selector_argparser = dict(add_help=False, allow_abbrev=False, formatter_class=Formatter, usage=usage_string)
-input_argparser = dict(add_help=False, allow_abbrev=False, formatter_class=Formatter, usage=usage_string)
-module_argparser = dict(add_help=False, allow_abbrev=False, formatter_class=Formatter, usage=usage_string)
-output_argparser = dict(add_help=False, allow_abbrev=False, formatter_class=Formatter, usage=usage_string)
+residue_selector_argparser = \
+    dict(add_help=False, allow_abbrev=False, formatter_class=Formatter, usage=usage_string % 'module')
+input_argparser = dict(add_help=False, allow_abbrev=False, formatter_class=Formatter, usage=usage_string % 'module')
+module_argparser = dict(add_help=False, allow_abbrev=False, formatter_class=Formatter, usage=usage_string % 'module')
+guide_argparser = dict(add_help=False, allow_abbrev=False, formatter_class=Formatter, usage=usage_string % 'module')
+output_argparser = dict(add_help=False, allow_abbrev=False, formatter_class=Formatter, usage=usage_string % 'module')
 argparser_kwargs = dict(parser_options=options_argparser,
                         parser_residue_selector=residue_selector_argparser,
                         parser_input=input_argparser,
                         parser_module=module_argparser,
-                        parser_guide_module=module_argparser,
+                        parser_guide=guide_argparser,
                         parser_output=output_argparser,
                         )
 # Initialize various independent ArgumentParsers
@@ -823,21 +872,22 @@ for argparser_name, argparser_args in argparser_kwargs.items():
     argparsers[argparser_name] = argparse.ArgumentParser(**argparser_args)
 
 # Set up module ArgumentParser with module arguments
-module_subargparser = dict(title='module arguments', dest='module',  # metavar='',
-                           description='These are the different modes that designs can be processed. They are'
+module_subargparser = dict(title=f'{"_" * len(module_title)}\n{module_title}', dest='module',  # metavar='',
+                           description='\nThese are the different modes that designs can be processed. They are'
                                        '\npresented in an order which might be utilized along a design workflow,\nwith '
                                        'utility modules listed at the bottom starting with check_clashes.\nTo see '
                                        'example commands or algorithmic specifics of each Module enter:\n%s\n\nTo get '
                                        'help with Module arguments enter:\n%s' % (submodule_guide, submodule_help))
 module_required = ['nanohedra_mutual1']
 # for all parsing of module arguments
-subparsers = argparsers[parser_module].add_subparsers(required=True, **module_subargparser)
-# for parsing of guide based module info
-guide_subparsers = argparsers[parser_guide_module].add_subparsers(**module_subargparser)
+subparsers = argparsers[parser_module].add_subparsers(**module_subargparser)  # required=True,
+# for parsing of guide info
+argparsers[parser_guide].add_argument(*guide_args, **guide_kwargs)
+argparsers[parser_guide].add_argument(*setup_args, **setup_kwargs)
+guide_subparsers = argparsers[parser_guide].add_subparsers(**module_subargparser)
 module_suparsers: dict[str, argparse.ArgumentParser] = {}
 for parser_name, parser_kwargs in module_parsers.items():
     arguments = parser_arguments.get(f'{parser_name}_arguments', {})
-    # if arguments:
     # has args as dictionary key (flag names) and keyword args as dictionary values (flag params)
     if 'mutual' in parser_name:  # we must create a mutually_exclusive_group from already formed subparser
         # remove any indication to "mutual" of the argparse group v
@@ -849,13 +899,17 @@ for parser_name, parser_kwargs in module_parsers.items():
         for args, kwargs in arguments.items():
             exclusive_parser.add_argument(*args, **kwargs)
     else:  # save the subparser in a dictionary to access with mutual groups
-        guide_subparsers.add_parser(name=parser_name, **parser_kwargs[parser_name])
-        module_suparsers[parser_name] = subparsers.add_parser(prog=f'python SymDesign.py {parser_name} '
-                                                                   f'[input_arguments] [optional_arguments]',
+        module_suparsers[parser_name] = subparsers.add_parser(prog=usage_string % parser_name,
+                                                              # prog=f'python SymDesign.py %(name) '
+                                                              #      f'[input_arguments] [optional_arguments]',
                                                               formatter_class=Formatter, allow_abbrev=False,
                                                               name=parser_name, **parser_kwargs[parser_name])
         for args, kwargs in arguments.items():
             module_suparsers[parser_name].add_argument(*args, **kwargs)
+        # add each subparser to a guide_subparser as well
+        guide_subparser = guide_subparsers.add_parser(name=parser_name, add_help=False, **parser_kwargs[parser_name])
+        guide_subparser.add_argument(*guide_args, **guide_kwargs)
+
 # print(module_suparsers['nanohedra'])
 # print('after_adding_Args')
 # for group in argparsers[parser_module]._action_groups:
@@ -899,46 +953,44 @@ parser = argparsers[parser_input]
 input_group = None  # must get added before mutual groups can be added
 for parser_name, parser_kwargs in input_parsers.items():
     arguments = parser_arguments.get(f'{parser_name}_arguments', {})
-    if arguments:
-        if 'mutual' in parser_name:  # only has a dictionary as parser_arguments
-            exclusive_parser = input_group.add_mutually_exclusive_group(required=True, **parser_kwargs)
-            for args, kwargs in arguments.items():
-                exclusive_parser.add_argument(*args, **kwargs)
-        else:  # has args as dictionary key (flag names) and keyword args as dictionary values (flag params)
-            input_group = parser.add_argument_group(**parser_kwargs)
-            for args, kwargs in arguments.items():
-                input_group.add_argument(*args, **kwargs)
+    if 'mutual' in parser_name:  # only has a dictionary as parser_arguments
+        exclusive_parser = input_group.add_mutually_exclusive_group(required=True, **parser_kwargs)
+        for args, kwargs in arguments.items():
+            exclusive_parser.add_argument(*args, **kwargs)
+    else:  # has args as dictionary key (flag names) and keyword args as dictionary values (flag params)
+        input_group = parser.add_argument_group(**parser_kwargs)
+        for args, kwargs in arguments.items():
+            input_group.add_argument(*args, **kwargs)
 
 # Set up output ArgumentParser with output arguments
 parser = argparsers[parser_output]
 output_group = None  # must get added before mutual groups can be added
 for parser_name, parser_kwargs in output_parsers.items():
     arguments = parser_arguments.get(f'{parser_name}_arguments', {})
-    if arguments:
-        if 'mutual' in parser_name:  # only has a dictionary as parser_arguments
-            exclusive_parser = output_group.add_mutually_exclusive_group(**parser_kwargs)
-            for args, kwargs in arguments.items():
-                exclusive_parser.add_argument(*args, **kwargs)
-        else:  # has args as dictionary key (flag names) and keyword args as dictionary values (flag params)
-            output_group = parser.add_argument_group(**parser_kwargs)
-            for args, kwargs in arguments.items():
-                output_group.add_argument(*args, **kwargs)
+    if 'mutual' in parser_name:  # only has a dictionary as parser_arguments
+        exclusive_parser = output_group.add_mutually_exclusive_group(**parser_kwargs)
+        for args, kwargs in arguments.items():
+            exclusive_parser.add_argument(*args, **kwargs)
+    else:  # has args as dictionary key (flag names) and keyword args as dictionary values (flag params)
+        output_group = parser.add_argument_group(**parser_kwargs)
+        for args, kwargs in arguments.items():
+            output_group.add_argument(*args, **kwargs)
 
 # Set up entire ArgumentParser with all ArgumentParsers
 entire_argparser = dict(fromfile_prefix_chars='@', allow_abbrev=False,  # exit_on_error=False, # prog=program_name,
-                        description='Control all input/output of various %s operations including:'
-                                    '\n\t1. %s docking '
+                        description=f'Control all input/output of various {program_name} operations including:'
+                                    f'\n\t1. {nano.title()} docking '
                                     '\n\t2. Pose set up, sampling, assembly generation, fragment decoration'
                                     '\n\t3. Interface design using constrained residue profiles and Rosetta'
-                                    '\n\t4. Analysis of all designs using interface metrics'
+                                    '\n\t4. Analysis of all designs using metrics'
                                     '\n\t5. Design selection and sequence formatting by combinatorial linear weighting '
-                                    'of interface metrics.\n\nIf your a first time user, try "%s --guide"'
+                                    'of interface metrics.\n\n'
+                                    f'If you\'re a first time user, try "{program_command} --guide"'
                                     '\nAll jobs have built in features for command monitoring & distribution to '
-                                    'computational clusters for parallel processing'
-                                    % (program_name, nano.title(), program_command),
-                        formatter_class=Formatter, usage=usage_string,
+                                    'computational clusters for parallel processing',
+                        formatter_class=Formatter, usage=usage_string % 'module',
                         parents=[argparsers.get(parser) for parser in [parser_options, parser_residue_selector,
-                                                                       parser_output]])
+                                                                       parser_output, parser_module]])  # parser_input,
 argparsers[parser_entire] = argparse.ArgumentParser(**entire_argparser)
 parser = argparsers[parser_entire]
 # can't set up parser_input via a parent due to mutually_exclusive groups formatting messed up in help, repeat above
@@ -946,38 +998,33 @@ parser = argparsers[parser_entire]
 input_group = None  # must get added before mutual groups can be added
 for parser_name, parser_kwargs in input_parsers.items():
     arguments = parser_arguments.get(f'{parser_name}_arguments', {})
-    if arguments:
-        if 'mutual' in parser_name:  # only has a dictionary as parser_arguments
-            exclusive_parser = input_group.add_mutually_exclusive_group(**parser_kwargs)
-            for args, kwargs in arguments.items():
-                exclusive_parser.add_argument(*args, **kwargs)
-        else:  # has args as dictionary key (flag names) and keyword args as dictionary values (flag params)
-            input_group = parser.add_argument_group(**parser_kwargs)
-            for args, kwargs in arguments.items():
-                input_group.add_argument(*args, **kwargs)
-
-# can't set up parser_module via a parent due to mutually_exclusive groups formatting messed up in help, repeat above
-# Set up entire ArgumentParser with module arguments
-subparsers = parser.add_subparsers(**module_subargparser)
-entire_module_suparsers: dict[str, argparse.ArgumentParser] = {}
-for parser_name, parser_kwargs in module_parsers.items():
-    arguments = parser_arguments.get(f'{parser_name}_arguments', {})
-    # if arguments:
-    # has args as dictionary key (flag names) and keyword args as dictionary values (flag params)
-    if 'mutual' in parser_name:  # we must create a mutually_exclusive_group from already formed subparser
-        # remove any indication to "mutual" of the argparse group v
-        exclusive_parser = \
-            entire_module_suparsers['_'.join(parser_name.split('_')[:-1])].add_mutually_exclusive_group(**parser_kwargs)
+    if 'mutual' in parser_name:  # only has a dictionary as parser_arguments
+        exclusive_parser = input_group.add_mutually_exclusive_group(**parser_kwargs)
         for args, kwargs in arguments.items():
             exclusive_parser.add_argument(*args, **kwargs)
-    else:  # save the subparser in a dictionary to access with mutual groups
-        entire_module_suparsers[parser_name] = subparsers.add_parser(prog=f'python SymDesign.py {parser_name} '
-                                                                          f'[input_arguments] [optional_arguments]',
-                                                                     formatter_class=Formatter, allow_abbrev=False,
-                                                                     name=parser_name, **parser_kwargs[parser_name])
+    else:  # has args as dictionary key (flag names) and keyword args as dictionary values (flag params)
+        input_group = parser.add_argument_group(**parser_kwargs)
         for args, kwargs in arguments.items():
-            entire_module_suparsers[parser_name].add_argument(*args, **kwargs)
-# print('after_adding_Args')
-# for group in parser._action_groups:
-#     for arg in group._group_actions:
-#         print(arg)
+            input_group.add_argument(*args, **kwargs)
+
+# # can't set up parser_module via a parent due to mutually_exclusive groups formatting messed up in help, repeat above
+# # Set up entire ArgumentParser with module arguments
+# subparsers = parser.add_subparsers(**module_subargparser)
+# entire_module_suparsers: dict[str, argparse.ArgumentParser] = {}
+# for parser_name, parser_kwargs in module_parsers.items():
+#     arguments = parser_arguments.get(f'{parser_name}_arguments', {})
+#     # has args as dictionary key (flag names) and keyword args as dictionary values (flag params)
+#     if 'mutual' in parser_name:  # we must create a mutually_exclusive_group from already formed subparser
+#         # remove any indication to "mutual" of the argparse group v
+#         exclusive_parser = \
+#             entire_module_suparsers['_'.join(parser_name.split('_')[:-1])].add_mutually_exclusive_group(**parser_kwargs)
+#         for args, kwargs in arguments.items():
+#             exclusive_parser.add_argument(*args, **kwargs)
+#     else:  # save the subparser in a dictionary to access with mutual groups
+#         entire_module_suparsers[parser_name] = subparsers.add_parser(prog=usage_string % parser_name,
+#                                                                      # prog=f'python SymDesign.py %(name) '
+#                                                                      #      f'[input_arguments] [optional_arguments]',
+#                                                                      formatter_class=Formatter, allow_abbrev=False,
+#                                                                      name=parser_name, **parser_kwargs[parser_name])
+#         for args, kwargs in arguments.items():
+#             entire_module_suparsers[parser_name].add_argument(*args, **kwargs)

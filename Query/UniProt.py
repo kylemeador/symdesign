@@ -1,4 +1,4 @@
-from typing import Any, Optional
+from requests import Response
 
 from Query.utils import connection_exception_handler
 from SymDesignUtils import start_log
@@ -8,7 +8,7 @@ logger = start_log(name=__name__)
 example = 'https://rest.uniprot.org/uniprotkb/Q9HIA7.json'
 
 
-def query_uniprot(uniprot_id: str) -> Optional[Any]:
+def query_uniprot(uniprot_id: str) -> Response | None:
     """Fetch the data from a specified UniProtID from the UniProt REST API
 
     Args:
@@ -165,8 +165,8 @@ def query_uniprot(uniprot_id: str) -> Optional[Any]:
     #    'extraAttributes': {'countByCommentType': {'SIMILARITY': 1}, 'countByFeatureType': {'Domain': 1},
     #                        'uniParcId': 'UPI000006403F'}}
     if uniprot_id and len(uniprot_id) in [6, 10]:
-        query_url = 'https://rest.uniprot.org/uniprotkb/%s.json' % uniprot_id
-        return connection_exception_handler(query_url)
+        # query_url = f'https://rest.uniprot.org/uniprotkb/{uniprot_id}.json'
+        return connection_exception_handler(f'https://rest.uniprot.org/uniprotkb/{uniprot_id}.json')
     else:
         # logger.warning('UniProt ID "%s" is not of the required format and will not be found with the UniProt API'
         #                % uniprot_id)
@@ -181,9 +181,9 @@ def is_uniprot_thermophilic(uniprot_id: str) -> int:
     Returns:
         1 if the UniProtID of interest has an organism lineage from a thermophilic taxa, else 0
     """
-    uniprot_json = query_uniprot(uniprot_id)
-    if uniprot_json:
-        for element in uniprot_json.get('organism', {}).get('lineage', []):
+    uniprot_request = query_uniprot(uniprot_id)
+    if uniprot_request:
+        for element in uniprot_request.json().get('organism', {}).get('lineage', []):
             if 'thermo' in element.lower():
                 return 1  # True
 

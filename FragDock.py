@@ -220,18 +220,18 @@ def find_docked_poses(sym_entry, ijk_frag_db, pdb1, pdb2, optimal_tx_params, com
 
         log.info('\tNO Backbone Clash when Designed Assembly is Expanded (took %f s)' % exp_des_clash_time)
         # Todo replace with PoseDirectory? Path object?
-        tx_dir = os.path.join(rot_subdir_out_path, 'tx_%d' % tx_idx)
-        oligomers_dir = rot_subdir_out_path.split(os.sep)[-3]
-        degen_dir = rot_subdir_out_path.split(os.sep)[-2]
-        rot_dir = rot_subdir_out_path.split(os.sep)[-1]
-        pose_id = '%s_%s_%s_TX_%d' % (oligomers_dir, degen_dir, rot_dir, tx_idx)
-        sampling_id = '%s_%s_TX_%d' % (degen_dir, rot_dir, tx_idx)
-        if not os.path.exists(degen_subdir_out_path):
-            os.makedirs(degen_subdir_out_path)
-        if not os.path.exists(rot_subdir_out_path):
-            os.makedirs(rot_subdir_out_path)
-        if not os.path.exists(tx_dir):
-            os.makedirs(tx_dir)
+        # oligomers_dir = rot_subdir_out_path.split(os.sep)[-3]
+        degen_str = rot_subdir_out_path.split(os.sep)[-2]
+        rot_str = rot_subdir_out_path.split(os.sep)[-1]
+        # degen_str = 'DEGEN_{}'.format('_'.join(map(str, degen_counts[idx])))
+        # rot_str = 'ROT_{}'.format('_'.join(map(str, rot_counts[idx])))
+        tx_str = f'TX_{tx_idx}'  # translation idx
+        # degen_subdir_out_path = os.path.join(outdir, degen_str)
+        # rot_subdir_out_path = os.path.join(degen_subdir_out_path, rot_str)
+        tx_dir = os.path.join(rot_subdir_out_path, tx_str.lower())  # .lower() keeps original publication format
+        os.makedirs(tx_dir, exist_ok=True)
+        sampling_id = f'{degen_str}-{rot_str}-{tx_str}'
+        pose_id = f'{building_blocks}-{sampling_id}'
 
         # Make directories to output matched fragment PDB files
         # high_qual_match for fragments that were matched with z values <= 1, otherwise, low_qual_match
@@ -451,14 +451,14 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
 
     # Set up output mechanism
     if isinstance(master_output, str) and not write_frags:  # we just want to write, so don't make a directory
-        building_blocks = '%s_%s' % (pdb1.name, pdb2.name)
+        building_blocks = f'{pdb1.name}-{pdb2.name}'
         outdir = os.path.join(master_output, building_blocks)
         os.makedirs(outdir, exist_ok=True)
     # elif isinstance(master_output, DockingDirectory):
     #     pass
     #     Todo make a docking directory object compatible with this and implement sql handle
     if log is None:
-        log_file_path = os.path.join(outdir, '%s_log.txt' % building_blocks)
+        log_file_path = os.path.join(outdir, f'{building_blocks}_log.txt')
     else:
         log_file_path = getattr(log.handlers[0], 'baseFilename', None)
     if not log_file_path:
@@ -1527,19 +1527,18 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
 
         # Todo replace with PoseDirectory? Path object?
         # temp indexing on degen and rot counts
-        tx_idx = tx_counts[idx]
-        degen1_count, degen2_count = degen_counts[idx]
-        rot1_count, rot2_count = rot_counts[idx]
+        # degen1_count, degen2_count = degen_counts[idx]
+        # rot1_count, rot2_count = rot_counts[idx]
         # temp indexing on degen and rot counts
-        degen_subdir_out_path = os.path.join(outdir, 'DEGEN_%d_%d' % (degen1_count, degen2_count))
-        rot_subdir_out_path = os.path.join(degen_subdir_out_path, 'ROT_%d_%d' % (rot1_count, rot2_count))
-        tx_dir = os.path.join(rot_subdir_out_path, 'tx_%d' % tx_idx)  # idx)
-        oligomers_dir = rot_subdir_out_path.split(os.sep)[-3]
-        degen_dir = rot_subdir_out_path.split(os.sep)[-2]
-        rot_dir = rot_subdir_out_path.split(os.sep)[-1]
-        pose_id = '%s_%s_%s_TX_%d' % (oligomers_dir, degen_dir, rot_dir, tx_idx)
-        sampling_id = '%s_%s_TX_%d' % (degen_dir, rot_dir, tx_idx)
+        degen_str = 'DEGEN_{}'.format('_'.join(map(str, degen_counts[idx])))
+        rot_str = 'ROT_{}'.format('_'.join(map(str, rot_counts[idx])))
+        tx_str = f'TX_{tx_counts[idx]}'  # translation idx
+        # degen_subdir_out_path = os.path.join(outdir, degen_str)
+        # rot_subdir_out_path = os.path.join(degen_subdir_out_path, rot_str)
+        tx_dir = os.path.join(outdir, degen_str, rot_str, tx_str.lower())  # .lower() keeps original publication format
         os.makedirs(tx_dir, exist_ok=True)
+        sampling_id = f'{degen_str}-{rot_str}-{tx_str}'
+        pose_id = f'{building_blocks}-{sampling_id}'
         # Make directories to output matched fragment PDB files
         # high_qual_match for fragments that were matched with z values <= 1, otherwise, low_qual_match
         matching_fragments_dir = os.path.join(tx_dir, frag_dir)
@@ -1557,8 +1556,8 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
         asu.write(out_path=os.path.join(tx_dir, 'asu.pdb'), header=cryst1_record)
         # symmetric_material.entities[0].write_oligomer(out_path=os.path.join(tx_dir, '%s_oligomer_asu.pdb' % entity2.name))
         # symmetric_material.entities[1].write_oligomer(out_path=os.path.join(tx_dir, '%s_oligomer_asu.pdb' % entity1.name))
-        pdb1_copy.write(out_path=os.path.join(tx_dir, '%s_%s.pdb' % (pdb1_copy.name, sampling_id)))
-        pdb2_copy.write(out_path=os.path.join(tx_dir, '%s_%s.pdb' % (pdb2_copy.name, sampling_id)))
+        pdb1_copy.write(out_path=os.path.join(tx_dir, f'{pdb1_copy.name}_{sampling_id}.pdb'))
+        pdb2_copy.write(out_path=os.path.join(tx_dir, f'{pdb2_copy.name}_{sampling_id}.pdb'))
 
         if output_assembly:
             # symmetric_material.generate_assembly_symmetry_models(surrounding_uc=output_surrounding_uc)

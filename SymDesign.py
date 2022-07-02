@@ -27,13 +27,12 @@ from Bio.SeqRecord import SeqRecord
 
 import PathUtils as PUtils
 import SymDesignUtils as SDUtils
-from ClusterUtils import cluster_designs, invert_cluster_map, group_compositions, ialign, pose_rmsd_mp, pose_rmsd_s, \
-    cluster_poses
+from ClusterUtils import cluster_designs, invert_cluster_map, group_compositions, ialign, cluster_poses
 from CommandDistributer import distribute, hhblits_memory_threshold, update_status
 from DesignMetrics import prioritize_design_indices, query_user_for_metrics
 from DnaChisel.dnachisel.DnaOptimizationProblem.NoSolutionError import NoSolutionError
 from FragDock import nanohedra_dock
-from JobResources import JobResources, fragment_factory
+from JobResources import fragment_factory, job_resources_factory  # JobResources
 from PDB import PDB, orient_pdb_file
 from PoseDirectory import PoseDirectory
 from ProteinExpression import find_expression_tags, find_matching_expression_tags, add_expression_tag, \
@@ -45,10 +44,11 @@ from SequenceProfile import generate_mutations, find_orf_offset, write_fasta, re
 from classes.EulerLookup import euler_factory
 from classes.SymEntry import SymEntry, parse_symmetry_to_sym_entry, symmetry_factory
 from utils.CmdLineArgParseUtils import query_mode
-from utils.Flags import argparsers, parser_entire, parser_options, parser_module, parser_input, parser_guide_module, \
+from utils.Flags import argparsers, parser_entire, parser_options, parser_module, parser_input, parser_guide, \
     process_design_selector_flags, parser_residue_selector, parser_output
 from utils.GeneralUtils import write_docking_parameters
 from utils.SetUp import set_up_instructions
+from utils.SymmetryUtils import SymmetryError
 from utils.guide import interface_design_guide, analysis_guide, interface_metrics_guide, select_poses_guide, \
     select_designs_guide, select_sequences_guide, cluster_poses_guide, refine_guide, optimize_designs_guide
 
@@ -144,44 +144,44 @@ def merge_design_pair(pair):
     merge_designs()
 
 
-def rsync_dir(des_dir):
-    """Takes a DEGEN_1_1 specific formatted list of directories and finds the DEGEN_1_2 directories to condense down to
-    a single DEGEEN_1_2 directory making hard links for every file in a DEGEN_1_2 and higher directory to DEGEN_1_1"""
-
-    raise RuntimeError('The function %s is no longer operational as of 5/13/22' % 'get_building_block_dir')
-    for s, sym_dir in enumerate(des_dir.program_root):
-        if '_flipped_180y' in sym_dir:
-            for bb_dir in des_dir.composition[s]:
-                building_block_dir = os.path.join(des_dir.get_building_block_dir(bb_dir))
-                destination = os.path.join(building_block_dir, 'DEGEN_1_1%s' % os.sep)
-
-                p = {}  # make a dict for all the processes
-                for k, entry in enumerate(os.scandir(building_block_dir)):
-                    if entry.is_dir() and 'DEGEN_1_' in entry.name and entry.name != "DEGEN_1_1":
-                        abs_entry_path = os.path.join(building_block_dir, entry.name)
-                        cmd = ['rsync', '-a', '--link-dest=%s%s' % (abs_entry_path, os.sep), #  '--remove-source-files',
-                               '%s%s' % (abs_entry_path, os.sep), destination]
-                        #          ^ requires '/' - os.sep
-                        logger.debug('Performing transfer: %s' % list2cmdline(cmd))
-                        p[abs_entry_path] = Popen(cmd)
-                # Check to see if all processes are done, then move on.
-                for entry in p:
-                    p[entry].communicate()
-
-                # # Remove all empty subdirectories from the now empty DEGEN_1_2 and higher directory
-                # p2 = {}
-                # for l, entry in enumerate(p):
-                #     find_cmd = ['find', '%s%s' % (entry, os.sep), '-type', 'd', '-empty', '-delete']
-                #     # rm_cmd = ['rm', '-r', entry]
-                #     logger.debug('Removing empty directories: %s' % list2cmdline(find_cmd))
-                #     p2[l] = Popen(find_cmd)
-                # # Check for the last command, then move on
-                # for m, process in enumerate(p2):
-                #     p2[m].communicate()
-
-                logger.info('%s has been consolidated' % building_block_dir)
-
-    return des_dir.path
+# def rsync_dir(des_dir):
+#     """Takes a DEGEN_1_1 specific formatted list of directories and finds the DEGEN_1_2 directories to condense down to
+#     a single DEGEEN_1_2 directory making hard links for every file in a DEGEN_1_2 and higher directory to DEGEN_1_1"""
+#
+#     raise RuntimeError('The function %s is no longer operational as of 5/13/22' % 'get_building_block_dir')
+#     for s, sym_dir in enumerate(des_dir.program_root):
+#         if '_flipped_180y' in sym_dir:
+#             for bb_dir in des_dir.composition[s]:
+#                 building_block_dir = os.path.join(des_dir.get_building_block_dir(bb_dir))
+#                 destination = os.path.join(building_block_dir, 'DEGEN_1_1%s' % os.sep)
+#
+#                 p = {}  # make a dict for all the processes
+#                 for k, entry in enumerate(os.scandir(building_block_dir)):
+#                     if entry.is_dir() and 'DEGEN_1_' in entry.name and entry.name != "DEGEN_1_1":
+#                         abs_entry_path = os.path.join(building_block_dir, entry.name)
+#                         cmd = ['rsync', '-a', '--link-dest=%s%s' % (abs_entry_path, os.sep), #  '--remove-source-files',
+#                                '%s%s' % (abs_entry_path, os.sep), destination]
+#                         #          ^ requires '/' - os.sep
+#                         logger.debug('Performing transfer: %s' % list2cmdline(cmd))
+#                         p[abs_entry_path] = Popen(cmd)
+#                 # Check to see if all processes are done, then move on.
+#                 for entry in p:
+#                     p[entry].communicate()
+#
+#                 # # Remove all empty subdirectories from the now empty DEGEN_1_2 and higher directory
+#                 # p2 = {}
+#                 # for l, entry in enumerate(p):
+#                 #     find_cmd = ['find', '%s%s' % (entry, os.sep), '-type', 'd', '-empty', '-delete']
+#                 #     # rm_cmd = ['rm', '-r', entry]
+#                 #     logger.debug('Removing empty directories: %s' % list2cmdline(find_cmd))
+#                 #     p2[l] = Popen(find_cmd)
+#                 # # Check for the last command, then move on
+#                 # for m, process in enumerate(p2):
+#                 #     p2[m].communicate()
+#
+#                 logger.info('%s has been consolidated' % building_block_dir)
+#
+#     return des_dir.path
 
 
 def status(all_design_directories, _stage, number=None, active=True, inactive_time=30 * 60):  # 30 minutes
@@ -227,70 +227,70 @@ def status(all_design_directories, _stage, number=None, active=True, inactive_ti
             if _status:
                 complete.append(sorted(glob(os.path.join(_rmsd_dir(all_design_directories[k].program_root[0]),
                                                          '*_clustered.txt')))[0])
-
-    elif _stage == PUtils.nano:
-        from classes import get_last_sampling_state
-        # observed_building_blocks = []
-        for des_dir in all_design_directories:
-            # if os.path.basename(des_dir.composition) in observed_building_blocks:
-            #     continue
-            # else:
-            #     observed_building_blocks.append(os.path.basename(des_dir.composition))
-            # f_degen1, f_degen2, f_rot1, f_rot2 = get_last_sampling_state('%s_log.txt' % des_dir.composition)
-            # degens, rotations = \
-            # SDUtils.degen_and_rotation_parameters(SDUtils.gather_docking_metrics(des_dir.program_root))
-            #
-            # dock_dir = PoseDirectory(path, auto_structure=False)
-            # dock_dir.program_root = glob(os.path.join(path, 'NanohedraEntry*DockedPoses'))
-            # dock_dir.composition = [next(os.walk(dir))[1] for dir in dock_dir.program_root]
-            # dock_dir.log = [os.path.join(_sym, 'master_log.txt') for _sym in dock_dir.program_root]
-            # dock_dir.building_block_logs = [os.path.join(_sym, bb_dir, 'bb_dir_log.txt') for sym in dock_dir.composition
-            #                                 for bb_dir in sym]
-
-            # docking_file = glob(
-            #     os.path.join(des_dir + '_flipped_180y', '%s*_log.txt' % os.path.basename(des_dir)))
-            # if len(docking_file) != 1:
-            #     incomplete.append(des_dir)
-            #     continue
-            # else:
-            #     log_file = docking_file[0]
-            for sym_idx, building_blocks in enumerate(des_dir.building_block_logs):  # Added from dock_dir patch
-                for bb_idx, log_file in enumerate(building_blocks):  # Added from dock_dir patch
-                    f_degen1, f_degen2, f_rot1, f_rot2 = get_last_sampling_state(log_file, zero=False)
-                    # degens, rotations = Pose.degen_and_rotation_parameters(
-                    #     Pose.gather_docking_metrics(des_dir.log[sym_idx]))
-                    raise DesignError('This functionality has been removed "des_dir.gather_docking_metrics()"')
-                    des_dir.gather_docking_metrics()  # log[sym_idx]))
-                    degens, rotations = des_dir.degen_and_rotation_parameters()
-                    degen1, degen2 = tuple(degens)
-                    last_rot1, last_rot2 = des_dir.compute_last_rotation_state()
-                    # last_rot1, last_rot2 = Pose.compute_last_rotation_state(*rotations)
-                    # REMOVE after increment gone
-                    f_degen1, f_degen2 = 1, 1
-                    if f_rot2 > last_rot2:
-                        f_rot2 = int(f_rot2 % last_rot2)
-                        if f_rot2 == 0:
-                            f_rot2 = last_rot2
-                    # REMOVE
-                    logger.info('Last State:', f_degen1, f_degen2, f_rot1, f_rot2)
-                    logger.info('Expected:', degen1, degen2, last_rot1, last_rot2)
-                    logger.info('From log: %s' % log_file)
-                    if f_degen1 == degen1 and f_degen2 == degen2 and f_rot1 == last_rot1 and f_rot2 == last_rot2:
-                        complete.append(os.path.join(des_dir.program_root[sym_idx], des_dir.composition[sym_idx][bb_idx]))
-                        # complete.append(des_dir)
-                        # complete.append(des_dir.program_root)
-                    else:
-                        if active:
-                            if int(time.time()) - int(os.path.getmtime(log_file)) < inactive_time:
-                                running.append(os.path.join(des_dir.program_root[sym_idx],
-                                                            des_dir.composition[sym_idx][bb_idx]))
-                        incomplete.append(os.path.join(des_dir.program_root[sym_idx],
-                                                       des_dir.composition[sym_idx][bb_idx]))
-                        # incomplete.append(des_dir)
-                        # incomplete.append(des_dir.program_root)
-        complete = map(os.path.dirname, complete)  # can remove if building_block name is removed
-        running = list(map(os.path.dirname, running))  # can remove if building_block name is removed
-        incomplete = map(os.path.dirname, incomplete)  # can remove if building_block name is removed
+    # KM removed 7/1/22
+    # elif _stage == PUtils.nano:
+    #     from classes import get_last_sampling_state
+    #     # observed_building_blocks = []
+    #     for des_dir in all_design_directories:
+    #         # if os.path.basename(des_dir.composition) in observed_building_blocks:
+    #         #     continue
+    #         # else:
+    #         #     observed_building_blocks.append(os.path.basename(des_dir.composition))
+    #         # f_degen1, f_degen2, f_rot1, f_rot2 = get_last_sampling_state('%s_log.txt' % des_dir.composition)
+    #         # degens, rotations = \
+    #         # SDUtils.degen_and_rotation_parameters(SDUtils.gather_docking_metrics(des_dir.program_root))
+    #         #
+    #         # dock_dir = PoseDirectory(path, auto_structure=False)
+    #         # dock_dir.program_root = glob(os.path.join(path, 'NanohedraEntry*DockedPoses'))
+    #         # dock_dir.composition = [next(os.walk(dir))[1] for dir in dock_dir.program_root]
+    #         # dock_dir.log = [os.path.join(_sym, 'master_log.txt') for _sym in dock_dir.program_root]
+    #         # dock_dir.building_block_logs = [os.path.join(_sym, bb_dir, 'bb_dir_log.txt') for sym in dock_dir.composition
+    #         #                                 for bb_dir in sym]
+    #
+    #         # docking_file = glob(
+    #         #     os.path.join(des_dir + '_flipped_180y', '%s*_log.txt' % os.path.basename(des_dir)))
+    #         # if len(docking_file) != 1:
+    #         #     incomplete.append(des_dir)
+    #         #     continue
+    #         # else:
+    #         #     log_file = docking_file[0]
+    #         for sym_idx, building_blocks in enumerate(des_dir.building_block_logs):  # Added from dock_dir patch
+    #             for bb_idx, log_file in enumerate(building_blocks):  # Added from dock_dir patch
+    #                 f_degen1, f_degen2, f_rot1, f_rot2 = get_last_sampling_state(log_file, zero=False)
+    #                 # degens, rotations = Pose.degen_and_rotation_parameters(
+    #                 #     Pose.gather_docking_metrics(des_dir.log[sym_idx]))
+    #                 raise DesignError('This functionality has been removed "des_dir.gather_docking_metrics()"')
+    #                 des_dir.gather_docking_metrics()  # log[sym_idx]))
+    #                 degens, rotations = des_dir.degen_and_rotation_parameters()
+    #                 degen1, degen2 = tuple(degens)
+    #                 last_rot1, last_rot2 = des_dir.compute_last_rotation_state()
+    #                 # last_rot1, last_rot2 = Pose.compute_last_rotation_state(*rotations)
+    #                 # REMOVE after increment gone
+    #                 f_degen1, f_degen2 = 1, 1
+    #                 if f_rot2 > last_rot2:
+    #                     f_rot2 = int(f_rot2 % last_rot2)
+    #                     if f_rot2 == 0:
+    #                         f_rot2 = last_rot2
+    #                 # REMOVE
+    #                 logger.info('Last State:', f_degen1, f_degen2, f_rot1, f_rot2)
+    #                 logger.info('Expected:', degen1, degen2, last_rot1, last_rot2)
+    #                 logger.info('From log: %s' % log_file)
+    #                 if f_degen1 == degen1 and f_degen2 == degen2 and f_rot1 == last_rot1 and f_rot2 == last_rot2:
+    #                     complete.append(os.path.join(des_dir.program_root[sym_idx], des_dir.composition[sym_idx][bb_idx]))
+    #                     # complete.append(des_dir)
+    #                     # complete.append(des_dir.program_root)
+    #                 else:
+    #                     if active:
+    #                         if int(time.time()) - int(os.path.getmtime(log_file)) < inactive_time:
+    #                             running.append(os.path.join(des_dir.program_root[sym_idx],
+    #                                                         des_dir.composition[sym_idx][bb_idx]))
+    #                     incomplete.append(os.path.join(des_dir.program_root[sym_idx],
+    #                                                    des_dir.composition[sym_idx][bb_idx]))
+    #                     # incomplete.append(des_dir)
+    #                     # incomplete.append(des_dir.program_root)
+    #     complete = map(os.path.dirname, complete)  # can remove if building_block name is removed
+    #     running = list(map(os.path.dirname, running))  # can remove if building_block name is removed
+    #     incomplete = map(os.path.dirname, incomplete)  # can remove if building_block name is removed
     else:
         if not number:
             number = PUtils.stage_f[_stage]['len']
@@ -587,17 +587,27 @@ def generate_sequence_template(pdb_file):
     return write_fasta(sequences, file_name=f'{os.path.splitext(pdb.file_path)[0]}_residue_selector_sequence')
 
 
-def get_sym_entry_from_nanohedra_directory(nanohedra_dir):
+def get_sym_entry_from_nanohedra_directory(nanohedra_dir: str | bytes) -> SymEntry:
+    """Handles extraction of Symmetry info from Nanohedra outputs.
+
+    Args:
+        nanohedra_dir: The path to a Nanohedra master output directory
+    Raises:
+        FileNotFoundError: If no nanohedra master log file is found
+        SymmetryError: If no symmetry is found
+    Returns:
+        The SymEntry specified by the Nanohedra docking run
+    """
+    log_path = os.path.join(nanohedra_dir, PUtils.master_log)
     try:
-        with open(os.path.join(nanohedra_dir, PUtils.master_log), 'r') as f:
+        with open(log_path, 'r') as f:
             for line in f.readlines():
                 if 'Nanohedra Entry Number: ' in line:  # "Symmetry Entry Number: " or
                     return symmetry_factory.get(int(line.split(':')[-1]))  # sym_map inclusion?
     except FileNotFoundError:
-        raise FileNotFoundError('The Nanohedra Output Directory is malformed. Missing required docking file %s'
-                                % os.path.join(nanohedra_dir, PUtils.master_log))
-    raise SDUtils.DesignError('The Nanohedra Output docking file %s is malformed. Missing required info Nanohedra Entry'
-                              ' Number' % os.path.join(nanohedra_dir, PUtils.master_log))
+        raise FileNotFoundError(f'Nanohedra master directory is malformed. Missing required docking file {log_path}')
+    raise SymmetryError(f'Nanohedra master docking file {log_path} is malformed. Missing required info '
+                        f'"Nanohedra Entry Number:"')
 
 
 if __name__ == '__main__':
@@ -605,14 +615,11 @@ if __name__ == '__main__':
     # Process optional program flags
     # -----------------------------------------------------------------------------------------------------------------
     # ensure module specific arguments are collected and argument help is printed in full
-    entire_parser = argparsers[parser_entire]
-    args, additional_args = entire_parser.parse_known_args()
-    # args, additional_args = argparsers[parser_options].parse_known_args()  # additional_args, args)
+    args, additional_args = argparsers[parser_guide].parse_known_args()  # additional_args, args)
     # -----------------------------------------------------------------------------------------------------------------
     # Display the program guide if requested
     # -----------------------------------------------------------------------------------------------------------------
     if args.guide:  # or not args.module:
-        args, additional_args = argparsers[parser_guide_module].parse_known_args(additional_args, args)
         if args.module == PUtils.analysis:
             print(analysis_guide)
         elif args.module == PUtils.cluster_poses:
@@ -637,6 +644,8 @@ if __name__ == '__main__':
             print(select_sequences_guide)
         elif args.module == 'expand_asu':
             print()
+        elif args.module == 'orient':
+            print()
         elif args.module == 'check_clashes':
             print()
         elif args.module == 'residue_selector':
@@ -652,13 +661,6 @@ if __name__ == '__main__':
         exit()
     elif args.set_up:
         set_up_instructions()
-        exit()
-    elif '--query' in sys.argv:
-        query_mode([__file__, '-query'] + additional_args)
-        exit()
-    elif '-query' in additional_args:
-        query_mode([__file__] + additional_args)
-        # print(f'Query {PUtils.nano.title()}.py with: {", ".join(query_flags)}')
         exit()
     # ---------------------------------------------------
     # elif args.flags:  # Todo
@@ -685,11 +687,17 @@ if __name__ == '__main__':
     # Initialize program with provided flags and arguments
     # -----------------------------------------------------------------------------------------------------------------
     # parse arguments for the actual runtime which accounts for differential argument ordering from standard argparse
-    argparser_order = [parser_options, parser_residue_selector, parser_output, parser_input]
     args, additional_args = argparsers[parser_module].parse_known_args()
-    if args.module == PUtils.nano:  # we need to add a dummy input for argparse to happily continue with required args
-        additional_args.extend(['--file', 'dummy'])
-    for argparser in argparser_order:
+    if args.module == PUtils.nano:
+        if args.query:  # we need to submit before we check for additional_args as this will have additional args
+            query_mode([__file__, '-query'] + additional_args)
+            exit()
+        else:  # we need to add a dummy input for argparse to happily continue with required args
+            additional_args.extend(['--file', 'dummy'])
+
+    entire_parser = argparsers[parser_entire]
+    _args, _additional_args = entire_parser.parse_known_args()
+    for argparser in [parser_options, parser_residue_selector, parser_output, parser_input]:
         args, additional_args = argparsers[argparser].parse_known_args(args=additional_args, namespace=args)
 
     if additional_args:
@@ -789,7 +797,8 @@ if __name__ == '__main__':
         initialize = False
 
     # create JobResources which holds shared program objects and options
-    job = JobResources(symdesign_directory, **queried_flags)
+    # job = JobResources(symdesign_directory, **queried_flags)
+    job = job_resources_factory.get(program_root=symdesign_directory, **queried_flags)
     # -----------------------------------------------------------------------------------------------------------------
     #  report options
     # -----------------------------------------------------------------------------------------------------------------
@@ -871,8 +880,9 @@ if __name__ == '__main__':
                     job.nanohedra_root = args.directory
                 else:
                     job.nanohedra_root = f'{os.sep}{os.path.join(*first_pose_path.split(os.sep)[:-4])}'
-                if not sym_entry:
-                    queried_flags[PUtils.sym_entry] = get_sym_entry_from_nanohedra_directory(job.nanohedra_root)
+                if not sym_entry:  # get from the Nanohedra output
+                    sym_entry = get_sym_entry_from_nanohedra_directory(job.nanohedra_root)
+                    queried_flags[PUtils.sym_entry] = sym_entry
                 pose_directories = [PoseDirectory.from_nanohedra(pose, **queried_flags)
                                     for pose in all_poses[low_range:high_range]]
                 # copy the master nanohedra log
@@ -1684,30 +1694,29 @@ if __name__ == '__main__':
                 if confirm.lower() in bool_d:
                     break
                 else:
-                    print('%s %s is not a valid choice!' % (invalid_string, confirm))
+                    print(f'{invalid_string} {confirm} is not a valid choice!')
+
+            pose_cluster_map: dict[str | PoseDirectory, list[str | PoseDirectory]] = {}
+            # {pose_string: [pose_string, ...]} where key is representative, values are matching designs
+            # OLD -> {composition: {pose_string: cluster_representative}, ...}
+
             if bool_d[confirm.lower()] or confirm.isspace():  # the user wants to separate poses
                 compositions = group_compositions(selected_poses)
                 if args.multi_processing:
                     mp_results = SDUtils.mp_map(cluster_designs, compositions.values(), processes=cores)
-                    pose_cluster_map = {}
                     for result in mp_results:
                         pose_cluster_map.update(result.items())
                 else:
-                    pose_cluster_map = {}
                     for composition_group in compositions.values():
                         pose_cluster_map.update(cluster_designs(composition_group))
 
                 pose_cluster_file = SDUtils.pickle_object(pose_cluster_map,
                                                           PUtils.clustered_poses % (location, SDUtils.starttime),
                                                           out_path=next(iter(pose_directories)).protein_data)
-                logger.info('Found %d unique clusters from %d pose inputs. All clusters stored in %s'
-                            % (len(pose_cluster_map), len(pose_directories), pose_cluster_file))
-            else:
-                pose_cluster_map = {}
+                logger.info(f'Found {len(pose_cluster_map)} unique clusters from {len(pose_directories)} pose inputs. '
+                            f'All clusters stored in {pose_cluster_file}')
 
         if pose_cluster_map:
-            # {design_string: [design_string, ...]} where key is representative, values are matching designs
-            # OLD -> {composition: {design_string: cluster_representative}, ...}
             pose_cluster_membership_map = invert_cluster_map(pose_cluster_map)
             pose_clusters_found, pose_not_found = {}, []
             # convert all of the selected poses to their string representation
@@ -1745,7 +1754,9 @@ if __name__ == '__main__':
         terminate(results=pose_directories)
     # ---------------------------------------------------
     elif args.module == PUtils.cluster_poses:
-        pose_cluster_map = {}
+        pose_cluster_map: dict[str | PoseDirectory, list[str | PoseDirectory]] = {}
+        # This takes the format
+        # {pose_string: [pose_string, ...]} where key is representative, values are matching designs
         if args.mode == 'ialign':  # interface_residues, tranformation
             is_threshold = 0.4  # 0.5  # TODO
             # measure the alignment of all selected pose_directories
@@ -1768,14 +1779,14 @@ if __name__ == '__main__':
                     interface.write(out_path=os.path.join(temp_file_dir, f'{design.name}.pdb')))
 
             design_directory_pairs = list(combinations(pose_directories, 2))
-            design_pairs = []
+            pose_pairs = []
             if args.multi_processing:
                 # zipped_args = zip(combinations(design_interfaces, 2))
                 design_scores = SDUtils.mp_starmap(ialign, combinations(design_interfaces, 2), processes=cores)
 
                 for idx, is_score in enumerate(design_scores):
                     if is_score > is_threshold:
-                        design_pairs.append(set(design_directory_pairs[idx]))
+                        pose_pairs.append(set(design_directory_pairs[idx]))
             else:
                 # for design1, design2 in combinations(pose_directories, 2):  # all_files
                 for idx, (interface_file1, interface_file2) in enumerate(combinations(design_interfaces, 2)):  # all_files
@@ -1783,27 +1794,26 @@ if __name__ == '__main__':
                     is_score = ialign(interface_file1, interface_file2)
                     #                   out_path=os.path.join(job.protein_data, 'ialign_output'))
                     if is_score > is_threshold:
-                        design_pairs.append(set(design_directory_pairs[idx]))
-                        # design_pairs.append({design1, design2})
+                        pose_pairs.append(set(design_directory_pairs[idx]))
+                        # pose_pairs.append({design1, design2})
             # now return to prior directory
             os.chdir(prior_directory)
 
             # cluster all those designs together that are in alignment
-            if design_pairs:
-                for design1, design2 in design_pairs:
-                    cluster1, cluster2 = pose_cluster_map.get(design1), pose_cluster_map.get(design2)
-                    # if cluster1:
-                    #     cluster1.append(design2)
-                    # else:
-                    #     design_clusters[design1] = [design2]
+            if pose_pairs:
+                # add both orientations to the pose_cluster_map
+                for pose1, pose2 in pose_pairs:
+                    cluster1 = pose_cluster_map.get(pose1)
                     try:
-                        cluster1.append(design2)
+                        cluster1.append(pose2)
                     except AttributeError:
-                        pose_cluster_map[design1] = [design2]
+                        pose_cluster_map[pose1] = [pose2]
+
+                    cluster2 = pose_cluster_map.get(pose2)
                     try:
-                        cluster2.append(design1)
+                        cluster2.append(pose1)
                     except AttributeError:
-                        pose_cluster_map[design2] = [design1]
+                        pose_cluster_map[pose2] = [pose1]
         elif args.mode == 'transform':
             # First, identify the same compositions
             compositions = group_compositions(pose_directories)
@@ -1812,25 +1822,61 @@ if __name__ == '__main__':
                 for result in results:
                     pose_cluster_map.update(result.items())
             else:
-                # pose_map = pose_rmsd_s(pose_directories)
-                # pose_cluster_map = cluster_poses(pose_map)
                 for composition_group in compositions.values():
                     pose_cluster_map.update(cluster_designs(composition_group))
         elif args.mode == 'rmsd':
-            raise NotImplementedError('This mode needs to be modernized before use! Please update to use the '
-                                      '.entity_names attribute of the PoseDirectory instead of .composiitions')
             # First, identify the same compositions
-            compositions = group_compositions(pose_directories)
+            compositions: dict[tuple[str, ...], list[PoseDirectory]] = group_compositions(pose_directories)
+            # pairs_to_process = [grouping for entity_tuple, pose_directories in compositions.items()
+            #                     for grouping in combinations(pose_directories, 2)]
+            # composition_pairings = [combinations(pose_directories, 2) for entity_tuple, pose_directories in compositions.items()]
+            # find the rmsd between a pair of poses.  multiprocessing to increase throughput
+            entity_pose_dir_pairs = []
+            results = []
             if args.multi_processing:
-                pose_map = pose_rmsd_mp(pose_directories)
-                pose_cluster_map = cluster_poses(pose_map)
+                # Todo this doesn't seem very MP usefull if compositions aren't deep
+                for entity_tuple, pose_directories in compositions.items():
+                    # make all pose_directory combinations for this pair
+                    pose_dir_pairs = combinations(pose_directories, 2)
+                    # run the calculation
+                    results.append(SDUtils.mp_map(pose_pair_rmsd, pose_dir_pairs, processes=cores)
+                                   # add all identical comparison results (all are 0 as they are with themselves
+                                   + list(repeat(0, len(pose_directories))))
+                    # add all pose_directory combinations for this pair to total pairs
+                    entity_pose_dir_pairs.append(list(pose_dir_pairs)
+                                                 # add all identical comparisons
+                                                 + list(zip(pose_directories, pose_directories)))
+                    # pose_df = pd.Series(results, index=pd.MultiIndex.from_tuples(entity_pose_dir_pairs)).unstack()
             else:
-                pose_map = pose_rmsd_s(pose_directories)
-                pose_cluster_map = cluster_poses(pose_map)
+                # raise NotImplementError('Use the --multiprocessing version of this mode. Single wasn\'t implemented '
+                #                         'fully')
+                for entity_tuple, pose_directories in compositions.items():
+                    # make all pose_directory combinations for this pair
+                    pose_dir_pairs = list(combinations(pose_directories, 2))
+                    # run the calculation
+                    _results = [pose_pair_rmsd(pose_dir_pair) for pose_dir_pair in pose_dir_pairs]
+                    results.append(_results
+                                   # add all identical comparison results (all are 0 as they are with themselves
+                                   + list(repeat(0, len(pose_directories))))
+                    # add all pose_directory combinations for this pair to total pairs
+                    entity_pose_dir_pairs.append(pose_dir_pairs
+                                                 # add all identical comparisons
+                                                 + list(zip(pose_directories, pose_directories)))
+            # add each composition_pairing to the pose_cluster_map
+            for composition_pairs in entity_pose_dir_pairs:
+                pose_cluster_map.update(cluster_poses(composition_pairs, results))
         else:
             exit(f'{args.mode} is not a viable mode!')
 
         if pose_cluster_map:
+            if args.as_objects:
+                pass  # they are objects right now
+            else:
+                for representative in copy.copy(pose_cluster_map.keys()):
+                    # remove old entry and convert all arguments to pose_id strings, saving as pose_id strings
+                    pose_cluster_map[str(representative)] = \
+                        [str(member) for member in pose_cluster_map.pop(representative)]
+
             if args.output_file:
                 pose_cluster_file = SDUtils.pickle_object(pose_cluster_map, args.output_file, out_path='')
             else:

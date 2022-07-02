@@ -37,7 +37,7 @@ from DesignMetrics import read_scores, interface_composition_similarity, unneces
     protocol_specific_columns, rank_dataframe_by_metric_weights, filter_df_for_index_by_value, \
     multiple_sequence_alignment_dependent_metrics, format_fragment_metrics, calculate_match_metrics, \
     process_residue_info
-from JobResources import FragmentDatabase, JobResources
+from JobResources import FragmentDatabase, JobResources, job_resources_factory
 from PDB import PDB
 from Pose import Pose, MultiModel, Models, Model
 from Query.UniProt import is_uniprot_thermophilic
@@ -50,6 +50,7 @@ from SymDesignUtils import unpickle, start_log, null_log, handle_errors, write_s
     condensed_to_square, sym, index_intersection, z_score, large_color_array, starttime
 from classes.EulerLookup import EulerLookup
 from classes.SymEntry import SymEntry, symmetry_factory
+from utils.GeneralUtils import get_components_from_nanohedra_docking
 from utils.SymmetryUtils import identity_matrix, origin, SymmetryError
 
 # Globals
@@ -76,6 +77,7 @@ class PoseDirectory:
     frag_file: str | Path
     initial_model: Model | None
     initialized: bool
+    job_resources: JobResources
     name: str
     pose: Pose | None
     # pose_id: str
@@ -87,9 +89,8 @@ class PoseDirectory:
     specific_designs: list
     specific_designs_file_paths: list[str | bytes]
 
-    def __init__(self, design_path: str, pose_id: bool = False, root: str = None, **kwargs):
-        self.job_resources: JobResources | None = kwargs.get('job_resources', None)
-
+    def __init__(self, design_path: str | bytes, pose_id: bool = False, root: str | bytes = None, **kwargs):
+        self.job_resources = kwargs.get('job_resources', job_resources_factory.get(program_root=root, **kwargs))
         # PoseDirectory flags
         self.log: Logger | None = None
         if pose_id:
@@ -215,10 +216,9 @@ class PoseDirectory:
             # design_symmetry (P432)
             # path_components[-4] are the oligomeric names
             self.name = '-'.join(path_components[-4:])
-            self.composition = self.source_path[:self.source_path.find(path_components[-3]) - 1]
+            # self.name = self.pose_id.replace('_DEGEN_', '-DEGEN_').replace('_ROT_', '-ROT_').replace('_TX_', '-tx_')
+            # self.composition = self.source_path[:self.source_path.find(path_components[-3]) - 1]
             # design_symmetry/building_blocks (P432/4ftd_5tch)
-            oligomer_names = list(map(str.lower, path_components[-4].split('_')))
-            self.entity_names = [f'{name}_1' for name in oligomer_names]  # assumes the entity is the first
             if self.output_directory:
                 self.projects = ''
                 self.project_designs = ''
@@ -233,6 +233,10 @@ class PoseDirectory:
             make_path(self.path, condition=self.construct_pose)
             self.pose_file = path.join(self.source_path, PUtils.pose_file)
             self.frag_file = path.join(self.source_path, PUtils.frag_dir, PUtils.frag_text_file)
+            self.entity_names = get_components_from_nanohedra_docking(self.pose_file)
+            # oligomer_names = list(map(str.lower, path_components[-4].split('_')))
+            # self.entity_names = [f'{name}_1' for name in oligomer_names]  # assumes the entity is the first
+
             # if self.construct_pose:
             #     if not path.exists(path.join(self.path, PUtils.pose_file)):
             #         shcopy(self.pose_file, self.path)
@@ -245,7 +249,7 @@ class PoseDirectory:
             #     self.pickle_info()  # save this info on the first copy so that we don't have to construct again
         else:
             self.name = path.splitext(path.basename(self.source_path))[0]
-            self.composition = None  # building_blocks (4ftd_5tch)
+            # self.composition = None  # building_blocks (4ftd_5tch)
             # search for serialized_info using the source_path temporarily
             self.serialized_info = path.join(self.source_path, f'{output_identifier}{PUtils.data}', 'info.pkl')
             if path.exists(self.serialized_info):  # PoseDirectory already initialized
@@ -320,15 +324,15 @@ class PoseDirectory:
             self.entity_names = self.info.get('entity_names', [])  # set so that DataBase set up works
 
     @classmethod
-    def from_nanohedra(cls, design_path, project=None, **kwargs):
-        return cls(design_path, nanohedra_output=True, project=project, **kwargs)
+    def from_nanohedra(cls, design_path: str, root: str | bytes = None, nanohedra_output: bool = True, **kwargs):
+        return cls(design_path, root=root, nanohedra_output=nanohedra_output, **kwargs)
 
     @classmethod
-    def from_file(cls, design_path, project=None, **kwargs):
-        return cls(design_path, project=project, **kwargs)
+    def from_file(cls, design_path: str, root: str | bytes = None, **kwargs):
+        return cls(design_path, root=root, **kwargs)
 
     @classmethod
-    def from_pose_id(cls, design_path, root=None, **kwargs):
+    def from_pose_id(cls, design_path: str, root: str | bytes = None, **kwargs):
         return cls(design_path, pose_id=True, root=root, **kwargs)
 
     # JobResources path attributes
