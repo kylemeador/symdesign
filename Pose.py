@@ -1442,6 +1442,7 @@ class SymmetricModel(Models):
         try:
             return self._oligomeric_model_indices
         except AttributeError:
+            self._oligomeric_model_indices = {}
             self._find_oligomeric_model_indices()
             return self._oligomeric_model_indices
 
