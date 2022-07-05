@@ -89,8 +89,9 @@ class PoseDirectory:
     specific_designs: list
     specific_designs_file_paths: list[str | bytes]
 
-    def __init__(self, design_path: str | bytes, pose_id: bool = False, root: str | bytes = None, **kwargs):
-        self.job_resources = kwargs.get('job_resources', job_resources_factory.get(program_root=root, **kwargs))
+    def __init__(self, design_path: str | bytes, job_resources: JobResources = None, pose_id: bool = False,
+                 root: str | bytes = None, **kwargs):
+        self.job_resources = job_resources if job_resources else job_resources_factory.get(program_root=root, **kwargs)
         # PoseDirectory flags
         self.log: Logger | None = None
         if pose_id:
@@ -212,6 +213,7 @@ class PoseDirectory:
             #                 continue
             #         return
             self.initialized = False
+            self.source = path.join(self.source_path, PUtils.asu_file_name)
             path_components = self.source_path.split(sep)
             # design_symmetry (P432)
             # path_components[-4] are the oligomeric names
@@ -444,9 +446,9 @@ class PoseDirectory:
     def debug(self) -> bool:
         return self.job_resources.debug
 
-    @property
-    def no_term_constraint(self) -> bool:
-        return self.job_resources.no_term_constraint
+    # @property
+    # def no_term_constraint(self) -> bool:
+    #     return self.job_resources.no_term_constraint
 
     @property
     def no_evolution_constraint(self) -> bool:
@@ -1748,7 +1750,7 @@ class PoseDirectory:
             self.log.debug(f'Pose flags written to: {self.flags}')
 
         if self.consensus:  # Todo add consensus sbatch generator to the symdesign main
-            if not self.no_term_constraint:  # design_with_fragments
+            if self.generate_fragments:  # design_with_fragments
                 consensus_cmd = main_cmd + relax_flags_cmdline + \
                     [f'@%{self.flags}', '-in:file:s', self.consensus_pdb,
                      # '-in:file:native', self.refined_pdb,
@@ -2358,22 +2360,20 @@ class PoseDirectory:
             pass
         else:
             self.identify_interface()
-            if self.no_term_constraint:
-                pass
+            if self.generate_fragments:
+                make_path(self.frags, condition=self.write_frags)
             elif self.fragment_observations or self.fragment_observations == list():
                 pass  # fragment generation was run and maybe succeeded. If not ^
             elif path.exists(self.frag_file):
                 self.retrieve_fragment_info_from_file()
-            else:  # self.generate_fragments:
-                make_path(self.frags, condition=self.write_frags)
+            # else:  # self.generate_fragments:
             # self.generate_interface_fragments()
                 # raise DesignError(f'Fragments were specified during design, but observations have not been yet been '
                 #                   f'generated for this Design! Try with the flag --{PUtils.generate_fragments}')
             make_path(self.data)
             # creates all files which store the evolutionary_profile and/or fragment_profile -> design_profile
             self.pose.interface_design(evolution=not self.no_evolution_constraint, des_dir=self,
-                                       fragments=not self.no_term_constraint, query_fragments=self.generate_fragments,
-                                       fragment_source=self.fragment_observations, write_fragments=self.write_frags)
+                                       fragments=self.generate_fragments, write_fragments=self.write_frags)
             make_path(self.designs)
             self.fragment_observations = self.pose.return_fragment_observations()
             self.info['fragments'] = self.fragment_observations
