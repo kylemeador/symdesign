@@ -194,7 +194,7 @@ class SequenceProfile:
     # fragment_db:  Todo, indicate FragmenDatabase if imports work
     number_of_residues: int
     reference_sequence: str
-    structure_sequence: str
+    sequence: str
 
     def __init__(self, **kwargs):
         super().__init__()
@@ -430,10 +430,10 @@ class SequenceProfile:
                  2: {}, ...}
         """
         self.evolutionary_profile = self.populate_design_dictionary(self.number_of_residues, alph_3_aa)
-        structure_sequence = self.structure_sequence
+        sequence = self.sequence
         for idx, residue_number in enumerate(self.evolutionary_profile):
             self.evolutionary_profile[residue_number]['lod'] = copy(aa_counts)
-            self.evolutionary_profile[residue_number]['type'] = structure_sequence[idx]
+            self.evolutionary_profile[residue_number]['type'] = sequence[idx]
             self.evolutionary_profile[residue_number]['info'] = 0.0
             self.evolutionary_profile[residue_number]['weight'] = 0.0
 
@@ -486,7 +486,7 @@ class SequenceProfile:
     #     # if not self.reference_sequence:
     #     #     self.retrieve_sequence_from_api(entity_id=self.name)
     #     # generate the disordered indices which are positions in reference that are missing in structure
-    #     # disorder = generate_mutations(self.structure_sequence, self.reference_sequence, only_gaps=True)
+    #     # disorder = generate_mutations(self.sequence, self.reference_sequence, only_gaps=True)
     #     disorder = self.disorder
     #     # removal of these positions from .evolutionary_profile will produce a properly indexed profile
     #     secondary_structure = ''
@@ -971,11 +971,11 @@ class SequenceProfile:
         # self.log.debug(self.fragment_profile.items())
         database_bkgnd_aa_freq = self.fragment_db.get_db_aa_frequencies()
         # Fragment profile is correct size for indexing all STRUCTURAL residues
-        #  self.reference_sequence is not used for this. Instead, self.structure_sequence is used in place since the use
+        #  self.reference_sequence is not used for this. Instead, self.sequence is used in place since the use
         #  of a disorder indicator that removes any disordered residues from input evolutionary profiles is calculated
         #  on the full reference sequence. This ensures that the profile is the right length of the structure and
         #  captures disorder specific evolutionary signals that could be important in the calculation of profiles
-        sequence = self.structure_sequence
+        sequence = self.sequence
         no_design = []
         for residue, index_d in self.fragment_profile.items():
             total_fragment_weight, total_fragment_observations = 0, 0

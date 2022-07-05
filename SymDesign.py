@@ -2100,7 +2100,7 @@ if __name__ == '__main__':
                     logger.error('No file found for %s' % file_glob)
                     continue
                 design_pose = PDB.from_file(file[0], log=des_dir.log, entity_names=des_dir.entity_names)
-                designed_atom_sequences = [entity.structure_sequence for entity in design_pose.entities]
+                designed_atom_sequences = [entity.sequence for entity in design_pose.entities]
 
                 missing_tags[(des_dir, design)] = [1 for _ in des_dir.pose.entities]
                 prior_offset = 0
@@ -2132,7 +2132,7 @@ if __name__ == '__main__':
                     true_termini = [term for term, is_true in termini_availability.items() if is_true]
 
                     # Find sequence specified attributes required for expression formatting
-                    # disorder = generate_mutations(source_entity.structure_sequence, source_entity.reference_sequence,
+                    # disorder = generate_mutations(source_entity.sequence, source_entity.reference_sequence,
                     #                               only_gaps=True)
                     # disorder = source_entity.disorder
                     source_offset = source_entity.offset_index
@@ -2141,8 +2141,7 @@ if __name__ == '__main__':
                     # Todo, moved below indexed_disordered_residues on 7/26, ensure correct!
                     prior_offset += len(indexed_disordered_residues)
                     # generate the source TO design mutations before any disorder handling
-                    mutations = generate_mutations(source_entity.structure_sequence, design_entity.structure_sequence,
-                                                   offset=False)
+                    mutations = generate_mutations(source_entity.sequence, design_entity.sequence, offset=False)
                     # Insert the disordered residues into the design pose
                     for residue_number, mutation in indexed_disordered_residues.items():
                         logger.debug('Inserting %s into position %d on chain %s'
@@ -2156,7 +2155,7 @@ if __name__ == '__main__':
                                 mutations[mutation_index + 1] = mutations.pop(mutation_index)
 
                     # Check for expression tag addition to the designed sequences after disorder addition
-                    inserted_design_sequence = design_entity.structure_sequence
+                    inserted_design_sequence = design_entity.sequence
                     selected_tag = {}
                     available_tags = find_expression_tags(inserted_design_sequence)
                     if available_tags:  # look for existing tag to remove from sequence and save identity

@@ -5208,7 +5208,7 @@ class Entity(Chain, SequenceProfile):  # Todo consider moving SequenceProfile to
             if not self._reference_sequence:
                 self.log.warning('The reference sequence could not be found. Using the observed Residue sequence '
                                  'instead')
-                self._reference_sequence = self.structure_sequence
+                self._reference_sequence = self.sequence
             return self._reference_sequence
 
     # @reference_sequence.setter
@@ -5226,7 +5226,7 @@ class Entity(Chain, SequenceProfile):  # Todo consider moving SequenceProfile to
         try:
             return self._disorder
         except AttributeError:
-            self._disorder = generate_mutations(self.reference_sequence, self.structure_sequence, only_gaps=True)
+            self._disorder = generate_mutations(self.reference_sequence, self.sequence, only_gaps=True)
             return self._disorder
 
     def chain(self, chain_name: str) -> Entity | None:
