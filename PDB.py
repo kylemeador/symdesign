@@ -33,7 +33,7 @@ seq_res_len = 52
 qsbio_confirmed = unpickle(qs_bio)
 slice_remark, slice_number, slice_atom_type, slice_alt_location, slice_residue_type, slice_chain, \
     slice_residue_number, slice_code_for_insertion, slice_x, slice_y, slice_z, slice_occ, slice_temp_fact, \
-    slice_element_symbol, slice_atom_charge = slice(0, 6), slice(6, 11), slice(12, 16), slice(16, 17), slice(17, 20), \
+    slice_element, slice_charge = slice(0, 6), slice(6, 11), slice(12, 16), slice(16, 17), slice(17, 20), \
     slice(21, 22), slice(22, 26), slice(26, 27), slice(30, 38), slice(38, 46), slice(46, 54), slice(54, 60), \
     slice(60, 66), slice(76, 78), slice(78, 80)
 
