@@ -3640,15 +3640,19 @@ class Structure(StructureBase):
             coords_type = 'coords'
             def measure_function(atom): return True
 
-        # set up the query indices. BallTree is faster upon timeit with 131 msec/loop
-        if self.contains_hydrogen():
-            atom_tree = BallTree(self.heavy_coords)
-            coords_indexed_residues = self.heavy_coords_indexed_residues
-        else:
-            atom_tree = BallTree(self.coords)
-            coords_indexed_residues = self.coords_indexed_residues
+        # cant use heavy_coords as the Residue.atom_indices aren't offset for the BallTree made from them...
+        # another option is to only care about heavy atoms on the residues...
+        # if self.contains_hydrogen():
+        #     atom_tree = BallTree(self.heavy_coords)
+        #     coords_indexed_residues = self.heavy_coords_indexed_residues
+        #     atoms = self.heavy_atoms
+        # else:
 
+        # set up the query indices. BallTree is faster upon timeit with 131 msec/loop
+        atom_tree = BallTree(self.coords)
+        coords_indexed_residues = self.coords_indexed_residues
         atoms = self.atoms
+
         measured_clashes, other_clashes = [], []
 
         def handle_clash_reporting(clash_indices: Iterable[int]):
@@ -3678,14 +3682,6 @@ class Structure(StructureBase):
                                           [residue.next_residue.atom_indices[residue.next_residue.n_index]])
         handle_clash_reporting(clashes) if any(clashes) else None
 
-        residue = residues[-1]
-        residue_query = atom_tree.query_radius(getattr(residue, coords_type), distance)
-        all_contacts = set(np.concatenate(residue_query).ravel().tolist())  # Todo remove ravel()
-        clashes = all_contacts.difference(residue.atom_indices +
-                                          [residue.prev_residue.atom_indices[residue.prev_residue.c_index],
-                                           residue.prev_residue.atom_indices[residue.prev_residue.o_index]])
-        handle_clash_reporting(clashes) if any(clashes) else None
-
         # perform routine for all middle residues
         for residue in residues[1:-1]:  # avoid first and last since no prev_ or next_residue
             residue_query = atom_tree.query_radius(getattr(residue, coords_type), distance)
@@ -3699,6 +3695,14 @@ class Structure(StructureBase):
                                         next_residue.atom_indices[next_residue.n_index]]
             clashes = all_contacts.difference(residue_indices_and_bonded_c_and_n)
             handle_clash_reporting(clashes) if any(clashes) else None
+
+        residue = residues[-1]
+        residue_query = atom_tree.query_radius(getattr(residue, coords_type), distance)
+        all_contacts = set(np.concatenate(residue_query).ravel().tolist())  # Todo remove ravel()
+        clashes = all_contacts.difference(residue.atom_indices +
+                                          [residue.prev_residue.atom_indices[residue.prev_residue.c_index],
+                                           residue.prev_residue.atom_indices[residue.prev_residue.o_index]])
+        handle_clash_reporting(clashes) if any(clashes) else None
 
         if measured_clashes:
             bb_info = '\n\t'.join('Residue %5d: %s' % (residue.number, atom.return_atom_record())
