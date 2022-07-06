@@ -2868,8 +2868,8 @@ class Pose(SymmetricModel, SequenceProfile):  # Todo consider moving SequencePro
         # residue_numbers1 = sorted(residue.number for residue in entity1_residues)
         # surface_frags1 = entity1.get_fragments(residue_numbers=residue_numbers1,
         #                                        representatives=self.fragment_db.reps)
-        frag_residues1 = entity1.get_fragment_residues(residue_numbers=entity1_residues,
-                                                       representatives=self.fragment_db.reps)
+        frag_residues1 = \
+            entity1.get_fragment_residues(residues=entity1_residues, representatives=self.fragment_db.reps)
         if not entity2_residues:  # entity1 == entity2 and not entity2_residues:
             # entity1_residues = set(entity1_residues + entity2_residues)
             entity2_residues = entity1_residues
@@ -2879,8 +2879,8 @@ class Pose(SymmetricModel, SequenceProfile):  # Todo consider moving SequencePro
             # residue_numbers2 = sorted(residue.number for residue in entity2_residues)
             # surface_frags2 = entity2.get_fragments(residue_numbers=residue_numbers2,
             #                                        representatives=self.fragment_db.reps)
-            frag_residues2 = entity2.get_fragment_residues(residue_numbers=entity2_residues,
-                                                           representatives=self.fragment_db.reps)
+            frag_residues2 = \
+                entity2.get_fragment_residues(residues=entity2_residues, representatives=self.fragment_db.reps)
 
         # self.log.debug(f'At Entity {entity1.name} | Entity {entity2.name} interface, searching for fragments at the '
         #                f'surface of:\n\tEntity {entity1.name}: Residues {", ".join(map(str, residue_numbers1))}'
