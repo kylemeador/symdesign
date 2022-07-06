@@ -117,7 +117,7 @@ def read_pdb_file(file: str | bytes, pdb_lines: list[str] = None, separate_coord
         path, extension = os.path.splitext(file)
 
     # PDB
-    assembly: str = None
+    assembly: str | None = None
     # type to info index:   1    2    3    4    5    6    7     11     12   13   14
     temp_info: list[tuple[int, str, str, str, str, int, str, float, float, str, str]] = []
     # if separate_coords:
@@ -134,7 +134,7 @@ def read_pdb_file(file: str | bytes, pdb_lines: list[str] = None, separate_coord
     cryst_record: str = ''
     dbref: dict[str, dict[str, str]] = {}
     entity_info: list[dict[str, list | str]] = []
-    name = os.path.basename(path) if path else None # .replace('pdb', '')
+    name = os.path.basename(path) if path else None  # .replace('pdb', '')
     header: list = []
     multimodel: bool = False
     resolution: float | None = None
@@ -267,33 +267,35 @@ def read_pdb_file(file: str | bytes, pdb_lines: list[str] = None, separate_coord
     if not temp_info:
         raise ValueError(f'The file {file} has no ATOM records!')
 
-    return dict(biological_assembly=assembly,
-                atoms=[Atom.without_coordinates(idx, *info) for idx, info in enumerate(temp_info)] if separate_coords
-                else
-                # initialize with individual coords. Not sure why anyone would do this, but include for compatibility
-                [Atom(index=idx, number=number, atom_type=atom_type, alt_location=alt_location,
-                      residue_type=residue_type, chain=chain, residue_number=residue_number,
-                      code_for_insertion=code_for_insertion, coords=coords[idx], occupancy=occupancy, b_factor=b_factor,
-                      element=element, charge=charge)
-                 for idx, (number, atom_type, alt_location, residue_type, chain, residue_number, code_for_insertion,
-                           occupancy, b_factor, element, charge)
-                 in enumerate(temp_info)],
-                biomt=biomt,  # go to Structure
-                biomt_header=biomt_header,  # go to Structure
-                coords=coords if separate_coords else None,
-                # cryst=cryst,
-                cryst_record=cryst_record,
-                dbref=dbref,
-                entity_info=entity_info,
-                header=header,
-                multimodel=multimodel,
-                name=name,
-                resolution=resolution,
-                reference_sequence=parse_seqres(seq_res_lines),
-                # space_group=space_group,
-                # uc_dimensions=uc_dimensions,
-                **kwargs
-                )
+    parsed_info = \
+        dict(biological_assembly=assembly,
+             atoms=[Atom.without_coordinates(idx, *info) for idx, info in enumerate(temp_info)] if separate_coords
+             else
+             # initialize with individual coords. Not sure why anyone would do this, but include for compatibility
+             [Atom(index=idx, number=number, atom_type=atom_type, alt_location=alt_location,
+                   residue_type=residue_type, chain=chain, residue_number=residue_number,
+                   code_for_insertion=code_for_insertion, coords=coords[idx], occupancy=occupancy, b_factor=b_factor,
+                   element=element, charge=charge)
+              for idx, (number, atom_type, alt_location, residue_type, chain, residue_number, code_for_insertion,
+                        occupancy, b_factor, element, charge)
+              in enumerate(temp_info)],
+             biomt=biomt,  # go to Structure
+             biomt_header=biomt_header,  # go to Structure
+             coords=coords if separate_coords else None,
+             # cryst=cryst,
+             cryst_record=cryst_record,
+             dbref=dbref,
+             entity_info=entity_info,
+             header=header,
+             multimodel=multimodel,
+             name=name,
+             resolution=resolution,
+             reference_sequence=parse_seqres(seq_res_lines),
+             # space_group=space_group,
+             # uc_dimensions=uc_dimensions,
+             )
+    parsed_info.update(**kwargs)  # explictly overwrites any parsing if argument was passed
+    return parsed_info
 
 
 mmcif_error = 'This type of parsing is not available yet, but you can make it happen! Modify PDB.read_pdb_file() ' \
