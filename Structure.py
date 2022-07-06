@@ -2998,19 +2998,22 @@ class Structure(StructureBase):
         for idx, residue in enumerate(self.residues, 1):
             residue.number = idx
 
-    def reindex_atoms(self, start_at: int = 0, offset: int = None):
-        """Reindex all Atom objects after the start_at index in the self.atoms attribute
+    def _offset_indices(self, start_at: int = 0, offset: int = None):
+        """Reindex the Structure atom_indices by an offset, starting with the start_at index
 
         Args:
-            start_at: The integer to start reindexing Atom objects at
-            offset: The integer to offset the index by. Defaults to a subtracting the offset from all subsequent Atoms
+            start_at: The integer to start reindexing atom_indices at
+            offset: The integer to offset the index by. For negative offset, pass a negative value
         """
         if start_at:
-            if offset:
+            try:
+            # if offset:
                 self._atom_indices = \
-                    self._atom_indices[:start_at] + [idx - offset for idx in self._atom_indices[start_at:]]
-            else:
-                raise ValueError('Must include an offset when re-indexing atoms from a start_at position!')
+                    self._atom_indices[:start_at] + [idx + offset for idx in self._atom_indices[start_at:]]
+            # else:
+            except TypeError:  # None is not valide
+                raise ValueError(f'{offset} is a not a valid value. Must provide an integer when re-indexing atoms '
+                                 f'using the argument "start_at"')
         elif self.is_parent():
             # this shouldn't be used for a Structure object who is dependent on another Structure!
             self._atom_indices = list(range(self.number_of_atoms))
@@ -3071,7 +3074,7 @@ class Structure(StructureBase):
     #     self.atoms = self.residues[0]._atoms
 
     # update_structure():
-    #  self.reindex_atoms() -> self.coords = np.append(self.coords, [atom.coords for atom in atoms]) ->
+    #  self._offset_indices() -> self.coords = np.append(self.coords, [atom.coords for atom in atoms]) ->
     #  self.set_atom_coordinates(self.coords) -> self._create_residues() -> self.set_length()
 
     def _create_residues(self):
@@ -3328,7 +3331,7 @@ class Structure(StructureBase):
             self._atom_indices.pop(atom_delete_index)
         # must re-index all succeeding atoms
         # This doesn't apply to parent Atoms only Structure Atoms! Need to modify parent level
-        self.reindex_atoms(start_at=atom_delete_index, offset=len(delete_indices))
+        self._offset_indices(start_at=atom_delete_index, offset=len(delete_indices))
 
         return delete_indices
 
