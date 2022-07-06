@@ -800,7 +800,7 @@ class Fragment:
         """The secondary structure of the Fragment"""
         return self.i_type
 
-    @type.setter
+    @frag_type.setter
     def frag_type(self, frag_type: int):
         """Set the secondary structure of the Fragment"""
         self.i_type = frag_type
