@@ -2337,7 +2337,7 @@ class PoseDirectory:
 
         self.interface_residues = set()  # update False to set() or replace set() and add new residues
         for entity in self.pose.entities:  # Todo v clean as it is redundant with analysis and falls out of scope
-            entity_oligomer = PDB.from_chains(entity.oligomer, log=self.log, entities=False)
+            entity_oligomer = Model.from_chains(entity.oligomer, log=self.log, entities=False)
             entity_oligomer.get_sasa()
             for residue in entity_oligomer.get_residues(self.interface_design_residues):
                 if residue.sasa > 0:  # we will have repeats as the Entity is symmetric
