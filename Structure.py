@@ -4985,7 +4985,7 @@ class Entity(Chain, SequenceProfile):  # Todo consider moving SequenceProfile to
         super().__init__(residue_indices=representative.residue_indices, **kwargs)
         self._chains = []
         # _copy_structure_containers and _update_structure_container_attributes are Entity specific
-        self.structure_containers.extend(['chains'])
+        self.structure_containers.extend(['_chains'])  # use _chains as chains is okay to equal []
         chain_ids = [representative.name]
         # set representative transform as identity
         # self.chain_transforms.append(dict(rotation=identity_matrix, translation=origin))
@@ -5159,9 +5159,8 @@ class Entity(Chain, SequenceProfile):  # Todo consider moving SequenceProfile to
             return self._chain_ids
         except AttributeError:  # This shouldn't be possible with the constructor available
             available_chain_ids = self.return_chain_generator()
-            chain_id = self.chain_id
-            self._chain_ids = [chain_id]
-            for _ in range(self.number_of_monomers):
+            self._chain_ids = [self.chain_id]
+            for _ in range(self.number_of_monomers - 1):
                 next_chain = next(available_chain_ids)
                 while next_chain in self._chain_ids:
                     next_chain = next(available_chain_ids)
