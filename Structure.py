@@ -3331,7 +3331,7 @@ class Structure(StructureBase):
             self._atom_indices.pop(atom_delete_index)
         # must re-index all succeeding atoms
         # This doesn't apply to parent Atoms only Structure Atoms! Need to modify parent level
-        self._offset_indices(start_at=atom_delete_index, offset=len(delete_indices))
+        self._offset_indices(start_at=atom_delete_index, offset=-len(delete_indices))
 
         return delete_indices
 
