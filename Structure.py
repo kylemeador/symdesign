@@ -796,12 +796,12 @@ class Fragment:
         # may need FragmentBase to clean extras for proper method resolution order (MRO)
 
     @property
-    def type(self) -> int | None:
+    def frag_type(self) -> int | None:
         """The secondary structure of the Fragment"""
         return self.i_type
 
     @type.setter
-    def type(self, frag_type: int):
+    def frag_type(self, frag_type: int):
         """Set the secondary structure of the Fragment"""
         self.i_type = frag_type
 
@@ -4291,8 +4291,6 @@ class Structure(StructureBase):
                         superposition3d(residue_ca_coords[idx + frag_lower_range: idx + frag_upper_range],
                                         cluster_coords)
                     if rmsd <= rmsd_thresh and rmsd <= min_rmsd:
-                        print(residue.number)
-                        print(residue.frag_type)
                         residue.frag_type = fragment_type
                         min_rmsd, residue.rotation, residue.translation = rmsd, rot, tx
             except AssertionError:  # superposition3d can't measure Residue. It doesn't have fragment_length neighbors
@@ -4300,8 +4298,6 @@ class Structure(StructureBase):
                 continue
 
             if residue.frag_type:
-                print(residue.number)
-                print(residue.frag_type)
                 residue.guide_coords = \
                     np.matmul(Fragment.template_coords, np.transpose(residue.rotation)) + residue.translation
                 found_fragments.append(residue)
