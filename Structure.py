@@ -2361,6 +2361,28 @@ class Structure(StructureBase):
         number_new = len(new_indices)
         setattr(self, f'_{dtype}_indices', indices[:at] + new_indices + [idx + number_new for idx in indices[at:]])
 
+    def _offset_indices(self, start_at: int = 0, offset: int = None):
+        """Reindex the Structure atom_indices by an offset, starting with the start_at index
+
+        Args:
+            start_at: The integer to start reindexing atom_indices at
+            offset: The integer to offset the index by. For negative offset, pass a negative value
+        """
+        if start_at:
+            try:
+            # if offset:
+                self._atom_indices = \
+                    self._atom_indices[:start_at] + [idx + offset for idx in self._atom_indices[start_at:]]
+            # else:
+            except TypeError:  # None is not valide
+                raise ValueError(f'{offset} is a not a valid value. Must provide an integer when re-indexing atoms '
+                                 f'using the argument "start_at"')
+        elif self.is_parent():
+            # this shouldn't be used for a Structure object who is dependent on another Structure!
+            self._atom_indices = list(range(self.number_of_atoms))
+        else:
+            raise ValueError(f'{self.name}: Must include start_at when re-indexing atoms from a child structure!')
+
     @property
     def atoms(self) -> list[Atom] | None:
         """Return the Atom instances in the Structure"""
@@ -2997,28 +3019,6 @@ class Structure(StructureBase):
         """Renumber Residue objects sequentially starting with 1"""
         for idx, residue in enumerate(self.residues, 1):
             residue.number = idx
-
-    def _offset_indices(self, start_at: int = 0, offset: int = None):
-        """Reindex the Structure atom_indices by an offset, starting with the start_at index
-
-        Args:
-            start_at: The integer to start reindexing atom_indices at
-            offset: The integer to offset the index by. For negative offset, pass a negative value
-        """
-        if start_at:
-            try:
-            # if offset:
-                self._atom_indices = \
-                    self._atom_indices[:start_at] + [idx + offset for idx in self._atom_indices[start_at:]]
-            # else:
-            except TypeError:  # None is not valide
-                raise ValueError(f'{offset} is a not a valid value. Must provide an integer when re-indexing atoms '
-                                 f'using the argument "start_at"')
-        elif self.is_parent():
-            # this shouldn't be used for a Structure object who is dependent on another Structure!
-            self._atom_indices = list(range(self.number_of_atoms))
-        else:
-            raise ValueError(f'{self.name}: Must include start_at when re-indexing atoms from a child structure!')
 
     # def set_atom_coordinates(self, coords):
     #     """Set/Replace all Atom coordinates with coords specified. Must be in the same order to apply correctly!"""
