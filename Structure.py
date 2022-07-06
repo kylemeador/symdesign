@@ -4987,7 +4987,7 @@ class Entity(Chain, SequenceProfile):  # Todo consider moving SequenceProfile to
         self._chains = []
         chain_ids = [representative.name]
         # set representative transform as identity
-        self.chain_transforms.append(dict(rotation=identity_matrix, translation=origin))
+        # self.chain_transforms.append(dict(rotation=identity_matrix, translation=origin))
         if len(chains) > 1:
             self._is_oligomeric = True  # inherent in Entity type is a single sequence. Therefore, must be oligomeric
             for idx, chain in enumerate(chains[1:]):
@@ -5150,41 +5150,27 @@ class Entity(Chain, SequenceProfile):  # Todo consider moving SequenceProfile to
         """The specific transformation operators to generate all mate chains of the Oligomer"""
         try:
             return self._chain_transforms
-        except AttributeError:
-            try:  # this section is only useful if the current instance is an Entity copy
-                # self.log.info('%s chain_transform %s' % (self.name, 'AttributeError'))
+        except AttributeError:  # this section is only useful if the current instance is an Entity mate...
+            try:
                 self._chain_transforms = []
-                # if self.prior_ca_coords is not None:
-                #     self.log.info('prior_ca_coords has not been set but it is not None')
-                #     getattr(self, 'prior_ca_coords')  # try to get exception raised here?
-                # missing_at = 'prior_ca_coords'
-                # self.prior_ca_coords
                 self.__chain_transforms
                 if self._is_oligomeric:  # True if multiple chains
                     current_ca_coords = self.ca_coords
                     _, new_rot, new_tx, _ = superposition3d(current_ca_coords, self.prior_ca_coords)
-                    # self._chain_transforms.extend([dict(rotation=np.matmul(transform['rotation'], rot),
-                    #                                     translation=transform['translation'] + tx)
-                    #                                for transform in self.__chain_transforms[1:]])
-                    # self._chain_transforms.extend([dict(rotation=transform['rotation'], translation=transform['translation'],
-                    #                                     rotation2=rot, translation2=tx)
-                    #                                for transform in self.__chain_transforms[1:]])
-                    # missing_at = '__chain_transforms'
-                    for transform in self.__chain_transforms[1:]:
+                    for transform in self.__chain_transforms:
                         chain_coords = np.matmul(np.matmul(self.prior_ca_coords, np.transpose(transform['rotation']))
                                                  + transform['translation'], np.transpose(new_rot)) + new_tx
                         _, rot, tx, _ = superposition3d(chain_coords, current_ca_coords)
                         self._chain_transforms.append(dict(rotation=rot, translation=tx))
-                self._chain_transforms.insert(0, dict(rotation=identity_matrix, translation=origin))
+                # self._chain_transforms.insert(0, dict(rotation=identity_matrix, translation=origin))
             except AttributeError:  # no prior_ca_coords or __chain_transforms
                 pass
-                # self.log.info('%s chain_transform %s because missing %s' % (self.name, 'LastAttributeError', missing_at))
 
             return self._chain_transforms
 
-    @chain_transforms.setter
-    def chain_transforms(self, value: list[transformation_mapping]):
-        self._chain_transforms = value
+    # @chain_transforms.setter
+    # def chain_transforms(self, value: list[transformation_mapping]):
+    #     self._chain_transforms = value
 
     def remove_chain_transforms(self):
         """Remove chain_transforms and chains, set prior_ca_coords attributes in preparation for coordinate movement"""
@@ -5198,7 +5184,8 @@ class Entity(Chain, SequenceProfile):  # Todo consider moving SequenceProfile to
         """Returns transformed copies of the Entity"""
         if self._chains:  # check if empty list in the case that coords have been changed and chains cleared
             return self._chains
-        else:  # empty list, populate with entity copies
+        else:  # populate with Entity and potentially Entity mates
+            self._chains = [self]
             self._chains = [self.return_transformed_copy(**transform) for transform in self.chain_transforms]
             chain_ids = self.chain_ids
             self.log.debug(f'Entity chains property has {len(self._chains)} chains because the underlying '
@@ -5297,7 +5284,7 @@ class Entity(Chain, SequenceProfile):  # Todo consider moving SequenceProfile to
 
     def remove_mate_chains(self):
         """Clear the Entity of all Chain and Oligomer information"""
-        self.chain_transforms = [dict(rotation=identity_matrix, translation=origin)]
+        self._chain_transforms = []  # [dict(rotation=identity_matrix, translation=origin)]
         self.number_of_monomers = 1
         # try:
         self.chains.clear()
@@ -5396,6 +5383,9 @@ class Entity(Chain, SequenceProfile):  # Todo consider moving SequenceProfile to
         for degeneracy_matrices in degeneracy_rotation_matrices:
             for rotation_matrix in degeneracy_matrices:
                 number_of_monomers += 1
+                if number_of_monomers == 1 and np.all(rotation_matrix == identity_matrix):
+                    self.log.debug('skipping transformation/chain_transforms 1 as it is identity')
+                    continue
                 rot_centered_coords = transform_coordinate_sets(centered_coords_inv, rotation=rotation_matrix)
                 new_coords = transform_coordinate_sets(rot_centered_coords, rotation=rotation, translation=translation,
                                                        rotation2=rotation2, translation2=translation2)
