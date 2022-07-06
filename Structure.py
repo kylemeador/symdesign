@@ -4974,12 +4974,11 @@ class Entity(Chain, SequenceProfile):  # Todo consider moving SequenceProfile to
         """When init occurs chain_ids are set if chains were passed. If not, then they are auto generated"""
         self.api_entry = None  # {chain: {'accession': 'Q96DC8', 'db': 'UNP'}, ...}
         self.dihedral_chain = None
-        self._is_oligomeric = False
         self.max_symmetry = None
         self.rotation_d = {}
         self.symmetry = None
-        # Todo this is commented out because _copy_structure_containers probably won't work for Entity as expected
-        # self.structure_containers.extend(['chains'])
+        # _copy_structure_containers and _update_structure_container_attributes are Entity specific
+        self.structure_containers.extend(['chains'])
         # Todo choose most symmetrically average by moving chain symmetry ops below to here
         representative = chains[0]
         # super().__init__(residues=representative._residues, residue_indices=representative.residue_indices,
@@ -4989,8 +4988,8 @@ class Entity(Chain, SequenceProfile):  # Todo consider moving SequenceProfile to
         chain_ids = [representative.name]
         # set representative transform as identity
         # self.chain_transforms.append(dict(rotation=identity_matrix, translation=origin))
+        self._is_captain = True
         if len(chains) > 1:
-            self._is_captain = True
             self._is_oligomeric = True  # inherent in Entity type is a single sequence. Therefore, must be oligomeric
             for idx, chain in enumerate(chains[1:]):
                 if chain.number_of_residues == self.number_of_residues and chain.sequence == self.sequence:
@@ -5037,6 +5036,9 @@ class Entity(Chain, SequenceProfile):  # Todo consider moving SequenceProfile to
                 self.chain_transforms.append(dict(rotation=rot, translation=tx))
                 chain_ids.append(chain.name)
             self.number_of_monomers = len(chains)
+        else:
+            self._is_oligomeric = False
+
         self.chain_ids = chain_ids
         self.prior_ca_coords = self.ca_coords
         # else:  # elif len(chains) == 1:
@@ -6095,35 +6097,46 @@ class Entity(Chain, SequenceProfile):  # Todo consider moving SequenceProfile to
             f.write('%s\n' % '\n'.join(blueprint_lines))
         return blueprint_file
 
-    # def _update_structure_container_attributes(self, **kwargs):
-    #     """Update attributes specified by keyword args for all member containers"""
-    #     # super()._update_structure_container_attributes(**kwargs)  # this is required to set the base Structure with the kwargs
-    #     # self.set_structure_attributes(self.chains, **kwargs)
-    #     for structure in self.structure_containers:
-    #         self.set_structure_attributes(structure, **kwargs)
+    def _update_structure_container_attributes(self, **kwargs):
+        """Update attributes specified by keyword args for all Structure container members. Entity specific handling"""
+        for structure_type in self.structure_containers:
+            for structure in getattr(self, structure_type)[1:]:  # only operate on [1:] slice since index 0 is different
+                for kwarg, value in kwargs.items():
+                    setattr(structure, kwarg, value)
 
-    # def _copy_structure_containers(self):
-    #     # super()._copy_structure_containers([self.chains])
-    #     super()._copy_structure_containers(self.structure_containers)
+    def _copy_structure_containers(self):
+        """Copy all member Structures that reside in Structure containers. Entity specific handling of chains index 0"""
+        for structure_type in self.structure_containers:
+            structures = getattr(self, structure_type)
+            structures[0] = self  # set structures index 0 to the self Entity instance
+            for idx, structure in enumerate(structures[1:]):  # only operate on [1:] slice since index 0 is different
+                structures[idx] = copy(structure)
 
-    def __copy__(self) -> Entity:
-        other: Entity = super().__copy__()
-        # # create a copy of all chains
-        # # structures = [other.chains]
-        # # other._copy_structure_containers(structures)
-        # other._copy_structure_containers()  # NEVERMIND uses self.structure_containers... does this use Entity version?
-        # # attributes were updated in the super().__copy__, now need to set attributes in copied chains
-        # # This style v accomplishes the update that the super().__copy__() started using self.structure_containers...
-        # other._update_structure_container_attributes(residues=other._residues, coords=other._coords)
-        if other.is_oligomeric():
-            # self.log.info('Copy Entity. Clearing chains, chain_transforms')
-            # other._chains.clear()
-            other.remove_chain_transforms()
-            # other.__chain_transforms = other.chain_transforms  # requires update before copy
-            # del other._chain_transforms
-            # other.prior_ca_coords = other.ca_coords  # update these as next generation will rely on them for chain_transforms
-
-        return other
+    # def __copy__(self) -> Entity:
+    #     other: Entity = super().__copy__()
+    #     # # create a copy of all chains
+    #     # # structures = [other.chains]
+    #     # # other._copy_structure_containers(structures)
+    #     # other._copy_structure_containers()  # NEVERMIND uses self.structure_containers... does this use Entity version?
+    #     # # attributes were updated in the super().__copy__, now need to set attributes in copied chains
+    #     # # This style v accomplishes the update that the super().__copy__() started using self.structure_containers...
+    #     # other._update_structure_container_attributes(residues=other._residues, coords=other._coords)
+    #     if not other._is_captain:  # this is a mate, set an independent Coords
+    #         # Todo is this needed?
+    #         #  Mirrors what happens when dependent is copied in Structure
+    #         #  The other._coords is new and return_transformed_mate will set coords values...
+    #         other._atoms.set_attributes(_parent=other)
+    #         other._residues.set_attributes(_parent=other)
+    #         other._copy_structure_containers()
+    #         other._update_structure_container_attributes(_parent=other)
+    #         # self.log.info('Copy Entity. Clearing chains, chain_transforms')
+    #         # other._chains.clear()
+    #         other.remove_chain_transforms()
+    #         # other.__chain_transforms = other.chain_transforms  # requires update before copy
+    #         # del other._chain_transforms
+    #         # other.prior_ca_coords = other.ca_coords  # update these as next generation will rely on them for chain_transforms
+    #
+    #     return other
 
     # def __key(self):
     #     return (self.uniprot_id, *super().__key())  # without uniprot_id, could equal a chain...
