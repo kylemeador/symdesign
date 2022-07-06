@@ -661,14 +661,19 @@ def query_pdb_by(entry: str = None, assembly_id: str = None, assembly_integer: i
     if entry:
         if len(entry) == 4:
             if entity_integer:
+                logger.debug(f'Querying PDB API with {entry}_{entity_integer}')
                 return _get_entity_info(entry=entry, entity_integer=entity_integer)
             elif assembly_integer:
-                return _get_assembly_info(entry=entry, assembly=assembly_integer)
+                logger.debug(f'Querying PDB API with {entry}-{assembly_integer}')
+                return _get_assembly_info(entry=entry, assembly_integer=assembly_integer)
             else:
+                logger.debug(f'Querying PDB API with {entry}')
                 info = _get_entry_info(entry)
                 if chain:
-                    chain_entity = {chain: entity_idx for entity_idx, chains in info.get('entity').items() for chain in chains}
+                    chain_entity = \
+                        {chain: entity_idx for entity_idx, chains in info.get('entity').items() for chain in chains}
                     try:
+                        logger.debug(f'Querying PDB API with {entry}_{chain_entity[chain]}')
                         return _get_entity_info(entry=entry, entity_integer=chain_entity[chain])
                     except KeyError:
                         raise KeyError(f'No chain "{chain}" found in PDB ID {entry}. '
@@ -680,11 +685,16 @@ def query_pdb_by(entry: str = None, assembly_id: str = None, assembly_integer: i
     elif assembly_id:
         entry, assembly_integer, *extra = assembly_id.split('_')
         if not extra and len(entry) == 4:
+            logger.debug(f'Querying PDB API with {entry}-{assembly_integer}')
             return _get_assembly_info(entry=entry, assembly_integer=assembly_integer)
+
+        logger.warning(f'AssemblyID "{entry}-{assembly_integer}" is not of the required format and will not be found '
+                       f'with the PDB API')
 
     elif entity_id:
         entry, entity_integer, *extra = entity_id.split('_')
         if not extra and len(entry) == 4:
+            logger.debug(f'Querying PDB API with {entry}_{entity_integer}')
             return _get_entity_info(entry=entry, entity_integer=entity_integer)
 
         logger.warning(f'EntityID "{entry}_{entity_integer}" is not of the required format and will not be found with '
