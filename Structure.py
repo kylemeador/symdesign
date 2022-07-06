@@ -4964,7 +4964,8 @@ class Entity(Chain, SequenceProfile):  # Todo consider moving SequenceProfile to
     _uniprot_id: str
     api_entry: dict[str, dict[str, str]] | None
     dihedral_chain: str | None
-    # is_oligomeric: bool
+    _is_captain: bool
+    _is_oligomeric: bool
     max_symmetry: int | None
     rotation_d: dict[str, dict[str, int | np.ndarray]] | None
     symmetry: str | None
@@ -4989,6 +4990,7 @@ class Entity(Chain, SequenceProfile):  # Todo consider moving SequenceProfile to
         # set representative transform as identity
         # self.chain_transforms.append(dict(rotation=identity_matrix, translation=origin))
         if len(chains) > 1:
+            self._is_captain = True
             self._is_oligomeric = True  # inherent in Entity type is a single sequence. Therefore, must be oligomeric
             for idx, chain in enumerate(chains[1:]):
                 if chain.number_of_residues == self.number_of_residues and chain.sequence == self.sequence:
@@ -5054,19 +5056,39 @@ class Entity(Chain, SequenceProfile):  # Todo consider moving SequenceProfile to
     @StructureBase.coords.setter
     def coords(self, coords: np.ndarray | list[list[float]]):
         """Set the Coords object while propagating changes to symmetry "mate" chains"""
-        if self._is_oligomeric:
-            chains = self.chains  # populate the current chains (if not already) with current coords transformation
-            self.chain_transforms.clear()  # remove all transforms
+        if self._is_oligomeric and self._is_captain:
+            # must do these before super().coords.fset()
+            current_chains = self.chains  # populate the current chains (if not already) with current coords transformation
+            prior_ca_coords = self.ca_coords  # get current ca_coords as prior_ca_coords
+            current_chain_transforms = self.chain_transforms
+
             # set coords with new coords
             super(Structure, Structure).coords.fset(self, coords)  # prefer this over below, as  mechanism could change
             # self._coords.replace(self._atom_indices, coords)
+            # find the transformation from the old coordinates to the new
+            current_ca_coords = self.ca_coords
+            _, new_rot, new_tx, _ = superposition3d(current_ca_coords, prior_ca_coords)
 
-            # find the transform between the new coords and the current mate chain coords
-            for chain in chains:  # chains populated before new coords are set
-                _, rot, tx, _ = superposition3d(self.cb_coords, chain.cb_coords)
-                # set the new transforms
-                self.chain_transforms.append(dict(rotation=rot, translation=tx))
-            self._chains.clear()  # remove old chain information so that it is regenerated next time chains are needed
+            self._chain_transforms.clear()  # remove all transforms
+            for chain, transform in zip(current_chains[1:], current_chain_transforms):
+                # transform prior_coords to new mate chain coords position
+                new_chain_coords = np.matmul(np.matmul(prior_ca_coords, np.transpose(transform['rotation']))
+                                             + transform['translation'], np.transpose(new_rot)) + new_tx
+                # find the transform from current coords and the new mate chain coords
+                _, rot, tx, _ = superposition3d(new_chain_coords, current_ca_coords)
+                # save transform
+                self._chain_transforms.append(dict(rotation=rot, translation=tx))
+                # transform existing mate chain
+                chain.coords = np.matmul(coords, np.transpose(rot)) + tx
+
+            # # find the transform between the new coords and the current mate chain coords
+            # for chain in chains[1:]:  # chains were populated before new coords are set
+            #     _, rot, tx, _ = superposition3d(self.cb_coords, chain.cb_coords)
+            #     # set the new transforms
+            #     self.chain_transforms.append(dict(rotation=rot, translation=tx))
+            #     chain.coords = np.matmul(coords, np.transpose(rot)) + tx
+
+            # self._chains.clear()  # remove old chain information so that it is regenerated next time chains are needed
         else:  # accept the new coords
             super(Structure, Structure).coords.fset(self, coords)  # prefer this over below, as mechanism could change
             # self._coords.replace(self._atom_indices, coords)
