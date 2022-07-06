@@ -644,8 +644,8 @@ def retrieve_pdb_entries_by_advanced_query(save: bool = True, return_results: bo
         return retrieved_ids
 
 
-def query_pdb_by(entry: str = None, assembly_id: str = None, assembly_integer: int | str = 1, entity_id: str = None,
-                 entity_integer: int | str = 1, chain: str = None, **kwargs) -> dict | None:
+def query_pdb_by(entry: str = None, assembly_id: str = None, assembly_integer: int | str = None, entity_id: str = None,
+                 entity_integer: int | str = None, chain: str = None, **kwargs) -> dict | None:
     """Retrieve information from the PDB API by EntryID, AssemblyID, or EntityID
 
     Args:
@@ -870,7 +870,7 @@ def _get_entity_info(entity_id: str = None, entry: str = None, entity_integer: i
     Returns:
         {chain: {'accession': 'Q96DC8', 'db': 'UNP'}, ...}
     """
-    entity_request = _query_entity_id(entity_id=entity_id, entry=entry, entity_integer=entity_integer)
+    entity_request = _query_entity_id(entry=entry, entity_integer=entity_integer, entity_id=entity_id)
     if not entity_request:
         return {}
 
@@ -924,7 +924,7 @@ def _get_entity_info(entity_id: str = None, entry: str = None, entity_integer: i
     return ref_d
 
 
-def _query_entity_id(entity_id: str = None, entry: str = None, entity_integer: str | int = None) -> \
+def _query_entity_id(entry: str = None, entity_integer: str | int = None, entity_id: str = None) -> \
         requests.Response | None:
     """Fetches the JSON object for the entity_id from the PDB API
      

@@ -2509,7 +2509,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Todo consider moving SequencePro
             self.log.debug(f'The design_mask includes: {mask}')
             entity_mask, atom_mask = grab_indices(**mask, start_with_none=True)
         else:
-            entity_mask = atom_mask = set()
+            entity_mask, atom_mask = set(), set()
 
         self.design_selector_entities = entity_selection.difference(entity_mask)
         self.design_selector_indices = atom_selection.difference(atom_mask)
@@ -2523,7 +2523,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Todo consider moving SequencePro
             if self.required_indices:  # only if indices are specified should we grab them
                 self.required_residues = self.get_residues_by_atom_indices(atom_indices=self.required_indices)
         else:
-            entity_required = self.required_indices = set()
+            entity_required, self.required_indices = set(), set()
 
     def return_interface(self, distance: float = 8.) -> Structure:
         """Provide a view of the Pose interface by generating a Structure containing only interface Residues
