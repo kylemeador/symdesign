@@ -5197,12 +5197,12 @@ class Entity(Chain, SequenceProfile):  # Todo consider moving SequenceProfile to
     # def chain_transforms(self, value: list[transformation_mapping]):
     #     self._chain_transforms = value
 
-    def remove_chain_transforms(self):
-        """Remove chain_transforms and chains, set prior_ca_coords attributes in preparation for coordinate movement"""
-        self._chains.clear()
-        self.__chain_transforms = self.chain_transforms
-        del self._chain_transforms
-        self.prior_ca_coords = self.ca_coords
+    # def _remove_chain_transforms(self):
+    #     """Remove _chains and _chain_transforms, set prior_ca_coords in preparation for coordinate movement"""
+    #     self._chains.clear()  # useful for mate chains...
+    #     self.__chain_transforms = self.chain_transforms
+    #     del self._chain_transforms  # useful for mate chains as their transforms aren't correctly oriented
+    #     self.prior_ca_coords = self.ca_coords
 
     @property
     def chains(self) -> list[Entity]:  # Structures
@@ -5211,7 +5211,7 @@ class Entity(Chain, SequenceProfile):  # Todo consider moving SequenceProfile to
             return self._chains
         else:  # populate with Entity and potentially Entity mates
             self._chains = [self]
-            self._chains = [self.return_transformed_copy(**transform) for transform in self.chain_transforms]
+            self._chains.extend([self.return_transformed_mate(**transform) for transform in self.chain_transforms])
             chain_ids = self.chain_ids
             self.log.debug(f'Entity chains property has {len(self._chains)} chains because the underlying '
                            f'chain_transforms has {len(self.chain_transforms)}. chain_ids has {len(chain_ids)}')
@@ -5320,6 +5320,13 @@ class Entity(Chain, SequenceProfile):  # Todo consider moving SequenceProfile to
         except AttributeError:
             pass
 
+    def _make_mate(self):
+        """Turn the Entity into a 'mate' Entity"""
+        self._is_captain = False
+        # self._remove_chain_transforms()
+        self._chains.clear()
+        del self._chain_transforms
+
     def make_oligomer(self, symmetry: str = None, rotation: list[list[float]] | np.ndarray = None,
                       translation: list[float] | np.ndarray = None, rotation2: list[list[float]] | np.ndarray = None,
                       translation2: list[float] | np.ndarray = None, **kwargs):
@@ -5420,39 +5427,80 @@ class Entity(Chain, SequenceProfile):  # Todo consider moving SequenceProfile to
         # self.chain_ids = list(self.return_chain_generator())[:self.number_of_monomers]
         # self.log.debug('After make_oligomers, the chain_ids for %s are %s' % (self.name, self.chain_ids))
 
-    def translate(self, **kwargs):
-        """Perform a translation to the Structure ensuring only the Structure container of interest is translated
-        ensuring the underlying coords are not modified
+    # def translate(self, **kwargs):
+    #     """Perform a translation to the Structure ensuring only the Structure container of interest is translated
+    #     ensuring the underlying coords are not modified
+    #
+    #     Keyword Args:
+    #         translation: The first translation to apply, expected array shape (3,)
+    #     """
+    #     # self._remove_chain_transforms()
+    #     super().translate(**kwargs)
+    #
+    # def rotate(self, **kwargs):
+    #     """Perform a rotation to the Structure ensuring only the Structure container of interest is rotated ensuring the
+    #     underlying coords are not modified
+    #
+    #     Keyword Args:
+    #         rotation: The first rotation to apply, expected array shape (3, 3)
+    #     """
+    #     # self._remove_chain_transforms()
+    #     super().rotate(**kwargs)
+    #
+    # def transform(self, **kwargs):
+    #     """Perform a specific transformation to the Structure ensuring only the Structure container of interest is
+    #     transformed ensuring the underlying coords are not modified
+    #
+    #     Keyword Args:
+    #         rotation=None (list[list[float]] | numpy.ndarray): The first rotation to apply, expected array shape (3, 3)
+    #         translation=None (list[float] | numpy.ndarray): The first translation to apply, expected array shape (3,)
+    #         rotation2=None (list[list[float]] | numpy.ndarray): The second rotation to apply, expected array shape (3,
+    #             3)
+    #         translation2=None (list[float] | numpy.ndarray): The second translation to apply, expected array shape (3,)
+    #     """
+    #     # self._remove_chain_transforms()
+    #     super().transform(**kwargs)
 
-        Keyword Args:
-            translation: The first translation to apply, expected array shape (3,)
-        """
-        self.remove_chain_transforms()
-        super().translate(**kwargs)
+    def return_transformed_mate(self, rotation: list[list[float]] | np.ndarray = None,
+                                translation: list[float] | np.ndarray = None,
+                                rotation2: list[list[float]] | np.ndarray = None,
+                                translation2: list[float] | np.ndarray = None) -> Entity:
+        """Make a semi-deep copy of the Entity, stripping any captain attributes, transforming the coordinates
 
-    def rotate(self, **kwargs):
-        """Perform a rotation to the Structure ensuring only the Structure container of interest is rotated ensuring the
-        underlying coords are not modified
+        Transformation proceeds by matrix multiplication and vector addition with the order of operations as:
+        rotation, translation, rotation2, translation2
 
-        Keyword Args:
+        Args:
             rotation: The first rotation to apply, expected array shape (3, 3)
+            translation: The first translation to apply, expected array shape (3,)
+            rotation2: The second rotation to apply, expected array shape (3, 3)
+            translation2: The second translation to apply, expected array shape (3,)
+        Returns:
+            A transformed copy of the original object
         """
-        self.remove_chain_transforms()
-        super().rotate(**kwargs)
+        if rotation is not None:  # required for np.ndarray or None checks
+            new_coords = np.matmul(self.coords, np.transpose(rotation))
+        else:
+            new_coords = self.coords
 
-    def transform(self, **kwargs):
-        """Perform a specific transformation to the Structure ensuring only the Structure container of interest is
-        transformed ensuring the underlying coords are not modified
+        if translation is not None:  # required for np.ndarray or None checks
+            new_coords += np.array(translation)
 
-        Keyword Args:
-            rotation=None (list[list[float]] | numpy.ndarray): The first rotation to apply, expected array shape (3, 3)
-            translation=None (list[float] | numpy.ndarray): The first translation to apply, expected array shape (3,)
-            rotation2=None (list[list[float]] | numpy.ndarray): The second rotation to apply, expected array shape (3,
-                3)
-            translation2=None (list[float] | numpy.ndarray): The second translation to apply, expected array shape (3,)
-        """
-        self.remove_chain_transforms()
-        super().transform(**kwargs)
+        if rotation2 is not None:  # required for np.ndarray or None checks
+            new_coords = np.matmul(new_coords, np.transpose(rotation2))
+
+        if translation2 is not None:  # required for np.ndarray or None checks
+            new_coords += np.array(translation2)
+
+        new_structure = copy(self)
+        new_structure._make_mate()
+        # this v should replace the actual numpy array located at coords after the _coords object has been copied
+        # old-style
+        # new_structure.replace_coords(new_coords)
+        # new-style
+        new_structure.coords = new_coords
+
+        return new_structure
 
     def format_header(self, **kwargs) -> str:
         """Return the BIOMT and the SEQRES records based on the Entity
