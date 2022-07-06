@@ -820,8 +820,9 @@ def get_rot_matrices(step_deg: float, axis: str = 'z', rot_range_deg: int = 360)
     return np.array(rot_matrices)
 
 
-def make_rotations_degenerate(rotations: np.ndarray = None, degeneracies: Union[np.ndarray, List[np.ndarray]] = None) \
-        -> List[np.ndarray]:
+def make_rotations_degenerate(rotations: np.ndarray | list[np.ndarray] | list[list[list[float]]] = None,
+                              degeneracies: np.ndarray | list[np.ndarray] | list[list[list[float]]] = None) \
+        -> list[np.ndarray]:
     """From a set of degeneracy matrices and a set of rotation matrices, produce the complete combination of the
     specified transformations
 
@@ -829,21 +830,28 @@ def make_rotations_degenerate(rotations: np.ndarray = None, degeneracies: Union[
         rotations: A group of rotations with shape (rotations, 3, 3)
         degeneracies: A group of degeneracies with shape (degeneracies, 3, 3)
     Returns:
-        The resulting matrices from the combination of degeneracies and rotations
+        The resulting matrices from the combination of degeneracies and rotations.
+            The first matrix will always be the identity matrix
     """
     if rotations is None:
         rotations = identity_matrix[None, :, :]
+    elif (rotations[0] != identity_matrix).any():
+        logger.warning(f'{make_rotations_degenerate.__name__}: The argument "rotations" is missing an identity '
+                       'matrix which is recommended to produce the correct matrices. Adding now.')
+        #                'Ensure you add this matrix to your degeneracies before calling')
+        rotations = [identity_matrix] + list(rotations)
+
     if degeneracies is None:
-        degeneracies = [identity_matrix]
-    else:
-        if (degeneracies[0] != identity_matrix).any():
-            logger.warning('degeneracies are missing an identity matrix which is recommended to produce the correct '
-                           'matrices outcome. Ensure you add this matrix to your degeneracies! before calling %s'
-                           % make_rotations_degenerate.__name__)
+        degeneracies = [identity_matrix]  # Todo test, identity_matrix[None, :, :]
+    elif (degeneracies[0] != identity_matrix).any():
+        logger.warning(f'{make_rotations_degenerate.__name__}: The argument "degeneracies" is missing an identity '
+                       'matrix which is recommended to produce the correct matrices. Adding now.')
+        #                'Ensure you add this matrix to your degeneracies before calling')
+        degeneracies = [identity_matrix] + list(degeneracies)
 
     # if rotations is not None and degeneracies is not None:
     return [np.matmul(rotations, degen_mat) for degen_mat in degeneracies]  # = deg_rot
-    # Todo np.concatenate()
+    # Todo np.concatenate() to remove double iteration of return lists
 
     # elif rotations is not None and degeneracies is None:
     #     return [rotations]  # Todo rotations[None, :, :, :] # UNNECESSARY
