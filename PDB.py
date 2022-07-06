@@ -390,9 +390,9 @@ class PDB(Structure):
     def from_file(cls, file: str | bytes, **kwargs):
         """Create a new PDB from a file with Atom records"""
         if '.pdb' in file:
-            return PDB.from_pdb(file, **kwargs)
+            return cls.from_pdb(file, **kwargs)
         elif '.cif' in file:
-            return PDB.from_mmcif(file, **kwargs)
+            return cls.from_mmcif(file, **kwargs)
         else:
             raise NotImplementedError(f'{type(cls).__name__}: The file type {os.path.splitext(file)[-1]} is not '
                                       f'supported for parsing')
