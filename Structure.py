@@ -3125,6 +3125,8 @@ class Structure(StructureBase):
         for index in remove_atom_indices[::-1]:  # ensure popping happens in reverse
             atom_indices.pop(index)
         self._atom_indices = atom_indices
+        # remove bad atoms
+        self._atoms.remove()
 
     # when alt_location parsing allowed, there may be some use to this, however above works great without alt location
     # def _create_residues(self):
@@ -4976,14 +4978,14 @@ class Entity(Chain, SequenceProfile):  # Todo consider moving SequenceProfile to
         self.max_symmetry = None
         self.rotation_d = {}
         self.symmetry = None
-        # _copy_structure_containers and _update_structure_container_attributes are Entity specific
-        self.structure_containers.extend(['chains'])
         # Todo choose most symmetrically average by moving chain symmetry ops below to here
         representative = chains[0]
         # super().__init__(residues=representative._residues, residue_indices=representative.residue_indices,
         #                  coords=representative._coords, log=representative._log, **kwargs)
         super().__init__(residue_indices=representative.residue_indices, **kwargs)
         self._chains = []
+        # _copy_structure_containers and _update_structure_container_attributes are Entity specific
+        self.structure_containers.extend(['chains'])
         chain_ids = [representative.name]
         # set representative transform as identity
         # self.chain_transforms.append(dict(rotation=identity_matrix, translation=origin))
