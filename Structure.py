@@ -5145,6 +5145,10 @@ class Entity(Chain, SequenceProfile):  # Todo consider moving SequenceProfile to
             self._number_of_monomers = valid_subunit_number.get(self.symmetry, len(self._chain_ids))
             return self._number_of_monomers
 
+    def is_captain(self) -> bool:
+        """Is the Entity the captain chain?"""
+        return self._is_captain
+
     def is_oligomeric(self) -> bool:
         """Is the Entity oligomeric?"""
         return self._is_oligomeric
