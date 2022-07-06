@@ -4548,7 +4548,6 @@ class Structure(StructureBase):
                 other._residues.set_attributes(_parent=other)
                 other._copy_structure_containers()
                 other._update_structure_container_attributes(_parent=other)
-                pass
 
         return other
 
@@ -5035,12 +5034,13 @@ class Entity(Chain, SequenceProfile):  # Todo consider moving SequenceProfile to
                                                     self.cb_coords[moving_polymer_indices])
                 self.chain_transforms.append(dict(rotation=rot, translation=tx))
                 chain_ids.append(chain.name)
+                # self.chains.append(chain)  # Todo with flag for asymmetric symmetrization
             self.number_of_monomers = len(chains)
         else:
             self._is_oligomeric = False
 
         self.chain_ids = chain_ids
-        self.prior_ca_coords = self.ca_coords
+        # self.prior_ca_coords = self.ca_coords
         # else:  # elif len(chains) == 1:
         #     self.chain_transforms.append(dict(rotation=identity_matrix, translation=origin))
         # else:
@@ -5065,7 +5065,7 @@ class Entity(Chain, SequenceProfile):  # Todo consider moving SequenceProfile to
             current_chain_transforms = self.chain_transforms
 
             # set coords with new coords
-            super(Structure, Structure).coords.fset(self, coords)  # prefer this over below, as  mechanism could change
+            super(Structure, Structure).coords.fset(self, coords)  # prefer this over below, as mechanism could change
             # self._coords.replace(self._atom_indices, coords)
             # find the transformation from the old coordinates to the new
             current_ca_coords = self.ca_coords
@@ -5125,7 +5125,7 @@ class Entity(Chain, SequenceProfile):  # Todo consider moving SequenceProfile to
         return self.residues[0].chain
 
     @chain_id.setter
-    def chain_id(self, chain_id):
+    def chain_id(self, chain_id: str):
         self.set_residues_attributes(chain=chain_id)
         try:
             self._chain_ids[0] = chain_id
@@ -5151,7 +5151,7 @@ class Entity(Chain, SequenceProfile):  # Todo consider moving SequenceProfile to
         self._number_of_monomers = value
 
     @property
-    def chain_ids(self) -> list:  # Also used in PDB
+    def chain_ids(self) -> list:  # Also used in Model
         """The names of each Chain found in the Entity"""
         try:
             return self._chain_ids
@@ -5169,7 +5169,7 @@ class Entity(Chain, SequenceProfile):  # Todo consider moving SequenceProfile to
             return self._chain_ids
 
     @chain_ids.setter
-    def chain_ids(self, chain_ids):
+    def chain_ids(self, chain_ids: list[str]):
         self._chain_ids = chain_ids
 
     @property
@@ -5191,6 +5191,9 @@ class Entity(Chain, SequenceProfile):  # Todo consider moving SequenceProfile to
                         self._chain_transforms.append(dict(rotation=rot, translation=tx))
                 # self._chain_transforms.insert(0, dict(rotation=identity_matrix, translation=origin))
             except AttributeError:  # no prior_ca_coords or __chain_transforms
+                if not self._is_captain:
+                    self.log.warning(f'Accessing the mate .chains of an {type(self).__name__} mate chain is not '
+                                     f'allowed')
                 pass
 
             return self._chain_transforms
@@ -5209,7 +5212,7 @@ class Entity(Chain, SequenceProfile):  # Todo consider moving SequenceProfile to
     @property
     def chains(self) -> list[Entity]:  # Structures
         """Returns transformed copies of the Entity"""
-        if self._chains:  # check if empty list in the case that coords have been changed and chains cleared
+        if self._chains:  # check if empty list in the case that chains haven't been generated
             return self._chains
         else:  # populate with Entity and potentially Entity mates
             self._chains = [self]
@@ -5262,11 +5265,10 @@ class Entity(Chain, SequenceProfile):  # Todo consider moving SequenceProfile to
         for idx, chain_id in enumerate(self.chain_ids):
             if chain_id == chain_name:
                 try:
-                    return self._chains[idx]
-                except IndexError:  # could make all the chains too?
-                    chain = self.return_transformed_copy(**self.chain_transforms[idx])
-                    chain.chain_id = chain_name
-                    return chain
+                    return self.chains[idx]
+                except IndexError:
+                    raise IndexError(f'The number of chains ({len(self.chains)}) in the {type(self).__name__} != '
+                                     f'number of chain_ids ({len(self.chain_ids)})')
 
     def retrieve_sequence_from_api(self, entity_id: str = None):
         """Using the Entity ID, fetch information from the PDB API and set the instance reference_sequence"""
@@ -5313,10 +5315,7 @@ class Entity(Chain, SequenceProfile):  # Todo consider moving SequenceProfile to
         """Clear the Entity of all Chain and Oligomer information"""
         self._chain_transforms = []  # [dict(rotation=identity_matrix, translation=origin)]
         self.number_of_monomers = 1
-        # try:
-        self.chains.clear()
-        # except AttributeError:
-        #     pass
+        self._chains.clear()
         try:
             del self._chain_ids
         except AttributeError:
@@ -5370,6 +5369,7 @@ class Entity(Chain, SequenceProfile):  # Todo consider moving SequenceProfile to
             raise ValueError(f'The symmetry {symmetry} is not a viable symmetry! You should try to add compatibility '
                              f'for it if you believe this is a mistake')
         self.symmetry = symmetry
+        # self._is_captain = True  # Todo should this be set here or prevent self._mate from becoming oligomer?
         self._is_oligomeric = True
         if rotation is None:
             rotation, inv_rotation = identity_matrix, identity_matrix
