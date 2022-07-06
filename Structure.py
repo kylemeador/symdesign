@@ -5154,13 +5154,16 @@ class Entity(Chain, SequenceProfile):  # Todo consider moving SequenceProfile to
         try:
             return self._chain_ids
         except AttributeError:  # This shouldn't be possible with the constructor available
-            chain_gen = self.return_chain_generator()
+            available_chain_ids = self.return_chain_generator()
             chain_id = self.chain_id
             self._chain_ids = [chain_id]
             for _ in range(self.number_of_monomers):
-                next_chain = next(chain_gen)
-                if next_chain != chain_id:
-                    self._chain_ids.append(next_chain)
+                next_chain = next(available_chain_ids)
+                while next_chain in self._chain_ids:
+                    next_chain = next(available_chain_ids)
+
+                self._chain_ids.append(next_chain)
+
             return self._chain_ids
 
     @chain_ids.setter
