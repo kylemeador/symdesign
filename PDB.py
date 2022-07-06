@@ -1231,7 +1231,8 @@ class PDB(Structure):
                 if not self.api_entry:
                     self.log.debug(f'No PDB entry was found in the PDB API with "{parsed_name}"')
                 else:
-                    self.log.debug(f'Found PDB API information: {", ".join(f"{k}={v}" for k, v in self.api_entry)}')
+                    self.log.debug(f'Found PDB API information: '
+                                   f'{", ".join(f"{k}={v}" for k, v in self.api_entry.items())}')
                     # set the identified name
                     self.name = parsed_name
                 # elif self.source_db:
