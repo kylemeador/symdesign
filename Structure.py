@@ -3115,7 +3115,7 @@ class Structure(StructureBase):
         else:  # proper format. For each need to increment one higher than the last v
             # new_residues.append(Residue(atom_indices=list(range(start_atom_index, idx + 1)), atoms=self._atoms,
             #                             coords=self._coords, log=self._log))
-            new_residues.append(Residue(atom_indices=list(range(start_atom_index, idx)), parent=self))
+            new_residues.append(Residue(atom_indices=list(range(start_atom_index, idx + 1)), parent=self))
 
         self._residue_indices = list(range(len(new_residues)))
         self._residues = Residues(new_residues)
