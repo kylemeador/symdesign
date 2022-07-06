@@ -2389,7 +2389,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Todo consider moving SequencePro
     ss_index_array: list[int]
     ss_type_array: list[str]
 
-    def __init__(self, fragment_db: FragmentDatabase = None, resource_db: Database = None,
+    def __init__(self, fragment_db: FragmentDatabase = None, resource_db: Database = None, ignore_clashes: bool = False,
                  design_selector: dict[str, dict[str, dict[str, set[int] | set[str] | None]]] = None, **kwargs):
         #          euler_lookup: EulerLookup = None,
         self.design_selector = design_selector if design_selector else {}  # kwargs.get('design_selector', {})
@@ -2399,7 +2399,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Todo consider moving SequencePro
         self.fragment_metrics = {}
         self.fragment_pairs = []
         self.fragment_queries = {}
-        self.ignore_clashes = kwargs.get(PUtils.ignore_clashes, False)
+        self.ignore_clashes = ignore_clashes
         self.interface_residues = {}
         self.required_indices = set()
         self.required_residues = None
