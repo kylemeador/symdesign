@@ -2377,7 +2377,7 @@ class Structure(StructureBase):
             raise ValueError(f'{self.name}: Must include start_at when re-indexing atoms from a child structure!')
 
     @property
-    def atoms(self) -> list[Atom] | None:
+    def atoms(self) -> list[Atom] | None:  # Todo ContainsAtomsMixin
         """Return the Atom instances in the Structure"""
         try:
             return self._atoms.atoms[self._atom_indices].tolist()
@@ -2731,12 +2731,12 @@ class Structure(StructureBase):
         return self._coords.coords[self.backbone_and_cb_indices]
 
     @property
-    def ca_coords(self) -> np.ndarray:  # NOT in Residue ca_coord
+    def ca_coords(self) -> np.ndarray:  # NOT in Residue, ca_coord
         """Return a view of the Coords from the Structure with CA atom coordinates"""
         return self._coords.coords[self.ca_indices]
 
     @property
-    def cb_coords(self) -> np.ndarray:  # NOT in Residue cb_coord
+    def cb_coords(self) -> np.ndarray:  # NOT in Residue, cb_coord
         """Return a view of the Coords from the Structure with CB atom coordinates"""
         return self._coords.coords[self.cb_indices]
 
