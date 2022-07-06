@@ -2340,8 +2340,9 @@ class Structure(StructureBase):
         except AttributeError:
             raise AttributeError(f'The dtype {dtype}_indices was not found the Structure object. Possible values of '
                                  f'dtype are atom or residue')
-        first_index = indices[0]
-        setattr(self, f'_{dtype}_indices', [at + prior_idx - first_index for prior_idx in indices])
+        # offset = at - first_index
+        offset = at - indices[0]
+        setattr(self, f'_{dtype}_indices', [prior_idx + offset for prior_idx in indices])
 
     def _insert_indices(self, at: int = 0, new_indices: list[int] = None, dtype: atom_or_residue = None):
         """Modify Structure container indices by a set integer amount
