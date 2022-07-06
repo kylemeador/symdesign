@@ -12,7 +12,7 @@ from logging import Logger
 # from random import randint
 # from time import sleep
 from pathlib import Path
-from typing import Union, Dict, Sequence, List, Container, Optional, Any
+from typing import Union, Sequence, List, Optional, Any
 
 import numpy as np
 from Bio import pairwise2
@@ -23,8 +23,8 @@ from sklearn.neighbors import BallTree
 from PathUtils import orient_exe_path, orient_dir, pdb_db, qs_bio
 from Query.PDB import retrieve_entity_id_by_sequence, query_pdb_by
 from SequenceProfile import generate_alignment
-from Structure import Structure, Chain, Entity, Atom, Residues, Structures, superposition3d, Atoms, Residue, Coords
-from SymDesignUtils import remove_duplicates, start_log, DesignError, to_iterable, unpickle, digit_translate_table
+from Structure import Structure, Chain, Entity, Atom, Structures, superposition3d, Residue
+from SymDesignUtils import remove_duplicates, start_log, to_iterable, unpickle, digit_translate_table
 from utils.SymmetryUtils import valid_subunit_number, multicomponent_valid_subunit_number, valid_symmetries
 
 # Globals
@@ -32,10 +32,10 @@ logger = start_log(name=__name__)
 seq_res_len = 52
 qsbio_confirmed = unpickle(qs_bio)
 slice_remark, slice_number, slice_atom_type, slice_alt_location, slice_residue_type, slice_chain, \
-slice_residue_number, slice_code_for_insertion, slice_x, slice_y, slice_z, slice_occ, slice_temp_fact, \
-slice_element, slice_charge = slice(0, 6), slice(6, 11), slice(12, 16), slice(16, 17), slice(17, 20), \
-                              slice(21, 22), slice(22, 26), slice(26, 27), slice(30, 38), slice(38, 46), slice(46, 54), slice(54, 60), \
-                              slice(60, 66), slice(76, 78), slice(78, 80)
+    slice_residue_number, slice_code_for_insertion, slice_x, slice_y, slice_z, slice_occ, slice_temp_fact, \
+    slice_element_symbol, slice_atom_charge = slice(0, 6), slice(6, 11), slice(12, 16), slice(16, 17), slice(17, 20), \
+    slice(21, 22), slice(22, 26), slice(26, 27), slice(30, 38), slice(38, 46), slice(46, 54), slice(54, 60), \
+    slice(60, 66), slice(76, 78), slice(78, 80)
 
 
 def parse_cryst_record(cryst_record) -> tuple[list[float], str]:  # Todo make PDB module method
@@ -1174,41 +1174,61 @@ class PDB(Structure):
         if self.name:
             parsed_name = self.name
             splitter = ['_', '-']  # entity, assembly
-            idx = 0
+            idx = -1
             extra = None
             while len(parsed_name) != 4:
-                try:
+                try:  # to parse the name using standard PDB API entry ID's
+                    idx += 1
                     parsed_name, *extra = parsed_name.split(splitter[idx])
-                except IndexError:
-                    break  # the while loop, we can't find from splitting typical PDB formatted strings
-                idx += 1
+                except IndexError:  # idx > len(splitter)
+                    # we can't find entry in parsed_name from splitting typical PDB formatted strings
+                    # it may be completely incorrect or something unplanned.
+                    bad_format_msg = \
+                        f'PDB entry "{self.name}" is not of the required format and wasn\'t queried from the PDB API'
+                    self.log.debug(bad_format_msg)
+                    break  # the while loop and handle
 
-            if idx >= len(splitter):  # we got to the end with no success
-                self.log.debug(f'PDB entry "{self.name}" is not of the required format and wasn\'t queried from the PDB'
-                               f' API')
-            else:  # len(parsed_name) == 4:
+            if idx < len(splitter):  # len(parsed_name) == 4 at some point
                 # query_args = dict(entry=parsed_name)
                 # # self.api_entry = _get_entry_info(parsed_name)
                 if self.biological_assembly:
                     # query_args.update(assembly_integer=self.assembly)
                     # # self.api_entry.update(_get_assembly_info(self.name))
                     self.api_entry = query_pdb_by(entry=parsed_name)
-                    self.api_entry['assembly'] = query_pdb_by(entry=self.name, assembly_integer=self.biological_assembly)
-
-                elif extra:  # elif means we couldn't have 1ABC_1.pdb2
+                    self.api_entry['assembly'] = \
+                        query_pdb_by(entry=parsed_name, assembly_integer=self.biological_assembly)
+                elif extra:  # we found extra split. use of elif means we couldn't have 1ABC_1.pdb2
+                    # try to parse the found "integer"
                     integer, *_ = extra
-                    if idx == 1:  # entity integer, such as 1ABC_1.pdb
-                        # query_args.update(entity_integer=integer)
-                        self.api_entry = query_pdb_by(entry=parsed_name, entity_integer=integer)
-                    else:  # get entry alone. This is an assembly or unknown conjugation. Either way we need
-                        self.api_entry = query_pdb_by(entry=parsed_name)
+                    if integer.isdigit():
+                        integer = int(integer)
+                        if idx == 0:  # entity integer, such as 1ABC_1.pdb
+                            # query_args.update(entity_integer=integer)
+                            self.api_entry = dict(dbref=query_pdb_by(entry=parsed_name, entity_integer=integer))
+                            self.api_entry['entity'] = {integer: list(self.api_entry['dbref'].keys())}
+                            # api_entry v
+                            # return {'entity': entity_chain_d, 'res': resolution, 'dbref': ref_d,
+                            #         'struct': struct_d, 'method': exptl_method}
+                            # entity_chain_d = {integer: ['chain_id1', 'chain_id2', ...], ...}
+                            # dbref: v
+                            # return {chain: {'accession': 'Q96DC8', 'db': 'UNP'}, ...}
+                        else:  # get entry alone. This is an assembly or unknown conjugation. Either way we need entry info
+                            self.api_entry = query_pdb_by(entry=parsed_name)
 
-                    if idx == 2:  # assembly integer, such as 1ABC-1.pdb
-                        # query_args.update(assembly_integer=integer)
-                        self.api_entry['assembly'] = query_pdb_by(entry=parsed_name, assembly_integer=integer)
+                            if idx == 1:  # assembly integer, such as 1ABC-1.pdb
+                                # query_args.update(assembly_integer=integer)
+                                self.api_entry['assembly'] = query_pdb_by(entry=parsed_name, assembly_integer=integer)
+                    else:  # this isn't an integer, therefore they are extra characters that won't be of help
+                        # self.log.debug(bad_format_msg)
+                        self.api_entry = query_pdb_by(entry=parsed_name)
+                else:  # we didn't try to get extra as it was correct to begin with, just query entry
+                    self.api_entry = query_pdb_by(entry=parsed_name)
 
                 if not self.api_entry:
-                    self.log.debug(f'PDB entry "{self.name}" was not found with the PDB API')
+                    self.log.debug(f'No PDB entry was found in the PDB API with "{parsed_name}"')
+                else:
+                    # set the identified name
+                    self.name = parsed_name
                 # elif self.source_db:
                 #     self.source_db.pdb_api.store_data(self.api_entry, name=self.name)
         else:
@@ -1248,10 +1268,10 @@ class PDB(Structure):
             if self.api_entry:  # self.api_entry = {'entity': {1: ['A', 'B'], ...}, ...}
                 if self.biological_assembly:  # When PDB API is returning information on the asu and assembly is different
                     if self.multimodel:  # ensure the renaming of chains is handled correctly
-                        for ent_idx, chains in self.api_entry.get('entity').items():
+                        for ent_idx, chains in self.api_entry.get('entity', {}).items():
                             # chain_set = set(chains)
                             success = False
-                            for cluster_idx, cluster_chains in self.api_entry.get('assembly').items():
+                            for cluster_idx, cluster_chains in self.api_entry.get('assembly', {}).items():
                                 # if set(cluster_chains) == chain_set:  # we found the right cluster
                                 if not set(cluster_chains).difference(chains):  # we found the right cluster
                                     self.entity_info.append(
@@ -1265,10 +1285,10 @@ class PDB(Structure):
                                                % (self.api_entry.get('entity'), self.api_entry.get('assembly')))
                     else:  # chain names should be the same as the assembly API if the file is sourced from PDB
                         self.entity_info = [{'chains': chains, 'name': ent_idx}
-                                            for ent_idx, chains in self.api_entry.get('assembly').items()]
+                                            for ent_idx, chains in self.api_entry.get('assembly', {}).items()]
                 else:
                     self.entity_info = [{'chains': chains, 'name': ent_idx}
-                                        for ent_idx, chains in self.api_entry.get('entity').items()]
+                                        for ent_idx, chains in self.api_entry.get('entity', {}).items()]
                 # check to see that the entity_info is in line with the number of chains already parsed
                 # found_entity_chains = [chain for info in self.entity_info for chain in info.get('chains', [])]
                 # if len(self.chain_ids) != len(found_entity_chains):

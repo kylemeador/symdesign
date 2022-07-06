@@ -12,7 +12,7 @@ from sklearn.neighbors import BallTree
 from ClusterUtils import cluster_transformation_pairs, find_cluster_representatives
 from JobResources import FragmentDatabase, fragment_factory
 from PDB import PDB
-from PathUtils import frag_text_file, master_log, frag_dir, biological_interfaces
+from PathUtils import frag_text_file, master_log, frag_dir, biological_interfaces, asu_file_name
 from Pose import Pose
 from Structure import Structure, write_frag_match_info_file
 from SymDesignUtils import calculate_overlap, match_score_from_z_value, start_log, null_log, dictionary_lookup, \
@@ -246,7 +246,7 @@ def find_docked_poses(sym_entry, ijk_frag_db, pdb1, pdb2, optimal_tx_params, com
         if optimal_ext_dof_shifts:
             asu = get_central_asu(asu, uc_dimensions, sym_entry.dimension)
             cryst1_record = generate_cryst1_record(uc_dimensions, sym_entry.resulting_symmetry)
-        asu.write(out_path=os.path.join(tx_dir, 'asu.pdb'), header=cryst1_record)
+        asu.write(out_path=os.path.join(tx_dir, asu_file_name), header=cryst1_record)
         pdb1_copy.write(os.path.join(tx_dir, '%s_%s.pdb' % (pdb1_copy.name, sampling_id)))
         pdb2_copy.write(os.path.join(tx_dir, '%s_%s.pdb' % (pdb2_copy.name, sampling_id)))
 
@@ -1553,7 +1553,7 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
             cryst1_record = generate_cryst1_record(uc_dimensions, sym_entry.resulting_symmetry)
         else:
             cryst1_record = None
-        asu.write(out_path=os.path.join(tx_dir, 'asu.pdb'), header=cryst1_record)
+        asu.write(out_path=os.path.join(tx_dir, asu_file_name), header=cryst1_record)
         # symmetric_material.entities[0].write_oligomer(out_path=os.path.join(tx_dir, '%s_oligomer_asu.pdb' % entity2.name))
         # symmetric_material.entities[1].write_oligomer(out_path=os.path.join(tx_dir, '%s_oligomer_asu.pdb' % entity1.name))
         pdb1_copy.write(out_path=os.path.join(tx_dir, f'{pdb1_copy.name}_{sampling_id}.pdb'))

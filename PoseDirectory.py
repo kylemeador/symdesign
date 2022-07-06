@@ -131,10 +131,10 @@ class PoseDirectory:
         self.directives = kwargs.get('directives', [])
         # Todo refactor to JobResources and save in PoseDirectory state
         # self.design_selector = kwargs.get('design_selector', None)
-        self.entity_names = kwargs.get('entity_names', [])
         self.fragment_observations = None  # [{'1_2_24': [(78, 87, ...), ...], ...}]
         self.info: dict = {}  # internal state info
         self._info: dict = {}  # internal state info at load time
+        self.info['entity_names'] = kwargs.get('entity_names', [])
         self.initial_model = None  # used if the pose structure has never been initialized previously
         self.interface_design_residues: set[int] | bool = False  # the residue numbers in the pose interface
         self.interface_residue_ids: dict[str, str] = {}
@@ -170,6 +170,7 @@ class PoseDirectory:
         self.percent_residues_fragment_total = None
         self.percent_residues_fragment_center = None
 
+        self.serialized_info = path.join(self.source_path, f'{output_identifier}{PUtils.data}', 'info.pkl')
         if self.nanohedra_output:
             # source_path is design_symmetry/building_blocks/DEGEN_A_B/ROT_A_B/tx_C
             # self.canonical_pdb1 = None  # canonical pdb orientation
@@ -212,30 +213,38 @@ class PoseDirectory:
             #             except ValueError:
             #                 continue
             #         return
-            self.initialized = False
-            self.source = path.join(self.source_path, PUtils.asu_file_name)
-            path_components = self.source_path.split(sep)
-            # design_symmetry (P432)
-            # path_components[-4] are the oligomeric names
-            self.name = '-'.join(path_components[-4:])
-            # self.name = self.pose_id.replace('_DEGEN_', '-DEGEN_').replace('_ROT_', '-ROT_').replace('_TX_', '-tx_')
-            # self.composition = self.source_path[:self.source_path.find(path_components[-3]) - 1]
-            # design_symmetry/building_blocks (P432/4ftd_5tch)
-            if self.output_directory:
-                self.projects = ''
-                self.project_designs = ''
-                self.path = self.program_root  # /output_directory<- self.path /design.pdb
+            self.initialized = True if path.exists(self.serialized_info) else False
+            if self.initialized:
+                # self.initialized = True
+                self.path = self.source_path
+                self.project_designs = path.dirname(self.path)
+                self.projects = path.dirname(self.project_designs)
+                self.source = None
             else:
-                self.projects = path.join(self.program_root, PUtils.projects)
-                self.project_designs = path.join(self.projects, f'{path_components[-5]}_{PUtils.pose_directory}')
-                self.path = path.join(self.project_designs, self.name)
-                # make_path(self.projects)
-                # make_path(self.project_designs)
+                # self.initialized = False
+                self.source = path.join(self.source_path, PUtils.asu_file_name)
+                path_components = self.source_path.split(sep)
+                # design_symmetry (P432)
+                # path_components[-4] are the oligomeric names
+                self.name = '-'.join(path_components[-4:])
+                # self.name = self.pose_id.replace('_DEGEN_', '-DEGEN_').replace('_ROT_', '-ROT_').replace('_TX_', '-tx_')
+                # self.composition = self.source_path[:self.source_path.find(path_components[-3]) - 1]
+                # design_symmetry/building_blocks (P432/4ftd_5tch)
+                if self.output_directory:
+                    self.projects = ''
+                    self.project_designs = ''
+                    self.path = self.program_root  # /output_directory<- self.path /design.pdb
+                else:
+                    self.projects = path.join(self.program_root, PUtils.projects)
+                    self.project_designs = path.join(self.projects, f'{path_components[-5]}_{PUtils.pose_directory}')
+                    self.path = path.join(self.project_designs, self.name)
+                    # make_path(self.projects)
+                    # make_path(self.project_designs)
 
-            make_path(self.path, condition=self.construct_pose)
+                make_path(self.path, condition=self.construct_pose)
             self.pose_file = path.join(self.source_path, PUtils.pose_file)
             self.frag_file = path.join(self.source_path, PUtils.frag_dir, PUtils.frag_text_file)
-            self.entity_names = get_components_from_nanohedra_docking(self.pose_file)
+            self.info['entity_names'] = get_components_from_nanohedra_docking(self.pose_file)
             # oligomer_names = list(map(str.lower, path_components[-4].split('_')))
             # self.entity_names = [f'{name}_1' for name in oligomer_names]  # assumes the entity is the first
 
@@ -253,7 +262,6 @@ class PoseDirectory:
             self.name = path.splitext(path.basename(self.source_path))[0]
             # self.composition = None  # building_blocks (4ftd_5tch)
             # search for serialized_info using the source_path temporarily
-            self.serialized_info = path.join(self.source_path, f'{output_identifier}{PUtils.data}', 'info.pkl')
             if path.exists(self.serialized_info):  # PoseDirectory already initialized
                 self.initialized = True
                 self.path = self.source_path
@@ -321,9 +329,11 @@ class PoseDirectory:
         self.refined_pdb: str | Path | None = None  # /root/Projects/project_Poses/design/design_name_refined.pdb
         self.scouted_pdb: str | Path | None = None  # /root/Projects/project_Poses/design/designs/design_name_scouted.pdb
 
-        if not self.initialized and not self.entity_names:  # none were provided at start up, find them
+        # if self.initialized then self.entity_names should be set. If not initialized before, check
+        if not self.initialized and 'entity_names' not in self.info:  # none were provided at start up, find them
+            # replace "not self.entity_names" with ^:
             self.find_entity_names()  # starts self.log
-            self.entity_names = self.info.get('entity_names', [])  # set so that DataBase set up works
+        self.entity_names = self.info.get('entity_names', [])  # set so that DataBase set up works
 
     @classmethod
     def from_nanohedra(cls, design_path: str, root: str | bytes = None, nanohedra_output: bool = True, **kwargs):
