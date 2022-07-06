@@ -388,7 +388,7 @@ class PDB(Structure):
 
     @classmethod
     def from_file(cls, file: str | bytes, **kwargs):
-        """Create a new PDB from a file with Atom records"""
+        """Create a new Model from a file with Atom records"""
         if '.pdb' in file:
             return cls.from_pdb(file, **kwargs)
         elif '.cif' in file:
@@ -399,33 +399,33 @@ class PDB(Structure):
 
     @classmethod
     def from_pdb(cls, file: str | bytes, **kwargs):
-        """Create a new PDB from a .pdb formatted file"""
+        """Create a new Model from a .pdb formatted file"""
         return cls(file_path=file, **read_pdb_file(file, **kwargs))
 
     @classmethod
     def from_mmcif(cls, file: str | bytes, **kwargs):
-        """Create a new PDB from a .pdb formatted file"""
+        """Create a new Model from a .cif formatted file"""
         raise NotImplementedError(mmcif_error)
         return cls(file_path=file, **read_mmcif_file(file, **kwargs))
 
     @classmethod
     def from_chains(cls, chains: list[Chain] | Structures, **kwargs):
-        """Create a new PDB from a container of Chain objects. Automatically renames all chains"""
+        """Create a new Model from a container of Chain objects. Automatically renames all chains"""
         return cls(chains=chains, rename_chains=True, **kwargs)
 
     @classmethod
     def from_entities(cls, entities: list[Entity] | Structures, **kwargs):
-        """Create a new PDB from a container of Entity objects"""
+        """Create a new Model from a container of Entity objects"""
         return cls(entities=entities, **kwargs)
 
     @property
     def number_of_chains(self) -> int:
-        """Return the number of Chain objects in the PDB"""
+        """Return the number of Chain objects in the Model"""
         return len(self.chains)
 
     @property
     def number_of_entities(self) -> int:
-        """Return the number of Entity objects in the PDB"""
+        """Return the number of Entity objects in the Model"""
         return len(self.entities)
 
     @property
@@ -743,7 +743,7 @@ class PDB(Structure):
                 self.chains = chains
                 self.chain_ids = [chain.name for chain in self.chains]
             else:  # create Entities from Chain.Residues
-                self.create_entities(**kwargs)
+                self._create_entities(**kwargs)
 
         if pose_format:
             self.renumber_structure()
@@ -1201,8 +1201,8 @@ class PDB(Structure):
                         query_pdb_by(entry=parsed_name, assembly_integer=self.biological_assembly)
                 elif extra:  # we found extra split. use of elif means we couldn't have 1ABC_1.pdb2
                     # try to parse the found "integer"
-                    integer, *_ = extra
-                    if integer.isdigit():
+                    integer, *non_sense = extra
+                    if integer.isdigit() and not non_sense:
                         integer = int(integer)
                         if idx == 0:  # entity integer, such as 1ABC_1.pdb
                             # query_args.update(entity_integer=integer)
@@ -1220,15 +1220,18 @@ class PDB(Structure):
                             if idx == 1:  # assembly integer, such as 1ABC-1.pdb
                                 # query_args.update(assembly_integer=integer)
                                 self.api_entry['assembly'] = query_pdb_by(entry=parsed_name, assembly_integer=integer)
-                    else:  # this isn't an integer, therefore they are extra characters that won't be of help
+                    else:  # this isn't an integer or there are extra characters
+                        # It's likely they are extra characters that won't be of help. Try to collect anyway
                         # self.log.debug(bad_format_msg)
+                        self.log.debug('Found extra file name information that can\'t be coerced to match the PDB API')
                         self.api_entry = query_pdb_by(entry=parsed_name)
-                else:  # we didn't try to get extra as it was correct to begin with, just query entry
+                else:  # we didn't try to get extra as it was correct length to begin with, just query entry
                     self.api_entry = query_pdb_by(entry=parsed_name)
 
                 if not self.api_entry:
                     self.log.debug(f'No PDB entry was found in the PDB API with "{parsed_name}"')
                 else:
+                    self.log.debug(f'Found PDB API information: {", ".join(f"{k}={v}" for k, v in self.api_entry)}')
                     # set the identified name
                     self.name = parsed_name
                 # elif self.source_db:
@@ -1248,7 +1251,7 @@ class PDB(Structure):
             if entity_id == entity.name:
                 return entity
 
-    def create_entities(self, entity_names: Sequence = None, query_by_sequence: bool = True, **kwargs):
+    def _create_entities(self, entity_names: Sequence = None, query_by_sequence: bool = True, **kwargs):
         """Create all Entities in the PDB object searching for the required information if it was not found during
         file parsing. First, search the PDB API using an attached PDB entry_id, dependent on the presence of a
         biological assembly file and/or multimodel file. Finally, initialize them from the Residues in each Chain
@@ -1328,7 +1331,7 @@ class PDB(Structure):
             # except (IndexError, AttributeError):
             #     raise DesignError('Missing Chain object for %s %s! entity_info=%s, assembly=%s and multimodel=%s '
             #                       'api_entry=%s, original_chain_ids=%s'
-            #                       % (self.name, self.create_entities.__name__, self.entity_info,
+            #                       % (self.name, self._create_entities.__name__, self.entity_info,
             #                       self.biological_assembly, self.multimodel, self.api_entry, self.original_chain_ids))
             data['uniprot_id'] = accession['accession'] if accession and accession['db'] == 'UNP' else accession
             # data['chains'] = [chain for chain in chains if chain]  # remove any missing chains
@@ -1339,7 +1342,7 @@ class PDB(Structure):
             # self.entities.append(Entity.from_chains(**data))
             self.entities.append(Entity.from_chains(**data, parent=self))
 
-    def get_entity_info_from_atoms(self, tolerance: float = 0.9, **kwargs):  # Todo define inside create_entities?
+    def get_entity_info_from_atoms(self, tolerance: float = 0.9, **kwargs):  # Todo define inside _create_entities?
         """Find all unique Entities in the input .pdb file. These are unique sequence objects
 
         Args:
