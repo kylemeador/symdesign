@@ -242,7 +242,9 @@ class Coords:
 
 # null_coords = Coords()
 # parent Structure controls these attributes
-parent_attributes = {'_StructureBase__parent', '_coords', '_log', '_atoms', '_residues'}
+parent_variable = '_StructureBase__parent'
+new_parent_attributes = {'_coords', '_log', '_atoms', '_residues'}
+parent_attributes = new_parent_attributes.union({parent_variable})
 
 
 class StructureBase:
@@ -4544,8 +4546,9 @@ class Structure(StructureBase):
             except AttributeError:  # this copy was initiated by a Structure that is not the parent
                 self.log.warning(f'The copied {type(self).__name__} is being set as a parent. It was a dependent '
                                  f'previously')
-                for attr in parent_attributes:
+                for attr in new_parent_attributes:
                     other.__dict__[attr] = copy(self.__dict__[attr])
+                setattr(other, parent_variable, None)  # set parent explicitly as None
                 other._atoms.set_attributes(_parent=other)
                 other._residues.set_attributes(_parent=other)
                 other._copy_structure_containers()
