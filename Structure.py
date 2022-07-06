@@ -4983,7 +4983,8 @@ class Entity(Chain, SequenceProfile):  # Todo consider moving SequenceProfile to
         # super().__init__(residues=representative._residues, residue_indices=representative.residue_indices,
         #                  coords=representative._coords, log=representative._log, **kwargs)
         super().__init__(residue_indices=representative.residue_indices, **kwargs)
-        self._chains = []
+        # self._chains = []
+        self._chains = [self]
         # _copy_structure_containers and _update_structure_container_attributes are Entity specific
         self.structure_containers.extend(['_chains'])  # use _chains as chains is okay to equal []
         chain_ids = [representative.name]
@@ -5213,10 +5214,9 @@ class Entity(Chain, SequenceProfile):  # Todo consider moving SequenceProfile to
     @property
     def chains(self) -> list[Entity]:  # Structures
         """Returns transformed copies of the Entity"""
-        if self._chains:  # check if empty list in the case that chains haven't been generated
-            return self._chains
-        else:  # populate with Entity and potentially Entity mates
-            self._chains = [self]
+        if self.chain_transforms and len(self._chains) == 1:  # check if chains haven't been generated but should
+            # populate with Entity mates
+            # self._chains = [self]
             self._chains.extend([self.return_transformed_mate(**transform) for transform in self.chain_transforms])
             chain_ids = self.chain_ids
             self.log.debug(f'Entity chains property has {len(self._chains)} chains because the underlying '
@@ -5224,7 +5224,10 @@ class Entity(Chain, SequenceProfile):  # Todo consider moving SequenceProfile to
             for idx, chain in enumerate(self._chains):
                 # set entity.chain_id which sets all residues
                 chain.chain_id = chain_ids[idx]
-            return self._chains
+        # else:
+        #     return self._chains
+
+        return self._chains
 
     @property
     def reference_sequence(self) -> str:
@@ -5316,7 +5319,8 @@ class Entity(Chain, SequenceProfile):  # Todo consider moving SequenceProfile to
         """Clear the Entity of all Chain and Oligomer information"""
         self._chain_transforms = []  # [dict(rotation=identity_matrix, translation=origin)]
         self.number_of_monomers = 1
-        self._chains.clear()
+        # self._chains.clear()
+        self._chains = [self]
         try:
             del self._chain_ids
         except AttributeError:
@@ -5326,7 +5330,7 @@ class Entity(Chain, SequenceProfile):  # Todo consider moving SequenceProfile to
         """Turn the Entity into a 'mate' Entity"""
         self._is_captain = False
         # self._remove_chain_transforms()
-        self._chains.clear()
+        self._chains = [self]
         del self._chain_transforms
 
     def make_oligomer(self, symmetry: str = None, rotation: list[list[float]] | np.ndarray = None,
@@ -6109,7 +6113,6 @@ class Entity(Chain, SequenceProfile):  # Todo consider moving SequenceProfile to
         """Copy all member Structures that reside in Structure containers. Entity specific handling of chains index 0"""
         for structure_type in self.structure_containers:
             structures = getattr(self, structure_type)
-            structures[0] = self  # set structures index 0 to the self Entity instance
             for idx, structure in enumerate(structures[1:]):  # only operate on [1:] slice since index 0 is different
                 structures[idx] = copy(structure)
 
