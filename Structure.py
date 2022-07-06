@@ -2194,8 +2194,9 @@ class Structure(StructureBase):
         """Index the coordinates to the Residue they belong to and their associated atom_index"""
         residues_atom_idx = [(residue, res_atom_idx) for residue in self.residues for res_atom_idx in residue.range]
         self._coords_indexed_residues, self._coords_indexed_residue_atoms = map(np.array, zip(*residues_atom_idx))
-
-        # super().__init__(**kwargs)
+        if len(self._coords_indexed_residues) != len(self._atom_indices):
+            raise ValueError(f'The length of _coords_indexed_residues {len(self._coords_indexed_residues)} '
+                             f'!= _atom_indices {len(self._atom_indices)}')
 
     @classmethod
     def from_atoms(cls, atoms: list[Atom] | Atoms = None, coords: Coords | np.ndarray = None, **kwargs):
