@@ -4542,8 +4542,12 @@ class Structure(StructureBase):
             except AttributeError:  # this copy was initiated by a Structure that is not the parent
                 self.log.warning(f'The copied {type(self).__name__} is being set as a parent. It was a dependent '
                                  f'previously')
-                # raise Warning(f'The copied {type(self).__name__} is being set as a parent. It was a dependent '
-                #               f'previously')
+                for attr in parent_attributes:
+                    other.__dict__[attr] = copy(self.__dict__[attr])
+                other._atoms.set_attributes(_parent=other)
+                other._residues.set_attributes(_parent=other)
+                other._copy_structure_containers()
+                other._update_structure_container_attributes(_parent=other)
                 pass
 
         return other
