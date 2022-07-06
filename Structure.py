@@ -2120,8 +2120,7 @@ class Structure(StructureBase):
     structure_containers: list | list[str]
     state_attributes: set[str] = StructureBase.state_attributes | \
         {'_sequence', '_backbone_and_cb_indices', '_backbone_indices', '_ca_indices', '_cb_indices',
-         '_heavy_indices', '_coords_indexed_backbone_indices', '_coords_indexed_backbone_and_cb_indices',
-         '_coords_indexed_cb_indices', '_coords_indexed_ca_indices', '_helix_cb_indices'}
+         '_heavy_indices', '_helix_cb_indices'}
     available_letters: str = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'  # '0123456789~!@#$%^&*()-+={}[]|:;<>?'
 
     def __init__(self, atoms: list[Atom] | Atoms = None, residues: list[Residue] | Residues = None,
@@ -2189,14 +2188,6 @@ class Structure(StructureBase):
             self._assign_atoms(atoms)
         else:  # set up an empty Structure or let subclass handle population
             pass
-
-    def _set_coords_indexed(self):
-        """Index the coordinates to the Residue they belong to and their associated atom_index"""
-        residues_atom_idx = [(residue, res_atom_idx) for residue in self.residues for res_atom_idx in residue.range]
-        self._coords_indexed_residues, self._coords_indexed_residue_atoms = map(np.array, zip(*residues_atom_idx))
-        if len(self._coords_indexed_residues) != len(self._atom_indices):
-            raise ValueError(f'The length of _coords_indexed_residues {len(self._coords_indexed_residues)} '
-                             f'!= _atom_indices {len(self._atom_indices)}')
 
     @classmethod
     def from_atoms(cls, atoms: list[Atom] | Atoms = None, coords: Coords | np.ndarray = None, **kwargs):
@@ -2618,6 +2609,14 @@ class Structure(StructureBase):
     # def residue_indexed_atom_indices(self, indices: list[list[int]]):
     #     self._residue_indexed_atom_indices = indices
 
+    def _set_coords_indexed(self):
+        """Index the coordinates to the Residue they belong to and their associated atom_index"""
+        residues_atom_idx = [(residue, res_atom_idx) for residue in self.residues for res_atom_idx in residue.range]
+        self._coords_indexed_residues, self._coords_indexed_residue_atoms = map(np.array, zip(*residues_atom_idx))
+        if len(self._coords_indexed_residues) != len(self._atom_indices):
+            raise ValueError(f'The length of _coords_indexed_residues {len(self._coords_indexed_residues)} '
+                             f'!= _atom_indices {len(self._atom_indices)}')
+
     @property
     def coords_indexed_residues(self) -> list[Residue]:
         """Returns the Residue associated with each Coord in the Structure
@@ -2836,7 +2835,9 @@ class Structure(StructureBase):
 
         return sorted(set(all_residues), key=lambda residue: residue.number)
 
-    # Todo each of the below properties could be part of same __getitem__ function
+    # Todo
+    #  The functions below don't really serve a purpose... but this pseudocode would apply to similar code patterns
+    #  each of the below properties could be part of same __getitem__ function
     #  ex:
     #   def __getitem__(self, value):
     #       THE CRUX OF PROBLEM IS HOW TO SEPARATE THESE GET FROM OTHER STRUCTURE GET
@@ -2848,54 +2849,54 @@ class Structure(StructureBase):
     #           setattr(self, f'_coords_indexed{value}_indices', [idx for idx, atom_idx in enumerate(self._atom_indices)
     #                                                             if atom_idx in test_indices])
     #           return getattr(self, f'_coords_indexed{value}_indices')
-
-    @property
-    def coords_indexed_backbone_indices(self) -> list[int]:
-        """Return backbone Atom indices from the Structure indexed to the Coords view"""
-        try:
-            return self._coords_indexed_backbone_indices
-        except AttributeError:
-            # for idx, (atom_idx, bb_idx) in enumerate(zip(self._atom_indices, self.backbone_indices)):
-            # backbone_indices = []
-            # for residue, res_atom_idx in self.coords_indexed_residues:
-            #     backbone_indices.extend(residue.backbone_indices)
-            test_indices = self.backbone_indices
-            self._coords_indexed_backbone_indices = \
-                [idx for idx, atom_idx in enumerate(self._atom_indices) if atom_idx in test_indices]
-        return self._coords_indexed_backbone_indices
-
-    @property
-    def coords_indexed_backbone_and_cb_indices(self) -> list[int]:
-        """Return backbone and CB Atom indices from the Structure indexed to the Coords view"""
-        try:
-            return self._coords_indexed_backbone_and_cb_indices
-        except AttributeError:
-            test_indices = self.backbone_and_cb_indices
-            self._coords_indexed_backbone_and_cb_indices = \
-                [idx for idx, atom_idx in enumerate(self._atom_indices) if atom_idx in test_indices]
-        return self._coords_indexed_backbone_and_cb_indices
-
-    @property
-    def coords_indexed_cb_indices(self) -> list[int]:
-        """Return CA Atom indices from the Structure indexed to the Coords view"""
-        try:
-            return self._coords_indexed_cb_indices
-        except AttributeError:
-            test_indices = self.cb_indices
-            self._coords_indexed_cb_indices = \
-                [idx for idx, atom_idx in enumerate(self._atom_indices) if atom_idx in test_indices]
-        return self._coords_indexed_cb_indices
-
-    @property
-    def coords_indexed_ca_indices(self) -> list[int]:
-        """Return CB Atom indices from the Structure indexed to the Coords view"""
-        try:
-            return self._coords_indexed_ca_indices
-        except AttributeError:
-            test_indices = self.ca_indices
-            self._coords_indexed_ca_indices = \
-                [idx for idx, atom_idx in enumerate(self._atom_indices) if atom_idx in test_indices]
-        return self._coords_indexed_ca_indices
+    #
+    # @property
+    # def coords_indexed_backbone_indices(self) -> list[int]:
+    #     """Return backbone Atom indices from the Structure indexed to the Coords view"""
+    #     try:
+    #         return self._coords_indexed_backbone_indices
+    #     except AttributeError:
+    #         # for idx, (atom_idx, bb_idx) in enumerate(zip(self._atom_indices, self.backbone_indices)):
+    #         # backbone_indices = []
+    #         # for residue, res_atom_idx in self.coords_indexed_residues:
+    #         #     backbone_indices.extend(residue.backbone_indices)
+    #         test_indices = self.backbone_indices
+    #         self._coords_indexed_backbone_indices = \
+    #             [idx for idx, atom_idx in enumerate(self._atom_indices) if atom_idx in test_indices]
+    #     return self._coords_indexed_backbone_indices
+    #
+    # @property
+    # def coords_indexed_backbone_and_cb_indices(self) -> list[int]:
+    #     """Return backbone and CB Atom indices from the Structure indexed to the Coords view"""
+    #     try:
+    #         return self._coords_indexed_backbone_and_cb_indices
+    #     except AttributeError:
+    #         test_indices = self.backbone_and_cb_indices
+    #         self._coords_indexed_backbone_and_cb_indices = \
+    #             [idx for idx, atom_idx in enumerate(self._atom_indices) if atom_idx in test_indices]
+    #     return self._coords_indexed_backbone_and_cb_indices
+    #
+    # @property
+    # def coords_indexed_cb_indices(self) -> list[int]:
+    #     """Return CA Atom indices from the Structure indexed to the Coords view"""
+    #     try:
+    #         return self._coords_indexed_cb_indices
+    #     except AttributeError:
+    #         test_indices = self.cb_indices
+    #         self._coords_indexed_cb_indices = \
+    #             [idx for idx, atom_idx in enumerate(self._atom_indices) if atom_idx in test_indices]
+    #     return self._coords_indexed_cb_indices
+    #
+    # @property
+    # def coords_indexed_ca_indices(self) -> list[int]:
+    #     """Return CB Atom indices from the Structure indexed to the Coords view"""
+    #     try:
+    #         return self._coords_indexed_ca_indices
+    #     except AttributeError:
+    #         test_indices = self.ca_indices
+    #         self._coords_indexed_ca_indices = \
+    #             [idx for idx, atom_idx in enumerate(self._atom_indices) if atom_idx in test_indices]
+    #     return self._coords_indexed_ca_indices
 
     @property
     def backbone_indices(self) -> list[int]:
