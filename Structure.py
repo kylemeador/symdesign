@@ -3125,8 +3125,8 @@ class Structure(StructureBase):
         for index in remove_atom_indices[::-1]:  # ensure popping happens in reverse
             atom_indices.pop(index)
         self._atom_indices = atom_indices
-        # remove bad atoms
-        self._atoms.remove()
+        # Todo remove bad atoms
+        # self._atoms.remove()
 
     # when alt_location parsing allowed, there may be some use to this, however above works great without alt location
     # def _create_residues(self):
