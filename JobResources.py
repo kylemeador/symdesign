@@ -46,6 +46,7 @@ class Database:  # Todo ensure that the single object is completely loaded befor
                  refined: str | bytes | Path = None, full_models: str | bytes | Path = None,
                  stride: str | bytes | Path = None, sequences: str | bytes | Path = None,
                  hhblits_profiles: str | bytes | Path = None, pdb_api: str | bytes | Path = None,
+                 pdb_entity_api: str | bytes | Path = None, pdb_assembly_api: str | bytes | Path = None,
                  uniprot_api: str | bytes | Path = None, sql=None, log: Logger = logger):  # sql: sqlite = None,
         if sql:
             raise DesignError('SQL set up has not been completed!')
@@ -60,6 +61,8 @@ class Database:  # Todo ensure that the single object is completely loaded befor
         self.alignments = DataStore(location=hhblits_profiles, extension='.sto', sql=sql, log=log)
         self.hhblits_profiles = DataStore(location=hhblits_profiles, extension='.hmm', sql=sql, log=log)
         self.pdb_api = DataStore(location=pdb_api, extension='.json', sql=sql, log=log)
+        self.pdb_entity_api = DataStore(location=pdb_entity_api, extension='.json', sql=sql, log=log)
+        self.pdb_assembly_api = DataStore(location=pdb_assembly_api, extension='.json', sql=sql, log=log)
         self.uniprot_api = DataStore(location=uniprot_api, extension='.json', sql=sql, log=log)
         # self.bmdca_fields = \
         #     DataStore(location=hhblits_profiles, extension='_bmDCA%sparameters_h_final.bin' % os.sep, sql=sql, log=log)
@@ -1006,6 +1009,7 @@ class JobResources:
         self.clustered_poses = os.path.join(self.protein_data, 'ClusteredPoses')
         self.pdbs = os.path.join(self.protein_data, 'PDBs')  # Used to store downloaded PDB's
         self.sequence_info = os.path.join(self.protein_data, sequence_info)
+        self.external_db = os.path.join(self.protein_data, 'ExternalDatabases')
         # pdbs subdirectories
         self.orient_dir = os.path.join(self.pdbs, 'oriented')
         self.orient_asu_dir = os.path.join(self.pdbs, 'oriented_asu')
@@ -1015,6 +1019,11 @@ class JobResources:
         # sequence_info subdirectories
         self.sequences = os.path.join(self.sequence_info, 'sequences')
         self.profiles = os.path.join(self.sequence_info, 'profiles')
+        # external database subdirectories
+        self.pdb_api = os.path.join(self.external_db, 'pdb')
+        self.pdb_entity_api = os.path.join(self.external_db, 'pdb_entity')
+        self.pdb_assembly_api = os.path.join(self.external_db, 'pdb_assembly')
+        self.uniprot_api = os.path.join(self.external_db, 'uniprot')
         # try:
         # if not self.projects:  # used for subclasses
         # if not getattr(self, 'projects', None):  # used for subclasses
@@ -1023,10 +1032,10 @@ class JobResources:
         #     self.projects = os.path.join(self.program_root, projects)
         # self.design_db = None
         # self.score_db = None
-        # self.make_path(self.protein_data)
-        # self.make_path(self.projects)
-        # self.make_path(self.job_paths)
-        # self.make_path(self.sbatch_scripts)
+        SDUtils.make_path(self.pdb_api)
+        SDUtils.make_path(self.pdb_entity_api)
+        SDUtils.make_path(self.pdb_assembly_api)
+        SDUtils.make_path(self.uniprot_api)
         # sequence database specific
         # self.make_path(self.sequence_info)
         # self.make_path(self.sequences)
@@ -1040,7 +1049,8 @@ class JobResources:
         # self.make_path(self.stride_dir)
         self.reduce_memory = False
         self.resources = Database(self.orient_dir, self.orient_asu_dir, self.refine_dir, self.full_model_dir,
-                                  self.stride_dir, self.sequences, self.profiles, sql=None)  # , log=logger)
+                                  self.stride_dir, self.sequences, self.profiles, self.pdb_api, self.pdb_entity_api,
+                                  self.pdb_assembly_api, self.uniprot_api, sql=None)  # , log=logger)
         # self.symmetry_factory = symmetry_factory
         self.fragment_db: FragmentDatabase | None = None
         self.euler_lookup: EulerLookup | None = None
