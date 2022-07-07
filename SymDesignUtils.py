@@ -236,7 +236,7 @@ def get_table_column_widths(data: Iterable) -> Tuple[int]:
     return tuple(max(map(len, map(str, column))) for column in zip(*data))
 
 
-def make_path(path: Union[str, bytes], condition: bool = True):
+def make_path(path: str | bytes, condition: bool = True):
     """Make all required directories in specified path if it doesn't exist, and optional condition is True
 
     Args:

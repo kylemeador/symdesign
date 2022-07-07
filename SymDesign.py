@@ -446,7 +446,7 @@ def terminate(results: list[Any] | dict = None, output: bool = True, **kwargs):
         global out_path
         global design_source
         job_paths = job.job_paths
-        job.make_path(job_paths)
+        SDUtils.make_path(job_paths)
         if low and high:
             design_source = '%s-%.2f-%.2f' % (design_source, low, high)
         # Make single file with names of each directory where all_docked_poses can be found
@@ -511,7 +511,7 @@ def terminate(results: list[Any] | dict = None, output: bool = True, **kwargs):
             if len(success) == 0:
                 exit_code = 1
                 exit(exit_code)
-            job.make_path(job.sbatch_scripts)
+            SDUtils.make_path(job.sbatch_scripts)
             if pose_directories:
                 command_file = SDUtils.write_commands([os.path.join(des.scripts, f'{stage}.sh') for des in success],
                                                       out_path=job_paths, name='_'.join(default_output_tuple))
@@ -942,9 +942,9 @@ if __name__ == '__main__':
             stride_dir = job.stride_dir
             load_resources = False
             if args.preprocessed:
-                # job.make_path(job.refine_dir)
-                job.make_path(job.full_model_dir)
-                job.make_path(job.stride_dir)
+                # SDUtils.make_path(job.refine_dir)
+                SDUtils.make_path(job.full_model_dir)
+                SDUtils.make_path(job.stride_dir)
                 all_entities, found_entity_names = [], []
                 for entity in [entity for pose in pose_directories for entity in pose.initial_model.entities]:
                     if entity.name not in found_entity_names:
@@ -979,7 +979,7 @@ if __name__ == '__main__':
             # set up the hhblits and profile bmdca for each input entity
             # profile_dir = job.profiles
             # sequences_dir = job.sequences
-            job.make_path(job.sequences)
+            SDUtils.make_path(job.sequences)
             hhblits_cmds, bmdca_cmds = [], []
             for entity in all_entities:
                 entity.sequence_file = job.resources.sequences.retrieve_file(name=entity.name)
@@ -1005,8 +1005,8 @@ if __name__ == '__main__':
                     print(f'Couldn\'t locate the {PUtils.hhblits} executable. Ensure the executable file '
                           f'{PUtils.hhblits_exe} exists then try your job again.')
                     exit()
-                job.make_path(job.profiles)
-                job.make_path(job.sbatch_scripts)
+                SDUtils.make_path(job.profiles)
+                SDUtils.make_path(job.sbatch_scripts)
                 # prepare files for running hhblits commands
                 instructions = 'Please follow the instructions below to generate sequence profiles for input proteins'
                 info_messages.append(instructions)
@@ -1031,8 +1031,8 @@ if __name__ == '__main__':
                 hhblits_sbatch = None
 
             if bmdca_cmds:
-                job.make_path(job.profiles)
-                job.make_path(job.sbatch_scripts)
+                SDUtils.make_path(job.profiles)
+                SDUtils.make_path(job.sbatch_scripts)
                 # bmdca_cmds = \
                 #     [list2cmdline([PUtils.bmdca_exe_path, '-i', os.path.join(job.profiles, '%s.fasta' % entity.name),
                 #                   '-d', os.path.join(job.profiles, '%s_bmDCA' % entity.name)])
@@ -1476,8 +1476,8 @@ if __name__ == '__main__':
         #         (CommmandDistributer.mpi - 1, PUtils.nstruct / (CommmandDistributer.mpi - 1)))
         #     queried_flags.update({'mpi': True, 'script': True})
         if not queried_flags[PUtils.no_evolution_constraint]:  # hhblits to run
-            job.make_path(job.sequences)
-            job.make_path(job.profiles)
+            SDUtils.make_path(job.sequences)
+            SDUtils.make_path(job.profiles)
         # Start pose processing and preparation for Rosetta
         if args.multi_processing:
             results = SDUtils.mp_map(PoseDirectory.interface_design, pose_directories, processes=cores)
@@ -1494,7 +1494,7 @@ if __name__ == '__main__':
         #     args.save = True
 
         # ensure analysis write directory exists
-        job.make_path(job.all_scores)
+        SDUtils.make_path(job.all_scores)
         # Start pose analysis of all designed files
         if args.output_file == PUtils.analysis_file:
             args.output_file = os.path.join(job.all_scores, args.output_file % (SDUtils.starttime, design_source))
@@ -1646,7 +1646,7 @@ if __name__ == '__main__':
             if len(pose_directories) > 500:
                 design_source = f'top_{args.metric}'
                 default_output_tuple = (SDUtils.starttime, args.module, design_source)
-                job.make_path(job.job_paths)
+                SDUtils.make_path(job.job_paths)
                 designs_file = os.path.join(job.job_paths, '%s_%s_%s_pose.scores' % default_output_tuple)
                 with open(designs_file, 'w') as f:
                     f.write(top_designs_string % '\n\t'.join(results_strings))

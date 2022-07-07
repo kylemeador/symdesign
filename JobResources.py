@@ -7,7 +7,7 @@ from glob import glob
 from logging import Logger
 from pathlib import Path
 from subprocess import list2cmdline
-from typing import List, Tuple, Iterable, Dict, Union, Optional, Any
+from typing import Iterable, Any
 
 import numpy as np
 from Bio.Data.IUPACData import protein_letters
@@ -459,6 +459,20 @@ def write_list_to_file(_list, file_name, **kwargs) -> str | bytes:
     return file_name
 
 
+def read_json(file_name, **kwargs) -> dict | None:
+    """Use json.load to read an object from a file
+
+    Args:
+        file_name: The location of the file to write
+    Returns:
+        The json data in the file
+    """
+    with open(file_name, 'r') as f_save:
+        data = json.load(f_save, **kwargs)
+
+    return data
+
+
 def write_json(data, file_name, **kwargs) -> str | bytes:
     """Use json.dump to write an object to a file
 
@@ -492,7 +506,7 @@ class DataStore:
             self.load_file = PDB.from_file
             self.save_file = not_implemented
         elif '.json' in extension:
-            self.load_file = json.load
+            self.load_file = read_json
             self.save_file = write_json
         elif extension == '.fasta':
             self.load_file = read_fasta_file
@@ -517,10 +531,10 @@ class DataStore:
             self.load_file = self.read_file
             self.save_file = write_list_to_file
 
-    def make_path(self, condition=True):
+    def make_path(self, condition: bool = True):
         """Make all required directories in specified path if it doesn't exist, and optional condition is True
 
-        Keyword Args:
+        Args:
             condition=True (bool): A condition to check before the path production is executed
         """
         if condition:
@@ -542,7 +556,7 @@ class DataStore:
         else:
             self.log.info(f'No files found for "{path}"')
 
-    def retrieve_files(self) -> List:
+    def retrieve_files(self) -> list:
         """Returns the actual location of all files in the stored .location"""
         path = self.store()
         files = sorted(glob(path))
@@ -550,7 +564,7 @@ class DataStore:
             self.log.info(f'No files found for "{path}"')
         return files
 
-    def retrieve_names(self) -> List[str]:
+    def retrieve_names(self) -> list[str]:
         """Returns the names of all objects in the stored .location"""
         path = self.store()
         names = list(map(os.path.basename, [os.path.splitext(file)[0] for file in sorted(glob(path))]))
@@ -595,18 +609,13 @@ class DataStore:
             return self.save_file(self.store, self.retrieve_data(name), **kwargs)
 
     def _load_data(self, name: str, **kwargs) -> Any | None:
-        """Return the data located in a particular entry specified by name
-
-        Returns:
-            (Union[None, Any])
-        """
+        """Return the data located in a particular entry specified by name"""
         if self.sql:
             dummy = True
         else:
             file = self.retrieve_file(name)
             if file:
                 return self.load_file(file, **kwargs)
-        return
 
     def get_all_data(self, **kwargs):
         """Return all data located in the particular DataStore storage location"""
@@ -776,11 +785,11 @@ class FragmentDatabase(FragmentDB):
         self.source: str = source
         # Todo load all statistics files into the pickle!
         # self.location = frag_directory.get(self.source, None)
-        self.statistics: Dict = {}
+        self.statistics: dict = {}
         # {cluster_id: [[mapped, paired, {max_weight_counts}, ...], ..., frequencies: {'A': 0.11, ...}}
         #  ex: {'1_0_0': [[0.540, 0.486, {-2: 67, -1: 326, ...}, {-2: 166, ...}], 2749]
-        self.fragment_range: Tuple[int, int]
-        self.cluster_info: Dict = {}
+        self.fragment_range: tuple[int, int]
+        self.cluster_info: dict = {}
         # self.fragdb = None  # Todo
 
         if sql:
@@ -800,11 +809,11 @@ class FragmentDatabase(FragmentDB):
         self.fragment_range = parameterize_frag_length(fragment_length)
 
     @property
-    def location(self) -> Optional[Union[str, bytes]]:
+    def location(self) -> str | bytes | None:
         """Provide the location where fragments are stored"""
         return frag_directory.get(self.source, None)
 
-    def get_db_statistics(self) -> Dict:
+    def get_db_statistics(self) -> dict:
         """Retrieve summary statistics for a specific fragment database located on directory
 
         Returns:
@@ -827,7 +836,7 @@ class FragmentDatabase(FragmentDB):
             #         self.statistics = unpickle(os.path.join(self.location, file))
             #         return
 
-    def get_db_aa_frequencies(self) -> Dict[protein_letters, float]:
+    def get_db_aa_frequencies(self) -> dict[protein_letters, float]:
         """Retrieve database specific amino acid representation frequencies
 
         Returns:
@@ -836,8 +845,7 @@ class FragmentDatabase(FragmentDB):
         return self.statistics.get('frequencies', {})
 
     def retrieve_cluster_info(self, cluster: str = None, source: str = None, index: str = None) -> \
-            Dict[str, Union[int, float, str, Dict[int, Dict[Union[protein_letters, str],
-                                                            Union[float, Tuple[int, float]]]]]]:
+            dict[str, int | float | str | dict[int, dict[protein_letters | str, float | tuple[int, float]]]]:
         # Todo rework this and below func for Database
         """Return information from the fragment information database by cluster_id, information source, and source index
 
@@ -862,7 +870,7 @@ class FragmentDatabase(FragmentDB):
         else:
             return self.cluster_info
 
-    def get_cluster_info(self, ids: List[str] = None):
+    def get_cluster_info(self, ids: list[str] = None):
         """Load cluster information from the fragment database source into attribute cluster_info
         # todo change ids to a tuple
         Args:
@@ -1084,16 +1092,16 @@ class JobResources:
         if self.no_term_constraint:
             self.generate_fragments = False
 
-    @staticmethod
-    def make_path(path: Union[str, bytes], condition: bool = True):
-        """Make all required directories in specified path if it doesn't exist, and optional condition is True
-
-        Args:
-            path: The path to create
-            condition: A condition to check before the path production is executed
-        """
-        if condition:
-            os.makedirs(path, exist_ok=True)
+    # @staticmethod
+    # def make_path(path: str | bytes, condition: bool = True):
+    #     """Make all required directories in specified path if it doesn't exist, and optional condition is True
+    #
+    #     Args:
+    #         path: The path to create
+    #         condition: A condition to check before the path production is executed
+    #     """
+    #     if condition:
+    #         os.makedirs(path, exist_ok=True)
 
 
 class JobResourcesFactory:
