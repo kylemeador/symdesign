@@ -748,12 +748,21 @@ def _get_assembly_info(assembly_id: str = None, entry: str = None, assembly_inte
     """
     assembly_request = _query_assembly_id(assembly_id=assembly_id, entry=entry, assembly_integer=assembly_integer)
     if not assembly_request:
-        return
-    if not assembly_id:
-        assembly_id = f'{entry}_{assembly_integer}'
+        return {}
 
+    return parse_assembly_json(assembly_request.json())
+
+
+def parse_assembly_json(assembly_json: dict[str, Any]) -> dict:
+    """For a PDB API AssemblyID, parse the associated entity ID's and chains
+
+    Args:
+        assembly_json: The json type dictionary returned from requests.Response.json()
+    Returns:
+        The mapped entity number to the chain ID's in the assembly. Ex: {1: ['A', 'A', 'A', ...]}
+    """
     entity_clustered_chains = {}
-    for entity_idx, symmetry in enumerate(assembly_request.json()['rcsb_struct_symmetry'], 1):
+    for entity_idx, symmetry in enumerate(assembly_json['rcsb_struct_symmetry'], 1):
         # for symmetry in symmetries:  # [{}, ...]
         # symmetry contains:
         # {symbol: "O", type: 'Octahedral, stoichiometry: [], oligomeric_state: "Homo 24-mer", clusters: [],
@@ -835,16 +844,32 @@ def _get_entry_info(entry: str = None, **kwargs) -> dict[str, Any] | None:
     """
     entry_request = _query_entry_id(entry)
     if not entry_request:
-        return
+        return {}
+    else:
+        json = entry_request.json()
+        return dict(**parse_entities_json([query_entity_id(entry=entry, entity_integer=integer).json()
+                                           for integer in range(1, int(json['rcsb_entry_info']
+                                                                       ['polymer_entity_count']) + 1)]),
+                    **parse_entry_json(json))
 
-    entry_json = entry_request.json()
+
+def parse_entry_json(entry_json: dict[str, Any]) -> dict[str, dict]:
+    """For a PDB API EntryID, parse the associated entity ID's and chains
+
+    Args:
+        entry_json: The json type dictionary returned from requests.Response.json()
+    Returns:
+        The structural information present in the PDB EntryID
+    """
+    # entry_json = entry_request.json()
     # if 'method' in entry_json['exptl'][0]:
-    if 'experimental_method' in entry_json['rcsb_entry_info']:
-        # exptl_method = entry_json['exptl'][0]['method']
-        exptl_method = entry_json['rcsb_entry_info']['experimental_method'].lower()
-        if 'ray' in exptl_method and 'cell' in entry_json and 'symmetry' in entry_json:  # Todo make ray, diffraction
-            ang_a, ang_b, ang_c = entry_json['cell']['angle_alpha'], entry_json['cell']['angle_beta'], entry_json['cell']['angle_gamma']
-            a, b, c = entry_json['cell']['length_a'], entry_json['cell']['length_b'], entry_json['cell']['length_c']
+    experimental_method = entry_json['rcsb_entry_info'].get('experimental_method')
+    if experimental_method:
+        # Todo make ray, diffraction
+        if 'ray' in experimental_method.lower() and 'cell' in entry_json and 'symmetry' in entry_json:
+            cell = entry_json['cell']
+            ang_a, ang_b, ang_c = cell['angle_alpha'], cell['angle_beta'], cell['angle_gamma']
+            a, b, c = cell['length_a'], cell['length_b'], cell['length_c']
             space_group = entry_json['symmetry']['space_group_name_hm']
             struct_d = {'space': space_group, 'a_b_c': (a, b, c), 'ang_a_b_c': (ang_a, ang_b, ang_c)}
             resolution = entry_json['rcsb_entry_info']['resolution_combined'][0]
@@ -853,20 +878,26 @@ def _get_entry_info(entry: str = None, **kwargs) -> dict[str, Any] | None:
             resolution = None
     else:
         logger.warning('Entry has no "experimental_method" keyword')
-        return
+        struct_d = {}
+        resolution = None
 
-    entity_chain_d, ref_d, db_d = {}, {}, {}
+    return {'res': resolution, 'struct': struct_d, 'method': experimental_method.lower()}
+
+
+def parse_entities_json(entity_jsons: list[dict[str, Any]]) -> dict[str, dict]:
+    entity_chain_d, ref_d = {}, {}
     # I can use 'polymer_entity_count_protein' to further identify the entities in a protein, which gives me the chains
     # for entity_idx in range(1, int(entry_json['rcsb_entry_info']['polymer_entity_count_protein']) + 1):
-    for entity_idx in range(1, int(entry_json['rcsb_entry_info']['polymer_entity_count']) + 1):
-        entity_ref_d = _get_entity_info(entry=entry, entity_integer=entity_idx)
+    for entity_idx, entity_json in enumerate(entity_jsons, 1):
+        # entity_ref_d = _get_entity_info(entry=entry, entity_integer=entity_idx)
+        entity_ref_d = parse_entity_json(entity_json)
         ref_d.update(entity_ref_d)
         entity_chain_d[entity_idx] = list(entity_ref_d.keys())  # these are the chains
         # dbref = {chain: {'db': db, 'accession': db_accession_id}}
     # OR dbref = {entity: {'db': db, 'accession': db_accession_id}}
     # cryst = {'space': space_group, 'a_b_c': (a, b, c), 'ang_a_b_c': (ang_a, ang_b, ang_c)}
 
-    return {'entity': entity_chain_d, 'res': resolution, 'dbref': ref_d, 'struct': struct_d, 'method': exptl_method}
+    return {'entity': entity_chain_d, 'dbref': ref_d}
 
 
 def _get_entity_info(entity_id: str = None, entry: str = None, entity_integer: int | str = None) -> \
@@ -884,11 +915,18 @@ def _get_entity_info(entity_id: str = None, entry: str = None, entity_integer: i
     if not entity_request:
         return {}
 
-    if not entity_id:
-        entity_id = f'{entry}_{entity_integer}'
+    return parse_entity_json(entity_request.json())
 
-    entity_json = entity_request.json()
-    chains = entity_json['rcsb_polymer_entity_container_identifiers']['asym_ids']  # = ['A', 'B', 'C']
+
+def parse_entity_json(entity_json: dict[str, Any]) -> dict[str, dict]:
+    """For a PDB API EntityID, parse the associated chains and database reference identifiers
+
+    Args:
+        entity_json: The json type dictionary returned from requests.Response.json()
+    Returns:
+        {chain: {'accession': 'Q96DC8', 'db': 'UNP'}, ...}
+    """
+    chains = entity_json['rcsb_polymer_entity_container_identifiers']['asym_ids']  # = ['A', 'B', ...]
     database_keys = ['db', 'accession']
     db_d = {}
     try:
@@ -897,7 +935,7 @@ def _get_entity_info(entity_id: str = None, entry: str = None, entity_integer: i
             database = 'UNP'
             if len(uniprot_id) > 1:  # Todo choose the most accurate if more than 2...
                 logger.warning('For Entity %s, found multiple UniProt Entries %s. Selecting the first'
-                               % (entity_id, uniprot_id))
+                               % (entity_json['rcsb_polymer_entity_container_identifiers']['rcsb_id'], uniprot_id))
             db_d = dict(zip(database_keys, ('UNP', uniprot_id[0])))  # may be an issue where there is more than one
         except KeyError:  # if no uniprot_id
             # GenBank = GB, which is mostly RNA or DNA structures or antibody complexes
