@@ -686,7 +686,7 @@ def query_pdb_by(entry: str = None, assembly_id: str = None, assembly_integer: i
         else:
             logger.warning(f'EntryID "{entry}" is not of the required format and will not be found with the PDB API')
     elif assembly_id:
-        entry, assembly_integer, *extra = assembly_id.split('_')
+        entry, assembly_integer, *extra = assembly_id.split('-')
         if not extra and len(entry) == 4:
             logger.debug(f'Querying PDB API with {entry}-{assembly_integer}')
             return _get_assembly_info(entry=entry, assembly_integer=assembly_integer)
