@@ -19,7 +19,7 @@ from Bio import pairwise2
 from Bio.Data.IUPACData import protein_letters_3to1_extended, protein_letters_1to3_extended
 from sklearn.neighbors import BallTree
 
-# from JobResources import Database  # Todo
+# from JobResources import Database  # Todo solve circular import
 from PathUtils import orient_exe_path, orient_dir, pdb_db, qs_bio
 from Query.PDB import retrieve_entity_id_by_sequence, query_pdb_by
 from SequenceProfile import generate_alignment
@@ -324,6 +324,7 @@ class PDB(Structure):
     multimodel: bool
     original_chain_ids: list[str]
     resolution: float | None
+    # resource_db: DataBase  # Todo solve circular import
     _reference_sequence: dict[str, str]
     # space_group: str | None
     # uc_dimensions: list[float] | None
@@ -1166,12 +1167,13 @@ class PDB(Structure):
                                                                   'ang_a_b_c': (ang_a, ang_b, ang_c)}
                                     }
         """
-        if self.api_entry:
+        if self.api_entry:  # we already tried solving this
             return
-        # if self.source_db:  # Todo
-        #     self.api_entry = self.source_db.pdb_api.retrieve_file(name=self.name)
-        #     if self.api_entry:
-        #         return
+        # if self.resource_db:
+        try:
+            retrieve_api_info = self.resource_db.pdb_api.retrieve_data
+        except AttributeError:
+            retrieve_api_info = query_pdb_by
 
         if self.name:  # try to solve API details from name
             parsed_name = self.name
@@ -1196,9 +1198,9 @@ class PDB(Structure):
                 if self.biological_assembly:
                     # query_args.update(assembly_integer=self.assembly)
                     # # self.api_entry.update(_get_assembly_info(self.name))
-                    self.api_entry = query_pdb_by(entry=parsed_name)
+                    self.api_entry = retrieve_api_info(entry=parsed_name)
                     self.api_entry['assembly'] = \
-                        query_pdb_by(entry=parsed_name, assembly_integer=self.biological_assembly)
+                        retrieve_api_info(entry=parsed_name, assembly_integer=self.biological_assembly)
                 elif extra:  # extra not None or []. use of elif means we couldn't have 1ABC_1.pdb2
                     # try to parse any found extra to an integer denoting entity or assembly ID
                     integer, *non_sense = extra
@@ -1206,7 +1208,7 @@ class PDB(Structure):
                         integer = int(integer)
                         if idx == 0:  # entity integer, such as 1ABC_1.pdb
                             # query_args.update(entity_integer=integer)
-                            self.api_entry = dict(dbref=query_pdb_by(entry=parsed_name, entity_integer=integer))
+                            self.api_entry = dict(dbref=retrieve_api_info(entry=parsed_name, entity_integer=integer))
                             self.api_entry['entity'] = {integer: list(self.api_entry['dbref'].keys())}
                             # api_entry v
                             # return {'entity': entity_chain_d, 'res': resolution, 'dbref': ref_d,
@@ -1215,18 +1217,19 @@ class PDB(Structure):
                             # dbref: v
                             # return {chain: {'accession': 'Q96DC8', 'db': 'UNP'}, ...}
                         else:  # get entry alone. This is an assembly or unknown conjugation. Either way we need entry info
-                            self.api_entry = query_pdb_by(entry=parsed_name)
+                            self.api_entry = retrieve_api_info(entry=parsed_name)
 
                             if idx == 1:  # assembly integer, such as 1ABC-1.pdb
                                 # query_args.update(assembly_integer=integer)
-                                self.api_entry['assembly'] = query_pdb_by(entry=parsed_name, assembly_integer=integer)
+                                self.api_entry['assembly'] = \
+                                    retrieve_api_info(entry=parsed_name, assembly_integer=integer)
                     else:  # this isn't an integer or there are extra characters
                         # It's likely they are extra characters that won't be of help. Try to collect anyway
                         # self.log.debug(bad_format_msg)
                         self.log.debug('Found extra file name information that can\'t be coerced to match the PDB API')
-                        # self.api_entry = query_pdb_by(entry=parsed_name)
+                        # self.api_entry = retrieve_api_info(entry=parsed_name)
                 elif extra is None:  # we didn't get extra as it was correct length to begin with, just query entry
-                    self.api_entry = query_pdb_by(entry=parsed_name)
+                    self.api_entry = retrieve_api_info(entry=parsed_name)
                 else:
                     raise RuntimeError('This logic was not expected and shouldn\'t be allowed to persist:'
                                        f'self.name={self.name}, parse_name={parsed_name}, extra={extra}, idx={idx}')
@@ -1238,8 +1241,6 @@ class PDB(Structure):
                                    f'{", ".join(f"{k}={v}" for k, v in self.api_entry.items())}')
                     # set the identified name
                     self.name = parsed_name
-                # elif self.source_db:
-                #     self.source_db.pdb_api.store_data(self.api_entry, name=self.name)
         else:
             self.log.debug('No name was found for this Model. PDB API won\'t be searched')
 
