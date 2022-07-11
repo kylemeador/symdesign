@@ -645,7 +645,7 @@ def retrieve_pdb_entries_by_advanced_query(save: bool = True, return_results: bo
 
 
 def query_pdb_by(entry: str = None, assembly_id: str = None, assembly_integer: int | str = None, entity_id: str = None,
-                 entity_integer: int | str = None, chain: str = None, **kwargs) -> dict | None:
+                 entity_integer: int | str = None, chain: str = None, **kwargs) -> dict:
     """Retrieve information from the PDB API by EntryID, AssemblyID, or EntityID
 
     Args:
@@ -668,18 +668,21 @@ def query_pdb_by(entry: str = None, assembly_id: str = None, assembly_integer: i
                 return _get_assembly_info(entry=entry, assembly_integer=assembly_integer)
             else:
                 logger.debug(f'Querying PDB API with {entry}')
-                info = _get_entry_info(entry)
+                data = _get_entry_info(entry)
                 if chain:
-                    chain_entity = \
-                        {chain: entity_idx for entity_idx, chains in info.get('entity').items() for chain in chains}
-                    try:
-                        logger.debug(f'Querying PDB API with {entry}_{chain_entity[chain]}')
-                        return _get_entity_info(entry=entry, entity_integer=chain_entity[chain])
-                    except KeyError:
-                        raise KeyError(f'No chain "{chain}" found in PDB ID {entry}. '
-                                       f'Possible chains {", ".join(chain_entity)}')
+                    integer = None
+                    for entity_idx, chains in data.get('entity').items():
+                        if chain in chains:
+                            integer = entity_idx
+                            break
+                    if integer:
+                        logger.debug(f'Querying PDB API with {entry}_{integer}')
+                        return _get_entity_info(entry=entry, entity_integer=integer)
+                    else:
+                        raise KeyError(f'No chain "{chain}" found in PDB ID {entry}. Possible chains '
+                                       f'{", ".join(ch for chns in data.get("entity", {}).items() for ch in chns)}')
                 else:
-                    return info
+                    return data
         else:
             logger.warning(f'EntryID "{entry}" is not of the required format and will not be found with the PDB API')
     elif assembly_id:
@@ -699,19 +702,24 @@ def query_pdb_by(entry: str = None, assembly_id: str = None, assembly_integer: i
 
         logger.warning(f'EntityID "{entry}_{entity_integer}" is not of the required format and will not be found with '
                        f'the PDB API')
+    else:
+        raise RuntimeError(f'No valid arguments passed to {query_pdb_by.__name__}. Valid arguments include: '
+                           f'entry, assembly_id, assembly_integer, entity_id, entity_integer, chain')
 
 
 # def _query_*_id(*_id: str = None, entry: str = None, *_integer: str | int = None) -> dict[str, Any] | None:
 # Ex. entry = '4atz'
 # ex. assembly = 1
 # url = https://data.rcsb.org/rest/v1/core/assembly/4atz/1
+# ex. entity
+# url = https://data.rcsb.org/rest/v1/core/polymer_entity/4atz/1
 # ex. chain
 # url = https://data.rcsb.org/rest/v1/core/polymer_entity_instance/4atz/A
 
 
-def _query_assembly_id(assembly_id: str = None, entry: str = None, assembly_integer: str | int = None) -> \
+def query_assembly_id(assembly_id: str = None, entry: str = None, assembly_integer: str | int = None) -> \
         requests.Response | None:
-    """Fetches the JSON object for the AssemblyID from the PDB API
+    """Retrieve PDB AssemblyID information from the PDB API. More info at http://data.rcsb.org/#data-api
 
     For all method types the following keys are available:
     {'rcsb_polymer_entity_annotation', 'entity_poly', 'rcsb_polymer_entity', 'entity_src_gen',
@@ -736,7 +744,8 @@ def _query_assembly_id(assembly_id: str = None, entry: str = None, assembly_inte
         return connection_exception_handler(f'http://data.rcsb.org/rest/v1/core/assembly/{entry}/{assembly_integer}')
 
 
-def _get_assembly_info(assembly_id: str = None, entry: str = None, assembly_integer: int = 1) -> dict[int, list[str]] | None:
+def _get_assembly_info(assembly_id: str = None, entry: str = None, assembly_integer: int = 1) -> \
+        dict[int, list[str]] | dict:
     """Retrieve information on the assembly for a particular entry from the PDB API
 
     Args:
@@ -746,7 +755,7 @@ def _get_assembly_info(assembly_id: str = None, entry: str = None, assembly_inte
     Returns:
         The mapped entity number to the chain ID's in the assembly. Ex: {1: ['A', 'A', 'A', ...]}
     """
-    assembly_request = _query_assembly_id(assembly_id=assembly_id, entry=entry, assembly_integer=assembly_integer)
+    assembly_request = query_assembly_id(assembly_id=assembly_id, entry=entry, assembly_integer=assembly_integer)
     if not assembly_request:
         return {}
 
@@ -782,57 +791,57 @@ def parse_assembly_json(assembly_json: dict[str, Any]) -> dict:
     return entity_clustered_chains
 
 
-def _query_entry_id(entry: str = None) -> requests.Response | None:
-    """Fetches the JSON object for the AssemblyID from the PDB API
+def query_entry_id(entry: str = None) -> requests.Response | None:
+    """Fetches the JSON object for the EntryID from the PDB API
+
+    The following information is returned:
+    All methods (SOLUTION NMR, ELECTRON MICROSCOPY, X-RAY DIFFRACTION) have the following keys:
+    {'rcsb_primary_citation', 'pdbx_vrpt_summary', 'pdbx_audit_revision_history', 'audit_author',
+     'pdbx_database_status', 'rcsb_id', 'pdbx_audit_revision_details', 'struct_keywords',
+     'rcsb_entry_container_identifiers', 'entry', 'rcsb_entry_info', 'struct', 'citation', 'exptl',
+     'rcsb_accession_info'}
+    EM only keys:
+    {'em3d_fitting', 'em3d_fitting_list', 'em_image_recording', 'em_specimen', 'em_software', 'em_entity_assembly',
+     'em_vitrification', 'em_single_particle_entity', 'em3d_reconstruction', 'em_experiment', 'pdbx_audit_support',
+     'em_imaging', 'em_ctf_correction'}
+    Xray only keys:
+    {'diffrn_radiation', 'cell', 'reflns', 'diffrn', 'software', 'refine_hist', 'diffrn_source', 'exptl_crystal',
+     'symmetry', 'diffrn_detector', 'refine', 'reflns_shell', 'exptl_crystal_grow'}
+    NMR only keys:
+    {'pdbx_nmr_exptl', 'pdbx_audit_revision_item', 'pdbx_audit_revision_category', 'pdbx_nmr_spectrometer',
+     'pdbx_nmr_refine', 'pdbx_nmr_representative', 'pdbx_nmr_software', 'pdbx_nmr_exptl_sample_conditions',
+     'pdbx_nmr_ensemble'}
+
+    entry_json['rcsb_entry_info'] = \
+        {'assembly_count': 1, 'branched_entity_count': 0, 'cis_peptide_count': 3, 'deposited_atom_count': 8492,
+        'deposited_model_count': 1, 'deposited_modeled_polymer_monomer_count': 989,
+        'deposited_nonpolymer_entity_instance_count': 0, 'deposited_polymer_entity_instance_count': 6,
+        'deposited_polymer_monomer_count': 1065, 'deposited_solvent_atom_count': 735,
+        'deposited_unmodeled_polymer_monomer_count': 76, 'diffrn_radiation_wavelength_maximum': 0.9797,
+        'diffrn_radiation_wavelength_minimum': 0.9797, 'disulfide_bond_count': 0, 'entity_count': 3,
+        'experimental_method': 'X-ray', 'experimental_method_count': 1, 'inter_mol_covalent_bond_count': 0,
+        'inter_mol_metalic_bond_count': 0, 'molecular_weight': 115.09, 'na_polymer_entity_types': 'Other',
+        'nonpolymer_entity_count': 0, 'polymer_composition': 'heteromeric protein', 'polymer_entity_count': 2,
+        'polymer_entity_count_dna': 0, 'polymer_entity_count_rna': 0, 'polymer_entity_count_nucleic_acid': 0,
+        'polymer_entity_count_nucleic_acid_hybrid': 0, 'polymer_entity_count_protein': 2,
+        'polymer_entity_taxonomy_count': 2, 'polymer_molecular_weight_maximum': 21.89,
+        'polymer_molecular_weight_minimum': 16.47, 'polymer_monomer_count_maximum': 201,
+        'polymer_monomer_count_minimum': 154, 'resolution_combined': [1.95],
+        'selected_polymer_entity_types': 'Protein (only)',
+        'software_programs_combined': ['PHASER', 'REFMAC', 'XDS', 'XSCALE'], 'solvent_entity_count': 1,
+        'diffrn_resolution_high': {'provenance_source': 'Depositor assigned', 'value': 1.95}}
 
     Args:
         entry: The PDB code to search for
     Returns:
         The entry information according to the PDB
     """
-    #     The following information is returned:
-    #     All methods (SOLUTION NMR, ELECTRON MICROSCOPY, X-RAY DIFFRACTION) have the following keys:
-    #     {'rcsb_primary_citation', 'pdbx_vrpt_summary', 'pdbx_audit_revision_history', 'audit_author',
-    #      'pdbx_database_status', 'rcsb_id', 'pdbx_audit_revision_details', 'struct_keywords',
-    #      'rcsb_entry_container_identifiers', 'entry', 'rcsb_entry_info', 'struct', 'citation', 'exptl',
-    #      'rcsb_accession_info'}
-    #     EM only keys:
-    #     {'em3d_fitting', 'em3d_fitting_list', 'em_image_recording', 'em_specimen', 'em_software', 'em_entity_assembly',
-    #      'em_vitrification', 'em_single_particle_entity', 'em3d_reconstruction', 'em_experiment', 'pdbx_audit_support',
-    #      'em_imaging', 'em_ctf_correction'}
-    #     Xray only keys:
-    #     {'diffrn_radiation', 'cell', 'reflns', 'diffrn', 'software', 'refine_hist', 'diffrn_source', 'exptl_crystal',
-    #      'symmetry', 'diffrn_detector', 'refine', 'reflns_shell', 'exptl_crystal_grow'}
-    #     NMR only keys:
-    #     {'pdbx_nmr_exptl', 'pdbx_audit_revision_item', 'pdbx_audit_revision_category', 'pdbx_nmr_spectrometer',
-    #      'pdbx_nmr_refine', 'pdbx_nmr_representative', 'pdbx_nmr_software', 'pdbx_nmr_exptl_sample_conditions',
-    #      'pdbx_nmr_ensemble'}
-
-    # entry_json['rcsb_entry_info'] = \
-    #     {'assembly_count': 1, 'branched_entity_count': 0, 'cis_peptide_count': 3, 'deposited_atom_count': 8492,
-    #     'deposited_model_count': 1, 'deposited_modeled_polymer_monomer_count': 989,
-    #     'deposited_nonpolymer_entity_instance_count': 0, 'deposited_polymer_entity_instance_count': 6,
-    #     'deposited_polymer_monomer_count': 1065, 'deposited_solvent_atom_count': 735,
-    #     'deposited_unmodeled_polymer_monomer_count': 76, 'diffrn_radiation_wavelength_maximum': 0.9797,
-    #     'diffrn_radiation_wavelength_minimum': 0.9797, 'disulfide_bond_count': 0, 'entity_count': 3,
-    #     'experimental_method': 'X-ray', 'experimental_method_count': 1, 'inter_mol_covalent_bond_count': 0,
-    #     'inter_mol_metalic_bond_count': 0, 'molecular_weight': 115.09, 'na_polymer_entity_types': 'Other',
-    #     'nonpolymer_entity_count': 0, 'polymer_composition': 'heteromeric protein', 'polymer_entity_count': 2,
-    #     'polymer_entity_count_dna': 0, 'polymer_entity_count_rna': 0, 'polymer_entity_count_nucleic_acid': 0,
-    #     'polymer_entity_count_nucleic_acid_hybrid': 0, 'polymer_entity_count_protein': 2,
-    #     'polymer_entity_taxonomy_count': 2, 'polymer_molecular_weight_maximum': 21.89,
-    #     'polymer_molecular_weight_minimum': 16.47, 'polymer_monomer_count_maximum': 201,
-    #     'polymer_monomer_count_minimum': 154, 'resolution_combined': [1.95],
-    #     'selected_polymer_entity_types': 'Protein (only)',
-    #     'software_programs_combined': ['PHASER', 'REFMAC', 'XDS', 'XSCALE'], 'solvent_entity_count': 1,
-    #     'diffrn_resolution_high': {'provenance_source': 'Depositor assigned', 'value': 1.95}}
-
     if entry:
         return connection_exception_handler(f'http://data.rcsb.org/rest/v1/core/entry/{entry}')
 
 
 def _get_entry_info(entry: str = None, **kwargs) -> dict[str, Any] | None:
-    """Retrieve PDB information from the RCSB API. More info at http://data.rcsb.org/#data-api
+    """Retrieve PDB EntryID information from the PDB API. More info at http://data.rcsb.org/#data-api
 
     Makes 1 + num_of_entities calls to the PDB API for information
 
@@ -842,7 +851,7 @@ def _get_entry_info(entry: str = None, **kwargs) -> dict[str, Any] | None:
         {'entity': {1: ['A', 'B'], ...}, 'res': resolution, 'dbref': {chain: {'accession': ID, 'db': UNP}, ...},
          'struct': {'space': space_group, 'a_b_c': (a, b, c), 'ang_a_b_c': (ang_a, ang_b, ang_c)}}
     """
-    entry_request = _query_entry_id(entry)
+    entry_request = query_entry_id(entry)
     if not entry_request:
         return {}
     else:
@@ -911,7 +920,7 @@ def _get_entity_info(entity_id: str = None, entry: str = None, entity_integer: i
     Returns:
         {chain: {'accession': 'Q96DC8', 'db': 'UNP'}, ...}
     """
-    entity_request = _query_entity_id(entry=entry, entity_integer=entity_integer, entity_id=entity_id)
+    entity_request = query_entity_id(entry=entry, entity_integer=entity_integer, entity_id=entity_id)
     if not entity_request:
         return {}
 
@@ -972,9 +981,9 @@ def parse_entity_json(entity_json: dict[str, Any]) -> dict[str, dict]:
     return ref_d
 
 
-def _query_entity_id(entry: str = None, entity_integer: str | int = None, entity_id: str = None) -> \
+def query_entity_id(entry: str = None, entity_integer: str | int = None, entity_id: str = None) -> \
         requests.Response | None:
-    """Fetches the JSON object for the entity_id from the PDB API
+    """Retrieve PDB EntityID information from the PDB API. More info at http://data.rcsb.org/#data-api
      
     For all method types the following keys are available:
     {'rcsb_polymer_entity_annotation', 'entity_poly', 'rcsb_polymer_entity', 'entity_src_gen',
@@ -1021,7 +1030,7 @@ def get_entity_id(entity_id: str = None, entry: str = None, entity_integer: int 
             # entity_id = f'{entry}_{entity_integer}'
         else:
             info = _get_entry_info(entry)
-            chain_entity = {chain: entity_idx for entity_idx, chains in info.get('entity').items() for chain in chains}
+            chain_entity = {chain: entity_idx for entity_idx, chains in info.get('entity', {}).items() for chain in chains}
             if chain:
                 try:
                     return entry, chain_entity[chain]
@@ -1058,7 +1067,7 @@ def get_entity_uniprot_id(**kwargs) -> str | None:
     Returns:
         The UniProt ID
     """
-    entity_request = _query_entity_id(*get_entity_id(**kwargs))
+    entity_request = query_entity_id(*get_entity_id(**kwargs))
     if entity_request:
         # return the first uniprot entry
         return entity_request.json().get('rcsb_polymer_entity_container_identifiers')['uniprot_id'][0]
@@ -1077,7 +1086,7 @@ def get_entity_reference_sequence(**kwargs) -> str | None:
     Returns:
         One letter amino acid sequence
     """
-    entity_request = _query_entity_id(*get_entity_id(**kwargs))
+    entity_request = query_entity_id(*get_entity_id(**kwargs))
     if entity_request:
         return entity_request.json().get('entity_poly')['pdbx_seq_one_letter_code_can']  # returns non-cannonical as 'X'
         # return entity_json.get('entity_poly')['pdbx_seq_one_letter_code']  # returns non-cannonical amino acids
