@@ -2111,6 +2111,7 @@ class Structure(StructureBase):
     _heavy_indices: list[int]
     _helix_cb_indices: list[int]
     _side_chain_indices: list[int]
+    _contact_order: np.ndarry
     _coords_indexed_residues: np.ndarray  # list[Residue]
     _coords_indexed_residue_atoms: np.ndarray  # list[int]
     _residues: Residues | None

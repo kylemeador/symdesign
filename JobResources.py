@@ -52,6 +52,9 @@ class Database:  # Todo ensure that the single object is completely loaded befor
         #                  pdb_entity_api: str | bytes | Path = None, pdb_assembly_api: str | bytes | Path = None,
         if sql:
             raise DesignError('SQL set up has not been completed!')
+            self.sql = sql
+        else:
+            self.sql = sql
 
         self.log = log
         self.oriented = DataStore(location=oriented, extension='.pdb*', sql=sql, log=log)
@@ -540,7 +543,7 @@ class DataStore:
         """Make all required directories in specified path if it doesn't exist, and optional condition is True
 
         Args:
-            condition=True (bool): A condition to check before the path production is executed
+            condition: A condition to check before the path production is executed
         """
         if condition:
             os.makedirs(self.location, exist_ok=True)
@@ -594,9 +597,9 @@ class DataStore:
         if data:
             self.log.debug(f'Info {name}{self.extension} was retrieved from DataStore')
         else:
-            setattr(self, name, self._load_data(name, log=None))  # attempt to store the new data as an attribute
-            data = getattr(self, name)
+            data = self._load_data(name, log=None)  # attempt to retrieve the new data
             if data:
+                setattr(self, name, data)  # attempt to store the new data as an attribute
                 self.log.debug(f'Database file {name}{self.extension} was loaded fresh')
 
         return data
