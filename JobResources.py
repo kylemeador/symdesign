@@ -22,6 +22,8 @@ from PathUtils import orient_log_file, rosetta_scripts, models_to_multimodel_exe
     structure_background, scout, generate_fragments, number_of_trajectories, nstruct, no_hbnet, \
     ignore_symmetric_clashes, ignore_pose_clashes, ignore_clashes, force_flags, no_evolution_constraint, \
     no_term_constraint, consensus
+from Query.PDB import query_entry_id, parse_entry_json, parse_entities_json, query_entity_id, query_assembly_id, \
+    parse_entity_json, parse_assembly_json
 from Query.utils import boolean_choice
 from SequenceProfile import parse_hhblits_pssm, MultipleSequenceAlignment, read_fasta_file, write_sequence_to_fasta
 from Structure import parse_stride, Entity
@@ -46,8 +48,8 @@ class Database:  # Todo ensure that the single object is completely loaded befor
                  refined: str | bytes | Path = None, full_models: str | bytes | Path = None,
                  stride: str | bytes | Path = None, sequences: str | bytes | Path = None,
                  hhblits_profiles: str | bytes | Path = None, pdb_api: str | bytes | Path = None,
-                 pdb_entity_api: str | bytes | Path = None, pdb_assembly_api: str | bytes | Path = None,
                  uniprot_api: str | bytes | Path = None, sql=None, log: Logger = logger):  # sql: sqlite = None,
+        #                  pdb_entity_api: str | bytes | Path = None, pdb_assembly_api: str | bytes | Path = None,
         if sql:
             raise DesignError('SQL set up has not been completed!')
 
@@ -60,9 +62,9 @@ class Database:  # Todo ensure that the single object is completely loaded befor
         self.sequences = DataStore(location=sequences, extension='.fasta', sql=sql, log=log)
         self.alignments = DataStore(location=hhblits_profiles, extension='.sto', sql=sql, log=log)
         self.hhblits_profiles = DataStore(location=hhblits_profiles, extension='.hmm', sql=sql, log=log)
-        self.pdb_api = DataStore(location=pdb_api, extension='.json', sql=sql, log=log)
-        self.pdb_entity_api = DataStore(location=pdb_entity_api, extension='.json', sql=sql, log=log)
-        self.pdb_assembly_api = DataStore(location=pdb_assembly_api, extension='.json', sql=sql, log=log)
+        self.pdb_api = PDBDataStore(location=pdb_api, extension='.json', sql=sql, log=log)
+        # self.pdb_entity_api = DataStore(location=pdb_entity_api, extension='.json', sql=sql, log=log)
+        # self.pdb_assembly_api = DataStore(location=pdb_assembly_api, extension='.json', sql=sql, log=log)
         self.uniprot_api = DataStore(location=uniprot_api, extension='.json', sql=sql, log=log)
         # self.bmdca_fields = \
         #     DataStore(location=hhblits_profiles, extension='_bmDCA%sparameters_h_final.bin' % os.sep, sql=sql, log=log)
@@ -637,6 +639,238 @@ class DataStore:
         return lines
 
 
+# class EntityDataStore(DataStore):
+#     def retrieve_data(self, name: str = None, **kwargs) -> dict | None:
+#         """Return data requested by PDB EntityID. Loads into the Database or queries the PDB API
+#
+#         Args:
+#             name: The name of the data to be retrieved. Will be found with location and extension attributes
+#         Returns:
+#             If the data is available, the object requested will be returned, else None
+#         """
+#         data = super().retrieve_data(name=name)
+#         #         data = getattr(self, name, None)
+#         #         if data:
+#         #             self.log.debug(f'Info {name}{self.extension} was retrieved from DataStore')
+#         #         else:
+#         #             data = self._load_data(name, log=None)  # attempt to retrieve the new data
+#         #             if data:
+#         #                 setattr(self, name, data)  # attempt to store the new data as an attribute
+#         #                 self.log.debug(f'Database file {name}{self.extension} was loaded fresh')
+#         #
+#         #         return data
+#         if not data:
+#             request = query_entity_id(entity_id=name)
+#             if not request:
+#                 logger.warning(f'PDB API found no matching results for {name}')
+#             else:
+#                 data = request.json()
+#                 # setattr(self, name, data)
+#                 self.store_data(data, name=name)
+#
+#         return data
+#
+#
+# class AssemblyDataStore(DataStore):
+#     def retrieve_data(self, name: str = None, **kwargs) -> dict | None:
+#         """Return data requested by PDB AssemblyID. Loads into the Database or queries the PDB API
+#
+#         Args:
+#             name: The name of the data to be retrieved. Will be found with location and extension attributes
+#         Returns:
+#             If the data is available, the object requested will be returned, else None
+#         """
+#         data = super().retrieve_data(name=name)
+#         #         data = getattr(self, name, None)
+#         #         if data:
+#         #             self.log.debug(f'Info {name}{self.extension} was retrieved from DataStore')
+#         #         else:
+#         #             data = self._load_data(name, log=None)  # attempt to retrieve the new data
+#         #             if data:
+#         #                 setattr(self, name, data)  # attempt to store the new data as an attribute
+#         #                 self.log.debug(f'Database file {name}{self.extension} was loaded fresh')
+#         #
+#         #         return data
+#         if not data:
+#             request = query_assembly_id(assembly_id=name)
+#             if not request:
+#                 logger.warning(f'PDB API found no matching results for {name}')
+#             else:
+#                 data = request.json()
+#                 # setattr(self, name, data)
+#                 self.store_data(data, name=name)
+#
+#         return data
+
+
+class PDBDataStore(DataStore):
+    def __init__(self, location: str = None, extension: str = '.json', sql=None, log: Logger = logger):
+        super().__init__(location=location, extension=extension, sql=sql, log=log)
+        # pdb_entity_api: str | bytes | Path = os.path.join(self.location, 'pdb_entity')
+        # pdb_assembly_api: str | bytes | Path = os.path.join(self.location, 'pdb_assembly')
+        # self.entity_api = EntityDataStore(location=pdb_entity_api, extension='.json', sql=self.sql, log=self.log)
+        # self.assembly_api = AssemblyDataStore(location=pdb_assembly_api, extension='.json', sql=self.sql, log=self.log)
+        # SDUtils.make_path(pdb_entity_api)
+        # SDUtils.make_path(pdb_assembly_api)
+
+    def retrieve_entity_data(self, name: str = None, **kwargs) -> dict | None:
+        """Return data requested by PDB EntityID. Loads into the Database or queries the PDB API
+
+        Args:
+            name: The name of the data to be retrieved. Will be found with location and extension attributes
+        Returns:
+            If the data is available, the object requested will be returned, else None
+        """
+        data = super().retrieve_data(name=name)
+        #         data = getattr(self, name, None)
+        #         if data:
+        #             self.log.debug(f'Info {name}{self.extension} was retrieved from DataStore')
+        #         else:
+        #             data = self._load_data(name, log=None)  # attempt to retrieve the new data
+        #             if data:
+        #                 setattr(self, name, data)  # attempt to store the new data as an attribute
+        #                 self.log.debug(f'Database file {name}{self.extension} was loaded fresh')
+        #
+        #         return data
+        if not data:
+            request = query_entity_id(entity_id=name)
+            if not request:
+                logger.warning(f'PDB API found no matching results for {name}')
+            else:
+                data = request.json()
+                # setattr(self, name, data)
+                self.store_data(data, name=name)
+
+        return data
+
+    def retrieve_assembly_data(self, name: str = None, **kwargs) -> dict | None:
+        """Return data requested by PDB AssemblyID. Loads into the Database or queries the PDB API
+
+        Args:
+            name: The name of the data to be retrieved. Will be found with location and extension attributes
+        Returns:
+            If the data is available, the object requested will be returned, else None
+        """
+        data = super().retrieve_data(name=name)
+        #         data = getattr(self, name, None)
+        #         if data:
+        #             self.log.debug(f'Info {name}{self.extension} was retrieved from DataStore')
+        #         else:
+        #             data = self._load_data(name, log=None)  # attempt to retrieve the new data
+        #             if data:
+        #                 setattr(self, name, data)  # attempt to store the new data as an attribute
+        #                 self.log.debug(f'Database file {name}{self.extension} was loaded fresh')
+        #
+        #         return data
+        if not data:
+            request = query_assembly_id(assembly_id=name)
+            if not request:
+                logger.warning(f'PDB API found no matching results for {name}')
+            else:
+                data = request.json()
+                # setattr(self, name, data)
+                self.store_data(data, name=name)
+
+        return data
+
+    def retrieve_data(self, entry: str = None, assembly_id: str = None, assembly_integer: int | str = None,
+                      entity_id: str = None, entity_integer: int | str = None, chain: str = None, **kwargs) -> \
+            dict | None:
+        """Return data requested by PDB identifier. Loads into the Database or queries the PDB API
+
+        Args:
+            entry: The 4 character PDB EntryID of interest
+            assembly_id: The AssemblyID to query with format (1ABC-1)
+            assembly_integer: The particular assembly integer to query. Must include entry as well
+            entity_id: The PDB formatted EntityID. Has the format EntryID_Integer (1ABC_1)
+            entity_integer: The entity integer from the EntryID of interest
+            chain: The polymer "chain" identifier otherwise known as the "asym_id" from the PDB EntryID of interest
+        Returns:
+            If the data is available, the object requested will be returned, else None
+        """
+        if entry:
+            if len(entry) == 4:
+                if entity_integer:
+                    # logger.debug(f'Querying PDB API with {entry}_{entity_integer}')
+                    # data = self.entity_api.retrieve_data(name=f'{entry}_{entity_integer}')
+                    # return parse_entity_json(self.entity_api.retrieve_data(name=f'{entry}_{entity_integer}'))
+                    return parse_entity_json(self.retrieve_entity_data(name=f'{entry}_{entity_integer}'))
+                elif assembly_integer:
+                    # logger.debug(f'Querying PDB API with {entry}-{assembly_integer}')
+                    # data = self.assembly_api.retrieve_data(name=f'{entry}_{assembly_integer}')
+                    # return parse_assembly_json(self.assembly_api.retrieve_data(name=f'{entry}-{assembly_integer}'))
+                    return parse_assembly_json(self.retrieve_assembly_data(name=f'{entry}-{assembly_integer}'))
+                else:
+                    # logger.debug(f'Querying PDB API with {entry}')
+                    # perform the normal DataStore routine with super(), however, finish with API call if no data found
+                    data = super().retrieve_data(name=entry)
+                    #         data = getattr(self, name, None)
+                    #         if data:
+                    #             self.log.debug(f'Info {name}{self.extension} was retrieved from DataStore')
+                    #         else:
+                    #             data = self._load_data(name, log=None)  # attempt to retrieve the new data
+                    #             if data:
+                    #                 setattr(self, name, data)  # attempt to store the new data as an attribute
+                    #                 self.log.debug(f'Database file {name}{self.extension} was loaded fresh')
+                    #
+                    #         return data
+                    if not data:
+                        entry_request = query_entry_id(entry)
+                        if not entry_request:
+                            logger.warning(f'PDB API found no matching results for {entry}')
+                        else:
+                            data = entry_request.json()
+                            # setattr(self, entry, data)
+                            self.store_data(data, name=entry)
+
+                    data = dict(**parse_entities_json([self.retrieve_entity_data(name=f'{entry}_{integer}')
+                                                       for integer in range(1, int(data['rcsb_entry_info']
+                                                                                   ['polymer_entity_count']) + 1)]),
+                                **parse_entry_json(data))
+                    if chain:
+                        integer = None
+                        for entity_idx, chains in data.get('entity').items():
+                            if chain in chains:
+                                integer = entity_idx
+                                break
+                        if integer:
+                            # logger.debug(f'Querying PDB API with {entry}_{integer}')
+                            return self.retrieve_entity_data(name=f'{entry}_{integer}')
+                        else:
+                            raise KeyError(f'No chain "{chain}" found in PDB ID {entry}. Possible chains '
+                                           f'{", ".join(ch for chns in data.get("entity", {}).items() for ch in chns)}')
+                    else:  # provide the formatted PDB API Entry ID information
+                        return data
+            else:
+                logger.warning(
+                    f'EntryID "{entry}" is not of the required format and will not be found with the PDB API')
+        elif assembly_id:
+            entry, assembly_integer, *extra = assembly_id.split('-')
+            if not extra and len(entry) == 4:
+                # logger.debug(f'Querying PDB API with {entry}-{assembly_integer}')
+                # data = self.assembly_api.retrieve_data(name=f'{entry}-{assembly_integer}')
+                return parse_assembly_json(self.retrieve_assembly_data(name=f'{entry}-{assembly_integer}'))
+
+            logger.warning(
+                f'AssemblyID "{entry}-{assembly_integer}" is not of the required format and will not be found '
+                f'with the PDB API')
+
+        elif entity_id:
+            entry, entity_integer, *extra = entity_id.split('_')
+            if not extra and len(entry) == 4:
+                # logger.debug(f'Querying PDB API with {entry}_{entity_integer}')
+                # data = self.entity_api.retrieve_data(name=f'{entry}_{entity_integer}')
+                return parse_entity_json(self.retrieve_entity_data(name=f'{entry}_{entity_integer}'))
+
+            logger.warning(
+                f'EntityID "{entry}_{entity_integer}" is not of the required format and will not be found with '
+                f'the PDB API')
+
+        else:  # this could've been passed as name=. This case would need to be solved with some parsing of the splitter
+            raise RuntimeError(f'No valid arguments passed to {self.retrieve_data.__name__}. Valid arguments include: '
+                               f'entry, assembly_id, assembly_integer, entity_id, entity_integer, chain')
+
+
 class ClusterInfoFile:
     def __init__(self, infofile_path):
         # self.infofile_path = infofile_path
@@ -1021,8 +1255,8 @@ class JobResources:
         self.profiles = os.path.join(self.sequence_info, 'profiles')
         # external database subdirectories
         self.pdb_api = os.path.join(self.external_db, 'pdb')
-        self.pdb_entity_api = os.path.join(self.external_db, 'pdb_entity')
-        self.pdb_assembly_api = os.path.join(self.external_db, 'pdb_assembly')
+        # self.pdb_entity_api = os.path.join(self.external_db, 'pdb_entity')
+        # self.pdb_assembly_api = os.path.join(self.external_db, 'pdb_assembly')
         self.uniprot_api = os.path.join(self.external_db, 'uniprot')
         # try:
         # if not self.projects:  # used for subclasses
@@ -1033,8 +1267,8 @@ class JobResources:
         # self.design_db = None
         # self.score_db = None
         SDUtils.make_path(self.pdb_api)
-        SDUtils.make_path(self.pdb_entity_api)
-        SDUtils.make_path(self.pdb_assembly_api)
+        # SDUtils.make_path(self.pdb_entity_api)
+        # SDUtils.make_path(self.pdb_assembly_api)
         SDUtils.make_path(self.uniprot_api)
         # sequence database specific
         # self.make_path(self.sequence_info)
@@ -1049,8 +1283,9 @@ class JobResources:
         # self.make_path(self.stride_dir)
         self.reduce_memory = False
         self.resources = Database(self.orient_dir, self.orient_asu_dir, self.refine_dir, self.full_model_dir,
-                                  self.stride_dir, self.sequences, self.profiles, self.pdb_api, self.pdb_entity_api,
-                                  self.pdb_assembly_api, self.uniprot_api, sql=None)  # , log=logger)
+                                  self.stride_dir, self.sequences, self.profiles, self.pdb_api,
+                                  # self.pdb_entity_api, self.pdb_assembly_api,
+                                  self.uniprot_api, sql=None)  # , log=logger)
         # self.symmetry_factory = symmetry_factory
         self.fragment_db: FragmentDatabase | None = None
         self.euler_lookup: EulerLookup | None = None
