@@ -4,20 +4,17 @@ import copy
 import math
 import os
 import subprocess
-from collections.abc import Iterable
 from copy import copy, deepcopy
 from glob import glob
 from itertools import chain as iter_chain  # repeat,
 from logging import Logger
-# from random import randint
-# from time import sleep
 from pathlib import Path
 from typing import Union, Sequence, List, Optional, Any
 
-import numpy as np
+# import numpy as np
 from Bio import pairwise2
 from Bio.Data.IUPACData import protein_letters_3to1_extended, protein_letters_1to3_extended
-from sklearn.neighbors import BallTree
+# from sklearn.neighbors import BallTree
 
 # from JobResources import Database  # Todo solve circular import
 from PathUtils import orient_exe_path, orient_dir, pdb_db, qs_bio
@@ -1177,7 +1174,7 @@ class PDB(Structure):
 
         if self.name:  # try to solve API details from name
             parsed_name = self.name
-            splitter = ['_', '-']  # entity, assembly
+            splitter = ['_', '-']  # [entity, assembly]
             idx = -1
             extra = None
             while len(parsed_name) != 4:
