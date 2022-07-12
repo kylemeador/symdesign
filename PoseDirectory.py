@@ -404,8 +404,8 @@ class PoseDirectory:
         return self.job_resources.program_root  # program_root
 
     @property
-    def protein_data(self):
-        return self.job_resources.protein_data  # program_root/Data
+    def data(self):
+        return self.job_resources.data  # program_root/Data
 
     @property
     def reduce_memory(self):

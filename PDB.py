@@ -16,7 +16,7 @@ from Bio import pairwise2
 from Bio.Data.IUPACData import protein_letters_3to1_extended, protein_letters_1to3_extended
 # from sklearn.neighbors import BallTree
 
-# from JobResources import Database  # Todo solve circular import
+from JobResources import Database, database_factory
 from PathUtils import orient_exe_path, orient_dir, pdb_db, qs_bio
 from Query.PDB import retrieve_entity_id_by_sequence, query_pdb_by
 from SequenceProfile import generate_alignment
@@ -321,7 +321,7 @@ class PDB(Structure):
     multimodel: bool
     original_chain_ids: list[str]
     resolution: float | None
-    # resource_db: DataBase  # Todo solve circular import
+    resource_db: Database
     _reference_sequence: dict[str, str]
     # space_group: str | None
     # uc_dimensions: list[float] | None
@@ -330,9 +330,8 @@ class PDB(Structure):
                  chains: list[Chain] | Structures | bool = None, entities: list[Entity] | Structures | bool = None,
                  cryst_record: str = None, design: bool = False,
                  dbref: dict[str, dict[str, str]] = None, entity_info: list[dict[str, list | str]] = None,
-                 multimodel: bool = False,
-                 resolution: float = None, reference_sequence: dict[str, str] = None, metadata: PDB = None,
-                 **kwargs):
+                 multimodel: bool = False, resolution: float = None, resource_db: Database = None,
+                 reference_sequence: dict[str, str] = None, metadata: PDB = None, **kwargs):
         # kwargs passed to Structure
         #          atoms: list[Atom] | Atoms = None, residues: list[Residue] | Residues = None, name: str = None,
         #          residue_indices: list[int] = None,
@@ -364,7 +363,8 @@ class PDB(Structure):
         self._reference_sequence = reference_sequence if reference_sequence else {}
         # ^ SEQRES or PDB API entries. key is chainID, value is 'AGHKLAIDL'
         # self.space_group = space_group
-        # self.resource_db: Database = kwargs.get('resource_db', None)  # Todo in Pose
+        self.resource_db: Database = resource_db if resource_db else database_factory()
+
         # self.uc_dimensions = uc_dimensions
         self.structure_containers.extend(['chains', 'entities'])
 

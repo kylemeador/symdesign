@@ -16,7 +16,7 @@ from sklearn.neighbors._ball_tree import BinaryTree  # this typing implementatio
 
 import PathUtils as PUtils
 from DesignMetrics import calculate_match_metrics, fragment_metric_template, format_fragment_metrics
-from JobResources import fragment_factory, Database, FragmentDatabase
+from JobResources import fragment_factory, Database, FragmentDatabase, database_factory
 from PDB import PDB, parse_cryst_record
 from SequenceProfile import SequenceProfile, alignment_types
 from Structure import Coords, Structure, Structures, Chain, Entity, Residue, Residues, GhostFragment, MonoFragment, \
@@ -2403,7 +2403,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Todo consider moving SequencePro
         self.interface_residues = {}
         self.required_indices = set()
         self.required_residues = None
-        self.resource_db = resource_db  # kwargs.get('resource_db', None)
+        self.resource_db = resource_db if resource_db else database_factory()  # kwargs.get('resource_db', None)
         self.split_interface_residues = {}  # {1: [(Residue obj, Entity obj), ...], 2: [(Residue obj, Entity obj), ...]}
         self.split_interface_ss_elements = {}  # {1: [0, 1, 2] , 2: [9, 13, 19]]}
         self.ss_index_array = []  # stores secondary structure elements by incrementing index
