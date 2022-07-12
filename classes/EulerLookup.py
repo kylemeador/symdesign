@@ -1,3 +1,5 @@
+from typing import Annotated
+
 import numpy as np
 
 from PathUtils import binary_lookup_table_path
@@ -124,4 +126,7 @@ class EulerLookupFactory:
         return self.__call__(**kwargs)
 
 
-euler_factory = EulerLookupFactory()
+euler_factory: Annotated[EulerLookupFactory,
+                         'Calling this factory method returns the single instance of the EulerLookup class'] = \
+    EulerLookupFactory()
+"""Calling this factory method returns the single instance of the EulerLookup class"""
