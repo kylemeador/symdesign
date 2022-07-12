@@ -1890,15 +1890,15 @@ def fetch_pdb_file(pdb_code: str, asu: bool = True, location: Union[str, bytes] 
         return pdb_file[0]
 
 
-def orient_pdb_file(file: os.PathLike, log: Logger = logger, symmetry: str = None,
-                    out_dir: os.PathLike = None) -> Optional[str]:
+def orient_pdb_file(file: str | bytes, log: Logger = logger, symmetry: str = None, out_dir: str | bytes = None) -> \
+        str | None:
     """For a specified pdb filename and output directory, orient the PDB according to the provided symmetry where the
-        resulting .pdb file will have the chains symmetrized and oriented in the coordinate frame as to have the major axis
-        of symmetry along z, and additional axis along canonically defined vectors. If the symmetry is C1, then the monomer
-        will be transformed so the center of mass resides at the origin
+        resulting .pdb file will have the chains symmetrized and oriented in the coordinate frame as to have the major
+        axis of symmetry along z, and additional axis along canonically defined vectors. If the symmetry is C1, then the
+        monomer will be transformed so the center of mass resides at the origin
 
         Args:
-            file: The location of the .pdb file to be oriented
+            file: The location of the file to be oriented
             log: A log to report on operation success
             symmetry: The symmetry type to be oriented. Possible types in SymmetryUtils.valid_subunit_number
             out_dir: The directory that should be used to output files
@@ -1915,7 +1915,7 @@ def orient_pdb_file(file: os.PathLike, log: Logger = logger, symmetry: str = Non
         try:
             pdb.orient(symmetry=symmetry)
             pdb.write(out_path=oriented_file_path)
-            log.info('Oriented: %s' % pdb_filename)
+            log.info(f'Oriented: {pdb_filename}')
             return oriented_file_path
         except (ValueError, RuntimeError) as error:
             log.error(str(error))
@@ -1938,11 +1938,3 @@ def query_qs_bio(pdb_entry_id: str) -> int:
                        f' using PDB default assembly {assembly}')
 
     return assembly
-
-
-# from PathUtils import reference_aa_file, reference_residues_pkl
-# ref_aa = PDB.from_file(reference_aa_file, log=None, entities=False)
-# from shutil import move
-# move(reference_residues_pkl, '%s.bak' % reference_residues_pkl)
-# from SymDesignUtils import pickle_object
-# pickle_object(ref_aa.residues, name=reference_residues_pkl, out_path='')
