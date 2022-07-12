@@ -19,8 +19,7 @@ from sklearn.neighbors._ball_tree import BinaryTree  # this typing implementatio
 
 import PathUtils as PUtils
 from DesignMetrics import calculate_match_metrics, fragment_metric_template, format_fragment_metrics
-from JobResources import fragment_factory, Database, FragmentDatabase, database_factory
-from PDB import parse_cryst_record, read_pdb_file, mmcif_error
+from JobResources import Database, database_factory, FragmentDatabase, fragment_factory
 from Query.PDB import retrieve_entity_id_by_sequence, query_pdb_by
 from SequenceProfile import SequenceProfile, alignment_types, generate_alignment
 from Structure import Coords, Structure, Structures, Chain, Entity, Residue, Residues, GhostFragment, MonoFragment, \
@@ -28,15 +27,14 @@ from Structure import Coords, Structure, Structures, Chain, Entity, Residue, Res
 from SymDesignUtils import DesignError, calculate_overlap, z_value_from_match_score, start_log, null_log, \
     match_score_from_z_value, dictionary_lookup, digit_translate_table, remove_duplicates
 from classes.EulerLookup import EulerLookup, euler_factory
-from classes.SymEntry import get_rot_matrices, make_rotations_degenerate, SymEntry, point_group_setting_matrix_members, \
+from classes.SymEntry import get_rot_matrices, make_rotations_degenerate, SymEntry, point_group_setting_matrix_members,\
     symmetry_combination_format, parse_symmetry_to_sym_entry, symmetry_factory
 from utils.GeneralUtils import transform_coordinate_sets
-from utils.SymmetryUtils import valid_subunit_number, space_group_cryst1_fmt_dict, layer_group_cryst1_fmt_dict, \
+from utils.SymmetryUtils import valid_subunit_number, layer_group_cryst1_fmt_dict, \
     generate_cryst1_record, space_group_number_operations, point_group_symmetry_operators, \
-    space_group_symmetry_operators, possible_symmetries, rotation_range, setting_matrices, inv_setting_matrices, \
+    space_group_symmetry_operators, rotation_range, setting_matrices, inv_setting_matrices, \
     origin, flip_x_matrix, identity_matrix, SymmetryError, valid_symmetries, multicomponent_valid_subunit_number
 
-# from operator import itemgetter
 
 # Globals
 logger = start_log(name=__name__)
@@ -44,6 +42,327 @@ index_offset = 1
 seq_res_len = 52
 config_directory = PUtils.pdb_db
 sym_op_location = PUtils.sym_op_location
+
+
+def subdirectory(name):
+    return name[1:2]
+
+
+# @njit
+def find_fragment_overlap(entity1_coords: np.ndarray, residues1: list[Residue] | Residues,
+                          residues2: list[Residue] | Residues, fragdb: FragmentDatabase = None,
+                          euler_lookup: EulerLookup = None, max_z_value: float = 2.) -> \
+        list[tuple[GhostFragment, Fragment, float]]:
+    #           entity1, entity2, entity1_interface_residue_numbers, entity2_interface_residue_numbers, max_z_value=2):
+    """From two sets of Residues, score the fragment overlap according to Nanohedra's fragment matching
+
+    Args:
+        entity1_coords:
+        residues1:
+        residues2:
+        fragdb:
+        euler_lookup:
+        max_z_value:
+    """
+    if not fragdb:
+        fragdb = fragment_factory()  # FragmentDB()
+
+    if not euler_lookup:
+        euler_lookup = euler_factory()
+
+    # logger.debug('Starting Ghost Frag Lookup')
+    oligomer1_bb_tree = BallTree(entity1_coords)
+    ghost_frags1: list[GhostFragment] = []
+    for residue in residues1:
+        ghost_frags1.extend(residue.get_ghost_fragments(fragdb.indexed_ghosts, clash_tree=oligomer1_bb_tree))
+    # for frag1 in interface_frags1:
+    #     ghostfrags = frag1.get_ghost_fragments(fragdb.indexed_ghosts, clash_tree=oligomer1_bb_tree)
+    #     if ghostfrags:
+    #         ghost_frags1.extend(ghostfrags)
+    logger.debug('Finished Ghost Frag Lookup')
+
+    # Get fragment guide coordinates
+    residue1_ghost_guide_coords = np.array([ghost_frag.guide_coords for ghost_frag in ghost_frags1])
+    residue2_guide_coords = np.array([residue.guide_coords for residue in residues2])
+    # interface_surf_frag_guide_coords = np.array([residue.guide_coords for residue in interface_residues2])
+
+    # Check for matching Euler angles
+    # TODO create a stand alone function
+    # logger.debug('Starting Euler Lookup')
+    overlapping_ghost_indices, overlapping_frag_indices = \
+        euler_lookup.check_lookup_table(residue1_ghost_guide_coords, residue2_guide_coords)
+    # logger.debug('Finished Euler Lookup')
+    logger.debug(f'Found {len(overlapping_ghost_indices)} overlapping fragments')
+    # filter array by matching type for surface (i) and ghost (j) frags
+    ghost_type_array = np.array([ghost_frags1[idx].frag_type for idx in overlapping_ghost_indices.tolist()])
+    mono_type_array = np.array([residues2[idx].frag_type for idx in overlapping_frag_indices.tolist()])
+    ij_type_match = np.where(mono_type_array == ghost_type_array, True, False)
+
+    passing_ghost_indices = overlapping_ghost_indices[ij_type_match]
+    passing_frag_indices = overlapping_frag_indices[ij_type_match]
+    logger.debug(f'Found {len(passing_ghost_indices)} overlapping fragments in the same i/j type')
+
+    passing_ghost_coords = residue1_ghost_guide_coords[passing_ghost_indices]
+    passing_frag_coords = residue2_guide_coords[passing_frag_indices]
+    # precalculate the reference_rmsds for each ghost fragment
+    reference_rmsds = np.array([ghost_frags1[ghost_idx].rmsd for ghost_idx in passing_ghost_indices.tolist()])
+    reference_rmsds = np.where(reference_rmsds == 0, 0.01, reference_rmsds)
+
+    # logger.debug('Calculating passing fragment overlaps by RMSD')
+    all_fragment_overlap = \
+        calculate_overlap(passing_ghost_coords, passing_frag_coords, reference_rmsds, max_z_value=max_z_value)
+    # logger.debug('Finished calculating fragment overlaps')
+    passing_overlap_indices = np.flatnonzero(all_fragment_overlap)
+    logger.debug(f'Found {len(passing_overlap_indices)} overlapping fragments under the {max_z_value} threshold')
+
+    # interface_ghostfrags = [ghost_frags1[idx] for idx in passing_ghost_indices[passing_overlap_indices].tolist()]
+    # interface_monofrags2 = [residues2[idx] for idx in passing_surf_indices[passing_overlap_indices].tolist()]
+    # passing_z_values = all_fragment_overlap[passing_overlap_indices]
+    # match_scores = match_score_from_z_value(all_fragment_overlap[passing_overlap_indices])
+
+    return list(zip([ghost_frags1[idx] for idx in passing_ghost_indices[passing_overlap_indices].tolist()],
+                    [residues2[idx] for idx in passing_frag_indices[passing_overlap_indices].tolist()],
+                    match_score_from_z_value(all_fragment_overlap[passing_overlap_indices]).tolist()))
+
+
+def get_matching_fragment_pairs_info(ghostfrag_surffrag_pairs):
+    """From a ghost fragment/surface fragment pair and corresponding match score, return the pertinent interface
+    information
+
+    Args:
+        ghostfrag_surffrag_pairs (list[tuple]): Observed ghost and surface fragment overlaps and their match score
+    Returns:
+        (list[dict[mapping[str,any]]])
+    """
+    fragment_matches = []
+    for interface_ghost_frag, interface_surf_frag, match_score in ghostfrag_surffrag_pairs:
+        _, surffrag_resnum1 = interface_ghost_frag.get_aligned_chain_and_residue()  # surffrag_ch1,
+        _, surffrag_resnum2 = interface_surf_frag.get_central_res_tup()  # surffrag_ch2,
+        # Todo
+        #  surf_frag_central_res_num1 = interface_ghost_residue.number
+        #  surf_frag_central_res_num2 = interface_surf_residue.number
+        fragment_matches.append(dict(zip(('mapped', 'paired', 'match', 'cluster'),
+                                     (surffrag_resnum1, surffrag_resnum2,  match_score,
+                                      '%d_%d_%d' % interface_ghost_frag.get_ijk()))))
+    logger.debug('Fragments for Entity1 found at residues: %s' % [fragment['mapped'] for fragment in fragment_matches])
+    logger.debug('Fragments for Entity2 found at residues: %s' % [fragment['paired'] for fragment in fragment_matches])
+
+    return fragment_matches
+
+
+# def calculate_interface_score(interface_pdb, write=False, out_path=os.getcwd()):
+#     """Takes as input a single PDB with two chains and scores the interface using fragment decoration"""
+#     interface_name = interface_pdb.name
+#
+#     entity1 = Model.from_atoms(interface_pdb.chain(interface_pdb.chain_ids[0]).atoms)
+#     entity1.update_attributes_from_pdb(interface_pdb)
+#     entity2 = Model.from_atoms(interface_pdb.chain(interface_pdb.chain_ids[-1]).atoms)
+#     entity2.update_attributes_from_pdb(interface_pdb)
+#
+#     interacting_residue_pairs = find_interface_pairs(entity1, entity2)
+#
+#     entity1_interface_residue_numbers, entity2_interface_residue_numbers = \
+#         get_interface_fragment_residue_numbers(entity1, entity2, interacting_residue_pairs)
+#     # entity1_ch_interface_residue_numbers, entity2_ch_interface_residue_numbers = \
+#     #     get_interface_fragment_chain_residue_numbers(entity1, entity2)
+#
+#     entity1_interface_sa = entity1.get_surface_area_residues(entity1_interface_residue_numbers)
+#     entity2_interface_sa = entity2.get_surface_area_residues(entity2_interface_residue_numbers)
+#     interface_buried_sa = entity1_interface_sa + entity2_interface_sa
+#
+#     interface_frags1 = entity1.get_fragments(residue_numbers=entity1_interface_residue_numbers)
+#     interface_frags2 = entity2.get_fragments(residue_numbers=entity2_interface_residue_numbers)
+#     entity1_coords = entity1.coords
+#
+#     ghostfrag_surfacefrag_pairs = find_fragment_overlap(entity1_coords, interface_frags1, interface_frags2)
+#     # fragment_matches = find_fragment_overlap(entity1, entity2, entity1_interface_residue_numbers,
+#     #                                                       entity2_interface_residue_numbers)
+#     fragment_matches = get_matching_fragment_pairs_info(ghostfrag_surfacefrag_pairs)
+#     if write:
+#         write_fragment_pairs(ghostfrag_surfacefrag_pairs, out_path=out_path)
+#
+#     # all_residue_score, center_residue_score, total_residues_with_fragment_overlap, \
+#     #     central_residues_with_fragment_overlap, multiple_frag_ratio, fragment_content_d = \
+#     #     calculate_match_metrics(fragment_matches)
+#
+#     match_metrics = calculate_match_metrics(fragment_matches)
+#     # Todo
+#     #   'mapped': {'center': {'residues' (int): (set), 'score': (float), 'number': (int)},
+#     #                         'total': {'residues' (int): (set), 'score': (float), 'number': (int)},
+#     #                         'match_scores': {residue number(int): (list[score (float)]), ...},
+#     #                         'index_count': {index (int): count (int), ...},
+#     #                         'multiple_ratio': (float)}
+#     #              'paired': {'center': , 'total': , 'match_scores': , 'index_count': , 'multiple_ratio': },
+#     #              'total': {'center': {'score': , 'number': },
+#     #                        'total': {'score': , 'number': },
+#     #                        'index_count': , 'multiple_ratio': , 'observations': (int)}
+#     #              }
+#
+#     total_residues = {'A': set(), 'B': set()}
+#     for pair in interacting_residue_pairs:
+#         total_residues['A'].add(pair[0])
+#         total_residues['B'].add(pair[1])
+#
+#     total_residues = len(total_residues['A']) + len(total_residues['B'])
+#
+#     percent_interface_matched = central_residues_with_fragment_overlap / total_residues
+#     percent_interface_covered = total_residues_with_fragment_overlap / total_residues
+#
+#     interface_metrics = {'nanohedra_score': all_residue_score,
+#                          'nanohedra_score_central': center_residue_score,
+#                          'fragments': fragment_matches,
+#                          'multiple_fragment_ratio': multiple_frag_ratio,
+#                          'number_fragment_residues_central': central_residues_with_fragment_overlap,
+#                          'number_fragment_residues_all': total_residues_with_fragment_overlap,
+#                          'total_interface_residues': total_residues,
+#                          'number_fragments': len(fragment_matches),
+#                          'percent_residues_fragment_total': percent_interface_covered,
+#                          'percent_residues_fragment_center': percent_interface_matched,
+#                          'percent_fragment_helix': fragment_content_d['1'],
+#                          'percent_fragment_strand': fragment_content_d['2'],
+#                          'percent_fragment_coil': fragment_content_d['3'] + fragment_content_d['4']
+#                          + fragment_content_d['5'],
+#                          'interface_area': interface_buried_sa}
+#
+#     return interface_name, interface_metrics
+
+
+def get_interface_fragment_residue_numbers(pdb1, pdb2, interacting_pairs):
+    # Get interface fragment information
+    pdb1_residue_numbers, pdb2_residue_numbers = set(), set()
+    for pdb1_central_res_num, pdb2_central_res_num in interacting_pairs:
+        pdb1_res_num_list = [pdb1_central_res_num - 2, pdb1_central_res_num - 1, pdb1_central_res_num,
+                             pdb1_central_res_num + 1, pdb1_central_res_num + 2]
+        pdb2_res_num_list = [pdb2_central_res_num - 2, pdb2_central_res_num - 1, pdb2_central_res_num,
+                             pdb2_central_res_num + 1, pdb2_central_res_num + 2]
+
+        frag1_ca_count = 0
+        for atom in pdb1.all_atoms:
+            if atom.residue_number in pdb1_res_num_list:
+                if atom.is_ca():
+                    frag1_ca_count += 1
+
+        frag2_ca_count = 0
+        for atom in pdb2.all_atoms:
+            if atom.residue_number in pdb2_res_num_list:
+                if atom.is_ca():
+                    frag2_ca_count += 1
+
+        if frag1_ca_count == 5 and frag2_ca_count == 5:
+            pdb1_residue_numbers.add(pdb1_central_res_num)
+            pdb2_residue_numbers.add(pdb2_central_res_num)
+
+    return pdb1_residue_numbers, pdb2_residue_numbers
+
+
+def get_interface_fragment_chain_residue_numbers(pdb1, pdb2, cb_distance=8):
+    """Given two PDBs, return the unique chain and interacting residue lists"""
+    pdb1_cb_coords = pdb1.cb_coords
+    pdb1_cb_indices = pdb1.cb_indices
+    pdb2_cb_coords = pdb2.cb_coords
+    pdb2_cb_indices = pdb2.cb_indices
+
+    pdb1_cb_kdtree = BallTree(np.array(pdb1_cb_coords))
+
+    # Query PDB1 CB Tree for all PDB2 CB Atoms within "cb_distance" in A of a PDB1 CB Atom
+    query = pdb1_cb_kdtree.query_radius(pdb2_cb_coords, cb_distance)
+
+    # Get ResidueNumber, ChainID for all Interacting PDB1 CB, PDB2 CB Pairs
+    interacting_pairs = []
+    for pdb2_query_index in range(len(query)):
+        if query[pdb2_query_index].tolist() != list():
+            pdb2_cb_res_num = pdb2.all_atoms[pdb2_cb_indices[pdb2_query_index]].residue_number
+            pdb2_cb_chain_id = pdb2.all_atoms[pdb2_cb_indices[pdb2_query_index]].chain
+            for pdb1_query_index in query[pdb2_query_index]:
+                pdb1_cb_res_num = pdb1.all_atoms[pdb1_cb_indices[pdb1_query_index]].residue_number
+                pdb1_cb_chain_id = pdb1.all_atoms[pdb1_cb_indices[pdb1_query_index]].chain
+                interacting_pairs.append(((pdb1_cb_res_num, pdb1_cb_chain_id), (pdb2_cb_res_num, pdb2_cb_chain_id)))
+
+
+def get_multi_chain_interface_fragment_residue_numbers(pdb1, pdb2, interacting_pairs):
+    # Get interface fragment information
+    pdb1_central_chainid_resnum_unique_list, pdb2_central_chainid_resnum_unique_list = [], []
+    for pair in interacting_pairs:
+
+        pdb1_central_res_num = pair[0][0]
+        pdb1_central_chain_id = pair[0][1]
+        pdb2_central_res_num = pair[1][0]
+        pdb2_central_chain_id = pair[1][1]
+
+        pdb1_res_num_list = [pdb1_central_res_num - 2, pdb1_central_res_num - 1, pdb1_central_res_num,
+                             pdb1_central_res_num + 1, pdb1_central_res_num + 2]
+        pdb2_res_num_list = [pdb2_central_res_num - 2, pdb2_central_res_num - 1, pdb2_central_res_num,
+                             pdb2_central_res_num + 1, pdb2_central_res_num + 2]
+
+        frag1_ca_count = 0
+        for atom in pdb1.all_atoms:
+            if atom.chain == pdb1_central_chain_id:
+                if atom.residue_number in pdb1_res_num_list:
+                    if atom.is_ca():
+                        frag1_ca_count += 1
+
+        frag2_ca_count = 0
+        for atom in pdb2.all_atoms:
+            if atom.chain == pdb2_central_chain_id:
+                if atom.residue_number in pdb2_res_num_list:
+                    if atom.is_ca():
+                        frag2_ca_count += 1
+
+        if frag1_ca_count == 5 and frag2_ca_count == 5:
+            if (pdb1_central_chain_id, pdb1_central_res_num) not in pdb1_central_chainid_resnum_unique_list:
+                pdb1_central_chainid_resnum_unique_list.append((pdb1_central_chain_id, pdb1_central_res_num))
+
+            if (pdb2_central_chain_id, pdb2_central_res_num) not in pdb2_central_chainid_resnum_unique_list:
+                pdb2_central_chainid_resnum_unique_list.append((pdb2_central_chain_id, pdb2_central_res_num))
+
+    return pdb1_central_chainid_resnum_unique_list, pdb2_central_chainid_resnum_unique_list
+
+
+def split_residue_pairs(interface_pairs: list[tuple[Residue, Residue]]) -> tuple[list[Residue], list[Residue]]:
+    """Used to split Residue pairs, sort by Residue.number, and return pairs separated by index"""
+    if interface_pairs:
+        residues1, residues2 = zip(*interface_pairs)
+        return sorted(set(residues1), key=lambda residue: residue.number), \
+            sorted(set(residues2), key=lambda residue: residue.number)
+    else:
+        return [], []
+
+
+# def split_interface_numbers(interface_pairs) -> tuple[list[int], list[int]]:
+#     """Used to split residue number pairs"""
+#     if interface_pairs:
+#         numbers1, numbers2 = zip(*interface_pairs)
+#         return sorted(set(numbers1), key=int), sorted(set(numbers2), key=int)
+#     else:
+#         return [], []
+
+
+def split_number_pairs_and_sort(pairs: list[tuple[int, int]]) -> tuple[list, list]:
+    """Used to split integer pairs and sort, and return pairs separated by index"""
+    if pairs:
+        numbers1, numbers2 = zip(*pairs)
+        return sorted(set(numbers1), key=int), sorted(set(numbers2), key=int)
+    else:
+        return [], []
+
+
+def parse_cryst_record(cryst_record) -> tuple[list[float], str]:
+    """Get the unit cell length, height, width, and angles alpha, beta, gamma and the space group
+    Args:
+        cryst_record: The CRYST1 record in a .pdb file
+    """
+    try:
+        cryst, a, b, c, ang_a, ang_b, ang_c, *space_group = cryst_record.split()
+        # a = float(cryst1_record[6:15])
+        # b = float(cryst1_record[15:24])
+        # c = float(cryst1_record[24:33])
+        # ang_a = float(cryst1_record[33:40])
+        # ang_b = float(cryst1_record[40:47])
+        # ang_c = float(cryst1_record[47:54])
+    except ValueError:  # split and unpacking went wrong
+        a = b = c = ang_a = ang_b = ang_c = 0
+
+    return list(map(float, [a, b, c, ang_a, ang_b, ang_c])), cryst_record[55:66].strip()
 
 
 class MultiModel:
@@ -613,27 +932,6 @@ class Model(Structure):
             # if metadata and isinstance(metadata, PDB):
             #     self.copy_metadata(metadata)
 
-    @classmethod
-    def from_file(cls, file: str | bytes, **kwargs):
-        """Create a new Model from a file with Atom records"""
-        if '.pdb' in file:
-            return cls.from_pdb(file, **kwargs)
-        elif '.cif' in file:
-            return cls.from_mmcif(file, **kwargs)
-        else:
-            raise NotImplementedError(f'{type(cls).__name__}: The file type {os.path.splitext(file)[-1]} is not '
-                                      f'supported for parsing')
-
-    @classmethod
-    def from_pdb(cls, file: str | bytes, **kwargs):
-        """Create a new Model from a .pdb formatted file"""
-        return cls(file_path=file, **read_pdb_file(file, **kwargs))
-
-    @classmethod
-    def from_mmcif(cls, file: str | bytes, **kwargs):
-        """Create a new Model from a .cif formatted file"""
-        raise NotImplementedError(mmcif_error)
-        return cls(file_path=file, **read_mmcif_file(file, **kwargs))
 
     @classmethod
     def from_chains(cls, chains: list[Chain] | Structures, **kwargs):
@@ -1673,7 +1971,7 @@ class SymmetricModel(Models):
         """
         # try to solve for symmetry as we want uc_dimensions if available for cryst ops
         if self.cryst_record:  # was populated from file parsing
-            if not uc_dimensions and not symmetry:  # only if user didn't provide both
+            if not uc_dimensions and not symmetry:  # only if user didn't provide either
                 uc_dimensions, symmetry = parse_cryst_record(self.cryst_record)
 
         if symmetry:  # ensure conversion to Hermann–Mauguin notation. ex: P23 not P 2 3
@@ -4474,305 +4772,3 @@ class Pose(SymmetricModel, SequenceProfile):  # Todo consider moving SequencePro
     #     # pdb2_interface_sa = entity2.get_surface_area_residues(self.interface_residues or entity2_residue_numbers)
     #     # interface_buried_sa = pdb1_interface_sa + pdb2_interface_sa
     #     return
-
-
-def subdirectory(name):
-    return name[1:2]
-
-
-# @njit
-def find_fragment_overlap(entity1_coords: np.ndarray, residues1: list[Residue] | Residues,
-                          residues2: list[Residue] | Residues, fragdb: FragmentDatabase = None,
-                          euler_lookup: EulerLookup = None, max_z_value: float = 2.) -> \
-        list[tuple[GhostFragment, Fragment, float]]:
-    #           entity1, entity2, entity1_interface_residue_numbers, entity2_interface_residue_numbers, max_z_value=2):
-    """From two sets of Residues, score the fragment overlap according to Nanohedra's fragment matching
-
-    Args:
-        entity1_coords:
-        residues1:
-        residues2:
-        fragdb:
-        euler_lookup:
-        max_z_value:
-    """
-    if not fragdb:
-        fragdb = fragment_factory()  # FragmentDB()
-
-    if not euler_lookup:
-        euler_lookup = euler_factory()
-
-    # logger.debug('Starting Ghost Frag Lookup')
-    oligomer1_bb_tree = BallTree(entity1_coords)
-    ghost_frags1: list[GhostFragment] = []
-    for residue in residues1:
-        ghost_frags1.extend(residue.get_ghost_fragments(fragdb.indexed_ghosts, clash_tree=oligomer1_bb_tree))
-    # for frag1 in interface_frags1:
-    #     ghostfrags = frag1.get_ghost_fragments(fragdb.indexed_ghosts, clash_tree=oligomer1_bb_tree)
-    #     if ghostfrags:
-    #         ghost_frags1.extend(ghostfrags)
-    logger.debug('Finished Ghost Frag Lookup')
-
-    # Get fragment guide coordinates
-    residue1_ghost_guide_coords = np.array([ghost_frag.guide_coords for ghost_frag in ghost_frags1])
-    residue2_guide_coords = np.array([residue.guide_coords for residue in residues2])
-    # interface_surf_frag_guide_coords = np.array([residue.guide_coords for residue in interface_residues2])
-
-    # Check for matching Euler angles
-    # TODO create a stand alone function
-    # logger.debug('Starting Euler Lookup')
-    overlapping_ghost_indices, overlapping_frag_indices = \
-        euler_lookup.check_lookup_table(residue1_ghost_guide_coords, residue2_guide_coords)
-    # logger.debug('Finished Euler Lookup')
-    logger.debug(f'Found {len(overlapping_ghost_indices)} overlapping fragments')
-    # filter array by matching type for surface (i) and ghost (j) frags
-    ghost_type_array = np.array([ghost_frags1[idx].frag_type for idx in overlapping_ghost_indices.tolist()])
-    mono_type_array = np.array([residues2[idx].frag_type for idx in overlapping_frag_indices.tolist()])
-    ij_type_match = np.where(mono_type_array == ghost_type_array, True, False)
-
-    passing_ghost_indices = overlapping_ghost_indices[ij_type_match]
-    passing_frag_indices = overlapping_frag_indices[ij_type_match]
-    logger.debug(f'Found {len(passing_ghost_indices)} overlapping fragments in the same i/j type')
-
-    passing_ghost_coords = residue1_ghost_guide_coords[passing_ghost_indices]
-    passing_frag_coords = residue2_guide_coords[passing_frag_indices]
-    # precalculate the reference_rmsds for each ghost fragment
-    reference_rmsds = np.array([ghost_frags1[ghost_idx].rmsd for ghost_idx in passing_ghost_indices.tolist()])
-    reference_rmsds = np.where(reference_rmsds == 0, 0.01, reference_rmsds)
-
-    # logger.debug('Calculating passing fragment overlaps by RMSD')
-    all_fragment_overlap = \
-        calculate_overlap(passing_ghost_coords, passing_frag_coords, reference_rmsds, max_z_value=max_z_value)
-    # logger.debug('Finished calculating fragment overlaps')
-    passing_overlap_indices = np.flatnonzero(all_fragment_overlap)
-    logger.debug(f'Found {len(passing_overlap_indices)} overlapping fragments under the {max_z_value} threshold')
-
-    # interface_ghostfrags = [ghost_frags1[idx] for idx in passing_ghost_indices[passing_overlap_indices].tolist()]
-    # interface_monofrags2 = [residues2[idx] for idx in passing_surf_indices[passing_overlap_indices].tolist()]
-    # passing_z_values = all_fragment_overlap[passing_overlap_indices]
-    # match_scores = match_score_from_z_value(all_fragment_overlap[passing_overlap_indices])
-
-    return list(zip([ghost_frags1[idx] for idx in passing_ghost_indices[passing_overlap_indices].tolist()],
-                    [residues2[idx] for idx in passing_frag_indices[passing_overlap_indices].tolist()],
-                    match_score_from_z_value(all_fragment_overlap[passing_overlap_indices]).tolist()))
-
-
-def get_matching_fragment_pairs_info(ghostfrag_surffrag_pairs):
-    """From a ghost fragment/surface fragment pair and corresponding match score, return the pertinent interface
-    information
-
-    Args:
-        ghostfrag_surffrag_pairs (list[tuple]): Observed ghost and surface fragment overlaps and their match score
-    Returns:
-        (list[dict[mapping[str,any]]])
-    """
-    fragment_matches = []
-    for interface_ghost_frag, interface_surf_frag, match_score in ghostfrag_surffrag_pairs:
-        _, surffrag_resnum1 = interface_ghost_frag.get_aligned_chain_and_residue()  # surffrag_ch1,
-        _, surffrag_resnum2 = interface_surf_frag.get_central_res_tup()  # surffrag_ch2,
-        # Todo
-        #  surf_frag_central_res_num1 = interface_ghost_residue.number
-        #  surf_frag_central_res_num2 = interface_surf_residue.number
-        fragment_matches.append(dict(zip(('mapped', 'paired', 'match', 'cluster'),
-                                     (surffrag_resnum1, surffrag_resnum2,  match_score,
-                                      '%d_%d_%d' % interface_ghost_frag.get_ijk()))))
-    logger.debug('Fragments for Entity1 found at residues: %s' % [fragment['mapped'] for fragment in fragment_matches])
-    logger.debug('Fragments for Entity2 found at residues: %s' % [fragment['paired'] for fragment in fragment_matches])
-
-    return fragment_matches
-
-
-# def calculate_interface_score(interface_pdb, write=False, out_path=os.getcwd()):
-#     """Takes as input a single PDB with two chains and scores the interface using fragment decoration"""
-#     interface_name = interface_pdb.name
-#
-#     entity1 = Model.from_atoms(interface_pdb.chain(interface_pdb.chain_ids[0]).atoms)
-#     entity1.update_attributes_from_pdb(interface_pdb)
-#     entity2 = Model.from_atoms(interface_pdb.chain(interface_pdb.chain_ids[-1]).atoms)
-#     entity2.update_attributes_from_pdb(interface_pdb)
-#
-#     interacting_residue_pairs = find_interface_pairs(entity1, entity2)
-#
-#     entity1_interface_residue_numbers, entity2_interface_residue_numbers = \
-#         get_interface_fragment_residue_numbers(entity1, entity2, interacting_residue_pairs)
-#     # entity1_ch_interface_residue_numbers, entity2_ch_interface_residue_numbers = \
-#     #     get_interface_fragment_chain_residue_numbers(entity1, entity2)
-#
-#     entity1_interface_sa = entity1.get_surface_area_residues(entity1_interface_residue_numbers)
-#     entity2_interface_sa = entity2.get_surface_area_residues(entity2_interface_residue_numbers)
-#     interface_buried_sa = entity1_interface_sa + entity2_interface_sa
-#
-#     interface_frags1 = entity1.get_fragments(residue_numbers=entity1_interface_residue_numbers)
-#     interface_frags2 = entity2.get_fragments(residue_numbers=entity2_interface_residue_numbers)
-#     entity1_coords = entity1.coords
-#
-#     ghostfrag_surfacefrag_pairs = find_fragment_overlap(entity1_coords, interface_frags1, interface_frags2)
-#     # fragment_matches = find_fragment_overlap(entity1, entity2, entity1_interface_residue_numbers,
-#     #                                                       entity2_interface_residue_numbers)
-#     fragment_matches = get_matching_fragment_pairs_info(ghostfrag_surfacefrag_pairs)
-#     if write:
-#         write_fragment_pairs(ghostfrag_surfacefrag_pairs, out_path=out_path)
-#
-#     # all_residue_score, center_residue_score, total_residues_with_fragment_overlap, \
-#     #     central_residues_with_fragment_overlap, multiple_frag_ratio, fragment_content_d = \
-#     #     calculate_match_metrics(fragment_matches)
-#
-#     match_metrics = calculate_match_metrics(fragment_matches)
-#     # Todo
-#     #   'mapped': {'center': {'residues' (int): (set), 'score': (float), 'number': (int)},
-#     #                         'total': {'residues' (int): (set), 'score': (float), 'number': (int)},
-#     #                         'match_scores': {residue number(int): (list[score (float)]), ...},
-#     #                         'index_count': {index (int): count (int), ...},
-#     #                         'multiple_ratio': (float)}
-#     #              'paired': {'center': , 'total': , 'match_scores': , 'index_count': , 'multiple_ratio': },
-#     #              'total': {'center': {'score': , 'number': },
-#     #                        'total': {'score': , 'number': },
-#     #                        'index_count': , 'multiple_ratio': , 'observations': (int)}
-#     #              }
-#
-#     total_residues = {'A': set(), 'B': set()}
-#     for pair in interacting_residue_pairs:
-#         total_residues['A'].add(pair[0])
-#         total_residues['B'].add(pair[1])
-#
-#     total_residues = len(total_residues['A']) + len(total_residues['B'])
-#
-#     percent_interface_matched = central_residues_with_fragment_overlap / total_residues
-#     percent_interface_covered = total_residues_with_fragment_overlap / total_residues
-#
-#     interface_metrics = {'nanohedra_score': all_residue_score,
-#                          'nanohedra_score_central': center_residue_score,
-#                          'fragments': fragment_matches,
-#                          'multiple_fragment_ratio': multiple_frag_ratio,
-#                          'number_fragment_residues_central': central_residues_with_fragment_overlap,
-#                          'number_fragment_residues_all': total_residues_with_fragment_overlap,
-#                          'total_interface_residues': total_residues,
-#                          'number_fragments': len(fragment_matches),
-#                          'percent_residues_fragment_total': percent_interface_covered,
-#                          'percent_residues_fragment_center': percent_interface_matched,
-#                          'percent_fragment_helix': fragment_content_d['1'],
-#                          'percent_fragment_strand': fragment_content_d['2'],
-#                          'percent_fragment_coil': fragment_content_d['3'] + fragment_content_d['4']
-#                          + fragment_content_d['5'],
-#                          'interface_area': interface_buried_sa}
-#
-#     return interface_name, interface_metrics
-
-
-def get_interface_fragment_residue_numbers(pdb1, pdb2, interacting_pairs):
-    # Get interface fragment information
-    pdb1_residue_numbers, pdb2_residue_numbers = set(), set()
-    for pdb1_central_res_num, pdb2_central_res_num in interacting_pairs:
-        pdb1_res_num_list = [pdb1_central_res_num - 2, pdb1_central_res_num - 1, pdb1_central_res_num,
-                             pdb1_central_res_num + 1, pdb1_central_res_num + 2]
-        pdb2_res_num_list = [pdb2_central_res_num - 2, pdb2_central_res_num - 1, pdb2_central_res_num,
-                             pdb2_central_res_num + 1, pdb2_central_res_num + 2]
-
-        frag1_ca_count = 0
-        for atom in pdb1.all_atoms:
-            if atom.residue_number in pdb1_res_num_list:
-                if atom.is_ca():
-                    frag1_ca_count += 1
-
-        frag2_ca_count = 0
-        for atom in pdb2.all_atoms:
-            if atom.residue_number in pdb2_res_num_list:
-                if atom.is_ca():
-                    frag2_ca_count += 1
-
-        if frag1_ca_count == 5 and frag2_ca_count == 5:
-            pdb1_residue_numbers.add(pdb1_central_res_num)
-            pdb2_residue_numbers.add(pdb2_central_res_num)
-
-    return pdb1_residue_numbers, pdb2_residue_numbers
-
-
-def get_interface_fragment_chain_residue_numbers(pdb1, pdb2, cb_distance=8):
-    """Given two PDBs, return the unique chain and interacting residue lists"""
-    pdb1_cb_coords = pdb1.cb_coords
-    pdb1_cb_indices = pdb1.cb_indices
-    pdb2_cb_coords = pdb2.cb_coords
-    pdb2_cb_indices = pdb2.cb_indices
-
-    pdb1_cb_kdtree = BallTree(np.array(pdb1_cb_coords))
-
-    # Query PDB1 CB Tree for all PDB2 CB Atoms within "cb_distance" in A of a PDB1 CB Atom
-    query = pdb1_cb_kdtree.query_radius(pdb2_cb_coords, cb_distance)
-
-    # Get ResidueNumber, ChainID for all Interacting PDB1 CB, PDB2 CB Pairs
-    interacting_pairs = []
-    for pdb2_query_index in range(len(query)):
-        if query[pdb2_query_index].tolist() != list():
-            pdb2_cb_res_num = pdb2.all_atoms[pdb2_cb_indices[pdb2_query_index]].residue_number
-            pdb2_cb_chain_id = pdb2.all_atoms[pdb2_cb_indices[pdb2_query_index]].chain
-            for pdb1_query_index in query[pdb2_query_index]:
-                pdb1_cb_res_num = pdb1.all_atoms[pdb1_cb_indices[pdb1_query_index]].residue_number
-                pdb1_cb_chain_id = pdb1.all_atoms[pdb1_cb_indices[pdb1_query_index]].chain
-                interacting_pairs.append(((pdb1_cb_res_num, pdb1_cb_chain_id), (pdb2_cb_res_num, pdb2_cb_chain_id)))
-
-
-def get_multi_chain_interface_fragment_residue_numbers(pdb1, pdb2, interacting_pairs):
-    # Get interface fragment information
-    pdb1_central_chainid_resnum_unique_list, pdb2_central_chainid_resnum_unique_list = [], []
-    for pair in interacting_pairs:
-
-        pdb1_central_res_num = pair[0][0]
-        pdb1_central_chain_id = pair[0][1]
-        pdb2_central_res_num = pair[1][0]
-        pdb2_central_chain_id = pair[1][1]
-
-        pdb1_res_num_list = [pdb1_central_res_num - 2, pdb1_central_res_num - 1, pdb1_central_res_num,
-                             pdb1_central_res_num + 1, pdb1_central_res_num + 2]
-        pdb2_res_num_list = [pdb2_central_res_num - 2, pdb2_central_res_num - 1, pdb2_central_res_num,
-                             pdb2_central_res_num + 1, pdb2_central_res_num + 2]
-
-        frag1_ca_count = 0
-        for atom in pdb1.all_atoms:
-            if atom.chain == pdb1_central_chain_id:
-                if atom.residue_number in pdb1_res_num_list:
-                    if atom.is_ca():
-                        frag1_ca_count += 1
-
-        frag2_ca_count = 0
-        for atom in pdb2.all_atoms:
-            if atom.chain == pdb2_central_chain_id:
-                if atom.residue_number in pdb2_res_num_list:
-                    if atom.is_ca():
-                        frag2_ca_count += 1
-
-        if frag1_ca_count == 5 and frag2_ca_count == 5:
-            if (pdb1_central_chain_id, pdb1_central_res_num) not in pdb1_central_chainid_resnum_unique_list:
-                pdb1_central_chainid_resnum_unique_list.append((pdb1_central_chain_id, pdb1_central_res_num))
-
-            if (pdb2_central_chain_id, pdb2_central_res_num) not in pdb2_central_chainid_resnum_unique_list:
-                pdb2_central_chainid_resnum_unique_list.append((pdb2_central_chain_id, pdb2_central_res_num))
-
-    return pdb1_central_chainid_resnum_unique_list, pdb2_central_chainid_resnum_unique_list
-
-
-def split_residue_pairs(interface_pairs: list[tuple[Residue, Residue]]) -> tuple[list[Residue], list[Residue]]:
-    """Used to split Residue pairs, sort by Residue.number, and return pairs separated by index"""
-    if interface_pairs:
-        residues1, residues2 = zip(*interface_pairs)
-        return sorted(set(residues1), key=lambda residue: residue.number), \
-            sorted(set(residues2), key=lambda residue: residue.number)
-    else:
-        return [], []
-
-
-# def split_interface_numbers(interface_pairs) -> tuple[list[int], list[int]]:
-#     """Used to split residue number pairs"""
-#     if interface_pairs:
-#         numbers1, numbers2 = zip(*interface_pairs)
-#         return sorted(set(numbers1), key=int), sorted(set(numbers2), key=int)
-#     else:
-#         return [], []
-
-
-def split_number_pairs_and_sort(pairs: list[tuple[int, int]]) -> tuple[list, list]:
-    """Used to split integer pairs and sort, and return pairs separated by index"""
-    if pairs:
-        numbers1, numbers2 = zip(*pairs)
-        return sorted(set(numbers1), key=int), sorted(set(numbers2), key=int)
-    else:
-        return [], []

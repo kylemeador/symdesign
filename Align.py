@@ -1411,7 +1411,7 @@ class HelixFusion:
 
                     # Run Stride On Oligomer
                     if self.oligomer_term in ['N', 'C']:
-                        raise RuntimeError('Need to rework Stride execution here')
+                        raise NotImplementedError('Need to rework Stride execution here')
                         # stride_oligomer = Stride(oriented_oligomer_filepath)
                         # stride_oligomer.run()
                         if self.oligomer_term == 'N':
