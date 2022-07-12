@@ -27,9 +27,9 @@ def extract_to_db(db_cursor, fragment_length=5):
 
 def extract_to_file(pdb, interaction_distance=8, fragment_length=5, out_path=os.getcwd(), individual=False,
                     same_chain=False):
-    fragment_pairs = extract_fragments(pdb, interaction_distance, fragment_length, same_chain=same_chain)
-    for pair in fragment_pairs:
-        write_fragment_pair(pair, out_path=out_path, fragment_length=fragment_length, individual=individual)
+    for fragment1, fragment2 in extract_fragments(pdb, interaction_distance, fragment_length, same_chain=same_chain):
+        write_fragment_pair(fragment1, fragment2, pdb_name=pdb.name, out_path=out_path, fragment_length=fragment_length,
+                            individual=individual)
 
 
 def extract_fragments(pdb, distance, frag_length, same_chain=False):
@@ -50,49 +50,50 @@ def extract_fragments(pdb, distance, frag_length, same_chain=False):
     return fragment_pairs
 
 
-def find_interacting_residue_fragments(pdb1, pdb2, interacting_pairs, frag_length, same_chain=False):
+def find_interacting_residue_fragments(chain1, chain2, interacting_pairs, frag_length, same_chain=False):
     fragment_pairs = []
-    for residue_pair in interacting_pairs:
+    raise NotImplementedError('This function is set up for Residue.number but it should use Residue. Modify to use '
+                              'Residue.get_downstream() and Residue.get_upstream() based on frag_length')
+    for residue1, residue2 in interacting_pairs:
         # parameterize fragments based on input length
-        res_nums_pdb1 = [residue_pair[0] + i for i in range(*SDUtils.parameterize_frag_length(frag_length))]
-        res_nums_pdb2 = [residue_pair[1] + i for i in range(*SDUtils.parameterize_frag_length(frag_length))]
+        res_nums_pdb1 = set(residue1 + i for i in range(*SDUtils.parameterize_frag_length(frag_length)))
+        res_nums_pdb2 = set(residue2 + i for i in range(*SDUtils.parameterize_frag_length(frag_length)))
 
         if same_chain:
             # break iteration if residue 1 succeeds residue 2 or they are sequential, or frag 1 residues are in frag 2
-            if residue_pair[0] + 1 >= residue_pair[1] and set(res_nums_pdb1) & set(res_nums_pdb2) != set():
+            if residue1 + 1 >= residue2 and res_nums_pdb1.intersection(res_nums_pdb2) != set():
                 continue
 
-        frag1 = pdb1.chain(pdb1.chain_ids[0]).get_residue_atoms(res_nums_pdb1)
-        # frag1 = pdb1.get_residue_atoms(pdb1.chain_ids[0], res_nums_pdb1)
-        frag2 = pdb2.chain(pdb2.chain_ids[0]).get_residue_atoms(res_nums_pdb2)
-        # frag2 = pdb2.get_residue_atoms(pdb2.chain_ids[0], res_nums_pdb2)
+        # ensure that all of the residues are all present
+        frag1 = chain1.get_residues(res_nums_pdb1)
+        frag2 = chain2.get_residues(res_nums_pdb2)
         if len(frag1) == frag_length and len(frag2) == frag_length:
-            fragment_pairs.append((frag1, frag2))
+            # make a Structure and append to the list
+            fragment_pairs.append((Structure.from_residues(frag1), Structure.from_residues(frag2)))
 
     return fragment_pairs
 
 
-def write_fragment_pair(fragment_pair, out_path=os.getcwd(), fragment_length=5, individual=False):
-    if not os.path.exists(out_path):
-        os.makedirs(out_path)
-    if not os.path.exists(os.path.join(out_path, 'paired')):
-        os.makedirs(os.path.join(out_path, 'paired'))
+def write_fragment_pair(frag1: Structure, frag2: Structure, pdb_name, out_path=os.getcwd(), fragment_length=5, individual=False):
+    os.makedirs(os.path.join(out_path, 'paired'), exist_ok=True)
 
     central_res_idx = int(fragment_length / 2)
-    frag1 = fragment_pair[0]
-    frag2 = fragment_pair[1]
+
     if individual:
         if not os.path.exists(os.path.join(out_path, 'individual')):
             os.makedirs(os.path.join(out_path, 'individual'))
         frag1.write(os.path.join(out_path, 'individual', '%s_ch%s_res%d.pdb'
-                                 % (frag1.name, frag1.chain_ids[0], frag1.residues[central_res_idx].number)))
+                                 % (pdb_name, frag1.name, frag1.residues[central_res_idx].number)))
         frag2.write(os.path.join(out_path, 'individual', '%s_ch%s_res%d.pdb'
-                                 % (frag2.name, frag2.chain_ids[0], frag2.residues[central_res_idx].number)))
+                                 % (pdb_name, frag2.name, frag2.residues[central_res_idx].number)))
 
-    int_frag_out = PDB.from_atoms(fragment_pair[0].atoms + fragment_pair[1].atoms)
-    int_frag_out.write(os.path.join(out_path, 'paired', '%s_ch%s_%s_res%d_%d.pdb'
-                                    % (frag1.name, frag1.chain_ids[0], frag2.chain_ids[0],
-                                       frag1.residues[central_res_idx].number, frag2.residues[central_res_idx].number)))
+    # int_frag_out = Model.from_atoms(frag1.atoms + frag2.atoms)
+    with open(os.path.join(out_path, 'paired', '%s_ch%s_%s_res%d_%d.pdb' % (pdb_name, frag1.name, frag2.name,
+                                                                            frag1.residues[central_res_idx].number,
+                                                                            frag2.residues[central_res_idx].number)),
+              'w') as f:
+        frag1.write(file_handle=f)
+        frag2.write(file_handle=f)
 
 
 def main(int_db_dir, outdir, frag_length, interface_dist, individual=True, paired=False, multi=False, num_threads=4):  # paired_outdir

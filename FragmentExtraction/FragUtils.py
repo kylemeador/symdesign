@@ -18,32 +18,38 @@ from SymDesignUtils import DesignError
 module = 'Fragment Utilities:'
 
 
-def construct_cb_atom_tree(pdb1, pdb2, distance):
-    # Get CB Atom Coordinates
-    pdb1_coords = np.array(pdb1.extract_cb_coords(InclGlyCA=True))
-    pdb2_coords = np.array(pdb2.extract_cb_coords(InclGlyCA=True))
+def construct_all_atom_tree(pdb1, pdb2, distance):
+    # Construct Tree for PDB1
+    pdb1_tree = BallTree(pdb1.coords)
 
+    # Query Tree for all PDB2 Atoms within distance of PDB1 Atoms
+    return pdb1_tree.query_radius(pdb2.coords, distance)
+
+
+def construct_cb_atom_tree(pdb1, pdb2, distance):
     # Construct CB Tree for PDB1
-    pdb1_tree = BallTree(pdb1_coords)
+    pdb1_tree = BallTree(pdb1.cb_coords)
 
     # Query CB Tree for all PDB2 Atoms within distance of PDB1 CB Atoms
-    return pdb1_tree.query_radius(pdb2_coords, distance)
+    return pdb1_tree.query_radius(pdb2.cb_coords, distance)
 
 
-def find_interface_pairs(pdb1, pdb2, distance):
+def find_interface_pairs(pdb1: Structure, pdb2: Structure, distance) -> list[tuple[Residue, Residue]]:
     # Get Queried CB Tree for all PDB2 Atoms within 8A of PDB1 CB Atoms
     query = construct_cb_atom_tree(pdb1, pdb2, distance)
     pdb1_cb_indices = pdb1.cb_indices
     pdb2_cb_indices = pdb2.cb_indices
 
-    # Map Coordinates to Residue Numbers
+    # Map Coordinates to Residues
+    coords_indexed_residues1 = pdb1.coords_indexed_residues
+    coords_indexed_residues2 = pdb2.coords_indexed_residues
     interface_pairs = []
-    for pdb2_index in range(len(query)):
-        if query[pdb2_index].tolist() != list():
-            pdb2_res_num = pdb2.atoms[pdb2_cb_indices[pdb2_index]].residue_number
-            for pdb1_index in query[pdb2_index]:
-                pdb1_res_num = pdb1.atoms[pdb1_cb_indices[pdb1_index]].residue_number
-                interface_pairs.append((pdb1_res_num, pdb2_res_num))
+    for pdb2_index, pdb1_contacts in enumerate(query):
+        if pdb1_contacts.tolist() != list():
+            pdb2_residue = coords_indexed_residues2[pdb2_cb_indices[pdb2_index]]
+            for pdb1_index in pdb1_contacts:
+                pdb1_residue = coords_indexed_residues1[pdb1_cb_indices[pdb1_index]]
+                interface_pairs.append((pdb1_residue, pdb2_residue))
 
     return interface_pairs
 
@@ -275,7 +281,7 @@ def add_guide_atoms(biopdb_structure):
 
 
 def collect_frag_weights(pdb, mapped_chain, paired_chain, interaction_dist):
-    num_bb_atoms = 4
+    num_bb_atoms = 4  # Todo ensure handles hydrogens correctly
 
     # Creating PDB instance for mapped and paired chains
     pdb_mapped = Structure.from_residues(pdb.chain(mapped_chain).residues)
@@ -284,34 +290,37 @@ def collect_frag_weights(pdb, mapped_chain, paired_chain, interaction_dist):
     # pdb_paired.read_atom_list(pdb.get_chain_atoms(paired_chain))
 
     # Query Atom Tree for all Ch2 Atoms within interaction_distance of Ch1 Atoms
-    query = construct_cb_atom_tree(pdb_mapped, pdb_paired, interaction_dist)
+    query = construct_all_atom_tree(pdb_mapped, pdb_paired, interaction_dist)
 
     # Map Coordinates to Atoms
     # pdb_map_cb_indices = pdb1.cb_indices
     # pdb_partner_cb_indices = pdb2.cb_indices
 
     # Map Coordinates to Atoms
+    mapped_coords_indexed_residues = pdb_mapped.coords_indexed_residues
+    paired_coords_indexed_residues = pdb_paired.coords_indexed_residues
+    pdb_mapped_atoms = pdb_mapped.atoms
+    pdb_paired_atoms = pdb_paired.atoms
     interacting_pairs = []
-    for patner_index in range(len(query)):
-        if query[patner_index].tolist() != list():
-            if not pdb_paired.atoms[patner_index].is_backbone():
-                paired_atom_num = pdb_paired.atoms[patner_index].residue_number
+    for patner_index, mapped_contact in enumerate(query):
+        if mapped_contact.tolist() != list():
+            if pdb_paired_atoms[patner_index].is_backbone():  # mark the atom number as backbone
+                paired_residue = False
             else:
-                # marks the atom number as backbone
-                paired_atom_num = False
-            for mapped_index in query[patner_index]:
-                if not pdb_mapped.atoms[mapped_index].is_backbone():
-                    mapped_atom_num = pdb_mapped.atoms[mapped_index].residue_number
+                paired_residue = paired_coords_indexed_residues[patner_index]
+            for mapped_index in mapped_contact:
+                if pdb_mapped_atoms[mapped_index].is_backbone():  # mark the atom number as backbone
+                    mapped_residue = False
                 else:
-                    # marks the atom number as backbone
-                    mapped_atom_num = False
-                interacting_pairs.append((mapped_atom_num, paired_atom_num))
+                    mapped_residue = mapped_coords_indexed_residues[mapped_index]
+
+                interacting_pairs.append((mapped_residue, paired_residue))
 
     # Create dictionary and Count all atoms in each residue sidechain
     # ex. {'A': {32: (0, 9), 33: (0, 5), ...}, 'B':...}
-    res_counts_dict = {'mapped': {residue.number: [0, residue.number_of_atoms - num_bb_atoms]
+    res_counts_dict = {'mapped': {residue.number: [0, residue.number_of_heavy_atoms - num_bb_atoms]
                                   for residue in pdb_mapped.residues},
-                       'paired': {residue.number: [0, residue.number_of_atoms - num_bb_atoms]
+                       'paired': {residue.number: [0, residue.number_of_heavy_atoms - num_bb_atoms]
                                   for residue in pdb_paired.residues}}
     # res_counts_dict = {'mapped': {i.residue_number: [0, len(pdb_mapped.get_residue_atoms(mapped_chain, i.residue_number))
     #                                                  - num_bb_atoms] for i in pdb_mapped.ca_atoms},
@@ -320,11 +329,11 @@ def collect_frag_weights(pdb, mapped_chain, paired_chain, interaction_dist):
     # Count all residue/residue interactions that do not originate from a backbone atom. In this way, side-chain to
     # backbone are counted for the sidechain residue, indicating significance. However, backbones are (mostly)
     # identical, and therefore, their interaction should be conserved in each member of the cluster and not counted
-    for res_pair in interacting_pairs:
-        if res_pair[0]:
-            res_counts_dict['mapped'][res_pair[0]][0] += 1
-        if res_pair[1]:
-            res_counts_dict['paired'][res_pair[1]][0] += 1
+    for residue1, residue2 in interacting_pairs:
+        if residue1:
+            res_counts_dict['mapped'][residue1.number][0] += 1
+        if residue2:
+            res_counts_dict['paired'][residue2.number][0] += 1
 
     # Add the value of the total residue involvement for single structure to overall cluster dictionary
     for chain in res_counts_dict:
