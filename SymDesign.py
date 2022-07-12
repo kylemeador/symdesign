@@ -838,7 +838,7 @@ if __name__ == '__main__':
         logger.info('Starting with options:\n\t%s' % '\n\t'.join(SDUtils.pretty_format_table(reported_args.items())))
 
     # Set up Databases
-    logger.info(f'Using resources in Database located at "{job.protein_data}"')
+    logger.info(f'Using resources in Database located at "{job.data}"')
     queried_flags['job_resources'] = job
     if args.module in [PUtils.nano, PUtils.generate_fragments, PUtils.interface_design, PUtils.analysis]:
         if job.no_term_constraint:
@@ -1764,7 +1764,7 @@ if __name__ == '__main__':
 
             # need to change directories to prevent issues with the path length being passed to ialign
             prior_directory = os.getcwd()
-            os.chdir(job.protein_data)  # os.path.join(job.protein_data, 'ialign_output'))
+            os.chdir(job.data)  # os.path.join(job.data, 'ialign_output'))
             temp_file_dir = os.path.join(os.getcwd(), 'temp')
             if not os.path.exists(temp_file_dir):
                 os.makedirs(temp_file_dir)
@@ -1792,7 +1792,7 @@ if __name__ == '__main__':
                 for idx, (interface_file1, interface_file2) in enumerate(combinations(design_interfaces, 2)):  # all_files
                     # is_score = ialign(design1.source, design2.source, out_path='ialign')
                     is_score = ialign(interface_file1, interface_file2)
-                    #                   out_path=os.path.join(job.protein_data, 'ialign_output'))
+                    #                   out_path=os.path.join(job.data, 'ialign_output'))
                     if is_score > is_threshold:
                         pose_pairs.append(set(design_directory_pairs[idx]))
                         # pose_pairs.append({design1, design2})

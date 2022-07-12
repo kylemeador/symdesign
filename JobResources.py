@@ -7,7 +7,7 @@ from glob import glob
 from logging import Logger
 from pathlib import Path
 from subprocess import list2cmdline
-from typing import Iterable, Any
+from typing import Iterable, Any, Annotated
 
 import numpy as np
 from Bio.Data.IUPACData import protein_letters
@@ -16,7 +16,7 @@ import SymDesignUtils as SDUtils
 from CommandDistributer import rosetta_flags, script_cmd, distribute, relax_flags, rosetta_variables
 from PDB import PDB, fetch_pdb_file, query_qs_bio
 from PathUtils import monofrag_cluster_rep_dirpath, intfrag_cluster_rep_dirpath, intfrag_cluster_info_dirpath, \
-    frag_directory, sym_entry
+    frag_directory, sym_entry, program_name
 from PathUtils import orient_log_file, rosetta_scripts, models_to_multimodel_exe, refine, biological_interfaces, \
     biological_fragment_db_pickle, all_scores, projects, sequence_info, data, output_oligomers, output_fragments, \
     structure_background, scout, generate_fragments, number_of_trajectories, nstruct, no_hbnet, \
@@ -434,6 +434,78 @@ class Database:  # Todo ensure that the single object is completely loaded befor
                     raise DesignError('Entity refine run_in_shell functionality hasn\'t been implemented yet')
 
         return info_messages, pre_refine, pre_loop_model
+
+
+class DatabaseFactory:
+    """Return a Database instance by calling the Factory instance with the Database source name
+
+    Handles creation and allotment to other processes by saving expensive memory load of multiple instances and
+    allocating a shared pointer to the named Database
+    """
+
+    def __init__(self, **kwargs):
+        self._databases = {}
+
+    def __call__(self, source: str = os.path.join(os.getcwd(), f'{program_name}{data.title()}'), sql: bool = False,
+                 **kwargs) -> Database:
+        """Return the specified Database object singleton
+
+        Args:
+            source: The Database source path, or name if SQL Database
+            sql: Whether the Database is a SQL Database
+        Returns:
+            The instance of the specified Database
+        """
+        database = self._databases.get(source)
+        if database:
+            return database
+        elif sql:
+            raise DesignError('SQL set up has not been completed!')
+        else:
+            SDUtils.make_path(source)
+            pdbs = os.path.join(source, 'PDBs')  # Used to store downloaded PDB's
+            sequence_info_dir = os.path.join(source, sequence_info)
+            external_db = os.path.join(source, 'ExternalDatabases')
+            # pdbs subdirectories
+            orient_dir = os.path.join(pdbs, 'oriented')
+            orient_asu_dir = os.path.join(pdbs, 'oriented_asu')
+            refine_dir = os.path.join(pdbs, 'refined')
+            full_model_dir = os.path.join(pdbs, 'full_models')
+            stride_dir = os.path.join(pdbs, 'stride')
+            # sequence_info subdirectories
+            sequences = os.path.join(sequence_info_dir, 'sequences')
+            profiles = os.path.join(sequence_info_dir, 'profiles')
+            # external database subdirectories
+            pdb_api = os.path.join(external_db, 'pdb')
+            # pdb_entity_api = os.path.join(external_db, 'pdb_entity')
+            # pdb_assembly_api = os.path.join(external_db, 'pdb_assembly')
+            uniprot_api = os.path.join(external_db, 'uniprot')
+            logger.info(f'Initializing {source} {Database.__name__}')
+
+            self._databases[source] = \
+                Database(orient_dir, orient_asu_dir, refine_dir, full_model_dir, stride_dir, sequences, profiles,
+                         pdb_api, uniprot_api, sql=None)
+
+        return self._databases[source]
+
+    def get(self, **kwargs) -> Database:
+        """Return the specified Database object singleton
+
+        Keyword Args:
+            source=current_working_directory/Data (str): The Database source path, or name if SQL Database
+            sql=False (bool): Whether the Database is a SQL Database
+        Returns:
+            The instance of the specified Database
+        """
+        return self.__call__(**kwargs)
+
+
+database_factory: Annotated[DatabaseFactory,
+                            'Calling this factory method returns the single instance of the Database class located at '
+                            'the "source" keyword argument'] = \
+    DatabaseFactory()
+"""Calling this factory method returns the single instance of the Database class located at the "source" keyword 
+argument"""
 
 
 def write_str_to_file(string, file_name, **kwargs) -> str | bytes:
@@ -1217,7 +1289,12 @@ class FragmentDatabaseFactory:
         return self.__call__(**kwargs)
 
 
-fragment_factory = FragmentDatabaseFactory()
+fragment_factory: Annotated[FragmentDatabaseFactory,
+                            'Calling this factory method returns the single instance of the FragmentDatabase class '
+                            'containing fragment information specified by the "source" keyword argument'] = \
+    FragmentDatabaseFactory()
+"""Calling this factory method returns the single instance of the FragmentDatabase class containing fragment information
+ specified by the "source" keyword argument"""
 
 
 class JobResources:
@@ -1235,7 +1312,7 @@ class JobResources:
             raise TypeError(f'Can\'t initialize {JobResources.__name__} without parameter "program_root"')
 
         # program_root subdirectories
-        self.protein_data = os.path.join(self.program_root, data.title())
+        self.data = os.path.join(self.program_root, data.title())
         self.projects = os.path.join(self.program_root, projects)
         self.job_paths = os.path.join(self.program_root, 'JobPaths')
         self.sbatch_scripts = os.path.join(self.program_root, 'Scripts')
@@ -1243,10 +1320,10 @@ class JobResources:
         self.all_scores = os.path.join(self.program_root, all_scores)
 
         # data subdirectories
-        self.clustered_poses = os.path.join(self.protein_data, 'ClusteredPoses')
-        self.pdbs = os.path.join(self.protein_data, 'PDBs')  # Used to store downloaded PDB's
-        self.sequence_info = os.path.join(self.protein_data, sequence_info)
-        self.external_db = os.path.join(self.protein_data, 'ExternalDatabases')
+        self.clustered_poses = os.path.join(self.data, 'ClusteredPoses')
+        self.pdbs = os.path.join(self.data, 'PDBs')  # Used to store downloaded PDB's
+        self.sequence_info = os.path.join(self.data, sequence_info)
+        self.external_db = os.path.join(self.data, 'ExternalDatabases')
         # pdbs subdirectories
         self.orient_dir = os.path.join(self.pdbs, 'oriented')
         self.orient_asu_dir = os.path.join(self.pdbs, 'oriented_asu')
@@ -1285,10 +1362,11 @@ class JobResources:
         # self.make_path(self.full_model_dir)
         # self.make_path(self.stride_dir)
         self.reduce_memory = False
-        self.resources = Database(self.orient_dir, self.orient_asu_dir, self.refine_dir, self.full_model_dir,
-                                  self.stride_dir, self.sequences, self.profiles, self.pdb_api,
-                                  # self.pdb_entity_api, self.pdb_assembly_api,
-                                  self.uniprot_api, sql=None)  # , log=logger)
+        self.resources = database_factory.get(source=self.data)
+        # self.resources = Database(self.orient_dir, self.orient_asu_dir, self.refine_dir, self.full_model_dir,
+        #                           self.stride_dir, self.sequences, self.profiles, self.pdb_api,
+        #                           # self.pdb_entity_api, self.pdb_assembly_api,
+        #                           self.uniprot_api, sql=None)  # , log=logger)
         # self.symmetry_factory = symmetry_factory
         self.fragment_db: FragmentDatabase | None = None
         self.euler_lookup: EulerLookup | None = None
