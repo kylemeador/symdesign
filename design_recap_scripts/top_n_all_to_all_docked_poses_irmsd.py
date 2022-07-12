@@ -1,3 +1,4 @@
+import os
 import sys
 import warnings
 from itertools import permutations, combinations
@@ -820,6 +821,8 @@ def all_to_all_docked_poses_irmsd_mp(design_directories, threads):
 
 
 def main():
+    raise RuntimeError('There are issues with this script as the result of modernization. Modify all use of Structures '
+                       'from PDB() to Model/Pose using class constructor .from_file/.from_atoms/.from_residues')
     ############################################## INPUT PARAMETERS ####################################################
     top_scoring = 2000
     docked_poses_dirpath = sys.argv[1]  # nanohedra output directory
