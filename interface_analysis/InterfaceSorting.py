@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import argparse
 import os
 import sys
@@ -9,8 +11,9 @@ sys.path.append(parent_dir)
 
 from interface_analysis.ParsePisa import retrieve_pisa_file_path, get_complex_interfaces
 from PathUtils import pdb_db, pisa_db, qs_bio, qs_bio_monomers_file
+from Pose import Model
+from Structure import Chain
 from SymDesignUtils import start_log, pickle_object, unpickle, get_file_paths_recursively, to_iterable, ex_path
-from JobResources import FragmentDatabase
 import Query.PDB as qPDB
 # from PDB import extract_interface
 # from Pose import retrieve_pdb_file_path
@@ -22,6 +25,72 @@ def pisa_polymer_interface(interface):
             return False
         # else:
     return True
+
+
+def extract_interface(pdb, chain_data_d, full_chain=True):
+    """
+    'interfaces': {interface_ID: {interface stats, {chain data}}, ...}
+        Ex: {1: {'occ': 2, 'area': 998.23727478, 'solv_en': -11.928783903, 'stab_en': -15.481081211,
+             'chain_data': {1: {'chain': 'C', 'r_mat': [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]],
+                                't_vec': [0.0, 0.0, 0.0], 'num_atoms': 104, 'int_res': {'87': 23.89, '89': 45.01, ...},
+                            2: ...}},
+             2: {'occ': ..., },
+             'all_ids': {interface_type: [interface_id1, matching_id2], ...}
+            } interface_type and id connect the interfaces that are the same, but present in multiple PISA complexes
+
+    """
+    # if one were trying to map the interface fragments created in a fragment extraction back to the pdb, they would
+    # want to use the interface in interface_data and the chain id (renamed from letter to ID #) to find the chain and
+    # the translation from the pisa.xml file
+    # pdb_code, subdirectory = return_and_make_pdb_code_and_subdirectory(pdb_file_path)
+    # out_path = os.path.join(os.getcwd(), subdirectory)
+    # try:
+    #     # If the location of the PDB data and the PISA data is known the pdb_code would suffice.
+    #     # This makes flexible with MySQL
+    #     source_pdb = PDB(file=pdb_file_path)
+    #     pisa_data = unpickle(pisa_file_path)  # Get PISA data
+    #     interface_data = pisa_data['interfaces']
+    #     # interface_data, chain_data = pp.parse_pisa_interfaces_xml(pisa_file_path)
+    #     for interface_id in interface_data:
+    #         if not interface_id.is_digit():  # == 'all_ids':
+    #             continue
+    # interface_pdb = PDB.PDB()
+    temp_names = ('.', ',')
+    interface_chains = []
+    temp_chain_d = {}
+    for temp_name_idx, (chain_idx, chain_data) in enumerate(chain_data_d.items()):
+        # chain_pdb = PDB.PDB()
+        chain_id = chain_data['chain']
+        # if not chain:  # for instances of ligands, stop process, this is not a protein-protein interface
+        #     break
+        # else:
+        if full_chain:  # get the entire chain
+            interface_residues = pdb.chain(chain_id).residues
+        else:  # get only the specific residues at the interface
+            # residue_numbers = chain_data['int_res']
+            interface_residues = pdb.chain(chain_id).get_residues(numbers=chain_data['int_res'])
+            # interface_atoms = []
+            # for residue_number in residues:
+            #     residue_atoms = pdb.get_residue_atoms(chain, residue_number)
+            #     interface_atoms.extend(deepcopy(residue_atoms))
+            # interface_atoms = list(iter_chain.from_iterable(interface_atoms))
+        chain = Chain.from_residues(interface_residues)
+        # chain_pdb.read_atom_list(interface_atoms)
+
+        rot = chain_data['r_mat']
+        trans = chain_data['t_vec']
+        chain.transform(rotation=rot, translation=trans)
+        chain.chain_id = temp_names[temp_name_idx]  # ensure that chain names are not the same
+        temp_chain_d[temp_names[temp_name_idx]] = str(chain_idx)
+        interface_chains.append(chain)
+        # interface_pdb.read_atom_list(chain_pdb.atoms)
+
+    interface_pdb = Model.from_chains(interface_chains)
+    if len(interface_pdb.chain_ids) == 2:
+        for temp_name, new_name in temp_chain_d.items():
+            interface_pdb.chain(temp_name).chain_id = new_name
+
+    return interface_pdb
 
 
 # def return_pdb_interface(pdb_code, interface_id, full_chain=True, db=False):

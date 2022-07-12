@@ -14,7 +14,7 @@ import SymDesignUtils as SDUtils
 # print(sys.path)
 # from utils.BioPDBUtils import biopdb_aligned_chain
 from utils.PDBUtils import biopdb_aligned_chain
-from PDB import fetch_pdb
+from JobResources import fetch_pdb_file
 from Pose import Model
 
 # if sys.version[0] < 3:
@@ -149,8 +149,8 @@ def design_recapitulation(design_file, output_dir, pdb_dir=None, oligomer=False)
             else:
                 logger.warning('%s: %s is not verified in QSBio! Arbitrarily choosing assembly 1' % (design, pdb))
                 biological_assembly = 1
-            new_file = \
-                fetch_pdb(pdb, assembly=biological_assembly, out_dir=os.path.join(output_dir, 'biological_assemblies'))
+            new_file = fetch_pdb_file(pdb, asu=False, assembly=biological_assembly,
+                                      out_dir=os.path.join(output_dir, 'biological_assemblies'))
             if new_file:
                 downloaded_pdb = Model.from_file(new_file[0])
             else:
