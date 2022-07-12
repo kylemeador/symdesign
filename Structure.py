@@ -5059,6 +5059,10 @@ class Entity(Chain, SequenceProfile):  # Todo consider moving SequenceProfile to
         if uniprot_id:
             self.uniprot_id = uniprot_id
 
+    # @classmethod  # Todo mirror Model
+    # def from_file(cls):
+    #     return cls()
+
     @classmethod
     def from_chains(cls, chains: list[Chain] | Structures = None, uniprot_id: str = None, **kwargs):
         """Initialize an Entity from a set of Chain objects"""
@@ -5642,7 +5646,7 @@ class Entity(Chain, SequenceProfile):  # Todo consider moving SequenceProfile to
     #         error_string = 'orient_oligomer could not orient %s%s' % (pdb_file_name, log_message)
     #         raise RuntimeError(error_string)
     #
-    #     oriented_pdb = PDB.from_file(orient_output, name=self.name, log=log)
+    #     oriented_pdb = Entity.from_file(orient_output, name=self.name, log=log)
     #     orient_fixed_struct = oriented_pdb.chains[0]
     #     moving_struct = self.chains[0]
     #     try:

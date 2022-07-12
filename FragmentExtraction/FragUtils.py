@@ -1,15 +1,17 @@
 import os
 import sys
+from itertools import chain
+import math
+import multiprocessing as mp
+
+import numpy as np
+from sklearn.neighbors import BallTree
+
 current_dir = os.path.dirname(os.path.abspath(__file__))
 parent_dir = os.path.dirname(current_dir)
 sys.path.append(parent_dir)
-import math
-import numpy as np
-import multiprocessing as mp
-from itertools import chain
-from sklearn.neighbors import BallTree
 from Bio.PDB import PDBParser, Atom, Residue, Chain, Superimposer
-from PDB import PDB
+from Structure import Structure
 from SymDesignUtils import DesignError
 
 # Globals
@@ -276,8 +278,8 @@ def collect_frag_weights(pdb, mapped_chain, paired_chain, interaction_dist):
     num_bb_atoms = 4
 
     # Creating PDB instance for mapped and paired chains
-    pdb_mapped = PDB.from_atoms(atoms=pdb.chain(mapped_chain).atoms)
-    pdb_paired = PDB.from_atoms(atoms=pdb.chain(paired_chain).atoms)
+    pdb_mapped = Structure.from_residues(pdb.chain(mapped_chain).residues)
+    pdb_paired = Structure.from_residues(pdb.chain(paired_chain).residues)
     # pdb_mapped.read_atom_list(pdb.get_chain_atoms(mapped_chain))
     # pdb_paired.read_atom_list(pdb.get_chain_atoms(paired_chain))
 

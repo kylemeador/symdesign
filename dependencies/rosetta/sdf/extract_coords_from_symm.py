@@ -1,8 +1,8 @@
 import sys
-import os
+
 import numpy as np
 
-from PDB import PDB
+from Pose import Model
 from Structure import superposition3d
 
 
@@ -38,8 +38,8 @@ if __name__ == '__main__':
                            list(map(float, temp_coords[-1].split(',')))])
     print(coords)
     final_coords = np.array(coords)
-    t32_rosetta = PDB.from_file(t32_rosetta_file)
-    t32_orient = PDB.from_file(t32_orient_file)
+    t32_rosetta = Model.from_file(t32_rosetta_file)
+    t32_orient = Model.from_file(t32_orient_file)
     _, rot, tx, _ = superposition3d(t32_orient.entities[0].cb_coords, t32_rosetta.entities[0].cb_coords)
     final_coords = np.matmul(final_coords, np.transpose(rot)) + tx
 

@@ -1,12 +1,12 @@
 import os
 import sys
 
-from PDB import PDB
+from Pose import Model
 from SymDesignUtils import get_directory_file_paths
 
 
 def orient_oligomer(pdb_path, sym, out_dir=os.getcwd()):
-    pdb = PDB.from_file(pdb_path)
+    pdb = Model.from_file(pdb_path)
     pdb.orient(symmetry=sym)
     return pdb.write(out_path=os.path.join(out_dir, os.path.basename(os.path.splitext(pdb_path)[0]) + '_oriented.pdb'))
 

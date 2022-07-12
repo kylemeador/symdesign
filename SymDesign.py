@@ -33,7 +33,8 @@ from DesignMetrics import prioritize_design_indices, query_user_for_metrics
 from DnaChisel.dnachisel.DnaOptimizationProblem.NoSolutionError import NoSolutionError
 from FragDock import nanohedra_dock
 from JobResources import fragment_factory, job_resources_factory  # JobResources
-from PDB import PDB, orient_pdb_file
+from PDB import orient_pdb_file
+from Pose import Model
 from PoseDirectory import PoseDirectory
 from ProteinExpression import find_expression_tags, find_matching_expression_tags, add_expression_tag, \
     select_tags_for_sequence, remove_expression_tags, expression_tags, optimize_protein_sequence, \
@@ -579,7 +580,7 @@ def load_total_dataframe(pose: bool = False) -> pd.DataFrame:
 
 
 def generate_sequence_template(pdb_file):
-    pdb = PDB.from_file(pdb_file, entities=False)
+    pdb = Model.from_file(pdb_file, entities=False)
     sequence = SeqRecord(Seq(''.join(chain.sequence for chain in pdb.chains), 'Protein'), id=pdb.file_path)
     sequence_mask = copy.copy(sequence)
     sequence_mask.id = 'residue_selector'
@@ -2100,7 +2101,7 @@ if __name__ == '__main__':
                 if not file:
                     logger.error('No file found for %s' % file_glob)
                     continue
-                design_pose = PDB.from_file(file[0], log=des_dir.log, entity_names=des_dir.entity_names)
+                design_pose = Model.from_file(file[0], log=des_dir.log, entity_names=des_dir.entity_names)
                 designed_atom_sequences = [entity.sequence for entity in design_pose.entities]
 
                 missing_tags[(des_dir, design)] = [1 for _ in des_dir.pose.entities]

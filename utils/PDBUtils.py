@@ -5,7 +5,7 @@ import numpy as np
 from Bio.PDB.Atom import Atom as BioPDBAtom, PDBConstructionWarning
 from sklearn.neighbors import BallTree
 
-from PDB import PDB
+from Pose import Model
 from SymDesignUtils import start_log
 
 # Globals
@@ -73,7 +73,7 @@ def get_contacting_asu(pdb1, pdb2, contact_dist=8, **kwargs):
                 max_contact_chain1, max_contact_chain2 = chain1, chain2
 
     if max_contact_count > 0:
-        return PDB.from_chains([max_contact_chain1, max_contact_chain2], name='asu', entities=True, **kwargs)
+        return Model.from_chains([max_contact_chain1, max_contact_chain2], name='asu', entities=True, **kwargs)
     else:
         return
 

@@ -7,7 +7,7 @@ parent_dir = os.path.dirname(current_dir)
 sys.path.extend([parent_dir])
 # from PoseDirectory import set_up_directory_objects
 # from SymDesignUtils import collect_designs
-from PDB import PDB
+from Pose import Model
 
 
 def frag_match_count_filter(master_design_dirpath, min_frag_match_count, master_design_outdir_path):
@@ -240,7 +240,7 @@ def ss_match_count_filter(master_design_dirpath, min_ss_match_count, master_desi
     # get the residue secondary structure type
     # and the number of the secondary structure element it belongs to
     ss_res_info_dict_1 = {}
-    pdb_oligomer_1 = PDB.from_file(original_oligomer_1_pdb_path)
+    pdb_oligomer_1 = Model.from_file(original_oligomer_1_pdb_path)
     ch_id_oligomer_1 = pdb_oligomer_1.chain_ids[0]
     ss_asg_oligomer_1 = pdb_oligomer_1.chain(ch_id_oligomer_1).get_secondary_structure()
     ss_num_1 = 0
@@ -255,7 +255,7 @@ def ss_match_count_filter(master_design_dirpath, min_ss_match_count, master_desi
     # get the residue secondary structure type and
     # the number of the secondary structure element it belongs to
     ss_res_info_dict_2 = {}
-    pdb_oligomer_2 = PDB.from_file(original_oligomer_2_pdb_path)
+    pdb_oligomer_2 = Model.from_file(original_oligomer_2_pdb_path)
     ch_id_oligomer_2 = pdb_oligomer_2.chain_ids[0]
     ss_asg_oligomer_2 = pdb_oligomer_2.chain(ch_id_oligomer_2).get_secondary_structure()
     ss_num_2 = 0

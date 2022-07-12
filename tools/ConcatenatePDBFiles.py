@@ -1,7 +1,7 @@
 import argparse
 import os
 
-from PDB import PDB
+from Pose import Model
 from SymDesignUtils import get_directory_file_paths, start_log
 
 # globals
@@ -23,8 +23,8 @@ if __name__ == '__main__':
     if args.directory:
         args.files = get_directory_file_paths(args.directory, extension='.pdb')
     # initialize PDB Objects
-    pdbs = [PDB.from_file(pdb_file, log=logger) for pdb_file in args.files]
-    pdb = PDB.from_chains([chain for pdb in pdbs for chain in pdb.chains], name='-'.join(pdb.name for pdb in pdbs),
+    pdbs = [Model.from_file(pdb_file, log=logger) for pdb_file in args.files]
+    pdb = Model.from_chains([chain for pdb in pdbs for chain in pdb.chains], name='-'.join(pdb.name for pdb in pdbs),
                           log=logger, entities=False)
     # output file
     os.makedirs(args.output_directory, exist_ok=True)

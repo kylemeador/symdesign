@@ -1,9 +1,8 @@
 import os
 import sys
 
-from PDB import PDB
-import Pose
-import SequenceProfile
+from Pose import Model
+from Structure import Structure
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
 parent_dir = os.path.dirname(current_dir)
@@ -37,18 +36,16 @@ def extract_fragments(pdb, distance, frag_length, same_chain=False):
     if len(pdb.chain_ids) != 2:  # ensure two chains are present
         logger.info('%s %s is missing two chains... It will be skipped!' % (module, pdb.name))
         return pdb.name
-    pdb_ch1_id = pdb.chain_ids[0]
-    pdb_ch2_id = pdb.chain_ids[-1]
 
     # Create PDB instance for Ch1 and Ch2
-    pdb1 = PDB.from_atoms(pdb.chain(pdb_ch1_id).atoms)
-    pdb2 = PDB.from_atoms(pdb.chain(pdb_ch2_id).atoms)
-    if not pdb1.atoms or not pdb2.atoms:
+    chain1, chain2 = pdb.chains
+    if not chain1.atoms or not chain2.atoms:
         logger.info('%s is missing atoms in one of two chains... It will be skipped!' % pdb.name)
         return pdb.name
     # Find Pairs of Interacting Residues
-    interacting_pairs = Pose.find_interface_pairs(pdb1, pdb2, distance=distance)
-    fragment_pairs = find_interacting_residue_fragments(pdb1, pdb2, interacting_pairs, frag_length, same_chain=same_chain)
+    interacting_pairs = Frag.find_interface_pairs(chain1, chain2, distance=distance)
+    fragment_pairs = \
+        find_interacting_residue_fragments(chain1, chain2, interacting_pairs, frag_length, same_chain=same_chain)
 
     return fragment_pairs
 
@@ -107,7 +104,7 @@ def main(int_db_dir, outdir, frag_length, interface_dist, individual=True, paire
 
     print('%s Creating Neighbor CB Atom Trees at %d Angstroms Distance' % (module, interface_dist))
     # Reading In PDB Structures
-    pdbs_of_interest = [PDB.from_file(pdb_path) for pdb_path in int_db_filepaths]
+    pdbs_of_interest = [Model.from_file(pdb_path, entities=False) for pdb_path in int_db_filepaths]
     # pdbs_of_interest = [SDUtils.read_pdb(pdb_path) for pdb_path in int_db_filepaths]
     for i, pdb in enumerate(pdbs_of_interest):
         pdbs_of_interest[i].name = os.path.splitext(os.path.basename(pdb.file_path))[0]

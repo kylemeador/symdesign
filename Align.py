@@ -2,7 +2,7 @@ import argparse
 import math
 import os
 
-from PDB import PDB
+from Pose import Model
 # from Stride import Stride
 from Structure import superposition3d
 
@@ -1322,12 +1322,12 @@ class HelixFusion:
             orient_target_path = os.path.splitext(self.target_protein_path)[0] + '_orient.pdb'
             if os.path.exists(orient_target_path):
                 print('Done Orienting Target Molecule')
-                target_protein = PDB.from_file(orient_target_path)
+                target_protein = Model.from_file(orient_target_path)
             else:
                 print('Could Not Orient Target Molecule')
                 return -1
         else:
-            target_protein = PDB.from_file(self.target_protein_path)
+            target_protein = Model.from_file(self.target_protein_path)
 
         # Add Ideal 10 Ala Helix to Target if desired
         if self.add_target_helix[0]:
@@ -1384,7 +1384,7 @@ class HelixFusion:
         oligomer_id_list = oligomer_id_listfile.list_file
         for oligomer_id in oligomer_id_list:
             oligomer_filepath = os.path.join(self.work_dir, '%s.pdb1' % oligomer_id)
-            correct_oligomer_state = PDB.from_file(oligomer_filepath)
+            correct_oligomer_state = Model.from_file(oligomer_filepath)
             correct_sate_out_path = os.path.splitext(oligomer_filepath)[0] + '.pdb'
             correct_sate_out = open(correct_sate_out_path, 'w')
             for atom in correct_oligomer_state.all_atoms:
@@ -1407,7 +1407,7 @@ class HelixFusion:
             if os.path.isfile(oriented_oligomer_filepath):
                 for i in range(6):
                     # Read in Moving PDB
-                    pdb_oligomer = PDB.from_file(oriented_oligomer_filepath)
+                    pdb_oligomer = Model.from_file(oriented_oligomer_filepath)
 
                     # Run Stride On Oligomer
                     if self.oligomer_term in ['N', 'C']:
@@ -1597,7 +1597,7 @@ class HelixFusion:
                                 pdb_oligomer.apply(rot, tx)
                                 pdb_oligomer.reorder_chains(exclude_chains=target_protein.chain_ids)
 
-                                out_pdb = PDB.from_atoms(target_protein.atoms + pdb_oligomer.atoms)
+                                out_pdb = Model.from_atoms(target_protein.atoms + pdb_oligomer.atoms)
 
                                 out_path = os.path.join(design_directory,
                                                         '%s_%s_%d.pdb' % (os.path.basename(self.target_protein_path)[0:4], oligomer_id, i))
@@ -1607,8 +1607,8 @@ class HelixFusion:
 
 
 def align(pdb1_path, start_1, end_1, chain_1, pdb2_path, start_2, end_2, chain_2, extend_helix=False):
-        pdb1 = PDB.from_file(pdb1_path)
-        pdb2 = PDB.from_file(pdb2_path)
+        pdb1 = Model.from_file(pdb1_path)
+        pdb2 = Model.from_file(pdb2_path)
 
         if extend_helix:
             n_terminus = pdb1.chain(chain_1).n_terminal_residue.number
