@@ -35,7 +35,7 @@ slice_remark, slice_number, slice_atom_type, slice_alt_location, slice_residue_t
     slice(60, 66), slice(76, 78), slice(78, 80)
 
 
-def parse_cryst_record(cryst_record) -> tuple[list[float], str]:  # Todo make PDB module method
+def parse_cryst_record(cryst_record) -> tuple[list[float], str]:
     """Get the unit cell length, height, width, and angles alpha, beta, gamma and the space group
     Args:
         cryst_record: The CRYST1 record in a .pdb file
@@ -995,7 +995,7 @@ class PDB(Structure):
             #     os.remove(orient_output)
 
         clean_orient_input_output()
-        # self.reindex_all_chain_residues()  TODO test efficacy. It could be that this screws up more than helps
+        # self.reindex_all_chain_residues()  Todo test efficacy. It could be that this screws up more than helps
         # have to change residue numbering to PDB numbering
         if multicomponent:
             self.entities[0].write_oligomer(out_path=orient_input, pdb_number=True)
@@ -1121,7 +1121,7 @@ class PDB(Structure):
                 structure._start_indices(at=structures[prior_idx].residue_indices[-1] + 1, dtype='residue')
 
     def delete_residue(self, chain_id: str, residue_number: int):  # Todo Move to Structure
-        self.log.critical(f'{self.delete_residue.__name__} This function requires testing')  # TODO TEST
+        self.log.critical(f'{self.delete_residue.__name__} This function requires testing')  # Todo TEST
         # start = len(self.atoms)
         # self.log.debug(start)
         # residue = self.get_residue(chain, residue_number)
@@ -1151,7 +1151,7 @@ class PDB(Structure):
                     continue
         # self.log.debug('Deleted: %d atoms' % (start - len(self.atoms)))
 
-    def retrieve_pdb_info_from_api(self):  # Todo Pose with JobResources
+    def retrieve_pdb_info_from_api(self):
         """Query the PDB API for information on the PDB code found as the PDB object .name attribute
 
         Makes 1 + num_of_entities calls to the PDB API. If file is assembly, makes one more
@@ -1241,7 +1241,7 @@ class PDB(Structure):
         else:
             self.log.debug('No name was found for this Model. PDB API won\'t be searched')
 
-    def entity(self, entity_id: str) -> Entity | None:  # Todo ready for Pose
+    def entity(self, entity_id: str) -> Entity | None:
         """Retrieve an Entity by name from the PDB object
 
         Args:
@@ -1412,7 +1412,7 @@ class PDB(Structure):
     #
     # def match_entity_by_struct(self, other_struct=None, entity=None, force_closest=False):
     #     """From another set of atoms, returns the first matching chain from the corresponding entity"""
-    #     return  # TODO when entities are structure compatible
+    #     return  # Todo when entities are structure compatible
 
     def match_entity_by_seq(self, other_seq: str = None, force_closest: bool = True, threshold: float = 0.7) \
             -> Union[Entity, None]:
@@ -1429,7 +1429,7 @@ class PDB(Structure):
         if force_closest:
             alignment_score_d = {}
             for entity in self.entities:
-                # TODO get a gap penalty and rework entire alignment function...
+                # Todo get a gap penalty and rework entire alignment function...
                 alignment = pairwise2.align.localxx(other_seq, entity.sequence)
                 max_align_score, max_alignment = 0, None
                 for idx, align in enumerate(alignment):
@@ -1582,9 +1582,9 @@ class PDB(Structure):
     #                         unique_chains_entity[max_contact_chain] = p_entity
     #
     #                 # return list(unique_chains_entity.keys())
-    #             else:  # TODO this doesn't work yet. Solve the asu by expansion to extra contacts
+    #             else:  # Todo this doesn't work yet. Solve the asu by expansion to extra contacts
     #                 raise DesignError('This functionality \'get_asu(extra=True)\' is not working!')
-    #                 # partner_entity_chains_first_entity_contact_d = {} TODO define here if iterate over all entities?
+    #                 # partner_entity_chains_first_entity_contact_d = {} Todo define here if iterate over all entities?
     #                 extra_first_entity_chains, first_entity_chain_contacts = [], []
     #                 for p_entity in partner_entities:  # search over all entities
     #                     # Find all partner chains in the entity in contact with chain of interest
