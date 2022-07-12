@@ -1834,12 +1834,14 @@ def fetch_pdb(pdb_codes: Union[str, list], assembly: int = 1, asu: bool = False,
         # if clean_pdb not in current_files:
         if not current_file:  # glob will return an empty list if the file is missing and therefore should be downloaded
             # Always returns files in lowercase
-            status = os.system('wget -q -O %s https://files.rcsb.org/download/%s' % (file_name, clean_pdb))
-            # TODO subprocess.POPEN()
-            if status != 0:
-                logger.error('PDB download failed for: %s. If you believe this PDB ID is correct, there may only be a '
-                             '.cif file available for this entry. ' % clean_pdb)
-                # todo parse .cif file.
+            # status = os.system(f'wget -q -O {file_name} https://files.rcsb.org/download/{clean_pdb}')
+            cmd = ['wget', '-q', '-O', file_name, f'https://files.rcsb.org/download/{clean_pdb}']
+            p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            p.communicate()
+            if p.returncode != 0:
+                logger.error(f'PDB download failed for: {clean_pdb}. If you believe this PDB ID is correct, there may '
+                             f'only be a .cif file available for this entry, which currently can\'t be parsed')
+                # Todo parse .cif file.
                 #  Super easy as the names of the columns are given in a loop and the ATOM records still start with ATOM
                 #  The additional benefits is that the records contain entity IDS as well as the residue index and the
                 #  author residue number. I think I will prefer this format from now on once parsing is possible.
