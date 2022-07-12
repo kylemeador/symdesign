@@ -1761,40 +1761,39 @@ def extract_interface(pdb, chain_data_d, full_chain=True):
     #             continue
     # interface_pdb = PDB.PDB()
     temp_names = ('.', ',')
-    interface_chain_pdbs = []
+    interface_chains = []
     temp_chain_d = {}
-    for temp_name_idx, chain_id in enumerate(chain_data_d):
+    for temp_name_idx, (chain_idx, chain_data) in enumerate(chain_data_d.items()):
         # chain_pdb = PDB.PDB()
-        chain = chain_data_d[chain_id]['chain']
+        chain_id = chain_data['chain']
         # if not chain:  # for instances of ligands, stop process, this is not a protein-protein interface
         #     break
         # else:
         if full_chain:  # get the entire chain
-            interface_atoms = deepcopy(pdb.chain(chain).atoms)
+            interface_residues = pdb.chain(chain_id).residues
         else:  # get only the specific residues at the interface
-            residue_numbers = chain_data_d[chain_id]['int_res']
-            interface_atoms = pdb.chain(chain).get_residue_atoms(residue_numbers)
+            # residue_numbers = chain_data['int_res']
+            interface_residues = pdb.chain(chain_id).get_residues(numbers=chain_data['int_res'])
             # interface_atoms = []
             # for residue_number in residues:
             #     residue_atoms = pdb.get_residue_atoms(chain, residue_number)
             #     interface_atoms.extend(deepcopy(residue_atoms))
             # interface_atoms = list(iter_chain.from_iterable(interface_atoms))
-        chain_pdb = PDB.from_atoms(deepcopy(interface_atoms))
+        chain = Chain.from_residues(interface_residues)
         # chain_pdb.read_atom_list(interface_atoms)
 
-        rot = chain_data_d[chain_id]['r_mat']
-        trans = chain_data_d[chain_id]['t_vec']
-        chain_pdb.apply(rot, trans)
-        chain_pdb.chain(chain).chain_id = temp_names[temp_name_idx]  # ensure that chain names are not the same
-        temp_chain_d[temp_names[temp_name_idx]] = str(chain_id)
-        interface_chain_pdbs.append(chain_pdb)
+        rot = chain_data['r_mat']
+        trans = chain_data['t_vec']
+        chain.transform(rotation=rot, translation=trans)
+        chain.chain_id = temp_names[temp_name_idx]  # ensure that chain names are not the same
+        temp_chain_d[temp_names[temp_name_idx]] = str(chain_idx)
+        interface_chains.append(chain)
         # interface_pdb.read_atom_list(chain_pdb.atoms)
 
-    interface_pdb = PDB.from_atoms(list(iter_chain.from_iterable([chain_pdb.atoms
-                                                                  for chain_pdb in interface_chain_pdbs])))
+    interface_pdb = PDB.from_chains(interface_chains)
     if len(interface_pdb.chain_ids) == 2:
-        for temp_name in temp_chain_d:
-            interface_pdb.chain(temp_name).chain_id = temp_chain_d[temp_name]
+        for temp_name, new_name in temp_chain_d.items():
+            interface_pdb.chain(temp_name).chain_id = new_name
 
     return interface_pdb
 
