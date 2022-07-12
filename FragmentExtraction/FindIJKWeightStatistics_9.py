@@ -1,9 +1,7 @@
 import os
-import sys
 import math
 import pickle
 import copy
-from PDB import PDB
 
 # GLOBALS
 bio_fragmentDB = '/home/kmeador/yeates/fragment_database/bio'

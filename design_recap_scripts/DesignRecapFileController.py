@@ -10,10 +10,7 @@ import pandas as pd
 import PathUtils as PUtils
 from SequenceProfile import generate_mutations
 import SymDesignUtils as SDUtils
-# sys.path.append(PUtils.nanohedra_source)
-# print(sys.path)
-# from utils.BioPDBUtils import biopdb_aligned_chain
-from utils.PDBUtils import biopdb_aligned_chain
+from Structure import superposition3d
 from JobResources import fetch_pdb_file
 from Pose import Model
 
@@ -55,7 +52,7 @@ def make_asu_oligomer(asu, chain_map, location=os.getcwd()):
     """Transform oriented oligomers to the ASU pose
 
     Args:
-        asu (PDB): a PDB instance with the correctly oriented ASU for design
+        asu (Model): A Structure instance with the correctly oriented ASU for design
         chain_map (dict): {'pdb1': {'asu_chain': 'A', 'dock_chains': ['A', 'B', 'C'], 'path': path/to/.pdb}, {}}
             Relation of the chains in the oriented oligomer to corresponding chain name in the asu PDB & the paths to
             the oriented oligomers
@@ -71,7 +68,11 @@ def make_asu_oligomer(asu, chain_map, location=os.getcwd()):
         oriented_oligomer = Model.from_file(chain_map[pdb]['path'])
         # oriented_oligomer = SDUtils.read_pdb(chain_map[pdb]['path'])
         oligomer_chain = chain_map[pdb]['dock_chains'][0]
-        moved_oligomer[pdb] = biopdb_aligned_chain(asu.chain(asu_chain), oriented_oligomer, oligomer_chain)
+        # moved_oligomer[pdb] = biopdb_aligned_chain(asu.chain(asu_chain), oriented_oligomer, oligomer_chain)
+        # transpose rotation matrix as superposition3d returns correct matrix to rotate using np.matmul
+        rmsd, rot, tx, _ = \
+            superposition3d(asu.chain(asu_chain).cb_coords, oriented_oligomer.chain(oligomer_chain).cb_coords)
+        moved_oligomer[pdb] = oriented_oligomer.return_transformed_copy(rotation=rot, translation=tx)
         # moved_oligomer[pdb] = biopdb_aligned_chain(asu, asu_chain, oriented_oligomer, oligomer_chain)
         # moved_oligomer = biopdb_aligned_chain(pdb_fixed, chain_id_fixed, pdb_moving, chain_id_moving)
     final_comparison = {'nanohedra_output': glob(os.path.join(os.path.dirname(location), 'NanohedraEntry*DockedPoses'))[0]}
