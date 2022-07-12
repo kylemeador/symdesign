@@ -16,7 +16,8 @@ from Bio import pairwise2
 from Bio.Data.IUPACData import protein_letters_3to1_extended, protein_letters_1to3_extended
 # from sklearn.neighbors import BallTree
 
-from JobResources import Database, database_factory
+# from JobResources import Database, database_factory
+from Pose import Model
 from PathUtils import orient_exe_path, orient_dir, pdb_db, qs_bio
 from Query.PDB import retrieve_entity_id_by_sequence, query_pdb_by
 from SequenceProfile import generate_alignment
@@ -321,7 +322,7 @@ class PDB(Structure):
     multimodel: bool
     original_chain_ids: list[str]
     resolution: float | None
-    resource_db: Database
+    # resource_db: Database
     _reference_sequence: dict[str, str]
     # space_group: str | None
     # uc_dimensions: list[float] | None
@@ -330,7 +331,8 @@ class PDB(Structure):
                  chains: list[Chain] | Structures | bool = None, entities: list[Entity] | Structures | bool = None,
                  cryst_record: str = None, design: bool = False,
                  dbref: dict[str, dict[str, str]] = None, entity_info: list[dict[str, list | str]] = None,
-                 multimodel: bool = False, resolution: float = None, resource_db: Database = None,
+                 multimodel: bool = False, resolution: float = None,
+                 # resource_db: Database = None,
                  reference_sequence: dict[str, str] = None, metadata: PDB = None, **kwargs):
         # kwargs passed to Structure
         #          atoms: list[Atom] | Atoms = None, residues: list[Residue] | Residues = None, name: str = None,
@@ -363,7 +365,7 @@ class PDB(Structure):
         self._reference_sequence = reference_sequence if reference_sequence else {}
         # ^ SEQRES or PDB API entries. key is chainID, value is 'AGHKLAIDL'
         # self.space_group = space_group
-        self.resource_db: Database = resource_db if resource_db else database_factory()
+        # self.resource_db: Database = resource_db if resource_db else database_factory()
 
         # self.uc_dimensions = uc_dimensions
         self.structure_containers.extend(['chains', 'entities'])
@@ -1790,7 +1792,7 @@ def extract_interface(pdb, chain_data_d, full_chain=True):
         interface_chains.append(chain)
         # interface_pdb.read_atom_list(chain_pdb.atoms)
 
-    interface_pdb = PDB.from_chains(interface_chains)
+    interface_pdb = Model.from_chains(interface_chains)
     if len(interface_pdb.chain_ids) == 2:
         for temp_name, new_name in temp_chain_d.items():
             interface_pdb.chain(temp_name).chain_id = new_name
@@ -1798,8 +1800,8 @@ def extract_interface(pdb, chain_data_d, full_chain=True):
     return interface_pdb
 
 
-def fetch_pdb(pdb_codes: Union[str, list], assembly: int = 1, asu: bool = False,
-              out_dir: Union[str, bytes] = os.getcwd(), **kwargs) -> List[Union[str, bytes]]:  # Todo mmcif
+def _fetch_pdb_from_api(pdb_codes: str | list, assembly: int = 1, asu: bool = False, out_dir: str | bytes = os.getcwd(),
+                        **kwargs) -> list[str | bytes]:  # Todo mmcif
     """Download PDB files from pdb_codes provided in a file, a supplied list, or a single entry
     Can download a specific biological assembly if asu=False.
     Ex: _fetch_pdb_from_api('1bkh', assembly=2) fetches 1bkh biological assembly 2 "1bkh.pdb2"
