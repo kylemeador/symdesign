@@ -1283,6 +1283,8 @@ if __name__ == '__main__':
     results, success, exceptions = [], [], []
     # ---------------------------------------------------
     if args.module == 'orient':
+        # if not args.to_design_directory:
+        #     SDUtils.make_path(job.orient_dir)
         # args.to_design_directory = True  # default to True when using this module
         if args.multi_processing:
             # zipped_args = zip(pose_directories, repeat(args.to_design_directory))
@@ -1679,8 +1681,8 @@ if __name__ == '__main__':
         # Sort results according to clustered poses if clustering exists
         if args.cluster_map:
             cluster_map = args.cluster_map
-        else:  # Todo PUtils.clustered_poses is not right...
-            cluster_map = os.path.join(job.protein_data, f'{PUtils.clustered_poses}.pkl')
+        else:
+            cluster_map = os.path.join(job.clustered_poses, PUtils.clustered_poses % (SDUtils.starttime, location))
 
         if os.path.exists(cluster_map):
             pose_cluster_map = SDUtils.unpickle(cluster_map)
@@ -1689,6 +1691,7 @@ if __name__ == '__main__':
                         'from the final design selection. To cluster poses broadly, run "%s %s"'
                         % (cluster_map, PUtils.program_command, PUtils.cluster_poses))
             while True:
+                # Todo add option to provide the path to an existing file
                 confirm = input(f'Would you like to {PUtils.cluster_poses} on the subset of designs '
                                 f'({len(selected_poses)}) located so far? [y/n]{input_string}')
                 if confirm.lower() in bool_d:
@@ -1710,9 +1713,7 @@ if __name__ == '__main__':
                     for composition_group in compositions.values():
                         pose_cluster_map.update(cluster_designs(composition_group))
 
-                pose_cluster_file = SDUtils.pickle_object(pose_cluster_map,
-                                                          PUtils.clustered_poses % (location, SDUtils.starttime),
-                                                          out_path=next(iter(pose_directories)).protein_data)
+                pose_cluster_file = SDUtils.pickle_object(pose_cluster_map, name=cluster_map, out_path='')
                 logger.info(f'Found {len(pose_cluster_map)} unique clusters from {len(pose_directories)} pose inputs. '
                             f'All clusters stored in {pose_cluster_file}')
 

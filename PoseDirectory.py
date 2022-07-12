@@ -388,7 +388,7 @@ class PoseDirectory:
         return self.job_resources.orient_dir  # program_root/Data/PDBs/oriented
 
     @property
-    def orient_asu_dir(self):
+    def orient_asu_dir(self):  # UNUSED
         return self.job_resources.orient_asu_dir  # program_root/Data/PDBs/oriented_asu
 
     @property
@@ -1690,13 +1690,13 @@ class PoseDirectory:
         if self.design_dimension is not None:  # symmetric, could be 0
             # self.log.debug('Design has Symmetry Entry Number: %s (Laniado & Yeates, 2020)' % str(self.sym_entry_number))
             self.symmetry_protocol = PUtils.symmetry_protocol[self.design_dimension]
-            self.log.info('Symmetry Option: %s' % self.symmetry_protocol)
             self.sym_def_file = self.sym_entry.sdf_lookup()
         else:  # asymmetric
             self.symmetry_protocol = 'asymmetric'
             # self.sym_def_file = sdf_lookup()
             self.log.critical('No symmetry invoked during design. Rosetta will still design your PDB, however, if it\'s'
                               ' an ASU it may be missing crucial interface contacts. Is this what you want?')
+        self.log.info(f'Symmetry Option: {self.symmetry_protocol}')
 
     def rosetta_interface_design(self):
         """For the basic process of sequence design between two halves of an interface, write the necessary files for
@@ -2064,7 +2064,7 @@ class PoseDirectory:
     @handle_design_errors(errors=(DesignError,))
     @close_logs
     @remove_structure_memory
-    def check_unmodelled_clashes(self, clashing_threshold=0.75):
+    def check_unmodelled_clashes(self, clashing_threshold: float = 0.75):
         """Given a multimodel file, measure the number of clashes is less than a percentage threshold"""
         raise DesignError('This module is not working correctly at the moment')
         models = [Models.from_PDB(self.resources.full_models.retrieve_data(name=entity), log=self.log)
@@ -2121,7 +2121,6 @@ class PoseDirectory:
                 out_path = self.assembly_path
             else:
                 out_path = path.join(self.orient_dir, f'{model.name}.pdb')
-                make_path(self.orient_dir)
 
             model.orient(symmetry=self.design_symmetry)
 
@@ -2139,7 +2138,8 @@ class PoseDirectory:
     @handle_design_errors(errors=(DesignError, AssertionError))
     @close_logs
     @remove_structure_memory
-    def refine(self, to_design_directory=False, interface_to_alanine=True, gather_metrics=False):
+    def refine(self, to_design_directory: bool = False, interface_to_alanine: bool = True,
+               gather_metrics: bool = False):
         """Refine the source PDB using self.symmetry to specify any symmetry"""
         main_cmd = copy(script_cmd)
         protocol = PUtils.refine
