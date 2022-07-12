@@ -12,27 +12,24 @@ from typing import Iterable, Any, Annotated
 import numpy as np
 from Bio.Data.IUPACData import protein_letters
 
-import SymDesignUtils as SDUtils
 from CommandDistributer import rosetta_flags, script_cmd, distribute, relax_flags, rosetta_variables
 from PDB import PDB, fetch_pdb_file, query_qs_bio
 from PathUtils import monofrag_cluster_rep_dirpath, intfrag_cluster_rep_dirpath, intfrag_cluster_info_dirpath, \
-    frag_directory, sym_entry, program_name
-from PathUtils import orient_log_file, rosetta_scripts, models_to_multimodel_exe, refine, biological_interfaces, \
+    frag_directory, sym_entry, program_name, orient_log_file, rosetta_scripts, models_to_multimodel_exe, refine, \
     biological_fragment_db_pickle, all_scores, projects, sequence_info, data, output_oligomers, output_fragments, \
-    structure_background, scout, generate_fragments, number_of_trajectories, nstruct, no_hbnet, \
+    structure_background, scout, generate_fragments, number_of_trajectories, nstruct, no_hbnet, biological_interfaces, \
     ignore_symmetric_clashes, ignore_pose_clashes, ignore_clashes, force_flags, no_evolution_constraint, \
     no_term_constraint, consensus
-from Query.PDB import query_entry_id, parse_entry_json, parse_entities_json, query_entity_id, query_assembly_id, \
-    parse_entity_json, parse_assembly_json
+from Query.PDB import query_entry_id, query_entity_id, query_assembly_id, \
+    parse_entry_json, parse_entity_json, parse_entities_json, parse_assembly_json
 from Query.utils import boolean_choice
 from SequenceProfile import parse_hhblits_pssm, MultipleSequenceAlignment, read_fasta_file, write_sequence_to_fasta
-from Structure import parse_stride, Entity
+from Structure import parse_stride, Structure
 from SymDesignUtils import DesignError, unpickle, get_base_root_paths_recursively, start_log, dictionary_lookup, \
-    parameterize_frag_length
+    parameterize_frag_length, write_commands, starttime, make_path, write_shell_script
 from classes.EulerLookup import EulerLookup
 from classes.SymEntry import sdf_lookup, SymEntry
 from utils.MysqlPython import Mysql
-
 # import dependencies.bmdca as bmdca
 
 
@@ -51,7 +48,7 @@ class Database:  # Todo ensure that the single object is completely loaded befor
                  uniprot_api: str | bytes | Path = None, sql=None, log: Logger = logger):  # sql: sqlite = None,
         #                  pdb_entity_api: str | bytes | Path = None, pdb_assembly_api: str | bytes | Path = None,
         if sql:
-            raise DesignError('SQL set up has not been completed!')
+            raise NotImplementedError('SQL set up has not been completed!')
             self.sql = sql
         else:
             self.sql = sql
@@ -174,9 +171,8 @@ class Database:  # Todo ensure that the single object is completely loaded befor
                 if not file_path:
                     logger.warning(f'Couldn\'t locate the file "{file_path}", there may have been an issue '
                                    'downloading it from the PDB. Attempting to copy from job data source...')
-                    raise SDUtils.DesignError('This functionality hasn\'t been written yet. Use the '
-                                              'canonical_pdb1/2 attribute of PoseDirectory to pull the'
-                                              ' pdb file source.')
+                    raise NotImplementedError('This functionality hasn\'t been written yet. Use the canonical_pdb1/2 '
+                                              'attribute of PoseDirectory to pull the pdb file source.')
                     # Todo
                 # remove any mirror specific naming from fetch_pdb_file
                 file_name = os.path.splitext(os.path.basename(file_path))[0].replace('pdb', '')
@@ -270,14 +266,15 @@ class Database:  # Todo ensure that the single object is completely loaded befor
                              f'unable to be oriented properly')
         return all_entities
 
-    def preprocess_entities_for_design(self, entities: list[Entity], script_out_path: str | bytes = os.getcwd(),
-                                       load_resources: bool = False, batch_commands: bool = True) -> \
+    def preprocess_structures_for_design(self, structures: list[Structure], script_out_path: str | bytes = os.getcwd(),
+                                         load_resources: bool = False, batch_commands: bool = True) -> \
             tuple[list, bool, bool]:
         """Assess whether Entity objects require any processing prior to design calculations.
         Processing includes relaxation into the energy function and/or modelling missing loops and segments
 
         Args:
-            entities: A collection of the Entity objects of interest
+            structures: An iterable of Structure objects of interest with the following attributes:
+                file_path, symmetry, name, make_loop_file(), make_blueprint_file()
             script_out_path: Where should Entity processing commands be written?
             load_resources: Whether resources have been specified to be loaded already
             batch_commands: Whether commands should be made for batch submission
@@ -291,29 +288,22 @@ class Database:  # Todo ensure that the single object is completely loaded befor
         full_model_names = self.full_models.retrieve_names()
         full_model_dir = self.full_models.location
         # Identify the entities to refine and to model loops before proceeding
-        entities_to_refine, entities_to_loop_model, sym_def_files = [], [], {}
-        for entity in entities:  # if entity is here, the file should've been oriented...
-            # for entry_entity in entities:  # ex: 1ABC_1
-            # symmetry = master_directory.sym_entry.sym_map[idx]
-            # if entity.symmetry == 'C1':
-            sym_def_files[entity.symmetry] = sdf_lookup() if entity.symmetry == 'C1' else sdf_lookup(entity.symmetry)
-            # for entry_entity in entities:
-            #     entry = entry_entity.split('_')
-            # for orient_asu_file in oriented_asu_files:  # iterating this way to forgo missing "missed orient"
-            #     base_pdb_code = os.path.splitext(orient_asu_file)[0]
-            #     if base_pdb_code in entities:
-            if entity.name not in refine_names:  # assumes oriented_asu entity name is the same
-                entities_to_refine.append(entity)
-            if entity.name not in full_model_names:  # assumes oriented_asu entity name is the same
-                entities_to_loop_model.append(entity)
+        structures_to_refine, structures_to_loop_model, sym_def_files = [], [], {}
+        for structure in structures:  # if structure is here, the file should've been oriented...
+            sym_def_files[structure.symmetry] = \
+                sdf_lookup() if structure.symmetry == 'C1' else sdf_lookup(structure.symmetry)
+            if structure.name not in refine_names:  # assumes oriented_asu structure name is the same
+                structures_to_refine.append(structure)
+            if structure.name not in full_model_names:  # assumes oriented_asu structure name is the same
+                structures_to_loop_model.append(structure)
 
         # query user and set up commands to perform refinement on missing entities
         info_messages = []
         pre_refine = False
-        if entities_to_refine:  # if files found unrefined, we should proceed
+        if structures_to_refine:  # if files found unrefined, we should proceed
             logger.info('The following oriented entities are not yet refined and are being set up for refinement'
                         ' into the Rosetta ScoreFunction for optimized sequence design: '
-                        f'{", ".join(set(entity.name for entity in entities_to_refine))}')
+                        f'{", ".join(set(structure.name for structure in structures_to_refine))}')
             print('Would you like to refine them now? If you plan on performing sequence design with models '
                   'containing them, it is highly recommended you perform refinement')
             if not boolean_choice():
@@ -338,14 +328,14 @@ class Database:  # Todo ensure that the single object is completely loaded befor
                     f.write('%s\n' % '\n'.join(flags))
 
                 refine_cmd = [f'@{flags_file}', '-parser:protocol', os.path.join(rosetta_scripts, f'{refine}.xml')]
-                refine_cmds = [script_cmd + refine_cmd + ['-in:file:s', entity.filepath, '-parser:script_vars'] +
-                               [f'sdf={sym_def_files[entity.symmetry]}',
-                                f'symmetry={"make_point_group" if entity.symmetry != "C1" else "asymmetric"}']
-                               for entity in entities_to_refine]
+                refine_cmds = [script_cmd + refine_cmd + ['-in:file:s', structure.file_path, '-parser:script_vars'] +
+                               [f'sdf={sym_def_files[structure.symmetry]}',
+                                f'symmetry={"make_point_group" if structure.symmetry != "C1" else "asymmetric"}']
+                               for structure in structures_to_refine]
                 if batch_commands:
                     commands_file = \
-                        SDUtils.write_commands([list2cmdline(cmd) for cmd in refine_cmds], out_path=refine_dir,
-                                               name=f'{SDUtils.starttime}-refine_entities')
+                        write_commands([list2cmdline(cmd) for cmd in refine_cmds], out_path=refine_dir,
+                                       name=f'{starttime}-refine_entities')
                     refine_sbatch = distribute(file=commands_file, out_path=script_out_path, scale=refine,
                                                log_file=os.path.join(refine_dir, f'{refine}.log'),
                                                max_jobs=int(len(refine_cmds) / 2 + 0.5),
@@ -360,10 +350,10 @@ class Database:  # Todo ensure that the single object is completely loaded befor
 
         # query user and set up commands to perform loop modelling on missing entities
         pre_loop_model = False
-        if entities_to_loop_model:
+        if structures_to_loop_model:
             logger.info('The following structures have not been modelled for disorder. Missing loops will '
                         'be built for optimized sequence design: %s'
-                        % ', '.join(set(entity.name for entity in entities_to_loop_model)))
+                        % ', '.join(set(structure.name for structure in structures_to_loop_model)))
             print('Would you like to model loops for these structures now? If you plan on performing sequence '
                   'design with them, it is highly recommended you perform loop modelling to avoid designed clashes')
             if not boolean_choice():
@@ -389,38 +379,38 @@ class Database:  # Todo ensure that the single object is completely loaded befor
                 loop_model_cmd = [f'@{flags_file}', '-parser:protocol',
                                   os.path.join(rosetta_scripts, 'loop_model_ensemble.xml'), '-parser:script_vars']
                 # Make all output paths and files for each loop ensemble
-                # logger.info('Preparing blueprint and loop files for entity:')
-                # for entity in entities_to_loop_model:
+                # logger.info('Preparing blueprint and loop files for structure:')
+                # for structure in structures_to_loop_model:
                 loop_model_cmds = []
-                for idx, entity in enumerate(entities_to_loop_model):
-                    entity_out_path = os.path.join(full_model_dir, entity.name)
-                    SDUtils.make_path(entity_out_path)  # make a new directory for each entity
-                    entity.renumber_residues()
-                    entity_loop_file = entity.make_loop_file(out_path=full_model_dir)
-                    if not entity_loop_file:  # no loops found, copy input file to the full model
-                        copy_cmd = ['scp', self.refined.store(entity.name), self.full_models.store(entity.name)]
-                        loop_model_cmds.append(SDUtils.write_shell_script(list2cmdline(copy_cmd), name=entity.name,
-                                                                          out_path=full_model_dir))
+                for idx, structure in enumerate(structures_to_loop_model):
+                    structure_out_path = os.path.join(full_model_dir, structure.name)
+                    make_path(structure_out_path)  # make a new directory for each structure
+                    structure.renumber_residues()
+                    structure_loop_file = structure.make_loop_file(out_path=full_model_dir)
+                    if not structure_loop_file:  # no loops found, copy input file to the full model
+                        copy_cmd = ['scp', self.refined.store(structure.name), self.full_models.store(structure.name)]
+                        loop_model_cmds.append(write_shell_script(list2cmdline(copy_cmd), name=structure.name,
+                                                                  out_path=full_model_dir))
                         continue
-                    entity_blueprint = entity.make_blueprint_file(out_path=full_model_dir)
-                    entity_cmd = script_cmd + loop_model_cmd + \
-                        [f'blueprint={entity_blueprint}', f'loop_file={entity_loop_file}',
-                         '-in:file:s', self.refined.store(entity.name), '-out:path:pdb', entity_out_path] + \
-                        (['-symmetry:symmetry_definition', sym_def_files[entity.symmetry]] if entity.symmetry != 'C1'
-                         else [])
+                    structure_blueprint = structure.make_blueprint_file(out_path=full_model_dir)
+                    structure_cmd = script_cmd + loop_model_cmd + \
+                        [f'blueprint={structure_blueprint}', f'loop_file={structure_loop_file}',
+                         '-in:file:s', self.refined.store(structure.name), '-out:path:pdb', structure_out_path] + \
+                        (['-symmetry:symmetry_definition', sym_def_files[structure.symmetry]]
+                         if structure.symmetry != 'C1' else [])
                     # create a multimodel from all output loop models
-                    multimodel_cmd = ['python', models_to_multimodel_exe, '-d', entity_loop_file,
-                                      '-o', os.path.join(full_model_dir, f'{entity.name}_ensemble.pdb')]
+                    multimodel_cmd = ['python', models_to_multimodel_exe, '-d', structure_loop_file,
+                                      '-o', os.path.join(full_model_dir, f'{structure.name}_ensemble.pdb')]
                     # copy the first model from output loop models to be the full model
-                    copy_cmd = ['scp', os.path.join(entity_out_path, f'{entity.name}_0001.pdb'),
-                                self.full_models.store(entity.name)]
+                    copy_cmd = ['scp', os.path.join(structure_out_path, f'{structure.name}_0001.pdb'),
+                                self.full_models.store(structure.name)]
                     loop_model_cmds.append(
-                        SDUtils.write_shell_script(list2cmdline(entity_cmd), name=entity.name, out_path=full_model_dir,
-                                                   additional=[list2cmdline(multimodel_cmd), list2cmdline(copy_cmd)]))
+                        write_shell_script(list2cmdline(structure_cmd), name=structure.name, out_path=full_model_dir,
+                                           additional=[list2cmdline(multimodel_cmd), list2cmdline(copy_cmd)]))
                 if batch_commands:
                     loop_cmds_file = \
-                        SDUtils.write_commands(loop_model_cmds, name=f'{SDUtils.starttime}-loop_model_entities',
-                                               out_path=full_model_dir)
+                        write_commands(loop_model_cmds, name=f'{starttime}-loop_model_entities',
+                                       out_path=full_model_dir)
                     loop_model_sbatch = distribute(file=loop_cmds_file, out_path=script_out_path, scale=refine,
                                                    log_file=os.path.join(full_model_dir, 'loop_model.log'),
                                                    max_jobs=int(len(loop_model_cmds) / 2 + 0.5),
@@ -460,9 +450,9 @@ class DatabaseFactory:
         if database:
             return database
         elif sql:
-            raise DesignError('SQL set up has not been completed!')
+            raise NotImplementedError('SQL set up has not been completed!')
         else:
-            SDUtils.make_path(source)
+            make_path(source)
             pdbs = os.path.join(source, 'PDBs')  # Used to store downloaded PDB's
             sequence_info_dir = os.path.join(source, sequence_info)
             external_db = os.path.join(source, 'ExternalDatabases')
@@ -583,7 +573,7 @@ class DataStore:
         # load_file must be a callable which takes as first argument the file_name
         # save_file must be a callable which takes as first argument the object to save and second argument is file_name
         if '.pdb' in extension:
-            self.load_file = PDB.from_file
+            self.load_file = PDB.from_pdb
             self.save_file = not_implemented
         elif '.json' in extension:
             self.load_file = read_json
@@ -785,8 +775,8 @@ class PDBDataStore(DataStore):
         # pdb_assembly_api: str | bytes | Path = os.path.join(self.location, 'pdb_assembly')
         # self.entity_api = EntityDataStore(location=pdb_entity_api, extension='.json', sql=self.sql, log=self.log)
         # self.assembly_api = AssemblyDataStore(location=pdb_assembly_api, extension='.json', sql=self.sql, log=self.log)
-        # SDUtils.make_path(pdb_entity_api)
-        # SDUtils.make_path(pdb_assembly_api)
+        # make_path(pdb_entity_api)
+        # make_path(pdb_assembly_api)
 
     def retrieve_entity_data(self, name: str = None, **kwargs) -> dict | None:
         """Return data requested by PDB EntityID. Loads into the Database or queries the PDB API
@@ -1346,10 +1336,10 @@ class JobResources:
         #     self.projects = os.path.join(self.program_root, projects)
         # self.design_db = None
         # self.score_db = None
-        SDUtils.make_path(self.pdb_api)
-        # SDUtils.make_path(self.pdb_entity_api)
-        # SDUtils.make_path(self.pdb_assembly_api)
-        SDUtils.make_path(self.uniprot_api)
+        make_path(self.pdb_api)
+        # make_path(self.pdb_entity_api)
+        # make_path(self.pdb_assembly_api)
+        make_path(self.uniprot_api)
         # sequence database specific
         # self.make_path(self.sequence_info)
         # self.make_path(self.sequences)

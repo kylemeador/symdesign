@@ -38,7 +38,6 @@ from DesignMetrics import read_scores, interface_composition_similarity, unneces
     multiple_sequence_alignment_dependent_metrics, format_fragment_metrics, calculate_match_metrics, \
     process_residue_info
 from JobResources import FragmentDatabase, JobResources, job_resources_factory
-from PDB import PDB
 from Pose import Pose, MultiModel, Models, Model
 from Query.UniProt import is_uniprot_thermophilic
 from SequenceProfile import parse_pssm, generate_mutations_from_reference, \

@@ -596,6 +596,7 @@ if __name__ == '__main__':
         pickle_object(uniprot_unknown_bio_interfaces, uniprot_unknown_bio_interface_file_name,
                       out_path=current_interface_file_path)
     if write_to_db:
+        raise NotImplementedError('sql writing is not available yet')
         fragdb = FragmentDatabase(sql=True)  # Todo this isn't ready to write
         # fragdb.start_mysql_connection()
         table_name = 'pdb_interfaces'

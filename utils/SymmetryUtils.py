@@ -77,6 +77,7 @@ point_group_symmetry_operators: dict[str, np.ndarray] = unpickle(point_group_sym
 space_group_symmetry_operators: dict[str, np.ndarray] = unpickle(space_group_symmetry_operator_location)
 # with format {'symmetry': (rotations[N, 3, 3], translations[N, 1, 3]), ...}
 # where the rotations are pre-transposed to match requirements of np.matmul(coords, rotation)
+# Todo modify to use only this or all_sym_entry_dict
 possible_symmetries = {'I32': 'I', 'I52': 'I', 'I53': 'I', 'T32': 'T', 'T33': 'T', 'O32': 'O', 'O42': 'O', 'O43': 'O',
                        'I23': 'I', 'I25': 'I', 'I35': 'I', 'T23': 'T', 'O23': 'O', 'O24': 'O', 'O34': 'O',
                        'T': 'T', 'T:{C2}': 'T', 'T:{C3}': 'T',
@@ -161,6 +162,7 @@ def multicomponent_by_number(number):
     return [multiplier * number for multiplier in range(1, 10)]
 
 
+# Todo make dynamic based on max_sym
 valid_subunit_number = {'C1': 1, 'C2': 2, 'C3': 3, 'C4': 4, 'C5': 5, 'C6': 6, 'D2': 4, 'D3': 6, 'D4': 8, 'D5': 10,
                         'D6': 12, 'T': 12, 'O': 24, 'I': 60}
 valid_symmetries = list(valid_subunit_number.keys())

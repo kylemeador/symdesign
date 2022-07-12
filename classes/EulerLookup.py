@@ -103,10 +103,10 @@ class EulerLookupFactory:
         self._lookup_tables = {}
 
     def __call__(self, **kwargs) -> EulerLookup:
-        """Return the specified FragmentDatabase object singleton
+        """Return the specified EulerLookup object singleton
 
         Returns:
-            The instance of the specified FragmentDatabase
+            The instance of the specified EulerLookup
         """
         lookup = self._lookup_tables.get('euler')
         if lookup:
@@ -118,10 +118,10 @@ class EulerLookupFactory:
         return self._lookup_tables['euler']
 
     def get(self, **kwargs) -> EulerLookup:
-        """Return the specified FragmentDatabase object singleton
+        """Return the specified EulerLookup object singleton
 
         Returns:
-            The instance of the specified FragmentDatabase
+            The instance of the specified EulerLookup
         """
         return self.__call__(**kwargs)
 

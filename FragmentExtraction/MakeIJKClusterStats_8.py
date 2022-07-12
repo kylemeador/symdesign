@@ -46,7 +46,7 @@ def ijk_stats(cluster_rep_path, db_dir, info_outdir, frag_length, sc_dist):
             cluster_member_path = os.path.join(cluster_dir, file2)
             member_pdb = Model.from_file(cluster_member_path)
             member_guide_atoms = Frag.get_guide_atoms(member_pdb)
-            # todo this syntax 'mapch' is inconsistent with FragmentDatabase load mechanism
+            # Todo this syntax 'mapch' is inconsistent with FragmentDatabase load mechanism
             member_mapped_ch = file2[file2.find('mapch') + 6:file2.find('mapch') + 7]
             member_paired_ch = file2[file2.find('pairch') + 7:file2.find('pairch') + 8]
 
@@ -185,7 +185,7 @@ def main(db_dir, info_outdir, frag_length, sc_dist, multi=False, num_threads=4):
                     cluster_member_path = os.path.join(cluster_dir, file2)
                     member_pdb = Model.from_file(cluster_member_path)
                     member_guide_atoms = Frag.get_guide_atoms(member_pdb)
-                    # todo this syntax 'mapch' is inconsistent with FragmentDatabase load mechanism
+                    # Todo this syntax 'mapch' is inconsistent with FragmentDatabase load mechanism
                     member_mapped_ch = file2[file2.find('mapch') + 6:file2.find('mapch') + 7]
                     member_paired_ch = file2[file2.find('pairch') + 7:file2.find('pairch') + 8]
 
