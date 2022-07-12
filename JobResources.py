@@ -2,31 +2,31 @@ from __future__ import annotations
 
 import json
 import os
+import subprocess
 from copy import copy
 from glob import glob
 from logging import Logger
 from pathlib import Path
-from subprocess import list2cmdline
 from typing import Iterable, Any, Annotated
 
 import numpy as np
 from Bio.Data.IUPACData import protein_letters
 
 from CommandDistributer import rosetta_flags, script_cmd, distribute, relax_flags, rosetta_variables
-from PDB import PDB, fetch_pdb_file, query_qs_bio
+from Pose import Pose, Model  # Todo solve circular import
 from PathUtils import monofrag_cluster_rep_dirpath, intfrag_cluster_rep_dirpath, intfrag_cluster_info_dirpath, \
     frag_directory, sym_entry, program_name, orient_log_file, rosetta_scripts, models_to_multimodel_exe, refine, \
     biological_fragment_db_pickle, all_scores, projects, sequence_info, data, output_oligomers, output_fragments, \
     structure_background, scout, generate_fragments, number_of_trajectories, nstruct, no_hbnet, biological_interfaces, \
     ignore_symmetric_clashes, ignore_pose_clashes, ignore_clashes, force_flags, no_evolution_constraint, \
-    no_term_constraint, consensus
+    no_term_constraint, consensus, qs_bio, pdb_db
 from Query.PDB import query_entry_id, query_entity_id, query_assembly_id, \
     parse_entry_json, parse_entity_json, parse_entities_json, parse_assembly_json
 from Query.utils import boolean_choice
 from SequenceProfile import parse_hhblits_pssm, MultipleSequenceAlignment, read_fasta_file, write_sequence_to_fasta
 from Structure import parse_stride, Structure
 from SymDesignUtils import DesignError, unpickle, get_base_root_paths_recursively, start_log, dictionary_lookup, \
-    parameterize_frag_length, write_commands, starttime, make_path, write_shell_script
+    parameterize_frag_length, write_commands, starttime, make_path, write_shell_script, to_iterable
 from classes.EulerLookup import EulerLookup
 from classes.SymEntry import sdf_lookup, SymEntry
 from utils.MysqlPython import Mysql
@@ -38,6 +38,150 @@ from utils.MysqlPython import Mysql
 # https://new.rosettacommons.org/docs/latest/rosetta_basics/options/Database-options
 logger = start_log(name=__name__)
 index_offset = 1
+qsbio_confirmed = unpickle(qs_bio)
+
+
+def _fetch_pdb_from_api(pdb_codes: str | list, assembly: int = 1, asu: bool = False, out_dir: str | bytes = os.getcwd(),
+                        **kwargs) -> list[str | bytes]:  # Todo mmcif
+    """Download PDB files from pdb_codes provided in a file, a supplied list, or a single entry
+    Can download a specific biological assembly if asu=False.
+    Ex: _fetch_pdb_from_api('1bkh', assembly=2) fetches 1bkh biological assembly 2 "1bkh.pdb2"
+
+    Args:
+        pdb_codes: PDB IDs of interest.
+        assembly: The integer of the assembly to fetch
+        asu: Whether to download the asymmetric unit file
+        out_dir: The location to save downloaded files to
+    Returns:
+        Filenames of the retrieved files
+    """
+    file_names = []
+    for pdb_code in to_iterable(pdb_codes):
+        clean_pdb = pdb_code[:4].lower()
+        if asu:
+            clean_pdb = f'{clean_pdb}.pdb'
+        else:
+            # assembly = pdb[-3:]
+            # try:
+            #     assembly = assembly.split('_')[1]
+            # except IndexError:
+            #     assembly = '1'
+            clean_pdb = f'{clean_pdb}.pdb{assembly}'
+
+        # clean_pdb = '%s.pdb%d' % (clean_pdb, assembly)
+        file_name = os.path.join(out_dir, clean_pdb)
+        current_file = sorted(glob(file_name))
+        # print('Found the files %s' % current_file)
+        # current_files = os.listdir(location)
+        # if clean_pdb not in current_files:
+        if not current_file:  # glob will return an empty list if the file is missing and therefore should be downloaded
+            # Always returns files in lowercase
+            # status = os.system(f'wget -q -O {file_name} https://files.rcsb.org/download/{clean_pdb}')
+            cmd = ['wget', '-q', '-O', file_name, f'https://files.rcsb.org/download/{clean_pdb}']
+            p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            p.communicate()
+            if p.returncode != 0:
+                logger.error(f'PDB download failed for: {clean_pdb}. If you believe this PDB ID is correct, there may '
+                             f'only be a .cif file available for this entry, which currently can\'t be parsed')
+                # Todo parse .cif file.
+                #  Super easy as the names of the columns are given in a loop and the ATOM records still start with ATOM
+                #  The additional benefits is that the records contain entity IDS as well as the residue index and the
+                #  author residue number. I think I will prefer this format from now on once parsing is possible.
+
+            # file_request = requests.get('https://files.rcsb.org/download/%s' % clean_pdb)
+            # if file_request.status_code == 200:
+            #     with open(file_name, 'wb') as f:
+            #         f.write(file_request.content)
+            # else:
+            #     logger.error('PDB download failed for: %s' % pdb)
+        file_names.append(file_name)
+
+    return file_names
+
+
+def fetch_pdb_file(pdb_code: str, asu: bool = True, location: str | bytes = pdb_db, **kwargs) -> str | bytes | None:
+    #                assembly: int = 1, out_dir: str | bytes = os.getcwd()
+    """Fetch PDB object from PDBdb or download from PDB server
+
+    Args:
+        pdb_code: The PDB ID/code. If the biological assembly is desired, supply 1ABC_1 where '_1' is assembly ID
+        asu: Whether to fetch the ASU
+        location: Location of a local PDB mirror if one is linked on disk
+    Keyword Args:
+        assembly=None (int): Location of a local PDB mirror if one is linked on disk
+        out_dir=os.getcwd() (str | bytes): The location to save retrieved files if fetched from PDB
+    Returns:
+        The path to the file if located successfully
+    """
+    # if location == pdb_db and asu:
+    if os.path.exists(location) and asu:
+        file_path = os.path.join(location, f'pdb{pdb_code.lower()}.ent')
+        get_pdb = (lambda *args, **kwargs: sorted(glob(file_path)))
+        #                                            pdb_code, location=None, asu=None, assembly=None, out_dir=None
+        logger.debug(f'Searching for PDB file at "{file_path}"')
+        # Cassini format is above, KM local pdb and the escher PDB mirror is below
+        # get_pdb = (lambda pdb_code, asu=None, assembly=None, out_dir=None:
+        #            glob(os.path.join(pdb_db, subdirectory(pdb_code), '%s.pdb' % pdb_code)))
+        # print(os.path.join(pdb_db, subdirectory(pdb_code), '%s.pdb' % pdb_code))
+    else:
+        get_pdb = _fetch_pdb_from_api
+
+    # return a list where the matching file is the first (should only be one anyway)
+    pdb_file = get_pdb(pdb_code, asu=asu, location=location, **kwargs)
+    if not pdb_file:
+        logger.warning(f'No matching file found for PDB: {pdb_code}')
+    else:  # we should only find one file, therefore, return the first
+        return pdb_file[0]
+
+
+def orient_pdb_file(file: str | bytes, log: Logger = logger, symmetry: str = None, out_dir: str | bytes = None) -> \
+        str | None:
+    """For a specified pdb filename and output directory, orient the PDB according to the provided symmetry where the
+        resulting .pdb file will have the chains symmetrized and oriented in the coordinate frame as to have the major
+        axis of symmetry along z, and additional axis along canonically defined vectors. If the symmetry is C1, then the
+        monomer will be transformed so the center of mass resides at the origin
+
+        Args:
+            file: The location of the file to be oriented
+            log: A log to report on operation success
+            symmetry: The symmetry type to be oriented. Possible types in SymmetryUtils.valid_subunit_number
+            out_dir: The directory that should be used to output files
+        Returns:
+            Filepath of oriented PDB
+        """
+    pdb_filename = os.path.basename(file)
+    oriented_file_path = os.path.join(out_dir, pdb_filename)
+    if os.path.exists(oriented_file_path):
+        return oriented_file_path
+    # elif sym in valid_subunit_number:
+    else:
+        pdb = Model.from_file(file, log=log)  # must load entities to solve multicomponent orient problem
+        try:
+            pdb.orient(symmetry=symmetry)
+            pdb.write(out_path=oriented_file_path)
+            log.info(f'Oriented: {pdb_filename}')
+            return oriented_file_path
+        except (ValueError, RuntimeError) as error:
+            log.error(str(error))
+
+
+def query_qs_bio(pdb_entry_id: str) -> int:
+    """Retrieve the first matching High/Very High confidence QSBio assembly from a PDB ID
+
+    Args:
+        pdb_entry_id: The 4 letter PDB code to query
+    Returns:
+        The integer of the corresponding PDB Assembly ID according to the QSBio assembly
+    """
+    biological_assemblies = qsbio_confirmed.get(pdb_entry_id)
+    if biological_assemblies:  # first   v   assembly in matching oligomers
+        assembly = biological_assemblies[0]
+    else:
+        assembly = 1
+        logger.warning(f'No confirmed biological assembly for entry {pdb_entry_id},'
+                       f' using PDB default assembly {assembly}')
+
+    return assembly
 
 
 class Database:  # Todo ensure that the single object is completely loaded before multiprocessing... Queues and whatnot
@@ -334,7 +478,7 @@ class Database:  # Todo ensure that the single object is completely loaded befor
                                for structure in structures_to_refine]
                 if batch_commands:
                     commands_file = \
-                        write_commands([list2cmdline(cmd) for cmd in refine_cmds], out_path=refine_dir,
+                        write_commands([subprocess.list2cmdline(cmd) for cmd in refine_cmds], out_path=refine_dir,
                                        name=f'{starttime}-refine_entities')
                     refine_sbatch = distribute(file=commands_file, out_path=script_out_path, scale=refine,
                                                log_file=os.path.join(refine_dir, f'{refine}.log'),
@@ -389,8 +533,9 @@ class Database:  # Todo ensure that the single object is completely loaded befor
                     structure_loop_file = structure.make_loop_file(out_path=full_model_dir)
                     if not structure_loop_file:  # no loops found, copy input file to the full model
                         copy_cmd = ['scp', self.refined.store(structure.name), self.full_models.store(structure.name)]
-                        loop_model_cmds.append(write_shell_script(list2cmdline(copy_cmd), name=structure.name,
-                                                                  out_path=full_model_dir))
+                        loop_model_cmds.append(
+                            write_shell_script(subprocess.list2cmdline(copy_cmd), name=structure.name,
+                                               out_path=full_model_dir))
                         continue
                     structure_blueprint = structure.make_blueprint_file(out_path=full_model_dir)
                     structure_cmd = script_cmd + loop_model_cmd + \
@@ -405,8 +550,10 @@ class Database:  # Todo ensure that the single object is completely loaded befor
                     copy_cmd = ['scp', os.path.join(structure_out_path, f'{structure.name}_0001.pdb'),
                                 self.full_models.store(structure.name)]
                     loop_model_cmds.append(
-                        write_shell_script(list2cmdline(structure_cmd), name=structure.name, out_path=full_model_dir,
-                                           additional=[list2cmdline(multimodel_cmd), list2cmdline(copy_cmd)]))
+                        write_shell_script(subprocess.list2cmdline(structure_cmd), name=structure.name,
+                                           out_path=full_model_dir,
+                                           additional=[subprocess.list2cmdline(multimodel_cmd),
+                                                       subprocess.list2cmdline(copy_cmd)]))
                 if batch_commands:
                     loop_cmds_file = \
                         write_commands(loop_model_cmds, name=f'{starttime}-loop_model_entities',

@@ -6,8 +6,7 @@ from itertools import product, combinations
 import PathUtils as PUtils
 from FragDock import nanohedra_dock
 # from interface_analysis.Database import FragmentDB
-from JobResources import fragment_factory
-from PDB import orient_pdb_file
+from JobResources import fragment_factory, orient_pdb_file
 from SymDesignUtils import get_directory_file_paths, start_log, set_logging_to_debug
 from classes.EulerLookup import euler_factory
 from classes.SymEntry import symmetry_factory

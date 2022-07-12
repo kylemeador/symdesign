@@ -114,7 +114,7 @@ pose_metrics_file = 'pose_scores.sc'  # UNUSED
 default_path_file = '%s_%s_%s_pose.paths'
 analysis_file = '%s-%sPoseMetrics.csv'
 clustered_poses = '%sClusteredPoses-%s.pkl'
-pdb_source = 'db'  # 'fetch_pdb'  # TODO set up
+pdb_source = 'db'  # 'fetch_pdb_file'  # TODO set up
 # nanohedra_directory_structure = './design_symmetry_pg/building_blocks/DEGEN_A_B/ROT_A_B/tx_C\n' \
 #                                 'Ex:P432/4ftd_5tch/DEGEN1_2/ROT_1/tx_2'\
 #                                 '\nIn design directory \'tx_c/\', output is located in \'%s\' and \'%s\'.' \

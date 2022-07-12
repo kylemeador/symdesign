@@ -4,12 +4,9 @@ import copy
 import math
 import os
 import subprocess
-from copy import copy, deepcopy
-from glob import glob
-from itertools import chain as iter_chain  # repeat,
-from logging import Logger
+from copy import copy
 from pathlib import Path
-from typing import Union, Sequence, List, Optional, Any
+from typing import Union, Sequence, List, Any
 
 # import numpy as np
 from Bio import pairwise2
@@ -17,18 +14,16 @@ from Bio.Data.IUPACData import protein_letters_3to1_extended, protein_letters_1t
 # from sklearn.neighbors import BallTree
 
 # from JobResources import Database, database_factory
-from Pose import Model
-from PathUtils import orient_exe_path, orient_dir, pdb_db, qs_bio
+from PathUtils import orient_exe_path, orient_dir
 from Query.PDB import retrieve_entity_id_by_sequence, query_pdb_by
 from SequenceProfile import generate_alignment
 from Structure import Structure, Chain, Entity, Atom, Structures, superposition3d, Residue
-from SymDesignUtils import remove_duplicates, start_log, to_iterable, unpickle, digit_translate_table
+from SymDesignUtils import remove_duplicates, start_log, digit_translate_table
 from utils.SymmetryUtils import valid_subunit_number, multicomponent_valid_subunit_number, valid_symmetries
 
 # Globals
 logger = start_log(name=__name__)
 seq_res_len = 52
-qsbio_confirmed = unpickle(qs_bio)
 slice_remark, slice_number, slice_atom_type, slice_alt_location, slice_residue_type, slice_chain, \
     slice_residue_number, slice_code_for_insertion, slice_x, slice_y, slice_z, slice_occ, slice_temp_fact, \
     slice_element, slice_charge = slice(0, 6), slice(6, 11), slice(12, 16), slice(16, 17), slice(17, 20), \
@@ -1732,212 +1727,3 @@ class PDB(Structure):
     #             (memory_n, list(map(getattr, memory_n, repeat('_coords')))))
     #
     #     return other
-
-
-def extract_interface(pdb, chain_data_d, full_chain=True):
-    """
-    'interfaces': {interface_ID: {interface stats, {chain data}}, ...}
-        Ex: {1: {'occ': 2, 'area': 998.23727478, 'solv_en': -11.928783903, 'stab_en': -15.481081211,
-             'chain_data': {1: {'chain': 'C', 'r_mat': [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]],
-                                't_vec': [0.0, 0.0, 0.0], 'num_atoms': 104, 'int_res': {'87': 23.89, '89': 45.01, ...},
-                            2: ...}},
-             2: {'occ': ..., },
-             'all_ids': {interface_type: [interface_id1, matching_id2], ...}
-            } interface_type and id connect the interfaces that are the same, but present in multiple PISA complexes
-
-    """
-    # if one were trying to map the interface fragments created in a fragment extraction back to the pdb, they would
-    # want to use the interface in interface_data and the chain id (renamed from letter to ID #) to find the chain and
-    # the translation from the pisa.xml file
-    # pdb_code, subdirectory = return_and_make_pdb_code_and_subdirectory(pdb_file_path)
-    # out_path = os.path.join(os.getcwd(), subdirectory)
-    # try:
-    #     # If the location of the PDB data and the PISA data is known the pdb_code would suffice.
-    #     # This makes flexible with MySQL
-    #     source_pdb = PDB(file=pdb_file_path)
-    #     pisa_data = unpickle(pisa_file_path)  # Get PISA data
-    #     interface_data = pisa_data['interfaces']
-    #     # interface_data, chain_data = pp.parse_pisa_interfaces_xml(pisa_file_path)
-    #     for interface_id in interface_data:
-    #         if not interface_id.is_digit():  # == 'all_ids':
-    #             continue
-    # interface_pdb = PDB.PDB()
-    temp_names = ('.', ',')
-    interface_chains = []
-    temp_chain_d = {}
-    for temp_name_idx, (chain_idx, chain_data) in enumerate(chain_data_d.items()):
-        # chain_pdb = PDB.PDB()
-        chain_id = chain_data['chain']
-        # if not chain:  # for instances of ligands, stop process, this is not a protein-protein interface
-        #     break
-        # else:
-        if full_chain:  # get the entire chain
-            interface_residues = pdb.chain(chain_id).residues
-        else:  # get only the specific residues at the interface
-            # residue_numbers = chain_data['int_res']
-            interface_residues = pdb.chain(chain_id).get_residues(numbers=chain_data['int_res'])
-            # interface_atoms = []
-            # for residue_number in residues:
-            #     residue_atoms = pdb.get_residue_atoms(chain, residue_number)
-            #     interface_atoms.extend(deepcopy(residue_atoms))
-            # interface_atoms = list(iter_chain.from_iterable(interface_atoms))
-        chain = Chain.from_residues(interface_residues)
-        # chain_pdb.read_atom_list(interface_atoms)
-
-        rot = chain_data['r_mat']
-        trans = chain_data['t_vec']
-        chain.transform(rotation=rot, translation=trans)
-        chain.chain_id = temp_names[temp_name_idx]  # ensure that chain names are not the same
-        temp_chain_d[temp_names[temp_name_idx]] = str(chain_idx)
-        interface_chains.append(chain)
-        # interface_pdb.read_atom_list(chain_pdb.atoms)
-
-    interface_pdb = Model.from_chains(interface_chains)
-    if len(interface_pdb.chain_ids) == 2:
-        for temp_name, new_name in temp_chain_d.items():
-            interface_pdb.chain(temp_name).chain_id = new_name
-
-    return interface_pdb
-
-
-def _fetch_pdb_from_api(pdb_codes: str | list, assembly: int = 1, asu: bool = False, out_dir: str | bytes = os.getcwd(),
-                        **kwargs) -> list[str | bytes]:  # Todo mmcif
-    """Download PDB files from pdb_codes provided in a file, a supplied list, or a single entry
-    Can download a specific biological assembly if asu=False.
-    Ex: _fetch_pdb_from_api('1bkh', assembly=2) fetches 1bkh biological assembly 2 "1bkh.pdb2"
-
-    Args:
-        pdb_codes: PDB IDs of interest.
-        assembly: The integer of the assembly to fetch
-        asu: Whether to download the asymmetric unit file
-        out_dir: The location to save downloaded files to
-    Returns:
-        Filenames of the retrieved files
-    """
-    file_names = []
-    for pdb_code in to_iterable(pdb_codes):
-        clean_pdb = pdb_code[:4].lower()
-        if asu:
-            clean_pdb = f'{clean_pdb}.pdb'
-        else:
-            # assembly = pdb[-3:]
-            # try:
-            #     assembly = assembly.split('_')[1]
-            # except IndexError:
-            #     assembly = '1'
-            clean_pdb = f'{clean_pdb}.pdb{assembly}'
-
-        # clean_pdb = '%s.pdb%d' % (clean_pdb, assembly)
-        file_name = os.path.join(out_dir, clean_pdb)
-        current_file = sorted(glob(file_name))
-        # print('Found the files %s' % current_file)
-        # current_files = os.listdir(location)
-        # if clean_pdb not in current_files:
-        if not current_file:  # glob will return an empty list if the file is missing and therefore should be downloaded
-            # Always returns files in lowercase
-            # status = os.system(f'wget -q -O {file_name} https://files.rcsb.org/download/{clean_pdb}')
-            cmd = ['wget', '-q', '-O', file_name, f'https://files.rcsb.org/download/{clean_pdb}']
-            p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-            p.communicate()
-            if p.returncode != 0:
-                logger.error(f'PDB download failed for: {clean_pdb}. If you believe this PDB ID is correct, there may '
-                             f'only be a .cif file available for this entry, which currently can\'t be parsed')
-                # Todo parse .cif file.
-                #  Super easy as the names of the columns are given in a loop and the ATOM records still start with ATOM
-                #  The additional benefits is that the records contain entity IDS as well as the residue index and the
-                #  author residue number. I think I will prefer this format from now on once parsing is possible.
-
-            # file_request = requests.get('https://files.rcsb.org/download/%s' % clean_pdb)
-            # if file_request.status_code == 200:
-            #     with open(file_name, 'wb') as f:
-            #         f.write(file_request.content)
-            # else:
-            #     logger.error('PDB download failed for: %s' % pdb)
-        file_names.append(file_name)
-
-    return file_names
-
-
-def fetch_pdb_file(pdb_code: str, asu: bool = True, location: str | bytes = pdb_db, **kwargs) -> str | bytes | None:
-    #                assembly: int = 1, out_dir: str | bytes = os.getcwd()
-    """Fetch PDB object from PDBdb or download from PDB server
-
-    Args:
-        pdb_code: The PDB ID/code. If the biological assembly is desired, supply 1ABC_1 where '_1' is assembly ID
-        asu: Whether to fetch the ASU
-        location: Location of a local PDB mirror if one is linked on disk
-    Keyword Args:
-        assembly=None (int): Location of a local PDB mirror if one is linked on disk
-        out_dir=os.getcwd() (str | bytes): The location to save retrieved files if fetched from PDB
-    Returns:
-        The path to the file if located successfully
-    """
-    # if location == pdb_db and asu:
-    if os.path.exists(location) and asu:
-        file_path = os.path.join(location, f'pdb{pdb_code.lower()}.ent')
-        get_pdb = (lambda *args, **kwargs: sorted(glob(file_path)))
-        #                                            pdb_code, location=None, asu=None, assembly=None, out_dir=None
-        logger.debug(f'Searching for PDB file at "{file_path}"')
-        # Cassini format is above, KM local pdb and the escher PDB mirror is below
-        # get_pdb = (lambda pdb_code, asu=None, assembly=None, out_dir=None:
-        #            glob(os.path.join(pdb_db, subdirectory(pdb_code), '%s.pdb' % pdb_code)))
-        # print(os.path.join(pdb_db, subdirectory(pdb_code), '%s.pdb' % pdb_code))
-    else:
-        get_pdb = _fetch_pdb_from_api
-
-    # return a list where the matching file is the first (should only be one anyway)
-    pdb_file = get_pdb(pdb_code, asu=asu, location=location, **kwargs)
-    if not pdb_file:
-        logger.warning(f'No matching file found for PDB: {pdb_code}')
-    else:  # we should only find one file, therefore, return the first
-        return pdb_file[0]
-
-
-def orient_pdb_file(file: str | bytes, log: Logger = logger, symmetry: str = None, out_dir: str | bytes = None) -> \
-        str | None:
-    """For a specified pdb filename and output directory, orient the PDB according to the provided symmetry where the
-        resulting .pdb file will have the chains symmetrized and oriented in the coordinate frame as to have the major
-        axis of symmetry along z, and additional axis along canonically defined vectors. If the symmetry is C1, then the
-        monomer will be transformed so the center of mass resides at the origin
-
-        Args:
-            file: The location of the file to be oriented
-            log: A log to report on operation success
-            symmetry: The symmetry type to be oriented. Possible types in SymmetryUtils.valid_subunit_number
-            out_dir: The directory that should be used to output files
-        Returns:
-            Filepath of oriented PDB
-        """
-    pdb_filename = os.path.basename(file)
-    oriented_file_path = os.path.join(out_dir, pdb_filename)
-    if os.path.exists(oriented_file_path):
-        return oriented_file_path
-    # elif sym in valid_subunit_number:
-    else:
-        pdb = PDB.from_file(file, log=log)  # must load entities to solve multicomponent orient problem
-        try:
-            pdb.orient(symmetry=symmetry)
-            pdb.write(out_path=oriented_file_path)
-            log.info(f'Oriented: {pdb_filename}')
-            return oriented_file_path
-        except (ValueError, RuntimeError) as error:
-            log.error(str(error))
-
-
-def query_qs_bio(pdb_entry_id: str) -> int:
-    """Retrieve the first matching High/Very High confidence QSBio assembly from a PDB ID
-
-    Args:
-        pdb_entry_id: The 4 letter PDB code to query
-    Returns:
-        The integer of the corresponding PDB Assembly ID according to the QSBio assembly
-    """
-    biological_assemblies = qsbio_confirmed.get(pdb_entry_id)
-    if biological_assemblies:  # first   v   assembly in matching oligomers
-        assembly = biological_assemblies[0]
-    else:
-        assembly = 1
-        logger.warning(f'No confirmed biological assembly for entry {pdb_entry_id},'
-                       f' using PDB default assembly {assembly}')
-
-    return assembly
