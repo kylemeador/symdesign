@@ -3,10 +3,8 @@ from __future__ import annotations
 import math
 import os
 import warnings
-from typing import List, Union, Optional
 
 import numpy as np
-from numpy import ndarray
 
 import PathUtils as PUtils
 from SymDesignUtils import start_log, dictionary_lookup, DesignError
@@ -151,6 +149,36 @@ nanohedra_symmetry_combinations = {
 }
 # KM Custom entries
 symmetry_combinations = {
+    125: ['C1', ['r:<1,1,1,h,i,a>', 't:<j,k,b>'], 1, '<0,0,0>', 'None', [], 1, '<0,0,0>', 'C1', 'C1', 0, 'N/A', 0, 1],  # C1 alone
+    126: ['C1', ['r:<1,1,1,h,i,a>', 't:<j,k,b>'], 1, '<0,0,0>', 'C1', ['r:<1,1,1,h,i,a>', 't:<j,k,b>'], 1, '<0,0,0>',
+          'C1', 'C1', 0, 'N/A', 6, 1],
+    130: ['C2', [], 1, '<0,0,0>', 'None', [], 1, '<0,0,0>', 'C2', 'C2', 0, 'N/A', 0, 1],  # C2 alone
+    131: ['C1', ['r:<1,1,1,h,i,a>', 't:<j,k,b>'], 1, '<0,0,0>', 'C2', [], 1, '<0,0,0>', 'C2', 'C2', 0, 'N/A', 6, 1],
+    135: ['C3', [], 1, '<0,0,0>', 'None', [], 1, '<0,0,0>', 'C3', 'C3', 0, 'N/A', 0, 1],  # C3 alone
+    136: ['C1', ['r:<1,1,1,h,i,a>', 't:<j,k,b>'], 1, '<0,0,0>', 'C3', [], 1, '<0,0,0>', 'C3', 'C3', 0, 'N/A', 6, 1],
+    140: ['C4', [], 1, '<0,0,0>', 'None', [], 1, '<0,0,0>', 'C4', 'C4', 0, 'N/A', 0, 1],  # C4 alone
+    141: ['C1', ['r:<1,1,1,h,i,a>', 't:<j,k,b>'], 1, '<0,0,0>', 'C4', [], 1, '<0,0,0>', 'C4', 'C4', 0, 'N/A', 6, 1],
+    145: ['C5', [], 1, '<0,0,0>', 'None', [], 1, '<0,0,0>', 'C5', 'C5', 0, 'N/A', 0, 1],  # C5 alone
+    146: ['C1', ['r:<1,1,1,h,i,a>', 't:<j,k,b>'], 1, '<0,0,0>', 'C5', [], 1, '<0,0,0>', 'C5', 'C5', 0, 'N/A', 6, 1],
+    150: ['C6', [], 1, '<0,0,0>', 'None', [], 1, '<0,0,0>', 'C6', 'C6', 0, 'N/A', 0, 1],  # C6 alone
+    151: ['C1', ['r:<1,1,1,h,i,a>', 't:<j,k,b>'], 1, '<0,0,0>', 'C6', [], 1, '<0,0,0>', 'C6', 'C6', 0, 'N/A', 6, 1],
+    155: ['D2', [], 1, '<0,0,0>', 'None', [], 1, '<0,0,0>', 'D2', 'D2', 0, 'N/A', 0, 1],  # D2 alone
+    156: ['C1', ['r:<1,1,1,h,i,a>', 't:<j,k,b>'], 1, '<0,0,0>', 'D2', [], 1, '<0,0,0>', 'D2', 'D2', 0, 'N/A', 6, 1],
+    157: ['C2', ['r:<0,0,1,a>', 't:<0,0,b>'], 1, '<0,0,0>', 'D2', [], 1, '<0,0,0>', 'D2', 'D2', 0, 'N/A', 2, 1],
+    158: ['C2', ['r:<0,0,1,a>', 't:<0,0,b>'], 2, '<0,0,0>', 'D2', [], 1, '<0,0,0>', 'D2', 'D2', 0, 'N/A', 2, 1],
+    160: ['D3', [], 1, '<0,0,0>', 'None', [], 1, '<0,0,0>', 'D3', 'D3', 0, 'N/A', 0, 1],  # D3 alone
+    161: ['C1', ['r:<1,1,1,h,i,a>', 't:<j,k,b>'], 1, '<0,0,0>', 'D3', [], 1, '<0,0,0>', 'D3', 'D3', 0, 'N/A', 6, 1],
+    162: ['C2', ['r:<0,0,1,a>', 't:<0,0,b>'], 2, '<0,0,0>', 'D3', [], 1, '<0,0,0>', 'D3', 'D3', 0, 'N/A', 2, 1],
+    163: ['C3', ['r:<0,0,1,a>', 't:<0,0,b>'], 1, '<0,0,0>', 'D3', [], 1, '<0,0,0>', 'D3', 'D3', 0, 'N/A', 2, 1],
+    165: ['D4', [], 1, '<0,0,0>', 'None', [], 1, '<0,0,0>', 'D4', 'D4', 0, 'N/A', 0, 1],  # D4 alone
+    166: ['C1', ['r:<1,1,1,h,i,a>', 't:<j,k,b>'], 1, '<0,0,0>', 'D4', [], 1, '<0,0,0>', 'D4', 'D4', 0, 'N/A', 6, 1],
+    167: ['C2', ['r:<0,0,1,a>', 't:<0,0,b>'], 1, '<0,0,0>', 'D4', [], 1, '<0,0,0>', 'D4', 'D4', 0, 'N/A', 2, 1],
+    168: ['C2', ['r:<0,0,1,a>', 't:<0,0,b>'], 2, '<0,0,0>', 'D4', [], 1, '<0,0,0>', 'D4', 'D4', 0, 'N/A', 2, 1],
+    169: ['C4', ['r:<0,0,1,a>', 't:<0,0,b>'], 1, '<0,0,0>', 'D4', [], 1, '<0,0,0>', 'D4', 'D4', 0, 'N/A', 2, 1],
+    170: ['D5', [], 1, '<0,0,0>', 'None', [], 1, '<0,0,0>', 'D5', 'D5', 0, 'N/A', 0, 1],  # D5 alone
+    171: ['C1', ['r:<1,1,1,h,i,a>', 't:<j,k,b>'], 1, '<0,0,0>', 'D5', [], 1, '<0,0,0>', 'D5', 'D5', 0, 'N/A', 6, 1],
+    175: ['D6', [], 1, '<0,0,0>', 'None', [], 1, '<0,0,0>', 'D6', 'D6', 0, 'N/A', 0, 1],  # D6 alone
+    176: ['C1', ['r:<1,1,1,h,i,a>', 't:<j,k,b>'], 1, '<0,0,0>', 'D6', [], 1, '<0,0,0>', 'D6', 'D6', 0, 'N/A', 6, 1],
     200: ['T', [], 1, '<0,0,0>', 'None', [], 1, '<0,0,0>', 'T', 'T', 0, 'N/A', 0, 1],  # T alone
     201: ['C1', ['r:<1,1,1,h,i,a>', 't:<j,k,b>'], 1, '<0,0,0>', 'T', [], 1, '<0,0,0>', 'T', 'T', 0, 'N/A', 6, 1],
     202: ['C2', ['r:<0,0,1,a>', 't:<0,0,b>'], 3, '<0,0,0>', 'T', [], 1, '<0,0,0>', 'T', 'T', 0, 'N/A', 2, 1],
@@ -165,11 +193,6 @@ symmetry_combinations = {
     222: ['C2', ['r:<0,0,1,a>', 't:<0,0,b>'], 1, '<0,0,0>', 'I', [], 1, '<0,0,0>', 'I', 'I', 0, 'N/A', 2, 1],
     223: ['C3', ['r:<0,0,1,a>', 't:<0,0,b>'], 7, '<0,0,0>', 'I', [], 1, '<0,0,0>', 'I', 'I', 0, 'N/A', 2, 1],
     224: ['C5', ['r:<0,0,1,a>', 't:<0,0,b>'], 9, '<0,0,0>', 'I', [], 1, '<0,0,0>', 'I', 'I', 0, 'N/A', 2, 1],
-    260: ['D3', [], 1, '<0,0,0>', 'None', [], 1, '<0,0,0>', 'D3', 'D3', 0, 'N/A', 0, 1],
-    261: ['C1', ['r:<1,1,1,h,i,a>', 't:<j,k,b>'], 1, '<0,0,0>', 'D3', [], 1, '<0,0,0>', 'D3', 'D3', 0, 'N/A', 6, 1],
-    262: ['C2', ['r:<0,0,1,a>', 't:<0,0,b>'], 2, '<0,0,0>', 'D3', [], 1, '<0,0,0>', 'D3', 'D3', 0, 'N/A', 2, 1],
-    263: ['C3', ['r:<0,0,1,a>', 't:<0,0,b>'], 1, '<0,0,0>', 'D3', [], 1, '<0,0,0>', 'D3', 'D3', 0, 'N/A', 2, 1],
-    300: ['C1', ['r:<1,1,1,h,i,a>', 't:<j,k,b>'], 1, '<0,0,0>', 'C1', ['r:<1,1,1,h,i,a>', 't:<j,k,b>'], 1, '<0,0,0>', 'C1', 'C1', 0, 'N/A', 6, 1],
     # KM 3 component entries
     # 301: {'components': [{'symmetry': 'C1', 'dof_internal': ['r:<1,1,1,h,i,a>', 't:<j,k,b>'], 'setting': 1, 'dof_external': '<0,0,0>'},
     #                      {'symmetry': 'C2', 'dof_internal': ['r:<0,0,1,a>', 't:<0,0,b>'], 'setting': 1, 'dof_external': '<0,0,0>'},
@@ -187,7 +210,7 @@ symmetry_combinations = {
 # 54:     ['C3', 2, ['r:<0,0,1,a>', 't:<0,0,b>'],  4, '<0,0,0>',
 #          'C3', 2,                           [], 12, '<0,0,0>',
 #          'T', 'T', 0, 'N/A', 4, 2],
-custom_entries = [entry for entry in symmetry_combinations]
+custom_entries = list(symmetry_combinations.keys())
 symmetry_combinations.update(nanohedra_symmetry_combinations)
 # reformat the symmetry_combinations to account for groups and results separately
 parsed_symmetry_combinations = {entry_number: ([(entry[0], entry[1:4]), (entry[4], entry[5:8])], entry[-6:])
@@ -235,7 +258,7 @@ for entry_number, ent in symmetry_combinations.items():
 
 
 class SymEntry:
-    def __init__(self, entry: int, sym_map: List[str] = None):
+    def __init__(self, entry: int, sym_map: list[str] = None):
         try:
             # group1, self.int_dof_group1, self.rot_set_group1, self.ref_frame_tx_dof1, \
             #     group2, self.int_dof_group2, self.rot_set_group2, self.ref_frame_tx_dof2, \
@@ -333,7 +356,7 @@ class SymEntry:
         return self.expand_matrices.shape[0]
 
     @property
-    def group_subunit_numbers(self) -> List[int]:
+    def group_subunit_numbers(self) -> list[int]:
         """Returns the number of subunits for each symmetry group"""
         try:
             return self._group_subunit_numbers
@@ -390,7 +413,7 @@ class SymEntry:
         return self.groups[2]
 
     @property
-    def setting_matrices(self) -> List[np.ndarray]:
+    def setting_matrices(self) -> list[np.ndarray]:
         return self._setting_matrices
 
     @property
@@ -469,7 +492,7 @@ class SymEntry:
         return self.__external_dof[1]
 
     @property
-    def degeneracy_matrices1(self) -> Optional[np.ndarray]:
+    def degeneracy_matrices1(self) -> np.ndarray | None:
         """Returns the N number of 3x3 degeneracy for component2"""
         try:
             return self._degeneracy_matrices[0]
@@ -478,7 +501,7 @@ class SymEntry:
             return self._degeneracy_matrices[0]
 
     @property
-    def degeneracy_matrices2(self) -> Optional[np.ndarray]:
+    def degeneracy_matrices2(self) -> np.ndarray | None:
         """Returns the N number of 3x3 degeneracy for component2"""
         try:
             return self._degeneracy_matrices[1]
@@ -486,7 +509,7 @@ class SymEntry:
             self._degeneracy_matrices = self.get_degeneracy_matrices()
             return self._degeneracy_matrices[1]
 
-    def get_degeneracy_matrices(self) -> List[Optional[ndarray]]:
+    def get_degeneracy_matrices(self) -> list[np.ndarray | None]:
         """From the intended point group symmetry and a single component, find the degeneracy matrices that produce all
         viable configurations of the single component in the final symmetry
 
@@ -560,7 +583,7 @@ class SymEntry:
         optimal_shifts_t = getattr(self, f'external_dof{group_number}').T * optimal_ext_dof_shifts
         return optimal_shifts_t.T.sum(axis=0)
 
-    def get_uc_dimensions(self, optimal_shift_vec: np.ndarray) -> Optional[np.ndarray]:
+    def get_uc_dimensions(self, optimal_shift_vec: np.ndarray) -> np.ndarray | None:
         """Return an array with the three unit cell lengths and three angles [20, 20, 20, 90, 90, 90] by combining UC
         basis vectors with component translation degrees of freedom
 
@@ -593,7 +616,7 @@ class SymEntry:
         # return np.concatenate(lengths, np.tile(angles, len(lengths)))
         return np.hstack((lengths, np.tile(angles, len(lengths)).reshape(-1, 3)))
 
-    def get_optimal_shift_from_uc_dimensions(self, a: float, b: float, c: float, *angles: List) -> Optional[np.ndarray]:
+    def get_optimal_shift_from_uc_dimensions(self, a: float, b: float, c: float, *angles: list) -> np.ndarray | None:
         """Return the optimal shifts provided unit cell dimensions and the external translation degrees of freedom
 
         Args:
@@ -625,7 +648,7 @@ class SymEntry:
 
         return external_translation_shifts
 
-    def sdf_lookup(self) -> Union[str, bytes]:
+    def sdf_lookup(self) -> str | bytes:
         """Locate the proper symmetry definition file depending on the specified symmetry
 
         Returns:
@@ -658,7 +681,7 @@ class SymEntryFactory:
     def __init__(self, **kwargs):
         self._entries = {}
 
-    def __call__(self, entry: int, sym_map: List[str] = None, **kwargs) -> SymEntry:
+    def __call__(self, entry: int, sym_map: list[str] = None, **kwargs) -> SymEntry:
         """Return the specified SymEntry object singleton
 
         Args:
@@ -680,7 +703,7 @@ class SymEntryFactory:
             self._entries[entry_key] = SymEntry(entry, sym_map=sym_map)
             return self._entries[entry_key]
 
-    def get(self, entry: int, sym_map: List[str] = None, **kwargs) -> SymEntry:
+    def get(self, entry: int, sym_map: list[str] = None, **kwargs) -> SymEntry:
         """Return the specified SymEntry object singleton
 
         Args:
@@ -695,7 +718,7 @@ class SymEntryFactory:
 symmetry_factory = SymEntryFactory()
 
 
-def construct_uc_matrix(string_vector: List[str]) -> np.ndarray:
+def construct_uc_matrix(string_vector: list[str]) -> np.ndarray:
     """Calculate a matrix specifying the degrees of freedom in each dimension of the unit cell
 
     Args:
@@ -787,7 +810,7 @@ def get_optimal_external_tx_vector(ref_frame_tx_dof, optimal_ext_dof_shifts):
     return optimal_external_tx_vector.tolist()
 
 
-def get_rot_matrices(step_deg: float, axis: str = 'z', rot_range_deg: int = 360) -> Optional[np.ndarray]:
+def get_rot_matrices(step_deg: float, axis: str = 'z', rot_range_deg: int = 360) -> np.ndarray | None:
     """Return a group of rotation matrices to rotate coordinates about a specified axis in set step increments
 
     Args:
@@ -924,7 +947,7 @@ highest_point_group_msg = f'If this is a point group. You likely need to modify 
 example_symmetry_specification = 'RESULT:{SUBSYMMETRY}{SUBSYMMETRY}...'
 
 
-def parse_symmetry_to_sym_entry(sym_entry: int = None, symmetry: str = None, sym_map: List[str] = None) -> \
+def parse_symmetry_to_sym_entry(sym_entry: int = None, symmetry: str = None, sym_map: list[str] = None) -> \
         SymEntry | None:
     """Take a symmetry specified in a number of ways and return the symmetry parameters in a SymEntry
 
@@ -974,7 +997,7 @@ def parse_symmetry_to_sym_entry(sym_entry: int = None, symmetry: str = None, sym
     return symmetry_factory.get(sym_entry, sym_map=sym_map)
 
 
-def sdf_lookup(symmetry: Optional[str] = None) -> Union[str, bytes]:
+def sdf_lookup(symmetry: str = None) -> str | bytes:
     """From the set of possible point groups, locate the proper symmetry definition file depending on the specified
     symmetry. If none is specified, a C1 symmetry will be returned (this doesn't make sense but is completely viable)
 
@@ -1062,7 +1085,7 @@ def lookup_sym_entry_by_symmetry_combination(result: str, *symmetry_operators: s
             if symmetry_operators and required_sym_operators:
                 matching_entries.append(entry_number)  # TODO include the groups?
 
-    if matching_entries:  # either no matches, or no symmetry_operators passed
+    if matching_entries:
         if len(matching_entries) == 1:
             return matching_entries[0]
         else:
@@ -1070,7 +1093,7 @@ def lookup_sym_entry_by_symmetry_combination(result: str, *symmetry_operators: s
                   % (', '.join(map(str, matching_entries))))
             print_matching_entries(matching_entries)
             print(f'Cannot distinguish between the desired entry. Please repeat your command, however, additionally'
-                  f' specify the preferred Entry Number (ex: --{PUtils.sym_entry} 1) to proceed')
+                  f' specify the preferred SymEntry Number (ex: --{PUtils.sym_entry} 1) to proceed')
             exit()
     elif symmetry_operators:
         raise ValueError('The specified symmetries "%s" could not be coerced to make the resulting symmetry "%s". '
@@ -1079,7 +1102,7 @@ def lookup_sym_entry_by_symmetry_combination(result: str, *symmetry_operators: s
                          'during your specification'
                          % (', '.join(symmetry_operators), result,
                             ', '.join(all_sym_entry_dict.get(result, {}).keys()), example_symmetry_specification))
-    else:  # no symemtry_operators
+    else:  # no symmetry_operators
         if result_entries:
             print('\033[1mFound specified symmetries matching including %s\033[0m'
                   % (', '.join(map(str, result_entries))))
