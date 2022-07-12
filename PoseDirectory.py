@@ -1983,8 +1983,8 @@ class PoseDirectory:
             # # rename_chains = True
 
         # if entities:
-        #     pdb = PDB.from_entities(entities, log=self.log, rename_chains=rename_chains)
-        #     #                       name='%s-asu' % str(self)
+        #     pdb = Model.from_entities(entities, log=self.log, rename_chains=rename_chains)
+        #     #                         name='%s-asu' % str(self)
         # elif self.initial_model:  # this is a fresh pose, and we already loaded so reuse
         #     # careful, if some processing to the pdb has since occurred then this will be wrong!
         #     pdb = self.initial_model
@@ -2796,7 +2796,7 @@ class PoseDirectory:
             inverse_residue_contact_order_z.append(residue_contact_order_z * -1)
             # Get errat from the symmetric Entity
             # entity.oligomer.get_sasa()  # Todo when Entity.oligomer works
-            entity_oligomer = PDB.from_chains(entity.oligomer, log=self.log, entities=False)
+            entity_oligomer = Model.from_chains(entity.oligomer, log=self.log, entities=False)
             entity_oligomer.get_sasa()
             oligomer_asu_residues = entity_oligomer.residues[:entity.number_of_residues]
             per_residue_sasa_unbound_apolar.extend([residue.sasa_apolar for residue in oligomer_asu_residues])

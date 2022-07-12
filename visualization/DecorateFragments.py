@@ -11,7 +11,7 @@ from sklearn.neighbors import BallTree
 from SymDesignUtils import start_log, collect_designs, set_logging_to_debug
 from Structure import MonoFragment
 from JobResources import FragmentDB
-from PDB import PDB
+from Pose import Model
 
 
 def decorate_with_fragments(pdb_path, out_path=os.getcwd()):
@@ -27,7 +27,7 @@ def decorate_with_fragments(pdb_path, out_path=os.getcwd()):
     # Get PDB1 Symmetric Building Block
     # pdb1 = PDB()
     # pdb1.readfile(pdb_path)
-    pdb1 = PDB.from_file(pdb_path)
+    pdb1 = Model.from_file(pdb_path)
     pdb1.renumber_residues()
 
     # Get Oligomer 1 Ghost Fragments With Guide Coordinates Using Initial Match Fragment Database

@@ -8,7 +8,7 @@ from typing import Optional
 
 import numpy as np
 
-from PDB import PDB
+from Pose import Model
 from classes.SymEntry import get_optimal_external_tx_vector, get_uc_dimensions
 from utils.SymmetryUtils import generate_cryst1_record
 
@@ -122,9 +122,9 @@ def rand_perturb(pdb1_path, pdb2_path, set_matrix1, set_matrix2, rot_degen_matri
     if not os.path.exists(outdir):
         os.makedirs(outdir)
 
-    pdb1 = PDB.from_file(pdb1_path)
+    pdb1 = Model.from_file(pdb1_path)
 
-    pdb2 = PDB.from_file(pdb2_path)
+    pdb2 = Model.from_file(pdb2_path)
 
     for perturb_number in range(number_of_perturbations):
         pdb1_copy = copy.copy(pdb1)

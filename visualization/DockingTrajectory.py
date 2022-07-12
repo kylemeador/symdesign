@@ -6,12 +6,11 @@ from itertools import chain
 import PathUtils as PUtils
 import PoseDirectory
 import SymDesignUtils as SDUtils
-from PDB import PDB
-from Pose import Model
+from Pose import Model, MultiModel
 
 
 def create_trajectory(design_directories, name='docking_trajectory', output_dir=os.getcwd()):
-    trajectory_model = Model()
+    trajectory_model = MultiModel()
     # TODO How to sort?
     for des_dir in design_directories:
         trajectory_model.add_model(merge_pose_pdbs(des_dir))
@@ -28,21 +27,21 @@ def merge_pose_pdbs(des_dir, frags=True):
     for name in pdb_codes:
         name_pdb_file = glob(os.path.join(des_dir.path, name + '_tx_*.pdb'))
         assert len(name_pdb_file) == 1, 'More than one matching file found with %s_tx_*.pdb' % name
-        oligomers[name] = PDB.from_file(name_pdb_file[0])
+        oligomers[name] = Model.from_file(name_pdb_file[0])
         oligomers[name].name = name
         oligomers[name].reorder_chains(exclude_chains=taken_chains)
         taken_chains += oligomers[name].chain_ids
-    new_pdb = PDB.from_atoms([oligomers[oligomer].atoms for oligomer in oligomers])
+    new_pdb = Model.from_atoms([oligomers[oligomer].atoms for oligomer in oligomers])
 
     if frags:
         frag_pdbs = glob(os.path.join(des_dir.frags, '*.pdb'))
         frags = []
         for frags in frag_pdbs:
-            frag_pdb = PDB.from_file(frags)
+            frag_pdb = Model.from_file(frags)
             frag_pdb.reorder_chains(exclude_chains=taken_chains)
             taken_chains += frag_pdb.chain_ids
             frags.append(frag_pdb)
-        new_pdb = PDB.from_atoms(list(chain.from_iterable(pdb.atoms for pdb in frags)))
+        new_pdb = Model.from_atoms(list(chain.from_iterable(pdb.atoms for pdb in frags)))
 
     return new_pdb
 

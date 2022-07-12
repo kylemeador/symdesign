@@ -11,7 +11,7 @@ import PoseDirectory
 import PathUtils as PUtils
 import SymDesignUtils as SDUtils
 from utils.PDBUtils import biopdb_superimposer
-from PDB import PDB
+from Pose import Model
 from Structure import Atom
 
 warnings.simplefilter('ignore', PDBConstructionWarning)
@@ -51,7 +51,7 @@ def standardize_oligomer_chain_lengths(oligomer1_pdb, oligomer2_pdb):
         if atom1.residue_number in resnums_in_common:
             oligomer1_pdb_standardized_atom_list.append(atom1)
             oligomer1_pdb_standardized_chid_list.append(atom1.chain)
-    oligomer1_pdb_standardized = PDB.from_atoms(oligomer1_pdb_standardized_atom_list)
+    oligomer1_pdb_standardized = Model.from_atoms(oligomer1_pdb_standardized_atom_list)
     oligomer1_pdb_standardized.chain_ids = list(set(oligomer1_pdb_standardized_chid_list))
 
     oligomer2_pdb_standardized_atom_list = []
@@ -60,7 +60,7 @@ def standardize_oligomer_chain_lengths(oligomer1_pdb, oligomer2_pdb):
         if atom2.residue_number in resnums_in_common:
             oligomer2_pdb_standardized_atom_list.append(atom2)
             oligomer2_pdb_standardized_chid_list.append(atom2.chain)
-    oligomer2_pdb_standardized = PDB.from_atoms(oligomer2_pdb_standardized_atom_list)
+    oligomer2_pdb_standardized = Model.from_atoms(oligomer2_pdb_standardized_atom_list)
     oligomer2_pdb_standardized.chain_ids = list(set(oligomer2_pdb_standardized_chid_list))
 
     return oligomer1_pdb_standardized, oligomer2_pdb_standardized

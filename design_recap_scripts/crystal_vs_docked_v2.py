@@ -4,9 +4,9 @@ import warnings
 from itertools import repeat
 
 from Bio.PDB.Atom import PDBConstructionWarning
-from PDB import PDB
-from top_n_all_to_all_docked_poses_irmsd import map_align_interface_chains, interface_chains_and_resnums
 
+from Pose import Model
+from top_n_all_to_all_docked_poses_irmsd import map_align_interface_chains, interface_chains_and_resnums
 import PoseDirectory
 import SymDesignUtils as SDUtils
 
@@ -93,10 +93,10 @@ def main():
     # read in crystal structure oligomer 1 and oligomer 2 PDB files
     # get the PDB file names without '.pdb' extension
     # create name for combined crystal structure oligomers
-    ref_pdb1 = PDB.from_file(xtal_pdb1_path)
+    ref_pdb1 = Model.from_file(xtal_pdb1_path)
     xtal_pdb1_name = os.path.splitext(os.path.basename(xtal_pdb1_path))[0]
 
-    ref_pdb2 = PDB.from_file(xtal_pdb2_path)
+    ref_pdb2 = Model.from_file(xtal_pdb2_path)
     xtal_pdb2_name = os.path.splitext(os.path.basename(xtal_pdb2_path))[0]
 
     xtal_pdb_name = xtal_pdb1_name + "_" + xtal_pdb2_name

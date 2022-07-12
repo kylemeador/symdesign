@@ -8,8 +8,9 @@ from itertools import repeat, chain as iter_chain
 from lxml import etree, html
 from requests import get, post
 
-from PDB import PDB
 from PathUtils import pisa_db
+from Pose import Model
+from Structure import Structure
 from SymDesignUtils import pickle_object, to_iterable, remove_duplicates, io_save, start_log  # logger,
 
 # from interface_analysis.InterfaceSorting import logger
@@ -529,19 +530,16 @@ def download_pisa(pdb, pisa_type, out_path=os.getcwd(), force_singles=False):
 
 
 def extract_xtal_interfaces(pdb_path):  # unused
-    source_pdb = PDB.from_file(pdb_path)
+    source_pdb = Model.from_file(pdb_path, entities=False)
     interface_data = parse_pisa_interfaces_xml(pdb_path)
     for interface in interface_data:
         chains = []
         for chain in interface['chain_data']:
-            rot, trans = chain['r_mat'], chain['t_vec']
-            all_resi_atoms = []
-            for res_num in chain['int_res']:
-                all_resi_atoms.extend(source_pdb.chain(chain).residue(res_num))
-            chain_pdb = PDB.from_atoms(all_resi_atoms)
-            chain_pdb.apply(rot, trans)
+            # rot, trans = chain['r_mat'], chain['t_vec']
+            chain_pdb = Structure.from_residues(source_pdb.chain(chain).get_residues(chain['int_res']))
+            chain_pdb.transform(rotation=chain['r_mat'], translation=chain['t_vec'])
             chains.append(chain_pdb)
-        interface_pdb = PDB.from_atoms(list(iter_chain.from_iterable(chain.atoms for chain in chains)))
+        interface_pdb = Model.from_chains(chains)
         interface_pdb.write(pdb_path + interface + '.pdb')
 
 

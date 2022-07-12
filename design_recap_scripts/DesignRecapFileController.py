@@ -14,7 +14,8 @@ import SymDesignUtils as SDUtils
 # print(sys.path)
 # from utils.BioPDBUtils import biopdb_aligned_chain
 from utils.PDBUtils import biopdb_aligned_chain
-from PDB import PDB, fetch_pdb
+from PDB import fetch_pdb
+from Pose import Model
 
 # if sys.version[0] < 3:
 pickle_prot = 2
@@ -27,7 +28,7 @@ sym_dict = {'4NWN': 'T', '4NWO': 'T', '4NWP': 'T', '4ZK7': 'T', '5CY5': 'T', '5I
 def make_asu(pdb_file, chain=None, out_path=os.getcwd, center=True):
     if '4NWR' in pdb_file:
         return None
-    pdb = PDB.from_file(pdb_file)
+    pdb = Model.from_file(pdb_file)
     if center:
         print(pdb.center_of_mass)
         pdb.translate(-pdb.center_of_mass)
@@ -35,7 +36,7 @@ def make_asu(pdb_file, chain=None, out_path=os.getcwd, center=True):
         print(pdb.center_of_mass)
         pdb.write(out_path=os.path.join(out_path, 'expanded', 'centered' + os.path.basename(pdb.file_path)))
     # asu = pdb.return_asu(chain)  # no chain needed, just use the default
-    # # asu = PDB.from_atoms(pdb.get_asu(chain))  # no chain needed, just use the default
+    # # asu = Model.from_atoms(pdb.get_asu(chain))  # no chain needed, just use the default
     # asu.write(out_path=os.path.join(out_path, os.path.basename(pdb.file_path)), header=None)  # Todo make symmetry for point groups
     # print(sym_dict[pdb.name])
     # pose = Pose.from_asu(asu, symmetry=sym_dict[pdb.name])
@@ -67,7 +68,7 @@ def make_asu_oligomer(asu, chain_map, location=os.getcwd()):
     moved_oligomer = {}
     for pdb in chain_map:
         asu_chain = chain_map[pdb]['asu_chain']
-        oriented_oligomer = PDB.from_file(chain_map[pdb]['path'])
+        oriented_oligomer = Model.from_file(chain_map[pdb]['path'])
         # oriented_oligomer = SDUtils.read_pdb(chain_map[pdb]['path'])
         oligomer_chain = chain_map[pdb]['dock_chains'][0]
         moved_oligomer[pdb] = biopdb_aligned_chain(asu.chain(asu_chain), oriented_oligomer, oligomer_chain)
@@ -101,7 +102,7 @@ def design_recapitulation(design_file, output_dir, pdb_dir=None, oligomer=False)
         reading_csv = reader(f_csv)
         if pdb_dir:
             design_file_input = {os.path.splitext(row[0])[0]:
-                                 {'design_pdb': PDB.from_file(os.path.join(pdb_dir, row[0])),
+                                 {'design_pdb': Model.from_file(os.path.join(pdb_dir, row[0])),
                                  # {'design_pdb': SDUtils.read_pdb(os.path.join(pdb_dir, row[0])),
                                   'source_pdb': [(row[1], row[3]), (row[2], row[4])], 'final_sym': row[5]}
                                  for row in reading_csv}  # 'pdb1': 'sym1': 'pdb2': 'sym2':
@@ -126,7 +127,7 @@ def design_recapitulation(design_file, output_dir, pdb_dir=None, oligomer=False)
                   'CONSIDER USING THE Pose.return_contacting_asu() instead!')
             asu = design_file_input[design]['design_pdb'].return_asu()
         else:
-            asu = PDB.from_file(os.path.join(output_dir, 'design_asus', design + '.pdb'))  # old, design_asus outside
+            asu = Model.from_file(os.path.join(output_dir, 'design_asus', design + '.pdb'))  # old, design_asus outside
             # asu = PDB(file=os.path.join(output_dir, design, 'design_asus', design  + '.pdb'))  # TODO in new, asu is inside design directory
         asu.reorder_chains()
         # asu.renumber_residues()
@@ -151,7 +152,7 @@ def design_recapitulation(design_file, output_dir, pdb_dir=None, oligomer=False)
             new_file = \
                 fetch_pdb(pdb, assembly=biological_assembly, out_dir=os.path.join(output_dir, 'biological_assemblies'))
             if new_file:
-                downloaded_pdb = PDB.from_file(new_file[0])
+                downloaded_pdb = Model.from_file(new_file[0])
             else:
                 continue
             downloaded_pdb.orient(symmetry=sym)

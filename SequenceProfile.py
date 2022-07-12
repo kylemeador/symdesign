@@ -7,7 +7,7 @@ import time
 import warnings
 from collections import namedtuple
 from copy import deepcopy, copy
-from itertools import chain, repeat  # repeat
+from itertools import repeat
 from math import floor, exp, log, log2
 # from glob import glob
 from pathlib import Path
@@ -21,6 +21,7 @@ from Bio.Data.IUPACData import protein_letters, extended_protein_letters, protei
 from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
 
+# from Pose import Model
 import CommandDistributer
 import PathUtils as PUtils
 from SymDesignUtils import handle_errors, unpickle, get_base_root_paths_recursively, DesignError, start_log, pretty_format_table
@@ -2934,10 +2935,10 @@ def multi_chain_alignment(mutated_sequences):
 #     Returns:
 #         mutations (dict): {'file_name': {chain_id: {mutation_index: {'from': 'A', 'to': 'K'}, ...}, ...}, ...}
 #     """
-#     wild_type_pdb = PDB.from_file(wild_type_file, log=None, entities=False)
+#     wild_type_pdb = Model.from_file(wild_type_file, log=None, entities=False)
 #     pdb_sequences = {}
 #     for file_name in all_design_files:
-#         pdb = PDB.from_file(file_name, log=None, entities=False)
+#         pdb = Model.from_file(file_name, log=None, entities=False)
 #         pdb_sequences[pdb.name] = pdb.atom_sequences
 #
 #     return generate_multiple_mutations(wild_type_pdb.atom_sequences, pdb_sequences, pose_num=pose_num)

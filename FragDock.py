@@ -11,9 +11,8 @@ from sklearn.neighbors import BallTree
 
 from ClusterUtils import cluster_transformation_pairs, find_cluster_representatives
 from JobResources import FragmentDatabase, fragment_factory
-from PDB import PDB
 from PathUtils import frag_text_file, master_log, frag_dir, biological_interfaces, asu_file_name
-from Pose import Pose
+from Pose import Pose, Model
 from Structure import Structure, write_frag_match_info_file
 from SymDesignUtils import calculate_overlap, match_score_from_z_value, start_log, null_log, dictionary_lookup, \
     calculate_match, z_value_from_match_score, set_logging_to_debug
@@ -439,9 +438,9 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
     cb_distance = 9.  # change to 8.?
     # Get Building Blocks in pose format to remove need for fragments to use chain info
     if not isinstance(pdb1, Structure):
-        pdb1 = PDB.from_file(pdb1, pose_format=True)
+        pdb1 = Model.from_file(pdb1, pose_format=True)
     if not isinstance(pdb2, Structure):
-        pdb2 = PDB.from_file(pdb2, pose_format=True)
+        pdb2 = Model.from_file(pdb2, pose_format=True)
 
     # Get pdb reference sequences
     for entity in pdb1.entities:
@@ -1499,8 +1498,8 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
                                                     'rotation2': set_mat2, 'translation2': external_tx_params2})
         copy_pdb_time = time.time() - copy_pdb_start
         log.info('\tCopy and Transform Oligomer1 and Oligomer2 (took %f s)' % copy_pdb_time)
-        asu = PDB.from_entities([pdb1_copy.entities[0], pdb2_copy.entities[0]], log=log, name='asu',
-                                entity_names=[pdb1_copy.name, pdb2_copy.name], rename_chains=True)
+        asu = Model.from_entities([pdb1_copy.entities[0], pdb2_copy.entities[0]], log=log, name='asu',
+                                  entity_names=[pdb1_copy.name, pdb2_copy.name], rename_chains=True)
 
         # Check if design has any clashes when expanded
         exp_des_clash_time_start = time.time()
