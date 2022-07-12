@@ -1802,7 +1802,7 @@ def fetch_pdb(pdb_codes: Union[str, list], assembly: int = 1, asu: bool = False,
               out_dir: Union[str, bytes] = os.getcwd(), **kwargs) -> List[Union[str, bytes]]:  # Todo mmcif
     """Download PDB files from pdb_codes provided in a file, a supplied list, or a single entry
     Can download a specific biological assembly if asu=False.
-    Ex: fetch_pdb('1bkh', assembly=2) fetches 1bkh biological assembly 2 "1bkh.pdb2"
+    Ex: _fetch_pdb_from_api('1bkh', assembly=2) fetches 1bkh biological assembly 2 "1bkh.pdb2"
 
     Args:
         pdb_codes: PDB IDs of interest.
@@ -1816,14 +1816,14 @@ def fetch_pdb(pdb_codes: Union[str, list], assembly: int = 1, asu: bool = False,
     for pdb_code in to_iterable(pdb_codes):
         clean_pdb = pdb_code[:4].lower()
         if asu:
-            clean_pdb = '%s.pdb' % clean_pdb
+            clean_pdb = f'{clean_pdb}.pdb'
         else:
             # assembly = pdb[-3:]
             # try:
             #     assembly = assembly.split('_')[1]
             # except IndexError:
             #     assembly = '1'
-            clean_pdb = '%s.pdb%d' % (clean_pdb, assembly)
+            clean_pdb = f'{clean_pdb}.pdb{assembly}'
 
         # clean_pdb = '%s.pdb%d' % (clean_pdb, assembly)
         file_name = os.path.join(out_dir, clean_pdb)
@@ -1856,35 +1856,37 @@ def fetch_pdb(pdb_codes: Union[str, list], assembly: int = 1, asu: bool = False,
     return file_names
 
 
-def fetch_pdb_file(pdb_code: str, asu: bool = True, location: Union[str, bytes] = pdb_db, **kwargs) -> \
-        Optional[Union[str, bytes]]:  # assembly=None, out_dir=os.getcwd(),
+def fetch_pdb_file(pdb_code: str, asu: bool = True, location: str | bytes = pdb_db, **kwargs) -> str | bytes | None:
+    #                assembly: int = 1, out_dir: str | bytes = os.getcwd()
     """Fetch PDB object from PDBdb or download from PDB server
 
     Args:
         pdb_code: The PDB ID/code. If the biological assembly is desired, supply 1ABC_1 where '_1' is assembly ID
         asu: Whether to fetch the ASU
         location: Location of a local PDB mirror if one is linked on disk
-        assembly=None (Optional[int]): Location of a local PDB mirror if one is linked on disk
-        out_dir=os.getcwd() (Union[str, bytes]): The location to save retrieved files if fetched from PDB
+    Keyword Args:
+        assembly=None (int): Location of a local PDB mirror if one is linked on disk
+        out_dir=os.getcwd() (str | bytes): The location to save retrieved files if fetched from PDB
     Returns:
         The path to the file if located successfully
     """
     # if location == pdb_db and asu:
     if os.path.exists(location) and asu:
-        get_pdb = (lambda pdb_code, location=None, **kwargs:  # asu=None, assembly=None, out_dir=None
-                   sorted(glob(os.path.join(location, 'pdb%s.ent' % pdb_code.lower()))))
-        logger.debug('Searching for PDB file at "%s"' % os.path.join(location, 'pdb%s.ent' % pdb_code.lower()))
+        file_path = os.path.join(location, f'pdb{pdb_code.lower()}.ent')
+        get_pdb = (lambda *args, **kwargs: sorted(glob(file_path)))
+        #                                            pdb_code, location=None, asu=None, assembly=None, out_dir=None
+        logger.debug(f'Searching for PDB file at "{file_path}"')
         # Cassini format is above, KM local pdb and the escher PDB mirror is below
         # get_pdb = (lambda pdb_code, asu=None, assembly=None, out_dir=None:
         #            glob(os.path.join(pdb_db, subdirectory(pdb_code), '%s.pdb' % pdb_code)))
         # print(os.path.join(pdb_db, subdirectory(pdb_code), '%s.pdb' % pdb_code))
     else:
-        get_pdb = fetch_pdb
+        get_pdb = _fetch_pdb_from_api
 
     # return a list where the matching file is the first (should only be one anyway)
     pdb_file = get_pdb(pdb_code, asu=asu, location=location, **kwargs)
     if not pdb_file:
-        logger.warning('No matching file found for PDB: %s' % pdb_code)
+        logger.warning(f'No matching file found for PDB: {pdb_code}')
     else:  # we should only find one file, therefore, return the first
         return pdb_file[0]
 
