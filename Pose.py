@@ -50,8 +50,8 @@ def subdirectory(name):
 
 # @njit
 def find_fragment_overlap(entity1_coords: np.ndarray, residues1: list[Residue] | Residues,
-                          residues2: list[Residue] | Residues, fragdb: fragment.FragmentDatabase = None,
-                          euler_lookup: EulerLookup = None, max_z_value: float = 2.) -> \
+                          residues2: list[Residue] | Residues, frag_db: fragment.FragmentDatabase = None,
+                          euler_lookup: EulerLookup = None, min_match_value: float = 0.2) -> \
         list[tuple[GhostFragment, Fragment, float]]:
     #           entity1, entity2, entity1_interface_residue_numbers, entity2_interface_residue_numbers, max_z_value=2):
     """From two sets of Residues, score the fragment overlap according to Nanohedra's fragment matching
@@ -62,7 +62,7 @@ def find_fragment_overlap(entity1_coords: np.ndarray, residues1: list[Residue] |
         residues2:
         fragdb:
         euler_lookup:
-        max_z_value:
+        min_match_value: The minimum value which constitutes an acceptable fragment match
     """
     if not fragdb:
         fragdb = fragment.fragment_factory()
@@ -112,8 +112,8 @@ def find_fragment_overlap(entity1_coords: np.ndarray, residues1: list[Residue] |
     all_fragment_overlap = \
         calculate_overlap(passing_ghost_coords, passing_frag_coords, reference_rmsds, max_z_value=max_z_value)
     # logger.debug('Finished calculating fragment overlaps')
-    passing_overlap_indices = np.flatnonzero(all_fragment_overlap)
-    logger.debug(f'Found {len(passing_overlap_indices)} overlapping fragments under the {max_z_value} threshold')
+    # passing_overlap_indices = np.flatnonzero(all_fragment_overlap)
+    logger.debug(f'Found {len(passing_overlaps_indices)} overlapping fragments over the {min_match_value} threshold')
 
     # interface_ghostfrags = [ghost_frags1[idx] for idx in passing_ghost_indices[passing_overlap_indices].tolist()]
     # interface_monofrags2 = [residues2[idx] for idx in passing_surf_indices[passing_overlap_indices].tolist()]
