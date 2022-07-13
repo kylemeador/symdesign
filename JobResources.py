@@ -173,7 +173,6 @@ def query_qs_bio(pdb_entry_id: str) -> int:
         assembly = 1
         logger.warning(f'No confirmed biological assembly for entry {pdb_entry_id},'
                        f' using PDB default assembly {assembly}')
-
     return assembly
 
 
@@ -254,7 +253,7 @@ class Database:  # Todo ensure that the single object is completely loaded befor
         return object_db.retrieve_file(name)
 
     def orient_structures(self, structure_identifiers: Iterable[str], symmetry: str = 'C1', by_file: bool = False) -> \
-            list['Pose'] | list:
+            list['Model'] | list:
         """Given entity_ids and their corresponding symmetry, retrieve .pdb files, orient and save Database files then
         return the ASU for each
 
@@ -267,7 +266,10 @@ class Database:  # Todo ensure that the single object is completely loaded befor
         """
         if not structure_identifiers:
             return []
-        from Pose import Pose
+        from Pose import Pose, Model
+        # using Pose enables simple ASU writing
+        # Pose isn't the best for orient since the structure isn't oriented the symmetry wouldn't work
+        # It could still happen, but we certainly shouldn't pass sym_entry to it
         self.oriented.make_path()
         orient_dir = self.oriented.location
         # os.makedirs(orient_dir, exist_ok=True)
@@ -313,7 +315,7 @@ class Database:  # Todo ensure that the single object is completely loaded befor
                     entity = None
                     logger.debug(f'Fetching entry {entry} from PDB')
 
-                if symmetry == 'C1':  # translate the monomer to the origin for the database
+                if symmetry == 'C1':
                     assembly = None  # 1 is the default
                     asu = True
                 else:
@@ -325,16 +327,15 @@ class Database:  # Todo ensure that the single object is completely loaded befor
                 if not file_path:
                     logger.warning(f'Couldn\'t locate the file "{file_path}", there may have been an issue '
                                    'downloading it from the PDB. Attempting to copy from job data source...')
+                    # Todo
                     raise NotImplementedError('This functionality hasn\'t been written yet. Use the canonical_pdb1/2 '
                                               'attribute of PoseDirectory to pull the pdb file source.')
-                    # Todo
                 # remove any PDB Database mirror specific naming from fetch_pdb_file such as pdb1ABC.ent
                 file_name = os.path.splitext(os.path.basename(file_path))[0].replace('pdb', '')
-                # using Pose enables ASU writing
-                pose = Pose.from_pdb(file_path, name=file_name, sym_entry=sym_entry)
+                model = Model.from_pdb(file_path, name=file_name)  # , sym_entry=sym_entry
                 if entity:  # replace Structure from fetched file with the Entity Structure
                     # entry_entity will be formatted the exact same as the desired EntityID if it was provided correctly
-                    entity = pose.entity(entry_entity)
+                    entity = model.entity(entry_entity)
                     if not entity:  # we couldn't find the specified EntityID
                         logger.warning(f'For {entry_entity}, couldn\'t locate the specified Entity "{entity}". The'
                                        f' available Entities are {", ".join(entity.name for entity in pose.entities)}')
@@ -346,7 +347,7 @@ class Database:  # Todo ensure that the single object is completely loaded befor
                         entity_file_path = entity.write_oligomer(out_path=entity_out_path)
                     # pose = entity.oligomer <- not quite as desired
                     # Todo make Entity capable of orient() then don't need this mechanism, just set pose = entity
-                    pose = Pose.from_chains(entity.chains, entity_names=[entry_entity])
+                    model = model.from_chains(entity.chains, entity_names=[entry_entity])
                     # pose.entities = [entity]
                 # else:  # we will orient the whole set of chains based on orient() multicomponent solution
                 #     # entry_entity = pose.name
@@ -355,46 +356,50 @@ class Database:  # Todo ensure that the single object is completely loaded befor
                 # entry_entity_base = f'{entry_entity}.pdb'
 
                 # write out file for the orient database
-                if symmetry == 'C1':  # translate the Structure to the origin
+                if symmetry == 'C1':  # translate the Structure to the origin for the database
                     # entity = pose.entities[0]  # issue if we passed a hetero dimer and treated as a C1
-                    pose.translate(-pose.center_of_mass)
+                    model.translate(-model.center_of_mass)
                     # entity.name = entry_entity
                     # orient_file = entity.write(out_path=os.path.join(orient_dir, entry_entity_base))
-                    orient_file = pose.write(out_path=self.oriented.store(name=entry_entity))
-                    # pose.symmetry = symmetry
-                    pose.file_path = pose.write(out_path=self.oriented_asu.store(name=entry_entity))
-                    for entity in pose.entities:
-                        entity.stride(to_file=self.stride.store(name=entity.name))
-                    all_structures.append(pose)  # .entities[0]
+                    # orient_file = model.write(out_path=self.oriented.store(name=entry_entity))
+                    # model.symmetry = symmetry
+                    # model.file_path = model.write(out_path=self.oriented_asu.store(name=entry_entity))
+                    # for entity in model.entities:
+                    #     entity.stride(to_file=self.stride.store(name=entity.name))
+                    # all_structures.append(model)  # .entities[0]
                 else:
                     try:
-                        pose.orient(symmetry=symmetry, log=orient_log)
-                        orient_file = pose.write(assembly=True, out_path=self.oriented.store(name=entry_entity))
-                        orient_log.info(f'Oriented: {orient_file}')
+                        model.orient(symmetry=symmetry, log=orient_log)
+                        # orient_file = model.write(assembly=True, out_path=self.oriented.store(name=entry_entity))
                     except (ValueError, RuntimeError) as err:
                         orient_log.error(str(err))
                         non_viable_structures.append(entry_entity)
                         continue
-                    # extract the asu from the oriented file for symmetric refinement
-                    # Todo
-                    #  Need to move make_loop_file to Pose/Structure (with SequenceProfile superclass)
                     # all_structures.append(return_orient_asu(orient_file, entry_entity, symmetry))
                     # entity = pose.entities[0]
                     # entity.name = pose.name  # use oriented_pose.name (pdbcode_assembly), not API name
-                    # pose.symmetry = symmetry
-                    pose.file_path = pose.write(out_path=self.oriented_asu.store(name=entry_entity))
-                    # save Stride results
-                    for entity in pose.entities:
+
+                # Extract the asu from the oriented file. Used for symmetric refinement, pose generation
+                orient_file = model.write(out_path=self.oriented.store(name=entry_entity))
+                orient_log.info(f'Oriented: {orient_file}')
+                model.symmetry = symmetry
+                # Save the ASU file as the Structure.file_path to be used later by preprocess_structures_for_design
+                # model.file_path = model.write(out_path=self.oriented_asu.store(name=entry_entity))
+                model.file_path = self.oriented_asu.store(name=entry_entity)
+                with open(model.file_path, 'w') as f:
+                    for entity in model.entities:
+                        # write each Entity to asu
+                        entity.write(file_handle=f)
+                        # save Stride results
                         entity.stride(to_file=self.stride.store(name=entity.name))
-                    all_structures.append(pose)
-            # for those below, entry_entity may not be the right format
+                all_structures.append(model)
+            # for those below, use structure_identifier as entry_entity isn't parsed
             elif structure_identifier not in orient_asu_names:  # orient file exists, load asu, save and create stride
                 orient_file = self.oriented.retrieve_file(name=structure_identifier)
-                # all_structures.append(return_orient_asu(orient_file, symmetry))  # entry_entity,
                 pose = Pose.from_file(orient_file, sym_entry=sym_entry)  # , log=None, entity_names=[entry_entity])
-                # entity = oriented_pose.entities[0]
-                # entity = oriented_asu.entities[0]
-                # entity.name = pose.name  # use pose.name (pdbcode_assembly), not API name
+                # entity = pose.entities[0]
+                # entity.name = pose.name  # use pose.name, not API name
+                # Pose already sets a symmetry, so we don't need to set one
                 # pose.symmetry = symmetry
                 pose.file_path = pose.write(out_path=self.oriented_asu.store(name=structure_identifier))
                 # save Stride results
@@ -403,11 +408,10 @@ class Database:  # Todo ensure that the single object is completely loaded befor
                 all_structures.append(pose)  # entry_entity,
             else:  # orient_asu file exists, stride file should as well. just load asu
                 orient_asu_file = self.oriented_asu.retrieve_file(name=structure_identifier)
-                # all_structures.append(return_orient_asu(orient_file, entry_entity, symmetry))
                 pose = Pose.from_file(orient_asu_file, sym_entry=sym_entry)  # , log=None, entity_names=[entry_entity])
-                # all_structures[oriented_asu.name] = oriented_asu.entities[0]
-                # entity = oriented_pose.entities[0]
+                # entity = pose.entities[0]
                 # entity.name = entry_entity  # make explicit
+                # Pose already sets a symmetry and file_path upon constriction, so we don't need to set
                 # pose.symmetry = symmetry
                 # oriented_pose.file_path = oriented_pose.file_path
                 all_structures.append(pose)
@@ -421,8 +425,8 @@ class Database:  # Todo ensure that the single object is completely loaded befor
     def preprocess_structures_for_design(self, structures: list[Structure], script_out_path: str | bytes = os.getcwd(),
                                          load_resources: bool = False, batch_commands: bool = True) -> \
             tuple[list, bool, bool]:
-        """Assess whether Entity objects require any processing prior to design calculations.
-        Processing includes relaxation into the energy function and/or modelling missing loops and segments
+        """Assess whether Structure objects require any processing prior to design calculations.
+        Processing includes relaxation "refine" into the energy function and/or modelling missing segments "loop model"
 
         Args:
             structures: An iterable of Structure objects of interest with the following attributes:
@@ -433,6 +437,8 @@ class Database:  # Todo ensure that the single object is completely loaded befor
         Returns:
             Any instructions, then booleans for whether designs are pre_refined and whether they are pre_loop_modeled
         """
+        # Todo
+        #  Need to move make_loop_file to Pose/Structure (with SequenceProfile superclass)
         self.refined.make_path()
         refine_names = self.refined.retrieve_names()
         refine_dir = self.refined.location
@@ -455,7 +461,7 @@ class Database:  # Todo ensure that the single object is completely loaded befor
         if structures_to_refine:  # if files found unrefined, we should proceed
             logger.info('The following oriented entities are not yet refined and are being set up for refinement'
                         ' into the Rosetta ScoreFunction for optimized sequence design: '
-                        f'{", ".join(set(structure.name for structure in structures_to_refine))}')
+                        f'{", ".join(sorted(set(structure.name for structure in structures_to_refine)))}')
             print('Would you like to refine them now? If you plan on performing sequence design with models '
                   'containing them, it is highly recommended you perform refinement')
             if not boolean_choice():
@@ -497,7 +503,7 @@ class Database:  # Todo ensure that the single object is completely loaded befor
                         % (', you can run this script at any time. E' if load_resources else ', e', refine_sbatch)
                     info_messages.append(refine_sbatch_message)
                 else:
-                    raise DesignError('Entity refine run_in_shell functionality hasn\'t been implemented yet')
+                    raise NotImplementedError('Refinement run_in_shell functionality hasn\'t been implemented yet')
                 load_resources = True
 
         # query user and set up commands to perform loop modelling on missing entities
@@ -505,7 +511,7 @@ class Database:  # Todo ensure that the single object is completely loaded befor
         if structures_to_loop_model:
             logger.info('The following structures have not been modelled for disorder. Missing loops will '
                         'be built for optimized sequence design: %s'
-                        % ', '.join(set(structure.name for structure in structures_to_loop_model)))
+                        % ', '.join(sorted(set(structure.name for structure in structures_to_loop_model))))
             print('Would you like to model loops for these structures now? If you plan on performing sequence '
                   'design with them, it is highly recommended you perform loop modelling to avoid designed clashes')
             if not boolean_choice():
@@ -576,7 +582,7 @@ class Database:  # Todo ensure that the single object is completely loaded befor
                            else ', e', loop_model_sbatch)
                     info_messages.append(loop_model_sbatch_message)
                 else:
-                    raise DesignError('Entity refine run_in_shell functionality hasn\'t been implemented yet')
+                    raise NotImplementedError('Loop modeling run_in_shell functionality hasn\'t been implemented yet')
 
         return info_messages, pre_refine, pre_loop_model
 
