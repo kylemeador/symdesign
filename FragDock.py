@@ -558,7 +558,6 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
     # complete_ghost_frags1 = np.array(complete_ghost_frags1)
     ghost_frag1_guide_coords = np.array([ghost_frag.guide_coords for ghost_frag in complete_ghost_frags1])
     ghost_frag1_rmsds = np.array([ghost_frag.rmsd for ghost_frag in complete_ghost_frags1])
-    ghost_frag1_rmsds = np.where(ghost_frag1_rmsds == 0, 0.01, ghost_frag1_rmsds)
     ghost_frag1_residues = np.array([ghost_frag.number for ghost_frag in complete_ghost_frags1])
     ghost_frag1_j_indices = np.array([ghost_frag.j_type for ghost_frag in complete_ghost_frags1])
     init_ghost_frag_indices1 = \

@@ -106,7 +106,6 @@ def find_fragment_overlap(entity1_coords: np.ndarray, residues1: list[Residue] |
     passing_frag_coords = residue2_guide_coords[passing_frag_indices]
     # precalculate the reference_rmsds for each ghost fragment
     reference_rmsds = np.array([ghost_frags1[ghost_idx].rmsd for ghost_idx in passing_ghost_indices.tolist()])
-    reference_rmsds = np.where(reference_rmsds == 0, 0.01, reference_rmsds)
 
     # logger.debug('Calculating passing fragment overlaps by RMSD')
     all_fragment_match = calculate_match(passing_ghost_coords, passing_frag_coords, reference_rmsds)

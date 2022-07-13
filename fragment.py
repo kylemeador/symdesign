@@ -152,6 +152,7 @@ class FragmentDB:
                           for k_type in j_dict])
             # rmsd_array = np.array([self.info.cluster(type_set).rmsd for type_set in ijk_types])  # Todo
             rmsd_array = np.array([dictionary_lookup(self.info, type_set).rmsd for type_set in ijk_types])
+            rmsd_array = np.where(rmsd_array == 0, 0.0001, rmsd_array)  # Todo ensure correct upon creation
             self.indexed_ghosts[i_type] = stacked_bb_coords, stacked_guide_coords, ijk_types, rmsd_array
 
 
