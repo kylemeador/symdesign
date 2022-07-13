@@ -4,7 +4,7 @@ from shutil import copy, move
 from PathUtils import biological_fragment_db_pickle, reference_aa_file, reference_residues_pkl
 from Structure import Structure
 from SymDesignUtils import pickle_object
-from JobResources import FragmentDatabase
+from fragment import FragmentDatabase
 
 # Create fragment database for all ijk cluster representatives
 # ijk_frag_db = unpickle(biological_fragment_db_pickle)

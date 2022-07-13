@@ -10,7 +10,7 @@ import psutil
 from sklearn.neighbors import BallTree
 
 from ClusterUtils import cluster_transformation_pairs, find_cluster_representatives
-from JobResources import FragmentDatabase, fragment_factory
+from fragment import FragmentDatabase, fragment_factory
 from PathUtils import frag_text_file, master_log, frag_dir, biological_interfaces, asu_file_name
 from Pose import Pose, Model
 from Structure import Structure, write_frag_match_info_file

@@ -18,6 +18,7 @@ from sklearn.neighbors import BallTree
 from sklearn.neighbors._ball_tree import BinaryTree  # this typing implementation supports BallTree or KDTree
 
 import PathUtils as PUtils
+import fragment
 from DesignMetrics import calculate_match_metrics, fragment_metric_template, format_fragment_metrics
 from JobResources import Database, database_factory, FragmentDatabase, fragment_factory
 from Query.PDB import retrieve_entity_id_by_sequence, query_pdb_by
@@ -50,7 +51,7 @@ def subdirectory(name):
 
 # @njit
 def find_fragment_overlap(entity1_coords: np.ndarray, residues1: list[Residue] | Residues,
-                          residues2: list[Residue] | Residues, fragdb: FragmentDatabase = None,
+                          residues2: list[Residue] | Residues, fragdb: fragment.FragmentDatabase = None,
                           euler_lookup: EulerLookup = None, max_z_value: float = 2.) -> \
         list[tuple[GhostFragment, Fragment, float]]:
     #           entity1, entity2, entity1_interface_residue_numbers, entity2_interface_residue_numbers, max_z_value=2):
@@ -65,7 +66,7 @@ def find_fragment_overlap(entity1_coords: np.ndarray, residues1: list[Residue] |
         max_z_value:
     """
     if not fragdb:
-        fragdb = fragment_factory()  # FragmentDB()
+        fragdb = fragment.fragment_factory()
 
     if not euler_lookup:
         euler_lookup = euler_factory()
@@ -3599,7 +3600,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Todo consider moving SequencePro
     ss_index_array: list[int]
     ss_type_array: list[str]
 
-    def __init__(self, fragment_db: FragmentDatabase = None, resource_db: Database = None, ignore_clashes: bool = False,
+    def __init__(self, fragment_db: fragment.FragmentDatabase = None, ignore_clashes: bool = False,
                  design_selector: dict[str, dict[str, dict[str, set[int] | set[str] | None]]] = None, **kwargs):
         #          euler_lookup: EulerLookup = None,
         self.design_selector = design_selector if design_selector else {}  # kwargs.get('design_selector', {})
@@ -3633,16 +3634,17 @@ class Pose(SymmetricModel, SequenceProfile):  # Todo consider moving SequencePro
         self.log.debug(f'Active Entities: {", ".join(entity.name for entity in self.active_entities)}')
 
     @property
-    def fragment_db(self) -> FragmentDatabase:
+    def fragment_db(self) -> fragment.FragmentDatabase:
         """The FragmentDatabase with which information about fragment usage will be extracted"""
         return self._fragment_db
 
     @fragment_db.setter
-    def fragment_db(self, fragment_db: FragmentDatabase):
-        if not isinstance(fragment_db, FragmentDatabase):
+    def fragment_db(self, fragment_db: fragment.FragmentDatabase):
+        if not isinstance(fragment_db, fragment.FragmentDatabase):
             self.log.warning(f'The passed fragment_db is being set to the default since {fragment_db} was passed which '
-                             f'is not of the required type {FragmentDatabase.__name__}')
-            fragment_db = fragment_factory(source=PUtils.biological_interfaces)  # Todo add fragment_length, sql kwargs
+                             f'is not of the required type {fragment.FragmentDatabase.__name__}')
+            # Todo add fragment_length, sql kwargs
+            fragment_db = fragment.fragment_factory(source=PUtils.biological_interfaces)
 
         self._fragment_db = fragment_db
         for entity in self.entities:
@@ -4699,14 +4701,14 @@ class Pose(SymmetricModel, SequenceProfile):  # Todo consider moving SequencePro
     #                               ' modifications' % self.add_fragment_query.__name__)
 
     # def connect_fragment_database(self, source: str = PUtils.biological_interfaces, **kwargs):
-    #     """Generate a FragmentDatabase connection
+    #     """Generate a fragment.FragmentDatabase connection
     #
     #     Args:
     #         source: The type of FragmentDatabase to connect
     #     Sets:
-    #         self.fragment_db (FragmentDatabase)
+    #         self.fragment_db (fragment.FragmentDatabase)
     #     """
-    #     self.fragment_db = fragment_factory(source=source, **kwargs)
+    #     self.fragment_db = fragment.fragment_factory(source=source, **kwargs)
 
     def generate_interface_fragments(self, write_fragments: bool = True, out_path: str | bytes = None):
         """Generate fragments between the Pose interface(s). Finds interface(s) if not already available
