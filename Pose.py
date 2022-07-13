@@ -3413,7 +3413,7 @@ class SymmetricModel(Models):
             # print([(entity.name, entity.chain_id) for entity in entities])
         return entities
 
-    def return_contacting_asu(self, distance: float = 8., **kwargs) -> Model:
+    def get_contacting_asu(self, distance: float = 8., **kwargs) -> Pose:
         """From the Pose Entities, find the maximal contacting Chain for each of the entities and return the ASU
 
         If the chain IDs of the asu are the same, then chain IDs will automatically be renamed
@@ -3421,7 +3421,7 @@ class SymmetricModel(Models):
         Args:
             distance: The distance to check for contacts
         Returns:
-            A PDB object with the minimal set of Entities containing the maximally touching configuration
+            A new Pose with the minimal set of Entities containing the maximally touching configuration
         """
         entities = self.find_contacting_asu(distance=distance, **kwargs)
         found_chain_ids = []
@@ -3432,8 +3432,8 @@ class SymmetricModel(Models):
             else:
                 found_chain_ids.append(entity.chain_id)
 
-        return Model.from_entities(entities, name='asu', log=self.log, biomt_header=self.format_biomt(),
-                                   cryst_record=self.cryst_record, **kwargs)
+        return Pose.from_entities(entities, name=f'{self.name}-asu', log=self.log, sym_entry=self.sym_entry,
+                                  biomt_header=self.format_biomt(), cryst_record=self.cryst_record, **kwargs)
 
     def set_contacting_asu(self, **kwargs):
         """From the Pose Entities, find the maximal contacting Chain for each of the entities and set the Pose.asu
