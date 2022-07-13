@@ -5,8 +5,7 @@ from itertools import product, combinations
 
 import PathUtils as PUtils
 from FragDock import nanohedra_dock
-# from interface_analysis.Database import FragmentDB
-from JobResources import orient_pdb_file
+from utils.PDBUtils import orient_structure_file
 from fragment import fragment_factory
 from SymDesignUtils import get_directory_file_paths, start_log, set_logging_to_debug
 from classes.EulerLookup import euler_factory
@@ -89,7 +88,8 @@ if __name__ == '__main__':
             if not os.path.exists(oriented_pdb1_outdir):
                 os.makedirs(oriented_pdb1_outdir)
             pdb1_oriented_filepaths = \
-                [orient_pdb_file(pdb1_path, log=master_logger, symmetry=sym_entry.group1, out_dir=oriented_pdb1_outdir)
+                [orient_structure_file(pdb1_path, symmetry=sym_entry.group1, log=master_logger,
+                                       out_dir=oriented_pdb1_outdir)
                  for pdb1_path in pdb1_filepaths]
             pdb1_oriented_filepaths = list(filter(None, pdb1_oriented_filepaths))
             if len(pdb1_oriented_filepaths) == 0:
@@ -120,8 +120,8 @@ if __name__ == '__main__':
                 oriented_pdb2_outdir = os.path.join(master_outdir, '%s_oriented' % sym_entry.group2)
                 if not os.path.exists(oriented_pdb2_outdir):
                     os.makedirs(oriented_pdb2_outdir)
-                pdb2_oriented_filepaths = [orient_pdb_file(pdb2_path, log=master_logger, symmetry=sym_entry.group2,
-                                                           out_dir=oriented_pdb2_outdir)
+                pdb2_oriented_filepaths = [orient_structure_file(pdb2_path, symmetry=sym_entry.group2,
+                                                                 log=master_logger, out_dir=oriented_pdb2_outdir)
                                            for pdb2_path in pdb2_filepaths]
                 pdb2_oriented_filepaths = list(filter(None, pdb2_oriented_filepaths))
 

@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Iterable, Any, Annotated
 
 from CommandDistributer import rosetta_flags, script_cmd, distribute, relax_flags, rosetta_variables
-from Pose import Model  # Todo solve circular import
+from utils.PDBUtils import orient_structure_file
 from PathUtils import sym_entry, program_name, orient_log_file, rosetta_scripts, models_to_multimodel_exe, refine, \
     all_scores, projects, sequence_info, data, output_oligomers, output_fragments, \
     structure_background, scout, generate_fragments, number_of_trajectories, nstruct, no_hbnet, ignore_symmetric_clashes, ignore_pose_clashes, ignore_clashes, force_flags, no_evolution_constraint, \
@@ -126,36 +126,6 @@ def fetch_pdb_file(pdb_code: str, asu: bool = True, location: str | bytes = pdb_
         logger.warning(f'No matching file found for PDB: {pdb_code}')
     else:  # we should only find one file, therefore, return the first
         return pdb_file[0]
-
-
-def orient_pdb_file(file: str | bytes, log: Logger = logger, symmetry: str = None, out_dir: str | bytes = None) -> \
-        str | None:
-    """For a specified pdb filename and output directory, orient the PDB according to the provided symmetry where the
-        resulting .pdb file will have the chains symmetrized and oriented in the coordinate frame as to have the major
-        axis of symmetry along z, and additional axis along canonically defined vectors. If the symmetry is C1, then the
-        monomer will be transformed so the center of mass resides at the origin
-
-        Args:
-            file: The location of the file to be oriented
-            log: A log to report on operation success
-            symmetry: The symmetry type to be oriented. Possible types in SymmetryUtils.valid_subunit_number
-            out_dir: The directory that should be used to output files
-        Returns:
-            Filepath of oriented PDB
-        """
-    model_name = os.path.basename(file)
-    oriented_file_path = os.path.join(out_dir, model_name)
-    if not os.path.exists(oriented_file_path):
-        model = Model.from_file(file, log=log)  # must load entities to solve multi-component orient problem
-        try:
-            model.orient(symmetry=symmetry)
-        except (ValueError, RuntimeError) as error:
-            log.error(str(error))
-            return None
-        model.write(out_path=oriented_file_path)
-        log.info(f'Oriented: {model_name}')
-
-    return oriented_file_path
 
 
 def query_qs_bio(pdb_entry_id: str) -> int:
@@ -286,7 +256,7 @@ class Database:  # Todo ensure that the single object is completely loaded befor
         if by_file:
             logger.info(f'The requested files are being checked for proper orientation with symmetry {symmetry}: '
                         f'{", ".join(structure_identifiers)}')
-            oriented_filepaths = [orient_pdb_file(file, log=orient_log, symmetry=symmetry, out_dir=orient_dir)
+            oriented_filepaths = [orient_structure_file(file, log=orient_log, symmetry=symmetry, out_dir=orient_dir)
                                   for file in structure_identifiers]
             # pull out the structure names and use below to retrieve the oriented file
             structure_identifiers = list(map(os.path.basename,

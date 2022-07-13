@@ -32,7 +32,7 @@ from CommandDistributer import distribute, hhblits_memory_threshold, update_stat
 from DesignMetrics import prioritize_design_indices, query_user_for_metrics
 from DnaChisel.dnachisel.DnaOptimizationProblem.NoSolutionError import NoSolutionError
 from FragDock import nanohedra_dock
-from JobResources import job_resources_factory  # , orient_pdb_file
+from JobResources import job_resources_factory
 from fragment import fragment_factory
 from Pose import Model
 from PoseDirectory import PoseDirectory
@@ -1138,7 +1138,7 @@ if __name__ == '__main__':
                 else:
                     pdb1_filepaths = SDUtils.get_directory_file_paths(args.oligomer1)
                 entity_names1 = pdb1_filepaths
-                # pdb1_oriented_filepaths = [orient_pdb_file(file, log=orient_log, symmetry=symmetry_map[0],
+                # pdb1_oriented_filepaths = [orient_structure_file(file, log=orient_log, symmetry=symmetry_map[0],
                 #                                            out_dir=job.resources.oriented.location)
                 #                            for file in pdb1_filepaths]
                 # # pull out the structure names and use job.resources.orient_structures to retrieve the oriented file
@@ -1156,7 +1156,7 @@ if __name__ == '__main__':
                 else:
                     pdb2_filepaths = SDUtils.get_directory_file_paths(args.oligomer2)
                 entity_names2 = pdb2_filepaths
-                # pdb2_oriented_filepaths = [orient_pdb_file(file, log=orient_log, symmetry=symmetry_map[1],
+                # pdb2_oriented_filepaths = [orient_structure_file(file, log=orient_log, symmetry=symmetry_map[1],
                 #                                            out_dir=job.resources.oriented.location)
                 #                            for file in pdb2_filepaths]
                 # # pull out the structure names and use job.resources.orient_structures to retrieve the oriented file
