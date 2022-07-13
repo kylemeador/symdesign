@@ -838,10 +838,12 @@ class Model(Structure):
     Can initialize by passing a file, or passing Atom/Residue/Chain/Entity instances
 
     If you have multiple Models or States, use the MultiModel class to store and retrieve that data
+
     Args:
-        pose_format: Whether to renumber the Model to use Residue numbering from 1 to N
         metadata
     Keyword Args:
+        pose_format: bool = False - Whether to renumber the Model to use Residue numbering from 1 to N
+        rename_chains: bool = False - Whether to name each chain an incrementally new Alphabetical character
         log
         name
     """
@@ -922,18 +924,18 @@ class Model(Structure):
             if chains is not None:  # if no chains are requested a False argument could be provided
                 kwargs['chains'] = chains
             # finish processing the model
-            self.process_model(**kwargs)
+            self._process_model(**kwargs)
             # below was depreciated in favor of single call above using kwargs unpacking
             # if self.residues:  # we should have residues if Structure init, otherwise we have None
             #     if entities is not None:  # if no entities are requested a False argument could be provided
             #         kwargs['entities'] = entities
             #     if chains is not None:  # if no chains are requested a False argument could be provided
             #         kwargs['chains'] = chains
-            #     self.process_model(**kwargs)
+            #     self._process_model(**kwargs)
             # elif chains:  # pass the chains which should be a Structure type and designate whether entities should be made
-            #     self.process_model(chains=chains, entities=entities, **kwargs)
+            #     self._process_model(chains=chains, entities=entities, **kwargs)
             # elif entities:  # pass the entities which should be a Structure type and designate whether chains should be made
-            #     self.process_model(entities=entities, chains=chains, **kwargs)
+            #     self._process_model(entities=entities, chains=chains, **kwargs)
             # else:
             #     raise ValueError(f'{type(self).__name__} couldn\'t be initialized as there is no specified Structure type')
 
@@ -1020,13 +1022,13 @@ class Model(Structure):
     def reference_sequence(self) -> str:
         return ''.join(self._reference_sequence.values())
 
-    def process_model(self, pose_format: bool = False, chains: bool | list[Chain] | Structures = True,
-                      rename_chains: bool = False, entities: bool | list[Entity] | Structures = True,
-                      **kwargs):
+    def _process_model(self, pose_format: bool = False, chains: bool | list[Chain] | Structures = True,
+                       rename_chains: bool = False, entities: bool | list[Entity] | Structures = True,
+                       **kwargs):
         #               atoms: Union[Atoms, List[Atom]] = None, residues: Union[Residues, List[Residue]] = None,
         #               coords: Union[List[List], np.ndarray, Coords] = None,
         #               reference_sequence=None, multimodel=False,
-        """Process various Structure container objects to compliant Structure object
+        """Process various types of Structure containers to update the Model with the corresponding information
 
         Args:
             pose_format: Whether to initialize Structure with residue numbering from 1 until the end
@@ -3446,7 +3448,7 @@ class SymmetricModel(Models):
         entities = self.find_contacting_asu(**kwargs)
         # self = Model.from_entities(entities, name='asu', log=self.log, **kwargs)
         # self._pdb = Model.from_entities(entities, name='asu', log=self.log, **kwargs)
-        self.process_model(entities=entities)
+        self._process_model(entities=entities)
 
     # def make_oligomers(self):
     #     """Generate oligomers for each Entity in the SymmetricModel"""

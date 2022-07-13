@@ -125,7 +125,7 @@ def design_recapitulation(design_file, output_dir, pdb_dir=None, oligomer=False)
     for design in design_file_input:
         if pdb_dir:
             print('CAUTION FINDING THE ASU USING THE INPUT PDB HAS BEEN REWORKED AND MAY NOT BE STABLE. '
-                  'CONSIDER USING THE Pose.return_contacting_asu() instead!')
+                  'CONSIDER USING Pose.get_contacting_asu() instead!')
             asu = design_file_input[design]['design_pdb'].return_asu()
         else:
             asu = Model.from_file(os.path.join(output_dir, 'design_asus', design + '.pdb'))  # old, design_asus outside
