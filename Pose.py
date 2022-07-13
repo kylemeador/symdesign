@@ -123,7 +123,7 @@ def find_fragment_overlap(entity1_coords: np.ndarray, residues1: list[Residue] |
 
     return list(zip([ghost_frags1[idx] for idx in passing_ghost_indices[passing_overlaps_indices].tolist()],
                     [residues2[idx] for idx in passing_frag_indices[passing_overlaps_indices].tolist()],
-                    all_fragment_match[passing_overlaps_indices]).tolist())
+                    all_fragment_match[passing_overlaps_indices].tolist()))
 
 
 def get_matching_fragment_pairs_info(ghostfrag_surffrag_pairs):
