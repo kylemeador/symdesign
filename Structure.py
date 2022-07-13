@@ -1284,7 +1284,7 @@ class Residue(ResidueFragment, StructureBase):
         elif atoms:  # is not None  # no parent passed, construct from atoms
             self._assign_atoms(atoms, atoms_only=False)
             self.is_residue_valid()
-            Structure._populate_coords(self, **kwargs)
+            Structure._populate_coords(self)
             Structure._validate_coords(self)
             self._start_index = 0
             # update Atom instance attributes to ensure they are dependants of this instance
