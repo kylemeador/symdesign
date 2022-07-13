@@ -1156,7 +1156,7 @@ class FragmentDB:
     # dict[int, tuple[3x3, 1x3, tuple[int, int, int], float]]
     info: dict[int, dict[int, dict[int, ClusterInfoFile]]] | None
     # monofrag_representatives_path: str
-    paired_frags: dict[int, dict[int, dict[int, tuple[PDB, str]]]] | None
+    paired_frags: dict[int, dict[int, dict[int, tuple[Model, str]]]] | None
     reps: dict[int, np.ndarray]
 
     def __init__(self, fragment_length: int = 5):
@@ -1171,7 +1171,7 @@ class FragmentDB:
 
     # def get_monofrag_cluster_rep_dict(self):
         self.reps = {int(os.path.splitext(file)[0]):
-                     PDB.from_file(os.path.join(root, file), entities=False, log=None).ca_coords
+                     Structure.from_file(os.path.join(root, file), entities=False, log=None).ca_coords
                      for root, dirs, files in os.walk(monofrag_cluster_rep_dirpath) for file in files}
 
     def get_intfrag_cluster_rep_dict(self):
@@ -1186,7 +1186,7 @@ class FragmentDB:
                     ijk_cluster_representatives[i_cluster_type][j_cluster_type] = {}
 
                 for file in files:
-                    ijk_frag_cluster_rep_pdb = PDB.from_file(os.path.join(root, file), entities=False, log=None)
+                    ijk_frag_cluster_rep_pdb = Model.from_file(os.path.join(root, file), entities=False, log=None)
                     # mapped_chain_idx = file.find('mappedchain')
                     # ijk_cluster_rep_mapped_chain = file[mapped_chain_idx + 12:mapped_chain_idx + 13]
                     # must look up the partner coords later by using chain_id stored in file
