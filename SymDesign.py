@@ -941,39 +941,41 @@ if __name__ == '__main__':
             orient_asu_dir = job.orient_asu_dir
             stride_dir = job.stride_dir
             load_resources = False
+            all_structures = []
             if args.preprocessed:
                 # SDUtils.make_path(job.refine_dir)
                 SDUtils.make_path(job.full_model_dir)
                 SDUtils.make_path(job.stride_dir)
-                all_entities, found_entity_names = [], []
+                all_entities, found_entity_names = [], set()
                 for entity in [entity for pose in pose_directories for entity in pose.initial_model.entities]:
                     if entity.name not in found_entity_names:
                         all_entities.append(entity)
-                        found_entity_names.append(entity.name)
+                        found_entity_names.add(entity.name)
                 # Todo save all the Entities to the StructureDatabase
             else:
-                logger.critical('The requested poses require preprocessing before design modules should be used')
+                logger.critical('The requested poses require structural preprocessing before design modules should be '
+                                'used')
                 # Collect all entities required for processing the given commands
                 required_entities = list(map(set, list(zip(*[design.entity_names for design in pose_directories]))))
-                all_entities = []
-                # Select entities, orient them, then load each entity to all_entities for further database processing
+                # Select entities, orient them, then load each entity to all_structures for further database processing
                 symmetry_map = sym_entry.groups if sym_entry else repeat(None)
                 for symmetry, entities in zip(symmetry_map, required_entities):
                     if not entities:  # useful in a case where symmetry groups are the same
                         continue
-                    elif not symmetry:
-                        logger.info('PDB files are being processed without consideration for symmetry: %s'
-                                    % ', '.join(entities))
-                        raise RuntimeError('This is not implemented!')
-                        all_entities.extend()
+                    elif not symmetry:  # Todo
+                        logger.info(f'Files are being processed without consideration for symmetry: '
+                                    f'{", ".join(entities)}')
+                        raise NotImplementedError('Can\'t process without consideration for symmetry yet!')
+                        all_structures.extend()
                         continue
                     elif symmetry == 'C1':
-                        logger.info('PDB files are being processed with C1 symmetry: %s'
-                                    % ', '.join(entities))
+                        logger.info(f'Files are being processed with C1 symmetry: {", ".join(entities)}')
                     else:
-                        logger.info('Ensuring PDB files are oriented with %s symmetry (stored at %s): %s'
-                                    % (symmetry, orient_dir, ', '.join(entities)))
-                    all_entities.extend(job.resources.orient_entities(entities, symmetry=symmetry))
+                        logger.info(f'Ensuring files are oriented with {symmetry} symmetry (stored at {orient_dir}): '
+                                    f'{", ".join(entities)}')
+                    all_structures.extend(job.resources.orient_structures(entities, symmetry=symmetry))
+                # create entities iterator to set up sequence dependent resources
+                all_entities = [entity for structure in all_structures for entity in structure.entities]
 
             info_messages = []
             # set up the hhblits and profile bmdca for each input entity
@@ -1063,9 +1065,9 @@ if __name__ == '__main__':
 
             if not args.preprocessed:
                 preprocess_instructions, pre_refine, pre_loop_model = \
-                    job.resources.preprocess_entities_for_design(all_entities, load_resources=load_resources,
-                                                                 script_out_path=job.sbatch_scripts,
-                                                                 batch_commands=not args.run_in_shell)
+                    job.resources.preprocess_structures_for_design(all_structures, load_resources=load_resources,
+                                                                   script_out_path=job.sbatch_scripts,
+                                                                   batch_commands=not args.run_in_shell)
                 info_messages += preprocess_instructions
 
             if load_resources or pre_refine or pre_loop_model:  # entity processing commands are needed
@@ -1111,7 +1113,7 @@ if __name__ == '__main__':
         os.makedirs(job.docking_master_dir, exist_ok=True)
         # Transform input entities to canonical orientation and return their ASU
         symmetry_map = sym_entry.groups
-        all_entities = []
+        all_structures = []
         load_resources = False
         orient_log = SDUtils.start_log(name='orient', handler=2,
                                        location=os.path.join(job.resources.oriented.location, PUtils.orient_log_file),
@@ -1125,31 +1127,23 @@ if __name__ == '__main__':
             # Todo separate to use query1 and query2?
             print('\nStarting PDB query for component 1\n')
             entity_names1 = retrieve_pdb_entries_by_advanced_query(save=args.save_query, entity=True)
-            print('\nStarting PDB query for component 2\n')
-            entity_names2 = retrieve_pdb_entries_by_advanced_query(save=args.save_query, entity=True)
         else:
             if args.pdb_codes1:
                 entity_names1 = set(SDUtils.to_iterable(args.pdb_codes1, ensure_file=True))
-                # all_entities.extend(job.resources.orient_entities(entities1, symmetry=symmetry_map[0]))
             else:  # args.oligomer1:
                 logger.critical(f'Ensuring provided file(s) at {args.oligomer1} are oriented for Nanohedra Docking')
                 if '.pdb' in args.oligomer1:
                     pdb1_filepaths = [args.oligomer1]
                 else:
                     pdb1_filepaths = SDUtils.get_directory_file_paths(args.oligomer1)
-                # Todo this mechanism conflicts with the one in job.resources. The use of both causes their varioius
-                #  nuances to require extensive checks. Ex C1 symmetry, stride file production, asu/oligomer production
-                #  fix the divergence of these mechanisms to one single mechanism relying on entities and filepaths
-                pdb1_oriented_filepaths = [orient_pdb_file(file, log=orient_log, symmetry=symmetry_map[0],
-                                                           out_dir=job.resources.oriented.location)
-                                           for file in pdb1_filepaths]
-
-                # pull out the entity names and use job.resources.orient_entities to retrieve the entity alone
-                entity_names1 = list(map(os.path.basename,
-                                     [os.path.splitext(file)[0] for file in filter(None, pdb1_oriented_filepaths)]))
-                # logger.info('%d filepaths found' % len(pdb1_oriented_filepaths))
-                # pdb1_oriented_filepaths = filter(None, pdb1_oriented_filepaths)
-        all_entities.extend(job.resources.orient_entities(entity_names1, symmetry=symmetry_map[0]))
+                entity_names1 = pdb1_filepaths
+                # pdb1_oriented_filepaths = [orient_pdb_file(file, log=orient_log, symmetry=symmetry_map[0],
+                #                                            out_dir=job.resources.oriented.location)
+                #                            for file in pdb1_filepaths]
+                # # pull out the structure names and use job.resources.orient_structures to retrieve the oriented file
+                # entity_names1 = list(map(os.path.basename,
+                #                      [os.path.splitext(file)[0] for file in filter(None, pdb1_oriented_filepaths)]))
+        all_structures.extend(job.resources.orient_structures(entity_names1, symmetry=symmetry_map[0]))
 
         single_component_design = False
         if args.oligomer2:
@@ -1160,13 +1154,13 @@ if __name__ == '__main__':
                     pdb2_filepaths = [args.oligomer2]
                 else:
                     pdb2_filepaths = SDUtils.get_directory_file_paths(args.oligomer2)
-                pdb2_oriented_filepaths = \
-                    [orient_pdb_file(file, log=orient_log, symmetry=symmetry_map[1],
-                                     out_dir=job.resources.oriented.location)
-                     for file in pdb2_filepaths]
-                # pull out the entity names and use job.resources.orient_entities to retrieve the entity alone
-                entity_names2 = list(map(os.path.basename,
-                                         [os.path.splitext(file)[0] for file in filter(None, pdb2_oriented_filepaths)]))
+                entity_names2 = pdb2_filepaths
+                # pdb2_oriented_filepaths = [orient_pdb_file(file, log=orient_log, symmetry=symmetry_map[1],
+                #                                            out_dir=job.resources.oriented.location)
+                #                            for file in pdb2_filepaths]
+                # # pull out the structure names and use job.resources.orient_structures to retrieve the oriented file
+                # entity_names2 = list(map(os.path.basename,
+                #                          [os.path.splitext(file)[0] for file in filter(None, pdb2_oriented_filepaths)]))
             else:  # the entities are the same symmetry, or we have single component and bad input
                 entity_names2 = []
                 logger.info('No additional entities requested for docking, treating as single component')
@@ -1175,19 +1169,20 @@ if __name__ == '__main__':
             # Collect all entities required for processing the given commands
             entity_names2 = set(SDUtils.to_iterable(args.pdb_codes2, ensure_file=True))
         elif args.query_codes:
-            pass
+            print('\nStarting PDB query for component 2\n')
+            entity_names2 = retrieve_pdb_entries_by_advanced_query(save=args.save_query, entity=True)
         else:
             entity_names2 = []
             logger.info('No additional entities requested for docking, treating as single component')
             single_component_design = True
-        # Select entities, orient them, then load each entity to all_entities for further database processing
-        all_entities.extend(job.resources.orient_entities(entity_names2, symmetry=symmetry_map[1]))
+        # Select entities, orient them, then load each Structure to all_structures for further database processing
+        all_structures.extend(job.resources.orient_structures(entity_names2, symmetry=symmetry_map[1]))
 
         info_messages = []
         preprocess_instructions, pre_refine, pre_loop_model = \
-            job.resources.preprocess_entities_for_design(all_entities, load_resources=load_resources,
-                                                         script_out_path=job.sbatch_scripts,
-                                                         batch_commands=not args.run_in_shell)
+            job.resources.preprocess_structures_for_design(all_structures, load_resources=load_resources,
+                                                           script_out_path=job.sbatch_scripts,
+                                                           batch_commands=not args.run_in_shell)
         if load_resources or pre_refine or pre_loop_model:  # entity processing commands are needed
             logger.critical(sbatch_warning)
             for message in info_messages + preprocess_instructions:
@@ -1198,6 +1193,7 @@ if __name__ == '__main__':
             terminate(output=False)
             # After completion of sbatch, the next time command is entered docking will proceed
 
+        all_entities = [entity for structure in all_structures for entity in structure.entities]
         # make all possible entity_pairs given input entities
         for entity in all_entities:
             entity.make_oligomer(symmetry=entity.symmetry)
@@ -1205,7 +1201,7 @@ if __name__ == '__main__':
         # set up entities for entity_pairs
         if single_component_design:
             # entities1 = [entity for entity in all_entities if entity.name in entities1]
-            # ^ doesn't work as entity_id is set in orient_entities, but structure name is entry_id
+            # ^ doesn't work as entity_id is set in orient_structures, but structure name is entry_id
             entities1 = []
             for entity_name in entity_names1:
                 for entity in all_entities:
@@ -1225,7 +1221,7 @@ if __name__ == '__main__':
                     if entity_name in entity.name:
                         entities2.append(entity)
                         break
-            # v doesn't work as entity_id is set in orient_entities, but structure name is entry_id
+            # v doesn't work as entity_id is set in orient_structures, but structure name is entry_id
             # entities1 = [entity for entity in all_entities if entity.name in entities1]
             # entities2 = [entity for entity in all_entities if entity.name in entities2]
             entity_pairs = list(product(entities1, entities2))
@@ -1394,8 +1390,8 @@ if __name__ == '__main__':
                           initial_z_value=args.initial_z_value, output_assembly=args.output_assembly,
                           output_surrounding_uc=args.output_surrounding_uc)
             cmd.extend(chain.from_iterable([[f'-{key}', str(value)] for key, value in kwargs.items()]))
-            commands = [cmd + [PUtils.nano_entity_flag1, entity1.filepath, PUtils.nano_entity_flag2, entity2.filepath] +
-                        (['-initial'] if idx == 0 else []) for idx, (entity1, entity2) in enumerate(entity_pairs)]
+            commands = [cmd + [PUtils.nano_entity_flag1, entity1.file_path, PUtils.nano_entity_flag2, entity2.file_path]
+                        + (['-initial'] if idx == 0 else []) for idx, (entity1, entity2) in enumerate(entity_pairs)]
             terminate(results=commands)
         # # Make single file with names of each directory. Specific for docking due to no established directory
         # args.file = os.path.join(args.directory, 'all_docked_directories.paths')
