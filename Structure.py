@@ -470,7 +470,10 @@ class Coords:
         try:
             self.coords[indices] = new_coords
         except ValueError as error:  # they are probably different lengths or another numpy indexing/setting issue
-            raise ValueError(f'The new_coords are not the same shape as the selected indices {error}')
+            if self.coords.shape[0] == 0:  # there are no coords, lets use set mechanism
+                self.coords = new_coords
+            else:
+                raise ValueError(f'The new_coords are not the same shape as the selected indices {error}')
 
     def set(self, coords: np.ndarray | list[list[float]]):
         """Set self.coords to the provided coordinates
@@ -2688,10 +2691,12 @@ class Structure(StructureBase):
             from_source: The source to set the coordinates from if they are missing
             coords: The coordinates to assign to the Structure. Optional, will use from_source.coords if not specified
         """
+        if coords:  # try to set the provided coords. This will handle issue where empty Coords class should be set
+            self.coords = np.concatenate(coords)
         if self._coords.coords.shape[0] == 0:  # check if Coords (_coords) hasn't been populated
             # if it hasn't, then coords weren't passed. try to set from self.from_source. catch missing from_source
             try:
-                self._coords.set(np.concatenate(coords if coords else [s.coords for s in getattr(self, from_source)]))
+                self._coords.set(np.concatenate([s.coords for s in getattr(self, from_source)]))
             except AttributeError:
                 try:  # probably missing from_source. .coords is available in all structure_container_types...
                     getattr(self, from_source)
