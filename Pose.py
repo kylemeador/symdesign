@@ -916,18 +916,26 @@ class Model(Structure):
             # self.uc_dimensions = uc_dimensions
             self.structure_containers.extend(['chains', 'entities'])
 
-            if self.residues:  # we should have residues if Structure init, otherwise we have None
-                if entities is not None:  # if no entities are requested a False argument could be provided
-                    kwargs['entities'] = entities
-                if chains is not None:  # if no chains are requested a False argument could be provided
-                    kwargs['chains'] = chains
-                self.process_model(**kwargs)
-            elif chains:  # pass the chains which should be a Structure type and designate whether entities should be made
-                self.process_model(chains=chains, entities=entities, **kwargs)
-            elif entities:  # pass the entities which should be a Structure type and designate whether chains should be made
-                self.process_model(entities=entities, chains=chains, **kwargs)
-            else:
-                raise ValueError(f'{type(self).__name__} couldn\'t be initialized as there is no specified Structure type')
+            # only pass arguments if they are not None
+            if entities is not None:  # if no entities are requested a False argument could be provided
+                kwargs['entities'] = entities
+            if chains is not None:  # if no chains are requested a False argument could be provided
+                kwargs['chains'] = chains
+            # finish processing the model
+            self.process_model(**kwargs)
+            # below was depreciated in favor of single call above using kwargs unpacking
+            # if self.residues:  # we should have residues if Structure init, otherwise we have None
+            #     if entities is not None:  # if no entities are requested a False argument could be provided
+            #         kwargs['entities'] = entities
+            #     if chains is not None:  # if no chains are requested a False argument could be provided
+            #         kwargs['chains'] = chains
+            #     self.process_model(**kwargs)
+            # elif chains:  # pass the chains which should be a Structure type and designate whether entities should be made
+            #     self.process_model(chains=chains, entities=entities, **kwargs)
+            # elif entities:  # pass the entities which should be a Structure type and designate whether chains should be made
+            #     self.process_model(entities=entities, chains=chains, **kwargs)
+            # else:
+            #     raise ValueError(f'{type(self).__name__} couldn\'t be initialized as there is no specified Structure type')
 
             # if metadata and isinstance(metadata, PDB):
             #     self.copy_metadata(metadata)
@@ -1082,14 +1090,14 @@ class Model(Structure):
                     for idx, entity in enumerate(self.entities):
                         entity.chain_id = next(available_chain_ids)
                         self.log.debug(f'Entity {entity.name} new chain identifier {entity.chain_id}')
-                # update chains after everything is set
-                # These are "ghost chains" that are invisible to Coords/Atoms/Residues
-                # Todo, remove or modify this feature
-                chains = []
-                for entity in self.entities:
-                    chains.extend(entity.chains)
-                self.chains = chains
-                self.chain_ids = [chain.name for chain in self.chains]
+                # # update chains after everything is set
+                # # These are "ghost chains" that are invisible to Coords/Atoms/Residues
+                # # Todo, remove or modify this feature
+                # chains = []
+                # for entity in self.entities:
+                #     chains.extend(entity.chains)
+                # self.chains = chains
+                # self.chain_ids = [chain.name for chain in self.chains]
             else:  # create Entities from Chain.Residues
                 self._create_entities(**kwargs)
 
