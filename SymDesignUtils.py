@@ -1086,22 +1086,22 @@ class SymmetryError(DesignError):
 
 
 # @njit
-def calculate_match(coords1=None, coords2=None, coords_rmsd_reference=None):
-    """Calculate the overlap between two sets of coordinates given a reference rmsd
+def calculate_match(coords1: float | np.ndarray = None, coords2: float | np.ndarray = None,
+                    coords_rmsd_reference: float | np.ndarray = None) -> np.ndarray:
+    """Calculate the match score(s) between two sets of coordinates given a reference rmsd
 
-    Keyword Args:
-        coords1=None (numpy.ndarray): The first set of coordinates
-        coords2=None (numpy.ndarray): The second set of coordinates
-        coords_rmsd_reference=None (numpy.ndarray): The reference RMSD to compared each pair of coordinates against
-        max_z_value=2.0 (float): The z-score deviation threshold of the overlap to be considered a match
+    Args:
+        coords1: The first set of coordinates
+        coords2: The second set of coordinates
+        coords_rmsd_reference: The reference RMSD to compared each pair of coordinates against
     Returns:
-        (numpy.ndarray): The match score between coords1 and coords2
+        The match score(s)
     """
-    rmsds = rmsd(coords1, coords2)
-    # Calculate Guide Atom Overlap Z-Value
-    z_values = rmsds / coords_rmsd_reference
-    # filter z_values by passing threshold
-    return match_score_from_z_value(z_values)
+    # rmsds = rmsd(coords1, coords2)
+    # # Calculate Guide Atom Overlap Z-Value
+    # z_values = rmsds / coords_rmsd_reference
+    # # filter z_values by passing threshold
+    return match_score_from_z_value(rmsd(coords1, coords2) / coords_rmsd_reference)
 
 
 # @njit
@@ -1124,7 +1124,7 @@ def calculate_overlap(coords1: np.ndarray = None, coords2: np.ndarray = None, co
 
 
 # @njit mean doesn't take arguments
-def rmsd(coords1: np.ndarray = None, coords2: np.ndarray = None) -> float | np.ndarray:
+def rmsd(coords1: float | np.ndarray = None, coords2: float | np.ndarray = None) -> float | np.ndarray:
     """Calculate the root mean square deviation (RMSD). Arguments can be single vectors or array-like
 
     If calculation is over two sets of numpy.arrays. The first axis (0) contains instances of coordinate sets,
@@ -1144,13 +1144,13 @@ def rmsd(coords1: np.ndarray = None, coords2: np.ndarray = None) -> float | np.n
 
 def z_value_from_match_score(match_score: float | np.ndarray) -> float | np.ndarray:
     """Given a match score, convert to a z-value"""
-    return np.sqrt((1 / match_score) - 1)
+    return np.sqrt((1/match_score) - 1)
 
 
 # @njit
 def match_score_from_z_value(z_value: float | np.ndarray) -> float | np.ndarray:
     """Return the match score from a fragment z-value. Bounded between 0 and 1"""
-    return 1 / (1 + (z_value ** 2))
+    return 1 / (1 + (z_value**2))
 
 
 # @njit
@@ -1165,7 +1165,7 @@ def z_score(sample: float | np.ndarray, mean: float | np.ndarray, stdev: float |
         An array with the z-score of every position
     """
     try:
-        return (sample - mean) / stdev
+        return (sample-mean) / stdev
     except ZeroDivisionError:
         logger.error('The passed standard deviation (stdev) was 0! Z-score calculation failed')
 
