@@ -1946,20 +1946,22 @@ class SymmetricModel(Models):
         # initialize symmetry
         self.set_symmetry(sym_entry=sym_entry, symmetry=symmetry, uc_dimensions=uc_dimensions,
                           expand_matrices=expand_matrices)
-        if self.symmetry:  # this is set if symmetry keyword args were passed
-            self.generate_symmetric_coords(surrounding_uc=surrounding_uc)  # default has surrounding_uc=True
-            # if generate_symmetry_mates:  # always set to False before. commenting out
-            #     self.generate_assembly_symmetry_models(**kwargs)
+        if self.symmetry:  # True if symmetry keyword args were passed
+            # Ensure that the symmetric system is set up properly which could require finding the ASU
             if self.number_of_entities != self.number_of_chains:  # ensure the structure is an asu
                 self.log.debug('Setting Pose ASU to the ASU with the most contacting interface')
                 self.set_contacting_asu()
+            else:  # We should generate the symmetric coords "manually"
+                self.generate_symmetric_coords(surrounding_uc=surrounding_uc)  # default has surrounding_uc=True
+            # if generate_symmetry_mates:  # always set to False before. commenting out
+            #     self.generate_assembly_symmetry_models(**kwargs)
 
     @classmethod
-    def from_assembly(cls, assembly: list, sym_entry: SymEntry | int = None, symmetry: str = None, **kwargs):
+    def from_assembly(cls, assembly: list[Structure], sym_entry: SymEntry | int = None, symmetry: str = None, **kwargs):
         """Initialize from a symmetric assembly"""
-        if not symmetry or not sym_entry:
-            raise ValueError(f'Can\'t initialize {cls.from_assembly.__name__} without symmetry! Pass symmetry or '
-                             f'sym_entry with {cls.from_assembly.__name__}')
+        if symmetry is None and sym_entry is None:
+            raise ValueError(f'Can\'t initialize {type(cls).__name__} without symmetry! Pass symmetry or '
+                             f'sym_entry to constructor {cls.from_assembly.__name__}')
         return cls(models=assembly, sym_entry=sym_entry, symmetry=symmetry, **kwargs)
 
     # @classmethod
@@ -2037,10 +2039,10 @@ class SymmetricModel(Models):
             #                     'upon class initialization by passing symmetry=, or sym_entry=')
 
         # set the uc_dimensions if they were parsed or provided
-        if self.dimension > 0 and uc_dimensions is not None:
+        if uc_dimensions is not None and self.dimension > 0:
             self.uc_dimensions = uc_dimensions
 
-        if expand_matrices:  # perhaps these would be from a fiber or some sort of BIOMT?
+        if expand_matrices is not None:  # perhaps these would be from a fiber or some sort of BIOMT?
             if isinstance(expand_matrices, tuple) and len(expand_matrices) == 2:
                 self.log.critical('Providing expansion matrices may result in program crash if you '
                                   'don\'t work on the SymmetricModel class! Proceed with caution')
@@ -2151,7 +2153,7 @@ class SymmetricModel(Models):
 
     @property
     def symmetry(self) -> str | None:
-        """The resulting_symmetry of the SymEntry"""
+        """The overall symmetric state, ie, the symmetry result. Uses SymEntry.resulting_symmetry"""
         try:
             return self._symmetry
         except AttributeError:
