@@ -10,7 +10,7 @@ from sklearn.neighbors import BallTree
 
 from SymDesignUtils import start_log, collect_designs, set_logging_to_debug
 from Structure import MonoFragment
-from JobResources import FragmentDB
+from fragment import FragmentDatabase
 from Pose import Model
 
 
@@ -99,7 +99,7 @@ if __name__ == '__main__':
         exit('Specify either a file or a directory to locate the files!')
 
     logger.info('Getting Fragment Information')
-    ijk_frag_db = FragmentDB()
+    ijk_frag_db = FragmentDatabase()
     # Get complete IJK fragment representatives database dictionaries
     # ijk_monofrag_cluster_rep_pdb_dict = ijk_frag_db.get_monofrag_cluster_rep_dict()
     ijk_intfrag_cluster_rep_dict = ijk_frag_db.get_intfrag_cluster_rep_dict()
