@@ -1512,8 +1512,7 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
             uc_dimensions = full_uc_dimensions[idx]
         else:
             uc_dimensions = None
-        pose = Pose.from_model(asu, sym_entry=sym_entry, log=log, surrounding_uc=output_surrounding_uc,
-                               ignore_clashes=True, uc_dimensions=uc_dimensions)
+
         pose = Pose.from_entities(
             [entity.return_transformed_copy(**specific_transformation1) for entity in model1.entities] +
             [entity.return_transformed_copy(**specific_transformation2) for entity in model2.entities],
