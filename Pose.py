@@ -26,7 +26,7 @@ from SequenceProfile import SequenceProfile, alignment_types, generate_alignment
 from Structure import Coords, Structure, Structures, Chain, Entity, Residue, Residues, GhostFragment, MonoFragment, \
     write_frag_match_info_file, Fragment, StructureBase, ContainsAtomsMixin, superposition3d
 from SymDesignUtils import DesignError, calculate_overlap, z_value_from_match_score, start_log, null_log, \
-    match_score_from_z_value, dictionary_lookup, digit_translate_table, remove_duplicates, ClashError
+    match_score_from_z_value, dictionary_lookup, digit_translate_table, remove_duplicates, ClashError, SymmetryError
 from classes.EulerLookup import EulerLookup, euler_factory
 from classes.SymEntry import get_rot_matrices, make_rotations_degenerate, SymEntry, point_group_setting_matrix_members,\
     symmetry_combination_format, parse_symmetry_to_sym_entry, symmetry_factory
@@ -34,7 +34,7 @@ from utils.GeneralUtils import transform_coordinate_sets
 from utils.SymmetryUtils import valid_subunit_number, layer_group_cryst1_fmt_dict, \
     generate_cryst1_record, space_group_number_operations, point_group_symmetry_operators, \
     space_group_symmetry_operators, rotation_range, setting_matrices, inv_setting_matrices, \
-    origin, flip_x_matrix, identity_matrix, SymmetryError, valid_symmetries, multicomponent_valid_subunit_number
+    origin, flip_x_matrix, identity_matrix, valid_symmetries, multicomponent_valid_subunit_number
 
 
 # Globals

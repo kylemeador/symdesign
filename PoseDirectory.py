@@ -46,11 +46,11 @@ from SequenceProfile import parse_pssm, generate_mutations_from_reference, \
 from Structure import Structure, Entity  # , Structures
 from SymDesignUtils import unpickle, start_log, null_log, handle_errors, write_shell_script, DesignError, \
     match_score_from_z_value, pickle_object, filter_dictionary_keys, all_vs_all, make_path, \
-    condensed_to_square, sym, index_intersection, z_score, large_color_array, starttime, ClashError
+    condensed_to_square, sym, index_intersection, z_score, large_color_array, starttime, ClashError, SymmetryError
 from classes.EulerLookup import EulerLookup
 from classes.SymEntry import SymEntry, symmetry_factory
 from utils.GeneralUtils import get_components_from_nanohedra_docking
-from utils.SymmetryUtils import identity_matrix, origin, SymmetryError
+from utils.SymmetryUtils import identity_matrix, origin
 
 # Globals
 logger = start_log(name=__name__)

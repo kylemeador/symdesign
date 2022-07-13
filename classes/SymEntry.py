@@ -7,10 +7,10 @@ import warnings
 import numpy as np
 
 import PathUtils as PUtils
-from SymDesignUtils import start_log, dictionary_lookup, DesignError
+from SymDesignUtils import start_log, dictionary_lookup, DesignError, SymmetryError
 from utils.SymmetryUtils import valid_subunit_number, space_group_symmetry_operators, point_group_symmetry_operators, \
     all_sym_entry_dict, rotation_range, setting_matrices, identity_matrix, sub_symmetries, flip_y_matrix, max_sym, \
-    valid_symmetries, SymmetryError
+    valid_symmetries
 
 # Copyright 2020 Joshua Laniado and Todd O. Yeates.
 __author__ = "Joshua Laniado and Todd O. Yeates"
