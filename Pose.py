@@ -24,8 +24,8 @@ from Query.PDB import retrieve_entity_id_by_sequence, query_pdb_by
 from SequenceProfile import SequenceProfile, alignment_types, generate_alignment
 from Structure import Coords, Structure, Structures, Chain, Entity, Residue, Residues, GhostFragment, MonoFragment, \
     write_frag_match_info_file, Fragment, StructureBase, ContainsAtomsMixin, superposition3d
-from SymDesignUtils import DesignError, calculate_overlap, z_value_from_match_score, start_log, null_log, \
-    match_score_from_z_value, dictionary_lookup, digit_translate_table, remove_duplicates, ClashError, SymmetryError
+from SymDesignUtils import DesignError, ClashError, SymmetryError, z_value_from_match_score, start_log, null_log, \
+    dictionary_lookup, digit_translate_table, remove_duplicates, calculate_match
 from classes.EulerLookup import EulerLookup, euler_factory
 from classes.SymEntry import get_rot_matrices, make_rotations_degenerate, SymEntry, point_group_setting_matrix_members,\
     symmetry_combination_format, parse_symmetry_to_sym_entry, symmetry_factory
@@ -60,12 +60,12 @@ def find_fragment_overlap(entity1_coords: np.ndarray, residues1: list[Residue] |
         entity1_coords:
         residues1:
         residues2:
-        fragdb:
+        frag_db:
         euler_lookup:
         min_match_value: The minimum value which constitutes an acceptable fragment match
     """
-    if not fragdb:
-        fragdb = fragment.fragment_factory()
+    if not frag_db:
+        frag_db = fragment.fragment_factory()
 
     if not euler_lookup:
         euler_lookup = euler_factory()
@@ -74,7 +74,7 @@ def find_fragment_overlap(entity1_coords: np.ndarray, residues1: list[Residue] |
     oligomer1_bb_tree = BallTree(entity1_coords)
     ghost_frags1: list[GhostFragment] = []
     for residue in residues1:
-        ghost_frags1.extend(residue.get_ghost_fragments(fragdb.indexed_ghosts, clash_tree=oligomer1_bb_tree))
+        ghost_frags1.extend(residue.get_ghost_fragments(frag_db.indexed_ghosts, clash_tree=oligomer1_bb_tree))
     # for frag1 in interface_frags1:
     #     ghostfrags = frag1.get_ghost_fragments(fragdb.indexed_ghosts, clash_tree=oligomer1_bb_tree)
     #     if ghostfrags:
@@ -109,8 +109,10 @@ def find_fragment_overlap(entity1_coords: np.ndarray, residues1: list[Residue] |
     reference_rmsds = np.where(reference_rmsds == 0, 0.01, reference_rmsds)
 
     # logger.debug('Calculating passing fragment overlaps by RMSD')
-    all_fragment_overlap = \
-        calculate_overlap(passing_ghost_coords, passing_frag_coords, reference_rmsds, max_z_value=max_z_value)
+    all_fragment_match = calculate_match(passing_ghost_coords, passing_frag_coords, reference_rmsds)
+    passing_overlaps_indices = np.flatnonzero(all_fragment_match > min_match_value)
+    # all_fragment_overlap = \
+    #     calculate_overlap(passing_ghost_coords, passing_frag_coords, reference_rmsds, max_z_value=max_z_value)
     # logger.debug('Finished calculating fragment overlaps')
     # passing_overlap_indices = np.flatnonzero(all_fragment_overlap)
     logger.debug(f'Found {len(passing_overlaps_indices)} overlapping fragments over the {min_match_value} threshold')
@@ -120,9 +122,9 @@ def find_fragment_overlap(entity1_coords: np.ndarray, residues1: list[Residue] |
     # passing_z_values = all_fragment_overlap[passing_overlap_indices]
     # match_scores = match_score_from_z_value(all_fragment_overlap[passing_overlap_indices])
 
-    return list(zip([ghost_frags1[idx] for idx in passing_ghost_indices[passing_overlap_indices].tolist()],
-                    [residues2[idx] for idx in passing_frag_indices[passing_overlap_indices].tolist()],
-                    match_score_from_z_value(all_fragment_overlap[passing_overlap_indices]).tolist()))
+    return list(zip([ghost_frags1[idx] for idx in passing_ghost_indices[passing_overlaps_indices].tolist()],
+                    [residues2[idx] for idx in passing_frag_indices[passing_overlaps_indices].tolist()],
+                    all_fragment_match[passing_overlaps_indices]).tolist())
 
 
 def get_matching_fragment_pairs_info(ghostfrag_surffrag_pairs):
@@ -4139,7 +4141,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Todo consider moving SequencePro
 
         entity1_coords = entity1.backbone_and_cb_coords  # for clash check, we only want the backbone and CB
         ghostfrag_surfacefrag_pairs = find_fragment_overlap(entity1_coords, frag_residues1, frag_residues2,
-                                                            fragdb=self.fragment_db, euler_lookup=self.euler_lookup)
+                                                            frag_db=self.fragment_db, euler_lookup=self.euler_lookup)
         self.log.info(f'Found {len(ghostfrag_surfacefrag_pairs)} overlapping fragment pairs at the {entity1.name} | '
                       f'{entity2.name} interface')
         self.fragment_queries[(entity1, entity2)] = get_matching_fragment_pairs_info(ghostfrag_surfacefrag_pairs)
