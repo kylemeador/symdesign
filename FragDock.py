@@ -191,7 +191,7 @@ def find_docked_poses(sym_entry, ijk_frag_db, pdb1, pdb2, optimal_tx_params, com
                     overlap_score_time, len(overlapping_ghost_indices)))
         
         # check if the pose has enough high quality fragment matches
-        high_qual_match_count = np.where(passing_z_values < high_quality_match_value)[0].size
+        high_qual_match_count = np.flatnonzero(passing_z_values < high_quality_match_value).size
         if high_qual_match_count < min_matched:
             log.info('\t%d < %d Which is Set as the Minimal Required Amount of High Quality Fragment Matches'
                      % (high_qual_match_count, min_matched))
@@ -935,7 +935,7 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
                         # ^ I think for the sake of cleanliness, I need to make this matrix
                         # must find positive indices before external_dof1 multiplication in case negatives there
                         positive_indices = \
-                            np.where(np.all(np.where(optimal_ext_dof_shifts < 0, False, True), axis=1) == True)[0]
+                            np.flatnonzero(np.all(np.where(optimal_ext_dof_shifts < 0, False, True), axis=1) is True)
                         # optimal_ext_dof_shifts[:, :, None] <- None expands the axis to make multiplication accurate
                         stacked_external_tx1 = \
                             (optimal_ext_dof_shifts[:, :, None] * sym_entry.external_dof1).sum(axis=-2)
@@ -1051,8 +1051,8 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
     # Todo comment back after test?
     # sufficiently_dense_indices = np.arange(starting_transforms)
     # number_of_dense_transforms = starting_transforms
-    sufficiently_dense_indices = np.where(cluster_labels != -1)
-    number_of_dense_transforms = len(sufficiently_dense_indices[0])
+    sufficiently_dense_indices = np.flatnonzero(cluster_labels != -1)
+    number_of_dense_transforms = len(sufficiently_dense_indices)
     clustering_time = time.time() - clustering_start
 
     log.info('Found %d total transforms, %d of which are missing the minimum number of close transforms to be viable. '
@@ -1172,8 +1172,8 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
 
     # asu_is_viable = np.where(asu_clash_counts.flatten() == 0)  # , True, False)
     # asu_is_viable = np.where(np.array(asu_clash_counts) == 0)
-    asu_is_viable = np.where(asu_clash_counts == 0)
-    number_non_clashing_transforms = len(asu_is_viable[0])
+    asu_is_viable = np.flatnonzero(asu_clash_counts == 0)
+    number_non_clashing_transforms = len(asu_is_viable)
     log.info('Clash testing for All Oligomer1 and Oligomer2 (took %f s) found %d viable ASU\'s'
              % (check_clash_coords_time, number_non_clashing_transforms))
 
@@ -1435,11 +1435,11 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
         #     all_fragment_match = calculate_match(typed_ghost1_coords, typed_surf2_coords, reference_rmsds)
 
         # check if the pose has enough high quality fragment matches
-        high_qual_match_indices = np.where(all_fragment_match >= high_quality_match_value)[0]
+        high_qual_match_indices = np.flatnonzero(all_fragment_match >= high_quality_match_value)
         high_qual_match_count = len(high_qual_match_indices)
         all_fragment_match_time = time.time() - all_fragment_match_time_start
         # if high_qual_match_count == 0:
-        #     passing_overlaps_indices = np.where(all_fragment_match > 0.2)[0]
+        #     passing_overlaps_indices = np.flatnonzero(all_fragment_match > 0.2)
         #     log.info('\t%d < %d however, %d fragments are considered passing (took %f s)'
         #              % (high_qual_match_count, min_matched, len(passing_overlaps_indices), all_fragment_match_time))
         #     tx_idx = tx_counts[idx]
