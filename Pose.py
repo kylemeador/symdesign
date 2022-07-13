@@ -26,7 +26,7 @@ from SequenceProfile import SequenceProfile, alignment_types, generate_alignment
 from Structure import Coords, Structure, Structures, Chain, Entity, Residue, Residues, GhostFragment, MonoFragment, \
     write_frag_match_info_file, Fragment, StructureBase, ContainsAtomsMixin, superposition3d
 from SymDesignUtils import DesignError, calculate_overlap, z_value_from_match_score, start_log, null_log, \
-    match_score_from_z_value, dictionary_lookup, digit_translate_table, remove_duplicates
+    match_score_from_z_value, dictionary_lookup, digit_translate_table, remove_duplicates, ClashError
 from classes.EulerLookup import EulerLookup, euler_factory
 from classes.SymEntry import get_rot_matrices, make_rotations_degenerate, SymEntry, point_group_setting_matrix_members,\
     symmetry_combination_format, parse_symmetry_to_sym_entry, symmetry_factory
@@ -3638,7 +3638,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Todo consider moving SequencePro
         super().__init__(**kwargs)
         if self.is_clash():
             if not self.ignore_clashes:
-                raise DesignError(f'{self.name} contains Backbone clashes and is not being considered further!')
+                raise ClashError(f'{self.name} contains Backbone clashes and is not being considered further!')
 
         # need to set up after load Entities so that they can have this added to their SequenceProfile
         self.fragment_db = fragment_db  # kwargs.get('fragment_db', None)
