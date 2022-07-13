@@ -3594,7 +3594,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Todo consider moving SequencePro
     interface_residues: dict[tuple[Entity, Entity], tuple[list[Residue], list[Residue]]]
     required_indices: set[int]
     required_residues: list[Residue] | None
-    resource_db: Database | None
+    # resource_db: 'Database'
     split_interface_residues: dict[int, list[tuple[Residue, Entity]]]
     split_interface_ss_elements: dict[int, list[int]]
     ss_index_array: list[int]
@@ -3602,7 +3602,8 @@ class Pose(SymmetricModel, SequenceProfile):  # Todo consider moving SequencePro
 
     def __init__(self, fragment_db: fragment.FragmentDatabase = None, ignore_clashes: bool = False,
                  design_selector: dict[str, dict[str, dict[str, set[int] | set[str] | None]]] = None, **kwargs):
-        #          euler_lookup: EulerLookup = None,
+        # unused args
+        #           resource_db: 'JobResources.Database' = None, euler_lookup: EulerLookup = None,
         self.design_selector = design_selector if design_selector else {}  # kwargs.get('design_selector', {})
         self.design_selector_entities = set()
         self.design_selector_indices = set()
@@ -3614,7 +3615,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Todo consider moving SequencePro
         self.interface_residues = {}
         self.required_indices = set()
         self.required_residues = None
-        self.resource_db = resource_db if resource_db else database_factory()  # kwargs.get('resource_db', None)
+        # self.resource_db = resource_db if resource_db else database_factory()  # kwargs.get('resource_db', None)
         self.split_interface_residues = {}  # {1: [(Residue obj, Entity obj), ...], 2: [(Residue obj, Entity obj), ...]}
         self.split_interface_ss_elements = {}  # {1: [0, 1, 2] , 2: [9, 13, 19]]}
         self.ss_index_array = []  # stores secondary structure elements by incrementing index
