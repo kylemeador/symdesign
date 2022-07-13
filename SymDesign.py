@@ -49,7 +49,7 @@ from utils.Flags import argparsers, parser_entire, parser_options, parser_module
     process_design_selector_flags, parser_residue_selector, parser_output
 from utils.GeneralUtils import write_docking_parameters
 from utils.SetUp import set_up_instructions
-from utils.SymmetryUtils import SymmetryError
+from SymDesignUtils import SymmetryError
 from utils.guide import interface_design_guide, analysis_guide, interface_metrics_guide, select_poses_guide, \
     select_designs_guide, select_sequences_guide, cluster_poses_guide, refine_guide, optimize_designs_guide
 

@@ -1076,6 +1076,10 @@ class ClashError(DesignError):
     pass
 
 
+class SymmetryError(DesignError):
+    pass
+
+
 ######################
 # Fragment Handling
 ######################
