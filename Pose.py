@@ -20,7 +20,7 @@ from sklearn.neighbors._ball_tree import BinaryTree  # this typing implementatio
 import PathUtils as PUtils
 import fragment
 from DesignMetrics import calculate_match_metrics, fragment_metric_template, format_fragment_metrics
-from JobResources import Database, database_factory, FragmentDatabase, fragment_factory
+import JobResources
 from Query.PDB import retrieve_entity_id_by_sequence, query_pdb_by
 from SequenceProfile import SequenceProfile, alignment_types, generate_alignment
 from Structure import Coords, Structure, Structures, Chain, Entity, Residue, Residues, GhostFragment, MonoFragment, \
@@ -863,7 +863,7 @@ class Model(Structure):
     multimodel: bool
     original_chain_ids: list[str]
     resolution: float | None
-    resource_db: Database
+    resource_db: 'JobResources.Database'
     _reference_sequence: dict[str, str]
     # space_group: str | None
     # uc_dimensions: list[float] | None
@@ -873,7 +873,7 @@ class Model(Structure):
                  chains: list[Chain] | Structures | bool = None, entities: list[Entity] | Structures | bool = None,
                  cryst_record: str = None, design: bool = False,
                  dbref: dict[str, dict[str, str]] = None, entity_info: list[dict[str, list | str]] = None,
-                 multimodel: bool = False, resolution: float = None, resource_db: Database = None,
+                 multimodel: bool = False, resolution: float = None, resource_db: 'JobResources.Database' = None,
                  reference_sequence: dict[str, str] = None, metadata: Model = None,
                  **kwargs):
         # kwargs passed to Structure
@@ -914,7 +914,7 @@ class Model(Structure):
             self._reference_sequence = reference_sequence if reference_sequence else {}
             # ^ SEQRES or PDB API entries. key is chainID, value is 'AGHKLAIDL'
             # self.space_group = space_group
-            self.resource_db: Database = resource_db if resource_db else database_factory()
+            self.resource_db = resource_db if resource_db else JobResources.database_factory()  # Todo standardize path?
 
             # self.uc_dimensions = uc_dimensions
             self.structure_containers.extend(['chains', 'entities'])
