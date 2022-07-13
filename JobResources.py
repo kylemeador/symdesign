@@ -1235,13 +1235,13 @@ class JobResourcesFactory:
         self._warn = False
 
     def __call__(self, **kwargs) -> JobResources:
-        """Return the specified FragmentDatabase object singleton
+        """Return the specified JobResources object singleton
 
         Returns:
-            The instance of the specified FragmentDatabase
+            The instance of the specified JobResources
         """
         #         Args:
-        #             source: The FragmentDatabase source name
+        #             source: The JobResources source name
         source = 'single'
         fragment_db = self._resources.get(source)
         if fragment_db:
@@ -1262,10 +1262,10 @@ class JobResourcesFactory:
         return self._resources[source]
 
     def get(self, **kwargs) -> JobResources:
-        """Return the specified FragmentDatabase object singleton
+        """Return the specified JobResources object singleton
 
         Returns:
-            The instance of the specified FragmentDatabase
+            The instance of the specified JobResources
         """
         #         Keyword Args:
         #             source: The JobResource source name
