@@ -1072,6 +1072,10 @@ class DesignError(Exception):
     pass
 
 
+class ClashError(DesignError):
+    pass
+
+
 ######################
 # Fragment Handling
 ######################

@@ -46,7 +46,7 @@ from SequenceProfile import parse_pssm, generate_mutations_from_reference, \
 from Structure import Structure, Entity  # , Structures
 from SymDesignUtils import unpickle, start_log, null_log, handle_errors, write_shell_script, DesignError, \
     match_score_from_z_value, pickle_object, filter_dictionary_keys, all_vs_all, make_path, \
-    condensed_to_square, sym, index_intersection, z_score, large_color_array, starttime
+    condensed_to_square, sym, index_intersection, z_score, large_color_array, starttime, ClashError
 from classes.EulerLookup import EulerLookup
 from classes.SymEntry import SymEntry, symmetry_factory
 from utils.GeneralUtils import get_components_from_nanohedra_docking
@@ -2268,11 +2268,11 @@ class PoseDirectory:
         """
         if self.pose.symmetric_assembly_is_clash():
             if self.ignore_symmetric_clashes:
-                self.log.critical('The Symmetric Assembly contains clashes! %s is not viable.' % self.asu_path)
+                self.log.critical(f'The Symmetric Assembly contains clashes! {self.source} is not viable')
             else:
-                raise DesignError(f'The Symmetric Assembly contains clashes! Design won\'t be considered. If you '
-                                  f'would like to generate the Assembly anyway, re-submit the command with '
-                                  f'--{PUtils.ignore_symmetric_clashes}')
+                raise ClashError(f'The Symmetric Assembly contains clashes! Design won\'t be considered. If you '
+                                 f'would like to generate the Assembly anyway, re-submit the command with '
+                                 f'--{PUtils.ignore_symmetric_clashes}')
 
     @handle_design_errors(errors=(DesignError, AssertionError))
     @close_logs
