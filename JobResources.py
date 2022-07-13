@@ -143,20 +143,19 @@ def orient_pdb_file(file: str | bytes, log: Logger = logger, symmetry: str = Non
         Returns:
             Filepath of oriented PDB
         """
-    pdb_filename = os.path.basename(file)
-    oriented_file_path = os.path.join(out_dir, pdb_filename)
-    if os.path.exists(oriented_file_path):
-        return oriented_file_path
-    # elif sym in valid_subunit_number:
-    else:
-        pdb = Model.from_file(file, log=log)  # must load entities to solve multicomponent orient problem
+    model_name = os.path.basename(file)
+    oriented_file_path = os.path.join(out_dir, model_name)
+    if not os.path.exists(oriented_file_path):
+        model = Model.from_file(file, log=log)  # must load entities to solve multi-component orient problem
         try:
-            pdb.orient(symmetry=symmetry)
-            pdb.write(out_path=oriented_file_path)
-            log.info(f'Oriented: {pdb_filename}')
-            return oriented_file_path
+            model.orient(symmetry=symmetry)
         except (ValueError, RuntimeError) as error:
             log.error(str(error))
+            return None
+        model.write(out_path=oriented_file_path)
+        log.info(f'Oriented: {model_name}')
+
+    return oriented_file_path
 
 
 def query_qs_bio(pdb_entry_id: str) -> int:
