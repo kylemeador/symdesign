@@ -2622,8 +2622,8 @@ class SymmetricModel(Models):
         # number_of_atoms = len(self.coords)
         for coord_idx in range(self.number_of_symmetry_mates):
             self.log.critical(f'Ensure the output of symmetry mate creation is correct. The copy of a '
-                              f'{type(self).__name__} is being taken which is probably relying on PDB.__copy__ or '
-                              f'Structure.__copy__. These may not be adequate and need to be overwritten')
+                              f'{type(self).__name__} is being taken which is relying on Structure.__copy__. This may '
+                              f'not be adequate and need to be overwritten')
             symmetry_mate = copy(self)
             # old-style
             # symmetry_mate_pdb.replace_coords(self.symmetric_coords[(coord_idx * number_of_atoms):
@@ -2824,8 +2824,8 @@ class SymmetricModel(Models):
             The symmetric copies of the input structure
         """
         self.log.critical(f'Ensure the output of symmetry mate creation is correct. The copy of a '
-                          f'{type(self).__name__} is being taken which is probably relying on PDB.__copy__ or '
-                          f'Structure.__copy__. These may not be adequate and need to be overwritten')
+                          f'{type(structure).__name__} is being taken which is relying on '
+                          f'{type(structure).__name__}.__copy__. This may not be adequate and need to be overwritten')
         # Caution, this function will return poor if the number of atoms in the structure is 1!
         coords = structure.coords if return_side_chains else structure.backbone_and_cb_coords
         uc_number = 1
