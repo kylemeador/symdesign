@@ -436,6 +436,7 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
     Returns:
         None
     """
+    low_quality_match_value = 0.2  # sets the lower bounds on an acceptable match, was upper bound of 2 using z-score
     overlapping_ghost_frags = False  # Todo make a keyword arg
     cb_distance = 9.  # change to 8.?
     # Get Building Blocks in pose format to remove need for fragments to use chain info
@@ -1478,7 +1479,7 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
                      '(took %f s)' % (high_qual_match_count, min_matched, all_fragment_match_time))
             continue
 
-        passing_overlaps_indices = np.where(all_fragment_match > 0.2)[0]
+        passing_overlaps_indices = np.flatnonzero(all_fragment_match >= low_quality_match_value)
         number_passing_overlaps = len(passing_overlaps_indices)
         log.info('\t%d High Quality Fragments Out of %d Matches Found in Complete Fragment Library (took %f s)' %
                  (high_qual_match_count, number_passing_overlaps, all_fragment_match_time))
