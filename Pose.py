@@ -3449,7 +3449,7 @@ class SymmetricModel(Models):
         entities = self.find_contacting_asu(**kwargs)
         # self = Model.from_entities(entities, name='asu', log=self.log, **kwargs)
         # self._pdb = Model.from_entities(entities, name='asu', log=self.log, **kwargs)
-        self._process_model(entities=entities)
+        self._process_model(entities=entities, **kwargs)
 
     # def make_oligomers(self):
     #     """Generate oligomers for each Entity in the SymmetricModel"""
