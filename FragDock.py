@@ -1496,15 +1496,15 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
             external_tx_params2 = full_ext_tx2[idx]
         else:
             external_tx_params1, external_tx_params2 = None, None
-        specific_transformation1 = {'rotation': rot_mat1, 'translation': internal_tx_param1,
-                                    'rotation2': set_mat1, 'translation2': external_tx_params1}
-        pdb1_copy = pdb1.return_transformed_copy(**specific_transformation1)
-        pdb2_copy = pdb2.return_transformed_copy(**{'rotation': rot_mat2, 'translation': internal_tx_param2,
-                                                    'rotation2': set_mat2, 'translation2': external_tx_params2})
-        copy_pdb_time = time.time() - copy_pdb_start
-        log.info('\tCopy and Transform Oligomer1 and Oligomer2 (took %f s)' % copy_pdb_time)
-        asu = Model.from_entities([pdb1_copy.entities[0], pdb2_copy.entities[0]], log=log, name='asu',
-                                  entity_names=[pdb1_copy.name, pdb2_copy.name], rename_chains=True)
+        specific_transformation1 = dict(rotation=rot_mat1, translation=internal_tx_param1,
+                                        rotation2=set_mat1, translation2=external_tx_params1)
+        specific_transformation2 = dict(rotation=rot_mat2, translation=internal_tx_param2,
+                                        rotation2=set_mat2, translation2=external_tx_params2)
+        # model1_copy = model1.return_transformed_copy(**specific_transformation1)
+        # model2_copy = model2.return_transformed_copy(**{'rotation': rot_mat2, 'translation': internal_tx_param2,
+        #                                             'rotation2': set_mat2, 'translation2': external_tx_params2})
+        # asu = Model.from_entities([model1_copy.entities[0], model2_copy.entities[0]], log=log, name='asu',
+        #                           entity_names=[model1_copy.name, model2_copy.name], rename_chains=True)
 
         if sym_entry.unit_cell:
             # asu.space_group = sym_entry.resulting_symmetry
@@ -1519,11 +1519,11 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
             name='asu', log=log, entity_names=[model1.name, model2.name], rename_chains=True, sym_entry=sym_entry,
             surrounding_uc=output_surrounding_uc, ignore_clashes=True, uc_dimensions=uc_dimensions)
         # ignore ASU clashes since already checked ^
+        copy_model_time = time.time() - copy_model_start
+        log.info('\tCopy and Transform Oligomer1 and Oligomer2 (took %f s)' % copy_model_time)
         # log.debug('Checked expand clash')
-        # symmetric_material.entities[0].write_oligomer(
-        #     out_path=os.path.join(tx_dir, '%s_symmetric_material.pdb' % entity2.name))
-        # symmetric_material.entities[1].write_oligomer(
-        #     out_path=os.path.join(tx_dir, '%s_symmetric_material.pdb' % entity1.name))
+        # pose.entities[0].write_oligomer(out_path=os.path.join(tx_dir, '%s_symmetric_material.pdb' % entity2.name))
+        # pose.entities[1].write_oligomer(out_path=os.path.join(tx_dir, '%s_symmetric_material.pdb' % entity1.name))
 
         # Check if design has any clashes when expanded
         exp_des_clash_time_start = time.time()
@@ -1556,17 +1556,17 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
         low_quality_matches_dir = os.path.join(matching_fragments_dir, 'low_qual_match')
 
         # Write ASU, PDB1, PDB2, and expanded assembly files
-        asu = symmetric_material.get_contacting_asu(distance=cb_distance, rename_chains=True)
+        pose.set_contacting_asu(distance=cb_distance, rename_chains=True)
         if sym_entry.unit_cell:  # 2, 3 dimensions
             # asu = get_central_asu(asu, uc_dimensions, sym_entry.dimension)
             cryst_record = generate_cryst1_record(uc_dimensions, sym_entry.resulting_symmetry)
         else:
             cryst_record = None
-        asu.write(out_path=os.path.join(tx_dir, asu_file_name), header=cryst1_record)
-        # symmetric_material.entities[0].write_oligomer(out_path=os.path.join(tx_dir, '%s_oligomer_asu.pdb' % entity2.name))
-        # symmetric_material.entities[1].write_oligomer(out_path=os.path.join(tx_dir, '%s_oligomer_asu.pdb' % entity1.name))
-        pdb1_copy.write(out_path=os.path.join(tx_dir, f'{pdb1_copy.name}_{sampling_id}.pdb'))
-        pdb2_copy.write(out_path=os.path.join(tx_dir, f'{pdb2_copy.name}_{sampling_id}.pdb'))
+        pose.write(out_path=os.path.join(tx_dir, asu_file_name), header=cryst_record)
+        # pose.entities[0].write_oligomer(out_path=os.path.join(tx_dir, '%s_oligomer_asu.pdb' % entity2.name))
+        # pose.entities[1].write_oligomer(out_path=os.path.join(tx_dir, '%s_oligomer_asu.pdb' % entity1.name))
+        for idx, entity in enumerate(pose.entities, 1):
+            entity.write_oligomer(out_path=os.path.join(tx_dir, f'{entity.name}_{sampling_id}.pdb'))
 
         if output_assembly:
             # pose.generate_assembly_symmetry_models(surrounding_uc=output_surrounding_uc)
