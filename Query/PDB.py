@@ -933,7 +933,7 @@ def parse_entity_json(entity_json: dict[str, Any]) -> dict[str, dict]:
     Args:
         entity_json: The json type dictionary returned from requests.Response.json()
     Returns:
-        {chain: {'accession': 'Q96DC8', 'db': 'UNP'}, ...}
+        Ex: {'chain': {'accession': 'Q96DC8', 'db': 'UNP'}, ...}
     """
     chains = entity_json['rcsb_polymer_entity_container_identifiers']['asym_ids']  # = ['A', 'B', ...]
     database_keys = ['db', 'accession']
@@ -942,6 +942,7 @@ def parse_entity_json(entity_json: dict[str, Any]) -> dict[str, dict]:
         try:
             uniprot_id = entity_json['rcsb_polymer_entity_container_identifiers']['uniprot_ids']
             database = 'UNP'
+            # Todo, remove this completely and let Entity find UniprotID by sequence query
             if len(uniprot_id) > 1:  # Todo choose the most accurate if more than 2...
                 logger.warning('For Entity %s, found multiple UniProt Entries %s. Selecting the first'
                                % (entity_json['rcsb_polymer_entity_container_identifiers']['rcsb_id'], uniprot_id))
