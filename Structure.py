@@ -4570,17 +4570,16 @@ class Structure(StructureBase):
         # missing_indices, found_fragments = [], []
         found_fragments = []
         for idx, residue in enumerate(residues):
+            min_rmsd = float('inf')
             # solve for fragment type (secondary structure classification could be used too)
-            try:
-                min_rmsd = float('inf')
+            try:  # This try: except is wrapped around inner loop because all checks will fail after the first fails
                 for fragment_type, cluster_coords in representatives.items():
                     rmsd, rot, tx, _ = \
-                        superposition3d(residue_ca_coords[idx + frag_lower_range: idx + frag_upper_range],
-                                        cluster_coords)
+                        superposition3d(residue_ca_coords[idx+frag_lower_range: idx+frag_upper_range], cluster_coords)
                     if rmsd <= rmsd_thresh and rmsd <= min_rmsd:
                         residue.frag_type = fragment_type
                         min_rmsd, residue.rotation, residue.translation = rmsd, rot, tx
-            except AssertionError:  # superposition3d can't measure Residue. It doesn't have fragment_length neighbors
+            except ValueError:  # superposition3d couldn't measure Residue. It doesn't have fragment_length neighbors
                 # missing_indices.append(idx)  # add the index so we remove it later
                 continue
 
@@ -6489,9 +6488,9 @@ def superposition3d(fixed_coords: np.ndarray, moving_coords: np.ndarray, a_weigh
     Returns:
         rmsd, rotation/quaternion_matrix, translation_vector, scale_factor
     """
-    assert fixed_coords.shape[0] == moving_coords.shape[0], \
-        f'{superposition3d.__name__}: Inputs should have the same size. ' \
-        f'Input 1={fixed_coords.shape[0]}, 2={moving_coords.shape[0]}'
+    if fixed_coords.shape[0] != moving_coords.shape[0]:
+        raise ValueError(f'{superposition3d.__name__}: Inputs should have the same size. '
+                         f'Input 1={fixed_coords.shape[0]}, 2={moving_coords.shape[0]}')
 
     number_of_points = fixed_coords.shape[0]
     # convert weights into array
