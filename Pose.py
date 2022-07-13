@@ -779,6 +779,7 @@ class State(Structures):
     #         return self._ca_indices
     #
 
+    # Todo Modernize
     def write(self, increment_chains: bool = False, **kwargs) -> str | None:
         """Write Structures to a file specified by out_path or with a passed file_handle.
 
@@ -1265,6 +1266,9 @@ class Model(Structure):
     def write(self, **kwargs) -> str | bytes | None:  # Todo Depreciate. require Pose or self.cryst_record -> Structure?
         """Write Atoms to a file specified by out_path or with a passed file_handle
 
+        Keyword Args
+            header: None | str - A string that is desired at the top of the .pdb file
+            pdb: bool = False - Whether the Residue representation should use the number at file parsing
         Returns:
             The name of the written file if out_path is used
         """
@@ -1839,13 +1843,15 @@ class Models(Model):
             out_path: The location where the Structure object should be written to disk
             file_handle: Used to write Structure details to an open FileObject
             increment_chains: Whether to write each Structure with a new chain name, otherwise write as a new Model
+        Keyword Args
+            header: None | str - A string that is desired at the top of the .pdb file
+            pdb: bool = False - Whether the Residue representation should use the number at file parsing
         Returns:
             The name of the written file if out_path is used
         """
         self.log.debug(f'Models is writing')
 
         def models_write(handle):
-            self.write_header(handle, **kwargs)
             # self.models is populated
             if increment_chains:  # assembly requested, check on the mechanism of symmetric writing
                 # we won't allow incremental chains when the Model is plain as the models are all the same and
@@ -1871,10 +1877,12 @@ class Models(Model):
                     handle.write('ENDMDL\n')
 
         if file_handle:
+            # self.write_header(file_handle, **kwargs)
             models_write(file_handle)
-            return
+            return None
         else:
             with open(out_path, 'w') as outfile:
+                self.write_header(outfile, **kwargs)
                 models_write(outfile)
             return out_path
 
@@ -3534,23 +3542,24 @@ class SymmetricModel(Models):
 
     def write(self, out_path: bytes | str = os.getcwd(), file_handle: IO = None, assembly: bool = False, **kwargs) -> \
             str | bytes | None:
-        """Write Model Atoms to a file specified by out_path or with a passed file_handle
+        """Write SymmetricModel Atoms to a file specified by out_path or with a passed file_handle
 
         Args:
             out_path: The location where the Structure object should be written to disk
             file_handle: Used to write Structure details to an open FileObject
-            assembly: Whether to write the full assembly
+            assembly: Whether to write the full assembly. Default writes only the ASU
         Keyword Args:
-            increment_chains=False (bool): Whether to write each Structure with a new chain name, otherwise write as a
-                new Model
-            surrounding_uc=True (bool): Write the surrounding unit cell if assembly is True and self.dimension > 1
+            increment_chains: bool = False - Whether to write each Structure with a new chain name, otherwise write as
+                a new Model
+            surrounding_uc: bool = True - Write the surrounding unit cell if assembly is True and self.dimension > 1
+            header: None | str - A string that is desired at the top of the .pdb file
+            pdb: bool = False - Whether the Residue representation should use the number at file parsing
         Returns:
             The name of the written file if out_path is used
         """
         self.log.debug(f'SymmetricModel is writing')
 
         def symmetric_model_write(handle):
-            self.write_header(handle, **kwargs)
             if assembly:  # will make models and use next logic steps to write them out
                 self.generate_assembly_symmetry_models(**kwargs)
                 # self.models is populated, use Models.write() to finish
@@ -3560,17 +3569,18 @@ class SymmetricModel(Models):
                     entity.write(file_handle=handle, **kwargs)
 
         def model_write(handle):
-            self.write_header(handle, **kwargs)
             super(Models, Models).write(self, file_handle=handle, **kwargs)
 
-        if file_handle:  # Todo should the use of self.write_header() with file_handle be disabled?
+        if file_handle:
+            # self.write_header(file_handle, **kwargs)
             if self.symmetry:
                 symmetric_model_write(file_handle)
             else:
                 model_write(file_handle)
-            return
+            return None
         else:
             with open(out_path, 'w') as outfile:
+                self.write_header(outfile, **kwargs)
                 if self.symmetry:
                     symmetric_model_write(outfile)
                 else:

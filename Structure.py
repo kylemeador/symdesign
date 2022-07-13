@@ -4401,9 +4401,9 @@ class Structure(StructureBase):
         """Provide the Structure Atoms as a PDB file string
 
         Keyword Args:
-            pdb=False (bool): Whether the Residue representation should use the number at file parsing
-            chain=None (str): The chain ID to use
-            atom_offset=0 (int): How much to offset the atom number by. Default returns one-indexed
+            pdb: bool = False - Whether the Residue representation should use the number at file parsing
+            chain: str = None - The chain ID to use
+            atom_offset: int = 0 - How much to offset the atom number by. Default returns one-indexed
         Returns:
             The archived .pdb formatted ATOM records for the Structure
         """
@@ -4432,16 +4432,12 @@ class Structure(StructureBase):
         else:
             return ''
 
-    def write_header(self, file_handle, header=None, **kwargs) -> None:
+    def write_header(self, file_handle: IO, header: str = None, **kwargs):
         """Handle writing of Structure header information to the file
 
         Args:
-            file_handle (FileObject): An open file object where the header should be written
-        Keyword Args
-            header (None | str): A string that is desired at the top of the .pdb file
-            **kwargs:
-        Returns:
-            (None)
+            file_handle: An open file object where the header should be written
+            header: A string that is desired at the top of the .pdb file
         """
         _header = self.format_header(**kwargs)  # biomt and seqres
         if header and isinstance(header, Iterable):
@@ -4456,21 +4452,25 @@ class Structure(StructureBase):
         #     header: str = None, increment_chains: bool = False,
         """Write Structure Atoms to a file specified by out_path or with a passed file_handle
 
+        If a file_handle is passed, no header information will be written. Arguments are mutually exclusive
         Args:
             out_path: The location where the Structure object should be written to disk
             file_handle: Used to write Structure details to an open FileObject
+        Keyword Args
+            header: None | str - A string that is desired at the top of the .pdb file
+            pdb: bool = False - Whether the Residue representation should use the number at file parsing
+            chain: str = None - The chain ID to use
+            atom_offset: int = 0 - How much to offset the atom number by. Default returns one-indexed
         Returns:
             The name of the written file if out_path is used
         """
         if file_handle:
-            file_handle.write('%s\n' % self.return_atom_record(**kwargs))
-            return
-
-        if out_path:
+            file_handle.write(f'{self.return_atom_record(**kwargs)}\n')
+            return None
+        else:  # out_path always has default argument current working directory
             with open(out_path, 'w') as outfile:
                 self.write_header(outfile, **kwargs)
-                outfile.write('%s\n' % self.return_atom_record(**kwargs))
-
+                outfile.write(f'{self.return_atom_record(**kwargs)}\n')
             return out_path
 
     def get_fragments(self, residues: list[Residue] = None, residue_numbers: list[int] = None, fragment_length: int = 5,
