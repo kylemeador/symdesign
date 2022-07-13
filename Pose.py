@@ -4134,9 +4134,9 @@ class Pose(SymmetricModel, SequenceProfile):  # Todo consider moving SequencePro
             else:
                 skip_models = []
             symmetric_surface_frags2 = [self.return_symmetric_copies(residue) for residue in frag_residues2]
-            entity2_residues.clear()
+            frag_residues2.clear()
             for frag_mates in symmetric_surface_frags2:
-                entity2_residues.extend(frag for sym_idx, frag in enumerate(frag_mates) if sym_idx not in skip_models)
+                frag_residues2.extend([frag for sym_idx, frag in enumerate(frag_mates) if sym_idx not in skip_models])
             self.log.debug(f'Entity {entity2.name} has {len(frag_residues2)} symmetric fragments')
 
         entity1_coords = entity1.backbone_and_cb_coords  # for clash check, we only want the backbone and CB
