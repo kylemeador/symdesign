@@ -126,17 +126,18 @@ def find_fragment_overlap(entity1_coords: np.ndarray, residues1: list[Residue] |
                     all_fragment_match[passing_overlaps_indices].tolist()))
 
 
-def get_matching_fragment_pairs_info(ghostfrag_surffrag_pairs):
+def get_matching_fragment_pairs_info(ghostfrag_frag_pairs: list[tuple[GhostFragment, Fragment, float]]) -> \
+        list[dict[str, float | str]]:
     """From a ghost fragment/surface fragment pair and corresponding match score, return the pertinent interface
     information
 
     Args:
-        ghostfrag_surffrag_pairs (list[tuple]): Observed ghost and surface fragment overlaps and their match score
+        ghostfrag_frag_pairs: Observed ghost and surface fragment overlaps and their match score
     Returns:
-        (list[dict[mapping[str,any]]])
+        The formatted fragment information for each pair
     """
     fragment_matches = []
-    for interface_ghost_frag, interface_surf_frag, match_score in ghostfrag_surffrag_pairs:
+    for interface_ghost_frag, interface_surf_frag, match_score in ghostfrag_frag_pairs:
         _, surffrag_resnum1 = interface_ghost_frag.get_aligned_chain_and_residue()  # surffrag_ch1,
         _, surffrag_resnum2 = interface_surf_frag.get_central_res_tup()  # surffrag_ch2,
         # Todo
@@ -144,7 +145,7 @@ def get_matching_fragment_pairs_info(ghostfrag_surffrag_pairs):
         #  surf_frag_central_res_num2 = interface_surf_residue.number
         fragment_matches.append(dict(zip(('mapped', 'paired', 'match', 'cluster'),
                                      (surffrag_resnum1, surffrag_resnum2,  match_score,
-                                      '%d_%d_%d' % interface_ghost_frag.get_ijk()))))
+                                      '%d_%d_%d' % interface_ghost_frag.ijk))))
     logger.debug('Fragments for Entity1 found at residues: %s' % [fragment['mapped'] for fragment in fragment_matches])
     logger.debug('Fragments for Entity2 found at residues: %s' % [fragment['paired'] for fragment in fragment_matches])
 
