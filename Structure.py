@@ -1408,7 +1408,7 @@ class Residue(ResidueFragment, StructureBase):
     #     self._atoms.replace(self._atom_indices, atoms)
 
     # Todo create add_atoms that is like list append
-
+    # Todo comment out upon making ContainsAtomsMixin
     def _assign_atoms(self, atoms: list[Atom] | Atoms, **kwargs):  # same function name in Structure
         """Perform atom assignment using Structure._assign_atoms
 
@@ -1442,8 +1442,8 @@ class Residue(ResidueFragment, StructureBase):
 
         # # we have an adequate Residue, construct
         # self._start_index = 0
-        Structure._assign_atoms(self, atoms)
-        # super()._assign_atoms(atoms)  # Todo upon making ContainsAtomsMixin
+        Structure._assign_atoms(self, atoms, **kwargs)
+        # super()._assign_atoms(atoms)
         # self._atom_indices = list(range(len(atoms)))
         # if not isinstance(atoms, Atoms):  # must create the Atoms object
         #     atoms = Atoms(atoms)
@@ -1455,7 +1455,7 @@ class Residue(ResidueFragment, StructureBase):
 
         # ensure that coordinate lengths match atoms
         # Structure._validate_coords(self, **kwargs)
-        # super()._validate_coords()  # Todo upon making ContainsAtomsMixin
+        # super()._validate_coords()
         # if self._coords.coords.shape[0] == 0:  # check if Coords (_coords) has already been populated
         #     # otherwise, try to set from the passed atoms
         #     self._coords.set(np.concatenate(coords if coords else [atom.coords for atom in atoms]))
@@ -2724,6 +2724,7 @@ class Structure(StructureBase):
         # Todo need to update all referrers
         # Todo need to add the atoms to coords
 
+    # Todo ContainsAtomsMixin
     def _assign_atoms(self, atoms: Atoms | list[Atom], atoms_only: bool = True, **kwargs):  # same function in Residue
         """Assign Atom instances to the Structure, create Atoms object, and create Residue instances/Residues
 
@@ -2809,13 +2810,14 @@ class Structure(StructureBase):
     def _assign_residues(self, residues: Residues | list[Residue], atoms: Atoms | list[Atom] = None, **kwargs):
         """Assign Residue instances to the Structure, create Residues object
 
-        This will make all Residue instances dependents of this Structure instance
+        This will make all Residue instances (and their Atom instances) dependents of this Structure instance
 
         Args:
             residues: The Residue instances to assign to the Structure
             atoms: The Atom instances to assign to the Structure. Optional, will use Residues.atoms if not specified
         Keyword Args:
-            coords=None (numpy.ndarray): The coordinates to assign to the Structure. Optional, will use Residues.coords if not specified
+            coords: numpy.ndarray = None - The coordinates to assign to the Structure.
+                Optional, will use Residues.coords if not specified
         Sets:
             self._atom_indices (list[int])
 
@@ -2829,7 +2831,7 @@ class Structure(StructureBase):
             atoms = []
             for residue in residues:
                 atoms.extend(residue.atoms)
-        self._assign_atoms(atoms, atoms_only=False)
+        self._assign_atoms(atoms, atoms_only=False)  # no passing of kwargs as below _populate_coords() handles
         # done below with _residues.reindex_atoms(), not necessary here
         # if not self.file_path:  # assume this instance wasn't parsed and Atom indices are incorrect
         #     self._atoms.reindex()
@@ -2844,7 +2846,7 @@ class Structure(StructureBase):
             residues.reset_state()  # clear runtime attributes
         self._residues = residues
 
-        self._populate_coords(from_source='residues', **kwargs)
+        self._populate_coords(from_source='residues', **kwargs)  # coords may be passed
         # ensure that coordinates lengths match
         self._validate_coords()
         # update Atom instance attributes to ensure they are dependants of this instance
