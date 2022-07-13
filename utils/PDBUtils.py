@@ -1,6 +1,11 @@
+from __future__ import annotations
+
+import os
 import warnings
+from logging import Logger
 
 import Bio.PDB
+import numpy as np
 from Bio.PDB.Atom import Atom as BioPDBAtom, PDBConstructionWarning
 from sklearn.neighbors import BallTree
 
@@ -147,15 +152,14 @@ def get_interface_residues(pdb1, pdb2, cb_distance=9.0):
 #     return pdb_moving.return_transformed_copy(rotation=np.transpose(rot), translation=tr)
 
 
-def biopdb_superimposer(atoms_fixed, atoms_moving):
+def biopdb_superimposer(atoms_fixed, atoms_moving) -> tuple[float, np.ndarray, np.ndarray]:
     """
 
     Args:
         atoms_fixed:
         atoms_moving:
-
     Returns:
-        (tuple[float, numpy.ndarray, numpy.ndarray]): RMSD, Rotation matrix(BioPDB format), Translation vector
+        RMSD, Rotation matrix(BioPDB format), Translation vector
     """
     biopdb_atom_fixed = [BioPDBAtom(atom.type, (atom.x, atom.y, atom.z), atom.temp_fact, atom.occ, atom.alt_location,
                                     " %s " % atom.type, atom.number, element=atom.element_symbol)
@@ -171,4 +175,34 @@ def biopdb_superimposer(atoms_fixed, atoms_moving):
     # rot = np.transpose(sup.rotran[0]).tolist()
     # tx = sup.rotran[1].tolist()
 
-    return (sup.rms, *sup.rotran)
+    return sup.rms, *sup.rotran
+
+
+def orient_structure_file(file: str | bytes, log: Logger = logger, symmetry: str = None, out_dir: str | bytes = None) \
+        -> str | None:
+    """For a specified file and output directory, orient the file according to the provided symmetry where the
+    resulting file will have the chains symmetrized and oriented in the coordinate frame as to have the major axis
+    of symmetry along z, and additional axis along canonically defined vectors. If the symmetry is C1, then the monomer
+    will be transformed so the center of mass resides at the origin
+
+    Args:
+        file: The location of the file to be oriented
+        log: A log to report on operation success
+        symmetry: The symmetry type to be oriented. Possible types in SymmetryUtils.valid_subunit_number
+        out_dir: The directory that should be used to output files
+    Returns:
+        Filepath of oriented PDB
+    """
+    model_name = os.path.basename(file)
+    oriented_file_path = os.path.join(out_dir, model_name)
+    if not os.path.exists(oriented_file_path):
+        model = Model.from_file(file, log=log)  # must load entities to solve multi-component orient problem
+        try:
+            model.orient(symmetry=symmetry)
+        except (ValueError, RuntimeError) as error:
+            log.error(str(error))
+            return None
+        model.write(out_path=oriented_file_path)
+        log.info(f'Oriented: {model_name}')
+
+    return oriented_file_path

@@ -4,7 +4,6 @@ import os
 import subprocess
 from copy import copy, deepcopy
 from itertools import chain as iter_chain, combinations_with_replacement, combinations, product
-# from logging import Logger
 from math import sqrt, cos, sin, prod, ceil, pi
 from pathlib import Path
 from typing import Iterable, IO, Any, Sequence
