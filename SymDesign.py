@@ -2112,7 +2112,6 @@ if __name__ == '__main__':
                     sequence_id = f'{des_dir}_{source_entity.name}'
                     # design_string = '%s_design_%s_%s' % (des_dir, design, source_entity.name)  # [i])), pdb_code)
                     design_string = f'{design}_{source_entity.name}'
-                    uniprot_id = source_entity.uniprot_id
                     termini_availability = des_dir.return_termini_accessibility(source_entity, idx)
                     logger.debug(f'Design {sequence_id} has the following termini accessible for tags: '
                                  f'{termini_availability}')
@@ -2180,6 +2179,7 @@ if __name__ == '__main__':
                         continue
 
                     if not selected_tag:  # find compatible tags from matching PDB observations
+                        uniprot_id = source_entity.uniprot_id
                         uniprot_id_matching_tags = tag_sequences.get(uniprot_id, None)
                         if not uniprot_id_matching_tags:
                             uniprot_id_matching_tags = find_matching_expression_tags(uniprot_id=uniprot_id)
