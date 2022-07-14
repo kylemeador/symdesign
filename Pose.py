@@ -19,7 +19,7 @@ import PathUtils as PUtils
 import fragment
 from DesignMetrics import calculate_match_metrics, fragment_metric_template, format_fragment_metrics
 import JobResources
-from Query.PDB import retrieve_entity_id_by_sequence, query_pdb_by
+from Query.PDB import retrieve_entity_id_by_sequence, query_pdb_by, get_entity_reference_sequence
 from SequenceProfile import SequenceProfile, alignment_types, generate_alignment
 from Structure import Coords, Structure, Structures, Chain, Entity, Residue, Residues, GhostFragment, MonoFragment, \
     write_frag_match_info_file, Fragment, StructureBase, ContainsAtomsMixin, superposition3d
@@ -849,7 +849,7 @@ class Model(Structure):
         log
         name
     """
-    api_entry: dict[str, Any] | None
+    api_entry: dict[str, dict[Any] | float] | None
     biological_assembly: str | int | None
     chain_ids: list[str]
     chains: list[Chain] | Structures | bool | None
@@ -1503,12 +1503,16 @@ class Model(Structure):
         Makes 1 + num_of_entities calls to the PDB API. If file is assembly, makes one more
 
         Sets:
-            self.api_entry (dict): {'assembly': {1: ['A', 'B'], ...}
-                                    'dbref': {chain: {'accession': ID, 'db': UNP}, ...},
-                                    'entity': {1: ['A', 'B'], ...},
-                                    'res': resolution, 'struct': {'space': space_group, 'a_b_c': (a, b, c),
-                                                                  'ang_a_b_c': (ang_a, ang_b, ang_c)}
-                                    }
+            self.api_entry (dict[str, dict[Any] | float]):
+                {'assembly': [['A', 'B'], ...],
+                 'entity': {'EntityID': {'chains': ['A', 'B', ...],
+                                         'dbref': {'accession': 'Q96DC8', 'db': 'UNP'}
+                                         'reference_sequence': 'MSLEHHHHHH...'},
+                                         ...},
+                 'res': resolution,
+                 'struct': {'space': space_group, 'a_b_c': (a, b, c),
+                            'ang_a_b_c': (ang_a, ang_b, ang_c)}
+                }
         """
         if self.api_entry:  # we already tried solving this
             return
@@ -1544,6 +1548,7 @@ class Model(Structure):
                     self.api_entry = retrieve_api_info(entry=parsed_name)
                     self.api_entry['assembly'] = \
                         retrieve_api_info(entry=parsed_name, assembly_integer=self.biological_assembly)
+                    # ^ returns [['A', 'A', 'A', ...], ...]
                 elif extra:  # extra not None or []. use of elif means we couldn't have 1ABC_1.pdb2
                     # try to parse any found extra to an integer denoting entity or assembly ID
                     integer, *non_sense = extra
@@ -1551,14 +1556,12 @@ class Model(Structure):
                         integer = int(integer)
                         if idx == 0:  # entity integer, such as 1ABC_1.pdb
                             # query_args.update(entity_integer=integer)
-                            self.api_entry = dict(dbref=retrieve_api_info(entry=parsed_name, entity_integer=integer))
-                            self.api_entry['entity'] = {integer: list(self.api_entry['dbref'].keys())}
-                            # api_entry v
-                            # return {'entity': entity_chain_d, 'res': resolution, 'dbref': ref_d,
-                            #         'struct': struct_d, 'method': exptl_method}
-                            # entity_chain_d = {integer: ['chain_id1', 'chain_id2', ...], ...}
-                            # dbref: v
-                            # return {chain: {'accession': 'Q96DC8', 'db': 'UNP'}, ...}
+                            self.api_entry = dict(entity=retrieve_api_info(entry=parsed_name, entity_integer=integer))
+                            # retrieve_api_info returns
+                            # {'EntityID': {'chains': ['A', 'B', ...],
+                            #               'dbref': {'accession': 'Q96DC8', 'db': 'UNP'}
+                            #               'reference_sequence': 'MSLEHHHHHH...'},
+                            #  ...}
                         else:  # get entry alone. This is an assembly or unknown conjugation. Either way we need entry info
                             self.api_entry = retrieve_api_info(entry=parsed_name)
 
@@ -1681,13 +1684,20 @@ class Model(Structure):
             #                       'api_entry=%s, original_chain_ids=%s'
             #                       % (self.name, self._create_entities.__name__, self.entity_info,
             #                       self.biological_assembly, self.multimodel, self.api_entry, self.original_chain_ids))
-            data['uniprot_id'] = accession['accession'] if accession and accession['db'] == 'UNP' else accession
+            if 'dbref' not in data:
+                data['dbref'] = {}
             # data['chains'] = [chain for chain in chains if chain]  # remove any missing chains
             #                                               generated from a PDB API sequence search v
-            data_name = data['name']
-            data['name'] = f'{self.name}_{data_name}' if isinstance(data_name, int) else data_name
-            # data has attributes chains, uniprot_id, and name
-            # self.entities.append(Entity.from_chains(**data))
+            # if isinstance(entity_name, int):
+            #     data['name'] = f'{self.name}_{data["name"]}'
+
+            # ref_seq = data.get('reference_sequence')
+            if 'reference_sequence' not in data:
+                if 'sequence' in data:  # We set from Atom info
+                    data['reference_sequence'] = data['sequence']
+                else:  # We should try to set using the entity_name
+                    data['reference_sequence'] = get_entity_reference_sequence(entry_id=entity_name)
+            # data has attributes chains, dbref, name, and reference_sequence
             self.entities.append(Entity.from_chains(**data, parent=self))
 
     def _get_entity_info_from_atoms(self, method: str = 'sequence', tolerance: float = 0.9, **kwargs):  # Todo define inside _create_entities?
