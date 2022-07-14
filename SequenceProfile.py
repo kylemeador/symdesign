@@ -2526,7 +2526,7 @@ Alignment = namedtuple('Alignment', 'seqA, seqB, score, start, end')
 
 def generate_alignment(seq1: Sequence, seq2: Sequence, matrix: str = 'BLOSUM62', local: bool = False,
                        top_aligment: bool = True) -> Alignment | list[Alignment]:
-    """Use Biopython's pairwise2 to generate a global alignment
+    """Use Biopython's pairwise2 to generate a sequence alignment
 
     Args:
         seq1: The first sequence to align

@@ -10,7 +10,6 @@ from typing import Iterable, IO, Any, Sequence
 
 import numpy as np
 # from numba import njit, jit
-from Bio import pairwise2
 from Bio.Data.IUPACData import protein_letters_1to3_extended
 from sklearn.cluster import KMeans
 from sklearn.neighbors import BallTree
@@ -1690,10 +1689,11 @@ class Model(Structure):
             # self.entities.append(Entity.from_chains(**data))
             self.entities.append(Entity.from_chains(**data, parent=self))
 
-    def get_entity_info_from_atoms(self, tolerance: float = 0.9, **kwargs):  # Todo define inside _create_entities?
+    def _get_entity_info_from_atoms(self, method: str = 'sequence', tolerance: float = 0.9, **kwargs):  # Todo define inside _create_entities?
         """Find all unique Entities in the input .pdb file. These are unique sequence objects
 
         Args:
+            method: The method used to extract information. One of 'sequence' or 'structure'
             tolerance: The acceptable difference between chains to consider them the same Entity.
                 Tuning this parameter is necessary if you have chains which should be considered different entities,
                 but are fairly similar. Alternatively, the use of a structural match should be used.
@@ -1712,20 +1712,26 @@ class Model(Structure):
             for data in self.entity_info:
                 # Todo implement structure check
                 #  rmsd_threshold = 1.  # threshold needs testing
-                #  rmsd, rot, tx, _ = superposition3d()
+                #  try:
+                #       rmsd, *_, = superposition3d()
+                #  except ValueError:  # the chains are different lengths
+                #      try to use the code identified in Entity to match lengths..., if not, continue
                 #  if rmsd < rmsd_threshold:
                 #      data['chains'].append(chain)
                 #      new_entity = False  # The entity is not unique, do not add
                 #      break
-                # check if the sequence associated with the atom chain is in the entity dictionary
-                if chain.sequence == data['sequence']:
+                # check if the sequence associated with the Chain is in entity_info
+                sequence = data['sequence']
+                if chain.sequence == sequence:
                     score = len(chain.sequence)
                 else:
-                    alignment = pairwise2.align.localxx(chain.sequence, data['sequence'])
-                    score = alignment[0][2]  # first alignment from localxx, grab score value
-                match_score = score / len(data['sequence'])  # could also use which ever sequence is greater
-                length_proportion = abs(len(chain.sequence) - len(data['sequence'])) / len(data['sequence'])
-                self.log.debug(f'Chain {chain.name} matches Entity {data["name"]} with '
+                    alignment = generate_alignment(chain.sequence, sequence, local=True)
+                    # alignment = pairwise2.align.localxx(chain.sequence, sequence)
+                    score = alignment[2]  # grab score value
+                sequence_length = len(sequence)
+                match_score = score / sequence_length  # could also use which ever sequence is greater
+                length_proportion = abs(len(chain.sequence) - sequence_length) / sequence_length
+                self.log.debug(f'Chain {chain.name} matches Entity {entity_name} with '
                                f'%0.2f identity and length difference of %0.2f' % (match_score, length_proportion))
                 if match_score >= tolerance and length_proportion <= 1 - tolerance:
                     # if number of sequence matches is > tolerance, and the length difference < tolerance
@@ -1738,6 +1744,7 @@ class Model(Structure):
                 entity_idx += 1
                 self.entity_info.append({'chains': [chain], 'sequence': chain.sequence, 'name': entity_idx})
         self.log.debug('Entities were generated from ATOM records.')
+        self.log.debug(f'Entity information was solved by {method} matching Atoms')
 
     def entity_from_chain(self, chain_id: str) -> Entity | None:
         """Return the entity associated with a particular chain id"""
@@ -1760,12 +1767,18 @@ class Model(Structure):
     #     """From another set of atoms, returns the first matching chain from the corresponding entity"""
     #     return  # TODO when entities are structure compatible
 
-    def match_entity_by_seq(self, other_seq: str = None, force_closest: bool = True, threshold: float = 0.7) \
+    def match_entity_by_seq(self, other_seq: str = None, force_closest: bool = True, tolerance: float = 0.7) \
             -> Entity | None:
         """From another sequence, returns the first matching chain from the corresponding Entity
 
+        Args:
+            other_seq: The sequence to query
+            force_closest: Whether to force the search if a perfect match isn't identified
+            tolerance: The acceptable difference between sequences to consider them the same Entity.
+                Tuning this parameter is necessary if you have sequences which should be considered different entities,
+                but are fairly similar
         Returns
-            (Union[Entity, None])
+            The matching Entity if one was found
         """
         for entity in self.entities:
             if other_seq == entity.sequence:
@@ -1773,27 +1786,22 @@ class Model(Structure):
 
         # we didn't find an ideal match
         if force_closest:
-            alignment_score_d = {}
+            entity_alignment_scores = {}
             for entity in self.entities:
-                # TODO get a gap penalty and rework entire alignment function...
-                alignment = pairwise2.align.localxx(other_seq, entity.sequence)
-                max_align_score, max_alignment = 0, None
-                for idx, align in enumerate(alignment):
-                    if align.score > max_align_score:
-                        max_align_score = align.score
-                        max_alignment = idx
-                alignment_score_d[entity] = alignment[max_alignment].score
+                alignment = generate_alignment(other_seq, entity.sequence, local=True)
+                entity_alignment_scores[entity] = alignment.score
 
             max_score, max_score_entity = 0, None
-            for entity, score in alignment_score_d.items():
+            for entity, score in entity_alignment_scores.items():
                 normalized_score = score / len(entity.sequence)
                 if normalized_score > max_score:
                     max_score = normalized_score  # alignment_score_d[entity]
                     max_score_entity = entity
-            if max_score > threshold:
+
+            if max_score > tolerance:
                 return max_score_entity
 
-        return
+        return None
 
 
 class Models(Model):
