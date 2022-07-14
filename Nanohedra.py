@@ -5,7 +5,7 @@ from itertools import product, combinations
 
 import PathUtils as PUtils
 from FragDock import nanohedra_dock
-from utils.PDBUtils import orient_structure_file
+from utils.PDBUtils import orient_structure_files
 from fragment import fragment_factory
 from SymDesignUtils import get_directory_file_paths, start_log, set_logging_to_debug
 from classes.EulerLookup import euler_factory
@@ -87,10 +87,8 @@ if __name__ == '__main__':
             oriented_pdb1_outdir = os.path.join(master_outdir, '%s_oriented' % sym_entry.group1)
             if not os.path.exists(oriented_pdb1_outdir):
                 os.makedirs(oriented_pdb1_outdir)
-            pdb1_oriented_filepaths = \
-                [orient_structure_file(pdb1_path, symmetry=sym_entry.group1, log=master_logger,
-                                       out_dir=oriented_pdb1_outdir)
-                 for pdb1_path in pdb1_filepaths]
+            pdb1_oriented_filepaths = orient_structure_files(pdb1_filepaths, symmetry=sym_entry.group1,
+                                                             log=master_logger, out_dir=oriented_pdb1_outdir)
             pdb1_oriented_filepaths = list(filter(None, pdb1_oriented_filepaths))
             if len(pdb1_oriented_filepaths) == 0:
                 master_logger.info('COULD NOT ORIENT %s PDB FILES. CHECK %s%sorient_oligomer_log.txt FOR '
@@ -120,9 +118,8 @@ if __name__ == '__main__':
                 oriented_pdb2_outdir = os.path.join(master_outdir, '%s_oriented' % sym_entry.group2)
                 if not os.path.exists(oriented_pdb2_outdir):
                     os.makedirs(oriented_pdb2_outdir)
-                pdb2_oriented_filepaths = [orient_structure_file(pdb2_path, symmetry=sym_entry.group2,
+                pdb2_oriented_filepaths = orient_structure_files(pdb2_filepaths, symmetry=sym_entry.group2,
                                                                  log=master_logger, out_dir=oriented_pdb2_outdir)
-                                           for pdb2_path in pdb2_filepaths]
                 pdb2_oriented_filepaths = list(filter(None, pdb2_oriented_filepaths))
 
                 if len(pdb2_oriented_filepaths) == 0:
