@@ -19,10 +19,10 @@ from sklearn.neighbors import BallTree  # , KDTree, NearestNeighbors
 from sklearn.neighbors._ball_tree import BinaryTree  # this typing implementation supports BallTree or KDTree
 
 from PathUtils import free_sasa_exe_path, stride_exe_path, errat_exe_path, make_symmdef, scout_symmdef, \
-    reference_residues_pkl, free_sasa_configuration_path, frag_text_file
+    free_sasa_configuration_path, frag_text_file
 from Query.PDB import get_entity_reference_sequence, retrieve_entity_id_by_sequence, query_pdb_by
 from SequenceProfile import SequenceProfile, generate_mutations
-from SymDesignUtils import start_log, null_log, DesignError, unpickle, parameterize_frag_length, digit_translate_table
+from SymDesignUtils import start_log, null_log, DesignError, parameterize_frag_length, digit_translate_table
 from classes.SymEntry import get_rot_matrices, make_rotations_degenerate
 from utils.GeneralUtils import transform_coordinate_sets
 from utils.SymmetryUtils import valid_subunit_number, cubic_point_groups, point_group_symmetry_operators, \
@@ -6662,7 +6662,3 @@ def parse_stride(stride_file, **kwargs):
 
     return ''.join(line[24:25] for line in stride_output if line[0:3] == 'ASG')
 
-
-reference_residues = unpickle(reference_residues_pkl)  # zero-indexed 1 letter alphabetically sorted aa at the origin
-reference_aa = Structure.from_residues(residues=reference_residues)
-# pickle_object(ref, '/home/kylemeador/symdesign/data/AAreferenceStruct.pkl', out_path='')
