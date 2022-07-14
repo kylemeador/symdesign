@@ -1649,9 +1649,9 @@ class Model(Structure):
                 # Check to see that the entity_info is in line with the number of chains already parsed
                 # found_entity_chains = [chain for info in self.entity_info for chain in info.get('chains', [])]
                 # if len(self.chain_ids) != len(found_entity_chains):
-                #     self.get_entity_info_from_atoms(**kwargs)  # tolerance=0.9
-            else:  # Still nothing, then API didn't work for pdb_name. Solve by atom information
-                self.get_entity_info_from_atoms(**kwargs)  # tolerance=0.9
+                #     self._get_entity_info_from_atoms(**kwargs)
+            else:  # Still nothing, the API didn't work for self.name. Solve by atom information
+                self._get_entity_info_from_atoms(**kwargs)
                 if query_by_sequence and not entity_names:
                     for entity_name, data in copy(self.entity_info.items()):
                         pdb_api_name = retrieve_entity_id_by_sequence(data['sequence'])
@@ -1713,7 +1713,7 @@ class Model(Structure):
             self.entity_info
         """
         if tolerance > 1:
-            raise ValueError(f'{self.get_entity_info_from_atoms.__name__} tolerance={tolerance}. Can\'t be > 1')
+            raise ValueError(f'{self._get_entity_info_from_atoms.__name__} tolerance={tolerance}. Can\'t be > 1')
         entity_idx = 1
         # get rid of any information already acquired
         self.entity_info = {f'{self.name}_{entity_idx}':
