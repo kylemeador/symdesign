@@ -974,7 +974,7 @@ if __name__ == '__main__':
                     else:
                         logger.info(f'Ensuring files are oriented with {symmetry} symmetry (stored at {orient_dir}): '
                                     f'{", ".join(entities)}')
-                    all_structures.extend(job.resource_db.orient_structures(entities, symmetry=symmetry))
+                    all_structures.extend(job.structure_db.orient_structures(entities, symmetry=symmetry))
                 # create entities iterator to set up sequence dependent resources
                 all_entities = [entity for structure in all_structures for entity in structure.entities]
 
@@ -985,17 +985,17 @@ if __name__ == '__main__':
             SDUtils.make_path(job.sequences)
             hhblits_cmds, bmdca_cmds = [], []
             for entity in all_entities:
-                entity.sequence_file = job.resource_db.sequences.retrieve_file(name=entity.name)
+                entity.sequence_file = job.api_db.sequences.retrieve_file(name=entity.name)
                 if not entity.sequence_file:
                     entity.write_sequence_to_fasta('reference', out_path=job.sequences)
-                    # entity.add_evolutionary_profile(out_path=job.resource_db.hhblits_profiles.location)
+                    # entity.add_evolutionary_profile(out_path=job.api_db.hhblits_profiles.location)
                 else:
-                    entity.evolutionary_profile = job.resource_db.hhblits_profiles.retrieve_data(name=entity.name)
-                    # entity.h_fields = job.resource_db.bmdca_fields.retrieve_data(name=entity.name)
-                    # TODO reinstate entity.j_couplings = job.resource_db.bmdca_couplings.retrieve_data(name=entity.name)
+                    entity.evolutionary_profile = job.api_db.hhblits_profiles.retrieve_data(name=entity.name)
+                    # entity.h_fields = job.api_db.bmdca_fields.retrieve_data(name=entity.name)
+                    # TODO reinstate entity.j_couplings = job.api_db.bmdca_couplings.retrieve_data(name=entity.name)
                 if not entity.evolutionary_profile:
                     # to generate in current runtime
-                    # entity.add_evolutionary_profile(out_path=job.resource_db.hhblits_profiles.location)
+                    # entity.add_evolutionary_profile(out_path=job.api_db.hhblits_profiles.location)
                     # to generate in a sbatch script
                     # profile_cmds.append(entity.hhblits(out_path=job.profiles, return_command=True))
                     hhblits_cmds.append(entity.hhblits(out_path=job.profiles, return_command=True))
@@ -1066,7 +1066,7 @@ if __name__ == '__main__':
 
             if not args.preprocessed:
                 preprocess_instructions, pre_refine, pre_loop_model = \
-                    job.resource_db.preprocess_structures_for_design(all_structures, load_resources=load_resources,
+                    job.structure_db.preprocess_structures_for_design(all_structures, load_resources=load_resources,
                                                                      script_out_path=job.sbatch_scripts,
                                                                      batch_commands=not args.run_in_shell)
                 info_messages += preprocess_instructions
@@ -1092,7 +1092,8 @@ if __name__ == '__main__':
         if args.multi_processing:  # and not args.skip_master_db:
             logger.info('Loading Database for multiprocessing fork')
             # Todo set up a job based data acquisition as it takes some time and isn't always necessary!
-            job.resource_db.load_all_data()
+            job.structure_db.load_all_data()
+            job.api_db.load_all_data()
             # Todo tweak behavior of these two parameters. Need Queue based PoseDirectory
             # SDUtils.mp_map(PoseDirectory.set_up_pose_directory, pose_directories, processes=cores)
             # SDUtils.mp_map(PoseDirectory.link_master_database, pose_directories, processes=cores)
@@ -1117,7 +1118,7 @@ if __name__ == '__main__':
         all_structures = []
         load_resources = False
         orient_log = SDUtils.start_log(name='orient', handler=2, propagate=True,
-                                       location=os.path.join(job.resource_db.oriented.location, PUtils.orient_log_file))
+                                       location=os.path.join(job.structure_db.oriented.location, PUtils.orient_log_file))
         if args.query_codes:
             if validate_input_return_response_value('Do you want to save the PDB query?', {'y': True, 'n': False}):
                 args.save_query = True
@@ -1139,11 +1140,11 @@ if __name__ == '__main__':
                 entity_names1 = pdb1_filepaths
                 # pdb1_oriented_filepaths = orient_structure_files(pdb1_filepaths, log=orient_log,
                 #                                                  symmetry=symmetry_map[0],
-                #                                                  out_dir=job.resource_db.oriented.location)
-                # # pull out the structure names and use job.resource_db.orient_structures to retrieve the oriented file
+                #                                                  out_dir=job.structure_db.oriented.location)
+                # # pull out the structure names and use job.structure_db.orient_structures to retrieve the oriented file
                 # entity_names1 = list(map(os.path.basename,
                 #                      [os.path.splitext(file)[0] for file in filter(None, pdb1_oriented_filepaths)]))
-        all_structures.extend(job.resource_db.orient_structures(entity_names1, symmetry=symmetry_map[0]))
+        all_structures.extend(job.structure_db.orient_structures(entity_names1, symmetry=symmetry_map[0]))
 
         single_component_design = False
         if args.oligomer2:
@@ -1157,8 +1158,8 @@ if __name__ == '__main__':
                 entity_names2 = pdb2_filepaths
                 # pdb2_oriented_filepaths = orient_structure_files(pdb2_filepaths, log=orient_log,
                 #                                                  symmetry=symmetry_map[1],
-                #                                                  out_dir=job.resource_db.oriented.location)
-                # # pull out the structure names and use job.resource_db.orient_structures to retrieve the oriented file
+                #                                                  out_dir=job.structure_db.oriented.location)
+                # # pull out the structure names and use job.structure_db.orient_structures to retrieve the oriented file
                 # entity_names2 = list(map(os.path.basename,
                 #                          [os.path.splitext(file)[0] for file in filter(None, pdb2_oriented_filepaths)]))
             else:  # the entities are the same symmetry, or we have single component and bad input
@@ -1176,11 +1177,11 @@ if __name__ == '__main__':
             logger.info('No additional entities requested for docking, treating as single component')
             single_component_design = True
         # Select entities, orient them, then load each Structure to all_structures for further database processing
-        all_structures.extend(job.resource_db.orient_structures(entity_names2, symmetry=symmetry_map[1]))
+        all_structures.extend(job.structure_db.orient_structures(entity_names2, symmetry=symmetry_map[1]))
 
         info_messages = []
         preprocess_instructions, pre_refine, pre_loop_model = \
-            job.resource_db.preprocess_structures_for_design(all_structures, load_resources=load_resources,
+            job.structure_db.preprocess_structures_for_design(all_structures, load_resources=load_resources,
                                                              script_out_path=job.sbatch_scripts,
                                                              batch_commands=not args.run_in_shell)
         if load_resources or pre_refine or pre_loop_model:  # entity processing commands are needed
@@ -1229,7 +1230,8 @@ if __name__ == '__main__':
         design_source = os.path.splitext(os.path.basename(location))[0]
     else:
         # this logic is possible with args.module in 'multicistronic', or select_poses with --metric or --dataframe
-        # job.resource_db = None
+        # job.structure_db = None
+        # job.api_db = None
         # design_source = os.path.basename(representative_pose_directory.project_designs)
         pass
 
