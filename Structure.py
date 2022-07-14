@@ -3928,21 +3928,27 @@ class Structure(StructureBase):
         measure_function: Callable[[Atom], bool]
         # Todo switch measure:
         if measure == 'backbone_and_cb':
+            other = 'non-cb sidechain'
             coords_type = 'backbone_and_cb_coords'
             def measure_function(atom): return atom.is_backbone() or atom.is_cb()  # backbone_cb_clash
         elif measure == 'heavy':
+            other = 'hydrogen'
             coords_type = 'heavy_coords'
             def measure_function(atom): return atom.is_heavy()  # heavy_clash
         elif measure == 'backbone':
+            other = 'sidechain'
             coords_type = 'backbone_coords'
             def measure_function(atom): return atom.is_backbone()  # backbone_clash
         elif measure == 'cb':
+            other = 'non-cb'
             coords_type = 'cb_coords'
             def measure_function(atom): return atom.is_cb()  # cb_clash
         elif measure == 'ca':
+            other = 'non-ca'
             coords_type = 'ca_coords'
             def measure_function(atom): return atom.is_ca()  # ca_clash
         else:  # measure == 'all'
+            other = 'solvent'  # this should never appear unless someone added solvent parsing
             coords_type = 'coords'
             def measure_function(atom): return True
 
@@ -4022,7 +4028,7 @@ class Structure(StructureBase):
             if other_clashes:
                 sc_info = '\n\t'.join('Residue %5d: %5d' % (residue.number, other.number)
                                       for residue, other in other_clashes)
-                self.log.warning(f'{self.name} contains {len(other_clashes)} other clashes between the '
+                self.log.warning(f'{self.name} contains {len(other_clashes)} {other} clashes between the '
                                  f'following Residues:\n\t{sc_info}')
             return False
 
@@ -6114,7 +6120,7 @@ class Entity(Chain, SequenceProfile):  # Todo consider moving SequenceProfile to
 
         sdf_cmd = \
             ['perl', make_symmdef, '-m', sdf_mode, '-q', '-p', struct_file, '-a', self.chain_ids[0], '-i'] + chains
-        self.log.info('Creating symmetry definition file: %s' % subprocess.list2cmdline(sdf_cmd))
+        self.log.info(f'Creating symmetry definition file: {subprocess.list2cmdline(sdf_cmd)}')
         # with open(out_file, 'w') as file:
         p = subprocess.Popen(sdf_cmd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
         out, err = p.communicate()
