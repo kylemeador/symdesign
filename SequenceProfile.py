@@ -21,6 +21,7 @@ from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
 
 import CommandDistributer
+import fragment
 import PathUtils as PUtils
 from SymDesignUtils import handle_errors, unpickle, get_base_root_paths_recursively, DesignError, start_log, pretty_format_table
 # import dependencies.bmdca as bmdca
@@ -189,7 +190,7 @@ class SequenceProfile:
     Currently, Entity and Pose contain the necessary .reference_sequence attribute. Any Structure object with a
     .reference_sequence attribute could be used however
     """
-    # fragment_db:  Todo, indicate FragmenDatabase if imports work
+    fragment_db: 'fragment.FragmentInfo'
     number_of_residues: int
     reference_sequence: str
     sequence: str
