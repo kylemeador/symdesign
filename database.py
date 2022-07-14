@@ -15,7 +15,13 @@ logger = start_log(name=__name__)
 # https://new.rosettacommons.org/docs/latest/rosetta_basics/options/Database-options
 
 
-def write_str_to_file(string, file_name, **kwargs) -> str | bytes:
+def read_file(file, **kwargs) -> list[AnyStr]:
+    """The simplest form of parsing a file encoded in ASCII characters"""
+    with open(file, 'r') as f:
+        return f.readlines()
+
+
+def write_str_to_file(string, file_name, **kwargs) -> AnyStr:
     """Use standard file IO to write a string to a file
 
     Args:
@@ -216,13 +222,6 @@ class DataStore:
             for file in sorted(glob(os.path.join(self.location, f'*{self.extension}'))):
                 # self.log.debug('Fetching %s' % file)
                 setattr(self, os.path.splitext(os.path.basename(file))[0], self.load_file(file))
-
-    @staticmethod
-    def read_file(file, **kwargs):
-        with open(file, 'r') as f:
-            lines = f.readlines()
-
-        return lines
 
 
 class Database:  # Todo ensure that the single object is completely loaded before multiprocessing... Queues and whatnot
