@@ -7,14 +7,17 @@ from typing import Annotated
 import numpy as np
 from Bio.Data.IUPACData import protein_letters
 
-from JobResources import logger
 from PathUtils import intfrag_cluster_rep_dirpath, intfrag_cluster_info_dirpath, monofrag_cluster_rep_dirpath, \
     biological_interfaces, biological_fragment_db_pickle, frag_directory
 from Pose import Model
 from Structure import Structure
 from SymDesignUtils import dictionary_lookup, unpickle, parameterize_frag_length, DesignError, \
-    get_base_root_paths_recursively
+    get_base_root_paths_recursively, start_log
 from utils.MysqlPython import Mysql
+
+
+# Globals
+logger = start_log(name=__name__)
 
 
 class ClusterInfoFile:
