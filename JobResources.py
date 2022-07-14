@@ -158,40 +158,25 @@ class Database:  # Todo ensure that the single object is completely loaded befor
             self.sql = sql
 
         self.log = log
-        self.oriented = DataStore(location=oriented, extension='.pdb*', sql=sql, log=log)
-        self.oriented_asu = DataStore(location=oriented_asu, extension='.pdb', sql=sql, log=log)
-        self.refined = DataStore(location=refined, extension='.pdb', sql=sql, log=log)
-        self.full_models = DataStore(location=full_models, extension='_ensemble.pdb', sql=sql, log=log)
-        self.stride = DataStore(location=stride, extension='.stride', sql=sql, log=log)
-        self.sequences = DataStore(location=sequences, extension='.fasta', sql=sql, log=log)
-        self.alignments = DataStore(location=hhblits_profiles, extension='.sto', sql=sql, log=log)
-        self.hhblits_profiles = DataStore(location=hhblits_profiles, extension='.hmm', sql=sql, log=log)
-        self.pdb_api = PDBDataStore(location=pdb_api, extension='.json', sql=sql, log=log)
-        # self.pdb_entity_api = DataStore(location=pdb_entity_api, extension='.json', sql=sql, log=log)
-        # self.pdb_assembly_api = DataStore(location=pdb_assembly_api, extension='.json', sql=sql, log=log)
-        self.uniprot_api = UniProtDataStore(location=uniprot_api, extension='.json', sql=sql, log=log)
-        # self.bmdca_fields = \
-        #     DataStore(location=hhblits_profiles, extension='_bmDCA%sparameters_h_final.bin' % os.sep, sql=sql, log=log)
-        # self.bmdca_couplings = \
-        #     DataStore(location=hhblits_profiles, extension='_bmDCA%sparameters_J_final.bin' % os.sep, sql=sql, log=log)
 
     def load_all_data(self):
         """For every resource, acquire all existing data in memory"""
-        #              self.oriented_asu, self.sequences,
-        for source in [self.stride, self.alignments, self.hhblits_profiles, self.oriented, self.refined]:  # self.full_models
+        for source in self.sources:
             try:
                 source.get_all_data()
             except ValueError:
-                raise ValueError('Issue from source %s' % source)
-        # self.log.debug('The data in the Database is: %s'
-        #                % '\n'.join(str(store.__dict__) for store in self.__dict__.values()))
+                raise ValueError(f'Issue loading data from source {source}')
 
-    def source(self, name):
-        """Return on of the various DataStores supported by the Database"""
+    def source(self, name: str) -> DataStore:
+        """Return on of the various DataStores supported by the Database
+
+        Args:
+            name: The name of the data source to use
+        """
         try:
             return getattr(self, name)
         except AttributeError:
-            raise AttributeError(f'There is no Database source named "{name}" found. '
+            raise AttributeError(f'There is no source named "{name}" found in the {type(self).__name__}. '
                                  f'Possible sources are: {", ".join(self.__dict__)}')
 
     def retrieve_data(self, source: str = None, name: str = None) -> object | None:
@@ -204,21 +189,34 @@ class Database:  # Todo ensure that the single object is completely loaded befor
         Returns:
             If the data is available, the object requested will be returned, else None
         """
-        object_db = self.source(source)
-        data = getattr(object_db, name, None)
-        if not data:
-            object_db.name = object_db._load_data(name, log=None)
-            data = object_db.name  # store the new data as an attribute
-
+        data = self.source(source).retrieve_data(name)
         return data
 
-    def retrieve_file(self, from_source=None, name=None):
-        """Retrieve the specified file on disk for subsequent parsing"""
-        object_db = getattr(self, from_source, None)
-        if not object_db:
-            raise DesignError(f'There is no source named {from_source} found in the Design Database')
+    def retrieve_file(self, source: str = None, name: str = None) -> str | bytes | None:
+        """Retrieve the file specified by the source and identifier name
 
-        return object_db.retrieve_file(name)
+        Args:
+            source: The name of the data source to use
+            name: The name of the data to be retrieved. Will be found with location and extension attributes
+        Returns:
+            If the file is available, it will be returned, else None
+        """
+        return self.source(source).retrieve_file(name)
+
+
+class StructureDatabase(Database):
+    def __init__(self, oriented: str | bytes | Path = None, oriented_asu: str | bytes | Path = None,
+                 refined: str | bytes | Path = None, full_models: str | bytes | Path = None, **kwargs):
+        # passed to Database
+        # sql: sqlite = None, log: Logger = logger
+        super().__init__(**kwargs)  # Database
+
+        self.oriented = DataStore(location=oriented, extension='.pdb*', sql=self.sql, log=self.log)
+        self.oriented_asu = DataStore(location=oriented_asu, extension='.pdb', sql=self.sql, log=self.log)
+        self.refined = DataStore(location=refined, extension='.pdb', sql=self.sql, log=self.log)
+        self.full_models = DataStore(location=full_models, extension='_ensemble.pdb', sql=self.sql, log=self.log)
+
+        self.sources = [self.oriented_asu, self.refined]  # self.full_models
 
     def orient_structures(self, structure_identifiers: Iterable[str], symmetry: str = 'C1', by_file: bool = False) -> \
             list['Pose.Model'] | list:
@@ -555,7 +553,7 @@ class Database:  # Todo ensure that the single object is completely loaded befor
         return info_messages, pre_refine, pre_loop_model
 
 
-class DatabaseFactory:
+class StructureDatabaseFactory:
     """Return a Database instance by calling the Factory instance with the Database source name
 
     Handles creation and allotment to other processes by saving expensive memory load of multiple instances and
@@ -583,27 +581,14 @@ class DatabaseFactory:
         else:
             make_path(source)
             pdbs = os.path.join(source, 'PDBs')  # Used to store downloaded PDB's
-            sequence_info_dir = os.path.join(source, sequence_info)
-            external_db = os.path.join(source, 'ExternalDatabases')
             # pdbs subdirectories
             orient_dir = os.path.join(pdbs, 'oriented')
             orient_asu_dir = os.path.join(pdbs, 'oriented_asu')
             refine_dir = os.path.join(pdbs, 'refined')
             full_model_dir = os.path.join(pdbs, 'full_models')
-            stride_dir = os.path.join(pdbs, 'stride')
-            # sequence_info subdirectories
-            sequences = os.path.join(sequence_info_dir, 'sequences')
-            profiles = os.path.join(sequence_info_dir, 'profiles')
-            # external database subdirectories
-            pdb_api = os.path.join(external_db, 'pdb')
-            # pdb_entity_api = os.path.join(external_db, 'pdb_entity')
-            # pdb_assembly_api = os.path.join(external_db, 'pdb_assembly')
-            uniprot_api = os.path.join(external_db, 'uniprot')
             logger.info(f'Initializing {source} {Database.__name__}')
 
-            self._databases[source] = \
-                Database(orient_dir, orient_asu_dir, refine_dir, full_model_dir, stride_dir, sequences, profiles,
-                         pdb_api, uniprot_api, sql=None)
+            self._databases[source] = Database(orient_dir, orient_asu_dir, refine_dir, full_model_dir, sql=None)
 
         return self._databases[source]
 
@@ -619,10 +604,10 @@ class DatabaseFactory:
         return self.__call__(**kwargs)
 
 
-database_factory: Annotated[DatabaseFactory,
-                            'Calling this factory method returns the single instance of the Database class located at '
-                            'the "source" keyword argument'] = \
-    DatabaseFactory()
+structure_database_factory: Annotated[StructureDatabaseFactory,
+                                      'Calling this factory method returns the single instance of the Database class '
+                                      'located at the "source" keyword argument'] = \
+    StructureDatabaseFactory()
 """Calling this factory method returns the single instance of the Database class located at the "source" keyword 
 argument"""
 
@@ -835,70 +820,6 @@ class DataStore:
         return lines
 
 
-# class EntityDataStore(DataStore):
-#     def retrieve_data(self, name: str = None, **kwargs) -> dict | None:
-#         """Return data requested by PDB EntityID. Loads into the Database or queries the PDB API
-#
-#         Args:
-#             name: The name of the data to be retrieved. Will be found with location and extension attributes
-#         Returns:
-#             If the data is available, the object requested will be returned, else None
-#         """
-#         data = super().retrieve_data(name=name)
-#         #         data = getattr(self, name, None)
-#         #         if data:
-#         #             self.log.debug(f'Info {name}{self.extension} was retrieved from DataStore')
-#         #         else:
-#         #             data = self._load_data(name, log=None)  # attempt to retrieve the new data
-#         #             if data:
-#         #                 setattr(self, name, data)  # attempt to store the new data as an attribute
-#         #                 self.log.debug(f'Database file {name}{self.extension} was loaded fresh')
-#         #
-#         #         return data
-#         if not data:
-#             request = query_entity_id(entity_id=name)
-#             if not request:
-#                 logger.warning(f'PDB API found no matching results for {name}')
-#             else:
-#                 data = request.json()
-#                 # setattr(self, name, data)
-#                 self.store_data(data, name=name)
-#
-#         return data
-#
-#
-# class AssemblyDataStore(DataStore):
-#     def retrieve_data(self, name: str = None, **kwargs) -> dict | None:
-#         """Return data requested by PDB AssemblyID. Loads into the Database or queries the PDB API
-#
-#         Args:
-#             name: The name of the data to be retrieved. Will be found with location and extension attributes
-#         Returns:
-#             If the data is available, the object requested will be returned, else None
-#         """
-#         data = super().retrieve_data(name=name)
-#         #         data = getattr(self, name, None)
-#         #         if data:
-#         #             self.log.debug(f'Info {name}{self.extension} was retrieved from DataStore')
-#         #         else:
-#         #             data = self._load_data(name, log=None)  # attempt to retrieve the new data
-#         #             if data:
-#         #                 setattr(self, name, data)  # attempt to store the new data as an attribute
-#         #                 self.log.debug(f'Database file {name}{self.extension} was loaded fresh')
-#         #
-#         #         return data
-#         if not data:
-#             request = query_assembly_id(assembly_id=name)
-#             if not request:
-#                 logger.warning(f'PDB API found no matching results for {name}')
-#             else:
-#                 data = request.json()
-#                 # setattr(self, name, data)
-#                 self.store_data(data, name=name)
-#
-#         return data
-
-
 class JobResources:
     """The intention of JobResources is to serve as a singular source of design info which is common accross all
     designs. This includes common paths, databases, and design flags which should only be set once in program operation,
@@ -964,11 +885,8 @@ class JobResources:
         # self.make_path(self.full_model_dir)
         # self.make_path(self.stride_dir)
         self.reduce_memory = False
-        self.resource_db = database_factory.get(source=self.data)
-        # self.resource_db = Database(self.orient_dir, self.orient_asu_dir, self.refine_dir, self.full_model_dir,
-        #                           self.stride_dir, self.sequences, self.profiles, self.pdb_api,
-        #                           # self.pdb_entity_api, self.pdb_assembly_api,
-        #                           self.uniprot_api, sql=None)  # , log=logger)
+        self.api_db = api_database_factory.get(source=self.data)
+        self.structure_db = structure_database_factory.get(source=self.data)
         # self.symmetry_factory = symmetry_factory
         self.fragment_db: 'fragment.FragmentDatabase' | None = None
         self.euler_lookup: EulerLookup | None = None

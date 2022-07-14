@@ -17,6 +17,7 @@ from sklearn.neighbors._ball_tree import BinaryTree  # this typing implementatio
 
 import PathUtils as PUtils
 import fragment
+import wrapapi
 from DesignMetrics import calculate_match_metrics, fragment_metric_template, format_fragment_metrics
 import JobResources
 from Query.PDB import retrieve_entity_id_by_sequence, query_pdb_by, get_entity_reference_sequence
@@ -864,7 +865,7 @@ class Model(Structure):
     multimodel: bool
     original_chain_ids: list[str]
     resolution: float | None
-    resource_db: 'JobResources.Database'
+    api_db: wrapapi.APIDatabase
     _reference_sequence: dict[str, str]
     # space_group: str | None
     # uc_dimensions: list[float] | None
@@ -875,7 +876,7 @@ class Model(Structure):
                  cryst_record: str = None, design: bool = False,
                  # dbref: dict[str, dict[str, str]] = None,
                  entity_info: dict[str, dict[dict | list | str]] = None,
-                 multimodel: bool = False, resolution: float = None, resource_db: 'JobResources.Database' = None,
+                 multimodel: bool = False, resolution: float = None, api_db: wrapapi.APIDatabase = None,
                  reference_sequence: dict[str, str] = None, metadata: Model = None,
                  **kwargs):
         # kwargs passed to Structure
@@ -916,7 +917,7 @@ class Model(Structure):
             self._reference_sequence = reference_sequence if reference_sequence else {}
             # ^ SEQRES or PDB API entries. key is chainID, value is 'AGHKLAIDL'
             # self.space_group = space_group
-            self.resource_db = resource_db if resource_db else JobResources.database_factory()  # Todo standardize path?
+            self.api_db = api_db if api_db else wrapapi.api_database_factory()  # Todo standardize path?
 
             # self.uc_dimensions = uc_dimensions
             self.structure_containers.extend(['chains', 'entities'])
@@ -1516,9 +1517,9 @@ class Model(Structure):
         """
         if self.api_entry:  # we already tried solving this
             return
-        # if self.resource_db:
+        # if self.api_db:
         try:
-            retrieve_api_info = self.resource_db.pdb_api.retrieve_data
+            retrieve_api_info = self.api_db.pdb_api.retrieve_data
         except AttributeError:
             retrieve_api_info = query_pdb_by
 
@@ -3627,7 +3628,6 @@ class Pose(SymmetricModel, SequenceProfile):  # Todo consider moving SequencePro
     interface_residues: dict[tuple[Entity, Entity], tuple[list[Residue], list[Residue]]]
     required_indices: set[int]
     required_residues: list[Residue] | None
-    # resource_db: 'Database'
     split_interface_residues: dict[int, list[tuple[Residue, Entity]]]
     split_interface_ss_elements: dict[int, list[int]]
     ss_index_array: list[int]
@@ -3636,7 +3636,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Todo consider moving SequencePro
     def __init__(self, fragment_db: fragment.FragmentDatabase = None, ignore_clashes: bool = False,
                  design_selector: dict[str, dict[str, dict[str, set[int] | set[str] | None]]] = None, **kwargs):
         # unused args
-        #           resource_db: 'JobResources.Database' = None, euler_lookup: EulerLookup = None,
+        #           euler_lookup: EulerLookup = None,
         self.design_selector = design_selector if design_selector else {}  # kwargs.get('design_selector', {})
         self.design_selector_entities = set()
         self.design_selector_indices = set()
@@ -3648,7 +3648,6 @@ class Pose(SymmetricModel, SequenceProfile):  # Todo consider moving SequencePro
         self.interface_residues = {}
         self.required_indices = set()
         self.required_residues = None
-        # self.resource_db = resource_db if resource_db else database_factory()  # kwargs.get('resource_db', None)
         self.split_interface_residues = {}  # {1: [(Residue obj, Entity obj), ...], 2: [(Residue obj, Entity obj), ...]}
         self.split_interface_ss_elements = {}  # {1: [0, 1, 2] , 2: [9, 13, 19]]}
         self.ss_index_array = []  # stores secondary structure elements by incrementing index
@@ -4319,12 +4318,12 @@ class Pose(SymmetricModel, SequenceProfile):  # Todo consider moving SequencePro
         pose_secondary_structure = ''
         for entity in self.active_entities:
             if not entity.secondary_structure:
-                if self.resource_db:
-                    parsed_secondary_structure = self.resource_db.stride.retrieve_data(name=entity.name)
+                if self.api_db:
+                    parsed_secondary_structure = self.api_db.stride.retrieve_data(name=entity.name)
                     if parsed_secondary_structure:
                         entity.fill_secondary_structure(secondary_structure=parsed_secondary_structure)
                     else:
-                        entity.stride(to_file=self.resource_db.stride.store(entity.name))
+                        entity.stride(to_file=self.api_db.stride.store(entity.name))
                 # if source_dir:
                 #     entity.parse_stride(os.path.join(source_dir, '%s.stride' % entity.name))
                 else:
@@ -4389,14 +4388,14 @@ class Pose(SymmetricModel, SequenceProfile):  # Todo consider moving SequencePro
             if entity not in self.active_entities:  # we shouldn't design, add a null profile instead
                 entity.add_profile(null=True)
             else:  # add a real profile
-                if self.resource_db:
-                    profiles_path = self.resource_db.hhblits_profiles.location
-                    entity.sequence_file = self.resource_db.sequences.retrieve_file(name=entity.name)
-                    entity.evolutionary_profile = self.resource_db.hhblits_profiles.retrieve_data(name=entity.name)
+                if self.api_db:
+                    profiles_path = self.api_db.hhblits_profiles.location
+                    entity.sequence_file = self.api_db.sequences.retrieve_file(name=entity.name)
+                    entity.evolutionary_profile = self.api_db.hhblits_profiles.retrieve_data(name=entity.name)
                     if not entity.evolutionary_profile:
                         entity.add_evolutionary_profile(out_path=profiles_path)
                     else:  # ensure the file is attached as well
-                        entity.pssm_file = self.resource_db.hhblits_profiles.retrieve_file(name=entity.name)
+                        entity.pssm_file = self.api_db.hhblits_profiles.retrieve_file(name=entity.name)
 
                     if not entity.pssm_file:  # still no file found. this is likely broken
                         raise DesignError(f'{entity.name} has no profile generated. To proceed with this design/'

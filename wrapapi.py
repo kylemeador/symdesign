@@ -105,6 +105,70 @@ api_database_factory: Annotated[APIDatabaseFactory,
 argument"""
 
 
+# class EntityDataStore(DataStore):
+#     def retrieve_data(self, name: str = None, **kwargs) -> dict | None:
+#         """Return data requested by PDB EntityID. Loads into the Database or queries the PDB API
+#
+#         Args:
+#             name: The name of the data to be retrieved. Will be found with location and extension attributes
+#         Returns:
+#             If the data is available, the object requested will be returned, else None
+#         """
+#         data = super().retrieve_data(name=name)
+#         #         data = getattr(self, name, None)
+#         #         if data:
+#         #             self.log.debug(f'Info {name}{self.extension} was retrieved from DataStore')
+#         #         else:
+#         #             data = self._load_data(name, log=None)  # attempt to retrieve the new data
+#         #             if data:
+#         #                 setattr(self, name, data)  # attempt to store the new data as an attribute
+#         #                 self.log.debug(f'Database file {name}{self.extension} was loaded fresh')
+#         #
+#         #         return data
+#         if not data:
+#             request = query_entity_id(entity_id=name)
+#             if not request:
+#                 logger.warning(f'PDB API found no matching results for {name}')
+#             else:
+#                 data = request.json()
+#                 # setattr(self, name, data)
+#                 self.store_data(data, name=name)
+#
+#         return data
+#
+#
+# class AssemblyDataStore(DataStore):
+#     def retrieve_data(self, name: str = None, **kwargs) -> dict | None:
+#         """Return data requested by PDB AssemblyID. Loads into the Database or queries the PDB API
+#
+#         Args:
+#             name: The name of the data to be retrieved. Will be found with location and extension attributes
+#         Returns:
+#             If the data is available, the object requested will be returned, else None
+#         """
+#         data = super().retrieve_data(name=name)
+#         #         data = getattr(self, name, None)
+#         #         if data:
+#         #             self.log.debug(f'Info {name}{self.extension} was retrieved from DataStore')
+#         #         else:
+#         #             data = self._load_data(name, log=None)  # attempt to retrieve the new data
+#         #             if data:
+#         #                 setattr(self, name, data)  # attempt to store the new data as an attribute
+#         #                 self.log.debug(f'Database file {name}{self.extension} was loaded fresh')
+#         #
+#         #         return data
+#         if not data:
+#             request = query_assembly_id(assembly_id=name)
+#             if not request:
+#                 logger.warning(f'PDB API found no matching results for {name}')
+#             else:
+#                 data = request.json()
+#                 # setattr(self, name, data)
+#                 self.store_data(data, name=name)
+#
+#         return data
+
+
 class PDBDataStore(DataStore):
     def __init__(self, location: str = None, extension: str = '.json', sql=None, log: Logger = logger):
         super().__init__(location=location, extension=extension, sql=sql, log=log)
