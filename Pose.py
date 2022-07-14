@@ -1614,34 +1614,31 @@ class Model(Structure):
             query_by_sequence: Whether the PDB API should be queried for an Entity name by matching sequence. Only used
                 if entity_names not provided
         """
-        if not self.entity_info:  # we didn't get the info from the file, so we have to try and piece together
-            # the file is either from a program that has modified the original PDB file, was a model that hasn't been
-            # formatted properly, or may be some sort of PDB assembly. If it is a PDB assembly, the file will have a
-            # final numeric suffix after the .pdb extension. If not, it may be an assembly file from another source, in
-            # which case we have to solve by atomic info. If we have to solve by atomic info, then the number of
-            # chains in the structure and the number of Entity chains will not be equal after prior attempts
-            self.retrieve_pdb_info_from_api()  # First try to set self.api_entry if possible
-            if self.api_entry:  # self.api_entry = {'entity': {1: ['A', 'B'], ...}, ...}
-                if self.biological_assembly:  # When PDB API is returning information on the asu and assembly is different
-                    if self.multimodel:  # ensure the renaming of chains is handled correctly
-                        for ent_idx, chains in self.api_entry.get('entity', {}).items():
-                            # chain_set = set(chains)
-                            success = False
-                            for cluster_idx, cluster_chains in self.api_entry.get('assembly', {}).items():
-                                # if set(cluster_chains) == chain_set:  # we found the right cluster
-                                if not set(cluster_chains).difference(chains):  # we found the right cluster
-                                    self.entity_info.append(
+        if not self.entity_info:  # we didn't get from the file (probaly not PDB), so we have to try and piece together
+            # The file is either from a program that has modified an original PDB file, or may be some sort of PDB
+            # assembly. If it is a PDB assembly, the only way to know is that the file would have a final numeric suffix
+            # after the .pdb extension (.pdb1). If not, it may be an assembly file from another source, in which case we
+            # have to solve by using the atomic info
+            self.retrieve_pdb_info_from_api()  # First try to set self.api_entry
+            if self.api_entry:
+                if self.biological_assembly:
+                    # As API returns information on the asu, assembly may be different. We got API info for assembly, so
+                    # we try to reconcile
+                    for entity_name, data in self.api_entry.get('entity', {}).items():
+                        chains = data['chains']
+                        for cluster_chains in self.api_entry.get('assembly', []):
+                            if not set(cluster_chains).difference(chains):  # nothing missing, correct cluster
+                                if self.multimodel:  # ensure the renaming of chains is handled correctly
+                                    self.entity_info[entity_name] = \
                                         {'chains': [new_chn for new_chn, old_chn in zip(self.chain_ids,
                                                                                         self.original_chain_ids)
-                                                    if old_chn in chains], 'name': ent_idx})
-                                    success = True
-                                    break  # this should be fine since entities will cluster together, unless they don't
-                            if not success:
-                                self.log.error('Unable to find the chains corresponding from asu (%s) to assembly (%s)'
-                                               % (self.api_entry.get('entity'), self.api_entry.get('assembly')))
-                    else:  # chain names should be the same as the assembly API if the file is sourced from PDB
-                        self.entity_info = [{'chains': chains, 'name': ent_idx}
-                                            for ent_idx, chains in self.api_entry.get('assembly', {}).items()]
+                                                    if old_chn in chains]}
+                                else:  # chain names should be the same as the assembly API if file is sourced from PDB
+                                    self.entity_info[entity_name] = {'chains': chains}
+                                break  # we satisfied this cluster, move on
+                        else:  # if we didn't satisfy a cluster, report and move to the next
+                            self.log.error('Unable to find the chains corresponding from asu (%s) to assembly (%s)'
+                                           % (self.api_entry.get('entity'), self.api_entry.get('assembly', {})))
                 else:
                     for entity_name, data in self.api_entry.get('entity', {}).items():
                         self.entity_info[entity_name] = data
