@@ -516,24 +516,24 @@ class StructureDatabase(Database):
 
 
 class StructureDatabaseFactory:
-    """Return a Database instance by calling the Factory instance with the Database source name
+    """Return a StructureDatabase instance by calling the Factory instance with the StructureDatabase source name
 
     Handles creation and allotment to other processes by saving expensive memory load of multiple instances and
-    allocating a shared pointer to the named Database
+    allocating a shared pointer to the named StructureDatabase
     """
 
     def __init__(self, **kwargs):
         self._databases = {}
 
     def __call__(self, source: str = os.path.join(os.getcwd(), f'{program_name}{data.title()}'), sql: bool = False,
-                 **kwargs) -> Database:
-        """Return the specified Database object singleton
+                 **kwargs) -> StructureDatabase:
+        """Return the specified StructureDatabase object singleton
 
         Args:
-            source: The Database source path, or name if SQL Database
-            sql: Whether the Database is a SQL Database
+            source: The StructureDatabase source path, or name if SQL database
+            sql: Whether the StructureDatabase is a SQL database
         Returns:
-            The instance of the specified Database
+            The instance of the specified StructureDatabase
         """
         database = self._databases.get(source)
         if database:
@@ -551,20 +551,21 @@ class StructureDatabaseFactory:
             orient_asu_dir = os.path.join(pdbs, 'oriented_asu')
             refine_dir = os.path.join(pdbs, 'refined')
             full_model_dir = os.path.join(pdbs, 'full_models')
-            logger.info(f'Initializing {source} {Database.__name__}')
+            logger.info(f'Initializing {source} {StructureDatabase.__name__}')
 
-            self._databases[source] = Database(orient_dir, orient_asu_dir, refine_dir, full_model_dir, sql=None)
+            self._databases[source] = \
+                StructureDatabase(orient_dir, orient_asu_dir, refine_dir, full_model_dir, sql=None)
 
         return self._databases[source]
 
-    def get(self, **kwargs) -> Database:
+    def get(self, **kwargs) -> StructureDatabase:
         """Return the specified Database object singleton
 
         Keyword Args:
-            source=current_working_directory/Data (str): The Database source path, or name if SQL Database
-            sql=False (bool): Whether the Database is a SQL Database
+            source: str = 'current_working_directory/Data' - The StructureDatabase source path, or name if SQL database
+            sql: bool = False - Whether the StructureDatabase is a SQL database
         Returns:
-            The instance of the specified Database
+            The instance of the specified StructureDatabase
         """
         return self.__call__(**kwargs)
 

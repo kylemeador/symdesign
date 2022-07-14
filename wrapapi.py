@@ -57,22 +57,22 @@ class APIDatabase(Database):
 
 
 class APIDatabaseFactory:
-    """Return a Database instance by calling the Factory instance with the Database source name
+    """Return a APIDatabase instance by calling the Factory instance with the APIDatabase source name
 
     Handles creation and allotment to other processes by saving expensive memory load of multiple instances and
-    allocating a shared pointer to the named Database
+    allocating a shared pointer to the named APIDatabase
     """
 
     def __init__(self, **kwargs):
         self._databases = {}
 
     def __call__(self, source: str = os.path.join(os.getcwd(), f'{program_name}{data.title()}'), sql: bool = False,
-                 **kwargs) -> Database:
-        """Return the specified Database object singleton
+                 **kwargs) -> APIDatabase:
+        """Return the specified APIDatabase object singleton
 
         Args:
-            source: The Database source path, or name if SQL Database
-            sql: Whether the Database is a SQL Database
+            source: The APIDatabase source path, or name if SQL database
+            sql: Whether the APIDatabase is a SQL database
         Returns:
             The instance of the specified Database
         """
@@ -102,12 +102,12 @@ class APIDatabaseFactory:
 
         return self._databases[source]
 
-    def get(self, **kwargs) -> Database:
-        """Return the specified Database object singleton
+    def get(self, **kwargs) -> APIDatabase:
+        """Return the specified APIDatabase object singleton
 
         Keyword Args:
-            source=current_working_directory/Data (str): The Database source path, or name if SQL Database
-            sql=False (bool): Whether the Database is a SQL Database
+            source: str = 'current_working_directory/Data' - The APIDatabase source path, or name if SQL database
+            sql: bool = False - Whether the Database is a SQL database
         Returns:
             The instance of the specified Database
         """
