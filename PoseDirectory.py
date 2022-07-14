@@ -3083,7 +3083,7 @@ class PoseDirectory:
             #                                              both mut_freq and profile_background[profile] are one-indexed
             divergence = {f'divergence_{profile}': position_specific_jsd(mutation_frequencies, background)
                           for profile, background in profile_background.items()}
-            interface_bkgd = self.fragment_db.get_db_aa_frequencies()
+            interface_bkgd = self.fragment_db.aa_frequencies
             if interface_bkgd:
                 divergence['divergence_interface'] = jensen_shannon_divergence(mutation_frequencies, interface_bkgd)
             # Get pose sequence divergence
