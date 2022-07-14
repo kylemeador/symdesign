@@ -1,20 +1,16 @@
 from __future__ import annotations
 
 import os
-from glob import glob
-from typing import Annotated, Iterable, AnyStr
+from typing import Annotated
 
 import numpy as np
-from Bio.Data.IUPACData import protein_letters
 
 from PathUtils import intfrag_cluster_rep_dirpath, intfrag_cluster_info_dirpath, monofrag_cluster_rep_dirpath, \
-    biological_interfaces, biological_fragment_db_pickle, frag_directory
+    biological_interfaces, biological_fragment_db_pickle
 import Pose
 from Structure import Structure
-from SymDesignUtils import dictionary_lookup, unpickle, parameterize_frag_length, DesignError, \
-    get_base_root_paths_recursively, start_log
-from utils.MysqlPython import Mysql
-
+from SymDesignUtils import dictionary_lookup, unpickle, start_log
+from info import FragmentInfo
 
 # Globals
 logger = start_log(name=__name__)
@@ -70,204 +66,50 @@ class ClusterInfoFile:
         return self.central_residue_pair_freqs
 
 
-class FragmentInfo:
-    cluster_info: dict
-    fragment_length: int
-    fragment_range: tuple[int, int]
-    source: str
-    statistics: dict
-
-    def __init__(self, source: str = biological_interfaces, fragment_length: int = 5, init_db: bool = True,
-                 sql: bool = False, **kwargs):
-        super().__init__()  # object
-        # Todo load all statistics files into the pickle!
-        self.cluster_info: dict = {}
-        self.fragment_length = fragment_length
-        self.fragment_range = parameterize_frag_length(fragment_length)
-        self.source: str = source
-        self.statistics: dict = {}
-        # {cluster_id: [[mapped, paired, {max_weight_counts}, ...], ..., frequencies: {'A': 0.11, ...}}
-        #  ex: {'1_0_0': [[0.540, 0.486, {-2: 67, -1: 326, ...}, {-2: 166, ...}], 2749]
-
-        if sql:
-            self.start_mysql_connection()  # sets self.fragdb  # Todo work out mechanism
-            self.db = True
-        else:  # self.source == 'directory':
-            # Todo initialize as local directory
-            self.db = False
-            if init_db:
-                logger.info(f'Initializing {source} FragmentDatabase from disk. This may take awhile...')
-                # self.get_monofrag_cluster_rep_dict()
-                self.get_intfrag_cluster_rep_dict()
-                self.get_intfrag_cluster_info_dict()
-                # self._load_cluster_info()
-
-        self._load_db_statistics()
-
-    @property
-    def location(self) -> AnyStr | None:
-        """Provide the location where fragments are stored"""
-        return frag_directory.get(self.source, None)
-
-    def _load_db_statistics(self):
-        """Retrieve summary statistics for a specific fragment database located on directory
-
-        Returns:
-            {cluster_id1: [[mapped_index_average, paired_index_average, {max_weight_counts_mapped}, {paired}],
-                           total_fragment_observations], cluster_id2: ...,
-             frequencies: {'A': 0.11, ...}}
-                ex: {'1_0_0': [[0.540, 0.486, {-2: 67, -1: 326, ...}, {-2: 166, ...}], 2749], ...}
-        """
-        if self.db:
-            logger.warning('No SQL DB connected yet!')  # Todo
-            raise NotImplementedError('Can\'t connect to MySQL database yet')
-        else:
-            stats_file = sorted(glob(os.path.join(self.location, 'statistics.pkl')))
-            if len(stats_file) == 1:
-                self.statistics = unpickle(stats_file[0])
-            else:
-                raise DesignError('There were too many statistics.pkl files found from the fragment database source!')
-            # for file in os.listdir(self.location):
-            #     if 'statistics.pkl' in file:
-            #         self.statistics = unpickle(os.path.join(self.location, file))
-            #         return
-
-    @property
-    def aa_frequencies(self) -> dict[protein_letters, float]:
-        """Retrieve database specific amino acid representation frequencies
-
-        Returns:
-            {'A': 0.11, 'C': 0.03, 'D': 0.53, ...}
-        """
-        return self.statistics.get('frequencies', {})
-
-    def retrieve_cluster_info(self, cluster: str = None, source: str = None, index: str = None) -> \
-            dict[str, int | float | str | dict[int, dict[protein_letters | str, float | tuple[int, float]]]]:
-        # Todo rework this and below func for Database
-        """Return information from the fragment information database by cluster_id, information source, and source index
-
-        Args:
-            cluster: A cluster_id to get information about
-            source: The source of information to gather from: ['size', 'rmsd', 'rep', 'mapped', 'paired']
-            index: The index to gather information from. Must be from 'mapped' or 'paired'
-        Returns:
-            {'size': ..., 'rmsd': ..., 'rep': ..., 'mapped': indexed_frequencies, 'paired': indexed_frequencies}
-            Where indexed_frequencies has format {-2: {'A': 0.1, 'C': 0., ..., 'info': (12, 0.41)}, -1: {}, ..., 2: {}}
-        """
-        if cluster is not None:
-            if cluster not in self.cluster_info:
-                self._load_cluster_info(ids=[cluster])
-            if source is not None:
-                if index is not None and source in ['mapped', 'paired']:  # must check for not None. The index can be 0
-                    return self.cluster_info[cluster][source][index]
-                else:
-                    return self.cluster_info[cluster][source]
-            else:
-                return self.cluster_info[cluster]
-        else:
-            return self.cluster_info
-
-    def _load_cluster_info(self, ids: Iterable[str] = None):
-        """Load cluster information from the fragment database source into attribute cluster_info
-        # Todo change ids to a tuple
-        Args:
-            ids: ['1_2_123', ...]
-        Sets:
-            self.cluster_info (dict): {'1_2_123': {'size': , 'rmsd': , 'rep': , 'mapped': , 'paired': }, ...}
-        """
-        if self.db:
-            logger.warning('No SQL DB connected yet!')
-            raise NotImplementedError('Can\'t connect to MySQL database yet')
-        else:
-            if ids is None:
-                directories = get_base_root_paths_recursively(self.location)
-            else:
-                directories = []
-                for _id in ids:
-                    c_id = _id.split('_')
-                    _dir = os.path.join(self.location, c_id[0], '%s_%s' % (c_id[0], c_id[1]),
-                                        '%s_%s_%s' % (c_id[0], c_id[1], c_id[2]))
-                    directories.append(_dir)
-
-            for cluster_directory in directories:
-                cluster_id = os.path.basename(cluster_directory)
-                self.cluster_info[cluster_id] = unpickle(os.path.join(cluster_directory, '%s.pkl' % cluster_id))
-
-    @staticmethod
-    def get_cluster_id(cluster_id: str, index: int = 3) -> str:
-        """Returns the cluster identification string according the specified index
-
-        Args:
-            cluster_id: The id of the fragment cluster. Ex: 1_2_123
-            index: The index on which to return. Ex: index_number=2 gives 1_2
-        Returns:
-            The cluster_id modified by the requested index_number
-        """
-        while len(cluster_id) < 3:
-            cluster_id += '0'
-
-        if len(cluster_id.split('_')) != 3:  # in case of 12123?
-            id_l = [cluster_id[:1], cluster_id[1:2], cluster_id[2:]]
-        else:
-            id_l = cluster_id.split('_')
-
-        info = [id_l[i] for i in range(index)]
-
-        while len(info) < 3:  # ensure the returned string has at least 3 indices
-            info.append('0')
-
-        return '_'.join(info)
-
-    # def parameterize_frag_length(self, length):
-    #     """Generate fragment length range parameters for use in fragment functions"""
-    #     _range = math.floor(length / 2)  # get the number of residues extending to each side
-    #     if length % 2 == 1:  # fragment length is odd
-    #         self.fragment_range = (0 - _range, 0 + _range + index_offset)
-    #         # return 0 - _range, 0 + _range + index_offset
-    #     else:  # length is even
-    #         logger.critical(f'{length} is an even integer which is not symmetric about a single residue. '
-    #                         'Ensure this is what you want')
-    #         self.fragment_range = (0 - _range, 0 + _range)
-
-    def start_mysql_connection(self):
-        self.fragdb = Mysql(host='cassini-mysql', database='kmeader', user='kmeader', password='km3@d3r')
-
-
 class FragmentDatabase(FragmentInfo):
     cluster_representatives_path: str
     cluster_info_path: str
     indexed_ghosts: dict[int, tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]] | dict
     # dict[int, tuple[3x3, 1x3, tuple[int, int, int], float]]
-    info: dict[int, dict[int, dict[int, ClusterInfoFile]]] | None
+    info: dict[int, dict[int, dict[int, ClusterInfoFile]]]
     # monofrag_representatives_path: str
-    paired_frags: dict[int, dict[int, dict[int, tuple['Pose.Model', str]]]] | None
+    paired_frags: dict[int, dict[int, dict[int, tuple['Pose.Model', str]]]]
     reps: dict[int, np.ndarray]
 
-    def __init__(self, **kwargs):  # fragment_length: int = 5
+    def __init__(self, init_db: bool = True, **kwargs):  # fragment_length: int = 5
         super().__init__(**kwargs)
         if self.source == biological_interfaces:
             self.cluster_representatives_path = intfrag_cluster_rep_dirpath
             self.cluster_info_path = intfrag_cluster_info_dirpath
             self.monofrag_representatives_path = monofrag_cluster_rep_dirpath
 
-        self.indexed_ghosts = {}
-        self.info = None
-        self.paired_frags = None
-        self.reps = {int(os.path.splitext(file)[0]):
-                     Structure.from_file(os.path.join(root, file), entities=False, log=None).ca_coords
-                     for root, dirs, files in os.walk(self.monofrag_cluster_rep_dirpath) for file in files}
+        if init_db:
+            logger.info(f'Initializing {self.source} FragmentDatabase from disk. This may take awhile...')
+            # self.get_monofrag_cluster_rep_dict()
+            self.reps = {int(os.path.splitext(file)[0]):
+                             Structure.from_file(os.path.join(root, file), entities=False, log=None).ca_coords
+                         for root, dirs, files in os.walk(self.monofrag_representatives_path) for file in files}
+            self.get_intfrag_cluster_rep_dict()
+            self.get_intfrag_cluster_info_dict()
+            self.index_ghosts()
+            # self._load_cluster_info()
+        else:
+            self.reps = {}
+            self.paired_frags = {}
+            self.info = {}
+            self.indexed_ghosts = {}
 
     def get_intfrag_cluster_rep_dict(self):
         from Pose import Model
-        ijk_cluster_representatives = {}
+        self.paired_frags = {}
         for root, dirs, files in os.walk(self.cluster_representatives_path):
             if not dirs:
                 i_cluster_type, j_cluster_type, k_cluster_type = map(int, root.split(os.sep)[-1].split('_'))
 
-                if i_cluster_type not in ijk_cluster_representatives:
-                    ijk_cluster_representatives[i_cluster_type] = {}
-                if j_cluster_type not in ijk_cluster_representatives[i_cluster_type]:
-                    ijk_cluster_representatives[i_cluster_type][j_cluster_type] = {}
+                if i_cluster_type not in self.paired_frags:
+                    self.paired_frags[i_cluster_type] = {}
+                if j_cluster_type not in self.paired_frags[i_cluster_type]:
+                    self.paired_frags[i_cluster_type][j_cluster_type] = {}
 
                 for file in files:
                     ijk_frag_cluster_rep_pdb = Model.from_file(os.path.join(root, file), entities=False, log=None)
@@ -276,34 +118,27 @@ class FragmentDatabase(FragmentInfo):
                     # must look up the partner coords later by using chain_id stored in file
                     partner_chain_idx = file.find('partnerchain')
                     ijk_cluster_rep_partner_chain = file[partner_chain_idx + 13:partner_chain_idx + 14]
-                    ijk_cluster_representatives[i_cluster_type][j_cluster_type][k_cluster_type] = \
+                    self.paired_frags[i_cluster_type][j_cluster_type][k_cluster_type] = \
                         (ijk_frag_cluster_rep_pdb, ijk_cluster_rep_partner_chain)  # ijk_cluster_rep_mapped_chain,
 
-        self.paired_frags = ijk_cluster_representatives
-        if self.info:
-            self.index_ghosts()
-
     def get_intfrag_cluster_info_dict(self):
-        intfrag_cluster_info_dict = {}
+        self.info = {}
         for root, dirs, files in os.walk(self.cluster_info_path):
             if not dirs:
                 i_cluster_type, j_cluster_type, k_cluster_type = map(int, root.split(os.sep)[-1].split('_'))
 
-                if i_cluster_type not in intfrag_cluster_info_dict:
-                    intfrag_cluster_info_dict[i_cluster_type] = {}
-                if j_cluster_type not in intfrag_cluster_info_dict[i_cluster_type]:
-                    intfrag_cluster_info_dict[i_cluster_type][j_cluster_type] = {}
+                if i_cluster_type not in self.info:
+                    self.info[i_cluster_type] = {}
+                if j_cluster_type not in self.info[i_cluster_type]:
+                    self.info[i_cluster_type][j_cluster_type] = {}
 
                 for file in files:
-                    intfrag_cluster_info_dict[i_cluster_type][j_cluster_type][k_cluster_type] = \
+                    self.info[i_cluster_type][j_cluster_type][k_cluster_type] = \
                         ClusterInfoFile(os.path.join(root, file))
-
-        self.info = intfrag_cluster_info_dict
-        if self.paired_frags:
-            self.index_ghosts()
 
     def index_ghosts(self):
         """From the fragment database, precompute all required data into arrays to populate Ghost Fragments"""
+        self.indexed_ghosts = {}
         for i_type in self.paired_frags:
             # must look up the partner coords by using stored chain_id
             stacked_bb_coords = np.array([frag_pdb.chain(frag_paired_chain).backbone_coords
