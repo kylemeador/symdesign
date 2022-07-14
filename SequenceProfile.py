@@ -703,7 +703,7 @@ class SequenceProfile:
                 self.msa_file = msa
 
         if not self.msa_file:
-            # self.msa = self.resources.alignments.retrieve_data(name=self.name)
+            # self.msa = self.resource_db.alignments.retrieve_data(name=self.name)
             raise AttributeError('No .msa_file attribute is specified yet!')
         # self.msa = MultipleSequenceAlignment.from_stockholm(self.msa_file)
         try:
