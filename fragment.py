@@ -70,7 +70,7 @@ class ClusterInfoFile:
         return self.central_residue_pair_freqs
 
 
-class FragmentDB:
+class FragmentDatabase(FragmentInfo):
     cluster_representatives_path: str
     cluster_info_path: str
     fragment_length: int
