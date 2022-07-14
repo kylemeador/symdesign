@@ -70,7 +70,13 @@ class ClusterInfoFile:
         return self.central_residue_pair_freqs
 
 
-class FragmentDatabase(FragmentDB):
+class FragmentInfo:
+    cluster_info: dict
+    fragment_length: int
+    fragment_range: tuple[int, int]
+    source: str
+    statistics: dict
+
     def __init__(self, source: str = biological_interfaces, fragment_length: int = 5, init_db: bool = True,
                  sql: bool = False, **kwargs):
         super().__init__()  # object
