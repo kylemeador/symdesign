@@ -2,7 +2,9 @@
 <project version="4">
   <component name="VcsDirectoryMappings">
     <mapping directory="$PROJECT_DIR$" vcs="Git" />
-    <mapping directory="$PROJECT_DIR$/dependencies/DnaChisel" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/DnaChisel" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/Proglog" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/codon-usage-tables" vcs="Git" />
     <mapping directory="$PROJECT_DIR$/dependencies/bmDCA" vcs="Git" />
     <mapping directory="$PROJECT_DIR$/dependencies/carma" vcs="Git" />
     <mapping directory="$PROJECT_DIR$/dependencies/dssp" vcs="Git" />
