@@ -25,11 +25,29 @@ from classes.WeightedSeqFreq import FragMatchInfo, SeqFreqInfo
 from utils.CmdLineArgParseUtils import get_docking_parameters
 from utils.GeneralUtils import get_last_sampling_state, write_docked_pose_info, transform_coordinate_sets, \
     get_rotation_step, write_docking_parameters
-from utils.PDBUtils import get_contacting_asu, get_interface_residues
+from utils.PDBUtils import get_interface_residues
 from utils.SymmetryUtils import generate_cryst1_record, get_central_asu
 
 # Globals
 logger = start_log(name=__name__, format_log=False, propagate=True)
+
+
+def get_contacting_asu(pdb1, pdb2, contact_dist=8, **kwargs):
+    max_contact_count = 0
+    max_contact_chain1, max_contact_chain2 = None, None
+    for chain1 in pdb1.chains:
+        pdb1_cb_coords_kdtree = BallTree(chain1.cb_coords)
+        for chain2 in pdb2.chains:
+            contact_count = pdb1_cb_coords_kdtree.two_point_correlation(chain2.cb_coords, [contact_dist])[0]
+
+            if contact_count > max_contact_count:
+                max_contact_count = contact_count
+                max_contact_chain1, max_contact_chain2 = chain1, chain2
+
+    if max_contact_count > 0:
+        return Model.from_chains([max_contact_chain1, max_contact_chain2], name='asu', entities=True, **kwargs)
+    else:
+        return
 
 
 def find_docked_poses(sym_entry, ijk_frag_db, pdb1, pdb2, optimal_tx_params, complete_ghost_frags, complete_surf_frags,
