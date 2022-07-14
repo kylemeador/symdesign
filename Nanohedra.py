@@ -5,7 +5,7 @@ from itertools import product, combinations
 
 import PathUtils as PUtils
 from FragDock import nanohedra_dock
-from utils.PDBUtils import orient_structure_files
+from structure_db import orient_structure_files
 from fragment import fragment_factory
 from SymDesignUtils import get_directory_file_paths, start_log, set_logging_to_debug
 from classes.EulerLookup import euler_factory
