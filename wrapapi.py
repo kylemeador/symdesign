@@ -5,12 +5,13 @@ from logging import Logger
 from pathlib import Path
 from typing import Annotated
 
-from JobResources import Database, DataStore
+from database import Database, DataStore
 from PathUtils import program_name, data, sequence_info, structure_info
 from Query.PDB import query_entity_id, query_assembly_id, parse_entities_json, parse_assembly_json, query_entry_id, \
     parse_entry_json
 from Query.UniProt import query_uniprot
 from SymDesignUtils import make_path, start_log
+# import dependencies.bmdca as bmdca
 
 logger = start_log(name=__name__)
 
@@ -102,7 +103,8 @@ api_database_factory: Annotated[APIDatabaseFactory,
                                 ' at the "source" keyword argument'] = \
     APIDatabaseFactory()
 """Calling this factory method returns the single instance of the Database class located at the "source" keyword 
-argument"""
+argument
+"""
 
 
 # class EntityDataStore(DataStore):
