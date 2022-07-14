@@ -5,6 +5,8 @@ from logging import Logger
 from pathlib import Path
 from typing import Annotated
 
+from SequenceProfile import MultipleSequenceAlignment, parse_hhblits_pssm, read_fasta_file, write_sequence_to_fasta
+from Structure import parse_stride
 from database import Database, DataStore
 from PathUtils import program_name, data, sequence_info, structure_info
 from Query.PDB import query_entity_id, query_assembly_id, parse_entities_json, parse_assembly_json, query_entry_id, \
@@ -24,18 +26,32 @@ class APIDatabase(Database):
         # sql: sqlite = None, log: Logger = logger
         super().__init__(**kwargs)  # Database
 
-        self.stride = DataStore(location=stride, extension='.stride', sql=self.sql, log=self.log)
-        self.sequences = DataStore(location=sequences, extension='.fasta', sql=self.sql, log=self.log)
-        self.alignments = DataStore(location=hhblits_profiles, extension='.sto', sql=self.sql, log=self.log)
-        self.hhblits_profiles = DataStore(location=hhblits_profiles, extension='.hmm', sql=self.sql, log=self.log)
+        self.stride = DataStore(location=stride, extension='.stride', sql=self.sql, log=self.log,
+                                load_file=parse_stride)
+        self.sequences = DataStore(location=sequences, extension='.fasta', sql=self.sql, log=self.log,
+                                   load_file=read_fasta_file, save_file=write_sequence_to_fasta)
+        # elif extension == '.fasta' and msa:  # Todo if msa is in fasta format
+        #  load_file = MultipleSequenceAlignment.from_fasta
+        self.alignments = DataStore(location=hhblits_profiles, extension='.sto', sql=self.sql, log=self.log,
+                                    load_file=MultipleSequenceAlignment.from_stockholm)
+        # if extension == '.pssm':  # Todo for psiblast
+        #  load_file = parse_pssm
+        self.hhblits_profiles = DataStore(location=hhblits_profiles, extension='.hmm', sql=self.sql, log=self.log,
+                                          load_file=parse_hhblits_pssm)
         self.pdb_api = PDBDataStore(location=pdb_api, extension='.json', sql=self.sql, log=self.log)
         self.uniprot_api = UniProtDataStore(location=uniprot_api, extension='.json', sql=self.sql, log=self.log)
         # self.bmdca_fields = \
         #     DataStore(location=hhblits_profiles, extension='_bmDCA%sparameters_h_final.bin' % os.sep,
         #     sql=self.sql, log=self.log)
+        #  elif extension == f'_bmDCA{os.sep}parameters_h_final.bin':
+        #      self.load_file = bmdca.load_fields
+        #      self.save_file = not_implemented
         # self.bmdca_couplings = \
         #     DataStore(location=hhblits_profiles, extension='_bmDCA%sparameters_J_final.bin' % os.sep,
         #     sql=self.sql, log=self.log)
+        #  elif extension == f'_bmDCA{os.sep}sparameters_J_final.bin':
+        #      self.load_file = bmdca.load_couplings
+        #      self.save_file = not_implemented
         self.sources = [self.stride, self.sequences, self.alignments, self.hhblits_profiles, self.pdb_api,
                         self.uniprot_api]
 

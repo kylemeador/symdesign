@@ -137,10 +137,14 @@ class StructureDatabase(Database):
         # sql: sqlite = None, log: Logger = logger
         super().__init__(**kwargs)  # Database
 
-        self.oriented = DataStore(location=oriented, extension='.pdb*', sql=self.sql, log=self.log)
-        self.oriented_asu = DataStore(location=oriented_asu, extension='.pdb', sql=self.sql, log=self.log)
-        self.refined = DataStore(location=refined, extension='.pdb', sql=self.sql, log=self.log)
-        self.full_models = DataStore(location=full_models, extension='_ensemble.pdb', sql=self.sql, log=self.log)
+        self.oriented = DataStore(location=oriented, extension='.pdb*', sql=self.sql, log=self.log,
+                                  load_file=Pose.Model.from_pdb)
+        self.oriented_asu = DataStore(location=oriented_asu, extension='.pdb', sql=self.sql, log=self.log,
+                                      load_file=Pose.Model.from_pdb)
+        self.refined = DataStore(location=refined, extension='.pdb', sql=self.sql, log=self.log,
+                                 load_file=Pose.Model.from_pdb)
+        self.full_models = DataStore(location=full_models, extension='_ensemble.pdb', sql=self.sql, log=self.log,
+                                     load_file=Pose.Model.from_pdb)
 
         self.sources = [self.oriented_asu, self.refined]  # self.full_models
 

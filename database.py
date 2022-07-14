@@ -82,44 +82,43 @@ def not_implemented(data, file_name):
 
 
 class DataStore:
-    def __init__(self, location: str = None, extension: str = '.txt', sql=None, log: Logger = logger):
-        self.location = location
-        self.extension = extension
-        self.sql = sql
-        self.log = log
+    """
 
-        # load_file must be a callable which takes as first argument the file_name
-        # save_file must be a callable which takes as first argument the object to save and second argument is file_name
-        if '.txt' in extension:  # '.txt' read the file and return the lines
-            self.load_file = self.read_file
-            self.save_file = write_list_to_file
-        elif '.json' in extension:
-            self.load_file = read_json
-            self.save_file = write_json
+    Args:
+        location: The location to store/retrieve data if directories are used
+        extension: The extension of files to use during file handling. If extension is other than .txt or .json, the
+            arguments load_file/save_file must be provided to handle storage
+        load_file: Callable taking the file_name as first argument
+        save_file: Callable taking the object to save as first argument and file_name as second argument
+        sql: The database to use if the storage is based on a SQL database
+        log: The Logger to handle operation reporting
+    """
+    location: str
+    extension: str
+    sql: None
+    log: Logger
+    load_file: Callable
+    save_file: Callable
+
+    def __init__(self, location: str = None, extension: str = '.txt', load_file: Callable = None,
+                 save_file: Callable = None, sql=None, log: Logger = logger):
+        self.log = log
+        if sql is not None:
+            self.sql = sql
         else:
-            if '.pdb' in extension:
-                from Pose import Model
-                self.load_file = Model.from_pdb
-                self.save_file = not_implemented
-            elif extension == '.fasta':
-                self.load_file = read_fasta_file
-                self.save_file = write_sequence_to_fasta
-            elif extension == '.stride':
-                self.load_file = parse_stride
-                self.save_file = not_implemented
-            elif extension == '.hmm':  # in ['.hmm', '.pssm']:
-                self.load_file = parse_hhblits_pssm  # parse_pssm
-                self.save_file = not_implemented
-            # elif extension == '.fasta' and msa:  # Todo if msa is in fasta format
-            elif extension == '.sto':
-                self.load_file = MultipleSequenceAlignment.from_stockholm  # parse_stockholm_to_msa
-                self.save_file = not_implemented
-            elif extension == f'_bmDCA{os.sep}parameters_h_final.bin':
-                self.load_file = bmdca.load_fields
-                self.save_file = not_implemented
-            elif extension == f'_bmDCA{os.sep}sparameters_J_final.bin':
-                self.load_file = bmdca.load_couplings
-                self.save_file = not_implemented
+            self.sql = sql
+            self.location = location
+            self.extension = extension
+
+            if '.txt' in extension:  # '.txt' read the file and return the lines
+                self.load_file = read_file
+                self.save_file = write_list_to_file
+            elif '.json' in extension:
+                self.load_file = read_json
+                self.save_file = write_json
+            else:
+                self.load_file = load_file if load_file else not_implemented
+                self.save_file = save_file if save_file else not_implemented
 
     def make_path(self, condition: bool = True):
         """Make all required directories in specified path if it doesn't exist, and optional condition is True
