@@ -3,13 +3,13 @@ from __future__ import annotations
 import os
 import warnings
 from logging import Logger
+from typing import Iterable
 
 import Bio.PDB
 import numpy as np
 from Bio.PDB.Atom import Atom as BioPDBAtom, PDBConstructionWarning
 from sklearn.neighbors import BallTree
 
-from Pose import Model
 from SymDesignUtils import start_log
 
 # Globals
@@ -62,24 +62,6 @@ logger = start_log(name=__name__)
 #
 #     else:
 #         return []
-
-
-def get_contacting_asu(pdb1, pdb2, contact_dist=8, **kwargs):
-    max_contact_count = 0
-    max_contact_chain1, max_contact_chain2 = None, None
-    for chain1 in pdb1.chains:
-        pdb1_cb_coords_kdtree = BallTree(chain1.cb_coords)
-        for chain2 in pdb2.chains:
-            contact_count = pdb1_cb_coords_kdtree.two_point_correlation(chain2.cb_coords, [contact_dist])[0]
-
-            if contact_count > max_contact_count:
-                max_contact_count = contact_count
-                max_contact_chain1, max_contact_chain2 = chain1, chain2
-
-    if max_contact_count > 0:
-        return Model.from_chains([max_contact_chain1, max_contact_chain2], name='asu', entities=True, **kwargs)
-    else:
-        return
 
 
 def get_interface_residues(pdb1, pdb2, cb_distance=9.0):
@@ -178,31 +160,35 @@ def biopdb_superimposer(atoms_fixed, atoms_moving) -> tuple[float, np.ndarray, n
     return sup.rms, *sup.rotran
 
 
-def orient_structure_file(file: str | bytes, log: Logger = logger, symmetry: str = None, out_dir: str | bytes = None) \
-        -> str | None:
+def orient_structure_files(files: Iterable[str | bytes], log: Logger = logger, symmetry: str = None,
+                           out_dir: str | bytes = None) -> list[str]:
     """For a specified file and output directory, orient the file according to the provided symmetry where the
     resulting file will have the chains symmetrized and oriented in the coordinate frame as to have the major axis
     of symmetry along z, and additional axis along canonically defined vectors. If the symmetry is C1, then the monomer
     will be transformed so the center of mass resides at the origin
 
     Args:
-        file: The location of the file to be oriented
+        files: The location of the files to be oriented
         log: A log to report on operation success
         symmetry: The symmetry type to be oriented. Possible types in SymmetryUtils.valid_subunit_number
         out_dir: The directory that should be used to output files
     Returns:
         Filepath of oriented PDB
     """
-    model_name = os.path.basename(file)
-    oriented_file_path = os.path.join(out_dir, model_name)
-    if not os.path.exists(oriented_file_path):
-        model = Model.from_file(file, log=log)  # must load entities to solve multi-component orient problem
-        try:
-            model.orient(symmetry=symmetry)
-        except (ValueError, RuntimeError) as error:
-            log.error(str(error))
-            return None
-        model.write(out_path=oriented_file_path)
-        log.info(f'Oriented: {model_name}')
+    from Pose import Model
+    file_paths = []
+    for file in files:
+        model_name = os.path.basename(file)
+        oriented_file_path = os.path.join(out_dir, model_name)
+        if not os.path.exists(oriented_file_path):
+            model = Model.from_file(file, log=log)  # must load entities to solve multi-component orient problem
+            try:
+                model.orient(symmetry=symmetry)
+            except (ValueError, RuntimeError) as error:
+                log.error(str(error))
+                continue
+            model.write(out_path=oriented_file_path)
+            log.info(f'Oriented: {model_name}')
 
-    return oriented_file_path
+        file_paths.append(oriented_file_path)
+    return file_paths

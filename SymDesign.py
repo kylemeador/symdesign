@@ -1137,9 +1137,9 @@ if __name__ == '__main__':
                 else:
                     pdb1_filepaths = SDUtils.get_directory_file_paths(args.oligomer1)
                 entity_names1 = pdb1_filepaths
-                # pdb1_oriented_filepaths = [orient_structure_file(file, log=orient_log, symmetry=symmetry_map[0],
-                #                                            out_dir=job.resource_db.oriented.location)
-                #                            for file in pdb1_filepaths]
+                # pdb1_oriented_filepaths = orient_structure_files(pdb1_filepaths, log=orient_log,
+                #                                                  symmetry=symmetry_map[0],
+                #                                                  out_dir=job.resource_db.oriented.location)
                 # # pull out the structure names and use job.resource_db.orient_structures to retrieve the oriented file
                 # entity_names1 = list(map(os.path.basename,
                 #                      [os.path.splitext(file)[0] for file in filter(None, pdb1_oriented_filepaths)]))
@@ -1155,9 +1155,9 @@ if __name__ == '__main__':
                 else:
                     pdb2_filepaths = SDUtils.get_directory_file_paths(args.oligomer2)
                 entity_names2 = pdb2_filepaths
-                # pdb2_oriented_filepaths = [orient_structure_file(file, log=orient_log, symmetry=symmetry_map[1],
-                #                                            out_dir=job.resource_db.oriented.location)
-                #                            for file in pdb2_filepaths]
+                # pdb2_oriented_filepaths = orient_structure_files(pdb2_filepaths, log=orient_log,
+                #                                                  symmetry=symmetry_map[1],
+                #                                                  out_dir=job.resource_db.oriented.location)
                 # # pull out the structure names and use job.resource_db.orient_structures to retrieve the oriented file
                 # entity_names2 = list(map(os.path.basename,
                 #                          [os.path.splitext(file)[0] for file in filter(None, pdb2_oriented_filepaths)]))

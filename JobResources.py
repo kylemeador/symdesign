@@ -11,7 +11,7 @@ from typing import Iterable, Any, Annotated
 
 from CommandDistributer import rosetta_flags, script_cmd, distribute, relax_flags, rosetta_variables
 from Query.UniProt import query_uniprot
-from utils.PDBUtils import orient_structure_file
+from utils.PDBUtils import orient_structure_files
 from PathUtils import sym_entry, program_name, orient_log_file, rosetta_scripts, models_to_multimodel_exe, refine, \
     all_scores, projects, sequence_info, data, output_oligomers, output_fragments, \
     structure_background, scout, generate_fragments, number_of_trajectories, nstruct, no_hbnet, ignore_symmetric_clashes, ignore_pose_clashes, ignore_clashes, force_flags, no_evolution_constraint, \
@@ -25,7 +25,7 @@ from Structure import parse_stride, Structure
 from SymDesignUtils import DesignError, unpickle, start_log, write_commands, starttime, make_path, write_shell_script, to_iterable
 from classes.EulerLookup import EulerLookup
 from classes.SymEntry import sdf_lookup, SymEntry, parse_symmetry_to_sym_entry
-from fragment import FragmentDatabase
+import fragment
 # import dependencies.bmdca as bmdca
 
 
@@ -112,13 +112,10 @@ def fetch_pdb_file(pdb_code: str, asu: bool = True, location: str | bytes = pdb_
     # if location == pdb_db and asu:
     if os.path.exists(location) and asu:
         file_path = os.path.join(location, f'pdb{pdb_code.lower()}.ent')
-        get_pdb = (lambda *args, **kwargs: sorted(glob(file_path)))
-        #                                            pdb_code, location=None, asu=None, assembly=None, out_dir=None
-        logger.debug(f'Searching for PDB file at "{file_path}"')
+        def get_pdb(): return sorted(glob(file_path))
         # Cassini format is above, KM local pdb and the escher PDB mirror is below
-        # get_pdb = (lambda pdb_code, asu=None, assembly=None, out_dir=None:
-        #            glob(os.path.join(pdb_db, subdirectory(pdb_code), '%s.pdb' % pdb_code)))
-        # print(os.path.join(pdb_db, subdirectory(pdb_code), '%s.pdb' % pdb_code))
+        # file_path = os.path.join(location, subdirectory(pdb_code), f'{pdb_code.lower()}.pdb')
+        logger.debug(f'Searching for PDB file at "{file_path}"')
     else:
         get_pdb = _fetch_pdb_from_api
 
@@ -258,8 +255,8 @@ class Database:  # Todo ensure that the single object is completely loaded befor
         if by_file:
             logger.info(f'The requested files are being checked for proper orientation with symmetry {symmetry}: '
                         f'{", ".join(structure_identifiers)}')
-            oriented_filepaths = [orient_structure_file(file, log=orient_log, symmetry=symmetry, out_dir=orient_dir)
-                                  for file in structure_identifiers]
+            oriented_filepaths = \
+                orient_structure_files(structure_identifiers, log=orient_log, symmetry=symmetry, out_dir=orient_dir)
             # pull out the structure names and use below to retrieve the oriented file
             structure_identifiers = list(map(os.path.basename,
                                              [os.path.splitext(file)[0] for file in filter(None, oriented_filepaths)]))
@@ -691,9 +688,10 @@ def write_json(data, file_name, **kwargs) -> str | bytes:
     return file_name
 
 
-not_implemented = \
-    lambda data, file_name: (_ for _ in ()).throw(NotImplemented(f'For save_file with {os.path.splitext(file_name)[-1]}'
-                                                                 f'DataStore method not available'))
+def not_implemented(data, file_name):
+    raise NotImplemented(f'For save_file with {os.path.splitext(file_name)[-1]}DataStore method not available')
+# lambda data, file_name: (_ for _ in ()).throw(NotImplemented(f'For save_file with {os.path.splitext(file_name)[-1]}'
+#                                                              f'DataStore method not available'))
 
 
 class DataStore:
@@ -1191,7 +1189,7 @@ class JobResources:
         #                           # self.pdb_entity_api, self.pdb_assembly_api,
         #                           self.uniprot_api, sql=None)  # , log=logger)
         # self.symmetry_factory = symmetry_factory
-        self.fragment_db: FragmentDatabase | None = None
+        self.fragment_db: 'fragment.FragmentDatabase' | None = None
         self.euler_lookup: EulerLookup | None = None
 
         # Program flags
