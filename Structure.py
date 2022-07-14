@@ -5249,18 +5249,17 @@ class Entity(Chain, SequenceProfile):  # Todo consider moving SequenceProfile to
     """Entity
 
     Args:
-        chains: A list of all Chain objects that match the Entity
-        uniprot_id: The unique UniProtID for the Entity
+        chains: A list of Chain instance that match the Entity
+        dbref: The unique database reference for the Entity
+        reference_sequence: The reference sequence (according to expression sequence or reference database)
     Keyword Args:
-        sequence=None (str): The sequence for the Entity
-        name=None (str): The name for the Entity. Typically, PDB.name is used to make a PDB compatible form
-        PDB EntryID_EntityID
+        name: str = None - The EntityID. Typically, EntryID_EntityInteger is used to match PDB API identifier format
     """
     _chain_transforms: list[transformation_mapping]
     _chains: list | list[Entity]
     _number_of_monomers: int
-    _reference_sequence: str
-    _uniprot_id: str
+    _reference_sequence: str | None
+    _uniprot_id: str | None
     api_entry: dict[str, dict[str, str]] | None
     dihedral_chain: str | None
     _is_captain: bool
@@ -5269,7 +5268,8 @@ class Entity(Chain, SequenceProfile):  # Todo consider moving SequenceProfile to
     rotation_d: dict[str, dict[str, int | np.ndarray]] | None
     symmetry: str | None
 
-    def __init__(self, chains: list[Chain] | Structures = None, uniprot_id: str = None, **kwargs):
+    def __init__(self, chains: list[Chain] | Structures = None, dbref: dict[str, str] = None,
+                 reference_sequence: str = None, **kwargs):
         """When init occurs chain_ids are set if chains were passed. If not, then they are auto generated"""
         self.api_entry = None  # {chain: {'accession': 'Q96DC8', 'db': 'UNP'}, ...}
         self.dihedral_chain = None
@@ -5348,8 +5348,10 @@ class Entity(Chain, SequenceProfile):  # Todo consider moving SequenceProfile to
         #     self.chain_ids = [self.chain_id]
         #     self.chain_transforms.append(dict(rotation=identity_matrix, translation=origin))
         # self._uniprot_id = None
-        if uniprot_id:
-            self.uniprot_id = uniprot_id
+        if dbref is not None:
+            self.uniprot_id = dbref
+        if reference_sequence is not None:
+            self._reference_sequence = reference_sequence
 
     # @classmethod  # Todo mirror Model
     # def from_file(cls):
@@ -5421,8 +5423,11 @@ class Entity(Chain, SequenceProfile):  # Todo consider moving SequenceProfile to
         return self._uniprot_id
 
     @uniprot_id.setter
-    def uniprot_id(self, uniprot_id: str):
-        self._uniprot_id = uniprot_id
+    def uniprot_id(self, dbref: dict[str, str] | str):
+        if isinstance(dbref, dict) and dbref['db'] == 'UNP':  # Todo make 'UNP' or better 'UKB' a global
+            self._uniprot_id = dbref['accession']
+        else:
+            self._uniprot_id = dbref
 
     @property
     def chain_id(self) -> str:
