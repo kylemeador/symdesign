@@ -417,10 +417,10 @@ class Log:
     """Responsible for StructureBase logging operations
 
     Args:
-        log: The logging.Logger to handle StructureBase logging. If none is passed a Logger with NullHandler is used
+        log: The logging.Logger to handle StructureBase logging. If None is passed a Logger with NullHandler is used
     """
     def __init__(self, log: Logger | None = null_log):
-        self.log = null_log if log is None else log
+        self.log = log
 
 
 null_struct_log = Log()
