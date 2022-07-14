@@ -9,7 +9,7 @@ from Bio.Data.IUPACData import protein_letters
 
 from PathUtils import intfrag_cluster_rep_dirpath, intfrag_cluster_info_dirpath, monofrag_cluster_rep_dirpath, \
     biological_interfaces, biological_fragment_db_pickle, frag_directory
-from Pose import Model
+import Pose
 from Structure import Structure
 from SymDesignUtils import dictionary_lookup, unpickle, parameterize_frag_length, DesignError, \
     get_base_root_paths_recursively, start_log
@@ -78,7 +78,7 @@ class FragmentDB:
     # dict[int, tuple[3x3, 1x3, tuple[int, int, int], float]]
     info: dict[int, dict[int, dict[int, ClusterInfoFile]]] | None
     # monofrag_representatives_path: str
-    paired_frags: dict[int, dict[int, dict[int, tuple[Model, str]]]] | None
+    paired_frags: dict[int, dict[int, dict[int, tuple['Pose.Model', str]]]] | None
     reps: dict[int, np.ndarray]
 
     def __init__(self, fragment_length: int = 5):
@@ -97,6 +97,7 @@ class FragmentDB:
                      for root, dirs, files in os.walk(monofrag_cluster_rep_dirpath) for file in files}
 
     def get_intfrag_cluster_rep_dict(self):
+        from Pose import Model
         ijk_cluster_representatives = {}
         for root, dirs, files in os.walk(self.cluster_representatives_path):
             if not dirs:
