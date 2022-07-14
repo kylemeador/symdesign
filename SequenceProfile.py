@@ -21,7 +21,7 @@ from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
 
 import CommandDistributer
-import fragment
+import info
 import PathUtils as PUtils
 from SymDesignUtils import handle_errors, unpickle, get_base_root_paths_recursively, DesignError, start_log, pretty_format_table
 # import dependencies.bmdca as bmdca
@@ -29,14 +29,11 @@ from SymDesignUtils import handle_errors, unpickle, get_base_root_paths_recursiv
 # Globals
 logger = start_log(name=__name__)
 index_offset = 1
-# alph_3_aa = ['A', 'R', 'N', 'D', 'C', 'Q', 'E', 'G', 'H', 'I', 'L', 'K', 'M', 'F', 'P', 'S', 'T', 'W', 'Y', 'V']
 alignment_types_literal = Literal['mapped', 'paired']
-alignment_types: tuple[alignment_types_literal] = get_args(alignment_types_literal)
+alignment_types: tuple[alignment_types_literal, ...] = get_args(alignment_types_literal)
 sequence_type_literal = Literal['reference', 'structure']
-sequence_types: tuple[sequence_type_literal] = get_args(sequence_type_literal)
-protein_letter_literals = \
-    Literal['A', 'R', 'N', 'D', 'C', 'Q', 'E', 'G', 'H', 'I', 'L', 'K', 'M', 'F', 'P', 'S', 'T', 'W', 'Y', 'V']
-alph_3_aa: tuple[protein_letter_literals, ...] = get_args(protein_letter_literals)
+sequence_types: tuple[sequence_type_literal, ...] = get_args(sequence_type_literal)
+alph_3_aa: tuple[info.protein_letter_literal, ...] = get_args(info.protein_letter_literal)
 protein_letter_plus_literals = Literal['A', 'R', 'N', 'D', 'C', 'Q', 'E', 'G', 'H', 'I', 'L', 'K', 'M', 'F', 'P', 'S',
                                        'T', 'W', 'Y', 'V', 'lod', 'type', 'info', 'weight']
 aa_counts = dict(zip(protein_letters, repeat(0)))
@@ -190,7 +187,7 @@ class SequenceProfile:
     Currently, Entity and Pose contain the necessary .reference_sequence attribute. Any Structure object with a
     .reference_sequence attribute could be used however
     """
-    fragment_db: 'fragment.FragmentInfo'
+    fragment_db: info.FragmentInfo
     number_of_residues: int
     reference_sequence: str
     sequence: str
@@ -1418,7 +1415,8 @@ class SequenceProfile:
         return {residue: {character: dtype() for character in alphabet} for residue in range(offset, n + offset)}
 
     @staticmethod
-    def get_lod(aa_freqs: dict[protein_letter_literals, float], background: dict[protein_letter_literals, float],
+    def get_lod(aa_freqs: dict[info.protein_letter_literal, float],
+                background: dict[info.protein_letter_literal, float],
                 round_lod: bool = True) -> dict[str, int]:
         """Get the log of the odds that an amino acid is in a frequency distribution compared to a background frequency
 
