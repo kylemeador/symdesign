@@ -842,6 +842,11 @@ class PoseDirectory:
         else:
             metrics['design_dimension'] = 'asymmetric'
 
+        try:
+            is_thermophilic = self.resource_db.uniprot_api.is_thermophilic
+        except AttributeError:
+            is_thermophilic = is_uniprot_thermophilic
+
         # total_residue_counts = []
         minimum_radius, maximum_radius = float('inf'), 0
         for idx, entity in enumerate(self.pose.entities, 1):
@@ -866,7 +871,7 @@ class PoseDirectory:
                 f'entity_{idx}_c_terminal_helix': entity.is_termini_helical(termini='c'),
                 f'entity_{idx}_n_terminal_orientation': entity.termini_proximity_from_reference(),
                 f'entity_{idx}_c_terminal_orientation': entity.termini_proximity_from_reference(termini='c'),
-                f'entity_{idx}_thermophile': is_uniprot_thermophilic(entity.uniprot_id)})
+                f'entity_{idx}_thermophile': is_thermophilic(entity.uniprot_id)})
 
         metrics['entity_minimum_radius'] = minimum_radius
         metrics['entity_maximum_radius'] = maximum_radius
