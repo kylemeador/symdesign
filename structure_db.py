@@ -182,7 +182,7 @@ class StructureDatabase(Database):
         self.sources = [self.oriented_asu, self.refined]  # self.full_models
 
     def orient_structures(self, structure_identifiers: Iterable[str], symmetry: str = 'C1', by_file: bool = False) -> \
-            list['Pose.Model'] | list:
+            list[Pose.Model] | list:
         """Given entity_ids and their corresponding symmetry, retrieve .pdb files, orient and save Database files then
         return the ASU for each
 
@@ -195,7 +195,6 @@ class StructureDatabase(Database):
         """
         if not structure_identifiers:
             return []
-        from Pose import Pose, Model
         # using Pose enables simple ASU writing
         # Pose isn't the best for orient since the structure isn't oriented the symmetry wouldn't work
         # It could still happen, but we certainly shouldn't pass sym_entry to it
@@ -261,7 +260,7 @@ class StructureDatabase(Database):
                                               'attribute of PoseDirectory to pull the pdb file source.')
                 # remove any PDB Database mirror specific naming from fetch_pdb_file such as pdb1ABC.ent
                 file_name = os.path.splitext(os.path.basename(file_path))[0].replace('pdb', '')
-                model = Model.from_pdb(file_path, name=file_name)  # , sym_entry=sym_entry
+                model = Pose.Model.from_pdb(file_path, name=file_name)  # , sym_entry=sym_entry
                 if entity:  # replace Structure from fetched file with the Entity Structure
                     # entry_entity will be formatted the exact same as the desired EntityID if it was provided correctly
                     entity = model.entity(entry_entity)
@@ -325,7 +324,7 @@ class StructureDatabase(Database):
             # for those below, use structure_identifier as entry_entity isn't parsed
             elif structure_identifier not in orient_asu_names:  # orient file exists, load asu, save and create stride
                 orient_file = self.oriented.retrieve_file(name=structure_identifier)
-                pose = Pose.from_file(orient_file, sym_entry=sym_entry)  # , log=None, entity_names=[entry_entity])
+                pose = Pose.Pose.from_file(orient_file, sym_entry=sym_entry)  # , log=None, entity_names=[entry_entity])
                 # entity = pose.entities[0]
                 # entity.name = pose.name  # use pose.name, not API name
                 # Pose already sets a symmetry, so we don't need to set one
@@ -337,7 +336,7 @@ class StructureDatabase(Database):
                 all_structures.append(pose)  # entry_entity,
             else:  # orient_asu file exists, stride file should as well. just load asu
                 orient_asu_file = self.oriented_asu.retrieve_file(name=structure_identifier)
-                pose = Pose.from_file(orient_asu_file, sym_entry=sym_entry)  # , log=None, entity_names=[entry_entity])
+                pose = Pose.Pose.from_file(orient_asu_file, sym_entry=sym_entry)
                 # entity = pose.entities[0]
                 # entity.name = entry_entity  # make explicit
                 # Pose already sets a symmetry and file_path upon constriction, so we don't need to set
