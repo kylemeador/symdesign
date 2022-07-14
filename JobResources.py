@@ -194,4 +194,7 @@ class JobResourcesFactory:
         return self.__call__(**kwargs)
 
 
-job_resources_factory = JobResourcesFactory()
+job_resources_factory: Annotated[JobResourcesFactory,
+                                 'Calling this factory method returns the single instance of the JobResources class'] \
+    = JobResourcesFactory()
+"""Calling this factory method returns the single instance of the JobResources class"""
