@@ -206,6 +206,9 @@ def read_pdb_file(file: str | bytes, pdb_lines: list[str] = None, separate_coord
     Returns:
         The dictionary containing all the parsed structural information
     """
+    # Todo figure out handling of header lines. Best way I see is to take out any seqres line indices (we add later)
+    #  and only like the head from any line before an ATOM record. The modification of any of the coordinates or Atoms
+    #  would cause the header information to be invalidated as it would then become a "SymDesign Model"
     if pdb_lines:
         path, extension = None, None
     else:
