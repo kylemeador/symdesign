@@ -6125,8 +6125,9 @@ class Entity(Chain, SequenceProfile):  # Todo consider moving SequenceProfile to
         p = subprocess.Popen(sdf_cmd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
         out, err = p.communicate()
         if os.path.exists(struct_file):
-            os.system('rm %s' % struct_file)
-        assert p.returncode == 0, 'Symmetry definition file creation failed for %s' % self.name
+            os.system(f'rm {struct_file}')
+        if p.returncode != 0:
+            raise DesignError(f'Symmetry definition file creation failed for {self.name}')
 
         self.format_sdf(out.decode('utf-8').split('\n')[:-1], to_file=out_file, dihedral=dihedral, **kwargs)
         #               modify_sym_energy_for_cryst=False, energy=2)
