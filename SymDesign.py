@@ -17,7 +17,7 @@ from glob import glob
 from itertools import repeat, product, combinations, chain
 from json import loads, dumps
 from subprocess import Popen, list2cmdline
-from typing import Any
+from typing import Any, AnyStr
 
 import pandas as pd
 import psutil
@@ -588,7 +588,7 @@ def generate_sequence_template(pdb_file):
     return write_fasta(sequences, file_name=f'{os.path.splitext(pdb.file_path)[0]}_residue_selector_sequence')
 
 
-def get_sym_entry_from_nanohedra_directory(nanohedra_dir: str | bytes) -> SymEntry:
+def get_sym_entry_from_nanohedra_directory(nanohedra_dir: AnyStr) -> SymEntry:
     """Handles extraction of Symmetry info from Nanohedra outputs.
 
     Args:
@@ -855,7 +855,7 @@ if __name__ == '__main__':
     # -----------------------------------------------------------------------------------------------------------------
     # Grab all Designs (PoseDirectory) to be processed from either database, directory, project name, or file
     # -----------------------------------------------------------------------------------------------------------------
-    all_poses: list[str | bytes] | None = None
+    all_poses: list[AnyStr] | None = None
     pose_directories: list[PoseDirectory] = []
     location: str | None = None
     all_dock_directories, entity_pairs = None, None

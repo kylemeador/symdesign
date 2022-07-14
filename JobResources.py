@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import os
-from typing import Annotated
+from typing import Annotated, AnyStr
 
 from structure_db import structure_database_factory
 from PathUtils import sym_entry, all_scores, projects, sequence_info, data, output_oligomers, output_fragments, \
@@ -21,7 +21,7 @@ class JobResources:
     """The intention of JobResources is to serve as a singular source of design info which is common accross all
     designs. This includes common paths, databases, and design flags which should only be set once in program operation,
     then shared across all member designs"""
-    def __init__(self, program_root: str | bytes = None, **kwargs):
+    def __init__(self, program_root: AnyStr = None, **kwargs):
         """For common resources for all SymDesign outputs, ensure paths to these resources are available attributes"""
         try:
             if os.path.exists(program_root):
@@ -136,7 +136,7 @@ class JobResources:
             self.generate_fragments = False
 
     # @staticmethod
-    # def make_path(path: str | bytes, condition: bool = True):
+    # def make_path(path: AnyStr, condition: bool = True):
     #     """Make all required directories in specified path if it doesn't exist, and optional condition is True
     #
     #     Args:

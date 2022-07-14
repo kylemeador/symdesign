@@ -5,7 +5,7 @@ import sys
 import time
 from logging import Logger
 from math import floor
-from typing import Union
+from typing import AnyStr
 
 import numpy as np
 import psutil
@@ -422,7 +422,7 @@ def compute_ij_type_lookup(indices1, indices2):
 
 
 def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_lookup: EulerLookup,
-                   master_output: str | bytes, model1: Structure | str | bytes, model2: Structure | str | bytes,
+                   master_output: AnyStr, model1: Structure | AnyStr, model2: Structure | AnyStr,
                    rotation_step1: float = 3., rotation_step2: float = 3., min_matched: int = 3, 
                    high_quality_match_value: float = 0.5, initial_z_value: float = 1., output_assembly: bool = False, 
                    output_surrounding_uc: bool = False, log: Logger = logger, clash_dist: float = 2.2, 

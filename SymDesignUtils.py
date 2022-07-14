@@ -16,7 +16,7 @@ from logging import Logger, DEBUG, INFO, WARNING, ERROR, CRITICAL, getLogger, \
     FileHandler, NullHandler, StreamHandler, Formatter, root
 from operator import getitem
 from string import digits
-from typing import List, Union, Iterable, Iterator, Tuple, Sequence, Any, Callable, Dict, DefaultDict
+from typing import List, Union, Iterable, Iterator, Tuple, Sequence, Any, Callable, Dict, DefaultDict, AnyStr
 
 import numpy as np
 import psutil
@@ -236,7 +236,7 @@ def get_table_column_widths(data: Iterable) -> Tuple[int]:
     return tuple(max(map(len, map(str, column))) for column in zip(*data))
 
 
-def make_path(path: str | bytes, condition: bool = True):
+def make_path(path: AnyStr, condition: bool = True):
     """Make all required directories in specified path if it doesn't exist, and optional condition is True
 
     Args:
@@ -386,7 +386,7 @@ def format_index_string(index_string: str) -> list[int]:
 #################
 
 
-def write_file(data: Iterable, file_name: str | bytes = None) -> str | bytes:
+def write_file(data: Iterable, file_name: AnyStr = None) -> AnyStr:
     """Take an iterable and either output to user, write to a file, or both. User defined choice
 
     Args:
@@ -412,7 +412,7 @@ def validate_input(prompt, response=None):  # exact copy as in Query.utils
     return _input
 
 
-def io_save(data: Iterable, file_name: str | bytes = None) -> str | bytes:
+def io_save(data: Iterable, file_name: AnyStr = None) -> AnyStr:
     """Take an iterable and either output to user, write to a file, or both. User defined choice
 
     Args:
@@ -598,8 +598,8 @@ def write_commands(commands: Iterable[str], name: str = 'all_commands', out_path
 
 
 def write_sequence_file(sequences: Sequence | dict[str, Sequence], names: Sequence = None,
-                        out_path: str | bytes = os.getcwd(), file_name: str | bytes = None, csv: bool = False) \
-        -> str | bytes:
+                        out_path: AnyStr = os.getcwd(), file_name: AnyStr = None, csv: bool = False) \
+        -> AnyStr:
     """Write a fasta file from sequence(s)
 
     Args:
@@ -763,7 +763,7 @@ def mp_starmap(function: Callable, star_args: Iterable[Tuple], processes: int = 
 ######################
 
 
-def get_base_root_paths_recursively(directory: str | bytes, sort: bool = True) -> list[str | bytes]:
+def get_base_root_paths_recursively(directory: AnyStr, sort: bool = True) -> list[AnyStr]:
     """Retrieve the bottom most directories recursively from a root directory
 
     Args:
@@ -776,7 +776,7 @@ def get_base_root_paths_recursively(directory: str | bytes, sort: bool = True) -
     return sorted(file_generator) if sort else list(file_generator)
 
 
-def get_file_paths_recursively(directory: str | bytes, extension: str = None, sort: bool = True) -> list[str | bytes]:
+def get_file_paths_recursively(directory: AnyStr, extension: str = None, sort: bool = True) -> list[AnyStr]:
     """Retrieve files recursively from a directory
 
     Args:
@@ -797,8 +797,8 @@ def get_file_paths_recursively(directory: str | bytes, extension: str = None, so
     return sorted(file_generator) if sort else list(file_generator)
 
 
-def get_directory_file_paths(directory: str | bytes, suffix: str = '', extension: str = '.pdb*', sort: bool = True) -> \
-        list[str | bytes]:
+def get_directory_file_paths(directory: AnyStr, suffix: str = '', extension: str = '.pdb*', sort: bool = True) -> \
+        list[AnyStr]:
     """Return all files in a directory with specified extensions and suffixes
 
     Args:
@@ -817,7 +817,7 @@ def get_directory_file_paths(directory: str | bytes, suffix: str = '', extension
 
 
 def collect_nanohedra_designs(files: Sequence = None, directory: str = None, dock: bool = False) -> \
-        tuple[list[str | bytes], str]:
+        tuple[list[AnyStr], str]:
     """Grab all poses from a Nanohedra directory via a file or a directory
 
     Args:
@@ -878,7 +878,7 @@ def get_docked_directories(base_directory, directory_type='NanohedraEntry'):  # 
             if directory_type in _dir]
 
 
-def get_docked_dirs_from_base(base: str) -> list[str | bytes]:
+def get_docked_dirs_from_base(base: str) -> list[AnyStr]:
     """Find every Nanohedra output base directory where each of the poses and files is contained
 
     Args:
@@ -940,7 +940,7 @@ def collect_designs(files: Sequence = None, directory: str = None, projects: Seq
     return sorted(set(all_paths)), location if isinstance(location, str) else location[0]  # grab first index
 
 
-def get_base_symdesign_dir(search_path: str = None) -> str | bytes | None:
+def get_base_symdesign_dir(search_path: str = None) -> AnyStr | None:
     """Find the program_output variable in the specified path and return the path to it
 
     Args:

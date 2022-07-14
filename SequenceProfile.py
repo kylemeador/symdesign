@@ -10,7 +10,7 @@ from copy import deepcopy, copy
 from itertools import repeat
 from math import floor, exp, log, log2
 from pathlib import Path
-from typing import Sequence, Any, Iterable, get_args, Literal, Iterator
+from typing import Sequence, Any, Iterable, get_args, Literal, Iterator, AnyStr
 
 import numpy as np
 import pandas as pd
@@ -208,14 +208,14 @@ class SequenceProfile:
         self.fragment_profile: dict = {}
         # self.fragment_pssm_file = None
         # self.interface_data_file = None
-        self.a3m_file: str | bytes | None = None
+        self.a3m_file: AnyStr | None = None
         self.h_fields: np.ndarray | None = None
         self.j_couplings: np.ndarray | None = None
         # self.msa: Optional[MultipleSequenceAlignment] = None
-        self.msa_file: str | bytes | None = None
-        self.pssm_file: str | bytes | None = None
+        self.msa_file: AnyStr | None = None
+        self.pssm_file: AnyStr | None = None
         # self.sequence_source = None
-        self.sequence_file: str | bytes | None = None
+        self.sequence_file: AnyStr | None = None
 
     # @classmethod
     # def from_structure(cls, structure=None):
@@ -263,7 +263,7 @@ class SequenceProfile:
     #     self.sequence = get_sequence_by_entity_id(entity_id)
     #     self.sequence_source = 'seqres'
 
-    def add_profile(self, evolution: bool = True, out_path: str | bytes = os.getcwd(), null: bool = False,
+    def add_profile(self, evolution: bool = True, out_path: AnyStr = os.getcwd(), null: bool = False,
                     fragments: bool = True, **kwargs):
         #           fragment_observations=None, entities=None, pdb_numbering=True,
         """Add the evolutionary and fragment profiles onto the SequenceProfile
@@ -360,8 +360,8 @@ class SequenceProfile:
             else:
                 success = True
 
-    def add_evolutionary_profile(self, out_path: str | bytes = os.getcwd(), profile_source: str = PUtils.hhblits,
-                                 file: str | bytes = None, force: bool = False):
+    def add_evolutionary_profile(self, out_path: AnyStr = os.getcwd(), profile_source: str = PUtils.hhblits,
+                                 file: AnyStr = None, force: bool = False):
         """Add the evolutionary profile to the entity. Profile is generated through a position specific search of
         homologous protein sequences (evolutionary)
 
@@ -544,7 +544,7 @@ class SequenceProfile:
                 self.evolutionary_profile[residue_number]['info'] = float(line_data[42])
                 self.evolutionary_profile[residue_number]['weight'] = float(line_data[43])
 
-    def hhblits(self, out_path: str | bytes = os.getcwd(), threads: int = CommandDistributer.hhblits_threads,
+    def hhblits(self, out_path: AnyStr = os.getcwd(), threads: int = CommandDistributer.hhblits_threads,
                 return_command: bool = False, **kwargs) -> str | None:
         """Generate an position specific scoring matrix from HHblits using Hidden Markov Models
 
@@ -828,8 +828,8 @@ class SequenceProfile:
         # return -h_sum - j_sum
         return -h_values - j_values
 
-    def write_sequence_to_fasta(self, sequence: str | sequence_type_literal, file_name: str | bytes = None,
-                                name: str = None, out_path: str | bytes = os.getcwd()) -> str | bytes:
+    def write_sequence_to_fasta(self, sequence: str | sequence_type_literal, file_name: AnyStr = None,
+                                name: str = None, out_path: AnyStr = os.getcwd()) -> AnyStr:
         """Write a sequence to a .fasta file with fasta format and save file location as self.sequence_file.
         '.fasta' is appended if not specified in the name argument
 
@@ -1454,7 +1454,7 @@ class SequenceProfile:
 
     @staticmethod
     def write_pssm_file(pssm: dict[protein_letter_plus_literals, float | str | tuple | dict], name: str,
-                        out_path: str | bytes = os.getcwd()) -> str | None:
+                        out_path: AnyStr = os.getcwd()) -> str | None:
         """Create a PSI-BLAST format PSSM file from a PSSM dictionary. Assumes residue numbering is correct!
 
         Args:
@@ -1577,7 +1577,7 @@ def overlap_consensus(issm, aa_set):
     return consensus
 
 
-# def get_db_statistics(database: str | bytes) -> dict:
+# def get_db_statistics(database: AnyStr) -> dict:
 #     """Retrieve summary statistics for a specific fragment database
 #
 #     Args:
@@ -1593,7 +1593,7 @@ def overlap_consensus(issm, aa_set):
 #     return {}
 #
 #
-# def get_db_aa_frequencies(database: str | bytes) -> dict[protein_letters, float]:
+# def get_db_aa_frequencies(database: AnyStr) -> dict[protein_letters, float]:
 #     """Retrieve database specific interface background AA frequencies
 #
 #     Args:
@@ -3158,7 +3158,7 @@ def hydrophobic_collapse_index(sequence: str, hydrophobicity: str = 'standard', 
 
 
 @handle_errors(errors=(FileNotFoundError,))
-def read_fasta_file(file_name: str | bytes, **kwargs) -> Iterator[SeqRecord]:
+def read_fasta_file(file_name: AnyStr, **kwargs) -> Iterator[SeqRecord]:
     """Opens a fasta file and return a parser object to load the sequences to SeqRecords
 
     Args:
@@ -3170,7 +3170,7 @@ def read_fasta_file(file_name: str | bytes, **kwargs) -> Iterator[SeqRecord]:
 
 
 @handle_errors(errors=(FileNotFoundError,))
-def read_alignment(file_name: str | bytes, alignment_type: str = 'fasta', **kwargs) -> MultipleSeqAlignment:
+def read_alignment(file_name: AnyStr, alignment_type: str = 'fasta', **kwargs) -> MultipleSeqAlignment:
     """Open an alignment file and parse the alignment to a Biopython MultipleSeqAlignment
 
     Args:
@@ -3182,8 +3182,8 @@ def read_alignment(file_name: str | bytes, alignment_type: str = 'fasta', **kwar
     return AlignIO.read(file_name, alignment_type)
 
 
-def write_fasta(sequence_records: Iterable[SeqRecord], name: str = None, out_path: str | bytes = os.getcwd()) -> \
-        str | bytes:
+def write_fasta(sequence_records: Iterable[SeqRecord], name: str = None, out_path: AnyStr = os.getcwd()) -> \
+        AnyStr:
     """Write an iterator of SeqRecords to a .fasta file with fasta format. '.fasta' is appended if not specified in name
 
     Args:
@@ -3202,7 +3202,7 @@ def write_fasta(sequence_records: Iterable[SeqRecord], name: str = None, out_pat
     return file_name
 
 
-def write_sequence_to_fasta(sequence: str, name: str, file_name: str | bytes) -> str | bytes:
+def write_sequence_to_fasta(sequence: str, name: str, file_name: AnyStr) -> AnyStr:
     """Write an iterator of SeqRecords to a .fasta file with fasta format. '.fasta' is appended if not specified in name
 
     Args:
@@ -3221,7 +3221,7 @@ def write_sequence_to_fasta(sequence: str, name: str, file_name: str | bytes) ->
     return file_name
 
 
-def concatenate_fasta_files(file_names: Iterable[str | bytes], output: str = 'concatenated_fasta') -> str | bytes:
+def concatenate_fasta_files(file_names: Iterable[AnyStr], output: str = 'concatenated_fasta') -> AnyStr:
     """Take multiple fasta files and concatenate into a single file
 
     Args:

@@ -2,7 +2,7 @@ import operator
 from copy import copy
 from itertools import repeat
 from json import loads
-from typing import Dict, List, Set, Union, Literal
+from typing import Dict, List, Set, Union, Literal, AnyStr
 
 import numpy as np
 import pandas as pd
@@ -754,7 +754,7 @@ fragment_metric_template = {'center_residues': set(), 'total_residues': set(),
                             'percent_fragment_coil': 0.0}
 
 
-def read_scores(file: str | bytes, key: str = 'decoy') -> dict[str, dict[str, str]]:
+def read_scores(file: AnyStr, key: str = 'decoy') -> dict[str, dict[str, str]]:
     """Take a json formatted metrics file and incorporate entries into nested dictionaries with "key" as outer key
 
     Automatically formats scores according to conventional metric naming scheme, ex: "R_", "S_", or "M_" prefix removal

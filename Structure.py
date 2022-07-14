@@ -9,7 +9,7 @@ from itertools import repeat
 from logging import Logger
 from math import ceil
 from random import random
-from typing import IO, Sequence, Container, Literal, get_args, Callable, Any
+from typing import IO, Sequence, Container, Literal, get_args, Callable, Any, AnyStr
 
 import numpy as np
 from Bio.Data.IUPACData import protein_letters, protein_letters_1to3, protein_letters_3to1_extended, \
@@ -190,7 +190,7 @@ slice_remark, slice_number, slice_atom_type, slice_alt_location, slice_residue_t
     slice(60, 66), slice(76, 78), slice(78, 80)
 
 
-def read_pdb_file(file: str | bytes, pdb_lines: list[str] = None, separate_coords: bool = True, **kwargs) -> \
+def read_pdb_file(file: AnyStr, pdb_lines: list[str] = None, separate_coords: bool = True, **kwargs) -> \
         dict[str, Any]:
     """Reads .pdb file and returns structural information pertaining to parsed file
 
@@ -2328,7 +2328,7 @@ class Residues:
 
 def write_frag_match_info_file(ghost_frag: GhostFragment = None, matched_frag: Fragment = None,
                                overlap_error: float = None, match_number: int = None,
-                               central_frequencies=None, out_path: str | bytes = os.getcwd(), pose_id: str = None):
+                               central_frequencies=None, out_path: AnyStr = os.getcwd(), pose_id: str = None):
     # ghost_residue: Residue = None, matched_residue: Residue = None,
 
     # if not ghost_frag and not matched_frag and not overlap_error and not match_number:  # TODO
@@ -2388,7 +2388,7 @@ class Structure(StructureBase):
     _residue_indices: list[int] | None
     biomt: list
     biomt_header: str
-    file_path: str | bytes | None
+    file_path: AnyStr | None
     name: str
     secondary_structure: str | None
     sasa: float | None
@@ -2400,7 +2400,7 @@ class Structure(StructureBase):
 
     def __init__(self, atoms: list[Atom] | Atoms = None, residues: list[Residue] | Residues = None,
                  residue_indices: list[int] = None, name: str = None,
-                 file_path: str | bytes = None,
+                 file_path: AnyStr = None,
                  biomt: list = None, biomt_header: str = None,
                  **kwargs):
         # kwargs passed to StructureBase
@@ -2465,7 +2465,7 @@ class Structure(StructureBase):
             pass
 
     @classmethod
-    def from_file(cls, file: str | bytes, **kwargs):
+    def from_file(cls, file: AnyStr, **kwargs):
         """Create a new Model from a file with Atom records"""
         if '.pdb' in file:
             return cls.from_pdb(file, **kwargs)
@@ -2476,12 +2476,12 @@ class Structure(StructureBase):
                                       f'supported for parsing')
 
     @classmethod
-    def from_pdb(cls, file: str | bytes, **kwargs):
+    def from_pdb(cls, file: AnyStr, **kwargs):
         """Create a new Model from a .pdb formatted file"""
         return cls(file_path=file, **read_pdb_file(file, **kwargs))
 
     @classmethod
-    def from_mmcif(cls, file: str | bytes, **kwargs):
+    def from_mmcif(cls, file: AnyStr, **kwargs):
         """Create a new Model from a .cif formatted file"""
         raise NotImplementedError(mmcif_error)
         return cls(file_path=file, **read_mmcif_file(file, **kwargs))
@@ -4186,7 +4186,7 @@ class Structure(StructureBase):
         # return sum([sasa for residue_number, sasa in zip(self.sasa_residues, self.sasa) if residue_number in numbers])
         return sum([getattr(residue, dtype) for residue in residues if residue.number in numbers])
 
-    def errat(self, out_path: str | bytes = os.getcwd()) -> tuple[float, np.ndarray]:
+    def errat(self, out_path: AnyStr = os.getcwd()) -> tuple[float, np.ndarray]:
         """Find the overall and per residue Errat accuracy for the given Structure
 
         Args:
@@ -4233,7 +4233,7 @@ class Structure(StructureBase):
             self.log.warning(f'{self.name}: Failed to generate ERRAT measurement. Errat returned: {all_residue_scores}')
             return 0., np.array([0. for _ in range(self.number_of_residues)])
 
-    def stride(self, to_file: str | bytes = None):
+    def stride(self, to_file: AnyStr = None):
         """Use Stride to calculate the secondary structure of a PDB.
 
         Args
@@ -4312,7 +4312,7 @@ class Structure(StructureBase):
                 residue_idx += 1
         self.secondary_structure = ''.join(residue.secondary_structure for residue in residues)
 
-    def parse_stride(self, stride_file: str | bytes, **kwargs):
+    def parse_stride(self, stride_file: AnyStr, **kwargs):
         """From a Stride file, parse information for residue level secondary structure assignment
 
         Sets:
@@ -5982,7 +5982,7 @@ class Entity(Chain, SequenceProfile):  # Todo consider moving SequenceProfile to
     #     self.transform(rotation=rot, translation=tx)
     #     clean_orient_input_output()
 
-    def find_chain_symmetry(self, struct_file: str | bytes = None) -> str | bytes:
+    def find_chain_symmetry(self, struct_file: AnyStr = None) -> AnyStr:
         """Search for the chains involved in a complex using a truncated make_symmdef_file.pl script
 
         Requirements - all chains are the same length
@@ -6032,7 +6032,7 @@ class Entity(Chain, SequenceProfile):  # Todo consider moving SequenceProfile to
 
         self.max_symmetry = max_chain
 
-    def scout_symmetry(self, **kwargs) -> str | bytes:
+    def scout_symmetry(self, **kwargs) -> AnyStr:
         """Check the PDB for the required symmetry parameters to generate a proper symmetry definition file
 
         Sets:
@@ -6079,8 +6079,8 @@ class Entity(Chain, SequenceProfile):  # Todo consider moving SequenceProfile to
 
         return False
 
-    def make_sdf(self, struct_file: str | bytes = None, out_path: str | bytes = os.getcwd(), **kwargs) -> \
-            str | bytes:
+    def make_sdf(self, struct_file: AnyStr = None, out_path: AnyStr = os.getcwd(), **kwargs) -> \
+            AnyStr:
         """Use the make_symmdef_file.pl script from Rosetta to make a symmetry definition file on the Structure
 
         perl $ROSETTA/source/src/apps/public/symmetry/make_symmdef_file.pl -p filepath/to/pdb.pdb -i B -q
@@ -6137,9 +6137,9 @@ class Entity(Chain, SequenceProfile):  # Todo consider moving SequenceProfile to
 
         return out_file
 
-    def format_sdf(self, lines: list, to_file: str | bytes = None,
-                   out_path: str | bytes = os.getcwd(), dihedral: bool = False,
-                   modify_sym_energy_for_cryst: bool = False, energy: int = None) -> str | bytes:
+    def format_sdf(self, lines: list, to_file: AnyStr = None,
+                   out_path: AnyStr = os.getcwd(), dihedral: bool = False,
+                   modify_sym_energy_for_cryst: bool = False, energy: int = None) -> AnyStr:
         """Ensure proper sdf formatting before proceeding
 
         Args:
@@ -6288,7 +6288,7 @@ class Entity(Chain, SequenceProfile):  # Todo consider moving SequenceProfile to
         return loop_indices, loop_to_disorder_indices, n_terminal_idx
 
     # Todo move both of these to Structure/Pose. Requires using .reference_sequence in Structure/ or maybe Pose better
-    def make_loop_file(self, out_path: str | bytes = os.getcwd(), **kwargs) -> str | bytes | None:
+    def make_loop_file(self, out_path: AnyStr = os.getcwd(), **kwargs) -> AnyStr | None:
         """Format a loops file according to Rosetta specifications. Assumes residues in pose numbering!
 
         The loop file format consists of one line for each specified loop with the format:
@@ -6321,7 +6321,7 @@ class Entity(Chain, SequenceProfile):  # Todo consider moving SequenceProfile to
 
         return loop_file
 
-    def make_blueprint_file(self, out_path: str | bytes = os.getcwd(), **kwargs) -> str | bytes | None:
+    def make_blueprint_file(self, out_path: AnyStr = os.getcwd(), **kwargs) -> AnyStr | None:
         """Format a blueprint file according to Rosetta specifications. Assumes residues in pose numbering!
 
         The blueprint file format is described nicely here:
