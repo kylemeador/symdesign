@@ -230,7 +230,7 @@ def read_pdb_file(file: str | bytes, pdb_lines: list[str] = None, separate_coord
     # cryst: dict[str, str | tuple[float]] = {}
     cryst_record: str = ''
     dbref: dict[str, dict[str, str]] = {}
-    entity_info: list[dict[str, list | str]] = []
+    entity_info: dict[str, dict[dict | list | str]] = {}
     name = os.path.basename(path) if path else None  # .replace('pdb', '')
     header: list = []
     multimodel: bool = False
@@ -347,15 +347,14 @@ def read_pdb_file(file: str | bytes, pdb_lines: list[str] = None, separate_coord
             dbref[chain] = {'db': db, 'accession': db_accession_id}  # implies each chain has only one id
         elif remark == 'COMPND' and 'MOL_ID' in line:
             header.append(line.strip())
-            entity = int(line[line.rfind(':') + 1: line.rfind(';')].strip())
+            entity = line[line.rfind(':') + 1: line.rfind(';')].strip()
         elif remark == 'COMPND' and 'CHAIN' in line and entity:  # retrieve from standard .pdb file notation
             header.append(line.strip())
             # entity number (starting from 1) = {'chains' : {A, B, C}}
             # self.entity_info[entity] = \
             # {'chains': list(map(str.strip, line[line.rfind(':') + 1:].strip().rstrip(';').split(',')))}
-            entity_info.append(
-                {'chains': list(map(str.strip, line[line.rfind(':') + 1:].strip().rstrip(';').split(','))),
-                 'name': entity})
+            entity_info[f'{name}_{entity}'] = \
+                {'chains': list(map(str.strip, line[line.rfind(':') + 1:].strip().rstrip(';').split(',')))}
             entity = None
         elif remark == 'SCALE ':
             header.append(line.strip())
@@ -385,13 +384,13 @@ def read_pdb_file(file: str | bytes, pdb_lines: list[str] = None, separate_coord
              coords=coords if separate_coords else None,
              # cryst=cryst,
              cryst_record=cryst_record,
-             dbref=dbref,
+             # dbref=dbref,
              entity_info=entity_info,
              header=header,
              multimodel=multimodel,
              name=name,
              resolution=resolution,
-             reference_sequence=parse_seqres(seq_res_lines),
+             reference_sequence=reference_sequence,
              # space_group=space_group,
              # uc_dimensions=uc_dimensions,
              )

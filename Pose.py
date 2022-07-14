@@ -855,10 +855,10 @@ class Model(Structure):
     chains: list[Chain] | Structures | bool | None
     # cryst: dict[str, str | tuple[float]] | None
     cryst_record: str | None
-    dbref: dict[str, dict[str, str]]
+    # dbref: dict[str, dict[str, str]]
     design: bool
     entities: list[Entity] | Structures | bool | None
-    entity_info: list[dict[str, list | str]]
+    entity_info: dict[str, dict[dict | list | str]] | dict
     # file_path: str | bytes | None
     header: list
     multimodel: bool
@@ -873,7 +873,8 @@ class Model(Structure):
                  biological_assembly: str | int = None,
                  chains: list[Chain] | Structures | bool = None, entities: list[Entity] | Structures | bool = None,
                  cryst_record: str = None, design: bool = False,
-                 dbref: dict[str, dict[str, str]] = None, entity_info: list[dict[str, list | str]] = None,
+                 # dbref: dict[str, dict[str, str]] = None,
+                 entity_info: dict[str, dict[dict | list | str]] = None,
                  multimodel: bool = False, resolution: float = None, resource_db: 'JobResources.Database' = None,
                  reference_sequence: dict[str, str] = None, metadata: Model = None,
                  **kwargs):
@@ -901,10 +902,10 @@ class Model(Structure):
             # self.cryst = cryst
             # {space: space_group, a_b_c: (a, b, c), ang_a_b_c: (ang_a, _b, _c)}
             self.cryst_record = cryst_record
-            self.dbref = dbref if dbref else {}  # {'chain': {'db: 'UNP', 'accession': P12345}, ...}
+            # self.dbref = dbref if dbref else {}  # {'chain': {'db: 'UNP', 'accession': P12345}, ...}
             self.design = design  # assumes not a design unless explicitly found to be a design
             self.entities = []
-            self.entity_info = entity_info if entity_info else []
+            self.entity_info = entity_info if entity_info is not None else {}
             # [{'chains': [Chain objs], 'seq': 'GHIPLF...', 'name': 'A'}, ...]
             # ^ ZERO-indexed for recap project!!!
             # self.file_path = file_path
@@ -1639,35 +1640,35 @@ class Model(Structure):
                         self.entity_info = [{'chains': chains, 'name': ent_idx}
                                             for ent_idx, chains in self.api_entry.get('assembly', {}).items()]
                 else:
-                    self.entity_info = [{'chains': chains, 'name': ent_idx}
-                                        for ent_idx, chains in self.api_entry.get('entity', {}).items()]
-                # check to see that the entity_info is in line with the number of chains already parsed
+                    for entity_name, data in self.api_entry.get('entity', {}).items():
+                        self.entity_info[entity_name] = data
+                # Todo this was commented out because nucleotides can't be parsed. This issue still needs solving
+                # Check to see that the entity_info is in line with the number of chains already parsed
                 # found_entity_chains = [chain for info in self.entity_info for chain in info.get('chains', [])]
                 # if len(self.chain_ids) != len(found_entity_chains):
                 #     self.get_entity_info_from_atoms(**kwargs)  # tolerance=0.9
             else:  # Still nothing, then API didn't work for pdb_name. Solve by atom information
                 self.get_entity_info_from_atoms(**kwargs)  # tolerance=0.9
                 if query_by_sequence and not entity_names:
-                    for data in self.entity_info:
+                    for entity_name, data in copy(self.entity_info.items()):
                         pdb_api_name = retrieve_entity_id_by_sequence(data['sequence'])
                         if pdb_api_name:
                             pdb_api_name = pdb_api_name.lower()
                             self.log.info(f'Entity {data["name"]} now named "{pdb_api_name}", as found by PDB API '
                                           f'sequence search')
-                            data['name'] = pdb_api_name
+                            self.entity_info[pdb_api_name] = self.entity_info.pop(entity_name)
         if entity_names:
-            for idx, data in enumerate(self.entity_info):
+            for idx, (entity_name, data) in enumerate(copy(self.entity_info.items())):
                 try:
-                    data['name'] = entity_names[idx]
-                    self.log.debug(f'Entity {idx + 1} now named "{entity_names[idx]}", as directed by supplied '
-                                   f'entity_names')
+                    self.entity_info[entity_names[idx]] = self.entity_info.pop(entity_name)
                 except IndexError:
                     raise IndexError(f'The number of indices in entity_names ({len(entity_names)}) must equal the '
                                      f'number of entities ({len(self.entity_info)})')
+                self.log.debug(f'Entity {idx + 1} now named "{entity_names[idx]}", as directed by supplied '
+                               f'entity_names')
 
-        # For each Entity, get chains
-        for data in self.entity_info:
-            # v make Chain objects (if they are names)
+        # For each Entity, get matching Chain instances
+        for entity_name, data in self.entity_info.items():
             chains = [self.chain(chain) if isinstance(chain, str) else chain for chain in data.get('chains')]
             data['chains'] = [chain for chain in chains if chain]  # remove any missing chains
             # get uniprot ID if the file is from the PDB and has a DBREF remark
@@ -1705,11 +1706,12 @@ class Model(Structure):
             raise ValueError(f'{self.get_entity_info_from_atoms.__name__} tolerance={tolerance}. Can\'t be > 1')
         entity_idx = 1
         # get rid of any information already acquired
-        self.entity_info = [{'chains': [self.chains[0]], 'sequence': self.chains[0].sequence, 'name': entity_idx}]
+        self.entity_info = {f'{self.name}_{entity_idx}':
+                            dict(chains=[self.chains[0]], sequence=self.chains[0].sequence)}
         for chain in self.chains[1:]:
             self.log.debug(f'Searching for matching Entities for Chain {chain.name}')
             new_entity = True  # assume all chains are unique entities
-            for data in self.entity_info:
+            for entity_name, data in self.entity_info.items():
                 # Todo implement structure check
                 #  rmsd_threshold = 1.  # threshold needs testing
                 #  try:
@@ -1742,8 +1744,7 @@ class Model(Structure):
 
             if new_entity:  # no existing entity matches, add new entity
                 entity_idx += 1
-                self.entity_info.append({'chains': [chain], 'sequence': chain.sequence, 'name': entity_idx})
-        self.log.debug('Entities were generated from ATOM records.')
+                self.entity_info[f'{self.name}_{entity_idx}'] = dict(chains=[chain], sequence=chain.sequence)
         self.log.debug(f'Entity information was solved by {method} matching Atoms')
 
     def entity_from_chain(self, chain_id: str) -> Entity | None:
