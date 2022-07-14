@@ -9,7 +9,6 @@ from collections import namedtuple
 from copy import deepcopy, copy
 from itertools import repeat
 from math import floor, exp, log, log2
-# from glob import glob
 from pathlib import Path
 from typing import Sequence, Any, Iterable, get_args, Literal, Iterator
 
@@ -21,11 +20,9 @@ from Bio.Data.IUPACData import protein_letters, extended_protein_letters, protei
 from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
 
-# from Pose import Model
 import CommandDistributer
 import PathUtils as PUtils
 from SymDesignUtils import handle_errors, unpickle, get_base_root_paths_recursively, DesignError, start_log, pretty_format_table
-
 # import dependencies.bmdca as bmdca
 
 # Globals
@@ -1578,31 +1575,31 @@ def overlap_consensus(issm, aa_set):
     return consensus
 
 
-def get_db_statistics(database: str | bytes) -> dict:
-    """Retrieve summary statistics for a specific fragment database
-
-    Args:
-        database: Disk location of a fragment database
-    Returns:
-        {cluster_id: [[mapped, paired, {max_weight_counts}, ...], ..., frequencies: {'A': 0.11, ...}}
-            ex: {'1_0_0': [[0.540, 0.486, {-2: 67, -1: 326, ...}, {-2: 166, ...}], 2749]
-    """
-    for file in os.listdir(database):
-        if file.endswith('statistics.pkl'):
-            return unpickle(os.path.join(database, file))
-
-    return {}
-
-
-def get_db_aa_frequencies(database: str | bytes) -> dict[protein_letters, float]:
-    """Retrieve database specific interface background AA frequencies
-
-    Args:
-        database: Location of database on disk
-    Returns:
-        {'A': 0.11, 'C': 0.03, 'D': 0.53, ...}
-    """
-    return get_db_statistics(database).get('frequencies', {})
+# def get_db_statistics(database: str | bytes) -> dict:
+#     """Retrieve summary statistics for a specific fragment database
+#
+#     Args:
+#         database: Disk location of a fragment database
+#     Returns:
+#         {cluster_id: [[mapped, paired, {max_weight_counts}, ...], ..., frequencies: {'A': 0.11, ...}}
+#             ex: {'1_0_0': [[0.540, 0.486, {-2: 67, -1: 326, ...}, {-2: 166, ...}], 2749]
+#     """
+#     for file in os.listdir(database):
+#         if file.endswith('statistics.pkl'):
+#             return unpickle(os.path.join(database, file))
+#
+#     return {}
+#
+#
+# def get_db_aa_frequencies(database: str | bytes) -> dict[protein_letters, float]:
+#     """Retrieve database specific interface background AA frequencies
+#
+#     Args:
+#         database: Location of database on disk
+#     Returns:
+#         {'A': 0.11, 'C': 0.03, 'D': 0.53, ...}
+#     """
+#     return get_db_statistics(database).get('frequencies', {})
 
 
 def get_cluster_dicts(db=PUtils.biological_interfaces, id_list=None):  # TODO Rename
@@ -2179,112 +2176,112 @@ def combine_pssm(pssms):
     return combined_pssm
 
 
-def combine_ssm(pssm, issm, alpha, db=PUtils.biological_interfaces, favor_fragments=True, boltzmann=False, a=0.5):
-    """Combine weights for profile PSSM and fragment SSM using fragment significance value to determine overlap
-
-    All input must be zero indexed
-    Args:
-        pssm (dict): HHblits - {0: {'A': 0.04, 'C': 0.12, ..., 'lod': {'A': -5, 'C': -9, ...}, 'type': 'W',
-            'info': 0.00, 'weight': 0.00}, {...}}
-              PSIBLAST -  {0: {'A': 0.13, 'R': 0.12, ..., 'lod': {'A': -5, 'R': 2, ...}, 'type': 'W', 'info': 3.20,
-                          'weight': 0.73}, {...}} CURRENTLY IMPOSSIBLE, NEED TO CHANGE THE LOD SCORE IN PARSING
-        issm (dict): {48: {'A': 0.167, 'D': 0.028, 'E': 0.056, ..., 'stats': [4, 0.274]}, 50: {...}, ...}
-        alpha (dict): {48: 0.5, 50: 0.321, ...}
-    Keyword Args:
-        db: Disk location of fragment database
-        favor_fragments=True (bool): Whether to favor fragment profile in the lod score of the resulting profile
-        boltzmann=True (bool): Whether to weight the fragment profile by the Boltzmann probability. If false, residues
-            are weighted by a local maximum over the residue scaled to a maximum provided in the standard Rosetta per
-            residue reference weight.
-        a=0.5 (float): The maximum alpha value to use, should be bounded between 0 and 1
-    Returns:
-        pssm (dict): {0: {'A': 0.04, 'C': 0.12, ..., 'lod': {'A': -5, 'C': -9, ...}, 'type': 'W', 'info': 0.00,
-            'weight': 0.00}, ...}} - combined PSSM dictionary
-    """
-
-    # Combine fragment and evolutionary probability profile according to alpha parameter
-    for entry in alpha:
-        for aa in protein_letters:
-            pssm[entry][aa] = (alpha[entry] * issm[entry][aa]) + ((1 - alpha[entry]) * pssm[entry][aa])
-        logger.info('Residue %d Combined evolutionary and fragment profile: %.0f%% fragment'
-                    % (entry + index_offset, alpha[entry] * 100))
-
-    if favor_fragments:
-        # Modify final lod scores to fragment profile lods. Otherwise use evolutionary profile lod scores
-        # Used to weight fragments higher in design
-        boltzman_energy = 1
-        favor_seqprofile_score_modifier = 0.2 * CommandDistributer.reference_average_residue_weight
-        db = PUtils.frag_directory[db]
-        stat_dict_bkg = get_db_aa_frequencies(db)
-        null_residue = get_lod(stat_dict_bkg, stat_dict_bkg)
-        null_residue = {aa: float(null_residue[aa]) for aa in null_residue}
-
-        for entry in pssm:
-            pssm[entry]['lod'] = null_residue
-        for entry in issm:
-            pssm[entry]['lod'] = get_lod(issm[entry], stat_dict_bkg, round_lod=False)
-            partition, max_lod = 0, 0.0
-            for aa in pssm[entry]['lod']:
-                # for use with a boltzman probability weighting, Z = sum(exp(score / kT))
-                if boltzmann:
-                    pssm[entry]['lod'][aa] = exp(pssm[entry]['lod'][aa] / boltzman_energy)
-                    partition += pssm[entry]['lod'][aa]
-                # remove any lod penalty
-                elif pssm[entry]['lod'][aa] < 0:
-                    pssm[entry]['lod'][aa] = 0
-                # find the maximum/residue (local) lod score
-                if pssm[entry]['lod'][aa] > max_lod:
-                    max_lod = pssm[entry]['lod'][aa]
-            modified_entry_alpha = (alpha[entry] / a) * favor_seqprofile_score_modifier
-            if boltzmann:
-                modifier = partition
-                modified_entry_alpha /= (max_lod / partition)
-            else:
-                modifier = max_lod
-            for aa in pssm[entry]['lod']:
-                pssm[entry]['lod'][aa] /= modifier
-                pssm[entry]['lod'][aa] *= modified_entry_alpha
-            logger.info('Residue %d Fragment lod ratio generated with alpha=%f'
-                        % (entry + index_offset, alpha[entry] / a))
-
-    return pssm
-
-
-def find_alpha(issm, cluster_map, db=PUtils.biological_interfaces, a=0.5):
-    """Find fragment contribution to design with cap at alpha
-
-    Args:
-        issm (dict): {48: {'A': 0.167, 'D': 0.028, 'E': 0.056, ..., 'stats': [4, 0.274]}, 50: {...}, ...}
-        cluster_map (dict): {48: {'chain': 'mapped', 'cluster': [(-2, 1_1_54), ...]}, ...}
-    Keyword Args:
-        db: Disk location of fragment database
-        a=0.5 (float): The maximum alpha value to use, should be bounded between 0 and 1
-    Returns:
-        alpha (dict): {48: 0.5, 50: 0.321, ...}
-    """
-    db = PUtils.frag_directory[db]
-    stat_dict = get_db_statistics(db)
-    alpha = {}
-    for entry in issm:  # cluster_map
-        if cluster_map[entry]['chain'] == 'mapped':
-            i = 0
-        else:
-            i = 1
-
-        contribution_total, count = 0.0, 1
-        # count = len([1 for obs in cluster_map[entry][index] for index in cluster_map[entry]]) or 1
-        for count, residue_cluster_pair in enumerate(cluster_map[entry]['cluster'], 1):
-            cluster_id = return_cluster_id_string(residue_cluster_pair[1], index_number=2)  # get first two indices
-            contribution_total += stat_dict[cluster_id][0][i]  # get the average contribution of each fragment type
-        stats_average = contribution_total / count
-        entry_ave_frag_weight = issm[entry]['stats'][1] / count  # total weight for issm entry / number of fragments
-        if entry_ave_frag_weight < stats_average:  # if design frag weight is less than db cluster average weight
-            # modify alpha proportionally to cluster average weight
-            alpha[entry] = a * (entry_ave_frag_weight / stats_average)
-        else:
-            alpha[entry] = a
-
-    return alpha
+# def combine_ssm(pssm, issm, alpha, db=PUtils.biological_interfaces, favor_fragments=True, boltzmann=False, a=0.5):
+#     """Combine weights for profile PSSM and fragment SSM using fragment significance value to determine overlap
+#
+#     All input must be zero indexed
+#     Args:
+#         pssm (dict): HHblits - {0: {'A': 0.04, 'C': 0.12, ..., 'lod': {'A': -5, 'C': -9, ...}, 'type': 'W',
+#             'info': 0.00, 'weight': 0.00}, {...}}
+#               PSIBLAST -  {0: {'A': 0.13, 'R': 0.12, ..., 'lod': {'A': -5, 'R': 2, ...}, 'type': 'W', 'info': 3.20,
+#                           'weight': 0.73}, {...}} CURRENTLY IMPOSSIBLE, NEED TO CHANGE THE LOD SCORE IN PARSING
+#         issm (dict): {48: {'A': 0.167, 'D': 0.028, 'E': 0.056, ..., 'stats': [4, 0.274]}, 50: {...}, ...}
+#         alpha (dict): {48: 0.5, 50: 0.321, ...}
+#     Keyword Args:
+#         db: Disk location of fragment database
+#         favor_fragments=True (bool): Whether to favor fragment profile in the lod score of the resulting profile
+#         boltzmann=True (bool): Whether to weight the fragment profile by the Boltzmann probability. If false, residues
+#             are weighted by a local maximum over the residue scaled to a maximum provided in the standard Rosetta per
+#             residue reference weight.
+#         a=0.5 (float): The maximum alpha value to use, should be bounded between 0 and 1
+#     Returns:
+#         pssm (dict): {0: {'A': 0.04, 'C': 0.12, ..., 'lod': {'A': -5, 'C': -9, ...}, 'type': 'W', 'info': 0.00,
+#             'weight': 0.00}, ...}} - combined PSSM dictionary
+#     """
+#
+#     # Combine fragment and evolutionary probability profile according to alpha parameter
+#     for entry in alpha:
+#         for aa in protein_letters:
+#             pssm[entry][aa] = (alpha[entry] * issm[entry][aa]) + ((1 - alpha[entry]) * pssm[entry][aa])
+#         logger.info('Residue %d Combined evolutionary and fragment profile: %.0f%% fragment'
+#                     % (entry + index_offset, alpha[entry] * 100))
+#
+#     if favor_fragments:
+#         # Modify final lod scores to fragment profile lods. Otherwise use evolutionary profile lod scores
+#         # Used to weight fragments higher in design
+#         boltzman_energy = 1
+#         favor_seqprofile_score_modifier = 0.2 * CommandDistributer.reference_average_residue_weight
+#         db = PUtils.frag_directory[db]
+#         stat_dict_bkg = get_db_aa_frequencies(db)
+#         null_residue = get_lod(stat_dict_bkg, stat_dict_bkg)
+#         null_residue = {aa: float(null_residue[aa]) for aa in null_residue}
+#
+#         for entry in pssm:
+#             pssm[entry]['lod'] = null_residue
+#         for entry in issm:
+#             pssm[entry]['lod'] = get_lod(issm[entry], stat_dict_bkg, round_lod=False)
+#             partition, max_lod = 0, 0.0
+#             for aa in pssm[entry]['lod']:
+#                 # for use with a boltzman probability weighting, Z = sum(exp(score / kT))
+#                 if boltzmann:
+#                     pssm[entry]['lod'][aa] = exp(pssm[entry]['lod'][aa] / boltzman_energy)
+#                     partition += pssm[entry]['lod'][aa]
+#                 # remove any lod penalty
+#                 elif pssm[entry]['lod'][aa] < 0:
+#                     pssm[entry]['lod'][aa] = 0
+#                 # find the maximum/residue (local) lod score
+#                 if pssm[entry]['lod'][aa] > max_lod:
+#                     max_lod = pssm[entry]['lod'][aa]
+#             modified_entry_alpha = (alpha[entry] / a) * favor_seqprofile_score_modifier
+#             if boltzmann:
+#                 modifier = partition
+#                 modified_entry_alpha /= (max_lod / partition)
+#             else:
+#                 modifier = max_lod
+#             for aa in pssm[entry]['lod']:
+#                 pssm[entry]['lod'][aa] /= modifier
+#                 pssm[entry]['lod'][aa] *= modified_entry_alpha
+#             logger.info('Residue %d Fragment lod ratio generated with alpha=%f'
+#                         % (entry + index_offset, alpha[entry] / a))
+#
+#     return pssm
+#
+#
+# def find_alpha(issm, cluster_map, db=PUtils.biological_interfaces, a=0.5):
+#     """Find fragment contribution to design with cap at alpha
+#
+#     Args:
+#         issm (dict): {48: {'A': 0.167, 'D': 0.028, 'E': 0.056, ..., 'stats': [4, 0.274]}, 50: {...}, ...}
+#         cluster_map (dict): {48: {'chain': 'mapped', 'cluster': [(-2, 1_1_54), ...]}, ...}
+#     Keyword Args:
+#         db: Disk location of fragment database
+#         a=0.5 (float): The maximum alpha value to use, should be bounded between 0 and 1
+#     Returns:
+#         alpha (dict): {48: 0.5, 50: 0.321, ...}
+#     """
+#     db = PUtils.frag_directory[db]
+#     stat_dict = get_db_statistics(db)
+#     alpha = {}
+#     for entry in issm:  # cluster_map
+#         if cluster_map[entry]['chain'] == 'mapped':
+#             i = 0
+#         else:
+#             i = 1
+#
+#         contribution_total, count = 0.0, 1
+#         # count = len([1 for obs in cluster_map[entry][index] for index in cluster_map[entry]]) or 1
+#         for count, residue_cluster_pair in enumerate(cluster_map[entry]['cluster'], 1):
+#             cluster_id = return_cluster_id_string(residue_cluster_pair[1], index_number=2)  # get first two indices
+#             contribution_total += stat_dict[cluster_id][0][i]  # get the average contribution of each fragment type
+#         stats_average = contribution_total / count
+#         entry_ave_frag_weight = issm[entry]['stats'][1] / count  # total weight for issm entry / number of fragments
+#         if entry_ave_frag_weight < stats_average:  # if design frag weight is less than db cluster average weight
+#             # modify alpha proportionally to cluster average weight
+#             alpha[entry] = a * (entry_ave_frag_weight / stats_average)
+#         else:
+#             alpha[entry] = a
+#
+#     return alpha
 
 
 def consensus_sequence(pssm):
