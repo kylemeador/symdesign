@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import os
 from glob import glob
-from typing import Annotated
+from typing import Annotated, Iterable
 
 import numpy as np
 from Bio.Data.IUPACData import protein_letters
@@ -70,10 +70,166 @@ class ClusterInfoFile:
         return self.central_residue_pair_freqs
 
 
+class FragmentDatabase(FragmentDB):
+    def __init__(self, source: str = biological_interfaces, fragment_length: int = 5, init_db: bool = True,
+                 sql: bool = False, **kwargs):
+        super().__init__()  # object
+        # Todo load all statistics files into the pickle!
+        self.cluster_info: dict = {}
+        self.fragment_length = fragment_length
+        self.fragment_range = parameterize_frag_length(fragment_length)
+        self.source: str = source
+        self.statistics: dict = {}
+        # {cluster_id: [[mapped, paired, {max_weight_counts}, ...], ..., frequencies: {'A': 0.11, ...}}
+        #  ex: {'1_0_0': [[0.540, 0.486, {-2: 67, -1: 326, ...}, {-2: 166, ...}], 2749]
+
+        if sql:
+            self.start_mysql_connection()  # sets self.fragdb  # Todo work out mechanism
+            self.db = True
+        else:  # self.source == 'directory':
+            # Todo initialize as local directory
+            self.db = False
+            if init_db:
+                logger.info(f'Initializing {source} FragmentDatabase from disk. This may take awhile...')
+                # self.get_monofrag_cluster_rep_dict()
+                self.get_intfrag_cluster_rep_dict()
+                self.get_intfrag_cluster_info_dict()
+                # self._load_cluster_info()
+
+        self._load_db_statistics()
+
+    @property
+    def location(self) -> str | bytes | None:
+        """Provide the location where fragments are stored"""
+        return frag_directory.get(self.source, None)
+
+    def _load_db_statistics(self):
+        """Retrieve summary statistics for a specific fragment database located on directory
+
+        Returns:
+            {cluster_id1: [[mapped_index_average, paired_index_average, {max_weight_counts_mapped}, {paired}],
+                           total_fragment_observations], cluster_id2: ...,
+             frequencies: {'A': 0.11, ...}}
+                ex: {'1_0_0': [[0.540, 0.486, {-2: 67, -1: 326, ...}, {-2: 166, ...}], 2749], ...}
+        """
+        if self.db:
+            logger.warning('No SQL DB connected yet!')  # Todo
+            raise NotImplementedError('Can\'t connect to MySQL database yet')
+        else:
+            stats_file = sorted(glob(os.path.join(self.location, 'statistics.pkl')))
+            if len(stats_file) == 1:
+                self.statistics = unpickle(stats_file[0])
+            else:
+                raise DesignError('There were too many statistics.pkl files found from the fragment database source!')
+            # for file in os.listdir(self.location):
+            #     if 'statistics.pkl' in file:
+            #         self.statistics = unpickle(os.path.join(self.location, file))
+            #         return
+
+    @property
+    def aa_frequencies(self) -> dict[protein_letters, float]:
+        """Retrieve database specific amino acid representation frequencies
+
+        Returns:
+            {'A': 0.11, 'C': 0.03, 'D': 0.53, ...}
+        """
+        return self.statistics.get('frequencies', {})
+
+    def retrieve_cluster_info(self, cluster: str = None, source: str = None, index: str = None) -> \
+            dict[str, int | float | str | dict[int, dict[protein_letters | str, float | tuple[int, float]]]]:
+        # Todo rework this and below func for Database
+        """Return information from the fragment information database by cluster_id, information source, and source index
+
+        Args:
+            cluster: A cluster_id to get information about
+            source: The source of information to gather from: ['size', 'rmsd', 'rep', 'mapped', 'paired']
+            index: The index to gather information from. Must be from 'mapped' or 'paired'
+        Returns:
+            {'size': ..., 'rmsd': ..., 'rep': ..., 'mapped': indexed_frequencies, 'paired': indexed_frequencies}
+            Where indexed_frequencies has format {-2: {'A': 0.1, 'C': 0., ..., 'info': (12, 0.41)}, -1: {}, ..., 2: {}}
+        """
+        if cluster is not None:
+            if cluster not in self.cluster_info:
+                self._load_cluster_info(ids=[cluster])
+            if source is not None:
+                if index is not None and source in ['mapped', 'paired']:  # must check for not None. The index can be 0
+                    return self.cluster_info[cluster][source][index]
+                else:
+                    return self.cluster_info[cluster][source]
+            else:
+                return self.cluster_info[cluster]
+        else:
+            return self.cluster_info
+
+    def _load_cluster_info(self, ids: Iterable[str] = None):
+        """Load cluster information from the fragment database source into attribute cluster_info
+        # Todo change ids to a tuple
+        Args:
+            ids: ['1_2_123', ...]
+        Sets:
+            self.cluster_info (dict): {'1_2_123': {'size': , 'rmsd': , 'rep': , 'mapped': , 'paired': }, ...}
+        """
+        if self.db:
+            logger.warning('No SQL DB connected yet!')
+            raise NotImplementedError('Can\'t connect to MySQL database yet')
+        else:
+            if ids is None:
+                directories = get_base_root_paths_recursively(self.location)
+            else:
+                directories = []
+                for _id in ids:
+                    c_id = _id.split('_')
+                    _dir = os.path.join(self.location, c_id[0], '%s_%s' % (c_id[0], c_id[1]),
+                                        '%s_%s_%s' % (c_id[0], c_id[1], c_id[2]))
+                    directories.append(_dir)
+
+            for cluster_directory in directories:
+                cluster_id = os.path.basename(cluster_directory)
+                self.cluster_info[cluster_id] = unpickle(os.path.join(cluster_directory, '%s.pkl' % cluster_id))
+
+    @staticmethod
+    def get_cluster_id(cluster_id: str, index: int = 3) -> str:
+        """Returns the cluster identification string according the specified index
+
+        Args:
+            cluster_id: The id of the fragment cluster. Ex: 1_2_123
+            index: The index on which to return. Ex: index_number=2 gives 1_2
+        Returns:
+            The cluster_id modified by the requested index_number
+        """
+        while len(cluster_id) < 3:
+            cluster_id += '0'
+
+        if len(cluster_id.split('_')) != 3:  # in case of 12123?
+            id_l = [cluster_id[:1], cluster_id[1:2], cluster_id[2:]]
+        else:
+            id_l = cluster_id.split('_')
+
+        info = [id_l[i] for i in range(index)]
+
+        while len(info) < 3:  # ensure the returned string has at least 3 indices
+            info.append('0')
+
+        return '_'.join(info)
+
+    # def parameterize_frag_length(self, length):
+    #     """Generate fragment length range parameters for use in fragment functions"""
+    #     _range = math.floor(length / 2)  # get the number of residues extending to each side
+    #     if length % 2 == 1:  # fragment length is odd
+    #         self.fragment_range = (0 - _range, 0 + _range + index_offset)
+    #         # return 0 - _range, 0 + _range + index_offset
+    #     else:  # length is even
+    #         logger.critical(f'{length} is an even integer which is not symmetric about a single residue. '
+    #                         'Ensure this is what you want')
+    #         self.fragment_range = (0 - _range, 0 + _range)
+
+    def start_mysql_connection(self):
+        self.fragdb = Mysql(host='cassini-mysql', database='kmeader', user='kmeader', password='km3@d3r')
+
+
 class FragmentDatabase(FragmentInfo):
     cluster_representatives_path: str
     cluster_info_path: str
-    fragment_length: int
     indexed_ghosts: dict[int, tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]] | dict
     # dict[int, tuple[3x3, 1x3, tuple[int, int, int], float]]
     info: dict[int, dict[int, dict[int, ClusterInfoFile]]] | None
@@ -81,20 +237,19 @@ class FragmentDatabase(FragmentInfo):
     paired_frags: dict[int, dict[int, dict[int, tuple['Pose.Model', str]]]] | None
     reps: dict[int, np.ndarray]
 
-    def __init__(self, fragment_length: int = 5):
-        self.cluster_representatives_path = intfrag_cluster_rep_dirpath
-        self.cluster_info_path = intfrag_cluster_info_dirpath
-        self.fragment_length = fragment_length
+    def __init__(self, **kwargs):  # fragment_length: int = 5
+        super().__init__(**kwargs)
+        if self.source == biological_interfaces:
+            self.cluster_representatives_path = intfrag_cluster_rep_dirpath
+            self.cluster_info_path = intfrag_cluster_info_dirpath
+            self.monofrag_representatives_path = monofrag_cluster_rep_dirpath
+
         self.indexed_ghosts = {}
         self.info = None
-        # self.monofrag_representatives_path = monofrag_cluster_rep_dirpath
         self.paired_frags = None
-        # self.reps = None
-
-    # def get_monofrag_cluster_rep_dict(self):
         self.reps = {int(os.path.splitext(file)[0]):
                      Structure.from_file(os.path.join(root, file), entities=False, log=None).ca_coords
-                     for root, dirs, files in os.walk(monofrag_cluster_rep_dirpath) for file in files}
+                     for root, dirs, files in os.walk(self.monofrag_cluster_rep_dirpath) for file in files}
 
     def get_intfrag_cluster_rep_dict(self):
         from Pose import Model
@@ -158,170 +313,6 @@ class FragmentDatabase(FragmentInfo):
             rmsd_array = np.array([dictionary_lookup(self.info, type_set).rmsd for type_set in ijk_types])
             rmsd_array = np.where(rmsd_array == 0, 0.0001, rmsd_array)  # Todo ensure correct upon creation
             self.indexed_ghosts[i_type] = stacked_bb_coords, stacked_guide_coords, ijk_types, rmsd_array
-
-
-class FragmentDatabase(FragmentDB):
-    def __init__(self, source: str = biological_interfaces, fragment_length: int = 5, init_db: bool = True,
-                 sql: bool = False, **kwargs):
-        super().__init__()  # FragmentDB
-        # self.monofrag_representatives_path = monofrag_representatives_path
-        # self.cluster_representatives_path
-        # self.cluster_info_path = cluster_info_path
-        # self.reps = None
-        # self.paired_frags = None
-        # self.info = None
-        self.source: str = source
-        # Todo load all statistics files into the pickle!
-        # self.location = frag_directory.get(self.source, None)
-        self.statistics: dict = {}
-        # {cluster_id: [[mapped, paired, {max_weight_counts}, ...], ..., frequencies: {'A': 0.11, ...}}
-        #  ex: {'1_0_0': [[0.540, 0.486, {-2: 67, -1: 326, ...}, {-2: 166, ...}], 2749]
-        self.fragment_range: tuple[int, int]
-        self.cluster_info: dict = {}
-        # self.fragdb = None  # Todo
-
-        if sql:
-            self.start_mysql_connection()
-            self.db = True
-        else:  # self.source == 'directory':
-            # Todo initialize as local directory
-            self.db = False
-            if init_db:
-                logger.info(f'Initializing {source} FragmentDatabase from disk. This may take awhile...')
-                # self.get_monofrag_cluster_rep_dict()
-                self.get_intfrag_cluster_rep_dict()
-                self.get_intfrag_cluster_info_dict()
-                # self.get_cluster_info()
-
-        self.get_db_statistics()
-        self.fragment_range = parameterize_frag_length(fragment_length)
-
-    @property
-    def location(self) -> str | bytes | None:
-        """Provide the location where fragments are stored"""
-        return frag_directory.get(self.source, None)
-
-    def get_db_statistics(self) -> dict:
-        """Retrieve summary statistics for a specific fragment database located on directory
-
-        Returns:
-            {cluster_id1: [[mapped_index_average, paired_index_average, {max_weight_counts_mapped}, {paired}],
-                           total_fragment_observations], cluster_id2: ...,
-             frequencies: {'A': 0.11, ...}}
-                ex: {'1_0_0': [[0.540, 0.486, {-2: 67, -1: 326, ...}, {-2: 166, ...}], 2749], ...}
-        """
-        if self.db:
-            logger.warning('No SQL DB connected yet!')  # Todo
-            raise NotImplementedError('Can\'t connect to MySQL database yet')
-        else:
-            stats_file = sorted(glob(os.path.join(self.location, 'statistics.pkl')))
-            if len(stats_file) == 1:
-                self.statistics = unpickle(stats_file[0])
-            else:
-                raise DesignError('There were too many statistics.pkl files found from the fragment database source!')
-            # for file in os.listdir(self.location):
-            #     if 'statistics.pkl' in file:
-            #         self.statistics = unpickle(os.path.join(self.location, file))
-            #         return
-
-    def get_db_aa_frequencies(self) -> dict[protein_letters, float]:
-        """Retrieve database specific amino acid representation frequencies
-
-        Returns:
-            {'A': 0.11, 'C': 0.03, 'D': 0.53, ...}
-        """
-        return self.statistics.get('frequencies', {})
-
-    def retrieve_cluster_info(self, cluster: str = None, source: str = None, index: str = None) -> \
-            dict[str, int | float | str | dict[int, dict[protein_letters | str, float | tuple[int, float]]]]:
-        # Todo rework this and below func for Database
-        """Return information from the fragment information database by cluster_id, information source, and source index
-
-        Args:
-            cluster: A cluster_id to get information about
-            source: The source of information to gather from: ['size', 'rmsd', 'rep', 'mapped', 'paired']
-            index: The index to gather information from. Must be from 'mapped' or 'paired'
-        Returns:
-            {'size': ..., 'rmsd': ..., 'rep': ..., 'mapped': indexed_frequencies, 'paired': indexed_frequencies}
-            Where indexed_frequencies has format {-2: {'A': 0.1, 'C': 0., ..., 'info': (12, 0.41)}, -1: {}, ..., 2: {}}
-        """
-        if cluster:
-            if cluster not in self.cluster_info:
-                self.get_cluster_info(ids=[cluster])
-            if source:
-                if index is not None and source in ['mapped', 'paired']:  # must check for not None. The index can be 0
-                    return self.cluster_info[cluster][source][index]
-                else:
-                    return self.cluster_info[cluster][source]
-            else:
-                return self.cluster_info[cluster]
-        else:
-            return self.cluster_info
-
-    def get_cluster_info(self, ids: list[str] = None):
-        """Load cluster information from the fragment database source into attribute cluster_info
-        # todo change ids to a tuple
-        Args:
-            ids: ['1_2_123', ...]
-        Sets:
-            self.cluster_info (dict): {'1_2_123': {'size': , 'rmsd': , 'rep': , 'mapped': , 'paired': }, ...}
-        """
-        if self.db:
-            logger.warning('No SQL DB connected yet!')
-            raise DesignError('Can\'t connect to MySQL database yet')
-        else:
-            if not ids:
-                directories = get_base_root_paths_recursively(self.location)
-            else:
-                directories = []
-                for _id in ids:
-                    c_id = _id.split('_')
-                    _dir = os.path.join(self.location, c_id[0], '%s_%s' % (c_id[0], c_id[1]),
-                                        '%s_%s_%s' % (c_id[0], c_id[1], c_id[2]))
-                    directories.append(_dir)
-
-            for cluster_directory in directories:
-                cluster_id = os.path.basename(cluster_directory)
-                self.cluster_info[cluster_id] = unpickle(os.path.join(cluster_directory, '%s.pkl' % cluster_id))
-
-    @staticmethod
-    def get_cluster_id(cluster_id: str, index: int = 3) -> str:
-        """Returns the cluster identification string according the specified index
-
-        Args:
-            cluster_id: The id of the fragment cluster. Ex: 1_2_123
-            index: The index on which to return. Ex: index_number=2 gives 1_2
-        Returns:
-            The cluster_id modified by the requested index_number
-        """
-        while len(cluster_id) < 3:
-            cluster_id += '0'
-
-        if len(cluster_id.split('_')) != 3:  # in case of 12123?
-            id_l = [cluster_id[:1], cluster_id[1:2], cluster_id[2:]]
-        else:
-            id_l = cluster_id.split('_')
-
-        info = [id_l[i] for i in range(index)]
-
-        while len(info) < 3:  # ensure the returned string has at least 3 indices
-            info.append('0')
-
-        return '_'.join(info)
-
-    # def parameterize_frag_length(self, length):
-    #     """Generate fragment length range parameters for use in fragment functions"""
-    #     _range = math.floor(length / 2)  # get the number of residues extending to each side
-    #     if length % 2 == 1:  # fragment length is odd
-    #         self.fragment_range = (0 - _range, 0 + _range + index_offset)
-    #         # return 0 - _range, 0 + _range + index_offset
-    #     else:  # length is even
-    #         logger.critical(f'{length} is an even integer which is not symmetric about a single residue. '
-    #                         'Ensure this is what you want')
-    #         self.fragment_range = (0 - _range, 0 + _range)
-
-    def start_mysql_connection(self):
-        self.fragdb = Mysql(host='cassini-mysql', database='kmeader', user='kmeader', password='km3@d3r')
 
 
 class FragmentDatabaseFactory:
