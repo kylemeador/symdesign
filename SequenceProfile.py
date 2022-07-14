@@ -295,7 +295,7 @@ class SequenceProfile:
                 retrieve_fragments = [fragment['cluster'] for idx_d in self.fragment_map.values()
                                       for fragments in idx_d.values() for fragment in fragments
                                       if fragment['cluster'] not in self.fragment_db.cluster_info]
-                self.fragment_db.get_cluster_info(ids=retrieve_fragments)
+                self.fragment_db._load_cluster_info(ids=retrieve_fragments)
             else:
                 raise AttributeError('Fragments were specified but there is no fragment database attached. Ensure '
                                      'fragment_db is set before requesting fragment information')
@@ -967,7 +967,7 @@ class SequenceProfile:
             keep_extras=True (bool): If true, keep values for all design dictionary positions that are missing data
         """
         # self.log.debug(self.fragment_profile.items())
-        database_bkgnd_aa_freq = self.fragment_db.get_db_aa_frequencies()
+        database_bkgnd_aa_freq = self.fragment_db.aa_frequencies
         # Fragment profile is correct size for indexing all STRUCTURAL residues
         #  self.reference_sequence is not used for this. Instead, self.sequence is used in place since the use
         #  of a disorder indicator that removes any disordered residues from input evolutionary profiles is calculated
@@ -1155,7 +1155,7 @@ class SequenceProfile:
             # Used to weight fragments higher in design
             boltzman_energy = 1
             favor_seqprofile_score_modifier = 0.2 * CommandDistributer.reference_average_residue_weight
-            database_bkgnd_aa_freq = self.fragment_db.get_db_aa_frequencies()
+            database_bkgnd_aa_freq = self.fragment_db.aa_frequencies
 
             null_residue = self.get_lod(database_bkgnd_aa_freq, database_bkgnd_aa_freq)
             null_residue = {aa: float(frequency) for aa, frequency in null_residue.items()}
