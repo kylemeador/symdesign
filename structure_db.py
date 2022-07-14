@@ -4,6 +4,7 @@ import os
 import subprocess
 from copy import copy
 from glob import glob
+from logging import Logger
 from pathlib import Path
 from typing import Iterable, Annotated
 
@@ -16,7 +17,6 @@ from Query.utils import boolean_choice
 from Structure import Structure
 from SymDesignUtils import unpickle, to_iterable, start_log, write_commands, starttime, make_path, write_shell_script
 from classes.SymEntry import parse_symmetry_to_sym_entry, sdf_lookup
-from utils.PDBUtils import orient_structure_files
 
 logger = start_log(name=__name__)
 qsbio_confirmed = unpickle(qs_bio)
@@ -110,6 +110,39 @@ def fetch_pdb_file(pdb_code: str, asu: bool = True, location: str | bytes = pdb_
         logger.warning(f'No matching file found for PDB: {pdb_code}')
     else:  # we should only find one file, therefore, return the first
         return pdb_file[0]
+
+
+def orient_structure_files(files: Iterable[str | bytes], log: Logger = logger, symmetry: str = None,
+                           out_dir: str | bytes = None) -> list[str]:
+    """For a specified file and output directory, orient the file according to the provided symmetry where the
+    resulting file will have the chains symmetrized and oriented in the coordinate frame as to have the major axis
+    of symmetry along z, and additional axis along canonically defined vectors. If the symmetry is C1, then the monomer
+    will be transformed so the center of mass resides at the origin
+
+    Args:
+        files: The location of the files to be oriented
+        log: A log to report on operation success
+        symmetry: The symmetry type to be oriented. Possible types in SymmetryUtils.valid_subunit_number
+        out_dir: The directory that should be used to output files
+    Returns:
+        Filepath of oriented PDB
+    """
+    file_paths = []
+    for file in files:
+        model_name = os.path.basename(file)
+        oriented_file_path = os.path.join(out_dir, model_name)
+        if not os.path.exists(oriented_file_path):
+            model = Pose.Model.from_file(file, log=log)  # must load entities to solve multi-component orient problem
+            try:
+                model.orient(symmetry=symmetry)
+            except (ValueError, RuntimeError) as error:
+                log.error(str(error))
+                continue
+            model.write(out_path=oriented_file_path)
+            log.info(f'Oriented: {model_name}')
+
+        file_paths.append(oriented_file_path)
+    return file_paths
 
 
 def query_qs_bio(pdb_entry_id: str) -> int:
