@@ -99,8 +99,8 @@ pose_file = 'docked_pose_info_file.txt'
 design_profile = 'design_profile'
 evolutionary_profile = 'evolutionary_profile'
 fragment_profile = 'fragment_profile'
-protein_data = 'ProteinData'
 sequence_info = 'SequenceInfo'  # was Sequence_Info 1/25/21
+structure_info = 'StructureInfo'
 # profiles = 'profiles'
 pose_directory = 'Poses'
 
