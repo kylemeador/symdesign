@@ -16,6 +16,7 @@ from PathUtils import sym_entry, program_name, orient_log_file, rosetta_scripts,
     all_scores, projects, sequence_info, data, output_oligomers, output_fragments, \
     structure_background, scout, generate_fragments, number_of_trajectories, nstruct, no_hbnet, ignore_symmetric_clashes, ignore_pose_clashes, ignore_clashes, force_flags, no_evolution_constraint, \
     no_term_constraint, consensus, qs_bio, pdb_db
+import Pose
 from Query.PDB import query_entry_id, query_entity_id, query_assembly_id, \
     parse_entry_json, parse_entities_json, parse_assembly_json
 from Query.utils import boolean_choice
@@ -224,7 +225,7 @@ class Database:  # Todo ensure that the single object is completely loaded befor
         return object_db.retrieve_file(name)
 
     def orient_structures(self, structure_identifiers: Iterable[str], symmetry: str = 'C1', by_file: bool = False) -> \
-            list['Model'] | list:
+            list['Pose.Model'] | list:
         """Given entity_ids and their corresponding symmetry, retrieve .pdb files, orient and save Database files then
         return the ASU for each
 
@@ -705,7 +706,8 @@ class DataStore:
         # load_file must be a callable which takes as first argument the file_name
         # save_file must be a callable which takes as first argument the object to save and second argument is file_name
         if '.pdb' in extension:
-            self.load_file = PDB.from_pdb
+            from Pose import Model
+            self.load_file = Model.from_pdb
             self.save_file = not_implemented
         elif '.json' in extension:
             self.load_file = read_json
