@@ -7,7 +7,7 @@ import os
 import signal
 import subprocess
 from itertools import repeat, chain
-from typing import Any
+from typing import Any, AnyStr
 
 from PathUtils import stage, sbatch_template_dir, nano, rosetta_main, rosetta_extras, dalphaball, submodule_help, \
     cmd_dist, program_name, interface_design, interface_metrics, optimize_designs, refine, rosetta_scripts, \
@@ -130,7 +130,7 @@ def exit_gracefully(signum, frame):
         # run(file, '/dev/null', program='rm')
 
 
-def create_file(file: str | bytes = None):
+def create_file(file: AnyStr = None):
     """If file doesn't exist, create a blank one"""
     if file and not os.path.exists(file):
         with open(file, 'w') as new_file:
@@ -164,9 +164,9 @@ def run(cmd: str, log_file_name: str, program: str = None, srun: str = None) -> 
     return p.returncode == 0
 
 
-def distribute(file: str | bytes = None, out_path: str | bytes = os.getcwd(), scale: str = None,
-               success_file: str | bytes = None, failure_file: str | bytes = None, max_jobs: int = 80,
-               number_of_commands: int = None, mpi: int = None, log_file: str | bytes = None,
+def distribute(file: AnyStr = None, out_path: AnyStr = os.getcwd(), scale: str = None,
+               success_file: AnyStr = None, failure_file: AnyStr = None, max_jobs: int = 80,
+               number_of_commands: int = None, mpi: int = None, log_file: AnyStr = None,
                finishing_commands: list[str] = None, **kwargs) -> str:
     """Take a file of commands formatted for execution in the SLURM environment and process into a sbatch script
 
@@ -249,7 +249,7 @@ def distribute(file: str | bytes = None, out_path: str | bytes = os.getcwd(), sc
 
 
 # @handle_errors(errors=(FileNotFoundError,))
-def update_status(serialized_info: str | bytes, stage: str, mode: str = 'check'):
+def update_status(serialized_info: AnyStr, stage: str, mode: str = 'check'):
     """Update the serialized info for a designs commands such as checking or removing status, and marking completed"""
     info = unpickle(serialized_info)
     if mode == 'check':

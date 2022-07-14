@@ -4,10 +4,8 @@ import json
 import os
 from glob import glob
 from logging import Logger
-from typing import Any
+from typing import Any, Callable, AnyStr
 
-from SequenceProfile import read_fasta_file, write_sequence_to_fasta, parse_hhblits_pssm, MultipleSequenceAlignment
-from Structure import parse_stride
 from SymDesignUtils import start_log
 
 logger = start_log(name=__name__)
@@ -36,7 +34,7 @@ def write_str_to_file(string, file_name, **kwargs) -> AnyStr:
     return file_name
 
 
-def write_list_to_file(_list, file_name, **kwargs) -> str | bytes:
+def write_list_to_file(_list, file_name, **kwargs) -> AnyStr:
     """Use standard file IO to write a string to a file
 
     Args:
@@ -66,7 +64,7 @@ def read_json(file_name, **kwargs) -> dict | None:
     return data
 
 
-def write_json(data, file_name, **kwargs) -> str | bytes:
+def write_json(data, file_name, **kwargs) -> AnyStr:
     """Use json.dump to write an object to a file
 
     Args:
@@ -135,11 +133,11 @@ class DataStore:
         if condition:
             os.makedirs(self.location, exist_ok=True)
 
-    def store(self, name: str = '*') -> str | bytes:  # Todo resolve with def store_data() below. This to path() -> Path
+    def store(self, name: str = '*') -> AnyStr:  # Todo resolve with def store_data() below. This to path() -> Path
         """Return the path of the storage location given an entity name"""
         return os.path.join(self.location, f'{name}{self.extension}')
 
-    def retrieve_file(self, name: str) -> str | bytes | None:
+    def retrieve_file(self, name: str) -> AnyStr | None:
         """Returns the actual location by combining the requested name with the stored .location"""
         path = self.store(name)
         files = sorted(glob(path))
@@ -192,7 +190,7 @@ class DataStore:
 
         return data
 
-    def _save_data(self, name: str, **kwargs) -> str | bytes | None:
+    def _save_data(self, name: str, **kwargs) -> AnyStr | None:
         """Return the data located in a particular entry specified by name
 
         Returns:
@@ -270,7 +268,7 @@ class Database:  # Todo ensure that the single object is completely loaded befor
         data = self.source(source).retrieve_data(name)
         return data
 
-    def retrieve_file(self, source: str = None, name: str = None) -> str | bytes | None:
+    def retrieve_file(self, source: str = None, name: str = None) -> AnyStr | None:
         """Retrieve the file specified by the source and identifier name
 
         Args:

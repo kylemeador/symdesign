@@ -3,7 +3,7 @@ from __future__ import annotations
 import os
 from logging import Logger
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, AnyStr
 
 from SequenceProfile import MultipleSequenceAlignment, parse_hhblits_pssm, read_fasta_file, write_sequence_to_fasta
 from Structure import parse_stride
@@ -19,9 +19,9 @@ logger = start_log(name=__name__)
 
 
 class APIDatabase(Database):
-    def __init__(self, stride: str | bytes | Path = None, sequences: str | bytes | Path = None,
-                 hhblits_profiles: str | bytes | Path = None, pdb_api: str | bytes | Path = None,
-                 uniprot_api: str | bytes | Path = None, **kwargs):
+    def __init__(self, stride: AnyStr | Path = None, sequences: AnyStr | Path = None,
+                 hhblits_profiles: AnyStr | Path = None, pdb_api: AnyStr | Path = None,
+                 uniprot_api: AnyStr | Path = None, **kwargs):
         # passed to Database
         # sql: sqlite = None, log: Logger = logger
         super().__init__(**kwargs)  # Database
@@ -190,8 +190,8 @@ argument
 class PDBDataStore(DataStore):
     def __init__(self, location: str = None, extension: str = '.json', sql=None, log: Logger = logger):
         super().__init__(location=location, extension=extension, sql=sql, log=log)
-        # pdb_entity_api: str | bytes | Path = os.path.join(self.location, 'pdb_entity')
-        # pdb_assembly_api: str | bytes | Path = os.path.join(self.location, 'pdb_assembly')
+        # pdb_entity_api: AnyStr | Path = os.path.join(self.location, 'pdb_entity')
+        # pdb_assembly_api: AnyStr | Path = os.path.join(self.location, 'pdb_assembly')
         # self.entity_api = EntityDataStore(location=pdb_entity_api, extension='.json', sql=self.sql, log=self.log)
         # self.assembly_api = AssemblyDataStore(location=pdb_assembly_api, extension='.json', sql=self.sql, log=self.log)
         # make_path(pdb_entity_api)

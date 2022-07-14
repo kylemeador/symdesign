@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import os
 from glob import glob
-from typing import Annotated, Iterable
+from typing import Annotated, Iterable, AnyStr
 
 import numpy as np
 from Bio.Data.IUPACData import protein_letters
@@ -105,7 +105,7 @@ class FragmentInfo:
         self._load_db_statistics()
 
     @property
-    def location(self) -> str | bytes | None:
+    def location(self) -> AnyStr | None:
         """Provide the location where fragments are stored"""
         return frag_directory.get(self.source, None)
 

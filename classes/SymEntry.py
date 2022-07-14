@@ -3,6 +3,7 @@ from __future__ import annotations
 import math
 import os
 import warnings
+from typing import AnyStr
 
 import numpy as np
 
@@ -648,7 +649,7 @@ class SymEntry:
 
         return external_translation_shifts
 
-    def sdf_lookup(self) -> str | bytes:
+    def sdf_lookup(self) -> AnyStr:
         """Locate the proper symmetry definition file depending on the specified symmetry
 
         Returns:
@@ -997,7 +998,7 @@ def parse_symmetry_to_sym_entry(sym_entry: int = None, symmetry: str = None, sym
     return symmetry_factory.get(sym_entry, sym_map=sym_map)
 
 
-def sdf_lookup(symmetry: str = None) -> str | bytes:
+def sdf_lookup(symmetry: str = None) -> AnyStr:
     """From the set of possible point groups, locate the proper symmetry definition file depending on the specified
     symmetry. If none is specified, a C1 symmetry will be returned (this doesn't make sense but is completely viable)
 

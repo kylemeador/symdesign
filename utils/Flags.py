@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import os
 import sys
+from typing import AnyStr
 
 from psutil import cpu_count
 
@@ -169,7 +170,7 @@ def load_flags(file):
         return {dict(tuple(flag.lstrip('-').split())) for flag in f.readlines()}
 
 
-def generate_sequence_mask(fasta_file: str | bytes) -> list[int]:
+def generate_sequence_mask(fasta_file: AnyStr) -> list[int]:
     """From a sequence with a design_selector, grab the residue indices that should be designed in the target
     structural calculation
 

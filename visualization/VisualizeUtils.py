@@ -4,6 +4,7 @@ import os
 import sys
 from glob import glob
 from pickle import load
+from typing import AnyStr
 
 # import pandas as pd
 # import numpy as np
@@ -41,7 +42,7 @@ possible_symmetries = {'I32': 'I', 'I52': 'I', 'I53': 'I', 'T32': 'T', 'T33': 'T
                        }
 
 
-def unpickle(file_name: str | bytes):  # , protocol=pickle.HIGHEST_PROTOCOL):
+def unpickle(file_name: AnyStr):  # , protocol=pickle.HIGHEST_PROTOCOL):
     """Unpickle (deserialize) and return a python object located at filename"""
     if '.pkl' not in file_name and '.pickle' not in file_name:
         file_name = '%s.pkl' % file_name

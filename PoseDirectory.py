@@ -9,10 +9,9 @@ from os import path, sep, getcwd, remove, stat, makedirs  # walk
 from pathlib import Path
 from pickle import UnpicklingError
 from re import compile as re_compile
-# from math import ceil, sqrt
 from shutil import copy as shcopy
 from subprocess import Popen, list2cmdline
-from typing import Callable, Any, Iterable
+from typing import Callable, Any, Iterable, AnyStr
 
 import matplotlib.pyplot as plt
 # import seaborn as sns
@@ -86,10 +85,10 @@ class PoseDirectory:
     source: str | None
     source_path: str
     specific_designs: list
-    specific_designs_file_paths: list[str | bytes]
+    specific_designs_file_paths: list[AnyStr]
 
-    def __init__(self, design_path: str | bytes, job_resources: JobResources = None, pose_id: bool = False,
-                 root: str | bytes = None, **kwargs):
+    def __init__(self, design_path: AnyStr, job_resources: JobResources = None, pose_id: bool = False,
+                 root: AnyStr = None, **kwargs):
         self.job_resources = job_resources if job_resources else job_resources_factory.get(program_root=root, **kwargs)
         # PoseDirectory flags
         self.log: Logger | None = None
@@ -335,15 +334,15 @@ class PoseDirectory:
         self.entity_names = self.info.get('entity_names', [])  # set so that DataBase set up works
 
     @classmethod
-    def from_nanohedra(cls, design_path: str, root: str | bytes = None, nanohedra_output: bool = True, **kwargs):
+    def from_nanohedra(cls, design_path: str, root: AnyStr = None, nanohedra_output: bool = True, **kwargs):
         return cls(design_path, root=root, nanohedra_output=nanohedra_output, **kwargs)
 
     @classmethod
-    def from_file(cls, design_path: str, root: str | bytes = None, **kwargs):
+    def from_file(cls, design_path: str, root: AnyStr = None, **kwargs):
         return cls(design_path, root=root, **kwargs)
 
     @classmethod
-    def from_pose_id(cls, design_path: str, root: str | bytes = None, **kwargs):
+    def from_pose_id(cls, design_path: str, root: AnyStr = None, **kwargs):
         return cls(design_path, pose_id=True, root=root, **kwargs)
 
     # JobResources path attributes
@@ -692,15 +691,15 @@ class PoseDirectory:
     #         return
 
     @property
-    def trajectories(self) -> str | bytes:
+    def trajectories(self) -> AnyStr:
         return path.join(self.all_scores, f'{self}_Trajectories.csv')
 
     @property
-    def residues(self) -> str | bytes:
+    def residues(self) -> AnyStr:
         return path.join(self.all_scores, f'{self}_Residues.csv')
 
     @property
-    def design_sequences(self) -> str | bytes:
+    def design_sequences(self) -> AnyStr:
         return path.join(self.all_scores, f'{self}_Sequences.pkl')
 
     # SequenceProfile based attributes
@@ -1020,7 +1019,7 @@ class PoseDirectory:
             self.log = start_log(name=str(self), handler=handler, level=level, location=self.log_path,
                                  propagate=propagate, no_log_name=no_log_name)
 
-    def directory_string_to_path(self, root: str | bytes, pose_id: str):
+    def directory_string_to_path(self, root: AnyStr, pose_id: str):
         """Set the PoseDirectory self.path to the root/pose-ID where the pose-ID is converted from dash separation to
         path separators"""
         assert root, 'No root directory attribute! Cannot create a path from a pose_id without a root directory!' \
@@ -1191,14 +1190,14 @@ class PoseDirectory:
             self._symmetry_definition_files = sorted(glob(path.join(self.data, '*.sdf')))
             return self._symmetry_definition_files
 
-    def get_wildtype_file(self) -> str | bytes:
+    def get_wildtype_file(self) -> AnyStr:
         """Retrieve the wild-type file name from PoseDirectory"""
         wt_file = glob(self.asu_path)
         assert len(wt_file) == 1, 'More than one matching file found during search %s' % self.asu_path
 
         return wt_file[0]
 
-    def get_designs(self) -> list[str | bytes]:  # design_type: str = PUtils.interface_design
+    def get_designs(self) -> list[AnyStr]:  # design_type: str = PUtils.interface_design
         """Return the paths of all design files in a PoseDirectory"""
         return sorted(glob(path.join(self.designs, '*.pdb')))
         # return sorted(glob(path.join(self.designs, '*%s*.pdb' % design_type)))
@@ -1433,7 +1432,7 @@ class PoseDirectory:
         #     print(self.info)
 
     def prepare_rosetta_flags(self, symmetry_protocol: str = None, sym_def_file: str = None,
-                              pdb_out_path: str = None, out_path: str | bytes = getcwd()) -> str:
+                              pdb_out_path: str = None, out_path: AnyStr = getcwd()) -> str:
         """Prepare a protocol specific Rosetta flags file with program specific variables
 
         Args:
@@ -1693,7 +1692,7 @@ class PoseDirectory:
 
         Sets:
             self.symmetry_protocol (str)
-            self.sym_def_file (str | bytes)
+            self.sym_def_file (AnyStr)
         """
         if self.design_dimension is not None:  # symmetric, could be 0
             # self.log.debug('Design has Symmetry Entry Number: %s (Laniado & Yeates, 2020)' % str(self.sym_entry_number))
@@ -3873,7 +3872,7 @@ class PoseDirectory:
             return final_seqs
 
     # @staticmethod
-    # def make_path(path_like: str | bytes, condition: bool = True):
+    # def make_path(path_like: AnyStr, condition: bool = True):
     #     """Make all required directories in specified path if it doesn't exist, and optional condition is True
     #
     #     Args:

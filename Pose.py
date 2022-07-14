@@ -6,7 +6,7 @@ from copy import copy, deepcopy
 from itertools import chain as iter_chain, combinations_with_replacement, combinations, product
 from math import sqrt, cos, sin, prod, ceil, pi
 from pathlib import Path
-from typing import Iterable, IO, Any, Sequence
+from typing import Iterable, IO, Any, Sequence, AnyStr
 
 import numpy as np
 # from numba import njit, jit
@@ -860,7 +860,7 @@ class Model(Structure):
     design: bool
     entities: list[Entity] | Structures | bool | None
     entity_info: dict[str, dict[dict | list | str]] | dict
-    # file_path: str | bytes | None
+    # file_path: AnyStr | None
     header: list
     multimodel: bool
     original_chain_ids: list[str]
@@ -1265,7 +1265,7 @@ class Model(Structure):
             if chain.name == chain_id:
                 return chain
 
-    def write(self, **kwargs) -> str | bytes | None:  # Todo Depreciate. require Pose or self.cryst_record -> Structure?
+    def write(self, **kwargs) -> AnyStr | None:  # Todo Depreciate. require Pose or self.cryst_record -> Structure?
         """Write Atoms to a file specified by out_path or with a passed file_handle
 
         Keyword Args
@@ -1280,7 +1280,7 @@ class Model(Structure):
 
         return super().write(**kwargs)
 
-    def orient(self, symmetry: str = None, log: str | bytes = None):  # Todo Structure. superposition3d -> quaternion
+    def orient(self, symmetry: str = None, log: AnyStr = None):  # Todo Structure. superposition3d -> quaternion
         """Orient a symmetric PDB at the origin with its symmetry axis canonically set on axes defined by symmetry
         file. Automatically produces files in PDB numbering for proper orient execution
 
@@ -1858,7 +1858,7 @@ class Models(Model):
             self._models_coords = Coords(coords)
 
     def write(self, out_path: bytes | str = os.getcwd(), file_handle: IO = None, increment_chains: bool = False,
-              **kwargs) -> str | bytes | None:
+              **kwargs) -> AnyStr | None:
         """Write Model Atoms to a file specified by out_path or with a passed file_handle
 
         Args:
@@ -3565,7 +3565,7 @@ class SymmetricModel(Models):
             return ''
 
     def write(self, out_path: bytes | str = os.getcwd(), file_handle: IO = None, assembly: bool = False, **kwargs) -> \
-            str | bytes | None:
+            AnyStr | None:
         """Write SymmetricModel Atoms to a file specified by out_path or with a passed file_handle
 
         Args:
@@ -4358,7 +4358,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Todo consider moving SequencePro
         """Compute calculations relevant to interface design.
 
         Sets:
-            self.pssm_file (str | bytes)
+            self.pssm_file (AnyStr)
         """
         # self.log.debug('Entities: %s' % ', '.join(entity.name for entity in self.entities))
         # self.log.debug('Active Entities: %s' % ', '.join(entity.name for entity in self.active_entities))
@@ -4743,7 +4743,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Todo consider moving SequencePro
     #     """
     #     self.fragment_db = fragment.fragment_factory(source=source, **kwargs)
 
-    def generate_interface_fragments(self, write_fragments: bool = True, out_path: str | bytes = None):
+    def generate_interface_fragments(self, write_fragments: bool = True, out_path: AnyStr = None):
         """Generate fragments between the Pose interface(s). Finds interface(s) if not already available
 
         Args:
@@ -4769,7 +4769,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Todo consider moving SequencePro
                                            match_number=match_count, out_path=out_path)
 
     def write_fragment_pairs(self, ghost_mono_frag_pairs: list[tuple[GhostFragment, MonoFragment, float]],
-                             out_path: str | bytes = os.getcwd()):
+                             out_path: AnyStr = os.getcwd()):
         ghost_frag: GhostFragment
         mono_frag: MonoFragment
         for idx, (ghost_frag, mono_frag, match_score) in enumerate(ghost_mono_frag_pairs, 1):

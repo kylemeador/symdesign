@@ -6,7 +6,7 @@ from copy import copy
 from glob import glob
 from logging import Logger
 from pathlib import Path
-from typing import Iterable, Annotated
+from typing import Iterable, Annotated, AnyStr
 
 from CommandDistributer import rosetta_flags, relax_flags, rosetta_variables, script_cmd, distribute
 from database import Database, DataStore
@@ -22,8 +22,8 @@ logger = start_log(name=__name__)
 qsbio_confirmed = unpickle(qs_bio)
 
 
-def _fetch_pdb_from_api(pdb_codes: str | list, assembly: int = 1, asu: bool = False, out_dir: str | bytes = os.getcwd(),
-                        **kwargs) -> list[str | bytes]:  # Todo mmcif
+def _fetch_pdb_from_api(pdb_codes: str | list, assembly: int = 1, asu: bool = False, out_dir: AnyStr = os.getcwd(),
+                        **kwargs) -> list[AnyStr]:  # Todo mmcif
     """Download PDB files from pdb_codes provided in a file, a supplied list, or a single entry
     Can download a specific biological assembly if asu=False.
     Ex: _fetch_pdb_from_api('1bkh', assembly=2) fetches 1bkh biological assembly 2 "1bkh.pdb2"
@@ -80,8 +80,8 @@ def _fetch_pdb_from_api(pdb_codes: str | list, assembly: int = 1, asu: bool = Fa
     return file_names
 
 
-def fetch_pdb_file(pdb_code: str, asu: bool = True, location: str | bytes = pdb_db, **kwargs) -> str | bytes | None:
-    #                assembly: int = 1, out_dir: str | bytes = os.getcwd()
+def fetch_pdb_file(pdb_code: str, asu: bool = True, location: AnyStr = pdb_db, **kwargs) -> AnyStr | None:
+    #                assembly: int = 1, out_dir: AnyStr = os.getcwd()
     """Fetch PDB object from PDBdb or download from PDB server
 
     Args:
@@ -90,7 +90,7 @@ def fetch_pdb_file(pdb_code: str, asu: bool = True, location: str | bytes = pdb_
         location: Location of a local PDB mirror if one is linked on disk
     Keyword Args:
         assembly=None (int): Location of a local PDB mirror if one is linked on disk
-        out_dir=os.getcwd() (str | bytes): The location to save retrieved files if fetched from PDB
+        out_dir=os.getcwd() (AnyStr): The location to save retrieved files if fetched from PDB
     Returns:
         The path to the file if located successfully
     """
@@ -112,8 +112,8 @@ def fetch_pdb_file(pdb_code: str, asu: bool = True, location: str | bytes = pdb_
         return pdb_file[0]
 
 
-def orient_structure_files(files: Iterable[str | bytes], log: Logger = logger, symmetry: str = None,
-                           out_dir: str | bytes = None) -> list[str]:
+def orient_structure_files(files: Iterable[AnyStr], log: Logger = logger, symmetry: str = None,
+                           out_dir: AnyStr = None) -> list[str]:
     """For a specified file and output directory, orient the file according to the provided symmetry where the
     resulting file will have the chains symmetrized and oriented in the coordinate frame as to have the major axis
     of symmetry along z, and additional axis along canonically defined vectors. If the symmetry is C1, then the monomer
@@ -164,8 +164,8 @@ def query_qs_bio(pdb_entry_id: str) -> int:
 
 
 class StructureDatabase(Database):
-    def __init__(self, oriented: str | bytes | Path = None, oriented_asu: str | bytes | Path = None,
-                 refined: str | bytes | Path = None, full_models: str | bytes | Path = None, **kwargs):
+    def __init__(self, oriented: AnyStr | Path = None, oriented_asu: AnyStr | Path = None,
+                 refined: AnyStr | Path = None, full_models: AnyStr | Path = None, **kwargs):
         # passed to Database
         # sql: sqlite = None, log: Logger = logger
         super().__init__(**kwargs)  # Database
@@ -350,7 +350,7 @@ class StructureDatabase(Database):
                              f'unable to be oriented properly')
         return all_structures
 
-    def preprocess_structures_for_design(self, structures: list[Structure], script_out_path: str | bytes = os.getcwd(),
+    def preprocess_structures_for_design(self, structures: list[Structure], script_out_path: AnyStr = os.getcwd(),
                                          load_resources: bool = False, batch_commands: bool = True) -> \
             tuple[list, bool, bool]:
         """Assess whether Structure objects require any processing prior to design calculations.
