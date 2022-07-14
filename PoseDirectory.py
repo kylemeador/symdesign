@@ -36,7 +36,7 @@ from DesignMetrics import read_scores, interface_composition_similarity, unneces
     protocol_specific_columns, rank_dataframe_by_metric_weights, filter_df_for_index_by_value, \
     multiple_sequence_alignment_dependent_metrics, format_fragment_metrics, calculate_match_metrics, \
     process_residue_info
-from JobResources import FragmentDatabase, JobResources, job_resources_factory
+from JobResources import JobResources, job_resources_factory
 from Pose import Pose, MultiModel, Models, Model
 from Query.UniProt import is_uniprot_thermophilic
 from SequenceProfile import parse_pssm, generate_mutations_from_reference, \
@@ -48,6 +48,7 @@ from SymDesignUtils import unpickle, start_log, null_log, handle_errors, write_s
     condensed_to_square, sym, index_intersection, z_score, large_color_array, starttime, ClashError, SymmetryError
 from classes.EulerLookup import EulerLookup
 from classes.SymEntry import SymEntry, symmetry_factory
+from fragment import FragmentDatabase
 from utils.GeneralUtils import get_components_from_nanohedra_docking
 from utils.SymmetryUtils import identity_matrix, origin
 
