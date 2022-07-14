@@ -133,7 +133,7 @@ def design_recapitulation(design_file, output_dir, pdb_dir=None, oligomer=False)
         asu.reorder_chains()
         # asu.renumber_residues()
         asu.renumber_residues_by_chain()
-        asu.get_entity_info_from_atoms()
+        # asu._get_entity_info_from_atoms()
 
         design_dir = os.path.join(output_dir, design)
         if not os.path.exists(design_dir):
