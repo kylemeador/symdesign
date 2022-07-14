@@ -917,7 +917,8 @@ class Model(Structure):
             self._reference_sequence = reference_sequence if reference_sequence else {}
             # ^ SEQRES or PDB API entries. key is chainID, value is 'AGHKLAIDL'
             # self.space_group = space_group
-            self.api_db = api_db if api_db else wrapapi.api_database_factory()  # Todo standardize path?
+            # Todo standardize path with some state variable?
+            # self.api_db = api_db if api_db else wrapapi.api_database_factory()
 
             # self.uc_dimensions = uc_dimensions
             self.structure_containers.extend(['chains', 'entities'])
@@ -1519,7 +1520,8 @@ class Model(Structure):
             return
         # if self.api_db:
         try:
-            retrieve_api_info = self.api_db.pdb_api.retrieve_data
+            # retrieve_api_info = self.api_db.pdb_api.retrieve_data
+            retrieve_api_info = wrapapi.api_database_factory().pdb_api.retrieve_data
         except AttributeError:
             retrieve_api_info = query_pdb_by
 
