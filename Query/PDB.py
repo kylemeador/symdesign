@@ -6,7 +6,7 @@ import sys
 import time
 from copy import deepcopy
 from json import dumps, load
-from typing import Any
+from typing import Any, Iterable
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
 parent_dir = os.path.dirname(current_dir)
@@ -745,7 +745,7 @@ def query_assembly_id(assembly_id: str = None, entry: str = None, assembly_integ
 
 
 def _get_assembly_info(assembly_id: str = None, entry: str = None, assembly_integer: int = 1) -> \
-        dict[int, list[str]] | dict:
+        list[list[str]] | list:
     """Retrieve information on the assembly for a particular entry from the PDB API
 
     Args:
@@ -757,36 +757,35 @@ def _get_assembly_info(assembly_id: str = None, entry: str = None, assembly_inte
     """
     assembly_request = query_assembly_id(assembly_id=assembly_id, entry=entry, assembly_integer=assembly_integer)
     if not assembly_request:
-        return {}
+        return []
 
     return parse_assembly_json(assembly_request.json())
 
 
-def parse_assembly_json(assembly_json: dict[str, Any]) -> dict:
-    """For a PDB API AssemblyID, parse the associated entity ID's and chains
+def parse_assembly_json(assembly_json: dict[str, Any]) -> list[list[str]]:
+    """For a PDB API AssemblyID, parse the associated 'clustered' chains
 
     Args:
         assembly_json: The json type dictionary returned from requests.Response.json()
     Returns:
-        The mapped entity number to the chain ID's in the assembly. Ex: {1: ['A', 'A', 'A', ...]}
+        The chain ID's which cluster in the assembly. Ex: [['A', 'A', 'A', ...], ...]
     """
-    entity_clustered_chains = {}
-    for entity_idx, symmetry in enumerate(assembly_json['rcsb_struct_symmetry'], 1):
+    entity_clustered_chains = []
+    for symmetry in assembly_json['rcsb_struct_symmetry']:
         # for symmetry in symmetries:  # [{}, ...]
         # symmetry contains:
         # {symbol: "O", type: 'Octahedral, stoichiometry: [], oligomeric_state: "Homo 24-mer", clusters: [],
         #  rotation_axes: [], kind: "Global Symmetry"}
-        for cluster_idx, cluster in enumerate(symmetry['clusters'], 1):  # [{}, ...]
+        for cluster in symmetry['clusters']:  # [{}, ...]
             # CLUSTER_IDX is not a mapping to entity index...
             # cluster contains:
-            # {members: [], avg_rmsd: 5.219512137974998e-14}
-            # for cluster in clusters:
-            cluster_members = []
-            for member in cluster['members']:  # [{}, ...]
-                # member contains:
-                # {asym_id: "A", pdbx_struct_oper_list_ids: []}
-                cluster_members.append(member.get('asym_id'))
-            entity_clustered_chains[cluster_idx] = cluster_members
+            # {members: [], avg_rmsd: 5.219512137974998e-14} which indicates how similar each member in the cluster is
+            # cluster_members = []
+            # for member in cluster['members']:  # [{}, ...]
+            #     # member contains:
+            #     # {asym_id: "A", pdbx_struct_oper_list_ids: []}
+            #     cluster_members.append(member.get('asym_id'))
+            entity_clustered_chains.append([member.get('asym_id') for member in cluster['members']])
 
     return entity_clustered_chains
 
@@ -856,9 +855,9 @@ def _get_entry_info(entry: str = None, **kwargs) -> dict[str, Any] | None:
         return {}
     else:
         json = entry_request.json()
-        return dict(**parse_entities_json([query_entity_id(entry=entry, entity_integer=integer).json()
-                                           for integer in range(1, int(json['rcsb_entry_info']
-                                                                       ['polymer_entity_count']) + 1)]),
+        return dict(entity=parse_entities_json([query_entity_id(entry=entry, entity_integer=integer).json()
+                                                for integer in range(1, int(json['rcsb_entry_info']
+                                                                            ['polymer_entity_count']) + 1)]),
                     **parse_entry_json(json))
 
 
@@ -893,20 +892,92 @@ def parse_entry_json(entry_json: dict[str, Any]) -> dict[str, dict]:
     return {'res': resolution, 'struct': struct_d, 'method': experimental_method.lower()}
 
 
-def parse_entities_json(entity_jsons: list[dict[str, Any]]) -> dict[str, dict]:
-    entity_chain_d, ref_d = {}, {}
+def parse_entities_json(entity_jsons: Iterable[dict[str, Any]]) -> dict[str, dict]:
+    """
+
+    Args:
+        entity_jsons: An Iterable of json like objects containing EntityID information as retrieved from the PDB API
+    Returns:
+        The formatted information. Ex:
+        {'EntityID': {'chains': ['A', 'B', ...],
+                      'dbref': {'accession': 'Q96DC8', 'db': 'UNP'}
+                      'reference_sequence': 'MSLEHHHHHH...'},
+         ...}
+    """
+    def extract_dbref(entity_ids_json: dict[str, Any]) -> dict[str, dict]:
+        """For a PDB API EntityID, parse the associated chains and database reference identifiers
+
+        Args:
+            entity_ids_json: The json type dictionary returned from requests.Response.json()
+        Returns:
+            Ex: {'db': 'UNP', 'accession': 'Q96DC8'}
+        """
+        database_keys = ['db', 'accession']
+        uniprot = 'UNP'
+        try:
+            uniprot_ids = entity_ids_json['uniprot_ids']
+            if len(uniprot_ids) > 1:  # Todo choose the most accurate if more than 2...
+                logger.warning('For Entity %s, found multiple UniProt Entries %s. Selecting the first'
+                               % (entity_ids_json['rcsb_id'], uniprot_ids))
+            db_d = dict(zip(database_keys, (uniprot, uniprot_ids[0])))  # may be an issue where there is more than one
+        except KeyError:  # if no uniprot_ids
+            # GenBank = GB, which is mostly RNA or DNA structures or antibody complexes
+            # Norine = NOR, which is small peptide structures, sometimes bound to proteins...
+            identifiers = [dict(db=ident['database_name'], accession=ident['database_accession'])
+                           for ident in entity_ids_json['reference_sequence_identifiers']]
+            if identifiers:
+                if len(identifiers) == 1:  # only one solution
+                    db_d = dict(zip(database_keys, identifiers[0]))
+                else:  # find the most ideal accession_database UniProt > GenBank > Norine > ???
+                    whatever_else = 0
+                    priority_l = [[] for _ in range(len(identifiers))]
+                    for idx, (database, accession) in enumerate(identifiers):
+                        if database == 'UniProt':
+                            priority_l[0].append(idx)
+                            identifiers[idx][0] = uniprot  # rename the database_name
+                        elif database == 'GenBank':
+                            priority_l[1].append(idx)  # two elements are required from above len check, never IndexError
+                            identifiers[idx][0] = 'GB'  # rename the database_name
+                        elif not whatever_else:  # only sets the first time an unknown identifier is seen
+                            whatever_else = idx
+                    # Loop through the list of prioritized identifiers
+                    for identifier_idx in priority_l:
+                        if identifier_idx:  # we have found a priority database, choose the corresponding identifier idx
+                            # make the db_d with the db name as first arg and all the identifiers as the second arg
+                            db_d = dict(zip(database_keys,
+                                            (identifiers[identifier_idx[0]]['db'], [identifiers[idx]['accession']
+                                                                                    for idx in identifier_idx])))
+                            break
+                    else:  # if no solution from priority but something else, choose the other
+                        db_d = dict(zip(database_keys, identifiers[whatever_else]))
+            else:
+                db_d = {}
+
+        return db_d
+
+    # entity_chain_d, ref_d = {}, {}
+    entity_info = {}
     # I can use 'polymer_entity_count_protein' to further identify the entities in a protein, which gives me the chains
     # for entity_idx in range(1, int(entry_json['rcsb_entry_info']['polymer_entity_count_protein']) + 1):
     for entity_idx, entity_json in enumerate(entity_jsons, 1):
         # entity_ref_d = _get_entity_info(entry=entry, entity_integer=entity_idx)
-        entity_ref_d = parse_entity_json(entity_json)
-        ref_d.update(entity_ref_d)
-        entity_chain_d[entity_idx] = list(entity_ref_d.keys())  # these are the chains
+        # entity_id = entity_json['rcsb_polymer_entity_container_identifiers']['rcsb_id']
+        # entity_ref_d = parse_entity_json(entity_json)
+        # ref_d.update(entity_ref_d)
+        # entity_chain_d[entity_idx] = list(entity_ref_d.keys())  # these are the chains
+        entity_json_ids = entity_json.get('rcsb_polymer_entity_container_identifiers')
+        if entity_json_ids:
+            entity_info[entity_json_ids['rcsb_id']] = dict(
+                chains=entity_json_ids['asym_ids'],
+                dbref=extract_dbref(entity_json_ids),
+                reference_sequence=entity_json['entity_poly']['pdbx_seq_one_letter_code_can']
+            )
         # dbref = {chain: {'db': db, 'accession': db_accession_id}}
     # OR dbref = {entity: {'db': db, 'accession': db_accession_id}}
     # cryst = {'space': space_group, 'a_b_c': (a, b, c), 'ang_a_b_c': (ang_a, ang_b, ang_c)}
 
-    return {'entity': entity_chain_d, 'dbref': ref_d}
+    # return {'entity': entity_chain_d, 'dbref': ref_d, 'reference_sequence': ref_seq}
+    return entity_info
 
 
 def _get_entity_info(entity_id: str = None, entry: str = None, entity_integer: int | str = None) -> \
@@ -924,62 +995,7 @@ def _get_entity_info(entity_id: str = None, entry: str = None, entity_integer: i
     if not entity_request:
         return {}
 
-    return parse_entity_json(entity_request.json())
-
-
-def parse_entity_json(entity_json: dict[str, Any]) -> dict[str, dict]:
-    """For a PDB API EntityID, parse the associated chains and database reference identifiers
-
-    Args:
-        entity_json: The json type dictionary returned from requests.Response.json()
-    Returns:
-        Ex: {'chain': {'accession': 'Q96DC8', 'db': 'UNP'}, ...}
-    """
-    chains = entity_json['rcsb_polymer_entity_container_identifiers']['asym_ids']  # = ['A', 'B', ...]
-    database_keys = ['db', 'accession']
-    db_d = {}
-    try:
-        try:
-            uniprot_id = entity_json['rcsb_polymer_entity_container_identifiers']['uniprot_ids']
-            database = 'UNP'
-            # Todo, remove this completely and let Entity find UniprotID by sequence query
-            if len(uniprot_id) > 1:  # Todo choose the most accurate if more than 2...
-                logger.warning('For Entity %s, found multiple UniProt Entries %s. Selecting the first'
-                               % (entity_json['rcsb_polymer_entity_container_identifiers']['rcsb_id'], uniprot_id))
-            db_d = dict(zip(database_keys, ('UNP', uniprot_id[0])))  # may be an issue where there is more than one
-        except KeyError:  # if no uniprot_id
-            # GenBank = GB, which is mostly RNA or DNA structures or antibody complexes
-            # Norine = NOR, which is small peptide structures, sometimes bound to proteins...
-            identifiers = [(ident['database_name'], ident['database_accession'])
-                           for ident in entity_json[
-                               'rcsb_polymer_entity_container_identifiers']['reference_sequence_identifiers']]
-            if len(identifiers) > 1:  # we find the most ideal accession_database UniProt > GenBank > Norine > ???
-                whatever_else = None
-                priority_l = [[] for _ in range(len(identifiers))]
-                for idx, (database, accession) in enumerate(identifiers):
-                    if database == 'UniProt':
-                        priority_l[0].append(idx)
-                        identifiers[idx][0] = 'UNP'
-                    elif database == 'GenBank':
-                        priority_l[1].append(idx)  # two elements are required from above len check, never IndexError
-                        identifiers[idx][0] = 'GB'
-                    elif not whatever_else:
-                        whatever_else = idx
-                for identifier_idx in priority_l:
-                    if identifier_idx:  # we have found a priority database, choose the corresponding identifier idx
-                        # Todo choose most accurate if more than 2...
-                        db_d = dict(zip(database_keys, identifiers[identifier_idx[0]]))
-                        break
-                # finally if no solution from priority but something else, choose the other
-                if not db_d and whatever_else:
-                    db_d = dict(zip(database_keys, identifiers[whatever_else]))
-            else:
-                db_d = dict(zip(database_keys, identifiers[0]))
-
-        ref_d = {chain: db_d for chain in chains}
-    except KeyError:  # there are no known identifiers found
-        ref_d = {chain: db_d for chain in chains}
-    return ref_d
+    return parse_entities_json([entity_request.json()])
 
 
 def query_entity_id(entry: str = None, entity_integer: str | int = None, entity_id: str = None) -> \

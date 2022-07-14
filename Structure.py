@@ -367,6 +367,14 @@ def read_pdb_file(file: str | bytes, pdb_lines: list[str] = None, separate_coord
     if not temp_info:
         raise ValueError(f'The file {file} has no ATOM records!')
 
+    # combine entity_info with the reference_sequence info and dbref info
+    reference_sequence = parse_seqres(seq_res_lines)
+    for entity_name, info in entity_info.items():
+        # grab the first chain from the identified chains, and use it to grab the reference sequence
+        chain = info['chains'][0]
+        info['reference_sequence'] = reference_sequence[chain]
+        info['dbref'] = dbref[chain]
+
     parsed_info = \
         dict(biological_assembly=assembly,
              atoms=[Atom.without_coordinates(idx, *info) for idx, info in enumerate(temp_info)] if separate_coords

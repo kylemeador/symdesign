@@ -16,7 +16,7 @@ from PathUtils import sym_entry, program_name, orient_log_file, rosetta_scripts,
     structure_background, scout, generate_fragments, number_of_trajectories, nstruct, no_hbnet, ignore_symmetric_clashes, ignore_pose_clashes, ignore_clashes, force_flags, no_evolution_constraint, \
     no_term_constraint, consensus, qs_bio, pdb_db
 from Query.PDB import query_entry_id, query_entity_id, query_assembly_id, \
-    parse_entry_json, parse_entity_json, parse_entities_json, parse_assembly_json
+    parse_entry_json, parse_entities_json, parse_assembly_json
 from Query.utils import boolean_choice
 from SequenceProfile import parse_hhblits_pssm, MultipleSequenceAlignment, read_fasta_file, write_sequence_to_fasta
 from Structure import parse_stride, Structure
@@ -971,7 +971,7 @@ class PDBDataStore(DataStore):
 
     def retrieve_data(self, entry: str = None, assembly_id: str = None, assembly_integer: int | str = None,
                       entity_id: str = None, entity_integer: int | str = None, chain: str = None, **kwargs) -> \
-            dict | None:
+            dict | list[list[str]] | None:
         """Return data requested by PDB identifier. Loads into the Database or queries the PDB API
 
         Args:
@@ -989,8 +989,8 @@ class PDBDataStore(DataStore):
                 if entity_integer:
                     # logger.debug(f'Querying PDB API with {entry}_{entity_integer}')
                     # data = self.entity_api.retrieve_data(name=f'{entry}_{entity_integer}')
-                    # return parse_entity_json(self.entity_api.retrieve_data(name=f'{entry}_{entity_integer}'))
-                    return parse_entity_json(self.retrieve_entity_data(name=f'{entry}_{entity_integer}'))
+                    # return parse_entities_json([self.entity_api.retrieve_data(name=f'{entry}_{entity_integer}')])
+                    return parse_entities_json([self.retrieve_entity_data(name=f'{entry}_{entity_integer}')])
                 elif assembly_integer:
                     # logger.debug(f'Querying PDB API with {entry}-{assembly_integer}')
                     # data = self.assembly_api.retrieve_data(name=f'{entry}_{assembly_integer}')
@@ -1019,9 +1019,10 @@ class PDBDataStore(DataStore):
                             # setattr(self, entry, data)
                             self.store_data(data, name=entry)
 
-                    data = dict(**parse_entities_json([self.retrieve_entity_data(name=f'{entry}_{integer}')
-                                                       for integer in range(1, int(data['rcsb_entry_info']
-                                                                                   ['polymer_entity_count']) + 1)]),
+                    data = dict(entity=parse_entities_json([self.retrieve_entity_data(name=f'{entry}_{integer}')
+                                                            for integer in range(1, int(data['rcsb_entry_info']
+                                                                                        ['polymer_entity_count']) + 1)
+                                                            ]),
                                 **parse_entry_json(data))
                     if chain:
                         integer = None
@@ -1056,7 +1057,7 @@ class PDBDataStore(DataStore):
             if not extra and len(entry) == 4:
                 # logger.debug(f'Querying PDB API with {entry}_{entity_integer}')
                 # data = self.entity_api.retrieve_data(name=f'{entry}_{entity_integer}')
-                return parse_entity_json(self.retrieve_entity_data(name=f'{entry}_{entity_integer}'))
+                return parse_entities_json([self.retrieve_entity_data(name=f'{entry}_{entity_integer}')])
 
             logger.warning(
                 f'EntityID "{entry}_{entity_integer}" is not of the required format and will not be found with '
