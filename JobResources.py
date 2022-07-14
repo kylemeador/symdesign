@@ -1133,8 +1133,8 @@ class JobResources:
         # self.make_path(self.full_model_dir)
         # self.make_path(self.stride_dir)
         self.reduce_memory = False
-        self.resources = database_factory.get(source=self.data)
-        # self.resources = Database(self.orient_dir, self.orient_asu_dir, self.refine_dir, self.full_model_dir,
+        self.resource_db = database_factory.get(source=self.data)
+        # self.resource_db = Database(self.orient_dir, self.orient_asu_dir, self.refine_dir, self.full_model_dir,
         #                           self.stride_dir, self.sequences, self.profiles, self.pdb_api,
         #                           # self.pdb_entity_api, self.pdb_assembly_api,
         #                           self.uniprot_api, sql=None)  # , log=logger)

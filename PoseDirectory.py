@@ -371,8 +371,8 @@ class PoseDirectory:
         return self.job_resources.fragment_db
 
     @property
-    def resources(self):
-        return self.job_resources.resources
+    def resource_db(self):
+        return self.job_resources.resource_db
 
     @property
     def full_model_dir(self):
@@ -921,8 +921,8 @@ class PoseDirectory:
                 c_term = True
 
         if report_if_helix:
-            if self.resources:
-                parsed_secondary_structure = self.resources.stride.retrieve_data(name=entity.name)
+            if self.resource_db:
+                parsed_secondary_structure = self.resource_db.stride.retrieve_data(name=entity.name)
                 if parsed_secondary_structure:
                     entity.fill_secondary_structure(secondary_structure=parsed_secondary_structure)
                 else:
@@ -1303,7 +1303,7 @@ class PoseDirectory:
 
         # todo make dependent on split_interface_residues which doesn't have residues obj, just number (pickle concerns)
         if not self.pose.ss_index_array or not self.pose.ss_type_array:
-            self.pose.interface_secondary_structure()  # resource_db=self.resources, source_dir=self.stride_dir)
+            self.pose.interface_secondary_structure()  # resource_db=self.resource_db, source_dir=self.stride_dir)
         for number, elements in self.pose.split_interface_ss_elements.items():
             fragment_elements = set()
             # residues, entities = self.pose.split_interface_residues[number]
@@ -1883,7 +1883,7 @@ class PoseDirectory:
             self.entities (list[Entity])
         """
         source_preference = ['refined', 'oriented', 'design']
-        if self.resources:
+        if self.resource_db:
             if refined:
                 source_idx = 0
             elif oriented:
@@ -1898,7 +1898,7 @@ class PoseDirectory:
                 entity = None
                 while not entity:
                     source = source_preference[source_idx]
-                    entity_model = self.resources.retrieve_data(source=source, name=name)
+                    entity_model = self.resource_db.retrieve_data(source=source, name=name)
                     entity = entity_model.entities[0]
                     if isinstance(entity, Entity):
                         self.log.info(f'Found Entity file at {source} and loaded into job')
@@ -1994,7 +1994,7 @@ class PoseDirectory:
         # Initialize the Pose with the pdb in PDB numbering so that residue_selectors are respected
         pose_kwargs = dict(name=f'{self}-asu' if self.sym_entry else str(self), sym_entry=self.sym_entry, log=self.log,
                            design_selector=self.design_selector, ignore_clashes=self.ignore_pose_clashes,
-                           resource_db=self.resources, fragment_db=self.fragment_db)
+                           resource_db=self.resource_db, fragment_db=self.fragment_db)
         if entities:
             self.pose = Pose.from_entities(entities, entity_names=[entity.name for entity in entities], **pose_kwargs)
         elif self.initial_model:  # this is a fresh Model, and we already loaded so reuse
@@ -2013,7 +2013,7 @@ class PoseDirectory:
         # else:
         #     self.pose = Pose.from_model(pdb, name=str(self),
         #                                 design_selector=self.design_selector, log=self.log,
-        #                                 resource_db=self.resources, fragment_db=self.fragment_db,
+        #                                 resource_db=self.resource_db, fragment_db=self.fragment_db,
         #                                 ignore_clashes=self.ignore_pose_clashes)
         # then modify numbering to ensure standard and accurate use during protocols
         self.pose.renumber_structure()
@@ -2066,9 +2066,9 @@ class PoseDirectory:
     def check_unmodelled_clashes(self, clashing_threshold: float = 0.75):
         """Given a multimodel file, measure the number of clashes is less than a percentage threshold"""
         raise DesignError('This module is not working correctly at the moment')
-        models = [Models.from_PDB(self.resources.full_models.retrieve_data(name=entity), log=self.log)
+        models = [Models.from_PDB(self.resource_db.full_models.retrieve_data(name=entity), log=self.log)
                   for entity in self.entity_names]
-        # models = [Models.from_file(self.resources.full_models.retrieve_data(name=entity))
+        # models = [Models.from_file(self.resource_db.full_models.retrieve_data(name=entity))
         #           for entity in self.entity_names]
 
         # for each model, transform to the correct space
@@ -2550,7 +2550,7 @@ class PoseDirectory:
             # decoy_name = path.splitext(path.basename(file))[0]  # name should match scored designs...
             #   pass names if available v
             pose = Pose.from_file(file, entity_names=self.entity_names, log=self.log, pose_format=True,
-                                  sym_entry=self.sym_entry, resource_db=self.resources, fragment_db=self.fragment_db,
+                                  sym_entry=self.sym_entry, resource_db=self.resource_db, fragment_db=self.fragment_db,
                                   design_selector=self.design_selector, ignore_clashes=self.ignore_pose_clashes)
             # pose format should already be the case, but lets make sure
             if self.symmetric:
@@ -2879,14 +2879,14 @@ class PoseDirectory:
         for idx, entity in enumerate(self.pose.entities):
             reference_collapse = hydrophobic_collapse_index(entity_sequences[idx][PUtils.reference_name])
             reference_collapse_concat.append(reference_collapse)
-            # reference_collapse = hydrophobic_collapse_index(self.resources.sequences.retrieve_data(name=entity.name))
+            # reference_collapse = hydrophobic_collapse_index(self.resource_db.sequences.retrieve_data(name=entity.name))
             reference_collapse_bool.append(np.where(reference_collapse > collapse_significance_threshold, 1, 0))
             # [0, 0, 0, 0, 1, 1, 0, 0, 1, 1, ...]
-            # entity = self.resources.refined.retrieve_data(name=entity.name))  # Todo always use wild-type?
+            # entity = self.resource_db.refined.retrieve_data(name=entity.name))  # Todo always use wild-type?
             # set the entity.msa which makes a copy and adjusts for any disordered residues
-            entity.msa = self.resources.alignments.retrieve_data(name=entity.name)
-            # entity.h_fields = self.resources.bmdca_fields.retrieve_data(name=entity.name)  # Todo reinstate
-            # entity.j_couplings = self.resources.bmdca_couplings.retrieve_data(name=entity.name)  # Todo reinstate
+            entity.msa = self.resource_db.alignments.retrieve_data(name=entity.name)
+            # entity.h_fields = self.resource_db.bmdca_fields.retrieve_data(name=entity.name)  # Todo reinstate
+            # entity.j_couplings = self.resource_db.bmdca_couplings.retrieve_data(name=entity.name)  # Todo reinstate
             if msa_metrics:
                 if not entity.msa:
                     self.log.info(f'Metrics relying on a multiple sequence alignment are not being collected as '
