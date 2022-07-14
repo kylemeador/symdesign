@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from requests import Response
 
 from Query.utils import connection_exception_handler
@@ -170,7 +172,7 @@ def query_uniprot(uniprot_id: str) -> Response | None:
     else:
         # logger.warning('UniProt ID "%s" is not of the required format and will not be found with the UniProt API'
         #                % uniprot_id)
-        return
+        return None
 
 
 def is_uniprot_thermophilic(uniprot_id: str) -> int:
