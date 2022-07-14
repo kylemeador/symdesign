@@ -1674,9 +1674,13 @@ class Model(Structure):
         for entity_name, data in self.entity_info.items():
             chains = [self.chain(chain) if isinstance(chain, str) else chain for chain in data.get('chains')]
             data['chains'] = [chain for chain in chains if chain]  # remove any missing chains
-            # get uniprot ID if the file is from the PDB and has a DBREF remark
-            try:
-                accession = self.dbref.get(data['chains'][0].chain_id, None)
+            # # get uniprot ID if the file is from the PDB and has a DBREF remark
+            # try:
+            #     accession = self.dbref.get(data['chains'][0].chain_id, None)
+            # except IndexError:  # we didn't find any chains. It may be a nucleotide structure
+            #     continue
+            try:  # Todo clean here and the above entity vs chain len checks with nucleotide parsing
+                chain_check_to_account_for_inability_to_parse_nucleotides = data['chains'][0]
             except IndexError:  # we didn't find any chains. It may be a nucleotide structure
                 continue
             # except (IndexError, AttributeError):
