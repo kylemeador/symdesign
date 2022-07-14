@@ -1060,9 +1060,10 @@ class SequenceProfile:
             alpha=0.5 (float): The maximum alpha value to use, should be bounded between 0 and 1
         """
         if not self.fragment_db:
-            raise DesignError('%s: No fragment database connected! Cannot calculate optimal fragment contribution '
-                              'without this.' % self.find_alpha.__name__)
-        assert 0 <= alpha <= 1, '%s: Alpha parameter must be between 0 and 1' % self.find_alpha.__name__
+            raise AttributeError(f'{self.find_alpha.__name__}: No fragment database connected! Cannot calculate optimal'
+                                 f' fragment contribution without one')
+        if alpha < 0 or 1 < alpha:
+            raise ValueError(f'{self.find_alpha.__name__}: Alpha parameter must be bounded between 0 and 1')
         alignment_type_to_idx = {'mapped': 0, 'paired': 1}  # could move to class, but not used elsewhere
         match_score_average = 0.5  # when fragment pair rmsd equal to the mean cluster rmsd
         bounded_floor = 0.2
