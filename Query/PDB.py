@@ -916,10 +916,21 @@ def parse_entities_json(entity_jsons: Iterable[dict[str, Any]]) -> dict[str, dic
         uniprot = 'UNP'
         try:
             uniprot_ids = entity_ids_json['uniprot_ids']
-            if len(uniprot_ids) > 1:  # Todo choose the most accurate if more than 2...
-                logger.warning('For Entity %s, found multiple UniProt Entries %s. Selecting the first'
-                               % (entity_ids_json['rcsb_id'], uniprot_ids))
-            db_d = dict(zip(database_keys, (uniprot, uniprot_ids[0])))  # may be an issue where there is more than one
+            # Todo choose the most accurate if more than 2...
+            #  'rcsb_polymer_entity_align' indicates how the model from the PDB aligns to UniprotKB through SIFTS
+            #  [{provenance_source: "SIFTS",
+            #    reference_database_accession: "P12528",
+            #    reference_database_name: "UniProt",
+            #    aligned_regions: [{entity_beg_seq_id: 1,
+            #                       length: 124,
+            #                       ref_beg_seq_id: 2}]
+            #   },
+            #   {}, ...
+            #  ]
+            if len(uniprot_ids) > 1:
+                logger.warning(f'For Entity {entity_ids_json["rcsb_id"]}, found multiple UniProt Entries: '
+                               f'{", ".join(uniprot_ids)}. Using the first')
+            db_d = dict(zip(database_keys, (uniprot, uniprot_ids[0])))
         except KeyError:  # if no uniprot_ids
             # GenBank = GB, which is mostly RNA or DNA structures or antibody complexes
             # Norine = NOR, which is small peptide structures, sometimes bound to proteins...
