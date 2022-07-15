@@ -1360,30 +1360,21 @@ class Model(Structure):
             moving_struct = self.entities[0]
         else:
             moving_struct = self.chains[0]
-        try:
+
+        orient_fixed_seq = orient_fixed_struct.sequence
+        moving_seq = moving_struct.sequence
+
+        if orient_fixed_struct.number_of_residues == moving_struct.number_of_residues and orient_fixed_seq == moving_seq:
+            # do an apples to apples comparison
+            # length alone is inaccurate if chain is missing first residue and self is missing it's last...
             _, rot, tx, _ = superposition3d(orient_fixed_struct.cb_coords, moving_struct.cb_coords)
-        except ValueError:  # we have the wrong lengths, lets subtract a certain amount by performing a seq alignment
-            # rot, tx = None, None
-            orient_fixed_seq = orient_fixed_struct.sequence
-            moving_seq = moving_struct.sequence
-            # while not rot:
-            #     try:
-            # moving coords are from the pre-orient structure where orient may have removed residues
-            # lets try to remove those residues by doing an alignment
-            align_orient_seq, align_moving_seq, *_ = generate_alignment(orient_fixed_seq, moving_seq, local=True)
-            # align_seq_1.replace('-', '')
-            # orient_idx1 = moving_seq.find(align_orient_seq.replace('-', '')[0])
-            for orient_idx1, aa in enumerate(align_orient_seq):
-                if aa != '-':  # we found the first aligned residue
-                    break
-            orient_idx2 = orient_idx1 + len(align_orient_seq.replace('-', ''))
-            # starting_index_of_seq2 = moving_seq.find(align_moving_seq.replace('-', '')[0])
-            # # get the first matching index of the moving_seq from the first aligned residue
-            # ending_index_of_seq2 = starting_index_of_seq2 + align_moving_seq.rfind(moving_seq[-1])  # find last index of reference
-            _, rot, tx, _ = superposition3d(orient_fixed_struct.cb_coords,
-                                            moving_struct.cb_coords[orient_idx1:orient_idx2])
-            # except ValueError:
-            #     rot, tx = None, None
+        else:  # do an alignment, get selective indices, then follow with superposition
+            self.log.warning(f'{moving_struct.name} and {orient_fixed_struct.name} require alignment to '
+                             f'{self.orient.__name__}')
+            fixed_indices, moving_indices = get_equivalent_indices(orient_fixed_seq, moving_seq)
+            _, rot, tx, _ = superposition3d(orient_fixed_struct.cb_coords[fixed_indices],
+                                            moving_struct.cb_coords[moving_indices])
+
         self.transform(rotation=rot, translation=tx)
         clean_orient_input_output()
 
