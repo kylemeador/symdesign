@@ -1300,8 +1300,10 @@ class Model(Structure):
         try:
             subunit_number = valid_subunit_number[symmetry]
         except KeyError:
-            raise ValueError(f'Symmetry {symmetry} is not a valid symmetry. '
-                             f'Please try one of: {", ".join(valid_symmetries)}')
+            self.log.error(f'{self.orient.__name__}: Symmetry {symmetry} is not a valid symmetry. '
+                           f'Please try one of: {", ".join(valid_symmetries)}')
+            return
+
         if not log:
             log = self.log
 
@@ -1314,7 +1316,7 @@ class Model(Structure):
         number_of_subunits = len(self.chain_ids)
         multicomponent = False
         if symmetry == 'C1':
-            log.info('C1 symmetry doesn\'t have a cannonical orientation')
+            log.debug('C1 symmetry doesn\'t have a cannonical orientation')
             self.translate(-self.center_of_mass)
             return
         elif number_of_subunits > 1:
@@ -1324,60 +1326,39 @@ class Model(Structure):
                 else:
                     raise ValueError(f'{pdb_file_name} could not be oriented: It has {number_of_subunits} subunits '
                                      f'while a multiple of {subunit_number} are expected for {symmetry} symmetry')
-            # else:
-            #     multicomponent = False
         else:
             raise ValueError(f'{self.name}: Cannot orient a Structure with only a single chain. No symmetry present!')
 
-        # orient_input = os.path.join(orient_dir, 'input.pdb')
         orient_input = Path(PUtils.orient_dir, 'input.pdb')
-        # orient_output = os.path.join(orient_dir, 'output.pdb')
         orient_output = Path(PUtils.orient_dir, 'output.pdb')
 
         def clean_orient_input_output():
             orient_input.unlink(missing_ok=True)
-            # if os.path.exists(orient_input):
-            #     os.remove(orient_input)
             orient_output.unlink(missing_ok=True)
-            # if os.path.exists(orient_output):
-            #     os.remove(orient_output)
 
         clean_orient_input_output()
-        # self.reindex_all_chain_residues()  TODO test efficacy. It could be that this screws up more than helps
-        # have to change residue numbering to PDB numbering
+        # Have to change residue numbering to PDB numbering
         if multicomponent:
             self.entities[0].write_oligomer(out_path=orient_input, pdb_number=True)
-            # entity1_chains = self.entities[0].chains
-            # entity1_chains[0].write(orient_input, pdb_number=True)
-            # with open(orient_input, 'w') as f:
-            #     for chain in entity1_chains[1:]:
-            #         chain.write(file_handle=f, pdb_number=True)
         else:
             self.write(out_path=orient_input, pdb_number=True)
-        # self.renumber_residues_by_chain()
 
         p = subprocess.Popen([PUtils.orient_exe_path], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
                              stderr=subprocess.PIPE, cwd=PUtils.orient_dir)
         in_symm_file = os.path.join(PUtils.orient_dir, 'symm_files', symmetry)
         stdout, stderr = p.communicate(input=in_symm_file.encode('utf-8'))
-        # stderr = stderr.decode()  # turn from bytes to string 'utf-8' implied
-        # stdout = pdb_file_name + stdout.decode()[28:]
         log.info(pdb_file_name + stdout.decode()[28:])
         log.info(stderr.decode()) if stderr else None
         if not os.path.exists(orient_output) or os.stat(orient_output).st_size == 0:
-            # orient_log = os.path.join(out_dir, orient_log_file)
             log_file = getattr(log.handlers[0], 'baseFilename', None)
-            log_message = f'. Check {log_file if log_file else ""} for more information'
-            error_string = f'orient_oligomer could not orient {pdb_file_name}{log_message}'
-            raise RuntimeError(error_string)
+            log_message = f'. Check {log_file} for more information' if log_file else ''
+            raise RuntimeError(f'orient_oligomer could not orient {pdb_file_name}{log_message}')
 
         oriented_pdb = Model.from_file(orient_output, name=self.name, entities=False, log=log)
         orient_fixed_struct = oriented_pdb.chains[0]
         if multicomponent:
             moving_struct = self.entities[0]
-            # _, rot, tx, _ = superposition3d(oriented_pdb.chains[0].cb_coords, self.entities[0].cb_coords)
         else:
-            # orient_fixed_struct = oriented_pdb.chains[0]
             moving_struct = self.chains[0]
         try:
             _, rot, tx, _ = superposition3d(orient_fixed_struct.cb_coords, moving_struct.cb_coords)
