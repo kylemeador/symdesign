@@ -5300,48 +5300,18 @@ class Entity(Chain, SequenceProfile):  # Todo consider moving SequenceProfile to
         self._is_captain = True
         if len(chains) > 1:
             self._is_oligomeric = True  # inherent in Entity type is a single sequence. Therefore, must be oligomeric
+            number_of_residues = self.number_of_residues
+            self_seq = self.sequence
             for idx, chain in enumerate(chains[1:]):
-                if chain.number_of_residues == self.number_of_residues and chain.sequence == self.sequence:
+                chain_seq = chain.sequence
+                if chain.number_of_residues == number_of_residues and chain_seq == self_seq:
                     # do an apples to apples comparison
                     # length alone is inaccurate if chain is missing first residue and self is missing it's last...
                     _, rot, tx, _ = superposition3d(chain.cb_coords, self.cb_coords)
                 else:  # do an alignment, get selective indices, then follow with superposition
-                    self.log.warning(f'Chain {chain.name} passed to Entity {self.name} doesn\'t have the same number of'
-                                     f' residues')
-                    mutations = generate_mutations(self.sequence, chain.sequence, blanks=True, return_all=True)
-                    # get only those indices where there is an aligned aa on the opposite chain
-                    fixed_polymer_indices, moving_polymer_indices = [], []
-                    to_idx, from_idx = 0, 0
-                    # from is moving, to is fixed
-                    for mutation in mutations.values():
-                        if mutation['from'] == '-':  # increment to_idx/fixed_idx
-                            to_idx += 1
-                        elif mutation['to'] == '-':  # increment from_idx/moving_idx
-                            from_idx += 1
-                        else:
-                            fixed_polymer_indices.append(to_idx)
-                            to_idx += 1
-                            moving_polymer_indices.append(from_idx)
-                            from_idx += 1
-                    # mov_indices_str, from_str, to_str, fix_indices_str = '', '', '', ''
-                    # moving_polymer_indices_iter, fixed_polymer_indices_iter = iter(moving_polymer_indices), iter(fixed_polymer_indices)
-                    # for idx, mutation in enumerate(mutations.values()):
-                    #     try:
-                    #         mov_indices_str += ('%2d' % next(moving_polymer_indices_iter) if mutation['from'] != '-' and mutation['to'] != '-' else ' -')
-                    #     except StopIteration:
-                    #         mov_indices_str += '-'
-                    #     try:
-                    #         fix_indices_str += ('%2d' % next(fixed_polymer_indices_iter) if mutation['from'] != '-' and mutation['to'] != '-' else ' -')
-                    #     except StopIteration:
-                    #         fix_indices_str += '-'
-                    # print(mov_indices_str)
-                    # # print(from_str)
-                    # print(' '.join(mutation['from'] for mutation in mutations.values()))  # from_str
-                    # # print(to_str)
-                    # print(' '.join(mutation['to'] for mutation in mutations.values()))  # to_str
-                    # print(fix_indices_str)
-                    _, rot, tx, _ = superposition3d(chain.cb_coords[fixed_polymer_indices],
-                                                    self.cb_coords[moving_polymer_indices])
+                    self.log.warning(f'Chain {chain.name} and Entity {self.name} require alignment to symmetrize')
+                    fixed_indices, moving_indices = get_equivalent_indices(self_seq, chain_seq)
+                    _, rot, tx, _ = superposition3d(chain.cb_coords[fixed_indices], self.cb_coords[moving_indices])
                 self.chain_transforms.append(dict(rotation=rot, translation=tx))
                 chain_ids.append(chain.name)
                 # self.chains.append(chain)  # Todo with flag for asymmetric symmetrization
