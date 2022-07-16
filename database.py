@@ -176,7 +176,7 @@ class DataStore:
             self.name = data
         """
         setattr(self, name, data)
-        self._save_data(name, **kwargs)
+        self._save_data(data, name, **kwargs)
 
     def retrieve_data(self, name: str = None) -> object | None:
         """Return the data requested by name. Otherwise, load into the Database from a specified location
@@ -197,7 +197,7 @@ class DataStore:
 
         return data
 
-    def _save_data(self, name: str, **kwargs) -> AnyStr | None:
+    def _save_data(self, data: Any, name: str, **kwargs) -> AnyStr | None:
         """Return the data located in a particular entry specified by name
 
         Args:
