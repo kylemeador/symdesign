@@ -976,6 +976,8 @@ def parse_entities_json(entity_jsons: Iterable[dict[str, Any]]) -> dict[str, dic
         # entity_ref_d = parse_entity_json(entity_json)
         # ref_d.update(entity_ref_d)
         # entity_chain_d[entity_idx] = list(entity_ref_d.keys())  # these are the chains
+        if entity_json is None:
+            continue
         entity_json_ids = entity_json.get('rcsb_polymer_entity_container_identifiers')
         if entity_json_ids:
             entity_info[entity_json_ids['rcsb_id'].lower()] = dict(
