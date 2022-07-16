@@ -5653,7 +5653,7 @@ class Entity(SequenceProfile, Chain, ContainsChainsMixin):
         try:
             return self._reference_sequence
         except AttributeError:
-            self.retrieve_sequence_from_api()
+            self._retrieve_sequence_from_api()
             if not self._reference_sequence:
                 self.log.warning('The reference sequence could not be found. Using the observed Residue sequence '
                                  'instead')
@@ -5688,20 +5688,26 @@ class Entity(SequenceProfile, Chain, ContainsChainsMixin):
     #                 raise IndexError(f'The number of chains ({len(self.chains)}) in the {type(self).__name__} != '
     #                                  f'number of chain_ids ({len(self.chain_ids)})')
 
-    def retrieve_sequence_from_api(self, entity_id: str = None):
+    def _retrieve_sequence_from_api(self, entity_id: str = None):
         """Using the Entity ID, fetch information from the PDB API and set the instance reference_sequence"""
         if not entity_id:
-            if len(self.name.split('_')) == 2:
-                entity_id = self.name
-            else:
-                self.log.warning(f'{self.retrieve_sequence_from_api.__name__}: If an entity_id isn\'t passed and the '
+            # if len(self.name.split('_')) == 2:
+            #     entity_id = self.name
+            # else:
+            try:
+                entry, entity_integer, *_ = self.name.split('_')
+                if len(entry) == 4 and entity_integer.isdigit():
+                    entity_id = f'{entry}_{entity_integer}'
+            except ValueError:  # couldn't unpack enough
+                self.log.warning(f'{self._retrieve_sequence_from_api.__name__}: If an entity_id isn\'t passed and the '
                                  f'Entity name "{self.name}" is not the correct format (1abc_1), the query will fail. '
                                  f'Retrieving closest entity_id by PDB API structure sequence')
                 entity_id = retrieve_entity_id_by_sequence(self.sequence)
                 if not entity_id:
                     self._reference_sequence = None
                     return
-        self.log.debug('Retrieving Entity reference sequence from PDB')
+
+        self.log.debug(f'Querying {entity_id} reference sequence from PDB')
         self._reference_sequence = get_entity_reference_sequence(entity_id=entity_id)
 
     # def retrieve_info_from_api(self):
