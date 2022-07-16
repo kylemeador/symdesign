@@ -1899,29 +1899,35 @@ class PoseDirectory:
 
             self.entities.clear()
             for name in self.entity_names:
-                entity = None
-                while not entity:
-                    source = source_preference[source_idx]
-                    entity_model = self.structure_db.retrieve_data(source=source, name=name)
-                    entity = entity_model.entities[0]
-                    if isinstance(entity, Entity):
-                        self.log.info(f'Found Entity file at {source} and loaded into job')
-                        self.entities.append(entity)
+                source_preference_iter = iter(source_preference)
+                # Discard however many sources are unwanted (source_idx number)
+                for it in range(source_idx):
+                    _ = next(source_preference_iter)
+                model = None
+                while not model:
+                    try:
+                        source = next(source_preference_iter)
+                    except StopIteration:
+                        raise DesignError(f'{self.get_entities.__name__}: Couldn\'t locate the required files')
+                    source_datastore = getattr(self.structure_db, source, None)
+                    if source_datastore is None:  # if source == 'design':
+                        search_path = path.join(self.path, f'{name}*.pdb*')
+                        file = sorted(glob(search_path))
+                        if file:
+                            if len(file) > 1:
+                                self.log.warning(f'The specified entity has multiple files at "{search_path}". '
+                                                 f'Using the first')
+                            model = Model.from_file(file[0], log=self.log)
+                        else:
+                            raise FileNotFoundError(f'Couldn\'t located the specified entity at "{file}"')
                     else:
-                        self.log.error(f'Couldn\'t locate the Entity {name} at the specified source {source}')
-                        source_idx += 1
-                        self.log.error(f'Falling back to source {source}')
-                        if source == 'design':
-                            search_path = path.join(self.path, f'{name}*.pdb*')
-                            file = sorted(glob(search_path))
-                            if file:
-                                if len(file) > 1:
-                                    self.log.warning(f'The specified entity has multiple files at "{search_path}". '
-                                                     f'Using the first')
-                                entity = Model.from_file(file[0], log=self.log).entities[0]
-                                self.entities.append(entity)
-                            else:
-                                raise FileNotFoundError(f'Couldn\'t located the specified entity at "{file}"')
+                        model = source_datastore.retrieve_data(name=name)
+                        if isinstance(model, Model):
+                            self.log.info(f'Found Model at {source} DataStore and loaded into job')
+                        else:
+                            self.log.error(f'Couldn\'t locate the Model {name} at the source "{source_datastore.location}"')
+
+                self.entities.extend([entity for entity in model.entities])
             if source_idx == 0:
                 self.pre_refine = True
         # else:  # Todo I don't think this code is reachable. Consolidate this with above as far as iterative mechanism
