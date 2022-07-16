@@ -200,38 +200,74 @@ class StructureDatabase(Database):
         # It could still happen, but we certainly shouldn't pass sym_entry to it
         self.oriented.make_path()
         orient_dir = self.oriented.location
-        # os.makedirs(orient_dir, exist_ok=True)
         models_dir = os.path.dirname(orient_dir)  # this is the case because it was specified this way, but not required
         self.oriented_asu.make_path()
-        # orient_asu_dir = self.oriented_asu.location
-        # os.makedirs(orient_asu_dir, exist_ok=True)
         self.stride.make_path()
-        # stride_dir = self.stride.location
-        # os.makedirs(stride_dir, exist_ok=True)
         # orient_log = start_log(name='orient', handler=1)
         orient_log = \
             start_log(name='orient', handler=2, location=os.path.join(orient_dir, orient_log_file), propagate=True)
-        if by_file:
-            logger.info(f'The requested files are being checked for proper orientation with symmetry {symmetry}: '
+        if symmetry:
+            sym_entry = parse_symmetry_to_sym_entry(symmetry=symmetry)
+            if by_file:
+                type_ = 'files'
+                oriented_filepaths = \
+                    orient_structure_files(structure_identifiers, log=orient_log, symmetry=symmetry, out_dir=orient_dir)
+                # pull out the structure names and use below to retrieve the oriented file
+                structure_identifiers = \
+                    list(map(os.path.basename, [os.path.splitext(file)[0]
+                                                for file in filter(None, oriented_filepaths)]))
+            else:
+                type_ = 'IDs'
+            logger.info(f'The requested {type_} are being checked for proper orientation with symmetry {symmetry}: '
                         f'{", ".join(structure_identifiers)}')
-            oriented_filepaths = \
-                orient_structure_files(structure_identifiers, log=orient_log, symmetry=symmetry, out_dir=orient_dir)
-            # pull out the structure names and use below to retrieve the oriented file
-            structure_identifiers = list(map(os.path.basename,
-                                             [os.path.splitext(file)[0] for file in filter(None, oriented_filepaths)]))
         else:
-            logger.info(f'The requested IDs are being checked for proper orientation with symmetry {symmetry}: '
-                        f'{", ".join(structure_identifiers)}')
+            sym_entry = None
+            if by_file:
+                type_ = 'files'
+                structure_identifiers_ = []
+                for file in structure_identifiers:
+                    model = Pose.Model.from_file(file)
+                    model.write()
+                    # Write out ASU file for the oriented_asu database
+                    structure_identifiers_.append(model.write(out_path=self.oriented_asu.path_to(name=model.name)))
+                    # save Stride results
+                    for entity in model.entities:
+                        entity.stride(to_file=self.stride.path_to(name=entity.name))
+                structure_identifiers = structure_identifiers_
+            else:
+                type_ = 'IDs'
+            logger.info(f'The requested {type_} are being set up into the DataBase: {", ".join(structure_identifiers)}')
 
         # Next work through the process of orienting the selected files
         orient_names = self.oriented.retrieve_names()
         orient_asu_names = self.oriented_asu.retrieve_names()
-        sym_entry = parse_symmetry_to_sym_entry(symmetry=symmetry)
         all_structures = []
         non_viable_structures = []
         for structure_identifier in structure_identifiers:
-            # first, check if the structure_identifier has been oriented. this happens when files are passed
-            if structure_identifier not in orient_names:  # they are missing, retrieve the proper files using PDB ID's
+            # first, check if the structure_identifier ASU has been processed. This happens when files are passed
+            if structure_identifier in orient_asu_names:  # orient_asu file exists, stride should as well. Just load asu
+                orient_asu_file = self.oriented_asu.retrieve_file(name=structure_identifier)
+                pose = Pose.Pose.from_file(orient_asu_file, sym_entry=sym_entry)
+                # entity = pose.entities[0]
+                # entity.name = entry_entity  # make explicit
+                # Pose already sets a symmetry and file_path upon constriction, so we don't need to set
+                # pose.symmetry = symmetry
+                # oriented_pose.file_path = oriented_pose.file_path
+                all_structures.append(pose)
+            elif structure_identifier not in orient_asu_names:  # orient file exists, load asu, save and create stride
+                orient_file = self.oriented.retrieve_file(name=structure_identifier)
+                pose = Pose.Pose.from_file(orient_file, sym_entry=sym_entry)  # , log=None, entity_names=[entry_entity])
+                # entity = pose.entities[0]
+                # entity.name = pose.name  # use pose.name, not API name
+                # Pose already sets a symmetry, so we don't need to set one
+                # pose.symmetry = symmetry
+                pose.file_path = pose.write(out_path=self.oriented_asu.path_to(name=structure_identifier))
+                # save Stride results
+                for entity in pose.entities:
+                    entity.stride(to_file=self.stride.path_to(name=entity.name))
+                all_structures.append(pose)  # entry_entity,
+            # Use entry_entity only if not processed before
+            elif structure_identifier not in orient_names:  # they are missing, retrieve the proper files using PDB ID's
                 entry = structure_identifier.split('_')
                 # in case entry_entity is coming from a new SymDesign Directory the entity name is probably 1ABC_1
                 if len(entry) == 2:
@@ -268,81 +304,51 @@ class StructureDatabase(Database):
                         logger.warning(f'For {entry_entity}, couldn\'t locate the specified Entity "{entity}". The'
                                        f' available Entities are {", ".join(entity.name for entity in pose.entities)}')
                         continue
+                    else:
+                        model = entity
                     entity_out_path = os.path.join(models_dir, f'{entry_entity}.pdb')
-                    if symmetry == 'C1':  # write out only entity
-                        entity_file_path = entity.write(out_path=entity_out_path)
+                    if symmetry == 'C1':  # Write out only the entity that was extracted
+                        # Todo should we delete the source file?
+                        entity_file_path = model.write(out_path=entity_out_path)
                     else:  # write out the entity as parsed. since this is assembly we should get the correct state
-                        entity_file_path = entity.write_oligomer(out_path=entity_out_path)
-                    # pose = entity.oligomer <- not quite as desired
-                    # Todo make Entity capable of orient() then don't need this mechanism, just set pose = entity
-                    model = model.from_chains(entity.chains, entity_names=[entry_entity])
-                    # pose.entities = [entity]
-                # else:  # we will orient the whole set of chains based on orient() multicomponent solution
-                #     # entry_entity = pose.name
-                #     pass
-                # the entry_entity name is correct for the entry or entity if we have got to this point
-                # entry_entity_base = f'{entry_entity}.pdb'
+                        entity_file_path = model.write_oligomer(out_path=entity_out_path)
 
-                # write out file for the orient database
-                if symmetry == 'C1':  # translate the Structure to the origin for the database
-                    # entity = pose.entities[0]  # issue if we passed a hetero dimer and treated as a C1
-                    model.translate(-model.center_of_mass)
-                    # entity.name = entry_entity
-                    # orient_file = entity.write(out_path=os.path.join(orient_dir, entry_entity_base))
-                    # orient_file = model.write(out_path=self.oriented.store(name=entry_entity))
-                    # model.symmetry = symmetry
-                    # model.file_path = model.write(out_path=self.oriented_asu.store(name=entry_entity))
-                    # for entity in model.entities:
-                    #     entity.stride(to_file=self.stride.store(name=entity.name))
-                    # all_structures.append(model)  # .entities[0]
-                else:
-                    try:
+                    try:  # orient the Structure
                         model.orient(symmetry=symmetry, log=orient_log)
-                        # orient_file = model.write(assembly=True, out_path=self.oriented.store(name=entry_entity))
                     except (ValueError, RuntimeError) as err:
                         orient_log.error(str(err))
                         non_viable_structures.append(entry_entity)
                         continue
-                    # all_structures.append(return_orient_asu(orient_file, entry_entity, symmetry))
-                    # entity = pose.entities[0]
-                    # entity.name = pose.name  # use oriented_pose.name (pdbcode_assembly), not API name
+                    # Write out file for the orient database
+                    orient_file = model.write_oligomer(out_path=self.oriented.path_to(name=entry_entity))
+                    model.file_path = self.oriented_asu.path_to(name=entry_entity)
+                    # Write out ASU file for the oriented_asu database
+                    model.write(out_path=self.oriented_asu.path_to(name=entry_entity))
+                    # save Stride results
+                    model.stride(to_file=self.stride.path_to(name=entry_entity))
 
-                # Extract the asu from the oriented file. Used for symmetric refinement, pose generation
-                orient_file = model.write(out_path=self.oriented.store(name=entry_entity))
-                orient_log.info(f'Oriented: {orient_file}')
+                else:  # orient the whole set of chains based on orient() multicomponent solution
+                    try:  # orient the Structure
+                        model.orient(symmetry=symmetry, log=orient_log)
+                    except (ValueError, RuntimeError) as err:
+                        orient_log.error(str(err))
+                        non_viable_structures.append(entry_entity)
+                        continue
+                    # Write out file for the orient database
+                    orient_file = model.write(out_path=self.oriented.path_to(name=entry_entity))
+                    # Extract ASU from the Structure, save the file as .file_path for preprocess_structures_for_design
+                    model.file_path = self.oriented_asu.path_to(name=entry_entity)
+                    with open(model.file_path, 'w') as f:
+                        model.write_header(f)
+                        for entity in model.entities:
+                            # write each Entity to asu
+                            entity.write(file_handle=f)
+                            # save Stride results
+                            entity.stride(to_file=self.stride.path_to(name=entity.name))
+
                 model.symmetry = symmetry
-                # Save the ASU file as the Structure.file_path to be used later by preprocess_structures_for_design
-                # model.file_path = model.write(out_path=self.oriented_asu.store(name=entry_entity))
-                model.file_path = self.oriented_asu.store(name=entry_entity)
-                with open(model.file_path, 'w') as f:
-                    for entity in model.entities:
-                        # write each Entity to asu
-                        entity.write(file_handle=f)
-                        # save Stride results
-                        entity.stride(to_file=self.stride.store(name=entity.name))
                 all_structures.append(model)
-            # for those below, use structure_identifier as entry_entity isn't parsed
-            elif structure_identifier not in orient_asu_names:  # orient file exists, load asu, save and create stride
-                orient_file = self.oriented.retrieve_file(name=structure_identifier)
-                pose = Pose.Pose.from_file(orient_file, sym_entry=sym_entry)  # , log=None, entity_names=[entry_entity])
-                # entity = pose.entities[0]
-                # entity.name = pose.name  # use pose.name, not API name
-                # Pose already sets a symmetry, so we don't need to set one
-                # pose.symmetry = symmetry
-                pose.file_path = pose.write(out_path=self.oriented_asu.store(name=structure_identifier))
-                # save Stride results
-                for entity in pose.entities:
-                    entity.stride(to_file=self.stride.store(name=entity.name))
-                all_structures.append(pose)  # entry_entity,
-            else:  # orient_asu file exists, stride file should as well. just load asu
-                orient_asu_file = self.oriented_asu.retrieve_file(name=structure_identifier)
-                pose = Pose.Pose.from_file(orient_asu_file, sym_entry=sym_entry)
-                # entity = pose.entities[0]
-                # entity.name = entry_entity  # make explicit
-                # Pose already sets a symmetry and file_path upon constriction, so we don't need to set
-                # pose.symmetry = symmetry
-                # oriented_pose.file_path = oriented_pose.file_path
-                all_structures.append(pose)
+                orient_log.info(f'Oriented: {orient_file}')
         if non_viable_structures:
             non_str = ', '.join(non_viable_structures)
             orient_log.error(f'The Model'
@@ -474,7 +480,7 @@ class StructureDatabase(Database):
                     structure.renumber_residues()
                     structure_loop_file = structure.make_loop_file(out_path=full_model_dir)
                     if not structure_loop_file:  # no loops found, copy input file to the full model
-                        copy_cmd = ['scp', self.refined.store(structure.name), self.full_models.store(structure.name)]
+                        copy_cmd = ['scp', self.refined.path_to(structure.name), self.full_models.path_to(structure.name)]
                         loop_model_cmds.append(
                             write_shell_script(subprocess.list2cmdline(copy_cmd), name=structure.name,
                                                out_path=full_model_dir))
@@ -482,7 +488,7 @@ class StructureDatabase(Database):
                     structure_blueprint = structure.make_blueprint_file(out_path=full_model_dir)
                     structure_cmd = script_cmd + loop_model_cmd + \
                         [f'blueprint={structure_blueprint}', f'loop_file={structure_loop_file}',
-                         '-in:file:s', self.refined.store(structure.name), '-out:path:pdb', structure_out_path] + \
+                         '-in:file:s', self.refined.path_to(structure.name), '-out:path:pdb', structure_out_path] + \
                         (['-symmetry:symmetry_definition', sym_def_files[structure.symmetry]]
                          if structure.symmetry != 'C1' else [])
                     # create a multimodel from all output loop models
@@ -490,7 +496,7 @@ class StructureDatabase(Database):
                                       '-o', os.path.join(full_model_dir, f'{structure.name}_ensemble.pdb')]
                     # copy the first model from output loop models to be the full model
                     copy_cmd = ['scp', os.path.join(structure_out_path, f'{structure.name}_0001.pdb'),
-                                self.full_models.store(structure.name)]
+                                self.full_models.path_to(structure.name)]
                     loop_model_cmds.append(
                         write_shell_script(subprocess.list2cmdline(structure_cmd), name=structure.name,
                                            out_path=full_model_dir,

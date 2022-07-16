@@ -937,10 +937,6 @@ if __name__ == '__main__':
             #     for design in pose_directories:
             #         design.set_up_pose_directory()
             # args.orient, args.refine = True, True  # Todo make part of argparse? Could be variables in NanohedraDB
-            # for each pose_directory, ensure that the pdb files used as source are present in the self.orient_dir
-            orient_dir = job.orient_dir
-            orient_asu_dir = job.orient_asu_dir
-            stride_dir = job.stride_dir
             load_resources = False
             all_structures = []
             if args.preprocessed:
@@ -961,19 +957,15 @@ if __name__ == '__main__':
                 # Select entities, orient them, then load each entity to all_structures for further database processing
                 symmetry_map = sym_entry.groups if sym_entry else repeat(None)
                 for symmetry, entities in zip(symmetry_map, required_entities):
-                    if not entities:  # useful in a case where symmetry groups are the same
+                    if not entities:  # useful in a case where symmetry groups are the same or group is None
                         continue
-                    elif not symmetry:  # Todo
-                        logger.info(f'Files are being processed without consideration for symmetry: '
-                                    f'{", ".join(entities)}')
-                        raise NotImplementedError('Can\'t process without consideration for symmetry yet!')
-                        all_structures.extend()
-                        continue
-                    elif symmetry == 'C1':
-                        logger.info(f'Files are being processed with C1 symmetry: {", ".join(entities)}')
-                    else:
-                        logger.info(f'Ensuring files are oriented with {symmetry} symmetry (stored at {orient_dir}): '
-                                    f'{", ".join(entities)}')
+                    # elif not symmetry:
+                    #     logger.info(f'Files are being processed without consideration for symmetry: '
+                    #                 f'{", ".join(entities)}')
+                    #     # all_structures.extend(job.structure_db.orient_structures(entities))
+                    #     # continue
+                    # else:
+                    #     logger.info(f'Files are being processed with {symmetry} symmetry: {", ".join(entities)}')
                     all_structures.extend(job.structure_db.orient_structures(entities, symmetry=symmetry))
                 # create entities iterator to set up sequence dependent resources
                 all_entities = [entity for structure in all_structures for entity in structure.entities]
