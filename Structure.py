@@ -4872,6 +4872,15 @@ class Structure(StructureBase):
         return self.name
 
 
+try:
+    reference_residues = unpickle(reference_residues_pkl)  # 0 indexed, 1 letter aa, alphabetically sorted at the origin
+    reference_aa = Structure.from_residues(residues=reference_residues)
+except Exception as error:  # If something goes wrong, we should remake this
+    # logger.critical('The reference residues are out of date and need to be regenerated. '
+    #                 'Please execute pickle_structure_dependencies.py')
+    raise error  # catching in pickle_structure_dependencies.py
+
+
 class Structures(Structure, UserList):
     # Todo mesh inheritance of both  Structure and UserClass...
     #  FROM set_residues_attributes in Structure, check all Structure attributes and methods that could be in conflict
