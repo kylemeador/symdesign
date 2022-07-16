@@ -523,7 +523,8 @@ class StructureDatabaseFactory:
     """
 
     def __init__(self, **kwargs):
-        self._databases = {}
+        # self._databases = {}
+        self._database = None
 
     def __call__(self, source: str = os.path.join(os.getcwd(), f'{program_name}{data.title()}'), sql: bool = False,
                  **kwargs) -> StructureDatabase:
@@ -535,17 +536,20 @@ class StructureDatabaseFactory:
         Returns:
             The instance of the specified StructureDatabase
         """
-        database = self._databases.get(source)
-        if database:
-            return database
+        # Todo potentially configure, however, we really only want a single database
+        # database = self._databases.get(source)
+        # if database:
+        #     return database
+        if self._database:
+            return self._database
         elif sql:
             raise NotImplementedError('SQL set up has not been completed!')
         else:
             make_path(source)
-            # Todo
-            #  structure_info = os.path.join(source, structure_info)
-            #  pdbs = os.path.join(structure_info, 'PDBs')  # Used to store downloaded PDB's
-            pdbs = os.path.join(source, 'PDBs')  # Used to store downloaded PDB's
+            structure_info_dir = os.path.join(source, structure_info)
+            pdbs = os.path.join(structure_info_dir, 'PDBs')  # Used to path downloaded PDB's
+            # stride directory
+            stride_dir = os.path.join(structure_info_dir, 'stride')
             # pdbs subdirectories
             orient_dir = os.path.join(pdbs, 'oriented')
             orient_asu_dir = os.path.join(pdbs, 'oriented_asu')
@@ -553,10 +557,13 @@ class StructureDatabaseFactory:
             full_model_dir = os.path.join(pdbs, 'full_models')
             logger.info(f'Initializing {source} {StructureDatabase.__name__}')
 
-            self._databases[source] = \
-                StructureDatabase(orient_dir, orient_asu_dir, refine_dir, full_model_dir, sql=None)
+            # self._databases[source] = \
+            #     StructureDatabase(orient_dir, orient_asu_dir, refine_dir, full_model_dir, stride_dir, sql=None)
+            self._database = \
+                StructureDatabase(full_model_dir, orient_dir, orient_asu_dir, refine_dir, stride_dir, sql=None)
 
-        return self._databases[source]
+        # return self._databases[source]
+        return self._database
 
     def get(self, **kwargs) -> StructureDatabase:
         """Return the specified Database object singleton
