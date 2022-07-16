@@ -2109,7 +2109,7 @@ class PoseDirectory:
     def rename_chains(self):
         """Standardize the chain names in incremental order found in the design source file"""
         model = Model.from_file(self.source, log=self.log)
-        model.reorder_chains()
+        model.rename_chains()
         model.write(out_path=self.asu_path)
 
     @handle_design_errors(errors=(DesignError, ValueError, RuntimeError))

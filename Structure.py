@@ -5405,19 +5405,33 @@ class Entity(SequenceProfile, Chain, ContainsChainsMixin):
         self.max_symmetry = None
         self.rotation_d = {}
         self.symmetry = None
-        # Todo choose most symmetrically average by moving chain symmetry ops below to here
-        representative = chains[0]
-        # super().__init__(residues=representative._residues, residue_indices=representative.residue_indices,
-        #                  coords=representative._coords, log=representative._log, **kwargs)
-        super().__init__(residue_indices=representative.residue_indices, **kwargs)
-        # self._chains = []
+        if chains:  # Instance was initialized with .from_chains()
+            # Todo choose most symmetrically average
+            #  Move chain symmetry ops below to here?
+            representative = chains[0]
+            residue_indices = representative.residue_indices
+        else:  # Initialized with Structure constructor method, handle using .is_parent() below
+            residue_indices = None
+
+        super().__init__(residue_indices=residue_indices, **kwargs)
+        if self.is_parent():
+            self._chains = []
+            self._create_chains(as_mate=True)
+            chains = self.chains
+            # Todo choose most symmetrically average chain
+            representative = chains[0]
+            # residue_indices = representative.residue_indices
+            # # Perform init again with newly parsed chains to set the representative attr as this instances attr
+            # super().__init__(residue_indices=residue_indices, parent=representative, **kwargs)
+            self._coords.set(representative.coords)
+            self._assign_residues(representative.residues, atoms=representative.atoms)
+        else:
+            # By using extend, we set original_chain_ids too
+            self.chain_ids.extend([chain.name for chain in chains])
+
         self._chains = [self]
         # _copy_structure_containers and _update_structure_container_attributes are Entity specific
         self.structure_containers.extend(['_chains'])  # use _chains as chains is okay to equal []
-        chain_ids = [representative.name]
-        # set representative transform as identity
-        # self.chain_transforms.append(dict(rotation=identity_matrix, translation=origin))
-        self._is_captain = True
         if len(chains) > 1:
             self._is_oligomeric = True  # inherent in Entity type is a single sequence. Therefore, must be oligomeric
             number_of_residues = self.number_of_residues
@@ -5433,20 +5447,13 @@ class Entity(SequenceProfile, Chain, ContainsChainsMixin):
                     fixed_indices, moving_indices = get_equivalent_indices(self_seq, chain_seq)
                     _, rot, tx, _ = superposition3d(chain.cb_coords[fixed_indices], self.cb_coords[moving_indices])
                 self.chain_transforms.append(dict(rotation=rot, translation=tx))
-                chain_ids.append(chain.name)
                 # self.chains.append(chain)  # Todo with flag for asymmetric symmetrization
             self.number_of_monomers = len(chains)
         else:
             self._is_oligomeric = False
 
-        self.chain_ids = chain_ids
-        # self.prior_ca_coords = self.ca_coords
-        # else:  # elif len(chains) == 1:
-        #     self.chain_transforms.append(dict(rotation=identity_matrix, translation=origin))
-        # else:
-        #     self.chain_ids = [self.chain_id]
-        #     self.chain_transforms.append(dict(rotation=identity_matrix, translation=origin))
-        # self._uniprot_id = None
+        # if chain_ids:
+        #     self.chain_ids = chain_ids
         if dbref is not None:
             self.uniprot_id = dbref
         if reference_sequence is not None:
@@ -5536,11 +5543,11 @@ class Entity(SequenceProfile, Chain, ContainsChainsMixin):
     @chain_id.setter
     def chain_id(self, chain_id: str):
         self.set_residues_attributes(chain=chain_id)
-        try:
-            self._chain_ids[0] = chain_id
-        except AttributeError:
-            # if _chain_ids is an attribute, then it will be length 1. If not set, will be set accordingly later
-            pass
+        # try:
+        # if chain_ids is an attribute, then it will be at least length 1
+        self.chain_ids[0] = chain_id
+        # except AttributeError:
+        #     pass
 
     @property
     def number_of_monomers(self) -> int:
@@ -5559,30 +5566,26 @@ class Entity(SequenceProfile, Chain, ContainsChainsMixin):
         """Is the Entity oligomeric?"""
         return self._is_oligomeric
 
-    @number_of_monomers.setter
-    def number_of_monomers(self, value: int):
-        self._number_of_monomers = value
-
-    @property
-    def chain_ids(self) -> list:  # Also used in Model
-        """The names of each Chain found in the Entity"""
-        try:
-            return self._chain_ids
-        except AttributeError:  # This shouldn't be possible with the constructor available
-            available_chain_ids = self.return_chain_generator()
-            self._chain_ids = [self.chain_id]
-            for _ in range(self.number_of_monomers - 1):
-                next_chain = next(available_chain_ids)
-                while next_chain in self._chain_ids:
-                    next_chain = next(available_chain_ids)
-
-                self._chain_ids.append(next_chain)
-
-            return self._chain_ids
-
-    @chain_ids.setter
-    def chain_ids(self, chain_ids: list[str]):
-        self._chain_ids = chain_ids
+    # @property
+    # def chain_ids(self) -> list:  # Also used in Model
+    #     """The names of each Chain found in the Entity"""
+    #     try:
+    #         return self._chain_ids
+    #     except AttributeError:  # This shouldn't be possible with the constructor available
+    #         available_chain_ids = self.chain_id_generator()
+    #         self._chain_ids = [self.chain_id]
+    #         for _ in range(self.number_of_symmetry_mates - 1):
+    #             next_chain = next(available_chain_ids)
+    #             while next_chain in self._chain_ids:
+    #                 next_chain = next(available_chain_ids)
+    #
+    #             self._chain_ids.append(next_chain)
+    #
+    #         return self._chain_ids
+    #
+    # @chain_ids.setter
+    # def chain_ids(self, chain_ids: list[str]):
+    #     self._chain_ids = chain_ids
 
     @property
     def chain_transforms(self) -> list[transformation_mapping]:
@@ -5674,15 +5677,15 @@ class Entity(SequenceProfile, Chain, ContainsChainsMixin):
             self._disorder = generate_mutations(self.reference_sequence, self.sequence, only_gaps=True)
             return self._disorder
 
-    def chain(self, chain_name: str) -> Entity | None:
-        """Fetch and return an Entity by chain name"""
-        for idx, chain_id in enumerate(self.chain_ids):
-            if chain_id == chain_name:
-                try:
-                    return self.chains[idx]
-                except IndexError:
-                    raise IndexError(f'The number of chains ({len(self.chains)}) in the {type(self).__name__} != '
-                                     f'number of chain_ids ({len(self.chain_ids)})')
+    # def chain(self, chain_name: str) -> Entity | None:
+    #     """Fetch and return an Entity by chain name"""
+    #     for idx, chain_id in enumerate(self.chain_ids):
+    #         if chain_id == chain_name:
+    #             try:
+    #                 return self.chains[idx]
+    #             except IndexError:
+    #                 raise IndexError(f'The number of chains ({len(self.chains)}) in the {type(self).__name__} != '
+    #                                  f'number of chain_ids ({len(self.chain_ids)})')
 
     def retrieve_sequence_from_api(self, entity_id: str = None):
         """Using the Entity ID, fetch information from the PDB API and set the instance reference_sequence"""

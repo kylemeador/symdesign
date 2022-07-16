@@ -553,7 +553,7 @@ class HelixFusion:
 
                             if distance_check_1.distance() <= 3:
                                 pdb_oligomer.apply(rot, tx)
-                                pdb_oligomer.reorder_chains(exclude_chains=target_protein.chain_ids)
+                                pdb_oligomer.rename_chains(exclude_chains=target_protein.chain_ids)
 
                                 out_pdb = Model.from_atoms(target_protein.atoms + pdb_oligomer.atoms)
 

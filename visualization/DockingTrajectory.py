@@ -29,7 +29,7 @@ def merge_pose_pdbs(des_dir, frags=True):
         assert len(name_pdb_file) == 1, 'More than one matching file found with %s_tx_*.pdb' % name
         oligomers[name] = Model.from_file(name_pdb_file[0])
         oligomers[name].name = name
-        oligomers[name].reorder_chains(exclude_chains=taken_chains)
+        oligomers[name].rename_chains(exclude_chains=taken_chains)
         taken_chains += oligomers[name].chain_ids
     new_pdb = Model.from_atoms([oligomers[oligomer].atoms for oligomer in oligomers])
 
@@ -38,7 +38,7 @@ def merge_pose_pdbs(des_dir, frags=True):
         frags = []
         for frags in frag_pdbs:
             frag_pdb = Model.from_file(frags)
-            frag_pdb.reorder_chains(exclude_chains=taken_chains)
+            frag_pdb.rename_chains(exclude_chains=taken_chains)
             taken_chains += frag_pdb.chain_ids
             frags.append(frag_pdb)
         new_pdb = Model.from_atoms(list(chain.from_iterable(pdb.atoms for pdb in frags)))

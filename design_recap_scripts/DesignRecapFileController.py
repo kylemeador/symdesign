@@ -130,7 +130,7 @@ def design_recapitulation(design_file, output_dir, pdb_dir=None, oligomer=False)
         else:
             asu = Model.from_file(os.path.join(output_dir, 'design_asus', design + '.pdb'))  # old, design_asus outside
             # asu = PDB(file=os.path.join(output_dir, design, 'design_asus', design  + '.pdb'))  # TODO in new, asu is inside design directory
-        asu.reorder_chains()
+        asu.rename_chains()
         # asu.renumber_residues()
         asu.renumber_residues_by_chain()
         # asu._get_entity_info_from_atoms()
@@ -171,7 +171,7 @@ def design_recapitulation(design_file, output_dir, pdb_dir=None, oligomer=False)
                 logger.error('%s failed! Missing residue information in re-indexing' % pdb)
                 success = False
                 break
-            downloaded_pdb.reorder_chains(exclude_chains=used_chains)  # redoes sequences
+            downloaded_pdb.rename_chains(exclude_chains=used_chains)  # redoes sequences
             used_chains += downloaded_pdb.chain_ids
             oriented_pdb_seq_a = downloaded_pdb.chains[0].sequence
             chain_in_asu = asu.match_entity_by_seq(other_seq=oriented_pdb_seq_a)
