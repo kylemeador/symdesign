@@ -927,12 +927,12 @@ class PoseDirectory:
                 c_term = True
 
         if report_if_helix:
-            if self.api_db:
-                parsed_secondary_structure = self.api_db.stride.retrieve_data(name=entity.name)
-                if parsed_secondary_structure:
-                    entity.fill_secondary_structure(secondary_structure=parsed_secondary_structure)
-                else:
-                    entity.stride()
+            # if self.api_db:
+            parsed_secondary_structure = self.api_db.stride.retrieve_data(name=entity.name)
+            if parsed_secondary_structure:
+                entity.fill_secondary_structure(secondary_structure=parsed_secondary_structure)
+            else:
+                entity.stride(to_file=self.api_db.stride.path_to(entity.name))
             n_term = True if n_term and entity.is_termini_helical() else False
             c_term = True if c_term and entity.is_termini_helical(termini='c') else False
 
