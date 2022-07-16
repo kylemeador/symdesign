@@ -4809,18 +4809,6 @@ class Structure(StructureBase):
             for idx, structure in enumerate(structures):
                 structures[idx] = copy(structure)
 
-    @staticmethod
-    def return_chain_generator() -> Generator[str, None, None]:
-        """Provide a generator which produces all combinations of chain strings useful in producing viable Chain objects
-
-        Returns
-            The generator producing a 2 character string
-        """
-        return (first + second for modification in ['upper', 'lower']
-                for first in [''] + list(getattr(Structure.available_letters, modification)())
-                for second in list(getattr(Structure.available_letters, 'upper')()) +
-                list(getattr(Structure.available_letters, 'lower')()))
-
     def __key(self) -> tuple[str, int, ...]:
         return self.name, *self._residue_indices
 
@@ -5210,7 +5198,7 @@ class Structures(Structure, UserList):
     #             # if isinstance(header, Iterable):
     #
     #         if increment_chains:
-    #             available_chain_ids = self.return_chain_generator()
+    #             available_chain_ids = self.chain_id_generator()
     #             for structure in self.structures:
     #                 chain = next(available_chain_ids)
     #                 structure.write(file_handle=f, chain=chain)
@@ -5244,6 +5232,128 @@ class Structures(Structure, UserList):
 
     def __getitem__(self, idx: int) -> Structure:
         return self.data[idx]
+
+
+class ContainsChainsMixin:
+    residues: list[Residue]
+    chain_ids: list[str]
+    chains: list[Chain] | Structures
+    log: Logger
+    original_chain_ids: list[str]
+
+    def __init__(self, **kwargs):
+        # Make dependent on the same list as default. If parsing is done, explicitly set self.original_chain_ids
+        self.original_chain_ids = self.chain_ids = []
+        super().__init__(**kwargs)
+
+    def _create_chains(self, as_mate: bool = False):
+        """For all the Residues in the Structure, create Chain objects which contain their member Residues
+
+        Args:
+            as_mate: Whether the Chain instances should be controlled by a captain (True), or dependents of their parent
+        Sets:
+            self.chain_ids (list[str])
+            self.chains (list[Chain] | Structures)
+            self.original_chain_ids (list[str])
+        """
+        residues = self.residues
+        residue_idx_start, idx = 0, 1
+        prior_residue = residues[0]
+        chain_residues = []
+        for idx, residue in enumerate(residues[1:], 1):  # start at the second index to avoid off by one
+            if residue.number <= prior_residue.number or residue.chain != prior_residue.chain:
+                # less than or equal number should only happen with new chain. this SHOULD satisfy a malformed PDB
+                chain_residues.append(list(range(residue_idx_start, idx)))
+                residue_idx_start = idx
+            prior_residue = residue
+
+        # perform after iteration which is the final chain
+        chain_residues.append(list(range(residue_idx_start, idx + 1)))  # have to increment as if next residue
+
+        self.chain_ids = remove_duplicates([residue.chain for residue in residues])
+        # if self.multimodel:
+        self.original_chain_ids = [residues[residue_indices[0]].chain for residue_indices in chain_residues]
+        #     self.log.debug(f'Multimodel file found. Original Chains: {",".join(self.original_chain_ids)}')
+        # else:
+        #     self.original_chain_ids = self.chain_ids
+
+        number_of_chain_ids = len(self.chain_ids)
+        if len(chain_residues) != number_of_chain_ids:  # would be different if a multimodel or some weird naming
+            available_chain_ids = self.chain_id_generator()
+            new_chain_ids = []
+            for chain_idx in range(len(chain_residues)):
+                if chain_idx < number_of_chain_ids:  # use the chain_ids version
+                    chain_id = self.chain_ids[chain_idx]
+                else:
+                    # chose next available chain unless already taken, then try another
+                    chain_id = next(available_chain_ids)
+                    while chain_id in self.chain_ids:
+                        chain_id = next(available_chain_ids)
+                new_chain_ids.append(chain_id)
+
+            self.chain_ids = new_chain_ids
+
+        for residue_indices, chain_id in zip(chain_residues, self.chain_ids):
+            self.chains.append(Chain(residue_indices=residue_indices, chain_id=chain_id, as_mate=as_mate, parent=self))
+
+    @property
+    def number_of_chains(self) -> int:
+        """Return the number of Chain instances in the Structure"""
+        return len(self.chains)
+
+    def rename_chains(self, exclude_chains: Sequence = None):
+        """Renames chains using Structure.available_letters
+
+        Args:
+            exclude_chains: The chains which shouldn't be modified
+        Sets:
+            self.chain_ids (list[str])
+        """
+        available_chain_ids = self.chain_id_generator()
+        if exclude_chains:
+            available_chains = sorted(set(available_chain_ids).difference(exclude_chains))
+        else:
+            available_chains = list(available_chain_ids)
+
+        # Update chain_ids, then each chain
+        self.chain_ids = available_chains[:self.number_of_chains]
+        for chain, new_id in zip(self.chains, self.chain_ids):
+            chain.chain_id = new_id
+
+    def renumber_residues_by_chain(self):
+        """For each Chain instance, renumber Residue objects sequentially starting with 1"""
+        for chain in self.chains:
+            chain.renumber_residues()
+
+    def chain(self, chain_id: str) -> Chain | None:
+        """Return the Chain object specified by the passed chain ID from the PDB object
+
+        Args:
+            chain_id: The name of the Chain to query
+        Returns:
+            The Chain if one was found
+        """
+        for idx, id_ in enumerate(self.chain_ids):
+            if id_ == chain_id:
+                try:
+                    return self.chains[idx]
+                except IndexError:
+                    raise IndexError(f'The number of chains ({len(self.chains)}) in the {type(self).__name__} != '
+                                     f'number of chain_ids ({len(self.chain_ids)})')
+        return None
+
+    @staticmethod
+    def chain_id_generator() -> Generator[str, None, None]:
+        """Provide a generator which produces all combinations of chain ID strings
+
+        Returns
+            The generator producing a maximum 2 character string where single characters are exhausted,
+                first in uppercase, then in lowercase
+        """
+        return (first + second for modification in ['upper', 'lower']
+                for first in [''] + list(getattr(Structure.available_letters, modification)())
+                for second in list(getattr(Structure.available_letters, 'upper')()) +
+                list(getattr(Structure.available_letters, 'lower')()))
 
 
 class Chain(Structure):
