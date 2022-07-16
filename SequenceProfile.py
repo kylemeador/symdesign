@@ -193,8 +193,8 @@ class SequenceProfile:
     sequence: str
 
     def __init__(self, **kwargs):
-        super().__init__()
-        # super().__init__(**kwargs)  # Todo use once SequenceProfile is higher in MRO of Entity/Pose
+        # super().__init__()
+        super().__init__(**kwargs)
         self.evolutionary_profile: dict = {}  # position specific scoring matrix
         # self.design_pssm_file = None
         self.profile: dict = {}  # design specific scoring matrix

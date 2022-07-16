@@ -5263,7 +5263,8 @@ class Chain(Structure):
         self.set_residues_attributes(chain=chain_id)
 
 
-class Entity(Chain, SequenceProfile):  # Todo consider moving SequenceProfile to first in MRO
+
+class Entity(SequenceProfile, Chain, ContainsChainsMixin):
     """Entity
 
     Args:

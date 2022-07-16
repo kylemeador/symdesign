@@ -834,7 +834,7 @@ class State(Structures):
     #     return self.structures[idx]
 
 
-class Model(Structure):
+class Model(Structure, ContainsChainsMixin):
     """The base object for Structure file (.pdb/.cif) parsing and manipulation, particularly containing multiple Chain
     or Entity instances
 
@@ -4041,7 +4041,7 @@ class SymmetricModel(Models):
             return out_path
 
 
-class Pose(SymmetricModel, SequenceProfile):  # Todo consider moving SequenceProfile to first in MRO
+class Pose(SequenceProfile, SymmetricModel):
     """A Pose is made of single or multiple Structure objects such as Entities, Chains, or other structures.
     All objects share a common feature such as the same symmetric system or the same general atom configuration in
     separate models across the Structure or sequence.
