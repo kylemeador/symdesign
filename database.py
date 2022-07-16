@@ -59,7 +59,7 @@ def read_json(file_name, **kwargs) -> dict | None:
         The json data in the file
     """
     with open(file_name, 'r') as f_save:
-        data = json.load(f_save, **kwargs)
+        data = json.load(f_save)
 
     return data
 
