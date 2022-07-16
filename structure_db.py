@@ -251,7 +251,7 @@ class StructureDatabase(Database):
             # first, check if the structure_identifier ASU has been processed. This happens when files are passed
             if structure_identifier in orient_asu_names:  # orient_asu file exists, stride should as well. Just load asu
                 orient_asu_file = self.oriented_asu.retrieve_file(name=structure_identifier)
-                pose = Pose.Pose.from_file(orient_asu_file, sym_entry=sym_entry)
+                pose = Pose.Pose.from_file(orient_asu_file, name=structure_identifier, sym_entry=sym_entry)
                 # entity = pose.entities[0]
                 # entity.name = entry_entity  # make explicit
                 # Pose already sets a symmetry and file_path upon constriction, so we don't need to set
@@ -260,7 +260,7 @@ class StructureDatabase(Database):
                 all_structures.append(pose)
             elif structure_identifier in orient_names:  # orient file exists, load asu, save and create stride
                 orient_file = self.oriented.retrieve_file(name=structure_identifier)
-                pose = Pose.Pose.from_file(orient_file, sym_entry=sym_entry)  # , log=None, entity_names=[entry_entity])
+                pose = Pose.Pose.from_file(orient_file, name=structure_identifier, sym_entry=sym_entry)
                 # entity = pose.entities[0]
                 # entity.name = pose.name  # use pose.name, not API name
                 # Pose already sets a symmetry, so we don't need to set one
