@@ -5312,6 +5312,8 @@ class ContainsChainsMixin:
             self.chain_ids (list[str])
         """
         available_chain_ids = self.chain_id_generator()
+        if exclude_chains is None:
+            exclude_chains = []
 
         # Update chain_ids, then each chain
         self.chain_ids = []
