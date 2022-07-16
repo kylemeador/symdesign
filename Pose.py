@@ -1574,12 +1574,13 @@ class Model(Structure, ContainsChainsMixin):
             try:  # Todo clean here and the above entity vs chain len checks with nucleotide parsing
                 chain_check_to_account_for_inability_to_parse_nucleotides = data['chains'][0]
             except IndexError:  # we didn't find any chains. It may be a nucleotide structure
+                self.log.debug(f'Missing associated chains for the Entity {entity_name} with data '
+                               f'{", ".join(f"{k}={v}" for k, v in data.items())}')
                 continue
-            # except (IndexError, AttributeError):
-            #     raise DesignError('Missing Chain object for %s %s! entity_info=%s, assembly=%s and multimodel=%s '
+            #     raise DesignError('Missing Chain object for %s %s! entity_info=%s, assembly=%s and '
             #                       'api_entry=%s, original_chain_ids=%s'
             #                       % (self.name, self._create_entities.__name__, self.entity_info,
-            #                       self.biological_assembly, self.multimodel, self.api_entry, self.original_chain_ids))
+            #                       self.biological_assembly, self.api_entry, self.original_chain_ids))
             if 'dbref' not in data:
                 data['dbref'] = {}
             # data['chains'] = [chain for chain in chains if chain]  # remove any missing chains
@@ -1592,9 +1593,9 @@ class Model(Structure, ContainsChainsMixin):
                 if 'sequence' in data:  # We set from Atom info
                     data['reference_sequence'] = data['sequence']
                 else:  # We should try to set using the entity_name
-                    data['reference_sequence'] = get_entity_reference_sequence(entry_id=entity_name)
-            # data has attributes chains, dbref, name, and reference_sequence
-            self.entities.append(Entity.from_chains(**data, parent=self))
+                    data['reference_sequence'] = get_entity_reference_sequence(entity_id=entity_name)
+            # data has attributes chains, dbref, and reference_sequence
+            self.entities.append(Entity.from_chains(**data, name=entity_name, parent=self))
 
     def _get_entity_info_from_atoms(self, method: str = 'sequence', tolerance: float = 0.9, **kwargs):  # Todo define inside _create_entities?
         """Find all unique Entities in the input .pdb file. These are unique sequence objects
@@ -1651,7 +1652,7 @@ class Model(Structure, ContainsChainsMixin):
             if new_entity:  # no existing entity matches, add new entity
                 entity_idx += 1
                 self.entity_info[f'{self.name}_{entity_idx}'] = dict(chains=[chain], sequence=chain.sequence)
-        self.log.debug(f'Entity information was solved by {method} matching Atoms')
+        self.log.debug(f'Entity information was solved by {method} match')
 
     def entity_from_chain(self, chain_id: str) -> Entity | None:
         """Return the entity associated with a particular chain id"""
@@ -3753,7 +3754,7 @@ class SymmetricModel(Models):
             chain_combinations: list[tuple[Entity, Entity]] = []
             entity_combinations: list[tuple[Entity, Entity]] = []
             contact_count = \
-                np.zeros(sum(map(prod, combinations((entity.number_of_monomers for entity in entities), 2))))
+                np.zeros(sum(map(prod, combinations((entity.number_of_symmetry_mates for entity in entities), 2))))
             for entity1, entity2 in combinations(entities, 2):
                 for chain1 in entity1.chains:
                     chain_cb_coord_tree = BallTree(chain1.cb_coords)
@@ -4921,7 +4922,7 @@ class Pose(SequenceProfile, SymmetricModel):
         pose_length = self.number_of_residues
         # adjust the energy based on pose specifics
         pose_energy_multiplier = self.number_of_symmetry_mates  # will be 1 if not symmetric
-        entity_energy_multiplier = [entity.number_of_monomers for entity in self.entities]
+        entity_energy_multiplier = [entity.number_of_symmetry_mates for entity in self.entities]
 
         warn = False
         parsed_design_residues = {}
@@ -4988,7 +4989,7 @@ class Pose(SequenceProfile, SymmetricModel):
         pose_length = self.number_of_residues
         # adjust the energy based on pose specifics
         pose_energy_multiplier = self.number_of_symmetry_mates  # will be 1 if not symmetric
-        entity_energy_multiplier = [entity.number_of_monomers for entity in self.entities]
+        entity_energy_multiplier = [entity.number_of_symmetry_mates for entity in self.entities]
 
         warn = False
         parsed_design_residues = {}

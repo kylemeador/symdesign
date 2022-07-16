@@ -25,7 +25,7 @@ if __name__ == '__main__':
     # initialize PDB Objects
     pdbs = [Model.from_file(pdb_file, log=logger) for pdb_file in args.files]
     pdb = Model.from_chains([chain for pdb in pdbs for chain in pdb.chains], name='-'.join(pdb.name for pdb in pdbs),
-                          log=logger, entities=False)
+                            log=logger, entities=False)
     # output file
     os.makedirs(args.output_directory, exist_ok=True)
     pdb.write(out_path=os.path.join(args.output_directory, f'{pdb.name}.pdb'))

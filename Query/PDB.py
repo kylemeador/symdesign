@@ -991,14 +991,14 @@ def parse_entities_json(entity_jsons: Iterable[dict[str, Any]]) -> dict[str, dic
     return entity_info
 
 
-def _get_entity_info(entity_id: str = None, entry: str = None, entity_integer: int | str = None) -> \
+def _get_entity_info(entry: str = None, entity_integer: int | str = None, entity_id: str = None) -> \
         dict[str, dict[str, str]] | dict:
     """Query the PDB API for an EntityID and return the associated chains and reference dictionary
 
     Args:
-        entity_id: The PDB formatted EntityID. Has the format EntryID_Integer (1ABC_1)
         entry: The 4 character PDB EntryID of interest
         entity_integer: The entity integer from the EntryID of interest
+        entity_id: The PDB formatted EntityID. Has the format EntryID_Integer (1ABC_1)
     Returns:
         {chain: {'accession': 'Q96DC8', 'db': 'UNP'}, ...}
     """
@@ -1023,9 +1023,9 @@ def query_entity_id(entry: str = None, entity_integer: str | int = None, entity_
     X-ray_only_keys - {'rcsb_cluster_flexibility'}
     
     Args:
-        entity_id: The PDB formatted EntityID. Has the format EntryID_Integer (1ABC_1)
         entry: The 4 character PDB EntryID of interest
         entity_integer: The integer of the entity_id
+        entity_id: The PDB formatted EntityID. Has the format EntryID_Integer (1ABC_1)
     Returns:
         The entity information according to the PDB
     """
@@ -1038,14 +1038,14 @@ def query_entity_id(entry: str = None, entity_integer: str | int = None, entity_
 
 
 # Todo not completely useful in this module
-def get_entity_id(entity_id: str = None, entry: str = None, entity_integer: int | str = None, chain: str = None) -> \
+def get_entity_id(entry: str = None, entity_integer: int | str = None, entity_id: str = None, chain: str = None) -> \
         tuple[str, str] | None:
     """Retrieve a UniProtID from the PDB API by passing various PDB identifiers or combinations thereof
 
     Args:
-        entity_id: The PDB formatted EntityID. Has the format EntryID_Integer (1ABC_1)
         entry: The 4 character PDB EntryID of interest
         entity_integer: The entity integer from the EntryID of interest
+        entity_id: The PDB formatted EntityID. Has the format EntryID_Integer (1ABC_1)
         chain: The polymer "chain" identifier otherwise known as the "asym_id" from the PDB EntryID of interest
     Returns:
         The Entity_ID
@@ -1088,9 +1088,9 @@ def get_entity_uniprot_id(**kwargs) -> str | None:
     """Retrieve a UniProtID from the PDB API by passing various PDB identifiers or combinations thereof
 
     Keyword Args:
-        entity_id=None (str): The PDB formatted EntityID. Has the format EntryID_Integer (1ABC_1)
         entry=None (str): The 4 character PDB EntryID of interest
         entity_integer=None (str): The entity integer from the EntryID of interest
+        entity_id=None (str): The PDB formatted EntityID. Has the format EntryID_Integer (1ABC_1)
         chain=None (str): The polymer "chain" identifier otherwise known as the "asym_id" from the PDB EntryID of
             interest
     Returns:
@@ -1107,9 +1107,9 @@ def get_entity_reference_sequence(**kwargs) -> str | None:
     """Query the PDB API for the reference amino acid sequence for a specified entity ID (PDB EntryID_Entity_ID)
 
     Keyword Args:
-        entity_id=None (str): The PDB formatted EntityID. Has the format EntryID_Integer (1ABC_1)
         entry=None (str): The 4 character PDB EntryID of interest
         entity_integer=None (str): The entity integer from the EntryID of interest
+        entity_id=None (str): The PDB formatted EntityID. Has the format EntryID_Integer (1ABC_1)
         chain=None (str): The polymer "chain" identifier otherwise known as the "asym_id" from the PDB EntryID of
             interest
     Returns:

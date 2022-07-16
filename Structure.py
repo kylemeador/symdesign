@@ -300,8 +300,6 @@ def read_pdb_file(file: AnyStr, pdb_lines: list[str] = None, separate_coords: bo
             # prepare the atomic coordinates for addition to numpy array
             coords.append([float(line[slice_x]), float(line[slice_y]), float(line[slice_z])])
         elif remark == 'MODEL ':
-            # start_of_new_model signifies that the next line comes after a new model
-            # if not self.multimodel:
             multimodel = True
         elif remark == 'SEQRES':
             seq_res_lines.append(line[11:])
@@ -2705,6 +2703,7 @@ class Structure(StructureBase):
             coords: The coordinates to assign to the Structure. Optional, will use from_source.coords if not specified
         """
         if coords:  # try to set the provided coords. This will handle issue where empty Coords class should be set
+            # Setting .coords through normal mechanism preserves subclasses requirement to handle symmetric coordinates
             self.coords = np.concatenate(coords)
         if self._coords.coords.shape[0] == 0:  # check if Coords (_coords) hasn't been populated
             # if it hasn't, then coords weren't passed. try to set from self.from_source. catch missing from_source
@@ -4529,11 +4528,6 @@ class Structure(StructureBase):
                 fragment = MonoFragment(residues=frag_residues, fragment_length=fragment_length, **kwargs)
                 if fragment.i_type:
                     fragments.append(fragment)
-                # fragments.append(Structure.from_residues(frag_residues, coords=self._coords, log=None))
-                # fragments.append(Structure.from_residues(deepcopy(frag_residues), log=None))
-
-        # for structure in fragments:
-        #     structure.chain_ids = [structure.residues[0].chain]
 
         return fragments
 
@@ -5387,13 +5381,13 @@ class Entity(SequenceProfile, Chain, ContainsChainsMixin):
     """
     _chain_transforms: list[transformation_mapping]
     _chains: list | list[Entity]
-    _number_of_monomers: int
+    _is_captain: bool
+    _is_oligomeric: bool
+    _number_of_symmetry_mates: int
     _reference_sequence: str | None
     _uniprot_id: str | None
     api_entry: dict[str, dict[str, str]] | None
     dihedral_chain: str | None
-    _is_captain: bool
-    _is_oligomeric: bool
     max_symmetry: int | None
     rotation_d: dict[str, dict[str, int | np.ndarray]] | None
     symmetry: str | None
@@ -5401,6 +5395,7 @@ class Entity(SequenceProfile, Chain, ContainsChainsMixin):
     def __init__(self, chains: list[Chain] | Structures = None, dbref: dict[str, str] = None,
                  reference_sequence: str = None, **kwargs):
         """When init occurs chain_ids are set if chains were passed. If not, then they are auto generated"""
+        self._is_captain = True
         self.api_entry = None  # {chain: {'accession': 'Q96DC8', 'db': 'UNP'}, ...}
         self.dihedral_chain = None
         self.max_symmetry = None
@@ -5437,7 +5432,7 @@ class Entity(SequenceProfile, Chain, ContainsChainsMixin):
             self._is_oligomeric = True  # inherent in Entity type is a single sequence. Therefore, must be oligomeric
             number_of_residues = self.number_of_residues
             self_seq = self.sequence
-            for idx, chain in enumerate(chains[1:]):
+            for idx, chain in enumerate(chains[1:]):  # Todo must match this mechanism with the symmetric chain index
                 chain_seq = chain.sequence
                 if chain.number_of_residues == number_of_residues and chain_seq == self_seq:
                     # do an apples to apples comparison
@@ -5449,7 +5444,7 @@ class Entity(SequenceProfile, Chain, ContainsChainsMixin):
                     _, rot, tx, _ = superposition3d(chain.cb_coords[fixed_indices], self.cb_coords[moving_indices])
                 self.chain_transforms.append(dict(rotation=rot, translation=tx))
                 # self.chains.append(chain)  # Todo with flag for asymmetric symmetrization
-            self.number_of_monomers = len(chains)
+            self.number_of_symmetry_mates = len(chains)
         else:
             self._is_oligomeric = False
 
@@ -5551,13 +5546,17 @@ class Entity(SequenceProfile, Chain, ContainsChainsMixin):
         #     pass
 
     @property
-    def number_of_monomers(self) -> int:
+    def number_of_symmetry_mates(self) -> int:
         """The number of copies of the Entity in the Oligomer"""
         try:
-            return self._number_of_monomers
+            return self._number_of_symmetry_mates
         except AttributeError:  # set based on the symmetry, unless that fails then find using chain_ids
-            self._number_of_monomers = valid_subunit_number.get(self.symmetry, len(self._chain_ids))
-            return self._number_of_monomers
+            self._number_of_symmetry_mates = valid_subunit_number.get(self.symmetry, len(self.chain_ids))
+            return self._number_of_symmetry_mates
+
+    @number_of_symmetry_mates.setter
+    def number_of_symmetry_mates(self, number_of_symmetry_mates: int):
+        self._number_of_symmetry_mates = number_of_symmetry_mates
 
     def is_captain(self) -> bool:
         """Is the Entity the captain chain?"""
@@ -5738,7 +5737,7 @@ class Entity(SequenceProfile, Chain, ContainsChainsMixin):
     def remove_mate_chains(self):
         """Clear the Entity of all Chain and Oligomer information"""
         self._chain_transforms = []  # [dict(rotation=identity_matrix, translation=origin)]
-        self.number_of_monomers = 1
+        self.number_of_symmetry_mates = 1
         # self._chains.clear()
         self._chains = [self]
         try:
@@ -5773,7 +5772,7 @@ class Entity(SequenceProfile, Chain, ContainsChainsMixin):
         Sets:
             self.chain_transforms (list[transformation_mapping])
             self._is_oligomeric=True (bool)
-            self.number_of_monomers (int)
+            self.number_of_symmetry_mates (int)
             self.symmetry (str)
         """
         try:
@@ -5820,19 +5819,7 @@ class Entity(SequenceProfile, Chain, ContainsChainsMixin):
 
         centered_coords_inv = transform_coordinate_sets(centered_coords, rotation=inv_rotation2,
                                                         translation=-translation, rotation2=inv_rotation)
-        # debug_pdb.replace_coords(centered_coords_inv)
-        # debug_pdb.write(out_path='invert_set_invert_rot%s.pdb' % self.name)
-
-        # set up copies to match the indices of entity
-        # self.chain_representative._start_indices(at=self.atom_indices[0], dtype='atom')
-        # self.chain_representative._start_indices(at=self.residue_indices[0], dtype='residue')
-        # self.chains.append(self.chain_representative)
         self.chain_transforms.clear()
-        # self.chain_ids.clear()
-        # try:
-        #     del self._number_of_monomers
-        # except AttributeError:
-        #     pass
         try:
             del self._chain_ids
         except AttributeError:
@@ -5850,9 +5837,7 @@ class Entity(SequenceProfile, Chain, ContainsChainsMixin):
                                                        rotation2=rotation2, translation2=translation2)
                 _, rot, tx, _ = superposition3d(new_coords, cb_coords)
                 self.chain_transforms.append(dict(rotation=rot, translation=tx))
-        self.number_of_monomers = number_of_monomers
-        # self.chain_ids = list(self.return_chain_generator())[:self.number_of_monomers]
-        # self.log.debug('After make_oligomers, the chain_ids for %s are %s' % (self.name, self.chain_ids))
+        self.number_of_symmetry_mates = number_of_monomers
 
     # def translate(self, **kwargs):
     #     """Perform a translation to the Structure ensuring only the Structure container of interest is translated
@@ -6097,8 +6082,9 @@ class Entity(SequenceProfile, Chain, ContainsChainsMixin):
         if not struct_file:
             struct_file = self.write_oligomer(out_path='make_sdf_input-%s-%d.pdb' % (self.name, random() * 100000))
 
-        # todo initiate this process in house using superposition3D for every chain
-        scout_cmd = ['perl', scout_symmdef, '-p', struct_file, '-a', self.chain_ids[0], '-i'] + self.chain_ids[1:]
+        # Todo initiate this process in house using superposition3D for every chain
+        start_chain, *rest = self.chain_ids
+        scout_cmd = ['perl', scout_symmdef, '-p', struct_file, '-a', start_chain, '-i'] + rest
         self.log.debug('Scouting chain symmetry: %s' % subprocess.list2cmdline(scout_cmd))
         p = subprocess.Popen(scout_cmd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
         out, err = p.communicate()
@@ -6153,7 +6139,7 @@ class Entity(SequenceProfile, Chain, ContainsChainsMixin):
             self.scout_symmetry(**kwargs)
         # ensure if the structure is dihedral a selected dihedral_chain is orthogonal to the maximum symmetry axis
         max_symmetry_data = self.rotation_d[self.max_symmetry]
-        if self.number_of_monomers / max_symmetry_data['sym'] == 2:
+        if self.number_of_symmetry_mates / max_symmetry_data['sym'] == 2:
             for chain, data in self.rotation_d.items():
                 if data['sym'] == 2:
                     axis_dot_product = np.dot(max_symmetry_data['axis'], data['axis'])
@@ -6165,10 +6151,10 @@ class Entity(SequenceProfile, Chain, ContainsChainsMixin):
                         else:
                             self.dihedral_chain = chain
                             return True
-        elif 1 < self.number_of_monomers / max_symmetry_data['sym'] < 2:
+        elif 1 < self.number_of_symmetry_mates / max_symmetry_data['sym'] < 2:
             self.log.critical('The symmetry of %s is malformed! Highest symmetry (%d-fold) is less than 2x greater than'
                               ' the number (%d) of chains'
-                              % (self.name, max_symmetry_data['sym'], self.number_of_monomers))
+                              % (self.name, max_symmetry_data['sym'], self.number_of_symmetry_mates))
 
         return False
 
@@ -6265,7 +6251,7 @@ class Entity(SequenceProfile, Chain, ContainsChainsMixin):
                 last_jump = idx  # index where the VRTs and connect_virtuals end. The "last jump"
 
         assert set(trunk) - set(virtuals) == set(), 'Symmetry Definition File VRTS are malformed'
-        assert self.number_of_monomers == len(subunits), 'Symmetry Definition File VRTX_base are malformed'
+        assert self.number_of_symmetry_mates == len(subunits), 'Symmetry Definition File VRTX_base are malformed'
 
         if dihedral:  # Remove dihedral connecting (trunk) virtuals: VRT, VRT0, VRT1
             virtuals = [virtual for virtual in virtuals if len(virtual) > 1]  # subunit_
