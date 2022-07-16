@@ -150,46 +150,46 @@ nanohedra_symmetry_combinations = {
 }
 # KM Custom entries
 symmetry_combinations = {
-    125: ['C1', ['r:<1,1,1,h,i,a>', 't:<j,k,b>'], 1, '<0,0,0>', 'None', [], 1, '<0,0,0>', 'C1', 'C1', 0, 'N/A', 0, 1],  # C1 alone
+    125: ['C1', ['r:<1,1,1,h,i,a>', 't:<j,k,b>'], 1, '<0,0,0>', None, [], 1, '<0,0,0>', 'C1', 'C1', 0, 'N/A', 0, 1],  # C1 alone
     126: ['C1', ['r:<1,1,1,h,i,a>', 't:<j,k,b>'], 1, '<0,0,0>', 'C1', ['r:<1,1,1,h,i,a>', 't:<j,k,b>'], 1, '<0,0,0>',
           'C1', 'C1', 0, 'N/A', 6, 1],
-    130: ['C2', [], 1, '<0,0,0>', 'None', [], 1, '<0,0,0>', 'C2', 'C2', 0, 'N/A', 0, 1],  # C2 alone
+    130: ['C2', [], 1, '<0,0,0>', None, [], 1, '<0,0,0>', 'C2', 'C2', 0, 'N/A', 0, 1],  # C2 alone
     131: ['C1', ['r:<1,1,1,h,i,a>', 't:<j,k,b>'], 1, '<0,0,0>', 'C2', [], 1, '<0,0,0>', 'C2', 'C2', 0, 'N/A', 6, 1],
-    135: ['C3', [], 1, '<0,0,0>', 'None', [], 1, '<0,0,0>', 'C3', 'C3', 0, 'N/A', 0, 1],  # C3 alone
+    135: ['C3', [], 1, '<0,0,0>', None, [], 1, '<0,0,0>', 'C3', 'C3', 0, 'N/A', 0, 1],  # C3 alone
     136: ['C1', ['r:<1,1,1,h,i,a>', 't:<j,k,b>'], 1, '<0,0,0>', 'C3', [], 1, '<0,0,0>', 'C3', 'C3', 0, 'N/A', 6, 1],
-    140: ['C4', [], 1, '<0,0,0>', 'None', [], 1, '<0,0,0>', 'C4', 'C4', 0, 'N/A', 0, 1],  # C4 alone
+    140: ['C4', [], 1, '<0,0,0>', None, [], 1, '<0,0,0>', 'C4', 'C4', 0, 'N/A', 0, 1],  # C4 alone
     141: ['C1', ['r:<1,1,1,h,i,a>', 't:<j,k,b>'], 1, '<0,0,0>', 'C4', [], 1, '<0,0,0>', 'C4', 'C4', 0, 'N/A', 6, 1],
-    145: ['C5', [], 1, '<0,0,0>', 'None', [], 1, '<0,0,0>', 'C5', 'C5', 0, 'N/A', 0, 1],  # C5 alone
+    145: ['C5', [], 1, '<0,0,0>', None, [], 1, '<0,0,0>', 'C5', 'C5', 0, 'N/A', 0, 1],  # C5 alone
     146: ['C1', ['r:<1,1,1,h,i,a>', 't:<j,k,b>'], 1, '<0,0,0>', 'C5', [], 1, '<0,0,0>', 'C5', 'C5', 0, 'N/A', 6, 1],
-    150: ['C6', [], 1, '<0,0,0>', 'None', [], 1, '<0,0,0>', 'C6', 'C6', 0, 'N/A', 0, 1],  # C6 alone
+    150: ['C6', [], 1, '<0,0,0>', None, [], 1, '<0,0,0>', 'C6', 'C6', 0, 'N/A', 0, 1],  # C6 alone
     151: ['C1', ['r:<1,1,1,h,i,a>', 't:<j,k,b>'], 1, '<0,0,0>', 'C6', [], 1, '<0,0,0>', 'C6', 'C6', 0, 'N/A', 6, 1],
-    155: ['D2', [], 1, '<0,0,0>', 'None', [], 1, '<0,0,0>', 'D2', 'D2', 0, 'N/A', 0, 1],  # D2 alone
+    155: ['D2', [], 1, '<0,0,0>', None, [], 1, '<0,0,0>', 'D2', 'D2', 0, 'N/A', 0, 1],  # D2 alone
     156: ['C1', ['r:<1,1,1,h,i,a>', 't:<j,k,b>'], 1, '<0,0,0>', 'D2', [], 1, '<0,0,0>', 'D2', 'D2', 0, 'N/A', 6, 1],
     157: ['C2', ['r:<0,0,1,a>', 't:<0,0,b>'], 1, '<0,0,0>', 'D2', [], 1, '<0,0,0>', 'D2', 'D2', 0, 'N/A', 2, 1],
     158: ['C2', ['r:<0,0,1,a>', 't:<0,0,b>'], 2, '<0,0,0>', 'D2', [], 1, '<0,0,0>', 'D2', 'D2', 0, 'N/A', 2, 1],
-    160: ['D3', [], 1, '<0,0,0>', 'None', [], 1, '<0,0,0>', 'D3', 'D3', 0, 'N/A', 0, 1],  # D3 alone
+    160: ['D3', [], 1, '<0,0,0>', None, [], 1, '<0,0,0>', 'D3', 'D3', 0, 'N/A', 0, 1],  # D3 alone
     161: ['C1', ['r:<1,1,1,h,i,a>', 't:<j,k,b>'], 1, '<0,0,0>', 'D3', [], 1, '<0,0,0>', 'D3', 'D3', 0, 'N/A', 6, 1],
     162: ['C2', ['r:<0,0,1,a>', 't:<0,0,b>'], 2, '<0,0,0>', 'D3', [], 1, '<0,0,0>', 'D3', 'D3', 0, 'N/A', 2, 1],
     163: ['C3', ['r:<0,0,1,a>', 't:<0,0,b>'], 1, '<0,0,0>', 'D3', [], 1, '<0,0,0>', 'D3', 'D3', 0, 'N/A', 2, 1],
-    165: ['D4', [], 1, '<0,0,0>', 'None', [], 1, '<0,0,0>', 'D4', 'D4', 0, 'N/A', 0, 1],  # D4 alone
+    165: ['D4', [], 1, '<0,0,0>', None, [], 1, '<0,0,0>', 'D4', 'D4', 0, 'N/A', 0, 1],  # D4 alone
     166: ['C1', ['r:<1,1,1,h,i,a>', 't:<j,k,b>'], 1, '<0,0,0>', 'D4', [], 1, '<0,0,0>', 'D4', 'D4', 0, 'N/A', 6, 1],
     167: ['C2', ['r:<0,0,1,a>', 't:<0,0,b>'], 1, '<0,0,0>', 'D4', [], 1, '<0,0,0>', 'D4', 'D4', 0, 'N/A', 2, 1],
     168: ['C2', ['r:<0,0,1,a>', 't:<0,0,b>'], 2, '<0,0,0>', 'D4', [], 1, '<0,0,0>', 'D4', 'D4', 0, 'N/A', 2, 1],
     169: ['C4', ['r:<0,0,1,a>', 't:<0,0,b>'], 1, '<0,0,0>', 'D4', [], 1, '<0,0,0>', 'D4', 'D4', 0, 'N/A', 2, 1],
-    170: ['D5', [], 1, '<0,0,0>', 'None', [], 1, '<0,0,0>', 'D5', 'D5', 0, 'N/A', 0, 1],  # D5 alone
+    170: ['D5', [], 1, '<0,0,0>', None, [], 1, '<0,0,0>', 'D5', 'D5', 0, 'N/A', 0, 1],  # D5 alone
     171: ['C1', ['r:<1,1,1,h,i,a>', 't:<j,k,b>'], 1, '<0,0,0>', 'D5', [], 1, '<0,0,0>', 'D5', 'D5', 0, 'N/A', 6, 1],
-    175: ['D6', [], 1, '<0,0,0>', 'None', [], 1, '<0,0,0>', 'D6', 'D6', 0, 'N/A', 0, 1],  # D6 alone
+    175: ['D6', [], 1, '<0,0,0>', None, [], 1, '<0,0,0>', 'D6', 'D6', 0, 'N/A', 0, 1],  # D6 alone
     176: ['C1', ['r:<1,1,1,h,i,a>', 't:<j,k,b>'], 1, '<0,0,0>', 'D6', [], 1, '<0,0,0>', 'D6', 'D6', 0, 'N/A', 6, 1],
-    200: ['T', [], 1, '<0,0,0>', 'None', [], 1, '<0,0,0>', 'T', 'T', 0, 'N/A', 0, 1],  # T alone
+    200: ['T', [], 1, '<0,0,0>', None, [], 1, '<0,0,0>', 'T', 'T', 0, 'N/A', 0, 1],  # T alone
     201: ['C1', ['r:<1,1,1,h,i,a>', 't:<j,k,b>'], 1, '<0,0,0>', 'T', [], 1, '<0,0,0>', 'T', 'T', 0, 'N/A', 6, 1],
     202: ['C2', ['r:<0,0,1,a>', 't:<0,0,b>'], 3, '<0,0,0>', 'T', [], 1, '<0,0,0>', 'T', 'T', 0, 'N/A', 2, 1],
     203: ['C3', ['r:<0,0,1,a>', 't:<0,0,b>'], 4, '<0,0,0>', 'T', [], 1, '<0,0,0>', 'T', 'T', 0, 'N/A', 2, 1],
-    210: ['O', [], 1, '<0,0,0>', 'None', [], 1, '<0,0,0>', 'O', 'O', 0, 'N/A', 0, 1],  # O alone
+    210: ['O', [], 1, '<0,0,0>', None, [], 1, '<0,0,0>', 'O', 'O', 0, 'N/A', 0, 1],  # O alone
     211: ['C1', ['r:<1,1,1,h,i,a>', 't:<j,k,b>'], 1, '<0,0,0>', 'O', [], 1, '<0,0,0>', 'O', 'O', 0, 'N/A', 6, 1],
     212: ['C2', ['r:<0,0,1,a>', 't:<0,0,b>'], 3, '<0,0,0>', 'O', [], 1, '<0,0,0>', 'O', 'O', 0, 'N/A', 2, 1],
     213: ['C3', ['r:<0,0,1,a>', 't:<0,0,b>'], 4, '<0,0,0>', 'O', [], 1, '<0,0,0>', 'O', 'O', 0, 'N/A', 2, 1],
     214: ['C4', ['r:<0,0,1,a>', 't:<0,0,b>'], 1, '<0,0,0>', 'O', [], 1, '<0,0,0>', 'O', 'O', 0, 'N/A', 2, 1],
-    220: ['I', [], 1, '<0,0,0>', 'None', [], 1, '<0,0,0>', 'I', 'I', 0, 'N/A', 0, 1],  # I alone
+    220: ['I', [], 1, '<0,0,0>', None, [], 1, '<0,0,0>', 'I', 'I', 0, 'N/A', 0, 1],  # I alone
     221: ['C1', ['r:<1,1,1,h,i,a>', 't:<j,k,b>'], 1, '<0,0,0>', 'I', [], 1, '<0,0,0>', 'I', 'I', 0, 'N/A', 6, 1],
     222: ['C2', ['r:<0,0,1,a>', 't:<0,0,b>'], 1, '<0,0,0>', 'I', [], 1, '<0,0,0>', 'I', 'I', 0, 'N/A', 2, 1],
     223: ['C3', ['r:<0,0,1,a>', 't:<0,0,b>'], 7, '<0,0,0>', 'I', [], 1, '<0,0,0>', 'I', 'I', 0, 'N/A', 2, 1],
@@ -289,8 +289,11 @@ class SymEntry:
             result, *sym_map = self.sym_map  # remove the result and pass the groups
             for idx, sub_symmetry in enumerate(sym_map, 1):
                 if sub_symmetry not in valid_symmetries:
-                    raise ValueError('The symmetry "%s" specified at index "%d" is not a valid sub-symmetry!'
-                                     % (sub_symmetry, idx))
+                    if sub_symmetry is None:
+                        pass  # Todo ignore for now. Need to refactor symmetry_combinations for any number of elements
+                    else:
+                        raise ValueError(f'The symmetry "{sub_symmetry}" specified at index "{idx}" is not a valid '
+                                         f'sub-symmetry')
                 if sub_symmetry not in entry_groups:  # Todo add sub_symmetry specification to group info
                     raise DesignError('This functionality hasn\'t been implemented yet!')
                 self.groups.append(sub_symmetry)
@@ -691,8 +694,8 @@ class SymEntryFactory:
         Returns:
             The instance of the specified SymEntry
         """
-        if sym_map:
-            sym_map_string = '|'.join(sym_map)
+        if sym_map is not None:
+            sym_map_string = '|'.join('None' if sym is None else sym for sym in sym_map)
         else:
             sym_map_string = 'None'
 
@@ -977,7 +980,7 @@ def parse_symmetry_to_sym_entry(sym_entry: int = None, symmetry: str = None, sym
             elif symmetry in valid_symmetries:
                 logger.critical(f'{parse_symmetry_to_sym_entry.__name__}: The functionality of passing symmetry as '
                                 f'{symmetry} hasn\'t been tested thoroughly yet!')
-                sym_map = [symmetry, symmetry]  # specified as [result, entity1]
+                sym_map = [symmetry, symmetry, None]  # specified as [result, entity1, no other entities]
             elif len(symmetry) == 3 and symmetry[1].isdigit() and symmetry[2].isdigit():  # like I32, O43 format
                 sym_map = [*symmetry]
             else:  # C35
@@ -1020,6 +1023,8 @@ def sdf_lookup(symmetry: str = None) -> AnyStr:
                       % (PUtils.symmetry_def_files, symmetry))
 
 
+repeat_with_sym_entry = f'Cannot distinguish between the desired entry. Please repeat your command, however, ' \
+                        f'additionally specify the preferred Entry Number (ex: --{PUtils.sym_entry} 1) to proceed'
 header_format_string = '{:5s}  {:6s}  {:10s}  {:9s}  {:^20s}  {:6s}  {:10s}  {:9s}  {:^20s}  {:6s}'
 query_output_format_string = '{:>5s}  {:>6s}  {:>10s}  {:>9s}  {:^20s}  {:>6s}  {:>10s}  {:>9s}  {:^20s}  {:>6s}'
 
@@ -1068,10 +1073,10 @@ def lookup_sym_entry_by_symmetry_combination(result: str, *symmetry_operators: s
         if resulting_symmetry == result:
             result_entries.append(entry_number)
             # find all sub_symmetries that are viable in the component group members
-            group1_members = sub_symmetries.get(group1, [])
+            group1_members = sub_symmetries.get(group1, [None])
             # group1_members.extend('C2') if 'D' in group1 else None
             # group1_dihedral = True if 'D' in group1 else False
-            group2_members = sub_symmetries.get(group2, [])
+            group2_members = sub_symmetries.get(group2, [None])
             # group2_members.extend('C2') if 'D' in group2 else None
             # group2_dihedral = True if 'D' in group2 else False
             required_sym_operators = True  # assume correct until proven incorrect
@@ -1093,8 +1098,7 @@ def lookup_sym_entry_by_symmetry_combination(result: str, *symmetry_operators: s
             print('\033[1mFound multiple specified symmetries matching including %s\033[0m'
                   % (', '.join(map(str, matching_entries))))
             print_matching_entries(matching_entries)
-            print(f'Cannot distinguish between the desired entry. Please repeat your command, however, additionally'
-                  f' specify the preferred SymEntry Number (ex: --{PUtils.sym_entry} 1) to proceed')
+            print(repeat_with_sym_entry)
             exit()
     elif symmetry_operators:
         raise ValueError('The specified symmetries "%s" could not be coerced to make the resulting symmetry "%s". '
@@ -1108,8 +1112,7 @@ def lookup_sym_entry_by_symmetry_combination(result: str, *symmetry_operators: s
             print('\033[1mFound specified symmetries matching including %s\033[0m'
                   % (', '.join(map(str, result_entries))))
             print_matching_entries(result_entries)
-            print(f'Cannot distinguish between the desired entry. Please repeat your command, however, additionally'
-                  f' specify the preferred Entry Number (ex: --{PUtils.sym_entry} 1) to proceed')
+            print(repeat_with_sym_entry)
             exit()
         else:  # no matches
             raise ValueError(f'The resulting symmetry "{result}" didn\'t match any possible symmetry_combinations. You '
