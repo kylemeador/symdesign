@@ -5857,11 +5857,6 @@ class Entity(SequenceProfile, Chain, ContainsChainsMixin):
         centered_coords_inv = transform_coordinate_sets(centered_coords, rotation=inv_rotation2,
                                                         translation=-translation, rotation2=inv_rotation)
         self.chain_transforms.clear()
-        try:
-            del self._chain_ids
-        except AttributeError:
-            pass
-
         number_of_monomers = 0
         for degeneracy_matrices in degeneracy_rotation_matrices:
             for rotation_matrix in degeneracy_matrices:
@@ -5875,6 +5870,8 @@ class Entity(SequenceProfile, Chain, ContainsChainsMixin):
                 _, rot, tx, _ = superposition3d(new_coords, cb_coords)
                 self.chain_transforms.append(dict(rotation=rot, translation=tx))
         self.number_of_symmetry_mates = number_of_monomers
+        # Set self.chains, self.chain_ids, and updates each chain.chain_id
+        self.rename_chains()
 
     # def translate(self, **kwargs):
     #     """Perform a translation to the Structure ensuring only the Structure container of interest is translated
