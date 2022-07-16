@@ -1469,13 +1469,13 @@ class Model(Structure, ContainsChainsMixin):
                 raise RuntimeError('This logic was not expected and shouldn\'t be allowed to persist:'
                                    f'self.name={self.name}, parse_name={parsed_name}, extra={extra}, idx={idx}')
 
-                if not self.api_entry:
-                    self.log.debug(f'No PDB entry was found in the PDB API with "{parsed_name}"')
-                else:
-                    self.log.debug(f'Found PDB API information: '
-                                   f'{", ".join(f"{k}={v}" for k, v in self.api_entry.items())}')
-                    # set the identified name
-                    self.name = parsed_name.lower()
+            if not self.api_entry:
+                self.log.debug(f'No PDB entry was found in the PDB API with "{parsed_name}"')
+            else:
+                self.log.debug(f'Found PDB API information: '
+                               f'{", ".join(f"{k}={v}" for k, v in self.api_entry.items())}')
+                # set the identified name
+                self.name = self.name.lower()
         else:
             self.api_entry = {}
         #     self.log.debug('No name was found for this Model. PDB API won\'t be searched')
