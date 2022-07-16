@@ -5650,6 +5650,16 @@ class Entity(SequenceProfile, Chain, ContainsChainsMixin):
     #     self.prior_ca_coords = self.ca_coords
 
     @property
+    def entities(self) -> list[Entity]:  # Structures
+        """Returns an iterator over the Entity"""
+        return [self]
+
+    @property
+    def number_of_entities(self) -> int:
+        """Return the number of Entity instances in the Structure"""
+        return 1
+
+    @property
     def chains(self) -> list[Entity]:  # Structures
         """Returns transformed copies of the Entity"""
         if self.chain_transforms and len(self._chains) == 1:  # check if chains haven't been generated but should
