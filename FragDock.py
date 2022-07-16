@@ -464,9 +464,10 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
 
     # Get model reference sequences
     for entity in model1.entities + model2.entities:
-        entity.retrieve_sequence_from_api()
+        # ensure all entity have reference_sequence precomputed if available
+        dummy = entity.reference_sequence
     # for entity in model2.entities:
-    #     entity.retrieve_sequence_from_api()
+    #     entity._retrieve_sequence_from_api()
 
     # Set up output mechanism
     if isinstance(master_output, str) and not write_frags:  # we just want to write, so don't make a directory

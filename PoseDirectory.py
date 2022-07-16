@@ -386,13 +386,13 @@ class PoseDirectory:
     def job_paths(self):
         return self.job_resources.job_paths  # program_root/JobPaths
 
-    @property
-    def orient_dir(self):
-        return self.job_resources.orient_dir  # program_root/Data/PDBs/oriented
+    # @property
+    # def orient_dir(self):  # UNUSED
+    #     return self.job_resources.orient_dir  # program_root/Data/PDBs/oriented
 
-    @property
-    def orient_asu_dir(self):  # UNUSED
-        return self.job_resources.orient_asu_dir  # program_root/Data/PDBs/oriented_asu
+    # @property
+    # def orient_asu_dir(self):  # UNUSED
+    #     return self.job_resources.orient_asu_dir  # program_root/Data/PDBs/oriented_asu
 
     @property
     def pdbs(self):
@@ -407,7 +407,7 @@ class PoseDirectory:
         return self.job_resources.program_root  # program_root
 
     @property
-    def data(self):
+    def root_data(self):  # UNUSED
         return self.job_resources.data  # program_root/Data
 
     @property
@@ -431,9 +431,9 @@ class PoseDirectory:
     def run_in_shell(self, value):
         self._run_in_shell = value
 
-    @property
-    def stride_dir(self):
-        return self.job_resources.stride_dir  # program_root/Data/PDBs/stride
+    # @property
+    # def stride_dir(self):  # UNUSED
+    #     return self.job_resources.stride_dir  # program_root/Data/PDBs/stride
 
     @property
     def sequence_info(self):
@@ -1183,7 +1183,7 @@ class PoseDirectory:
             pass
 
     @property
-    def symmetry_definition_files(self) -> list:
+    def symmetry_definition_files(self) -> list[AnyStr]:
         """Retrieve the symmetry definition files name from PoseDirectory"""
         try:
             return self._symmetry_definition_files
@@ -1312,7 +1312,7 @@ class PoseDirectory:
 
         # todo make dependent on split_interface_residues which doesn't have residues obj, just number (pickle concerns)
         if not self.pose.ss_index_array or not self.pose.ss_type_array:
-            self.pose.interface_secondary_structure()  # api_db=self.api_db, source_dir=self.stride_dir)
+            self.pose.interface_secondary_structure()  # api_db=self.api_db, source_dir=self.job_resource.stride_dir)
         for number, elements in self.pose.split_interface_ss_elements.items():
             fragment_elements = set()
             # residues, entities = self.pose.split_interface_residues[number]
@@ -1940,7 +1940,7 @@ class PoseDirectory:
                         break
                 self.pre_refine = True if not oriented else False
             if oriented:
-                out_dir = self.orient_dir
+                out_dir = self.job_resources.orient_dir
                 for name in self.entity_names:
                     if not path.exists(glob(path.join(self.refine_dir, f'{name}*.pdb*'))[0]):
                         out_dir = self.path
@@ -2014,7 +2014,7 @@ class PoseDirectory:
             #                                     pass names if available ^
         if self.pose.symmetry:  # generate oligomers for each entity in the pose  # Todo move to SymmetricModel
             for idx, entity in enumerate(self.pose.entities):
-                if entity.number_of_monomers != self.sym_entry.group_subunit_numbers[idx]:
+                if entity.number_of_symmetry_mates != self.sym_entry.group_subunit_numbers[idx]:
                     entity.make_oligomer(symmetry=self.sym_entry.groups[idx], **self.pose_transformation[idx])
                 # write out new oligomers to the PoseDirectory
                 if self.write_oligomers:
@@ -2128,7 +2128,7 @@ class PoseDirectory:
             if to_design_directory:
                 out_path = self.assembly_path
             else:
-                out_path = path.join(self.orient_dir, f'{model.name}.pdb')
+                out_path = path.join(self.job_resources.orient_dir, f'{model.name}.pdb')
 
             model.orient(symmetry=self.design_symmetry)
 
@@ -2824,7 +2824,8 @@ class PoseDirectory:
             pose_source_errat_s = Series(np.concatenate(source_errat), index=residue_indices)
             per_residue_data['errat_deviation'][pose_source] = pose_source_errat_s
         else:
-            atomic_deviation[pose_source], pose_per_residue_errat = pose_assembly_minimally_contacting.errat(out_path=self.data)
+            atomic_deviation[pose_source], pose_per_residue_errat = \
+                pose_assembly_minimally_contacting.errat(out_path=self.data)
             per_residue_data['errat_deviation'][pose_source] = pose_per_residue_errat[:pose_length]
 
         pose_source_contact_order_s = \

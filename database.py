@@ -166,8 +166,15 @@ class DataStore:
             self.log.warning(f'No files found for "{path}"')
         return names
 
-    def store_data(self, data: Any, name: str, **kwargs):  # Todo resolve with def store() above
-        """Return the path of the storage location given an entity name"""
+    def store_data(self, data: Any, name: str, **kwargs):
+        """Store the data specfied by data and name to the DataStore. Saves the data as well
+
+        Args:
+            data: The data object to be stored with name
+            name: The name of the data to be used
+        Sets:
+            self.name = data
+        """
         setattr(self, name, data)
         self._save_data(name, **kwargs)
 
@@ -181,31 +188,41 @@ class DataStore:
         """
         data = getattr(self, name, None)
         if data:
-            self.log.debug(f'Info {name}{self.extension} was retrieved from DataStore')
+            self.log.debug(f'{name}{self.extension} was retrieved from {type(self).__name__}')
         else:
             data = self._load_data(name, log=None)  # attempt to retrieve the new data
             if data:
                 setattr(self, name, data)  # attempt to store the new data as an attribute
-                self.log.debug(f'Database file {name}{self.extension} was loaded fresh')
+                self.log.debug(f'Database file {name}{self.extension} was loaded into the {type(self).__name__}')
 
         return data
 
     def _save_data(self, name: str, **kwargs) -> AnyStr | None:
         """Return the data located in a particular entry specified by name
 
+        Args:
+            data: The data object to be stored with name
+            name: The name of the data to be used
         Returns:
             The name of the saved data if there was one or the return from the Database insertion
         """
         if self.sql:
             # dummy = True
-            return None
+            pass
+            # return None
         else:
             if data:
                 return self.save_file(data, self.path_to(name=name), **kwargs)  # could also use self.retrieve_data(name)
         return None
 
     def _load_data(self, name: str, **kwargs) -> Any | None:
-        """Return the data located in a particular entry specified by name"""
+        """Return the data located in a particular entry specified by name
+
+        Args:
+            name: The name of the data to be used
+        Returns:
+            The data found at the requested name if any
+        """
         if self.sql:
             dummy = True
         else:
@@ -214,8 +231,8 @@ class DataStore:
                 return self.load_file(file, **kwargs)
         return None
 
-    def get_all_data(self, **kwargs):
-        """Return all data located in the particular DataStore storage location"""
+    def load_all_data(self, **kwargs):
+        """Loads all data located in the particular DataStore storage location"""
         if self.sql:
             dummy = True
         else:
@@ -241,7 +258,7 @@ class Database:  # Todo ensure that the single object is completely loaded befor
         """For every resource, acquire all existing data in memory"""
         for source in self.sources:
             try:
-                source.get_all_data()
+                source.load_all_data()
             except ValueError:
                 raise ValueError(f'Issue loading data from source {source}')
 
