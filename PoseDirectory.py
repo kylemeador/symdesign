@@ -2158,8 +2158,8 @@ class PoseDirectory:
             # except DesignError:  # Todo handle when no interface residues are found and we just want refinement
             #     pass
             if interface_to_alanine:  # Mutate all design positions to Ala before the Refinement
-                # mutated_pdb = copy(self.pose.pdb)  # copy method implemented, but incompatible!
-                # Have to use self.pose.pdb as Residue objects in entity_residues are from self.pose.pdb and not copy()!
+                # mutated_pdb = copy(self.pose)  # copy method implemented, but incompatible!
+                # Have to use self.pose as Residue objects in entity_residues are from self.pose and not copy()!
                 for entity_pair, interface_residue_sets in self.pose.interface_residues.items():
                     if interface_residue_sets[0]:  # check that there are residues present
                         for idx, interface_residue_set in enumerate(interface_residue_sets):
