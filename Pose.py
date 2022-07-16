@@ -23,7 +23,7 @@ import JobResources
 from Query.PDB import retrieve_entity_id_by_sequence, query_pdb_by, get_entity_reference_sequence
 from SequenceProfile import SequenceProfile, alignment_types, generate_alignment
 from Structure import Coords, Structure, Structures, Chain, Entity, Residue, Residues, GhostFragment, MonoFragment, \
-    write_frag_match_info_file, Fragment, StructureBase, ContainsAtomsMixin, superposition3d
+    write_frag_match_info_file, Fragment, StructureBase, ContainsAtomsMixin, superposition3d, ContainsChainsMixin
 from SymDesignUtils import DesignError, ClashError, SymmetryError, z_value_from_match_score, start_log, null_log, \
     dictionary_lookup, digit_translate_table, remove_duplicates, calculate_match
 from classes.EulerLookup import EulerLookup, euler_factory
@@ -808,7 +808,7 @@ class State(Structures):
         #         # if isinstance(header, Iterable):
         #
         #     if increment_chains:
-        #         available_chain_ids = self.return_chain_generator()
+        #         available_chain_ids = self.chain_id_generator()
         #         for structure in self.structures:
         #             # for entity in structure.entities:  # Todo handle with multiple Structure containers
         #             chain = next(available_chain_ids)
@@ -862,7 +862,7 @@ class Model(Structure, ContainsChainsMixin):
     entity_info: dict[str, dict[dict | list | str]] | dict
     # file_path: AnyStr | None
     header: list
-    multimodel: bool
+    # multimodel: bool
     original_chain_ids: list[str]
     resolution: float | None
     api_db: wrapapi.APIDatabase
@@ -876,7 +876,8 @@ class Model(Structure, ContainsChainsMixin):
                  cryst_record: str = None, design: bool = False,
                  # dbref: dict[str, dict[str, str]] = None,
                  entity_info: dict[str, dict[dict | list | str]] = None,
-                 multimodel: bool = False, resolution: float = None, api_db: wrapapi.APIDatabase = None,
+                 # multimodel: bool = False,
+                 resolution: float = None, api_db: wrapapi.APIDatabase = None,
                  reference_sequence: dict[str, str] = None, metadata: Model = None,
                  **kwargs):
         # kwargs passed to Structure
@@ -898,7 +899,7 @@ class Model(Structure, ContainsChainsMixin):
             # {'entity': {1: {'A', 'B'}, ...}, 'res': resolution, 'dbref': {chain: {'accession': ID, 'db': UNP}, ...},
             #  'struct': {'space': space_group, 'a_b_c': (a, b, c), 'ang_a_b_c': (ang_a, ang_b, ang_c)}
             self.biological_assembly = biological_assembly
-            self.chain_ids = []  # unique chain IDs
+            # self.chain_ids = []  # unique chain IDs
             self.chains = []
             # self.cryst = cryst
             # {space: space_group, a_b_c: (a, b, c), ang_a_b_c: (ang_a, _b, _c)}
@@ -911,8 +912,8 @@ class Model(Structure, ContainsChainsMixin):
             # ^ ZERO-indexed for recap project!!!
             # self.file_path = file_path
             self.header = []
-            self.multimodel = multimodel
-            self.original_chain_ids = []  # [original_chain_id1, id2, ...]
+            # self.multimodel = multimodel
+            # self.original_chain_ids = []  # [original_chain_id1, id2, ...]
             self.resolution = resolution
             self._reference_sequence = reference_sequence if reference_sequence else {}
             # ^ SEQRES or PDB API entries. key is chainID, value is 'AGHKLAIDL'
@@ -946,7 +947,6 @@ class Model(Structure, ContainsChainsMixin):
 
             # if metadata and isinstance(metadata, PDB):
             #     self.copy_metadata(metadata)
-
 
     @classmethod
     def from_chains(cls, chains: list[Chain] | Structures, **kwargs):
@@ -1014,14 +1014,13 @@ class Model(Structure, ContainsChainsMixin):
         return self.format_biomt(**kwargs) + self.format_seqres(**kwargs)
 
     @property
-    def number_of_chains(self) -> int:
-        """Return the number of Chain objects in the Model"""
-        return len(self.chains)
-
-    @property
     def number_of_entities(self) -> int:
-        """Return the number of Entity objects in the Model"""
+        """Return the number of Entity instances in the Structure"""
         return len(self.entities)
+
+    def is_multimodel(self) -> bool:
+        """Return whether the parsed file contains multiple models, aka a 'multimodel'"""
+        return self.chain_ids == self.original_chain_ids
 
     @property
     def reference_sequence(self) -> str:
@@ -1032,7 +1031,7 @@ class Model(Structure, ContainsChainsMixin):
                        **kwargs):
         #               atoms: Union[Atoms, List[Atom]] = None, residues: Union[Residues, List[Residue]] = None,
         #               coords: Union[List[List], np.ndarray, Coords] = None,
-        #               reference_sequence=None, multimodel=False,
+        #               reference_sequence=None
         """Process various types of Structure containers to update the Model with the corresponding information
 
         Args:
@@ -1068,13 +1067,19 @@ class Model(Structure, ContainsChainsMixin):
                 # self._update_structure_container_attributes(_atoms=self._atoms, _residues=self._residues,
                 #                                            _coords=self._coords)
                 self._update_structure_container_attributes(_parent=self)
-                self.chain_ids = [chain.name for chain in self.chains]
-            else:  # create Chains from Residues. Sets self.chain_ids
+                self.chain_ids.extend([chain.name for chain in self.chains])
+            else:  # Create Chain instances from Residues
                 self._create_chains()
+                # Todo this isn't super accurate
+                #  Ideally we get correct solution from PDB or UniProt API.
+                #  If no _reference_sequence passed then this will be nothing, so that isn't great.
+                #  It should be at least the structure sequence
+                self._reference_sequence = dict(zip(self.chain_ids, self._reference_sequence.values()))
 
-            self.log.debug(f'Loaded with Chains: {",".join(self.chain_ids)}')
+            self.log.debug(f'Original chain_ids={",".join(self.original_chain_ids)} | '
+                           f'Loaded chain_ids={",".join(self.chain_ids)}')
             if rename_chains:
-                self.reorder_chains()
+                self.rename_chains()
 
         if entities:
             if isinstance(entities, (list, Structures)):  # create the instance from existing entities
@@ -1093,7 +1098,7 @@ class Model(Structure, ContainsChainsMixin):
                 #                                            _coords=self._coords)
                 self._update_structure_container_attributes(_parent=self)
                 if rename_chains:  # set each successive Entity to have an incrementally higher chain id
-                    available_chain_ids = self.return_chain_generator()
+                    available_chain_ids = self.chain_id_generator()
                     for idx, entity in enumerate(self.entities):
                         entity.chain_id = next(available_chain_ids)
                         self.log.debug(f'Entity {entity.name} new chain identifier {entity.chain_id}')
@@ -1107,6 +1112,9 @@ class Model(Structure, ContainsChainsMixin):
                 # self.chain_ids = [chain.name for chain in self.chains]
             else:  # create Entities from Chain.Residues
                 self._create_entities(**kwargs)
+
+            if not self.chain_ids:  # set according to self.entities
+                self.chain_ids.extend([entity.chain_id for entity in self.entities])
 
         if pose_format:
             self.renumber_structure()
@@ -1154,7 +1162,6 @@ class Model(Structure, ContainsChainsMixin):
     #     # self.cb_coords = pdb.cb_coords
     #     # self.bb_coords = pdb.bb_coords
 
-
     def format_seqres(self, **kwargs) -> str:
         """Format the reference sequence present in the SEQRES remark for writing to the output header
 
@@ -1175,96 +1182,6 @@ class Model(Structure, ContainsChainsMixin):
                             for line_number in range(1, 1 + ceil(len(sequence)/seq_res_len)))
         else:
             return ''
-
-    def reorder_chains(self, exclude_chains: Sequence = None) -> None:
-        """Renames chains using Structure.available_letters
-
-        Args:
-            exclude_chains: The chains which shouldn't be modified
-        Sets:
-            self.chain_ids (list[str])
-        """
-        available_chain_ids = self.return_chain_generator()
-        if exclude_chains:
-            available_chains = sorted(set(available_chain_ids).difference(exclude_chains))
-        else:
-            available_chains = list(available_chain_ids)
-
-        # Update chain_ids, then each chain
-        self.chain_ids = available_chains[:self.number_of_chains]
-        for chain, new_id in zip(self.chains, self.chain_ids):
-            chain.chain_id = new_id
-
-    def renumber_residues_by_chain(self):  # Todo Move to Structures once working
-        """For each Chain in self.chains, renumber Residue objects sequentially starting with 1"""
-        for chain in self.chains:
-            chain.renumber_residues()
-
-    def _create_chains(self):
-        """For all the Residues in the PDB, create Chain objects which contain their member Residues
-
-        Sets:
-            self.chain_ids (list[str])
-            self.chains (list[Chain] | Structures)
-        """
-        residues = self.residues
-        self.chain_ids = remove_duplicates([residue.chain for residue in residues])
-        # if solve_discrepancy:
-        residue_idx_start, idx = 0, 1
-        prior_residue = residues[0]
-        chain_residues = []
-        for idx, residue in enumerate(residues[1:], 1):  # start at the second index to avoid off by one
-            if residue.number <= prior_residue.number or residue.chain != prior_residue.chain:
-                # less than or equal number should only happen with new chain. this SHOULD satisfy a malformed PDB
-                chain_residues.append(list(range(residue_idx_start, idx)))
-                residue_idx_start = idx
-            prior_residue = residue
-
-        # perform after iteration which is the final chain
-        chain_residues.append(list(range(residue_idx_start, idx + 1)))  # have to increment as if next residue
-
-        if self.multimodel:
-            self.original_chain_ids = [residues[residue_indices[0]].chain for residue_indices in chain_residues]
-            self.log.debug(f'Multimodel file found. Original Chains: {", ".join(self.original_chain_ids)}')
-        else:
-            self.original_chain_ids = self.chain_ids
-
-        number_of_chain_ids = len(self.chain_ids)
-        if len(chain_residues) != number_of_chain_ids:  # would be different if a multimodel or some weird naming
-            available_chain_ids = self.return_chain_generator()
-            new_chain_ids = []
-            for chain_idx in range(len(chain_residues)):
-                if chain_idx < number_of_chain_ids:  # use the chain_ids version
-                    chain_id = self.chain_ids[chain_idx]
-                else:
-                    # chose next available chain unless already taken, then try another
-                    chain_id = next(available_chain_ids)
-                    while chain_id in self.chain_ids:
-                        chain_id = next(available_chain_ids)
-                new_chain_ids.append(chain_id)
-
-            self.chain_ids = new_chain_ids
-
-        # Todo this isn't super accurate. Perhaps SEQRES lines are not indexed to ATOM records
-        #  Ideally we want a DB like PDB API or UniProtKB which we fetch in Entity
-        # chain_map = dict(zip(self.chain_ids, self.original_chain_ids))
-        self._reference_sequence = {self.chain_ids[chain_idx]: sequence
-                                    for chain_idx, sequence in enumerate(self._reference_sequence.values())}
-
-        for chain_id, residue_indices in zip(self.chain_ids, chain_residues):
-            self.chains.append(Chain(name=chain_id, residue_indices=residue_indices, parent=self))
-
-    def chain(self, chain_id: str) -> Chain | None:
-        """Return the Chain object specified by the passed chain ID from the PDB object
-
-        Args:
-            chain_id: The name of the Entity to query
-        Returns:
-            The Chain if one was found
-        """
-        for chain in self.chains:
-            if chain.name == chain_id:
-                return chain
 
     def write(self, **kwargs) -> AnyStr | None:  # Todo Depreciate. require Pose or self.cryst_record -> Structure?
         """Write Atoms to a file specified by out_path or with a passed file_handle
@@ -1599,17 +1516,19 @@ class Model(Structure, ContainsChainsMixin):
                 if self.biological_assembly:
                     # As API returns information on the asu, assembly may be different. We got API info for assembly, so
                     # we try to reconcile
+                    multimodel = self.is_multimodel()
                     for entity_name, data in self.api_entry.get('entity', {}).items():
                         chains = data['chains']
                         for cluster_chains in self.api_entry.get('assembly', []):
                             if not set(cluster_chains).difference(chains):  # nothing missing, correct cluster
-                                if self.multimodel:  # ensure the renaming of chains is handled correctly
-                                    self.entity_info[entity_name] = \
+                                self.entity_info[entity_name] = data
+                                if multimodel:  # ensure the renaming of chains is handled correctly
+                                    self.entity_info[entity_name].update(
                                         {'chains': [new_chn for new_chn, old_chn in zip(self.chain_ids,
                                                                                         self.original_chain_ids)
-                                                    if old_chn in chains]}
-                                else:  # chain names should be the same as the assembly API if file is sourced from PDB
-                                    self.entity_info[entity_name] = {'chains': chains}
+                                                    if old_chn in chains]})
+                                # else:  # chain names should be the same as assembly API if file is sourced from PDB
+                                #     self.entity_info[entity_name] = data
                                 break  # we satisfied this cluster, move on
                         else:  # if we didn't satisfy a cluster, report and move to the next
                             self.log.error('Unable to find the chains corresponding from asu (%s) to assembly (%s)'
@@ -2307,7 +2226,7 @@ class Models(Model):
             if increment_chains:  # assembly requested, check on the mechanism of symmetric writing
                 # we won't allow incremental chains when the Model is plain as the models are all the same and
                 # therefore belong with the models label
-                available_chain_ids = self.return_chain_generator()
+                available_chain_ids = self.chain_id_generator()
                 for structure in self.models:
                     for entity in structure.entities:
                         chain = next(available_chain_ids)
@@ -5232,7 +5151,7 @@ class Pose(SequenceProfile, SymmetricModel):
     def debug_pdb(self, tag: str = None):
         """Write out all Structure objects for the Pose PDB"""
         with open(f'{f"{tag}_" if tag else ""}POSE_DEBUG_{self.name}.pdb', 'w') as f:
-            available_chain_ids = self.return_chain_generator()
+            available_chain_ids = self.chain_id_generator()
             for entity_idx, entity in enumerate(self.entities, 1):
                 f.write('REMARK 999   Entity %d - ID %s\n' % (entity_idx, entity.name))
                 entity.write(file_handle=f, chain=next(available_chain_ids))
