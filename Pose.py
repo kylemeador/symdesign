@@ -4657,19 +4657,22 @@ class Pose(SequenceProfile, SymmetricModel):
             self.ss_type_array (list[str]): The ordered secondary structure type for the Pose
             self.split_interface_ss_elements (dict[int, list[int]]): The secondary structure split across the interface
         """
+        # if self.api_db:
+        try:
+            # retrieve_api_info = self.api_db.pdb_api.retrieve_data
+            retrieve_stride_info = wrapapi.api_database_factory().stride.retrieve_data
+        except AttributeError:
+            retrieve_stride_info = Structure.stride
+
         pose_secondary_structure = ''
         for entity in self.active_entities:
             if not entity.secondary_structure:
-                if self.api_db:
-                    parsed_secondary_structure = self.api_db.stride.retrieve_data(name=entity.name)
-                    if parsed_secondary_structure:
-                        entity.fill_secondary_structure(secondary_structure=parsed_secondary_structure)
-                    else:
-                        entity.stride(to_file=self.api_db.stride.path_to(entity.name))
-                # if source_dir:
-                #     entity.parse_stride(os.path.join(source_dir, '%s.stride' % entity.name))
+                parsed_secondary_structure = retrieve_stride_info(name=entity.name)
+                if parsed_secondary_structure:
+                    entity.fill_secondary_structure(secondary_structure=parsed_secondary_structure)
                 else:
-                    entity.stride()
+                    entity.stride(to_file=self.api_db.stride.path_to(entity.name))
+
             pose_secondary_structure += entity.secondary_structure
 
         # increment a secondary structure index which changes with every secondary structure transition
