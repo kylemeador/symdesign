@@ -956,7 +956,7 @@ class Model(Structure, ContainsChainsMixin):
     @classmethod
     def from_entities(cls, entities: list[Entity] | Structures, **kwargs):
         """Create a new Model from a container of Entity objects"""
-        return cls(entities=entities, **kwargs)
+        return cls(entities=entities, chains=False, **kwargs)
 
     @classmethod
     def from_model(cls, model, **kwargs):
@@ -1102,13 +1102,9 @@ class Model(Structure, ContainsChainsMixin):
                     for idx, entity in enumerate(self.entities):
                         entity.chain_id = next(available_chain_ids)
                         self.log.debug(f'Entity {entity.name} new chain identifier {entity.chain_id}')
-                # # update chains after everything is set
-                # # These are "ghost chains" that are invisible to Coords/Atoms/Residues
-                # # Todo, remove or modify this feature
-                # chains = []
-                # for entity in self.entities:
-                #     chains.extend(entity.chains)
-                # self.chains = chains
+
+                # update chains to entities after everything is set
+                self.chains = self.entities
                 # self.chain_ids = [chain.name for chain in self.chains]
             else:  # create Entities from Chain.Residues
                 self._create_entities(**kwargs)
@@ -2452,28 +2448,6 @@ class SymmetricModel(Models):
     #     """Return all the Chain objects including symmetric chains"""
     #     return [chain for entity in self.entities for chain in entity.chains]
 
-    def chain(self, chain_id: str) -> Chain:
-        """Return the Entity corresponding to the provided chain_id"""
-        return self.entity_from_chain(chain_id)
-
-    # # Todo decide which to use. Below or Model
-    # # each of the below functions with raise NotImplementedError need to be removed or solved
-    # @property
-    # def atom_indices_per_chain(self) -> list[list[int]]:
-    #     """Return the atom indices for each Chain in the Model"""
-    #     raise NotImplementedError(f'This function is not implemented for a {type(self).__name__}')
-    #     return [chain.atom_indices for chain in self.chains]
-    #
-    # @property
-    # def residue_indices_per_chain(self) -> list[list[int]]:
-    #     raise NotImplementedError(f'This function is not implemented for a {type(self).__name__}')
-    #     return [chain.residue_indices for chain in self.chains]
-    #
-    # @property
-    # def number_of_atoms_per_chain(self) -> list[int]:
-    #     raise NotImplementedError(f'This function is not implemented for a {type(self).__name__}')
-    #     return [chain.number_of_atoms for chain in self.chains]
-
     # Todo this is same as atom_indices_per_entity_symmetric
     # @property
     # def atom_indices_per_entity_model(self) -> list[list[int]]:
@@ -2490,13 +2464,11 @@ class SymmetricModel(Models):
     #  Todo this is used in atom_indices_per_entity_symmetric
     #     return [self.get_symmetric_indices(entity_indices) for entity_indices in self.atom_indices_per_entity]
 
-    # Todo make asymmetric compatible
     @property
     def sequence(self) -> str:
         """Holds the SymmetricModel amino acid sequence"""
-        return ''.join(entity.sequence for entity in self.entities)
+        return ''.join(entity.sequence for entity in self.chains)
 
-    # Todo make asymmetric compatible
     @property
     def reference_sequence(self) -> str:
         """Return the entire SymmetricModel sequence, constituting all Residues, not just structurally modelled ones
@@ -2504,7 +2476,7 @@ class SymmetricModel(Models):
         Returns:
             The sequence according to each of the Entity references
         """
-        return ''.join(entity.reference_sequence for entity in self.entities)
+        return ''.join(entity.reference_sequence for entity in self.chains)
 
     @property
     def sym_entry(self) -> SymEntry | None:
@@ -3741,7 +3713,7 @@ class SymmetricModel(Models):
         return transform_solutions
 
     def find_contacting_asu(self, distance: float = 8., **kwargs) -> list[Entity]:
-        """From the Pose Entities, find the maximal contacting Chain for each Entity
+        """Find the maximally contacting symmetry mate for each Entity and return the corresponding Entity instances
 
         Args:
             distance: The distance to check for contacts
@@ -3799,15 +3771,16 @@ class SymmetricModel(Models):
             # print([(entity.name, entity.chain_id) for entity in entities])
         return entities
 
-    def get_contacting_asu(self, distance: float = 8., **kwargs) -> Pose:
-        """From the Pose Entities, find the maximal contacting Chain for each of the entities and return the ASU
+    def get_contacting_asu(self, distance: float = 8., **kwargs) -> Model:
+        """Find the maximally contacting symmetry mate for each Entity and return the corresponding Entity instances as
+         a new Pose
 
         If the chain IDs of the asu are the same, then chain IDs will automatically be renamed
 
         Args:
             distance: The distance to check for contacts
         Returns:
-            A new Pose with the minimal set of Entities containing the maximally touching configuration
+            A new Model with the minimal set of Entity instances. Will also be symmetric
         """
         entities = self.find_contacting_asu(distance=distance, **kwargs)
         found_chain_ids = []
@@ -3818,11 +3791,11 @@ class SymmetricModel(Models):
             else:
                 found_chain_ids.append(entity.chain_id)
 
-        return Pose.from_entities(entities, name=f'{self.name}-asu', log=self.log, sym_entry=self.sym_entry,
-                                  biomt_header=self.format_biomt(), cryst_record=self.cryst_record, **kwargs)
+        return type(self).from_entities(entities, name=f'{self.name}-asu', log=self.log, sym_entry=self.sym_entry,
+                                        biomt_header=self.format_biomt(), cryst_record=self.cryst_record, **kwargs)
 
     def set_contacting_asu(self, **kwargs):
-        """From the Pose Entities, find the maximal contacting Chain for each of the entities and set the Pose.asu
+        """Find the maximally contacting symmetry mate for each Entity, then set the Pose with this info
 
         Keyword Args:
             distance=8.0 (float): The distance to check for contacts
@@ -3832,7 +3805,7 @@ class SymmetricModel(Models):
         entities = self.find_contacting_asu(**kwargs)
         # self = Model.from_entities(entities, name='asu', log=self.log, **kwargs)
         # self._pdb = Model.from_entities(entities, name='asu', log=self.log, **kwargs)
-        self._process_model(entities=entities, **kwargs)
+        self._process_model(entities=entities, chains=False, **kwargs)
 
     # def make_oligomers(self):
     #     """Generate oligomers for each Entity in the SymmetricModel"""
