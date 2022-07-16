@@ -5449,9 +5449,10 @@ class Entity(SequenceProfile, Chain, ContainsChainsMixin):
             self._coords.set(representative.coords)
             self._assign_residues(representative.residues, atoms=representative.atoms)
         else:
-            # By using extend, we set original_chain_ids too
+            # By using extend, we set self.original_chain_ids too
             self.chain_ids.extend([chain.name for chain in chains])
 
+        print('self.chain_ids', self.chain_ids)
         self._chains = [self]
         # _copy_structure_containers and _update_structure_container_attributes are Entity specific
         self.structure_containers.extend(['_chains'])  # use _chains as chains is okay to equal []
@@ -5830,17 +5831,19 @@ class Entity(SequenceProfile, Chain, ContainsChainsMixin):
             raise ValueError(f'The symmetry {symmetry} is not a viable symmetry! You should try to add compatibility '
                              f'for it if you believe this is a mistake')
         self.symmetry = symmetry
-        # self._is_captain = True  # Todo should this be set here or prevent self._mate from becoming oligomer?
+        # self._is_captain = True
+        # Todo should this be set here. NO! set in init
+        #  or prevent self._mate from becoming oligomer?
         self._is_oligomeric = True
         if rotation is None:
-            rotation, inv_rotation = identity_matrix, identity_matrix
+            rotation = inv_rotation = identity_matrix
         else:
             inv_rotation = np.linalg.inv(rotation)
         if translation is None:
             translation = origin
 
         if rotation2 is None:
-            rotation2, inv_rotation2 = identity_matrix, identity_matrix
+            rotation2 = inv_rotation2 = identity_matrix
         else:
             inv_rotation2 = np.linalg.inv(rotation2)
         if translation2 is None:
@@ -5870,8 +5873,11 @@ class Entity(SequenceProfile, Chain, ContainsChainsMixin):
                 _, rot, tx, _ = superposition3d(new_coords, cb_coords)
                 self.chain_transforms.append(dict(rotation=rot, translation=tx))
         self.number_of_symmetry_mates = number_of_monomers
-        # Set self.chains, self.chain_ids, and updates each chain.chain_id
-        self.rename_chains()
+        print('self.chain_ids at make_oligomer', self.chain_ids)
+        chain_gen = self.chain_id_generator()
+        self.chain_ids = [next(chain_gen) for _ in range(number_of_monomers)]
+        # # Set self.chains, self.chain_ids, and updates each chain.chain_id
+        # self.rename_chains()
 
     # def translate(self, **kwargs):
     #     """Perform a translation to the Structure ensuring only the Structure container of interest is translated
