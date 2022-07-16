@@ -397,7 +397,7 @@ class StructureDatabase(Database):
         info_messages = []
         pre_refine = False
         if structures_to_refine:  # if files found unrefined, we should proceed
-            logger.info('The following oriented entities are not yet refined and are being set up for refinement'
+            logger.info('The following structures are not yet refined and are being set up for refinement'
                         ' into the Rosetta ScoreFunction for optimized sequence design: '
                         f'{", ".join(sorted(set(structure.name for structure in structures_to_refine)))}')
             print('Would you like to refine them now? If you plan on performing sequence design with models '
