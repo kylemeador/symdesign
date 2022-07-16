@@ -1837,7 +1837,7 @@ class PoseDirectory:
                 header = True
             pose_s.to_csv(out_path, mode='a', header=header)
 
-    def transform_entities_to_pose(self, **kwargs):  # refined: bool = True, oriented: bool = False,
+    def transform_entities_to_pose(self, **kwargs):
         """Take the set of entities involved in a pose composition and transform them from a standard reference frame
         to the pose reference frame using computed pose_transformation parameters. Default is to take the pose from the
         master Database refined source if the entities exist there, if they don't, the oriented source is used if it
