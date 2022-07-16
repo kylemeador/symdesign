@@ -1790,6 +1790,461 @@ class Model(Structure):
 
         return None
 
+# All methods below come with no intention of working with Model, but contain useful code to generate axes and display
+# them for symmetric systems. Adaptation to an Axis class could be helpful for visualization
+#     def AddD2Axes(self):
+#         z_axis_a = Atom(1, "CA", " ", "GLY", "7", 1, " ", 0.000, 0.000, 80.000, 1.00, 20.00, "C", "")
+#         z_axis_b = Atom(2, "CA", " ", "GLY", "7", 2, " ", 0.000, 0.000, 0.000, 1.00, 20.00, "C", "")
+#         z_axis_c = Atom(3, "CA", " ", "GLY", "7", 3, " ", 0.000, 0.000, -80.000, 1.00, 20.00, "C", "")
+#
+#         y_axis_a = Atom(4, "CA", " ", "GLY", "8", 1, " ", 0.000, 80.000, 0.000, 1.00, 20.00, "C", "")
+#         y_axis_b = Atom(5, "CA", " ", "GLY", "8", 2, " ", 0.000, 0.000, 0.000, 1.00, 20.00, "C", "")
+#         y_axis_c = Atom(6, "CA", " ", "GLY", "8", 3, " ", 0.000, -80.000, 0.000, 1.00, 20.00, "C", "")
+#
+#         x_axis_a = Atom(7, "CA", " ", "GLY", "9", 1, " ", 80.000, 0.000, 0.000, 1.00, 20.00, "C", "")
+#         x_axis_b = Atom(8, "CA", " ", "GLY", "9", 2, " ", 0.000, 0.000, 0.000, 1.00, 20.00, "C", "")
+#         x_axis_c = Atom(9, "CA", " ", "GLY", "9", 3, " ", -80.000, 0.000, 0.000, 1.00, 20.00, "C", "")
+#
+#         axes = [z_axis_a, z_axis_b, z_axis_c, y_axis_a, y_axis_b, y_axis_c, x_axis_a, x_axis_b, x_axis_c]
+#
+#         self.all_atoms = self.all_atoms + axes
+#         self.retrieve_chain_ids()
+#
+#     def AddCyclicAxisZ(self):
+#         z_axis_a = Atom(1, "CA", " ", "GLY", "7", 1, " ", 0.000, 0.000, 80.000, 1.00, 20.00, "C", "")
+#         z_axis_b = Atom(2, "CA", " ", "GLY", "7", 2, " ", 0.000, 0.000, 0.000, 1.00, 20.00, "C", "")
+#         z_axis_c = Atom(3, "CA", " ", "GLY", "7", 3, " ", 0.000, 0.000, -80.000, 1.00, 20.00, "C", "")
+#
+#         axis = [z_axis_a, z_axis_b, z_axis_c]
+#
+#         self.all_atoms = self.all_atoms + axis
+#         self.retrieve_chain_ids()
+#
+#     def AddO4Folds(self):
+#         # works when 3-folds are along z
+#         z_axis_a = Atom(1, "CA", " ", "GLY", "7", 1, " ", 0.81650 * 100, 0.000 * 100, 0.57735 * 100, 1.00, 20.00, "C",
+#                         "")
+#         z_axis_b = Atom(2, "CA", " ", "GLY", "7", 2, " ", 0.000, 0.000, 0.000, 1.00, 20.00, "C", "")
+#         z_axis_c = Atom(3, "CA", " ", "GLY", "7", 3, " ", 0.81650 * -100, 0.000 * -100, 0.57735 * -100, 1.00, 20.00,
+#                         "C", "")
+#
+#         y_axis_a = Atom(4, "CA", " ", "GLY", "8", 1, " ", -0.40824 * 100, 0.70711 * 100, 0.57735 * 100, 1.00, 20.00,
+#                         "C", "")
+#         y_axis_b = Atom(5, "CA", " ", "GLY", "8", 2, " ", 0.000, 0.000, 0.000, 1.00, 20.00, "C", "")
+#         y_axis_c = Atom(6, "CA", " ", "GLY", "8", 3, " ", -0.40824 * -100, 0.70711 * -100, 0.57735 * -100, 1.00, 20.00,
+#                         "C", "")
+#
+#         x_axis_a = Atom(7, "CA", " ", "GLY", "9", 1, " ", -0.40824 * 100, -0.70711 * 100, 0.57735 * 100, 1.00, 20.00,
+#                         "C", "")
+#         x_axis_b = Atom(8, "CA", " ", "GLY", "9", 2, " ", 0.000, 0.000, 0.000, 1.00, 20.00, "C", "")
+#         x_axis_c = Atom(9, "CA", " ", "GLY", "9", 3, " ", -0.40824 * -100, -0.70711 * -100, 0.57735 * -100, 1.00, 20.00,
+#                         "C", "")
+#
+#         axes = [z_axis_a, z_axis_b, z_axis_c, y_axis_a, y_axis_b, y_axis_c, x_axis_a, x_axis_b, x_axis_c]
+#
+#         self.all_atoms = self.all_atoms + axes
+#         self.retrieve_chain_ids()
+#
+#     def AddT2Folds(self):
+#         # works when 3-folds are along z
+#         z_axis_a = Atom(1, "CA", " ", "GLY", "7", 1, " ", 0.81650 * 100, 0.000 * 100, 0.57735 * 100, 1.00, 20.00, "C",
+#                         "")
+#         z_axis_b = Atom(2, "CA", " ", "GLY", "7", 2, " ", 0.000, 0.000, 0.000, 1.00, 20.00, "C", "")
+#         z_axis_c = Atom(3, "CA", " ", "GLY", "7", 3, " ", 0.81650 * -100, 0.000 * -100, 0.57735 * -100, 1.00, 20.00,
+#                         "C", "")
+#
+#         y_axis_a = Atom(4, "CA", " ", "GLY", "8", 1, " ", -0.40824 * 100, 0.70711 * 100, 0.57735 * 100, 1.00, 20.00,
+#                         "C", "")
+#         y_axis_b = Atom(5, "CA", " ", "GLY", "8", 2, " ", 0.000, 0.000, 0.000, 1.00, 20.00, "C", "")
+#         y_axis_c = Atom(6, "CA", " ", "GLY", "8", 3, " ", -0.40824 * -100, 0.70711 * -100, 0.57735 * -100, 1.00, 20.00,
+#                         "C", "")
+#
+#         x_axis_a = Atom(7, "CA", " ", "GLY", "9", 1, " ", -0.40824 * 100, -0.70711 * 100, 0.57735 * 100, 1.00, 20.00,
+#                         "C", "")
+#         x_axis_b = Atom(8, "CA", " ", "GLY", "9", 2, " ", 0.000, 0.000, 0.000, 1.00, 20.00, "C", "")
+#         x_axis_c = Atom(9, "CA", " ", "GLY", "9", 3, " ", -0.40824 * -100, -0.70711 * -100, 0.57735 * -100, 1.00, 20.00,
+#                         "C", "")
+#
+#         axes = [z_axis_a, z_axis_b, z_axis_c, y_axis_a, y_axis_b, y_axis_c, x_axis_a, x_axis_b, x_axis_c]
+#
+#         self.all_atoms = self.all_atoms + axes
+#         self.retrieve_chain_ids()
+#
+#     def axisZ(self):
+#         axes_list = []
+#         for atom in self.all_atoms:
+#             if atom.chain in ["7", "8", "9"]:
+#                 axes_list.append(atom)
+#         a = [axes_list[0].x, axes_list[0].y, axes_list[0].z]
+#         b = [axes_list[1].x, axes_list[1].y, axes_list[1].z]
+#         c = [axes_list[2].x, axes_list[2].y, axes_list[2].z]
+#         return [a, b, c]
+#
+#     def axisY(self):
+#         axes_list = []
+#         for atom in self.all_atoms:
+#             if atom.chain in ["7", "8", "9"]:
+#                 axes_list.append(atom)
+#         a = [axes_list[3].x, axes_list[3].y, axes_list[3].z]
+#         b = [axes_list[4].x, axes_list[4].y, axes_list[4].z]
+#         c = [axes_list[5].x, axes_list[5].y, axes_list[5].z]
+#         return [a, b, c]
+#
+#     def axisX(self):
+#         axes_list = []
+#         for atom in self.all_atoms:
+#             if atom.chain in ["7", "8", "9"]:
+#                 axes_list.append(atom)
+#         a = [axes_list[6].x, axes_list[6].y, axes_list[6].z]
+#         b = [axes_list[7].x, axes_list[7].y, axes_list[7].z]
+#         c = [axes_list[8].x, axes_list[8].y, axes_list[8].z]
+#         return [a, b, c]
+#
+#     def getAxes(self):
+#         axes_list = []
+#         for atom in self.all_atoms:
+#             if atom.chain in ["7", "8", "9"]:
+#                 axes_list.append(atom)
+#         return axes_list
+#
+#     def higestZ(self):
+#         highest = self.all_atoms[0].z
+#         for atom in self.all_atoms:
+#             if not atom.is_axis():
+#                 if atom.z > highest:
+#                     highest = atom.z
+#         return highest
+#
+#     def maxZchain(self):
+#         highest = self.all_atoms[0].z
+#         highest_chain = self.all_atoms[0].chain
+#         for atom in self.all_atoms:
+#             if not atom.is_axis():
+#                 if atom.z > highest:
+#                     highest = atom.z
+#                     highest_chain = atom.chain
+#         return highest_chain
+#
+#     def minZchain(self):
+#         lowest = self.all_atoms[0].z
+#         lowest_chain = self.all_atoms[0].chain
+#         for atom in self.all_atoms:
+#             if not atom.is_axis():
+#                 if atom.z < lowest:
+#                     lowest = atom.z
+#                     lowest_chain = atom.chain
+#         return lowest_chain
+#
+#     def higestCBZ_atom(self):
+#         highest = - sys.maxint
+#         highest_atom = None
+#         for atom in self.all_atoms:
+#             if atom.z > highest and atom.type == "CB":
+#                 highest = atom.z
+#                 highest_atom = atom
+#         return highest_atom
+#
+#     def lowestZ(self):
+#         lowest = self.all_atoms[0].z
+#         for atom in self.all_atoms:
+#             if not atom.is_axis():
+#                 if atom.z < lowest:
+#                     lowest = atom.z
+#         return lowest
+#
+#     def lowestCBZ_atom(self):
+#         lowest = sys.maxint
+#         lowest_atom = None
+#         for atom in self.all_atoms:
+#             if atom.z < lowest and atom.type == "CB":
+#                 lowest = atom.z
+#                 lowest_atom = atom
+#         return lowest_atom
+#
+#     def CBMinDist(self, pdb):
+#         cb_distances = []
+#         for atom_1 in self.all_atoms:
+#             if atom_1.type == "CB":
+#                 for atom_2 in pdb.all_atoms:
+#                     if atom_2.type == "CB":
+#                         d = atom_1.distance(atom_2, intra=True)
+#                         cb_distances.append(d)
+#         return min(cb_distances)
+#
+#     def CBMinDist_singlechain_to_all(self, self_chain_id, pdb):
+#         # returns min CB-CB distance between selected chain in self and all chains in other pdb
+#         cb_distances = []
+#         for atom_1 in self.chain(self_chain_id):
+#             if atom_1.type == "CB":
+#                 for atom_2 in pdb.all_atoms:
+#                     if atom_2.type == "CB":
+#                         d = atom_1.distance(atom_2, intra=True)
+#                         cb_distances.append(d)
+#         return min(cb_distances)
+#
+#     def MinDist_singlechain_to_all(self, self_chain_id, pdb):
+#         # returns tuple (min distance between selected chain in self and all chains in other pdb, atom1, atom2)
+#         min_dist = sys.maxint
+#         atom_1_min = None
+#         atom_2_min = None
+#         for atom_1 in self.chain(self_chain_id):
+#             for atom_2 in pdb.all_atoms:
+#                 d = atom_1.distance(atom_2, intra=True)
+#                 if d < min_dist:
+#                     min_dist = d
+#                     atom_1_min = atom_1
+#                     atom_2_min = atom_2
+#         return (min_dist, atom_1_min, atom_2_min)
+#
+#     def CBMinDistSquared_singlechain_to_all(self, self_chain_id, pdb):
+#         # returns min CB-CB squared distance between selected chain in self and all chains in other pdb
+#         cb_distances = []
+#         for atom_1 in self.chain(self_chain_id):
+#             if atom_1.type == "CB":
+#                 for atom_2 in pdb.all_atoms:
+#                     if atom_2.type == "CB":
+#                         d = atom_1.distance_squared(atom_2, intra=True)
+#                         cb_distances.append(d)
+#         return min(cb_distances)
+#
+#     def CBMinDistSquared_highestZ_to_all(self, pdb):
+#         # returns min squared distance between Highest CB Z Atom in self and all CB atoms in other pdb
+#         cb_distances = []
+#         higestZatom = self.higestCBZ_atom()
+#         for atom in pdb.all_atoms:
+#             if atom.type == "CB":
+#                 d = higestZatom.distance_squared(atom, intra=True)
+#                 cb_distances.append(d)
+#         return min(cb_distances)
+#
+#     def CBMinDistSquared_lowestZ_to_all(self, pdb):
+#         # returns min squared distance between Lowest CB Z Atom in self and all CB atoms in other pdb
+#         cb_distances = []
+#         lowestZatom = self.lowestCBZ_atom()
+#         for atom in pdb.all_atoms:
+#             if atom.type == "CB":
+#                 d = lowestZatom.distance_squared(atom, intra=True)
+#                 cb_distances.append(d)
+#         return min(cb_distances)
+#
+#     def add_ideal_helix(self, term, chain):
+#         if isinstance(chain, str):
+#             chain_index = self.chain_id_to_chain_index(chain)
+#         else:
+#             chain_index = chain
+#
+#         alpha_helix_10 = [Atom(1, "N", " ", "ALA", "5", 1, " ", 27.128, 20.897, 37.943, 1.00, 0.00, "N", ""),
+#                           Atom(2, "CA", " ", "ALA", "5", 1, " ", 27.933, 21.940, 38.546, 1.00, 0.00, "C", ""),
+#                           Atom(3, "C", " ", "ALA", "5", 1, " ", 28.402, 22.920, 37.481, 1.00, 0.00, "C", ""),
+#                           Atom(4, "O", " ", "ALA", "5", 1, " ", 28.303, 24.132, 37.663, 1.00, 0.00, "O", ""),
+#                           Atom(5, "CB", " ", "ALA", "5", 1, " ", 29.162, 21.356, 39.234, 1.00, 0.00, "C", ""),
+#                           Atom(6, "N", " ", "ALA", "5", 2, " ", 28.914, 22.392, 36.367, 1.00, 0.00, "N", ""),
+#                           Atom(7, "CA", " ", "ALA", "5", 2, " ", 29.395, 23.219, 35.278, 1.00, 0.00, "C", ""),
+#                           Atom(8, "C", " ", "ALA", "5", 2, " ", 28.286, 24.142, 34.793, 1.00, 0.00, "C", ""),
+#                           Atom(9, "O", " ", "ALA", "5", 2, " ", 28.508, 25.337, 34.610, 1.00, 0.00, "O", ""),
+#                           Atom(10, "CB", " ", "ALA", "5", 2, " ", 29.857, 22.365, 34.102, 1.00, 0.00, "C", ""),
+#                           Atom(11, "N", " ", "ALA", "5", 3, " ", 27.092, 23.583, 34.584, 1.00, 0.00, "N", ""),
+#                           Atom(12, "CA", " ", "ALA", "5", 3, " ", 25.956, 24.355, 34.121, 1.00, 0.00, "C", ""),
+#                           Atom(13, "C", " ", "ALA", "5", 3, " ", 25.681, 25.505, 35.079, 1.00, 0.00, "C", ""),
+#                           Atom(14, "O", " ", "ALA", "5", 3, " ", 25.488, 26.639, 34.648, 1.00, 0.00, "O", ""),
+#                           Atom(15, "CB", " ", "ALA", "5", 3, " ", 24.703, 23.490, 34.038, 1.00, 0.00, "C", ""),
+#                           Atom(16, "N", " ", "ALA", "5", 4, " ", 25.662, 25.208, 36.380, 1.00, 0.00, "N", ""),
+#                           Atom(17, "CA", " ", "ALA", "5", 4, " ", 25.411, 26.214, 37.393, 1.00, 0.00, "C", ""),
+#                           Atom(18, "C", " ", "ALA", "5", 4, " ", 26.424, 27.344, 37.270, 1.00, 0.00, "C", ""),
+#                           Atom(19, "O", " ", "ALA", "5", 4, " ", 26.055, 28.516, 37.290, 1.00, 0.00, "O", ""),
+#                           Atom(20, "CB", " ", "ALA", "5", 4, " ", 25.519, 25.624, 38.794, 1.00, 0.00, "C", ""),
+#                           Atom(21, "N", " ", "ALA", "5", 5, " ", 27.704, 26.987, 37.142, 1.00, 0.00, "N", ""),
+#                           Atom(22, "CA", " ", "ALA", "5", 5, " ", 28.764, 27.968, 37.016, 1.00, 0.00, "C", ""),
+#                           Atom(23, "C", " ", "ALA", "5", 5, " ", 28.497, 28.876, 35.825, 1.00, 0.00, "C", ""),
+#                           Atom(24, "O", " ", "ALA", "5", 5, " ", 28.602, 30.096, 35.937, 1.00, 0.00, "O", ""),
+#                           Atom(25, "CB", " ", "ALA", "5", 5, " ", 30.115, 27.292, 36.812, 1.00, 0.00, "C", ""),
+#                           Atom(26, "N", " ", "ALA", "5", 6, " ", 28.151, 28.278, 34.682, 1.00, 0.00, "N", ""),
+#                           Atom(27, "CA", " ", "ALA", "5", 6, " ", 27.871, 29.032, 33.478, 1.00, 0.00, "C", ""),
+#                           Atom(28, "C", " ", "ALA", "5", 6, " ", 26.759, 30.040, 33.737, 1.00, 0.00, "C", ""),
+#                           Atom(29, "O", " ", "ALA", "5", 6, " ", 26.876, 31.205, 33.367, 1.00, 0.00, "O", ""),
+#                           Atom(30, "CB", " ", "ALA", "5", 6, " ", 27.429, 28.113, 32.344, 1.00, 0.00, "C", ""),
+#                           Atom(31, "N", " ", "ALA", "5", 7, " ", 25.678, 29.586, 34.376, 1.00, 0.00, "N", ""),
+#                           Atom(32, "CA", " ", "ALA", "5", 7, " ", 24.552, 30.444, 34.682, 1.00, 0.00, "C", ""),
+#                           Atom(33, "C", " ", "ALA", "5", 7, " ", 25.013, 31.637, 35.507, 1.00, 0.00, "C", ""),
+#                           Atom(34, "O", " ", "ALA", "5", 7, " ", 24.652, 32.773, 35.212, 1.00, 0.00, "O", ""),
+#                           Atom(35, "CB", " ", "ALA", "5", 7, " ", 23.489, 29.693, 35.478, 1.00, 0.00, "C", ""),
+#                           Atom(36, "N", " ", "ALA", "5", 8, " ", 25.814, 31.374, 36.543, 1.00, 0.00, "N", ""),
+#                           Atom(37, "CA", " ", "ALA", "5", 8, " ", 26.321, 32.423, 37.405, 1.00, 0.00, "C", ""),
+#                           Atom(38, "C", " ", "ALA", "5", 8, " ", 27.081, 33.454, 36.583, 1.00, 0.00, "C", ""),
+#                           Atom(39, "O", " ", "ALA", "5", 8, " ", 26.874, 34.654, 36.745, 1.00, 0.00, "O", ""),
+#                           Atom(40, "CB", " ", "ALA", "5", 8, " ", 25.581, 31.506, 36.435, 1.00, 0.00, "C", ""),
+#                           Atom(41, "N", " ", "ALA", "5", 9, " ", 27.963, 32.980, 35.700, 1.00, 0.00, "N", ""),
+#                           Atom(42, "CA", " ", "ALA", "5", 9, " ", 28.750, 33.859, 34.858, 1.00, 0.00, "C", ""),
+#                           Atom(43, "C", " ", "ALA", "5", 9, " ", 27.834, 34.759, 34.042, 1.00, 0.00, "C", ""),
+#                           Atom(44, "O", " ", "ALA", "5", 9, " ", 28.052, 35.967, 33.969, 1.00, 0.00, "O", ""),
+#                           Atom(45, "CB", " ", "ALA", "5", 9, " ", 29.621, 33.061, 33.894, 1.00, 0.00, "C", ""),
+#                           Atom(46, "N", " ", "ALA", "5", 10, " ", 26.807, 34.168, 33.427, 1.00, 0.00, "N", ""),
+#                           Atom(47, "CA", " ", "ALA", "5", 10, " ", 25.864, 34.915, 32.620, 1.00, 0.00, "C", ""),
+#                           Atom(48, "C", " ", "ALA", "5", 10, " ", 25.230, 36.024, 33.448, 1.00, 0.00, "C", ""),
+#                           Atom(49, "O", " ", "ALA", "5", 10, " ", 25.146, 37.165, 33.001, 1.00, 0.00, "O", ""),
+#                           Atom(50, "CB", " ", "ALA", "5", 10, " ", 24.752, 34.012, 32.097, 1.00, 0.00, "C", ""),
+#                           Atom(51, "N", " ", "ALA", "5", 11, " ", 24.783, 35.683, 34.660, 1.00, 0.00, "N", ""),
+#                           Atom(52, "CA", " ", "ALA", "5", 11, " ", 24.160, 36.646, 35.544, 1.00, 0.00, "C", ""),
+#                           Atom(53, "C", " ", "ALA", "5", 11, " ", 25.104, 37.812, 35.797, 1.00, 0.00, "C", ""),
+#                           Atom(54, "O", " ", "ALA", "5", 11, " ", 24.699, 38.970, 35.714, 1.00, 0.00, "O", ""),
+#                           Atom(55, "CB", " ", "ALA", "5", 11, " ", 23.810, 36.012, 36.887, 1.00, 0.00, "C", ""),
+#                           Atom(56, "N", " ", "ALA", "5", 12, " ", 26.365, 37.503, 36.107, 1.00, 0.00, "N", ""),
+#                           Atom(57, "CA", " ", "ALA", "5", 12, " ", 27.361, 38.522, 36.370, 1.00, 0.00, "C", ""),
+#                           Atom(58, "C", " ", "ALA", "5", 12, " ", 27.477, 39.461, 35.177, 1.00, 0.00, "C", ""),
+#                           Atom(59, "O", " ", "ALA", "5", 12, " ", 27.485, 40.679, 35.342, 1.00, 0.00, "O", ""),
+#                           Atom(60, "CB", " ", "ALA", "5", 12, " ", 28.730, 37.900, 36.625, 1.00, 0.00, "C", ""),
+#                           Atom(61, "N", " ", "ALA", "5", 13, " ", 27.566, 38.890, 33.974, 1.00, 0.00, "N", ""),
+#                           Atom(62, "CA", " ", "ALA", "5", 13, " ", 27.680, 39.674, 32.761, 1.00, 0.00, "C", ""),
+#                           Atom(63, "C", " ", "ALA", "5", 13, " ", 26.504, 40.634, 32.645, 1.00, 0.00, "C", ""),
+#                           Atom(64, "O", " ", "ALA", "5", 13, " ", 26.690, 41.815, 32.360, 1.00, 0.00, "O", ""),
+#                           Atom(65, "CB", " ", "ALA", "5", 13, " ", 27.690, 38.779, 31.527, 1.00, 0.00, "C", ""),
+#                           Atom(66, "N", " ", "ALA", "5", 14, " ", 25.291, 40.121, 32.868, 1.00, 0.00, "N", ""),
+#                           Atom(67, "CA", " ", "ALA", "5", 14, " ", 24.093, 40.932, 32.789, 1.00, 0.00, "C", ""),
+#                           Atom(68, "C", " ", "ALA", "5", 14, " ", 24.193, 42.112, 33.745, 1.00, 0.00, "C", ""),
+#                           Atom(69, "O", " ", "ALA", "5", 14, " ", 23.905, 43.245, 33.367, 1.00, 0.00, "O", ""),
+#                           Atom(70, "CB", " ", "ALA", "5", 14, " ", 22.856, 40.120, 33.158, 1.00, 0.00, "C", ""),
+#                           Atom(71, "N", " ", "ALA", "5", 15, " ", 24.604, 41.841, 34.986, 1.00, 0.00, "N", ""),
+#                           Atom(72, "CA", " ", "ALA", "5", 15, " ", 24.742, 42.878, 35.989, 1.00, 0.00, "C", ""),
+#                           Atom(73, "C", " ", "ALA", "5", 15, " ", 25.691, 43.960, 35.497, 1.00, 0.00, "C", ""),
+#                           Atom(74, "O", " ", "ALA", "5", 15, " ", 25.390, 45.147, 35.602, 1.00, 0.00, "O", ""),
+#                           Atom(75, "CB", " ", "ALA", "5", 15, " ", 24.418, 41.969, 34.808, 1.00, 0.00, "C", "")]
+#
+#         alpha_helix_10_pdb = PDB()
+#         alpha_helix_10_pdb.read_atom_list(alpha_helix_10)
+#
+#         if term == "N":
+#             first_residue_number = self.chain(self.chain_ids[chain_index])[0].residue_number
+#             fixed_coords = self.extract_coords_subset(first_residue_number, first_residue_number + 4, chain_index,
+#                                                       True)
+#             moving_coords = alpha_helix_10_pdb.extract_coords_subset(11, 15, 0, True)
+#             helix_overlap = PDBOverlap(fixed_coords, moving_coords)
+#             rot, tx, rmsd, coords_moved = helix_overlap.overlap()
+#             alpha_helix_10_pdb.apply(rot, tx)
+#
+#             # rename alpha helix chain
+#             for atom in alpha_helix_10_pdb.all_atoms:
+#                 atom.chain = self.chain_ids[chain_index]
+#
+#             # renumber residues in concerned chain
+#             if first_residue_number > 10:
+#                 shift = -(first_residue_number - 11)
+#             else:
+#                 shift = 11 - first_residue_number
+#
+#             for atom in self.all_atoms:
+#                 if atom.chain == self.chain_ids[chain_index]:
+#                     atom.residue_number = atom.residue_number + shift
+#
+#             # only keep non overlapping atoms in helix
+#             helix_to_add = []
+#             for atom in alpha_helix_10_pdb.all_atoms:
+#                 if atom.residue_number in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]:
+#                     helix_to_add.append(atom)
+#
+#             # create a helix-chain atom list
+#             chain_and_helix = helix_to_add + self.chain(self.chain_ids[chain_index])
+#
+#             # place chain_and_helix atoms in the same order as in original PDB file
+#             ordered_atom_list = []
+#             for chain_id in self.chain_ids:
+#                 if chain_id != self.chain_ids[chain_index]:
+#                     ordered_atom_list = ordered_atom_list + self.chain(chain_id)
+#                 else:
+#                     ordered_atom_list = ordered_atom_list + chain_and_helix
+#
+#             # renumber all atoms in PDB
+#             atom_number = 1
+#             for atom in ordered_atom_list:
+#                 atom.number = atom_number
+#                 atom_number = atom_number + 1
+#
+#             self.all_atoms = ordered_atom_list
+#
+#         elif term == "C":
+#             last_residue_number = self.chain(self.chain_ids[chain_index])[-1].residue_number
+#             fixed_coords = self.extract_coords_subset(last_residue_number - 4, last_residue_number, chain_index, True)
+#             moving_coords = alpha_helix_10_pdb.extract_coords_subset(1, 5, 0, True)
+#             helix_overlap = PDBOverlap(fixed_coords, moving_coords)
+#             rot, tx, rmsd, coords_moved = helix_overlap.overlap()
+#             alpha_helix_10_pdb.apply(rot, tx)
+#
+#             # rename alpha helix chain
+#             for atom in alpha_helix_10_pdb.all_atoms:
+#                 atom.chain = self.chain_ids[chain_index]
+#
+#             # only keep non overlapping atoms in helix
+#             helix_to_add = []
+#             for atom in alpha_helix_10_pdb.all_atoms:
+#                 if atom.residue_number in [6, 7, 8, 9, 10, 11, 12, 13, 14, 15]:
+#                     helix_to_add.append(atom)
+#
+#             # renumber residues in helix
+#             shift = last_residue_number - 5
+#             for atom in helix_to_add:
+#                 atom.residue_number = atom.residue_number + shift
+#
+#             # create a helix-chain atom list
+#             chain_and_helix = self.chain(self.chain_ids[chain_index]) + helix_to_add
+#
+#             # place chain_and_helix atoms in the same order as in original PDB file
+#             ordered_atom_list = []
+#             for chain_id in self.chain_ids:
+#                 if chain_id != self.chain_ids[chain_index]:
+#                     ordered_atom_list = ordered_atom_list + self.chain(chain_id)
+#                 else:
+#                     ordered_atom_list = ordered_atom_list + chain_and_helix
+#
+#             # renumber all atoms in PDB
+#             atom_number = 1
+#             for atom in ordered_atom_list:
+#                 atom.number = atom_number
+#                 atom_number = atom_number + 1
+#
+#             self.all_atoms = ordered_atom_list
+#
+#         else:
+#             print("Select N or C Terminus")
+#
+#     def adjust_rotZ_to_parallel(self, axis1, axis2, rotate_half=False):
+#         def length(vec):
+#             length = math.sqrt(vec[0] * vec[0] + vec[1] * vec[1] + vec[2] * vec[2])
+#             return length
+#
+#         def cos_angle(vec1, vec2):
+#             length_1 = length(vec1)
+#             length_2 = length(vec2)
+#             if length_1 != 0 and length_2 != 0:
+#                 cosangle = (vec1[0] / length_1) * (vec2[0] / length_2) + (vec1[1] / length_1) * (vec2[1] / length_2) + (vec1[2] / length_1) * (vec2[2] / length_2)
+#                 return cosangle
+#             else:
+#                 return 0
+#
+#         def angle(vec1, vec2):
+#             angle = (math.acos(abs(cos_angle(vec1, vec2))) * 180) / math.pi
+#             return angle
+#
+#         vec1 = [axis1[2][0] - axis1[0][0], axis1[2][1] - axis1[0][1], axis1[2][2] - axis1[0][2]]
+#         vec2 = [axis2[2][0] - axis2[0][0], axis2[2][1] - axis2[0][1], axis2[2][2] - axis2[0][2]]
+#
+#         corrected_vec1 = [vec1[0], vec1[1], 0]
+#         corrected_vec2 = [vec2[0], vec2[1], 0]
+#
+#         crossproduct = [corrected_vec1[1] * corrected_vec2[2] - corrected_vec1[2] * corrected_vec2[1], corrected_vec1[2] * corrected_vec2[0] - corrected_vec1[0] * corrected_vec2[2], corrected_vec1[0] * corrected_vec2[1] - corrected_vec1[1] * corrected_vec2[0]]
+#         dotproduct_of_crossproduct_and_z_axis = crossproduct[0] * 0 + crossproduct[1] * 0 + crossproduct[2] * 1
+#
+#         #print(angle(corrected_vec1, corrected_vec2))
+#
+#         if rotate_half is False:
+#             if dotproduct_of_crossproduct_and_z_axis < 0 and angle(corrected_vec1, corrected_vec2) <= 10:
+#                 self.rotatePDB(angle(corrected_vec1, corrected_vec2), "z")
+#             else:
+#                 self.rotatePDB(-angle(corrected_vec1, corrected_vec2), "z")
+#         else:
+#             if dotproduct_of_crossproduct_and_z_axis < 0 and angle(corrected_vec1, corrected_vec2) <= 10:
+#                 self.rotatePDB(angle(corrected_vec1, corrected_vec2) / 2, "z")
+#             else:
+#                 self.rotatePDB(-angle(corrected_vec1, corrected_vec2) / 2, "z")
+
 
 class Models(Model):
     """Keep track of different variations of the same Model object such as altered coordinates (different decoy's or
