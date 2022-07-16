@@ -5862,7 +5862,7 @@ class Entity(SequenceProfile, Chain, ContainsChainsMixin):
             for rotation_matrix in degeneracy_matrices:
                 number_of_monomers += 1
                 if number_of_monomers == 1 and np.all(rotation_matrix == identity_matrix):
-                    self.log.debug('skipping transformation/chain_transforms 1 as it is identity')
+                    self.log.debug('Skipping Entity.make_oligomer() transformation 1 as it is identity')
                     continue
                 rot_centered_coords = transform_coordinate_sets(centered_coords_inv, rotation=rotation_matrix)
                 new_coords = transform_coordinate_sets(rot_centered_coords, rotation=rotation, translation=translation,
