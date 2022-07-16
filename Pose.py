@@ -1402,7 +1402,7 @@ class Model(Structure, ContainsChainsMixin):
                             'ang_a_b_c': (ang_a, ang_b, ang_c)}
                 }
         """
-        if self.api_entry:  # we already tried solving this
+        if self.api_entry is not None:  # we already tried solving this
             return
         # if self.api_db:
         try:
@@ -1477,7 +1477,8 @@ class Model(Structure, ContainsChainsMixin):
                     # set the identified name
                     self.name = parsed_name.lower()
         else:
-            self.log.debug('No name was found for this Model. PDB API won\'t be searched')
+            self.api_entry = {}
+        #     self.log.debug('No name was found for this Model. PDB API won\'t be searched')
 
     def entity(self, entity_id: str) -> Entity | None:
         """Retrieve an Entity by name from the PDB object
