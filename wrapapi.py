@@ -64,7 +64,8 @@ class APIDatabaseFactory:
     """
 
     def __init__(self, **kwargs):
-        self._databases = {}
+        # self._databases = {}
+        self._database = None
 
     def __call__(self, source: str = os.path.join(os.getcwd(), f'{program_name}{data.title()}'), sql: bool = False,
                  **kwargs) -> APIDatabase:
@@ -76,20 +77,21 @@ class APIDatabaseFactory:
         Returns:
             The instance of the specified Database
         """
-        database = self._databases.get(source)
-        if database:
-            return database
+        # Todo potentially configure, however, we really only want a single database
+        # database = self._databases.get(source)
+        # if database:
+        #     return database
+        if self._database:
+            return self._database
         elif sql:
             raise NotImplementedError('SQL set up has not been completed!')
         else:
             make_path(source)
+            structure_info_dir = os.path.join(source, structure_info)
             sequence_info_dir = os.path.join(source, sequence_info)
             external_db = os.path.join(source, 'ExternalDatabases')
-            # Todo
-            #  structure_info = os.path.join(source, structure_info)
-            #  pdbs = os.path.join(structure_info, 'PDBs')  # Used to store downloaded PDB's
-            # pdbs = os.path.join(source, 'PDBs')  # Used to store downloaded PDB's
-            stride_dir = os.path.join(structure_info, 'stride')
+            # stride directory
+            stride_dir = os.path.join(structure_info_dir, 'stride')
             # sequence_info subdirectories
             sequences = os.path.join(sequence_info_dir, 'sequences')
             profiles = os.path.join(sequence_info_dir, 'profiles')
@@ -98,9 +100,11 @@ class APIDatabaseFactory:
             # pdb_entity_api = os.path.join(external_db, 'pdb_entity')
             # pdb_assembly_api = os.path.join(external_db, 'pdb_assembly')
             uniprot_api = os.path.join(external_db, 'uniprot')
-            self._databases[source] = APIDatabase(stride_dir, sequences, profiles, pdb_api, uniprot_api, sql=None)
+            # self._databases[source] = APIDatabase(stride_dir, sequences, profiles, pdb_api, uniprot_api, sql=None)
+            self._database = APIDatabase(stride_dir, sequences, profiles, pdb_api, uniprot_api, sql=None)
 
-        return self._databases[source]
+        # return self._databases[source]
+        return self._database
 
     def get(self, **kwargs) -> APIDatabase:
         """Return the specified APIDatabase object singleton
