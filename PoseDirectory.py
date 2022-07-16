@@ -440,9 +440,9 @@ class PoseDirectory:
     def sequence_info(self):
         return self.job_resources.sequence_info  # program_root/SequenceInfo
 
-    @property
-    def sequences(self):
-        return self.job_resources.sequences  # program_root/SequenceInfo/sequences
+    # @property
+    # def sequences(self):  # UNUSED
+    #     return self.job_resources.sequences  # program_root/SequenceInfo/sequences
 
     @property
     def sbatch_scripts(self):
@@ -2393,7 +2393,7 @@ class PoseDirectory:
             make_path(self.data)  # Todo consolidate this check with pickle_info()
             # Create all files which store the evolutionary_profile and/or fragment_profile -> design_profile
             if self.generate_fragments:
-                self.generate_interface_fragments(out_path=self.frags, write_fragments=self.write_frags)
+                self.pose.generate_interface_fragments(out_path=self.frags, write_fragments=self.write_frags)
 
                 for query_pair, fragment_info in self.pose.fragment_queries.items():
                     self.log.debug('Query Pair: %s, %s\n\tFragment Info:%s' % (query_pair[0].name, query_pair[1].name,
@@ -2401,7 +2401,7 @@ class PoseDirectory:
                     for query_idx, entity in enumerate(query_pair):
                         entity.map_fragments_to_profile(fragments=fragment_info,
                                                         alignment_type=alignment_types[query_idx])
-            for entity in self.entities:
+            for entity in self.pose.entities:
                 # TODO Insert loop identifying comparison of SEQRES and ATOM before SeqProf.calculate_design_profile()
                 if entity not in self.pose.active_entities:  # we shouldn't design, add a null profile instead
                     entity.add_profile(null=True)
@@ -2424,7 +2424,7 @@ class PoseDirectory:
                         entity.fit_evolutionary_profile_to_structure()
 
                     if not entity.sequence_file:
-                        entity.write_sequence_to_fasta('reference', out_path=self.sequences)
+                        entity.write_sequence_to_fasta('reference', out_path=self.api_db.sequences.location)
                     entity.add_profile(evolution=not self.no_evolution_constraint, fragments=self.generate_fragments,
                                        out_path=profiles_path)
 
