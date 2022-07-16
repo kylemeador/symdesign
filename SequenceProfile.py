@@ -252,11 +252,11 @@ class SequenceProfile:
     #         return self._disorder
     #     except AttributeError:
     #         if not self.reference_sequence:
-    #             self.retrieve_sequence_from_api(entity_id=self.name)
+    #             self._retrieve_sequence_from_api(entity_id=self.name)
     #         self._disorder = generate_mutations(self.structure_sequence, self.reference_sequence, only_gaps=True)
     #         return self._disorder
 
-    # def retrieve_sequence_from_api(self, entity_id=None):  # Unused
+    # def _retrieve_sequence_from_api(self, entity_id=None):  # Unused
     #     self.sequence = get_sequence_by_entity_id(entity_id)
     #     self.sequence_source = 'seqres'
 
@@ -480,7 +480,7 @@ class SequenceProfile:
     #     # self.retrieve_info_from_api()
     #     # grab the reference sequence used for translation (expression)
     #     # if not self.reference_sequence:
-    #     #     self.retrieve_sequence_from_api(entity_id=self.name)
+    #     #     self._retrieve_sequence_from_api(entity_id=self.name)
     #     # generate the disordered indices which are positions in reference that are missing in structure
     #     # disorder = generate_mutations(self.sequence, self.reference_sequence, only_gaps=True)
     #     disorder = self.disorder
