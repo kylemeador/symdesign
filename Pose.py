@@ -3874,6 +3874,12 @@ class SymmetricModel(Models):
                 BallTree(self.symmetric_coords[self.get_symmetric_indices(asu_indices)[len(asu_indices):]])
             return self._assembly_tree
 
+    def orient(self, symmetry: str = None, log: AnyStr = None):  # similar function in Entity
+        """Orient is not available for SymmetricModel"""
+        raise NotImplementedError(f'{self.orient.__name__} is not available for {type(self).__name__}')
+        # Todo is this method at all useful? Could there be a situation where the symmetry is right,
+        #  but the axes aren't in their canonical locations?
+
     def format_biomt(self, **kwargs) -> str:
         """Return the SymmetricModel expand_matrices as a BIOMT record
 
