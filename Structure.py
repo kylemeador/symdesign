@@ -5312,13 +5312,15 @@ class ContainsChainsMixin:
             self.chain_ids (list[str])
         """
         available_chain_ids = self.chain_id_generator()
-        if exclude_chains:
-            available_chains = sorted(set(available_chain_ids).difference(exclude_chains))
-        else:
-            available_chains = list(available_chain_ids)
 
         # Update chain_ids, then each chain
-        self.chain_ids = available_chains[:self.number_of_chains]
+        self.chain_ids = []
+        for idx in range(self.number_of_chains):
+            chain_id = next(available_chain_ids)
+            while chain_id in exclude_chains:
+                chain_id = next(available_chain_ids)
+            self.chain_ids.append(chain_id)
+
         for chain, new_id in zip(self.chains, self.chain_ids):
             chain.chain_id = new_id
 
