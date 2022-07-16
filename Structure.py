@@ -5460,9 +5460,9 @@ class Entity(SequenceProfile, Chain, ContainsChainsMixin):
     #     return cls()
 
     @classmethod
-    def from_chains(cls, chains: list[Chain] | Structures = None, uniprot_id: str = None, **kwargs):
+    def from_chains(cls, chains: list[Chain] | Structures = None, **kwargs):
         """Initialize an Entity from a set of Chain objects"""
-        return cls(chains=chains, uniprot_id=uniprot_id, **kwargs)
+        return cls(chains=chains, **kwargs)
 
     @StructureBase.coords.setter
     def coords(self, coords: np.ndarray | list[list[float]]):
@@ -5526,7 +5526,7 @@ class Entity(SequenceProfile, Chain, ContainsChainsMixin):
 
     @uniprot_id.setter
     def uniprot_id(self, dbref: dict[str, str] | str):
-        if isinstance(dbref, dict) and dbref['db'] == 'UNP':  # Todo make 'UNP' or better 'UKB' a global
+        if isinstance(dbref, dict) and dbref.get('db') == 'UNP':  # Todo make 'UNP' or better 'UKB' a global
             self._uniprot_id = dbref['accession']
         else:
             self._uniprot_id = dbref
