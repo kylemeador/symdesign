@@ -41,7 +41,7 @@ from Pose import Pose, MultiModel, Models, Model
 from Query.UniProt import is_uniprot_thermophilic
 from SequenceProfile import parse_pssm, generate_mutations_from_reference, \
     simplify_mutation_dict, weave_sequence_dict, position_specific_jsd, sequence_difference, \
-    jensen_shannon_divergence, hydrophobic_collapse_index, msa_from_dictionary
+    jensen_shannon_divergence, hydrophobic_collapse_index, msa_from_dictionary, alignment_types
 from Structure import Structure, Entity  # , Structures
 from SymDesignUtils import unpickle, start_log, null_log, handle_errors, write_shell_script, DesignError, \
     match_score_from_z_value, pickle_object, filter_dictionary_keys, all_vs_all, make_path, \
@@ -2390,10 +2390,60 @@ class PoseDirectory:
             # self.generate_interface_fragments()
                 # raise DesignError(f'Fragments were specified during design, but observations have not been yet been '
                 #                   f'generated for this Design! Try with the flag --{PUtils.generate_fragments}')
-            make_path(self.data)
-            # creates all files which store the evolutionary_profile and/or fragment_profile -> design_profile
-            self.pose.interface_design(evolution=not self.no_evolution_constraint, des_dir=self,
-                                       fragments=self.generate_fragments, write_fragments=self.write_frags)
+            make_path(self.data)  # Todo consolidate this check with pickle_info()
+            # Create all files which store the evolutionary_profile and/or fragment_profile -> design_profile
+            if self.generate_fragments:
+                self.generate_interface_fragments(out_path=self.frags, write_fragments=self.write_frags)
+
+                for query_pair, fragment_info in self.pose.fragment_queries.items():
+                    self.log.debug('Query Pair: %s, %s\n\tFragment Info:%s' % (query_pair[0].name, query_pair[1].name,
+                                                                               fragment_info))
+                    for query_idx, entity in enumerate(query_pair):
+                        entity.map_fragments_to_profile(fragments=fragment_info,
+                                                        alignment_type=alignment_types[query_idx])
+            for entity in self.entities:
+                # TODO Insert loop identifying comparison of SEQRES and ATOM before SeqProf.calculate_design_profile()
+                if entity not in self.pose.active_entities:  # we shouldn't design, add a null profile instead
+                    entity.add_profile(null=True)
+                else:  # add a real profile
+                    profiles_path = self.api_db.hhblits_profiles.location
+                    entity.sequence_file = self.api_db.sequences.retrieve_file(name=entity.name)
+                    entity.evolutionary_profile = self.api_db.hhblits_profiles.retrieve_data(name=entity.name)
+                    if not entity.evolutionary_profile:
+                        entity.add_evolutionary_profile(out_path=profiles_path)
+                    else:  # ensure the file is attached as well
+                        entity.pssm_file = self.api_db.hhblits_profiles.retrieve_file(name=entity.name)
+
+                    if not entity.pssm_file:  # still no file found. this is likely broken
+                        raise DesignError(f'{entity.name} has no profile generated. To proceed with this design/'
+                                          f'protocol you must generate the profile!')
+                    if len(entity.evolutionary_profile) != entity.number_of_residues:
+                        # profile was made with reference or the sequence has inserts and deletions of equal length
+                        # A more stringent check could move through the evolutionary_profile[idx]['type'] key versus the
+                        # entity.sequence[idx]
+                        entity.fit_evolutionary_profile_to_structure()
+
+                    if not entity.sequence_file:
+                        entity.write_sequence_to_fasta('reference', out_path=self.sequences)
+                    entity.add_profile(evolution=not self.no_evolution_constraint, fragments=self.generate_fragments,
+                                       out_path=profiles_path)
+
+            # Update PoseDirectory with design information
+            if self.generate_fragments:  # set pose.fragment_profile by combining entity fragment profiles
+                self.pose.combine_fragment_profile([entity.fragment_profile for entity in self.pose.entities])
+                fragment_pssm_file = self.pose.write_pssm_file(self.pose.fragment_profile, PUtils.fssm,
+                                                               out_path=self.data)
+
+            if not self.no_evolution_constraint:  # set pose.evolutionary_profile by combining entity evolution profiles
+                self.pose.combine_pssm([entity.evolutionary_profile for entity in self.pose.entities])
+                self.pose.pssm_file = self.pose.write_pssm_file(self.pose.evolutionary_profile, PUtils.pssm,
+                                                                out_path=self.data)
+
+            self.pose.combine_profile([entity.profile for entity in self.pose.entities])
+            design_pssm_file = self.pose.write_pssm_file(self.pose.profile, PUtils.dssm, out_path=self.data)
+            # -------------------------------------------------------------------------
+            # Todo self.solve_consensus()
+            # -------------------------------------------------------------------------
             make_path(self.designs)
             self.fragment_observations = self.pose.return_fragment_observations()
             self.info['fragments'] = self.fragment_observations
