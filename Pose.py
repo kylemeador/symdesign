@@ -4752,7 +4752,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Todo consider moving SequencePro
                     if parsed_secondary_structure:
                         entity.fill_secondary_structure(secondary_structure=parsed_secondary_structure)
                     else:
-                        entity.stride(to_file=self.api_db.stride.store(entity.name))
+                        entity.stride(to_file=self.api_db.stride.path_to(entity.name))
                 # if source_dir:
                 #     entity.parse_stride(os.path.join(source_dir, '%s.stride' % entity.name))
                 else:
