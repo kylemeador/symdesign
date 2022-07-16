@@ -738,20 +738,20 @@ def query_assembly_id(assembly_id: str = None, entry: str = None, assembly_integ
         The assembly information according to the PDB
     """
     if assembly_id:
-        entry, assembly_integer, *_ = assembly_id.split('_')  # assume that this was passed correctly
+        entry, assembly_integer, *_ = assembly_id.split('-')  # assume that this was passed correctly
 
     if entry and assembly_integer:
         return connection_exception_handler(f'http://data.rcsb.org/rest/v1/core/assembly/{entry}/{assembly_integer}')
 
 
-def _get_assembly_info(assembly_id: str = None, entry: str = None, assembly_integer: int = 1) -> \
+def _get_assembly_info(entry: str = None, assembly_integer: int = None, assembly_id: str = None) -> \
         list[list[str]] | list:
     """Retrieve information on the assembly for a particular entry from the PDB API
 
     Args:
-        assembly_id: The AssemblyID to query with format (1ABC-1)
         entry: The pdb code of interest
         assembly_integer: The particular assembly number to query
+        assembly_id: The AssemblyID to query with format (1ABC-1)
     Returns:
         The mapped entity number to the chain ID's in the assembly. Ex: {1: ['A', 'A', 'A', ...]}
     """
