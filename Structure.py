@@ -536,7 +536,7 @@ class StructureBase:
 
     def __init__(self, parent: StructureBase = None, log: Log | Logger | bool = True, coords: np.ndarray | Coords = None
                  , header=None, biological_assembly=None, cryst_record=None, entity_info=None, multimodel=None,
-                 resolution=None, reference_sequence=None, entities=None,
+                 resolution=None, reference_sequence=None, sequence=None, entities=None,
                  pose_format=None, query_by_sequence=True, entity_names=None, rename_chains=None, **kwargs):
         if parent:  # initialize StructureBase from parent
             self._parent = parent
