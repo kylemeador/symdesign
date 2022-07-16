@@ -950,7 +950,6 @@ class Atoms:
 class ContainsAtomsMixin:  # Todo put Atoms requiring methods in here
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        pass
 
     @property
     def start_index(self) -> int:

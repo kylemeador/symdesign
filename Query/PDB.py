@@ -645,7 +645,7 @@ def retrieve_pdb_entries_by_advanced_query(save: bool = True, return_results: bo
 
 
 def query_pdb_by(entry: str = None, assembly_id: str = None, assembly_integer: int | str = None, entity_id: str = None,
-                 entity_integer: int | str = None, chain: str = None, **kwargs) -> dict:
+                 entity_integer: int | str = None, chain: str = None, **kwargs) -> dict | list[list[str]]:
     """Retrieve information from the PDB API by EntryID, AssemblyID, or EntityID
 
     Args:
@@ -658,12 +658,12 @@ def query_pdb_by(entry: str = None, assembly_id: str = None, assembly_integer: i
     Returns:
         The query result
     """
-    if entry:
+    if entry is not None:
         if len(entry) == 4:
-            if entity_integer:
+            if entity_integer is not None:
                 logger.debug(f'Querying PDB API with {entry}_{entity_integer}')
                 return _get_entity_info(entry=entry, entity_integer=entity_integer)
-            elif assembly_integer:
+            elif assembly_integer is not None:
                 logger.debug(f'Querying PDB API with {entry}-{assembly_integer}')
                 return _get_assembly_info(entry=entry, assembly_integer=assembly_integer)
             else:
@@ -685,7 +685,7 @@ def query_pdb_by(entry: str = None, assembly_id: str = None, assembly_integer: i
                     return data
         else:
             logger.warning(f'EntryID "{entry}" is not of the required format and will not be found with the PDB API')
-    elif assembly_id:
+    elif assembly_id is not None:
         entry, assembly_integer, *extra = assembly_id.split('-')
         if not extra and len(entry) == 4:
             logger.debug(f'Querying PDB API with {entry}-{assembly_integer}')
@@ -694,7 +694,7 @@ def query_pdb_by(entry: str = None, assembly_id: str = None, assembly_integer: i
         logger.warning(f'AssemblyID "{entry}-{assembly_integer}" is not of the required format and will not be found '
                        f'with the PDB API')
 
-    elif entity_id:
+    elif entity_id is not None:
         entry, entity_integer, *extra = entity_id.split('_')
         if not extra and len(entry) == 4:
             logger.debug(f'Querying PDB API with {entry}_{entity_integer}')
@@ -1050,16 +1050,16 @@ def get_entity_id(entity_id: str = None, entry: str = None, entity_integer: int 
     Returns:
         The Entity_ID
     """
-    if entry:
+    if entry is not None:
         if len(entry) != 4:
             logger.warning(f'EntryID "{entry}" is not of the required format and will not be found with the PDB API')
-        elif entity_integer:
+        elif entity_integer is not None:
             return entry, entity_integer
             # entity_id = f'{entry}_{entity_integer}'
         else:
             info = _get_entry_info(entry)
             chain_entity = {chain: entity_idx for entity_idx, chains in info.get('entity', {}).items() for chain in chains}
-            if chain:
+            if chain is not None:
                 try:
                     return entry, chain_entity[chain]
                     # entity_id = f'{entry}_{chain_entity[chain]}'
@@ -1073,13 +1073,14 @@ def get_entity_id(entity_id: str = None, entry: str = None, entity_integer: int 
                 return entry, entity_integer
                 # entity_id = f'{entry}_{entity_integer}'
 
-    elif entity_id:
+    elif entity_id is not None:
         entry, entity_integer, *extra = entity_id.split('_')
         if not extra and len(entry) == 4:
             return entry, entity_integer
 
         logger.warning(f'EntityID "{entry}_{entity_integer}" is not of the required format and will not be found with '
                        f'the PDB API')
+    return None
 
 
 # Todo refactor to internal ResourceDB retrieval from existing entity_json

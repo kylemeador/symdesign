@@ -1657,6 +1657,7 @@ class Model(Structure, ContainsChainsMixin):
         for entity in self.entities:
             if chain_id == entity.chain_id:
                 return entity
+        return None
 
     # def entity_from_residue(self, residue_number: int) -> Union[Entity, None]:  # Todo ResidueSelectors/fragment query
     #     """Return the entity associated with a particular Residue number

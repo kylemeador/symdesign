@@ -47,7 +47,7 @@ def get_contacting_asu(pdb1, pdb2, contact_dist=8, **kwargs):
     if max_contact_count > 0:
         return Model.from_chains([max_contact_chain1, max_contact_chain2], name='asu', entities=True, **kwargs)
     else:
-        return
+        return None
 
 
 def find_docked_poses(sym_entry, ijk_frag_db, pdb1, pdb2, optimal_tx_params, complete_ghost_frags, complete_surf_frags,

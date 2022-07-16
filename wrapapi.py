@@ -276,14 +276,14 @@ class PDBDataStore(DataStore):
         Returns:
             If the data is available, the object requested will be returned, else None
         """
-        if entry:
+        if entry is not None:
             if len(entry) == 4:
-                if entity_integer:
+                if entity_integer is not None:
                     # logger.debug(f'Querying PDB API with {entry}_{entity_integer}')
                     # data = self.entity_api.retrieve_data(name=f'{entry}_{entity_integer}')
                     # return parse_entities_json([self.entity_api.retrieve_data(name=f'{entry}_{entity_integer}')])
                     return parse_entities_json([self.retrieve_entity_data(name=f'{entry}_{entity_integer}')])
-                elif assembly_integer:
+                elif assembly_integer is not None:
                     # logger.debug(f'Querying PDB API with {entry}-{assembly_integer}')
                     # data = self.assembly_api.retrieve_data(name=f'{entry}_{assembly_integer}')
                     # return parse_assembly_json(self.assembly_api.retrieve_data(name=f'{entry}-{assembly_integer}'))
@@ -316,7 +316,7 @@ class PDBDataStore(DataStore):
                                                                                         ['polymer_entity_count']) + 1)
                                                             ]),
                                 **parse_entry_json(data))
-                    if chain:
+                    if chain is not None:
                         integer = None
                         for entity_idx, chains in data.get('entity').items():
                             if chain in chains:
@@ -333,7 +333,7 @@ class PDBDataStore(DataStore):
             else:
                 logger.warning(
                     f'EntryID "{entry}" is not of the required format and will not be found with the PDB API')
-        elif assembly_id:
+        elif assembly_id is not None:
             entry, assembly_integer, *extra = assembly_id.split('-')
             if not extra and len(entry) == 4:
                 # logger.debug(f'Querying PDB API with {entry}-{assembly_integer}')
@@ -344,7 +344,7 @@ class PDBDataStore(DataStore):
                 f'AssemblyID "{entry}-{assembly_integer}" is not of the required format and will not be found '
                 f'with the PDB API')
 
-        elif entity_id:
+        elif entity_id is not None:
             entry, entity_integer, *extra = entity_id.split('_')
             if not extra and len(entry) == 4:
                 # logger.debug(f'Querying PDB API with {entry}_{entity_integer}')
@@ -358,6 +358,8 @@ class PDBDataStore(DataStore):
         else:  # this could've been passed as name=. This case would need to be solved with some parsing of the splitter
             raise RuntimeError(f'No valid arguments passed to {self.retrieve_data.__name__}. Valid arguments include: '
                                f'entry, assembly_id, assembly_integer, entity_id, entity_integer, chain')
+
+        return None
 
 
 class UniProtDataStore(DataStore):
