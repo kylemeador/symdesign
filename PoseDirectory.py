@@ -49,8 +49,10 @@ from SymDesignUtils import unpickle, start_log, null_log, handle_errors, write_s
 from classes.EulerLookup import EulerLookup
 from classes.SymEntry import SymEntry, symmetry_factory
 from fragment import FragmentDatabase
+from structure_db import StructureDatabase
 from utils.GeneralUtils import get_components_from_nanohedra_docking
 from utils.SymmetryUtils import identity_matrix, origin
+from wrapapi import APIDatabase
 
 # Globals
 logger = start_log(name=__name__)
@@ -371,16 +373,16 @@ class PoseDirectory:
         return self.job_resources.fragment_db
 
     @property
-    def api_db(self):
+    def api_db(self) -> APIDatabase:
         return self.job_resources.api_db
 
     @property
-    def structure_db(self):
+    def structure_db(self) -> StructureDatabase:
         return self.job_resources.structure_db
 
-    @property
-    def full_model_dir(self):
-        return self.job_resources.full_model_dir  # program_root/Data/PDBs/full_models
+    # @property
+    # def full_model_dir(self):  # UNUSED
+    #     return self.job_resources.full_model_dir  # program_root/Data/PDBs/full_models
 
     @property
     def job_paths(self):
@@ -417,7 +419,6 @@ class PoseDirectory:
     @property
     def refine_dir(self):
         return self.job_resources.refine_dir  # program_root/Data/PDBs/refined
-
 
     @property
     def run_in_shell(self) -> bool:
@@ -514,10 +515,6 @@ class PoseDirectory:
     @property
     def output_assembly(self) -> bool:
         return self.job_resources.output_assembly
-
-    @property
-    def run_in_shell(self) -> bool:
-        return self.job_resources.run_in_shell
 
     # @property
     # def pre_refine(self) -> bool:
@@ -1844,21 +1841,20 @@ class PoseDirectory:
         """Take the set of entities involved in a pose composition and transform them from a standard reference frame
         to the pose reference frame using computed pose_transformation parameters. Default is to take the pose from the
         master Database refined source if the entities exist there, if they don't, the oriented source is used if it
-        exists. Finally, the PoseDirectory will be used as a back up
+        exists. Finally, the PoseDirectory will be used as a back-up
 
         Keyword Args:
-            refined=True (bool): Whether to use the refined pdb from the refined pdb source directory
-            oriented=False (bool): Whether to use the oriented pdb from the oriented pdb source directory
+            refined: bool = True - Whether to use refined models from the StructureDatabase
+            oriented: bool = False - Whether to use oriented models from the StructureDatabase
         """
-        self.get_entities(**kwargs)  # refined=refined, oriented=oriented)
+        self.get_entities(**kwargs)
         if self.pose_transformation:
             self.entities = [entity.return_transformed_copy(**self.pose_transformation[idx])
                              for idx, entity in enumerate(self.entities)]
-            # Todo make oligomer, oligomer! If symmetry permits now that storing as refined asu, oriented asu, model asu
             self.log.debug('Entities were transformed to the found docking parameters')
         else:
-            raise DesignError('The design could not be transformed as it is missing the required transformation '
-                              'parameters. Were they generated properly?')
+            raise SymmetryError('The design could not be transformed as it is missing the required transformation '
+                                'parameters. Were they generated properly?')
 
     def transform_structures_to_pose(self, structures: Iterable[Structure], **kwargs) -> list[Structure]:
         """Take the set of entities involved in a pose composition and transform them from a standard reference frame
@@ -1886,12 +1882,12 @@ class PoseDirectory:
         If these don't exist, use the Pose directory, and load them into job for further processing
 
         Args:
-            refined: Whether to use the refined oligomeric directory
-            oriented: Whether to use the oriented oligomeric directory
+            refined: Whether to use the refined directory
+            oriented: Whether to use the oriented directory
         Sets:
             self.entities (list[Entity])
         """
-        source_preference = ['refined', 'oriented', 'design']
+        source_preference = ['refined', 'oriented_asu', 'design']  # Todo once loop_model works 'full_models'
         if self.structure_db:
             if refined:
                 source_idx = 0
@@ -1899,8 +1895,7 @@ class PoseDirectory:
                 source_idx = 1
             else:
                 source_idx = 2
-                self.log.warning('Falling back on entities present in the Design source which may not be refined. This'
-                                 ' will lead to issues in sequence design if the structure is not refined first...')
+                self.log.info(f'Falling back on entities present in the {type(self).__name__} source')
 
             self.entities.clear()
             for name in self.entity_names:
@@ -1929,40 +1924,40 @@ class PoseDirectory:
                                 raise FileNotFoundError(f'Couldn\'t located the specified entity at "{file}"')
             if source_idx == 0:
                 self.pre_refine = True
-        else:  # Todo I don't think this code is reachable. Consolidate this with above as far as iterative mechanism
-            out_dir = ''
-            if refined:  # prioritize the refined version
-                out_dir = self.refine_dir
-                for name in self.entity_names:
-                    if not path.exists(glob(path.join(self.refine_dir, f'{name}*.pdb*'))[0]):
-                        oriented = True  # fall back to the oriented version
-                        self.log.debug('Couldn\'t find entities in the refined directory')
-                        break
-                self.pre_refine = True if not oriented else False
-            if oriented:
-                out_dir = self.job_resources.orient_dir
-                for name in self.entity_names:
-                    if not path.exists(glob(path.join(self.refine_dir, f'{name}*.pdb*'))[0]):
-                        out_dir = self.path
-                        self.log.debug('Couldn\'t find entities in the oriented directory')
-
-            if not refined and not oriented:
-                out_dir = self.path
-
-            idx = 2  # initialize as 2. it doesn't matter if no names are found, but nominally it should be 2 for now
-            oligomer_files = []
-            for idx, name in enumerate(self.entity_names, 1):
-                oligomer_files.extend(sorted(glob(path.join(out_dir, f'{name}*.pdb*'))))  # first * is PoseDirectory
-            assert len(oligomer_files) == idx, \
-                f'Incorrect number of entities! Expected {idx}, {len(oligomer_files)} found. Matched files from ' \
-                f'"{path.join(out_dir, "*.pdb*")}":\n\t{oligomer_files}'
-
-            self.entities.clear()  # for every call we should reset the list
-            for file in oligomer_files:
-                self.entities.append(Model.from_file(file, name=path.splitext(path.basename(file))[0],
-                                                     log=self.log))
+        # else:  # Todo I don't think this code is reachable. Consolidate this with above as far as iterative mechanism
+        #     out_dir = ''
+        #     if refined:  # prioritize the refined version
+        #         out_dir = self.refine_dir
+        #         for name in self.entity_names:
+        #             if not path.exists(glob(path.join(self.refine_dir, f'{name}*.pdb*'))[0]):
+        #                 oriented = True  # fall back to the oriented version
+        #                 self.log.debug('Couldn\'t find entities in the refined directory')
+        #                 break
+        #         self.pre_refine = True if not oriented else False
+        #     if oriented:
+        #         out_dir = self.job_resources.orient_dir
+        #         for name in self.entity_names:
+        #             if not path.exists(glob(path.join(self.refine_dir, f'{name}*.pdb*'))[0]):
+        #                 out_dir = self.path
+        #                 self.log.debug('Couldn\'t find entities in the oriented directory')
+        #
+        #     if not refined and not oriented:
+        #         out_dir = self.path
+        #
+        #     idx = 2  # initialize as 2. it doesn't matter if no names are found, but nominally it should be 2 for now
+        #     oligomer_files = []
+        #     for idx, name in enumerate(self.entity_names, 1):
+        #         oligomer_files.extend(sorted(glob(path.join(out_dir, f'{name}*.pdb*'))))  # first * is PoseDirectory
+        #     assert len(oligomer_files) == idx, \
+        #         f'Incorrect number of entities! Expected {idx}, {len(oligomer_files)} found. Matched files from ' \
+        #         f'"{path.join(out_dir, "*.pdb*")}":\n\t{oligomer_files}'
+        #
+        #     self.entities.clear()  # for every call we should reset the list
+        #     for file in oligomer_files:
+        #         self.entities.append(Model.from_file(file, name=path.splitext(path.basename(file))[0],
+        #                                              log=self.log))
         self.log.debug(f'{len(self.entities)} matching entities found')
-        if len(self.entities) != len(self.entity_names):
+        if len(self.entities) != len(self.entity_names):  # Todo need to make len(self.symmetry_groups) from SymEntry
             raise RuntimeError(f'Expected {len(self.entities)} entities, but found {len(self.entity_names)}')
 
     def load_pose(self, source: str = None, entities: list[Structure] = None):
@@ -1978,10 +1973,11 @@ class PoseDirectory:
         if self.pose and not source and not entities:  # pose is already loaded and nothing new provided
             return
 
-        rename_chains = True  # because the result of entities, we should rename
+        # rename_chains = True  # because the result of entities, we should rename
         if not entities and not self.source or not path.exists(self.source):  # minimize I/O with transform... Todo
             # in case we initialized design without a .pdb or clean_asu.pdb (Nanohedra)
-            self.log.info('No source file found. Fetching source from Database and transforming to Pose')
+            self.log.info(f'No source file found. Fetching source from {type(self.structure_db).__name__} and '
+                          f'transforming to Pose')
             self.transform_entities_to_pose()
             entities = self.entities
             # entities = []
