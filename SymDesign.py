@@ -2083,7 +2083,7 @@ if __name__ == '__main__':
         # for des_dir, design in results:
         for des_dir, designs in results.items():
             des_dir.load_pose()  # source=des_dir.asu_path)
-            des_dir.pose.pdb.reorder_chains()  # Do I need to modify chains?
+            des_dir.pose.rename_chains()  # Do I need to modify chains?
             for design in designs:
                 file_glob = '%s%s*%s*' % (des_dir.designs, os.sep, design)
                 file = sorted(glob(file_glob))
