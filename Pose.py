@@ -1550,14 +1550,25 @@ class Model(Structure, ContainsChainsMixin):
                                           f'sequence search')
                             self.entity_info[pdb_api_name] = self.entity_info.pop(entity_name)
         if entity_names:
+            # if self.api_db:
+            try:
+                # retrieve_api_info = self.api_db.pdb_api.retrieve_data
+                retrieve_api_info = wrapapi.api_database_factory().pdb_api.retrieve_data
+            except AttributeError:
+                retrieve_api_info = query_pdb_by
+
             for idx, entity_name in enumerate(list(self.entity_info.keys())):  # Make a new list to prevent pop issues
                 try:
-                    self.entity_info[entity_names[idx]] = self.entity_info.pop(entity_name)
+                    new_entity_name = entity_names[idx]
                 except IndexError:
                     raise IndexError(f'The number of indices in entity_names ({len(entity_names)}) must equal the '
                                      f'number of entities ({len(self.entity_info)})')
-                self.log.debug(f'Entity {idx + 1} now named "{entity_names[idx]}", as directed by supplied '
-                               f'entity_names')
+                entity_api_info = retrieve_api_info(entity_id=entity_name)
+                if entity_api_info and new_entity_name not in self.api_entry:
+                    self.entity_info[new_entity_name] = self.api_entry[new_entity_name] = entity_api_info
+                else:
+                    self.entity_info[new_entity_name] = self.entity_info.pop(entity_name)
+                self.log.debug(f'Entity {entity_name} now named "{new_entity_name}", as supplied by entity_names')
 
         # For each Entity, get matching Chain instances
         for entity_name, data in self.entity_info.items():
