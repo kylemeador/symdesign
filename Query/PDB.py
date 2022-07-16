@@ -978,7 +978,7 @@ def parse_entities_json(entity_jsons: Iterable[dict[str, Any]]) -> dict[str, dic
         # entity_chain_d[entity_idx] = list(entity_ref_d.keys())  # these are the chains
         entity_json_ids = entity_json.get('rcsb_polymer_entity_container_identifiers')
         if entity_json_ids:
-            entity_info[entity_json_ids['rcsb_id']] = dict(
+            entity_info[entity_json_ids['rcsb_id'].lower()] = dict(
                 chains=entity_json_ids['asym_ids'],
                 dbref=extract_dbref(entity_json_ids),
                 reference_sequence=entity_json['entity_poly']['pdbx_seq_one_letter_code_can']
