@@ -21,7 +21,7 @@ import wrapapi
 from DesignMetrics import calculate_match_metrics, fragment_metric_template, format_fragment_metrics
 import JobResources
 from Query.PDB import retrieve_entity_id_by_sequence, query_pdb_by, get_entity_reference_sequence
-from SequenceProfile import SequenceProfile, alignment_types, generate_alignment
+from SequenceProfile import SequenceProfile, alignment_types, generate_alignment, get_equivalent_indices
 from Structure import Coords, Structure, Structures, Chain, Entity, Residue, Residues, GhostFragment, MonoFragment, \
     write_frag_match_info_file, Fragment, StructureBase, ContainsAtomsMixin, superposition3d, ContainsChainsMixin
 from SymDesignUtils import DesignError, ClashError, SymmetryError, z_value_from_match_score, start_log, null_log, \

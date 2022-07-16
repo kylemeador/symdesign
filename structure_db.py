@@ -11,10 +11,10 @@ from typing import Iterable, Annotated, AnyStr
 from CommandDistributer import rosetta_flags, relax_flags, rosetta_variables, script_cmd, distribute
 from database import Database, DataStore
 from PathUtils import qs_bio, pdb_db, orient_log_file, rosetta_scripts, refine, models_to_multimodel_exe, program_name,\
-    data
+    data, structure_info
 import Pose
 from Query.utils import boolean_choice
-from Structure import Structure
+from Structure import Structure, parse_stride
 from SymDesignUtils import unpickle, to_iterable, start_log, write_commands, starttime, make_path, write_shell_script
 from classes.SymEntry import parse_symmetry_to_sym_entry, sdf_lookup
 
@@ -164,22 +164,26 @@ def query_qs_bio(pdb_entry_id: str) -> int:
 
 
 class StructureDatabase(Database):
-    def __init__(self, oriented: AnyStr | Path = None, oriented_asu: AnyStr | Path = None,
-                 refined: AnyStr | Path = None, full_models: AnyStr | Path = None, **kwargs):
+    def __init__(self, full_models: AnyStr | Path = None, oriented: AnyStr | Path = None,
+                 oriented_asu: AnyStr | Path = None, refined: AnyStr | Path = None, stride: AnyStr | Path = None,
+                 **kwargs):
         # passed to Database
         # sql: sqlite = None, log: Logger = logger
         super().__init__(**kwargs)  # Database
 
-        self.oriented = DataStore(location=oriented, extension='.pdb*', sql=self.sql, log=self.log,
+        self.full_models = DataStore(location=full_models, extension='_ensemble.pdb', sql=self.sql, log=self.log,
+                                     load_file=Pose.Model.from_pdb)
+        self.oriented = DataStore(location=oriented, extension='.pdb', sql=self.sql, log=self.log,
                                   load_file=Pose.Model.from_pdb)
         self.oriented_asu = DataStore(location=oriented_asu, extension='.pdb', sql=self.sql, log=self.log,
                                       load_file=Pose.Model.from_pdb)
         self.refined = DataStore(location=refined, extension='.pdb', sql=self.sql, log=self.log,
                                  load_file=Pose.Model.from_pdb)
-        self.full_models = DataStore(location=full_models, extension='_ensemble.pdb', sql=self.sql, log=self.log,
-                                     load_file=Pose.Model.from_pdb)
+        self.stride = DataStore(location=stride, extension='.stride', sql=self.sql, log=self.log,
+                                load_file=parse_stride)
 
-        self.sources = [self.oriented_asu, self.refined]  # self.full_models
+        # Todo only load the necessary structural template
+        self.sources = [self.oriented_asu, self.refined, self.stride]  # self.full_models
 
     def orient_structures(self, structure_identifiers: Iterable[str], symmetry: str = 'C1', by_file: bool = False) -> \
             list[Pose.Model] | list:
