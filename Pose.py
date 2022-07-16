@@ -1532,8 +1532,8 @@ class Model(Structure, ContainsChainsMixin):
                                 #     self.entity_info[entity_name] = data
                                 break  # we satisfied this cluster, move on
                         else:  # if we didn't satisfy a cluster, report and move to the next
-                            self.log.error('Unable to find the chains corresponding from asu (%s) to assembly (%s)'
-                                           % (self.api_entry.get('entity'), self.api_entry.get('assembly', {})))
+                            self.log.error('Unable to find the chains corresponding from entity (%s) to assembly (%s)'
+                                           % (entity_name, self.api_entry.get('assembly', {})))
                 else:
                     for entity_name, data in self.api_entry.get('entity', {}).items():
                         self.entity_info[entity_name] = data
@@ -1545,15 +1545,15 @@ class Model(Structure, ContainsChainsMixin):
             else:  # Still nothing, the API didn't work for self.name. Solve by atom information
                 self._get_entity_info_from_atoms(**kwargs)
                 if query_by_sequence and not entity_names:
-                    for entity_name, data in copy(self.entity_info.items()):
+                    for entity_name, data in list(self.entity_info.items()):  # Make a new list to prevent pop issues
                         pdb_api_name = retrieve_entity_id_by_sequence(data['sequence'])
                         if pdb_api_name:
                             pdb_api_name = pdb_api_name.lower()
-                            self.log.info(f'Entity {data["name"]} now named "{pdb_api_name}", as found by PDB API '
+                            self.log.info(f'Entity {entity_name} now named "{pdb_api_name}", as found by PDB API '
                                           f'sequence search')
                             self.entity_info[pdb_api_name] = self.entity_info.pop(entity_name)
         if entity_names:
-            for idx, (entity_name, data) in enumerate(copy(self.entity_info.items())):
+            for idx, entity_name in enumerate(list(self.entity_info.keys())):  # Make a new list to prevent pop issues
                 try:
                     self.entity_info[entity_names[idx]] = self.entity_info.pop(entity_name)
                 except IndexError:
