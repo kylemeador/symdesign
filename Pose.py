@@ -1198,7 +1198,7 @@ class Model(Structure, ContainsChainsMixin):
 
         return super().write(**kwargs)
 
-    def orient(self, symmetry: str = None, log: AnyStr = None):  # Todo Structure. superposition3d -> quaternion
+    def orient(self, symmetry: str = None, log: AnyStr = None):  # similar function in Entity
         """Orient a symmetric PDB at the origin with its symmetry axis canonically set on axes defined by symmetry
         file. Automatically produces files in PDB numbering for proper orient execution
 
@@ -1225,12 +1225,12 @@ class Model(Structure, ContainsChainsMixin):
             log = self.log
 
         if self.file_path:
-            pdb_file_name = os.path.basename(self.file_path)
+            file_name = os.path.basename(self.file_path)
         else:
-            pdb_file_name = f'{self.name}.pdb'
+            file_name = f'{self.name}.pdb'
         # Todo change output to logger with potential for file and stdout
 
-        number_of_subunits = len(self.chain_ids)
+        number_of_subunits = self.number_of_chains
         multicomponent = False
         if symmetry == 'C1':
             log.debug('C1 symmetry doesn\'t have a cannonical orientation')
@@ -1241,7 +1241,7 @@ class Model(Structure, ContainsChainsMixin):
                 if number_of_subunits in multicomponent_valid_subunit_number.get(symmetry):
                     multicomponent = True
                 else:
-                    raise ValueError(f'{pdb_file_name} could not be oriented: It has {number_of_subunits} subunits '
+                    raise ValueError(f'{file_name} could not be oriented: It has {number_of_subunits} subunits '
                                      f'while a multiple of {subunit_number} are expected for {symmetry} symmetry')
         else:
             raise ValueError(f'{self.name}: Cannot orient a Structure with only a single chain. No symmetry present!')
@@ -1256,22 +1256,23 @@ class Model(Structure, ContainsChainsMixin):
         clean_orient_input_output()
         # Have to change residue numbering to PDB numbering
         if multicomponent:
-            self.entities[0].write_oligomer(out_path=orient_input, pdb_number=True)
+            self.entities[0].write_oligomer(out_path=str(orient_input), pdb_number=True)
         else:
             self.write(out_path=orient_input, pdb_number=True)
 
+        # Todo superposition3d -> quaternion
         p = subprocess.Popen([PUtils.orient_exe_path], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
                              stderr=subprocess.PIPE, cwd=PUtils.orient_dir)
         in_symm_file = os.path.join(PUtils.orient_dir, 'symm_files', symmetry)
         stdout, stderr = p.communicate(input=in_symm_file.encode('utf-8'))
-        log.info(pdb_file_name + stdout.decode()[28:])
+        log.info(file_name + stdout.decode()[28:])
         log.info(stderr.decode()) if stderr else None
-        if not os.path.exists(orient_output) or os.stat(orient_output).st_size == 0:
+        if not orient_output.exists() or orient_output.stat().st_size == 0:
             log_file = getattr(log.handlers[0], 'baseFilename', None)
             log_message = f'. Check {log_file} for more information' if log_file else ''
-            raise RuntimeError(f'orient_oligomer could not orient {pdb_file_name}{log_message}')
+            raise RuntimeError(f'orient_oligomer could not orient {file_name}{log_message}')
 
-        oriented_pdb = Model.from_file(orient_output, name=self.name, entities=False, log=log)
+        oriented_pdb = Model.from_file(str(orient_output), name=self.name, entities=False, log=log)
         orient_fixed_struct = oriented_pdb.chains[0]
         if multicomponent:
             moving_struct = self.entities[0]
