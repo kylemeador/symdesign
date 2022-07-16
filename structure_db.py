@@ -258,7 +258,7 @@ class StructureDatabase(Database):
                 # pose.symmetry = symmetry
                 # oriented_pose.file_path = oriented_pose.file_path
                 all_structures.append(pose)
-            elif structure_identifier not in orient_asu_names:  # orient file exists, load asu, save and create stride
+            elif structure_identifier in orient_names:  # orient file exists, load asu, save and create stride
                 orient_file = self.oriented.retrieve_file(name=structure_identifier)
                 pose = Pose.Pose.from_file(orient_file, sym_entry=sym_entry)  # , log=None, entity_names=[entry_entity])
                 # entity = pose.entities[0]
@@ -271,7 +271,7 @@ class StructureDatabase(Database):
                     entity.stride(to_file=self.stride.path_to(name=entity.name))
                 all_structures.append(pose)  # entry_entity,
             # Use entry_entity only if not processed before
-            elif structure_identifier not in orient_names:  # they are missing, retrieve the proper files using PDB ID's
+            else:  # they are missing, retrieve the proper files using PDB ID's
                 entry = structure_identifier.split('_')
                 # in case entry_entity is coming from a new SymDesign Directory the entity name is probably 1ABC_1
                 if len(entry) == 2:
