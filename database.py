@@ -133,13 +133,13 @@ class DataStore:
         if condition:
             os.makedirs(self.location, exist_ok=True)
 
-    def store(self, name: str = '*') -> AnyStr:  # Todo resolve with def store_data() below. This to path() -> Path
-        """Return the path of the storage location given an entity name"""
+    def path_to(self, name: str = '*') -> AnyStr:
+        """Return the path_to of the storage location given an entity name"""
         return os.path.join(self.location, f'{name}{self.extension}')
 
     def retrieve_file(self, name: str) -> AnyStr | None:
         """Returns the actual location by combining the requested name with the stored .location"""
-        path = self.store(name)
+        path = self.path_to(name)
         files = sorted(glob(path))
         if files:
             file = files[0]
@@ -152,7 +152,7 @@ class DataStore:
 
     def retrieve_files(self) -> list:
         """Returns the actual location of all files in the stored .location"""
-        path = self.store()
+        path = self.path_to()
         files = sorted(glob(path))
         if not files:
             self.log.info(f'No files found for "{path}"')
@@ -160,7 +160,7 @@ class DataStore:
 
     def retrieve_names(self) -> list[str]:
         """Returns the names of all objects in the stored .location"""
-        path = self.store()
+        path = self.path_to()
         names = list(map(os.path.basename, [os.path.splitext(file)[0] for file in sorted(glob(path))]))
         if not names:
             self.log.warning(f'No files found for "{path}"')
@@ -200,7 +200,9 @@ class DataStore:
             # dummy = True
             return None
         else:
-            return self.save_file(self.store, self.retrieve_data(name), **kwargs)
+            if data:
+                return self.save_file(data, self.path_to(name=name), **kwargs)  # could also use self.retrieve_data(name)
+        return None
 
     def _load_data(self, name: str, **kwargs) -> Any | None:
         """Return the data located in a particular entry specified by name"""
