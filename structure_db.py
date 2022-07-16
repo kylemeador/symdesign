@@ -248,7 +248,7 @@ class StructureDatabase(Database):
         all_structures = []
         non_viable_structures = []
         for structure_identifier in structure_identifiers:
-            # first, check if the structure_identifier ASU has been processed. This happens when files are passed
+            # First, check if the structure_identifier ASU has been processed. This happens when files are passed
             if structure_identifier in orient_asu_names:  # orient_asu file exists, stride should as well. Just load asu
                 orient_asu_file = self.oriented_asu.retrieve_file(name=structure_identifier)
                 pose = Pose.Pose.from_file(orient_asu_file, name=structure_identifier, sym_entry=sym_entry)
