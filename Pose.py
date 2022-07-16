@@ -1479,7 +1479,7 @@ class Model(Structure, ContainsChainsMixin):
                     self.log.debug(f'Found PDB API information: '
                                    f'{", ".join(f"{k}={v}" for k, v in self.api_entry.items())}')
                     # set the identified name
-                    self.name = parsed_name
+                    self.name = parsed_name.lower()
         else:
             self.log.debug('No name was found for this Model. PDB API won\'t be searched')
 
