@@ -2430,6 +2430,11 @@ class Structure(StructureBase):
         if parent:  # we are setting up a dependent Structure
             # self._atoms = parent._atoms
             # self._residues = parent._residues
+            try:
+                residue_indices[0]
+            except IndexError:
+                raise ValueError(f'Argument residue_indices must be provided when constructing {type(self).__name__} '
+                                 f' class from a parent')
             # must set this before setting _atom_indices
             self._residue_indices = residue_indices  # None
             # set the atom_indices from the provided residues
@@ -5352,21 +5357,39 @@ class ContainsChainsMixin:
 
 
 class Chain(Structure):
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
+    """Create a connected polymer. Usually a subset of the coords and Atom and Residue instances of a larger Structure
+
+    Args:
+        as_mate: Whether the Chain instances should be controlled by a captain (True), or dependents of their parent
+    """
+    _chain_id: str
+
+    def __init__(self, chain_id: str = None, name: str = None, as_mate: bool = False, **kwargs):
+        super().__init__(name=name if name else chain_id, **kwargs)
         # only if this instance is a Chain, set residues_attributes as in chain_id.setter
-        if type(self) == Chain:
-            self.set_residues_attributes(chain=self.name)
+        if type(self) == Chain and chain_id is not None:
+            self.set_residues_attributes(chain=chain_id)
+
+        if as_mate:
+            self.detach_from_parent()
 
     @property
-    def chain_id(self):
-        return self.name
+    def chain_id(self) -> str:
+        """The Chain ID for the instance"""
+        try:
+            return self._chain_id
+        except AttributeError:
+            self._chain_id = self.residues[0].chain
+            return self._chain_id
 
     @chain_id.setter
-    def chain_id(self, chain_id):
-        self.name = chain_id
+    def chain_id(self, chain_id: str):
         self.set_residues_attributes(chain=chain_id)
+        self._chain_id = chain_id
 
+    def detach_from_parent(self):
+        """Remove the current instance from the parent that created it"""
+        self._assign_residues(self.residues, atoms=self.atoms)
 
 
 class Entity(SequenceProfile, Chain, ContainsChainsMixin):
@@ -5531,12 +5554,12 @@ class Entity(SequenceProfile, Chain, ContainsChainsMixin):
         else:
             self._uniprot_id = dbref
 
-    @property
-    def chain_id(self) -> str:
-        """The Chain name for the Entity instance"""
-        return self.residues[0].chain
+    # @property
+    # def chain_id(self) -> str:
+    #     """The Chain name for the Entity instance"""
+    #     return self.residues[0].chain
 
-    @chain_id.setter
+    @Chain.chain_id.setter
     def chain_id(self, chain_id: str):
         self.set_residues_attributes(chain=chain_id)
         # try:
