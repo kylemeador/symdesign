@@ -5770,7 +5770,8 @@ class Entity(SequenceProfile, Chain, ContainsChainsMixin):
             # if not self._is_oligomeric:
             #     self.log.warning('The oligomer was requested but the Entity %s is not oligomeric. Returning the Entity '
             #                      'instead' % self.name)
-            self._oligomer = self.chains
+            # self._oligomer = self.chains  # OLD WAY
+            self._oligomer = Structures(self.chains, parent=self)
             # self._oligomer = Structures(self.chains)
             return self._oligomer
 
