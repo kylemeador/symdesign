@@ -281,7 +281,17 @@ class SequenceProfile:
         if evolution:  # add evolutionary information to the SequenceProfile
             if not self.evolutionary_profile:
                 self.add_evolutionary_profile(out_path=out_path, **kwargs)
-            self.verify_profile()
+
+            # Check the profile and try to generate again if it is incorrect
+            first = True
+            while self.verify_evolutionary_profile():
+                if first:
+                    self.log.info(f'Generating a new profile for {self.name}')
+                    self.add_evolutionary_profile(force=True, out_path=out_path)
+                    first = False
+                else:
+                    raise DesignError('Profile Generation got stuck, design aborted')
+
         else:
             self.null_pssm()
 
@@ -304,58 +314,48 @@ class SequenceProfile:
 
         self.calculate_design_profile(boltzmann=True, favor_fragments=fragments)
 
-    def verify_profile(self):
-        """Check Pose and evolutionary profile for equality before proceeding"""
-        rerun, second, success = False, False, False
-        while not success:
-            if self.number_of_residues != len(self.evolutionary_profile):
-                self.log.warning(f'{self.name}: Profile and Pose are different lengths!\nProfile='
-                                 f'{len(self.evolutionary_profile)}, Pose={self.number_of_residues}')
-                rerun = True
+    def verify_evolutionary_profile(self) -> bool:
+        """Returns True if evolutionary profile and Structure are equal"""
+        if self.number_of_residues != len(self.evolutionary_profile):
+            self.log.warning(f'{self.name}: Profile and {type(self).__name__} are different lengths! Profile='
+                             f'{len(self.evolutionary_profile)}, Pose={self.number_of_residues}')
+            return True
 
-            if not rerun:
-                # Check sequence from Pose and self.profile to compare identity before proceeding
-                incorrect_count = 0
-                for idx, residue in enumerate(self.residues, 1):
-                    profile_res_type = self.evolutionary_profile[idx]['type']
-                    pose_res_type = protein_letters_3to1[residue.type.title()]
-                    if profile_res_type != pose_res_type:
-                        # This may not be the worst thing in the world... If the profile was made off of an entity
-                        # that is not the exact structure, there should be some reality to it. I think the issue would
-                        # be with Rosetta loading of the Sequence Profile and not matching. I am trying to mutate the
-                        # offending residue type in the evolutionary profile to the Pose residue type. The frequencies
-                        # will reflect the actual values desired, however the surface level will be different.
-                        # Otherwise, generating evolutionary profiles from individual files will be required which
-                        # don't contain a reference sequence and therefore have their own caveats. Warning the user
-                        # will allow the user to understand what is happening at least
-                        self.log.warning(f'Profile ({self.pssm_file}) and Pose ({self.sequence_file}) sequences '
-                                         f'mismatched!\n\tResidue {residue.number}: Profile={profile_res_type}, '
-                                         f'Pose={pose_res_type}')
-                        if self.evolutionary_profile[idx][pose_res_type] > 0:  # The residue choice isn't horrible...
-                            self.log.critical('The evolutionary profile must have been generated from a different file,'
-                                              ' however the evolutionary information contained is still viable. The '
-                                              'correct residue from the Pose will be substituted for the missing '
-                                              'residue in the profile')
-                            incorrect_count += 1
-                            if incorrect_count > 2:
-                                self.log.critical('This error has occurred at least 3 times and your modelling accuracy'
-                                                  ' will probably suffer')
-                            self.evolutionary_profile[idx]['type'] = pose_res_type
-                        else:
-                            self.log.critical('The evolutionary profile must have been generated from a different file,'
-                                              ' and the evolutionary information contained ISN\'T viable. Regenerating '
-                                              'evolutionary profile from the structure sequence instead')
-                            rerun = True
-                            break
-            if rerun:
-                if second:
-                    raise DesignError('Profile Generation got stuck, design aborted')
+        # if not rerun:
+        # Check sequence from Pose and self.profile to compare identity before proceeding
+        incorrect_count = 0
+        for residue, position_data in zip(self.residues, self.evolutionary_profile):
+            profile_res_type = position_data['type']
+            pose_res_type = protein_letters_3to1[residue.type.title()]
+            if profile_res_type != pose_res_type:
+                # This may not be the worst thing in the world... If the profile was made off of an entity
+                # that is not the exact structure, there should be some reality to it. I think the issue would
+                # be with Rosetta loading of the Sequence Profile and not matching. I am trying to mutate the
+                # offending residue type in the evolutionary profile to the Pose residue type. The frequencies
+                # will reflect the actual values desired, however the surface level will be different.
+                # Otherwise, generating evolutionary profiles from individual files will be required which
+                # don't contain a reference sequence and therefore have their own caveats. Warning the user
+                # will allow the user to understand what is happening at least
+                self.log.warning(f'Profile ({self.pssm_file}) and Pose ({self.sequence_file}) sequences '
+                                 f'mismatched!\n\tResidue {residue.number}: Profile={profile_res_type}, '
+                                 f'Pose={pose_res_type}')
+                if position_data[pose_res_type] > 0:  # The residue choice isn't horrible...
+                    self.log.critical('The evolutionary profile must have been generated from a different file,'
+                                      ' however the evolutionary information contained is still viable. The '
+                                      'correct residue from the Pose will be substituted for the missing '
+                                      'residue in the profile')
+                    incorrect_count += 1
+                    if incorrect_count > 2:
+                        self.log.critical('This error has occurred at least 3 times and your modelling accuracy'
+                                          ' will probably suffer')
+                    position_data['type'] = pose_res_type
                 else:
-                    self.log.info(f'Generating a new profile for {self.name}')
-                    self.add_evolutionary_profile(force=True, out_path=os.path.dirname(self.pssm_file))
-                    second = True
-            else:
-                success = True
+                    self.log.critical('The evolutionary profile must have been generated from a different file,'
+                                      ' and the evolutionary information contained ISN\'T viable. Regenerating '
+                                      'evolutionary profile from the structure sequence instead')
+                    return True
+                    # break
+        return False
 
     def add_evolutionary_profile(self, out_path: AnyStr = os.getcwd(), profile_source: str = PUtils.hhblits,
                                  file: AnyStr = None, force: bool = False):
