@@ -5874,12 +5874,18 @@ class Entity(SequenceProfile, Chain, ContainsChainsMixin):
                                                        rotation2=rotation2, translation2=translation2)
                 _, rot, tx, _ = superposition3d(new_coords, cb_coords)
                 self.chain_transforms.append(dict(rotation=rot, translation=tx))
+
+        # Set the new properties
         self.number_of_symmetry_mates = number_of_subunits
-        print('self.chain_ids at make_oligomer', self.chain_ids)
+        self.chain_ids = [self.chain_ids[0]]
         chain_gen = self.chain_id_generator()
-        self.chain_ids = [next(chain_gen) for _ in range(number_of_subunits)]
-        print('self.chain_ids after make_oligomer', self.chain_ids)
-        # # Set self.chains, self.chain_ids, and updates each chain.chain_id
+        for _ in range(number_of_subunits):
+            chain_id = next(chain_gen)
+            while chain_id in self.chain_ids:
+                chain_id = next(chain_gen)
+
+            self.chain_ids.append(chain_id)  # [next(chain_gen) for _ in range(number_of_subunits)]
+        # Set self.chains, self.chain_ids, and updates each chain.chain_id
         # self.rename_chains()
 
     # def translate(self, **kwargs):
