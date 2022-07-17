@@ -1461,6 +1461,7 @@ class Model(Structure, ContainsChainsMixin):
                 else:  # this isn't an integer or there are extra characters
                     # It's likely they are extra characters that won't be of help. Try to collect anyway
                     # self.log.debug(bad_format_msg)
+                    self.api_entry = {}
                     self.log.debug('Found extra file name information that can\'t be coerced to match the PDB API')
                     # self.api_entry = retrieve_api_info(entry=parsed_name)
             elif extra is None:  # we didn't get extra as it was correct length to begin with, just query entry
@@ -1469,9 +1470,7 @@ class Model(Structure, ContainsChainsMixin):
                 raise RuntimeError('This logic was not expected and shouldn\'t be allowed to persist:'
                                    f'self.name={self.name}, parse_name={parsed_name}, extra={extra}, idx={idx}')
 
-            if not self.api_entry:
-                self.log.debug(f'No PDB entry was found in the PDB API with "{parsed_name}"')
-            else:
+            if self.api_entry:
                 self.log.debug(f'Found PDB API information: '
                                f'{", ".join(f"{k}={v}" for k, v in self.api_entry.items())}')
                 # set the identified name
@@ -1564,8 +1563,9 @@ class Model(Structure, ContainsChainsMixin):
                     raise IndexError(f'The number of indices in entity_names ({len(entity_names)}) must equal the '
                                      f'number of entities ({len(self.entity_info)})')
                 entity_api_info = retrieve_api_info(entity_id=entity_name)
-                if entity_api_info and new_entity_name not in self.api_entry:
-                    self.entity_info[new_entity_name] = self.api_entry[new_entity_name] = entity_api_info
+                if entity_api_info and new_entity_name not in self.api_entry.get('entity', {}):
+                    self.entity_info.pop(entity_name)
+                    self.entity_info[new_entity_name] = self.api_entry['entity'][new_entity_name] = entity_api_info
                 else:
                     self.entity_info[new_entity_name] = self.entity_info.pop(entity_name)
                 self.log.debug(f'Entity {entity_name} now named "{new_entity_name}", as supplied by entity_names')
