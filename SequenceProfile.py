@@ -448,9 +448,9 @@ class SequenceProfile:
                 structure_evolutionary_profile[new_residue_number] = residue_data
                 new_residue_number += 1
 
-        self.log.debug(f'{self.fit_evolutionary_profile_to_structure.__name__}:\nOld profile:\n\t%s\nNew profile:\n\t%s'
-                       % (''.join(res['type'] for res in self.evolutionary_profile.values()),
-                          ''.join(res['type'] for res in structure_evolutionary_profile.values())))
+        self.log.debug(f'{self.fit_evolutionary_profile_to_structure.__name__}:\n\tOld:\n'
+                       f'{"".join(res["type"] for res in self.evolutionary_profile.values())}\n\tNew:\n%s'
+                       f'{"".join(res["type"] for res in structure_evolutionary_profile.values())}')
         self.evolutionary_profile = structure_evolutionary_profile
 
     def fit_msa_to_structure(self):
@@ -2568,10 +2568,10 @@ def generate_alignment(seq1: Sequence, seq2: Sequence, matrix: str = 'BLOSUM62',
     _matrix = subs_matrices.get(matrix, substitution_matrices.load(matrix))
     gap_penalty = -10
     gap_ext_penalty = -1
-    logger.debug('Generating sequence alignment between:\n%s\nAND:\n%s' % (seq1, seq2))
+    logger.debug(f'Generating sequence alignment between:\n{seq1}\n\nAND:\n{seq2}')
     # Create sequence alignment
-    align = getattr(pairwise2.align, '%sds' % _type)(seq1, seq2, _matrix, gap_penalty, gap_ext_penalty,
-                                                     one_alignment_only=top_aligment)
+    align = getattr(pairwise2.align, f'{_type}ds')(seq1, seq2, _matrix, gap_penalty, gap_ext_penalty,
+                                                   one_alignment_only=top_aligment)
     return align[0] if top_aligment else align
 
 
