@@ -1505,7 +1505,7 @@ class PoseDirectory:
         return out_file
 
     def generate_entity_metrics(self, entity_command) -> list[list[str] | None]:
-        """Use the Pose state to generate metrics commands for it's Entities
+        """Use the Pose state to generate metrics commands for each Entity instance
 
         Args:
             entity_command: The base command to build Entity metric commands off of

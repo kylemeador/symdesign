@@ -6128,12 +6128,12 @@ class Entity(SequenceProfile, Chain, ContainsChainsMixin):
             The name of the file written for symmetry definition file creation
         """
         if not struct_file:
-            struct_file = self.write_oligomer(out_path='make_sdf_input-%s-%d.pdb' % (self.name, random() * 100000))
+            struct_file = self.write_oligomer(out_path=f'make_sdf_input-{self.name}-{random() * 100000}.pdb')
 
         # Todo initiate this process in house using superposition3D for every chain
         start_chain, *rest = self.chain_ids
         scout_cmd = ['perl', scout_symmdef, '-p', struct_file, '-a', start_chain, '-i'] + rest
-        self.log.debug('Scouting chain symmetry: %s' % subprocess.list2cmdline(scout_cmd))
+        self.log.debug(f'Scouting chain symmetry: {subprocess.list2cmdline(scout_cmd)}')
         p = subprocess.Popen(scout_cmd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
         out, err = p.communicate()
 
