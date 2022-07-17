@@ -1771,7 +1771,7 @@ class PoseDirectory:
                      # '-in:file:native', self.refined_pdb,
                      '-parser:protocol', path.join(PUtils.rosetta_scripts, f'{PUtils.consensus}.xml'),
                      '-parser:script_vars', f'switch={PUtils.consensus}']
-                self.log.info(f'Consensus Command: {list2cmdline(consensus_cmd)}')
+                self.log.info(f'Consensus command: {list2cmdline(consensus_cmd)}')
                 if not self.run_in_shell:
                     write_shell_script(list2cmdline(consensus_cmd), name=PUtils.consensus, out_path=self.scripts)
                 else:
@@ -1806,7 +1806,7 @@ class PoseDirectory:
             entity_cmd = run_cmds[PUtils.rosetta_extras] + [str(self.mpi)] + entity_cmd
             self.run_in_shell = False
 
-        self.log.info(f'Design Command: {list2cmdline(design_cmd)}')
+        self.log.info(f'{self.rosetta_interface_design.__name__} command: {list2cmdline(design_cmd)}')
         metric_cmds = []
         metric_cmds.extend(self.generate_entity_metrics(entity_cmd))
 
@@ -2544,7 +2544,7 @@ class PoseDirectory:
             entity_cmd = run_cmds[PUtils.rosetta_extras] + [str(self.mpi)] + entity_cmd
             self.run_in_shell = False
 
-        self.log.info(f'Design Command: {list2cmdline(design_cmd)}')
+        self.log.info(f'{self.optimize_designs.__name__} command: {list2cmdline(design_cmd)}')
         metric_cmds = []
         metric_cmds.extend(self.generate_entity_metrics(entity_cmd))
 

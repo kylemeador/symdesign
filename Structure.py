@@ -4467,11 +4467,11 @@ class Structure(StructureBase):
         _header = self.format_header(**kwargs)  # biomt and seqres
         if header and isinstance(header, Iterable):
             if isinstance(header, str):  # used for cryst_record now...
-                _header += (header if header[-2:] == '\n' else '%s\n' % header)
+                _header += (header if header[-2:] == '\n' else f'{header}\n')
             # else:  # TODO
             #     location.write('\n'.join(header))
         if _header != '':
-            file_handle.write('%s' % _header)
+            file_handle.write(_header)
 
     def write(self, out_path: bytes | str = os.getcwd(), file_handle: IO = None, **kwargs) -> str | None:
         #     header: str = None, increment_chains: bool = False,
@@ -5673,7 +5673,7 @@ class Entity(SequenceProfile, Chain, ContainsChainsMixin):
             chain_ids = self.chain_ids
             self.log.debug(f'Entity chains property has {len(self._chains)} chains because the underlying '
                            f'chain_transforms has {len(self.chain_transforms)}. chain_ids has {len(chain_ids)}')
-            for idx, chain in enumerate(self._chains):
+            for idx, chain in enumerate(self._chains[1:], 1):
                 # set entity.chain_id which sets all residues
                 chain.chain_id = chain_ids[idx]
         # else:
@@ -6004,18 +6004,18 @@ class Entity(SequenceProfile, Chain, ContainsChainsMixin):
         """
         offset = 0
         if file_handle:
-            if self.chains:
-                for chain in self.chains:
-                    file_handle.write('%s\n' % chain.return_atom_record(atom_offset=offset, **kwargs))
-                    offset += chain.number_of_atoms
+            # if self.chains:
+            for chain in self.chains:
+                file_handle.write('%s\n' % chain.return_atom_record(atom_offset=offset, **kwargs))
+                offset += chain.number_of_atoms
 
         if out_path:
-            if self.chains:
-                with open(out_path, 'w') as outfile:
-                    self.write_header(outfile, asu=False, **kwargs)  # function implies we want all chains, i.e. asu=False
-                    for idx, chain in enumerate(self.chains, 1):
-                        outfile.write('%s\n' % chain.return_atom_record(atom_offset=offset, **kwargs))
-                        offset += chain.number_of_atoms
+            # if self.chains:
+            with open(out_path, 'w') as outfile:
+                self.write_header(outfile, asu=False, **kwargs)  # function implies we want all chains, i.e. asu=False
+                for idx, chain in enumerate(self.chains, 1):
+                    outfile.write('%s\n' % chain.return_atom_record(atom_offset=offset, **kwargs))
+                    offset += chain.number_of_atoms
 
             return out_path
 
@@ -6128,7 +6128,7 @@ class Entity(SequenceProfile, Chain, ContainsChainsMixin):
             The name of the file written for symmetry definition file creation
         """
         if not struct_file:
-            struct_file = self.write_oligomer(out_path=f'make_sdf_input-{self.name}-{random() * 100000}.pdb')
+            struct_file = self.write_oligomer(out_path=f'make_sdf_input-{self.name}-{random() * 100000:d}.pdb')
 
         # Todo initiate this process in house using superposition3D for every chain
         start_chain, *rest = self.chain_ids
@@ -6254,9 +6254,9 @@ class Entity(SequenceProfile, Chain, ContainsChainsMixin):
         # with open(out_file, 'w') as file:
         p = subprocess.Popen(sdf_cmd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
         out, err = p.communicate()
-        # Todo uncomment
-        # if os.path.exists(struct_file):
-        #     os.system(f'rm {struct_file}')
+
+        if os.path.exists(struct_file):
+            os.system(f'rm {struct_file}')
         if p.returncode != 0:
             raise DesignError(f'Symmetry definition file creation failed for {self.name}')
 
