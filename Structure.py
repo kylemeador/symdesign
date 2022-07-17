@@ -6254,8 +6254,9 @@ class Entity(SequenceProfile, Chain, ContainsChainsMixin):
         # with open(out_file, 'w') as file:
         p = subprocess.Popen(sdf_cmd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
         out, err = p.communicate()
-        if os.path.exists(struct_file):
-            os.system(f'rm {struct_file}')
+        # Todo uncomment
+        # if os.path.exists(struct_file):
+        #     os.system(f'rm {struct_file}')
         if p.returncode != 0:
             raise DesignError(f'Symmetry definition file creation failed for {self.name}')
 
