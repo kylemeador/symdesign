@@ -5454,7 +5454,6 @@ class Entity(SequenceProfile, Chain, ContainsChainsMixin):
             # By using extend, we set self.original_chain_ids too
             self.chain_ids.extend([chain.name for chain in chains])
 
-        print('self.chain_ids', self.chain_ids)
         self._chains = [self]
         # _copy_structure_containers and _update_structure_container_attributes are Entity specific
         self.structure_containers.extend(['_chains'])  # use _chains as chains is okay to equal []
