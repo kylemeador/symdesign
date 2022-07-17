@@ -1566,13 +1566,21 @@ class Model(Structure, ContainsChainsMixin):
                 except IndexError:
                     raise IndexError(f'The number of indices in entity_names ({len(entity_names)}) must equal the '
                                      f'number of entities ({len(self.entity_info)})')
+
+                # Get any info already solved using the old name
+                self.entity_info[new_entity_name] = self.entity_info.pop(entity_name)
                 entity_api_info = retrieve_api_info(entity_id=new_entity_name)
                 if entity_api_info and new_entity_name not in self.api_entry.get('entity', {}):
-                    self.entity_info.pop(entity_name)
-                    self.entity_info.update(entity_api_info)
+                    # Add the new info. If the new_entity_name is already present, we could expect that
+                    # self.entity_info is already solved and new_entity_name probably == entity_name
                     self.api_entry['entity'].update(entity_api_info)
-                else:
-                    self.entity_info[new_entity_name] = self.entity_info.pop(entity_name)
+                    # Respect any found info in self.entity_info
+                    if self.entity_info[new_entity_name].get('chains', {}):
+                        # Remove the entity_api_info 'chains' indication and use the entity_info chains
+                        entity_api_info[new_entity_name].pop('chains')
+                    # add the entity_api_info to the entity_info
+                    self.entity_info.update(entity_api_info)
+
                 self.log.debug(f'Entity {entity_name} now named "{new_entity_name}", as supplied by entity_names')
 
         # For each Entity, get matching Chain instances
