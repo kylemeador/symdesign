@@ -284,7 +284,7 @@ class SequenceProfile:
 
             # Check the profile and try to generate again if it is incorrect
             first = True
-            while self.verify_evolutionary_profile():
+            while not self.verify_evolutionary_profile():
                 if first:
                     self.log.info(f'Generating a new profile for {self.name}')
                     self.add_evolutionary_profile(force=True, out_path=out_path)
@@ -319,7 +319,7 @@ class SequenceProfile:
         if self.number_of_residues != len(self.evolutionary_profile):
             self.log.warning(f'{self.name}: Profile and {type(self).__name__} are different lengths! Profile='
                              f'{len(self.evolutionary_profile)}, Pose={self.number_of_residues}')
-            return True
+            return False
 
         # if not rerun:
         # Check sequence from Pose and self.profile to compare identity before proceeding
@@ -353,9 +353,9 @@ class SequenceProfile:
                     self.log.critical('The evolutionary profile must have been generated from a different file,'
                                       ' and the evolutionary information contained ISN\'T viable. Regenerating '
                                       'evolutionary profile from the structure sequence instead')
-                    return True
-                    # break
-        return False
+                    return False
+
+        return True
 
     def add_evolutionary_profile(self, out_path: AnyStr = os.getcwd(), profile_source: str = PUtils.hhblits,
                                  file: AnyStr = None, force: bool = False):
