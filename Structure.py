@@ -5862,11 +5862,11 @@ class Entity(SequenceProfile, Chain, ContainsChainsMixin):
         centered_coords_inv = transform_coordinate_sets(centered_coords, rotation=inv_rotation2,
                                                         translation=-translation, rotation2=inv_rotation)
         self.chain_transforms.clear()
-        number_of_monomers = 0
+        number_of_subunits = 0
         for degeneracy_matrices in degeneracy_rotation_matrices:
             for rotation_matrix in degeneracy_matrices:
-                number_of_monomers += 1
-                if number_of_monomers == 1 and np.all(rotation_matrix == identity_matrix):
+                number_of_subunits += 1
+                if number_of_subunits == 1 and np.all(rotation_matrix == identity_matrix):
                     self.log.debug('Skipping Entity.make_oligomer() transformation 1 as it is identity')
                     continue
                 rot_centered_coords = transform_coordinate_sets(centered_coords_inv, rotation=rotation_matrix)
@@ -5874,10 +5874,11 @@ class Entity(SequenceProfile, Chain, ContainsChainsMixin):
                                                        rotation2=rotation2, translation2=translation2)
                 _, rot, tx, _ = superposition3d(new_coords, cb_coords)
                 self.chain_transforms.append(dict(rotation=rot, translation=tx))
-        self.number_of_symmetry_mates = number_of_monomers
+        self.number_of_symmetry_mates = number_of_subunits
         print('self.chain_ids at make_oligomer', self.chain_ids)
         chain_gen = self.chain_id_generator()
-        self.chain_ids = [next(chain_gen) for _ in range(number_of_monomers)]
+        self.chain_ids = [next(chain_gen) for _ in range(number_of_subunits)]
+        print('self.chain_ids after make_oligomer', self.chain_ids)
         # # Set self.chains, self.chain_ids, and updates each chain.chain_id
         # self.rename_chains()
 

@@ -260,21 +260,21 @@ class SequenceProfile:
     #     self.sequence = get_sequence_by_entity_id(entity_id)
     #     self.sequence_source = 'seqres'
 
-    def add_profile(self, evolution: bool = True, out_path: AnyStr = os.getcwd(), null: bool = False,
-                    fragments: bool = True, **kwargs):
+    def add_profile(self, evolution: bool = True, fragments: bool = True, null: bool = False,
+                    out_path: AnyStr = os.getcwd(), **kwargs):
         #           fragment_observations=None, entities=None, pdb_numbering=True,
         """Add the evolutionary and fragment profiles onto the SequenceProfile
 
         Args:
             evolution: Whether to add evolutionary information to the sequence profile
-            out_path: Location where sequence files should be written
-            null: Whether to use a null profile (non-functional) as the sequence profile
             fragments: Whether to add fragment information to the sequence profile
+            null: Whether to use a null profile (non-functional) as the sequence profile
+            out_path: Location where sequence files should be written
             # fragment_source=None (list):
             # alignment_type=None (str): Either 'mapped' or 'paired'. Indicates how entity and fragments are aligned
             # pdb_numbering=True (bool):
         """
-        if null or not evolution and not fragments:
+        if null or (not evolution and not fragments):
             null, evolution, fragments = True, False, False
             # self.add_evolutionary_profile(null=null, **kwargs)
 
@@ -373,7 +373,7 @@ class SequenceProfile:
         if profile_source not in [PUtils.hhblits, 'psiblast']:
             raise DesignError(f'{self.add_evolutionary_profile.__name__}: Profile generation only possible from '
                               f'"{PUtils.hhblits}" or "psiblast", not {profile_source}')
-        if file:
+        if file is not None:
             self.pssm_file = file
         else:  # Check to see if the files of interest already exist
             # Extract/Format Sequence Information. SEQRES is prioritized if available
@@ -382,7 +382,7 @@ class SequenceProfile:
             elif not os.path.exists(self.sequence_file) or force:
                 self.log.debug(f'{self.name} Sequence={self.reference_sequence}')
                 self.write_sequence_to_fasta('reference', file_name=self.sequence_file)
-                self.log.debug(f'{self.name} fasta file: {self.sequence_file}')
+                self.log.debug(f'{self.name} sequence file: {self.sequence_file}')
 
             # temp_file = os.path.join(out_path, f'{self.name}.hold')
             temp_file = Path(out_path, f'{self.name}.hold')
@@ -393,12 +393,13 @@ class SequenceProfile:
                     with open(temp_file, 'w') as f:
                         self.log.info(f'Fetching "{self.name}" sequence data')
                     self.log.debug(f'{self.name} Evolutionary Profile not yet created')
-                    if profile_source == PUtils.hhblits:
-                        self.log.info(f'Generating HHM Evolutionary Profile for {self.name}')
-                        self.hhblits(out_path=out_path)
-                    else:
-                        self.log.info(f'Generating PSSM Evolutionary Profile for {self.name}')
-                        self.psiblast(out_path=out_path)
+                    # if profile_source == PUtils.hhblits:
+                    #     self.log.info(f'Generating HHM Evolutionary Profile for {self.name}')
+                    #     self.hhblits(out_path=out_path)
+                    # else:
+                    self.log.info(f'Generating Evolutionary Profile for {self.name}')
+                    # self.psiblast(out_path=out_path)
+                    getattr(self, profile_source)(out_path=out_path)
                     temp_file.unlink(missing_ok=True)
                     # if os.path.exists(temp_file):
                     #     os.remove(temp_file)
@@ -412,10 +413,7 @@ class SequenceProfile:
                                               f' {self.name} took longer than the time limit. Job killed!')
                         time.sleep(20)
 
-        if profile_source == PUtils.hhblits:
-            self.parse_hhblits_pssm()
-        else:
-            self.parse_psiblast_pssm()
+        getattr(self, f'parse_{profile_source}_pssm')()
 
     def null_pssm(self):
         """Take the contents of a pssm file, parse, and input into a sequence dictionary.

@@ -20,8 +20,8 @@ logger = start_log(name=__name__)
 
 class APIDatabase(Database):
     def __init__(self, stride: AnyStr | Path = None, sequences: AnyStr | Path = None,
-                 hhblits_profiles: AnyStr | Path = None, pdb_api: AnyStr | Path = None,
-                 uniprot_api: AnyStr | Path = None, **kwargs):
+                 hhblits_profiles: AnyStr | Path = None, pdb: AnyStr | Path = None,
+                 uniprot: AnyStr | Path = None, **kwargs):
         # passed to Database
         # sql: sqlite = None, log: Logger = logger
         super().__init__(**kwargs)  # Database
@@ -38,8 +38,8 @@ class APIDatabase(Database):
         #  load_file = parse_pssm
         self.hhblits_profiles = DataStore(location=hhblits_profiles, extension='.hmm', sql=self.sql, log=self.log,
                                           load_file=parse_hhblits_pssm)
-        self.pdb_api = PDBDataStore(location=pdb_api, extension='.json', sql=self.sql, log=self.log)
-        self.uniprot_api = UniProtDataStore(location=uniprot_api, extension='.json', sql=self.sql, log=self.log)
+        self.pdb = PDBDataStore(location=pdb, extension='.json', sql=self.sql, log=self.log)
+        self.uniprot = UniProtDataStore(location=uniprot, extension='.json', sql=self.sql, log=self.log)
         # self.bmdca_fields = \
         #     DataStore(location=hhblits_profiles, extension='_bmDCA%sparameters_h_final.bin' % os.sep,
         #     sql=self.sql, log=self.log)
@@ -52,8 +52,8 @@ class APIDatabase(Database):
         #  elif extension == f'_bmDCA{os.sep}sparameters_J_final.bin':
         #      self.load_file = bmdca.load_couplings
         #      self.save_file = not_implemented
-        self.sources = [self.stride, self.sequences, self.alignments, self.hhblits_profiles, self.pdb_api,
-                        self.uniprot_api]
+        self.sources = [self.stride, self.sequences, self.alignments, self.hhblits_profiles, self.pdb,
+                        self.uniprot]
 
 
 class APIDatabaseFactory:
@@ -96,12 +96,12 @@ class APIDatabaseFactory:
             sequences = os.path.join(sequence_info_dir, 'sequences')
             profiles = os.path.join(sequence_info_dir, 'profiles')
             # external database subdirectories
-            pdb_api = os.path.join(external_db, 'pdb')
+            pdb = os.path.join(external_db, 'pdb')
             # pdb_entity_api = os.path.join(external_db, 'pdb_entity')
             # pdb_assembly_api = os.path.join(external_db, 'pdb_assembly')
-            uniprot_api = os.path.join(external_db, 'uniprot')
-            # self._databases[source] = APIDatabase(stride_dir, sequences, profiles, pdb_api, uniprot_api, sql=None)
-            self._database = APIDatabase(stride_dir, sequences, profiles, pdb_api, uniprot_api, sql=None)
+            uniprot = os.path.join(external_db, 'uniprot')
+            # self._databases[source] = APIDatabase(stride_dir, sequences, profiles, pdb, uniprot, sql=None)
+            self._database = APIDatabase(stride_dir, sequences, profiles, pdb, uniprot, sql=None)
 
         # return self._databases[source]
         return self._database

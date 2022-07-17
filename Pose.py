@@ -1406,8 +1406,8 @@ class Model(Structure, ContainsChainsMixin):
             return
         # if self.api_db:
         try:
-            # retrieve_api_info = self.api_db.pdb_api.retrieve_data
-            retrieve_api_info = wrapapi.api_database_factory().pdb_api.retrieve_data
+            # retrieve_api_info = self.api_db.pdb.retrieve_data
+            retrieve_api_info = wrapapi.api_database_factory().pdb.retrieve_data
         except AttributeError:
             retrieve_api_info = query_pdb_by
 
@@ -1551,8 +1551,8 @@ class Model(Structure, ContainsChainsMixin):
         if entity_names:
             # if self.api_db:
             try:
-                # retrieve_api_info = self.api_db.pdb_api.retrieve_data
-                retrieve_api_info = wrapapi.api_database_factory().pdb_api.retrieve_data
+                # retrieve_api_info = self.api_db.pdb.retrieve_data
+                retrieve_api_info = wrapapi.api_database_factory().pdb.retrieve_data
             except AttributeError:
                 retrieve_api_info = query_pdb_by
 
@@ -4659,7 +4659,7 @@ class Pose(SequenceProfile, SymmetricModel):
         """
         # if self.api_db:
         try:
-            # retrieve_api_info = self.api_db.pdb_api.retrieve_data
+            # retrieve_api_info = self.api_db.pdb.retrieve_data
             retrieve_stride_info = wrapapi.api_database_factory().stride.retrieve_data
         except AttributeError:
             retrieve_stride_info = Structure.stride
