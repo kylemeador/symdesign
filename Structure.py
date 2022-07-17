@@ -2358,7 +2358,7 @@ def write_frag_match_info_file(ghost_frag: GhostFragment = None, matched_frag: F
         #     out_info_file.write("***** ALL MATCH(ES) FROM REPRESENTATIVES OF ALL FRAGMENT CLUSTERS *****\n\n")
 
 
-class Structure(StructureBase):
+class Structure(StructureBase):  # Todo Polymer?
     """Structure object handles Atom/Residue/Coords manipulation of all Structure containers.
     Must pass parent and residue_indices, atoms and coords, or residues to initialize
 
@@ -4882,7 +4882,7 @@ class Structures(Structure, UserList):
 
     Args:
         structures: The Iterable of Structure to set the Structures with
-        dtype: The specific subclass of Structure that Structures contains
+        dtype: If an empty Structures, tee specific subclass of Structure that Structures contains
     """
     data: list[Structure]
     dtype: str  # the type of Structure in instance
@@ -4892,7 +4892,7 @@ class Structures(Structure, UserList):
 
         # Todo should Structures be allowed to be a parent...
         if not self.data:  # set up an empty Structures
-            pass
+            self.dtype = dtype if dtype else 'Structure'
         elif all([True if isinstance(structure, Structure) else False for structure in self]):
             # self.data = [structure for structure in structures]
             self._atom_indices = []
@@ -4901,12 +4901,13 @@ class Structures(Structure, UserList):
             self._residue_indices = []
             for structure in self:
                 self._residue_indices.extend(structure.residue_indices)
+
+            self.dtype = dtype if dtype else type(self.data[0]).__name__
         else:
             raise ValueError(f'Can\'t set {type(self).__name__} by passing '
                              f'{", ".join(type(structure) for structure in self)}, must set with type [Structure, ...]'
                              f'or an empty constructor. Ex: Structures()')
 
-        self.dtype = dtype if dtype else 'Structure'  # Todo Polymer?
         # overwrite attributes in Structure
         try:
             self.name = f'{self.parent.name}-{self.dtype}_{Structures.__name__}'
