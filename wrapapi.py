@@ -351,9 +351,8 @@ class PDBDataStore(DataStore):
                 # data = self.entity_api.retrieve_data(name=f'{entry}_{entity_integer}')
                 return parse_entities_json([self.retrieve_entity_data(name=f'{entry}_{entity_integer}')])
 
-            logger.warning(
-                f'EntityID "{entry}_{entity_integer}" is not of the required format and will not be found with '
-                f'the PDB API')
+            logger.warning(f'EntityID "{entry}_{entity_integer}" is not of the required format and will not be found '
+                           'with the PDB API')
 
         else:  # this could've been passed as name=. This case would need to be solved with some parsing of the splitter
             raise RuntimeError(f'No valid arguments passed to {self.retrieve_data.__name__}. Valid arguments include: '
