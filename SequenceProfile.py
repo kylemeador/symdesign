@@ -2568,7 +2568,7 @@ def generate_alignment(seq1: Sequence, seq2: Sequence, matrix: str = 'BLOSUM62',
     _matrix = subs_matrices.get(matrix, substitution_matrices.load(matrix))
     gap_penalty = -10
     gap_ext_penalty = -1
-    logger.debug(f'Generating sequence alignment between:\n{seq1}\n\nAND:\n{seq2}')
+    logger.debug(f'Generating sequence alignment between:\n{seq1}\n\tAND:\n{seq2}')
     # Create sequence alignment
     align = getattr(pairwise2.align, f'{_type}ds')(seq1, seq2, _matrix, gap_penalty, gap_ext_penalty,
                                                    one_alignment_only=top_aligment)
