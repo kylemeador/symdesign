@@ -6129,7 +6129,7 @@ class Entity(SequenceProfile, Chain, ContainsChainsMixin):
             The name of the file written for symmetry definition file creation
         """
         if not struct_file:
-            struct_file = self.write_oligomer(out_path=f'make_sdf_input-{self.name}-{random() * 100000:d}.pdb')
+            struct_file = self.write_oligomer(out_path=f'make_sdf_input-{self.name}-{random() * 100000:.0f}.pdb')
 
         # Todo initiate this process in house using superposition3D for every chain
         start_chain, *rest = self.chain_ids
