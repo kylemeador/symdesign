@@ -1067,7 +1067,7 @@ class Model(Structure, ContainsChainsMixin):
                 # self._update_structure_container_attributes(_atoms=self._atoms, _residues=self._residues,
                 #                                            _coords=self._coords)
                 self._update_structure_container_attributes(_parent=self)
-                self.chain_ids.extend([chain.name for chain in self.chains])
+                self.chain_ids.extend([chain.chain_id for chain in self.chains])
             else:  # Create Chain instances from Residues
                 self._create_chains()
                 # Todo this isn't super accurate
