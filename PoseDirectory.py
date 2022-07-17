@@ -2416,10 +2416,8 @@ class PoseDirectory:
                     if not entity.pssm_file:  # still no file found. this is likely broken
                         raise DesignError(f'{entity.name} has no profile generated. To proceed with this design/'
                                           f'protocol you must generate the profile!')
-                    if len(entity.evolutionary_profile) != entity.number_of_residues:
-                        # profile was made with reference or the sequence has inserts and deletions of equal length
-                        # A more stringent check could move through the evolutionary_profile[idx]['type'] key versus the
-                        # entity.sequence[idx]
+
+                    if not entity.verify_evolutionary_profile():
                         entity.fit_evolutionary_profile_to_structure()
 
                     if not entity.sequence_file:
