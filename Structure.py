@@ -5876,9 +5876,9 @@ class Entity(SequenceProfile, Chain, ContainsChainsMixin):
 
         # Set the new properties
         self.number_of_symmetry_mates = number_of_subunits
-        self.chain_ids = [self.chain_ids[0]]
+        self.chain_ids = [self.chain_id]  # use the existing chain_id
         chain_gen = self.chain_id_generator()
-        for _ in range(number_of_subunits):
+        for _ in range(number_of_subunits - 1):  # Only get ids for the mate chains
             chain_id = next(chain_gen)
             while chain_id in self.chain_ids:
                 chain_id = next(chain_gen)
