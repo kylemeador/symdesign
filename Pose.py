@@ -1578,8 +1578,8 @@ class Model(Structure, ContainsChainsMixin):
                     if self.entity_info[new_entity_name].get('chains', {}):
                         # Remove the entity_api_info 'chains' indication and use the entity_info chains
                         entity_api_info[new_entity_name].pop('chains')
-                    # add the entity_api_info to the entity_info
-                    self.entity_info.update(entity_api_info)
+                    # Update the entity_api_info to the entity_info, preserving self.entity_info[new_entity_name] data
+                    self.entity_info[new_entity_name].update(entity_api_info[new_entity_name])
 
                 self.log.debug(f'Entity {entity_name} now named "{new_entity_name}", as supplied by entity_names')
 
