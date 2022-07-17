@@ -844,7 +844,7 @@ class PoseDirectory:
             metrics['design_dimension'] = 'asymmetric'
 
         try:
-            is_thermophilic = self.api_db.uniprot_api.is_thermophilic
+            is_thermophilic = self.api_db.uniprot.is_thermophilic
         except AttributeError:
             is_thermophilic = is_uniprot_thermophilic
 
@@ -2406,11 +2406,10 @@ class PoseDirectory:
                 if entity not in self.pose.active_entities:  # we shouldn't design, add a null profile instead
                     entity.add_profile(null=True)
                 else:  # add a real profile
-                    profiles_path = self.api_db.hhblits_profiles.location
                     entity.sequence_file = self.api_db.sequences.retrieve_file(name=entity.name)
                     entity.evolutionary_profile = self.api_db.hhblits_profiles.retrieve_data(name=entity.name)
                     if not entity.evolutionary_profile:
-                        entity.add_evolutionary_profile(out_path=profiles_path)
+                        entity.add_evolutionary_profile(out_path=self.api_db.hhblits_profiles.location)
                     else:  # ensure the file is attached as well
                         entity.pssm_file = self.api_db.hhblits_profiles.retrieve_file(name=entity.name)
 
@@ -2426,7 +2425,7 @@ class PoseDirectory:
                     if not entity.sequence_file:
                         entity.write_sequence_to_fasta('reference', out_path=self.api_db.sequences.location)
                     entity.add_profile(evolution=not self.no_evolution_constraint, fragments=self.generate_fragments,
-                                       out_path=profiles_path)
+                                       out_path=self.api_db.hhblits_profiles.location)
 
             # Update PoseDirectory with design information
             if self.generate_fragments:  # set pose.fragment_profile by combining entity fragment profiles
