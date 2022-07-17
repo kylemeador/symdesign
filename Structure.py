@@ -2432,7 +2432,9 @@ class Structure(StructureBase):  # Todo Polymer?
             # self._residues = parent._residues
             try:
                 residue_indices[0]
-            except IndexError:
+            except TypeError:
+                if isinstance(self, Structures):  # Structures handles this itself
+                    return
                 raise ValueError(f'Argument residue_indices must be provided when constructing {type(self).__name__} '
                                  f' class from a parent')
             # must set this before setting _atom_indices
