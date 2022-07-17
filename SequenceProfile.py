@@ -324,7 +324,7 @@ class SequenceProfile:
         # if not rerun:
         # Check sequence from Pose and self.profile to compare identity before proceeding
         incorrect_count = 0
-        for residue, position_data in zip(self.residues, self.evolutionary_profile):
+        for residue, position_data in zip(self.residues, self.evolutionary_profile.values()):
             profile_res_type = position_data['type']
             pose_res_type = protein_letters_3to1[residue.type.title()]
             if profile_res_type != pose_res_type:
@@ -441,15 +441,15 @@ class SequenceProfile:
         # generate the disordered indices which are positions in reference that are missing in structure
         disorder = self.disorder
         # removal of these positions from .evolutionary_profile will produce a properly indexed profile
-        new_idx = 1
+        new_residue_number = 1
         structure_evolutionary_profile = {}
-        for index, residue_data in self.evolutionary_profile.items():
-            if index not in disorder:
-                structure_evolutionary_profile[new_idx] = residue_data
-                new_idx += 1
-        self.log.debug('Different profile lengths requires %s to be performed:\nOld profile:\n\t%s\nNew profile:\n\t%s'
-                       % (self.fit_evolutionary_profile_to_structure.__name__,
-                          ''.join(res['type'] for res in self.evolutionary_profile.values()),
+        for residue_number, residue_data in self.evolutionary_profile.items():
+            if residue_number not in disorder:
+                structure_evolutionary_profile[new_residue_number] = residue_data
+                new_residue_number += 1
+
+        self.log.debug(f'{self.fit_evolutionary_profile_to_structure.__name__}:\nOld profile:\n\t%s\nNew profile:\n\t%s'
+                       % (''.join(res['type'] for res in self.evolutionary_profile.values()),
                           ''.join(res['type'] for res in structure_evolutionary_profile.values())))
         self.evolutionary_profile = structure_evolutionary_profile
 
