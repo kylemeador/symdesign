@@ -1556,6 +1556,10 @@ class Model(Structure, ContainsChainsMixin):
             except AttributeError:
                 retrieve_api_info = query_pdb_by
 
+            api_entry_entity = self.api_entry.get('entity', {})
+            if not api_entry_entity:
+                self.api_entry['entity'] = {}
+
             for idx, entity_name in enumerate(list(self.entity_info.keys())):  # Make a new list to prevent pop issues
                 try:
                     new_entity_name = entity_names[idx]
