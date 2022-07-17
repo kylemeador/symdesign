@@ -1562,7 +1562,7 @@ class Model(Structure, ContainsChainsMixin):
                 except IndexError:
                     raise IndexError(f'The number of indices in entity_names ({len(entity_names)}) must equal the '
                                      f'number of entities ({len(self.entity_info)})')
-                entity_api_info = retrieve_api_info(entity_id=entity_name)
+                entity_api_info = retrieve_api_info(entity_id=new_entity_name)
                 if entity_api_info and new_entity_name not in self.api_entry.get('entity', {}):
                     self.entity_info.pop(entity_name)
                     self.entity_info[new_entity_name] = self.api_entry['entity'][new_entity_name] = entity_api_info
