@@ -1053,7 +1053,7 @@ class Model(Structure, ContainsChainsMixin):
 
         if chains:
             if isinstance(chains, (list, Structures)):  # create the instance from existing chains
-                self.chains = copy(chains)  # copy the passed chains list
+                self.chains = copy(chains)  # copy the passed chains
                 self._copy_structure_containers()  # copy each Chain in chains
                 # Reindex all residue and atom indices
                 self.chains[0].reset_state()

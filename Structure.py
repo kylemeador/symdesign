@@ -5669,7 +5669,7 @@ class Entity(SequenceProfile, Chain, ContainsChainsMixin):
     @property
     def chains(self) -> list[Entity]:  # Structures
         """Returns transformed copies of the Entity"""
-        if self.chain_transforms and len(self._chains) == 1:  # check if chains haven't been generated but should
+        if self.chain_transforms and self._is_captain and len(self._chains) == 1:
             # populate with Entity mates
             # self._chains = [self]
             self._chains.extend([self.return_transformed_mate(**transform) for transform in self.chain_transforms])
@@ -5773,7 +5773,7 @@ class Entity(SequenceProfile, Chain, ContainsChainsMixin):
             #     self.log.warning('The oligomer was requested but the Entity %s is not oligomeric. Returning the Entity '
             #                      'instead' % self.name)
             # self._oligomer = self.chains  # OLD WAY
-            self._oligomer = Structures(self.chains, parent=self)
+            self._oligomer = Structures(self.chains, parent=self)  # NEW WAY
             # self._oligomer = Structures(self.chains)
             return self._oligomer
 
@@ -5792,8 +5792,8 @@ class Entity(SequenceProfile, Chain, ContainsChainsMixin):
         """Turn the Entity into a 'mate' Entity"""
         self._is_captain = False
         # self._remove_chain_transforms()
-        self._chains = [self]
-        del self._chain_transforms
+        # self._chains = [self]
+        del self._chain_transforms  # Todo self._chain_transforms.clear()?
 
     def make_oligomer(self, symmetry: str = None, rotation: list[list[float]] | np.ndarray = None,
                       translation: list[float] | np.ndarray = None, rotation2: list[list[float]] | np.ndarray = None,
