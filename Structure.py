@@ -4044,7 +4044,7 @@ class Structure(StructureBase):  # Todo Polymer?
                                  f'following Residues:\n\t{sc_info}')
             return False
 
-    def get_sasa(self, probe_radius: float = 1.4, atom: bool = True, **kwargs):  # Todo move to Residue too?
+    def get_sasa(self, probe_radius: float = 1.4, atom: bool = True, **kwargs):  # Todo to Residue too? ContainsAtomsMix
         """Use FreeSASA to calculate the surface area of residues in the Structure object.
 
         Args:
