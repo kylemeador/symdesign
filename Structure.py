@@ -5451,7 +5451,7 @@ class Entity(SequenceProfile, Chain, ContainsChainsMixin):
             self._assign_residues(representative.residues, atoms=representative.atoms)
         else:
             # By using extend, we set self.original_chain_ids too
-            self.chain_ids.extend([chain.name for chain in chains])
+            self.chain_ids.extend([chain.chain_id for chain in chains])
 
         self._chains = [self]
         # _copy_structure_containers and _update_structure_container_attributes are Entity specific
@@ -5573,27 +5573,6 @@ class Entity(SequenceProfile, Chain, ContainsChainsMixin):
         # except AttributeError:
         #     pass
 
-    @property
-    def number_of_symmetry_mates(self) -> int:
-        """The number of copies of the Entity in the Oligomer"""
-        try:
-            return self._number_of_symmetry_mates
-        except AttributeError:  # set based on the symmetry, unless that fails then find using chain_ids
-            self._number_of_symmetry_mates = valid_subunit_number.get(self.symmetry, len(self.chain_ids))
-            return self._number_of_symmetry_mates
-
-    @number_of_symmetry_mates.setter
-    def number_of_symmetry_mates(self, number_of_symmetry_mates: int):
-        self._number_of_symmetry_mates = number_of_symmetry_mates
-
-    def is_captain(self) -> bool:
-        """Is the Entity the captain chain?"""
-        return self._is_captain
-
-    def is_oligomeric(self) -> bool:
-        """Is the Entity oligomeric?"""
-        return self._is_oligomeric
-
     # @property
     # def chain_ids(self) -> list:  # Also used in Model
     #     """The names of each Chain found in the Entity"""
@@ -5614,6 +5593,27 @@ class Entity(SequenceProfile, Chain, ContainsChainsMixin):
     # @chain_ids.setter
     # def chain_ids(self, chain_ids: list[str]):
     #     self._chain_ids = chain_ids
+
+    @property
+    def number_of_symmetry_mates(self) -> int:
+        """The number of copies of the Entity in the Oligomer"""
+        try:
+            return self._number_of_symmetry_mates
+        except AttributeError:  # set based on the symmetry, unless that fails then find using chain_ids
+            self._number_of_symmetry_mates = valid_subunit_number.get(self.symmetry, len(self.chain_ids))
+            return self._number_of_symmetry_mates
+
+    @number_of_symmetry_mates.setter
+    def number_of_symmetry_mates(self, number_of_symmetry_mates: int):
+        self._number_of_symmetry_mates = number_of_symmetry_mates
+
+    def is_captain(self) -> bool:
+        """Is the Entity the captain chain?"""
+        return self._is_captain
+
+    def is_oligomeric(self) -> bool:
+        """Is the Entity oligomeric?"""
+        return self._is_oligomeric
 
     @property
     def chain_transforms(self) -> list[transformation_mapping]:
@@ -5789,6 +5789,7 @@ class Entity(SequenceProfile, Chain, ContainsChainsMixin):
         self._is_captain = False
         # self._remove_chain_transforms()
         # self._chains = [self]
+        self._chain_ids = [self.chain_id]  # set for a length of 1, using the captain self.chain_id
         del self._chain_transforms  # Todo self._chain_transforms.clear()?
 
     def make_oligomer(self, symmetry: str = None, rotation: list[list[float]] | np.ndarray = None,
