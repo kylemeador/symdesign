@@ -19,13 +19,12 @@ import PathUtils as PUtils
 import fragment
 import wrapapi
 from DesignMetrics import calculate_match_metrics, fragment_metric_template, format_fragment_metrics
-import JobResources
 from Query.PDB import retrieve_entity_id_by_sequence, query_pdb_by, get_entity_reference_sequence
 from SequenceProfile import SequenceProfile, alignment_types, generate_alignment, get_equivalent_indices
 from Structure import Coords, Structure, Structures, Chain, Entity, Residue, Residues, GhostFragment, MonoFragment, \
     write_frag_match_info_file, Fragment, StructureBase, ContainsAtomsMixin, superposition3d, ContainsChainsMixin
 from SymDesignUtils import DesignError, ClashError, SymmetryError, z_value_from_match_score, start_log, null_log, \
-    dictionary_lookup, digit_translate_table, remove_duplicates, calculate_match
+    dictionary_lookup, digit_translate_table, calculate_match
 from classes.EulerLookup import EulerLookup, euler_factory
 from classes.SymEntry import get_rot_matrices, make_rotations_degenerate, SymEntry, point_group_setting_matrix_members,\
     symmetry_combination_format, parse_symmetry_to_sym_entry, symmetry_factory
