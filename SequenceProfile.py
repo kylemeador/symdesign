@@ -449,7 +449,7 @@ class SequenceProfile:
                 new_residue_number += 1
 
         self.log.debug(f'{self.fit_evolutionary_profile_to_structure.__name__}:\n\tOld:\n'
-                       f'{"".join(res["type"] for res in self.evolutionary_profile.values())}\n\tNew:\n%s'
+                       f'{"".join(res["type"] for res in self.evolutionary_profile.values())}\n\tNew:\n'
                        f'{"".join(res["type"] for res in structure_evolutionary_profile.values())}')
         self.evolutionary_profile = structure_evolutionary_profile
 

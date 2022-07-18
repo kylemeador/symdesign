@@ -1063,10 +1063,10 @@ class Model(Structure, ContainsChainsMixin):
                     chain.reset_state()
                     chain._start_indices(at=self.chains[prior_idx].atom_indices[-1] + 1, dtype='atom')
                     chain._start_indices(at=self.chains[prior_idx].residue_indices[-1] + 1, dtype='residue')
-                # set the arrayed attributes for all PDB containers
-                # self._update_structure_container_attributes(_atoms=self._atoms, _residues=self._residues,
-                #                                            _coords=self._coords)
+
+                # set the parent attribute for all containers
                 self._update_structure_container_attributes(_parent=self)
+                # By using extend, we set self.original_chain_ids too
                 self.chain_ids.extend([chain.chain_id for chain in self.chains])
             else:  # Create Chain instances from Residues
                 self._create_chains()
@@ -1093,9 +1093,8 @@ class Model(Structure, ContainsChainsMixin):
                     entity.reset_state()
                     entity._start_indices(at=self.entities[prior_idx].atom_indices[-1] + 1, dtype='atom')
                     entity._start_indices(at=self.entities[prior_idx].residue_indices[-1] + 1, dtype='residue')
-                # set the arrayed attributes for all PDB containers (chains, entities)
-                # self._update_structure_container_attributes(_atoms=self._atoms, _residues=self._residues,
-                #                                            _coords=self._coords)
+
+                # set the parent attribute for all containers
                 self._update_structure_container_attributes(_parent=self)
                 if rename_chains:  # set each successive Entity to have an incrementally higher chain id
                     available_chain_ids = self.chain_id_generator()
