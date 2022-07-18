@@ -383,10 +383,9 @@ def read_pdb_file(file: AnyStr, pdb_lines: list[str] = None, separate_coords: bo
              atoms=[Atom.without_coordinates(idx, *info) for idx, info in enumerate(temp_info)] if separate_coords
              else
              # initialize with individual coords. Not sure why anyone would do this, but include for compatibility
-             [Atom(index=idx, number=number, atom_type=atom_type, alt_location=alt_location,
-                   residue_type=residue_type, chain=chain, residue_number=residue_number,
-                   code_for_insertion=code_for_insertion, coords=coords[idx], occupancy=occupancy, b_factor=b_factor,
-                   element=element, charge=charge)
+             [Atom(number=number, atom_type=atom_type, alt_location=alt_location, residue_type=residue_type,
+                   chain=chain, residue_number=residue_number, code_for_insertion=code_for_insertion,
+                   coords=coords[idx], occupancy=occupancy, b_factor=b_factor, element=element, charge=charge)
               for idx, (number, atom_type, alt_location, residue_type, chain, residue_number, code_for_insertion,
                         occupancy, b_factor, element, charge)
               in enumerate(temp_info)],
@@ -1000,7 +999,6 @@ class ContainsAtomsMixin(StructureBase):
     backbone_indices: list[int]
     ca_indices: list[int]
     cb_indices: list[int]
-    file_path: AnyStr
     heavy_indices: list[int]
     number_of_atoms: int
     side_chain_indices: list[int]
@@ -1156,8 +1154,8 @@ class ContainsAtomsMixin(StructureBase):
             # update Atom instance attributes to ensure they are dependants of this instance
             # must do this after _populate_coords to ensure that coordinate info isn't overwritten
             self._atoms.set_attributes(_parent=self)
-            if not self.file_path:  # assume this instance wasn't parsed and Atom indices are incorrect
-                self._atoms.reindex()
+            # if not self.file_path:  # assume this instance wasn't parsed and Atom indices are incorrect
+            self._atoms.reindex()
             # self._set_coords_indexed()
 
     def _populate_coords(self, from_source: structure_container_types = 'atoms', coords: np.ndarray = None):
