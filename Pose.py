@@ -1076,10 +1076,10 @@ class Model(Structure, ContainsChainsMixin):
                 #  It should be at least the structure sequence
                 self._reference_sequence = dict(zip(self.chain_ids, self._reference_sequence.values()))
 
-            self.log.debug(f'Original chain_ids={",".join(self.original_chain_ids)} | '
-                           f'Loaded chain_ids={",".join(self.chain_ids)}')
             if rename_chains:
                 self.rename_chains()
+            self.log.debug(f'Original chain_ids={",".join(self.original_chain_ids)} | '
+                           f'Loaded chain_ids={",".join(self.chain_ids)}')
 
         if entities:
             if isinstance(entities, (list, Structures)):  # create the instance from existing entities
