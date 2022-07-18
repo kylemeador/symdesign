@@ -861,8 +861,38 @@ class Atom(StructureBase):
     def __hash__(self) -> int:
         return hash(self.__key())
 
-    # Todo only copy the mutable objects like _atom_indices
-    # def __copy__(self):
+    # def __copy__(self):  # Todo this is ready, but isn't needed anywhere
+    #     other = self.__class__.__new__(self.__class__)
+    #     other.__dict__ = copy(self.__dict__)
+    #
+    #     if self.is_parent():  # this Structure is the parent, it's copy should be too
+    #         # set the copying Structure attribute ".spawn" to indicate to dependents the "other" of this copy
+    #         self.spawn = other
+    #         try:
+    #             for attr in parent_attributes:
+    #                 other.__dict__[attr] = copy(self.__dict__[attr])
+    #         except KeyError:  # '_atoms' is not present and will be after _log, _coords
+    #             pass
+    #         # remove the attribute spawn after other Structure containers are copied
+    #         del self.spawn
+    #     else:  # this Structure is a dependent, it's copy should be too
+    #         try:
+    #             other._parent = self.parent.spawn
+    #         except AttributeError:  # this copy was initiated by a Structure that is not the parent
+    #             self.log.debug(f'The copied {type(self).__name__} is being set as a parent. It was a dependent '
+    #                            f'previously')
+    #             # setattr(other, parent_variable, None)  # set parent explicitly as None
+    #             # # try:
+    #             # #     for attr in new_parent_attributes:
+    #             # #         other.__dict__[attr] = copy(self.__dict__[attr])
+    #             # # except KeyError:  # '_atoms' is not present and will be after _log, _coords
+    #             # #     pass
+    #             #
+    #             # # create a new, empty Coords instance
+    #             # self._coords = Coords(self.coords)
+    #             other.detach_from_parent()
+    #
+    #     return other
 
 
 class Atoms:
@@ -2318,15 +2348,44 @@ class Residue(ResidueFragment, ContainsAtomsMixin):
     def __hash__(self) -> int:
         return hash(self.__key())
 
-    # Todo only copy mutable objects like
-    #  _atom_indices
-    #  __backbone_indices
-    #  __backbone_and_cb_indices
-    #  __heavy_indices
-    #  __side_chain_indices
-    #  next_residue
-    #  prev_residue
-    # def __copy__(self):
+    def __copy__(self):
+        other = self.__class__.__new__(self.__class__)
+        # Todo only copy mutable objects like
+        #  _atom_indices
+        #  __backbone_indices
+        #  __backbone_and_cb_indices
+        #  __heavy_indices
+        #  __side_chain_indices
+        other.__dict__ = copy(self.__dict__)
+
+        if self.is_parent():  # this Structure is the parent, it's copy should be too
+            # set the copying Structure attribute ".spawn" to indicate to dependents the "other" of this copy
+            self.spawn = other
+            try:
+                for attr in parent_attributes:
+                    other.__dict__[attr] = copy(self.__dict__[attr])
+            except KeyError:  # '_residues' is not present and will be last
+                pass
+            other._atoms.set_attributes(_parent=other)  # Todo comment out when Atom.__copy__ needed somewhere
+            # remove the attribute spawn after other Structure containers are copied
+            del self.spawn
+        else:  # this Structure is a dependent, it's copy should be too
+            try:
+                other._parent = self.parent.spawn
+            except AttributeError:  # this copy was initiated by a Structure that is not the parent
+                self.log.debug(f'The copied {type(self).__name__} is being set as a parent. It was a dependent '
+                               f'previously')
+                # setattr(other, parent_variable, None)  # set parent explicitly as None
+                # # try:
+                # #     for attr in new_parent_attributes:
+                # #         other.__dict__[attr] = copy(self.__dict__[attr])
+                # # except KeyError:  # '_residues' is not present and should be last
+                # #     pass
+                # # other._atoms.set_attributes(_parent=other)
+                # other._assign_atoms(self.atoms, coords=self.coords)
+                other.detach_from_parent()
+
+        return other
 
 
 class Residues:
@@ -4762,8 +4821,8 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
             self.spawn = other
             for attr in parent_attributes:
                 other.__dict__[attr] = copy(self.__dict__[attr])
-            other._atoms.set_attributes(_parent=other)
-            other._residues.set_attributes(_parent=other)
+            other._atoms.set_attributes(_parent=other)  # Todo comment out when Atom.__copy__ needed somewhere
+            # other._residues.set_attributes(_parent=other)
             other._copy_structure_containers()
             other._update_structure_container_attributes(_parent=other)
             # remove the attribute spawn after other Structure containers are copied
@@ -4772,13 +4831,15 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
             try:
                 other._parent = self.parent.spawn
             except AttributeError:  # this copy was initiated by a Structure that is not the parent
-                self.log.warning(f'The copied {type(self).__name__} is being set as a parent. It was a dependent '
-                                 f'previously')
-                for attr in new_parent_attributes:
-                    other.__dict__[attr] = copy(self.__dict__[attr])
-                setattr(other, parent_variable, None)  # set parent explicitly as None
-                other._atoms.set_attributes(_parent=other)
-                other._residues.set_attributes(_parent=other)
+                self.log.debug(f'The copied {type(self).__name__} is being set as a parent. It was a dependent '
+                               f'previously')
+                # setattr(other, parent_variable, None)  # set parent explicitly as None
+                # # for attr in new_parent_attributes:
+                # #     other.__dict__[attr] = copy(self.__dict__[attr])
+                # # other._atoms.set_attributes(_parent=other)
+                # # other._residues.set_attributes(_parent=other)
+                # other._assign_residues(other.residues, atoms=other.atoms)
+                other.detach_from_parent()
                 other._copy_structure_containers()
                 other._update_structure_container_attributes(_parent=other)
 
