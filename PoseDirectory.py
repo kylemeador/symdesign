@@ -2335,6 +2335,7 @@ class PoseDirectory:
         if self.symmetric:
             self.symmetric_assembly_is_clash()
             if self.output_assembly:
+                j = input('hit enter')
                 self.pose.write(assembly=True, out_path=self.assembly_path, increment_chains=self.increment_chains)
                 self.log.info(f'Symmetric assembly written to: "{self.assembly_path}"')
         self.pose.find_and_split_interface()
