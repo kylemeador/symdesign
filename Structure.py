@@ -3331,15 +3331,6 @@ class Structure(StructureBase):  # Todo Polymer?
         for idx, residue in enumerate(self.residues, 1):
             residue.number = idx
 
-    # def set_atom_coordinates(self, coords):
-    #     """Set/Replace all Atom coordinates with coords specified. Must be in the same order to apply correctly!"""
-    #     assert len(self.atoms) == coords.shape[0], '%s: ERROR setting Atom coordinates, # Atoms (%d) !=  # Coords (%d)'\
-    #                                                % (self.name, len(self.atoms), coords.shape[0])
-    #     self.coords = coords
-    #     for idx, atom in enumerate(self.get_atoms):
-    #         atom.coords = coords[idx]
-    #         # atom.x, atom.y, atom.z = coords[idx][0], coords[idx][1], coords[idx][2]
-
     def get_residues(self, numbers: Container[int] = None, pdb: bool = False, **kwargs) -> list[Residue]:
         """Retrieve Residue objects in Structure. Returns all by default. If a list of numbers is provided, the selected
         Residues numbers are returned

@@ -2275,7 +2275,7 @@ class PoseDirectory:
 
     def symmetric_assembly_is_clash(self):
         """Wrapper around the Pose symmetric_assembly_is_clash() to check at the Pose level for clashes and raise
-        DesignError if any are found, otherwise, continue with protocol
+        ClashError if any are found, otherwise, continue with protocol
         """
         if self.pose.symmetric_assembly_is_clash():
             if self.ignore_symmetric_clashes:
@@ -2300,7 +2300,7 @@ class PoseDirectory:
         if self.symmetric:
             self.symmetric_assembly_is_clash()
             self.pose.write(assembly=True, out_path=self.assembly_path, increment_chains=self.increment_chains)
-            self.log.info('Symmetrically expanded assembly file written to: "%s"' % self.assembly_path)
+            self.log.info(f'Symmetric assembly written to: "{self.assembly_path}"')
         else:
             self.log.critical(PUtils.warn_missing_symmetry % self.expand_asu.__name__)
         self.pickle_info()  # Todo remove once PoseDirectory state can be returned to the SymDesign dispatch w/ MP
@@ -2347,12 +2347,8 @@ class PoseDirectory:
 
         self.interface_residues = set()  # update False to set() or replace set() and add new residues
         for entity in self.pose.entities:  # Todo v clean as it is redundant with analysis and falls out of scope
-            entity.write_oligomer(out_path=path.join(self.path, f'DEBUG_{entity.name}-PRE-Model-Entity_write_oligomer.pdb'))
             entity_oligomer = Model.from_chains(entity.chains, log=self.log, entities=False)
-            # entity_oligomer = Model.from_chains(entity.oligomer, log=self.log, entities=False)
             # entity.oligomer.get_sasa()
-            entity_oligomer.write(out_path=path.join(self.path, f'DEBUG_{entity.name}-Entity_oligomer.write.pdb'))
-            entity.write_oligomer(out_path=path.join(self.path, f'DEBUG_{entity.name}-Entity_write_oligomer.pdb'))
             for residue in entity_oligomer.get_residues(self.interface_design_residues):
             # for residue in entity.get_residues(self.interface_design_residues):
                 if residue.sasa > 0:  # we will have repeats as the Entity is symmetric
