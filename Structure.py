@@ -1296,16 +1296,16 @@ class Residue(ResidueFragment, StructureBase):
                 raise IndexError('The Residue wasn\'t passed atom_indices which are required for initialization')
         # we are setting up a parent (independent) Residue
         elif atoms:  # is not None  # no parent passed, construct from atoms
-            self._assign_atoms(atoms, atoms_only=False)
+            self._assign_atoms(atoms)
             self.is_residue_valid()
-            Structure._populate_coords(self)
-            Structure._validate_coords(self)
+            # Structure._populate_coords(self)
+            # Structure._validate_coords(self)
             self._start_index = 0
             # update Atom instance attributes to ensure they are dependants of this instance
             # must do this after (potential) coords setting to ensure that coordinate info isn't overwritten
-            self._atoms.set_attributes(_parent=self)
-            self._atoms.reindex()
-            self.renumber_atoms()
+            # self._atoms.set_attributes(_parent=self)
+            # self._atoms.reindex()
+            # self.renumber_atoms()
         else:  # create an empty Residue
             self._atoms = Atoms()
         self.delegate_atoms()
@@ -2467,6 +2467,8 @@ class Structure(StructureBase):  # Todo Polymer?
             # #     self.coords = coords
         elif atoms:  # is not None
             self._assign_atoms(atoms)
+            self._create_residues()
+            self._set_coords_indexed()
         else:  # set up an empty Structure or let subclass handle population
             pass
 
@@ -2776,7 +2778,7 @@ class Structure(StructureBase):  # Todo Polymer?
 
         if atoms_only:
             self._populate_coords(**kwargs)  # coords may be passed
-            self._create_residues()
+            # self._create_residues()
             # ensure that coordinate lengths match atoms
             self._validate_coords()
             # update Atom instance attributes to ensure they are dependants of this instance
@@ -2784,7 +2786,7 @@ class Structure(StructureBase):  # Todo Polymer?
             self._atoms.set_attributes(_parent=self)
             if not self.file_path:  # assume this instance wasn't parsed and Atom indices are incorrect
                 self._atoms.reindex()
-            self._set_coords_indexed()
+            # self._set_coords_indexed()
 
     # @property
     # def number_of_atoms(self) -> int:
