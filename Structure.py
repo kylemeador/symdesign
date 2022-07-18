@@ -5387,7 +5387,10 @@ class Chain(Structure):
 
     def detach_from_parent(self):
         """Remove the current instance from the parent that created it"""
-        self._assign_residues(self.residues, atoms=self.atoms)
+        # create a new and empty Coords instance
+        self._coords = Coords()
+        # populate the Structure with it's existing instances removed of any indexing
+        self._assign_residues(self.residues, atoms=self.atoms, coords=self.coords)
 
 
 class Entity(SequenceProfile, Chain, ContainsChainsMixin):
