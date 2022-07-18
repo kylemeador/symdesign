@@ -5998,7 +5998,7 @@ class Entity(SequenceProfile, Chain, ContainsChainsMixin):
     # Todo overwrite Structure.write() method with oligomer=True flag?
     def write_oligomer(self, out_path: bytes | str = os.getcwd(), file_handle: IO = None, **kwargs) -> str | None:
         #               header=None,
-        """Write oligomeric Structure Atoms to a file specified by out_path or with a passed file_handle
+        """Write Entity.oligomer Structure to a file specified by out_path or with a passed file_handle
 
         Args:
             out_path: The location where the Structure object should be written to disk
@@ -6008,17 +6008,16 @@ class Entity(SequenceProfile, Chain, ContainsChainsMixin):
         """
         offset = 0
         if file_handle:
-            # if self.chains:
             for chain in self.chains:
-                file_handle.write('%s\n' % chain.return_atom_record(atom_offset=offset, **kwargs))
+                file_handle.write(f'{chain.return_atom_record(atom_offset=offset, **kwargs)}\n')
                 offset += chain.number_of_atoms
+            return None
 
         if out_path:
-            # if self.chains:
             with open(out_path, 'w') as outfile:
                 self.write_header(outfile, asu=False, **kwargs)  # function implies we want all chains, i.e. asu=False
-                for idx, chain in enumerate(self.chains, 1):
-                    outfile.write('%s\n' % chain.return_atom_record(atom_offset=offset, **kwargs))
+                for chain in self.chains:
+                    outfile.write(f'{chain.return_atom_record(atom_offset=offset, **kwargs)}\n')
                     offset += chain.number_of_atoms
 
             return out_path
