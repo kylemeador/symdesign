@@ -2347,6 +2347,7 @@ class PoseDirectory:
 
         self.interface_residues = set()  # update False to set() or replace set() and add new residues
         for entity in self.pose.entities:  # Todo v clean as it is redundant with analysis and falls out of scope
+            entity.write_oligomer(out_path=path.join(self.path, f'DEBUG_{entity.name}-PRE-Model-Entity_write_oligomer.pdb'))
             entity_oligomer = Model.from_chains(entity.chains, log=self.log, entities=False)
             # entity_oligomer = Model.from_chains(entity.oligomer, log=self.log, entities=False)
             # entity.oligomer.get_sasa()
