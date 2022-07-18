@@ -1583,10 +1583,10 @@ class Residue(ResidueFragment, ContainsAtomsMixin):
     def detach_from_parent(self):
         """Remove the current instance from the parent that created it"""
         setattr(self, parent_variable, None)  # set parent explicitly as None
-        # # Extract the coordinates
-        # coords = self.coords
+        # Extract the coordinates
+        coords = self.coords
         # create a new, empty Coords instance
-        self._coords = Coords(self.coords)
+        self._coords = Coords(coords)
         # populate the Structure with its existing instances removed of any indexing
         self._assign_atoms(self.atoms)  # , coords=coords)
 
@@ -2683,10 +2683,10 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
     def detach_from_parent(self):
         """Remove the current instance from the parent that created it"""
         setattr(self, parent_variable, None)  # set parent explicitly as None
-        # # Extract the coordinates
-        # coords = self.coords
+        # Extract the coordinates
+        coords = self.coords
         # create a new, empty Coords instance
-        self._coords = Coords(self.coords)
+        self._coords = Coords(coords)
         # populate the Structure with its existing instances removed of any indexing
         self._assign_residues(self.residues, atoms=self.atoms)  # , coords=coords)
 
