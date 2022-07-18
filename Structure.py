@@ -947,13 +947,214 @@ class Atoms:
         yield from self.atoms.tolist()
 
 
-class ContainsAtomsMixin:  # Todo put Atoms requiring methods in here
+class ContainsAtomsMixin(StructureBase):
+    # _atom_indices: list[int]
+    _atoms: Atoms
+    # _coords: Coords
+    backbone_and_cb_indices: list[int]
+    backbone_indices: list[int]
+    ca_indices: list[int]
+    cb_indices: list[int]
+    file_path: AnyStr
+    heavy_indices: list[int]
+    number_of_atoms: int
+    side_chain_indices: list[int]
+
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
     @property
+    def atoms(self) -> list[Atom] | None:
+        """Return the Atom instances in the Structure"""
+        try:
+            return self._atoms.atoms[self._atom_indices].tolist()
+        except AttributeError:  # when self._atoms isn't set or is None and doesn't have .atoms
+            return
+
+    @atoms.setter
+    def atoms(self, atoms: Atoms | list[Atom]):
+        """Set the Structure atoms to an Atoms object"""
+        # Todo make this setter function in the same way as self._coords.replace?
+        if isinstance(atoms, Atoms):
+            self._atoms = atoms
+        else:
+            self._atoms = Atoms(atoms)
+
+    # # Todo enable this type of functionality
+    # @atoms.setter
+    # def atoms(self, atoms: Atoms):
+    #     self._atoms.replace(self._atom_indices, atoms)
+
+    # Todo create add_atoms that is like list append
+    def add_atoms(self, atom_list):
+        """Add Atoms in atom_list to the Structure instance"""
+        raise NotImplementedError('This function (add_atoms) is currently broken')
+        atoms = self.atoms.tolist()
+        atoms.extend(atom_list)
+        self.atoms = atoms
+        # Todo need to update all referrers
+        # Todo need to add the atoms to coords
+
+    @property
+    def ca_atoms(self) -> list[Atom]:
+        """Return CA Atom instances from the StructureBase"""
+        return self._atoms.atoms[self.ca_indices].tolist()
+
+    @property
+    def cb_atoms(self) -> list[Atom]:
+        """Return CB Atom instances from the StructureBase"""
+        return self._atoms.atoms[self.cb_indices].tolist()
+
+    @property
+    def backbone_atoms(self) -> list[Atom]:
+        """Return backbone Atom instances from the StructureBase"""
+        return self._atoms.atoms[self.backbone_indices].tolist()
+
+    @property
+    def backbone_and_cb_atoms(self) -> list[Atom]:
+        """Return backbone and CB Atom instances from the StructureBase"""
+        return self._atoms.atoms[self.backbone_and_cb_indices].tolist()
+
+    @property
+    def heavy_atoms(self) -> list[Atom]:
+        """Return heavy Atom instances from the StructureBase"""
+        return self._atoms.atoms[self.heavy_indices].tolist()
+
+    @property
+    def side_chain_atoms(self) -> list[Atom]:
+        """Return side chain Atom instances from the StructureBase"""
+        return self._atoms.atoms[self.side_chain_indices]
+
+    def atom(self, atom_number: int) -> Atom | None:
+        """Return the Atom specified by atom number if a matching Atom is found, otherwise None"""
+        for atom in self.atoms:
+            if atom.number == atom_number:
+                return atom
+        return None
+
+    @property
+    def center_of_mass(self) -> np.ndarray:
+        """The center of mass for the StructureBase coordinates"""
+        number_of_atoms = self.number_of_atoms
+        return np.matmul(np.full(number_of_atoms, 1 / number_of_atoms), self.coords)
+        # try:
+        #     return self._center_of_mass
+        # except AttributeError:
+        #     self.find_center_of_mass()
+        #     return self._center_of_mass
+
+    @property
+    def backbone_coords(self) -> np.ndarray:
+        """Return a view of the Coords from the StructureBase with backbone atom coordinates"""
+        return self._coords.coords[self.backbone_indices]
+
+    @property
+    def backbone_and_cb_coords(self) -> np.ndarray:
+        """Return a view of the Coords from the StructureBase with backbone and CB atom coordinates. Includes glycine CA
+        """
+        return self._coords.coords[self.backbone_and_cb_indices]
+
+    # @property
+    # def ca_coords(self) -> np.ndarray:  # NOT in Residue, ca_coord
+    #     """Return a view of the Coords from the Structure with CA atom coordinates"""
+    #     return self._coords.coords[self.ca_indices]
+    #
+    # @property
+    # def cb_coords(self) -> np.ndarray:  # NOT in Residue, cb_coord
+    #     """Return a view of the Coords from the Structure with CB atom coordinates"""
+    #     return self._coords.coords[self.cb_indices]
+
+    @property
+    def heavy_coords(self) -> np.ndarray:
+        """Return a view of the Coords from the StructureBase with heavy atom coordinates"""
+        return self._coords.coords[self.heavy_indices]
+
+    @property
+    def side_chain_coords(self) -> np.ndarray:
+        """Return a view of the Coords from the StructureBase with side chain atom coordinates"""
+        return self._coords.coords[self.side_chain_indices]
+
+    def _assign_atoms(self, atoms: Atoms | list[Atom], atoms_only: bool = True,
+                      **kwargs):  # same function in Residue
+        """Assign Atom instances to the Structure, create Atoms object, and create Residue instances/Residues
+
+        Args:
+            atoms: The Atom instances to assign to the Structure
+            atoms_only: Whether Atom instances are being assigned on their own. Residues will be created if so.
+                If not, indicate False and use other Structure information such as Residue instances to complete set up.
+                When False, atoms won't become dependents of this instance until specifically called using
+                Atoms.set_attributes(_parent=self)
+        Keyword Args:
+            coords=None (numpy.ndarray): The coordinates to assign to the Structure.
+                Optional, will use Residues.coords if not specified
+        Sets:
+            self._atom_indices (list[int])
+
+            self._atoms (Atoms)
+        """
+        # set proper atoms attributes
+        self._atom_indices = list(range(len(atoms)))
+        if not isinstance(atoms, Atoms):  # must create the Atoms object
+            atoms = Atoms(atoms)
+
+        if atoms.are_dependents():  # copy Atoms object to set new attributes on each member Atom
+            atoms = copy(atoms)
+            atoms.reset_state()  # clear runtime attributes
+        self._atoms = atoms
+        self.renumber_atoms()
+
+        if atoms_only:
+            self._populate_coords(**kwargs)  # coords may be passed
+            # self._create_residues()
+            # ensure that coordinate lengths match atoms
+            self._validate_coords()
+            # update Atom instance attributes to ensure they are dependants of this instance
+            # must do this after _populate_coords to ensure that coordinate info isn't overwritten
+            self._atoms.set_attributes(_parent=self)
+            if not self.file_path:  # assume this instance wasn't parsed and Atom indices are incorrect
+                self._atoms.reindex()
+            # self._set_coords_indexed()
+
+    def _populate_coords(self, from_source: structure_container_types = 'atoms', coords: np.ndarray = None):
+        """Set up the coordinates, initializing them from_source coords if none are set
+
+        Only useful if the calling Structure is a parent, and coordinate initialization has yet to occur
+        Args:
+            from_source: The source to set the coordinates from if they are missing
+            coords: The coordinates to assign to the Structure. Optional, will use from_source.coords if not specified
+        """
+        if coords:  # try to set the provided coords. This will handle issue where empty Coords class should be set
+            # Setting .coords through normal mechanism preserves subclasses requirement to handle symmetric coordinates
+            self.coords = np.concatenate(coords)
+        if self._coords.coords.shape[0] == 0:  # check if Coords (_coords) hasn't been populated
+            # if it hasn't, then coords weren't passed. try to set from self.from_source. catch missing from_source
+            try:
+                self._coords.set(np.concatenate([s.coords for s in getattr(self, from_source)]))
+            except AttributeError:
+                try:  # probably missing from_source. .coords is available in all structure_container_types...
+                    getattr(self, from_source)
+                except AttributeError:
+                    raise AttributeError(f'{from_source} is not set on the current {type(self).__name__} instance!')
+                raise AttributeError(f'Missing .coords attribute on the current {type(self).__name__} '
+                                     f'instance.{from_source} attribute. This is really not supposed to happen! '
+                                     f'Congrats you broke a core feature! 0.15 bitcoin have been added to your wallet')
+
+    def _validate_coords(self):
+        """Ensure that the StructureBase coordinates are formatted correctly"""
+        # this is the functionality we are testing most of the time
+        if self.number_of_atoms != len(self.coords):  # number_of_atoms was just set by self._atom_indices
+            raise ValueError(f'The number of Atoms ({self.number_of_atoms}) != number of Coords ({len(self.coords)}). '
+                             f'Consider initializing {type(self).__name__} without explicitly passing coords if this '
+                             f'isn\'t expected')
+
+    def renumber_atoms(self):
+        """Renumber all Atom objects sequentially starting with 1"""
+        for idx, atom in enumerate(self.atoms, 1):
+            atom.number = idx
+
+    @property
     def start_index(self) -> int:
-        """The first atomic index of the Structure"""
+        """The first atomic index of the StructureBase"""
         return self._atom_indices[0]
 
 
@@ -1245,7 +1446,7 @@ class ResidueFragment(Fragment):
         return self.chain, self.number
 
 
-class Residue(ResidueFragment, StructureBase):
+class Residue(ResidueFragment, ContainsAtomsMixin):
     __backbone_indices: list[int]
     __backbone_and_cb_indices: list[int]
     __heavy_indices: list[int]
@@ -1371,12 +1572,12 @@ class Residue(ResidueFragment, StructureBase):
 
         return True
 
-    @property
-    def start_index(self) -> int:
-        """The first atomic index of the Residue"""
-        return self._start_index
+    # @property
+    # def start_index(self) -> int:
+    #     """The first atomic index of the Residue"""
+    #     return self._start_index
 
-    @start_index.setter
+    @ContainsAtomsMixin.start_index.setter
     def start_index(self, index: int):
         """Set Residue atom_indices starting with atom_indices[0] as start_index. Creates remainder incrementally and
         updates individual Atom instance .index accordingly
@@ -1407,83 +1608,6 @@ class Residue(ResidueFragment, StructureBase):
     #         self._start_index = indices[0]
     #     except (TypeError, IndexError):
     #         raise IndexError('The Residue wasn\'t passed any atom_indices which are required for initialization')
-
-    @property
-    def atoms(self) -> list[Atom]:
-        """The particular Atom objects that the Residue owns"""
-        return self._atoms.atoms[self._atom_indices].tolist()
-
-    # # Todo enable this type of functionality
-    # @atoms.setter
-    # def atoms(self, atoms: Atoms):
-    #     self._atoms.replace(self._atom_indices, atoms)
-
-    # Todo create add_atoms that is like list append
-    # Todo comment out upon making ContainsAtomsMixin
-    def _assign_atoms(self, atoms: list[Atom] | Atoms, **kwargs):  # same function name in Structure
-        """Perform atom assignment using Structure._assign_atoms
-
-        Args:
-            atoms: The Atom instances to assign to the Residue
-        Keyword Args:
-            coords=None (numpy.ndarray): The coordinates to assign to the Structure.
-                Optional, will use Atom.coords if not specified
-        Sets:
-            self._atom_indices (list[int])
-
-            self._atoms (Atoms)
-        """
-        # remove_atom_indices, found_types = [], set()
-        # atom = atoms[0]
-        # current_residue_number, current_residue_type = atom.residue_number, atom.residue_type
-        # for idx, atom in enumerate(atoms[1:], 1):
-        #     if atom.residue_number == current_residue_number and atom.residue_type == current_residue_type:
-        #         if atom.type not in found_types:
-        #             found_types.add(atom.type)
-        #         else:
-        #             raise ValueError(f'Couldn\'t {self._assign_atoms.__name__}. The Atom type at index {idx} was already'
-        #                              f'observed')
-        #     else:
-        #         raise ValueError(f'Couldn\'t {self._assign_atoms.__name__}. The Atom at index {idx} doesn\'t have the '
-        #                          f'same properties as all previous Atoms')
-        #
-        # if protein_backbone_atom_types.difference(found_types):  # modify if building NucleotideResidue
-        #     raise ValueError(f'Couldn\'t {self._assign_atoms.__name__}. The provided Atoms don\'t contain the required '
-        #                      f'types ({", ".join(protein_backbone_atom_types)}) to build a {type(self).__name__}')
-
-        # # we have an adequate Residue, construct
-        # self._start_index = 0
-        Structure._assign_atoms(self, atoms, **kwargs)
-        # super()._assign_atoms(atoms)
-        # self._atom_indices = list(range(len(atoms)))
-        # if not isinstance(atoms, Atoms):  # must create the Atoms object
-        #     atoms = Atoms(atoms)
-        #
-        # if atoms.are_dependents():  # copy Atoms object to set new attributes on each member Atom
-        #     atoms = copy(atoms)
-        #     atoms.reset_state()  # clear runtime attributes
-        # self._atoms = atoms
-
-        # ensure that coordinate lengths match atoms
-        # Structure._validate_coords(self, **kwargs)
-        # super()._validate_coords()
-        # if self._coords.coords.shape[0] == 0:  # check if Coords (_coords) has already been populated
-        #     # otherwise, try to set from the passed atoms
-        #     self._coords.set(np.concatenate(coords if coords else [atom.coords for atom in atoms]))
-        #
-        # if self.number_of_atoms != len(self.coords):  # number_of_atoms was just set by self._atom_indices
-        #     raise ValueError(f'The number of Atoms ({self.number_of_atoms}) != number of Coords '
-        #                      f'({len(self.coords)}). Consider initializing without coords if this isn\'t expected')
-        # # update Atom instance attributes to ensure they are dependants of this instance
-        # # must do this after (potential) coords setting to ensure that coordinate info isn't overwritten
-        # self._atoms.set_attributes(_parent=self)
-        # self._atoms.reindex()
-        # self.renumber_atoms()
-
-    def renumber_atoms(self):  # in Structure too  Todo ContainsAtomsMixin
-        """Renumber all Atom objects sequentially starting with 1"""
-        for idx, atom in enumerate(self.atoms, 1):
-            atom.number = idx
 
     def delegate_atoms(self):
         """Set the Residue atoms from a parent StructureBase"""
@@ -1605,47 +1729,6 @@ class Residue(ResidueFragment, StructureBase):
     def contains_hydrogen(self) -> bool:  # in Structure too
         """Returns whether the Residue contains hydrogen atoms"""
         return self.heavy_indices != self._atom_indices
-
-    @property
-    def heavy_coords(self) -> np.ndarray:
-        """Provides a view of the heavy atom coords"""
-        # return self.Coords.coords(which returns a np.array)[slicing that by the atom.index]
-        return self._coords.coords[self.heavy_indices]
-
-    @property
-    def backbone_coords(self) -> np.ndarray:
-        """Provides a view of the backbone atom coords"""
-        return self._coords.coords[self.backbone_indices]
-
-    @property
-    def backbone_and_cb_coords(self) -> np.ndarray:
-        """Provides a view of the backbone and CB atom coords"""
-        return self._coords.coords[self.backbone_and_cb_indices]
-
-    @property
-    def sidechain_coords(self) -> np.ndarray:
-        """Provides a view of the backbone and CB atom coords"""
-        return self._coords.coords[self.side_chain_indices]
-
-    @property
-    def backbone_atoms(self) -> list[Atom]:
-        """Return the Residue backbone Atom objects"""
-        return self._atoms.atoms[self.backbone_indices]
-
-    @property
-    def backbone_and_cb_atoms(self) -> list[Atom]:
-        """Return the Residue backbone and CB Atom objects"""
-        return self._atoms.atoms[self.backbone_and_cb_indices]
-
-    @property
-    def heavy_atoms(self) -> list[Atom]:
-        """Return the Residue side chain Atom objects"""
-        return self._atoms.atoms[self.heavy_indices]
-
-    @property
-    def side_chain_atoms(self) -> list[Atom]:
-        """Return the Residue side chain Atom objects"""
-        return self._atoms.atoms[self.side_chain_indices]
 
     @property
     def n(self) -> Atom | None:
@@ -2358,7 +2441,7 @@ def write_frag_match_info_file(ghost_frag: GhostFragment = None, matched_frag: F
         #     out_info_file.write("***** ALL MATCH(ES) FROM REPRESENTATIVES OF ALL FRAGMENT CLUSTERS *****\n\n")
 
 
-class Structure(StructureBase):  # Todo Polymer?
+class Structure(ContainsAtomsMixin):  # Todo Polymer?
     """Structure object handles Atom/Residue/Coords manipulation of all Structure containers.
     Must pass parent and residue_indices, atoms and coords, or residues to initialize
 
@@ -2683,115 +2766,6 @@ class Structure(StructureBase):  # Todo Polymer?
         else:
             raise ValueError(f'{self.name}: Must include start_at when re-indexing atoms from a child structure!')
 
-    @property
-    def atoms(self) -> list[Atom] | None:  # Todo ContainsAtomsMixin
-        """Return the Atom instances in the Structure"""
-        try:
-            return self._atoms.atoms[self._atom_indices].tolist()
-        except AttributeError:  # when self._atoms isn't set or is None and doesn't have .atoms
-            return
-
-    @atoms.setter
-    def atoms(self, atoms: Atoms | list[Atom]):
-        """Set the Structure atoms to an Atoms object"""
-        # Todo make this setter function in the same way as self._coords.replace?
-        if isinstance(atoms, Atoms):
-            self._atoms = atoms
-        else:
-            self._atoms = Atoms(atoms)
-
-    # # Todo enable this type of functionality
-    # @atoms.setter
-    # def atoms(self, atoms: Atoms):
-    #     self._atoms.replace(self._atom_indices, atoms)
-
-    def _populate_coords(self, from_source: structure_container_types = 'atoms', coords: np.ndarray = None):
-        """Set up the coordinates, initializing them from_source coords if none are set
-
-        Only useful if the calling Structure is a parent, and coordinate initialization has yet to occur
-        Args:
-            from_source: The source to set the coordinates from if they are missing
-            coords: The coordinates to assign to the Structure. Optional, will use from_source.coords if not specified
-        """
-        if coords:  # try to set the provided coords. This will handle issue where empty Coords class should be set
-            # Setting .coords through normal mechanism preserves subclasses requirement to handle symmetric coordinates
-            self.coords = np.concatenate(coords)
-        if self._coords.coords.shape[0] == 0:  # check if Coords (_coords) hasn't been populated
-            # if it hasn't, then coords weren't passed. try to set from self.from_source. catch missing from_source
-            try:
-                self._coords.set(np.concatenate([s.coords for s in getattr(self, from_source)]))
-            except AttributeError:
-                try:  # probably missing from_source. .coords is available in all structure_container_types...
-                    getattr(self, from_source)
-                except AttributeError:
-                    raise AttributeError(f'{from_source} is not set on the current {type(self).__name__} instance!')
-                raise AttributeError(f'Missing .coords attribute on the current {type(self).__name__} '
-                                     f'instance.{from_source} attribute. This is really not supposed to happen! '
-                                     f'Congrats you broke a core feature! 0.15 bitcoin have been added to your wallet')
-
-    def _validate_coords(self):  # Todo ContainsAtomsMixin
-        """Ensure that the StructureBase coordinates are formatted correctly"""
-        # this is the functionality we are testing most of the time
-        if self.number_of_atoms != len(self.coords):  # number_of_atoms was just set by self._atom_indices
-            raise ValueError(f'The number of Atoms ({self.number_of_atoms}) != number of Coords ({len(self.coords)}). '
-                             f'Consider initializing {type(self).__name__} without explicitly passing coords if this '
-                             f'isn\'t expected')
-
-    # Todo create add_atoms that is like list append
-    def add_atoms(self, atom_list):
-        """Add Atoms in atom_list to the Structure instance"""
-        raise NotImplementedError('This function (add_atoms) is currently broken')
-        atoms = self.atoms.tolist()
-        atoms.extend(atom_list)
-        self.atoms = atoms
-        # Todo need to update all referrers
-        # Todo need to add the atoms to coords
-
-    # Todo ContainsAtomsMixin
-    def _assign_atoms(self, atoms: Atoms | list[Atom], atoms_only: bool = True, **kwargs):  # same function in Residue
-        """Assign Atom instances to the Structure, create Atoms object, and create Residue instances/Residues
-
-        Args:
-            atoms: The Atom instances to assign to the Structure
-            atoms_only: Whether Atom instances are being assigned on their own. Residues will be created if so.
-                If not, indicate False and use other Structure information such as Residue instances to complete set up.
-                When False, atoms won't become dependents of this instance until specifically called using
-                Atoms.set_attributes(_parent=self)
-        Keyword Args:
-            coords=None (numpy.ndarray): The coordinates to assign to the Structure.
-                Optional, will use Residues.coords if not specified
-        Sets:
-            self._atom_indices (list[int])
-
-            self._atoms (Atoms)
-        """
-        # set proper atoms attributes
-        self._atom_indices = list(range(len(atoms)))
-        if not isinstance(atoms, Atoms):  # must create the Atoms object
-            atoms = Atoms(atoms)
-
-        if atoms.are_dependents():  # copy Atoms object to set new attributes on each member Atom
-            atoms = copy(atoms)
-            atoms.reset_state()  # clear runtime attributes
-        self._atoms = atoms
-        self.renumber_atoms()
-
-        if atoms_only:
-            self._populate_coords(**kwargs)  # coords may be passed
-            # self._create_residues()
-            # ensure that coordinate lengths match atoms
-            self._validate_coords()
-            # update Atom instance attributes to ensure they are dependants of this instance
-            # must do this after _populate_coords to ensure that coordinate info isn't overwritten
-            self._atoms.set_attributes(_parent=self)
-            if not self.file_path:  # assume this instance wasn't parsed and Atom indices are incorrect
-                self._atoms.reindex()
-            # self._set_coords_indexed()
-
-    # @property
-    # def number_of_atoms(self) -> int:
-    #     """Return the number of atoms/coords in the Structure"""
-    #     return len(self._atom_indices)
 
     @property
     def residue_indices(self) -> list[int] | None:
@@ -3022,27 +2996,6 @@ class Structure(StructureBase):  # Todo Polymer?
         return len(self._residue_indices)
 
     @property
-    def center_of_mass(self) -> np.ndarray:  # in Residue too Todo ContainsAtomsMixin
-        """The center of mass for the Structure coordinates"""
-        number_of_atoms = self.number_of_atoms
-        return np.matmul(np.full(number_of_atoms, 1 / number_of_atoms), self.coords)
-        # try:
-        #     return self._center_of_mass
-        # except AttributeError:
-        #     self.find_center_of_mass()
-        #     return self._center_of_mass
-
-    @property
-    def backbone_coords(self) -> np.ndarray:  # in Residue too Todo ContainsAtomsMixin
-        """Return a view of the Coords from the Structure with backbone atom coordinates"""
-        return self._coords.coords[self.backbone_indices]
-
-    @property
-    def backbone_and_cb_coords(self) -> np.ndarray:  # in Residue too Todo ContainsAtomsMixin
-        """Return a view of the Coords from the Structure with backbone and CB atom coordinates. Gets glycine CA too"""
-        return self._coords.coords[self.backbone_and_cb_indices]
-
-    @property
     def ca_coords(self) -> np.ndarray:  # NOT in Residue, ca_coord
         """Return a view of the Coords from the Structure with CA atom coordinates"""
         return self._coords.coords[self.ca_indices]
@@ -3051,16 +3004,6 @@ class Structure(StructureBase):  # Todo Polymer?
     def cb_coords(self) -> np.ndarray:  # NOT in Residue, cb_coord
         """Return a view of the Coords from the Structure with CB atom coordinates"""
         return self._coords.coords[self.cb_indices]
-
-    @property
-    def heavy_coords(self) -> np.ndarray:  # in Residue too Todo ContainsAtomsMixin
-        """Return a view of the Coords from the Structure with heavy atom coordinates"""
-        return self._coords.coords[self.heavy_indices]
-
-    @property
-    def side_chain_coords(self) -> np.ndarray:  # in Residue too Todo ContainsAtomsMixin
-        """Return a view of the Coords from the Structure with side chain atom coordinates"""
-        return self._coords.coords[self.side_chain_indices]
 
     def get_coords_subset(self, res_start: int, res_end: int, ca: bool = True) -> np.ndarray:
         """Return a view of a subset of the Coords from the Structure specified by a range of Residue numbers"""
@@ -3286,47 +3229,12 @@ class Structure(StructureBase):  # Todo Polymer?
             self._helix_cb_indices = h_cb_indices
             return self._helix_cb_indices
 
-    @property
-    def ca_atoms(self) -> list[Atom]:  # Todo ContainsAtomsMixin
-        """Return CA Atoms from the Structure"""
-        return self._atoms.atoms[self.ca_indices].tolist()
-
-    @property
-    def cb_atoms(self) -> list[Atom]:  # Todo ContainsAtomsMixin
-        """Return CB Atoms from the Structure"""
-        return self._atoms.atoms[self.cb_indices].tolist()
-
-    @property
-    def backbone_atoms(self) -> list[Atom]:  # Todo ContainsAtomsMixin
-        """Return backbone Atoms from the Structure"""
-        return self._atoms.atoms[self.backbone_indices].tolist()
-
-    @property
-    def backbone_and_cb_atoms(self) -> list[Atom]:  # Todo ContainsAtomsMixin
-        """Return backbone and CB Atoms from the Structure"""
-        return self._atoms.atoms[self.backbone_and_cb_indices].tolist()
-
-    @property
-    def heavy_atoms(self) -> list[Atom]:  # Todo ContainsAtomsMixin
-        """Return heavy Atoms from the Structure"""
-        return self._atoms.atoms[self.heavy_indices].tolist()
-
-    def atom(self, atom_number: int) -> Atom | None:
-        """Return the Atom specified by atom number if a matching Atom is found, otherwise None"""
-        for atom in self.atoms:
-            if atom.number == atom_number:
-                return atom
-
     def renumber_structure(self):
         """Change the Atom and Residue numbering. Access the readtime Residue number in .pdb_number attribute"""
         self.renumber_atoms()
         self.renumber_residues()
         self.log.debug(f'{self.name} was formatted in Pose numbering (residues now 1 to {self.number_of_residues})')
 
-    def renumber_atoms(self):  # in Residue too  Todo ContainsAtomsMixin
-        """Renumber all Atom objects sequentially starting with 1"""
-        for idx, atom in enumerate(self.atoms, 1):
-            atom.number = idx
 
     def renumber_residues(self):
         """Renumber Residue objects sequentially starting with 1"""
