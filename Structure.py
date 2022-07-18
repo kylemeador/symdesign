@@ -1982,7 +1982,9 @@ class Residue(ResidueFragment, ContainsAtomsMixin):
         Returns:
             The Residue instances in n- to c-terminal order
         """
-        assert number != 0, 'Can\'t get 0 upstream residues. 1 or more must be specified'
+        if number == 0:
+            raise ValueError('Can\'t get 0 upstream residues. 1 or more must be specified')
+
         prior_residues = [self.prev_residue]
         for idx in range(abs(number) - 1):
             try:
@@ -2000,7 +2002,9 @@ class Residue(ResidueFragment, ContainsAtomsMixin):
         Returns:
             The Residue instances in n- to c-terminal order
         """
-        assert number != 0, 'Can\'t get 0 downstream residues. 1 or more must be specified'
+        if number == 0:
+            raise ValueError('Can\'t get 0 downstream residues. 1 or more must be specified')
+
         next_residues = [self.next_residue]
         for idx in range(abs(number) - 1):
             try:
@@ -2390,9 +2394,8 @@ class Residues:
             for key, value in kwargs.items():
                 setattr(residue, key, value[idx])
 
-    def __copy__(self) -> Residues:
+    def __copy__(self):
         other = self.__class__.__new__(self.__class__)
-        # other.__dict__ = self.__dict__.copy()
         other.residues = self.residues.copy()
         for idx, residue in enumerate(other.residues):
             other.residues[idx] = copy(residue)
@@ -3778,6 +3781,8 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
 
         return new_structure
 
+    # Todo this should be a property keeping in line with Residue.local_density, however the arguments are important at
+    #  this level... Need to reconcile the API for this
     def local_density(self, residues: list[Residue] = None, residue_numbers: list[int] = None, distance: float = 12.) \
             -> list[float]:
         """Return the number of Atoms within 'distance' Angstroms of each Atom in the requested Residues
@@ -6469,7 +6474,7 @@ class Entity(SequenceProfile, Chain, ContainsChainsMixin):
             for idx, structure in enumerate(structures[1:], 1):  # only operate on [1:] slice since index 0 is different
                 structures[idx] = copy(structure)
 
-    def __copy__(self) -> Entity:
+    def __copy__(self):
         other = super().__copy__()
         # # create a copy of all chains
         # # structures = [other.chains]
