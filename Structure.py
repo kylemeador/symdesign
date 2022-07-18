@@ -512,8 +512,9 @@ class Coords:
 # null_coords = Coords()
 # parent Structure controls these attributes
 parent_variable = '_StructureBase__parent'
-new_parent_attributes = {'_coords', '_log', '_atoms', '_residues'}
-parent_attributes = new_parent_attributes.union({parent_variable})
+parent_attributes = (parent_variable,)
+new_parent_attributes = ('_coords', '_log', '_atoms', '_residues')
+parent_attributes += new_parent_attributes
 
 
 class StructureBase:
