@@ -716,6 +716,15 @@ class Atom(StructureBase):
                    chain=chain, residue_number=residue_number, code_for_insertion=code_for_insertion,
                    occupancy=occupancy, b_factor=b_factor, element=element, charge=charge)
 
+    def detach_from_parent(self):
+        """Remove the current instance from the parent that created it"""
+        setattr(self, parent_variable, None)  # set parent explicitly as None
+        # Extract the coordinates
+        coords = self.coords
+        # create a new, empty Coords instance
+        self._coords = Coords(coords)
+        self.index = 0
+
     @property
     def _atom_indices(self) -> list[int]:
         """The index of the Atom in the Atoms/Coords container"""
@@ -1536,6 +1545,16 @@ class Residue(ResidueFragment, ContainsAtomsMixin):
         # print('self.__dict__', self.__dict__)
         self._atoms = parent._atoms
         # self._residues = parent._residues  # Todo make empty Residues for Structure objects?
+
+    def detach_from_parent(self):
+        """Remove the current instance from the parent that created it"""
+        setattr(self, parent_variable, None)  # set parent explicitly as None
+        # # Extract the coordinates
+        # coords = self.coords
+        # create a new, empty Coords instance
+        self._coords = Coords(self.coords)
+        # populate the Structure with its existing instances removed of any indexing
+        self._assign_atoms(self.atoms)  # , coords=coords)
 
     @StructureBase.coords.setter
     def coords(self, coords: np.ndarray | list[list[float]]):
@@ -2597,6 +2616,16 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         super(Structure, Structure)._parent.fset(self, parent)
         self._atoms = parent._atoms
         self._residues = parent._residues
+
+    def detach_from_parent(self):
+        """Remove the current instance from the parent that created it"""
+        setattr(self, parent_variable, None)  # set parent explicitly as None
+        # # Extract the coordinates
+        # coords = self.coords
+        # create a new, empty Coords instance
+        self._coords = Coords(self.coords)
+        # populate the Structure with its existing instances removed of any indexing
+        self._assign_residues(self.residues, atoms=self.atoms)  # , coords=coords)
 
     def get_structure_containers(self) -> dict[str, Any]:
         """Return the instance structural containers as a dictionary with attribute as key and container as value"""
@@ -5297,13 +5326,6 @@ class Chain(Structure):
     def chain_id(self, chain_id: str):
         self.set_residues_attributes(chain=chain_id)
         self._chain_id = chain_id
-
-    def detach_from_parent(self):
-        """Remove the current instance from the parent that created it"""
-        # create a new and empty Coords instance
-        self._coords = Coords()
-        # populate the Structure with it's existing instances removed of any indexing
-        self._assign_residues(self.residues, atoms=self.atoms, coords=self.coords)
 
 
 class Entity(SequenceProfile, Chain, ContainsChainsMixin):
