@@ -91,7 +91,7 @@ def find_fragment_overlap(entity1_coords: np.ndarray, residues1: list[Residue] |
     overlapping_ghost_indices, overlapping_frag_indices = \
         euler_lookup.check_lookup_table(residue1_ghost_guide_coords, residue2_guide_coords)
     # logger.debug('Finished Euler Lookup')
-    logger.debug(f'Found {len(overlapping_ghost_indices)} overlapping fragments')
+    logger.debug(f'Found {len(overlapping_ghost_indices)} overlapping fragments in the same Euler rotational space')
     # filter array by matching type for surface (i) and ghost (j) frags
     ghost_type_array = np.array([ghost_frags1[idx].frag_type for idx in overlapping_ghost_indices.tolist()])
     mono_type_array = np.array([residues2[idx].frag_type for idx in overlapping_frag_indices.tolist()])
@@ -4490,8 +4490,8 @@ class Pose(SequenceProfile, SymmetricModel):
             return
         else:
             self.log.debug(f'At Entity {entity1.name} | Entity {entity2.name} interface:\t'
-                           f'{entity1.name} has {len(frag_residues1)} interface fragments\t'
-                           f'{entity2.name} has {len(frag_residues2)} interface fragments')
+                           f'{entity1.name} has {len(frag_residues1)} interface fragments at residues {",".join(map(str, [res.number for res in frag_residues1]))}\t'
+                           f'{entity2.name} has {len(frag_residues2)} interface fragments at residues {",".join(map(str, [res.number for res in frag_residues2]))}')
 
         if self.symmetry:
             # even if entity1 == entity2, only need to expand the entity2 fragments due to surface/ghost frag mechanics
