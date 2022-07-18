@@ -3075,8 +3075,6 @@ class Structure(StructureBase):  # Todo Polymer?
     def _update_structure_container_attributes(self, **kwargs):
         """Update attributes specified by keyword args for all Structure container members"""
         for structure_type in self.structure_containers:
-            # structure = getattr(self, structure_type)
-            # self.set_structure_attributes(structure, **kwargs)
             for structure in getattr(self, structure_type):
                 for kwarg, value in kwargs.items():
                     setattr(structure, kwarg, value)
@@ -4818,13 +4816,11 @@ class Structure(StructureBase):  # Todo Polymer?
 
     def __copy__(self):
         other = self.__class__.__new__(self.__class__)
-        # other.__dict__ = self.__dict__.copy()
         # copy each of the key value pairs in the new object dictionary
-        # for attr, value in other.__dict__.items():
         for attr, obj in self.__dict__.items():
             if attr not in parent_attributes:
                 other.__dict__[attr] = copy(obj)
-        # other._residues.set_attributes(_coords=other._coords)
+
         if self.is_parent():  # this Structure is the parent, it's copy should be too
             # set the copying Structure attribute ".spawn" to indicate to dependents the "other" of this copy
             self.spawn = other
@@ -5438,11 +5434,11 @@ class Entity(SequenceProfile, Chain, ContainsChainsMixin):
             #  Move chain symmetry ops below to here?
             representative = chains[0]
             residue_indices = representative.residue_indices
-        else:  # Initialized with Structure constructor method, handle using .is_parent() below
+        else:  # Initialized with Structure constructor methods, handle using .is_parent() below
             residue_indices = None
 
         super().__init__(residue_indices=residue_indices, **kwargs)
-        if self.is_parent():
+        if self.is_parent():  # Todo this logic is not correct. Could be .from_chains() without passing parent!
             self._chains = []
             self._create_chains(as_mate=True)
             chains = self.chains
@@ -6565,7 +6561,7 @@ class Entity(SequenceProfile, Chain, ContainsChainsMixin):
         """Copy all member Structures that reside in Structure containers. Entity specific handling of chains index 0"""
         for structure_type in self.structure_containers:
             structures = getattr(self, structure_type)
-            for idx, structure in enumerate(structures[1:]):  # only operate on [1:] slice since index 0 is different
+            for idx, structure in enumerate(structures[1:], 1):  # only operate on [1:] slice since index 0 is different
                 structures[idx] = copy(structure)
 
     def __copy__(self) -> Entity:
