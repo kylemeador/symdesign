@@ -6569,31 +6569,32 @@ class Entity(SequenceProfile, Chain, ContainsChainsMixin):
             for idx, structure in enumerate(structures[1:]):  # only operate on [1:] slice since index 0 is different
                 structures[idx] = copy(structure)
 
-    # def __copy__(self) -> Entity:
-    #     other: Entity = super().__copy__()
-    #     # # create a copy of all chains
-    #     # # structures = [other.chains]
-    #     # # other._copy_structure_containers(structures)
-    #     # other._copy_structure_containers()  # NEVERMIND uses self.structure_containers... does this use Entity version?
-    #     # # attributes were updated in the super().__copy__, now need to set attributes in copied chains
-    #     # # This style v accomplishes the update that the super().__copy__() started using self.structure_containers...
-    #     # other._update_structure_container_attributes(residues=other._residues, coords=other._coords)
-    #     if not other._is_captain:  # this is a mate, set an independent Coords
-    #         # Todo is this needed?
-    #         #  Mirrors what happens when dependent is copied in Structure
-    #         #  The other._coords is new and return_transformed_mate will set coords values...
-    #         other._atoms.set_attributes(_parent=other)
-    #         other._residues.set_attributes(_parent=other)
-    #         other._copy_structure_containers()
-    #         other._update_structure_container_attributes(_parent=other)
-    #         # self.log.info('Copy Entity. Clearing chains, chain_transforms')
-    #         # other._chains.clear()
-    #         other.remove_chain_transforms()
-    #         # other.__chain_transforms = other.chain_transforms  # requires update before copy
-    #         # del other._chain_transforms
-    #         # other.prior_ca_coords = other.ca_coords  # update these as next generation will rely on them for chain_transforms
-    #
-    #     return other
+    def __copy__(self) -> Entity:
+        other = super().__copy__()
+        # # create a copy of all chains
+        # # structures = [other.chains]
+        # # other._copy_structure_containers(structures)
+        # other._copy_structure_containers()  # NEVERMIND uses self.structure_containers... does this use Entity version?
+        # # attributes were updated in the super().__copy__, now need to set attributes in copied chains
+        # # This style v accomplishes the update that the super().__copy__() started using self.structure_containers...
+        # other._update_structure_container_attributes(residues=other._residues, coords=other._coords)
+        other._chains[0] = other
+        # if not other._is_captain:  # this is a mate, set an independent Coords
+        #     # Todo is this needed?
+        #     #  Mirrors what happens when dependent is copied in Structure
+        #     #  The other._coords is new and return_transformed_mate will set coords values...
+        #     other._atoms.set_attributes(_parent=other)
+        #     other._residues.set_attributes(_parent=other)
+        #     other._copy_structure_containers()
+        #     other._update_structure_container_attributes(_parent=other)
+        #     # self.log.info('Copy Entity. Clearing chains, chain_transforms')
+        #     # other._chains.clear()
+        #     other.remove_chain_transforms()
+        #     # other.__chain_transforms = other.chain_transforms  # requires update before copy
+        #     # del other._chain_transforms
+        #     # other.prior_ca_coords = other.ca_coords  # update these as next generation will rely on them for chain_transforms
+
+        return other
 
     # def __key(self):
     #     return (self.uniprot_id, *super().__key())  # without uniprot_id, could equal a chain...
