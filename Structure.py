@@ -719,10 +719,10 @@ class Atom(StructureBase):
     def detach_from_parent(self):
         """Remove the current instance from the parent that created it"""
         setattr(self, parent_variable, None)  # set parent explicitly as None
-        # Extract the coordinates
-        coords = self.coords
+        # # Extract the coordinates
+        # coords = self.coords
         # create a new, empty Coords instance
-        self._coords = Coords(coords)
+        self._coords = Coords(self.coords)
         self.index = 0
 
     @property
@@ -1583,10 +1583,10 @@ class Residue(ResidueFragment, ContainsAtomsMixin):
     def detach_from_parent(self):
         """Remove the current instance from the parent that created it"""
         setattr(self, parent_variable, None)  # set parent explicitly as None
-        # Extract the coordinates
-        coords = self.coords
+        # # Extract the coordinates
+        # coords = self.coords
         # create a new, empty Coords instance
-        self._coords = Coords(coords)
+        self._coords = Coords(self.coords)
         # populate the Structure with its existing instances removed of any indexing
         self._assign_atoms(self.atoms)  # , coords=coords)
 
@@ -2683,10 +2683,10 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
     def detach_from_parent(self):
         """Remove the current instance from the parent that created it"""
         setattr(self, parent_variable, None)  # set parent explicitly as None
-        # Extract the coordinates
-        coords = self.coords
+        # # Extract the coordinates
+        # coords = self.coords
         # create a new, empty Coords instance
-        self._coords = Coords(coords)
+        self._coords = Coords(self.coords)
         # populate the Structure with its existing instances removed of any indexing
         self._assign_residues(self.residues, atoms=self.atoms)  # , coords=coords)
 
@@ -4818,6 +4818,8 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         for attr, obj in self.__dict__.items():
             if attr not in parent_attributes:
                 other.__dict__[attr] = copy(obj)
+            else:  # perform the shallow copy on these attributes
+                other.__dict__[attr] = obj
 
         if self.is_parent():  # this Structure is the parent, it's copy should be too
             # set the copying Structure attribute ".spawn" to indicate to dependents the "other" of this copy
