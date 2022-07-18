@@ -2376,8 +2376,8 @@ class Residue(ResidueFragment, ContainsAtomsMixin):
             try:
                 other._parent = self.parent.spawn
             except AttributeError:  # this copy was initiated by a Structure that is not the parent
-                self.log.debug(f'The copied {type(self).__name__} is being set as a parent. It was a dependent '
-                               f'previously')
+                # self.log.debug(f'The copied {type(self).__name__} is being set as a parent. It was a dependent '
+                #                f'previously')
                 # setattr(other, parent_variable, None)  # set parent explicitly as None
                 # # try:
                 # #     for attr in new_parent_attributes:
