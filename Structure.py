@@ -760,6 +760,11 @@ class Atom(StructureBase):
             return self.__coords
 
     @property
+    def center_of_mass(self) -> np.ndarray:
+        """The center of mass (the Atom coordinates) which is just for compatibility with StructureBase API"""
+        return self.coords
+
+    @property
     def x(self) -> float:
         """Access the value for the x coordinate"""
         return self.coords[0]
