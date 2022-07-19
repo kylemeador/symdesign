@@ -867,8 +867,11 @@ class PoseDirectory:
             # distances.append(np.array([ent_idx, ent_com, min_rad, max_rad]))
             # distances[entity] = np.array([ent_idx, ent_com, min_rad, max_rad, entity.number_of_residues])
             # total_residue_counts.append(entity.number_of_residues)
-            thermophile_pdb = is_pdb_thermophile(entity.name)
-            thermophile_ukb = is_ukb_thermophilic(entity.uniprot_id)
+            if entity.thermophilic is not None:
+                thermophile = 1 if entity.thermophilic else 0
+            else:
+                thermophile = 1 if is_pdb_thermophile(entity.name) or is_ukb_thermophilic(entity.uniprot_id) else 0
+
             metrics.update({
                 f'entity_{idx}_symmetry': entity.symmetry if entity.is_oligomeric() else 'asymmetric',
                 f'entity_{idx}_name': entity.name,
@@ -879,7 +882,7 @@ class PoseDirectory:
                 f'entity_{idx}_c_terminal_helix': entity.is_termini_helical(termini='c'),
                 f'entity_{idx}_n_terminal_orientation': entity.termini_proximity_from_reference(),
                 f'entity_{idx}_c_terminal_orientation': entity.termini_proximity_from_reference(termini='c'),
-                f'entity_{idx}_thermophile': 1 if thermophile_pdb or thermophile_ukb else 0})
+                f'entity_{idx}_thermophile': thermophile})
 
         metrics['entity_minimum_radius'] = minimum_radius
         metrics['entity_maximum_radius'] = maximum_radius
