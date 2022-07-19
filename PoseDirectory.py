@@ -2011,7 +2011,7 @@ class PoseDirectory:
             self.pose = Pose.from_entities(entities, entity_names=[entity.name for entity in entities], **pose_kwargs)
         elif self.initial_model:  # this is a fresh Model, and we already loaded so reuse
             # careful, if processing has occurred then this may be wrong!
-            self.pose = Pose.from_model(self.initial_model, **pose_kwargs)
+            self.pose = Pose.from_model(self.initial_model, entity_names=self.entity_names, **pose_kwargs)
         else:
             self.pose = Pose.from_file(source if source else self.source, entity_names=self.entity_names, **pose_kwargs)
             #                                     pass names if available ^
@@ -2022,11 +2022,7 @@ class PoseDirectory:
                 # write out new oligomers to the PoseDirectory
                 if self.write_oligomers:
                     entity.write_oligomer(out_path=path.join(self.path, f'{entity.name}_oligomer.pdb'))
-        # else:
-        #     self.pose = Pose.from_model(pdb, name=str(self),
-        #                                 design_selector=self.design_selector, log=self.log,
-        #                                 api_db=self.api_db, fragment_db=self.fragment_db,
-        #                                 ignore_clashes=self.ignore_pose_clashes)
+
         # then modify numbering to ensure standard and accurate use during protocols
         self.pose.renumber_structure()
         if not self.entity_names:  # store the entity names if they were never generated
