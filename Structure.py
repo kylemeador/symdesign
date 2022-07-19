@@ -3615,22 +3615,20 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         if not delete_indices:  # there are no indices
             return []
 
+        # Remove indices from the Residue, and Structure atom_indices
         residue_delete_index = residue.atom_indices.index(delete_indices[0])
         for _ in iter(delete_indices):
             residue.atom_indices.pop(residue_delete_index)
-        # must re-index all succeeding residues
-        # This applies to all Residue objects, not only Structure Residue objects because modifying Residues object
-        self._residues.reindex_atoms(start_at=residue.start_index)
-        self._atoms.delete(delete_indices)
-        self._coords.delete(delete_indices)
 
-        # remove these indices from the Structure atom_indices (If other structures, must update their atom_indices!)
+        # If this Structure isn't parent, then parent Structure must update the atom_indices
         atom_delete_index = self._atom_indices.index(delete_indices[0])
-        for _ in iter(delete_indices):
-            self._atom_indices.pop(atom_delete_index)
-        # must re-index all succeeding atoms
-        # This doesn't apply to parent Atoms only Structure Atoms! Need to modify parent level
         self._offset_indices(start_at=atom_delete_index, offset=-len(delete_indices))
+
+        # Re-index all succeeding Atom and Residue instance indices
+        self._coords.delete(delete_indices)
+        self._atoms.delete(delete_indices)
+        self._atoms.reindex(start_at=atom_delete_index)
+        self._residues.reindex_atoms(start_at=residue.start_index)
 
         return delete_indices
 
