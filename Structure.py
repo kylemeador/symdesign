@@ -3595,7 +3595,6 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
             The indices of the Atoms being removed from the Structure
         """
         # Todo using AA reference, align the backbone + CB atoms of the residue then insert side chain atoms?
-        # if to.upper() in protein_letters_1to3:
         to = protein_letters_1to3.get(to.upper(), to).upper()
 
         if number is not None:
@@ -3603,8 +3602,6 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
 
         if residue is None:
             raise DesignError(f'Cannot {self.mutate_residue.__name__} without passing Residue instance or number')
-        # for idx, atom in zip(residue.backbone_indices, residue.backbone_atoms):
-        # for atom in residue.backbone_atoms:
 
         residue.type = to
         for atom in residue.atoms:
