@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import sys
 import time
+from collections.abc import Iterable
 from logging import Logger
 from math import floor
 from typing import AnyStr
@@ -395,8 +396,10 @@ def slice_variable_for_log(var, length=5):
 # TODO decrease amount of work by saving each index array and reusing...
 #  such as stacking each j_index, guide_coords, rmsd, etc and pulling out by index
 def is_frag_type_same(frags1, frags2, dtype='ii'):
-    frag1_indices = np.array([getattr(frag, '%s_type' % dtype[0]) for frag in frags1])
-    frag2_indices = np.array([getattr(frag, '%s_type' % dtype[1]) for frag in frags2])
+    frag1_type = f'{dtype[0]}_type'
+    frag2_type = f'{dtype[1]}_type'
+    frag1_indices = np.array([getattr(frag, frag1_type) for frag in frags1])
+    frag2_indices = np.array([getattr(frag, frag2_type) for frag in frags2])
     # np.where(frag1_indices_repeat == frag2_indices_tile)
     frag1_indices_repeated = np.repeat(frag1_indices, len(frag2_indices))
     frag2_indices_tiled = np.tile(frag2_indices, len(frag1_indices))
@@ -498,13 +501,13 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
 
     # Set up Building Block2
     model2_bb_cb_coords = model2.backbone_and_cb_coords
-    oligomer2_backbone_cb_tree = BallTree(model2_bb_cb_coords)
 
     # Get Surface Fragments With Guide Coordinates Using COMPLETE Fragment Database
     get_complete_surf_frags2_time_start = time.time()
-    # complete_surf_frags2 = model2.get_fragment_residues(residues=model2.surface_residues, representatives=ijk_frag_db.reps)
     complete_surf_frags2 = \
-        model2.get_fragments(residue_numbers=model2.get_surface_residues(), representatives=ijk_frag_db.reps)
+        model2.get_fragment_residues(residues=model2.surface_residues, representatives=ijk_frag_db.reps)
+    # complete_surf_frags2 = \
+    #     model2.get_fragments(residue_numbers=model2.get_surface_residues(), representatives=ijk_frag_db.reps)
 
     # calculate the initial match type by finding the predominant surface type
     # surf_frags2_i_indices = np.array([surf_frag.i_type for surf_frag in complete_surf_frags2])
@@ -532,11 +535,9 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
     # log.debug('init_surf_frag2_residues: %s' % slice_variable_for_log(init_surf_frag2_residues))
 
     # Set up Building Block1
-    oligomer1_backbone_cb_tree = BallTree(model1.backbone_and_cb_coords)
-
     get_complete_surf_frags1_time_start = time.time()
-    # surf_frags1 = model1.get_fragment_residues(residues=model1.surface_residues, representatives=ijk_frag_db.reps)
-    surf_frags1 = model1.get_fragments(residue_numbers=model1.get_surface_residues(), representatives=ijk_frag_db.reps)
+    surf_frags1 = model1.get_fragment_residues(residues=model1.surface_residues, representatives=ijk_frag_db.reps)
+    # surf_frags1 = model1.get_fragments(residue_numbers=model1.get_surface_residues(), representatives=ijk_frag_db.reps)
 
     # calculate the initial match type by finding the predominant surface type
     surf_frags1_i_indices = [surf_frag.i_type for surf_frag in surf_frags1]
@@ -733,15 +734,8 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
     #  >>> j[k].shape
     #  (2, 23)
 
-        # Using the tabulated results, prioritize those fragments which have same component, ghost fragment overlap
-        complete_ghost_frags1 = []
-        for ghosts in ghost_frags_by_residue1:
-            complete_ghost_frags1.extend(ghosts)
-        initial_ghost_frags = \
-            [complete_ghost_frags1[idx] for idx in same_component_overlapping_ghost_frags.flatten().tolist()]
-    #################################
-
-    # Again for component 2
+    # Get component 2 ghost fragments and associated data from complete fragment database
+    oligomer2_backbone_cb_tree = BallTree(model2_bb_cb_coords)
     get_complete_ghost_frags2_time_start = time.time()
     complete_ghost_frags2 = []
     for frag in complete_surf_frags2:
