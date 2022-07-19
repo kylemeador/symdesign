@@ -4405,7 +4405,7 @@ class Pose(SequenceProfile, SymmetricModel):
             return
         entity1_indices: list[int] = []
         for residue in residues1:
-            entity1_indices.extend(residue.heavy_atom_indices)
+            entity1_indices.extend(residue.heavy_indices)
 
         if not residues2:  # check if the interface is a symmetric self dimer and all residues are in residues1
             # residues2 = residues1
@@ -4413,7 +4413,7 @@ class Pose(SequenceProfile, SymmetricModel):
         else:
             entity2_indices: list[int] = []
             for residue in residues2:
-                entity2_indices.extend(residue.heavy_atom_indices)
+                entity2_indices.extend(residue.heavy_indices)
 
         if self.symmetry:  # get all symmetric indices for entity2
             query_coords = self.symmetric_coords[self.get_symmetric_indices(entity2_indices)]
