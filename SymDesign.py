@@ -1059,11 +1059,11 @@ if __name__ == '__main__':
             if not args.preprocessed:
                 preprocess_instructions, pre_refine, pre_loop_model = \
                     job.structure_db.preprocess_structures_for_design(all_structures, load_resources=load_resources,
-                                                                     script_out_path=job.sbatch_scripts,
-                                                                     batch_commands=not args.run_in_shell)
+                                                                      script_out_path=job.sbatch_scripts,
+                                                                      batch_commands=not args.run_in_shell)
                 info_messages += preprocess_instructions
 
-            if load_resources or pre_refine or pre_loop_model:  # entity processing commands are needed
+            if load_resources or not pre_refine or not pre_loop_model:  # entity processing commands are needed
                 if info_messages:
                     logger.critical(sbatch_warning)
                     for message in info_messages:
@@ -1174,9 +1174,9 @@ if __name__ == '__main__':
         info_messages = []
         preprocess_instructions, pre_refine, pre_loop_model = \
             job.structure_db.preprocess_structures_for_design(all_structures, load_resources=load_resources,
-                                                             script_out_path=job.sbatch_scripts,
-                                                             batch_commands=not args.run_in_shell)
-        if load_resources or pre_refine or pre_loop_model:  # entity processing commands are needed
+                                                              script_out_path=job.sbatch_scripts,
+                                                              batch_commands=not args.run_in_shell)
+        if load_resources or not pre_refine or not pre_loop_model:  # entity processing commands are needed
             logger.critical(sbatch_warning)
             for message in info_messages + preprocess_instructions:
                 logger.info(message)
