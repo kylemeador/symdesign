@@ -1022,7 +1022,12 @@ class Model(Structure, ContainsChainsMixin):
         return self.chain_ids == self.original_chain_ids
 
     @property
-    def reference_sequence(self) -> str:
+    def reference_sequence(self) -> str:  # Todo this needs to be reconciled with Pose and Entity and Chain
+        """Return the entire Model sequence, constituting all Residues, not just structurally modelled ones
+
+        Returns:
+            The sequence according to each of the Entity references
+        """
         return ''.join(self._reference_sequence.values())
 
     def _process_model(self, pose_format: bool = False, chains: bool | list[Chain] | Structures = True,

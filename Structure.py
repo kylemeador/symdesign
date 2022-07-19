@@ -6081,6 +6081,7 @@ class Entity(SequenceProfile, Chain, ContainsChainsMixin):
         perl symdesign/dependencies/rosetta/sdf/scout_symmdef_file.pl -p 1ho1_tx_4.pdb -i B C D E F G H
         >B:3-fold axis: -0.00800197 -0.01160998 0.99990058
         >C:3-fold axis: 0.00000136 -0.00000509 1.00000000
+
         Args:
             struct_file: The location of the input .pdb file
         Sets:
@@ -6123,6 +6124,8 @@ class Entity(SequenceProfile, Chain, ContainsChainsMixin):
     def scout_symmetry(self, **kwargs) -> AnyStr:
         """Check the PDB for the required symmetry parameters to generate a proper symmetry definition file
 
+        Keyword Args:
+            struct_file: AnyStr = None - The location of the input Structure file
         Sets:
             self.rotation_d (dict[str, dict[str, int | np.ndarray]])
             self.max_symmetry (str)
@@ -6137,6 +6140,8 @@ class Entity(SequenceProfile, Chain, ContainsChainsMixin):
     def is_dihedral(self, **kwargs) -> bool:
         """Report whether a structure is dihedral or not
 
+        Keyword Args:
+            struct_file: AnyStr = None - The location of the input Structure file
         Sets:
             self.rotation_d (dict[str, dict[str, int | np.ndarray]])
             self.max_symmetry (str)
@@ -6183,9 +6188,8 @@ class Entity(SequenceProfile, Chain, ContainsChainsMixin):
             Symmetry definition filename
         """
         out_file = os.path.join(out_path, f'{self.name}.sdf')
-        # Todo Master branch reinstate
-        # if os.path.exists(out_file):
-        #     return out_file
+        if os.path.exists(out_file):
+            return out_file
 
         # if self.symmetry == 'C1':
         #     return
@@ -6203,6 +6207,7 @@ class Entity(SequenceProfile, Chain, ContainsChainsMixin):
 
         if not struct_file:
             struct_file = self.scout_symmetry(struct_file=struct_file)
+
         dihedral = self.is_dihedral(struct_file=struct_file)  # include so we don't write another struct_file
         if dihedral:  # dihedral_chain will be set
             chains = [self.max_symmetry, self.dihedral_chain]

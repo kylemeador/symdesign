@@ -1112,10 +1112,10 @@ def calculate_overlap(coords1: np.ndarray = None, coords2: np.ndarray = None, co
     Args:
         coords1: The first set of coordinates
         coords2: The second set of coordinates
-        coords_rmsd_reference: The reference RMSD to compared each pair of coordinates against
+        coords_rmsd_reference: The reference RMSD to compare each pair of coordinates against
         max_z_value: The z-score deviation threshold of the overlap to be considered a match
     Returns:
-        The overlap z-value where the RMSD between coords1 and coords2 is < max_z_value
+        The overlap z-value where the RMSD between coords1 and coords2 is < max_z_value, otherwise False
     """
     # Calculate Guide Atom Overlap Z-Value
     z_values = rmsd(coords1, coords2) / coords_rmsd_reference
