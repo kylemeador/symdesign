@@ -3581,7 +3581,8 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
     #                 break
     #     # self.renumber_atoms()  # should be unnecessary
 
-    def mutate_residue(self, residue: Residue = None, number: int = None, to: str = 'ALA', **kwargs) -> list[int]:
+    def mutate_residue(self, residue: Residue = None, number: int = None, to: str = 'ALA', **kwargs) -> \
+            list[int] | list:
         """Mutate a specific Residue to a new residue type. Type can be 1 or 3 letter format
 
         Args:
@@ -3589,53 +3590,42 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
             number: A Residue number to select the Residue of interest with
             to: The type of amino acid to mutate to
         Keyword Args:
-            pdb=False (bool): Whether to pull the Residue by PDB number
+            pdb: bool = False - Whether to pull the Residue by PDB number
         Returns:
             The indices of the Atoms being removed from the Structure
         """
-        raise NotImplementedError('This function has errors and shouldn\'t be used')
         # Todo using AA reference, align the backbone + CB atoms of the residue then insert side chain atoms?
         # if to.upper() in protein_letters_1to3:
         to = protein_letters_1to3.get(to.upper(), to).upper()
 
-        if not residue:
-            if not number:
-                raise DesignError('Cannot mutate Residue without Residue object or number!')
-            else:
-                residue = self.residue(number, **kwargs)
+        if number is not None:
+            residue = self.residue(number, **kwargs)
+
+        if residue is None:
+            raise DesignError(f'Cannot {self.mutate_residue.__name__} without passing Residue instance or number')
         # for idx, atom in zip(residue.backbone_indices, residue.backbone_atoms):
         # for atom in residue.backbone_atoms:
+
         residue.type = to
         for atom in residue.atoms:
             atom.residue_type = to
 
-        # Find the corresponding Residue Atom indices to delete (side-chain only)
+        # Find the corresponding Residue Atom indices to delete. Currently, using side-chain and letting Rosetta handle
         delete_indices = residue.side_chain_indices
         if not delete_indices:  # there are no indices
-            return delete_indices
-        # self.log.debug('Deleting indices from Residue: %s' % delete_indices)
-        # self.log.debug('Indices in Residue: %s' % delete_indices)
+            return []
+
         residue_delete_index = residue.atom_indices.index(delete_indices[0])
         for _ in iter(delete_indices):
             residue.atom_indices.pop(residue_delete_index)
         # must re-index all succeeding residues
         # This applies to all Residue objects, not only Structure Residue objects because modifying Residues object
-        self._residues.reindex_atoms(start_at=residue.index)
-        # self.log.debug('Deleting indices from Atoms: %s' % delete_indices)
-        # self.log.debug('Range of indices in Atoms: %s' % self._atoms.atoms.shape[0])
-        # self.log.debug('Last Residue atom_indices: %s' % self._residues.residues[-1].atom_indices)
+        self._residues.reindex_atoms(start_at=residue.start_index)
         self._atoms.delete(delete_indices)
         self._coords.delete(delete_indices)
+
         # remove these indices from the Structure atom_indices (If other structures, must update their atom_indices!)
-        # try:
         atom_delete_index = self._atom_indices.index(delete_indices[0])
-        # except ValueError:
-        #     print('Delete has %s:' % delete_indices)
-        #     print('length of atom_indices %s:' % len(self._atom_indices))
-        #     print('residue is %d%s, chain %s, pdb number %d:' % (residue.number, residue.type, residue.chain,
-        #                                                          residue.number_pdb))
-        #     print('structure._atom_indices has %s:' % self._atom_indices)
-        #     exit()
         for _ in iter(delete_indices):
             self._atom_indices.pop(atom_delete_index)
         # must re-index all succeeding atoms
