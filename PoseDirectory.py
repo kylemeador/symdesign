@@ -1076,7 +1076,7 @@ class PoseDirectory:
             #     self.info.pop('sym_entry')  # remove this object
             #     self.info['sym_entry_specification'] = self.sym_entry_number, self.sym_entry_map
             if 'oligomer_names' in self.info:
-                self.info['entity_names'] = self.info['oligomer_names']
+                self.info['entity_names'] = [f'{name}_1' for name in self.info['oligomer_names']]
             # if 'design_residue_ids' in self.info:  # format is old, convert
             #     try:
             #         self.info['interface_design_residues'] = self.info.pop('design_residues')
@@ -2009,7 +2009,7 @@ class PoseDirectory:
         pose_kwargs = dict(name=f'{self}-asu' if self.sym_entry else str(self), sym_entry=self.sym_entry, log=self.log,
                            design_selector=self.design_selector, ignore_clashes=self.ignore_pose_clashes,
                            api_db=self.api_db, fragment_db=self.fragment_db)
-        print('self.entity_names', self.entity_names)
+
         if entities:
             self.pose = Pose.from_entities(entities, entity_names=[entity.name for entity in entities], **pose_kwargs)
         elif self.initial_model:  # this is a fresh Model, and we already loaded so reuse

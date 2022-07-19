@@ -1506,7 +1506,6 @@ class Model(Structure, ContainsChainsMixin):
             query_by_sequence: Whether the PDB API should be queried for an Entity name by matching sequence. Only used
                 if entity_names not provided
         """
-        print('entity_names', entity_names)
         if not self.entity_info:  # we didn't get from the file (probaly not PDB), so we have to try and piece together
             # The file is either from a program that has modified an original PDB file, or may be some sort of PDB
             # assembly. If it is a PDB assembly, the only way to know is that the file would have a final numeric suffix
