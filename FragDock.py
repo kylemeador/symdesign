@@ -567,19 +567,27 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
         log.info('Getting Oligomer 2 Surface Fragments and Guides Using COMPLETE Fragment Database (took %f s)'
                  % get_complete_surf_frags2_time)
 
-    # Get Ghost Fragments With Guide Coordinates Using COMPLETE Fragment Database
-    get_complete_ghost_frags1_time_start = time.time()
     #################################
+    # Get component 1 ghost fragments and associated data from complete fragment database
+    oligomer1_backbone_cb_tree = BallTree(model1.backbone_and_cb_coords)
+    get_complete_ghost_frags1_time_start = time.time()
+    ghost_frags_by_residue1 = \
+        [frag.get_ghost_fragments(ijk_frag_db.indexed_ghosts, clash_tree=oligomer1_backbone_cb_tree)
+         for frag in surf_frags1]
+    complete_ghost_frags1 = []
+    for ghosts in ghost_frags_by_residue1:
+        complete_ghost_frags1.extend(ghosts)
+    # complete_ghost_frags1 = np.array(complete_ghost_frags1)
+    ghost_frag1_guide_coords = np.array([ghost_frag.guide_coords for ghost_frag in complete_ghost_frags1])
+    ghost_frag1_rmsds = np.array([ghost_frag.rmsd for ghost_frag in complete_ghost_frags1])
+    ghost_frag1_residues = np.array([ghost_frag.number for ghost_frag in complete_ghost_frags1])
+    ghost_frag1_j_indices = np.array([ghost_frag.j_type for ghost_frag in complete_ghost_frags1])
+
     if same_component_filter:  # Todo test this
         # surface ghost frag overlap for the same oligomer
-        surf_residues1 = \
-            model1.get_fragment_residues(residues=model1.surface_residues, representatives=ijk_frag_db.reps)
-        ghost_frags_by_residue1 = \
-            [frag.get_ghost_fragments(ijk_frag_db.indexed_ghosts, clash_tree=oligomer1_backbone_cb_tree)
-             for frag in surf_residues1]
         ghost_lengths = max([len(residue_ghosts) for residue_ghosts in ghost_frags_by_residue1])
         # set up the output array with the number of residues by the length of the max number of ghost fragments
-        same_component_overlapping_ghost_frags = np.zeros((len(surf_residues1), ghost_lengths))
+        same_component_overlapping_ghost_frags = np.zeros((len(surf_frags1), ghost_lengths))
         # Todo size all of these correctly given different padding
         # set up the input array types with the various information needed for each pairwise check
         ghost_frag_type_by_residue = [[ghost.frag_type for ghost in residue_ghosts]
@@ -588,9 +596,9 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
                                                 for residue_ghosts in ghost_frags_by_residue1])
         ghost_guide_coords_by_residue1 = np.array([[ghost.guide_coords for ghost in residue_ghosts]
                                                    for residue_ghosts in ghost_frags_by_residue1])
-        # surface_frag_residue_numbers = [residue.number for residue in surf_residues1]
-        surface_frag_residue_indices = list(range(len(surf_residues1)))
-        surface_frag_cb_coords = [residue.cb_coords for residue in surf_residues1]
+        # surface_frag_residue_numbers = [residue.number for residue in surf_frags1]
+        surface_frag_residue_indices = list(range(len(surf_frags1)))
+        surface_frag_cb_coords = [residue.cb_coords for residue in surf_frags1]
         model1_surface_cb_ball_tree = BallTree(surface_frag_cb_coords)
         residue_contact_query: list[list[int]] = model1_surface_cb_ball_tree.query(surface_frag_cb_coords, cb_distance)
         contacting_pairs: list[tuple[int, int]] = \
@@ -640,26 +648,21 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
             same_component_overlapping_ghost_frags[residue_idx2, residue_idx2_ghost_indices[same_component_overlapping_indices]] += 1
 
         # Using the tabulated results, prioritize those fragments which have same component, ghost fragment overlap
-        complete_ghost_frags1 = []
-        for ghosts in ghost_frags_by_residue1:
-            complete_ghost_frags1.extend(ghosts)
         initial_ghost_frags = \
             [complete_ghost_frags1[idx] for idx in same_component_overlapping_ghost_frags.flatten().tolist()]
-    #################################
-    complete_ghost_frags1 = []
-    for frag in surf_frags1:
-        complete_ghost_frags1.extend(frag.get_ghost_fragments(ijk_frag_db.indexed_ghosts,
-                                                              clash_tree=oligomer1_backbone_cb_tree))
-    # complete_ghost_frags1 = np.array(complete_ghost_frags1)
-    ghost_frag1_guide_coords = np.array([ghost_frag.guide_coords for ghost_frag in complete_ghost_frags1])
-    ghost_frag1_rmsds = np.array([ghost_frag.rmsd for ghost_frag in complete_ghost_frags1])
-    ghost_frag1_residues = np.array([ghost_frag.number for ghost_frag in complete_ghost_frags1])
-    ghost_frag1_j_indices = np.array([ghost_frag.j_type for ghost_frag in complete_ghost_frags1])
-    init_ghost_frag_indices1 = \
-        [idx for idx, ghost_frag in enumerate(complete_ghost_frags1) if ghost_frag.j_type == initial_surf_type2]
-    init_ghost_frag1_guide_coords = ghost_frag1_guide_coords[init_ghost_frag_indices1]
-    init_ghost_frag1_rmsds = ghost_frag1_rmsds[init_ghost_frag_indices1]
-    init_ghost_frag1_residues = ghost_frag1_residues[init_ghost_frag_indices1]
+        ghost_frag1_rmsds = np.array([ghost_frag.rmsd for ghost_frag in initial_ghost_frags])
+        ghost_frag1_residues = np.array([ghost_frag.number for ghost_frag in initial_ghost_frags])
+        ghost_frag1_j_indices = np.array([ghost_frag.j_type for ghost_frag in initial_ghost_frags])
+    else:
+        complete_ghost_frags1 = []
+        for frag in surf_frags1:
+            complete_ghost_frags1.extend(frag.get_ghost_fragments(ijk_frag_db.indexed_ghosts,
+                                                                  clash_tree=oligomer1_backbone_cb_tree))
+        init_ghost_frag_indices1 = \
+            [idx for idx, ghost_frag in enumerate(complete_ghost_frags1) if ghost_frag.j_type == initial_surf_type2]
+        init_ghost_frag1_guide_coords = ghost_frag1_guide_coords[init_ghost_frag_indices1]
+        init_ghost_frag1_rmsds = ghost_frag1_rmsds[init_ghost_frag_indices1]
+        init_ghost_frag1_residues = ghost_frag1_residues[init_ghost_frag_indices1]
 
     get_complete_ghost_frags1_time_stop = time.time()
     #################################
