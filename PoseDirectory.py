@@ -1925,7 +1925,8 @@ class PoseDirectory:
                         if isinstance(model, Model):
                             self.log.info(f'Found Model at {source} DataStore and loaded into job')
                         else:
-                            self.log.error(f'Couldn\'t locate the Model {name} at the source "{source_datastore.location}"')
+                            self.log.error(f'Couldn\'t locate the Model {name} at the source '
+                                           f'"{source_datastore.location}"')
 
                 self.entities.extend([entity for entity in model.entities])
             if source_idx == 0:
@@ -2068,7 +2069,6 @@ class PoseDirectory:
             #     raise ValueError('One or both of the chain IDs %s were not found in the input model. Possible chain'
             #                      ' ID\'s are %s' % ((fusion_nterm, fusion_cterm), ','.join(new_asu.chain_ids)))
         self.pose.write(out_path=self.asu_path)
-        self.info['pre_refine'] = self.pre_refine
         self.log.info(f'Cleaned PDB: "{self.asu_path}"')
 
     @handle_design_errors(errors=(DesignError,))
@@ -2450,6 +2450,7 @@ class PoseDirectory:
             self.info['fragment_source'] = self.fragment_source
 
         if not self.pre_refine and not path.exists(self.refined_pdb):
+            # Todo this doesn't work since it catches Error and we need interface_design to catch errors
             self.refine(to_design_directory=True)
 
         self.rosetta_interface_design()

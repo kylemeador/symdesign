@@ -373,7 +373,7 @@ class StructureDatabase(Database):
             load_resources: Whether resources have been specified to be loaded already
             batch_commands: Whether commands should be made for batch submission
         Returns:
-            Any instructions, then booleans for whether designs are pre_refined and whether they are pre_loop_modeled
+            Any instructions, then booleans for whether to refine or whether to loop_model designs
         """
         # Todo
         #  Need to move make_loop_file to Pose/Structure (with SequenceProfile superclass)
@@ -395,21 +395,26 @@ class StructureDatabase(Database):
 
         # query user and set up commands to perform refinement on missing entities
         info_messages = []
-        pre_refine = False
+        # Assume pre_refine is True until we find it isn't
+        pre_refine = True
         if structures_to_refine:  # if files found unrefined, we should proceed
             logger.info('The following structures are not yet refined and are being set up for refinement'
                         ' into the Rosetta ScoreFunction for optimized sequence design: '
                         f'{", ".join(sorted(set(structure.name for structure in structures_to_refine)))}')
             print('Would you like to refine them now? If you plan on performing sequence design with models '
                   'containing them, it is highly recommended you perform refinement')
-            if not boolean_choice():
+            if boolean_choice():
+                run_pre_refine = True
+            else:
                 print('To confirm, asymmetric units are going to be generated with unrefined coordinates. Confirm '
                       'with "y" to ensure this is what you want')
-                if not boolean_choice():
-                    pre_refine = True
-            else:
-                pre_refine = True
-            if pre_refine:
+                if boolean_choice():
+                    run_pre_refine = False
+                else:
+                    run_pre_refine = True
+
+            if run_pre_refine:
+                pre_refine = False
                 # Generate sbatch refine command
                 flags_file = os.path.join(refine_dir, 'refine_flags')
                 # if not os.path.exists(flags_file):
@@ -443,23 +448,31 @@ class StructureDatabase(Database):
                 else:
                     raise NotImplementedError('Refinement run_in_shell functionality hasn\'t been implemented yet')
                 load_resources = True
+            else:
+                pre_refine = True
 
         # query user and set up commands to perform loop modelling on missing entities
-        pre_loop_model = False
+        # Assume pre_loop_model is True until we find it isn't
+        pre_loop_model = True
         if structures_to_loop_model:
+            pre_loop_model = False
             logger.info('The following structures have not been modelled for disorder. Missing loops will '
                         'be built for optimized sequence design: %s'
                         % ', '.join(sorted(set(structure.name for structure in structures_to_loop_model))))
             print('Would you like to model loops for these structures now? If you plan on performing sequence '
                   'design with them, it is highly recommended you perform loop modelling to avoid designed clashes')
-            if not boolean_choice():
+            if boolean_choice():
+                run_loop_model = True
+            else:
                 print('To confirm, asymmetric units are going to be generated without disordered loops. Confirm '
                       'with "y" to ensure this is what you want')
-                if not boolean_choice():
-                    pre_loop_model = True
-            else:
-                pre_loop_model = True
-            if pre_loop_model:
+                if boolean_choice():
+                    run_loop_model = False
+                else:
+                    run_loop_model = True
+
+            if run_loop_model:
+                pre_loop_model = False
                 # Generate sbatch refine command
                 flags_file = os.path.join(full_model_dir, 'loop_model_flags')
                 # if not os.path.exists(flags_file):
@@ -521,6 +534,8 @@ class StructureDatabase(Database):
                     info_messages.append(loop_model_sbatch_message)
                 else:
                     raise NotImplementedError('Loop modeling run_in_shell functionality hasn\'t been implemented yet')
+            else:
+                pre_loop_model = True
 
         return info_messages, pre_refine, pre_loop_model
 
