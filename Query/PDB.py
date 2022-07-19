@@ -934,8 +934,11 @@ def parse_entities_json(entity_jsons: Iterable[dict[str, Any]]) -> dict[str, dic
         except KeyError:  # if no uniprot_ids
             # GenBank = GB, which is mostly RNA or DNA structures or antibody complexes
             # Norine = NOR, which is small peptide structures, sometimes bound to proteins...
-            identifiers = [dict(db=ident['database_name'], accession=ident['database_accession'])
-                           for ident in entity_ids_json['reference_sequence_identifiers']]
+            try:
+                identifiers = [dict(db=ident['database_name'], accession=ident['database_accession'])
+                               for ident in entity_ids_json.get('reference_sequence_identifiers', [])]
+            except KeyError:  # there are really no identifiers of use
+                return {}
             if identifiers:
                 if len(identifiers) == 1:  # only one solution
                     db_d = dict(zip(database_keys, identifiers[0]))
