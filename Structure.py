@@ -4518,25 +4518,19 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         # monofrag_array = repeat([ca_stretch_frag_index1, ca_stretch_frag_index2, ...]
         # monofrag_indices = filter_euler_lookup_by_zvalue(ca_stretches, monofrag_array, z_value_func=fragment_overlap,
         #                                                  max_z_value=rmsd_threshold)
-        fragment_lower_range, fragment_upper_range = parameterize_frag_length(fragment_length)
+        fragment_range = range(*parameterize_frag_length(fragment_length))
         fragments = []
         for residue_number in residue_numbers:
-            # frag_residue_numbers = [residue_number + i for i in range(fragment_lower_range, fragment_upper_range)]
-            ca_count = 0
-            frag_residues = self.get_residues(numbers=[residue_number + i for i in range(fragment_lower_range,
-                                                                                         fragment_upper_range)])
-            for residue in frag_residues:
-                if residue.ca:
-                    ca_count += 1
+            frag_residues = self.get_residues(numbers=[residue_number + i for i in fragment_range])
 
-            if ca_count == fragment_length:
+            if len(frag_residues) == fragment_length:
                 fragment = MonoFragment(residues=frag_residues, fragment_length=fragment_length, **kwargs)
                 if fragment.i_type:
                     fragments.append(fragment)
 
         return fragments
 
-    # alternative method using Residue fragments
+    # Preferred method using Residue fragments
     def get_fragment_residues(self, residues: list[Residue] = None, residue_numbers: list[int] = None,
                               fragment_length: int = 5, representatives: dict[int, np.ndarray] = None,
                               rmsd_thresh: float = Fragment.rmsd_thresh, **kwargs) -> list | list[Residue]:
@@ -4553,50 +4547,34 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         Returns:
             The Residue instances that match Fragment representatives from the Structure
         """
-        # if not residues:
-        #     raise ValueError(f'Can\'t assign fragments without passing residues')
         if not representatives:
             raise ValueError(f'Can\'t assign fragments without passing representatives')
 
+        if residue_numbers is not None:
+            residues = self.get_residues(numbers=residue_numbers)
+
+        # get iterable of residues
+        residues = self.residues if residues is None else residues
+
+        # Get neighboring ca coords on each side by retrieving flanking residues. If not fragment_length, we catch below
         frag_lower_range, frag_upper_range = parameterize_frag_length(fragment_length)
+        residues_ = [residue.get_upstream(frag_lower_range) + [residue]
+                     + residue.get_downstream(frag_upper_range - 1) for residue in residues]
+        residue_ca_coords = np.array([[residue.ca_coords for residue in residue_set] for residue_set in residues_])
 
-        # ensure we have neighboring ca coords on each side by retrieving flanking residues
-        if residues:
-            _residues = []
-            self.log.critical('Test that this output is as planned since new methods get_upstream/get_downstream are '
-                              'used!!')
-            for residue in residues:
-                _residues.extend(residue.get_upstream(frag_lower_range))
-                _residues.append(residue)
-                _residues.extend(residue.get_downstream(frag_upper_range - 1))
-
-            residues = _residues
-            residue_ca_coords = np.array([residue.ca_coords for residue in residues])
-        elif residue_numbers:
-            fragment_residue_numbers = []
-            for number in residue_numbers:
-                fragment_residue_numbers.extend([number + i for i in range(frag_lower_range, frag_upper_range)])
-
-            residues = self.get_residues(numbers=sorted(set(fragment_residue_numbers)))
-            residue_ca_coords = np.array([residue.ca_coords for residue in residues])
-        else:
-            residues = self.residues
-            residue_ca_coords = self.ca_coords
-
-        # missing_indices, found_fragments = [], []
+        # Solve for fragment type (secondary structure classification could be used too)
         found_fragments = []
         for idx, residue in enumerate(residues):
             min_rmsd = float('inf')
-            # solve for fragment type (secondary structure classification could be used too)
+            residue_ca_coord_set = residue_ca_coords[idx]
             try:  # This try: except is wrapped around inner loop because all checks will fail after the first fails
                 for fragment_type, cluster_coords in representatives.items():
-                    rmsd, rot, tx, _ = \
-                        superposition3d(residue_ca_coords[idx+frag_lower_range: idx+frag_upper_range], cluster_coords)
+                    rmsd, rot, tx, _ = superposition3d(residue_ca_coord_set, cluster_coords)
+                    # OLD superposition3d(residue_ca_coords[idx+frag_lower_range: idx+frag_upper_range], cluster_coords)
                     if rmsd <= rmsd_thresh and rmsd <= min_rmsd:
                         residue.frag_type = fragment_type
                         min_rmsd, residue.rotation, residue.translation = rmsd, rot, tx
             except ValueError:  # superposition3d couldn't measure Residue. It doesn't have fragment_length neighbors
-                # missing_indices.append(idx)  # add the index so we remove it later
                 continue
 
             if residue.frag_type:
