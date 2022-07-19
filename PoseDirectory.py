@@ -38,6 +38,7 @@ from DesignMetrics import read_scores, interface_composition_similarity, unneces
     process_residue_info
 from JobResources import JobResources, job_resources_factory
 from Pose import Pose, MultiModel, Models, Model
+from Query.PDB import is_entity_thermophilic
 from Query.UniProt import is_uniprot_thermophilic
 from SequenceProfile import parse_pssm, generate_mutations_from_reference, \
     simplify_mutation_dict, weave_sequence_dict, position_specific_jsd, sequence_difference, \
@@ -846,9 +847,11 @@ class PoseDirectory:
             metrics['design_dimension'] = 'asymmetric'
 
         try:
-            is_thermophilic = self.api_db.uniprot.is_thermophilic
+            is_ukb_thermophilic = self.api_db.uniprot.is_thermophilic
+            is_pdb_thermophile = self.api_db.pdb.is_thermophilic
         except AttributeError:
-            is_thermophilic = is_uniprot_thermophilic
+            is_ukb_thermophilic = is_uniprot_thermophilic
+            is_pdb_thermophile = is_entity_thermophilic
 
         # total_residue_counts = []
         minimum_radius, maximum_radius = float('inf'), 0
@@ -864,6 +867,8 @@ class PoseDirectory:
             # distances.append(np.array([ent_idx, ent_com, min_rad, max_rad]))
             # distances[entity] = np.array([ent_idx, ent_com, min_rad, max_rad, entity.number_of_residues])
             # total_residue_counts.append(entity.number_of_residues)
+            thermophile_pdb = is_pdb_thermophile(entity.name)
+            thermophile_ukb = is_ukb_thermophilic(entity.uniprot_id)
             metrics.update({
                 f'entity_{idx}_symmetry': entity.symmetry if entity.is_oligomeric() else 'asymmetric',
                 f'entity_{idx}_name': entity.name,
@@ -874,7 +879,7 @@ class PoseDirectory:
                 f'entity_{idx}_c_terminal_helix': entity.is_termini_helical(termini='c'),
                 f'entity_{idx}_n_terminal_orientation': entity.termini_proximity_from_reference(),
                 f'entity_{idx}_c_terminal_orientation': entity.termini_proximity_from_reference(termini='c'),
-                f'entity_{idx}_thermophile': is_thermophilic(entity.uniprot_id)})
+                f'entity_{idx}_thermophile': 1 if thermophile_pdb or thermophile_ukb else 0})
 
         metrics['entity_minimum_radius'] = minimum_radius
         metrics['entity_maximum_radius'] = maximum_radius
