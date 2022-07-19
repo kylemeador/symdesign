@@ -135,7 +135,9 @@ class PoseDirectory:
         self.fragment_observations = None  # [{'1_2_24': [(78, 87, ...), ...], ...}]
         self.info: dict = {}  # internal state info
         self._info: dict = {}  # internal state info at load time
-        self.info['entity_names'] = kwargs.get('entity_names', [])
+        entity_names = kwargs.get('entity_names', [])
+        if entity_names:
+            self.info['entity_names'] = entity_names
         self.initial_model = None  # used if the pose structure has never been initialized previously
         self.interface_design_residues: set[int] | bool = False  # the residue numbers in the pose interface
         self.interface_residue_ids: dict[str, str] = {}
@@ -1073,8 +1075,8 @@ class PoseDirectory:
             #     self.sym_entry = self.info['sym_entry']  # get instance
             #     self.info.pop('sym_entry')  # remove this object
             #     self.info['sym_entry_specification'] = self.sym_entry_number, self.sym_entry_map
-            # if 'oligomer_names' not in self.info:
-            #     self.oligomer_names = self.info.get('entity_names', [])
+            if 'oligomer_names' in self.info:
+                self.info['entity_names'] = self.info['oligomer_names']
             # if 'design_residue_ids' in self.info:  # format is old, convert
             #     try:
             #         self.info['interface_design_residues'] = self.info.pop('design_residues')
