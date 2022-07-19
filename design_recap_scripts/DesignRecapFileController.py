@@ -70,7 +70,7 @@ def make_asu_oligomer(asu, chain_map, location=os.getcwd()):
         oligomer_chain = chain_map[pdb]['dock_chains'][0]
         # moved_oligomer[pdb] = biopdb_aligned_chain(asu.chain(asu_chain), oriented_oligomer, oligomer_chain)
         # transpose rotation matrix as superposition3d returns correct matrix to rotate using np.matmul
-        rmsd, rot, tx, _ = \
+        rmsd, rot, tx = \
             superposition3d(asu.chain(asu_chain).cb_coords, oriented_oligomer.chain(oligomer_chain).cb_coords)
         moved_oligomer[pdb] = oriented_oligomer.return_transformed_copy(rotation=rot, translation=tx)
         # moved_oligomer[pdb] = biopdb_aligned_chain(asu, asu_chain, oriented_oligomer, oligomer_chain)

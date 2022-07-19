@@ -1404,7 +1404,7 @@ class MonoFragment(Fragment):
         frag_ca_coords = np.array([residue.ca_coords for residue in residues])
         min_rmsd = float('inf')
         for cluster_type, cluster_coords in representatives.items():
-            rmsd, rot, tx, _ = superposition3d(frag_ca_coords, cluster_coords)
+            rmsd, rot, tx = superposition3d(frag_ca_coords, cluster_coords)
             if rmsd <= MonoFragment.rmsd_thresh and rmsd <= min_rmsd:
                 self.i_type = cluster_type
                 min_rmsd, self.rotation, self.translation = rmsd, rot, tx
@@ -1594,7 +1594,7 @@ class Residue(ResidueFragment, ContainsAtomsMixin):
     def coords(self, coords: np.ndarray | list[list[float]]):
         """Set the Residue coords according to a new coordinate system. Transforms .guide_coords to the new reference"""
         if self.i_type:  # a Fragment has been assigned. Transform the guide_coords according to the new coords
-            _, rot, tx, _ = superposition3d(self.coords, coords)
+            _, rot, tx = superposition3d(self.coords, coords)
             self.guide_coords = np.matmul(self.guide_coords, np.transpose(rot))
         super(Residue, Residue).coords.fset(self, coords)  # prefer this over below, as this mechanism could change
         # self._coords.replace(self._atom_indices, coords)
@@ -4554,7 +4554,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
             residue_ca_coord_set = residue_ca_coords[idx]
             try:  # This try: except is wrapped around inner loop because all checks will fail after the first fails
                 for fragment_type, cluster_coords in representatives.items():
-                    rmsd, rot, tx, _ = superposition3d(residue_ca_coord_set, cluster_coords)
+                    rmsd, rot, tx = superposition3d(residue_ca_coord_set, cluster_coords)
                     # OLD superposition3d(residue_ca_coords[idx+frag_lower_range: idx+frag_upper_range], cluster_coords)
                     if rmsd <= rmsd_thresh and rmsd <= min_rmsd:
                         residue.frag_type = fragment_type
@@ -5426,11 +5426,11 @@ class Entity(SequenceProfile, Chain, ContainsChainsMixin):
                 if chain.number_of_residues == number_of_residues and chain_seq == self_seq:
                     # do an apples to apples comparison
                     # length alone is inaccurate if chain is missing first residue and self is missing it's last...
-                    _, rot, tx, _ = superposition3d(chain.cb_coords, self.cb_coords)
+                    _, rot, tx = superposition3d(chain.cb_coords, self.cb_coords)
                 else:  # do an alignment, get selective indices, then follow with superposition
                     self.log.warning(f'Chain {chain.name} and Entity {self.name} require alignment to symmetrize')
                     fixed_indices, moving_indices = get_equivalent_indices(self_seq, chain_seq)
-                    _, rot, tx, _ = superposition3d(chain.cb_coords[fixed_indices], self.cb_coords[moving_indices])
+                    _, rot, tx = superposition3d(chain.cb_coords[fixed_indices], self.cb_coords[moving_indices])
                 self.chain_transforms.append(dict(rotation=rot, translation=tx))
                 # self.chains.append(chain)  # Todo with flag for asymmetric symmetrization
             self.number_of_symmetry_mates = len(chains)
@@ -5467,7 +5467,7 @@ class Entity(SequenceProfile, Chain, ContainsChainsMixin):
             # self._coords.replace(self._atom_indices, coords)
             # find the transformation from the old coordinates to the new
             current_ca_coords = self.ca_coords
-            _, new_rot, new_tx, _ = superposition3d(current_ca_coords, prior_ca_coords)
+            _, new_rot, new_tx = superposition3d(current_ca_coords, prior_ca_coords)
 
             self._chain_transforms.clear()  # remove all transforms
             for chain, transform in zip(current_chains[1:], current_chain_transforms):
@@ -5475,7 +5475,7 @@ class Entity(SequenceProfile, Chain, ContainsChainsMixin):
                 new_chain_coords = np.matmul(np.matmul(prior_ca_coords, np.transpose(transform['rotation']))
                                              + transform['translation'], np.transpose(new_rot)) + new_tx
                 # find the transform from current coords and the new mate chain coords
-                _, rot, tx, _ = superposition3d(new_chain_coords, current_ca_coords)
+                _, rot, tx = superposition3d(new_chain_coords, current_ca_coords)
                 # save transform
                 self._chain_transforms.append(dict(rotation=rot, translation=tx))
                 # transform existing mate chain
@@ -5483,7 +5483,7 @@ class Entity(SequenceProfile, Chain, ContainsChainsMixin):
 
             # # find the transform between the new coords and the current mate chain coords
             # for chain in chains[1:]:  # chains were populated before new coords are set
-            #     _, rot, tx, _ = superposition3d(self.cb_coords, chain.cb_coords)
+            #     _, rot, tx = superposition3d(self.cb_coords, chain.cb_coords)
             #     # set the new transforms
             #     self.chain_transforms.append(dict(rotation=rot, translation=tx))
             #     chain.coords = np.matmul(coords, np.transpose(rot)) + tx
@@ -5587,11 +5587,11 @@ class Entity(SequenceProfile, Chain, ContainsChainsMixin):
                 self.__chain_transforms
                 if self._is_oligomeric:  # True if multiple chains
                     current_ca_coords = self.ca_coords
-                    _, new_rot, new_tx, _ = superposition3d(current_ca_coords, self.prior_ca_coords)
+                    _, new_rot, new_tx = superposition3d(current_ca_coords, self.prior_ca_coords)
                     for transform in self.__chain_transforms:
                         chain_coords = np.matmul(np.matmul(self.prior_ca_coords, np.transpose(transform['rotation']))
                                                  + transform['translation'], np.transpose(new_rot)) + new_tx
-                        _, rot, tx, _ = superposition3d(chain_coords, current_ca_coords)
+                        _, rot, tx = superposition3d(chain_coords, current_ca_coords)
                         self._chain_transforms.append(dict(rotation=rot, translation=tx))
                 # self._chain_transforms.insert(0, dict(rotation=identity_matrix, translation=origin))
             except AttributeError:  # no prior_ca_coords or __chain_transforms
@@ -5833,7 +5833,7 @@ class Entity(SequenceProfile, Chain, ContainsChainsMixin):
                 rot_centered_coords = transform_coordinate_sets(centered_coords_inv, rotation=rotation_matrix)
                 new_coords = transform_coordinate_sets(rot_centered_coords, rotation=rotation, translation=translation,
                                                        rotation2=rotation2, translation2=translation2)
-                _, rot, tx, _ = superposition3d(new_coords, cb_coords)
+                _, rot, tx = superposition3d(new_coords, cb_coords)
                 self.chain_transforms.append(dict(rotation=rot, translation=tx))
 
         # Set the new properties
@@ -6058,13 +6058,13 @@ class Entity(SequenceProfile, Chain, ContainsChainsMixin):
         if orient_fixed_struct.number_of_residues == moving_struct.number_of_residues and orient_fixed_seq == moving_seq:
             # do an apples to apples comparison
             # length alone is inaccurate if chain is missing first residue and self is missing it's last...
-            _, rot, tx, _ = superposition3d(orient_fixed_struct.cb_coords, moving_struct.cb_coords)
+            _, rot, tx = superposition3d(orient_fixed_struct.cb_coords, moving_struct.cb_coords)
         else:  # do an alignment, get selective indices, then follow with superposition
             self.log.warning(f'{moving_struct.chain_id} and {orient_fixed_struct.chain_id} require alignment to '
                              f'{self.orient.__name__}')
             fixed_indices, moving_indices = get_equivalent_indices(orient_fixed_seq, moving_seq)
-            _, rot, tx, _ = superposition3d(orient_fixed_struct.cb_coords[fixed_indices],
-                                            moving_struct.cb_coords[moving_indices])
+            _, rot, tx = superposition3d(orient_fixed_struct.cb_coords[fixed_indices],
+                                         moving_struct.cb_coords[moving_indices])
 
         self.transform(rotation=rot, translation=tx)
         clean_orient_input_output()
@@ -6559,8 +6559,7 @@ class Entity(SequenceProfile, Chain, ContainsChainsMixin):
 
 
 def superposition3d(fixed_coords: np.ndarray, moving_coords: np.ndarray, a_weights: np.ndarray = None,
-                    allow_rescale: bool = False, report_quaternion: bool = False) -> \
-        tuple[float, np.ndarray, np.ndarray, float]:
+                    quaternion: bool = False) -> tuple[float, np.ndarray, np.ndarray]:
     """Takes two xyz coordinate sets (same length), and attempts to superimpose them using rotations, translations,
     and (optionally) rescale operations to minimize the root mean squared distance (RMSD) between them. The found
     transformation operations should be applied to the "moving_coords" to place them in the setting of the fixed_coords
@@ -6593,18 +6592,17 @@ def superposition3d(fixed_coords: np.ndarray, moving_coords: np.ndarray, a_weigh
         fixed_coords: The coordinates for the 'frozen' object
         moving_coords: The coordinates for the 'mobile' object
         a_weights: Weights for the calculation of RMSD
-        allow_rescale: Attempt to rescale the mobile point cloud in addition to translation/rotation?
-        report_quaternion: Whether to report the rotation angle and axis in typical quaternion fashion
+        quaternion: Whether to report the rotation angle and axis in Scipy.Rotation quaternion format
     Raises:
         AssertionError: If coordinates are not the same length
     Returns:
-        rmsd, rotation/quaternion_matrix, translation_vector, scale_factor
+        rmsd, rotation/quaternion_matrix, translation_vector
     """
-    if fixed_coords.shape[0] != moving_coords.shape[0]:
+    number_of_points = fixed_coords.shape[0]
+    if number_of_points != moving_coords.shape[0]:
         raise ValueError(f'{superposition3d.__name__}: Inputs should have the same size. '
                          f'Input 1={fixed_coords.shape[0]}, 2={moving_coords.shape[0]}')
 
-    number_of_points = fixed_coords.shape[0]
     # convert weights into array
     if not a_weights or len(a_weights) == 0:
         a_weights = np.full((number_of_points, 1), 1.)
@@ -6631,9 +6629,6 @@ def superposition3d(fixed_coords: np.ndarray, moving_coords: np.ndarray, a_weigh
     # Calculate the "m" array from the Diamond paper (equation 16)
     m = np.matmul(aa_xm.T, (aa_xf * a_weights))
 
-    # Calculate "q" (equation 17)
-    q = m + m.T - 2 * np.eye(3) * np.trace(m)
-
     # Calculate "v" (equation 18)  # KM this appears to be the cross product...
     v = np.empty(3)
     v[0] = m[1][2] - m[2][1]
@@ -6641,73 +6636,76 @@ def superposition3d(fixed_coords: np.ndarray, moving_coords: np.ndarray, a_weigh
     v[2] = m[0][1] - m[1][0]
 
     # Calculate "P" (equation 22)
-    P = np.zeros((4, 4))
-    P[:3, :3] = q
-    P[3, :3] = v
-    P[:3, 3] = v
+    matrix_p = np.zeros((4, 4))
+    # Calculate "q" (equation 17)
+    # q = m + m.T - 2*identity_matrix*np.trace(m)
+    matrix_p[:3, :3] = m + m.T - 2*identity_matrix*np.trace(m)
+    matrix_p[3, :3] = v
+    matrix_p[:3, 3] = v
     # [[ q[0][0] q[0][1] q[0][2] v[0] ]
     #  [ q[1][0] q[1][1] q[1][2] v[1] ]
     #  [ q[2][0] q[2][1] q[2][2] v[2] ]
     #  [ v[0]    v[1]    v[2]    0    ]]
 
-    # Calculate "p".
+    # Calculate "p" - optimal_quat
     # "p" contains the optimal rotation (in backwards-quaternion format)
     # (Note: A discussion of various quaternion conventions is included below)
-    # First, specify the default value for p:
-    p = np.zeros(4)
-    p[3] = 1.  # p = [0,0,0,1]    default value
-    pPp = 0.  # = p^T * P * p    (zero by default)
-    singular = (number_of_points < 2)   # (it doesn't make sense to rotate a single point)
-
-    try:
-        # http://docs.scipy.org/doc/numpy/reference/generated/numpy.linalg.eigh.html
-        a_eigenvals, aa_eigenvects = np.linalg.eigh(P)
-    except np.linalg.LinAlgError:
-        singular = True  # (I have never seen this happen.)
-
-    if not singular:  # (don't crash if the caller supplies nonsensical input)
-        i_eval_max = np.argmax(a_eigenvals)
+    if number_of_points < 2:
+        # Specify the default values for p, pPp
+        optimal_quat = np.array([0., 0., 0., 1.])  # p = [0,0,0,1]    default value
+        pPp = 0.  # = p^T * P * p    (zero by default)
+    else:
+        # try:
+        a_eigenvals, aa_eigenvects = np.linalg.eigh(matrix_p)
+        # except np.linalg.LinAlgError:
+        #     singular = True  # I have never seen this happen
         pPp = np.max(a_eigenvals)
-        p[:] = aa_eigenvects[:, i_eval_max]  # pull out the largest magnitude eigenvector
+        optimal_quat = aa_eigenvects[:, np.argmax(a_eigenvals)]  # pull out the largest magnitude eigenvector
+        # normalize the vector
+        # (It should be normalized already, but just in case it is not, do it again)
+        optimal_quat /= np.linalg.norm(optimal_quat)
 
-    # normalize the vector
-    # (It should be normalized already, but just in case it is not, do it again)
-    p /= np.linalg.norm(p)
-
-    # Finally, calculate the rotation matrix corresponding to "p"
-    # (p is in backwards-quaternion format)
-    """
-    aa_rotate = np.empty((3, 3))
-    aa_rotate[0][0] = (p[0]*p[0])-(p[1]*p[1])-(p[2]*p[2])+(p[3]*p[3])
-    aa_rotate[1][1] = -(p[0]*p[0])+(p[1]*p[1])-(p[2]*p[2])+(p[3]*p[3])
-    aa_rotate[2][2] = -(p[0]*p[0])-(p[1]*p[1])+(p[2]*p[2])+(p[3]*p[3])
-    aa_rotate[0][1] = 2*(p[0]*p[1] - p[2]*p[3])
-    aa_rotate[1][0] = 2*(p[0]*p[1] + p[2]*p[3])
-    aa_rotate[1][2] = 2*(p[1]*p[2] - p[0]*p[3])
-    aa_rotate[2][1] = 2*(p[1]*p[2] + p[0]*p[3])
-    aa_rotate[0][2] = 2*(p[0]*p[2] + p[1]*p[3])
-    aa_rotate[2][0] = 2*(p[0]*p[2] - p[1]*p[3])
-    # Alternatively, in modern python versions, this code also works:
-    """
-    the_rotation = Rotation.from_quat(p)
-    aa_rotate = the_rotation.as_matrix()
-
-    # Optional: Decide the scale factor, c
-    c = 1.   # by default, don't rescale the coordinates
-    if allow_rescale and not singular:
-        weightaxaixai_moving = np.sum(a_weights * aa_xm ** 2)
-        weightaxaixai_fixed = np.sum(a_weights * aa_xf ** 2)
-
-        c = (weightaxaixai_fixed + pPp) / weightaxaixai_moving
+    if quaternion:  # does the caller want the quaternion?
+        # The p array is a quaternion that uses this convention:
+        # https://docs.scipy.org/doc/scipy/reference/generated/scipy.spatial.transform.Rotation.from_quat.html
+        # However it seems that the following convention is much more popular:
+        # https://en.wikipedia.org/wiki/Quaternions_and_spatial_rotation
+        # https://mathworld.wolfram.com/Quaternion.html
+        # So I return "q" (a version of "p" using the more popular convention).
+        # q = np.empty(4)
+        # q[0], q[1], q[2], q[3] = p[3], p[0], p[1], p[2]
+        # aa_rotate = np.array([p[3], p[0], p[1], p[2]])
+        # KM I am using the scipy version for python continuity
+        aa_rotate = optimal_quat
+    else:
+        # Calculate the rotation matrix corresponding to "optimal_quat" which is in scipi quaternion format
+        """
+        aa_rotate = np.empty((3, 3))
+        aa_rotate[0][0] = (optimal_quat[0]*optimal_quat[0])-(optimal_quat[1]*optimal_quat[1])
+                         -(optimal_quat[2]*optimal_quat[2])+(optimal_quat[3]*optimal_quat[3])
+        aa_rotate[1][1] = -(optimal_quat[0]*optimal_quat[0])+(optimal_quat[1]*optimal_quat[1])
+                          -(optimal_quat[2]*optimal_quat[2])+(optimal_quat[3]*optimal_quat[3])
+        aa_rotate[2][2] = -(optimal_quat[0]*optimal_quat[0])-(optimal_quat[1]*optimal_quat[1])
+                          +(optimal_quat[2]*optimal_quat[2])+(optimal_quat[3]*optimal_quat[3])
+        aa_rotate[0][1] = 2*(optimal_quat[0]*optimal_quat[1] - optimal_quat[2]*optimal_quat[3])
+        aa_rotate[1][0] = 2*(optimal_quat[0]*optimal_quat[1] + optimal_quat[2]*optimal_quat[3])
+        aa_rotate[1][2] = 2*(optimal_quat[1]*optimal_quat[2] - optimal_quat[0]*optimal_quat[3])
+        aa_rotate[2][1] = 2*(optimal_quat[1]*optimal_quat[2] + optimal_quat[0]*optimal_quat[3])
+        aa_rotate[0][2] = 2*(optimal_quat[0]*optimal_quat[2] + optimal_quat[1]*optimal_quat[3])
+        aa_rotate[2][0] = 2*(optimal_quat[0]*optimal_quat[2] - optimal_quat[1]*optimal_quat[3])
+        """
+        # Alternatively, in modern python versions, this code also works:
+        the_rotation = Rotation.from_quat(optimal_quat)
+        aa_rotate = the_rotation.as_matrix()
 
     # Finally compute the RMSD between the two coordinate sets:
     # First compute E0 from equation 24 of the paper
-    e0 = np.sum((aa_xf - c * aa_xm) ** 2)
-    sum_sqr_dist = max(0, e0 - c * 2. * pPp)
+    # e0 = np.sum((aa_xf - aa_xm) ** 2)
+    # sum_sqr_dist = max(0, ((aa_xf-aa_xm) ** 2).sum() - 2.*pPp)
 
     # if sum_weights != 0.:
     try:
-        rmsd = np.sqrt(sum_sqr_dist / sum_weights)
+        rmsd = np.sqrt(max(0, ((aa_xf-aa_xm) ** 2).sum() - 2.*pPp) / sum_weights)
     except ZeroDivisionError:
         rmsd = 0.  # the weights are a total of zero which is allowed algorithmically, but not possible
 
@@ -6725,20 +6723,7 @@ def superposition3d(fixed_coords: np.ndarray, moving_coords: np.ndarray, a_weigh
 
     # a_translate = a_center_f - np.matmul(c * aa_rotate, a_center_m).T.reshape(3,)
 
-    if report_quaternion:  # does the caller want the quaternion?
-        # The p array is a quaternion that uses this convention:
-        # https://docs.scipy.org/doc/scipy/reference/generated/scipy.spatial.transform.Rotation.from_quat.html
-        # However it seems that the following convention is much more popular:
-        # https://en.wikipedia.org/wiki/Quaternions_and_spatial_rotation
-        # https://mathworld.wolfram.com/Quaternion.html
-        # So I return "q" (a version of "p" using the more popular convention).
-        # q = np.empty(4)
-        # q[0], q[1], q[2], q[3] = p[3], p[0], p[1], p[2]
-        aa_rotate = np.array([p[3], p[0], p[1], p[2]])
-        # return rmsd, q, a_translate, c
-    # else:
-
-    return rmsd, aa_rotate, a_center_f - np.matmul(c * aa_rotate, a_center_m).T.reshape(3,), c
+    return rmsd, aa_rotate, a_center_f - np.matmul(aa_rotate, a_center_m).T.reshape(3,)
 
 
 def parse_stride(stride_file, **kwargs):

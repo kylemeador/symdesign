@@ -1279,13 +1279,13 @@ class Model(Structure, ContainsChainsMixin):
         if orient_fixed_struct.number_of_residues == moving_struct.number_of_residues and orient_fixed_seq == moving_seq:
             # do an apples to apples comparison
             # length alone is inaccurate if chain is missing first residue and self is missing it's last...
-            _, rot, tx, _ = superposition3d(orient_fixed_struct.cb_coords, moving_struct.cb_coords)
+            _, rot, tx = superposition3d(orient_fixed_struct.cb_coords, moving_struct.cb_coords)
         else:  # do an alignment, get selective indices, then follow with superposition
             self.log.warning(f'{moving_struct.name} and {orient_fixed_struct.name} require alignment to '
                              f'{self.orient.__name__}')
             fixed_indices, moving_indices = get_equivalent_indices(orient_fixed_seq, moving_seq)
-            _, rot, tx, _ = superposition3d(orient_fixed_struct.cb_coords[fixed_indices],
-                                            moving_struct.cb_coords[moving_indices])
+            _, rot, tx = superposition3d(orient_fixed_struct.cb_coords[fixed_indices],
+                                         moving_struct.cb_coords[moving_indices])
 
         self.transform(rotation=rot, translation=tx)
         clean_orient_input_output()

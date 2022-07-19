@@ -397,7 +397,7 @@ class HelixFusion:
 
                         # Create PDBOverlap instance
                         # pdb_overlap = PDBOverlap(pdb_fixed_coords, pdb_moble_coords)
-                        rmsd, rot, tx, _ = superposition3d(pdb_fixed_coords, pdb_moble_coords)
+                        rmsd, rot, tx = superposition3d(pdb_fixed_coords, pdb_moble_coords)
 
                         # if pdb_overlap.overlap() != 'lengths mismatch':
                         #     # Calculate Optimal (rot, tx, rmsd, coords_moved)
@@ -579,7 +579,7 @@ def align(pdb1_path, start_1, end_1, chain_1, pdb2_path, start_2, end_2, chain_2
         coords1 = pdb1.chain(chain_1).get_coords_subset(start_1, end_1)
         coords2 = pdb2.chain(chain_2).get_coords_subset(start_2, end_2)
 
-        rmsd, rot, tx, _ = superposition3d(coords1, coords2)
+        rmsd, rot, tx = superposition3d(coords1, coords2)
         pdb2.transform(rot, tx)
 
         return pdb2
