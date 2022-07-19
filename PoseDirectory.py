@@ -2405,7 +2405,6 @@ class PoseDirectory:
                         entity.map_fragments_to_profile(fragments=fragment_info,
                                                         alignment_type=alignment_types[query_idx])
             for entity in self.pose.entities:
-                # TODO Insert loop identifying comparison of SEQRES and ATOM before SeqProf.calculate_design_profile()
                 if entity not in self.pose.active_entities:  # we shouldn't design, add a null profile instead
                     entity.add_profile(null=True)
                 else:  # add a real profile

@@ -404,15 +404,16 @@ def is_frag_type_same(frags1, frags2, dtype='ii'):
         len(frag1_indices), -1)
 
 
-def compute_ij_type_lookup(indices1, indices2):
+def compute_ij_type_lookup(indices1: np.ndarray | Iterable | int | float,
+                           indices2: np.ndarray | Iterable | int | float) -> np.ndarray | int | float:
     """Compute a lookup table where the array elements are indexed to boolean values if the indices match.
     Axis 0 is indices1, Axis 1 is indices2
 
     Args:
-        indices1 (numpy.ndarray):
-        indices2 (numpy.ndarray):
+        indices1: The array elements from group 1
+        indices2: The array elements from group 2
     Returns:
-        (numpy.ndarray): A 2D boolean array where the first index maps to the input 1, second index maps to index 2
+        A 2D boolean array where the first index maps to the input 1, second index maps to index 2
     """
     # TODO use broadcasting to compute true/false instead of tiling (memory saving)
     indices1_repeated = np.repeat(indices1, len(indices2))
@@ -462,12 +463,9 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
     if not isinstance(model2, Structure):
         model2 = Model.from_file(model2, pose_format=True)
 
-    # Get model reference sequences
+    # Get model and entity reference sequences precomputed if available
     for entity in model1.entities + model2.entities:
-        # ensure all entity have reference_sequence precomputed if available
         dummy = entity.reference_sequence
-    # for entity in model2.entities:
-    #     entity._retrieve_sequence_from_api()
 
     # Set up output mechanism
     if isinstance(master_output, str) and not write_frags:  # we just want to write, so don't make a directory
@@ -495,8 +493,8 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
     if resume:
         log.info('Found a prior incomplete run! Resuming from last sampled transformation.\n')
     else:
-        log.info('DOCKING %s TO %s\nOligomer 1 Path: %s\nOligomer 2 Path: %s'
-                 % (model1.name, model2.name, model1.file_path, model2.file_path))
+        log.info(f'DOCKING {model1.name} TO {model2.name}\n'
+                 f'Oligomer 1 Path: {model1.file_path}\nOligomer 2 Path: {model2.file_path}')
 
     # Set up Building Block2
     model2_bb_cb_coords = model2.backbone_and_cb_coords
@@ -796,7 +794,7 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
     # asym_guide_coords = np.array([[0., 0., 0.], [1., 0., 0.], [0., 2., 0.]])
     # transformed_guide_coords1 = transform_coordinates(asym_guide_coords, rotation=set_mat1)
     # transformed_guide_coords2 = transform_coordinates(asym_guide_coords, rotation=set_mat2)
-    # sup_rmsd, superposition_setting_1to2, sup_tx, _ = superposition3d(transformed_guide_coords2, transformed_guide_coords1)
+    # sup_rmsd, superposition_setting_1to2, sup_tx = superposition3d(transformed_guide_coords2, transformed_guide_coords1)
     # superposition_setting_2to1 = np.linalg.inv(superposition_setting_1to2)
     # log.debug('sup_rmsd, superposition_setting_1to2, sup_tx: %s, %s, %s' % (sup_rmsd, superposition_setting_1to2, sup_tx))
 
@@ -804,7 +802,7 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
     zshift1 = set_mat1[:, 2:3].T if sym_entry.is_internal_tx1 else None
     zshift2 = set_mat2[:, 2:3].T if sym_entry.is_internal_tx2 else None
 
-    # log.debug('zshift1 = %s, zshift2 = %s, max_z_value=%f' % (str(zshift1), str(zshift2), initial_z_value))
+    log.debug(f'zshift1 = {zshift1}, zshift2 = {zshift2}, max_z_value={initial_z_value:2f}')
     optimal_tx = \
         OptimalTx.from_dof(sym_entry.external_dof, zshift1=zshift1, zshift2=zshift2, max_z_value=initial_z_value)
 
@@ -813,7 +811,7 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
     # stacked_transforms1, stacked_transforms2 = [], []
     rot_counts, degen_counts, tx_counts = [], [], []
     full_rotation1, full_rotation2, full_int_tx1, full_int_tx2, full_setting1, full_setting2, full_ext_tx1, \
-    full_ext_tx2, full_optimal_ext_dof_shifts = [], [], [], [], [], [], [], [], []
+        full_ext_tx2, full_optimal_ext_dof_shifts = [], [], [], [], [], [], [], [], []
     for degen1 in degen_rot_mat_1[degen1_count:]:
         degen1_count += 1
         for rot_mat1 in degen1[rot1_count:]:
@@ -839,8 +837,8 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
 
                     # Get (Oligomer1 Ghost Fragment (rotated), Oligomer2 (rotated) Surface Fragment)
                     # guide coodinate pairs in the same Euler rotational space bucket
-                    # log.info('Get Ghost Fragment/Surface Fragment guide coordinate pairs in the same Euler rotational '
-                    #          'space bucket')
+                    # log.info('Get Ghost Fragment/Surface Fragment guide coordinate pairs in the same Euler rotational'
+                    #          ' space bucket')
 
                     euler_start = time.time()
                     # first returned variable has indices increasing 1,1,1,1,1,2,2,2,2,3,4,4,4,...
