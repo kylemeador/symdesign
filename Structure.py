@@ -5382,8 +5382,9 @@ class Entity(SequenceProfile, Chain, ContainsChainsMixin):
     symmetry: str | None
 
     def __init__(self, chains: list[Chain] | Structures = None, dbref: dict[str, str] = None,
-                 reference_sequence: str = None, **kwargs):
+                 reference_sequence: str = None, thermophilic: bool = None, **kwargs):
         """When init occurs chain_ids are set if chains were passed. If not, then they are auto generated"""
+        self.thermophilic = thermophilic
         self._is_captain = True
         self.api_entry = None  # {chain: {'accession': 'Q96DC8', 'db': 'UNP'}, ...}
         self.dihedral_chain = None
