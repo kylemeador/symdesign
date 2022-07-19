@@ -10,7 +10,7 @@ from Structure import parse_stride
 from database import Database, DataStore
 from PathUtils import program_name, data, sequence_info, structure_info
 from Query.PDB import query_entity_id, query_assembly_id, parse_entities_json, parse_assembly_json, query_entry_id, \
-    parse_entry_json
+    parse_entry_json, _is_entity_thermophilic
 from Query.UniProt import query_uniprot
 from SymDesignUtils import make_path, start_log
 # import dependencies.bmdca as bmdca
@@ -201,6 +201,13 @@ class PDBDataStore(DataStore):
         # make_path(pdb_entity_api)
         # make_path(pdb_assembly_api)
 
+    def is_thermophilic(self, name: str = None, **kwargs) -> bool:
+        """Return whether the entity json entry in question is thermophilic"""
+        data = self.retrieve_entity_data(name=name)
+        if data is None:
+            return False
+        return _is_entity_thermophilic(data)
+
     def retrieve_entity_data(self, name: str = None, **kwargs) -> dict | None:
         """Return data requested by PDB EntityID. Loads into the Database or queries the PDB API
 
@@ -373,6 +380,8 @@ class UniProtDataStore(DataStore):
         Returns:
             If the data is available, the object requested will be returned, else None
         """
+        if name is None:
+            return None
         data = super().retrieve_data(name=name)
         #         data = getattr(self, name, None)
         #         if data:

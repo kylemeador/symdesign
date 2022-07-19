@@ -892,17 +892,42 @@ def parse_entry_json(entry_json: dict[str, Any]) -> dict[str, dict]:
     return {'res': resolution, 'struct': struct_d, 'method': experimental_method.lower()}
 
 
+def is_entity_thermophilic(entry: str = None, entity_integer: int | str = None, entity_id: str = None) -> bool:
+    """Query the PDB API for an EntityID and return the associated chains and reference dictionary
+
+    Args:
+        entry: The 4 character PDB EntryID of interest
+        entity_integer: The entity integer from the EntryID of interest
+        entity_id: The PDB formatted EntityID. Has the format EntryID_Integer (1ABC_1)
+    Returns:
+        {chain: {'accession': 'Q96DC8', 'db': 'UNP'}, ...}
+    """
+    entity_request = query_entity_id(entry=entry, entity_integer=entity_integer, entity_id=entity_id)
+    if not entity_request:
+        return {}
+
+    return _is_entity_thermophilic(entity_request.json())
+
+
+def _is_entity_thermophilic(entity_json: dict[str, Any]) -> bool:
+    """Return whether the entity json entry in question is thermophilic"""
+    lineage_keywords = [line.get('name', '').lower()
+                        for line in entity_json.get('rcsb_entity_source_organism', {}).get('taxonomy_lineage', [])]
+
+    return True if 'thermo' in lineage_keywords else False
+
+
 def parse_entities_json(entity_jsons: Iterable[dict[str, Any]]) -> dict[str, dict]:
     """
 
     Args:
         entity_jsons: An Iterable of json like objects containing EntityID information as retrieved from the PDB API
     Returns:
-        The formatted information. Ex:
-        {'EntityID': {'chains': ['A', 'B', ...],
-                      'dbref': {'accession': 'Q96DC8', 'db': 'UNP'}
-                      'reference_sequence': 'MSLEHHHHHH...'},
-         ...}
+        The formatted information -
+            {'EntityID': {'chains': ['A', 'B', ...],
+                          'dbref': {'accession': 'Q96DC8', 'db': 'UNP'}
+                          'reference_sequence': 'MSLEHHHHHH...'},
+             ...}
     """
     def extract_dbref(entity_ids_json: dict[str, Any]) -> dict[str, dict]:
         """For a PDB API EntityID, parse the associated chains and database reference identifiers
@@ -986,7 +1011,8 @@ def parse_entities_json(entity_jsons: Iterable[dict[str, Any]]) -> dict[str, dic
             entity_info[entity_json_ids['rcsb_id'].lower()] = dict(
                 chains=entity_json_ids['asym_ids'],
                 dbref=extract_dbref(entity_json_ids),
-                reference_sequence=entity_json['entity_poly']['pdbx_seq_one_letter_code_can']
+                reference_sequence=entity_json['entity_poly']['pdbx_seq_one_letter_code_can'],
+                thermophilic=_is_entity_thermophilic(entity_json),
             )
         # dbref = {chain: {'db': db, 'accession': db_accession_id}}
     # OR dbref = {entity: {'db': db, 'accession': db_accession_id}}
