@@ -2863,7 +2863,7 @@ class PoseDirectory:
             inverse_residue_contact_order_z.append(residue_contact_order_z * -1)
             # Get errat from the symmetric Entity
             # entity.oligomer.get_sasa()  # Todo when Entity.oligomer works
-            entity_oligomer = Model.from_chains(entity.oligomer, log=self.log, entities=False)
+            entity_oligomer = Model.from_chains(entity.chains, log=self.log, entities=False)
             entity_oligomer.get_sasa()
             oligomer_asu_residues = entity_oligomer.residues[:entity.number_of_residues]
             per_residue_sasa_unbound_apolar.extend([residue.sasa_apolar for residue in oligomer_asu_residues])
@@ -2923,8 +2923,8 @@ class PoseDirectory:
             per_residue_sasa_unbound_apolar, per_residue_sasa_unbound_polar, per_residue_sasa_unbound_relative = \
                 [], [], []
             for entity in pose.entities:
-                # entity.oligomer.get_sasa()
-                entity_oligomer = Model.from_chains(entity.oligomer, log=self.log, entities=False)
+                # entity.oligomer.get_sasa()  # Todo when Entity.oligomer works
+                entity_oligomer = Model.from_chains(entity.chains, log=self.log, entities=False)
                 entity_oligomer.get_sasa()
                 per_residue_sasa_unbound_apolar.extend(
                     [residue.sasa_apolar for residue in entity_oligomer.residues[:entity.number_of_residues]])
