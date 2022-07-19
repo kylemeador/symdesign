@@ -912,7 +912,8 @@ def is_entity_thermophilic(entry: str = None, entity_integer: int | str = None, 
 def _is_entity_thermophilic(entity_json: dict[str, Any]) -> bool:
     """Return whether the entity json entry in question is thermophilic"""
     lineage_keywords = [line.get('name', '').lower()
-                        for line in entity_json.get('rcsb_entity_source_organism', {}).get('taxonomy_lineage', [])]
+                        for organism in entity_json.get('rcsb_entity_source_organism', {})
+                        for line in organism.get('taxonomy_lineage', [])]
 
     return True if 'thermo' in lineage_keywords else False
 
