@@ -1,8 +1,10 @@
+from __future__ import annotations
+
 import operator
 from copy import copy
 from itertools import repeat
 from json import loads
-from typing import Dict, List, Set, Union, Literal, AnyStr
+from typing import Literal, AnyStr, Any
 
 import numpy as np
 import pandas as pd
@@ -844,7 +846,7 @@ def columns_to_new_column(df, column_dict, mode='add'):
     return df
 
 
-def hbond_processing(design_scores: Dict, columns: List[str]) -> Dict[str, Set]:
+def hbond_processing(design_scores: dict, columns: list[str]) -> dict[str, set]:
     """Process Hydrogen bond Metrics from Rosetta score dictionary
 
     if rosetta_numbering="true" in .xml then use offset, otherwise, hbonds are PDB numbering
@@ -881,7 +883,7 @@ def hbond_processing(design_scores: Dict, columns: List[str]) -> Dict[str, Set]:
     return hbonds
 
 
-def dirty_hbond_processing(design_scores: Dict) -> Dict[str, Set]:
+def dirty_hbond_processing(design_scores: dict) -> dict[str, set]:
     """Process Hydrogen bond Metrics from Rosetta score dictionary
 
     if rosetta_numbering="true" in .xml then use offset, otherwise, hbonds are PDB numbering
@@ -973,7 +975,7 @@ def interface_composition_similarity(series):
     return sum(class_ratio_diff_d.values()) / len(class_ratio_diff_d)
 
 
-def process_residue_info(design_residue_scores: Dict, mutations: Dict, hbonds: Dict = None) -> Dict:
+def process_residue_info(design_residue_scores: dict, mutations: dict, hbonds: dict = None) -> dict:
     """Process energy metrics from per residue info and incorporate mutation and hydrogen bond measurements
 
     Args:
@@ -1036,7 +1038,7 @@ def process_residue_info(design_residue_scores: Dict, mutations: Dict, hbonds: D
     return design_residue_scores
 
 
-def mutation_conserved(residue_info: Dict, bkgnd: Dict) -> Dict:
+def mutation_conserved(residue_info: dict, bkgnd: dict) -> dict:
     """Process residue mutations compared to evolutionary background. Returns 1 if residue is observed in background
 
     Both residue_dict and background must be same index
@@ -1047,17 +1049,17 @@ def mutation_conserved(residue_info: Dict, bkgnd: Dict) -> Dict:
         conservation_dict: {15: 1, 21: 0, 25: 1, ...}
     """
     return {res: 1 if bkgnd[res][info['type']] > 0 else 0 for res, info in residue_info.items() if res in bkgnd}
+    # return [1 if bgd[info['type']] > 0 else 0 for info, bgd in zip(residue_info, bkgnd)]
 
 
-def per_res_metric(sequence_metrics, key=None):
+def per_res_metric(sequence_metrics: dict[Any, float] | dict[Any, dict[str, float]], key: str = None) -> float:
     """Find metric value average over all residues in a per residue dictionary with metric specified by key
 
     Args:
-        sequence_metrics (dict): {16: {'S': 0.134, 'A': 0.050, ..., 'jsd': 0.732, 'int_jsd': 0.412}, ...}
-    Keyword Args:
-        key=None (str): Name of the metric to average
+        sequence_metrics: {16: {'S': 0.134, 'A': 0.050, ..., 'jsd': 0.732, 'int_jsd': 0.412}, ...}
+        key: Name of the metric to average
     Returns:
-        (float): 0.367
+        The average metric 0.367
     """
     s, total = 0.0, 0
     if key:
@@ -1071,9 +1073,9 @@ def per_res_metric(sequence_metrics, key=None):
             s += residue_metric
 
     if total == 0:
-        return 0.0
+        return 0.
     else:
-        return round(s / total, 3)
+        return s / total
 
 
 def df_permutation_test(grouped_df: pd.DataFrame, diff_s: pd.Series, group1_size: int = 0, compare: str = 'mean',
@@ -1115,7 +1117,7 @@ def df_permutation_test(grouped_df: pd.DataFrame, diff_s: pd.Series, group1_size
 #     return total
 
 
-def filter_df_for_index_by_value(df: pd.DataFrame, metrics: Dict) -> Dict:
+def filter_df_for_index_by_value(df: pd.DataFrame, metrics: dict) -> dict:
     """Retrieve the indices from a DataFrame which have column values greater_equal/less_equal to an indicated threshold
 
     Args:
@@ -1141,9 +1143,8 @@ def filter_df_for_index_by_value(df: pd.DataFrame, metrics: Dict) -> Dict:
     return filtered_indices
 
 
-def prioritize_design_indices(df: Union[pd.DataFrame, Union[str, bytes]], filter: Union[Dict, bool] = None,
-                              weight: Union[Dict, bool] = None, protocol: Union[str, List[str]] = None, **kwargs) \
-        -> pd.DataFrame:
+def prioritize_design_indices(df: pd.DataFrame | AnyStr, filter: dict | bool = None,
+                              weight: dict | bool = None, protocol: str | list[str] = None, **kwargs) -> pd.DataFrame:
     """Return a filtered/sorted DataFrame (both optional) with indices that pass a set of filters and/or are ranked
     according to a feature importance. Both filter and weight instructions are provided or queried from the user
 
@@ -1251,7 +1252,7 @@ def prioritize_design_indices(df: Union[pd.DataFrame, Union[str, bytes]], filter
     return final_df
 
 
-def calculate_match_metrics(fragment_matches: List[Dict]) -> Dict:
+def calculate_match_metrics(fragment_matches: list[dict]) -> dict:
     """Return the various metrics calculated by overlapping fragments at the interface of two proteins
 
     Args:
@@ -1430,7 +1431,7 @@ def nanohedra_fragment_match_score(fragment_metric_d):
     return all_residue_score + center_residue_score, center_residue_score
 
 
-def format_fragment_metrics(metrics: Dict, null: bool = False) -> Dict:
+def format_fragment_metrics(metrics: dict, null: bool = False) -> dict:
     """For a set of fragment metrics, return the formatted total fragment metrics
 
     Returns:
@@ -1588,7 +1589,7 @@ def query_user_for_metrics(available_metrics, df=None, mode=None, level=None):
     return metric_values
 
 
-def rank_dataframe_by_metric_weights(df: pd.DataFrame, weights: Dict[str, float] = None,
+def rank_dataframe_by_metric_weights(df: pd.DataFrame, weights: dict[str, float] = None,
                                      function: str = Literal[rank, normalize],
                                      **kwargs) -> pd.Series:
     """From a provided DataFrame with individual design trajectories, select trajectories based on provided metric and
