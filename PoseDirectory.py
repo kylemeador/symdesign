@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import time
 from copy import copy
 from functools import wraps
 from glob import glob
@@ -2931,8 +2932,11 @@ class PoseDirectory:
             # this is a measurement of interface_connectivity like from Rosetta  Todo remove Rosetta and use here
             interface_local_density[pose.name] = pose.local_density_interface()
             assembly_minimally_contacting = pose.assembly_minimally_contacting
+            self.log.debug('Starting Errat')
+            errat_start = time.time()
             atomic_deviation[pose.name], per_residue_errat = \
                 assembly_minimally_contacting.errat(out_path=self.data)
+            self.log.debug(f'Finished Errat, time = {time.time() - errat_start:6f}')
             per_residue_data['errat_deviation'][pose.name] = per_residue_errat[:pose_length]
             # perform SASA measurements
             assembly_minimally_contacting.get_sasa()
