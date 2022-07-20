@@ -43,6 +43,7 @@ termini_literal = Literal['n', 'c']
 transformation_mapping: dict[str, list[float] | list[list[float]] | np.ndarray]
 # protein_backbone_atom_types = {'N', 'CA', 'O'}  # 'C', Removing 'C' for fragment library guide atoms...
 protein_backbone_atom_types = {'N', 'CA', 'C', 'O'}
+protein_backbone_and_cb_atom_types = {'N', 'CA', 'C', 'O', 'CB'}
 # mutation_directives = \
 #     ['special', 'same', 'different', 'charged', 'polar', 'hydrophobic', 'aromatic', 'hbonding', 'branched']
 residue_properties = {'ALA': {'hydrophobic', 'apolar'},
@@ -801,6 +802,10 @@ class Atom(StructureBase):
             self._coords.replace(self._atom_indices, [self.coords[0], self.coords[1], z])
         except AttributeError:  # when _coords not used
             self.__coords = [self.coords[0], self.coords[1], z]
+
+    def is_backbone_and_cb(self) -> bool:
+        """Is the Atom is a backbone or CB Atom? Includes N, CA, C, O, and CB"""
+        return self.type in protein_backbone_and_cb_atom_types
 
     def is_backbone(self) -> bool:
         """Is the Atom is a backbone Atom? These include N, CA, C, and O"""
@@ -3932,13 +3937,15 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
 
         return [residue.local_density for residue in self.residues]
 
-    def is_clash(self, measure: coords_type_literal = 'backbone_and_cb', distance: float = 2.1) -> bool:
+    def is_clash(self, measure: coords_type_literal = 'backbone_and_cb', distance: float = 2.1,
+                 report_hydrogen: bool = False) -> bool:
         """Check if the Structure contains any self clashes. If clashes occur with the Backbone, return True. Reports
         the Residue where the clash occurred and the clashing Atoms
 
         Args:
             measure: The atom type to measure clashing by
             distance: The distance which clashes should be checked
+            report_hydrogen: Whether to report clashing hydrogen atoms
         Returns:
             True if the Structure clashes, False if not
         """
@@ -3946,22 +3953,18 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         # Todo switch measure:
         if measure == 'backbone_and_cb':
             other = 'non-cb sidechain'
-            def measure_function(atom): return atom.is_backbone() or atom.is_cb()  # backbone_cb_clash
         elif measure == 'heavy':
             other = 'hydrogen'
-            def measure_function(atom): return atom.is_heavy()  # heavy_clash
+            report_hydrogen = True
         elif measure == 'backbone':
             other = 'sidechain'
-            def measure_function(atom): return atom.is_backbone()  # backbone_clash
         elif measure == 'cb':
             other = 'non-cb'
-            def measure_function(atom): return atom.is_cb()  # cb_clash
         elif measure == 'ca':
             other = 'non-ca'
-            def measure_function(atom): return atom.is_ca()  # ca_clash
         else:  # measure == 'all'
             other = 'solvent'  # this should never appear unless someone added solvent parsing
-            def measure_function(atom): return True
+            def return_true(): return True
 
         coords_type = 'coords' if measure == 'all' else f'{measure}_coords'
         # cant use heavy_coords as the Residue.atom_indices aren't offset for the BallTree made from them...
@@ -3984,9 +3987,11 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
             for clashing_idx in clash_indices:
                 # other_residue = coords_indexed_residues[clashing_idx]
                 atom = atoms[clashing_idx]
-                if measure_function(atom):
+                if getattr(atom, f'is_{measure}', return_true)():
                     measured_clashes.append((residue, atom))
-                else:
+                elif report_hydrogen:
+                    other_clashes.append((residue, atom))
+                elif atom.is_heavy():
                     other_clashes.append((residue, atom))
 
         # check first and last residue with different considerations given covalent bonds
