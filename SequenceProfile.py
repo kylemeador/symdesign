@@ -54,6 +54,8 @@ protein_letters_1aa_literal = Literal[tuple(protein_letters)]
 gapped_protein_letters = protein_letters + '-'
 numerical_translation = dict(zip(protein_letters, range(len(protein_letters))))
 gapped_numerical_translation = defaultdict(lambda: 20, zip(gapped_protein_letters, range(len(gapped_protein_letters))))
+gapped_numerical_translation_bytes = defaultdict(lambda: 20, zip([item.encode() for item in gapped_protein_letters],
+                                                                 range(len(gapped_protein_letters))))
 extended_protein_letters_literal = Literal[tuple(extended_protein_letters)]
 # extended_protein_letters: tuple[str, ...] = get_args(extended_protein_letters_literal)
 extended_protein_letters_and_gap_literal = Literal['-', get_args(extended_protein_letters_literal)]
@@ -278,7 +280,7 @@ class MultipleSequenceAlignment:
         try:
             return self._numerical_alignment
         except AttributeError:
-            self._numerical_alignment = np.vectorize(gapped_numerical_translation.__getitem__)(self.array)
+            self._numerical_alignment = np.vectorize(gapped_numerical_translation_bytes.__getitem__)(self.array)
             # self._numerical_alignment = \
             #     np.array([[numerical_translation[aa] for aa in record] for record in self.alignment])
             return self._numerical_alignment
