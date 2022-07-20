@@ -1677,7 +1677,6 @@ class Residue(ResidueFragment, ContainsAtomsMixin):
             for idx, atom in enumerate(self.atoms):
                 match atom.type:
                     case 'N':
-                        print('N_index', idx)
                         self._n_index = idx
                         self.chain = atom.chain
                         self.number = atom.residue_number
@@ -1726,14 +1725,11 @@ class Residue(ResidueFragment, ContainsAtomsMixin):
             cb_indices = [cb_index]
         else:
             if self.type == 'GLY':
-                self.cb_index = getattr(self, '_ca_index')
+                self._cb_index = getattr(self, '_ca_index')
             cb_indices = []
 
         # By using private variables, None is removed v
-        print('self._bb_and_cb_indices', [getattr(self, f'_{index}_index', None) for index in ['n', 'ca', 'c', 'o']])
-        print('self._bb_and_cb_indices', self._bb_indices)
         self.backbone_and_cb_indices = self._bb_indices + cb_indices
-        print('self._bb_and_cb_indices', self._bb_and_cb_indices)
         self.heavy_indices = self._bb_and_cb_indices + heavy_indices
         self.side_chain_indices = side_chain_indices
         # if not self.ca_index:  # this is likely a NH or a C=O so we don't have a full residue
@@ -1753,7 +1749,7 @@ class Residue(ResidueFragment, ContainsAtomsMixin):
 
     @backbone_indices.setter
     def backbone_indices(self, indices: Iterable[int]):
-        self._bb_indices = [idx for idx in indices if idx]  # check if idx is None as some might not be provided
+        self._bb_indices = [idx for idx in indices if idx is not None]  # check as some will be None if not be provided
 
     @property
     def backbone_and_cb_indices(self) -> list[int]:
@@ -4005,12 +4001,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         # reduce the dimensions and format as a single array
         all_contacts = {contact for residue_contacts in residue_query for contact in residue_contacts}
         # We must subtract the N and C atoms from the adjacent residues for each residue as these are within a bond
-        print('All', all_contacts)
         clashes = all_contacts.difference(residue.atom_indices + [residue.next_residue.n_atom_index])
-        print('difference_index', residue.atom_indices + [residue.next_residue.n_atom_index])
-        print('heavy_indices', residue.heavy_indices)
-        print('atom_indices', residue.atom_indices)
-        print('clashes', clashes)
         if any(clashes):
             handle_clash_reporting(clashes)
 
