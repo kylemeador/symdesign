@@ -42,11 +42,12 @@ from Query.PDB import is_entity_thermophilic
 from Query.UniProt import is_uniprot_thermophilic
 from SequenceProfile import parse_pssm, generate_mutations_from_reference, \
     simplify_mutation_dict, weave_sequence_dict, position_specific_jsd, sequence_difference, \
-    jensen_shannon_divergence, hydrophobic_collapse_index, msa_from_dictionary, alignment_types
+    jensen_shannon_divergence, hydrophobic_collapse_index, msa_from_dictionary, alignment_types, \
+    MultipleSequenceAlignment, pssm_to_numeric
 from Structure import Structure, Entity  # , Structures
-from SymDesignUtils import unpickle, start_log, null_log, handle_errors, write_shell_script, DesignError, \
-    match_score_from_z_value, pickle_object, filter_dictionary_keys, all_vs_all, make_path, \
-    condensed_to_square, sym, index_intersection, z_score, large_color_array, starttime, ClashError, SymmetryError
+from SymDesignUtils import unpickle, start_log, null_log, handle_errors, write_shell_script, match_score_from_z_value, \
+    pickle_object, all_vs_all, make_path, condensed_to_square, sym, index_intersection, z_score, large_color_array, \
+    starttime, DesignError, ClashError, SymmetryError
 from classes.EulerLookup import EulerLookup
 from classes.SymEntry import SymEntry, symmetry_factory
 from fragment import FragmentDatabase
@@ -70,6 +71,10 @@ variance = 0.8
 
 # Todo move PDB coordinate information to Pose. Only use to handle Pose paths/options
 class PoseDirectory:
+    _design_profile: np.ndarry | None
+    _evolutionary_profile: np.ndarry | None
+    _fragment_profile: np.ndarry | None
+    _fragment_source: str | None
     composition: str | None
     directives: list[dict[int, str]]
     entities: list[Entity]
@@ -719,56 +724,74 @@ class PoseDirectory:
         self._background_profile = background
 
     @property
-    def design_profile(self) -> dict:
+    def design_profile(self) -> np.ndarray | None:  # dict:
         """Returns the amino acid frequencies observed for each residue's design profile which is a specific mix of
-        evolution and fragment frequency information"""
+        evolution and fragment frequency information
+
+        Returns:
+            The numerically encoded design pssm where each entry along axis 0 is the position, and the entries on axis 1
+                are the frequency data at every indexed amino acid. Indices are according to the 1 letter alphabetical
+                amino acid, i.e array([[0.1, 0.01, 0.12, ...], ...])
+        """
         try:
             return self._design_profile
         except AttributeError:
             try:
-                self._design_profile = parse_pssm(self.design_profile_file)
+                self._design_profile = pssm_to_numeric(parse_pssm(self.design_profile_file))
             except FileNotFoundError:
-                self._design_profile = {}
+                self._design_profile = None
             return self._design_profile
 
     @property
-    def evolutionary_profile(self) -> dict:
-        """Returns the amino acid frequencies observed for each residue's evolutionary alignment"""
+    def evolutionary_profile(self) -> np.ndarray | None:  # dict:
+        """Returns the amino acid frequencies observed for each residue's evolutionary alignment
+
+        Returns:
+            The numerically encoded evolutionary pssm where each entry along axis 0 is the position, and the entries on
+                axis 1 are the frequency data at every indexed amino acid. Indices are according to the 1 letter
+                alphabetical amino acid, i.e array([[0.1, 0.01, 0.12, ...], ...])
+        """
         try:
             return self._evolutionary_profile
         except AttributeError:
             try:
-                self._evolutionary_profile = parse_pssm(self.evolutionary_profile_file)
+                self._evolutionary_profile = pssm_to_numeric(parse_pssm(self.evolutionary_profile_file))
             except FileNotFoundError:
-                self._evolutionary_profile = {}
+                self._evolutionary_profile = None
             return self._evolutionary_profile
 
     @property
-    def fragment_profile(self) -> dict:
-        """Returns the amino acid frequencies observed for each residue's fragment observations"""
+    def fragment_profile(self) -> np.ndarray | None:  # dict:
+        """Returns the amino acid frequencies observed for each residue's fragment observations
+
+        Returns:
+            The numerically encoded fragment pssm where each entry along axis 0 is the position, and the entries on
+                axis 1 are the frequency data at every indexed amino acid. Indices are according to the 1 letter
+                alphabetical amino acid, i.e array([[0.1, 0.01, 0.12, ...], ...])
+        """
         try:
             return self._fragment_profile
         except AttributeError:
             try:
-                self._fragment_profile = parse_pssm(self.fragment_profile_file)
+                self._fragment_profile = pssm_to_numeric(parse_pssm(self.fragment_profile_file))
             except FileNotFoundError:
-                self._fragment_profile = {}
+                self._fragment_profile = None
             return self._fragment_profile
 
-    @property
-    def fragment_data(self) -> dict:
-        """Returns only the entries in the fragment_profile which are populated"""
-        try:
-            return self._fragment_data
-        except AttributeError:
-            try:
-                frag_pkl = path.join(self.data, f'{self.fragment_source}_{PUtils.fragment_profile}.pkl')
-                self._fragment_data = self.info['fragment_data'] if 'fragment_data' in self.info else unpickle(frag_pkl)
-            except FileNotFoundError:
-                # fragment_profile is removed of all entries that are not fragment populated.
-                self._fragment_data = {residue: data for residue, data in self.fragment_profile.items()
-                                       if data.get('stats', (None,))[0]}  # [0] must contain a fragment observation
-            return self._fragment_data
+    # @property
+    # def fragment_data(self) -> dict:
+    #     """Returns only the entries in the fragment_profile which are populated"""
+    #     try:
+    #         return self._fragment_data
+    #     except AttributeError:
+    #         try:
+    #             frag_pkl = path.join(self.data, f'{self.fragment_source}_{PUtils.fragment_profile}.pkl')
+    #             self._fragment_data = self.info['fragment_data'] if 'fragment_data' in self.info else unpickle(frag_pkl)
+    #         except FileNotFoundError:
+    #             # fragment_profile is removed of all entries that are not fragment populated.
+    #             self._fragment_data = {residue: data for residue, data in self.fragment_profile.items()
+    #                                    if data.get('stats', (None,))[0]}  # [0] must contain a fragment observation
+    #         return self._fragment_data
 
     @property
     def fragment_source(self) -> str:
@@ -2809,7 +2832,7 @@ class PoseDirectory:
         assert viable_designs, 'No viable designs remain after processing!'
         self.log.debug('Viable designs remaining after cleaning:\n\t%s' % ', '.join(viable_designs))
         other_pose_metrics['observations'] = len(viable_designs)
-        pose_sequences = filter_dictionary_keys(pose_sequences, viable_designs)
+        pose_sequences = {design: sequence for design, sequence in pose_sequences.items() if design in viable_designs}
 
         # Find protocols for protocol specific data processing
         protocol_s = scores_df.pop(PUtils.groups).copy()
@@ -3119,44 +3142,54 @@ class PoseDirectory:
         if self.evolutionary_profile:
             profile_background['evolution'] = self.evolutionary_profile
         else:
-            self.log.info('Design has no evolution information')
-        if self.fragment_data:
-            profile_background['fragment'] = self.fragment_data
+            self.log.info('No evolution information')
+        if self.fragment_profile:
+            profile_background['fragment'] = self.fragment_profile
         else:
-            self.log.info('Design has no fragment information')
+            self.log.info('No fragment information')
 
         if not profile_background:
             divergence_s = Series(dtype=float)
-        else:
+        else:  # Calculate sequence statistics
+            # first for entire pose
+            pose_alignment = MultipleSequenceAlignment.from_dictionary(pose_sequences)
+            # mutation_frequencies = pose_alignment.frequencies[[residue-1 for residue in self.interface_design_residues]]
+            # mutation_frequencies = filter_dictionary_keys(pose_alignment.frequencies, self.interface_design_residues)
+            # mutation_frequencies = filter_dictionary_keys(pose_alignment['frequencies'], interface_residues)
+
             # Calculate amino acid observation percent from residue_info and background SSM's
-            observation_d = {profile: {design: mutation_conserved(info, background)
-                                       for design, info in residue_info.items()}
+            # observation_d = {profile: {design: mutation_conserved(info, background)
+            #                            for design, numerical_sequence in residue_info.items()}
+            observation_d = {profile: {design: np.where(background[:, numerical_sequence] > 0, 1, 0)
+                                       for design, numerical_sequence in zip(pose_sequences,
+                                                                             list(pose_alignment.numerical_alignment))}
                              for profile, background in profile_background.items()}
             # Find the observed background for each profile, for each design in the pose
-            pose_observed_bkd = {profile: {design: per_res_metric(freq) for design, freq in design_obs_freqs.items()}
-                                 for profile, design_obs_freqs in observation_d.items()}
-            for profile, observed_frequencies in pose_observed_bkd.items():
-                scores_df[f'observed_{profile}'] = Series(observed_frequencies)
+            # pose_observed_bkd = {profile: {design: freq.mean() for design, freq in design_obs_freqs.items()}
+            #                      for profile, design_obs_freqs in observation_d.items()}
+            # for profile, observed_frequencies in pose_observed_bkd.items():
+            #     scores_df[f'observed_{profile}'] = Series(observed_frequencies)
+            for profile, design_obs_freqs in observation_d.items():
+                scores_df[f'observed_{profile}'] = Series({design: freq.mean() for design, freq in design_obs_freqs.items()})
             # Add observation information into the residue dictionary
             for design, info in residue_info.items():
                 residue_info[design] = \
                     weave_sequence_dict(base_dict=info, **{f'observed_{profile}': design_obs_freqs[design]
                                                            for profile, design_obs_freqs in observation_d.items()})
-            # Calculate sequence statistics
-            # first for entire pose
-            pose_alignment = msa_from_dictionary(pose_sequences)
-            mutation_frequencies = filter_dictionary_keys(pose_alignment.frequencies, self.interface_design_residues)
-            # mutation_frequencies = filter_dictionary_keys(pose_alignment['frequencies'], interface_residues)
+
             # Calculate Jensen Shannon Divergence using different SSM occurrence data and design mutations
             #                                              both mut_freq and profile_background[profile] are one-indexed
-            divergence = {f'divergence_{profile}': position_specific_jsd(mutation_frequencies, background)
+            interface_indexer = [residue - 1 for residue in self.interface_design_residues]
+            divergence = {f'divergence_{profile}':
+                          position_specific_jsd(pose_alignment.frequencies, background)[interface_indexer]
                           for profile, background in profile_background.items()}
-            interface_bkgd = self.fragment_db.aa_frequencies
-            if interface_bkgd:
-                divergence['divergence_interface'] = jensen_shannon_divergence(mutation_frequencies, interface_bkgd)
+            interface_bkgd = np.ndarray(self.fragment_db.aa_frequencies.values())
+            if interface_bkgd is not None:
+                divergence['divergence_interface'] = \
+                    jensen_shannon_divergence(pose_alignment.frequencies, interface_bkgd)[interface_indexer]
             # Get pose sequence divergence
-            pose_divergence_s = concat([Series({f'{divergence_type}_per_residue': per_res_metric(stat)
-                                                for divergence_type, stat in divergence.items()})],
+            pose_divergence_s = concat([Series({f'{divergence_type}_per_residue': divergence.mean()
+                                                for divergence_type, divergence in divergence.items()})],
                                        keys=[('sequence_design', 'pose')])
             # pose_divergence_s = Series({f'{divergence_type}_per_residue': per_res_metric(stat)
             #                                for divergence_type, stat in divergence.items()},
@@ -3166,17 +3199,23 @@ class PoseDirectory:
                 divergence_by_protocol = {protocol: {} for protocol in designs_by_protocol}
                 for protocol, designs in designs_by_protocol.items():
                     # Todo select from pose_alignment the indices of each design then pass to MultipleSequenceAlignment?
-                    protocol_alignment = msa_from_dictionary({design: pose_sequences[design] for design in designs})
-                    protocol_mutation_freq = filter_dictionary_keys(protocol_alignment.frequencies,
-                                                                    self.interface_design_residues)
-                    protocol_res_dict = {f'divergence_{profile}': position_specific_jsd(protocol_mutation_freq, bkgnd)
-                                         for profile, bkgnd in profile_background.items()}  # ^ both are 1-idx
-                    if interface_bkgd:
-                        protocol_res_dict['divergence_interface'] = \
-                            jensen_shannon_divergence(protocol_mutation_freq, interface_bkgd)
+                    # protocol_alignment = \
+                    #     MultipleSequenceAlignment.from_dictionary({design: pose_sequences[design]
+                    #                                                for design in designs})
+                    protocol_alignment = MultipleSequenceAlignment.from_dictionary({design: pose_sequences[design]
+                                                                                    for design in designs})
+                    # protocol_mutation_freq = filter_dictionary_keys(protocol_alignment.frequencies,
+                    #                                                 self.interface_design_residues)
+                    # protocol_mutation_freq = protocol_alignment.frequencies
+                    protocol_divergence = {f'divergence_{profile}':
+                                           position_specific_jsd(protocol_alignment.frequencies, bgd)[interface_indexer]
+                                           for profile, bgd in profile_background.items()}
+                    if interface_bkgd is not None:
+                        protocol_divergence['divergence_interface'] = \
+                            jensen_shannon_divergence(protocol_alignment.frequencies, interface_bkgd)[interface_indexer]
                     # Get per residue divergence metric by protocol
-                    divergence_by_protocol[protocol] = {f'{divergence}_per_residue': per_res_metric(sequence_info)
-                                                        for divergence, sequence_info in protocol_res_dict.items()}
+                    divergence_by_protocol[protocol] = {f'{divergence_type}_per_residue': divergence.mean()
+                                                        for divergence_type, divergence in protocol_divergence.items()}
                 # new = dfd.columns.to_frame()
                 # new.insert(0, 'new2_level_name', new_level_values)
                 # dfd.columns = MultiIndex.from_frame(new)
@@ -3216,6 +3255,10 @@ class PoseDirectory:
                            left_index=True, right_index=True)
 
         # entity_alignment = multi_chain_alignment(entity_sequences)
+        # INSTEAD OF USING BELOW, split Pose.MultipleSequenceAlignment at entity.chain_break...
+        # entity_alignments = \
+        #     {idx: MultipleSequenceAlignment.from_dictionary(design_sequences)
+        #      for idx, design_sequences in entity_sequences.items()}
         # entity_alignments = \
         #     {idx: msa_from_dictionary(design_sequences) for idx, design_sequences in entity_sequences.items()}
         # pose_collapse_ = concat(DataFrame(folding_and_collapse), axis=1, keys=[('sequence_design', 'pose')])
@@ -3226,7 +3269,9 @@ class PoseDirectory:
         for idx, entity in enumerate(self.pose.entities):
             try:  # TODO add these to the analysis
                 dca_background_residue_energies = entity.direct_coupling_analysis()
-                entity_alignment = msa_from_dictionary(entity_sequences[idx])
+                # Todo INSTEAD OF USING BELOW, split Pose.MultipleSequenceAlignment at entity.chain_break...
+                entity_alignment = MultipleSequenceAlignment.from_dictionary(entity_sequences[idx])
+                # entity_alignment = msa_from_dictionary(entity_sequences[idx])
                 dca_design_residue_energies = entity.direct_coupling_analysis(msa=entity_alignment)
                 dca_design_residues_concat.append(dca_design_residue_energies)
                 # dca_background_energies.append(dca_background_energies.sum(axis=1))
