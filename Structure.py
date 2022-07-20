@@ -3922,29 +3922,24 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         # Todo switch measure:
         if measure == 'backbone_and_cb':
             other = 'non-cb sidechain'
-            coords_type = 'backbone_and_cb_coords'
             def measure_function(atom): return atom.is_backbone() or atom.is_cb()  # backbone_cb_clash
         elif measure == 'heavy':
             other = 'hydrogen'
-            coords_type = 'heavy_coords'
             def measure_function(atom): return atom.is_heavy()  # heavy_clash
         elif measure == 'backbone':
             other = 'sidechain'
-            coords_type = 'backbone_coords'
             def measure_function(atom): return atom.is_backbone()  # backbone_clash
         elif measure == 'cb':
             other = 'non-cb'
-            coords_type = 'cb_coords'
             def measure_function(atom): return atom.is_cb()  # cb_clash
         elif measure == 'ca':
             other = 'non-ca'
-            coords_type = 'ca_coords'
             def measure_function(atom): return atom.is_ca()  # ca_clash
         else:  # measure == 'all'
             other = 'solvent'  # this should never appear unless someone added solvent parsing
-            coords_type = 'coords'
             def measure_function(atom): return True
 
+        coords_type = 'coords' if measure == 'all' else f'{measure}_coords'
         # cant use heavy_coords as the Residue.atom_indices aren't offset for the BallTree made from them...
         # another option is to only care about heavy atoms on the residues...
         # if self.contains_hydrogen():
@@ -3953,7 +3948,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         #     atoms = self.heavy_atoms
         # else:
 
-        # set up the query indices. BallTree is faster upon timeit with 131 msec/loop
+        # Set up the query indices. BallTree is faster upon timeit with 131 msec/loop
         atom_tree = BallTree(self.coords)
         coords_indexed_residues = self.coords_indexed_residues
         atoms = self.atoms
@@ -3981,32 +3976,33 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         # query the first residue with chosen coords type against the atom_tree
         residue_query = atom_tree.query_radius(getattr(residue, coords_type), distance)
         # reduce the dimensions and format as a single array
-        all_contacts = set(np.concatenate(residue_query).ravel().tolist())  # Todo remove ravel()
+        all_contacts = {contact for residue_contacts in residue_query for contact in residue_contacts}
+        print('NEW', all_contacts)
+        all_contacts_ = set(np.concatenate(residue_query).tolist())
+        print('OLD', all_contacts_)
         # We must subtract the N and C atoms from the adjacent residues for each residue as these are within a bond
-        clashes = all_contacts.difference(residue.atom_indices +
-                                          [residue.next_residue.atom_indices[residue.next_residue.n_index]])
+        clashes = all_contacts.difference(residue.heavy_indices + [residue.next_residue.n_atom_index])
         handle_clash_reporting(clashes) if any(clashes) else None
 
         # perform routine for all middle residues
         for residue in residues[1:-1]:  # avoid first and last since no prev_ or next_residue
             residue_query = atom_tree.query_radius(getattr(residue, coords_type), distance)
-            all_contacts = set(np.concatenate(residue_query).ravel().tolist())  # Todo remove ravel()
+            all_contacts = {contact for residue_contacts in residue_query for contact in residue_contacts}
+            # all_contacts = set(np.concatenate(residue_query).tolist())
             prior_residue = residue.prev_residue
-            prior_res_indices = prior_residue.atom_indices
+            # prior_res_indices = prior_residue.atom_indices
             next_residue = residue.next_residue
-            residue_indices_and_bonded_c_and_n = \
-                residue.atom_indices + [prior_res_indices[prior_residue.c_index],
-                                        prior_res_indices[prior_residue.o_index],
-                                        next_residue.atom_indices[next_residue.n_index]]
+            # residue_indices_and_bonded_c_and_n = residue.atom_indices
+            residue_indices_and_bonded_c_and_n = residue.heavy_indices + \
+                [prior_residue.c_atom_index, prior_residue.o_atom_index, next_residue.n_atom_index]
             clashes = all_contacts.difference(residue_indices_and_bonded_c_and_n)
             handle_clash_reporting(clashes) if any(clashes) else None
 
         residue = residues[-1]
         residue_query = atom_tree.query_radius(getattr(residue, coords_type), distance)
-        all_contacts = set(np.concatenate(residue_query).ravel().tolist())  # Todo remove ravel()
-        clashes = all_contacts.difference(residue.atom_indices +
-                                          [residue.prev_residue.atom_indices[residue.prev_residue.c_index],
-                                           residue.prev_residue.atom_indices[residue.prev_residue.o_index]])
+        all_contacts = set(np.concatenate(residue_query).tolist())
+        prev_res = residue.prev_residue
+        clashes = all_contacts.difference(residue.heavy_indices + [prev_res.c_atom_index, prev_res.o_atom_index])
         handle_clash_reporting(clashes) if any(clashes) else None
 
         if measured_clashes:
