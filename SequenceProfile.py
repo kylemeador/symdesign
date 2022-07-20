@@ -4,12 +4,11 @@ import math
 import os
 import subprocess
 import time
-import warnings
-from collections import namedtuple
+from collections import namedtuple, defaultdict
 from copy import deepcopy, copy
 from itertools import repeat
 from logging import Logger
-from math import floor, exp, log, log2
+from math import floor, exp, log2
 from pathlib import Path
 from typing import Sequence, Any, Iterable, get_args, Literal, Iterator, AnyStr
 
@@ -54,7 +53,7 @@ protein_letters_1aa_literal = Literal[tuple(protein_letters)]
 # protein_letters_literal: tuple[str, ...] = get_args(protein_letters_1aa_literal)
 gapped_protein_letters = protein_letters + '-'
 numerical_translation = dict(zip(protein_letters, range(len(protein_letters))))
-gapped_numerical_translation = dict(zip(gapped_protein_letters, range(len(gapped_protein_letters))))
+gapped_numerical_translation = defaultdict(lambda: '-', zip(gapped_protein_letters, range(len(gapped_protein_letters))))
 extended_protein_letters_literal = Literal[tuple(extended_protein_letters)]
 # extended_protein_letters: tuple[str, ...] = get_args(extended_protein_letters_literal)
 extended_protein_letters_and_gap_literal = Literal['-', get_args(extended_protein_letters_literal)]
