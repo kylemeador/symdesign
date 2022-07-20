@@ -829,7 +829,7 @@ class Atom(StructureBase):
 
     def is_heavy(self) -> bool:
         """Is the Atom a heavy atom?"""
-        return 'H' in self.type
+        return 'H' not in self.type
 
     def __key(self) -> tuple[int, str, str, float]:
         return self.index, self.type, self.residue_type, self.b_factor
