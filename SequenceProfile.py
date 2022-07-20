@@ -141,7 +141,7 @@ class MultipleSequenceAlignment:
                 # gap_observations = [aa_counts[0] for aa_counts in self.counts]  # list[list]
                 # self.observations = [counts - gap for counts, gap in zip(self.observations, gap_observations)]
                 self._observations = [sum(aa_counts[:-1]) for aa_counts in self._counts]  # list[list]
-                self.observations = self.counts[:, :-1].sum(axis=0)  # gaps are the last index
+                self.observations = self.counts[:, :-1].sum(axis=1)  # gaps are the last index
                 if not np.any(self.observations):  # check if an observation is 0
                     raise ValueError(f'Can\'t have a MSA column with 0 observations. Found at ('
                                      f'{",".join(map(str, np.flatnonzero(self.observations)))}')
