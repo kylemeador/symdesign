@@ -52,7 +52,8 @@ subs_matrices = {'BLOSUM62': substitution_matrices.load('BLOSUM62')}
 protein_letters_1aa_literal = Literal[tuple(protein_letters)]
 # protein_letters_literal: tuple[str, ...] = get_args(protein_letters_1aa_literal)
 gapped_protein_letters = protein_letters + '-'
-numerical_translation = dict(zip(protein_letters, range(len(protein_letters))))
+# numerical_translation = dict(zip(protein_letters, range(len(protein_letters))))
+numerical_translation_bytes = dict(zip([item.encode() for item in protein_letters], range(len(protein_letters))))
 gapped_numerical_translation = defaultdict(lambda: 20, zip(gapped_protein_letters, range(len(gapped_protein_letters))))
 gapped_numerical_translation_bytes = defaultdict(lambda: 20, zip([item.encode() for item in gapped_protein_letters],
                                                                  range(len(gapped_protein_letters))))
@@ -64,6 +65,8 @@ extended_protein_letters_and_gap: tuple[str, ...] = get_args(extended_protein_le
 
 class MultipleSequenceAlignment:
     _array: np.ndarray
+    _frequencies: np.ndarray
+    _gaps_per_position: np.ndarray
     _numerical_alignment: np.ndarray
     _sequence_index: np.ndarray
     alignment: MultipleSeqAlignment
@@ -114,40 +117,25 @@ class MultipleSequenceAlignment:
             self.query = aligned_sequence.replace('-', '')
             self.query_length = len(self.query)
             self.query_with_gaps = aligned_sequence
-            # self.counts = SequenceProfile.populate_design_dictionary(self.length, alphabet)
-            # self.counts = [{letter: 0 for letter in alphabet} for _ in range(self.length)]  # list[dict]
-            self._counts = [[0 for letter in alphabet] for _ in range(self.length)]  # list[list]
-            for record in self.alignment:
-                for i, aa in enumerate(record.seq):
-                    self._counts[i][gapped_numerical_translation[aa]] += 1
-                    # self.counts[i][aa] += 1
-            print('OLD self._counts', self._counts)
 
-            print('self.array', self.array)
-            print('self.numerical_alignment', self.numerical_alignment)
             numerical_alignment = self.numerical_alignment
             self.counts = np.zeros((self.length, len(gapped_protein_letters)))
             # invert the "typical" format to length of the alignment in axis 0, and the numerical letters in axis 1
             for residue_idx in range(self.length):
                 self.counts[residue_idx, :] = np.bincount(numerical_alignment[:, residue_idx])
-            print('self.counts', self.counts)
 
             # self.observations = find_column_observations(self.counts, **kwargs)
             if count_gaps:
-                self._observations = [sum(aa_counts) for aa_counts in self._counts]  # list[dict]
                 self.observations = [self.number_of_sequences for _ in range(self.length)]
             else:
                 # gap_observations = [aa_counts['-'] for aa_counts in self.counts]  # list[dict]
                 # gap_observations = [aa_counts[0] for aa_counts in self.counts]  # list[list]
                 # self.observations = [counts - gap for counts, gap in zip(self.observations, gap_observations)]
-                self._observations = [sum(aa_counts[:-1]) for aa_counts in self._counts]  # list[list]
                 self.observations = self.counts[:, :-1].sum(axis=1)  # gaps are the last index
                 if not np.any(self.observations):  # check if an observation is 0
                     raise ValueError(f'Can\'t have a MSA column with 0 observations. Found at ('
                                      f'{",".join(map(str, np.flatnonzero(self.observations)))}')
                     #                f'{",".join(str(idx) for idx, pos in enumerate(self.observations) if not pos)}')
-            print('self.observations', self.observations)
-            print('OLD self._observations', self._observations)
 
             if weight_alignment_by_sequence:
                 # create a 1/ obs * counts = positional_weights
@@ -165,6 +153,14 @@ class MultipleSequenceAlignment:
                 # correctly. Maybe this is a case where 'F' array ordering is needed?
                 sequence_weights = np.take_along_axis(position_weights, numerical_alignment.T, axis=0).sum(axis=0)
                 print('sequence_weights', sequence_weights)
+                self._counts = [[0 for letter in alphabet] for _ in range(self.length)]  # list[list]
+                for record in self.alignment:
+                    for i, aa in enumerate(record.seq):
+                        self._counts[i][gapped_numerical_translation[aa]] += 1
+                        # self.counts[i][aa] += 1
+                print('OLD self._counts', self._counts)
+                self._observations = [sum(aa_counts[:-1]) for aa_counts in self._counts]  # list[list]
+
                 sequence_weights_ = weight_sequences(self._counts, self.alignment, self._observations)
                 print('OLD sequence_weights_', sequence_weights_)
 
@@ -185,18 +181,6 @@ class MultipleSequenceAlignment:
                 print('sequence_weight self.counts', self.counts)
             else:
                 self.sequence_weights = []
-
-            self._frequencies = [[count/observation for count in amino_acid_counts]
-                                 for amino_acid_counts, observation in zip(self._counts, self._observations)]
-            print('OLD self._frequencies', self._frequencies)
-
-            self.frequencies = np.zeros(self.counts.shape)
-            # self.frequencies = [self.counts[residue_idx] / self.observations[residue_idx]
-            #                     for residue_idx in range(self.length)]
-            for residue_idx in range(self.length):
-                self.frequencies[residue_idx, :] = self.counts[residue_idx] / self.observations[residue_idx]
-            print('self.frequencies', self.frequencies)
-            # self.msa_to_prob_distribution()
 
     @classmethod
     def from_stockholm(cls, file, **kwargs):
@@ -294,6 +278,31 @@ class MultipleSequenceAlignment:
             self._array = np.array([list(record) for record in self.alignment], np.string_)
             return self._array
 
+    @property
+    def frequencies(self) -> np.ndarray:
+        """Return the per position (axis=0) sequence frequencies (axis=1) bounded between 0 and 1 for the instance"""
+        # self._frequencies = [[count/observation for count in amino_acid_counts[:-1]]  # don't use the gap
+        #                      for amino_acid_counts, observation in zip(self._counts, self._observations)]
+        # print('OLD self._frequencies', self._frequencies)
+
+        # self.frequencies = np.zeros((self.length, len(protein_letters)))  # self.counts.shape)
+        # for residue_idx in range(self.length):
+        #     self.frequencies[residue_idx, :] = self.counts[:, :-1] / self.observations
+        try:
+            return self._frequencies
+        except AttributeError:
+            self._frequencies = self.counts[:, :-1] / self.observations[:, None]  # :-1 removes gap counts
+            print('self.frequencies', self.frequencies)
+        return self._frequencies
+
+    @property
+    def gaps_per_postion(self) -> np.ndarray:
+        try:
+            return self._gaps_per_position
+        except AttributeError:
+            self._gaps_per_position = self.number_of_sequences - self.observations
+        return self._gaps_per_position
+
 
 def sequence_to_numeric(sequence: Sequence) -> np.ndarray:
     """Convert a position specific profile matrix into a numeric array
@@ -305,7 +314,7 @@ def sequence_to_numeric(sequence: Sequence) -> np.ndarray:
             to the 1 letter alphabetical amino acid
     """
     _array = np.array(list(sequence), np.string_)  # for single sequence
-    return np.vectorize(numerical_translation.__getitem__)(_array)
+    return np.vectorize(numerical_translation_bytes.__getitem__)(_array)
 
 
 def pssm_to_numeric(pssm: dict[int, dict[str, str | float | int | dict[str, int]]]) -> np.ndarray:
@@ -320,7 +329,7 @@ def pssm_to_numeric(pssm: dict[int, dict[str, str | float | int | dict[str, int]
             i.e array([[0.1, 0.01, 0.12, ...], ...])
     """
     _array = np.array([[residue_info[aa] for aa in protein_letters] for residue_info in pssm.values()], np.string_)
-    return np.vectorize(numerical_translation.__getitem__)(_array)
+    return np.vectorize(numerical_translation_bytes.__getitem__)(_array)
 
 
 class SequenceProfile:
