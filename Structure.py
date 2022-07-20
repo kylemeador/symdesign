@@ -1601,7 +1601,7 @@ class Residue(ResidueFragment, ContainsAtomsMixin):
     @StructureBase.coords.setter
     def coords(self, coords: np.ndarray | list[list[float]]):
         """Set the Residue coords according to a new coordinate system. Transforms .guide_coords to the new reference"""
-        if self.i_type:  # a Fragment has been assigned. Transform the guide_coords according to the new coords
+        if self.i_type:  # Fragment has been assigned. Transform the guide_coords according to the new coords
             _, rot, tx = superposition3d(self.coords, coords)
             self.guide_coords = np.matmul(self.guide_coords, np.transpose(rot))
         super(Residue, Residue).coords.fset(self, coords)  # prefer this over below, as this mechanism could change
@@ -1677,21 +1677,22 @@ class Residue(ResidueFragment, ContainsAtomsMixin):
             for idx, atom in enumerate(self.atoms):
                 match atom.type:
                     case 'N':
-                        self.n_index = idx
+                        print('N_index', idx)
+                        self._n_index = idx
                         self.chain = atom.chain
                         self.number = atom.residue_number
                         self.number_pdb = atom.pdb_residue_number
                         self.type = atom.residue_type
                     case 'CA':
-                        self.ca_index = idx
+                        self._ca_index = idx
                     case 'CB':
-                        self.cb_index = idx
+                        self._cb_index = idx
                     case 'C':
-                        self.c_index = idx
+                        self._c_index = idx
                     case 'O':
-                        self.o_index = idx
+                        self._o_index = idx
                     case 'H':
-                        self.h_index = idx
+                        self._h_index = idx
                     case other:
                         side_chain_indices.append(idx)
                         if 'H' not in atom.type:
@@ -1699,21 +1700,21 @@ class Residue(ResidueFragment, ContainsAtomsMixin):
         except SyntaxError:  # python version not 3.10
             for idx, atom in enumerate(self.atoms):
                 if atom.type == 'N':
-                    self.n_index = idx
+                    self._n_index = idx
                     self.chain = atom.chain
                     self.number = atom.residue_number
                     self.number_pdb = atom.pdb_residue_number
                     self.type = atom.residue_type
                 elif atom.type == 'CA':
-                    self.ca_index = idx
+                    self._ca_index = idx
                 elif atom.type == 'CB':
-                    self.cb_index = idx
+                    self._cb_index = idx
                 elif atom.type == 'C':
-                    self.c_index = idx
+                    self._c_index = idx
                 elif atom.type == 'O':
-                    self.o_index = idx
+                    self._o_index = idx
                 elif atom.type == 'H':
-                    self.h_index = idx
+                    self._h_index = idx
                 else:
                     side_chain_indices.append(idx)
                     if 'H' not in atom.type:
@@ -1729,7 +1730,10 @@ class Residue(ResidueFragment, ContainsAtomsMixin):
             cb_indices = []
 
         # By using private variables, None is removed v
+        print('self._bb_and_cb_indices', [getattr(self, f'_{index}_index', None) for index in ['n', 'ca', 'c', 'o']])
+        print('self._bb_and_cb_indices', self._bb_indices)
         self.backbone_and_cb_indices = self._bb_indices + cb_indices
+        print('self._bb_and_cb_indices', self._bb_and_cb_indices)
         self.heavy_indices = self._bb_and_cb_indices + heavy_indices
         self.side_chain_indices = side_chain_indices
         # if not self.ca_index:  # this is likely a NH or a C=O so we don't have a full residue
@@ -1844,9 +1848,9 @@ class Residue(ResidueFragment, ContainsAtomsMixin):
         except AttributeError:
             return
 
-    @n_index.setter
-    def n_index(self, index: int):
-        self._n_index = index
+    # @n_index.setter
+    # def n_index(self, index: int):
+    #     self._n_index = index
 
     @property
     def h(self) -> Atom | None:
@@ -1880,9 +1884,9 @@ class Residue(ResidueFragment, ContainsAtomsMixin):
         except AttributeError:
             return
 
-    @h_index.setter
-    def h_index(self, index: int):
-        self._h_index = index
+    # @h_index.setter
+    # def h_index(self, index: int):
+    #     self._h_index = index
 
     @property
     def ca(self) -> Atom | None:
@@ -1916,9 +1920,9 @@ class Residue(ResidueFragment, ContainsAtomsMixin):
         except AttributeError:
             return
 
-    @ca_index.setter
-    def ca_index(self, index: int):
-        self._ca_index = index
+    # @ca_index.setter
+    # def ca_index(self, index: int):
+    #     self._ca_index = index
 
     @property
     def cb(self) -> Atom | None:
@@ -1952,9 +1956,9 @@ class Residue(ResidueFragment, ContainsAtomsMixin):
         except AttributeError:
             return
 
-    @cb_index.setter
-    def cb_index(self, index: int):
-        self._cb_index = index
+    # @cb_index.setter
+    # def cb_index(self, index: int):
+    #     self._cb_index = index
 
     @property
     def c(self) -> Atom | None:
@@ -1988,9 +1992,9 @@ class Residue(ResidueFragment, ContainsAtomsMixin):
         except AttributeError:
             return
 
-    @c_index.setter
-    def c_index(self, index: int):
-        self._c_index = index
+    # @c_index.setter
+    # def c_index(self, index: int):
+    #     self._c_index = index
 
     @property
     def o(self) -> Atom | None:
@@ -2024,9 +2028,9 @@ class Residue(ResidueFragment, ContainsAtomsMixin):
         except AttributeError:
             return
 
-    @o_index.setter
-    def o_index(self, index: int):
-        self._o_index = index
+    # @o_index.setter
+    # def o_index(self, index: int):
+    #     self._o_index = index
 
     @property
     def next_residue(self) -> Residue | None:
