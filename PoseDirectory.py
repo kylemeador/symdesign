@@ -738,7 +738,10 @@ class PoseDirectory:
             return self._design_profile
         except AttributeError:
             try:
+                pssm = parse_pssm(self.design_profile_file)
+                print(pssm)
                 self._design_profile = pssm_to_numeric(parse_pssm(self.design_profile_file))
+                print(self._design_profile)
             except FileNotFoundError:
                 self._design_profile = None
             return self._design_profile
@@ -2894,7 +2897,10 @@ class PoseDirectory:
             per_residue_sasa_unbound_polar.extend([residue.sasa_polar for residue in oligomer_asu_residues])
             per_residue_sasa_unbound_relative.extend([residue.relative_sasa for residue in oligomer_asu_residues])
             if design_was_performed:  # we should respect input structure was not meant to be together
+                self.log.debug('Starting Entity Errat')
+                errat_start = time.time()
                 oligomer_errat_accuracy, oligomeric_errat = entity_oligomer.errat(out_path=self.data)
+                self.log.debug(f'Finished Errat, time = {time.time() - errat_start:6f}')
                 source_errat_accuracy.append(oligomer_errat_accuracy)
                 source_errat.append(oligomeric_errat[:entity.number_of_residues])
         per_residue_data['sasa_hydrophobic_bound'][pose_source] = per_residue_sasa_unbound_apolar
@@ -2907,8 +2913,11 @@ class PoseDirectory:
             pose_source_errat_s = Series(np.concatenate(source_errat), index=residue_indices)
             per_residue_data['errat_deviation'][pose_source] = pose_source_errat_s
         else:
+            self.log.debug('Starting Pose Errat')
+            errat_start = time.time()
             atomic_deviation[pose_source], pose_per_residue_errat = \
                 pose_assembly_minimally_contacting.errat(out_path=self.data)
+            self.log.debug(f'Finished Errat, time = {time.time() - errat_start:6f}')
             per_residue_data['errat_deviation'][pose_source] = pose_per_residue_errat[:pose_length]
 
         pose_source_contact_order_s = \
@@ -2932,7 +2941,7 @@ class PoseDirectory:
             # this is a measurement of interface_connectivity like from Rosetta  Todo remove Rosetta and use here
             interface_local_density[pose.name] = pose.local_density_interface()
             assembly_minimally_contacting = pose.assembly_minimally_contacting
-            self.log.debug('Starting Errat')
+            self.log.debug(f'Starting Design {pose.name} Errat')
             errat_start = time.time()
             atomic_deviation[pose.name], per_residue_errat = \
                 assembly_minimally_contacting.errat(out_path=self.data)
