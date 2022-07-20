@@ -3982,7 +3982,8 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         print('OLD', all_contacts_)
         # We must subtract the N and C atoms from the adjacent residues for each residue as these are within a bond
         clashes = all_contacts.difference(residue.heavy_indices + [residue.next_residue.n_atom_index])
-        handle_clash_reporting(clashes) if any(clashes) else None
+        if any(clashes):
+            handle_clash_reporting(clashes)
 
         # perform routine for all middle residues
         for residue in residues[1:-1]:  # avoid first and last since no prev_ or next_residue
@@ -3991,19 +3992,23 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
             # all_contacts = set(np.concatenate(residue_query).tolist())
             prior_residue = residue.prev_residue
             # prior_res_indices = prior_residue.atom_indices
-            next_residue = residue.next_residue
+            # next_residue = residue.next_residue
             # residue_indices_and_bonded_c_and_n = residue.atom_indices
-            residue_indices_and_bonded_c_and_n = residue.heavy_indices + \
-                [prior_residue.c_atom_index, prior_residue.o_atom_index, next_residue.n_atom_index]
-            clashes = all_contacts.difference(residue_indices_and_bonded_c_and_n)
-            handle_clash_reporting(clashes) if any(clashes) else None
+            # residue_indices_and_bonded_c_and_n = residue.heavy_indices + \
+            #     [prior_residue.c_atom_index, prior_residue.o_atom_index, residue.next_residue.n_atom_index]
+            clashes = all_contacts.difference(residue.heavy_indices +
+                                              [prior_residue.c_atom_index, prior_residue.o_atom_index,
+                                               residue.next_residue.n_atom_index])
+            if any(clashes):
+                handle_clash_reporting(clashes)
 
         residue = residues[-1]
         residue_query = atom_tree.query_radius(getattr(residue, coords_type), distance)
         all_contacts = set(np.concatenate(residue_query).tolist())
         prev_res = residue.prev_residue
         clashes = all_contacts.difference(residue.heavy_indices + [prev_res.c_atom_index, prev_res.o_atom_index])
-        handle_clash_reporting(clashes) if any(clashes) else None
+        if any(clashes):
+            handle_clash_reporting(clashes)
 
         if measured_clashes:
             bb_info = '\n\t'.join('Residue %5d: %s' % (residue.number, atom.return_atom_record())

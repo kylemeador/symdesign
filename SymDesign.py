@@ -932,7 +932,7 @@ if __name__ == '__main__':
             [PUtils.interface_design, PUtils.interface_metrics, PUtils.optimize_designs, 'custom_script']
         #      PUtils.analysis,  # maybe hhblits, bmDCA. Only refine if Rosetta were used, no loop_modelling
         #      PUtils.refine]  # pre_refine not necessary. maybe hhblits, bmDCA, loop_modelling
-        if not initialized and args.module in initialize_modules or args.nanohedra_output or args.load_database:
+        if not initialized and args.module in initialize_modules or args.nanohedra_output or args.update_database:
             # if args.load_database:  # Todo why is this set_up_pose_directory here?
             #     for design in pose_directories:
             #         design.set_up_pose_directory()
