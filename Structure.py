@@ -2233,7 +2233,6 @@ class Residue(ResidueFragment, ContainsAtomsMixin):
 
     @contact_order.setter
     def contact_order(self, contact_order: float):
-        print('set as', contact_order)
         self._contact_order = contact_order
 
     # End state properties
