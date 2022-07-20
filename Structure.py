@@ -3964,7 +3964,6 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
             other = 'non-ca'
         else:  # measure == 'all'
             other = 'solvent'  # this should never appear unless someone added solvent parsing
-            def return_true(): return True
 
         coords_type = 'coords' if measure == 'all' else f'{measure}_coords'
         # cant use heavy_coords as the Residue.atom_indices aren't offset for the BallTree made from them...
@@ -3979,8 +3978,9 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         atom_tree = BallTree(self.coords)
         residues = self.residues
         atoms = self.atoms
-
         measured_clashes, other_clashes = [], []
+
+        def return_true(): return True
 
         def handle_clash_reporting(clash_indices: Iterable[int]):
             """Local helper to separate clash reporting from clash generation"""
