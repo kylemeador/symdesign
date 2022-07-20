@@ -1097,15 +1097,15 @@ class ContainsAtomsMixin(StructureBase):
         """
         return self._coords.coords[self.backbone_and_cb_indices]
 
-    # @property
-    # def ca_coords(self) -> np.ndarray:  # NOT in Residue, ca_coord
-    #     """Return a view of the Coords from the Structure with CA atom coordinates"""
-    #     return self._coords.coords[self.ca_indices]
-    #
-    # @property
-    # def cb_coords(self) -> np.ndarray:  # NOT in Residue, cb_coord
-    #     """Return a view of the Coords from the Structure with CB atom coordinates"""
-    #     return self._coords.coords[self.cb_indices]
+    @property
+    def ca_coords(self) -> np.ndarray:
+        """Return a view of the Coords from the Structure with CA atom coordinates"""
+        return self._coords.coords[self.ca_indices]
+
+    @property
+    def cb_coords(self) -> np.ndarray:
+        """Return a view of the Coords from the Structure with CB atom coordinates"""
+        return self._coords.coords[self.cb_indices]
 
     @property
     def heavy_coords(self) -> np.ndarray:
@@ -1490,6 +1490,8 @@ class ResidueFragment(Fragment):
 
 
 class Residue(ResidueFragment, ContainsAtomsMixin):
+    _ca_indices: list[int]
+    _cb_indices: list[int]
     _bb_indices: list[int]
     _bb_and_cb_indices: list[int]
     _heavy_atom_indices: list[int]
@@ -1755,6 +1757,24 @@ class Residue(ResidueFragment, ContainsAtomsMixin):
     @backbone_and_cb_indices.setter
     def backbone_and_cb_indices(self, indices: list[int]):
         self._bb_and_cb_indices = indices
+
+    @property
+    def ca_indices(self) -> list[int]:  # This is for compatibility with ContainsAtomsMixin
+        """Return the index of the CA Atom as a list in the Residue Atoms/Coords"""
+        try:
+            return self._ca_indices
+        except AttributeError:
+            self._ca_indices = [self._atom_indices[self._ca_index]]
+            return self._ca_indices
+
+    @property
+    def cb_indices(self) -> list[int]:  # This is for compatibility with ContainsAtomsMixin
+        """Return the index of the CB Atom as a list in the Residue Atoms/Coords"""
+        try:
+            return self._cb_indices
+        except AttributeError:
+            self._cb_indices = [self._atom_indices[self._cb_index]]
+            return self._cb_indices
 
     @property
     def side_chain_indices(self) -> list[int]:
@@ -3263,7 +3283,8 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
     @property
     def backbone_and_cb_indices(self) -> list[int]:
         """The indices that index the Structure backbone and CB Atoms. Inherently gets CA of Residue instances missing
-        CB"""
+        CB
+        """
         try:
             return self._backbone_and_cb_indices
         except AttributeError:
@@ -3279,8 +3300,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
             return self._cb_indices
         except AttributeError:
             # self._cb_indices = [residue.cb_atom_index for residue in self.residues if residue.cb_atom_index]
-            self._cb_indices = [residue.cb_atom_index if residue.cb_atom_index else residue.ca_atom_index
-                                for residue in self.residues]
+            self._cb_indices = [residue.cb_atom_index for residue in self.residues]
             return self._cb_indices
 
     @property
@@ -3289,7 +3309,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         try:
             return self._ca_indices
         except AttributeError:
-            self._ca_indices = [residue.ca_atom_index for residue in self.residues if residue.ca_atom_index]
+            self._ca_indices = [residue.ca_atom_index for residue in self.residues]
             return self._ca_indices
 
     @property
@@ -3953,7 +3973,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
 
         # Set up the query indices. BallTree is faster upon timeit with 131 msec/loop
         atom_tree = BallTree(self.coords)
-        coords_indexed_residues = self.coords_indexed_residues
+        residues = self.residues
         atoms = self.atoms
 
         measured_clashes, other_clashes = [], []
@@ -3961,19 +3981,13 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         def handle_clash_reporting(clash_indices: Iterable[int]):
             """Local helper to separate clash reporting from clash generation"""
             for clashing_idx in clash_indices:
-                other_residue = coords_indexed_residues[clashing_idx]
-                # atom_idx = coords_indexed_residue_atoms[clashing_atom_idx]
+                # other_residue = coords_indexed_residues[clashing_idx]
                 atom = atoms[clashing_idx]
-                # atom = other_residue[atom_idx]
-                # if atom.is_backbone() or atom.is_cb():
                 if measure_function(atom):
-                    measured_clashes.append((residue, other_residue, atom))
-                    # backbone_clashes.append((other_residue, residue[atom_idx]))
-                # elif 'H' not in atom.type:
+                    measured_clashes.append((residue, atom))
                 else:
-                    other_clashes.append((residue, other_residue))
+                    other_clashes.append((residue, atom))
 
-        residues = self.residues
         # check first and last residue with different considerations given covalent bonds
         residue = residues[0]
         # query the first residue with chosen coords type against the atom_tree
@@ -3981,7 +3995,10 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         # reduce the dimensions and format as a single array
         all_contacts = {contact for residue_contacts in residue_query for contact in residue_contacts}
         # We must subtract the N and C atoms from the adjacent residues for each residue as these are within a bond
+        print('All', all_contacts)
         clashes = all_contacts.difference(residue.heavy_indices + [residue.next_residue.n_atom_index])
+        print('difference_index', residue.heavy_indices + [residue.next_residue.n_atom_index])
+        print('clashes', clashes)
         if any(clashes):
             handle_clash_reporting(clashes)
 
@@ -4011,17 +4028,15 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
             handle_clash_reporting(clashes)
 
         if measured_clashes:
-            bb_info = '\n\t'.join('Residue %5d: %s' % (residue.number, atom.return_atom_record())
-                                  for residue, other, atom in measured_clashes)
-            self.log.critical(f'{self.name} contains {len(measured_clashes)} {measure} clashes from the following '
-                              f'Residues to the corresponding Atom:\n\t{bb_info}')
-            # if other_clashes:
-            #     self.log.warning('Additional clashes were identified but are being silenced by importance')
+            bb_info = '\n\t'.join(f'Residue {residue.number:5d}: {atom.return_atom_record()}'
+                                  for residue, atom in measured_clashes)
+            self.log.error(f'{self.name} contains {len(measured_clashes)} {measure} clashes from the following '
+                           f'Residues to the corresponding Atom:\n\t{bb_info}')
             return True
         else:
             if other_clashes:
-                sc_info = '\n\t'.join('Residue %5d: %5d' % (residue.number, other.number)
-                                      for residue, other in other_clashes)
+                sc_info = '\n\t'.join(f'Residue {residue.number:5d}: {atom.return_atom_record()}'
+                                      for residue, atom in other_clashes)
                 self.log.warning(f'{self.name} contains {len(other_clashes)} {other} clashes between the '
                                  f'following Residues:\n\t{sc_info}')
             return False
