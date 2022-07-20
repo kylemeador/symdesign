@@ -1490,10 +1490,10 @@ class ResidueFragment(Fragment):
 
 
 class Residue(ResidueFragment, ContainsAtomsMixin):
-    __backbone_indices: list[int]
-    __backbone_and_cb_indices: list[int]
-    __heavy_indices: list[int]
-    __side_chain_indices: list[int]
+    _bb_indices: list[int]
+    _bb_and_cb_indices: list[int]
+    _heavy_atom_indices: list[int]
+    _sc_indices: list[int]
     _atoms: Atoms
     _backbone_indices: list[int]
     _backbone_and_cb_indices: list[int]
@@ -1676,8 +1676,6 @@ class Residue(ResidueFragment, ContainsAtomsMixin):
                         self.type = atom.residue_type
                     case 'CA':
                         self.ca_index = idx
-                        if atom.residue_type == 'GLY':
-                            self.cb_index = idx
                     case 'CB':
                         self.cb_index = idx
                     case 'C':
@@ -1700,8 +1698,6 @@ class Residue(ResidueFragment, ContainsAtomsMixin):
                     self.type = atom.residue_type
                 elif atom.type == 'CA':
                     self.ca_index = idx
-                    if atom.residue_type == 'GLY':
-                        self.cb_index = idx
                 elif atom.type == 'CB':
                     self.cb_index = idx
                 elif atom.type == 'C':
@@ -1715,12 +1711,19 @@ class Residue(ResidueFragment, ContainsAtomsMixin):
                     if 'H' not in atom.type:
                         heavy_indices.append(idx)
 
-        bb_indices = [getattr(self, index, None) for index in ['_n_index', '_ca_index', '_c_index', '_o_index']]
-        self.backbone_indices = bb_indices
-        self.backbone_and_cb_indices = bb_indices + [getattr(self, '_cb_index', getattr(self, '_ca_index', None))]
+        self.backbone_indices = [getattr(self, f'_{index}_index', None) for index in ['n', 'ca', 'c', 'o']]
+        cb_index = getattr(self, '_cb_index', None)
+        if cb_index:
+            cb_indices = [cb_index]
+        else:
+            if self.type == 'GLY':
+                self.cb_index = getattr(self, '_ca_index')
+            cb_indices = []
+
+        # By using private variables, None is removed v
+        self.backbone_and_cb_indices = self._bb_indices + cb_indices
+        self.heavy_indices = self._bb_and_cb_indices + heavy_indices
         self.side_chain_indices = side_chain_indices
-        # using private variable has removed None v
-        self.heavy_indices = self.__backbone_and_cb_indices + heavy_indices
         # if not self.ca_index:  # this is likely a NH or a C=O so we don't have a full residue
         #     self.log.error('Residue %d has no CA atom!' % self.number)
         #     # Todo this residue should be built out, but as of 6/28/22 it can only be deleted
@@ -1733,12 +1736,12 @@ class Residue(ResidueFragment, ContainsAtomsMixin):
         try:
             return self._backbone_indices
         except AttributeError:
-            self._backbone_indices = [self._atom_indices[idx] for idx in self.__backbone_indices]
+            self._backbone_indices = [self._atom_indices[idx] for idx in self._bb_indices]
             return self._backbone_indices
 
     @backbone_indices.setter
     def backbone_indices(self, indices: Iterable[int]):
-        self.__backbone_indices = [idx for idx in indices if idx]  # check if idx is None as some might not be provided
+        self._bb_indices = [idx for idx in indices if idx]  # check if idx is None as some might not be provided
 
     @property
     def backbone_and_cb_indices(self) -> list[int]:
@@ -1746,12 +1749,12 @@ class Residue(ResidueFragment, ContainsAtomsMixin):
         try:
             return self._backbone_and_cb_indices
         except AttributeError:
-            self._backbone_and_cb_indices = [self._atom_indices[idx] for idx in self.__backbone_and_cb_indices]
+            self._backbone_and_cb_indices = [self._atom_indices[idx] for idx in self._bb_and_cb_indices]
             return self._backbone_and_cb_indices
 
     @backbone_and_cb_indices.setter
     def backbone_and_cb_indices(self, indices: list[int]):
-        self.__backbone_and_cb_indices = [idx for idx in indices if idx]  # check if None as some might not be provided
+        self._bb_and_cb_indices = indices
 
     @property
     def side_chain_indices(self) -> list[int]:
@@ -1759,12 +1762,12 @@ class Residue(ResidueFragment, ContainsAtomsMixin):
         try:
             return self._side_chain_indices
         except AttributeError:
-            self._side_chain_indices = [self._atom_indices[idx] for idx in self.__side_chain_indices]
+            self._side_chain_indices = [self._atom_indices[idx] for idx in self._sc_indices]
         return self._side_chain_indices
 
     @side_chain_indices.setter
-    def side_chain_indices(self, indices: Sequence[int]):
-        self.__side_chain_indices = indices
+    def side_chain_indices(self, indices: list[int]):
+        self._sc_indices = indices
 
     @property
     def heavy_indices(self) -> list[int]:
@@ -1772,12 +1775,12 @@ class Residue(ResidueFragment, ContainsAtomsMixin):
         try:
             return self._heavy_indices
         except AttributeError:
-            self._heavy_indices = [self._atom_indices[idx] for idx in self.__heavy_indices]
+            self._heavy_indices = [self._atom_indices[idx] for idx in self._heavy_atom_indices]
             return self._heavy_indices
 
     @heavy_indices.setter
-    def heavy_indices(self, indices: Sequence[int]):
-        self.__heavy_indices = indices
+    def heavy_indices(self, indices: list[int]):
+        self._heavy_atom_indices = indices
 
     def contains_hydrogen(self) -> bool:  # in Structure too
         """Returns whether the Residue contains hydrogen atoms"""
@@ -2355,10 +2358,10 @@ class Residue(ResidueFragment, ContainsAtomsMixin):
         other = self.__class__.__new__(self.__class__)
         # Todo only copy mutable objects like
         #  _atom_indices
-        #  __backbone_indices
-        #  __backbone_and_cb_indices
-        #  __heavy_indices
-        #  __side_chain_indices
+        #  _bb_indices
+        #  _bb_and_cb_indices
+        #  _heavy_atom_indices
+        #  _sc_indices
         other.__dict__ = copy(self.__dict__)
 
         if self.is_parent():  # this Structure is the parent, it's copy should be too
