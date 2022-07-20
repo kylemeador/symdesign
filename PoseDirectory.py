@@ -43,8 +43,7 @@ from Query.PDB import is_entity_thermophilic
 from Query.UniProt import is_uniprot_thermophilic
 from SequenceProfile import parse_pssm, generate_mutations_from_reference, \
     simplify_mutation_dict, weave_sequence_dict, position_specific_jsd, sequence_difference, \
-    jensen_shannon_divergence, hydrophobic_collapse_index, msa_from_dictionary, alignment_types, \
-    MultipleSequenceAlignment, pssm_to_numeric
+    jensen_shannon_divergence, hydrophobic_collapse_index, alignment_types, MultipleSequenceAlignment, pssm_as_array
 from Structure import Structure, Entity  # , Structures
 from SymDesignUtils import unpickle, start_log, null_log, handle_errors, write_shell_script, match_score_from_z_value, \
     pickle_object, all_vs_all, make_path, condensed_to_square, sym, index_intersection, z_score, large_color_array, \
@@ -740,7 +739,7 @@ class PoseDirectory:
             try:
                 pssm = parse_pssm(self.design_profile_file)
                 print(pssm)
-                self._design_profile = pssm_to_numeric(parse_pssm(self.design_profile_file))
+                self._design_profile = pssm_as_array(parse_pssm(self.design_profile_file))
                 print(self._design_profile)
             except FileNotFoundError:
                 self._design_profile = None
@@ -759,7 +758,7 @@ class PoseDirectory:
             return self._evolutionary_profile
         except AttributeError:
             try:
-                self._evolutionary_profile = pssm_to_numeric(parse_pssm(self.evolutionary_profile_file))
+                self._evolutionary_profile = pssm_as_array(parse_pssm(self.evolutionary_profile_file))
             except FileNotFoundError:
                 self._evolutionary_profile = None
             return self._evolutionary_profile
@@ -777,7 +776,7 @@ class PoseDirectory:
             return self._fragment_profile
         except AttributeError:
             try:
-                self._fragment_profile = pssm_to_numeric(parse_pssm(self.fragment_profile_file))
+                self._fragment_profile = pssm_as_array(parse_pssm(self.fragment_profile_file))
             except FileNotFoundError:
                 self._fragment_profile = None
             return self._fragment_profile

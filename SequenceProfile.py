@@ -317,7 +317,7 @@ def sequence_to_numeric(sequence: Sequence) -> np.ndarray:
     return np.vectorize(numerical_translation_bytes.__getitem__)(_array)
 
 
-def pssm_to_numeric(pssm: dict[int, dict[str, str | float | int | dict[str, int]]]) -> np.ndarray:
+def pssm_as_array(pssm: dict[int, dict[str, str | float | int | dict[str, int]]]) -> np.ndarray:
     """Convert a position specific profile matrix into a numeric array
 
     Args:
@@ -328,8 +328,8 @@ def pssm_to_numeric(pssm: dict[int, dict[str, str | float | int | dict[str, int]
             frequency data at every indexed amino acid. Indices are according to the 1 letter alphabetical amino acid,
             i.e array([[0.1, 0.01, 0.12, ...], ...])
     """
-    _array = np.array([[residue_info[aa] for aa in protein_letters] for residue_info in pssm.values()], np.string_)
-    return np.vectorize(numerical_translation_bytes.__getitem__)(_array)
+    return np.array([[residue_info[aa] for aa in protein_letters] for residue_info in pssm.values()])
+    # return np.vectorize(numerical_translation_bytes.__getitem__)(_array)
 
 
 class SequenceProfile:
