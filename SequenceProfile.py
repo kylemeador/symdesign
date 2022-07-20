@@ -52,7 +52,9 @@ subs_matrices = {'BLOSUM62': substitution_matrices.load('BLOSUM62')}
 
 protein_letters_1aa_literal = Literal[tuple(protein_letters)]
 # protein_letters_literal: tuple[str, ...] = get_args(protein_letters_1aa_literal)
-gapped_protein_letters = '-' + protein_letters
+gapped_protein_letters = protein_letters + '-'
+numerical_translation = dict(zip(protein_letters, range(len(protein_letters))))
+gapped_numerical_translation = dict(zip(gapped_protein_letters, range(len(gapped_protein_letters))))
 extended_protein_letters_literal = Literal[tuple(extended_protein_letters)]
 # extended_protein_letters: tuple[str, ...] = get_args(extended_protein_letters_literal)
 extended_protein_letters_and_gap_literal = Literal['-', get_args(extended_protein_letters_literal)]
@@ -60,8 +62,11 @@ extended_protein_letters_and_gap: tuple[str, ...] = get_args(extended_protein_le
 
 
 class MultipleSequenceAlignment:
-    numerical_translation = dict(zip(gapped_protein_letters, range(21)))
+    _array: np.ndarray
+    _numerical_alignment: np.ndarray
+    _sequence_index: np.ndarray
     alignment: MultipleSeqAlignment
+    frequencies: np.ndarray
     number_of_sequences: int
     length: int
     query: str
@@ -71,7 +76,7 @@ class MultipleSequenceAlignment:
     counts: list[list[int]] | np.ndarray
 
     def __init__(self, alignment: MultipleSeqAlignment = None, aligned_sequence: str = None,
-                 alphabet: str = '-' + extended_protein_letters,
+                 alphabet: str = gapped_protein_letters,
                  weight_alignment_by_sequence: bool = False, sequence_weights: list[float] = None,
                  count_gaps: bool = False, **kwargs):
         """Take a Biopython MultipleSeqAlignment object and process for residue specific information. One-indexed
@@ -83,7 +88,7 @@ class MultipleSequenceAlignment:
             alignment: "Array" of SeqRecords
             aligned_sequence: Provide the sequence on which the alignment is based, otherwise the first
                 sequence will be used
-            alphabet: '-ACDEFGHIKLMNPQRSTVWYBXZJUO'
+            alphabet: 'ACDEFGHIKLMNPQRSTVWY-'
             weight_alignment_by_sequence: If weighting should be performed. Use in cases of
                 unrepresentative sequence population in the MSA
             sequence_weights: If the alignment should be weighted, and weights are already available, the
@@ -113,66 +118,83 @@ class MultipleSequenceAlignment:
             self._counts = [[0 for letter in alphabet] for _ in range(self.length)]  # list[list]
             for record in self.alignment:
                 for i, aa in enumerate(record.seq, 1):
-                    self._counts[i][MultipleSequenceAlignment.numerical_translation[aa]] += 1
+                    self._counts[i][gapped_numerical_translation[aa]] += 1
                     # self.counts[i][aa] += 1
-            print('OLD self.counts', self._counts)
+            print('OLD self._counts', self._counts)
 
             print('self.array', self.array)
             print('self.numerical_alignment', self.numerical_alignment)
             numerical_alignment = self.numerical_alignment
             self.counts = np.zeros((self.length, len(gapped_protein_letters)))
             # invert the "typical" format to length of the alignment in axis 0, and the numerical letters in axis 1
-            for idx in range(self.length):
-                self.counts[idx, :] = np.bincount(numerical_alignment[:, idx])
+            for residue_idx in range(self.length):
+                self.counts[residue_idx, :] = np.bincount(numerical_alignment[:, residue_idx])
             print('self.counts', self.counts)
 
             # self.observations = find_column_observations(self.counts, **kwargs)
-            self._observations = [sum(aa_counts.values()) for aa_counts in self._counts]  # list[dict]
-            print('OLD self.observations', self._observations)
-            if not count_gaps:
+            if count_gaps:
+                self._observations = [sum(aa_counts) for aa_counts in self._counts]  # list[dict]
+                self.observations = [self.number_of_sequences for _ in range(self.length)]
+            else:
                 # gap_observations = [aa_counts['-'] for aa_counts in self.counts]  # list[dict]
                 # gap_observations = [aa_counts[0] for aa_counts in self.counts]  # list[list]
                 # self.observations = [counts - gap for counts, gap in zip(self.observations, gap_observations)]
-                # self.observations = [sum(aa_counts[1:]) for aa_counts in self.counts]  # list[list]
-                self.observations = self.counts[1:, :].sum(axis=0)
+                self._observations = [sum(aa_counts[:-1]) for aa_counts in self._counts]  # list[list]
+                self.observations = self.counts[:-1, :].sum(axis=0)  # gaps are the last index
                 if not np.any(self.observations):  # check if an observation is 0
                     raise ValueError(f'Can\'t have a MSA column with 0 observations. Found at ('
                                      f'{",".join(map(str, np.flatnonzero(self.observations)))}')
                     #                f'{",".join(str(idx) for idx, pos in enumerate(self.observations) if not pos)}')
-            else:
-                self.observations = [self.number_of_sequences for _ in range(self.length)]
             print('self.observations', self.observations)
+            print('OLD self._observations', self._observations)
 
             if weight_alignment_by_sequence:
                 # create a 1/ obs * counts = positional_weights
-                #     alignment.length       0   1   2  ...
-                # obs 0   count seq 0 - '-'  2   0   0
-                # obs 1 * count seq 1 - 'A' 10  10   0
-                # obs 2   count seq 2 - 'C'  8   8   1
-                # ...              ... ... ... ...
-                position_weights = 1 / self.observations[None, :] * self.counts
+                #               alignment.length - 0   1   2  ...
+                #      / obs 0 [[32]   count seq 0 '-' -  2   0   0  ...   [[ 64   0   0 ...]  \
+                # 1 / |  obs 1  [33] * count seq 1 'A' - 10  10   0  ... =  [330 330   0 ...]   |
+                #      \ obs 2  [33]   count seq 2 'C' -  8   8   1  ...    [270 270  33 ...]] /
+                #   ...   ...]               ...  ... ... ...
+                position_weights = 1 / (self.observations[None, :] * self.counts)
                 # take_along_axis from this with the transposed numerical_alignment (na) where each successive na idx
                 # is the sequence position at the na and therefore is grabbing the position_weights by that index
                 # finally sum along each sequence
-                # The double transpose looks wrong like not transposing either should give the same result, but the
-                # position_weights count seq idx must be taken from by a sequence index. Both of these happen to be on
-                # axis 1 at the moment and using their axis 0 vs each other doen't perform indexing correctly. Maybe we
-                # need 'F' array ordering?
-                sequence_weights = np.take_along_axis(position_weights.T, self.numerical_alignment.T).sum(axis=0)
-                sequence_weights = weight_sequences(self._counts, self.alignment, column_counts=self._observations)
+                # The position_weights count seq idx must be taken by a sequence index. This happens to be on NA axis 1
+                # at the moment so specified with .T and take using axis=0. Keeping both as axis=0 doen't index
+                # correctly. Maybe this is a case where 'F' array ordering is needed?
+                sequence_weights = np.take_along_axis(position_weights, numerical_alignment.T, axis=0).sum(axis=0)
+                print('sequence_weights', sequence_weights)
+                sequence_weights_ = weight_sequences(self._counts, self.alignment, self._observations)
+                print('OLD sequence_weights_', sequence_weights_)
 
-            if sequence_weights:  # overwrite the current counts with weighted counts
-                # Todo update this as well
+            if sequence_weights is not None:  # overwrite the current counts with weighted counts
                 self.sequence_weights = sequence_weights
+                # Todo update this as well
+                self._counts = [[0 for letter in alphabet] for _ in range(self.length)]  # list[list]
                 for record in self.alignment:
                     for i, aa in enumerate(record.seq):
-                        self.counts[i][MultipleSequenceAlignment.numerical_translation[aa]] += sequence_weights[i]
+                        self._counts[i][gapped_numerical_translation[aa]] += sequence_weights_[i]
                         # self.counts[i][aa] += sequence_weights[i]
+                print('OLD sequence_weight self._counts', self._counts)
+
+                # add each sequence weight to the indices indicated by the numerical_alignment
+                self.counts = np.zeros((self.length, len(gapped_protein_letters)))
+                for idx in range(self.number_of_sequences):
+                    self.counts[:, numerical_alignment[idx]] += sequence_weights[idx]
+                print('sequence_weight self.counts', self.counts)
             else:
                 self.sequence_weights = []
 
-            self.frequencies = {residue: {aa: count / self.observations[residue] for aa, count in amino_acid_counts.items()}
-                                for residue, amino_acid_counts in self.counts.items()}
+            self._frequencies = [[count/observation for count in amino_acid_counts]
+                                 for amino_acid_counts, observation in zip(self._counts, self._observations)]
+            print('OLD self._frequencies', self._frequencies)
+
+            self.frequencies = np.zeros(self.counts.shape)
+            # self.frequencies = [self.counts[residue_idx] / self.observations[residue_idx]
+            #                     for residue_idx in range(self.length)]
+            for residue_idx in range(self.length):
+                self.frequencies[residue_idx, :] = self.counts[residue_idx] / self.observations[residue_idx]
+            print('self.frequencies', self.frequencies)
             # self.msa_to_prob_distribution()
 
     @classmethod
@@ -188,6 +210,28 @@ class MultipleSequenceAlignment:
             return cls(alignment=read_alignment(file))
         except FileNotFoundError:
             raise DesignError(f'The multiple sequence alignemnt file "{file}" doesn\'t exist')
+
+    @classmethod
+    def from_dictionary(cls, named_sequences: dict[str, str], **kwargs):
+        """Create a MultipleSequenceAlignment from a dictionary of named sequences
+
+        Args:
+            named_sequences: {name: sequence, ...} ex: {'clean_asu': 'MNTEELQVAAFEI...', ...}
+        Returns:
+            The MultipleSequenceAlignment object for the provided sequences
+        """
+        return cls(alignment=MultipleSeqAlignment([SeqRecord(Seq(sequence), annotations={'molecule_type': 'Protein'},
+                                                             id=name)
+                                                   for name, sequence in named_sequences.items()]), **kwargs)
+
+    @classmethod
+    def from_seq_records(cls, seq_records: Iterable[SeqRecord], **kwargs):
+        """Create a MultipleSequenceAlignment from a SeqRecord Iterable
+
+        Args:
+            seq_records: {name: sequence, ...} ex: {'clean_asu': 'MNTEELQVAAFEI...', ...}
+        """
+        return cls(alignment=MultipleSeqAlignment(seq_records), **kwargs)
 
     # def msa_to_prob_distribution(self):
     #     """Find the Alignment probability distribution from the self.counts dictionary
@@ -207,8 +251,9 @@ class MultipleSequenceAlignment:
         """Returns the query as a boolean array (1, length) where gaps ("-") are False"""
         try:
             return self._sequence_index[0]
-        except AttributeError:  # Todo self.array == b'-' is simpler and may be quicker...
-            self._sequence_index = np.isin(self.array, b'-', invert=True)
+        except AttributeError:
+            self._sequence_index = self.array != b'-'
+            # self._sequence_index = np.isin(self.array, b'-', invert=True)
             return self._sequence_index[0]
 
     @property
@@ -217,7 +262,8 @@ class MultipleSequenceAlignment:
         try:
             return self._sequence_index
         except AttributeError:
-            self._sequence_index = np.isin(self.array, b'-', invert=True)
+            self._sequence_index = self.array != b'-'
+            # self._sequence_index = np.isin(self.array, b'-', invert=True)
             return self._sequence_index
 
     @sequence_indices.setter
@@ -228,14 +274,14 @@ class MultipleSequenceAlignment:
     def numerical_alignment(self) -> np.ndarray:
         """Return the alignment as an integer array (number_of_sequences, length) of the amino acid characters
 
-        MultipleSequenceAlignment.numerical_translation characters "-ACDEFGHIKLMNPQRSTVWY", are the resulting integer
+        MultipleSequenceAlignment.gapped_numerical_translation maps "ACDEFGHIKLMNPQRSTVWY-" to the resulting index
         """
         try:
             return self._numerical_alignment
         except AttributeError:
-            self._numerical_alignment = np.vectorize(self.numerical_translation.__getitem__)(self.array)
+            self._numerical_alignment = np.vectorize(gapped_numerical_translation.__getitem__)(self.array)
             # self._numerical_alignment = \
-            #     np.array([[self.numerical_translation[aa] for aa in record] for record in self.alignment])
+            #     np.array([[numerical_translation[aa] for aa in record] for record in self.alignment])
             return self._numerical_alignment
 
     @property
@@ -246,6 +292,34 @@ class MultipleSequenceAlignment:
         except AttributeError:
             self._array = np.array([list(record) for record in self.alignment], np.string_)
             return self._array
+
+
+def sequence_to_numeric(sequence: Sequence) -> np.ndarray:
+    """Convert a position specific profile matrix into a numeric array
+
+    Args:
+        sequence: The sequence to encode
+    Returns:
+        The numerically encoded sequence where each entry along axis 0 is the indexed amino acid. Indices are according
+            to the 1 letter alphabetical amino acid
+    """
+    _array = np.array(list(sequence), np.string_)  # for single sequence
+    return np.vectorize(numerical_translation.__getitem__)(_array)
+
+
+def pssm_to_numeric(pssm: dict[int, dict[str, str | float | int | dict[str, int]]]) -> np.ndarray:
+    """Convert a position specific profile matrix into a numeric array
+
+    Args:
+        pssm: {1: {'A': 0, 'R': 0, ..., 'lod': {'A': -5, 'R': -5, ...}, 'type': 'W', 'info': 3.20, 'weight': 0.73},
+                  2: {}, ...}
+    Returns:
+        The numerically encoded pssm where each entry along axis 0 is the position, and the entries on axis 1 are the
+            frequency data at every indexed amino acid. Indices are according to the 1 letter alphabetical amino acid,
+            i.e array([[0.1, 0.01, 0.12, ...], ...])
+    """
+    _array = np.array([[residue_info[aa] for aa in protein_letters] for residue_info in pssm.values()], np.string_)
+    return np.vectorize(numerical_translation.__getitem__)(_array)
 
 
 class SequenceProfile:
@@ -1015,7 +1089,7 @@ class SequenceProfile:
                     self.fragment_profile[residue_number][frag_idx][observation_idx] = aa_freq
                     self.fragment_profile[residue_number][frag_idx][observation_idx]['match'] = fragment['match']
 
-    def simplify_fragment_profile(self, keep_extras=True):
+    def simplify_fragment_profile(self, keep_extras: bool = True):
         """Take a multi-indexed, a multi-observation fragment frequency dictionary and flatten to single frequency for
         each amino acid. Weight the frequency of each observation by the fragment indexed, observation weight and the
         match between the fragment library and the observed fragment overlap
@@ -1030,7 +1104,7 @@ class SequenceProfile:
                 stats[0] is number of fragment observations at each residue, and stats[1] is the total fragment weight
                 over the entire residue
         Keyword Args:
-            keep_extras=True (bool): If true, keep values for all design dictionary positions that are missing data
+            keep_extras: bool = True - If true, keep values for all design dictionary positions that are missing data
         """
         # self.log.debug(self.fragment_profile.items())
         database_bkgnd_aa_freq = self.fragment_db.aa_frequencies
@@ -2051,16 +2125,17 @@ def flatten_for_issm(design_cluster_dict, keep_extras=True):
 
 
 # @handle_errors(errors=(FileNotFoundError,))
-def parse_pssm(file, **kwargs):
+def parse_pssm(file: AnyStr, **kwargs) -> dict[int, dict[str, str | float | int | dict[str, int]]]:
     """Take the contents of a pssm file, parse, and input into a pose profile dictionary.
 
-    Resulting residue dictionary is zero-indexed
+    Resulting dictionary is indexed according to the values in the pssm file
+
     Args:
-        file (str): The name/location of the file on disk
+        file: The location of the file on disk
     Returns:
-        pose_dict (dict): Dictionary containing residue indexed profile information
-            Ex: {1: {'A': 0, 'R': 0, ..., 'lod': {'A': -5, 'R': -5, ...}, 'type': 'W', 'info': 3.20, 'weight': 0.73},
-                {...}}
+        Dictionary containing residue indexed profile information
+            i.e. {1: {'A': 0, 'R': 0, ..., 'lod': {'A': -5, 'R': -5, ...}, 'type': 'W', 'info': 3.20, 'weight': 0.73},
+                  2: {}, ...}
     """
     with open(file, 'r') as f:
         lines = f.readlines()
@@ -2070,13 +2145,16 @@ def parse_pssm(file, **kwargs):
         line_data = line.strip().split()
         if len(line_data) == 44:
             residue_number = int(line_data[0])
-            pose_dict[residue_number] = copy(aa_counts)
-            for i, aa in enumerate(alph_3_aa, 22):
-                # Get normalized counts for pose_dict
-                pose_dict[residue_number][aa] = (int(line_data[i]) / 100.0)
-            pose_dict[residue_number]['lod'] = {}
-            for i, aa in enumerate(alph_3_aa, 2):
-                pose_dict[residue_number]['lod'][aa] = line_data[i]
+            pose_dict[residue_number] = \
+                dict(zip(alph_3_aa, [x/100. for x in map(int, line_data[22:len(alph_3_aa)+22])]))
+            # pose_dict[residue_number] = copy(aa_counts)
+            # for i, aa in enumerate(alph_3_aa, 22):
+            #     # Get normalized counts for pose_dict
+            #     pose_dict[residue_number][aa] = int(line_data[i]) / 100.
+
+            # for i, aa in enumerate(alph_3_aa, 2):
+            #     pose_dict[residue_number]['lod'][aa] = line_data[i]
+            pose_dict[residue_number]['lod'] = dict(zip(alph_3_aa, line_data[2:len(alph_3_aa)+2]))
             pose_dict[residue_number]['type'] = line_data[1]
             pose_dict[residue_number]['info'] = float(line_data[42])
             pose_dict[residue_number]['weight'] = float(line_data[43])
@@ -2451,60 +2529,158 @@ def return_consensus_design(frequency_sorted_msa):
                 frequency_sorted_msa[residue] = None
 
 
-def position_specific_jsd(msa: dict[int, dict[str, float]], background: dict[int, dict[str, float]]) -> \
-        dict[int, float]:
+# def position_specific_jsd(msa: dict[int, dict[str, float]], background: dict[int, dict[str, float]]) -> \
+#         dict[int, float]:
+#     """Generate the Jensen-Shannon Divergence for a dictionary of residues versus a specific background frequency
+#
+#     Both msa and background must be the same index
+#     Args:
+#         msa: {15: {'A': 0.05, 'C': 0.001, 'D': 0.1, ...}, 16: {}, ...}
+#         background: {0: {'A': 0, 'R': 0, ...}, 1: {}, ...}
+#             Containing residue index with inner dictionary of single amino acid types
+#     Returns:
+#         divergence_dict: {15: 0.732, 16: 0.552, ...}
+#     """
+#     return {idx: distribution_divergence(freq, background[idx]) for idx, freq in msa.items() if idx in background}
+#
+#
+# def distribution_divergence(frequencies: dict[str, float], bgd_frequencies: dict[str, float], lambda_: float = 0.5) -> \
+#         float:
+#     """Calculate residue specific Jensen-Shannon Divergence value
+#
+#     Args:
+#         frequencies: {'A': 0.05, 'C': 0.001, 'D': 0.1, ...}
+#         bgd_frequencies: {'A': 0, 'R': 0, ...}
+#         lambda_: Value bounded between 0 and 1 to calculate the contribution from the observation versus the background
+#     Returns:
+#         Bounded between 0 and 1. 1 is more divergent from background frequencies
+#     """
+#     sum_prob1, sum_prob2 = 0, 0
+#     for item, frequency in frequencies.items():
+#         bgd_frequency = bgd_frequencies.get(item)
+#         try:
+#             r = (lambda_ * frequency) + ((1 - lambda_) * bgd_frequency)
+#         except TypeError:  # bgd_frequency is None, therefore the frequencies can't be compared. Should error be raised?
+#             continue
+#         try:
+#             with warnings.catch_warnings() as w:
+#                 # Cause all warnings to always be ignored
+#                 warnings.simplefilter('ignore')
+#                 try:
+#                     prob2 = (bgd_frequency * log(bgd_frequency / r, 2))
+#                     sum_prob2 += prob2
+#                 except (ValueError, RuntimeWarning):  # math DomainError doesn't raise, instead RunTimeWarn
+#                     pass  # continue
+#                 try:
+#                     prob1 = (frequency * log(frequency / r, 2))
+#                     sum_prob1 += prob1
+#                 except (ValueError, RuntimeWarning):  # math domain error
+#                     continue
+#         except ZeroDivisionError:  # r = 0
+#             continue
+#
+#     return lambda_ * sum_prob1 + (1 - lambda_) * sum_prob2
+
+
+def jensen_shannon_divergence(sequence_frequencies: np.ndarray, background_aa_freq: np.ndarray, **kwargs) -> np.ndarray:
+    """Calculate Jensen-Shannon Divergence value for all residues against a background frequency dict
+
+    Args:
+        sequence_frequencies: [[0.05, 0.001, 0.1, ...], ...]
+        background_aa_freq: [0.11, 0.03, 0.53, ...]
+    Keyword Args:
+        lambda_: float = 0.5 - Bounded between 0 and 1 indicates weight of the observation versus the background
+    Returns:
+        The divergence per residue bounded between 0 and 1. 1 is more divergent from background, i.e. [0.732, ...]
+    """
+    return [distribution_divergence(aa_freq, background_aa_freq, **kwargs) for aa_freq in sequence_frequencies]
+
+
+def position_specific_jsd(msa: np.ndarray, background: np.ndarray, **kwargs) -> np.ndarray:
     """Generate the Jensen-Shannon Divergence for a dictionary of residues versus a specific background frequency
 
     Both msa and background must be the same index
+
     Args:
         msa: {15: {'A': 0.05, 'C': 0.001, 'D': 0.1, ...}, 16: {}, ...}
         background: {0: {'A': 0, 'R': 0, ...}, 1: {}, ...}
             Containing residue index with inner dictionary of single amino acid types
+    Keyword Args:
+        lambda_: float = 0.5 - Bounded between 0 and 1 indicates weight of the observation versus the background
     Returns:
-        divergence_dict: {15: 0.732, 16: 0.552, ...}
+        The divergence values per position, i.e [0.732, 0.552, ...]
     """
-    return {idx: distribution_divergence(freq, background[idx]) for idx, freq in msa.items() if idx in background}
+    return [distribution_divergence(freq, bgd_freq, **kwargs) for freq, bgd_freq in zip(msa, background)]
 
 
-def distribution_divergence(frequencies: dict[str, float], bgd_frequencies: dict[str, float], lambda_: float = 0.5) -> \
-        float:
-    """Calculate residue specific Jensen-Shannon Divergence value
+def distribution_divergence(frequencies: np.ndarray, bgd_frequencies: np.ndarray, lambda_: float = 0.5) -> float:
+    """Calculate Jensen-Shannon Divergence value from observed and background frequencies
 
     Args:
-        frequencies: {'A': 0.05, 'C': 0.001, 'D': 0.1, ...}
-        bgd_frequencies: {'A': 0, 'R': 0, ...}
-        lambda_: Value bounded between 0 and 1
+        frequencies: [0.05, 0.001, 0.1, ...]
+        bgd_frequencies: [0, 0, ...]
+        lambda_: Bounded between 0 and 1 indicates weight of the observation versus the background
     Returns:
         Bounded between 0 and 1. 1 is more divergent from background frequencies
     """
-    sum_prob1, sum_prob2 = 0, 0
-    for item, frequency in frequencies.items():
-        bgd_frequency = bgd_frequencies.get(item)
-        try:
-            r = (lambda_ * frequency) + ((1 - lambda_) * bgd_frequency)
-        except TypeError:  # bgd_frequency is None, therefore the frequencies can't be compared. Should error be raised?
-            continue
-        try:
-            with warnings.catch_warnings() as w:
-                # Cause all warnings to always be ignored
-                warnings.simplefilter('ignore')
-                try:
-                    prob2 = (bgd_frequency * log(bgd_frequency / r, 2))
-                    sum_prob2 += prob2
-                except (ValueError, RuntimeWarning):  # math DomainError doesn't raise, instead RunTimeWarn
-                    pass  # continue
-                try:
-                    prob1 = (frequency * log(frequency / r, 2))
-                    sum_prob1 += prob1
-                except (ValueError, RuntimeWarning):  # math domain error
-                    continue
-        except ZeroDivisionError:  # r = 0
-            continue
-
-    return lambda_ * sum_prob1 + (1 - lambda_) * sum_prob2
+    r = (lambda_ * frequencies) + ((1 - lambda_) * bgd_frequencies)
+    sum_prob1 = (frequencies * np.log2(frequencies / r)).sum()
+    sum_prob2 = (bgd_frequencies * np.log2(bgd_frequencies / r)).sum()
+    return (lambda_ * sum_prob1) + ((1 - lambda_) * sum_prob2)
 
 
-def msa_from_dictionary(named_sequences: dict[str, str]) -> MultipleSequenceAlignment:
+# def distribution_divergence(frequencies: Sequence[float], bgd_frequencies: Sequence[float], lambda_: float = 0.5) -> \
+#         float:
+#     """Calculate Jensen-Shannon Divergence value from observed and background frequencies
+#
+#     Args:
+#         frequencies: [0.05, 0.001, 0.1, ...]
+#         bgd_frequencies: [0, 0, ...]
+#         lambda_: Bounded between 0 and 1 indicates weight of the observation versus the background
+#     Returns:
+#         Bounded between 0 and 1. 1 is more divergent from background frequencies
+#     """
+#     sum_prob1, sum_prob2 = 0, 0
+#     for frequency, bgd_frequency in zip(frequencies, bgd_frequencies):
+#         # bgd_frequency = bgd_frequencies.get(item)
+#         try:
+#             r = (lambda_ * frequency) + ((1 - lambda_) * bgd_frequency)
+#         except TypeError:  # bgd_frequency is None, therefore the frequencies can't be compared. Should error be raised?
+#             continue
+#         try:
+#             with warnings.catch_warnings() as w:
+#                 # Cause all warnings to always be ignored
+#                 warnings.simplefilter('ignore')
+#                 try:
+#                     prob2 = bgd_frequency * log(bgd_frequency / r, 2)
+#                 except (ValueError, RuntimeWarning):  # math DomainError doesn't raise, instead RunTimeWarn
+#                     prob2 = 0
+#                 sum_prob2 += prob2
+#                 try:
+#                     prob1 = frequency * log(frequency / r, 2)
+#                 except (ValueError, RuntimeWarning):  # math domain error
+#                     continue
+#                 sum_prob1 += prob1
+#         except ZeroDivisionError:  # r = 0
+#             continue
+#
+#     return lambda_ * sum_prob1 + (1 - lambda_) * sum_prob2
+
+
+# def msa_from_dictionary(named_sequences: dict[str, str]) -> MultipleSequenceAlignment:
+#     """Create a MultipleSequenceAlignment from a dictionary of named sequences
+#
+#     Args:
+#         named_sequences: {name: sequence, ...} ex: {'clean_asu': 'MNTEELQVAAFEI...', ...}
+#     Returns:
+#         The MultipleSequenceAlignment object for the provided sequences
+#     """
+#     return MultipleSequenceAlignment(MultipleSeqAlignment([SeqRecord(Seq(sequence),
+#                                                                      annotations={'molecule_type': 'Protein'}, id=name)
+#                                                            for name, sequence in named_sequences.items()]))
+
+
+def msa_from_dictionary(named_sequences: dict[str, str]) -> MultipleSeqAlignment:
     """Create a MultipleSequenceAlignment from a dictionary of named sequences
 
     Args:
@@ -2512,9 +2688,8 @@ def msa_from_dictionary(named_sequences: dict[str, str]) -> MultipleSequenceAlig
     Returns:
         The MultipleSequenceAlignment object for the provided sequences
     """
-    return MultipleSequenceAlignment(MultipleSeqAlignment([SeqRecord(Seq(sequence),
-                                                                     annotations={'molecule_type': 'Protein'}, id=name)
-                                                           for name, sequence in named_sequences.items()]))
+    return MultipleSeqAlignment([SeqRecord(Seq(sequence), annotations={'molecule_type': 'Protein'}, id=name)
+                                 for name, sequence in named_sequences.items()])
 
 
 def msa_from_seq_records(seq_records: Iterable[SeqRecord]) -> MultipleSeqAlignment:
@@ -2711,7 +2886,7 @@ def generate_mutations(reference: Sequence, query: Sequence, offset: bool = True
 
 
 def format_mutations(mutations):
-    return ['%s%d%s' % (mutation['from'], index, mutation['to']) for index, mutation in mutations.items()]
+    return [f'{mutation["from"]}{index}{mutation["to"]}' for index, mutation in mutations.items()]
 
 
 def make_mutations_chain_agnostic(mutations):
@@ -2815,8 +2990,8 @@ def clean_gapped_columns(alignment_dict, correct_index):  # UNUSED
     return {i: alignment_dict[index] for i, index in enumerate(correct_index)}
 
 
-def weight_sequences(alignment_counts: Sequence[dict[str, int]], bio_alignment: MultipleSeqAlignment,
-                     column_counts: Sequence[int] = None) -> list[float]:
+def weight_sequences(alignment_counts: Sequence[Sequence[int]], bio_alignment: MultipleSeqAlignment,
+                     column_counts: Sequence[int]) -> list[float]:  # UNUSED
     """Measure diversity/surprise when comparing a single alignment entry to the rest of the alignment
 
     Operation is: SUM(1 / (column_j_aa_representation * aa_ij_count)) as was described by Heinkoff and Heinkoff, 1994
@@ -2827,17 +3002,6 @@ def weight_sequences(alignment_counts: Sequence[dict[str, int]], bio_alignment: 
     Returns:
         Weight of each sequence in the MSA - [2.390, 2.90, 5.33, 1.123, ...]
     """
-    if column_counts is None:
-        column_counts = []
-        for amino_acid_counts in alignment_counts:
-            s = 0  # column amino acid representation
-            for aa, count in amino_acid_counts.items():
-                if count > 0:
-                    if aa == '-':
-                        continue
-                    s += 1
-            column_counts.append(s)
-
     sequence_weights = []
     for record in bio_alignment:
         s = 0  # "diversity/surprise"
@@ -2908,19 +3072,18 @@ def msa_to_prob_distribution(alignment):
     return alignment
 
 
-def jensen_shannon_divergence(multiple_sequence_alignment, background_aa_probabilities, lambda_=0.5):
-    """Calculate Jensen-Shannon Divergence value for all residues against a background frequency dict
-
-    Args:
-        multiple_sequence_alignment (dict): {15: {'A': 0.05, 'C': 0.001, 'D': 0.1, ...}
-        background_aa_probabilities (dict): {'A': 0.11, 'C': 0.03, 'D': 0.53, ...}
-    Keyword Args:
-        jsd_lambda=0.5 (float): Value bounded between 0 and 1
-    Returns:
-        (dict): {15: 0.732, ...} Divergence per residue bounded between 0 and 1. 1 is more divergent from background
-    """
-    return {residue_number: distribution_divergence(aa_probabilities, background_aa_probabilities, lambda_=lambda_)
-            for residue_number, aa_probabilities in multiple_sequence_alignment.items()}
+# def jensen_shannon_divergence(multiple_sequence_alignment, background_aa_probabilities, lambda_: float = 0.5):
+#     """Calculate Jensen-Shannon Divergence value for all residues against a background frequency dict
+#
+#     Args:
+#         multiple_sequence_alignment (dict): {15: {'A': 0.05, 'C': 0.001, 'D': 0.1, ...}
+#         background_aa_probabilities (dict): {'A': 0.11, 'C': 0.03, 'D': 0.53, ...}
+#         lambda_: Value bounded between 0 and 1 to calculate the contribution from the observation versus the background
+#     Returns:
+#         (dict): {15: 0.732, ...} Divergence per residue bounded between 0 and 1. 1 is more divergent from background
+#     """
+#     return {residue_number: distribution_divergence(aa_probabilities, background_aa_probabilities, lambda_=lambda_)
+#             for residue_number, aa_probabilities in multiple_sequence_alignment.items()}
 
 
 def weight_gaps(divergence, representation, alignment_length):  # UNUSED
@@ -2990,7 +3153,7 @@ def rank_possibilities(probability_dict):  # UNUSED  incorporate into MultipleSe
     return sorted_alternates_dict
 
 
-def multi_chain_alignment(mutated_sequences):
+def multi_chain_alignment(mutated_sequences, **kwargs):
     """Combines different chain's Multiple Sequence Alignments into a single MSA. One-indexed
 
     Args:
@@ -3015,7 +3178,7 @@ def multi_chain_alignment(mutated_sequences):
 
     if total_alignment:
         # return generate_msa_dictionary(total_alignment)
-        return MultipleSequenceAlignment(alignment=total_alignment)
+        return MultipleSequenceAlignment(alignment=total_alignment, **kwargs)
     else:
         raise DesignError(f'{multi_chain_alignment.__name__} - No sequences were found!')
 

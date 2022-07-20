@@ -287,23 +287,23 @@ def pickle_object(target_object: Any, name: str = None, out_path: Union[str, byt
     return file_name
 
 
-def filter_dictionary_keys(dictionary: Dict, keys: Iterable, keep: bool = True) -> Dict[Any, Dict[Any, Any]]:
-    """Clean a dictionary by passing specified keys. Default keeps all specified keys
-
-    Args:
-        dictionary: {outer_dictionary: {key: value, key2: value2, ...}, ...}
-        keys: [key2, key10] Iterator of keys to be removed from dictionary
-        keep: Whether to keep (True) or remove (False) specified keys
-    Returns:
-        {outer_dictionary: {key: value, ...}, ...} - Cleaned dictionary
-    """
-    if keep:
-        return {key: dictionary[key] for key in keys if key in dictionary}
-    else:
-        for key in keys:
-            dictionary.pop(key, None)
-
-        return dictionary
+# def filter_dictionary_keys(dictionary: dict, keys: Iterable, keep: bool = True) -> dict[Any, dict[Any, Any]]:
+#     """Clean a dictionary by passing specified keys. Default keeps all specified keys
+#
+#     Args:
+#         dictionary: {outer_dictionary: {key: value, key2: value2, ...}, ...}
+#         keys: [key2, key10] Iterator of keys to be removed from dictionary
+#         keep: Whether to keep (True) or remove (False) specified keys
+#     Returns:
+#         {outer_dictionary: {key: value, ...}, ...} - Cleaned dictionary
+#     """
+#     if keep:
+#         return {key: dictionary[key] for key in keys if key in dictionary}
+#     else:
+#         for key in keys:
+#             dictionary.pop(key, None)
+#
+#         return dictionary
 
 
 def remove_interior_keys(dictionary: Dict, keys: Iterable, keep: bool = False) -> Dict[Any, Dict[Any, Any]]:
