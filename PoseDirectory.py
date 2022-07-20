@@ -2953,14 +2953,14 @@ class PoseDirectory:
             # [0, 0, 0, 0, 1, 1, 0, 0, 1, 1, ...]
             # entity = self.structure_db.refined.retrieve_data(name=entity.name))  # Todo always use wild-type?
             # set the entity.msa which makes a copy and adjusts for any disordered residues
-            entity.msa = self.api_db.alignments.retrieve_data(name=entity.name)
+            try:
+                entity.msa = self.api_db.alignments.retrieve_data(name=entity.name)
+            except ValueError:  # when the Entity reference sequence and alignment are different lengths
+                msa_metrics = False
             # entity.h_fields = self.api_db.bmdca_fields.retrieve_data(name=entity.name)  # Todo reinstate
             # entity.j_couplings = self.api_db.bmdca_couplings.retrieve_data(name=entity.name)  # Todo reinstate
             if msa_metrics:
                 if not entity.msa:
-                    self.log.info(f'Metrics relying on a multiple sequence alignment are not being collected as '
-                                  f'there is no MSA found. These include: '
-                                  f'{", ".join(multiple_sequence_alignment_dependent_metrics)}')
                     # set anything found to null values
                     entity_collapse_mean, entity_collapse_std, reference_collapse_z_score = [], [], []
                     msa_metrics = False
@@ -2971,6 +2971,10 @@ class PoseDirectory:
                 entity_collapse_std.append(collapse.std())
                 reference_collapse_z_score.append(z_score(reference_collapse, entity_collapse_mean[idx],
                                                           entity_collapse_std[idx]))
+            else:
+                self.log.info(f'Metrics relying on a multiple sequence alignment are not being collected as '
+                              f'there is no MSA found. These include: '
+                              f'{", ".join(multiple_sequence_alignment_dependent_metrics)}')
 
         # A measure of the sequential, the local, the global, and the significance all constitute interesting
         # parameters which contribute to the outcome. I can use the measure of each to do a post-hoc solubility
