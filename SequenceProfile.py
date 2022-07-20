@@ -117,7 +117,7 @@ class MultipleSequenceAlignment:
             # self.counts = [{letter: 0 for letter in alphabet} for _ in range(self.length)]  # list[dict]
             self._counts = [[0 for letter in alphabet] for _ in range(self.length)]  # list[list]
             for record in self.alignment:
-                for i, aa in enumerate(record.seq, 1):
+                for i, aa in enumerate(record.seq):
                     self._counts[i][gapped_numerical_translation[aa]] += 1
                     # self.counts[i][aa] += 1
             print('OLD self._counts', self._counts)
