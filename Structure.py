@@ -3980,9 +3980,6 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         residue_query = atom_tree.query_radius(getattr(residue, coords_type), distance)
         # reduce the dimensions and format as a single array
         all_contacts = {contact for residue_contacts in residue_query for contact in residue_contacts}
-        print('NEW', all_contacts)
-        all_contacts_ = set(np.concatenate(residue_query).tolist())
-        print('OLD', all_contacts_)
         # We must subtract the N and C atoms from the adjacent residues for each residue as these are within a bond
         clashes = all_contacts.difference(residue.heavy_indices + [residue.next_residue.n_atom_index])
         if any(clashes):
@@ -4007,7 +4004,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
 
         residue = residues[-1]
         residue_query = atom_tree.query_radius(getattr(residue, coords_type), distance)
-        all_contacts = set(np.concatenate(residue_query).tolist())
+        all_contacts = {contact for residue_contacts in residue_query for contact in residue_contacts}
         prev_res = residue.prev_residue
         clashes = all_contacts.difference(residue.heavy_indices + [prev_res.c_atom_index, prev_res.o_atom_index])
         if any(clashes):
