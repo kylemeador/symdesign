@@ -835,9 +835,10 @@ class Atom(StructureBase):
         Returns:
             The archived .pdb formatted ATOM records for the Structure
         """
+        # Add 1 to the self.index since this is 0 indexed
         return 'ATOM  {:5d} {:^4s}{:1s}{:3s} {:1s}{:4d}{:1s}   '\
             '{:8.3f}{:8.3f}{:8.3f}{:6.2f}{:6.2f}          {:>2s}{:2s}'\
-            .format(self.index, self.type, self.alt_location, self.residue_type, self.chain, self.residue_number,
+            .format(self.index + 1, self.type, self.alt_location, self.residue_type, self.chain, self.residue_number,
                     self.code_for_insertion, *list(self.coords), self.occupancy, self.b_factor, self.element,
                     self.charge)
 
@@ -3996,8 +3997,10 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         all_contacts = {contact for residue_contacts in residue_query for contact in residue_contacts}
         # We must subtract the N and C atoms from the adjacent residues for each residue as these are within a bond
         print('All', all_contacts)
-        clashes = all_contacts.difference(residue.heavy_indices + [residue.next_residue.n_atom_index])
-        print('difference_index', residue.heavy_indices + [residue.next_residue.n_atom_index])
+        clashes = all_contacts.difference(residue.atom_indices + [residue.next_residue.n_atom_index])
+        print('difference_index', residue.atom_indices + [residue.next_residue.n_atom_index])
+        print('heavy_indices', residue.heavy_indices)
+        print('atom_indices', residue.atom_indices)
         print('clashes', clashes)
         if any(clashes):
             handle_clash_reporting(clashes)
@@ -4013,7 +4016,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
             # residue_indices_and_bonded_c_and_n = residue.atom_indices
             # residue_indices_and_bonded_c_and_n = residue.heavy_indices + \
             #     [prior_residue.c_atom_index, prior_residue.o_atom_index, residue.next_residue.n_atom_index]
-            clashes = all_contacts.difference(residue.heavy_indices +
+            clashes = all_contacts.difference(residue.atom_indices +
                                               [prior_residue.c_atom_index, prior_residue.o_atom_index,
                                                residue.next_residue.n_atom_index])
             if any(clashes):
@@ -4023,7 +4026,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         residue_query = atom_tree.query_radius(getattr(residue, coords_type), distance)
         all_contacts = {contact for residue_contacts in residue_query for contact in residue_contacts}
         prev_res = residue.prev_residue
-        clashes = all_contacts.difference(residue.heavy_indices + [prev_res.c_atom_index, prev_res.o_atom_index])
+        clashes = all_contacts.difference(residue.atom_indices + [prev_res.c_atom_index, prev_res.o_atom_index])
         if any(clashes):
             handle_clash_reporting(clashes)
 
