@@ -2222,9 +2222,9 @@ class Residue(ResidueFragment, ContainsAtomsMixin):
         try:
             return self._contact_order
         except AttributeError:
-            self._contact_order = 0.  # set to 0 so summation can occur
+            # self._contact_order = 0.  # set to 0 so summation can occur
             try:
-                self.parent.contact_order
+                self.parent.contact_order_per_residue()
                 return self._contact_order
             except AttributeError:
                 raise AttributeError(f'Residue {self.number}{self.chain} has no ".{self.contact_order.__name__}" '
@@ -2233,6 +2233,7 @@ class Residue(ResidueFragment, ContainsAtomsMixin):
 
     @contact_order.setter
     def contact_order(self, contact_order: float):
+        print('set as', contact_order)
         self._contact_order = contact_order
 
     # End state properties
@@ -4636,9 +4637,8 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
 
         residues = self.residues
         # in case this was already called, we should set all to 0.
-        if residues[0].contact_order > 0:
-            for residue in residues:
-                residue.contact_order = 0.
+        for residue in residues:
+            residue.contact_order = 0.
 
         heavy_atom_coords_indexed_residues = self.heavy_coords_indexed_residues
         contacting_pairs = set((heavy_atom_coords_indexed_residues[idx1], heavy_atom_coords_indexed_residues[idx2])
