@@ -3359,25 +3359,36 @@ class PoseDirectory:
 
         # find the relative sasa of the complex and the unbound fraction
         buried_interface_residues = np.asarray(residue_df.loc[:, idx_slice[index_residues, 'bsa_total']] > 0)
+        # ^ support, rim or core
+        surface_or_rim = residue_df.loc[:, idx_slice[index_residues, 'sasa_relative_complex']] > 0.25
         core_or_interior = residue_df.loc[:, idx_slice[index_residues, 'sasa_relative_complex']] < 0.25
-        support_not_rim_or_core = residue_df.loc[:, idx_slice[index_residues, 'sasa_relative_bound']] < 0.25
-        core_residues = np.logical_and(core_or_interior, buried_interface_residues).rename(
-            columns={'sasa_relative_complex': 'core'})  # .replace({False: 0, True: 1}) maybe... shouldn't be necessary
+        support_not_core_or_rim = residue_df.loc[:, idx_slice[index_residues, 'sasa_relative_bound']] < 0.25
+        # core_sufficient = np.asarray(np.logical_and(core_or_interior, buried_interface_residues))
+        core_residues = np.logical_and(~support_not_core_or_rim,
+                                       np.asarray(np.logical_and(core_or_interior, buried_interface_residues))).rename(
+            columns={'sasa_relative_complex': 'core'})
+        # GOOD^
         interior_residues = np.logical_and(core_or_interior, ~buried_interface_residues).rename(
             columns={'sasa_relative_complex': 'interior'})
-        support_residues = np.logical_and(support_not_rim_or_core, buried_interface_residues).rename(
+        # GOOD^
+        support_residues = np.logical_and(support_not_core_or_rim, buried_interface_residues).rename(
             columns={'sasa_relative_bound': 'support'})
-        rim_or_surface = np.logical_xor(~support_not_rim_or_core, np.asarray(core_residues))
-        rim_residues = np.logical_and(rim_or_surface, buried_interface_residues).rename(
+        # GOOD^
+        # rim_or_surface = np.logical_xor(~support_not_core_or_rim, core_sufficient)
+        # rim_residues = np.logical_and(rim_or_surface, buried_interface_residues).rename(
+        #     columns={'sasa_relative_bound': 'rim'})
+        rim_residues = np.logical_and(surface_or_rim, buried_interface_residues).rename(
             columns={'sasa_relative_bound': 'rim'})
-        surface_residues = np.logical_xor(rim_or_surface, buried_interface_residues).rename(
+        # GOOD^
+        surface_residues = np.logical_xor(surface_or_rim, ~buried_interface_residues).rename(
             columns={'sasa_relative_bound': 'surface'})
+        # GOOD^
 
-        print('core_or_interior', core_or_interior)
+        # print('core_or_interior', core_or_interior)
         print('core_residues', core_residues)
         print('interior_residues', interior_residues)
         print('support_residues', support_residues)
-        print('rim_or_surface', rim_or_surface)
+        # print('rim_or_surface', rim_or_surface)
         print('rim_residues', rim_residues)
         print('surface_residues', surface_residues)
         residue_df = concat([residue_df, core_residues, interior_residues, support_residues, rim_residues,
