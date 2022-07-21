@@ -932,14 +932,12 @@ if __name__ == '__main__':
             [PUtils.interface_design, PUtils.interface_metrics, PUtils.optimize_designs, 'custom_script']
         #      PUtils.analysis,  # maybe hhblits, bmDCA. Only refine if Rosetta were used, no loop_modelling
         #      PUtils.refine]  # pre_refine not necessary. maybe hhblits, bmDCA, loop_modelling
-        if not initialized and args.module in initialize_modules or args.nanohedra_output or args.update_database:
-            # if args.load_database:  # Todo why is this set_up_pose_directory here?
-            #     for design in pose_directories:
-            #         design.set_up_pose_directory()
-            # args.orient, args.refine = True, True  # Todo make part of argparse? Could be variables in NanohedraDB
+        # Todo fix below sloppy logic
+        if (not initialized and args.module in initialize_modules) or args.nanohedra_output or args.update_database:
             load_resources = False
             all_structures = []
-            if args.preprocessed:
+            if not initialized and args.preprocessed:
+                # args.orient, args.refine = True, True  # Todo make part of argparse? Could be variables in NanohedraDB
                 # SDUtils.make_path(job.refine_dir)
                 SDUtils.make_path(job.full_model_dir)
                 SDUtils.make_path(job.stride_dir)
@@ -949,6 +947,20 @@ if __name__ == '__main__':
                         all_entities.append(entity)
                         found_entity_names.add(entity.name)
                 # Todo save all the Entities to the StructureDatabase
+                #  How to know if Entity is needed or a combo? Need sym map to tell if they are the same length?
+            elif initialized and args.update_database:
+                for pose in pose_directories:
+                    pose.set_up_pose_directory()
+
+                all_entities, found_entity_names = [], set()
+                for pose in pose_directories:
+                    for name in pose.entity_names:
+                        if name not in found_entity_names:
+                            found_entity_names.add(name)
+                            pose.load_pose()
+                            all_entities.append(pose.pose.entity(name))
+
+                all_entities = [entity for entity in all_entities if entity]
             else:
                 logger.critical('The requested poses require structural preprocessing before design modules should be '
                                 'used')
@@ -1090,8 +1102,8 @@ if __name__ == '__main__':
             # SDUtils.mp_map(PoseDirectory.set_up_pose_directory, pose_directories, processes=cores)
             # SDUtils.mp_map(PoseDirectory.link_master_database, pose_directories, processes=cores)
         # set up in series
-        for design in pose_directories:
-            design.set_up_pose_directory(pre_refine=pre_refine, pre_loop_model=pre_loop_model)
+        for pose in pose_directories:
+            pose.set_up_pose_directory(pre_refine=pre_refine, pre_loop_model=pre_loop_model)
 
         logger.info(f'{len(pose_directories)} unique poses found in "{location}"')
         if not job.debug and not job.skip_logging:
