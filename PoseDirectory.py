@@ -3180,10 +3180,10 @@ class PoseDirectory:
             # Calculate amino acid observation percent from residue_info and background SSM's
             # observation_d = {profile: {design: mutation_conserved(info, background)
             #                            for design, numerical_sequence in residue_info.items()}
-            observation_d = {profile: {design: np.where(background[:, numerical_sequence] > 0, 1, 0)
-                                       for design, numerical_sequence in zip(pose_sequences,
-                                                                             list(pose_alignment.numerical_alignment))}
-                             for profile, background in profile_background.items()}
+            # observation_d = {profile: {design: np.where(background[:, numerical_sequence] > 0, 1, 0)
+            #                            for design, numerical_sequence in zip(pose_sequences,
+            #                                                                  list(pose_alignment.numerical_alignment))}
+            #                  for profile, background in profile_background.items()}
             # Find the observed background for each profile, for each design in the pose
             # pose_observed_bkd = {profile: {design: freq.mean() for design, freq in design_obs_freqs.items()}
             #                      for profile, design_obs_freqs in observation_d.items()}
@@ -3208,8 +3208,9 @@ class PoseDirectory:
             # Calculate Jensen Shannon Divergence using different SSM occurrence data and design mutations
             #                                              both mut_freq and profile_background[profile] are one-indexed
             interface_indexer = [residue - 1 for residue in self.interface_design_residues]
-            print('iterative', position_specific_jsd(pose_alignment.frequencies, background))
-            print('stacked', position_specific_divergence(pose_alignment.frequencies, background))
+            for profile, background in profile_background.items():
+                print('iterative', position_specific_jsd(pose_alignment.frequencies, background))
+                print('stacked', position_specific_divergence(pose_alignment.frequencies, background))
             divergence = {f'divergence_{profile}':
                           # position_specific_jsd(pose_alignment.frequencies, background)  # [interface_indexer]
                           position_specific_divergence(pose_alignment.frequencies, background)[interface_indexer]
