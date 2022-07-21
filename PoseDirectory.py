@@ -3366,7 +3366,7 @@ class PoseDirectory:
         # core_sufficient = np.asarray(np.logical_and(core_or_interior, buried_interface_residues))
         core_residues = np.logical_and(~support_not_core_or_rim,
                                        np.asarray(np.logical_and(core_or_interior, buried_interface_residues))).rename(
-            columns={'sasa_relative_complex': 'core'})
+            columns={'sasa_relative_bound': 'core'})
         # GOOD^
         interior_residues = np.logical_and(core_or_interior, ~buried_interface_residues).rename(
             columns={'sasa_relative_complex': 'interior'})
@@ -3378,10 +3378,10 @@ class PoseDirectory:
         # rim_residues = np.logical_and(rim_or_surface, buried_interface_residues).rename(
         #     columns={'sasa_relative_bound': 'rim'})
         rim_residues = np.logical_and(surface_or_rim, buried_interface_residues).rename(
-            columns={'sasa_relative_bound': 'rim'})
+            columns={'sasa_relative_complex': 'rim'})
         # GOOD^
         surface_residues = np.logical_xor(surface_or_rim, ~buried_interface_residues).rename(
-            columns={'sasa_relative_bound': 'surface'})
+            columns={'sasa_relative_complex': 'surface'})
         # GOOD^
 
         # print('core_or_interior', core_or_interior)
