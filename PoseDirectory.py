@@ -3216,7 +3216,8 @@ class PoseDirectory:
                           # position_specific_jsd(pose_alignment.frequencies, background)  # [interface_indexer]
                           position_specific_divergence(pose_alignment.frequencies, background)[interface_indexer]
                           for profile, background in profile_background.items()}
-            interface_bkgd = np.ndarray(self.fragment_db.aa_frequencies.values())
+            print('frequency_dict', self.fragment_db.aa_frequencies)
+            interface_bkgd = np.array(list(self.fragment_db.aa_frequencies.values()))
             if interface_bkgd is not None:
                 tiled_int_background = np.tile(interface_bkgd, (len(interface_indexer), 1))
                 print('iterative', jensen_shannon_divergence(pose_alignment.frequencies, interface_bkgd)[interface_indexer])
