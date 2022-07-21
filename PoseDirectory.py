@@ -3380,11 +3380,12 @@ class PoseDirectory:
                              surface_residues], axis=1)
         # Check if any columns are > 50% interior (value can be 0 or 1). If so, return True for that column
         # interior_residue_df = residue_df.loc[:, idx_slice[:, 'interior']]
-        interior_residue_numbers = \
-            interior_residues.loc[:, interior_residues.mean(axis=0) > 0.5].columns.remove_unused_levels().levels[0].to_list()
-        if interior_residue_numbers:
-            self.log.info(f'Design Residues {", ".join(map(str, interior_residue_numbers))} are located in the interior'
-                          )
+        # interior_residue_numbers = \
+        #     interior_residues.loc[:, interior_residues.mean(axis=0) > 0.5].columns.remove_unused_levels().levels[0].
+        #     to_list()
+        # if interior_residue_numbers:
+        #     self.log.info(f'Design Residues {",".join(map(str, sorted(interior_residue_numbers)))}
+        #                   'are located in the interior')
 
         # This shouldn't be much different from the state variable self.interface_residues
         # perhaps the use of residue neighbor energy metrics adds residues which contribute, but not directly
