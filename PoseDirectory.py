@@ -42,7 +42,7 @@ from Pose import Pose, MultiModel, Models, Model
 from Query.PDB import is_entity_thermophilic
 from Query.UniProt import is_uniprot_thermophilic
 from SequenceProfile import parse_pssm, generate_mutations_from_reference, \
-    simplify_mutation_dict, weave_sequence_dict, position_specific_jsd, sequence_difference, \
+    simplify_mutation_dict, position_specific_jsd, sequence_difference, \
     jensen_shannon_divergence, hydrophobic_collapse_index, alignment_types, MultipleSequenceAlignment, pssm_as_array
 from Structure import Structure, Entity  # , Structures
 from SymDesignUtils import unpickle, start_log, null_log, handle_errors, write_shell_script, match_score_from_z_value, \
@@ -737,10 +737,7 @@ class PoseDirectory:
             return self._design_profile
         except AttributeError:
             try:
-                pssm = parse_pssm(self.design_profile_file)
-                print(pssm)
                 self._design_profile = pssm_as_array(parse_pssm(self.design_profile_file))
-                print(self._design_profile)
             except FileNotFoundError:
                 self._design_profile = None
             return self._design_profile
@@ -3138,6 +3135,17 @@ class PoseDirectory:
         # Convert per_residue_data into a dataframe matching residue_df orientation
         per_residue_df = concat({measure: DataFrame(data, index=residue_indices)
                                  for measure, data in per_residue_data.items()}).T.swaplevel(0, 1, axis=1)
+        # Process mutational frequencies, H-bond, and Residue energy metrics to dataframe
+        residue_df = concat({design: DataFrame(info) for design, info in residue_info.items()}).unstack()
+        # returns multi-index column with residue number as first (top) column index, metric as second index
+        # during residue_df unstack, all residues with missing dicts are copied as nan
+        # Merge interface design specific residue metrics with total per residue metrics
+        # residue_df = merge(residue_df, per_residue_df.loc[:, idx_slice[residue_df.columns.levels[0], :]],
+        #                       left_index=True, right_index=True)
+        index_residues = list(self.interface_design_residues)
+        residue_df = merge(residue_df.loc[:, idx_slice[index_residues, :]],
+                           per_residue_df.loc[:, idx_slice[index_residues, :]],
+                           left_index=True, right_index=True)
         # include in errat_deviation if errat score is < 2 std devs and isn't 0 to begin with
         source_errat_inclusion_boolean = np.logical_and(pose_source_errat_s < errat_2_sigma, pose_source_errat_s != 0.)
         errat_df = per_residue_df.loc[:, idx_slice[:, 'errat_deviation']].droplevel(-1, axis=1)
@@ -3147,15 +3155,15 @@ class PoseDirectory:
         pose_collapse_df['errat_deviation'] = (errat_sig_df.loc[:, source_errat_inclusion_boolean] * 1).sum(axis=1)
         # Get design information including: interface residues, SSM's, and wild_type/design files
         profile_background = {}
-        if self.design_profile:
+        if self.design_profile is not None:
             profile_background['design'] = self.design_profile
         # else:
         #     self.log.info('Design has no fragment information')
-        if self.evolutionary_profile:
+        if self.evolutionary_profile is not None:
             profile_background['evolution'] = self.evolutionary_profile
         else:
             self.log.info('No evolution information')
-        if self.fragment_profile:
+        if self.fragment_profile is not None:
             profile_background['fragment'] = self.fragment_profile
         else:
             self.log.info('No fragment information')
@@ -3182,13 +3190,18 @@ class PoseDirectory:
             # for profile, observed_frequencies in pose_observed_bkd.items():
             #     scores_df[f'observed_{profile}'] = Series(observed_frequencies)
             for profile, design_obs_freqs in observation_d.items():
-                scores_df[f'observed_{profile}'] = Series({design: freq.mean() for design, freq in design_obs_freqs.items()})
-            # Add observation information into the residue dictionary
-            for design, info in residue_info.items():
-                residue_info[design] = \
-                    weave_sequence_dict(base_dict=info, **{f'observed_{profile}': design_obs_freqs[design]
-                                                           for profile, design_obs_freqs in observation_d.items()})
+                scores_df[f'observed_{profile}'] = \
+                    Series({design: freq.mean() for design, freq in design_obs_freqs.items()})
+            # Add observation information into the residue_df
+            observed_dfs = []
+            for profile, design_obs_freqs in observation_d.items():
+                obs_df = DataFrame(design_obs_freqs.items())
+                print('pre_label', obs_df)
+                obs_df.index = MultiIndex.from_product(repeat(f'observed_{profile}'), residue_indices)
+                print(f'observed_{profile} df with label', obs_df.T)
+                observed_dfs.append(obs_df.T)
 
+            residue_df = concat([residue_df] + observed_dfs)
             # Calculate Jensen Shannon Divergence using different SSM occurrence data and design mutations
             #                                              both mut_freq and profile_background[profile] are one-indexed
             interface_indexer = [residue - 1 for residue in self.interface_design_residues]
@@ -3253,18 +3266,6 @@ class PoseDirectory:
             is_thermophilic.append(getattr(other_pose_metrics, f'entity_{idx}_thermophile', 0))
 
         other_pose_metrics['entity_thermophilicity'] = sum(is_thermophilic) / idx  # get the average
-
-        # Process mutational frequencies, H-bond, and Residue energy metrics to dataframe
-        residue_df = concat({design: DataFrame(info) for design, info in residue_info.items()}).unstack()
-        # returns multi-index column with residue number as first (top) column index, metric as second index
-        # during residue_df unstack, all residues with missing dicts are copied as nan
-        # Merge interface design specific residue metrics with total per residue metrics
-        # residue_df = merge(residue_df, per_residue_df.loc[:, idx_slice[residue_df.columns.levels[0], :]],
-        #                       left_index=True, right_index=True)
-        index_residues = list(self.interface_design_residues)
-        residue_df = merge(residue_df.loc[:, idx_slice[index_residues, :]],
-                           per_residue_df.loc[:, idx_slice[index_residues, :]],
-                           left_index=True, right_index=True)
 
         # entity_alignment = multi_chain_alignment(entity_sequences)
         # INSTEAD OF USING BELOW, split Pose.MultipleSequenceAlignment at entity.chain_break...
@@ -3363,7 +3364,7 @@ class PoseDirectory:
             columns={'sasa_relative_bound': 'surface'})
 
         residue_df = concat([residue_df, core_residues, interior_residues, support_residues, rim_residues,
-                                surface_residues], axis=1)
+                             surface_residues], axis=1)
         # Check if any columns are > 50% interior (value can be 0 or 1). If so, return True for that column
         # interior_residue_df = residue_df.loc[:, idx_slice[:, 'interior']]
         interior_residue_numbers = \
