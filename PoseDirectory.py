@@ -3209,21 +3209,14 @@ class PoseDirectory:
             # Calculate Jensen Shannon Divergence using different SSM occurrence data and design mutations
             #                                              both mut_freq and profile_background[profile] are one-indexed
             interface_indexer = [residue - 1 for residue in self.interface_design_residues]
-            for profile, background in profile_background.items():
-                print('iterative', position_specific_jsd(pose_alignment.frequencies, background))
-                print('stacked', position_specific_divergence(pose_alignment.frequencies, background))
             divergence = {f'divergence_{profile}':
-                          # position_specific_jsd(pose_alignment.frequencies, background)  # [interface_indexer]
+                          # position_specific_jsd(pose_alignment.frequencies, background)[interface_indexer]
                           position_specific_divergence(pose_alignment.frequencies, background)[interface_indexer]
                           for profile, background in profile_background.items()}
             print('frequency_dict', self.fragment_db.aa_frequencies)
             interface_bkgd = np.array(list(self.fragment_db.aa_frequencies.values()))
             if interface_bkgd is not None:
                 tiled_int_background = np.tile(interface_bkgd, (len(interface_indexer), 1))
-                print('iterative', jensen_shannon_divergence(pose_alignment.frequencies, interface_bkgd)[interface_indexer])
-                print('stacked', position_specific_divergence(pose_alignment.frequencies[interface_indexer],
-                                                              tiled_int_background))
-
                 # jensen_shannon_divergence(pose_alignment.frequencies, interface_bkgd)[interface_indexer]
                 divergence['divergence_interface'] = \
                     position_specific_divergence(pose_alignment.frequencies[interface_indexer], tiled_int_background)
@@ -3380,6 +3373,13 @@ class PoseDirectory:
         surface_residues = np.logical_xor(rim_or_surface, buried_interface_residues).rename(
             columns={'sasa_relative_bound': 'surface'})
 
+        print('core_or_interior', core_or_interior)
+        print('core_residues', core_residues)
+        print('interior_residues', interior_residues)
+        print('support_residues', support_residues)
+        print('rim_or_surface', rim_or_surface)
+        print('rim_residues', rim_residues)
+        print('surface_residues', surface_residues)
         residue_df = concat([residue_df, core_residues, interior_residues, support_residues, rim_residues,
                              surface_residues], axis=1)
         # Check if any columns are > 50% interior (value can be 0 or 1). If so, return True for that column
@@ -3387,8 +3387,8 @@ class PoseDirectory:
         interior_residue_numbers = \
             interior_residues[interior_residues.mean(axis=1) > 0.5].columns.remove_unused_levels().levels[0].to_list()
         if interior_residue_numbers:
-            self.log.info('Design Residues %s are located in the interior'
-                          % ', '.join(map(str, interior_residue_numbers)))
+            self.log.info(f'Design Residues {", ".join(map(str, interior_residue_numbers))} are located in the interior'
+                          )
 
         # This shouldn't be much different from the state variable self.interface_residues
         # perhaps the use of residue neighbor energy metrics adds residues which contribute, but not directly
