@@ -295,7 +295,6 @@ class MultipleSequenceAlignment:
             return self._frequencies
         except AttributeError:
             self._frequencies = self.counts[:, :-1] / self.observations[:, None]  # :-1 removes gap counts
-            print('self.frequencies', self.frequencies)
         return self._frequencies
 
     @property
@@ -2632,6 +2631,23 @@ def distribution_divergence(frequencies: np.ndarray, bgd_frequencies: np.ndarray
     sum_prob2 = (bgd_frequencies * np.log2(bgd_frequencies / r)).sum()
     return (lambda_ * sum_prob1) + ((1 - lambda_) * sum_prob2)
 
+
+# this is for a multiaxis ndarray
+def position_specific_divergence(frequencies: np.ndarray, bgd_frequencies: np.ndarray, lambda_: float = 0.5) -> \
+        np.ndarray:
+    """Calculate Jensen-Shannon Divergence value from observed and background frequencies
+
+    Args:
+        frequencies: [0.05, 0.001, 0.1, ...]
+        bgd_frequencies: [0, 0, ...]
+        lambda_: Bounded between 0 and 1 indicates weight of the observation versus the background
+    Returns:
+        An array of divergences bounded between 0 and 1. 1 indicates frequencies are more divergent from background
+    """
+    r = (lambda_ * frequencies) + ((1 - lambda_) * bgd_frequencies)
+    sum_prob1 = (frequencies * np.log2(frequencies / r)).sum(axis=1)
+    sum_prob2 = (bgd_frequencies * np.log2(bgd_frequencies / r)).sum(axis=1)
+    return (lambda_ * sum_prob1) + ((1 - lambda_) * sum_prob2)
 
 # def distribution_divergence(frequencies: Sequence[float], bgd_frequencies: Sequence[float], lambda_: float = 0.5) -> \
 #         float:
