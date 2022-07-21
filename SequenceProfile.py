@@ -2596,7 +2596,8 @@ def jensen_shannon_divergence(sequence_frequencies: np.ndarray, background_aa_fr
     Returns:
         The divergence per residue bounded between 0 and 1. 1 is more divergent from background, i.e. [0.732, ...]
     """
-    return [distribution_divergence(aa_freq, background_aa_freq, **kwargs) for aa_freq in sequence_frequencies]
+    return np.array([distribution_divergence(sequence_frequencies[idx], background_aa_freq, **kwargs)
+                     for idx in range(len(sequence_frequencies))])
 
 
 def position_specific_jsd(msa: np.ndarray, background: np.ndarray, **kwargs) -> np.ndarray:
@@ -2613,7 +2614,7 @@ def position_specific_jsd(msa: np.ndarray, background: np.ndarray, **kwargs) -> 
     Returns:
         The divergence values per position, i.e [0.732, 0.552, ...]
     """
-    return [distribution_divergence(freq, bgd_freq, **kwargs) for freq, bgd_freq in zip(msa, background)]
+    return np.array([distribution_divergence(msa[idx], background[idx], **kwargs) for idx in range(len(msa))])
 
 
 def distribution_divergence(frequencies: np.ndarray, bgd_frequencies: np.ndarray, lambda_: float = 0.5) -> float:
@@ -2627,9 +2628,10 @@ def distribution_divergence(frequencies: np.ndarray, bgd_frequencies: np.ndarray
         Bounded between 0 and 1. 1 is more divergent from background frequencies
     """
     r = (lambda_ * frequencies) + ((1 - lambda_) * bgd_frequencies)
-    sum_prob1 = (frequencies * np.log2(frequencies / r)).sum()
-    sum_prob2 = (bgd_frequencies * np.log2(bgd_frequencies / r)).sum()
-    return (lambda_ * sum_prob1) + ((1 - lambda_) * sum_prob2)
+    probs1 = frequencies * np.log2(frequencies / r)
+    probs2 = bgd_frequencies * np.log2(bgd_frequencies / r)
+    return (lambda_ * np.where(np.isnan(probs1), 0, probs1).sum()) \
+        + ((1 - lambda_) * np.where(np.isnan(probs2), 0, probs2).sum())
 
 
 # this is for a multiaxis ndarray
@@ -2645,8 +2647,8 @@ def position_specific_divergence(frequencies: np.ndarray, bgd_frequencies: np.nd
         An array of divergences bounded between 0 and 1. 1 indicates frequencies are more divergent from background
     """
     r = (lambda_ * frequencies) + ((1 - lambda_) * bgd_frequencies)
-    probs1 = (frequencies * np.log2(frequencies / r))
-    probs2 = (bgd_frequencies * np.log2(bgd_frequencies / r))
+    probs1 = frequencies * np.log2(frequencies / r)
+    probs2 = bgd_frequencies * np.log2(bgd_frequencies / r)
     return (lambda_ * np.where(np.isnan(probs1), 0, probs1).sum(axis=1)) \
         + ((1 - lambda_) * np.where(np.isnan(probs2), 0, probs2).sum(axis=1))
 
