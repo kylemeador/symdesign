@@ -1191,11 +1191,11 @@ def all_vs_all(iterable: Iterable, func: Callable, symmetrize: bool = True) -> n
         _dict = iterable
     else:
         _dict = None
+
     pairwise = np.zeros((len(iterable), (len(iterable))))
-    for i, obj1 in enumerate(iterable):
-        for j, obj2 in enumerate(iterable):
-            if j < i:
-                continue
+    for i, obj1 in enumerate(iterable[:-1]):
+        j = i+1
+        for j, obj2 in enumerate(iterable[j:], j):
             # if type(iterable) == dict:  # _dict
             pairwise[i][j] = func(obj1, obj2, d=_dict)
             # pairwise[i][j] = func(obj1, obj2, iterable, d=_dict)

@@ -2490,39 +2490,30 @@ def consensus_sequence(pssm):
     return consensus_identities
 
 
-def sequence_difference(seq1, seq2, d=None, matrix='BLOSUM62'):  # TODO AMS
+def sequence_difference(seq1: Sequence, seq2: Sequence, d: dict = None, matrix: str = 'BLOSUM62') -> float:  # TODO AMS
     """Returns the sequence difference between two sequence iterators
 
     Args:
-        seq1 (any): Either an iterable with residue type as array, or key, with residue type as d[seq1][residue]['type']
-        seq2 (any): Either an iterable with residue type as array, or key, with residue type as d[seq2][residue]['type']
-    Keyword Args:
-        d=None (dict): The dictionary to look up seq1 and seq2 if they are keys in the a dictionary
-        matrix='BLOSUM62' (str): The type of matrix to score the sequence differences on
+        seq1: Either an iterable with residue type as array, or key, with residue type as d[seq1][residue]['type']
+        seq2: Either an iterable with residue type as array, or key, with residue type as d[seq2][residue]['type']
+        d: The dictionary to look up seq1 and seq2 if they are keys in d
+        matrix: The type of matrix to score the sequence differences on
     Returns:
-        (float): The computed sequence difference between seq1 and seq2
+        The computed sequence difference between seq1 and seq2
     """
-    # s = 0
-    if d:
+    if d is not None:
         # seq1 = d[seq1]
         # seq2 = d[seq2]
         # for residue in d[seq1]:
-            # s.append((d[seq1][residue]['type'], d[seq2][residue]['type']))
+        #     s.append((d[seq1][residue]['type'], d[seq2][residue]['type']))
         pairs = [(d[seq1][residue]['type'], d[seq2][residue]['type']) for residue in d[seq1]]
     else:
-        pairs = [(seq1_res, seq2[i]) for i, seq1_res in enumerate(seq1)]
-            # s.append((seq1[i], seq2[i]))
-    #     residue_iterator1 = seq1
-    #     residue_iterator2 = seq2
-    m = substitution_matrices.load(matrix)
-    s = 0
-    for tup in pairs:
-        try:
-            s += m[tup]
-        except KeyError:
-            s += m[(tup[1], tup[0])]
+        pairs = zip(seq1, seq2)
 
-    return s
+    matrix_ = substitution_matrices.load(matrix)
+    scores = [matrix_.get((letter1, letter2), (letter2, letter1)) for letter1, letter2 in pairs]
+
+    return sum(scores)
 
 
 def return_consensus_design(frequency_sorted_msa):
@@ -2966,33 +2957,34 @@ def weave_mutation_dict(sorted_freq, mut_prob, resi_divergence, int_divergence, 
     return weaved_dict
 
 
-def weave_sequence_dict(base_dict=None, **kwargs):
-    """Weave together a single dictionary with residue numbers as keys, from separate residue keyed, dictionaries
-    All supplied dictionaries must be same integer index for accurate function
-
-    Keyword Args:
-        base=None (dict): If a dictionary already exists, pass the dictionary to add residue data to
-        **kwargs (dict): keyword=dictionary pairs. Ex: sorted_freq={16: ['S', 'A', ...], ... },
-            mut_prob={16: {'A': 0.05, 'C': 0.01, ...}, ...}, jsd={16: 0.732, 17: 0.552, ...}
-    Returns:
-        (dict): {16: {'mut_prob': {'A': 0.05, 'C': 0.01, ...}, 'jsd': 0.732, 'sorted_freq': ['S', 'A', ...]}, ...}
-    """
-    if not base_dict:
-        base_dict = {}
-
-    for observation_type, sequence_data in kwargs.items():
-        for residue, value in sequence_data.items():
-            if residue not in base_dict:
-                base_dict[residue] = {}
-            # else:
-            #     weaved_dict[residue][observation_type] = {}
-            # if isinstance(value, dict):  # TODO make endlessly recursive?
-                # base_dict[residue][observation_type] = dict(sub_item for sub_item in value.items())
-                # base_dict[residue][observation_type] = value
-            # else:
-            base_dict[residue][observation_type] = value
-
-    return base_dict
+# def weave_sequence_dict(base: dict = None, **kwargs) -> dict:
+#     """Weave together a single dictionary with residue numbers as keys, from separate residue keyed, dictionaries
+#     All supplied dictionaries must be same integer index for accurate function
+#
+#     Args:
+#         base: If a dictionary already exists, pass the dictionary to add residue data to
+#     Keyword Args:
+#         **kwargs (dict): keyword=dictionary pairs. Ex: sorted_freq={16: ['S', 'A', ...], ... },
+#             mut_prob={16: {'A': 0.05, 'C': 0.01, ...}, ...}, jsd={16: 0.732, 17: 0.552, ...}
+#     Returns:
+#         {16: {'mut_prob': {'A': 0.05, 'C': 0.01, ...}, 'jsd': 0.732, 'sorted_freq': ['S', 'A', ...]}, ...}
+#     """
+#     if base is None:
+#         return {}
+#
+#     for observation_type, sequence_data in kwargs.items():
+#         for residue, value in sequence_data.items():
+#             if residue not in base:
+#                 base[residue] = {}
+#             # else:
+#             #     weaved_dict[residue][observation_type] = {}
+#             # if isinstance(value, dict):  # TODO make endlessly recursive?
+#                 # base_dict[residue][observation_type] = dict(sub_item for sub_item in value.items())
+#                 # base_dict[residue][observation_type] = value
+#             # else:
+#             base[residue][observation_type] = value
+#
+#     return base
 
 
 def clean_gapped_columns(alignment_dict, correct_index):  # UNUSED
