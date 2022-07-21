@@ -3380,7 +3380,7 @@ class PoseDirectory:
         rim_residues = np.logical_and(surface_or_rim, buried_interface_residues).rename(
             columns={'sasa_relative_complex': 'rim'})
         # GOOD^
-        surface_residues = np.logical_xor(surface_or_rim, ~buried_interface_residues).rename(
+        surface_residues = np.logical_and(surface_or_rim, ~buried_interface_residues).rename(
             columns={'sasa_relative_complex': 'surface'})
         # GOOD^
 
