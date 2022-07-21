@@ -71,6 +71,7 @@ class MultipleSequenceAlignment:
     _sequence_index: np.ndarray
     alignment: MultipleSeqAlignment
     frequencies: np.ndarray
+    number_of_characters: int
     number_of_sequences: int
     length: int
     query: str
@@ -112,6 +113,7 @@ class MultipleSequenceAlignment:
                 aligned_sequence = str(alignment[0].seq)
             # Add Info to 'meta' record as needed and populate an amino acid count dict (one-indexed)
             self.alignment = alignment
+            self.number_of_characters = len(alphabet)
             self.number_of_sequences = len(alignment)
             self.length = alignment.get_alignment_length()
             self.query = aligned_sequence.replace('-', '')
@@ -119,10 +121,11 @@ class MultipleSequenceAlignment:
             self.query_with_gaps = aligned_sequence
 
             numerical_alignment = self.numerical_alignment
-            self.counts = np.zeros((self.length, len(gapped_protein_letters)))
+            self.counts = np.zeros((self.length, self.number_of_characters))
             # invert the "typical" format to length of the alignment in axis 0, and the numerical letters in axis 1
             for residue_idx in range(self.length):
-                self.counts[residue_idx, :] = np.bincount(numerical_alignment[:, residue_idx])
+                self.counts[residue_idx, :] = \
+                    np.bincount(numerical_alignment[:, residue_idx], minlength=self.number_of_characters)
 
             # self.observations = find_column_observations(self.counts, **kwargs)
             if count_gaps:
