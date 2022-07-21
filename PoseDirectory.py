@@ -3523,10 +3523,10 @@ class PoseDirectory:
             residue_energy_pc = res_pca.fit_transform(residue_energy_np)
 
             seq_pca = PCA(variance)
-            designed_residue_info = {design: {residue: info for residue, info in residues_info.items()
-                                              if residue in self.interface_design_residues}
-                                     for design, residues_info in residue_info.items()}
-            pairwise_sequence_diff_np = scaler.fit_transform(all_vs_all(designed_residue_info, sequence_difference))
+            designed_sequence_modifications = [''.join(info['type'] for residue, info in residues_info.items()
+                                                       if residue in self.interface_design_residues)
+                                               for design, residues_info in residue_info.items()]
+            pairwise_sequence_diff_np = scaler.fit_transform(all_vs_all(designed_sequence_modifications, sequence_difference))
             seq_pc = seq_pca.fit_transform(pairwise_sequence_diff_np)
             # Make principal components (PC) DataFrame
             residue_energy_pc_df = DataFrame(residue_energy_pc, index=residue_energy_df.index,
