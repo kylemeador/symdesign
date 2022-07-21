@@ -3213,7 +3213,6 @@ class PoseDirectory:
                           # position_specific_jsd(pose_alignment.frequencies, background)[interface_indexer]
                           position_specific_divergence(pose_alignment.frequencies, background)[interface_indexer]
                           for profile, background in profile_background.items()}
-            print('frequency_dict', self.fragment_db.aa_frequencies)
             interface_bkgd = np.array(list(self.fragment_db.aa_frequencies.values()))
             if interface_bkgd is not None:
                 tiled_int_background = np.tile(interface_bkgd, (len(interface_indexer), 1))
@@ -3382,7 +3381,7 @@ class PoseDirectory:
         # Check if any columns are > 50% interior (value can be 0 or 1). If so, return True for that column
         # interior_residue_df = residue_df.loc[:, idx_slice[:, 'interior']]
         interior_residue_numbers = \
-            interior_residues[interior_residues.mean(axis=0) > 0.5].columns.remove_unused_levels().levels[0].to_list()
+            interior_residues.loc[:, interior_residues.mean(axis=0) > 0.5].columns.remove_unused_levels().levels[0].to_list()
         if interior_residue_numbers:
             self.log.info(f'Design Residues {", ".join(map(str, interior_residue_numbers))} are located in the interior'
                           )
