@@ -3253,8 +3253,8 @@ class PoseDirectory:
                                            for profile, bgd in profile_background.items()}
                     if interface_bkgd is not None:
                         protocol_divergence['divergence_interface'] = \
-                            position_specific_divergence(protocol_alignment.frequencies,
-                                                         tiled_int_background)[interface_indexer]
+                            position_specific_divergence(protocol_alignment.frequencies[interface_indexer],
+                                                         tiled_int_background)
                     # Get per residue divergence metric by protocol
                     divergence_by_protocol[protocol] = {f'{divergence_type}_per_residue': divergence.mean()
                                                         for divergence_type, divergence in protocol_divergence.items()}
