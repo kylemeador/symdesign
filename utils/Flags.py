@@ -286,7 +286,7 @@ parser_options_arguments = {
     ('-isc', f'--{ignore_symmetric_clashes}'): dict(action='store_true',
                                                     help='Whether symmetric clashes should be ignored and allowed'
                                                          ' to process\nDefault=%(default)s'),
-    ('-l', '--update_database'): dict(action='store_true',
+    ('-u', '--update_database'): dict(action='store_true',
                                       help='Whether to update resources for each Structure in the database'
                                            '\nDefault=%(default)s'),
     ('--mpi',): dict(type=int, default=0, help='If commands should be run as MPI parallel processes, how many '
