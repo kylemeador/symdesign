@@ -3189,19 +3189,23 @@ class PoseDirectory:
             #                      for profile, design_obs_freqs in observation_d.items()}
             # for profile, observed_frequencies in pose_observed_bkd.items():
             #     scores_df[f'observed_{profile}'] = Series(observed_frequencies)
-            for profile, design_obs_freqs in observation_d.items():
-                scores_df[f'observed_{profile}'] = \
-                    Series({design: freq.mean() for design, freq in design_obs_freqs.items()})
+            # for profile, design_obs_freqs in observation_d.items():
+            #     scores_df[f'observed_{profile}'] = \
+            #         Series({design: freq.mean() for design, freq in design_obs_freqs.items()})
             # Add observation information into the residue_df
+            print('obs_d', observation_d)
             observed_dfs = []
-            for profile, design_obs_freqs in observation_d.items():
-                obs_df = DataFrame(design_obs_freqs.items())
-                print('pre_label', obs_df)
-                obs_df.columns = MultiIndex.from_product([residue_indices, [f'observed_{profile}']])
-                print(f'observed_{profile} df with label', obs_df.T)
-                observed_dfs.append(obs_df.T)
+            # for profile, design_obs_freqs in observation_d.items():
+            for profile, background in profile_background.items():
+                print('take', np.take(background, pose_alignment.numerical_alignment, axis=1))
+                obs_df = DataFrame(data=np.take(background, pose_alignment.numerical_alignment, axis=1),  # design_obs_freqs.values()
+                                   index=pose_sequences,  # design_obs_freqs.keys()
+                                   columns=MultiIndex.from_product([residue_indices, [f'observed_{profile}']]))
+                print(f'observed_{profile} df with label', obs_df)
+                scores_df[f'observed_{profile}'] = obs_df.mean(axis=1)
+                observed_dfs.append(obs_df)
 
-            residue_df = concat([residue_df] + observed_dfs)
+            residue_df = concat([residue_df] + observed_dfs, axis=1)
             # Calculate Jensen Shannon Divergence using different SSM occurrence data and design mutations
             #                                              both mut_freq and profile_background[profile] are one-indexed
             interface_indexer = [residue - 1 for residue in self.interface_design_residues]
