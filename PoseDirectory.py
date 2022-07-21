@@ -3197,7 +3197,7 @@ class PoseDirectory:
             for profile, design_obs_freqs in observation_d.items():
                 obs_df = DataFrame(design_obs_freqs.items())
                 print('pre_label', obs_df)
-                obs_df.index = MultiIndex.from_product(repeat(f'observed_{profile}'), residue_indices)
+                obs_df.columns = MultiIndex.from_product([residue_indices, repeat(f'observed_{profile}')])
                 print(f'observed_{profile} df with label', obs_df.T)
                 observed_dfs.append(obs_df.T)
 
