@@ -3377,19 +3377,12 @@ class PoseDirectory:
         surface_residues = np.logical_and(surface_or_rim, ~buried_interface_residues).rename(
             columns={'sasa_relative_complex': 'surface'})
 
-        # print('core_or_interior', core_or_interior)
-        print('core_residues', core_residues)
-        print('interior_residues', interior_residues)
-        print('support_residues', support_residues)
-        # print('rim_or_surface', rim_or_surface)
-        print('rim_residues', rim_residues)
-        print('surface_residues', surface_residues)
         residue_df = concat([residue_df, core_residues, interior_residues, support_residues, rim_residues,
                              surface_residues], axis=1)
         # Check if any columns are > 50% interior (value can be 0 or 1). If so, return True for that column
         # interior_residue_df = residue_df.loc[:, idx_slice[:, 'interior']]
         interior_residue_numbers = \
-            interior_residues[interior_residues.mean(axis=1) > 0.5].columns.remove_unused_levels().levels[0].to_list()
+            interior_residues[interior_residues.mean(axis=0) > 0.5].columns.remove_unused_levels().levels[0].to_list()
         if interior_residue_numbers:
             self.log.info(f'Design Residues {", ".join(map(str, interior_residue_numbers))} are located in the interior'
                           )
