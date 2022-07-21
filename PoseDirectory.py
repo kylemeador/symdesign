@@ -3198,9 +3198,10 @@ class PoseDirectory:
             # for profile, design_obs_freqs in observation_d.items():
             for profile, background in profile_background.items():
                 print('take', np.take_along_axis(background, pose_alignment.numerical_alignment.T, axis=1))
-                print('where', np.where(np.take_along_axis(background, pose_alignment.numerical_alignment.T, axis=1)) > 0, 1, 0)
-                obs_df = DataFrame(data=np.where(np.take_along_axis(background, pose_alignment.numerical_alignment.T, axis=1) > 0,
-                                                 1, 0),  # design_obs_freqs.values()
+                print('where', np.where(np.take_along_axis(background, pose_alignment.numerical_alignment.T, axis=1) > 0, 1, 0))
+                obs_df = DataFrame(data=np.where(np.take_along_axis(background, pose_alignment.numerical_alignment.T,
+                                                                    axis=1) > 0,
+                                                 1, 0).T,  # design_obs_freqs.values()
                                    index=pose_sequences,  # design_obs_freqs.keys()
                                    columns=MultiIndex.from_product([residue_indices, [f'observed_{profile}']]))
                 print(f'observed_{profile} df with label', obs_df)
