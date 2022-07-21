@@ -2645,9 +2645,10 @@ def position_specific_divergence(frequencies: np.ndarray, bgd_frequencies: np.nd
         An array of divergences bounded between 0 and 1. 1 indicates frequencies are more divergent from background
     """
     r = (lambda_ * frequencies) + ((1 - lambda_) * bgd_frequencies)
-    sum_prob1 = (frequencies * np.log2(frequencies / r)).sum(axis=1)
-    sum_prob2 = (bgd_frequencies * np.log2(bgd_frequencies / r)).sum(axis=1)
-    return (lambda_ * sum_prob1) + ((1 - lambda_) * sum_prob2)
+    probs1 = (frequencies * np.log2(frequencies / r))
+    probs2 = (bgd_frequencies * np.log2(bgd_frequencies / r))
+    return (lambda_ * np.where(np.isnan(probs1), 0, probs1).sum(axis=1)) \
+        + ((1 - lambda_) * np.where(np.isnan(probs2), 0, probs2).sum(axis=1))
 
 # def distribution_divergence(frequencies: Sequence[float], bgd_frequencies: Sequence[float], lambda_: float = 0.5) -> \
 #         float:
