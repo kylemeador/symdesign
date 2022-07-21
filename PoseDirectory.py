@@ -3193,18 +3193,14 @@ class PoseDirectory:
             #     scores_df[f'observed_{profile}'] = \
             #         Series({design: freq.mean() for design, freq in design_obs_freqs.items()})
             # Add observation information into the residue_df
-            print('obs_d', observation_d)
             observed_dfs = []
             # for profile, design_obs_freqs in observation_d.items():
             for profile, background in profile_background.items():
-                print('take', np.take_along_axis(background, pose_alignment.numerical_alignment.T, axis=1))
-                print('where', np.where(np.take_along_axis(background, pose_alignment.numerical_alignment.T, axis=1) > 0, 1, 0))
                 obs_df = DataFrame(data=np.where(np.take_along_axis(background, pose_alignment.numerical_alignment.T,
                                                                     axis=1) > 0,
                                                  1, 0).T,  # design_obs_freqs.values()
                                    index=pose_sequences,  # design_obs_freqs.keys()
                                    columns=MultiIndex.from_product([residue_indices, [f'observed_{profile}']]))
-                print(f'observed_{profile} df with label', obs_df)
                 scores_df[f'observed_{profile}'] = obs_df.mean(axis=1)
                 observed_dfs.append(obs_df)
 
@@ -3212,13 +3208,22 @@ class PoseDirectory:
             # Calculate Jensen Shannon Divergence using different SSM occurrence data and design mutations
             #                                              both mut_freq and profile_background[profile] are one-indexed
             interface_indexer = [residue - 1 for residue in self.interface_design_residues]
+            print('iterative', position_specific_jsd(pose_alignment.frequencies, background))
+            print('stacked', position_specific_divergence(pose_alignment.frequencies, background))
             divergence = {f'divergence_{profile}':
-                          position_specific_jsd(pose_alignment.frequencies, background)[interface_indexer]
+                          # position_specific_jsd(pose_alignment.frequencies, background)  # [interface_indexer]
+                          position_specific_divergence(pose_alignment.frequencies, background)[interface_indexer]
                           for profile, background in profile_background.items()}
             interface_bkgd = np.ndarray(self.fragment_db.aa_frequencies.values())
             if interface_bkgd is not None:
+                tiled_int_background = np.tile(interface_bkgd, (len(interface_indexer), 1))
+                print('iterative', jensen_shannon_divergence(pose_alignment.frequencies, interface_bkgd)[interface_indexer])
+                print('stacked', position_specific_divergence(pose_alignment.frequencies[interface_indexer],
+                                                              tiled_int_background))
+
+                # jensen_shannon_divergence(pose_alignment.frequencies, interface_bkgd)[interface_indexer]
                 divergence['divergence_interface'] = \
-                    jensen_shannon_divergence(pose_alignment.frequencies, interface_bkgd)[interface_indexer]
+                    position_specific_divergence(pose_alignment.frequencies[interface_indexer], tiled_int_background)
             # Get pose sequence divergence
             pose_divergence_s = concat([Series({f'{divergence_type}_per_residue': divergence.mean()
                                                 for divergence_type, divergence in divergence.items()})],
@@ -3240,11 +3245,13 @@ class PoseDirectory:
                     #                                                 self.interface_design_residues)
                     # protocol_mutation_freq = protocol_alignment.frequencies
                     protocol_divergence = {f'divergence_{profile}':
-                                           position_specific_jsd(protocol_alignment.frequencies, bgd)[interface_indexer]
+                                           position_specific_divergence(protocol_alignment.frequencies,
+                                                                        bgd)[interface_indexer]
                                            for profile, bgd in profile_background.items()}
                     if interface_bkgd is not None:
                         protocol_divergence['divergence_interface'] = \
-                            jensen_shannon_divergence(protocol_alignment.frequencies, interface_bkgd)[interface_indexer]
+                            position_specific_divergence(protocol_alignment.frequencies,
+                                                         tiled_int_background)[interface_indexer]
                     # Get per residue divergence metric by protocol
                     divergence_by_protocol[protocol] = {f'{divergence_type}_per_residue': divergence.mean()
                                                         for divergence_type, divergence in protocol_divergence.items()}
