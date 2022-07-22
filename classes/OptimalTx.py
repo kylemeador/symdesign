@@ -134,8 +134,8 @@ class OptimalTx:
             coords_rmsd_reference: Array with length N with reference deviation to compare to the coords1 and coords2
                 error
         Returns:
-            Returns the optimal translation or None if error is too large.
-                Optimal translation has external dof first, followed by internal tx dof
+            Returns the optimal translations with shape (N, number_degrees_of_freedom) if the translation is less than
+                the calculated error. Axis 1 has degrees of freedom with external first, then internal dof
         """
         # calculate the initial difference between each query and target (9 dim vector by coords.shape[0])
         guide_delta = (coords1 - coords2).reshape(-1, 1, 9).swapaxes(-2, -1)
@@ -181,5 +181,4 @@ class OptimalTx:
         error = np.sqrt(np.matmul(resid.swapaxes(-2, -1), resid) / float(self.number_of_coordinates)).flatten() \
             / coords_rmsd_reference
 
-        print(shift[np.nonzero(error <= self.max_z_value)])
-        return shift[np.nonzero(error <= self.max_z_value)].squeeze()
+        return shift[np.nonzero(error <= self.max_z_value)].reshape(-1, self.n_dof)

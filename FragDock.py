@@ -919,6 +919,7 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
 
                     number_passing_shifts_ = len(transform_passing_shifts_)
                     number_passing_shifts = len(transform_passing_shifts)
+                    print('shifts shape', transform_passing_shifts.shape)
                     if number_passing_shifts == 0:
                         # log.debug('Length %d' % len(optimal_shifts))
                         # log.debug('Shape %d' % transform_passing_shifts.shape[0])
