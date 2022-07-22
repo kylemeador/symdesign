@@ -1131,24 +1131,24 @@ if __name__ == '__main__':
 
             # Todo separate to use query1 and query2?
             print('\nStarting PDB query for component 1\n')
-            entity_names1 = retrieve_pdb_entries_by_advanced_query(save=args.save_query, entity=True)
+            structure_names1 = retrieve_pdb_entries_by_advanced_query(save=args.save_query, entity=True)
         else:
             if args.pdb_codes1:
-                entity_names1 = set(SDUtils.to_iterable(args.pdb_codes1, ensure_file=True))
+                structure_names1 = set(SDUtils.to_iterable(args.pdb_codes1, ensure_file=True))
             else:  # args.oligomer1:
                 logger.critical(f'Ensuring provided file(s) at {args.oligomer1} are oriented for Nanohedra Docking')
                 if '.pdb' in args.oligomer1:
                     pdb1_filepaths = [args.oligomer1]
                 else:
                     pdb1_filepaths = SDUtils.get_directory_file_paths(args.oligomer1)
-                entity_names1 = pdb1_filepaths
+                structure_names1 = pdb1_filepaths
                 # pdb1_oriented_filepaths = orient_structure_files(pdb1_filepaths, log=orient_log,
                 #                                                  symmetry=symmetry_map[0],
                 #                                                  out_dir=job.structure_db.oriented.location)
                 # # pull out the structure names and use job.structure_db.orient_structures to retrieve the oriented file
-                # entity_names1 = list(map(os.path.basename,
+                # structure_names1 = list(map(os.path.basename,
                 #                      [os.path.splitext(file)[0] for file in filter(None, pdb1_oriented_filepaths)]))
-        all_structures.extend(job.structure_db.orient_structures(entity_names1, symmetry=symmetry_map[0]))
+        all_structures.extend(job.structure_db.orient_structures(structure_names1, symmetry=symmetry_map[0]))
 
         single_component_design = False
         if args.oligomer2:
@@ -1159,29 +1159,29 @@ if __name__ == '__main__':
                     pdb2_filepaths = [args.oligomer2]
                 else:
                     pdb2_filepaths = SDUtils.get_directory_file_paths(args.oligomer2)
-                entity_names2 = pdb2_filepaths
+                structure_names2 = pdb2_filepaths
                 # pdb2_oriented_filepaths = orient_structure_files(pdb2_filepaths, log=orient_log,
                 #                                                  symmetry=symmetry_map[1],
                 #                                                  out_dir=job.structure_db.oriented.location)
                 # # pull out the structure names and use job.structure_db.orient_structures to retrieve the oriented file
-                # entity_names2 = list(map(os.path.basename,
+                # structure_names2 = list(map(os.path.basename,
                 #                          [os.path.splitext(file)[0] for file in filter(None, pdb2_oriented_filepaths)]))
             else:  # the entities are the same symmetry, or we have single component and bad input
-                entity_names2 = []
+                structure_names2 = []
                 logger.info('No additional entities requested for docking, treating as single component')
                 single_component_design = True
         elif args.pdb_codes2:
             # Collect all entities required for processing the given commands
-            entity_names2 = set(SDUtils.to_iterable(args.pdb_codes2, ensure_file=True))
+            structure_names2 = set(SDUtils.to_iterable(args.pdb_codes2, ensure_file=True))
         elif args.query_codes:
             print('\nStarting PDB query for component 2\n')
-            entity_names2 = retrieve_pdb_entries_by_advanced_query(save=args.save_query, entity=True)
+            structure_names2 = retrieve_pdb_entries_by_advanced_query(save=args.save_query, entity=True)
         else:
-            entity_names2 = []
+            structure_names2 = []
             logger.info('No additional entities requested for docking, treating as single component')
             single_component_design = True
         # Select entities, orient them, then load each Structure to all_structures for further database processing
-        all_structures.extend(job.structure_db.orient_structures(entity_names2, symmetry=symmetry_map[1]))
+        all_structures.extend(job.structure_db.orient_structures(structure_names2, symmetry=symmetry_map[1]))
 
         info_messages = []
         preprocess_instructions, pre_refine, pre_loop_model = \
@@ -1198,38 +1198,31 @@ if __name__ == '__main__':
             terminate(output=False)
             # After completion of sbatch, the next time command is entered docking will proceed
 
-        all_entities = [entity for structure in all_structures for entity in structure.entities]
-        # make all possible entity_pairs given input entities
-        for entity in all_entities:
-            entity.make_oligomer(symmetry=entity.symmetry)
+        # # Ensure all_entities are symmetric. As of now, all orient_structures returns are the symmetrized structure
+        # for entity in [entity for structure in all_structures for entity in structure.entities]:
+        #     entity.make_oligomer(symmetry=entity.symmetry)
 
-        # set up entities for entity_pairs
+        # Make all possible entity_pairs given input entities by finding entities from entity_names
+        structures1 = []
+        for structure_name in structure_names1:
+            for structure in all_structures:
+                if structure_name in structure.name:
+                    structures1.append(structure)
         if single_component_design:
-            # entities1 = [entity for entity in all_entities if entity.name in entities1]
+            # structures1 = [entity for entity in all_entities if entity.name in structures1]
             # ^ doesn't work as entity_id is set in orient_structures, but structure name is entry_id
-            entities1 = []
-            for entity_name in entity_names1:
-                for entity in all_entities:
-                    if entity_name in entity.name:
-                        entities1.append(entity)
-            entity_pairs = list(combinations(entities1, 2))
+            entity_pairs = list(combinations(structures1, 2))
         else:
-            entities1 = []
-            for entity_name in entity_names1:
-                for entity in all_entities:
-                    if entity_name in entity.name:
-                        entities1.append(entity)
-                        break
-            entities2 = []
-            for entity_name in entity_names2:
-                for entity in all_entities:
-                    if entity_name in entity.name:
-                        entities2.append(entity)
+            structures2 = []
+            for structure_name in structure_names2:
+                for structure in all_structures:
+                    if structure_name in structure.name:
+                        structures2.append(structure)
                         break
             # v doesn't work as entity_id is set in orient_structures, but structure name is entry_id
-            # entities1 = [entity for entity in all_entities if entity.name in entities1]
-            # entities2 = [entity for entity in all_entities if entity.name in entities2]
-            entity_pairs = list(product(entities1, entities2))
+            # structures1 = [entity for entity in all_entities if entity.name in structures1]
+            # structures2 = [entity for entity in all_entities if entity.name in structures2]
+            entity_pairs = list(product(structures1, structures2))
         location = args.oligomer1
         design_source = os.path.splitext(os.path.basename(location))[0]
     else:
@@ -1375,7 +1368,7 @@ if __name__ == '__main__':
                 results = SDUtils.mp_starmap(nanohedra_dock, zipped_args, processes=cores)
             else:  # using combinations of directories with .pdb files
                 for entity1, entity2 in entity_pairs:
-                    master_logger.info('Docking %s / %s' % (entity1.name, entity1.name))
+                    master_logger.info(f'Docking {entity1.name} / {entity2.name}')
                     # result = nanohedra_dock(sym_entry, fragment_db, euler_lookup, job.docking_master_dir, pdb1, pdb2,
                     # result = None
                     nanohedra_dock(sym_entry, fragment_db, euler_lookup, job.docking_master_dir, entity1, entity2,
