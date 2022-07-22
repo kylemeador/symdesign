@@ -2149,6 +2149,7 @@ class Residue(ResidueFragment, ContainsAtomsMixin):
                 polarity_list[residue_atom_polarity.get(atom.type)].append(atom.sasa)
         except AttributeError:  # missing atom.sasa
             print(atom.number, atom.type, atom.residue_type, atom.residue_number)
+            exit()
             self.parent.get_sasa()
             for atom in self.atoms:
                 polarity_list[residue_atom_polarity.get(atom.type)].append(atom.sasa)
@@ -4110,6 +4111,9 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
             # slice removes first REMARK, MODEL and final TER, MODEL regardless of # of chains, TER inclusion
             # since return_atom_record doesn't have models, these won't be present and no option to freesasa about model
             # would be provided with above subprocess call
+            print('cmd:', subprocess.list2cmdline([free_sasa_exe_path, f'--format={out_format}', '--probe-radius', str(probe_radius),
+                                                   '-c', free_sasa_configuration_path] + include_hydrogen))
+            print('\n'.join(sasa_output))
             atoms = self.atoms
             for line_split in map(str.split, sasa_output[5:-2]):  # slice could remove need for if ATOM
                 if line_split[0] == 'ATOM':  # this seems necessary as MODEL can be added if MODEL is written
