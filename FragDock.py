@@ -478,7 +478,8 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
                 entity.make_oligomer(symmetry=symmetry)
 
         # Make, then save a new model based on the symmetric version of each Entity in the Model
-        models[idx] = Model.from_chains([entity.chains for entity in model.entities], name=model.name)
+        models[idx] = Model.from_chains([chain for entity in model.entities for chain in entity.chains],
+                                        name=model.name)
 
     model1, model2 = models
     # Set up output mechanism
