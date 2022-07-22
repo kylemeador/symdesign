@@ -1362,8 +1362,11 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
 
         # Find the indices where the fragment residue numbers are found the interface residue numbers
         is_in_index_start = time.time()
-        interface_ghost1_indices = np.isin(ghost_frag1_residues, interface_residue_numbers1).nonzero()[0]
-        interface_surf2_indices = np.isin(surf_frag2_residues, interface_residue_numbers2).nonzero()[0]
+        # Since *_residue_numbers1/2 are the same index as the complete fragment arrays, these interface indices are the
+        # same index as the complete guide coords and rmsds as well
+        interface_ghost_indices1 = np.flatnonzero(np.in1d(ghost_residue_numbers1, interface_residue_numbers1))
+        interface_surf_indices2 = \
+            np.flatnonzero(np.in1d(surf_residue_numbers2, interface_residue_numbers2, assume_unique=True))
         is_in_index_time = time.time() - is_in_index_start
         all_fragment_match_time_start = time.time()
         # if idx % 2 == 0:
