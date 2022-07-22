@@ -1203,8 +1203,8 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
     number_of_elements_available = memory_constraint / element_memory
     model_elements = prod(bb_cb_coords2.shape)
     total_elements_required = model_elements * number_of_dense_transforms
-    # The chunk_size indicates how many models could fit in the allocated memory
-    chunk_size = floor(number_of_elements_available / model_elements) / 4  # Reduce scale by factor of 4 to be safe
+    # The chunk_size indicates how many models could fit in the allocated memory. Using floor division to get integer
+    chunk_size = number_of_elements_available // model_elements // 4  # Reduce scale by factor of 4 to be safe
     # The number_of_chunks indicates how many iterations are needed to exhaust all models
     number_of_chunks = (ceil(total_elements_required / (model_elements * chunk_size)) or 1)
     check_clash_coords_start = time.time()
@@ -1781,7 +1781,7 @@ if __name__ == '__main__':
     if len(sys.argv) > 1:
         # Parsing Command Line Input
         sym_entry_number, model1_path, model2_path, rot_step_deg1, rot_step_deg2, master_outdir, output_assembly, \
-        output_surrounding_uc, min_matched, timer, initial, debug, high_quality_match_value, initial_z_value = \
+            output_surrounding_uc, min_matched, timer, initial, debug, high_quality_match_value, initial_z_value = \
             get_docking_parameters(sys.argv)
 
         # Master Log File
@@ -1802,11 +1802,12 @@ if __name__ == '__main__':
             # make master output directory
             os.makedirs(master_outdir, exist_ok=True)
             master_logger.info('Nanohedra\nMODE: DOCK\n\n')
-            write_docking_parameters(model1_path, model2_path, rot_step_deg1, rot_step_deg2, symmetry_entry, master_outdir,
-                                     log=master_logger)
+            write_docking_parameters(model1_path, model2_path, rot_step_deg1, rot_step_deg2, symmetry_entry,
+                                     master_outdir, log=master_logger)
         else:  # for parallel runs, ensure that the first file was able to write before adding below log
             time.sleep(1)
-            rot_step_deg1, rot_step_deg2 = get_rotation_step(symmetry_entry, rot_step_deg1, rot_step_deg2)
+        rot_step_deg1, rot_step_deg2 = \
+            get_rotation_step(symmetry_entry, rot_step_deg1, rot_step_deg2, log=master_logger)
 
         model1_name = os.path.basename(os.path.splitext(model1_path)[0])
         model2_name = os.path.basename(os.path.splitext(model2_path)[0])
