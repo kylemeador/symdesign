@@ -829,7 +829,8 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
                     #          ' space bucket')
 
                     euler_start = time.time()
-                    # First returned variable has indices increasing 1,1,1,1,1,2,2,2,2,3,4,4,4,...
+                    # First returned variable has indices increasing 0,0,0,0,1,1,1,1,1,2,2,2,3,...
+                    # Second returned variable has indices increasing 2,3,4,14,...
                     euler_matched_surf_indices2, euler_matched_ghost_indices1 = \
                         euler_lookup.check_lookup_table(surf_frags2_guide_coords_rot_and_set,
                                                         ghost_frag1_guide_coords_rot_and_set)
@@ -849,9 +850,11 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
 
                     log.debug(f'Euler indices forward, index 0: {euler_matched_surf_indices2[:10]}')
                     forward_surface_numbers2 = init_surf_residue_numbers2[euler_matched_surf_indices2]
+                    log.debug(f'Euler indices forward, index 1: {euler_matched_ghost_indices1[:10]}')
                     forward_ghosts_numbers1 = init_ghost_residue_numbers1[euler_matched_ghost_indices1]
                     log.debug(f'Euler indices reverse, index 0: {euler_matched_ghost_indices_rev2[:10]}')
                     reverse_ghosts_numbers2 = init_ghost_residue_numbers2[euler_matched_ghost_indices_rev2]
+                    log.debug(f'Euler indices reverse, index 1: {euler_matched_surf_indices_rev1[:10]}')
                     reverse_surface_numbers1 = init_surf_residue_numbers1[euler_matched_surf_indices_rev1]
 
                     # Make an index indicating where the forward and reverse euler lookups have the same residue pairs
@@ -869,12 +872,12 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
                         # Where the residue number of component 2 is equal pull out the indices
                         forward_index = np.flatnonzero(forward_surface_numbers2 == residue)
                         reverse_index = np.flatnonzero(reverse_ghosts_numbers2 == residue)
-                        # Next, use pulled out residue indices to search for overlapping numbers
+                        # Next, use residue number indices to search for the same residue numbers in the extracted pairs
                         # The output array slice is only valid if the forward_index is the result of
-                        # forward_surface_numbers2 being in ascending order
+                        # forward_surface_numbers2 being in ascending order, which for check_lookup_table is True
                         current = prior + len(forward_index)
                         possible_overlaps[prior:current] = \
-                            np.isin(forward_ghosts_numbers1[forward_index], reverse_surface_numbers1[reverse_index])
+                            np.in1d(forward_ghosts_numbers1[forward_index], reverse_surface_numbers1[reverse_index])
                         prior = current
 
                     # forward_ghosts_numbers1[possible_overlaps]
@@ -890,12 +893,12 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
                     # Get optimal shift parameters for initial (Ghost Fragment, Surface Fragment) guide coordinate pairs
 
                     # Todo remove all dksgjhkh"_" variables
-                    reference_rmsds_ = init_ghost_rmsds1[euler_matched_ghost_indices1]
-                    passing_ghost_coords_ = ghost_frag1_guide_coords_rot_and_set[euler_matched_ghost_indices1]
-                    passing_surf_coords_ = surf_frags2_guide_coords_rot_and_set[euler_matched_surf_indices2]
+                    # reference_rmsds_ = init_ghost_rmsds1[euler_matched_ghost_indices1]
+                    # passing_ghost_coords_ = ghost_frag1_guide_coords_rot_and_set[euler_matched_ghost_indices1]
+                    # passing_surf_coords_ = surf_frags2_guide_coords_rot_and_set[euler_matched_surf_indices2]
 
-                    transform_passing_shifts_ = \
-                        optimal_tx.solve_optimal_shifts(passing_ghost_coords_, passing_surf_coords_, reference_rmsds_)
+                    # transform_passing_shifts_ = \
+                    #     optimal_tx.solve_optimal_shifts(passing_ghost_coords_, passing_surf_coords_, reference_rmsds_)
                     # Take the boolean index of the indices
                     possible_ghost_frag_indices = euler_matched_ghost_indices1[possible_overlaps]
                     # possible_surf_frag_indices = euler_matched_surf_indices2[possible_overlaps]
@@ -921,9 +924,8 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
                     #                                number_passing_shifts))
                     # for idx, tx_parameters in enumerate(transform_passing_shifts, 1):
 
-                    number_passing_shifts_ = len(transform_passing_shifts_)
+                    # number_passing_shifts_ = len(transform_passing_shifts_)
                     number_passing_shifts = len(transform_passing_shifts)
-                    print('shifts shape', transform_passing_shifts.shape)
                     if number_passing_shifts == 0:
                         # log.debug('Length %d' % len(optimal_shifts))
                         # log.debug('Shape %d' % transform_passing_shifts.shape[0])
@@ -959,17 +961,17 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
                         # for a single DOF, multiplication won't matter as only one matrix element will be available
                         #
                         # Todo remove all dksgjhkh"_" variables
-                        optimal_ext_dof_shifts_ = transform_passing_shifts_[:, :sym_entry.n_dof_external]
-                        optimal_ext_dof_shifts_ = np.hstack((optimal_ext_dof_shifts_,
-                                                             np.hstack((blank_vector,) * (3-sym_entry.n_dof_external))))
+                        # optimal_ext_dof_shifts_ = transform_passing_shifts_[:, :sym_entry.n_dof_external]
+                        # optimal_ext_dof_shifts_ = np.hstack((optimal_ext_dof_shifts_,
+                        #                                      np.hstack((blank_vector,) * (3-sym_entry.n_dof_external))))
                         optimal_ext_dof_shifts = transform_passing_shifts[:, :sym_entry.n_dof_external]
                         optimal_ext_dof_shifts = np.hstack((optimal_ext_dof_shifts,
                                                             np.hstack((blank_vector,) * (3-sym_entry.n_dof_external))))
                         # ^ I think for the sake of cleanliness, I need to make this matrix
                         # must find positive indices before external_dof1 multiplication in case negatives there
-                        positive_indices_ = \
-                            np.flatnonzero(np.all(np.where(optimal_ext_dof_shifts_ < 0, False, True), axis=1) is True)
-                        final_passing_shifts_ = len(positive_indices_)
+                        # positive_indices_ = \
+                        #     np.flatnonzero(np.all(np.where(optimal_ext_dof_shifts_ < 0, False, True), axis=1) is True)
+                        # final_passing_shifts_ = len(positive_indices_)
                         positive_indices = \
                             np.flatnonzero(np.all(np.where(optimal_ext_dof_shifts < 0, False, True), axis=1) is True)
                         final_passing_shifts = len(positive_indices)
@@ -984,7 +986,7 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
                     else:
                         # optimal_ext_dof_shifts = list(repeat(None, number_passing_shifts))
                         positive_indices = None
-                        final_passing_shifts_ = number_passing_shifts_
+                        # final_passing_shifts_ = number_passing_shifts_
                         final_passing_shifts = number_passing_shifts
                         # stacked_external_tx1, stacked_external_tx2 = None, None
                         full_ext_tx1, full_ext_tx2 = None, None
