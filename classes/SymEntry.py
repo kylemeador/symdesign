@@ -214,8 +214,9 @@ symmetry_combinations = {
 custom_entries = list(symmetry_combinations.keys())
 symmetry_combinations.update(nanohedra_symmetry_combinations)
 # reformat the symmetry_combinations to account for groups and results separately
-parsed_symmetry_combinations = {entry_number: ([(entry[0], entry[1:4]), (entry[4], entry[5:8])], entry[-6:])
-                                for entry_number, entry in symmetry_combinations.items()}
+parsed_symmetry_combinations: dict[int, tuple[list[tuple[str, list | int | str]], str | int]] = \
+    {entry_number: ([(entry[0], entry[1:4]), (entry[4], entry[5:8])], entry[-6:])
+     for entry_number, entry in symmetry_combinations.items()}
 space_group_to_sym_entry = {}
 # ROTATION SETTING MATRICES - All descriptions are with view on the positive side of respective axis
 # These specify combinations of symmetric point groups which can be used to construct a larger point group
@@ -259,6 +260,24 @@ for entry_number, ent in symmetry_combinations.items():
 
 
 class SymEntry:
+    __external_dof: list[np.ndarray]
+    _degeneracy_matrices: np.ndarray | None
+    _external_dof: np.ndarray
+    _int_dof_groups: list[str]
+    _ref_frame_tx_dof: list[str]
+    _setting_matrices: list[np.ndarray]
+    cycle_size: int
+    dimension: int
+    entry_number: int
+    groups: list[str]
+    n_dof_external: int
+    point_group_symmetry: str
+    resulting_symmetry: str
+    sym_map: list[str]
+    total_dof: int
+    unit_cell: list[list[str], list[str]]
+    expand_matrices: np.ndarray
+
     def __init__(self, entry: int, sym_map: list[str] = None):
         try:
             # group1, self.int_dof_group1, self.rot_set_group1, self.ref_frame_tx_dof1, \
@@ -274,9 +293,9 @@ class SymEntry:
             self.point_group_symmetry, self.resulting_symmetry, self.dimension, self.unit_cell, self.total_dof, \
                 self.cycle_size = result_info
         except KeyError:
-            raise ValueError('Invalid symmetry entry "%s". Supported values are Nanohedra entries: %d-%d and '
-                             'custom entries: %s'
-                             % (entry, 1, len(nanohedra_symmetry_combinations), ', '.join(map(str, custom_entries))))
+            raise ValueError(f'Invalid symmetry entry "{entry}". Supported values are Nanohedra entries: '
+                             f'{1}-{len(nanohedra_symmetry_combinations)} and custom entries: '
+                             f'{", ".join(map(str, custom_entries))}')
         self.entry_number = entry
         entry_groups = [group_name for group_name, group_params in group_info]
         if not sym_map:  # assume standard SymEntry
@@ -295,7 +314,7 @@ class SymEntry:
                         raise ValueError(f'The symmetry "{sub_symmetry}" specified at index "{idx}" is not a valid '
                                          f'sub-symmetry')
                 if sub_symmetry not in entry_groups:  # Todo add sub_symmetry specification to group info
-                    raise DesignError('This functionality hasn\'t been implemented yet!')
+                    raise SymmetryError('This functionality hasn\'t been implemented yet!')
                 self.groups.append(sub_symmetry)
 
         self._int_dof_groups, self._setting_matrices, self._ref_frame_tx_dof, self.__external_dof = [], [], [], []
@@ -310,9 +329,9 @@ class SymEntry:
                         # this wouldn't be possible with more than 2 groups unless we tether group to an existing group
                         self.__external_dof.append(construct_uc_matrix(ref_frame_tx_dof))
                     else:
-                        if getattr(self, 'is_ref_frame_tx_dof%d' % group_idx):
-                            raise DesignError('Cannot yet create a SymEntry with external degrees of freedom and > 2 '
-                                              'groups!')
+                        if getattr(self, f'is_ref_frame_tx_dof{group_idx}'):
+                            raise SymmetryError('Cannot yet create a SymEntry with external degrees of freedom and > 2 '
+                                                'groups!')
         # Reformat reference_frame entries
         # self.is_ref_frame_tx_dof1 = False if self.ref_frame_tx_dof1 == '<0,0,0>' else True
         # self.is_ref_frame_tx_dof2 = False if self.ref_frame_tx_dof2 == '<0,0,0>' else True
@@ -341,7 +360,7 @@ class SymEntry:
         self.n_dof_external = self.external_dof.shape[0]
         # Check construction is valid
         if self.point_group_symmetry not in valid_symmetries:
-            raise ValueError('Invalid point group symmetry %s' % self.point_group_symmetry)
+            raise ValueError(f'Invalid point group symmetry {self.point_group_symmetry}')
         try:
             if self.dimension == 0:
                 self.expand_matrices = point_group_symmetry_operators[self.resulting_symmetry]
@@ -350,7 +369,7 @@ class SymEntry:
             else:
                 raise ValueError('Invalid symmetry entry. Supported design dimensions are 0, 2, and 3')
         except KeyError:
-            raise DesignError(f'The symmetry result "{self.resulting_symmetry}" is not an allowed symmetric operation')
+            raise SymmetryError(f'The symmetry result "{self.resulting_symmetry}" is not allowed')
         self.unit_cell = None if self.unit_cell == 'N/A' else \
             [dim.strip('()').replace(' ', '').split(',') for dim in self.unit_cell.split('), ')]
 
@@ -465,7 +484,7 @@ class SymEntry:
 
     @property
     def external_dof(self) -> np.ndarray:
-        """Return the total external degrees of freedom as a 3x3 array"""
+        """Return the total external degrees of freedom as a number DOF externalx3 array"""
         try:
             return self._external_dof
         except AttributeError:
@@ -598,7 +617,7 @@ class SymEntry:
             The Unit Cell dimensions for each optimal shift vector passed
         """
         if not self.unit_cell:
-            return
+            return None
         string_lengths, string_angles = self.unit_cell
         # for entry 6 - string_vector is 4*e, 4*e, 4*e
         # construct_uc_matrix() = [[4, 4, 4], [0, 0, 0], [0, 0, 0]]
@@ -632,7 +651,7 @@ class SymEntry:
             The optimal shifts in each direction a, b, and c if they are allowed
         """
         if not self.unit_cell:
-            return
+            return None
         string_lengths, string_angles = self.unit_cell
         # uc_mat = construct_uc_matrix(string_lengths) * optimal_shift_vec[:, :, None]  # <- expands axis so mult accurate
         uc_mat = construct_uc_matrix(string_lengths)
@@ -671,8 +690,8 @@ class SymEntry:
             if symmetry == file:
                 return os.path.join(PUtils.symmetry_def_files, file + ext)
 
-        raise DesignError('Couldn\'t locate correct symmetry definition file at "%s" for SymEntry: %s'
-                          % (PUtils.symmetry_def_files, self.entry_number))
+        raise FileNotFoundError(f'Couldn\'t locate correct symmetry definition file at "{PUtils.symmetry_def_files}" '
+                                f'for SymEntry: {self.entry_number}')
 
 
 class SymEntryFactory:
