@@ -890,6 +890,7 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
                         # The output array slice is only valid if the forward_index is the result of
                         # forward_surface_numbers2 being in ascending order, which for check_lookup_table is True
                         current = prior + forward_index.shape[0]
+                        print(prior, current)
                         possible_overlaps[prior:current] = \
                             np.in1d(forward_ghosts_numbers1[forward_index], reverse_surface_numbers1[reverse_index])
                         prior = current
