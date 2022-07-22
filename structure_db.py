@@ -570,16 +570,20 @@ class StructureDatabaseFactory:
         elif sql:
             raise NotImplementedError('SQL set up has not been completed!')
         else:
-            make_path(source)
             structure_info_dir = os.path.join(source, structure_info)
             pdbs = os.path.join(structure_info_dir, 'PDBs')  # Used to path downloaded PDB's
             # stride directory
             stride_dir = os.path.join(structure_info_dir, 'stride')
+            make_path(stride_dir)
             # pdbs subdirectories
             orient_dir = os.path.join(pdbs, 'oriented')
             orient_asu_dir = os.path.join(pdbs, 'oriented_asu')
             refine_dir = os.path.join(pdbs, 'refined')
             full_model_dir = os.path.join(pdbs, 'full_models')
+            make_path(orient_dir)
+            make_path(orient_asu_dir)
+            make_path(refine_dir)
+            make_path(full_model_dir)
             logger.info(f'Initializing {source} {StructureDatabase.__name__}')
 
             # self._databases[source] = \
