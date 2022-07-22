@@ -466,18 +466,28 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
     if not isinstance(model2, Structure):
         model2 = Model.from_file(model2, pose_format=True)
 
-    # Get model and entity oligomers and precompute reference sequences if available
-    for model, symmetry in zip([model1, model2], sym_entry.groups):
+    # Get model with entity oligomers via make_oligomer
+    models = [model1, model2]
+    for idx, (model, symmetry) in enumerate(zip(models, sym_entry.groups)):
         for entity in model.entities:
-            dummy = entity.reference_sequence
-            if not entity.is_oligomeric():
+            # Precompute reference sequences if available
+            # dummy = entity.reference_sequence  # use the incomming SEQRES REMARK for now
+            if entity.is_oligomeric():
+                continue
+            else:
                 entity.make_oligomer(symmetry=symmetry)
 
+        # Make, then save a new model based on the symmetric version of each Entity in the Model
+        models[idx] = Model.from_chains([entity.chains for entity in model.entities], name=model.name)
+
+    model1, model2 = models
     # Set up output mechanism
     if isinstance(master_output, str) and not write_frags:  # we just want to write, so don't make a directory
-        building_blocks = f'{model1.name}-{model2.name}'
+        building_blocks = "-".join(model.name for model in models)
         outdir = os.path.join(master_output, building_blocks)
         os.makedirs(outdir, exist_ok=True)
+    else:
+        raise NotImplementedError('Must provide a master_outdir!')
     # elif isinstance(master_output, DockingDirectory):
     #     pass
     #     Todo make a docking directory object compatible with this and implement sql handle
