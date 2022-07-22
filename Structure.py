@@ -2142,6 +2142,7 @@ class Residue(ResidueFragment, ContainsAtomsMixin):
             for atom in self.atoms:
                 polarity_list[residue_atom_polarity.get(atom.type)].append(atom.sasa)
         except AttributeError:  # missing atom.sasa
+            print(atom.number, atom.type, atom.residue_type, atom.residue_number)
             self.parent.get_sasa()
             for atom in self.atoms:
                 polarity_list[residue_atom_polarity.get(atom.type)].append(atom.sasa)
@@ -4091,7 +4092,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
             include_hydrogen = ['--hydrogen']  # the addition of hydrogen skews results quite a bit
         else:
             include_hydrogen = []
-        p = subprocess.Popen([free_sasa_exe_path, '--format=%s' % out_format, '--probe-radius', str(probe_radius),
+        p = subprocess.Popen([free_sasa_exe_path, f'--format={out_format}', '--probe-radius', str(probe_radius),
                               '-c', free_sasa_configuration_path] + include_hydrogen,
                              stdout=subprocess.PIPE, stdin=subprocess.PIPE, stderr=subprocess.PIPE)
         out, err = p.communicate(input=self.return_atom_record().encode('utf-8'))
@@ -4125,9 +4126,9 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
             relative_sasa_thresh: The area threshold that the Residue should have before it is considered "surface"
                 Default cutoff percent is based on Levy, E. 2010
         Keyword Args:
-            atom=True (bool): Whether the output should be generated for each atom.
+            atom: bool = True - Whether the output should be generated for each atom.
                 If False, will be generated for each Residue
-            probe_radius=1.4 (float): The radius which surface area should be generated
+            probe_radius: float = 1.4 - The radius which surface area should be generated
         Returns:
             The surface Residue instances
         """
@@ -4145,9 +4146,9 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
             relative_sasa_thresh: The area threshold that the Residue should fall below before it is considered "core"
                 Default cutoff percent is based on Levy, E. 2010
         Keyword Args:
-            atom=True (bool): Whether the output should be generated for each atom.
+            atom: bool = True - Whether the output should be generated for each atom.
                 If False, will be generated for each Residue
-            probe_radius=1.4 (float): The radius which surface area should be generated
+            probe_radius: float = 1.4 - The radius which surface area should be generated
         Returns:
             The core Residue instances
         """
