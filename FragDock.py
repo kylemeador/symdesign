@@ -988,7 +988,7 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
                         full_optimal_ext_dof_shifts.append(optimal_ext_dof_shifts[positive_indices])
                     else:
                         # optimal_ext_dof_shifts = list(repeat(None, number_passing_shifts))
-                        positive_indices = None
+                        positive_indices = slice(None)  # slice by nothing, as None alone creates a new axis
                         # final_passing_shifts_ = number_passing_shifts_
                         final_passing_shifts = number_passing_shifts
                         # stacked_external_tx1, stacked_external_tx2 = None, None
@@ -997,16 +997,19 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
                         # stacked_external_tx2 = list(repeat(None, number_passing_shifts))
 
                     # Prepare the transformation parameters for storage in full transformation arrays
+                    # Use of [:, None] transforms the array into an array with each internal dof sored as a scalar in
+                    # axis 1 and each successive index along axis 0 as each passing shift
                     internal_tx_params1 = transform_passing_shifts[:, sym_entry.n_dof_external][:, None] \
                         if sym_entry.is_internal_tx1 else blank_vector
-                    internal_tx_params2 = transform_passing_shifts[:, sym_entry.n_dof_external + 1][:, None] \
+                    internal_tx_params2 = transform_passing_shifts[:, sym_entry.n_dof_external+1][:, None] \
                         if sym_entry.is_internal_tx2 else blank_vector
+                    # Stack each internal parameter along with a blank vector, this isolates the tx vector along z axis
                     stacked_internal_tx_vectors1 = np.hstack((blank_vector, blank_vector, internal_tx_params1))
                     stacked_internal_tx_vectors2 = np.hstack((blank_vector, blank_vector, internal_tx_params2))
                     # stacked_rot_mat1 = np.tile(rot_mat1, (final_passing_shifts, 1, 1))
                     # stacked_rot_mat2 = np.tile(rot_mat2, (final_passing_shifts, 1, 1))
 
-                    # Store transformation parameters
+                    # Store transformation parameters, indexing only those that are positive in the case of lattice syms
                     full_int_tx1.append(stacked_internal_tx_vectors1[positive_indices])
                     full_int_tx2.append(stacked_internal_tx_vectors2[positive_indices])
                     full_rotation1.append(np.tile(rot_mat1, (final_passing_shifts, 1, 1)))
