@@ -2083,7 +2083,7 @@ class Residue(ResidueFragment, ContainsAtomsMixin):
             except AttributeError:  # we hit a termini
                 break
 
-        return prior_residues[::-1]
+        return [residue for residue in prior_residues[::-1] if residue]
 
     def get_downstream(self, number: int) -> list[Residue]:
         """Get the Residues downstream of (c-terminal to) the current Residue
@@ -2103,7 +2103,7 @@ class Residue(ResidueFragment, ContainsAtomsMixin):
             except AttributeError:  # we hit a termini
                 break
 
-        return next_residues
+        return [residue for residue in next_residues if residue]
 
     # Below properties are considered part of the Residue state
     @property
