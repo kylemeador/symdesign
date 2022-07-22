@@ -798,6 +798,8 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
     rot_counts, degen_counts, tx_counts = [], [], []
     full_rotation1, full_rotation2, full_int_tx1, full_int_tx2, full_setting1, full_setting2, full_ext_tx1, \
         full_ext_tx2, full_optimal_ext_dof_shifts = [], [], [], [], [], [], [], [], []
+    log.debug(f'Degeneracies for component 1: {degen_rot_mat_1}')
+    log.debug(f'Degeneracies for component 2: {degen_rot_mat_2}')
     for degen1 in degen_rot_mat_1[degen1_count:]:
         degen1_count += 1
         for rot_mat1 in degen1[rot1_count:]:
@@ -845,8 +847,10 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
 
                     forward_reverse_comparison_start = time.time()
 
+                    log.debug(f'Euler indices forward, index 0: {euler_matched_surf_indices2[:10]}')
                     forward_surface_numbers2 = init_surf_residue_numbers2[euler_matched_surf_indices2]
                     forward_ghosts_numbers1 = init_ghost_residue_numbers1[euler_matched_ghost_indices1]
+                    log.debug(f'Euler indices reverse, index 0: {euler_matched_ghost_indices_rev2[:10]}')
                     reverse_ghosts_numbers2 = init_ghost_residue_numbers2[euler_matched_ghost_indices_rev2]
                     reverse_surface_numbers1 = init_surf_residue_numbers1[euler_matched_surf_indices_rev1]
 
