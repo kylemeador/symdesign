@@ -1524,6 +1524,9 @@ class Residue(ResidueFragment, ContainsAtomsMixin):
     _local_density: float
     _next_residue: Residue
     _prev_residue: Residue
+    _sasa: float
+    _sasa_apolar: float
+    _sasa_polar: float
     _secondary_structure: str
     chain: str
     # coords: Coords
@@ -2138,11 +2141,19 @@ class Residue(ResidueFragment, ContainsAtomsMixin):
         self._secondary_structure = ss_code
 
     def _segregate_sasa(self):
-        """Separate sasa into apolar and polar attributes according to underlying Atoms"""
+        """Separate sasa into apolar and polar according to Atoms. If not available, try parent.get_sasa()"""
         residue_atom_polarity = atomic_polarity_table[self.type]
         polarity_list = [[], [], []]  # apolar = 0, polar = 1, unknown = 2 (-1)
-        for atom in self.atoms:
-            polarity_list[residue_atom_polarity.get(atom.type)].append(atom.sasa)
+        try:
+            for atom in self.atoms:
+                polarity_list[residue_atom_polarity.get(atom.type)].append(atom.sasa)
+        except AttributeError:  # missing atom.sasa
+            # Todo remove below
+            print(atom.number, atom.type, atom.residue_type, atom.residue_number)
+            exit()
+            self.parent.get_sasa()
+            for atom in self.atoms:
+                polarity_list[residue_atom_polarity.get(atom.type)].append(atom.sasa)
 
         self._sasa_apolar, self._sasa_polar, _ = map(sum, polarity_list)
         # if _ > 0:
@@ -2154,13 +2165,13 @@ class Residue(ResidueFragment, ContainsAtomsMixin):
         try:
             return self._sasa
         except AttributeError:
-            try:  # let sasa_apolar call get_sasa from the .parent if they are missing
+            try:  # let _segregate_sasa() call get_sasa() from the .parent if sasa is missing
                 self._sasa = self.sasa_apolar + self.sasa_polar
-                return self._sasa
             except AttributeError:
                 raise AttributeError(f'Residue {self.number}{self.chain} has no ".{self.sasa.__name__}" attribute! '
                                      f'Ensure you call {Structure.get_sasa.__name__} before you request Residue SASA '
                                      f'information')
+            return self._sasa
 
     @sasa.setter
     def sasa(self, sasa: float):
@@ -2176,16 +2187,11 @@ class Residue(ResidueFragment, ContainsAtomsMixin):
         except AttributeError:
             try:
                 self._segregate_sasa()
-                return self._sasa_apolar
-            except AttributeError:  # missing atom.sasa
-                try:  # to use parent to get_sasa()
-                    self.parent.get_sasa()
-                    self._segregate_sasa()
-                    return self._sasa_apolar
-                except AttributeError:
-                    raise AttributeError(f'Residue {self.number}{self.chain} has no ".{self.sasa_apolar.__name__}" '
-                                         f'attribute! Ensure you call {Structure.get_sasa.__name__} before you request '
-                                         f'Residue SASA information')
+            except AttributeError:
+                raise AttributeError(f'Residue {self.number}{self.chain} has no ".{self.sasa_apolar.__name__}" '
+                                     f'attribute! Ensure you call {Structure.get_sasa.__name__} before you request '
+                                     f'Residue SASA information')
+            return self._sasa_apolar
 
     @sasa_apolar.setter
     def sasa_apolar(self, sasa: float | int):
@@ -2201,16 +2207,11 @@ class Residue(ResidueFragment, ContainsAtomsMixin):
         except AttributeError:
             try:
                 self._segregate_sasa()
-                return self._sasa_polar
-            except AttributeError:  # missing atom.sasa
-                try:  # to use parent to get_sasa()
-                    self.parent.get_sasa()
-                    self._segregate_sasa()
-                    return self._sasa_polar
-                except AttributeError:
-                    raise AttributeError(f'Residue {self.number}{self.chain} has no ".{self.sasa_polar.__name__}" '
-                                         f'attribute! Ensure you call {Structure.get_sasa.__name__} before you request '
-                                         f'Residue SASA information')
+            except AttributeError:
+                raise AttributeError(f'Residue {self.number}{self.chain} has no ".{self.sasa_polar.__name__}" '
+                                     f'attribute! Ensure you call {Structure.get_sasa.__name__} before you request '
+                                     f'Residue SASA information')
+            return self._sasa_polar
 
     @sasa_polar.setter
     def sasa_polar(self, sasa: float | int):
@@ -4096,10 +4097,10 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         # ...
         # \n EOF
         if self.contains_hydrogen():
-            include_hydrogen = ['--hydrogen']  # the addition of hydrogen skews results quite a bit
+            include_hydrogen = ['--hydrogen']  # the addition of hydrogen changes results quite a bit
         else:
             include_hydrogen = []
-        p = subprocess.Popen([free_sasa_exe_path, '--format=%s' % out_format, '--probe-radius', str(probe_radius),
+        p = subprocess.Popen([free_sasa_exe_path, f'--format={out_format}', '--probe-radius', str(probe_radius),
                               '-c', free_sasa_configuration_path] + include_hydrogen,
                              stdout=subprocess.PIPE, stdin=subprocess.PIPE, stderr=subprocess.PIPE)
         out, err = p.communicate(input=self.return_atom_record().encode('utf-8'))
@@ -4111,6 +4112,11 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
             # slice removes first REMARK, MODEL and final TER, MODEL regardless of # of chains, TER inclusion
             # since return_atom_record doesn't have models, these won't be present and no option to freesasa about model
             # would be provided with above subprocess call
+            # Todo remove below
+            print(self.return_atom_record())
+            print('cmd:', subprocess.list2cmdline([free_sasa_exe_path, f'--format={out_format}', '--probe-radius', str(probe_radius),
+                                                   '-c', free_sasa_configuration_path] + include_hydrogen))
+            print('\n'.join(sasa_output))
             atoms = self.atoms
             for line_split in map(str.split, sasa_output[5:-2]):  # slice could remove need for if ATOM
                 if line_split[0] == 'ATOM':  # this seems necessary as MODEL can be added if MODEL is written
@@ -4133,9 +4139,9 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
             relative_sasa_thresh: The area threshold that the Residue should have before it is considered "surface"
                 Default cutoff percent is based on Levy, E. 2010
         Keyword Args:
-            atom=True (bool): Whether the output should be generated for each atom.
+            atom: bool = True - Whether the output should be generated for each atom.
                 If False, will be generated for each Residue
-            probe_radius=1.4 (float): The radius which surface area should be generated
+            probe_radius: float = 1.4 - The radius which surface area should be generated
         Returns:
             The surface Residue instances
         """
@@ -4153,9 +4159,9 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
             relative_sasa_thresh: The area threshold that the Residue should fall below before it is considered "core"
                 Default cutoff percent is based on Levy, E. 2010
         Keyword Args:
-            atom=True (bool): Whether the output should be generated for each atom.
+            atom: bool = True - Whether the output should be generated for each atom.
                 If False, will be generated for each Residue
-            probe_radius=1.4 (float): The radius which surface area should be generated
+            probe_radius: float = 1.4 - The radius which surface area should be generated
         Returns:
             The core Residue instances
         """

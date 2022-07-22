@@ -86,20 +86,24 @@ class APIDatabaseFactory:
         elif sql:
             raise NotImplementedError('SQL set up has not been completed!')
         else:
-            make_path(source)
             structure_info_dir = os.path.join(source, structure_info)
             sequence_info_dir = os.path.join(source, sequence_info)
             external_db = os.path.join(source, 'ExternalDatabases')
             # stride directory
             stride_dir = os.path.join(structure_info_dir, 'stride')
+            make_path(stride_dir)
             # sequence_info subdirectories
             sequences = os.path.join(sequence_info_dir, 'sequences')
             profiles = os.path.join(sequence_info_dir, 'profiles')
+            make_path(sequences)
+            make_path(profiles)
             # external database subdirectories
             pdb = os.path.join(external_db, 'pdb')
+            make_path(pdb)
             # pdb_entity_api = os.path.join(external_db, 'pdb_entity')
             # pdb_assembly_api = os.path.join(external_db, 'pdb_assembly')
             uniprot = os.path.join(external_db, 'uniprot')
+            make_path(uniprot)
             # self._databases[source] = APIDatabase(stride_dir, sequences, profiles, pdb, uniprot, sql=None)
             self._database = APIDatabase(stride_dir, sequences, profiles, pdb, uniprot, sql=None)
 
