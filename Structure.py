@@ -1524,6 +1524,9 @@ class Residue(ResidueFragment, ContainsAtomsMixin):
     _local_density: float
     _next_residue: Residue
     _prev_residue: Residue
+    _sasa: float
+    _sasa_apolar: float
+    _sasa_polar: float
     _secondary_structure: str
     chain: str
     # coords: Coords
@@ -2138,11 +2141,16 @@ class Residue(ResidueFragment, ContainsAtomsMixin):
         self._secondary_structure = ss_code
 
     def _segregate_sasa(self):
-        """Separate sasa into apolar and polar attributes according to underlying Atoms"""
+        """Separate sasa into apolar and polar according to Atoms. If not available, try parent.get_sasa()"""
         residue_atom_polarity = atomic_polarity_table[self.type]
         polarity_list = [[], [], []]  # apolar = 0, polar = 1, unknown = 2 (-1)
-        for atom in self.atoms:
-            polarity_list[residue_atom_polarity.get(atom.type)].append(atom.sasa)
+        try:
+            for atom in self.atoms:
+                polarity_list[residue_atom_polarity.get(atom.type)].append(atom.sasa)
+        except AttributeError:  # missing atom.sasa
+            self.parent.get_sasa()
+            for atom in self.atoms:
+                polarity_list[residue_atom_polarity.get(atom.type)].append(atom.sasa)
 
         self._sasa_apolar, self._sasa_polar, _ = map(sum, polarity_list)
         # if _ > 0:
@@ -2154,13 +2162,13 @@ class Residue(ResidueFragment, ContainsAtomsMixin):
         try:
             return self._sasa
         except AttributeError:
-            try:  # let sasa_apolar call get_sasa from the .parent if they are missing
+            try:  # let _segregate_sasa() call get_sasa() from the .parent if sasa is missing
                 self._sasa = self.sasa_apolar + self.sasa_polar
-                return self._sasa
             except AttributeError:
                 raise AttributeError(f'Residue {self.number}{self.chain} has no ".{self.sasa.__name__}" attribute! '
                                      f'Ensure you call {Structure.get_sasa.__name__} before you request Residue SASA '
                                      f'information')
+            return self._sasa
 
     @sasa.setter
     def sasa(self, sasa: float):
@@ -2176,16 +2184,11 @@ class Residue(ResidueFragment, ContainsAtomsMixin):
         except AttributeError:
             try:
                 self._segregate_sasa()
-                return self._sasa_apolar
-            except AttributeError:  # missing atom.sasa
-                try:  # to use parent to get_sasa()
-                    self.parent.get_sasa()
-                    self._segregate_sasa()
-                    return self._sasa_apolar
-                except AttributeError:
-                    raise AttributeError(f'Residue {self.number}{self.chain} has no ".{self.sasa_apolar.__name__}" '
-                                         f'attribute! Ensure you call {Structure.get_sasa.__name__} before you request '
-                                         f'Residue SASA information')
+            except AttributeError:
+                raise AttributeError(f'Residue {self.number}{self.chain} has no ".{self.sasa_apolar.__name__}" '
+                                     f'attribute! Ensure you call {Structure.get_sasa.__name__} before you request '
+                                     f'Residue SASA information')
+            return self._sasa_apolar
 
     @sasa_apolar.setter
     def sasa_apolar(self, sasa: float | int):
@@ -2201,16 +2204,11 @@ class Residue(ResidueFragment, ContainsAtomsMixin):
         except AttributeError:
             try:
                 self._segregate_sasa()
-                return self._sasa_polar
-            except AttributeError:  # missing atom.sasa
-                try:  # to use parent to get_sasa()
-                    self.parent.get_sasa()
-                    self._segregate_sasa()
-                    return self._sasa_polar
-                except AttributeError:
-                    raise AttributeError(f'Residue {self.number}{self.chain} has no ".{self.sasa_polar.__name__}" '
-                                         f'attribute! Ensure you call {Structure.get_sasa.__name__} before you request '
-                                         f'Residue SASA information')
+            except AttributeError:
+                raise AttributeError(f'Residue {self.number}{self.chain} has no ".{self.sasa_polar.__name__}" '
+                                     f'attribute! Ensure you call {Structure.get_sasa.__name__} before you request '
+                                     f'Residue SASA information')
+            return self._sasa_polar
 
     @sasa_polar.setter
     def sasa_polar(self, sasa: float | int):
