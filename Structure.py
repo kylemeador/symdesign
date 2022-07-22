@@ -691,7 +691,7 @@ class Atom(StructureBase):
         self.index = index
         self.number = number
         self._type = atom_type
-        self._type_str = f'{"" if atom_type[0].isdigit() else " "}{atom_type:<3s}'
+        self._type_str = f'{"" if atom_type[3:] else " "}{atom_type:<3s}'  # pad with space if atom_type is len()=4
         self.alt_location = alt_location
         self.residue_type = residue_type
         self.chain = chain
@@ -847,12 +847,12 @@ class Atom(StructureBase):
         Returns:
             The archived .pdb formatted ATOM records for the Structure
         """
+        x, y, z = list(self.coords)
         # Add 1 to the self.index since this is 0 indexed
-        return 'ATOM  {:5d} {:^4s}{:1s}{:3s} {:1s}{:4d}{:1s}   '\
-            '{:8.3f}{:8.3f}{:8.3f}{:6.2f}{:6.2f}          {:>2s}{:2s}'\
-            .format(self.index + 1, self.type, self.alt_location, self.residue_type, self.chain, self.residue_number,
-                    self.code_for_insertion, *list(self.coords), self.occupancy, self.b_factor, self.element,
-                    self.charge)
+        return f'ATOM  {self.index + 1:5d} {self._type_str}{self.alt_location:1s}{self.residue_type:3s} ' \
+               f'{self.chain:1s}{self.residue_number:4d}{self.code_for_insertion:1s}   '\
+               f'{x:8.3f}{y:8.3f}{z:8.3f}{self.occupancy:6.2f}{self.b_factor:6.2f}          ' \
+               f'{self.element:>2s}{self.charge:2s}'
 
     def __str__(self) -> str:  # type=None, number=None, pdb=False, chain=None, **kwargs
         """Represent Atom in PDB format"""
