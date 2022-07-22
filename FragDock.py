@@ -5,7 +5,7 @@ import sys
 import time
 from collections.abc import Iterable
 from logging import Logger
-from math import floor
+from math import floor, prod, ceil
 from typing import AnyStr
 
 import numpy as np
@@ -1165,33 +1165,27 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
     # log.info('\tCopy and Transform All Oligomer1 and Oligomer2 coords for clash testing (took %f s)'
     #          % transfrom_clash_coords_time)
 
-    # Set up chunks of coordinate transforms for clashing
-    # memory_constraint = 15000000000  # 60 gB available, then half this for the space during calculation and storage
-    memory_constraint = psutil.virtual_memory().available / 4  # use half of available during calculation and storage
-    # assume each element has 8 bytes
-    element_memory = 8
+    # Set up chunks of coordinate transforms for clash testing
+    memory_constraint = psutil.virtual_memory().available / 4  # use fourth of available during calculation and storage
+    # assume each element is np.float64
+    element_memory = 8  # where each element is np.float64
     number_of_elements_available = memory_constraint / element_memory
-    model_elements = len(bb_cb_coords2) * 3
-    elements_required = model_elements * number_of_dense_transforms
-    chunk_size = floor(number_of_elements_available / model_elements)
-    number_of_chunks = (floor(elements_required / number_of_elements_available) or 1)
-    # print('number_of_elements_available: %d' % number_of_elements_available)
-    # print('elements_required: %d' % elements_required)
-    # print('number_of_chunks: %d' % number_of_chunks)
+    model_elements = prod(bb_cb_coords2.shape)
+    total_elements_required = model_elements * number_of_dense_transforms
+    # The chunk_size indicates how many models could fit in the allocated memory
+    chunk_size = floor(number_of_elements_available / model_elements) / 4  # Reduce scale by factor of 4 to be safe
+    # The number_of_chunks indicates how many iterations are needed to exhaust all models
+    number_of_chunks = (ceil(total_elements_required / (model_elements * chunk_size)) or 1)
     check_clash_coords_start = time.time()
-    # asu_clash_counts = \
-    #     np.array([oligomer1_backbone_cb_tree.two_point_correlation(inverse_transformed_model2_tiled_coords[idx],
-    #                                                                [clash_dist])
-    #               for idx in range(inverse_transformed_model2_tiled_coords.shape[0])])
-    # asu_clash_counts = []
     clash_vect = [clash_dist]
+    # Start with the assumption that all tested clashes are clashing
     asu_clash_counts = np.ones(number_of_dense_transforms)
     tiled_coords2 = np.tile(bb_cb_coords2, (chunk_size, 1, 1))
     for chunk in range(number_of_chunks):
         # Find the upper slice limiting it at a maximum of number_of_dense_transforms
         # upper = (chunk + 1) * chunk_size if chunk + 1 != number_of_chunks else number_of_dense_transforms
         # chunk_slice = slice(chunk * chunk_size, upper)
-        chunk_slice = slice(chunk * chunk_size, (chunk + 1) * chunk_size)
+        chunk_slice = slice(chunk * chunk_size, (chunk+1) * chunk_size)
         inverse_transformed_model2_tiled_coords = \
             transform_coordinate_sets(transform_coordinate_sets(tiled_coords2[chunk_slice],  # Slice ensures same size
                                                                 **dict(rotation=full_rotation2[chunk_slice],
@@ -1215,7 +1209,8 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
 
     # asu_is_viable = np.where(asu_clash_counts.flatten() == 0)  # , True, False)
     # asu_is_viable = np.where(np.array(asu_clash_counts) == 0)
-    asu_is_viable = np.flatnonzero(asu_clash_counts == 0)
+    # Find those indices where the array is not non-zero
+    asu_is_viable = np.bitwise_not(np.flatnonzero(asu_clash_counts))
     number_non_clashing_transforms = len(asu_is_viable)
     log.info(f'Clash testing for All Oligomer1 and Oligomer2 (took {time.time() - check_clash_coords_start:8f}s) '
              f'found {number_non_clashing_transforms} viable ASU\'s out of {number_of_dense_transforms}')
