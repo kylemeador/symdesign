@@ -4572,26 +4572,31 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         # get iterable of residues
         residues = self.residues if residues is None else residues
 
-        # Get neighboring ca coords on each side by retrieving flanking residues. If not fragment_length, we catch below
+        # Get neighboring ca coords on each side by retrieving flanking residues. If not fragment_length, we remove
         frag_lower_range, frag_upper_range = parameterize_frag_length(fragment_length)
-        residues_ = [residue.get_upstream(frag_lower_range) + [residue]
-                     + residue.get_downstream(frag_upper_range - 1) for residue in residues]
-        residue_ca_coords = np.array([[residue.ca_coords for residue in residue_set] for residue_set in residues_])
+
+        # Iterate over the residues in reverse to remove any indices that are missing and convert to coordinates
+        residues_coords = []
+        for idx, residue in zip(range(len(residues)-1, -1, -1), residues[::-1]):
+            residue_set = \
+                residue.get_upstream(frag_lower_range) + [residue] + residue.get_downstream(frag_upper_range-1)
+            if len(residue_set) == fragment_length:
+                residues_coords.append([residue.ca_coords for residue in residue_set])
+            else:
+                residues.pop(idx)
+        residue_ca_coords = np.array(residues_coords)
 
         # Solve for fragment type (secondary structure classification could be used too)
         found_fragments = []
         for idx, residue in enumerate(residues):
             min_rmsd = float('inf')
             residue_ca_coord_set = residue_ca_coords[idx]
-            try:  # This try: except is wrapped around inner loop because all checks will fail after the first fails
-                for fragment_type, cluster_coords in representatives.items():
-                    rmsd, rot, tx = superposition3d(residue_ca_coord_set, cluster_coords)
-                    # OLD superposition3d(residue_ca_coords[idx+frag_lower_range: idx+frag_upper_range], cluster_coords)
-                    if rmsd <= rmsd_thresh and rmsd <= min_rmsd:
-                        residue.frag_type = fragment_type
-                        min_rmsd, residue.rotation, residue.translation = rmsd, rot, tx
-            except ValueError:  # superposition3d couldn't measure Residue. It doesn't have fragment_length neighbors
-                continue
+            for fragment_type, cluster_coords in representatives.items():
+                rmsd, rot, tx = superposition3d(residue_ca_coord_set, cluster_coords)
+                # OLD superposition3d(residue_ca_coords[idx+frag_lower_range: idx+frag_upper_range], cluster_coords)
+                if rmsd <= rmsd_thresh and rmsd <= min_rmsd:
+                    residue.frag_type = fragment_type
+                    min_rmsd, residue.rotation, residue.translation = rmsd, rot, tx
 
             if residue.frag_type:
                 residue.guide_coords = \
