@@ -466,9 +466,12 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
     if not isinstance(model2, Structure):
         model2 = Model.from_file(model2, pose_format=True)
 
-    # Get model and entity reference sequences precomputed if available
-    for entity in model1.entities + model2.entities:
-        dummy = entity.reference_sequence
+    # Get model and entity oligomers and precompute reference sequences if available
+    for model, symmetry in zip([model1, model2], sym_entry.groups):
+        for entity in model.entities:
+            dummy = entity.reference_sequence
+            if not entity.is_oligomeric():
+                entity.make_oligomer(symmetry=symmetry)
 
     # Set up output mechanism
     if isinstance(master_output, str) and not write_frags:  # we just want to write, so don't make a directory
