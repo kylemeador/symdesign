@@ -1000,14 +1000,14 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
                         if sym_entry.is_internal_tx2 else blank_vector
                     stacked_internal_tx_vectors1 = np.hstack((blank_vector, blank_vector, internal_tx_params1))
                     stacked_internal_tx_vectors2 = np.hstack((blank_vector, blank_vector, internal_tx_params2))
-                    stacked_rot_mat1 = np.tile(rot_mat1, (number_passing_shifts, 1, 1))
-                    stacked_rot_mat2 = np.tile(rot_mat2, (number_passing_shifts, 1, 1))
+                    # stacked_rot_mat1 = np.tile(rot_mat1, (final_passing_shifts, 1, 1))
+                    # stacked_rot_mat2 = np.tile(rot_mat2, (final_passing_shifts, 1, 1))
 
                     # Store transformation parameters
                     full_int_tx1.append(stacked_internal_tx_vectors1[positive_indices])
                     full_int_tx2.append(stacked_internal_tx_vectors2[positive_indices])
-                    full_rotation1.append(stacked_rot_mat1[positive_indices])
-                    full_rotation2.append(stacked_rot_mat2[positive_indices])
+                    full_rotation1.append(np.tile(rot_mat1, (final_passing_shifts, 1, 1)))
+                    full_rotation2.append(np.tile(rot_mat2, (final_passing_shifts, 1, 1)))
 
                     degen_counts.extend([(degen1_count, degen2_count) for _ in range(final_passing_shifts)])
                     rot_counts.extend([(rot1_count, rot2_count) for _ in range(final_passing_shifts)])
@@ -1027,9 +1027,9 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
     ##############
     if sym_entry.unit_cell:
         # Calculate the vectorized uc_dimensions
-        full_uc_dimensions = sym_entry.get_uc_dimensions(np.concatenate(full_optimal_ext_dof_shifts))
-        full_ext_tx1 = np.concatenate(full_ext_tx1)  # .sum(axis=-2)
-        full_ext_tx2 = np.concatenate(full_ext_tx2)  # .sum(axis=-2)
+        full_uc_dimensions = sym_entry.get_uc_dimensions(np.concatenate(full_optimal_ext_dof_shifts, axis=0))
+        full_ext_tx1 = np.concatenate(full_ext_tx1, axis=0)  # .sum(axis=-2)
+        full_ext_tx2 = np.concatenate(full_ext_tx2, axis=0)  # .sum(axis=-2)
     # Todo uncomment below lines if use tile_transform in the reverse orientation
     #     full_ext_tx_sum = full_ext_tx2 - full_ext_tx1
     else:
@@ -1037,10 +1037,10 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
     #     full_ext_tx_sum = None
 
     # Make full, numpy vectorized transformations overwriting individual variables for memory management
-    full_rotation1 = np.concatenate(full_rotation1)
-    full_rotation2 = np.concatenate(full_rotation2)
-    full_int_tx1 = np.concatenate(full_int_tx1)
-    full_int_tx2 = np.concatenate(full_int_tx2)
+    full_rotation1 = np.concatenate(full_rotation1, axis=0)
+    full_rotation2 = np.concatenate(full_rotation2, axis=0)
+    full_int_tx1 = np.concatenate(full_int_tx1, axis=0)
+    full_int_tx2 = np.concatenate(full_int_tx2, axis=0)
     starting_transforms = len(full_int_tx1)
 
     # tile_transform1 = {'rotation': full_rotation2,
