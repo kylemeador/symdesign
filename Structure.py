@@ -5805,7 +5805,7 @@ class Entity(SequenceProfile, Chain, ContainsChainsMixin):
             self.symmetry (str)
         """
         try:
-            if symmetry == 'C1':  # not symmetric
+            if symmetry is None or symmetry == 'C1':  # not symmetric
                 return
             elif symmetry in cubic_point_groups:
                 # must transpose these along last axis as they are pre-transposed upon creation
@@ -5821,6 +5821,7 @@ class Entity(SequenceProfile, Chain, ContainsChainsMixin):
         except KeyError:
             raise ValueError(f'The symmetry {symmetry} is not a viable symmetry! You should try to add compatibility '
                              f'for it if you believe this is a mistake')
+
         self.symmetry = symmetry
         # self._is_captain = True
         # Todo should this be set here. NO! set in init
@@ -6637,7 +6638,7 @@ def superposition3d(fixed_coords: np.ndarray, moving_coords: np.ndarray, a_weigh
                          f'Input 1={fixed_coords.shape[0]}, 2={moving_coords.shape[0]}')
 
     # convert weights into array
-    if not a_weights or len(a_weights) == 0:
+    if a_weights is None or len(a_weights) == 0:
         a_weights = np.full((number_of_points, 1), 1.)
         sum_weights = float(number_of_points)
     else:  # reshape a_eights so multiplications are done column-wise
