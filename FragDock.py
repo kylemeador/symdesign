@@ -1016,8 +1016,8 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
                              f' coordinate pairs')
                     log.info(f'\t{final_passing_shifts if final_passing_shifts else "No"} Initial Interface Fragment '
                              f'Match{"es" if final_passing_shifts != 1 else ""} Found')
-                    log.debug(f'Method without finding forward and reverse pairs produces {final_passing_shifts_} '
-                              f'Initial Interface Fragments')
+                    # log.debug(f'Method without finding forward and reverse pairs produces {final_passing_shifts_} '
+                    #           f'Initial Interface Fragments')
                 rot2_count = 0
             degen2_count = 0
         rot1_count = 0
