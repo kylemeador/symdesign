@@ -664,9 +664,11 @@ class Atom(StructureBase):
     """An Atom container with the full Structure coordinates and the Atom unique data"""
     # . Pass a reference to the full Structure coordinates for Keyword Arg coords=self.coords
     __coords: list[float]
+    _sasa: float
+    _type_str: str
     index: int | None
     number: int | None
-    type: str | None
+    # type: str | None
     alt_location: str | None
     residue_type: str | None
     chain: str | None
@@ -688,7 +690,8 @@ class Atom(StructureBase):
         super().__init__(**kwargs)
         self.index = index
         self.number = number
-        self.type = atom_type
+        self._type = atom_type
+        self._type_str = f'{"" if atom_type[0].isdigit() else " "}{atom_type:<3s}'
         self.alt_location = alt_location
         self.residue_type = residue_type
         self.chain = chain
@@ -725,6 +728,10 @@ class Atom(StructureBase):
         # create a new, empty Coords instance
         self._coords = Coords(self.coords)
         self.index = 0
+
+    @property
+    def type(self) -> str:  # This can't be set since the self._type_str needs to be changed then
+        return self._type
 
     @property
     def _atom_indices(self) -> list[int]:
@@ -849,13 +856,12 @@ class Atom(StructureBase):
 
     def __str__(self) -> str:  # type=None, number=None, pdb=False, chain=None, **kwargs
         """Represent Atom in PDB format"""
-        # this annoyingly doesn't comply with the PDB format specifications because of the atom type field
+        # Use self.type_str to comply with the PDB format specifications because of the atom type field
         # ATOM     32  CG2 VAL A 132       9.902  -5.550   0.695  1.00 17.48           C  <-- PDB format
-        # ATOM     32 CG2  VAL A 132       9.902  -5.550   0.695  1.00 17.48           C  <-- fstring print
-        # Todo make return like PDB format correctly ^
-        return 'ATOM  %s {:^4s}{:1s}%s %s%s{:1s}   %s{:6.2f}{:6.2f}          {:>2s}{:2s}'\
-            .format(self.type, self.alt_location, self.code_for_insertion, self.occupancy, self.b_factor,
-                    self.element, self.charge)
+        # Checks if len(atom.type)=4 with slice v. If not insert a space
+        return f'ATOM  %s {self._type_str}{self.alt_location:1s}%s %s%s' \
+               f'{self.code_for_insertion:1s}   %s{self.occupancy:6.2f}{self.b_factor:6.2f}          ' \
+               f'{self.element:>2s}{self.charge:2s}'
         # Todo if parent:  # return full ATOM record
         # return 'ATOM  {:5d} {:^4s}{:1s}{:3s} {:1s}{:4d}{:1s}   '\
         #     '{:8.3f}{:8.3f}{:8.3f}{:6.2f}{:6.2f}          {:>2s}{:2s}'\
