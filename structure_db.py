@@ -195,7 +195,7 @@ class StructureDatabase(Database):
             symmetry: The symmetry to treat each passed Entity. Default assumes no symmetry
             by_file: Whether to parse the structure_identifiers as file paths. Default treats as PDB EntryID or EntityID
         Returns:
-            The resulting asymmetric oriented Poses
+            The symmetrized Poses, oriented in a canonical orientation
         """
         if not structure_identifiers:
             return []

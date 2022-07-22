@@ -6604,7 +6604,7 @@ def superposition3d(fixed_coords: np.ndarray, moving_coords: np.ndarray, a_weigh
     and does not allow the coordinates of either object to be rescaled (multiplication by a scalar).
     (Additional documentation can be found at https://pypi.org/project/superpose3d/ )
 
-    The quaternion_matrix has the first row storing cos(θ/2) (where θ is the rotation angle). The following 3 rows
+    The quaternion_matrix has the last entry storing cos(θ/2) (where θ is the rotation angle). The first 3 entries
     form a vector (of length sin(θ/2)), pointing along the axis of rotation.
     Details: https://en.wikipedia.org/wiki/Quaternions_and_spatial_rotation
 
@@ -6635,7 +6635,7 @@ def superposition3d(fixed_coords: np.ndarray, moving_coords: np.ndarray, a_weigh
     number_of_points = fixed_coords.shape[0]
     if number_of_points != moving_coords.shape[0]:
         raise ValueError(f'{superposition3d.__name__}: Inputs should have the same size. '
-                         f'Input 1={fixed_coords.shape[0]}, 2={moving_coords.shape[0]}')
+                         f'Input 1={number_of_points}, 2={moving_coords.shape[0]}')
 
     # convert weights into array
     if a_weights is None or len(a_weights) == 0:
