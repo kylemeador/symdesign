@@ -880,7 +880,7 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
                     # inverse transform at 1 (i) 1 (j) 230 (k) for instance
 
                     prior = 0
-                    possible_overlaps = np.empty(number_overlapping_pairs, dtype=np.bool8)
+                    possible_overlaps = np.zeros(number_overlapping_pairs, dtype=np.bool8)
                     # Residue numbers are in order for forward_surface_numbers2 and reverse_ghosts_numbers2
                     for residue in init_surf_residue_numbers2:
                         # Where the residue number of component 2 is equal pull out the indices
@@ -889,7 +889,7 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
                         # Next, use residue number indices to search for the same residue numbers in the extracted pairs
                         # The output array slice is only valid if the forward_index is the result of
                         # forward_surface_numbers2 being in ascending order, which for check_lookup_table is True
-                        current = prior + len(forward_index)
+                        current = prior + forward_index.shape[0]
                         possible_overlaps[prior:current] = \
                             np.in1d(forward_ghosts_numbers1[forward_index], reverse_surface_numbers1[reverse_index])
                         prior = current
