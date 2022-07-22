@@ -479,8 +479,7 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
 
         # Make, then save a new model based on the symmetric version of each Entity in the Model
         models[idx] = Model.from_chains([chain for entity in model.entities for chain in entity.chains],
-                                        name=model.name)
-
+                                        name=model.name, pose_format=True)
     model1, model2 = models
     # Set up output mechanism
     if isinstance(master_output, str) and not write_frags:  # we just want to write, so don't make a directory
@@ -504,8 +503,8 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
         resume = True if os.path.exists(log_file_path) else False
         log = start_log(name=building_blocks, handler=2, location=log_file_path, format_log=False, propagate=True)
 
-    model1.log = log
-    model2.log = log
+    for model in models:
+        model.log = log
 
     # Write to Logfile
     if resume:
@@ -528,7 +527,6 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
     # fragment_content2 = [surf_i_indices2.count(frag_type) for frag_type in range(1, ijk_frag_db.fragment_length + 1)]
     # initial_surf_type2 = np.argmax(fragment_content2) + 1
     # initial_surf_frags2 = [monofrag2 for monofrag2 in complete_surf_frags2 if monofrag2.i_type == initial_surf_type2]
-
     surf_guide_coords2 = np.array([surf_frag.guide_coords for surf_frag in complete_surf_frags2])
     surf_residue_numbers2 = np.array([surf_frag.number for surf_frag in complete_surf_frags2])
     surf_i_indices2 = np.array([surf_frag.i_type for surf_frag in complete_surf_frags2])
@@ -538,6 +536,11 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
         [idx for idx, surf_frag in enumerate(complete_surf_frags2) if surf_frag.i_type == initial_surf_type2]
     init_surf_guide_coords2 = surf_guide_coords2[init_surf_frag_indices2]
     init_surf_residue_numbers2 = surf_residue_numbers2[init_surf_frag_indices2]
+    idx = 2
+    log.debug(f'Found surface guide coordinates {idx} with shape {surf_guide_coords2.shape}')
+    log.debug(f'Found surface residue numbers {idx} with shape {surf_residue_numbers2.shape}')
+    log.debug(f'Found surface indices {idx} with shape {surf_i_indices2.shape}')
+    log.debug(f'Found {len(init_surf_frag_indices2)} initial surface {idx} fragments with type {initial_surf_type2}')
 
     # log.debug('Found oligomer 2 fragment content: %s' % fragment_content2)
     # log.debug('Found initial fragment type: %d' % initial_surf_type2)
@@ -563,9 +566,12 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
     init_surf_guide_coords1 = np.array([surf_frag.guide_coords for surf_frag in init_surf_frags1])
     init_surf_residue_numbers1 = np.array([surf_frag.number for surf_frag in init_surf_frags1])
     # surf_frag1_residues = [surf_frag.number for surf_frag in surf_frags1]
-
+    idx = 1
+    # log.debug(f'Found surface guide coordinates {idx} with shape {surf_guide_coords1.shape}')
+    # log.debug(f'Found surface residue numbers {idx} with shape {surf_residue_numbers1.shape}')
+    # log.debug(f'Found surface indices {idx} with shape {surf_i_indices1.shape}')
+    log.debug(f'Found {len(init_surf_frags1)} initial surface {idx} fragments with type {initial_surf_type1}')
     # log.debug('Found oligomer 2 fragment content: %s' % fragment_content2)
-    # log.debug('Found initial fragment type: %d' % initial_surf_type2)
     # log.debug('init_surf_frag_indices2: %s' % slice_variable_for_log(init_surf_frag_indices2))
     # log.debug('init_surf_guide_coords2: %s' % slice_variable_for_log(init_surf_guide_coords2))
     # log.debug('init_surf_residue_numbers2: %s' % slice_variable_for_log(init_surf_residue_numbers2))
@@ -607,7 +613,7 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
                                                    for residue_ghosts in ghost_frags_by_residue1])
         # surface_frag_residue_numbers = [residue.number for residue in surf_frags1]
         surface_frag_residue_indices = list(range(len(surf_frags1)))
-        surface_frag_cb_coords = [residue.cb_coords for residue in surf_frags1]
+        surface_frag_cb_coords = np.concatenate([residue.cb_coords for residue in surf_frags1], axis=0)
         model1_surface_cb_ball_tree = BallTree(surface_frag_cb_coords)
         residue_contact_query: list[list[int]] = model1_surface_cb_ball_tree.query(surface_frag_cb_coords, cb_distance)
         contacting_pairs: list[tuple[int, int]] = \
@@ -672,6 +678,13 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
         init_ghost_guide_coords1 = ghost_guide_coords1[init_ghost_frag_indices1]
         init_ghost_rmsds1 = ghost_rmsds1[init_ghost_frag_indices1]
         init_ghost_residue_numbers1 = ghost_residue_numbers1[init_ghost_frag_indices1]
+
+    idx = 1
+    log.debug(f'Found ghost guide coordinates {idx} with shape {ghost_guide_coords1.shape}')
+    log.debug(f'Found ghost residue numbers {idx} with shape {ghost_residue_numbers1.shape}')
+    log.debug(f'Found ghost indices {idx} with shape {ghost_j_indices1.shape}')
+    log.debug(f'Found ghost rmsds {idx} with shape {ghost_rmsds1.shape}')
+    log.debug(f'Found {len(init_ghost_guide_coords1)} initial ghost {idx} fragments with type {initial_surf_type2}')
 
     if not resume and keep_time:
         log.info(f'Getting {model1.name} Oligomer 1 Ghost Fragments and Guides Using COMPLETE Fragment Database '
@@ -757,6 +770,12 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
     init_ghost_residue_numbers2 = np.array([ghost_frag.number for ghost_frag in init_ghost_frags2])
     # ghost_frag2_residues = [ghost_frag.number for ghost_frag in complete_ghost_frags2]
 
+    idx = 2
+    # log.debug(f'Found ghost guide coordinates {idx} with shape {ghost_guide_coords2.shape}')
+    # log.debug(f'Found ghost residue numbers {idx} with shape {ghost_residue_numbers2.shape}')
+    # log.debug(f'Found ghost indices {idx} with shape {ghost_j_indices2.shape}')
+    # log.debug(f'Found ghost rmsds {idx} with shape {ghost_rmsds2.shape}')
+    log.debug(f'Found {len(init_ghost_guide_coords2)} initial ghost {idx} fragments with type {initial_surf_type1}')
     # log.debug('init_ghost_guide_coords2: %s' % slice_variable_for_log(init_ghost_guide_coords2))
     # log.debug('init_ghost_residue_numbers2: %s' % slice_variable_for_log(init_ghost_residue_numbers2))
     # Prepare precomputed arrays for fast pair lookup
@@ -901,7 +920,7 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
                     # indexing_possible_overlap_time = time.time() - indexing_possible_overlap_start
 
                     number_of_successful = possible_overlaps.sum()
-                    log.info(f'\tIndexing {number_overlapping_pairs * len(euler_matched_ghost_indices_rev2)} '
+                    log.info(f'\tIndexing {number_overlapping_pairs * len(euler_matched_surf_indices2)} '
                              f'possible overlap pairs found only {number_of_successful} possible out of '
                              f'{number_overlapping_pairs} (took {time.time() - forward_reverse_comparison_start:8f}s)')
 
