@@ -57,16 +57,17 @@ class OptimalTx:
         # print('self.dof9', self.dof9)
         self.dof9t_dof9 = np.matmul(self.dof9_t, self.dof9)
 
-    def solve_optimal_shift(self, coords1, coords2, coords_rmsd_reference):
+    def solve_optimal_shift(self, coords1: np.ndarray, coords2: np.ndarray, coords_rmsd_reference: float) -> \
+            np.ndarray | None:
         """This routine solves the optimal shift problem for overlapping a pair of coordinates and comparing to a
         reference RMSD to compute an error
 
         Args:
-            coords1 (np.ndarray): A 3 x 3 array with cartesian coordinates
-            coords2 (np.ndarray): A 3 x 3 array with cartesian coordinates
-            coords_rmsd_reference (float): The reference deviation to compare to the coords1 and coords2 error
+            coords1: A 3 x 3 array with cartesian coordinates
+            coords2: A 3 x 3 array with cartesian coordinates
+            coords_rmsd_reference: The reference deviation to compare to the coords1 and coords2 error
         Returns:
-            (Union[numpy.ndarray, None]): Returns the optimal translation or None if error is too large.
+            Returns the optimal translation or None if error is too large.
                 Optimal translation has external dof first, followed by internal tx dof
         """
         # form the guide coords into a matrix (column vectors)
@@ -120,19 +121,20 @@ class OptimalTx:
         if error <= self.max_z_value:
             return shift[:, 0]  # .tolist()  # , error
         else:
-            return
+            return None
 
-    def solve_optimal_shifts(self, coords1, coords2, coords_rmsd_reference):
+    def solve_optimal_shifts(self, coords1: np.ndarray, coords2: np.ndarray, coords_rmsd_reference: np.ndarray) -> \
+            np.ndarray:
         """This routine solves the optimal shift problem for overlapping a pair of coordinates and comparing to a
         reference RMSD to compute an error
 
         Args:
-            coords1 (np.ndarray): A N x 3 x 3 array with cartesian coordinates
-            coords2 (np.ndarray): A N x 3 x 3 array with cartesian coordinates
-            coords_rmsd_reference (np.ndarray): Array with length N with reference deviation to compare to the coords1
-                and coords2 error
+            coords1: A N x 3 x 3 array with cartesian coordinates
+            coords2: A N x 3 x 3 array with cartesian coordinates
+            coords_rmsd_reference: Array with length N with reference deviation to compare to the coords1 and coords2
+                error
         Returns:
-            (numpy.ndarray): Returns the optimal translation or None if error is too large.
+            Returns the optimal translation or None if error is too large.
                 Optimal translation has external dof first, followed by internal tx dof
         """
         # calculate the initial difference between each query and target (9 dim vector by coords.shape[0])
@@ -179,4 +181,5 @@ class OptimalTx:
         error = np.sqrt(np.matmul(resid.swapaxes(-2, -1), resid) / float(self.number_of_coordinates)).flatten() \
             / coords_rmsd_reference
 
+        print(shift[np.nonzero(error <= self.max_z_value)])
         return shift[np.nonzero(error <= self.max_z_value)].squeeze()
