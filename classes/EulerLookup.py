@@ -315,7 +315,7 @@ class EulerLookup:
                 if self.eul_lookup_40[e1, e2, e3, f1, f2, f3]:
                     return_tup_list.append((i, j))
 
-        return zip(*return_tup_list)
+        return map(np.array, zip(*return_tup_list))
 
 
 class EulerLookupFactory:
