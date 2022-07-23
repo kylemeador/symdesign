@@ -788,11 +788,6 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
         log.info(f'Getting {model2.name} Oligomer 2 Ghost Fragments and Guides Using COMPLETE Fragment Database '
                  f'(took {time.time() - get_complete_ghost_frags2_time_start:8f}s)')
 
-    # Check if the job was running but stopped. Resume where last left off
-    degen1_count, degen2_count, rot1_count, rot2_count = 0, 0, 0, 0
-    if resume:
-        degen1_count, degen2_count, rot1_count, rot2_count = get_last_sampling_state(log.handlers[0].baseFilename)
-
     if not resume:
         log.info('Obtaining Rotation/Degeneracy Matrices\n')
 
@@ -842,233 +837,232 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
     rot_counts, degen_counts, tx_counts = [], [], []
     full_rotation1, full_rotation2, full_int_tx1, full_int_tx2, full_setting1, full_setting2, full_ext_tx1, \
         full_ext_tx2, full_optimal_ext_dof_shifts = [], [], [], [], [], [], [], [], []
-    log.debug(f'Degeneracies for component 1: {degen_rot_mat_1}')
-    log.debug(f'Degeneracies for component 2: {degen_rot_mat_2}')
-    for degen1 in degen_rot_mat_1[degen1_count:]:
-        degen1_count += 1
-        for rot_mat1 in degen1[rot1_count:]:
-            rot1_count += 1
-            # Rotate Oligomer1 Surface and Ghost Fragment Guide Coordinates using rot_mat1
-            ghost_frag1_guide_coords_rot_and_set = \
-                transform_coordinate_sets(init_ghost_guide_coords1, rotation=rot_mat1, rotation2=set_mat1)
-            surf_frags1_guide_coords_rot_and_set = \
-                transform_coordinate_sets(init_surf_guide_coords1, rotation=rot_mat1, rotation2=set_mat1)
 
-            for degen2 in degen_rot_mat_2[degen2_count:]:
-                degen2_count += 1
-                for rot_mat2 in degen2[rot2_count:]:
-                    rot2_count += 1
-                    # Rotate Oligomer2 Surface and Ghost Fragment Guide Coordinates using rot_mat2
-                    surf_frags2_guide_coords_rot_and_set = \
-                        transform_coordinate_sets(init_surf_guide_coords2, rotation=rot_mat2, rotation2=set_mat2)
-                    ghost_frag2_guide_coords_rot_and_set = \
-                        transform_coordinate_sets(init_ghost_guide_coords2, rotation=rot_mat2, rotation2=set_mat2)
+    # for idx1 in range(rotation_matrices):
+    # Iterating over more than 2 rotation matrix sets becomes hard to program dynamically owing to the permutations
+    # of the rotations and the application of the rotation/setting to each set of fragment information. It would be a
+    # bit easier if the same logic that is applied to the following routines, (similarity matrix calculation) putting
+    # the rotation of the second set of fragment information into the setting of the first by applying the inverse
+    # rotation and setting matrices to the second (or third...) set of fragments. Forget about this for now
+    rotation_matrices1, rotation_matrices2 = rotation_matrices
+    number_of_rotations1, number_of_rotations2 = number_of_rotations
+    number_of_degens1, number_of_degens2 = number_of_degens
+    for idx1 in range(rotation_matrices1.shape[0]):
+        # Rotate Oligomer1 Surface and Ghost Fragment Guide Coordinates using rot_mat1 and set_mat1
+        rot1_count = idx1 + 1
+        degen1_count = rot1_count % number_of_rotations1
+        rot_mat1 = rotation_matrices1[idx1]
+        ghost_frag1_guide_coords_rot_and_set = \
+            transform_coordinate_sets(init_ghost_guide_coords1, rotation=rot_mat1, rotation2=set_mat1)
+        surf_frags1_guide_coords_rot_and_set = \
+            transform_coordinate_sets(init_surf_guide_coords1, rotation=rot_mat1, rotation2=set_mat1)
 
-                    log.info('***** OLIGOMER 1: Degeneracy %d Rotation %d | OLIGOMER 2: Degeneracy %d Rotation %d '
-                             '*****' % (degen1_count, rot1_count, degen2_count, rot2_count))
+        for idx2 in range(rotation_matrices2.shape[0]):
+            # Rotate Oligomer2 Surface and Ghost Fragment Guide Coordinates using rot_mat2 and set_mat2
+            rot2_count = idx2 + 1
+            degen2_count = rot2_count % number_of_rotations2
+            rot_mat2 = rotation_matrices[idx2]
+            surf_frags2_guide_coords_rot_and_set = \
+                transform_coordinate_sets(init_surf_guide_coords2, rotation=rot_mat2, rotation2=set_mat2)
+            ghost_frag2_guide_coords_rot_and_set = \
+                transform_coordinate_sets(init_ghost_guide_coords2, rotation=rot_mat2, rotation2=set_mat2)
 
-                    # Get (Oligomer1 Ghost Fragment (rotated), Oligomer2 (rotated) Surface Fragment)
-                    # guide coodinate pairs in the same Euler rotational space bucket
-                    # log.info('Get Ghost Fragment/Surface Fragment guide coordinate pairs in the same Euler rotational'
-                    #          ' space bucket')
+            log.info(f'***** OLIGOMER 1: Degeneracy {degen1_count} Rotation {rot1_count} | '
+                     f'OLIGOMER 2: Degeneracy {degen2_count} Rotation {rot2_count} *****')
 
-                    euler_start = time.time()
-                    # First returned variable has indices increasing 0,0,0,0,1,1,1,1,1,2,2,2,3,...
-                    # Second returned variable has indices increasing 2,3,4,14,...
-                    euler_matched_surf_indices2, euler_matched_ghost_indices1 = \
-                        euler_lookup.check_lookup_table(surf_frags2_guide_coords_rot_and_set,
-                                                        ghost_frag1_guide_coords_rot_and_set)
-                    euler_matched_ghost_indices_rev2, euler_matched_surf_indices_rev1 = \
-                        euler_lookup.check_lookup_table(ghost_frag2_guide_coords_rot_and_set,
-                                                        surf_frags1_guide_coords_rot_and_set)
+            euler_start = time.time()
+            # First returned variable has indices increasing 0,0,0,0,1,1,1,1,1,2,2,2,3,...
+            # Second returned variable has indices increasing 2,3,4,14,...
+            euler_matched_surf_indices2, euler_matched_ghost_indices1 = \
+                euler_lookup.check_lookup_table(surf_frags2_guide_coords_rot_and_set,
+                                                ghost_frag1_guide_coords_rot_and_set)
+            euler_matched_ghost_indices_rev2, euler_matched_surf_indices_rev1 = \
+                euler_lookup.check_lookup_table(ghost_frag2_guide_coords_rot_and_set,
+                                                surf_frags1_guide_coords_rot_and_set)
 
-                    log.info(f'\tEuler Search Took: {time.time() - euler_start:8f}s for '
-                             f'{len(init_ghost_residue_numbers1) * len(init_surf_residue_numbers2)} ghost/surf pairs')
-                    number_overlapping_pairs = len(euler_matched_ghost_indices1)
-                    # log.debug('Number of matching euler angle pairs FORWARD: %d' % number_overlapping_pairs)
-                    # log.debug('Number of matching euler angle pairs REVERSE: %d' % len(euler_matched_ghost_indices_rev2))
-                    # Ensure pairs are similar between euler_matched_surf_indices2 and euler_matched_ghost_indices_rev2
-                    # by indexing the residue_numbers
+            log.info(f'\tEuler Search Took: {time.time() - euler_start:8f}s for '
+                     f'{len(init_ghost_residue_numbers1) * len(init_surf_residue_numbers2)} ghost/surf pairs')
+            number_overlapping_pairs = len(euler_matched_ghost_indices1)
+            # log.debug('Number of matching euler angle pairs FORWARD: %d' % number_overlapping_pairs)
+            # log.debug('Number of matching euler angle pairs REVERSE: %d' % len(euler_matched_ghost_indices_rev2))
+            # Ensure pairs are similar between euler_matched_surf_indices2 and euler_matched_ghost_indices_rev2
+            # by indexing the residue_numbers
 
-                    forward_reverse_comparison_start = time.time()
+            forward_reverse_comparison_start = time.time()
 
-                    log.debug(f'Euler indices forward, index 0: {euler_matched_surf_indices2[:10]}')
-                    forward_surface_numbers2 = init_surf_residue_numbers2[euler_matched_surf_indices2]
-                    log.debug(f'Euler indices forward, index 1: {euler_matched_ghost_indices1[:10]}')
-                    forward_ghosts_numbers1 = init_ghost_residue_numbers1[euler_matched_ghost_indices1]
-                    log.debug(f'Euler indices reverse, index 0: {euler_matched_ghost_indices_rev2[:10]}')
-                    reverse_ghosts_numbers2 = init_ghost_residue_numbers2[euler_matched_ghost_indices_rev2]
-                    log.debug(f'Euler indices reverse, index 1: {euler_matched_surf_indices_rev1[:10]}')
-                    reverse_surface_numbers1 = init_surf_residue_numbers1[euler_matched_surf_indices_rev1]
+            log.debug(f'Euler indices forward, index 0: {euler_matched_surf_indices2[:10]}')
+            forward_surface_numbers2 = init_surf_residue_numbers2[euler_matched_surf_indices2]
+            log.debug(f'Euler indices forward, index 1: {euler_matched_ghost_indices1[:10]}')
+            forward_ghosts_numbers1 = init_ghost_residue_numbers1[euler_matched_ghost_indices1]
+            log.debug(f'Euler indices reverse, index 0: {euler_matched_ghost_indices_rev2[:10]}')
+            reverse_ghosts_numbers2 = init_ghost_residue_numbers2[euler_matched_ghost_indices_rev2]
+            log.debug(f'Euler indices reverse, index 1: {euler_matched_surf_indices_rev1[:10]}')
+            reverse_surface_numbers1 = init_surf_residue_numbers1[euler_matched_surf_indices_rev1]
 
-                    # Make an index indicating where the forward and reverse euler lookups have the same residue pairs
-                    # Important! This method only pulls out initial fragment matches that go both ways, i.e. component1
-                    # surface (type1) matches with component2 ghost (type1) and vice versa, so the expanded checks of
-                    # for instance the surface loop (i type 3,4,5) with ghost helical (i type 1) matches is completely
-                    # unnecessary during euler look up as this will never be included
-                    # Also, this assumes that the ghost fragment display is symmetric, i.e. 1 (i) 1 (j) 10 (K) has an
-                    # inverse transform at 1 (i) 1 (j) 230 (k) for instance
+            # Make an index indicating where the forward and reverse euler lookups have the same residue pairs
+            # Important! This method only pulls out initial fragment matches that go both ways, i.e. component1
+            # surface (type1) matches with component2 ghost (type1) and vice versa, so the expanded checks of
+            # for instance the surface loop (i type 3,4,5) with ghost helical (i type 1) matches is completely
+            # unnecessary during euler look up as this will never be included
+            # Also, this assumes that the ghost fragment display is symmetric, i.e. 1 (i) 1 (j) 10 (K) has an
+            # inverse transform at 1 (i) 1 (j) 230 (k) for instance
 
-                    prior = 0
-                    possible_overlaps = np.zeros(number_overlapping_pairs, dtype=np.bool8)
-                    # Residue numbers are in order for forward_surface_numbers2 and reverse_ghosts_numbers2
-                    for residue in init_surf_residue_numbers2:
-                        # Where the residue number of component 2 is equal pull out the indices
-                        forward_index = np.flatnonzero(forward_surface_numbers2 == residue)
-                        reverse_index = np.flatnonzero(reverse_ghosts_numbers2 == residue)
-                        # Next, use residue number indices to search for the same residue numbers in the extracted pairs
-                        # The output array slice is only valid if the forward_index is the result of
-                        # forward_surface_numbers2 being in ascending order, which for check_lookup_table is True
-                        current = prior + forward_index.shape[0]
-                        print(prior, current)
-                        possible_overlaps[prior:current] = \
-                            np.in1d(forward_ghosts_numbers1[forward_index], reverse_surface_numbers1[reverse_index])
-                        prior = current
+            prior = 0
+            possible_overlaps = np.zeros(number_overlapping_pairs, dtype=np.bool8)
+            # Residue numbers are in order for forward_surface_numbers2 and reverse_ghosts_numbers2
+            for residue in init_surf_residue_numbers2:
+                # Where the residue number of component 2 is equal pull out the indices
+                forward_index = np.flatnonzero(forward_surface_numbers2 == residue)
+                reverse_index = np.flatnonzero(reverse_ghosts_numbers2 == residue)
+                # Next, use residue number indices to search for the same residue numbers in the extracted pairs
+                # The output array slice is only valid if the forward_index is the result of
+                # forward_surface_numbers2 being in ascending order, which for check_lookup_table is True
+                current = prior + forward_index.shape[0]
+                possible_overlaps[prior:current] = \
+                    np.in1d(forward_ghosts_numbers1[forward_index], reverse_surface_numbers1[reverse_index])
+                prior = current
 
-                    # forward_ghosts_numbers1[possible_overlaps]
-                    # forward_surface_numbers2[possible_overlaps]
+            # forward_ghosts_numbers1[possible_overlaps]
+            # forward_surface_numbers2[possible_overlaps]
 
-                    # indexing_possible_overlap_time = time.time() - indexing_possible_overlap_start
+            # indexing_possible_overlap_time = time.time() - indexing_possible_overlap_start
 
-                    number_of_successful = possible_overlaps.sum()
-                    log.info(f'\tIndexing {number_overlapping_pairs * len(euler_matched_surf_indices2)} '
-                             f'possible overlap pairs found only {number_of_successful} possible out of '
-                             f'{number_overlapping_pairs} (took {time.time() - forward_reverse_comparison_start:8f}s)')
+            number_of_successful = possible_overlaps.sum()
+            log.info(f'\tIndexing {number_overlapping_pairs * len(euler_matched_surf_indices2)} '
+                     f'possible overlap pairs found only {number_of_successful} possible out of '
+                     f'{number_overlapping_pairs} (took {time.time() - forward_reverse_comparison_start:8f}s)')
 
-                    # Get optimal shift parameters for initial (Ghost Fragment, Surface Fragment) guide coordinate pairs
+            # Get optimal shift parameters for initial (Ghost Fragment, Surface Fragment) guide coordinate pairs
 
-                    # Todo remove all dksgjhkh"_" variables
-                    # reference_rmsds_ = init_ghost_rmsds1[euler_matched_ghost_indices1]
-                    # passing_ghost_coords_ = ghost_frag1_guide_coords_rot_and_set[euler_matched_ghost_indices1]
-                    # passing_surf_coords_ = surf_frags2_guide_coords_rot_and_set[euler_matched_surf_indices2]
+            # Todo remove all dksgjhkh"_" variables
+            # reference_rmsds_ = init_ghost_rmsds1[euler_matched_ghost_indices1]
+            # passing_ghost_coords_ = ghost_frag1_guide_coords_rot_and_set[euler_matched_ghost_indices1]
+            # passing_surf_coords_ = surf_frags2_guide_coords_rot_and_set[euler_matched_surf_indices2]
 
-                    # transform_passing_shifts_ = \
-                    #     optimal_tx.solve_optimal_shifts(passing_ghost_coords_, passing_surf_coords_, reference_rmsds_)
-                    # Take the boolean index of the indices
-                    possible_ghost_frag_indices = euler_matched_ghost_indices1[possible_overlaps]
-                    # possible_surf_frag_indices = euler_matched_surf_indices2[possible_overlaps]
+            # transform_passing_shifts_ = \
+            #     optimal_tx.solve_optimal_shifts(passing_ghost_coords_, passing_surf_coords_, reference_rmsds_)
+            # Take the boolean index of the indices
+            possible_ghost_frag_indices = euler_matched_ghost_indices1[possible_overlaps]
+            # possible_surf_frag_indices = euler_matched_surf_indices2[possible_overlaps]
 
-                    reference_rmsds = init_ghost_rmsds1[possible_ghost_frag_indices]
-                    passing_ghost_coords = ghost_frag1_guide_coords_rot_and_set[possible_ghost_frag_indices]
-                    passing_surf_coords = \
-                        surf_frags2_guide_coords_rot_and_set[euler_matched_surf_indices2[possible_overlaps]]
+            reference_rmsds = init_ghost_rmsds1[possible_ghost_frag_indices]
+            passing_ghost_coords = ghost_frag1_guide_coords_rot_and_set[possible_ghost_frag_indices]
+            passing_surf_coords = \
+                surf_frags2_guide_coords_rot_and_set[euler_matched_surf_indices2[possible_overlaps]]
 
-                    optimal_shifts_start = time.time()
-                    # if rot2_count % 2 == 0:
-                    #     optimal_shifts = [optimal_tx.solve_optimal_shift(ghost_coords, passing_surf_coords[idx],
-                    #                                                      reference_rmsds[idx])
-                    #                       for idx, ghost_coords in enumerate(passing_ghost_coords)]
-                    #     transform_passing_shifts = np.array([shift for shift in optimal_shifts if shift is not None])
-                    # else:
-                    transform_passing_shifts = \
-                        optimal_tx.solve_optimal_shifts(passing_ghost_coords, passing_surf_coords, reference_rmsds)
-                    optimal_shifts_time = time.time() - optimal_shifts_start
-                    # transform_passing_shifts = [shift for shift in optimal_shifts if shift is not None]
-                    # passing_optimal_shifts.extend(transform_passing_shifts)
-                    # degen_rot_counts.extend(repeat((degen1_count, degen2_count, rot1_count, rot2_count),
-                    #                                number_passing_shifts))
-                    # for idx, tx_parameters in enumerate(transform_passing_shifts, 1):
+            optimal_shifts_start = time.time()
+            # if rot2_count % 2 == 0:
+            #     optimal_shifts = [optimal_tx.solve_optimal_shift(ghost_coords, passing_surf_coords[idx],
+            #                                                      reference_rmsds[idx])
+            #                       for idx, ghost_coords in enumerate(passing_ghost_coords)]
+            #     transform_passing_shifts = np.array([shift for shift in optimal_shifts if shift is not None])
+            # else:
+            transform_passing_shifts = \
+                optimal_tx.solve_optimal_shifts(passing_ghost_coords, passing_surf_coords, reference_rmsds)
+            optimal_shifts_time = time.time() - optimal_shifts_start
+            # transform_passing_shifts = [shift for shift in optimal_shifts if shift is not None]
+            # passing_optimal_shifts.extend(transform_passing_shifts)
+            # degen_rot_counts.extend(repeat((degen1_count, degen2_count, rot1_count, rot2_count),
+            #                                number_passing_shifts))
+            # for idx, tx_parameters in enumerate(transform_passing_shifts, 1):
 
-                    # number_passing_shifts_ = len(transform_passing_shifts_)
-                    number_passing_shifts = len(transform_passing_shifts)
-                    if number_passing_shifts == 0:
-                        # log.debug('Length %d' % len(optimal_shifts))
-                        # log.debug('Shape %d' % transform_passing_shifts.shape[0])
-                        log.info(f'No transforms were found passing optimal shift criteria '
-                                 f'(took {optimal_shifts_time:8f}s)')
-                        continue
+            # number_passing_shifts_ = len(transform_passing_shifts_)
+            number_passing_shifts = len(transform_passing_shifts)
+            if number_passing_shifts == 0:
+                # log.debug('Length %d' % len(optimal_shifts))
+                # log.debug('Shape %d' % transform_passing_shifts.shape[0])
+                log.info(f'No transforms were found passing optimal shift criteria '
+                         f'(took {optimal_shifts_time:8f}s)')
+                continue
 
-                    # transform_passing_shift_indices = np.array(
-                    #     [idx for idx, shift in enumerate(optimal_shifts) if shift is not None])
+            # transform_passing_shift_indices = np.array(
+            #     [idx for idx, shift in enumerate(optimal_shifts) if shift is not None])
 
-                    # if rot2_count % 2 == 0:
-                    #     # print('***** possible overlap indices:', np.where(possible_overlaps == True)[0].tolist())
-                    #     log.debug('Passing shift ghost residue pairs: %s' % forward_ghosts_numbers1[possible_overlaps][
-                    #         transform_passing_shift_indices])
-                    #     log.debug('Passing shift surf residue pairs: %s' % forward_surface_numbers2[possible_overlaps][
-                    #         transform_passing_shift_indices])
-                    # else:
-                    #     # print('Passing shift indices:', transform_passing_shift_indices.tolist())
-                    #     # print('Passing shift ghost indices:', euler_matched_ghost_indices1[transform_passing_shift_indices].tolist())
-                    #     log.debug('Passing shift ghost residue pairs: %s' % forward_ghosts_numbers1[
-                    #         transform_passing_shift_indices].tolist())
-                    #     # print('Passing shift surf indices:', euler_matched_surf_indices2[transform_passing_shift_indices].tolist())
-                    #     log.debug('Passing shift surf residue pairs: %s' % forward_surface_numbers2[
-                    #         transform_passing_shift_indices].tolist())
+            # if rot2_count % 2 == 0:
+            #     # print('***** possible overlap indices:', np.where(possible_overlaps == True)[0].tolist())
+            #     log.debug('Passing shift ghost residue pairs: %s' % forward_ghosts_numbers1[possible_overlaps][
+            #         transform_passing_shift_indices])
+            #     log.debug('Passing shift surf residue pairs: %s' % forward_surface_numbers2[possible_overlaps][
+            #         transform_passing_shift_indices])
+            # else:
+            #     # print('Passing shift indices:', transform_passing_shift_indices.tolist())
+            #     # print('Passing shift ghost indices:', euler_matched_ghost_indices1[transform_passing_shift_indices].tolist())
+            #     log.debug('Passing shift ghost residue pairs: %s' % forward_ghosts_numbers1[
+            #         transform_passing_shift_indices].tolist())
+            #     # print('Passing shift surf indices:', euler_matched_surf_indices2[transform_passing_shift_indices].tolist())
+            #     log.debug('Passing shift surf residue pairs: %s' % forward_surface_numbers2[
+            #         transform_passing_shift_indices].tolist())
 
-                    blank_vector = np.zeros((number_passing_shifts, 1), dtype=float)  # length is by column
-                    if sym_entry.unit_cell:
-                        # must take the optimal_ext_dof_shifts and multiply the column number by the corresponding row
-                        # in the sym_entry.group_external_dof
-                        # optimal_ext_dof_shifts[0] scalar * sym_entry.group_external_dof[0] (1 row, 3 columns)
-                        # repeat for additional DOFs
-                        # then add all up within each row
-                        # for a single DOF, multiplication won't matter as only one matrix element will be available
-                        #
-                        # Todo remove all dksgjhkh"_" variables
-                        # optimal_ext_dof_shifts_ = transform_passing_shifts_[:, :sym_entry.n_dof_external]
-                        # optimal_ext_dof_shifts_ = np.hstack((optimal_ext_dof_shifts_,
-                        #                                      np.hstack((blank_vector,) * (3-sym_entry.n_dof_external))))
-                        optimal_ext_dof_shifts = transform_passing_shifts[:, :sym_entry.n_dof_external]
-                        optimal_ext_dof_shifts = np.hstack((optimal_ext_dof_shifts,
-                                                            np.hstack((blank_vector,) * (3-sym_entry.n_dof_external))))
-                        # ^ I think for the sake of cleanliness, I need to make this matrix
-                        # must find positive indices before external_dof1 multiplication in case negatives there
-                        # positive_indices_ = \
-                        #     np.flatnonzero(np.all(np.where(optimal_ext_dof_shifts_ < 0, False, True), axis=1) is True)
-                        # final_passing_shifts_ = len(positive_indices_)
-                        positive_indices = \
-                            np.flatnonzero(np.all(np.where(optimal_ext_dof_shifts < 0, False, True), axis=1) is True)
-                        final_passing_shifts = len(positive_indices)
-                        # optimal_ext_dof_shifts[:, :, None] <- None expands the axis to make multiplication accurate
-                        stacked_external_tx1 = \
-                            (optimal_ext_dof_shifts[:, :, None] * sym_entry.external_dof1).sum(axis=-2)
-                        stacked_external_tx2 = \
-                            (optimal_ext_dof_shifts[:, :, None] * sym_entry.external_dof2).sum(axis=-2)
-                        full_ext_tx1.append(stacked_external_tx1[positive_indices])
-                        full_ext_tx2.append(stacked_external_tx2[positive_indices])
-                        full_optimal_ext_dof_shifts.append(optimal_ext_dof_shifts[positive_indices])
-                    else:
-                        # optimal_ext_dof_shifts = list(repeat(None, number_passing_shifts))
-                        positive_indices = slice(None)  # slice by nothing, as None alone creates a new axis
-                        # final_passing_shifts_ = number_passing_shifts_
-                        final_passing_shifts = number_passing_shifts
-                        # stacked_external_tx1, stacked_external_tx2 = None, None
-                        full_ext_tx1, full_ext_tx2 = None, None
-                        # stacked_external_tx1 = list(repeat(None, number_passing_shifts))
-                        # stacked_external_tx2 = list(repeat(None, number_passing_shifts))
+            blank_vector = np.zeros((number_passing_shifts, 1), dtype=float)  # length is by column
+            if sym_entry.unit_cell:
+                # must take the optimal_ext_dof_shifts and multiply the column number by the corresponding row
+                # in the sym_entry.group_external_dof
+                # optimal_ext_dof_shifts[0] scalar * sym_entry.group_external_dof[0] (1 row, 3 columns)
+                # repeat for additional DOFs
+                # then add all up within each row
+                # for a single DOF, multiplication won't matter as only one matrix element will be available
+                #
+                # Todo remove all dksgjhkh"_" variables
+                # optimal_ext_dof_shifts_ = transform_passing_shifts_[:, :sym_entry.n_dof_external]
+                # optimal_ext_dof_shifts_ = np.hstack((optimal_ext_dof_shifts_,
+                #                                      np.hstack((blank_vector,) * (3-sym_entry.n_dof_external))))
+                optimal_ext_dof_shifts = transform_passing_shifts[:, :sym_entry.n_dof_external]
+                optimal_ext_dof_shifts = np.hstack((optimal_ext_dof_shifts,
+                                                    np.hstack((blank_vector,) * (3-sym_entry.n_dof_external))))
+                # ^ I think for the sake of cleanliness, I need to make this matrix
+                # must find positive indices before external_dof1 multiplication in case negatives there
+                # positive_indices_ = \
+                #     np.flatnonzero(np.all(np.where(optimal_ext_dof_shifts_ < 0, False, True), axis=1) is True)
+                # final_passing_shifts_ = len(positive_indices_)
+                positive_indices = \
+                    np.flatnonzero(np.all(np.where(optimal_ext_dof_shifts < 0, False, True), axis=1) is True)
+                final_passing_shifts = len(positive_indices)
+                # optimal_ext_dof_shifts[:, :, None] <- None expands the axis to make multiplication accurate
+                stacked_external_tx1 = \
+                    (optimal_ext_dof_shifts[:, :, None] * sym_entry.external_dof1).sum(axis=-2)
+                stacked_external_tx2 = \
+                    (optimal_ext_dof_shifts[:, :, None] * sym_entry.external_dof2).sum(axis=-2)
+                full_ext_tx1.append(stacked_external_tx1[positive_indices])
+                full_ext_tx2.append(stacked_external_tx2[positive_indices])
+                full_optimal_ext_dof_shifts.append(optimal_ext_dof_shifts[positive_indices])
+            else:
+                # optimal_ext_dof_shifts = list(repeat(None, number_passing_shifts))
+                positive_indices = slice(None)  # slice by nothing, as None alone creates a new axis
+                # final_passing_shifts_ = number_passing_shifts_
+                final_passing_shifts = number_passing_shifts
+                # stacked_external_tx1, stacked_external_tx2 = None, None
+                full_ext_tx1, full_ext_tx2 = None, None
+                # stacked_external_tx1 = list(repeat(None, number_passing_shifts))
+                # stacked_external_tx2 = list(repeat(None, number_passing_shifts))
 
-                    # Prepare the transformation parameters for storage in full transformation arrays
-                    # Use of [:, None] transforms the array into an array with each internal dof sored as a scalar in
-                    # axis 1 and each successive index along axis 0 as each passing shift
-                    internal_tx_params1 = transform_passing_shifts[:, sym_entry.n_dof_external][:, None] \
-                        if sym_entry.is_internal_tx1 else blank_vector
-                    internal_tx_params2 = transform_passing_shifts[:, sym_entry.n_dof_external+1][:, None] \
-                        if sym_entry.is_internal_tx2 else blank_vector
-                    # Stack each internal parameter along with a blank vector, this isolates the tx vector along z axis
-                    stacked_internal_tx_vectors1 = np.hstack((blank_vector, blank_vector, internal_tx_params1))
-                    stacked_internal_tx_vectors2 = np.hstack((blank_vector, blank_vector, internal_tx_params2))
-                    # stacked_rot_mat1 = np.tile(rot_mat1, (final_passing_shifts, 1, 1))
-                    # stacked_rot_mat2 = np.tile(rot_mat2, (final_passing_shifts, 1, 1))
+            # Prepare the transformation parameters for storage in full transformation arrays
+            # Use of [:, None] transforms the array into an array with each internal dof sored as a scalar in
+            # axis 1 and each successive index along axis 0 as each passing shift
+            internal_tx_params1 = transform_passing_shifts[:, sym_entry.n_dof_external][:, None] \
+                if sym_entry.is_internal_tx1 else blank_vector
+            internal_tx_params2 = transform_passing_shifts[:, sym_entry.n_dof_external+1][:, None] \
+                if sym_entry.is_internal_tx2 else blank_vector
+            # Stack each internal parameter along with a blank vector, this isolates the tx vector along z axis
+            stacked_internal_tx_vectors1 = np.hstack((blank_vector, blank_vector, internal_tx_params1))
+            stacked_internal_tx_vectors2 = np.hstack((blank_vector, blank_vector, internal_tx_params2))
+            # stacked_rot_mat1 = np.tile(rot_mat1, (final_passing_shifts, 1, 1))
+            # stacked_rot_mat2 = np.tile(rot_mat2, (final_passing_shifts, 1, 1))
 
-                    # Store transformation parameters, indexing only those that are positive in the case of lattice syms
-                    full_int_tx1.append(stacked_internal_tx_vectors1[positive_indices])
-                    full_int_tx2.append(stacked_internal_tx_vectors2[positive_indices])
-                    full_rotation1.append(np.tile(rot_mat1, (final_passing_shifts, 1, 1)))
-                    full_rotation2.append(np.tile(rot_mat2, (final_passing_shifts, 1, 1)))
+            # Store transformation parameters, indexing only those that are positive in the case of lattice syms
+            full_int_tx1.append(stacked_internal_tx_vectors1[positive_indices])
+            full_int_tx2.append(stacked_internal_tx_vectors2[positive_indices])
+            full_rotation1.append(np.tile(rot_mat1, (final_passing_shifts, 1, 1)))
+            full_rotation2.append(np.tile(rot_mat2, (final_passing_shifts, 1, 1)))
 
-                    degen_counts.extend([(degen1_count, degen2_count) for _ in range(final_passing_shifts)])
-                    rot_counts.extend([(rot1_count, rot2_count) for _ in range(final_passing_shifts)])
-                    tx_counts.extend(list(range(1, final_passing_shifts + 1)))
-                    log.info(f'\tOptimal Shift Search Took: {optimal_shifts_time:8f}s for {number_of_successful} guide'
-                             f' coordinate pairs')
-                    log.info(f'\t{final_passing_shifts if final_passing_shifts else "No"} Initial Interface Fragment '
-                             f'Match{"es" if final_passing_shifts != 1 else ""} Found')
-                    # log.debug(f'Method without finding forward and reverse pairs produces {final_passing_shifts_} '
-                    #           f'Initial Interface Fragments')
-                rot2_count = 0
-            degen2_count = 0
-        rot1_count = 0
+            degen_counts.extend([(degen1_count, degen2_count) for _ in range(final_passing_shifts)])
+            rot_counts.extend([(rot1_count, rot2_count) for _ in range(final_passing_shifts)])
+            tx_counts.extend(list(range(1, final_passing_shifts + 1)))
+            log.info(f'\tOptimal Shift Search Took: {optimal_shifts_time:8f}s for {number_of_successful} guide'
+                     f' coordinate pairs')
+            log.info(f'\t{final_passing_shifts if final_passing_shifts else "No"} Initial Interface Fragment '
+                     f'Match{"es" if final_passing_shifts != 1 else ""} Found')
+            # log.debug(f'Method without finding forward and reverse pairs produces {final_passing_shifts_} '
+            #           f'Initial Interface Fragments')
 
     ##############
     # Here represents an important break in the execution of this code. Vectorized scoring and clash testing!
