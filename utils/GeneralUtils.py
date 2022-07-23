@@ -1,14 +1,15 @@
 from __future__ import annotations
 
 import os
+from logging import Logger
 
 import numpy
 import numpy as np
+# from numba import njit
 
+from classes.SymEntry import SymEntry
 from PathUtils import docked_pose_file
 from SymDesignUtils import start_log
-
-# from numba import njit
 
 # Globals
 logger = start_log(name=__name__)
@@ -154,14 +155,15 @@ def write_docked_pose_info(outdir_path, res_lev_sum_score, high_qual_match_count
         out_info_file.write('Canonical Orientation PDB2 Path: %s\n\n' % pdb2_path)
 
 
-def get_rotation_step(sym_entry, rot_step_deg1=None, rot_step_deg2=None, initial=False, log=None):
+def get_rotation_step(sym_entry: SymEntry, rot_step_deg1: float | int = None, rot_step_deg2: float | int = None,
+                      initial: bool = False, log: Logger = None) -> tuple[int, int]:
     """Set up the rotation step from the input arguments
 
     Returns:
-        (tuple[int, int]): The rotational sampling steps for oligomer1 and oligomer2
+        The rotational sampling steps for oligomer1 and oligomer2
     """
     if sym_entry.is_internal_rot1:  # if rotation step required
-        if not rot_step_deg1:
+        if rot_step_deg1 is None:
             rot_step_deg1 = 3  # set rotation step to default
     else:
         if rot_step_deg1 and initial:
@@ -169,7 +171,7 @@ def get_rotation_step(sym_entry, rot_step_deg1=None, rot_step_deg2=None, initial
         rot_step_deg1 = 1
 
     if sym_entry.is_internal_rot2:  # if rotation step required
-        if not rot_step_deg2:
+        if rot_step_deg2 is None:
             rot_step_deg2 = 3  # set rotation step to default
     else:
         if rot_step_deg2 and initial:

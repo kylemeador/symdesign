@@ -62,7 +62,6 @@ if __name__ == '__main__':
             # initialize the main Nanohedra log
             write_docking_parameters(pdb1_path, pdb2_path, rot_step_deg1, rot_step_deg2, sym_entry, master_outdir,
                                      log=master_logger)
-            rot_step_deg1, rot_step_deg2 = get_rotation_step(sym_entry, rot_step_deg1, rot_step_deg2)
 
             # Get PDB1 and PDB2 File paths
             # with open(master_log_filepath, 'a+') as master_log_file:

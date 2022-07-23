@@ -794,18 +794,30 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
         degen1_count, degen2_count, rot1_count, rot2_count = get_last_sampling_state(log.handlers[0].baseFilename)
 
     if not resume:
-        log.info('Obtaining Rotation/Degeneracy Matrices for Oligomer 1')
+        log.info('Obtaining Rotation/Degeneracy Matrices\n')
 
-    # Get Degeneracies/Rotation Matrices for Oligomer1: degen_rot_mat_1
-    rotation_matrices_1 = get_rot_matrices(rotation_step1, 'z', sym_entry.rotation_range1)
-    degen_rot_mat_1 = make_rotations_degenerate(rotation_matrices_1, sym_entry.degeneracy_matrices1)
+    rotation_steps = [rotation_step1, rotation_step2]
+    number_of_degens = []
+    number_of_rotations = []
+    rotation_matrices = []
+    for idx, rotation_step in enumerate(rotation_steps, 1):
+        if getattr(sym_entry, f'is_internal_rot{idx}'):  # if rotation step required
+            if rotation_step is None:
+                rotation_steps[idx] = 3  # set rotation step to default
+        else:
+            rotation_steps[idx] = 1
+            if rotation_step:
+                log.warning(f'Specified rotation_step{idx} was ignored. Oligomer {idx} doesn\'t have rotational DOF')
 
-    if not resume:
-        log.info('Obtaining Rotation/Degeneracy Matrices for Oligomer 2\n')
-
-    # Get Degeneracies/Rotation Matrices for Oligomer2: degen_rot_mat_2
-    rotation_matrices_2 = get_rot_matrices(rotation_step2, 'z', sym_entry.rotation_range2)
-    degen_rot_mat_2 = make_rotations_degenerate(rotation_matrices_2, sym_entry.degeneracy_matrices2)
+        degeneracy_matrices = getattr(sym_entry, f'degeneracy_matrices{idx}')
+        rot_degen_matrices = make_rotations_degenerate(get_rot_matrices(rotation_step, 'z',
+                                                                        getattr(sym_entry, f'rotation_range{idx}')
+                                                                        ),
+                                                       degeneracy_matrices)
+        log.debug(f'Rotation shape for component {idx}: {rot_degen_matrices.shape}')
+        number_of_degens.append(degeneracy_matrices.shape[0])
+        number_of_rotations.append(rot_degen_matrices.shape[0] % number_of_degens[idx-1])
+        rotation_matrices.append(rot_degen_matrices)
 
     set_mat1, set_mat2 = sym_entry.setting_matrix1, sym_entry.setting_matrix2
     # find superposition matrices to rotate setting matrix1 to setting matrix2 and vise versa
@@ -825,9 +837,8 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
     optimal_tx = \
         OptimalTx.from_dof(sym_entry.external_dof, zshift1=zshift1, zshift2=zshift2, max_z_value=initial_z_value)
 
-    # passing_optimal_shifts = []
-    # degen_rot_counts = []
-    # stacked_transforms1, stacked_transforms2 = [], []
+    # Get rotated Oligomer1 Ghost Fragment, Oligomer2 Surface Fragment guide coodinate pairs
+    # in the same Euler rotational space bucket
     rot_counts, degen_counts, tx_counts = [], [], []
     full_rotation1, full_rotation2, full_int_tx1, full_int_tx2, full_setting1, full_setting2, full_ext_tx1, \
         full_ext_tx2, full_optimal_ext_dof_shifts = [], [], [], [], [], [], [], [], []

@@ -5853,17 +5853,16 @@ class Entity(SequenceProfile, Chain, ContainsChainsMixin):
                                                         translation=-translation, rotation2=inv_rotation)
         self.chain_transforms.clear()
         number_of_subunits = 0
-        for degeneracy_matrices in degeneracy_rotation_matrices:
-            for rotation_matrix in degeneracy_matrices:
-                number_of_subunits += 1
-                if number_of_subunits == 1 and np.all(rotation_matrix == identity_matrix):
-                    self.log.debug('Skipping Entity.make_oligomer() transformation 1 as it is identity')
-                    continue
-                rot_centered_coords = transform_coordinate_sets(centered_coords_inv, rotation=rotation_matrix)
-                new_coords = transform_coordinate_sets(rot_centered_coords, rotation=rotation, translation=translation,
-                                                       rotation2=rotation2, translation2=translation2)
-                _, rot, tx = superposition3d(new_coords, cb_coords)
-                self.chain_transforms.append(dict(rotation=rot, translation=tx))
+        for rotation_matrix in degeneracy_rotation_matrices:
+            number_of_subunits += 1
+            if number_of_subunits == 1 and np.all(rotation_matrix == identity_matrix):
+                self.log.debug('Skipping Entity.make_oligomer() transformation 1 as it is identity')
+                continue
+            rot_centered_coords = transform_coordinate_sets(centered_coords_inv, rotation=rotation_matrix)
+            new_coords = transform_coordinate_sets(rot_centered_coords, rotation=rotation, translation=translation,
+                                                   rotation2=rotation2, translation2=translation2)
+            _, rot, tx = superposition3d(new_coords, cb_coords)
+            self.chain_transforms.append(dict(rotation=rot, translation=tx))
 
         # Set the new properties
         self.number_of_symmetry_mates = number_of_subunits
