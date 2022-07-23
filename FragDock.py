@@ -813,7 +813,7 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
         log.debug(f'Combined rotation shape for component {idx}: {rot_degen_matrices.shape}')
         number_of_degens.append(degeneracy_matrices.shape[0])
         # log.debug(f'Rotation shape for component {idx}: {rot_degen_matrices.shape}')
-        number_of_rotations.append(rot_degen_matrices.shape[0] % degeneracy_matrices.shape[0])
+        number_of_rotations.append(rot_degen_matrices.shape[0] // degeneracy_matrices.shape[0])
         rotation_matrices.append(rot_degen_matrices)
     print('number_of_degens', number_of_degens)
     print('number_of_rotations', number_of_rotations)
