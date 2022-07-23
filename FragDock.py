@@ -1223,7 +1223,7 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
     model_elements = prod(bb_cb_coords2.shape)
     total_elements_required = model_elements * number_of_dense_transforms
     # The chunk_size indicates how many models could fit in the allocated memory. Using floor division to get integer
-    chunk_size = int(number_of_elements_available // model_elements // 4)  # Reduce scale by factor of 4 to be safe
+    chunk_size = int(number_of_elements_available // model_elements // 8)  # Reduce scale by factor of 8 to be safe
     # The number_of_chunks indicates how many iterations are needed to exhaust all models
     number_of_chunks = (ceil(total_elements_required / (model_elements * chunk_size)) or 1)
     check_clash_coords_start = time.time()
