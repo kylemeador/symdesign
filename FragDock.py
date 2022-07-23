@@ -904,13 +904,13 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
 
                 forward_reverse_comparison_start = time.time()
 
-                log.debug(f'Euler indices forward, index 0: {euler_matched_surf_indices2[:10]}')
+                # log.debug(f'Euler indices forward, index 0: {euler_matched_surf_indices2[:10]}')
                 forward_surface_numbers2 = init_surf_residue_numbers2[euler_matched_surf_indices2]
-                log.debug(f'Euler indices forward, index 1: {euler_matched_ghost_indices1[:10]}')
+                # log.debug(f'Euler indices forward, index 1: {euler_matched_ghost_indices1[:10]}')
                 forward_ghosts_numbers1 = init_ghost_residue_numbers1[euler_matched_ghost_indices1]
-                log.debug(f'Euler indices reverse, index 0: {euler_matched_ghost_indices_rev2[:10]}')
+                # log.debug(f'Euler indices reverse, index 0: {euler_matched_ghost_indices_rev2[:10]}')
                 reverse_ghosts_numbers2 = init_ghost_residue_numbers2[euler_matched_ghost_indices_rev2]
-                log.debug(f'Euler indices reverse, index 1: {euler_matched_surf_indices_rev1[:10]}')
+                # log.debug(f'Euler indices reverse, index 1: {euler_matched_surf_indices_rev1[:10]}')
                 reverse_surface_numbers1 = init_surf_residue_numbers1[euler_matched_surf_indices_rev1]
 
                 # Make an index indicating where the forward and reverse euler lookups have the same residue pairs

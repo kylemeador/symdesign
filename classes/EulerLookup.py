@@ -28,29 +28,29 @@ class EulerLookup:
         to save repeated sqrt calculations
         """
         # subtract the local reference origin (axis 1, index 0) from the z and y components then normalize
-        v1_a = (guide_coords[:, 1, :] - guide_coords[:, 0, :]) * self.normalization
-        v2_a = (guide_coords[:, 2, :] - guide_coords[:, 0, :]) * self.normalization
+        # v1_a = (guide_coords[:, 1, :] - guide_coords[:, 0, :]) * self.normalization
+        # v2_a = (guide_coords[:, 2, :] - guide_coords[:, 0, :]) * self.normalization
         guide_coords[:, 1:, :] = (guide_coords[:, 1:, :] - guide_coords[:, :1, :]) * self.normalization
         # cross_v3 = np.cross(v1_a, v2_a)
-    #     return self.get_eulerint10_from_rot_vector(v1_a, v2_a, np.cross(v1_a, v2_a))
-        cross = np.cross(v1_a, v2_a)
+        # return self.get_eulerint10_from_rot_vector(v1_a, v2_a, np.cross(v1_a, v2_a))
+        # cross = np.cross(v1_a, v2_a)
         cross_v3 = np.cross(guide_coords[:, 1, :], guide_coords[:, 2, :])
-        print('cross', np.all(cross == cross_v3))
-        print('v1_a = guide_coords[:, 1, 2]', np.all(v1_a[:, 2] == guide_coords[:, 1, 2]))
-    # # @staticmethod
-    # # @njit
-    # def get_eulerint10_from_rot_vector(self, v1_a: np.ndarray, v2_a: np.ndarray, cross_v3: np.ndarray) -> \
-    #         tuple[np.ndarray, np.ndarray, np.ndarray]:
-    #     """Convert stacked rotation matrices to euler angles in the form of an integer triplet
-    #     (integer values are degrees divided by 10) These become indices for a lookup table
-    #
-    #     Args:
-    #         v1_a: An array of vectors containing the first vector which is orthogonal to v2_a (canonically on x)
-    #         v2_a: An array of vectors containing the second vector which is orthogonal to v1_a (canonically on y)
-    #         cross_v3: An array of vectors containing the third vector which is the cross of v1_a and v2_a
-    #     Returns:
-    #         The tuple of vectors comprising the resulting Euler integers for each
-    #     """
+        # print('cross', np.all(cross == cross_v3))
+        # print('v1_a = guide_coords[:, 1, 2]', np.all(v1_a[:, 2] == guide_coords[:, 1, 2]))
+        # # @staticmethod
+        # # @njit
+        # def get_eulerint10_from_rot_vector(self, v1_a: np.ndarray, v2_a: np.ndarray, cross_v3: np.ndarray) -> \
+        #         tuple[np.ndarray, np.ndarray, np.ndarray]:
+        #     """Convert stacked rotation matrices to euler angles in the form of an integer triplet
+        #     (integer values are degrees divided by 10) These become indices for a lookup table
+        #
+        #     Args:
+        #         v1_a: An array of vectors containing the first vector which is orthogonal to v2_a (canonically on x)
+        #         v2_a: An array of vectors containing the second vector which is orthogonal to v1_a (canonically on y)
+        #         cross_v3: An array of vectors containing the third vector which is the cross of v1_a and v2_a
+        #     Returns:
+        #         The tuple of vectors comprising the resulting Euler integers for each
+        #     """
         # tolerance = 1.e-6
         # one_tolerance = 1. - 1.e-6
         # set maximum at 1 and minimum at -1 to obey the domain of arccos
@@ -59,15 +59,15 @@ class EulerLookup:
         cross_v3a = np.minimum(1, cross_v3a)
 
         cross_v3[:, 2] = np.minimum(1, np.maximum(-1, cross_v3[:, 2]))
-        print('cross_v3[:, 2] min max equallity', np.all(cross_v3[:, 2] == cross_v3a))
+        # print('cross_v3[:, 2] min max equallity', np.all(cross_v3[:, 2] == cross_v3a))
 
 
         # Check if the z component of the cross product vector is close to 1 or -1 making it degenerate
         # for the np.where statements below use the vector conditional
         third_angle_not_degenerate = np.abs(cross_v3[:, 2]) < self.one_tolerance
-        print('third_angle_not_degenerate', third_angle_not_degenerate)
-        third_angle_degenerate = np.logical_or(cross_v3[:, 2] > self.one_tolerance, cross_v3[:, 2] < -self.one_tolerance)
-        print('degenerate equallity', np.all(third_angle_degenerate == ~third_angle_not_degenerate))
+        # print('third_angle_not_degenerate', third_angle_not_degenerate)
+        # third_angle_degenerate = np.logical_or(cross_v3[:, 2] > self.one_tolerance, cross_v3[:, 2] < -self.one_tolerance)
+        # print('degenerate equallity', np.all(third_angle_degenerate == ~third_angle_not_degenerate))
 
         # arctan2 returns values in the range of [-pi to pi]
         e1_v = np.where(~third_angle_not_degenerate,
@@ -109,7 +109,7 @@ class EulerLookup:
     def check_lookup_table(self, guide_coords1: np.ndarray, guide_coords2: np.ndarray):
         """Returns a tuple with the index of the first fragment and second fragment where they overlap
         """
-        # ensure the atoms are passed as an array of 3x3 matrices
+        # ensure the atoms are passed as an array of (n, 3x3) matrices
         try:
             for idx, guide_coords in enumerate([guide_coords1, guide_coords2]):
                 indices_len, *remainder = guide_coords.shape
