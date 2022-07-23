@@ -815,8 +815,6 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
         # log.debug(f'Rotation shape for component {idx}: {rot_degen_matrices.shape}')
         number_of_rotations.append(rot_degen_matrices.shape[0] // degeneracy_matrices.shape[0])
         rotation_matrices.append(rot_degen_matrices)
-    print('number_of_degens', number_of_degens)
-    print('number_of_rotations', number_of_rotations)
 
     set_mat1, set_mat2 = sym_entry.setting_matrix1, sym_entry.setting_matrix2
     # find superposition matrices to rotate setting matrix1 to setting matrix2 and vise versa
@@ -865,7 +863,7 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
             # Rotate Oligomer2 Surface and Ghost Fragment Guide Coordinates using rot_mat2 and set_mat2
             rot2_count = idx2 + 1
             degen2_count = rot2_count % number_of_rotations2
-            rot_mat2 = rotation_matrices[idx2]
+            rot_mat2 = rotation_matrices2[idx2]
             surf_frags2_guide_coords_rot_and_set = \
                 transform_coordinate_sets(init_surf_guide_coords2, rotation=rot_mat2, rotation2=set_mat2)
             ghost_frag2_guide_coords_rot_and_set = \
