@@ -28,12 +28,14 @@ class EulerLookup:
         to save repeated sqrt calculations
         """
         # subtract the local reference origin (axis 1, index 0) from the z and y components then normalize
+        v1_a = (guide_coords[:, 1, :] - guide_coords[:, 0, :]) * self.normalization
+        v2_a = (guide_coords[:, 2, :] - guide_coords[:, 0, :]) * self.normalization
         guide_coords[:, 1:, :] = (guide_coords[:, 1:, :] - guide_coords[:, :1, :]) * self.normalization
-        # v1_a = (guide_coords[:, 1, :] - guide_coords[:, 0, :]) * self.normalization
-        # v2_a = (guide_coords[:, 2, :] - guide_coords[:, 0, :]) * self.normalization
         # cross_v3 = np.cross(v1_a, v2_a)
     #     return self.get_eulerint10_from_rot_vector(v1_a, v2_a, np.cross(v1_a, v2_a))
+        cross = np.cross(v1_a, v2_a)
         cross_v3 = np.cross(guide_coords[:, 1, :], guide_coords[:, 2, :])
+        print('cross', np.all(cross == cross_v3))
     # # @staticmethod
     # # @njit
     # def get_eulerint10_from_rot_vector(self, v1_a: np.ndarray, v2_a: np.ndarray, cross_v3: np.ndarray) -> \
@@ -57,6 +59,9 @@ class EulerLookup:
         # Check if the z component of the cross product vector is close to 1 or -1 making it degenerate
         # for the np.where statements below use the vector conditional
         third_angle_not_degenerate = np.abs(cross_v3[:, 2]) < self.one_tolerance
+        print('third_angle_not_degenerate', third_angle_not_degenerate)
+        third_angle_degenerate = np.logical_or(cross_v3[:, 2] > self.one_tolerance, cross_v3[:, 2] < -self.one_tolerance)
+        print('degenerate equallity', np.all(third_angle_degenerate == ~third_angle_not_degenerate))
 
         # arctan2 returns values in the range of [-pi to pi]
         e1_v = np.where(~third_angle_not_degenerate,
@@ -87,9 +92,9 @@ class EulerLookup:
     #     to save repeated sqrt calculations
     #     """
     #     # subtract the local reference origin (axis 1, index 0) from the z and y components then normalize
-    #     guide_coords[:, 1:, :] = (guide_coords[:, 1:, :] - guide_coords[:, :1, :]) * self.normalization
-    #     # v1_a = (guide_coords[:, 1, :] - guide_coords[:, 0, :]) * self.normalization
-    #     # v2_a = (guide_coords[:, 2, :] - guide_coords[:, 0, :]) * self.normalization
+    #     # guide_coords[:, 1:, :] = (guide_coords[:, 1:, :] - guide_coords[:, :1, :]) * self.normalization
+    #     v1_a = (guide_coords[:, 1, :] - guide_coords[:, 0, :]) * self.normalization
+    #     v2_a = (guide_coords[:, 2, :] - guide_coords[:, 0, :]) * self.normalization
     #     # v3_a = np.cross(v1_a, v2_a)
     #
     #     return self.get_eulerint10_from_rot_vector(v1_a, v2_a, np.cross(v1_a, v2_a))
