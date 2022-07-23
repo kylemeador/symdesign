@@ -312,9 +312,10 @@ class EulerLookup:
             for j in range(len(eulintarray2)):
                 (e1, e2, e3) = eulintarray1[i, :].flatten()
                 (f1, f2, f3) = eulintarray2[j, :].flatten()
-                return_tup_list.append((i, j, self.eul_lookup_40[e1, e2, e3, f1, f2, f3]))
+                if self.eul_lookup_40[e1, e2, e3, f1, f2, f3]:
+                    return_tup_list.append((i, j))
 
-        return return_tup_list
+        return zip(*return_tup_list)
 
 
 class EulerLookupFactory:
