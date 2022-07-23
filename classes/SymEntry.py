@@ -400,7 +400,8 @@ class SymEntry:
         return self.unit_cell
 
     @property
-    def rotation_range1(self):
+    def rotation_range1(self) -> float:
+        """Return the rotation range according the first symmetry group operator"""
         try:
             return self._rotation_range[0]
         except AttributeError:
@@ -408,7 +409,8 @@ class SymEntry:
         return self._rotation_range[0]
 
     @property
-    def rotation_range2(self):
+    def rotation_range2(self) -> float:
+        """Return the rotation range according the second symmetry group operator"""
         try:
             return self._rotation_range[1]
         except AttributeError:
@@ -416,7 +418,8 @@ class SymEntry:
         return self._rotation_range[1]
 
     @property
-    def rotation_range3(self):
+    def rotation_range3(self) -> float:
+        """Return the rotation range according the third symmetry group operator"""
         try:
             return self._rotation_range[2]
         except AttributeError:
@@ -515,42 +518,45 @@ class SymEntry:
         return self.__external_dof[1]
 
     @property
-    def degeneracy_matrices1(self) -> np.ndarray | None:
-        """Returns the N number of 3x3 degeneracy for component2"""
+    def degeneracy_matrices1(self) -> np.ndarray:
+        """Returns the (number of degeneracies, 3, 3) degeneracy matrices for component1"""
         try:
             return self._degeneracy_matrices[0]
         except AttributeError:
-            self._degeneracy_matrices = self.get_degeneracy_matrices()
+            self._create_degeneracy_matrices()
             return self._degeneracy_matrices[0]
 
     @property
-    def degeneracy_matrices2(self) -> np.ndarray | None:
-        """Returns the N number of 3x3 degeneracy for component2"""
+    def degeneracy_matrices2(self) -> np.ndarray:
+        """Returns the (number of degeneracies, 3, 3) degeneracy matrices for component2"""
         try:
             return self._degeneracy_matrices[1]
         except AttributeError:
-            self._degeneracy_matrices = self.get_degeneracy_matrices()
+            self._create_degeneracy_matrices()
             return self._degeneracy_matrices[1]
 
-    def get_degeneracy_matrices(self) -> list[np.ndarray | None]:
+    def _create_degeneracy_matrices(self):
         """From the intended point group symmetry and a single component, find the degeneracy matrices that produce all
         viable configurations of the single component in the final symmetry
 
-        Returns:
-            The degeneracy matrices to create the specified symmetry
+        Sets:
+            self._degeneracy_matrices list[numpy.ndarray, ...]:
+                The degeneracy matrices for each group where the matrix for each group has shape
+                (number of degeneracies, 3, 3). Will always return the identity matrix if no degeneracies,
+                with shape (1, 3, 3)
         """
-        degeneracies = []
-        # Todo now that code working for situations where more than 2 symmetries, enumerate when to search these others
+        self._degeneracy_matrices = []
+        # Todo now that SymEntry working with more than 2 symmetries, enumerate when to search these others
         for idx, group in enumerate(self.groups, 1):
             degeneracy_matrices = None
-            # For cages, only one of the two entities need to be flipped. By convention we flip oligomer 2.
+            # For cages, only one of the two groups need to be flipped. By convention, we flip oligomer 2
             if self.dimension == 0 and idx == 2:
-                degeneracy_matrices = [identity_matrix, flip_y_matrix]
+                degeneracy_matrices = np.array([identity_matrix, flip_y_matrix])
             # For layers that obey a cyclic point group symmetry and that are constructed from two entities that both
-            # obey cyclic symmetry only one of the two entities need to be flipped. By convention we flip oligomer 2.
+            # obey cyclic symmetry only one of the two entities need to be flipped. By convention, we flip oligomer 2
             elif self.dimension == 2 and idx == 2 and \
                     (self.groups[0][0], self.groups[1][0], self.point_group_symmetry[0]) == ('C', 'C', 'C'):
-                degeneracy_matrices = [identity_matrix, flip_y_matrix]
+                degeneracy_matrices = np.array([identity_matrix, flip_y_matrix])
             # else:
             #     if oligomer_symmetry[0] == "C" and design_symmetry[0] == "C":
             #         degeneracy_matrices = [[[-1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, -1.0]]]  # ROT180y
@@ -561,38 +567,46 @@ class SymEntry:
                 # <0,e> would also have to be searched as well to remove the "if" statement below.
                 # if (oligomer_symmetry, design_symmetry_pg) != ('D3', 'D6'):
                 if group == 'D3':
-                    degeneracy_matrices = [identity_matrix,  # 60 degrees about z
-                                           [[0.5, -0.866025, 0.0], [0.866025, 0.5, 0.0], [0.0, 0.0, 1.0]]]
+                    degeneracy_matrices = \
+                        np.array([identity_matrix,
+                                  [[.5, -0.866025, 0.], [.866025, .5, 0.], [0., 0., 1.]]])  # 60 deg about z
                 elif group == 'D4':
-                    degeneracy_matrices = [identity_matrix,  # 45 degrees about z
-                                           [[0.707107, 0.707107, 0.0], [-0.707107, 0.707107, 0.0], [0.0, 0.0, 1.0]]]
+                    degeneracy_matrices = \
+                        np.array([identity_matrix,
+                                  [[.707107, .707107, 0.], [-0.707107, .707107, 0.], [0., 0., 1.]]])  # 45 deg about z
                 elif group == 'D6':
-                    degeneracy_matrices = [identity_matrix,  # 30 degrees about z
-                                           [[0.866025, -0.5, 0.0], [0.5, 0.866025, 0.0], [0.0, 0.0, 1.0]]]
+                    degeneracy_matrices = \
+                        np.array([identity_matrix,
+                                  [[0.866025, -0.5, 0.], [0.5, 0.866025, 0.], [0., 0., 1.]]])  # 30 deg about z
             elif group == 'D2' and self.point_group_symmetry != 'O':
                 if self.point_group_symmetry == 'T':
-                    degeneracy_matrices = [identity_matrix,
-                                           [[0.0, -1.0, 0.0], [1.0, 0.0, 0.0], [0.0, 0.0, 1.0]]]  # 90 degrees about z
+                    degeneracy_matrices = \
+                        np.array([identity_matrix,
+                                  [[0., -1., 0.], [1., 0., 0.], [0., 0., 1.]]])  # 90 deg about z
 
                 elif self.point_group_symmetry == 'D4':
-                    degeneracy_matrices = [identity_matrix,
-                                           [[0.0, 0.0, 1.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]],
-                                           [[0.0, 1.0, 0.0], [0.0, 0.0, 1.0], [1.0, 0.0, 0.0]]]  # z,x,y and y,z,x
+                    degeneracy_matrices = \
+                        np.array([identity_matrix,
+                                  [[0., 0., 1.], [1., 0., 0.], [0., 1., 0.]],  # z,x,y
+                                  [[0., 1., 0.], [0., 0., 1.], [1., 0., 0.]]])  # y,z,x
 
                 elif self.point_group_symmetry in ['D2', 'D6']:
-                    degeneracy_matrices = [identity_matrix,
-                                           [[0.0, 0.0, 1.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]],
-                                           [[0.0, 1.0, 0.0], [0.0, 0.0, 1.0], [1.0, 0.0, 0.0]],
-                                           [[-1.0, 0.0, 0.0], [0.0, 0.0, 1.0], [0.0, 1.0, 0.0]],
-                                           [[0.0, 0.0, 1.0], [0.0, -1.0, 0.0], [1.0, 0.0, 0.0]],
-                                           [[0.0, 1.0, 0.0], [1.0, 0.0, 0.0], [0.0, 0.0, -1.0]]]
+                    degeneracy_matrices = \
+                        np.array([identity_matrix,
+                                  [[0., 0., 1.], [1., 0., 0.], [0., 1., 0.]],
+                                  [[0., 1., 0.], [0., 0., 1.], [1., 0., 0.]],
+                                  [[-1., 0., 0.], [0., 0., 1.], [0., 1., 0.]],
+                                  [[0., 0., 1.], [0., -1., 0.], [1., 0., 0.]],
+                                  [[0., 1., 0.], [1., 0., 0.], [0., 0., -1.]]])
             elif group == 'T' and self.point_group_symmetry == 'T':
-                degeneracy_matrices = [identity_matrix,
-                                       [[0.0, -1.0, 0.0], [1.0, 0.0, 0.0], [0.0, 0.0, 1.0]]]  # 90 degrees about z
+                degeneracy_matrices = \
+                    np.array([identity_matrix,
+                              [[0.0, -1.0, 0.0], [1.0, 0.0, 0.0], [0.0, 0.0, 1.0]]])  # 90 deg about z
 
-            degeneracies.append(np.array(degeneracy_matrices) if degeneracy_matrices is not None else None)
+            if degeneracy_matrices is None:  # No degeneracies, use the identity
+                degeneracy_matrices = identity_matrix[None, :, :]  # expand to shape (1, 3, 3)
 
-        return degeneracies
+            self._degeneracy_matrices.append(degeneracy_matrices)
 
     def get_optimal_external_tx_vector(self, optimal_ext_dof_shifts: np.ndarray, group_number: int = 1) -> np.ndarray:
         """From the DOF and the computed shifts, return the translation vector
@@ -833,7 +847,7 @@ def get_optimal_external_tx_vector(ref_frame_tx_dof, optimal_ext_dof_shifts):
     return optimal_external_tx_vector.tolist()
 
 
-def get_rot_matrices(step_deg: float, axis: str = 'z', rot_range_deg: int = 360) -> np.ndarray | None:
+def get_rot_matrices(step_deg: int | float, axis: str = 'z', rot_range_deg: int | float = 360) -> np.ndarray | None:
     """Return a group of rotation matrices to rotate coordinates about a specified axis in set step increments
 
     Args:
@@ -844,8 +858,9 @@ def get_rot_matrices(step_deg: float, axis: str = 'z', rot_range_deg: int = 360)
         The rotation matrices with shape (rotations, 3, 3)
     """
     if rot_range_deg == 0:
-        return
+        return None
 
+    # Todo use scipy.Rotation to create these!
     rot_matrices = []
     axis = axis.lower()
     if axis == 'x':
@@ -868,7 +883,7 @@ def get_rot_matrices(step_deg: float, axis: str = 'z', rot_range_deg: int = 360)
 
 def make_rotations_degenerate(rotations: np.ndarray | list[np.ndarray] | list[list[list[float]]] = None,
                               degeneracies: np.ndarray | list[np.ndarray] | list[list[list[float]]] = None) \
-        -> list[np.ndarray]:
+        -> np.ndarray:
     """From a set of degeneracy matrices and a set of rotation matrices, produce the complete combination of the
     specified transformations
 
@@ -876,41 +891,30 @@ def make_rotations_degenerate(rotations: np.ndarray | list[np.ndarray] | list[li
         rotations: A group of rotations with shape (rotations, 3, 3)
         degeneracies: A group of degeneracies with shape (degeneracies, 3, 3)
     Returns:
-        The resulting matrices from the combination of degeneracies and rotations.
-            The first matrix will always be the identity matrix
+        The matrices resulting from the multiplication of each rotation by each degeneracy.
+            Product has length = (rotations x degeneracies, 3, 3) where the first 3x3 array on axis 0 is the identity
     """
     if rotations is None:
-        rotations = identity_matrix[None, :, :]
+        rotations = identity_matrix[None, :, :]  # expand to shape (1, 3, 3)
     elif np.all(rotations[0] == identity_matrix):
         pass  # This is correct
     else:
         logger.warning(f'{make_rotations_degenerate.__name__}: The argument "rotations" is missing an identity '
-                       'matrix which is recommended to produce the correct matrices. Adding now.')
+                       'matrix which is recommended to produce the correct matrices. Adding now')
         #                'Ensure you add this matrix to your degeneracies before calling')
         rotations = [identity_matrix] + list(rotations)
 
     if degeneracies is None:
-        degeneracies = identity_matrix[None, :, :]  # [identity_matrix]  # Todo test, identity_matrix[None, :, :]
+        degeneracies = identity_matrix[None, :, :]  # expand to shape (1, 3, 3)
     elif np.all(degeneracies[0] == identity_matrix):
         pass  # This is correct
     else:
         logger.warning(f'{make_rotations_degenerate.__name__}: The argument "degeneracies" is missing an identity '
-                       'matrix which is recommended to produce the correct matrices. Adding now.')
+                       'matrix which is recommended to produce the correct matrices. Adding now')
         #                'Ensure you add this matrix to your degeneracies before calling')
         degeneracies = [identity_matrix] + list(degeneracies)
 
-    # if rotations is not None and degeneracies is not None:
-    return [np.matmul(rotations, degen_mat) for degen_mat in degeneracies]  # = deg_rot
-    # Todo np.concatenate() to remove double iteration of return lists
-
-    # elif rotations is not None and degeneracies is None:
-    #     return [rotations]  # Todo rotations[None, :, :, :] # UNNECESSARY
-
-    # elif rotations is None and degeneracies is not None:  # is this ever true? list addition seems wrong
-    #     return [[identity_matrix]] + [[degen_mat] for degen_mat in degeneracies]  # Todo np.concatenate()
-
-    # elif rotations is None and degeneracies is None:
-    #     return [rotations]  # Todo rotations[None, :, :, :] # UNNECESSARY
+    return np.concatenate([np.matmul(rotations, degen_mat) for degen_mat in degeneracies])
 
 
 def parse_uc_str_to_tuples(uc_string):

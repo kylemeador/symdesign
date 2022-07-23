@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import ast
 import copy
 import math
@@ -263,8 +265,9 @@ def rand_perturb(pdb1_path, pdb2_path, set_matrix1, set_matrix2, rot_degen_matri
         logfile.close()
 
 
-def sample_rot_tx_dof_coords(pdb, rot_step_deg=1, rot_range_deg=0, tx_step=1, start_tx_range=0, end_tx_range=0, axis="z", rotational_setting_matrix=None, degeneracy=None):
-    def get_rot_matrices(step_deg: int, axis: str = 'z', rot_range_deg: int = 360) -> Optional[np.ndarray]:
+def sample_rot_tx_dof_coords(pdb, rot_step_deg=1, rot_range_deg=0, tx_step=1, start_tx_range=0, end_tx_range=0,
+                             axis="z", rotational_setting_matrix=None, degeneracy=None):
+    def get_rot_matrices(step_deg: int | float, axis: str = 'z', rot_range_deg: int | float = 360) -> np.ndarray | None:
         """Return a group of rotation matrices to rotate coordinates about a specified axis in set step increments
 
         Args:
