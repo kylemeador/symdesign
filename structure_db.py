@@ -231,12 +231,17 @@ class StructureDatabase(Database):
                 structure_identifiers_ = []
                 for file in structure_identifiers:
                     model = Pose.Model.from_file(file)
-                    model.write()
-                    # Write out ASU file for the oriented_asu database
-                    structure_identifiers_.append(model.write(out_path=self.oriented_asu.path_to(name=model.name)))
-                    # save Stride results
-                    for entity in model.entities:
-                        entity.stride(to_file=self.stride.path_to(name=entity.name))
+                    model.write(out_path=self.oriented.path_to(name=model.name))
+                    # Write out each Entity in Model to ASU file for the oriented_asu database
+                    model.file_path(out_path=self.oriented_asu.path_to(name=model.name))
+                    with open(model.file_path, 'w') as f:
+                        model.write_header(f)
+                        for entity in model.entities:
+                            # write each Entity to asu
+                            entity.write(file_handle=f)
+                            # save Stride results
+                            entity.stride(to_file=self.stride.path_to(name=entity.name))
+                    structure_identifiers_.append(model.name)
                 structure_identifiers = structure_identifiers_
             else:
                 type_ = 'IDs'
@@ -257,7 +262,7 @@ class StructureDatabase(Database):
                 # Pose already sets a symmetry and file_path upon constriction, so we don't need to set
                 # pose.symmetry = symmetry
                 # oriented_pose.file_path = oriented_pose.file_path
-                all_structures.append(pose)
+                all_structures.append(pose.assembly)
             elif structure_identifier in orient_names:  # orient file exists, load asu, save and create stride
                 orient_file = self.oriented.retrieve_file(name=structure_identifier)
                 pose = Pose.Pose.from_file(orient_file, name=structure_identifier, sym_entry=sym_entry)
@@ -269,7 +274,7 @@ class StructureDatabase(Database):
                 # save Stride results
                 for entity in pose.entities:
                     entity.stride(to_file=self.stride.path_to(name=entity.name))
-                all_structures.append(pose)  # entry_entity,
+                all_structures.append(pose.assembly)  # entry_entity,
             # Use entry_entity only if not processed before
             else:  # they are missing, retrieve the proper files using PDB ID's
                 entry = structure_identifier.split('_')
