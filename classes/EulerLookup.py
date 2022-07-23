@@ -12,15 +12,16 @@ logger = start_log(name=__name__)
 
 # @jitclass
 class EulerLookup:
-    def __init__(self, scale=3.0):
+    def __init__(self, scale: float = 3.):
         self.eul_lookup_40 = np.load(binary_lookup_table_path)['a']  # 6-d bool array [[[[[[True, False, ...], ...]]]]]
         self.scale = scale
 
     @staticmethod
     # @njit
-    def get_eulerint10_from_rot_vector(v1_a, v2_a, v3_a):
-        """Convert rotation matrix to euler angles in the form of an integer triplet (integer values are degrees
-        divided by 10; these become indices for a lookup table)
+    def get_eulerint10_from_rot_vector(self, v1_a: np.ndarray, v2_a: np.ndarray, v3_a: np.ndarray) -> \
+            tuple[np.ndarray, np.ndarray, np.ndarray]:
+        """Convert stacked rotation matrices to euler angles in the form of an integer triplet
+        (integer values are degrees divided by 10) These become indices for a lookup table
         """
         tolerance = 1.e-6
         one_tolerance = 1. - tolerance
@@ -30,21 +31,21 @@ class EulerLookup:
         v3_a2 = np.minimum(1, v3_a2)
 
         # for the np.where statements below use the vector conditional
-        third_angle_degenerate = np.logical_or(v3_a2 > one_tolerance, v3_a2 < -one_tolerance)
+        third_angle_degenerate = np.logical_or(v3_a2 > self.one_tolerance, v3_a2 < -self.one_tolerance)
 
         e1_v = np.where(third_angle_degenerate, np.arctan2(v2_a[:, 0], v1_a[:, 0]), np.arctan2(v1_a[:, 2], -v2_a[:, 2]))
-        e2_v = np.where(~third_angle_degenerate, np.arccos(v3_a2), 0)
-        e2_v = np.where(v3_a2 < -one_tolerance, np.pi, e2_v)
+        # e2_v = np.where(~third_angle_degenerate, np.arccos(v3_a2), 0)
+        e2_v = np.where(v3_a2 < -self.one_tolerance, np.pi, np.where(~third_angle_degenerate, np.arccos(v3_a2), 0))
         e3_v = np.where(~third_angle_degenerate, np.arctan2(v3_a[:, 0], v3_a[:, 1]), 0)
 
-        eulint1 = ((np.rint(e1_v * 180. / np.pi * 0.1 * 0.999999) + 36) % 36).astype(int)
-        eulint2 = np.rint(e2_v * 180. / np.pi * 0.1 * 0.999999).astype(int)
-        eulint3 = ((np.rint(e3_v * 180. / np.pi * 0.1 * 0.999999) + 36) % 36).astype(int)
+        eulint1 = ((np.rint(e1_v * self.eulint_divisor) + 36) % 36).astype(int)
+        eulint2 = np.rint(e2_v * self.eulint_divisor).astype(int)
+        eulint3 = ((np.rint(e3_v * self.eulint_divisor) + 36) % 36).astype(int)
 
         return eulint1, eulint2, eulint3
 
     # @njit
-    def get_eulint_from_guides(self, guide_ats):
+    def get_eulint_from_guides(self, guide_coords: np.ndarray):
         """Take a set of guide atoms (3 xyz positions) and return integer indices for the euler angles describing the
         orientations of the axes they form. Note that the positions are in a 3D array. Each guide_ats[i,:,:] is a 3x3
         array with the vectors stored *in columns*, i.e. one vector is in [i,:,j]. Use known scale value to normalize,
@@ -59,7 +60,7 @@ class EulerLookup:
         return self.get_eulerint10_from_rot_vector(v1_a, v2_a, v3_a)
 
     # @njit
-    def check_lookup_table(self, guide_coords1, guide_coords2):
+    def check_lookup_table(self, guide_coords1: np.ndarray, guide_coords2: np.ndarray):
         """Returns a tuple with the index of the first fragment and second fragment where they overlap
         """
         # ensure the atoms are passed as an array of 3x3 matrices
