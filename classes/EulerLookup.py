@@ -13,54 +13,86 @@ logger = start_log(name=__name__)
 # @jitclass
 class EulerLookup:
     def __init__(self, scale: float = 3.):
-        self.eul_lookup_40 = np.load(binary_lookup_table_path)['a']  # 6-d bool array [[[[[[True, False, ...], ...]]]]]
+        # 6-d bool array [[[[[[True, False, ...], ...]]]]] with shape (37, 19, 37, 37, 19, 37)
+        self.eul_lookup_40 = np.load(binary_lookup_table_path)['a']
         self.indices_lens = [0, 0]
-        self.scale = scale
-        self.normalization = 1. / self.scale
+        # self.scale = scale
+        self.normalization = 1. / scale
         self.one_tolerance = 1. - 1.e-6
         self.eulint_divisor = 180. / np.pi * 0.1 * self.one_tolerance
 
-    # @staticmethod
-    # @njit
-    def get_eulerint10_from_rot_vector(self, v1_a: np.ndarray, v2_a: np.ndarray, v3_a: np.ndarray) -> \
-            tuple[np.ndarray, np.ndarray, np.ndarray]:
-        """Convert stacked rotation matrices to euler angles in the form of an integer triplet
-        (integer values are degrees divided by 10) These become indices for a lookup table
-        """
-        # tolerance = 1.e-6
-        # self.one_tolerance = 1. - 1.e-6
-        # set maximum at 1 and minimum at -1 to obey the domain of arccos
-        # v3_a2 = v3_a[:, 2]
-        v3_a2 = np.maximum(-1, v3_a[:, 2])
-        v3_a2 = np.minimum(1, v3_a2)
-
-        # for the np.where statements below use the vector conditional
-        third_angle_degenerate = np.logical_or(v3_a2 > self.one_tolerance, v3_a2 < -self.one_tolerance)
-
-        e1_v = np.where(third_angle_degenerate, np.arctan2(v2_a[:, 0], v1_a[:, 0]), np.arctan2(v1_a[:, 2], -v2_a[:, 2]))
-        # e2_v = np.where(~third_angle_degenerate, np.arccos(v3_a2), 0)
-        e2_v = np.where(v3_a2 < -self.one_tolerance, np.pi, np.where(~third_angle_degenerate, np.arccos(v3_a2), 0))
-        e3_v = np.where(~third_angle_degenerate, np.arctan2(v3_a[:, 0], v3_a[:, 1]), 0)
-
-        eulint1 = ((np.rint(e1_v * self.eulint_divisor) + 36) % 36).astype(int)
-        eulint2 = np.rint(e2_v * self.eulint_divisor).astype(int)
-        eulint3 = ((np.rint(e3_v * self.eulint_divisor) + 36) % 36).astype(int)
-
-        return eulint1, eulint2, eulint3
-
-    # @njit
     def get_eulint_from_guides(self, guide_coords: np.ndarray):
         """Take a set of guide atoms (3 xyz positions) and return integer indices for the euler angles describing the
         orientations of the axes they form. Note that the positions are in a 3D array. Each guide_ats[i,:,:] is a 3x3
         array with the vectors stored *in columns*, i.e. one vector is in [i,:,j]. Use known scale value to normalize,
         to save repeated sqrt calculations
         """
-        # for fast array multiplication
-        v1_a = (guide_coords[:, 1, :] - guide_coords[:, 0, :]) * self.normalization
-        v2_a = (guide_coords[:, 2, :] - guide_coords[:, 0, :]) * self.normalization
-        # v3_a = np.cross(v1_a, v2_a)
+        # subtract the local reference origin (axis 1, index 0) from the z and y components then normalize
+        guide_coords[:, 1:, :] = (guide_coords[:, 1:, :] - guide_coords[:, :1, :]) * self.normalization
+        # v1_a = (guide_coords[:, 1, :] - guide_coords[:, 0, :]) * self.normalization
+        # v2_a = (guide_coords[:, 2, :] - guide_coords[:, 0, :]) * self.normalization
+        # cross_v3 = np.cross(v1_a, v2_a)
+    #     return self.get_eulerint10_from_rot_vector(v1_a, v2_a, np.cross(v1_a, v2_a))
+        cross_v3 = np.cross(guide_coords[:, 1, :], guide_coords[:, 2, :])
+    # # @staticmethod
+    # # @njit
+    # def get_eulerint10_from_rot_vector(self, v1_a: np.ndarray, v2_a: np.ndarray, cross_v3: np.ndarray) -> \
+    #         tuple[np.ndarray, np.ndarray, np.ndarray]:
+    #     """Convert stacked rotation matrices to euler angles in the form of an integer triplet
+    #     (integer values are degrees divided by 10) These become indices for a lookup table
+    #
+    #     Args:
+    #         v1_a: An array of vectors containing the first vector which is orthogonal to v2_a (canonically on x)
+    #         v2_a: An array of vectors containing the second vector which is orthogonal to v1_a (canonically on y)
+    #         cross_v3: An array of vectors containing the third vector which is the cross of v1_a and v2_a
+    #     Returns:
+    #         The tuple of vectors comprising the resulting Euler integers for each
+    #     """
+        # tolerance = 1.e-6
+        # one_tolerance = 1. - 1.e-6
+        # set maximum at 1 and minimum at -1 to obey the domain of arccos
+        # v3_a2 = cross_v3[:, 2]
+        cross_v3[:, 2] = np.minimum(1, np.maximum(-1, cross_v3[:, 2]))
 
-        return self.get_eulerint10_from_rot_vector(v1_a, v2_a, np.cross(v1_a, v2_a))
+        # Check if the z component of the cross product vector is close to 1 or -1 making it degenerate
+        # for the np.where statements below use the vector conditional
+        third_angle_not_degenerate = np.abs(cross_v3[:, 2]) < self.one_tolerance
+
+        # arctan2 returns values in the range of [-pi to pi]
+        e1_v = np.where(~third_angle_not_degenerate,
+                        np.arctan2(guide_coords[:, 2, 0], guide_coords[:, 1, 0]),
+                        # np.arctan2(v2_a[:, 0], v1_a[:, 0]),
+                        np.arctan2(guide_coords[:, 1, 2], -guide_coords[:, 2, 2]))
+                        # np.arctan2(v1_a[:, 2], -v2_a[:, 2]))
+        # e2_v = np.where(~third_angle_degenerate, np.arccos(v3_a2), 0)
+        # arccos returns values in the range of [0 to pi]
+        e2_v = np.where(cross_v3[:, 2] < -self.one_tolerance,
+                        np.pi,
+                        np.where(third_angle_not_degenerate, np.arccos(cross_v3[:, 2]), 0))
+        e3_v = np.where(third_angle_not_degenerate, np.arctan2(cross_v3[:, 0], cross_v3[:, 1]), 0)
+
+        # Add 0.5 as a workaround for doing np.rint(). All e1/2/3_v are positive
+        eulint1 = ((np.rint(e1_v*self.eulint_divisor) + 36) % 36).astype(int)
+        eulint2 = np.rint(e2_v*self.eulint_divisor).astype(int)
+        # Values in range (-18 to 18) (not inclusive) v. Then add 36 and divide by 36 to get the abs
+        eulint3 = ((np.rint(e3_v*self.eulint_divisor) + 36) % 36).astype(int)
+
+        return eulint1, eulint2, eulint3
+
+    # # @njit
+    # def get_eulint_from_guides(self, guide_coords: np.ndarray):
+    #     """Take a set of guide atoms (3 xyz positions) and return integer indices for the euler angles describing the
+    #     orientations of the axes they form. Note that the positions are in a 3D array. Each guide_ats[i,:,:] is a 3x3
+    #     array with the vectors stored *in columns*, i.e. one vector is in [i,:,j]. Use known scale value to normalize,
+    #     to save repeated sqrt calculations
+    #     """
+    #     # subtract the local reference origin (axis 1, index 0) from the z and y components then normalize
+    #     guide_coords[:, 1:, :] = (guide_coords[:, 1:, :] - guide_coords[:, :1, :]) * self.normalization
+    #     # v1_a = (guide_coords[:, 1, :] - guide_coords[:, 0, :]) * self.normalization
+    #     # v2_a = (guide_coords[:, 2, :] - guide_coords[:, 0, :]) * self.normalization
+    #     # v3_a = np.cross(v1_a, v2_a)
+    #
+    #     return self.get_eulerint10_from_rot_vector(v1_a, v2_a, np.cross(v1_a, v2_a))
 
     # @njit
     def check_lookup_table(self, guide_coords1: np.ndarray, guide_coords2: np.ndarray):
