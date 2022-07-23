@@ -1216,8 +1216,8 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
     clash_vect = [clash_dist]
     # Start with the assumption that all tested clashes are clashing
     asu_clash_counts = np.ones(number_of_dense_transforms)
-    tiled_coords2 = np.tile(bb_cb_coords2, (chunk_size, 1, 1))
-    for chunk in range(number_of_chunks):
+    tiled_coords2 = np.tile(bb_cb_coords2, (int(chunk_size), 1, 1))
+    for chunk in range(int(number_of_chunks)):
         # Find the upper slice limiting it at a maximum of number_of_dense_transforms
         # upper = (chunk + 1) * chunk_size if chunk + 1 != number_of_chunks else number_of_dense_transforms
         # chunk_slice = slice(chunk * chunk_size, upper)
