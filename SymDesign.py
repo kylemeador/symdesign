@@ -27,7 +27,7 @@ from Bio.SeqRecord import SeqRecord
 
 import PathUtils as PUtils
 import SymDesignUtils as SDUtils
-from ClusterUtils import cluster_designs, invert_cluster_map, group_compositions, ialign, cluster_poses
+from ClusterUtils import cluster_designs, invert_cluster_map, group_compositions, ialign, cluster_poses, pose_pair_rmsd
 from CommandDistributer import distribute, hhblits_memory_threshold, update_status
 from DesignMetrics import prioritize_design_indices, query_user_for_metrics
 from DnaChisel.dnachisel.DnaOptimizationProblem.NoSolutionError import NoSolutionError
@@ -1297,6 +1297,27 @@ if __name__ == '__main__':
         else:
             for design_dir in pose_directories:
                 results.append(design_dir.find_asu())
+
+        terminate(results=results)
+    # ---------------------------------------------------
+    elif args.module == 'find_transforms':
+        # if args.multi_processing:
+        #     results = SDUtils.mp_map(PoseDirectory.find_transforms, pose_directories, processes=cores)
+        # else:
+        stacked_transforms = [pose_directory.pose_transformation for pose_directory in pose_directories]
+        trans1_rot1, trans1_tx1, trans1_rot2, trans1_tx2 = zip(*[transform[0].values()
+                                                                 for transform in stacked_transforms])
+        trans2_rot1, trans2_tx1, trans2_rot2, trans2_tx2 = zip(*[transform[1].values()
+                                                                 for transform in stacked_transforms])
+        # Create the full dictionaries
+        transformation1 = dict(rotation=trans1_rot1, translation=trans1_tx1,
+                               rotation2=trans1_rot2, translation2=trans1_tx2)
+        transformation2 = dict(rotation=trans2_rot1, translation=trans2_tx1,
+                               rotation2=trans2_rot2, translation2=trans2_tx2)
+        file1 = SDUtils.pickle_object(transformation1, name='transformations1', out_path=os.getcwd())
+        file2 = SDUtils.pickle_object(transformation2, name='transformations2', out_path=os.getcwd())
+        logger.info(f'Wrote transformation1 parameters to {file1}')
+        logger.info(f'Wrote transformation2 parameters to {file2}')
 
         terminate(results=results)
     # ---------------------------------------------------
