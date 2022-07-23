@@ -21,7 +21,7 @@ class EulerLookup:
         self.one_tolerance = 1. - 1.e-6
         self.eulint_divisor = 180. / np.pi * 0.1 * self.one_tolerance
 
-    def get_eulint_from_guides(self, guide_coords: np.ndarray):
+    def get_eulint_from_guides(self, guide_coords: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
         """Take a set of guide atoms (3 xyz positions) and return integer indices for the euler angles describing the
         orientations of the axes they form. Note that the positions are in a 3D array. Each guide_ats[i,:,:] is a 3x3
         array with the vectors stored *in columns*, i.e. one vector is in [i,:,j]. Use known scale value to normalize,
@@ -36,6 +36,7 @@ class EulerLookup:
         cross = np.cross(v1_a, v2_a)
         cross_v3 = np.cross(guide_coords[:, 1, :], guide_coords[:, 2, :])
         print('cross', np.all(cross == cross_v3))
+        print('v1_a = guide_coords[:, 1, 2]', np.all(v1_a[:, 2] == guide_coords[:, 1, 2]))
     # # @staticmethod
     # # @njit
     # def get_eulerint10_from_rot_vector(self, v1_a: np.ndarray, v2_a: np.ndarray, cross_v3: np.ndarray) -> \
@@ -54,7 +55,12 @@ class EulerLookup:
         # one_tolerance = 1. - 1.e-6
         # set maximum at 1 and minimum at -1 to obey the domain of arccos
         # v3_a2 = cross_v3[:, 2]
+        cross_v3a = np.maximum(-1, cross_v3[:, 2])
+        cross_v3a = np.minimum(1, cross_v3a)
+
         cross_v3[:, 2] = np.minimum(1, np.maximum(-1, cross_v3[:, 2]))
+        print('cross_v3[:, 2] min max equallity', np.all(cross_v3[:, 2] == cross_v3a))
+
 
         # Check if the z component of the cross product vector is close to 1 or -1 making it degenerate
         # for the np.where statements below use the vector conditional
