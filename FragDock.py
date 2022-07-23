@@ -809,10 +809,14 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
                                                                         getattr(sym_entry, f'rotation_range{idx}')
                                                                         ),
                                                        degeneracy_matrices)
-        log.debug(f'Rotation shape for component {idx}: {rot_degen_matrices.shape}')
+        log.debug(f'Degeneracy shape for component {idx}: {degeneracy_matrices.shape}')
+        log.debug(f'Combined rotation shape for component {idx}: {rot_degen_matrices.shape}')
         number_of_degens.append(degeneracy_matrices.shape[0])
-        number_of_rotations.append(rot_degen_matrices.shape[0] % number_of_degens[idx-1])
+        # log.debug(f'Rotation shape for component {idx}: {rot_degen_matrices.shape}')
+        number_of_rotations.append(rot_degen_matrices.shape[0] % degeneracy_matrices.shape[0])
         rotation_matrices.append(rot_degen_matrices)
+    print('number_of_degens', number_of_degens)
+    print('number_of_rotations', number_of_rotations)
 
     set_mat1, set_mat2 = sym_entry.setting_matrix1, sym_entry.setting_matrix2
     # find superposition matrices to rotate setting matrix1 to setting matrix2 and vise versa
