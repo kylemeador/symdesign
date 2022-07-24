@@ -177,7 +177,7 @@ def transform_coordinate_sets(coord_sets: np.ndarray,
     if translation2 is not None:
         new_coord_sets += translation2
 
-    return coord_sets
+    return new_coord_sets
 
 
 def get_last_sampling_state(log_file_path, zero=True):
