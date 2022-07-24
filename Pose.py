@@ -2523,11 +2523,16 @@ class SymmetricModel(Models):
         else:  # try to convert
             self._sym_entry = symmetry_factory.get(sym_entry)
 
-        del self._symmetry
-        del self._point_group_symmetry
-        del self._dimension
-        del self._cryst_record
-        del self._number_of_symmetry_mates
+        symmetry_state = ['_symmetry',
+                          '_point_group_symmetry',
+                          '_dimension',
+                          '_cryst_record',
+                          '_number_of_symmetry_mates']
+        for attribute in symmetry_state:
+            try:
+                delattr(self, attribute)
+            except AttributeError:
+                continue
 
     @property
     def symmetry(self) -> str | None:
