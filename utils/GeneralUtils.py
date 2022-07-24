@@ -93,7 +93,7 @@ def transform_coordinate_sets_with_broadcast(coord_sets: np.ndarray,
     return coord_sets
 
 
-def transform_coordinate_sets(coord_sets: np.ndarray,
+def transform_coordinate_setsWORKED(coord_sets: np.ndarray,
                               rotation: np.ndarray = None,
                               translation: np.ndarray | Iterable | int | float = None,
                               rotation2: np.ndarray = None,
@@ -170,7 +170,8 @@ def transform_coordinate_sets(coord_sets: np.ndarray,
         new_coord_sets += translation  # No array allocation, sets in place
 
     if rotation2 is not None:
-        np.matmul(new_coord_sets, rotation2.swapaxes(-2, -1), out=new_coord_sets)
+        # np.matmul(new_coord_sets, rotation2.swapaxes(-2, -1), out=new_coord_sets)
+        new_coord_sets[:] = np.matmul(new_coord_sets, rotation2.swapaxes(-2, -1))
 
     if translation2 is not None:
         new_coord_sets += translation2
