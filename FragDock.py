@@ -481,6 +481,8 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
         # Make, then save a new model based on the symmetric version of each Entity in the Model
         models[idx] = Model.from_chains([chain for entity in model.entities for chain in entity.chains],
                                         name=model.name, pose_format=True)
+        models[idx].file_path = model.file_path
+
     model1, model2 = models
     # Set up output mechanism
     if isinstance(master_output, str) and not write_frags:  # we just want to write, so don't make a directory
