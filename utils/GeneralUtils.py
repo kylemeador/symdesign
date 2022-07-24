@@ -170,9 +170,9 @@ def transform_coordinate_sets(coord_sets: np.ndarray,
         new_coord_sets += translation  # No array allocation, sets in place
 
     if rotation2 is not None:
-        # np.matmul(new_coord_sets, rotation2.swapaxes(-2, -1), out=new_coord_sets)
+        np.matmul(new_coord_sets, rotation2.swapaxes(-2, -1), out=new_coord_sets)
         # new_coord_sets[:] = np.matmul(new_coord_sets, rotation2.swapaxes(-2, -1))
-        new_coord_sets = np.matmul(new_coord_sets, rotation2.swapaxes(-2, -1))
+        # new_coord_sets = np.matmul(new_coord_sets, rotation2.swapaxes(-2, -1))
 
     if translation2 is not None:
         new_coord_sets += translation2
