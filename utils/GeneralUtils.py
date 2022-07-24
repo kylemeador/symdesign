@@ -33,23 +33,25 @@ def transform_coordinates(coords: np.ndarray | Iterable, rotation: np.ndarray | 
     Returns:
         The transformed coordinate set with the same shape as the original
     """
+    new_coords = coords.copy()
+
     if rotation is not None:
-        np.matmul(coords, np.transpose(rotation), out=coords)
+        np.matmul(new_coords, np.transpose(rotation), out=new_coords)
 
     if translation is not None:
-        np.add(coords, translation, out=coords)
+        new_coords += translation  # No array allocation, sets in place
 
     if rotation2 is not None:
-        np.matmul(coords, np.transpose(rotation2), out=coords)
+        np.matmul(new_coords, np.transpose(rotation2), out=new_coords)
 
     if translation2 is not None:
-        np.add(coords, translation2, out=coords)
+        new_coords += translation2
 
     return coords
 
 
 # @njit
-def transform_coordinate_sets(coord_sets: np.ndarray | Iterable,
+def transform_coordinate_sets(coord_sets: np.ndarray,
                               rotation: np.ndarray = None, translation: np.ndarray | Iterable | int | float = None,
                               rotation2: np.ndarray = None, translation2: np.ndarray | Iterable | int | float = None) \
         -> np.ndarray:
@@ -68,21 +70,23 @@ def transform_coordinate_sets(coord_sets: np.ndarray | Iterable,
     # in general, the np.tensordot module accomplishes this coordinate set multiplication without stacking
     # np.tensordot(a, b, axes=1)  <-- axes=1 performs the correct multiplication with a 3d (3,3,N) by 2d (3,3) matrix
     # np.matmul solves as well due to broadcasting
-    set_length = getattr(coord_sets, 'shape', None)
-    if set_length is None or set_length[0] < 1:
+    set_shape = getattr(coord_sets, 'shape', None)
+    if set_shape is None or set_shape[0] < 1:
         return coord_sets
+    else:  # Create a new array for the result
+        new_coord_sets = coord_sets.copy()
 
     if rotation is not None:
-        np.matmul(coord_sets, rotation.swapaxes(-2, -1), out=coord_sets)
+        np.matmul(new_coord_sets, rotation.swapaxes(-2, -1), out=new_coord_sets)
 
     if translation is not None:
-        np.add(coord_sets, translation, out=coord_sets)
+        new_coord_sets += translation  # No array allocation, sets in place
 
     if rotation2 is not None:
-        np.matmul(coord_sets, rotation2.swapaxes(-2, -1), out=coord_sets)
+        np.matmul(new_coord_sets, rotation2.swapaxes(-2, -1), out=new_coord_sets)
 
     if translation2 is not None:
-        np.add(coord_sets, translation2, out=coord_sets)
+        new_coord_sets += translation2
 
     return coord_sets
 
