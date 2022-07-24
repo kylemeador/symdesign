@@ -221,6 +221,29 @@ class EulerLookup:
         return eulint1, eulint2, eulint3
 
     # @njit
+    def lookup_by_euler_integers(self, eulintarray1: np.ndarray, eulintarray2: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+        """Returns a tuple with the index of the first fragment and second fragment where they overlap
+        """
+        indices1_len, indices2_len = eulintarray1.shape[0], eulintarray2.shape[0]
+
+        index_array1 = np.repeat(np.arange(indices1_len), indices2_len)
+        index_array2 = np.tile(np.arange(indices2_len), indices1_len)
+
+        # Construct the correctly sized arrays to lookup euler space matching pairs from the all to all guide_coords
+        # there may be some solution where numpy.meshgrid is used to broadcast the euler ints
+        stacked_eulintarray1 = np.tile(eulintarray1, (indices2_len, 1))
+        stacked_eulintarray2 = np.tile(eulintarray2, (indices1_len, 1))
+        # check lookup table
+        overlap = self.eul_lookup_40[stacked_eulintarray1[:, 0],
+                                     stacked_eulintarray1[:, 1],
+                                     stacked_eulintarray1[:, 2],
+                                     stacked_eulintarray2[:, 0],
+                                     stacked_eulintarray2[:, 1],
+                                     stacked_eulintarray2[:, 2]]
+        # there may be some solution where numpy.ix_ is used to broadcast the index operation
+
+        return index_array1[overlap], index_array2[overlap]  # these are the overlapping ij pairs
+
     def check_lookup_table(self, guide_coords1: np.ndarray, guide_coords2: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
         """Returns a tuple with the index of the first fragment and second fragment where they overlap
         """
@@ -245,15 +268,19 @@ class EulerLookup:
         index_array2 = np.tile(np.arange(indices2_len), indices1_len)
 
         # Construct the correctly sized arrays to lookup euler space matching pairs from the all to all guide_coords
-        eulintarray1_1_r = np.repeat(eulintarray1_1, indices2_len)
-        eulintarray1_2_r = np.repeat(eulintarray1_2, indices2_len)
-        eulintarray1_3_r = np.repeat(eulintarray1_3, indices2_len)
-        eulintarray2_1_r = np.tile(eulintarray2_1, indices1_len)
-        eulintarray2_2_r = np.tile(eulintarray2_2, indices1_len)
-        eulintarray2_3_r = np.tile(eulintarray2_3, indices1_len)
+        # eulintarray1_1_r = np.repeat(eulintarray1_1, indices2_len)
+        # eulintarray1_2_r = np.repeat(eulintarray1_2, indices2_len)
+        # eulintarray1_3_r = np.repeat(eulintarray1_3, indices2_len)
+        # eulintarray2_1_r = np.tile(eulintarray2_1, indices1_len)
+        # eulintarray2_2_r = np.tile(eulintarray2_2, indices1_len)
+        # eulintarray2_3_r = np.tile(eulintarray2_3, indices1_len)
         # check lookup table
-        overlap = self.eul_lookup_40[eulintarray1_1_r, eulintarray1_2_r, eulintarray1_3_r,
-                                     eulintarray2_1_r, eulintarray2_2_r, eulintarray2_3_r]
+        overlap = self.eul_lookup_40[np.repeat(eulintarray1_1, indices2_len),
+                                     np.repeat(eulintarray1_2, indices2_len),
+                                     np.repeat(eulintarray1_3, indices2_len),
+                                     np.tile(eulintarray2_1, indices1_len),
+                                     np.tile(eulintarray2_2, indices1_len),
+                                     np.tile(eulintarray2_3, indices1_len)]
 
         return index_array1[overlap], index_array2[overlap]  # these are the overlapping ij pairs
 
