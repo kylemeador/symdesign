@@ -177,13 +177,13 @@ class EulerLookup:
         v2_a: An array of vectors containing the second vector which is orthogonal to v1_a (canonically on y)
         v3_a: An array of vectors containing the third vector which is the cross product of v1_a and v2_a
         """
-        v1_a = (guide_coords[:, 1, :] - guide_coords[:, 0, :]) * self.normalization
-        v2_a = (guide_coords[:, 2, :] - guide_coords[:, 0, :]) * self.normalization
+        # v1_a = (guide_coords[:, 1, :] - guide_coords[:, 0, :]) * self.normalization
+        # v2_a = (guide_coords[:, 2, :] - guide_coords[:, 0, :]) * self.normalization
         guide_coords[:, 1:, :] = (guide_coords[:, 1:, :] - guide_coords[:, :1, :]) * self.normalization
-        v1_a_ = guide_coords[:, 1, :]
-        v2_a_ = guide_coords[:, 2, :]
-        print('v1_a equallity', np.all(v1_a_ == v1_a))
-        print('v2_a equallity', np.all(v2_a_ == v2_a))
+        v1_a = guide_coords[:, 1, :]
+        v2_a = guide_coords[:, 2, :]
+        # print('v1_a equallity', np.all(v1_a_ == v1_a))
+        # print('v2_a equallity', np.all(v2_a_ == v2_a))
         v3_a = np.cross(v1_a, v2_a)
 
         """Convert rotation matrix to euler angles in the form of an integer triplet (integer values are degrees
@@ -195,8 +195,8 @@ class EulerLookup:
         v3_a2 = np.minimum(1, v3_a2)
 
         # for the np.where statements below use the vector conditional
-        # third_angle_degenerate = np.logical_or(v3_a2 > self.one_tolerance, v3_a2 < -self.one_tolerance)
-        third_angle_degenerate = np.abs(v3_a2) > self.one_tolerance
+        third_angle_degenerate = np.logical_or(v3_a2 > self.one_tolerance, v3_a2 < -self.one_tolerance)
+        # third_angle_degenerate = np.abs(v3_a2) > self.one_tolerance
         # third_angle_not_degenerate = np.abs(cross_v3[:, 2]) < self.one_tolerance  # Todo
 
         e1_v = np.where(third_angle_degenerate, np.arctan2(v2_a[:, 0], v1_a[:, 0]), np.arctan2(v1_a[:, 2], -v2_a[:, 2]))
