@@ -1399,7 +1399,7 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
     model2_cb_indices = model2.cb_indices
     model2_coords_indexed_residues = model2.coords_indexed_residues
     # Get residue number for all model1, model2 CB Pairs that interact within cb_distance
-    for idx in range(len(inverse_transformed_surf_frags2_guide_coords)):
+    for idx in range(inverse_transformed_surf_frags2_guide_coords.shape[0]):
         # query/contact pairs/isin  - 0.028367  <- I predict query is about 0.015
         # indexing guide_coords     - 0.000389
         # total get_int_frags_time  - 0.028756 s
@@ -1439,6 +1439,9 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
         is_in_index_start = time.time()
         # Since *_residue_numbers1/2 are the same index as the complete fragment arrays, these interface indices are the
         # same index as the complete guide coords and rmsds as well
+        # Both residue numbers are one-indexed vv
+        # Todo make ghost_residue_numbers1 unique -> unique_ghost_residue_numbers1
+        #  index selected numbers against per_residue_ghost_indices 2d (number surface frag residues,
         interface_ghost_indices1 = np.flatnonzero(np.in1d(ghost_residue_numbers1, interface_residue_numbers1))
         interface_surf_indices2 = \
             np.flatnonzero(np.in1d(surf_residue_numbers2, interface_residue_numbers2, assume_unique=True))
@@ -1458,11 +1461,7 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
         #                               rotation2=sym_entry.setting_matrix2, translation2=external_tx_params2)
 
         # transforming only surface frags will have large speed gains from not having to transform all ghosts
-        # int_trans_surf_guide_coords2 = inverse_transformed_surf_frags2_guide_coords[idx, interface_surf_indices2]
-        int_trans_surf_guide_coords2_ = inverse_transformed_surf_frags2_guide_coords[idx][interface_surf_indices2]
-        print('Old', int_trans_surf_guide_coords2_[:4])
         int_trans_surf_guide_coords2 = inverse_transformed_surf_frags2_guide_coords[idx, interface_surf_indices2]
-        print('New', int_trans_surf_guide_coords2[:4])
         # NOT crucial ###
         unique_interface_frag_count_model1, unique_interface_frag_count_model2 = \
             len(interface_ghost_indices1), len(interface_surf_indices2)
@@ -1494,17 +1493,24 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
         # Get only euler matching fragment indices that pass ij filter. Then index their associated coords
         passing_ghost_indices = int_euler_matching_ghost_indices1[ij_type_match]
         # passing_ghost_coords = int_trans_ghost_guide_coords[passing_ghost_indices]
-        passing_ghost_coords = int_ghost_guide_coords1[passing_ghost_indices]
-        passing_surf_indices = int_euler_matching_surf_indices2[ij_type_match]
-        passing_surf_coords = int_trans_surf_guide_coords2[passing_surf_indices]
+        # passing_ghost_coords = int_ghost_guide_coords1[passing_ghost_indices]
+        # passing_surf_indices = int_euler_matching_surf_indices2[ij_type_match]
+        # passing_surf_coords = int_trans_surf_guide_coords2[passing_surf_indices]
 
         # reference_rmsds = ghost_rmsds1[interface_ghost_indices1][int_euler_matching_ghost_indices1][ij_type_match]
         # reference_rmsds = ghost_rmsds1[interface_ghost_indices1][passing_ghost_indices]
-        all_fragment_match = calculate_match(passing_ghost_coords, passing_surf_coords,
+        all_fragment_match = calculate_match(int_ghost_guide_coords1[passing_ghost_indices],
+                                             int_trans_surf_guide_coords2[int_euler_matching_surf_indices2[ij_type_match]],
                                              ghost_rmsds1[interface_ghost_indices1][passing_ghost_indices])
-        log.info('\tEuler Lookup took %f s for %d fragment pairs and Overlap Score Calculation took %f s for %d '
-                 'fragment pairs' % (eul_lookup_time, unique_interface_frag_count_model1 * unique_interface_frag_count_model2,
-                                     time.time() - overlap_score_time_start, len(int_euler_matching_ghost_indices1)))
+        log.info(f'\tEuler Lookup took {eul_lookup_time:8f}s for '
+                 f'{unique_interface_frag_count_model1 * unique_interface_frag_count_model2} fragment pairs and '
+                 f'Overlap Score Calculation took {time.time() - overlap_score_time_start:8f}s for '
+                 f'{len(passing_ghost_indices)} succesful ij type matches from a possible '
+                 f'{len(int_euler_matching_ghost_indices1)} fragment pairs')
+        log.debug(f'Found ij_type_match with shape {ij_type_match.shape}')
+        log.debug(f'And Data: {ij_type_match[:3]}')
+        log.debug(f'Found all_fragment_match with shape {all_fragment_match.shape}')
+        log.debug(f'And Data: {all_fragment_match[:3]}')
         # Todo KM thoroughly examined variable typing up to here 7/20/22
         # else:  # this doesn't seem to be as fast from initial tests
         #     # below bypasses euler lookup
@@ -1582,15 +1588,15 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
         #     # pose.write(assembly=True, out_path=assembly_path, header=cryst_record,
         #     #                          surrounding_uc=output_surrounding_uc)
         if high_qual_match_count < min_matched:
-            log.info('\t%d < %d Which is Set as the Minimal Required Amount of High Quality Fragment Matches '
-                     '(took %f s)' % (high_qual_match_count, min_matched, all_fragment_match_time))
+            log.info(f'\t{high_qual_match_count} < {min_matched} Which is Set as the Minimal Required Amount of '
+                     f'High Quality Fragment Matches (took {all_fragment_match_time:8f}s)')
             continue
 
         # Find the passing overlaps to limit the output to only those passing the low_quality_match_value
         passing_overlaps_indices = np.flatnonzero(all_fragment_match >= low_quality_match_value)
         number_passing_overlaps = len(passing_overlaps_indices)
-        log.info('\t%d High Quality Fragments Out of %d Matches Found in Complete Fragment Library (took %f s)' %
-                 (high_qual_match_count, number_passing_overlaps, all_fragment_match_time))
+        log.info(f'\t{high_qual_match_count} High Quality Fragments Out of {number_passing_overlaps} Matches Found in '
+                 f'Complete Fragment Library (took {all_fragment_match_time:8f}s)')
         # except ValueError:
         #     pass
 
