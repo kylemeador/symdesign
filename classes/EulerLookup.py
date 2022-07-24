@@ -191,18 +191,19 @@ class EulerLookup:
         """
         # set maximum at 1 and minimum at -1 to obey the domain of arccos
         # v3_a2 = v3_a[:, 2]
-        v3_a2 = np.maximum(-1, v3_a[:, 2])
-        v3_a2 = np.minimum(1, v3_a2)
+        # v3_a2 = np.maximum(-1, v3_a[:, 2])
+        # v3_a2 = np.minimum(1, v3_a2)
+        v3_a[:, 2] = np.minimum(1, np.maximum(-1, v3_a[:, 2]))
 
         # for the np.where statements below use the vector conditional
-        third_angle_degenerate = np.logical_or(v3_a2 > self.one_tolerance, v3_a2 < -self.one_tolerance)
+        # third_angle_degenerate = np.logical_or(v3_a2 > self.one_tolerance, v3_a2 < -self.one_tolerance)
         # third_angle_degenerate = np.abs(v3_a2) > self.one_tolerance
-        # third_angle_not_degenerate = np.abs(cross_v3[:, 2]) < self.one_tolerance  # Todo
+        third_angle_not_degenerate = np.abs(v3_a[:, 2]) < self.one_tolerance
 
-        e1_v = np.where(third_angle_degenerate, np.arctan2(v2_a[:, 0], v1_a[:, 0]), np.arctan2(v1_a[:, 2], -v2_a[:, 2]))
-        e2_v = np.where(~third_angle_degenerate, np.arccos(v3_a2), 0)
-        e2_v = np.where(v3_a2 < -self.one_tolerance, np.pi, e2_v)
-        e3_v = np.where(~third_angle_degenerate, np.arctan2(v3_a[:, 0], v3_a[:, 1]), 0)
+        e1_v = np.where(~third_angle_not_degenerate, np.arctan2(v2_a[:, 0], v1_a[:, 0]), np.arctan2(v1_a[:, 2], -v2_a[:, 2]))
+        e2_v = np.where(third_angle_not_degenerate, np.arccos(v3_a[:, 2]), 0)
+        e2_v = np.where(v3_a[:, 2] < -self.one_tolerance, np.pi, e2_v)
+        e3_v = np.where(third_angle_not_degenerate, np.arctan2(v3_a[:, 0], v3_a[:, 1]), 0)
 
         eulint1 = ((np.rint(e1_v * self.eulint_divisor) + 36) % 36).astype(int)
         eulint2 = np.rint(e2_v * self.eulint_divisor).astype(int)
