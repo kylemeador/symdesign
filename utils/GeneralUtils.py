@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import os
 from logging import Logger
+from typing import Iterable
 
-import numpy
 import numpy as np
 # from numba import njit
 
@@ -17,28 +17,30 @@ number_of_nanohedra_components = 2
 
 
 # @njit
-def transform_coordinates(coords, rotation=None, translation=None, rotation2=None, translation2=None):
+def transform_coordinates(coords: np.ndarray | Iterable, rotation: np.ndarray | Iterable = None,
+                          translation: np.ndarray | Iterable | int | float = None,
+                          rotation2: np.ndarray | Iterable = None,
+                          translation2: np.ndarray | Iterable | int | float = None) -> np.ndarray:
     """Take a set of x,y,z coordinates and transform. Transformation proceeds by matrix multiplication with the order of
     operations as: rotation, translation, rotation2, translation2
 
     Args:
-        coords (union[numpy.ndarray,list]): The coordinates to transform, can be shape (number of coordinates, 3)
-    Keyword Args:
-        rotation=None (numpy.ndarray): The first rotation to apply, expected general rotation matrix shape (3, 3)
-        translation=None (numpy.ndarray): The first translation to apply, expected shape (3)
-        rotation2=None (numpy.ndarray): The second rotation to apply, expected general rotation matrix shape (3, 3)
-        translation2=None (numpy.ndarray): The second translation to apply, expected shape (3)
+        coords: The coordinates to transform, can be shape (number of coordinates, 3)
+        rotation: The first rotation to apply, expected general rotation matrix shape (3, 3)
+        translation: The first translation to apply, expected shape (3)
+        rotation2: The second rotation to apply, expected general rotation matrix shape (3, 3)
+        translation2: The second translation to apply, expected shape (3)
     Returns:
-        (numpy.ndarray): The transformed coordinate set with the same shape as the original
+        The transformed coordinate set with the same shape as the original
     """
     if rotation is not None:
-        coords = np.matmul(coords, np.transpose(rotation))
+        coords[:] = np.matmul(coords, np.transpose(rotation))
 
     if translation is not None:
         coords += translation
 
     if rotation2 is not None:
-        coords = np.matmul(coords, np.transpose(rotation2))
+        coords[:] = np.matmul(coords, np.transpose(rotation2))
 
     if translation2 is not None:
         coords += translation2
@@ -47,8 +49,10 @@ def transform_coordinates(coords, rotation=None, translation=None, rotation2=Non
 
 
 # @njit
-def transform_coordinate_sets(coord_sets: np.ndarray, rotation: np.ndarray = None, translation: np.ndarray = None,
-                              rotation2: np.ndarray = None, translation2: np.ndarray = None) -> np.ndarray:
+def transform_coordinate_sets(coord_sets: np.ndarray | Iterable,
+                              rotation: np.ndarray = None, translation: np.ndarray | Iterable | int | float = None,
+                              rotation2: np.ndarray = None, translation2: np.ndarray | Iterable | int | float = None) \
+        -> np.ndarray:
     """Take multiple sets of x,y,z coordinates and transform. Transformation proceeds by matrix multiplication with the
     order of operations as: rotation, translation, rotation2, translation2
 
@@ -69,13 +73,13 @@ def transform_coordinate_sets(coord_sets: np.ndarray, rotation: np.ndarray = Non
         return coord_sets
 
     if rotation is not None:
-        coord_sets = np.matmul(coord_sets, rotation.swapaxes(-2, -1))
+        coord_sets[:] = np.matmul(coord_sets, rotation.swapaxes(-2, -1))
 
     if translation is not None:
         coord_sets += translation
 
     if rotation2 is not None:
-        coord_sets = np.matmul(coord_sets, rotation2.swapaxes(-2, -1))
+        coord_sets[:] = np.matmul(coord_sets, rotation2.swapaxes(-2, -1))
 
     if translation2 is not None:
         coord_sets += translation2
