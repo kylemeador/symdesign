@@ -177,11 +177,11 @@ class EulerLookup:
         v2_a: An array of vectors containing the second vector which is orthogonal to v1_a (canonically on y)
         v3_a: An array of vectors containing the third vector which is the cross product of v1_a and v2_a
         """
-        # v1_a = (guide_coords[:, 1, :] - guide_coords[:, 0, :]) * self.normalization
-        # v2_a = (guide_coords[:, 2, :] - guide_coords[:, 0, :]) * self.normalization
-        guide_coords[:, 1:, :] = (guide_coords[:, 1:, :] - guide_coords[:, :1, :]) * self.normalization
-        v1_a = guide_coords[:, 1, :]
-        v2_a = guide_coords[:, 2, :]
+        v1_a = (guide_coords[:, 1, :] - guide_coords[:, 0, :]) * self.normalization
+        v2_a = (guide_coords[:, 2, :] - guide_coords[:, 0, :]) * self.normalization
+        # guide_coords[:, 1:, :] = (guide_coords[:, 1:, :] - guide_coords[:, :1, :]) * self.normalization
+        # v1_a = guide_coords[:, 1, :]
+        # v2_a = guide_coords[:, 2, :]
         # print('v1_a equallity', np.all(v1_a_ == v1_a))
         # print('v2_a equallity', np.all(v2_a_ == v2_a))
         v3_a = np.cross(v1_a, v2_a)
