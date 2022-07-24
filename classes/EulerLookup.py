@@ -168,17 +168,22 @@ class EulerLookup:
         array with the vectors stored *in columns*, i.e. one vector is in [i,:,j]. Use known scale value to normalize,
         to save repeated sqrt calculations
         """
-        guide_coords[:, 1:, :] = (guide_coords[:, 1:, :] - guide_coords[:, :1, :]) * self.normalization
-        v1_a = guide_coords[:, 1, :]
-        v2_a = guide_coords[:, 2, :]
+        # guide_coords[:, 1:, :] = (guide_coords[:, 1:, :] - guide_coords[:, :1, :]) * self.normalization
+        # v1_a_ = guide_coords[:, 1, :]
+        # v2_a_ = guide_coords[:, 2, :]
         # v3_a = np.cross(guide_coords[:, 1, :], guide_coords[:, 2, :])  # Todo
         """
         v1_a: An array of vectors containing the first vector which is orthogonal to v2_a (canonically on x)
         v2_a: An array of vectors containing the second vector which is orthogonal to v1_a (canonically on y)
         v3_a: An array of vectors containing the third vector which is the cross product of v1_a and v2_a
         """
-        # v1_a = (guide_coords[:, 1, :] - guide_coords[:, 0, :]) * self.normalization
-        # v2_a = (guide_coords[:, 2, :] - guide_coords[:, 0, :]) * self.normalization
+        v1_a = (guide_coords[:, 1, :] - guide_coords[:, 0, :]) * self.normalization
+        v2_a = (guide_coords[:, 2, :] - guide_coords[:, 0, :]) * self.normalization
+        guide_coords[:, 1:, :] = (guide_coords[:, 1:, :] - guide_coords[:, :1, :]) * self.normalization
+        v1_a_ = guide_coords[:, 1, :]
+        v2_a_ = guide_coords[:, 2, :]
+        print('v1_a equallity', np.all(v1_a_ == v1_a))
+        print('v2_a equallity', np.all(v2_a_ == v2_a))
         v3_a = np.cross(v1_a, v2_a)
 
         """Convert rotation matrix to euler angles in the form of an integer triplet (integer values are degrees
