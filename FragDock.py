@@ -1388,7 +1388,7 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
                                                                    translation=full_int_tx2[idx],
                                                                    rotation2=set_mat2,
                                                                    translation2=full_ext_tx_sum[idx]
-                                                                   if full_ext_tx_sum[idx] is not None else None)
+                                                                   if full_ext_tx_sum is not None else None)
                                                             ),
                                   **dict(rotation=inv_setting1,
                                          translation=full_int_tx1[idx] * -1,
