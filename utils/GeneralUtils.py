@@ -51,12 +51,14 @@ def transform_coordinates(coords: np.ndarray | Iterable, rotation: np.ndarray | 
 
 
 # @njit
-def transform_coordinate_sets(coord_sets: np.ndarray,
-                              rotation: np.ndarray = None, translation: np.ndarray | Iterable | int | float = None,
-                              rotation2: np.ndarray = None, translation2: np.ndarray | Iterable | int | float = None) \
+def transform_coordinate_sets_with_broadcast(coord_sets: np.ndarray,
+                                             rotation: np.ndarray = None,
+                                             translation: np.ndarray | Iterable | int | float = None,
+                                             rotation2: np.ndarray = None,
+                                             translation2: np.ndarray | Iterable | int | float = None) \
         -> np.ndarray:
-    """Take multiple sets of x,y,z coordinates and transform. Transformation proceeds by matrix multiplication with the
-    order of operations as: rotation, translation, rotation2, translation2
+    """Take stacked sets of x,y,z coordinates and transform. Transformation proceeds by matrix multiplication with the
+    order of operations as: rotation, translation, rotation2, translation2. Non-efficient memory use
 
     Args:
         coord_sets: The coordinates to transform, can be shape (number of sets, number of coordinates, 3)
@@ -92,12 +94,14 @@ def transform_coordinate_sets(coord_sets: np.ndarray,
 
 
 # @njit
-def transform_coordinate_setsNEW(coord_sets: np.ndarray,
+def transform_coordinate_sets(coord_sets: np.ndarray,
                               rotation: np.ndarray = None, translation: np.ndarray | Iterable | int | float = None,
                               rotation2: np.ndarray = None, translation2: np.ndarray | Iterable | int | float = None) \
         -> np.ndarray:
-    """Take multiple sets of x,y,z coordinates and transform. Transformation proceeds by matrix multiplication with the
-    order of operations as: rotation, translation, rotation2, translation2
+    """Take stacked sets of x,y,z coordinates and transform. Transformation proceeds by matrix multiplication with the
+    order of operations as: rotation, translation, rotation2, translation2. If transformation uses broadcasting, for
+    efficient memory use, the returned array will be the size of the coord_sets multiplied by rotation. Additional
+    broadcasting is not allowed. If that behavior is desired, use "transform_coordinate_sets_with_broadcast()" instead
 
     Args:
         coord_sets: The coordinates to transform, can be shape (number of sets, number of coordinates, 3)
@@ -114,11 +118,11 @@ def transform_coordinate_setsNEW(coord_sets: np.ndarray,
     set_shape = getattr(coord_sets, 'shape', None)
     if set_shape is None or set_shape[0] < 1:
         return coord_sets
-    else:  # Create a new array for the result
-        new_coord_sets = coord_sets.copy()
 
     if rotation is not None:
-        np.matmul(new_coord_sets, rotation.swapaxes(-2, -1), out=new_coord_sets)
+        new_coord_sets = np.matmul(coord_sets, rotation.swapaxes(-2, -1))
+    else:  # Create a new array for the result
+        new_coord_sets = coord_sets.copy()
 
     if translation is not None:
         new_coord_sets += translation  # No array allocation, sets in place
