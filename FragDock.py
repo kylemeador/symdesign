@@ -1352,6 +1352,7 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
     #                           'translation2': None}
     int_cb_and_frags_start = time.time()
     # Transform the CB coords of oligomer 2 to each identified transformation
+    # Transforming only surface frags will have large speed gains from not having to transform all ghosts
     inverse_transformed_model2_tiled_cb_coords = \
         transform_coordinate_sets(transform_coordinate_sets(np.tile(model2.cb_coords,
                                                                     (number_non_clashing_transforms, 1, 1)),
@@ -1451,7 +1452,6 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
         # interface_ghost_frags = complete_ghost_frags1[interface_ghost_indices1]
         # interface_surf_frags = complete_surf_frags2[interface_surf_indices2]
         # int_ghost_guide_coords1 = ghost_guide_coords1[interface_ghost_indices1]
-        int_ghost_guide_coords1 = ghost_guide_coords1[interface_ghost_indices1]
         # int_surf_frag_guide_coords = surf_guide_coords2[interface_surf_indices2]
         # int_trans_ghost_guide_coords = \
         #     transform_coordinate_sets(int_ghost_guide_coords1, rotation=rot_mat1, translation=internal_tx_param1,
@@ -1460,30 +1460,42 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
         #     transform_coordinate_sets(int_surf_frag_guide_coords, rotation=rot_mat2, translation=internal_tx_param2,
         #                               rotation2=sym_entry.setting_matrix2, translation2=external_tx_params2)
 
-        # transforming only surface frags will have large speed gains from not having to transform all ghosts
-        int_trans_surf_guide_coords2 = inverse_transformed_surf_frags2_guide_coords[idx, interface_surf_indices2]
-        # NOT crucial ###
+        # NOT crucial ??? vvv ###
         unique_interface_frag_count_model1, unique_interface_frag_count_model2 = \
             len(interface_ghost_indices1), len(interface_surf_indices2)
         get_int_frags_time = time.time() - int_frags_time_start
         log.info(f'\tNewly Formed Interface Contains {unique_interface_frag_count_model1} Unique Fragments on Oligomer '
-                 f'1 and {unique_interface_frag_count_model2} on Oligomer 2'
+                 f'1 from {len(interface_residue_numbers1)} Residues and '
+                 f'{unique_interface_frag_count_model2} on Oligomer 2 from {len(interface_residue_numbers2)} Residues '
                  f'\n\t(took {get_int_frags_time:8f}s to to get interface fragments, '
                  f'{model1_cb_balltree_time:8f}s to query distances, {is_in_index_time:8f}s to index residue numbers)')
-        # NOT crucial ###
+        # NOT crucial ??? ^^^ ###
 
         # Get (Oligomer1 Interface Ghost Fragment, Oligomer2 Interface Surface Fragment) guide coordinate pairs
         # in the same Euler rotational space bucket
         # DON'T think this is crucial! ###
+        int_ghost_guide_coords1 = ghost_guide_coords1[interface_ghost_indices1]
+        int_trans_surf_guide_coords2 = inverse_transformed_surf_frags2_guide_coords[idx, interface_surf_indices2]
         eul_lookup_start_time = time.time()
         # int_euler_matching_ghost_indices1, int_euler_matching_surf_indices2 = \
         #     euler_lookup.check_lookup_table(int_trans_ghost_guide_coords, int_trans_surf_guide_coords2)
         int_euler_matching_ghost_indices1, int_euler_matching_surf_indices2 = \
             euler_lookup.check_lookup_table(int_ghost_guide_coords1, int_trans_surf_guide_coords2)
 
+        # Todo
+        #  the int_euler_matching_surf_indices are an index to the passed guide_coords which are from every index of
+        #  interface_surf_indices2. Indexing the found interface_surf_indices2 by the int_euler_matching_surf_indices2
+        #  gives the indices to index the original surface_residue_numbers
         # Find the ij_type_match which is the same length as the interface_euler_matching indices
-        ij_type_match = ij_type_match_lookup_table[interface_ghost_indices1[int_euler_matching_ghost_indices1],
-                                                   interface_surf_indices2[int_euler_matching_surf_indices2]]
+        ij_type_match = \
+            ij_type_match_lookup_table[
+                ghost_residue_numbers1[
+                    interface_ghost_indices1[int_euler_matching_ghost_indices1]],
+                surf_residue_numbers2[
+                    interface_surf_indices2[int_euler_matching_surf_indices2]]
+            ]
+        # Surface selecting
+        # [0, 1, 3, 5, ...] with fancy indexing [0, 1, 5, 10, 12, 13, 34, ...]
         # log.debug('Euler lookup')
         eul_lookup_time = time.time() - eul_lookup_start_time
         # DON'T think this is crucial! ###
@@ -1505,7 +1517,7 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
         log.info(f'\tEuler Lookup took {eul_lookup_time:8f}s for '
                  f'{unique_interface_frag_count_model1 * unique_interface_frag_count_model2} fragment pairs and '
                  f'Overlap Score Calculation took {time.time() - overlap_score_time_start:8f}s for '
-                 f'{len(passing_ghost_indices)} succesful ij type matches from a possible '
+                 f'{len(passing_ghost_indices)} successful ij type matches from a possible '
                  f'{len(int_euler_matching_ghost_indices1)} fragment pairs')
         log.debug(f'Found ij_type_match with shape {ij_type_match.shape}')
         log.debug(f'And Data: {ij_type_match[:3]}')
