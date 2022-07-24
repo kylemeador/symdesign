@@ -1225,39 +1225,51 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
     model_elements = prod(bb_cb_coords2.shape)
     total_elements_required = model_elements * number_of_dense_transforms
     # The chunk_size indicates how many models could fit in the allocated memory. Using floor division to get integer
-    chunk_size = int(number_of_elements_available // model_elements // 8)  # Reduce scale by factor of 8 to be safe
-    # The number_of_chunks indicates how many iterations are needed to exhaust all models
-    number_of_chunks = (ceil(total_elements_required / (model_elements * chunk_size)) or 1)
-    check_clash_coords_start = time.time()
-    clash_vect = [clash_dist]
-    # Start with the assumption that all tested clashes are clashing
-    asu_clash_counts = np.ones(number_of_dense_transforms)
-    tiled_coords2 = np.tile(bb_cb_coords2, (chunk_size, 1, 1))
-    for chunk in range(int(number_of_chunks)):
-        # Find the upper slice limiting it at a maximum of number_of_dense_transforms
-        # upper = (chunk + 1) * chunk_size if chunk + 1 != number_of_chunks else number_of_dense_transforms
-        # chunk_slice = slice(chunk * chunk_size, upper)
-        chunk_slice = slice(chunk * chunk_size, (chunk+1) * chunk_size)
-        inverse_transformed_model2_tiled_coords = \
-            transform_coordinate_sets(transform_coordinate_sets(tiled_coords2[chunk_slice],  # Slice ensures same size
-                                                                **dict(rotation=full_rotation2[chunk_slice],
-                                                                       translation=full_int_tx2[:, None, :][chunk_slice],
-                                                                       rotation2=set_mat2,
-                                                                       translation2=
-                                                                       full_ext_tx_sum[:, None, :][chunk_slice]
-                                                                       if full_ext_tx_sum is not None else None)
-                                                                ),
-                                      **dict(rotation=inv_setting1,
-                                             translation=full_int_tx1[:, None, :][chunk_slice] * -1,
-                                             rotation2=full_inv_rotation1[chunk_slice],
-                                             translation2=None)
-                                      )
-        # Check each transformed oligomer 2 coordinate set for clashing against oligomer 1
-        asu_clash_counts[chunk_slice] = \
-            [oligomer1_backbone_cb_tree.two_point_correlation(inverse_transformed_model2_tiled_coords[idx], clash_vect)[0]
-             for idx in range(inverse_transformed_model2_tiled_coords.shape[0])]
-        # Save memory by dereferencing the arry before the next calculation
-        del inverse_transformed_model2_tiled_coords
+    start_divisor = divisor = 16
+    chunk_size = int(number_of_elements_available // model_elements // start_divisor)  # Reduce scale by factor of 8 to be safe
+    while True:
+        try:  # The next chunk_size
+            divisor = divisor * 2
+            # The number_of_chunks indicates how many iterations are needed to exhaust all models
+            number_of_chunks = (ceil(total_elements_required / (model_elements * chunk_size)) or 1)
+            check_clash_coords_start = time.time()
+            clash_vect = [clash_dist]
+            # Start with the assumption that all tested clashes are clashing
+            asu_clash_counts = np.ones(number_of_dense_transforms)
+            tiled_coords2 = np.tile(bb_cb_coords2, (chunk_size, 1, 1))
+            for chunk in range(int(number_of_chunks)):
+                # Find the upper slice limiting it at a maximum of number_of_dense_transforms
+                # upper = (chunk + 1) * chunk_size if chunk + 1 != number_of_chunks else number_of_dense_transforms
+                # chunk_slice = slice(chunk * chunk_size, upper)
+                chunk_slice = slice(chunk * chunk_size, (chunk+1) * chunk_size)
+                inverse_transformed_model2_tiled_coords = \
+                    transform_coordinate_sets(transform_coordinate_sets(tiled_coords2[chunk_slice],  # Slice ensures same size
+                                                                        **dict(rotation=full_rotation2[chunk_slice],
+                                                                               translation=full_int_tx2[:, None, :][chunk_slice],
+                                                                               rotation2=set_mat2,
+                                                                               translation2=
+                                                                               full_ext_tx_sum[:, None, :][chunk_slice]
+                                                                               if full_ext_tx_sum is not None else None)
+                                                                        ),
+                                              **dict(rotation=inv_setting1,
+                                                     translation=full_int_tx1[:, None, :][chunk_slice] * -1,
+                                                     rotation2=full_inv_rotation1[chunk_slice],
+                                                     translation2=None)
+                                              )
+                # Check each transformed oligomer 2 coordinate set for clashing against oligomer 1
+                asu_clash_counts[chunk_slice] = \
+                    [oligomer1_backbone_cb_tree.two_point_correlation(inverse_transformed_model2_tiled_coords[idx], clash_vect)[0]
+                     for idx in range(inverse_transformed_model2_tiled_coords.shape[0])]
+                # Save memory by dereferencing the arry before the next calculation
+                del inverse_transformed_model2_tiled_coords
+
+            logger.critical(f'Successful execution with {divisor} using available memory of '
+                            f'{psutil.virtual_memory().available} and chunk_size of {chunk_size}')
+            input_ = input('Please confirm to continue protocol')
+            break
+        except np.core._exceptions._ArrayMemoryError:
+            chunk_size = int(number_of_elements_available // model_elements // divisor)  # Reduce scale by factor of 8 to be safe
+            pass
 
     # asu_is_viable = np.where(asu_clash_counts.flatten() == 0)  # , True, False)
     # asu_is_viable = np.where(np.array(asu_clash_counts) == 0)
