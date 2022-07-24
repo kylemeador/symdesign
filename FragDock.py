@@ -1218,6 +1218,7 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
     #          % transfrom_clash_coords_time)
 
     # Set up chunks of coordinate transforms for clash testing
+    check_clash_coords_start = time.time()
     memory_constraint = psutil.virtual_memory().available / 4  # use fourth of available during calculation and storage
     # assume each element is np.float64
     element_memory = 8  # where each element is np.float64
@@ -1232,7 +1233,6 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
             divisor = divisor * 2
             # The number_of_chunks indicates how many iterations are needed to exhaust all models
             number_of_chunks = (ceil(total_elements_required / (model_elements * chunk_size)) or 1)
-            check_clash_coords_start = time.time()
             clash_vect = [clash_dist]
             # Start with the assumption that all tested clashes are clashing
             asu_clash_counts = np.ones(number_of_dense_transforms)
@@ -1242,20 +1242,23 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
                 # upper = (chunk + 1) * chunk_size if chunk + 1 != number_of_chunks else number_of_dense_transforms
                 # chunk_slice = slice(chunk * chunk_size, upper)
                 chunk_slice = slice(chunk * chunk_size, (chunk+1) * chunk_size)
+                # Set full rotation chunk to get the length of the remaining transforms
+                _full_rotation2 = full_rotation2[chunk_slice]
+                # Transform the coordinates
                 inverse_transformed_model2_tiled_coords = \
-                    transform_coordinate_sets(transform_coordinate_sets(tiled_coords2[chunk_slice],  # Slice ensures same size
-                                                                        **dict(rotation=full_rotation2[chunk_slice],
-                                                                               translation=full_int_tx2[:, None, :][chunk_slice],
-                                                                               rotation2=set_mat2,
-                                                                               translation2=
-                                                                               full_ext_tx_sum[:, None, :][chunk_slice]
-                                                                               if full_ext_tx_sum is not None else None)
-                                                                        ),
-                                              **dict(rotation=inv_setting1,
-                                                     translation=full_int_tx1[:, None, :][chunk_slice] * -1,
-                                                     rotation2=full_inv_rotation1[chunk_slice],
-                                                     translation2=None)
-                                              )
+                    transform_coordinate_sets(
+                        transform_coordinate_sets(tiled_coords2[:len(_full_rotation2)],  # Slice ensures same size
+                                                  **dict(rotation=_full_rotation2,
+                                                         translation=full_int_tx2[:, None, :][chunk_slice],
+                                                         rotation2=set_mat2,
+                                                         translation2=full_ext_tx_sum[:, None, :][chunk_slice]
+                                                         if full_ext_tx_sum is not None else None)
+                                                  ),
+                        **dict(rotation=inv_setting1,
+                               translation=full_int_tx1[:, None, :][chunk_slice] * -1,
+                               rotation2=full_inv_rotation1[chunk_slice],
+                               translation2=None)
+                    )
                 # Check each transformed oligomer 2 coordinate set for clashing against oligomer 1
                 asu_clash_counts[chunk_slice] = \
                     [oligomer1_backbone_cb_tree.two_point_correlation(inverse_transformed_model2_tiled_coords[idx], clash_vect)[0]
