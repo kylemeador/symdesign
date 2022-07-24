@@ -2324,6 +2324,9 @@ class SymmetricModel(Models):
         #     generate_assembly_coords: Whether the symmetric coords should be generated from the ASU coords
         #     generate_symmetry_mates: Whether the symmetric models should be generated from the ASU model
         #          asu: PDB = None, asu_file: str = None
+        # Initialize symmetry first
+        self.set_symmetry(sym_entry=sym_entry, symmetry=symmetry, uc_dimensions=uc_dimensions,
+                          expand_matrices=expand_matrices)
         super().__init__(**kwargs)  # log=log,
         # if asu and isinstance(asu, Structure):
         #     self.asu = asu  # the pose specific asu
@@ -2340,9 +2343,6 @@ class SymmetricModel(Models):
         # self._oligomeric_model_indices = {}
         self.uc_dimensions = None  # uc_dimensions
 
-        # initialize symmetry
-        self.set_symmetry(sym_entry=sym_entry, symmetry=symmetry, uc_dimensions=uc_dimensions,
-                          expand_matrices=expand_matrices)
         if self.symmetry:  # True if symmetry keyword args were passed
             # Ensure that the symmetric system is set up properly which could require finding the ASU
             if self.number_of_entities != self.number_of_chains:  # ensure the structure is an asu
@@ -2522,7 +2522,12 @@ class SymmetricModel(Models):
             self._sym_entry = sym_entry
         else:  # try to convert
             self._sym_entry = symmetry_factory.get(sym_entry)
-        # Todo remove hidden symmetric ._ attributes if set
+
+        del self._symmetry
+        del self._point_group_symmetry
+        del self._dimension
+        del self._cryst_record
+        del self._number_of_symmetry_mates
 
     @property
     def symmetry(self) -> str | None:
