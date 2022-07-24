@@ -18,7 +18,7 @@ from PathUtils import frag_text_file, master_log, frag_dir, biological_interface
 from Pose import Pose, Model
 from Structure import Structure, write_frag_match_info_file
 from SymDesignUtils import calculate_overlap, match_score_from_z_value, start_log, null_log, dictionary_lookup, \
-    calculate_match, z_value_from_match_score, set_logging_to_debug, unpickle
+    calculate_match, z_value_from_match_score, set_logging_to_debug, unpickle, rmsd
 from classes.EulerLookup import EulerLookup, euler_factory
 from classes.OptimalTx import OptimalTx
 from classes.SymEntry import SymEntry, get_rot_matrices, make_rotations_degenerate, symmetry_factory
@@ -428,7 +428,7 @@ def compute_ij_type_lookup(indices1: np.ndarray | Iterable | int | float,
 def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_lookup: EulerLookup,
                    master_output: AnyStr, model1: Structure | AnyStr, model2: Structure | AnyStr,
                    rotation_step1: float = 3., rotation_step2: float = 3., min_matched: int = 3,
-                   high_quality_match_value: float = 0.5, initial_z_value: float = 1., output_assembly: bool = False,
+                   high_quality_match_value: float = .5, initial_z_value: float = 1., output_assembly: bool = False,
                    output_surrounding_uc: bool = False, log: Logger = logger, clash_dist: float = 2.2,
                    keep_time: bool = True, write_frags: bool = False, same_component_filter: bool = False, **kwargs):
     #                resume=False,
@@ -459,7 +459,7 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
     Returns:
         None
     """
-    low_quality_match_value = 0.2  # sets the lower bounds on an acceptable match, was upper bound of 2 using z-score
+    low_quality_match_value = .2  # sets the lower bounds on an acceptable match, was upper bound of 2 using z-score
     cb_distance = 9.  # change to 8.?
     # Get Building Blocks in pose format to remove need for fragments to use chain info
     if not isinstance(model1, Structure):
@@ -1382,6 +1382,21 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
                                          translation2=None)
                                   )
 
+    inverse_transformed_surf_frags2_guide_coords_ = np.array([
+        transform_coordinate_sets(transform_coordinate_sets(surf_guide_coords2,
+                                                            **dict(rotation=full_rotation2[idx],
+                                                                   translation=full_int_tx2[idx],
+                                                                   rotation2=set_mat2,
+                                                                   translation2=full_ext_tx_sum[idx]
+                                                                   if full_ext_tx_sum[idx] is not None else None)
+                                                            ),
+                                  **dict(rotation=inv_setting1,
+                                         translation=full_int_tx1[idx] * -1,
+                                         rotation2=full_inv_rotation1[idx],
+                                         translation2=None)
+                                  ) for idx in range(5)])
+    log.debug(f'transform is correct?: '
+              f'{np.all(inverse_transformed_surf_frags2_guide_coords[:5] == inverse_transformed_surf_frags2_guide_coords_)}')
     # log.debug('Transformed guide_coords')
     log.info(f'\tTransformation of all viable Oligomer 2 CB atoms and surface fragments took '
              f'{time.time() - int_cb_and_frags_start:8f}s')
@@ -1433,7 +1448,7 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
         # These were interface_surf_frags and interface_ghost_frags
         # interface_ghost_indices1 = \
         #     np.concatenate([np.where(ghost_residue_numbers1 == residue) for residue in interface_residue_numbers1])
-        # interface_surf_indices2 = \
+        # surf_indices_in_interface2 = \
         #     np.concatenate([np.where(surf_residue_numbers2 == residue) for residue in interface_residue_numbers2])
 
         # Find the indices where the fragment residue numbers are found the interface residue numbers
@@ -1443,16 +1458,16 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
         # Both residue numbers are one-indexed vv
         # Todo make ghost_residue_numbers1 unique -> unique_ghost_residue_numbers1
         #  index selected numbers against per_residue_ghost_indices 2d (number surface frag residues,
-        interface_ghost_indices1 = np.flatnonzero(np.in1d(ghost_residue_numbers1, interface_residue_numbers1))
-        interface_surf_indices2 = \
+        ghost_indices_in_interface1 = np.flatnonzero(np.in1d(ghost_residue_numbers1, interface_residue_numbers1))
+        surf_indices_in_interface2 = \
             np.flatnonzero(np.in1d(surf_residue_numbers2, interface_residue_numbers2, assume_unique=True))
         is_in_index_time = time.time() - is_in_index_start
         all_fragment_match_time_start = time.time()
         # if idx % 2 == 0:
         # interface_ghost_frags = complete_ghost_frags1[interface_ghost_indices1]
-        # interface_surf_frags = complete_surf_frags2[interface_surf_indices2]
+        # interface_surf_frags = complete_surf_frags2[surf_indices_in_interface2]
         # int_ghost_guide_coords1 = ghost_guide_coords1[interface_ghost_indices1]
-        # int_surf_frag_guide_coords = surf_guide_coords2[interface_surf_indices2]
+        # int_surf_frag_guide_coords = surf_guide_coords2[surf_indices_in_interface2]
         # int_trans_ghost_guide_coords = \
         #     transform_coordinate_sets(int_ghost_guide_coords1, rotation=rot_mat1, translation=internal_tx_param1,
         #                               rotation2=sym_entry.setting_matrix1, translation2=external_tx_params1)
@@ -1462,7 +1477,7 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
 
         # NOT crucial ??? vvv ###
         unique_interface_frag_count_model1, unique_interface_frag_count_model2 = \
-            len(interface_ghost_indices1), len(interface_surf_indices2)
+            len(ghost_indices_in_interface1), len(surf_indices_in_interface2)
         get_int_frags_time = time.time() - int_frags_time_start
         log.info(f'\tNewly Formed Interface Contains {unique_interface_frag_count_model1} Unique Fragments on Oligomer '
                  f'1 from {len(interface_residue_numbers1)} Residues and '
@@ -1474,8 +1489,8 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
         # Get (Oligomer1 Interface Ghost Fragment, Oligomer2 Interface Surface Fragment) guide coordinate pairs
         # in the same Euler rotational space bucket
         # DON'T think this is crucial! ###
-        int_ghost_guide_coords1 = ghost_guide_coords1[interface_ghost_indices1]
-        int_trans_surf_guide_coords2 = inverse_transformed_surf_frags2_guide_coords[idx, interface_surf_indices2]
+        int_ghost_guide_coords1 = ghost_guide_coords1[ghost_indices_in_interface1]
+        int_trans_surf_guide_coords2 = inverse_transformed_surf_frags2_guide_coords[idx, surf_indices_in_interface2]
         eul_lookup_start_time = time.time()
         # int_euler_matching_ghost_indices1, int_euler_matching_surf_indices2 = \
         #     euler_lookup.check_lookup_table(int_trans_ghost_guide_coords, int_trans_surf_guide_coords2)
@@ -1483,17 +1498,18 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
             euler_lookup.check_lookup_table(int_ghost_guide_coords1, int_trans_surf_guide_coords2)
 
         # Todo
-        #  the int_euler_matching_surf_indices are an index to the passed guide_coords which are from every index of
-        #  interface_surf_indices2. Indexing the found interface_surf_indices2 by the int_euler_matching_surf_indices2
-        #  gives the indices to index the original surface_residue_numbers
-        # Find the ij_type_match which is the same length as the interface_euler_matching indices
+        #  the int_euler_matching_surf_indices are an index to the passed int_ghost_guide_coords1 which are from every
+        #  index of surf_indices_in_interface2. Indexing the found surf_indices_in_interface2 by the
+        #  int_euler_matching_surf_indices2
+        #  gives the indices to index the original ij_type_match_lookup_table
+        # Find the ij_type_match which is the same length as the int_euler_matching indices
+        # this has data type bool so indexing selects al original
         ij_type_match = \
             ij_type_match_lookup_table[
-                ghost_residue_numbers1[
-                    interface_ghost_indices1[int_euler_matching_ghost_indices1]],
-                surf_residue_numbers2[
-                    interface_surf_indices2[int_euler_matching_surf_indices2]]
-            ]
+                ghost_indices_in_interface1[int_euler_matching_ghost_indices1],
+                surf_indices_in_interface2[int_euler_matching_surf_indices2]
+            ]  # Subtract each of the resulting surface_residue_numbers by 1 to get the index
+        ij_type_match = [True for _ in range(len(ij_type_match))]  # Todo remove this overwrite of above
         # Surface selecting
         # [0, 1, 3, 5, ...] with fancy indexing [0, 1, 5, 10, 12, 13, 34, ...]
         # log.debug('Euler lookup')
@@ -1506,14 +1522,19 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
         passing_ghost_indices = int_euler_matching_ghost_indices1[ij_type_match]
         # passing_ghost_coords = int_trans_ghost_guide_coords[passing_ghost_indices]
         # passing_ghost_coords = int_ghost_guide_coords1[passing_ghost_indices]
-        # passing_surf_indices = int_euler_matching_surf_indices2[ij_type_match]
+        passing_surf_indices = int_euler_matching_surf_indices2[ij_type_match]
         # passing_surf_coords = int_trans_surf_guide_coords2[passing_surf_indices]
 
         # reference_rmsds = ghost_rmsds1[interface_ghost_indices1][int_euler_matching_ghost_indices1][ij_type_match]
         # reference_rmsds = ghost_rmsds1[interface_ghost_indices1][passing_ghost_indices]
         all_fragment_match = calculate_match(int_ghost_guide_coords1[passing_ghost_indices],
-                                             int_trans_surf_guide_coords2[int_euler_matching_surf_indices2[ij_type_match]],
-                                             ghost_rmsds1[interface_ghost_indices1][passing_ghost_indices])
+                                             int_trans_surf_guide_coords2[passing_surf_indices],
+                                             ghost_rmsds1[ghost_indices_in_interface1[passing_ghost_indices]])
+        rmds_ = rmsd(int_ghost_guide_coords1[passing_ghost_indices],
+                     int_trans_surf_guide_coords2[int_euler_matching_surf_indices2[ij_type_match]])
+
+        log.debug(f'RMSD calc: {rmds_[5]}')
+        log.debug(f'RMSD reference: {ghost_rmsds1[ghost_indices_in_interface1[passing_ghost_indices]][:5]}')
         log.info(f'\tEuler Lookup took {eul_lookup_time:8f}s for '
                  f'{unique_interface_frag_count_model1 * unique_interface_frag_count_model2} fragment pairs and '
                  f'Overlap Score Calculation took {time.time() - overlap_score_time_start:8f}s for '
@@ -1529,7 +1550,7 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
         #     # 1
         #     # # this may be slower than just calculating all and not worrying about interface!
         #     # int_ij_matching_ghost1_indices = np.isin(ij_matching_ghost1_indices, interface_ghost_indices1)
-        #     # int_ij_matching_surf2_indices = np.isin(ij_matching_surf2_indices, interface_surf_indices2)
+        #     # int_ij_matching_surf2_indices = np.isin(ij_matching_surf2_indices, surf_indices_in_interface2)
         #     # typed_ghost1_coords = ghost_guide_coords1[int_ij_matching_ghost1_indices]
         #     # typed_surf2_coords = surf_guide_coords2[int_ij_matching_surf2_indices]
         #     # reference_rmsds = ghost_rmsds1[int_typed_ghost1_indices]
@@ -1540,15 +1561,15 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
         #     # 3
         #     # first slice the table according to the interface residues
         #     # int_ij_lookup_table = \
-        #     #     ij_type_match_lookup_table[interface_ghost_indices1[:, None], interface_surf_indices2]
+        #     #     ij_type_match_lookup_table[interface_ghost_indices1[:, None], surf_indices_in_interface2]
         #     int_ij_lookup_table = np.logical_and(ij_type_match_lookup_table,
-        #                                          (np.einsum('i, j -> ij', interface_ghost_indices1, interface_surf_indices2)))
+        #                                          (np.einsum('i, j -> ij', interface_ghost_indices1, surf_indices_in_interface2)))
         #     # axis 0 is ghost frag, 1 is surface frag
         #     # int_row_indices, int_column_indices = np.indices(int_ij_lookup_table.shape)  # row vary by ghost, column by surf
         #     # int_ij_matching_ghost1_indices = \
-        #     #     row_indices[interface_ghost_indices1[:, None], interface_surf_indices2][int_ij_lookup_table]
+        #     #     row_indices[interface_ghost_indices1[:, None], surf_indices_in_interface2][int_ij_lookup_table]
         #     # int_ij_matching_surf2_indices = \
-        #     #     column_indices[interface_ghost_indices1[:, None], interface_surf_indices2][int_ij_lookup_table]
+        #     #     column_indices[interface_ghost_indices1[:, None], surf_indices_in_interface2][int_ij_lookup_table]
         #     int_ij_matching_ghost1_indices = row_indices[int_ij_lookup_table]
         #     int_ij_matching_surf2_indices = column_indices[int_ij_lookup_table]
         #     # int_ij_matching_ghost1_indices = \
@@ -1602,7 +1623,10 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
         if high_qual_match_count < min_matched:
             log.info(f'\t{high_qual_match_count} < {min_matched} Which is Set as the Minimal Required Amount of '
                      f'High Quality Fragment Matches (took {all_fragment_match_time:8f}s)')
-            continue
+            # continue  # Todo reinstate
+            write_and_quit = True
+        else:
+            write_and_quit = False
 
         # Find the passing overlaps to limit the output to only those passing the low_quality_match_value
         passing_overlaps_indices = np.flatnonzero(all_fragment_match >= low_quality_match_value)
@@ -1644,6 +1668,18 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
             [entity.return_transformed_copy(**specific_transformation2) for entity in model2.entities],
             name='asu', log=log, entity_names=[model1.name, model2.name], rename_chains=True, sym_entry=sym_entry,
             surrounding_uc=output_surrounding_uc, ignore_clashes=True, uc_dimensions=uc_dimensions)
+
+        if write_and_quit:  # Todo remove after debugging
+            degen_str = 'DEGEN_{}'.format('_'.join(map(str, degen_counts[idx])))
+            rot_str = 'ROT_{}'.format('_'.join(map(str, rot_counts[idx])))
+            tx_str = f'TX_{tx_counts[idx]}'  # translation idx
+            # degen_subdir_out_path = os.path.join(outdir, degen_str)
+            # rot_subdir_out_path = os.path.join(degen_subdir_out_path, rot_str)
+            tx_dir = os.path.join(outdir, degen_str, rot_str,
+                                  tx_str.lower())  # .lower() keeps original publication format
+            os.makedirs(tx_dir, exist_ok=True)
+            for idx, entity in enumerate(pose.entities, 1):
+                entity.write_oligomer(out_path=os.path.join(tx_dir, f'{entity.name}_{sampling_id}.pdb'))
         # ignore ASU clashes since already checked ^
         log.info(f'\tCopy and Transform Oligomer1 and Oligomer2 (took {time.time() - copy_model_start:8f}s)')
         # log.debug('Checked expand clash')
@@ -1715,20 +1751,20 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
         # log.debug('Overlapping Match Scores: %s' % sorted_match_scores)
         # sorted_overlap_indices = passing_overlaps_indices[sorted_fragment_indices]
         # interface_ghost_frags = complete_ghost_frags1[interface_ghost_indices1][passing_ghost_indices[sorted_overlap_indices]]
-        # interface_surf_frags = complete_surf_frags2[interface_surf_indices2][passing_surf_indices[sorted_overlap_indices]]
+        # interface_surf_frags = complete_surf_frags2[surf_indices_in_interface2][passing_surf_indices[sorted_overlap_indices]]
         overlap_ghosts = passing_ghost_indices[sorted_fragment_indices]
         # overlap_passing_ghosts = passing_ghost_indices[sorted_fragment_indices]
         overlap_surf = passing_surf_indices[sorted_fragment_indices]
         # overlap_passing_surf = passing_surf_indices[sorted_fragment_indices]
         # interface_ghost_frags = [complete_ghost_frags1[bool_idx] for bool_idx, bool_result in enumerate(interface_ghost_indices1)
         #                   if bool_result and bool_idx in overlap_passing_ghosts]
-        # interface_surf_frags = [complete_surf_frags2[bool_idx] for bool_idx, bool_result in enumerate(interface_surf_indices2)
+        # interface_surf_frags = [complete_surf_frags2[bool_idx] for bool_idx, bool_result in enumerate(surf_indices_in_interface2)
         #                   if bool_result and bool_idx in overlap_passing_surf]
         # interface_ghost_frags = complete_ghost_frags1[interface_ghost_indices1]
-        # interface_surf_frags = complete_surf_frags2[interface_surf_indices2]
-        sorted_int_ghostfrags = [complete_ghost_frags1[interface_ghost_indices1[idx]]
+        # interface_surf_frags = complete_surf_frags2[surf_indices_in_interface2]
+        sorted_int_ghostfrags = [complete_ghost_frags1[ghost_indices_in_interface1[idx]]
                                  for idx in overlap_ghosts[:number_passing_overlaps]]
-        sorted_int_surffrags2 = [complete_surf_frags2[interface_surf_indices2[idx]]
+        sorted_int_surffrags2 = [complete_surf_frags2[surf_indices_in_interface2[idx]]
                                  for idx in overlap_surf[:number_passing_overlaps]]
         # For all matched interface fragments
         # Keys are (chain_id, res_num) for every residue that is covered by at least 1 fragment
