@@ -197,10 +197,13 @@ class EulerLookup:
 
         # for the np.where statements below use the vector conditional
         # third_angle_degenerate = np.logical_or(v3_a2 > self.one_tolerance, v3_a2 < -self.one_tolerance)
+        third_angle_not_degenerate = np.logical_or(v3_a[:, 2] < self.one_tolerance, v3_a[:, 2] > -self.one_tolerance)
         # third_angle_degenerate = np.abs(v3_a2) > self.one_tolerance
-        third_angle_not_degenerate = np.abs(v3_a[:, 2]) < self.one_tolerance
+        # third_angle_not_degenerate = np.abs(v3_a[:, 2]) < self.one_tolerance
 
-        e1_v = np.where(~third_angle_not_degenerate, np.arctan2(v2_a[:, 0], v1_a[:, 0]), np.arctan2(v1_a[:, 2], -v2_a[:, 2]))
+        e1_v = np.where(~third_angle_not_degenerate,
+                        np.arctan2(v2_a[:, 0], v1_a[:, 0]),
+                        np.arctan2(v1_a[:, 2], -v2_a[:, 2]))
         e2_v = np.where(third_angle_not_degenerate, np.arccos(v3_a[:, 2]), 0)
         e2_v = np.where(v3_a[:, 2] < -self.one_tolerance, np.pi, e2_v)
         e3_v = np.where(third_angle_not_degenerate, np.arctan2(v3_a[:, 0], v3_a[:, 1]), 0)
