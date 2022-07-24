@@ -1509,7 +1509,7 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
                 ghost_indices_in_interface1[int_euler_matching_ghost_indices1],
                 surf_indices_in_interface2[int_euler_matching_surf_indices2]
             ]  # Subtract each of the resulting surface_residue_numbers by 1 to get the index
-        ij_type_match = [True for _ in range(len(ij_type_match))]  # Todo remove this overwrite of above
+        # ij_type_match = [True for _ in range(len(ij_type_match))]  # Todo remove this overwrite of above
         # Surface selecting
         # [0, 1, 3, 5, ...] with fancy indexing [0, 1, 5, 10, 12, 13, 34, ...]
         # log.debug('Euler lookup')
@@ -1531,9 +1531,9 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
                                              int_trans_surf_guide_coords2[passing_surf_indices],
                                              ghost_rmsds1[ghost_indices_in_interface1[passing_ghost_indices]])
         rmds_ = rmsd(int_ghost_guide_coords1[passing_ghost_indices],
-                     int_trans_surf_guide_coords2[int_euler_matching_surf_indices2[ij_type_match]])
+                     int_trans_surf_guide_coords2[passing_surf_indices])
 
-        log.debug(f'RMSD calc: {rmds_[5]}')
+        log.debug(f'RMSD calc: {rmds_[:5]}')
         log.debug(f'RMSD reference: {ghost_rmsds1[ghost_indices_in_interface1[passing_ghost_indices]][:5]}')
         log.info(f'\tEuler Lookup took {eul_lookup_time:8f}s for '
                  f'{unique_interface_frag_count_model1 * unique_interface_frag_count_model2} fragment pairs and '
