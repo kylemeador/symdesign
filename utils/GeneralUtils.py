@@ -73,6 +73,47 @@ def transform_coordinate_sets(coord_sets: np.ndarray,
     set_shape = getattr(coord_sets, 'shape', None)
     if set_shape is None or set_shape[0] < 1:
         return coord_sets
+    # else:  # Create a new array for the result
+    #     new_coord_sets = coord_sets.copy()
+
+    if rotation is not None:
+        coord_sets = np.matmul(coord_sets, rotation.swapaxes(-2, -1))
+
+    if translation is not None:
+        coord_sets += translation  # No array allocation, sets in place
+
+    if rotation2 is not None:
+        coord_sets = np.matmul(coord_sets, rotation2.swapaxes(-2, -1))
+
+    if translation2 is not None:
+        coord_sets += translation2
+
+    return coord_sets
+
+
+# @njit
+def transform_coordinate_setsNEW(coord_sets: np.ndarray,
+                              rotation: np.ndarray = None, translation: np.ndarray | Iterable | int | float = None,
+                              rotation2: np.ndarray = None, translation2: np.ndarray | Iterable | int | float = None) \
+        -> np.ndarray:
+    """Take multiple sets of x,y,z coordinates and transform. Transformation proceeds by matrix multiplication with the
+    order of operations as: rotation, translation, rotation2, translation2
+
+    Args:
+        coord_sets: The coordinates to transform, can be shape (number of sets, number of coordinates, 3)
+        rotation: The first rotation to apply, expected general rotation matrix shape (number of sets, 3, 3)
+        translation: The first translation to apply, expected shape (number of sets, 3)
+        rotation2: The second rotation to apply, expected general rotation matrix shape (number of sets, 3, 3)
+        translation2: The second translation to apply, expected shape (number of sets, 3)
+    Returns:
+        The transformed coordinate set with the same shape as the original
+    """
+    # in general, the np.tensordot module accomplishes this coordinate set multiplication without stacking
+    # np.tensordot(a, b, axes=1)  <-- axes=1 performs the correct multiplication with a 3d (3,3,N) by 2d (3,3) matrix
+    # np.matmul solves as well due to broadcasting
+    set_shape = getattr(coord_sets, 'shape', None)
+    if set_shape is None or set_shape[0] < 1:
+        return coord_sets
     else:  # Create a new array for the result
         new_coord_sets = coord_sets.copy()
 
