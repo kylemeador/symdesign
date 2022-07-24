@@ -34,16 +34,16 @@ def transform_coordinates(coords: np.ndarray | Iterable, rotation: np.ndarray | 
         The transformed coordinate set with the same shape as the original
     """
     if rotation is not None:
-        coords[:] = np.matmul(coords, np.transpose(rotation))
+        np.matmul(coords, np.transpose(rotation), out=coords)
 
     if translation is not None:
-        coords += translation
+        np.add(coords, translation, out=coords)
 
     if rotation2 is not None:
-        coords[:] = np.matmul(coords, np.transpose(rotation2))
+        np.matmul(coords, np.transpose(rotation2), out=coords)
 
     if translation2 is not None:
-        coords += translation2
+        np.add(coords, translation2, out=coords)
 
     return coords
 
@@ -73,16 +73,16 @@ def transform_coordinate_sets(coord_sets: np.ndarray | Iterable,
         return coord_sets
 
     if rotation is not None:
-        coord_sets[:] = np.matmul(coord_sets, rotation.swapaxes(-2, -1))
+        np.matmul(coord_sets, rotation.swapaxes(-2, -1), out=coord_sets)
 
     if translation is not None:
-        coord_sets += translation
+        np.add(coord_sets, translation, out=coord_sets)
 
     if rotation2 is not None:
-        coord_sets[:] = np.matmul(coord_sets, rotation2.swapaxes(-2, -1))
+        np.matmul(coord_sets, rotation2.swapaxes(-2, -1), out=coord_sets)
 
     if translation2 is not None:
-        coord_sets += translation2
+        np.add(coord_sets, translation2, out=coord_sets)
 
     return coord_sets
 
