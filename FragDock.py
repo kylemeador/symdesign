@@ -863,7 +863,7 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
         rotation_matrices1, rotation_matrices2 = rotation_matrices
         number_of_rotations1, number_of_rotations2 = number_of_rotations
         number_of_degens1, number_of_degens2 = number_of_degens
-        for idx1 in range(rotation_matrices1.shape[0]):
+        for idx1 in range(rotation_matrices1.shape[0][:5]):  # Todo remove slice
             # Rotate Oligomer1 Surface and Ghost Fragment Guide Coordinates using rot_mat1 and set_mat1
             rot1_count = idx1 % number_of_rotations1 + 1
             degen1_count = idx1 // number_of_rotations1 + 1
@@ -873,7 +873,7 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
             surf_frags1_guide_coords_rot_and_set = \
                 transform_coordinate_sets(init_surf_guide_coords1, rotation=rot_mat1, rotation2=set_mat1)
 
-            for idx2 in range(rotation_matrices2.shape[0]):
+            for idx2 in range(rotation_matrices2.shape[0][:5]):  # Todo remove slice
                 # Rotate Oligomer2 Surface and Ghost Fragment Guide Coordinates using rot_mat2 and set_mat2
                 rot2_count = idx2 % number_of_rotations2 + 1
                 degen2_count = idx2 // number_of_rotations2 + 1
