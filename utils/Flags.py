@@ -253,7 +253,7 @@ parser_options_group = dict(title=f'{"_" * len(optional_title)}\n{optional_title
                             description=f'\nAdditional options control symmetry, the extent of file output, various '
                                         f'{program_name} runtime considerations, and programmatic options for '
                                         f'determining design outcomes')
-parser_options_arguments = {
+options_arguments = {
     ('-C', '--cores'): dict(type=int, default=cpu_count(logical=False) - 1,
                             help='Number of cores to use during --multi_processing\nIf run on a cluster, the number of '
                                  'cores will reflect the cluster allocation, otherwise, will use #physical_cores - 1'
@@ -332,7 +332,7 @@ parser_options_arguments = {
 parser_residue_selector_group = \
     dict(title=f'{"_" * len(design_selector_title)}\n{design_selector_title}',
          description='\nResidue selectors control which parts of the Pose are included in calculations')
-parser_residue_selector_arguments = {
+residue_selector_arguments = {
     ('--require_design_at_residues',):
         dict(type=str, default=None,
              help='Regardless of participation in an interface, if certain\n residues should be included in'
@@ -389,7 +389,7 @@ parser_orient = dict(orient=dict(help='Orient a symmetric assembly in a canonica
 # ---------------------------------------------------
 parser_refine = dict(refine=dict(help='Process Structures into an energy function'))
 # parser_refine = subparsers.add_parser(refine, help='Process Structures into an energy function')
-parser_refine_arguments = {
+refine_arguments = {
     ('-ala', '--interface_to_alanine'): dict(action='store_true',
                                              help='Whether to mutate all interface residues to alanine before '
                                                   'refinement'),
@@ -400,7 +400,7 @@ parser_refine_arguments = {
 # ---------------------------------------------------
 parser_nanohedra = dict(nanohedra=dict(help=f'Run or submit jobs to {nano.title()}.py'))
 # parser_dock = subparsers.add_parser(nano, help='Run or submit jobs to %s.py.\nUse the Module arguments -c1/-c2, -o1/-o2, or -q to specify PDB Entity codes, building block directories, or query the PDB for building blocks to dock' % nano.title())
-parser_nanohedra_arguments = {
+nanohedra_arguments = {
     # ('-e', '--entry', f'--{sym_entry}'): dict(type=int, default=None, dest=sym_entry,  # required=True,
     #                                           help=f'The entry number of {nano.title()} docking combinations to use'),
     ('-mv', '--match_value'): dict(type=float, default=0.5, dest='high_quality_match_value',
@@ -437,7 +437,7 @@ parser_nanohedra_mutual_run_type_arguments = {
 }
 # parser_dock_mutual1 = parser_dock.add_mutually_exclusive_group(required=True)
 parser_nanohedra_mutual1_group = dict()  # required=True <- adding kwarg below to different parsers depending on need
-parser_nanohedra_mutual1_arguments = {
+nanohedra_mutual1_arguments = {
     ('-c1', '--pdb_codes1'): dict(type=os.path.abspath, default=None,
                                   help=f'File with list of PDB_entity codes for {nano} component 1'),
     ('-o1', f'-{nano_entity_flag1}'): dict(type=os.path.abspath, default=None,
@@ -447,7 +447,7 @@ parser_nanohedra_mutual1_arguments = {
 }
 # parser_dock_mutual2 = parser_dock.add_mutually_exclusive_group()
 parser_nanohedra_mutual2_group = dict()  # required=False
-parser_nanohedra_mutual2_arguments = {
+nanohedra_mutual2_arguments = {
     ('-c2', '--pdb_codes2'): dict(type=os.path.abspath, default=None,
                                   help=f'File with list of PDB_entity codes for {nano} component 2'),
     ('-o2', f'-{nano_entity_flag2}'): dict(type=os.path.abspath, default=None,
@@ -457,7 +457,7 @@ parser_nanohedra_mutual2_arguments = {
 parser_cluster = dict(cluster_poses=dict(help='Cluster all poses by their spatial or interfacial similarity.\nThis is'
                                               ' useful to identify conformationally flexible docked configurations'))
 # parser_cluster = subparsers.add_parser(cluster_poses, help='Cluster all poses by their spatial similarity. This can remove redundancy or be useful in identifying conformationally flexible docked configurations')
-parser_cluster_poses_arguments = {
+cluster_poses_arguments = {
     ('-m', '--mode'): dict(type=str, choices=['transform', 'ialign'], default='transform'),
     ('--as_objects',): dict(action='store_true', help='Whether to store the resulting pose cluster file as '
                                                       'PoseDirectory objects\nDefault stores as pose IDs'),
@@ -472,7 +472,7 @@ parser_design = dict(interface_design=dict(help='Gather poses of interest and fo
                                                 'homologous sequences and/or fragment profiles extracted from the PDB '
                                                 'or neither.'))
 # parser_design = subparsers.add_parser(interface_design, help='Gather poses of interest and format for design using sequence constraints in Rosetta. Constrain using evolutionary profiles of homologous sequences and/or fragment profiles extracted from the PDB or neither.')
-parser_interface_design_arguments = {
+interface_design_arguments = {
     ('-nec', f'--{no_evolution_constraint}'): dict(action='store_true',
                                                    help='Whether to skip evolutionary constraints during design'
                                                         '\nDefault=%(default)s'),
@@ -496,7 +496,7 @@ parser_interface_design_arguments = {
 # ---------------------------------------------------
 parser_metrics = dict(interface_metrics=dict(help='Set up RosettaScript to analyze interface metrics from a pose'))
 # parser_metrics = subparsers.add_parser(interface_metrics, help='Set up RosettaScript to analyze interface metrics from a pose')
-parser_interface_metrics_arguments = {
+interface_metrics_arguments = {
     ('-sp', '--specific_protocol'): dict(type=str, help='The specific protocol type to perform metrics on')
 }
 # ---------------------------------------------------
@@ -507,7 +507,7 @@ parser_optimize_designs = \
                                     'solubility, or modifying surface charge.\nOptimization is based on amino acid '
                                     'frequency profiles' % interface_design))
 # parser_optimize_designs = subparsers.add_parser(optimize_designs, help='Optimize and touch up designs after running interface design. Useful for reverting excess mutations to wild-type, or directing targeted exploration of specific troublesome areas')
-parser_optimize_designs_arguments = {
+optimize_designs_arguments = {
     ('-bg', '--background_profile'): dict(type=str, default=design_profile,
                                           choices=[design_profile, evolutionary_profile, fragment_profile],
                                           help='Which profile should be used as the background profile during '
@@ -541,7 +541,7 @@ parser_optimize_designs_arguments = {
 # ---------------------------------------------------
 parser_analysis = dict(analysis=dict(help='Analyze all poses specified generating a suite of metrics'))
 # parser_analysis = subparsers.add_parser(analysis, help='Analyze all poses specified. %s --guide %s will inform you about the various metrics available to analyze.' % (program_command, analysis))
-parser_analysis_arguments = {
+analysis_arguments = {
     ('--output',): dict(action=argparse.BooleanOptionalAction, default=True,
                         help='Whether to output the --output_file? Use --no-output to prevent'),
     #                          '\nDefault=%(default)s'),
@@ -563,7 +563,7 @@ parser_select_poses = \
                                        'from -d, -f, -p, or -s form isn\'t\nprovided, the flags -sf or -df are possible'
                                        ' where -sf takes priority' % analysis))
 # parser_select_poses = subparsers.add_parser(select_poses, help='Select poses based on specific metrics. Selection will be the result of a handful of metrics combined using --filter and/or --weights. For metric options see %s --guide. If a pose specification in the typical d, -f, -p, or -s form isn\'t provided, the arguments -df or -pf are required with -pf taking priority if both provided' % analysis)
-parser_select_poses_arguments = {
+select_poses_arguments = {
     ('--filter',): dict(action='store_true', help='Whether to filter pose selection using metrics'),
     (f'--{protocol}',): dict(type=str, default=None, nargs='*', help='Use specific protocol(s) to filter metrics?'),
     ('-n', '--select_number'): dict(type=int, default=sys.maxsize, metavar='int',
@@ -597,7 +597,7 @@ parser_select_sequences = dict(select_sequences=dict(help='From the provided pos
                                                           'disordered region insertion,\ntagging for expression, and '
                                                           'codon optimization (if --nucleotide) are performed'))
 # parser_select_sequences = subparsers.add_parser(select_sequences, help='From the provided poses, generate nucleotide/protein sequences based on specified selection criteria and prioritized metrics. Generation of output sequences can take multiple forms depending on downstream needs. By default, disordered region insertion, tagging for expression, and codon optimization (--nucleotide) are performed')
-parser_select_sequences_arguments = {
+select_sequences_arguments = {
     ('-amp', '--allow_multiple_poses'): dict(action='store_true',
                                              help='Allow multiple sequences to be selected from the same Pose when '
                                                   'using --total\nBy default, --total filters the'
@@ -657,7 +657,7 @@ parser_select_sequences_arguments = {
 parser_select_designs = dict(select_designs=dict(help=f'From the provided poses, select designs based on specified '
                                                       f'selection criteria using metrics.\nEssentially shorthand for'
                                                       f'{select_sequences} with --skip_sequence_generation'))
-parser_select_designs_arguments = {
+select_designs_arguments = {
     ('-amp', '--allow_multiple_poses'): dict(action='store_true',
                                              help='Allow multiple sequences to be selected from the same Pose when '
                                                   'using --total\nBy default, --total filters the'
@@ -690,7 +690,7 @@ parser_multicistronic = dict(multicistronic=dict(help='Generate nucleotide seque
                                                       'sequences. REQUIRES an input .fasta file specified with the '
                                                       '-f/--file argument'))
 # parser_multicistronic = subparsers.add_parser('multicistronic', help='Generate nucleotide sequences\n for selected designs by codon optimizing protein sequences, then concatenating nucleotide sequences. REQUIRES an input .fasta file specified as -f/--file')
-parser_multicistronic_arguments = {
+multicistronic_arguments = {
     ('--csv',): dict(action='store_true',
                      help='Write the sequences file as a .csv instead of the default .fasta\nDefault=%(default)s'),
     ('-ms', '--multicistronic_intergenic_sequence'): dict(type=str,
@@ -740,7 +740,7 @@ directory_needed = f'Provide your working {program_output} with -d/--directory t
 parser_input_group = dict(title=f'{"_" * len(input_title)}\n{input_title}',
                           description=f'\nSpecify where/which poses should be included in processing\n'
                                       f'{directory_needed}')
-parser_input_arguments = {
+input_arguments = {
     ('-c', '--cluster_map'): dict(type=os.path.abspath,
                                   help='The location of a serialized file containing spatially\nor interfacial '
                                        'clustered poses'),
@@ -763,7 +763,7 @@ parser_input_arguments = {
 }
 # parser_input_mutual = parser_input.add_mutually_exclusive_group()
 parser_input_mutual_group = dict()  # required=True <- adding kwarg below to different parsers depending on need
-parser_input_mutual_arguments = {
+input_mutual_arguments = {
     ('-d', '--directory'): dict(type=os.path.abspath, metavar=ex_path('your_pdb_files'),
                                 help='Master directory where poses to be designed are located. This may be\nthe'
                                      ' output directory from %s.py, a random directory\nwith poses requiring design, or'
@@ -784,7 +784,7 @@ parser_input_mutual_arguments = {
 }
 parser_output_group = dict(title=f'{"_" * len(output_title)}\n{output_title}',
                            description='\nSpecify where output should be written')
-parser_output_arguments = {
+output_arguments = {
     ('-Od', '--outdir', '--output_directory'): dict(type=os.path.abspath, dest='output_directory', default=None,
                                                     help='If provided, the name of the directory to output all created '
                                                          'files.\nOtherwise, one will be generated based on the time, '
@@ -824,27 +824,28 @@ input_parsers = dict(input=parser_input_group,
 output_parsers = dict(output=parser_output_group)
 option_parsers = dict(options=parser_options_group)
 residue_selector_parsers = dict(residue_selector=parser_residue_selector_group)
-parser_arguments = dict(options_arguments=parser_options_arguments,
-                        residue_selector_arguments=parser_residue_selector_arguments,
-                        refine_arguments=parser_refine_arguments,
-                        nanohedra_arguments=parser_nanohedra_arguments,
-                        nanohedra_mutual1_arguments=parser_nanohedra_mutual1_arguments,  # mutually_exclusive_group
-                        nanohedra_mutual2_arguments=parser_nanohedra_mutual2_arguments,  # mutually_exclusive_group
-                        cluster_poses_arguments=parser_cluster_poses_arguments,
-                        interface_design_arguments=parser_interface_design_arguments,
-                        interface_metrics_arguments=parser_interface_metrics_arguments,
-                        optimize_designs_arguments=parser_optimize_designs_arguments,
+parser_arguments = dict(options=options_arguments,
+                        residue_selector=residue_selector_arguments,
+                        refine=refine_arguments,
+                        nanohedra=nanohedra_arguments,
+                        nanohedra_mutual1=nanohedra_mutual1_arguments,  # mutually_exclusive_group
+                        nanohedra_mutual2=nanohedra_mutual2_arguments,  # mutually_exclusive_group
+                        nanohedra_run_type_mutual=nanohedra_run_type_mutual_arguments,  # mutually_exclusive
+                        cluster_poses=cluster_poses_arguments,
+                        interface_design=interface_design_arguments,
+                        interface_metrics=interface_metrics_arguments,
+                        optimize_designs=optimize_designs_arguments,
+                        analysis=analysis_arguments,
+                        select_poses=select_poses_arguments,
+                        select_designs=select_designs_arguments,
+                        select_sequences=select_sequences_arguments,
+                        multicistronic=multicistronic_arguments,
+                        input=input_arguments,
+                        input_mutual=input_mutual_arguments,  # add_mutually_exclusive_group
+                        output=output_arguments,
                         # custom_script_arguments=parser_custom_script_arguments,
-                        analysis_arguments=parser_analysis_arguments,
-                        select_poses_arguments=parser_select_poses_arguments,
-                        select_designs_arguments=parser_select_designs_arguments,
                         # select_poses_mutual_arguments=parser_select_poses_mutual_arguments, # mutually_exclusive_group
-                        select_sequences_arguments=parser_select_sequences_arguments,
-                        multicistronic_arguments=parser_multicistronic_arguments,
                         # flags_arguments=parser_flags_arguments,
-                        input_arguments=parser_input_arguments,
-                        input_mutual_arguments=parser_input_mutual_arguments,  # add_mutually_exclusive_group
-                        output_arguments=parser_output_arguments,
                         )
 parser_options = 'parser_options'
 parser_residue_selector = 'parser_residue_selector'
@@ -888,10 +889,10 @@ argparsers[parser_guide].add_argument(*setup_args, **setup_kwargs)
 guide_subparsers = argparsers[parser_guide].add_subparsers(**module_subargparser)
 module_suparsers: dict[str, argparse.ArgumentParser] = {}
 for parser_name, parser_kwargs in module_parsers.items():
-    arguments = parser_arguments.get(f'{parser_name}_arguments', {})
+    arguments = parser_arguments.get(parser_name, {})
     # has args as dictionary key (flag names) and keyword args as dictionary values (flag params)
     if 'mutual' in parser_name:  # we must create a mutually_exclusive_group from already formed subparser
-        # remove any indication to "mutual" of the argparse group v
+        # Remove indication to "mutual" of the argparse group v by [:-1]
         exclusive_parser = \
             module_suparsers['_'.join(parser_name.split('_')[:-1])].\
             add_mutually_exclusive_group(**parser_kwargs, **(dict(required=True) if parser_name in module_required
@@ -921,7 +922,7 @@ for parser_name, parser_kwargs in module_parsers.items():
 parser = argparsers[parser_options]
 option_group = None
 for parser_name, parser_kwargs in option_parsers.items():
-    arguments = parser_arguments.get(f'{parser_name}_arguments', {})
+    arguments = parser_arguments.get(parser_name, {})
     if arguments:
         # has args as dictionary key (flag names) and keyword args as dictionary values (flag params)
         # There are no 'mutual' right now
@@ -937,7 +938,7 @@ for parser_name, parser_kwargs in option_parsers.items():
 parser = argparsers[parser_residue_selector]
 residue_selector_group = None
 for parser_name, parser_kwargs in residue_selector_parsers.items():
-    arguments = parser_arguments.get(f'{parser_name}_arguments', {})
+    arguments = parser_arguments.get(parser_name, {})
     if arguments:
         # has args as dictionary key (flag names) and keyword args as dictionary values (flag params)
         # There are no 'mutual' right now
@@ -953,7 +954,7 @@ for parser_name, parser_kwargs in residue_selector_parsers.items():
 parser = argparsers[parser_input]
 input_group = None  # must get added before mutual groups can be added
 for parser_name, parser_kwargs in input_parsers.items():
-    arguments = parser_arguments.get(f'{parser_name}_arguments', {})
+    arguments = parser_arguments.get(parser_name, {})
     if 'mutual' in parser_name:  # only has a dictionary as parser_arguments
         exclusive_parser = input_group.add_mutually_exclusive_group(required=True, **parser_kwargs)
         for args, kwargs in arguments.items():
@@ -967,7 +968,7 @@ for parser_name, parser_kwargs in input_parsers.items():
 parser = argparsers[parser_output]
 output_group = None  # must get added before mutual groups can be added
 for parser_name, parser_kwargs in output_parsers.items():
-    arguments = parser_arguments.get(f'{parser_name}_arguments', {})
+    arguments = parser_arguments.get(parser_name, {})
     if 'mutual' in parser_name:  # only has a dictionary as parser_arguments
         exclusive_parser = output_group.add_mutually_exclusive_group(**parser_kwargs)
         for args, kwargs in arguments.items():
@@ -998,7 +999,7 @@ parser = argparsers[parser_entire]
 # Set up entire ArgumentParser with input arguments
 input_group = None  # must get added before mutual groups can be added
 for parser_name, parser_kwargs in input_parsers.items():
-    arguments = parser_arguments.get(f'{parser_name}_arguments', {})
+    arguments = parser_arguments.get(parser_name, {})
     if 'mutual' in parser_name:  # only has a dictionary as parser_arguments
         exclusive_parser = input_group.add_mutually_exclusive_group(**parser_kwargs)
         for args, kwargs in arguments.items():
@@ -1013,7 +1014,7 @@ for parser_name, parser_kwargs in input_parsers.items():
 # subparsers = parser.add_subparsers(**module_subargparser)
 # entire_module_suparsers: dict[str, argparse.ArgumentParser] = {}
 # for parser_name, parser_kwargs in module_parsers.items():
-#     arguments = parser_arguments.get(f'{parser_name}_arguments', {})
+#     arguments = parser_arguments.get(parser_name, {})
 #     # has args as dictionary key (flag names) and keyword args as dictionary values (flag params)
 #     if 'mutual' in parser_name:  # we must create a mutually_exclusive_group from already formed subparser
 #         # remove any indication to "mutual" of the argparse group v
