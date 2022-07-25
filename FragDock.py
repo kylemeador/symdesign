@@ -1464,8 +1464,9 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
         surf_indices_in_interface2 = \
             np.flatnonzero(np.in1d(surf_residue_numbers2, interface_residue_numbers2, assume_unique=True))
         log.debug(f'surf_indices_in_interface2: {surf_indices_in_interface2[:10]}')
-        log.debug(f'surf_residue_numbers2: {surf_residue_numbers2[:10]}')
+        log.debug(f'surf_residue_numbers2[:10]: {surf_residue_numbers2[:10]}')
         log.debug(f'interface_residue_numbers2: {interface_residue_numbers2}')
+        log.debug(f'surf_residue_numbers2 in interface: {surf_residue_numbers2[surf_indices_in_interface2]}')
         is_in_index_time = time.time() - is_in_index_start
         all_fragment_match_time_start = time.time()
         # if idx % 2 == 0:
@@ -1496,7 +1497,7 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
         # DON'T think this is crucial! ###
         int_ghost_guide_coords1 = ghost_guide_coords1[ghost_indices_in_interface1]
         int_trans_surf_guide_coords2 = inverse_transformed_surf_frags2_guide_coords[idx, surf_indices_in_interface2]
-        surf_guide_coords2 = surf_guide_coords2[idx, surf_indices_in_interface2]
+        surf_guide_coords2 = surf_guide_coords2[surf_indices_in_interface2]
         log.debug(f'Surf coords trans versus original equality: {np.all(int_trans_surf_guide_coords2 == surf_guide_coords2)}')
         eul_lookup_start_time = time.time()
         # int_euler_matching_ghost_indices1, int_euler_matching_surf_indices2 = \
