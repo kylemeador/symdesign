@@ -2200,7 +2200,7 @@ class Models(Model):
     PDB files that share a common element.
     """
     _models_coords: Coords
-    state_attributes: set[str] = Model.state_attributes | {'_models_coords'}
+    # state_attributes: set[str] = Model.state_attributes | {'_models_coords'}
 
     def __init__(self, models: Iterable[Model] = None, **kwargs):
         if models:
@@ -2685,7 +2685,7 @@ class SymmetricModel(Models):
 
     @property
     def symmetric_coords(self) -> np.ndarray | None:
-        """Return a view of the symmetric models Coords"""
+        """Return a view of the symmetric Coords"""
         try:
             return self._models_coords.coords
         except AttributeError:
