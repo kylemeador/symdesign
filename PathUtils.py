@@ -245,3 +245,5 @@ sym_utils_file = 'SymmetryUtils.py'
 path_to_sym_utils = path.join(path.dirname(__file__), sym_utils_file)
 # help and warnings
 warn_missing_symmetry = f'Cannot %s without providing symmetry! Provide symmetry with "--symmetry" or "--{sym_entry}"'
+git_issue_url = 'https://github.com/kylemeador/symdesign/issues'
+issue_submit_warning = f'If problems still persist please submit and issue {git_issue_url}'
