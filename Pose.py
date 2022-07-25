@@ -2328,23 +2328,12 @@ class SymmetricModel(Models):
         #     generate_symmetry_mates: Whether the symmetric models should be generated from the ASU model
         #          asu: PDB = None, asu_file: str = None
         # Initialize symmetry first
-        self.set_symmetry(sym_entry=sym_entry, symmetry=symmetry, uc_dimensions=uc_dimensions,
-                          expand_matrices=expand_matrices)
-        super().__init__(**kwargs)  # log=log,
-        # if asu and isinstance(asu, Structure):
-        #     self.asu = asu  # the pose specific asu
-        # elif asu_file:
-        #     self.asu = Model.from_file(asu_file, log=self.log, **kwargs)
-        # # add stripped kwargs back
-        # kwargs['symmetry'] = symmetry
-        # kwargs['sym_entry'] = sym_entry
-        # self.models = []  # from Models
-        # self.model_coords = [] <- designated as symmetric_coords
-        # self._asu_model_idx = None
         self.expand_matrices = None
         self.expand_translations = None
-        # self._oligomeric_model_indices = {}
         self.uc_dimensions = None  # uc_dimensions
+        self.set_symmetry(sym_entry=sym_entry, symmetry=symmetry, uc_dimensions=uc_dimensions,
+                          expand_matrices=expand_matrices)
+        super().__init__(**kwargs)
 
         if self.symmetry:  # True if symmetry keyword args were passed
             # Ensure that the symmetric system is set up properly which could require finding the ASU
