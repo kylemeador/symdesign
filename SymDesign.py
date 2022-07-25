@@ -1119,7 +1119,6 @@ if __name__ == '__main__':
         job.docking_master_dir = os.path.join(job.projects, f'NanohedraEntry{sym_entry.entry_number}DockedPoses')
         os.makedirs(job.docking_master_dir, exist_ok=True)
         # Transform input entities to canonical orientation and return their ASU
-        symmetry_map = sym_entry.groups
         all_structures = []
         load_resources = False
         orient_log = SDUtils.start_log(name='orient', handler=2, propagate=True,
@@ -1152,7 +1151,7 @@ if __name__ == '__main__':
             raise RuntimeError('This should be impossible with mutually exclusive argparser group')
 
         all_structures.extend(job.structure_db.orient_structures(structure_names1,
-                                                                 symmetry=symmetry_map[0],
+                                                                 symmetry=sym_entry.group2,
                                                                  by_file=by_file1))
         single_component_design = False
         if args.oligomer2:
@@ -1187,7 +1186,7 @@ if __name__ == '__main__':
             single_component_design = True
         # Select entities, orient them, then load each Structure to all_structures for further database processing
         all_structures.extend(job.structure_db.orient_structures(structure_names2,
-                                                                 symmetry=symmetry_map[1],
+                                                                 symmetry=sym_entry.group2,
                                                                  by_file=by_file2))
 
         info_messages = []
