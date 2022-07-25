@@ -1707,8 +1707,9 @@ def get_equivalent_indices(sequence1: Sequence, sequence2: Sequence) -> tuple[li
         The pair of sequence indices were the sequences align.
             Ex: sequence1 = 'ABCDEF', sequence2 = 'ABDEF', returns [0, 1, 3, 4, 5], [0, 1, 2, 3, 4]
     """
+    # Get all mutations from the alignment of sequence1 and sequence2
     mutations = generate_mutations(sequence1, sequence2, blanks=True, return_all=True)
-    # get only those indices where there is an aligned aa on the opposite chain
+    # Get only those indices where there is an aligned aa on the opposite chain
     sequence1_indices, sequence2_indices = [], []
     to_idx, from_idx = 0, 0
     # sequence1 'from' is fixed, sequence2 'to' is moving
@@ -1718,8 +1719,8 @@ def get_equivalent_indices(sequence1: Sequence, sequence2: Sequence) -> tuple[li
         elif mutation['to'] == '-':  # increment from_idx/moving_idx
             from_idx += 1
         else:
-            sequence1_indices.append(to_idx)
-            sequence2_indices.append(from_idx)
+            sequence1_indices.append(from_idx)
+            sequence2_indices.append(to_idx)
             to_idx += 1
             from_idx += 1
 
