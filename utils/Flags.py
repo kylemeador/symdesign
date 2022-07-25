@@ -431,7 +431,7 @@ nanohedra_run_type_mutual_arguments = {
     ('-e', '-entry', '--entry', f'--{sym_entry}'):
         dict(type=int, default=None, dest=sym_entry, help='The symmetry to use. See --query for possible symmetries'),
     ('-query', '--query',): dict(action='store_true', help='Run in query mode\nDefault=%(default)s'),
-    # todo alias analysis -metric
+    # Todo alias analysis -metric
     ('-postprocess', '--postprocess',): dict(action='store_true',
                                              help='Run in post processing mode\nDefault=%(default)s')
 }
@@ -833,7 +833,7 @@ parser_arguments = dict(options=options_arguments,
                         nanohedra=nanohedra_arguments,
                         nanohedra_mutual1=nanohedra_mutual1_arguments,  # mutually_exclusive_group
                         nanohedra_mutual2=nanohedra_mutual2_arguments,  # mutually_exclusive_group
-                        nanohedra_run_type_mutual=nanohedra_run_type_mutual_arguments,  # mutually_exclusive
+                        nanohedra_mutual_run_type=nanohedra_run_type_mutual_arguments,  # mutually_exclusive
                         cluster_poses=cluster_poses_arguments,
                         interface_design=interface_design_arguments,
                         interface_metrics=interface_metrics_arguments,
