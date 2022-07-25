@@ -1686,6 +1686,7 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
             tx_dir = os.path.join(outdir, degen_str, rot_str,
                                   tx_str.lower())  # .lower() keeps original publication format
             os.makedirs(tx_dir, exist_ok=True)
+            sampling_id = f'{degen_str}-{rot_str}-{tx_str}'
             for idx, entity in enumerate(pose.entities, 1):
                 entity.write_oligomer(out_path=os.path.join(tx_dir, f'{entity.name}_{sampling_id}.pdb'))
         # ignore ASU clashes since already checked ^
