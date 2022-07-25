@@ -5815,7 +5815,7 @@ class Entity(SequenceProfile, Chain, ContainsChainsMixin):
                 rotation_matrices = get_rot_matrices(rotation_range[symmetry.replace('D', 'C')], 'z', 360)
                 degeneracy_matrices = [identity_matrix, flip_x_matrix]
             else:  # symmetry is cyclic
-                rotation_matrices = get_rot_matrices(rotation_range[symmetry], 'z', 360)
+                rotation_matrices = get_rot_matrices(rotation_range[symmetry], 'z')
                 degeneracy_matrices = None
             degeneracy_rotation_matrices = make_rotations_degenerate(rotation_matrices, degeneracy_matrices)
         except KeyError:
