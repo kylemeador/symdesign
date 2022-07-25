@@ -876,8 +876,10 @@ class Model(Structure, ContainsChainsMixin):
                  # dbref: dict[str, dict[str, str]] = None,
                  entity_info: dict[str, dict[dict | list | str]] = None,
                  # multimodel: bool = False,
-                 resolution: float = None, api_db: wrapapi.APIDatabase = None,
-                 reference_sequence: dict[str, str] = None, metadata: Model = None,
+                 resolution: float = None,
+                 # api_db: wrapapi.APIDatabase = None,
+                 reference_sequence: dict[str, str] = None,
+                 # metadata: Model = None,
                  **kwargs):
         # kwargs passed to Structure
         #          atoms: list[Atom] | Atoms = None, residues: list[Residue] | Residues = None, name: str = None,
@@ -3799,14 +3801,9 @@ class SymmetricModel(Models):
                             additional_chains.append(chain_combinations[viable_remaining_indices[max_idx]][entity_idx])
 
             new_entities = max_chains + additional_chains
-            # print([(entity.name, entity.chain_id) for entity in entities])
-            # rearrange the entities to have the same order as provided
-            # for new_entity in new_entities:
-            #     print('NEW', new_entity.name, new_entity.chain)
-            # for entity in entities:
-            #     print('OLD', entity.name, entity.chain)
+            # Rearrange the entities to have the same order as provided
             entities = [new_entity for entity in entities for new_entity in new_entities if entity == new_entity]
-            # print([(entity.name, entity.chain_id) for entity in entities])
+
         return entities
 
     def get_contacting_asu(self, distance: float = 8., **kwargs) -> Model:
@@ -3836,13 +3833,16 @@ class SymmetricModel(Models):
         """Find the maximally contacting symmetry mate for each Entity, then set the Pose with this info
 
         Keyword Args:
-            distance=8.0 (float): The distance to check for contacts
+            distance: float = 8.0 - The distance to check for contacts
         Sets:
-            self: To a Model with the minimal set of Entities containing the maximally touching configuration
+            self: To a SymmetricModel with the minimal set of Entities containing the maximally touching configuration
         """
         entities = self.find_contacting_asu(**kwargs)
         # self = Model.from_entities(entities, name='asu', log=self.log, **kwargs)
         # self._pdb = Model.from_entities(entities, name='asu', log=self.log, **kwargs)
+        # Todo
+        #  With perfect symmetry, v this is sufficient. Need to figure out setting _process_model keyword args
+        #   self.coords = np.concatenate([entity.coords for entity in entities])
         self._process_model(entities=entities, chains=False, **kwargs)
 
     # def make_oligomers(self):
