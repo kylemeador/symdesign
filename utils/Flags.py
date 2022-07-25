@@ -308,6 +308,8 @@ options_arguments = {
                                                                      'structures along with the Pose'),
     ('-Oo', f'--{output_oligomers}'): dict(action='store_true',
                                            help='For any oligomers generated, write them along with the Pose'),
+    ('--overwrite',): dict(action='store_true',
+                           help='Whether to overwrite existing structures upon job fulfillment\nDefault=%(default)s'),
     ('-P', '--preprocessed'): dict(action='store_true',
                                    help=f'Whether the designs of interest have been preprocessed for the '
                                         f'{current_energy_function} energy function and/or missing loops\n'
@@ -484,8 +486,6 @@ interface_design_arguments = {
     ('-n', f'--{number_of_trajectories}'): dict(type=int, default=nstruct,
                                                 help='How many unique sequences should be generated for each input?'
                                                      '\nDefault=%(default)s'),
-    ('--overwrite',): dict(action='store_true',
-                           help='Whether to overwrite existing structures upon job fulfillment\nDefault=%(default)s'),
     ('-sb', f'--{structure_background}'): dict(action='store_true',
                                                help='Whether to skip all constraints and measure the structure in an '
                                                     'optimal context\nDefault=%(default)s'),
