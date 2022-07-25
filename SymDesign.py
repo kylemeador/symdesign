@@ -16,7 +16,7 @@ from csv import reader
 from glob import glob
 from itertools import repeat, product, combinations, chain
 from json import loads, dumps
-from subprocess import Popen, list2cmdline
+from subprocess import list2cmdline
 from typing import Any, AnyStr
 
 import pandas as pd
@@ -449,7 +449,7 @@ def terminate(results: list[Any] | dict = None, output: bool = True, **kwargs):
         job_paths = job.job_paths
         SDUtils.make_path(job_paths)
         if low and high:
-            design_source = '%s-%.2f-%.2f' % (design_source, low, high)
+            design_source = f'{design_source}-{low:.2f}-{high:.2f}'
         # Make single file with names of each directory where all_docked_poses can be found
         # project_string = os.path.basename(pose_directories[0].project_designs)
         default_output_tuple = (SDUtils.starttime, args.module, design_source)
@@ -503,7 +503,9 @@ def terminate(results: list[Any] | dict = None, output: bool = True, **kwargs):
             else (PUtils.interface_design if getattr(args, PUtils.no_hbnet, None)
                   else (PUtils.structure_background if getattr(args, PUtils.structure_background, None)
                         else PUtils.hbnet_design_profile))
-        module_files = {PUtils.interface_design: design_stage, PUtils.nano: PUtils.nano, PUtils.refine: PUtils.refine,
+        module_files = {PUtils.interface_design: design_stage,
+                        PUtils.nano: PUtils.nano,
+                        PUtils.refine: PUtils.refine,
                         PUtils.interface_metrics: PUtils.interface_metrics,
                         # 'custom_script': os.path.splitext(os.path.basename(getattr(args, 'script', 'c/custom')))[0],
                         PUtils.optimize_designs: PUtils.optimize_designs}
@@ -512,6 +514,7 @@ def terminate(results: list[Any] | dict = None, output: bool = True, **kwargs):
             if len(success) == 0:
                 exit_code = 1
                 exit(exit_code)
+
             SDUtils.make_path(job.sbatch_scripts)
             if pose_directories:
                 command_file = SDUtils.write_commands([os.path.join(des.scripts, f'{stage}.sh') for des in success],
@@ -585,6 +588,7 @@ def generate_sequence_template(pdb_file):
     sequence_mask = copy.copy(sequence)
     sequence_mask.id = 'residue_selector'
     sequences = [sequence, sequence_mask]
+    raise NotImplementedError('This write_fasta call needs to have its keyword arguments refactored')
     return write_fasta(sequences, file_name=f'{os.path.splitext(pdb.file_path)[0]}_residue_selector_sequence')
 
 
@@ -1113,7 +1117,7 @@ if __name__ == '__main__':
                             f'{representative_pose_directory.log_path}')
 
     elif args.module == PUtils.nano:
-        logger.critical(f'Setting up inputs for {PUtils.nano} Docking')
+        logger.critical(f'Setting up inputs for {PUtils.nano.title()} docking')
         # Todo make current with sql ambitions
         # make master output directory. sym_entry is required, so this won't fail v
         job.docking_master_dir = os.path.join(job.projects, f'NanohedraEntry{sym_entry.entry_number}DockedPoses')
@@ -1240,6 +1244,7 @@ if __name__ == '__main__':
             logger.info('Modeling will occur in this process, ensure you don\'t lose connection to the shell!')
         else:
             logger.info('Writing modeling commands out to file, no modeling will occur until commands are executed')
+
     if args.multi_processing:
         # Calculate the number of cores to use depending on computer resources
         cores = SDUtils.calculate_mp_cores(cores=args.cores)  # mpi=args.mpi, Todo
@@ -1584,7 +1589,7 @@ if __name__ == '__main__':
             selected_indices, selected_poses = [], set()
             for pose_directory, design in selected_poses_df.index.to_list():
                 if pose_directory not in selected_poses:
-                    selected_poses.add(design_directory)
+                    selected_poses.add(pose_directory)
                     selected_indices.append((pose_directory, design))
                     number_chosen += 1
                     if number_chosen == args.select_number:
@@ -1641,6 +1646,7 @@ if __name__ == '__main__':
             selected_poses = [PoseDirectory.from_pose_id(pose, root=program_root, **queried_flags)
                               for pose in save_poses_df.index.to_list()]
         else:  # generate design metrics on the spot
+            raise NotImplementedError('This functionality is currently broken')
             selected_poses, selected_poses_df, df = [], pd.DataFrame(), pd.DataFrame()
             logger.debug('Collecting designs to sort')
             if args.metric == 'score':
@@ -1648,8 +1654,9 @@ if __name__ == '__main__':
             elif args.metric == 'fragments_matched':
                 metric_design_dir_pairs = [(des_dir.number_of_fragments, des_dir.path)
                                            for des_dir in pose_directories]
-            # else:
-            #     raise SDUtils.DesignError('The metric "%s" is not supported!' % args.metric)
+            else:  # This is impossible with the argparse options
+                raise NotImplementedError(f'The metric "{args.metric}" is not supported!')
+                metric_design_dir_pairs = []
 
             logger.debug(f'Sorting designs according to "{args.metric}"')
             metric_design_dir_pairs = [(score, path) for score, path in metric_design_dir_pairs if score]
@@ -1677,7 +1684,7 @@ if __name__ == '__main__':
         #     exit()
 
         if args.total and args.save_total:
-            total_df = os.path.join(outdir, 'TotalPosesTrajectoryMetrics.csv')
+            total_df = os.path.join(program_root, 'TotalPosesTrajectoryMetrics.csv')
             df.to_csv(total_df)
             logger.info(f'Total Pose/Designs DataFrame was written to {total_df}')
 
@@ -1968,9 +1975,15 @@ if __name__ == '__main__':
             # results = {pose_directory: results[str(pose_directory)] for pose_directory in pose_directories
             #            if str(pose_directory) in results}
         else:  # select designed sequences from each pose provided (PoseDirectory)
-            trajectory_df = None  # currently used to get the column headers
+            trajectory_df, sequence_metrics = None, None  # Used to get the column headers
+            try:
+                example_trajectory = representative_pose_directory.trajectories
+            except AttributeError:
+                raise RuntimeError('Missing the representative_pose_directory. It must be initialized to continue')
+                example_trajectory = None
+
             if args.filter:
-                trajectory_df = pd.read_csv(job.trajectories, index_col=0, header=[0])
+                trajectory_df = pd.read_csv(example_trajectory, index_col=0, header=[0])
                 sequence_metrics = set(trajectory_df.columns.get_level_values(-1).to_list())
                 sequence_filters = query_user_for_metrics(sequence_metrics, mode='filter', level='sequence')
             else:
@@ -1978,7 +1991,7 @@ if __name__ == '__main__':
 
             if args.weight:
                 if not trajectory_df:
-                    trajectory_df = pd.read_csv(job.trajectories, index_col=0, header=[0])
+                    trajectory_df = pd.read_csv(example_trajectory, index_col=0, header=[0])
                     sequence_metrics = set(trajectory_df.columns.get_level_values(-1).to_list())
                 sequence_weights = query_user_for_metrics(sequence_metrics, mode='weight', level='sequence')
             else:
@@ -2454,6 +2467,8 @@ if __name__ == '__main__':
         else:
             raise NotImplementedError(f'Sequence file with extension {os.path.splitext(file)[-1]} is not supported!')
 
+        # Convert the SeqRecord to a plain sequence
+        design_sequences = [str(seq_record.seq) for seq_record in design_sequences]
         nucleotide_sequences = {}
         for idx, group_start_idx in enumerate(list(range(len(design_sequences)))[::args.number_of_genes], 1):
             cistronic_sequence = \
