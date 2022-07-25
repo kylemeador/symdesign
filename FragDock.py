@@ -1497,8 +1497,8 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
         # DON'T think this is crucial! ###
         int_ghost_guide_coords1 = ghost_guide_coords1[ghost_indices_in_interface1]
         int_trans_surf_guide_coords2 = inverse_transformed_surf_frags2_guide_coords[idx, surf_indices_in_interface2]
-        surf_guide_coords2 = surf_guide_coords2[surf_indices_in_interface2]
-        log.debug(f'Surf coords trans versus original equality: {np.all(int_trans_surf_guide_coords2 == surf_guide_coords2)}')
+        surf_guide_coords2_ = surf_guide_coords2[surf_indices_in_interface2]
+        log.debug(f'Surf coords trans versus original equality: {np.all(int_trans_surf_guide_coords2 == surf_guide_coords2_)}')
         eul_lookup_start_time = time.time()
         # int_euler_matching_ghost_indices1, int_euler_matching_surf_indices2 = \
         #     euler_lookup.check_lookup_table(int_trans_ghost_guide_coords, int_trans_surf_guide_coords2)
