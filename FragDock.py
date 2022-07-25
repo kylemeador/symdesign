@@ -1277,8 +1277,8 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
 
     # asu_is_viable = np.where(asu_clash_counts.flatten() == 0)  # , True, False)
     # asu_is_viable = np.where(np.array(asu_clash_counts) == 0)
-    # Find those indices where the array is not non-zero
-    asu_is_viable = np.bitwise_not(np.flatnonzero(asu_clash_counts))
+    # Find those indices where the asu_clash_counts is not zero (inverse of nonzero by using the array == 0)
+    asu_is_viable = np.nonzero(asu_clash_counts == 0)
     number_non_clashing_transforms = len(asu_is_viable)
     log.info(f'Clash testing for All Oligomer1 and Oligomer2 (took {time.time() - check_clash_coords_start:8f}s) '
              f'found {number_non_clashing_transforms} viable ASU\'s out of {number_of_dense_transforms}')
