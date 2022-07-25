@@ -2301,7 +2301,13 @@ class SymmetricModel(Models):
     _asu_model_idx: int
     _center_of_mass_symmetric_entities: list[np.ndarray]
     _center_of_mass_symmetric_models: np.ndarray
+    _cryst_record: str
+    _dimension: int
+    _number_of_symmetry_mates: int
+    _point_group_symmetry: str
     _oligomeric_model_indices: dict[Entity, list[int]]
+    _sym_entry: SymEntry
+    _symmetry: str
     _symmetric_coords_by_entity: list[np.ndarray]
     _symmetric_coords_split: list[np.ndarray]
     _symmetric_coords_split_by_entity: list[list[np.ndarray]]
@@ -2344,6 +2350,7 @@ class SymmetricModel(Models):
                 self.set_contacting_asu()
             elif self.symmetric_coords is None:
                 # We need to generate the symmetric coords
+                self.log.debug('Setting symmetric coords')
                 self.generate_symmetric_coords(surrounding_uc=surrounding_uc)  # default has surrounding_uc=True
             # if generate_symmetry_mates:  # always set to False before. commenting out
             #     self.generate_assembly_symmetry_models(**kwargs)
