@@ -278,7 +278,7 @@ def sample_rot_tx_dof_coords(pdb, rot_step_deg=1, rot_range_deg=0, tx_step=1, st
             The rotation matrices with shape (rotations, 3, 3)
         """
         if rot_range_deg == 0:
-            return
+            return None
 
         rot_matrices = []
         axis = axis.lower()
@@ -298,7 +298,7 @@ def sample_rot_tx_dof_coords(pdb, rot_step_deg=1, rot_range_deg=0, tx_step=1, st
                 rot_matrices.append(
                     [[math.cos(rad), -1 * math.sin(rad), 0], [math.sin(rad), math.cos(rad), 0], [0, 0, 1]])
         else:
-            raise ValueError('Axis \'%s\' is not supported' % axis)
+            raise ValueError(f'Axis "{axis}" is not supported')
 
         return np.array(rot_matrices)
 
