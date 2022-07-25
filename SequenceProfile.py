@@ -340,13 +340,24 @@ class SequenceProfile:
     Currently, Entity and Pose contain the necessary .reference_sequence attribute. Any Structure object with a
     .reference_sequence attribute could be used however
     """
+    _fragment_db: info.FragmentInfo | None
+    a3m_file: AnyStr | None
+    alpha: dict
     disorder: dict[int, dict[str, str]]
-    fragment_db: info.FragmentInfo
+    evolutionary_profile: dict
+    fragment_map: dict | None
+    fragment_profile: dict
+    h_fields: np.ndarray | None
+    j_couplings: np.ndarray | None
     log: Logger
+    msa_file: AnyStr | None
     name: str
     number_of_residues: int
+    profile: dict
+    pssm_file: AnyStr | None
     reference_sequence: str
     # residues: list[Residue]
+    sequence_file: AnyStr | None
     sequence: str
 
     def __init__(self, **kwargs):
