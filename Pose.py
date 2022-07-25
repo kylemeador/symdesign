@@ -1283,7 +1283,8 @@ class Model(Structure, ContainsChainsMixin):
         orient_fixed_seq = orient_fixed_struct.sequence
         moving_seq = moving_struct.sequence
 
-        if orient_fixed_struct.number_of_residues == moving_struct.number_of_residues and orient_fixed_seq == moving_seq:
+        if orient_fixed_struct.number_of_residues == moving_struct.number_of_residues \
+                and orient_fixed_seq == moving_seq:
             # do an apples to apples comparison
             # length alone is inaccurate if chain is missing first residue and self is missing it's last...
             _, rot, tx = superposition3d(orient_fixed_struct.cb_coords, moving_struct.cb_coords)
