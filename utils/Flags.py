@@ -796,13 +796,14 @@ output_arguments = {
     ('--prefix',): dict(type=str, metavar='string', help='String to prepend to output name'),
     ('--suffix',): dict(type=str, metavar='string', help='String to append to output name'),
 }
-# If mutual flags, name must end as *_mutual
+# If using mutual groups, for the dict "key" (parser name), you must add "_mutual" immediately after the submodule
+# string that own the group. i.e nanohedra"_mutual*" indicates nanohedra owns, or interface_design"_mutual*", etc
 module_parsers = dict(orient=parser_orient,
                       refine=parser_refine,
                       nanohedra=parser_nanohedra,
                       nanohedra_mutual1=parser_nanohedra_mutual1_group,  # _mutual1,
                       nanohedra_mutual2=parser_nanohedra_mutual2_group,  # _mutual2,
-                      nanohedra_run_type_mutual=parser_nanohedra_run_type_mutual_group,  # _mutual,
+                      nanohedra_mutual_run_type=parser_nanohedra_run_type_mutual_group,  # _mutual,
                       cluster_poses=parser_cluster,
                       interface_design=parser_design,
                       interface_metrics=parser_metrics,
@@ -894,9 +895,8 @@ for parser_name, parser_kwargs in module_parsers.items():
     arguments = parser_arguments.get(parser_name, {})
     # has args as dictionary key (flag names) and keyword args as dictionary values (flag params)
     if 'mutual' in parser_name:  # we must create a mutually_exclusive_group from already formed subparser
-        # Remove indication to "mutual" of the argparse group v by [:-1]
-        exclusive_parser = \
-            module_suparsers['_'.join(parser_name.split('_')[:-1])].\
+        # Remove indication to "mutual" of the argparse group by removing any string after "_mutual"
+        exclusive_parser = module_suparsers[parser_name[:parser_name.find('_mutual')]].\
             add_mutually_exclusive_group(**parser_kwargs, **(dict(required=True) if parser_name in module_required
                                                              else {}))
         # add the key word argument "required" to mutual parsers that use it ^
