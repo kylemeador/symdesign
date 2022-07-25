@@ -1127,17 +1127,20 @@ if __name__ == '__main__':
         load_resources = False
         orient_log = SDUtils.start_log(name='orient', handler=2, propagate=True,
                                        location=os.path.join(job.structure_db.oriented.location, PUtils.orient_log_file))
+        # Set up variables for the correct parsing of provided file paths
         by_file1, by_file2 = False, False
+        eventual_structure_names1, eventual_structure_names2 = None, None
         if args.oligomer1:
             logger.critical(f'Ensuring provided file(s) at {args.oligomer1} are oriented for Nanohedra Docking')
             if '.pdb' in args.oligomer1:
                 pdb1_filepaths = [args.oligomer1]
             else:
                 pdb1_filepaths = SDUtils.get_directory_file_paths(args.oligomer1)
+            structure_names1 = pdb1_filepaths
             by_file1 = True
             # Reformat the file paths to the file_name for structure_names
-            structure_names1 = list(map(os.path.basename, [os.path.splitext(file)[0] for file in pdb1_filepaths]))
-            # structure_names1 = pdb1_filepaths
+            eventual_structure_names1 = \
+                list(map(os.path.basename, [os.path.splitext(file)[0] for file in pdb1_filepaths]))
         elif args.pdb_codes1:
             # Collect all provided codes required for component 1 processing
             structure_names1 = set(SDUtils.to_iterable(args.pdb_codes1, ensure_file=True))
@@ -1162,10 +1165,11 @@ if __name__ == '__main__':
                     pdb2_filepaths = [args.oligomer2]
                 else:
                     pdb2_filepaths = SDUtils.get_directory_file_paths(args.oligomer2)
+                structure_names2 = pdb2_filepaths
                 by_file2 = True
                 # Reformat the file paths to the file_name for structure_names
-                structure_names2 = list(map(os.path.basename, [os.path.splitext(file)[0] for file in pdb2_filepaths]))
-                # structure_names2 = pdb2_filepaths
+                eventual_structure_names2 = \
+                    list(map(os.path.basename, [os.path.splitext(file)[0] for file in pdb2_filepaths]))
             else:  # the entities are the same symmetry, or we have single component and bad input
                 structure_names2 = []
                 logger.info('No additional entities requested for docking, treating as single component')
@@ -1184,6 +1188,10 @@ if __name__ == '__main__':
         all_structures.extend(job.structure_db.orient_structures(structure_names2,
                                                                  symmetry=sym_entry.group2,
                                                                  by_file=by_file2))
+        if by_file1:
+            structure_names1 = eventual_structure_names1
+        if by_file2:
+            structure_names2 = eventual_structure_names2
 
         info_messages = []
         preprocess_instructions, pre_refine, pre_loop_model = \
