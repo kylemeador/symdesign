@@ -2836,6 +2836,10 @@ class SymmetricModel(Models):
         #     self.coords_type = 'bb_cb'
 
         # self.number_of_symmetry_mates = valid_subunit_number[self.symmetry]
+            print('self.cords.shape', self.coords.shape)
+            print('self.expand_matrices.shape', self.expand_matrices.shape)
+            print('self.expand_translations.shape', self.expand_translations.shape)
+            print('self.number_of_symmetry_mates', self.number_of_symmetry_mates)
             symmetric_coords = (np.matmul(np.tile(self.coords, (self.number_of_symmetry_mates, 1, 1)),
                                           self.expand_matrices) + self.expand_translations).reshape(-1, 3)
         # number_of_atoms = self.number_of_atoms

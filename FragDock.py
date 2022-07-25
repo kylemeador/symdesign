@@ -1268,7 +1268,7 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
 
             logger.critical(f'Successful execution with {divisor} using available memory of '
                             f'{psutil.virtual_memory().available} and chunk_size of {chunk_size}')
-            input_ = input('Please confirm to continue protocol')
+            # input_ = input('Please confirm to continue protocol')
             break
         except np.core._exceptions._ArrayMemoryError:
             chunk_size = int(number_of_elements_available // model_elements // divisor)  # Reduce scale by factor of 8 to be safe
