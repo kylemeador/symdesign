@@ -1229,9 +1229,17 @@ class PoseDirectory:
 
         return wt_file[0]
 
-    def get_designs(self) -> list[AnyStr]:  # design_type: str = PUtils.interface_design
-        """Return the paths of all design files in a PoseDirectory"""
-        return sorted(glob(path.join(self.designs, '*.pdb')))
+    def get_designs(self, design_type: str = None) -> list[AnyStr]:  # design_type: str = PUtils.interface_design
+        """Return the paths of all design files in a PoseDirectory
+
+        Args:
+            design_type: Specify if a particular type of design should be selected by a "type" string
+        Returns:
+            The sorted design files found in the designs directory
+        """
+        if design_type is None:
+            design_type = ''
+        return sorted(glob(path.join(self.designs, f'*{design_type}*.pdb')))
         # return sorted(glob(path.join(self.designs, '*%s*.pdb' % design_type)))
 
     # def return_symmetry_stats(self):  # Depreciated
