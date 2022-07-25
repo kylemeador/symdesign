@@ -5457,7 +5457,7 @@ class Entity(SequenceProfile, Chain, ContainsChainsMixin):
                     _, rot, tx = superposition3d(chain.cb_coords, self.cb_coords)
                 else:  # do an alignment, get selective indices, then follow with superposition
                     self.log.warning(f'Chain {chain.name} and Entity {self.name} require alignment to symmetrize')
-                    fixed_indices, moving_indices = get_equivalent_indices(self_seq, chain_seq)
+                    fixed_indices, moving_indices = get_equivalent_indices(chain_seq, self_seq)
                     _, rot, tx = superposition3d(chain.cb_coords[fixed_indices], self.cb_coords[moving_indices])
                 self.chain_transforms.append(dict(rotation=rot, translation=tx))
                 # self.chains.append(chain)  # Todo with flag for asymmetric symmetrization
