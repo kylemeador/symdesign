@@ -259,6 +259,7 @@ class StructureDatabase(Database):
                 pose = Pose.Pose.from_file(orient_asu_file, name=structure_identifier, sym_entry=sym_entry)
                 # Get the full assembly and set the symmetry as it has none
                 model = pose.assembly
+                model.name = structure_identifier
                 model.file_path = pose.file_path
             elif structure_identifier in orient_names:  # orient file exists, load asu, save and create stride
                 orient_file = self.oriented.retrieve_file(name=structure_identifier)
@@ -271,6 +272,7 @@ class StructureDatabase(Database):
 
                 # Get the full assembly and set the symmetry as it has none
                 model = pose.assembly
+                model.name = structure_identifier
                 model.file_path = pose.file_path
             # Use entry_entity only if not processed before
             else:  # they are missing, retrieve the proper files using PDB ID's

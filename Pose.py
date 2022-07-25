@@ -2790,7 +2790,7 @@ class SymmetricModel(Models):
                 chains = []
                 for model in self.models:
                     chains.extend(model.chains)
-                self._assembly = Model.from_chains(chains, name='assembly', log=self.log, entities=False,
+                self._assembly = Model.from_chains(chains, name=f'{self.name}-assembly', log=self.log, entities=False,
                                                    biomt_header=self.format_biomt(), cryst_record=self.cryst_record)
             return self._assembly
 
