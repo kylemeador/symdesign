@@ -725,8 +725,8 @@ if __name__ == '__main__':
                  f'append --overwrite to your command')
             symdesign_directory = None
         else:
-            queried_flags['output_directory'] = True
             symdesign_directory = args.output_directory
+            queried_flags['output_directory'] = True
     else:
         symdesign_directory = SDUtils.get_base_symdesign_dir(
             (args.directory or (args.project or args.single or [None])[0] or os.getcwd()))
