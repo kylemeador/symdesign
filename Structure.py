@@ -651,7 +651,7 @@ class StructureBase:
     def reset_state(self):
         """Remove StructureBase attributes that are valid for the current state but not for a new state
 
-        This is useful for transfer of ownership, or changes in the StructureBase state that should to be overwritten
+        This is useful for transfer of ownership, or changes in the StructureBase state that should be overwritten
         """
         for attr in self.state_attributes:
             try:

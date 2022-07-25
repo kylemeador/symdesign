@@ -3760,6 +3760,10 @@ class SymmetricModel(Models):
         Returns:
             The minimal set of Entities containing the maximally touching configuration
         """
+        if not self.entities:
+            # The SymmetricModel was probably set without them. Create them, then try to find the asu
+            self._create_entities()
+
         entities = self.entities
         if self.number_of_entities != 1:
             idx = 0
