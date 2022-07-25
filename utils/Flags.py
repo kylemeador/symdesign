@@ -426,8 +426,8 @@ nanohedra_arguments = {
                                              help='Whether the surrounding unit cells should be output? Only for '
                                                   'infinite materials\nDefault=%(default)s')
 }
-parser_nanohedra_mutual_run_type_group = dict()  # required=True <- adding below to different parsers depending on need
-parser_nanohedra_mutual_run_type_arguments = {
+parser_nanohedra_run_type_mutual_group = dict()  # required=True <- adding below to different parsers depending on need
+nanohedra_run_type_mutual_arguments = {
     ('-e', '-entry', '--entry', f'--{sym_entry}'):
         dict(type=int, default=None, dest=sym_entry, help='The symmetry to use. See --query for possible symmetries'),
     ('-query', '--query',): dict(action='store_true', help='Run in query mode\nDefault=%(default)s'),
@@ -796,11 +796,13 @@ output_arguments = {
     ('--prefix',): dict(type=str, metavar='string', help='String to prepend to output name'),
     ('--suffix',): dict(type=str, metavar='string', help='String to append to output name'),
 }
+# If mutual flags, name must end as *_mutual
 module_parsers = dict(orient=parser_orient,
                       refine=parser_refine,
                       nanohedra=parser_nanohedra,
                       nanohedra_mutual1=parser_nanohedra_mutual1_group,  # _mutual1,
                       nanohedra_mutual2=parser_nanohedra_mutual2_group,  # _mutual2,
+                      nanohedra_run_type_mutual=parser_nanohedra_run_type_mutual_group,  # _mutual,
                       cluster_poses=parser_cluster,
                       interface_design=parser_design,
                       interface_metrics=parser_metrics,
