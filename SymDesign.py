@@ -690,7 +690,7 @@ if __name__ == '__main__':
     # parse arguments for the actual runtime which accounts for differential argument ordering from standard argparse
     args, additional_args = argparsers[parser_module].parse_known_args()
     if args.module == PUtils.nano:
-        if args.query:  # we need to submit before we check for additional_args as this will have additional args
+        if args.query:  # we need to submit before we check for additional_args as query comes with additional args
             query_mode([__file__, '-query'] + additional_args)
             exit()
         else:  # we need to add a dummy input for argparse to happily continue with required args
