@@ -1233,6 +1233,11 @@ if __name__ == '__main__':
             # structures1 = [entity for entity in all_entities if entity.name in structures1]
             # structures2 = [entity for entity in all_entities if entity.name in structures2]
             structure_pairs = list(product(structures1, structures2))
+
+        if not structure_pairs:  # No pairs were located
+            exit('No docking pairs were located from your input. Please ensure that your input flags are as intended! '
+                 f'{PUtils.issue_submit_warning}')
+
         location = args.oligomer1
         design_source = os.path.splitext(os.path.basename(location))[0]
     else:
