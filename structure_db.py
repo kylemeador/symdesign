@@ -231,9 +231,10 @@ class StructureDatabase(Database):
                 structure_identifiers_ = []
                 for file in structure_identifiers:
                     model = Pose.Model.from_file(file)
+                    # Loading the file will parse the file name and set .name
                     model.write(out_path=self.oriented.path_to(name=model.name))
                     # Write out each Entity in Model to ASU file for the oriented_asu database
-                    model.file_path(out_path=self.oriented_asu.path_to(name=model.name))
+                    model.file_path = self.oriented_asu.path_to(name=model.name)
                     with open(model.file_path, 'w') as f:
                         model.write_header(f)
                         for entity in model.entities:
@@ -242,6 +243,7 @@ class StructureDatabase(Database):
                             # save Stride results
                             entity.stride(to_file=self.stride.path_to(name=entity.name))
                     structure_identifiers_.append(model.name)
+
                 structure_identifiers = structure_identifiers_
             else:
                 type_ = 'IDs'

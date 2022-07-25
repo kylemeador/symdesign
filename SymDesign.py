@@ -726,6 +726,7 @@ if __name__ == '__main__':
             symdesign_directory = None
         else:
             symdesign_directory = args.output_directory
+            # Set queried_flags to True so it is known that output is not typical SymDesignOutput directory structure
             queried_flags['output_directory'] = True
     else:
         symdesign_directory = SDUtils.get_base_symdesign_dir(
@@ -1123,33 +1124,36 @@ if __name__ == '__main__':
         load_resources = False
         orient_log = SDUtils.start_log(name='orient', handler=2, propagate=True,
                                        location=os.path.join(job.structure_db.oriented.location, PUtils.orient_log_file))
-        if args.query_codes:
-            if validate_input_return_response_value('Do you want to save the PDB query?', {'y': True, 'n': False}):
-                args.save_query = True
+        by_file1, by_file2 = False, False
+        if args.oligomer1:
+            logger.critical(f'Ensuring provided file(s) at {args.oligomer1} are oriented for Nanohedra Docking')
+            if '.pdb' in args.oligomer1:
+                pdb1_filepaths = [args.oligomer1]
             else:
-                args.save_query = False
+                pdb1_filepaths = SDUtils.get_directory_file_paths(args.oligomer1)
+            structure_names1 = pdb1_filepaths
+            by_file1 = True
+            # pdb1_oriented_filepaths = orient_structure_files(pdb1_filepaths, log=orient_log,
+            #                                                  symmetry=symmetry_map[0],
+            #                                                  out_dir=job.structure_db.oriented.location)
+            # # pull out the structure names and use job.structure_db.orient_structures to retrieve the oriented file
+            # structure_names1 = list(map(os.path.basename,
+            #                      [os.path.splitext(file)[0] for file in filter(None, pdb1_oriented_filepaths)]))
+        elif args.pdb_codes1:
+            # Collect all provided codes required for component 1 processing
+            structure_names1 = set(SDUtils.to_iterable(args.pdb_codes1, ensure_file=True))
+        elif args.query_codes:
+            args.save_query = validate_input_return_response_value(
+                'Do you want to save your PDB query to a local file?', {'y': True, 'n': False})
 
-            # Todo separate to use query1 and query2?
             print('\nStarting PDB query for component 1\n')
             structure_names1 = retrieve_pdb_entries_by_advanced_query(save=args.save_query, entity=True)
         else:
-            if args.pdb_codes1:
-                structure_names1 = set(SDUtils.to_iterable(args.pdb_codes1, ensure_file=True))
-            else:  # args.oligomer1:
-                logger.critical(f'Ensuring provided file(s) at {args.oligomer1} are oriented for Nanohedra Docking')
-                if '.pdb' in args.oligomer1:
-                    pdb1_filepaths = [args.oligomer1]
-                else:
-                    pdb1_filepaths = SDUtils.get_directory_file_paths(args.oligomer1)
-                structure_names1 = pdb1_filepaths
-                # pdb1_oriented_filepaths = orient_structure_files(pdb1_filepaths, log=orient_log,
-                #                                                  symmetry=symmetry_map[0],
-                #                                                  out_dir=job.structure_db.oriented.location)
-                # # pull out the structure names and use job.structure_db.orient_structures to retrieve the oriented file
-                # structure_names1 = list(map(os.path.basename,
-                #                      [os.path.splitext(file)[0] for file in filter(None, pdb1_oriented_filepaths)]))
-        all_structures.extend(job.structure_db.orient_structures(structure_names1, symmetry=symmetry_map[0]))
+            raise RuntimeError('This should be impossible with mutually exclusive argparser group')
 
+        all_structures.extend(job.structure_db.orient_structures(structure_names1,
+                                                                 symmetry=symmetry_map[0],
+                                                                 by_file=by_file1))
         single_component_design = False
         if args.oligomer2:
             if args.oligomer1 != args.oligomer2:  # see if they are the same input
@@ -1160,6 +1164,7 @@ if __name__ == '__main__':
                 else:
                     pdb2_filepaths = SDUtils.get_directory_file_paths(args.oligomer2)
                 structure_names2 = pdb2_filepaths
+                by_file2 = True
                 # pdb2_oriented_filepaths = orient_structure_files(pdb2_filepaths, log=orient_log,
                 #                                                  symmetry=symmetry_map[1],
                 #                                                  out_dir=job.structure_db.oriented.location)
@@ -1171,7 +1176,7 @@ if __name__ == '__main__':
                 logger.info('No additional entities requested for docking, treating as single component')
                 single_component_design = True
         elif args.pdb_codes2:
-            # Collect all entities required for processing the given commands
+            # Collect all provided codes required for component 2 processing
             structure_names2 = set(SDUtils.to_iterable(args.pdb_codes2, ensure_file=True))
         elif args.query_codes:
             print('\nStarting PDB query for component 2\n')
@@ -1181,7 +1186,9 @@ if __name__ == '__main__':
             logger.info('No additional entities requested for docking, treating as single component')
             single_component_design = True
         # Select entities, orient them, then load each Structure to all_structures for further database processing
-        all_structures.extend(job.structure_db.orient_structures(structure_names2, symmetry=symmetry_map[1]))
+        all_structures.extend(job.structure_db.orient_structures(structure_names2,
+                                                                 symmetry=symmetry_map[1],
+                                                                 by_file=by_file2))
 
         info_messages = []
         preprocess_instructions, pre_refine, pre_loop_model = \
