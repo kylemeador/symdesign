@@ -1397,6 +1397,8 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
                                   ) for idx in range(5)])
     log.debug(f'transform is correct?: '
               f'{np.all(inverse_transformed_surf_frags2_guide_coords[:5] == inverse_transformed_surf_frags2_guide_coords_)}')
+    log.debug(f'inverse_transformed_surf_frags2_guide_coords.shape: '
+              f'{inverse_transformed_surf_frags2_guide_coords.shape}')
     # log.debug('Transformed guide_coords')
     log.info(f'\tTransformation of all viable Oligomer 2 CB atoms and surface fragments took '
              f'{time.time() - int_cb_and_frags_start:8f}s')
@@ -1461,6 +1463,9 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
         ghost_indices_in_interface1 = np.flatnonzero(np.in1d(ghost_residue_numbers1, interface_residue_numbers1))
         surf_indices_in_interface2 = \
             np.flatnonzero(np.in1d(surf_residue_numbers2, interface_residue_numbers2, assume_unique=True))
+        log.debug(f'surf_indices_in_interface2: {surf_indices_in_interface2[:10]}')
+        log.debug(f'surf_residue_numbers2: {surf_residue_numbers2[:10]}')
+        log.debug(f'interface_residue_numbers2: {interface_residue_numbers2}')
         is_in_index_time = time.time() - is_in_index_start
         all_fragment_match_time_start = time.time()
         # if idx % 2 == 0:
@@ -1482,7 +1487,7 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
         log.info(f'\tNewly Formed Interface Contains {unique_interface_frag_count_model1} Unique Fragments on Oligomer '
                  f'1 from {len(interface_residue_numbers1)} Residues and '
                  f'{unique_interface_frag_count_model2} on Oligomer 2 from {len(interface_residue_numbers2)} Residues '
-                 f'\n\t(took {get_int_frags_time:8f}s to to get interface fragments, '
+                 f'\n\t(took {get_int_frags_time:8f}s to to get interface fragments, including '
                  f'{model1_cb_balltree_time:8f}s to query distances, {is_in_index_time:8f}s to index residue numbers)')
         # NOT crucial ??? ^^^ ###
 
@@ -1491,6 +1496,8 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
         # DON'T think this is crucial! ###
         int_ghost_guide_coords1 = ghost_guide_coords1[ghost_indices_in_interface1]
         int_trans_surf_guide_coords2 = inverse_transformed_surf_frags2_guide_coords[idx, surf_indices_in_interface2]
+        surf_guide_coords2 = surf_guide_coords2[idx, surf_indices_in_interface2]
+        log.debug(f'Surf coords trans versus original equality: {np.all(int_trans_surf_guide_coords2 == surf_guide_coords2)}')
         eul_lookup_start_time = time.time()
         # int_euler_matching_ghost_indices1, int_euler_matching_surf_indices2 = \
         #     euler_lookup.check_lookup_table(int_trans_ghost_guide_coords, int_trans_surf_guide_coords2)
