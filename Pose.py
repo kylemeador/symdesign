@@ -2197,7 +2197,8 @@ class Models(Model):
     symmetric copies) [or mutated Residues]. In PDB parlance, this would be a multimodel, however could be multiple
     PDB files that share a common element.
     """
-    _model_coords: Coords
+    _models_coords: Coords
+    state_attributes: set[str] = Model.state_attributes | {'_models_coords'}
 
     def __init__(self, models: Iterable[Model] = None, **kwargs):
         if models:
@@ -2221,9 +2222,12 @@ class Models(Model):
         return len(self.models)
 
     @property
-    def models_coords(self) -> np.ndarray:
+    def models_coords(self) -> np.ndarray | None:
         """Return a concatenated view of the Coords from all models"""
-        return self._model_coords.coords
+        try:
+            return self._models_coords.coords
+        except AttributeError:
+            return None
 
     @models_coords.setter
     def models_coords(self, coords: Coords | np.ndarray | list[list[float]]):
@@ -2296,7 +2300,6 @@ class SymmetricModel(Models):
     _center_of_mass_symmetric_entities: list[np.ndarray]
     _center_of_mass_symmetric_models: np.ndarray
     _oligomeric_model_indices: dict[Entity, list[int]]
-    _symmetric_coords: Coords
     _symmetric_coords_by_entity: list[np.ndarray]
     _symmetric_coords_split: list[np.ndarray]
     _symmetric_coords_split_by_entity: list[list[np.ndarray]]
@@ -2305,8 +2308,8 @@ class SymmetricModel(Models):
     uc_dimensions: list[float] | None
     state_attributes: set[str] = Models.state_attributes | \
         {'_assembly', '_assembly_minimally_contacting', '_assembly_tree', '_asu_indices', '_asu_model_idx',
-         '_center_of_mass_symmetric_entities', '_center_of_mass_symmetric_models', '_oligomeric_model_indices',
-         '_symmetric_coords', '_symmetric_coords_by_entity', '_symmetric_coords_split',
+         '_center_of_mass_symmetric_entities', '_center_of_mass_symmetric_models',
+         '_oligomeric_model_indices', '_symmetric_coords_by_entity', '_symmetric_coords_split',
          '_symmetric_coords_split_by_entity'}
 
     def __init__(self, sym_entry: SymEntry | int = None, symmetry: str = None,
@@ -2348,7 +2351,8 @@ class SymmetricModel(Models):
             if self.number_of_entities != self.number_of_chains:  # ensure the structure is an asu
                 self.log.debug('Setting Pose ASU to the ASU with the most contacting interface')
                 self.set_contacting_asu()
-            else:  # We should generate the symmetric coords "manually"
+            elif self.symmetric_coords is None:
+                # We need to generate the symmetric coords
                 self.generate_symmetric_coords(surrounding_uc=surrounding_uc)  # default has surrounding_uc=True
             # if generate_symmetry_mates:  # always set to False before. commenting out
             #     self.generate_assembly_symmetry_models(**kwargs)
@@ -2643,11 +2647,11 @@ class SymmetricModel(Models):
         # return [[idx + (number_of_atoms * model_number) for model_number in range(self.number_of_symmetry_mates)
         #          for idx in entity_indices] for entity_indices in self.atom_indices_per_entity]
 
-    def set_asu_coords(self, coords: Coords | np.ndarray | list[list[float]]):
-        """Set the coordinates corresponding to the asymmetric unit for the SymmetricModel"""
-        self._coords.set(coords)
-        if self.symmetry:
-            self.generate_symmetric_coords()
+    # def set_asu_coords(self, coords: Coords | np.ndarray | list[list[float]]):
+    #     """Set the coordinates corresponding to the asymmetric unit for the SymmetricModel"""
+    #     self._coords.set(coords)
+    #     if self.symmetry:
+    #         self.generate_symmetric_coords()
 
     # @property
     # def asu_coords(self) -> np.ndarray:
@@ -2682,9 +2686,12 @@ class SymmetricModel(Models):
             return self._asu_indices
 
     @property
-    def symmetric_coords(self) -> np.ndarray:
+    def symmetric_coords(self) -> np.ndarray | None:
         """Return a view of the symmetric models Coords"""
-        return self._models_coords.coords
+        try:
+            return self._models_coords.coords
+        except AttributeError:
+            return None
 
     # @symmetric_coords.setter
     # def symmetric_coords(self, coords: np.ndarray | list[list[float]]):
@@ -3747,7 +3754,7 @@ class SymmetricModel(Models):
         asu_coords = [symmetric_coords_split_by_entity[group_idx][sym_idx]
                       for group_idx, sym_idx in enumerate(selected_asu_indices)]
         # self.log.critical('asu_coords: %s' % asu_coords)
-        self.set_asu_coords(np.concatenate(asu_coords))
+        self.coords = np.concatenate(asu_coords)
         # self.asu_coords = Coords(np.concatenate(asu_coords))
         # for idx, entity in enumerate(self.entities):
         #     entity.make_oligomer(symmetry=self.sym_entry.groups[idx], **transform_solutions[idx])
