@@ -2825,52 +2825,8 @@ class SymmetricModel(Models):
         #     raise SymmetryError(f'{self.generate_symmetric_coords.__name__}: No symmetry set for {self.name}!')
 
         if self.dimension == 0:
-            # self.generate_point_group_coords(**kwargs)
-
-    # def generate_point_group_coords(self, **kwargs):  # return_side_chains=True,
-    #     """Find the coordinates of the symmetry mates using the coordinates and the input expansion matrices
-    #
-    #     Sets:
-    #         self.number_of_symmetry_mates (int)
-    #         self.symmetric_coords (Coords)
-    #     """
-        # if return_side_chains:  # get different function calls depending on the return type # todo
-        #     # get_pdb_coords = getattr(PDB, 'coords')
-        #     self.coords_type = 'all'
-        # else:
-        #     # get_pdb_coords = getattr(PDB, 'backbone_and_cb_coords')
-        #     self.coords_type = 'bb_cb'
-
-        # self.number_of_symmetry_mates = valid_subunit_number[self.symmetry]
-            print('self.cords.shape', self.coords.shape)
-            print('self.expand_matrices.shape', self.expand_matrices.shape)
-            print('self.expand_translations.shape', self.expand_translations.shape)
-            print('self.number_of_symmetry_mates', self.number_of_symmetry_mates)
             symmetric_coords = (np.matmul(np.tile(self.coords, (self.number_of_symmetry_mates, 1, 1)),
                                           self.expand_matrices) + self.expand_translations).reshape(-1, 3)
-        # number_of_atoms = self.number_of_atoms
-        # number_of_atoms = len(self.coords)
-        # model_coords = np.empty((number_of_atoms * self.number_of_symmetry_mates, 3), dtype=float)
-        # for idx, rotation in enumerate(self.expand_matrices):
-        #     model_coords[idx * number_of_atoms: (idx + 1) * number_of_atoms] = \
-        #         np.matmul(self.coords, np.transpose(rotation))
-        # self.symmetric_coords = Coords(model_coords)
-
-    # def generate_lattice_coords(self, surrounding_uc: bool = True, **kwargs):  # return_side_chains=True
-    #     """Generates unit cell coordinates for a symmetry group. Modifies model_coords to include all in the unit cell
-    #
-    #     Args:
-    #         surrounding_uc: Whether the 3x3 layer group, or 3x3x3 space group should be generated
-    #     Sets:
-    #         self.number_of_symmetry_mates (int)
-    #         self.symmetric_coords (Coords)
-    #     """
-        # if return_side_chains:  # get different function calls depending on the return type  # todo
-        #     # get_pdb_coords = getattr(PDB, 'coords')
-        #     self.coords_type = 'all'
-        # else:
-        #     # get_pdb_coords = getattr(PDB, 'backbone_and_cb_coords')
-        #     self.coords_type = 'bb_cb'
         else:
             if surrounding_uc:
                 shift_3d = [0., 1., -1.]
@@ -4054,8 +4010,8 @@ class Pose(SequenceProfile, SymmetricModel):
     @fragment_db.setter
     def fragment_db(self, fragment_db: fragment.FragmentDatabase):
         if not isinstance(fragment_db, fragment.FragmentDatabase):
-            self.log.warning(f'The passed fragment_db is being set to the default since {fragment_db} was passed which '
-                             f'is not of the required type {fragment.FragmentDatabase.__name__}')
+            self.log.debug(f'The passed fragment_db is being set to the default since {fragment_db} was passed which '
+                           f'is not of the required type {fragment.FragmentDatabase.__name__}')
             # Todo add fragment_length, sql kwargs
             fragment_db = fragment.fragment_factory(source=PUtils.biological_interfaces)
 
