@@ -463,9 +463,9 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
     cb_distance = 9.  # change to 8.?
     # Get Building Blocks in pose format to remove need for fragments to use chain info
     if not isinstance(model1, Structure):
-        model1 = Model.from_file(model1, pose_format=True)
+        model1 = Model.from_file(model1)  # , pose_format=True)
     if not isinstance(model2, Structure):
-        model2 = Model.from_file(model2, pose_format=True)
+        model2 = Model.from_file(model2)  # , pose_format=True)
 
     # Get model with entity oligomers via make_oligomer
     models = [model1, model2]
@@ -477,13 +477,13 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
                 continue
             else:
                 entity.make_oligomer(symmetry=symmetry)
+                entity.write_oligomer(out_path=os.path.join(master_output, f'{entity.name}_make_oligomer.pdb'))
 
         # Make, then save a new model based on the symmetric version of each Entity in the Model
         models[idx] = Model.from_chains([chain for entity in model.entities for chain in entity.chains],
                                         name=model.name, pose_format=True)
         models[idx].file_path = model.file_path
 
-    model1, model2 = models
     # Set up output mechanism
     if isinstance(master_output, str) and not write_frags:  # we just want to write, so don't make a directory
         building_blocks = "-".join(model.name for model in models)
@@ -509,6 +509,7 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
     for model in models:
         model.log = log
 
+    model1, model2 = models
     # Write to Logfile
     if resume:
         log.info('Found a prior incomplete run! Resuming from last sampled transformation.\n')
@@ -1659,6 +1660,7 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
                                         rotation2=set_mat1, translation2=external_tx_params1)
         specific_transformation2 = dict(rotation=rot_mat2, translation=internal_tx_param2,
                                         rotation2=set_mat2, translation2=external_tx_params2)
+        specific_transformations = [specific_transformation1, specific_transformation2]
         # model1_copy = model1.return_transformed_copy(**specific_transformation1)
         # model2_copy = model2.return_transformed_copy(**{'rotation': rot_mat2, 'translation': internal_tx_param2,
         #                                             'rotation2': set_mat2, 'translation2': external_tx_params2})
@@ -1672,10 +1674,14 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
             uc_dimensions = None
 
         pose = Pose.from_entities(
-            [entity.return_transformed_copy(**specific_transformation1) for entity in model1.entities] +
-            [entity.return_transformed_copy(**specific_transformation2) for entity in model2.entities],
-            name='asu', log=log, entity_names=[model1.name, model2.name], rename_chains=True, sym_entry=sym_entry,
+            [entity.return_transformed_copy(**specific_transformations[idx]) for idx, model in enumerate(models)
+             for entity in model.entities],
+            # [entity.return_transformed_copy(**specific_transformation1) for entity in model1.entities] +
+            # [entity.return_transformed_copy(**specific_transformation2) for entity in model2.entities],
+            name='asu', log=log, entity_names=[entity for entity in model.entities for idx, model in enumerate(models)],
+            rename_chains=True, sym_entry=sym_entry,
             surrounding_uc=output_surrounding_uc, ignore_clashes=True, uc_dimensions=uc_dimensions)
+        # ignore ASU clashes since already checked ^
 
         if write_and_quit:  # Todo remove after debugging
             degen_str = 'DEGEN_{}'.format('_'.join(map(str, degen_counts[idx])))
@@ -1689,7 +1695,6 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
             sampling_id = f'{degen_str}-{rot_str}-{tx_str}'
             for idx, entity in enumerate(pose.entities, 1):
                 entity.write_oligomer(out_path=os.path.join(tx_dir, f'{entity.name}_{sampling_id}.pdb'))
-        # ignore ASU clashes since already checked ^
         log.info(f'\tCopy and Transform Oligomer1 and Oligomer2 (took {time.time() - copy_model_start:8f}s)')
         # log.debug('Checked expand clash')
         # pose.entities[0].write_oligomer(out_path=os.path.join(tx_dir, '%s_symmetric_material.pdb' % entity2.name))
@@ -1725,7 +1730,7 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
         high_quality_matches_dir = os.path.join(matching_fragments_dir, 'high_qual_match')
         low_quality_matches_dir = os.path.join(matching_fragments_dir, 'low_qual_match')
 
-        # Write ASU, PDB1, PDB2, and expanded assembly files
+        # Write ASU, Model1, Model2, and assembly files
         pose.set_contacting_asu(distance=cb_distance, rename_chains=True)
         if sym_entry.unit_cell:  # 2, 3 dimensions
             # asu = get_central_asu(asu, uc_dimensions, sym_entry.dimension)
