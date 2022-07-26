@@ -3937,7 +3937,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
 
         return [residue.local_density for residue in self.residues]
 
-    def is_clash(self, measure: coords_type_literal = 'backbone_and_cb', distance: float = 2.1,
+    def is_clash(self, measure: coords_type_literal = 'backbone_and_cb', distance: float = 2.1, warn: bool = True,
                  report_hydrogen: bool = False) -> bool:
         """Check if the Structure contains any self clashes. If clashes occur with the Backbone, return True. Reports
         the Residue where the clash occurred and the clashing Atoms
@@ -3945,6 +3945,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         Args:
             measure: The atom type to measure clashing by
             distance: The distance which clashes should be checked
+            warn: Whether to emit warnings about identified clashes. Output grouped into measure vs non-measure
             report_hydrogen: Whether to report clashing hydrogen atoms
         Returns:
             True if the Structure clashes, False if not
@@ -3975,60 +3976,75 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         # else:
 
         # Set up the query indices. BallTree is faster upon timeit with 131 msec/loop
+        # Todo make self.atom_tree a property?
         atom_tree = BallTree(self.coords)
         residues = self.residues
         atoms = self.atoms
         measured_clashes, other_clashes = [], []
+        clashes = False
 
         def return_true(): return True
 
-        def handle_clash_reporting(clash_indices: Iterable[int]):
-            """Local helper to separate clash reporting from clash generation"""
-            for clashing_idx in clash_indices:
-                # other_residue = coords_indexed_residues[clashing_idx]
-                atom = atoms[clashing_idx]
-                if getattr(atom, f'is_{measure}', return_true)():
-                    measured_clashes.append((residue, atom))
-                elif report_hydrogen:
-                    other_clashes.append((residue, atom))
-                elif atom.is_heavy():
-                    other_clashes.append((residue, atom))
+        any_clashes: Callable[[Iterable[int]], bool]
+        """Local helper to separate clash reporting from clash generation"""
+
+        if warn:
+            def any_clashes(_clash_indices: Iterable[int]):
+                new_clashes = any(_clash_indices)
+                if new_clashes:
+                    for clashing_idx in _clash_indices:
+                        atom = atoms[clashing_idx]
+                        if getattr(atom, f'is_{measure}', return_true)():
+                            measured_clashes.append((residue, atom))
+                        elif report_hydrogen:
+                            other_clashes.append((residue, atom))
+                        elif atom.is_heavy():
+                            other_clashes.append((residue, atom))
+
+                # Set the global while checking global against new_clashes
+                return clashes or new_clashes
+        else:
+            def any_clashes(_clash_indices: Iterable[int]):
+                return clashes or any(_clash_indices)
 
         # check first and last residue with different considerations given covalent bonds
         residue = residues[0]
         # query the first residue with chosen coords type against the atom_tree
-        residue_query = atom_tree.query_radius(getattr(residue, coords_type), distance)
+        residue_atom_contacts = atom_tree.query_radius(getattr(residue, coords_type), distance)
         # reduce the dimensions and format as a single array
-        all_contacts = {contact for residue_contacts in residue_query for contact in residue_contacts}
+        all_contacts = {atom_contact for residue_contacts in residue_atom_contacts
+                        for atom_contact in residue_contacts}
         # We must subtract the N and C atoms from the adjacent residues for each residue as these are within a bond
-        clashes = all_contacts.difference(residue.atom_indices + [residue.next_residue.n_atom_index])
-        if any(clashes):
-            handle_clash_reporting(clashes)
+        clashes = any_clashes(
+            all_contacts.difference(residue.atom_indices
+                                    + [residue.next_residue.n_atom_index]))
 
         # perform routine for all middle residues
         for residue in residues[1:-1]:  # avoid first and last since no prev_ or next_residue
-            residue_query = atom_tree.query_radius(getattr(residue, coords_type), distance)
-            all_contacts = {contact for residue_contacts in residue_query for contact in residue_contacts}
-            # all_contacts = set(np.concatenate(residue_query).tolist())
+            residue_atom_contacts = atom_tree.query_radius(getattr(residue, coords_type), distance)
+            all_contacts = {atom_contact for residue_contacts in residue_atom_contacts
+                            for atom_contact in residue_contacts}
             prior_residue = residue.prev_residue
             # prior_res_indices = prior_residue.atom_indices
             # next_residue = residue.next_residue
             # residue_indices_and_bonded_c_and_n = residue.atom_indices
             # residue_indices_and_bonded_c_and_n = residue.heavy_indices + \
             #     [prior_residue.c_atom_index, prior_residue.o_atom_index, residue.next_residue.n_atom_index]
-            clashes = all_contacts.difference(residue.atom_indices +
-                                              [prior_residue.c_atom_index, prior_residue.o_atom_index,
-                                               residue.next_residue.n_atom_index])
-            if any(clashes):
-                handle_clash_reporting(clashes)
+            clashes = any_clashes(
+                all_contacts.difference([prior_residue.o_atom_index,
+                                         prior_residue.c_atom_index,
+                                         residue.next_residue.n_atom_index]
+                                        + residue.atom_indices)
+                )
 
         residue = residues[-1]
-        residue_query = atom_tree.query_radius(getattr(residue, coords_type), distance)
-        all_contacts = {contact for residue_contacts in residue_query for contact in residue_contacts}
-        prev_res = residue.prev_residue
-        clashes = all_contacts.difference(residue.atom_indices + [prev_res.c_atom_index, prev_res.o_atom_index])
-        if any(clashes):
-            handle_clash_reporting(clashes)
+        residue_atom_contacts = atom_tree.query_radius(getattr(residue, coords_type), distance)
+        all_contacts = {atom_contact for residue_contacts in residue_atom_contacts
+                        for atom_contact in residue_contacts}
+        prior_residue = residue.prev_residue
+        clashes = any_clashes(
+            all_contacts.difference([prior_residue.o_atom_index, prior_residue.c_atom_index]
+                                    + residue.atom_indices))
 
         if measured_clashes:
             bb_info = '\n\t'.join(f'Residue {residue.number:5d}: {atom.return_atom_record()}'
