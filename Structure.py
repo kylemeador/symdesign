@@ -2967,7 +2967,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         if not isinstance(residues, Residues):  # must create the residues object
             residues = Residues(residues)
 
-        if residues.are_dependents():  # copy Atoms object to set new attributes on each member Atom
+        if residues.are_dependents():  # copy Residues object to set new attributes on each member Residue
             residues = copy(residues)
             residues.reset_state()  # clear runtime attributes
         self._residues = residues
