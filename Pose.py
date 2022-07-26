@@ -1090,6 +1090,12 @@ class Model(Structure, ContainsChainsMixin):
         if entities:
             if isinstance(entities, (list, Structures)):  # create the instance from existing entities
                 self.entities = copy(entities)  # copy the passed entities list
+                # Todo remove below write debug
+                for entity in self.entities:
+                    where = entity.write_oligomer(out_path=os.path.join(os.getcwd(),
+                                                                        f'TEST_Model_Entity-{entity.name}'
+                                                                        f'_write_oligomer.pdb'))
+                    print(f'WROTE DEBUG ENTITY COPY TO: {where}')
                 self._copy_structure_containers()  # copy each Entity in entities
                 # Reindex all residue and atom indices
                 self.entities[0].reset_state()
