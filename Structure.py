@@ -5524,12 +5524,16 @@ class Entity(SequenceProfile, Chain, ContainsChainsMixin):
                     np.matmul(np.matmul(prior_ca_coords,
                                         np.transpose(transform['rotation'])) + transform['translation'],
                               np.transpose(new_rot)) + new_tx
+                new_chain_coords_ = \
+                    np.matmul(chain.coords, np.transpose(new_rot)) + new_tx
+                print(f'Entity {self.name} chain {chain.chain_id} '
+                      f'equality: {np.all(new_chain_coords == new_chain_coords_)}')
                 # Find the transform from current coords and the new mate chain coords
                 _, rot, tx = superposition3d(new_chain_coords, current_ca_coords)
                 # save transform
                 self._chain_transforms.append(dict(rotation=rot, translation=tx))
                 # transform existing mate chain
-                chain.coords = np.matmul(chain.coords, np.transpose(rot)) + tx
+                chain.coords = np.matmul(coords, np.transpose(rot)) + tx
 
             # Todo?
             #  for chain in self.chains[1:]:  # chains were populated before new coords are set
