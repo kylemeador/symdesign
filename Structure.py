@@ -3883,10 +3883,6 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
             new_coords += np.array(translation2)
 
         new_structure = copy(self)
-        # this v should replace the actual numpy array located at coords after the _coords object has been copied
-        # old-style
-        # new_structure.replace_coords(new_coords)
-        # new-style
         new_structure.coords = new_coords
 
         return new_structure
@@ -5472,7 +5468,7 @@ class Entity(SequenceProfile, Chain, ContainsChainsMixin):
         if reference_sequence is not None:
             self._reference_sequence = reference_sequence
 
-    # @classmethod  # Todo mirror Model
+    # @classmethod  # Todo implemented above, but clean here to mirror Model?
     # def from_file(cls):
     #     return cls()
 
@@ -5483,14 +5479,16 @@ class Entity(SequenceProfile, Chain, ContainsChainsMixin):
 
     @StructureBase.coords.setter
     def coords(self, coords: np.ndarray | list[list[float]]):
-        """Set the Coords object while propagating changes to symmetry "mate" chains"""
+        """Set the Coords object while propagating changes to symmetric "mate" chains"""
         if self._is_oligomeric and self._is_captain:
             # must do these before super().coords.fset()
-            current_chains = self.chains  # populate the current chains (if not already) with current coords transformation
-            prior_ca_coords = self.ca_coords  # get current ca_coords as prior_ca_coords
+            # Populate .chains (if not already) with current coords and transformation
+            current_chains = self.chains
+            # Set current .ca_coords as prior_ca_coords
+            prior_ca_coords = self.ca_coords
             current_chain_transforms = self.chain_transforms
 
-            # set coords with new coords
+            # Set coords with new coords
             super(Structure, Structure).coords.fset(self, coords)  # prefer this over below, as mechanism could change
             # self._coords.replace(self._atom_indices, coords)
             # find the transformation from the old coordinates to the new
@@ -5499,10 +5497,13 @@ class Entity(SequenceProfile, Chain, ContainsChainsMixin):
 
             self._chain_transforms.clear()  # remove all transforms
             for chain, transform in zip(current_chains[1:], current_chain_transforms):
-                # transform prior_coords to new mate chain coords position
-                new_chain_coords = np.matmul(np.matmul(prior_ca_coords, np.transpose(transform['rotation']))
-                                             + transform['translation'], np.transpose(new_rot)) + new_tx
-                # find the transform from current coords and the new mate chain coords
+                # In liu of using chain.coords as lengths might be different
+                # Transform prior_coords to chain.coords position, then transform using new_rot and new_tx
+                new_chain_coords = \
+                    np.matmul(np.matmul(prior_ca_coords,
+                                        np.transpose(transform['rotation'])) + transform['translation'],
+                              np.transpose(new_rot)) + new_tx
+                # Find the transform from current coords and the new mate chain coords
                 _, rot, tx = superposition3d(new_chain_coords, current_ca_coords)
                 # save transform
                 self._chain_transforms.append(dict(rotation=rot, translation=tx))
@@ -5654,9 +5655,9 @@ class Entity(SequenceProfile, Chain, ContainsChainsMixin):
     @property
     def chains(self) -> list[Entity]:  # Structures
         """Returns transformed copies of the Entity"""
-        if self.chain_transforms and self._is_captain and len(self._chains) == 1:
-            # populate with Entity mates
-            # self._chains = [self]
+        # Set in init -> self._chains = [self]
+        if len(self._chains) == 1 and self.chain_transforms and self._is_captain:
+            # populate ._chains with Entity mates
             self._chains.extend([self.return_transformed_mate(**transform) for transform in self.chain_transforms])
             chain_ids = self.chain_ids
             self.log.debug(f'Entity chains property has {len(self._chains)} chains because the underlying '
@@ -5873,9 +5874,7 @@ class Entity(SequenceProfile, Chain, ContainsChainsMixin):
             while chain_id in self.chain_ids:
                 chain_id = next(chain_gen)
 
-            self.chain_ids.append(chain_id)  # [next(chain_gen) for _ in range(number_of_subunits)]
-        # Set self.chains, self.chain_ids, and updates each chain.chain_id
-        # self.rename_chains()
+            self.chain_ids.append(chain_id)
 
     # def translate(self, **kwargs):
     #     """Perform a translation to the Structure ensuring only the Structure container of interest is translated
@@ -6561,6 +6560,9 @@ class Entity(SequenceProfile, Chain, ContainsChainsMixin):
 
     def __copy__(self):
         other = super().__copy__()
+        # Set the first chain as the object itself
+        other._chains[0] = other
+
         # # create a copy of all chains
         # # structures = [other.chains]
         # # other._copy_structure_containers(structures)
@@ -6568,7 +6570,6 @@ class Entity(SequenceProfile, Chain, ContainsChainsMixin):
         # # attributes were updated in the super().__copy__, now need to set attributes in copied chains
         # # This style v accomplishes the update that the super().__copy__() started using self.structure_containers...
         # other._update_structure_container_attributes(residues=other._residues, coords=other._coords)
-        other._chains[0] = other
         # if not other._is_captain:  # this is a mate, set an independent Coords
         #     # Todo is this needed?
         #     #  Mirrors what happens when dependent is copied in Structure
