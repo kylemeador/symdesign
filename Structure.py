@@ -1014,6 +1014,10 @@ class ContainsAtomsMixin(StructureBase):
     heavy_indices: list[int]
     number_of_atoms: int
     side_chain_indices: list[int]
+    # These state_attributes are used by all subclasses despite no usage in this class
+    state_attributes: set[str] = StructureBase.state_attributes | \
+        {'_ca_indices', '_cb_indices', '_backbone_indices', '_backbone_and_cb_indices', '_heavy_indices',
+         '_side_chain_indices'}
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -1533,8 +1537,7 @@ class Residue(ResidueFragment, ContainsAtomsMixin):
     number: int
     number_pdb: int
     state_attributes: set[str] = StructureBase.state_attributes | \
-        {'_secondary_structure', '_sasa', '_sasa_aploar', '_sasa_polar', '_contact_order', '_backbone_indices',
-         '_backbone_and_cb_indices', '_heavy_indices', '_side_chain_indices', '_local_density'}
+        {'_secondary_structure', '_sasa', '_sasa_aploar', '_sasa_polar', '_contact_order', '_local_density'}
     type: str
 
     def __init__(self, atoms: list[Atoms] | Atoms = None, atom_indices: list[int] = None, **kwargs):
@@ -2593,9 +2596,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
     secondary_structure: str | None
     sasa: float | None
     structure_containers: list | list[str]
-    state_attributes: set[str] = StructureBase.state_attributes | \
-        {'_sequence', '_backbone_and_cb_indices', '_backbone_indices', '_ca_indices', '_cb_indices',
-         '_heavy_indices', '_helix_cb_indices'}
+    state_attributes: set[str] = StructureBase.state_attributes | {'_sequence', '_helix_cb_indices'}
     available_letters: str = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'  # '0123456789~!@#$%^&*()-+={}[]|:;<>?'
 
     def __init__(self, atoms: list[Atom] | Atoms = None, residues: list[Residue] | Residues = None,
@@ -5511,27 +5512,26 @@ class Entity(SequenceProfile, Chain, ContainsChainsMixin):
             current_ca_coords = self.ca_coords
             _, new_rot, new_tx = superposition3d(current_ca_coords, prior_ca_coords)
 
-            self._chain_transforms.clear()  # remove all transforms
-            for chain, transform in zip(current_chains[1:], current_chain_transforms):
-                # In liu of using chain.coords as lengths might be different
-                # Transform prior_coords to chain.coords position, then transform using new_rot and new_tx
-                new_chain_coords = \
-                    np.matmul(np.matmul(prior_ca_coords,
-                                        np.transpose(transform['rotation'])) + transform['translation'],
-                              np.transpose(new_rot)) + new_tx
-                # Find the transform from current coords and the new mate chain coords
-                _, rot, tx = superposition3d(new_chain_coords, current_ca_coords)
-                # save transform
-                self._chain_transforms.append(dict(rotation=rot, translation=tx))
-                # transform existing mate chain
-                chain.coords = np.matmul(coords, np.transpose(rot)) + tx
+            # # Remove prior transforms by setting a fresh container
+            # # .clear() will remove the transforms in current_chain_transforms
+            # self._chain_transforms = []
+            # # Find the transform between the new coords and the current mate chain coords
+            # for chain, transform in zip(current_chains[1:], current_chain_transforms):
+            #     # In liu of using chain.coords as lengths might be different
+            #     # Transform prior_coords to chain.coords position, then transform using new_rot and new_tx
+            #     new_chain_coords = \
+            #         np.matmul(np.matmul(prior_ca_coords,
+            #                             np.transpose(transform['rotation'])) + transform['translation'],
+            #                   np.transpose(new_rot)) + new_tx
+            #     # Find the transform from current coords and the new mate chain coords
+            #     _, rot, tx = superposition3d(new_chain_coords, current_ca_coords)
+            #     # save transform
+            #     self._chain_transforms.append(dict(rotation=rot, translation=tx))
+            #     # transform existing mate chain
+            #     chain.coords = np.matmul(chain.coords, np.transpose(rot)) + tx
 
-            # # find the transform between the new coords and the current mate chain coords
-            # for chain in chains[1:]:  # chains were populated before new coords are set
-            #     _, rot, tx = superposition3d(self.cb_coords, chain.cb_coords)
-            #     # set the new transforms
-            #     self.chain_transforms.append(dict(rotation=rot, translation=tx))
-            #     chain.coords = np.matmul(coords, np.transpose(rot)) + tx
+            for chain in self.chains[1:]:  # chains were populated before new coords are set
+                chain.coords = coords
 
             # self._chains.clear()  # remove old chain information so that it is regenerated next time chains are needed
         else:  # accept the new coords
