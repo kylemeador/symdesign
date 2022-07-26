@@ -628,7 +628,7 @@ class StructureBase:
         try:
             return self._atom_indices
         except AttributeError:
-            return
+            return None
 
     @property
     def number_of_atoms(self) -> int:
@@ -1830,7 +1830,7 @@ class Residue(ResidueFragment, ContainsAtomsMixin):
         try:
             return self._atoms.atoms[self._atom_indices[self._n_index]]
         except AttributeError:
-            return
+            return None
 
     @property
     def n_coords(self) -> np.ndarry | None:
@@ -1838,7 +1838,7 @@ class Residue(ResidueFragment, ContainsAtomsMixin):
         try:
             return self._coords.coords[self._atom_indices[self._n_index]]
         except AttributeError:
-            return
+            return None
 
     @property
     def n_atom_index(self) -> int | None:
@@ -1846,7 +1846,7 @@ class Residue(ResidueFragment, ContainsAtomsMixin):
         try:
             return self._atom_indices[self._n_index]
         except AttributeError:
-            return
+            return None
 
     @property
     def n_index(self) -> int | None:
@@ -1854,7 +1854,7 @@ class Residue(ResidueFragment, ContainsAtomsMixin):
         try:
             return self._n_index
         except AttributeError:
-            return
+            return None
 
     # @n_index.setter
     # def n_index(self, index: int):
@@ -1866,7 +1866,7 @@ class Residue(ResidueFragment, ContainsAtomsMixin):
         try:
             return self._atoms.atoms[self._atom_indices[self._h_index]]
         except AttributeError:
-            return
+            return None
 
     @property
     def h_coords(self) -> np.ndarry | None:
@@ -1874,7 +1874,7 @@ class Residue(ResidueFragment, ContainsAtomsMixin):
         try:
             return self._coords.coords[self._atom_indices[self._h_index]]
         except AttributeError:
-            return
+            return None
 
     @property
     def h_atom_index(self) -> int | None:
@@ -1882,7 +1882,7 @@ class Residue(ResidueFragment, ContainsAtomsMixin):
         try:
             return self._atom_indices[self._h_index]
         except AttributeError:
-            return
+            return None
 
     @property
     def h_index(self) -> int | None:
@@ -1890,7 +1890,7 @@ class Residue(ResidueFragment, ContainsAtomsMixin):
         try:
             return self._h_index
         except AttributeError:
-            return
+            return None
 
     # @h_index.setter
     # def h_index(self, index: int):
@@ -1902,7 +1902,7 @@ class Residue(ResidueFragment, ContainsAtomsMixin):
         try:
             return self._atoms.atoms[self._atom_indices[self._ca_index]]
         except AttributeError:
-            return
+            return None
 
     @property
     def ca_coords(self) -> np.ndarry | None:
@@ -1910,7 +1910,7 @@ class Residue(ResidueFragment, ContainsAtomsMixin):
         try:
             return self._coords.coords[self._atom_indices[self._ca_index]]
         except AttributeError:
-            return
+            return None
 
     @property
     def ca_atom_index(self) -> int | None:
@@ -1918,7 +1918,7 @@ class Residue(ResidueFragment, ContainsAtomsMixin):
         try:
             return self._atom_indices[self._ca_index]
         except AttributeError:
-            return
+            return None
 
     @property
     def ca_index(self) -> int | None:
@@ -1926,7 +1926,7 @@ class Residue(ResidueFragment, ContainsAtomsMixin):
         try:
             return self._ca_index
         except AttributeError:
-            return
+            return None
 
     # @ca_index.setter
     # def ca_index(self, index: int):
@@ -1938,7 +1938,7 @@ class Residue(ResidueFragment, ContainsAtomsMixin):
         try:
             return self._atoms.atoms[self._atom_indices[self._cb_index]]
         except AttributeError:
-            return
+            return None
 
     @property
     def cb_coords(self) -> np.ndarry | None:
@@ -1946,7 +1946,7 @@ class Residue(ResidueFragment, ContainsAtomsMixin):
         try:
             return self._coords.coords[self._atom_indices[self._cb_index]]
         except AttributeError:
-            return
+            return None
 
     @property
     def cb_atom_index(self) -> int | None:
@@ -1954,7 +1954,7 @@ class Residue(ResidueFragment, ContainsAtomsMixin):
         try:
             return self._atom_indices[self._cb_index]
         except AttributeError:
-            return
+            return None
 
     @property
     def cb_index(self) -> int | None:
@@ -1962,7 +1962,7 @@ class Residue(ResidueFragment, ContainsAtomsMixin):
         try:
             return self._cb_index
         except AttributeError:
-            return
+            return None
 
     # @cb_index.setter
     # def cb_index(self, index: int):
@@ -1974,7 +1974,7 @@ class Residue(ResidueFragment, ContainsAtomsMixin):
         try:
             return self._atoms.atoms[self._atom_indices[self._c_index]]
         except AttributeError:
-            return
+            return None
 
     @property
     def c_coords(self) -> np.ndarry | None:
@@ -1982,7 +1982,7 @@ class Residue(ResidueFragment, ContainsAtomsMixin):
         try:
             return self._coords.coords[self._atom_indices[self._c_index]]
         except AttributeError:
-            return
+            return None
 
     @property
     def c_atom_index(self) -> int | None:
@@ -1990,7 +1990,7 @@ class Residue(ResidueFragment, ContainsAtomsMixin):
         try:
             return self._atom_indices[self._c_index]
         except AttributeError:
-            return
+            return None
 
     @property
     def c_index(self) -> int | None:
@@ -1998,7 +1998,7 @@ class Residue(ResidueFragment, ContainsAtomsMixin):
         try:
             return self._c_index
         except AttributeError:
-            return
+            return None
 
     # @c_index.setter
     # def c_index(self, index: int):
@@ -2010,7 +2010,7 @@ class Residue(ResidueFragment, ContainsAtomsMixin):
         try:
             return self._atoms.atoms[self._atom_indices[self._o_index]]
         except AttributeError:
-            return
+            return None
 
     @property
     def o_coords(self) -> np.ndarry | None:
@@ -2018,7 +2018,7 @@ class Residue(ResidueFragment, ContainsAtomsMixin):
         try:
             return self._coords.coords[self._atom_indices[self._o_index]]
         except AttributeError:
-            return
+            return None
 
     @property
     def o_atom_index(self) -> int | None:
@@ -2026,7 +2026,7 @@ class Residue(ResidueFragment, ContainsAtomsMixin):
         try:
             return self._atom_indices[self._o_index]
         except AttributeError:
-            return
+            return None
 
     @property
     def o_index(self) -> int | None:
@@ -2034,7 +2034,7 @@ class Residue(ResidueFragment, ContainsAtomsMixin):
         try:
             return self._o_index
         except AttributeError:
-            return
+            return None
 
     # @o_index.setter
     # def o_index(self, index: int):
@@ -2046,7 +2046,7 @@ class Residue(ResidueFragment, ContainsAtomsMixin):
         try:
             return self._next_residue
         except AttributeError:
-            return
+            return None
 
     @next_residue.setter
     def next_residue(self, other: Residue):
@@ -2060,7 +2060,7 @@ class Residue(ResidueFragment, ContainsAtomsMixin):
         try:
             return self._prev_residue
         except AttributeError:
-            return
+            return None
 
     @prev_residue.setter
     def prev_residue(self, other: Residue):
@@ -2596,7 +2596,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
     secondary_structure: str | None
     sasa: float | None
     structure_containers: list | list[str]
-    state_attributes: set[str] = StructureBase.state_attributes | {'_sequence', '_helix_cb_indices'}
+    state_attributes: set[str] = ContainsAtomsMixin.state_attributes | {'_sequence', '_helix_cb_indices'}
     available_letters: str = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'  # '0123456789~!@#$%^&*()-+={}[]|:;<>?'
 
     def __init__(self, atoms: list[Atom] | Atoms = None, residues: list[Residue] | Residues = None,
@@ -3363,7 +3363,6 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         self.renumber_atoms()
         self.renumber_residues()
         self.log.debug(f'{self.name} was formatted in Pose numbering (residues now 1 to {self.number_of_residues})')
-
 
     def renumber_residues(self):
         """Renumber Residue objects sequentially starting with 1"""
@@ -5601,12 +5600,12 @@ class Entity(SequenceProfile, Chain, ContainsChainsMixin):
             self.chain_ids:
                 list(str)
         """
-        # first_chain_id = self._chain_id
-        self.chain_ids = [self._chain_id]  # use the existing chain_id
+        first_chain_id = self.chain_id
+        self.chain_ids = [first_chain_id]  # use the existing chain_id
         chain_gen = self.chain_id_generator()
         # Iterate over the generator until the current chain_id is found
         discard = next(chain_gen)
-        while discard != self._chain_id:
+        while discard != first_chain_id:
             discard = next(chain_gen)
 
         # Iterate over the generator adding each successive chain_id to self.chain_ids
