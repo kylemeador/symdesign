@@ -5423,6 +5423,7 @@ class Entity(SequenceProfile, Chain, ContainsChainsMixin):
                  reference_sequence: str = None, thermophilic: bool = None, **kwargs):
         """When init occurs chain_ids are set if chains were passed. If not, then they are auto generated"""
         self.thermophilic = thermophilic
+        self._chain_transforms = []
         self._is_captain = True
         self.api_entry = None  # {chain: {'accession': 'Q96DC8', 'db': 'UNP'}, ...}
         self.dihedral_chain = None
@@ -5470,7 +5471,7 @@ class Entity(SequenceProfile, Chain, ContainsChainsMixin):
                     self.log.warning(f'Chain {chain.name} and Entity {self.name} require alignment to symmetrize')
                     fixed_indices, moving_indices = get_equivalent_indices(chain_seq, self_seq)
                     _, rot, tx = superposition3d(chain.cb_coords[fixed_indices], self.cb_coords[moving_indices])
-                self.chain_transforms.append(dict(rotation=rot, translation=tx))
+                self._chain_transforms.append(dict(rotation=rot, translation=tx))
                 # self.chains.append(chain)  # Todo with flag for asymmetric symmetrization
             self.number_of_symmetry_mates = len(chains)
         else:
@@ -5498,10 +5499,10 @@ class Entity(SequenceProfile, Chain, ContainsChainsMixin):
         if self._is_oligomeric and self._is_captain:
             # must do these before super().coords.fset()
             # Populate .chains (if not already) with current coords and transformation
-            current_chains = self.chains
+            # current_chains = self.chains
             # Set current .ca_coords as prior_ca_coords
             prior_ca_coords = self.ca_coords
-            current_chain_transforms = self.chain_transforms
+            current_chain_transforms = self._chain_transforms
 
             # Set coords with new coords
             super(Structure, Structure).coords.fset(self, coords)  # prefer this over below, as mechanism could change
@@ -5639,40 +5640,10 @@ class Entity(SequenceProfile, Chain, ContainsChainsMixin):
         """Is the Entity oligomeric?"""
         return self._is_oligomeric
 
-    @property
-    def chain_transforms(self) -> list[transformation_mapping]:
-        """The specific transformation operators to generate all mate chains of the Oligomer"""
-        try:
-            return self._chain_transforms
-        except AttributeError:  # this section is only useful if the current instance is an Entity mate...
-            try:
-                self._chain_transforms = []
-                self.__chain_transforms
-                if self._is_oligomeric:  # True if multiple chains
-                    current_ca_coords = self.ca_coords
-                    _, new_rot, new_tx = superposition3d(current_ca_coords, self.prior_ca_coords)
-                    for transform in self.__chain_transforms:
-                        chain_coords = np.matmul(np.matmul(self.prior_ca_coords, np.transpose(transform['rotation']))
-                                                 + transform['translation'], np.transpose(new_rot)) + new_tx
-                        _, rot, tx = superposition3d(chain_coords, current_ca_coords)
-                        self._chain_transforms.append(dict(rotation=rot, translation=tx))
-                # self._chain_transforms.insert(0, dict(rotation=identity_matrix, translation=origin))
-            except AttributeError:  # no prior_ca_coords or __chain_transforms
-                if not self._is_captain:
-                    self.log.warning(f'Accessing the mate .chains of an {type(self).__name__} mate chain is not '
-                                     f'allowed')
-                pass
-
-            return self._chain_transforms
-
-    # @chain_transforms.setter
-    # def chain_transforms(self, value: list[transformation_mapping]):
-    #     self._chain_transforms = value
-
     # def _remove_chain_transforms(self):
     #     """Remove _chains and _chain_transforms, set prior_ca_coords in preparation for coordinate movement"""
     #     self._chains.clear()  # useful for mate chains...
-    #     self.__chain_transforms = self.chain_transforms
+    #     self._chain_transforms.clear()
     #     del self._chain_transforms  # useful for mate chains as their transforms aren't correctly oriented
     #     self.prior_ca_coords = self.ca_coords
 
@@ -5690,12 +5661,12 @@ class Entity(SequenceProfile, Chain, ContainsChainsMixin):
     def chains(self) -> list[Entity]:  # Structures
         """Returns transformed copies of the Entity"""
         # Set in init -> self._chains = [self]
-        if len(self._chains) == 1 and self.chain_transforms and self._is_captain:
+        if len(self._chains) == 1 and self._chain_transforms and self._is_captain:
             # populate ._chains with Entity mates
-            self._chains.extend([self.return_transformed_mate(**transform) for transform in self.chain_transforms])
+            self._chains.extend([self.return_transformed_mate(**transform) for transform in self._chain_transforms])
             chain_ids = self.chain_ids
             self.log.debug(f'Entity chains property has {len(self._chains)} chains because the underlying '
-                           f'chain_transforms has {len(self.chain_transforms)}. chain_ids has {len(chain_ids)}')
+                           f'chain_transforms has {len(self._chain_transforms)}. chain_ids has {len(chain_ids)}')
             for idx, chain in enumerate(self._chains[1:], 1):
                 # set entity.chain_id which sets all residues
                 chain.chain_id = chain_ids[idx]
@@ -5812,7 +5783,7 @@ class Entity(SequenceProfile, Chain, ContainsChainsMixin):
         """Turn the Entity into a 'mate' Entity"""
         self._is_captain = False
         self._chain_ids = [self.chain_id]  # set for a length of 1, using the captain self.chain_id
-        del self._chain_transforms  # Todo self._chain_transforms.clear()?
+        self._chain_transforms.clear()
 
     def make_oligomer(self, symmetry: str = None, rotation: list[list[float]] | np.ndarray = None,
                       translation: list[float] | np.ndarray = None, rotation2: list[list[float]] | np.ndarray = None,
@@ -5832,7 +5803,7 @@ class Entity(SequenceProfile, Chain, ContainsChainsMixin):
             rotation2: The second rotation to apply, expected array shape (3, 3)
             translation2: The second translation to apply, expected array shape (3,)
         Sets:
-            self.chain_transforms (list[transformation_mapping])
+            self._chain_transforms (list[transformation_mapping])
             self._is_oligomeric=True (bool)
             self.number_of_symmetry_mates (int)
             self.symmetry (str)
@@ -5884,18 +5855,18 @@ class Entity(SequenceProfile, Chain, ContainsChainsMixin):
 
         centered_coords_inv = transform_coordinate_sets(centered_coords, rotation=inv_rotation2,
                                                         translation=-translation, rotation2=inv_rotation)
-        self.chain_transforms.clear()
+        self._chain_transforms.clear()
         number_of_subunits = 0
         for rotation_matrix in degeneracy_rotation_matrices:
             number_of_subunits += 1
             if number_of_subunits == 1 and np.all(rotation_matrix == identity_matrix):
-                self.log.debug('Skipping Entity.make_oligomer() transformation 1 as it is identity')
+                self.log.debug(f'Skipping {self.make_oligomer.__name__} transformation 1 as it is identity')
                 continue
             rot_centered_coords = transform_coordinate_sets(centered_coords_inv, rotation=rotation_matrix)
             new_coords = transform_coordinate_sets(rot_centered_coords, rotation=rotation, translation=translation,
                                                    rotation2=rotation2, translation2=translation2)
             _, rot, tx = superposition3d(new_coords, cb_coords)
-            self.chain_transforms.append(dict(rotation=rot, translation=tx))
+            self._chain_transforms.append(dict(rotation=rot, translation=tx))
 
         # Set the new properties
         self.number_of_symmetry_mates = number_of_subunits
