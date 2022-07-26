@@ -1084,8 +1084,8 @@ class Model(Structure, ContainsChainsMixin):
 
             if rename_chains:
                 self.rename_chains()
-            self.log.debug(f'Original chain_ids={",".join(self.original_chain_ids)} | '
-                           f'Loaded chain_ids={",".join(self.chain_ids)}')
+            self.log.debug(f'Original chain_ids: {",".join(self.original_chain_ids)} | '
+                           f'Loaded chain_ids: {",".join(self.chain_ids)}')
 
         if entities:
             if isinstance(entities, (list, Structures)):  # create the instance from existing entities
@@ -2351,7 +2351,7 @@ class SymmetricModel(Models):
                 self.set_contacting_asu()
             elif self.symmetric_coords is None:
                 # We need to generate the symmetric coords
-                self.log.debug('Setting symmetric coords')
+                self.log.debug('Generating symmetric coords')
                 self.generate_symmetric_coords(surrounding_uc=surrounding_uc)  # default has surrounding_uc=True
             # if generate_symmetry_mates:  # always set to False before. commenting out
             #     self.generate_assembly_symmetry_models(**kwargs)

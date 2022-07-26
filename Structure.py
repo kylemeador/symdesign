@@ -512,9 +512,9 @@ class Coords:
 # null_coords = Coords()
 # parent Structure controls these attributes
 parent_variable = '_StructureBase__parent'
-parent_attributes = (parent_variable,)
 new_parent_attributes = ('_coords', '_log', '_atoms', '_residues')
-parent_attributes += new_parent_attributes
+parent_attributes = (parent_variable,) + new_parent_attributes
+"""Holds all the attributes which the parent StructureBase controls"""
 
 
 class StructureBase:
@@ -2846,13 +2846,13 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
             at: The index to insert indices at
             dtype: The type of indices to modify. Can be either 'atom' or 'residue'
         """
-        try:
+        try:  # To get the indices through the public property
             indices = getattr(self, f'{dtype}_indices')
         except AttributeError:
             raise AttributeError(f'The dtype {dtype}_indices was not found the Structure object. Possible values of '
-                                 f'dtype are atom or residue')
-        # offset = at - first_index
+                                 f'dtype are "atom" or "residue"')
         offset = at - indices[0]
+        # Set the indices through the private attribute
         setattr(self, f'_{dtype}_indices', [prior_idx + offset for prior_idx in indices])
 
     def _insert_indices(self, at: int = 0, new_indices: list[int] = None, dtype: atom_or_residue = None):
@@ -4817,15 +4817,14 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
 
     def __copy__(self):
         other = self.__class__.__new__(self.__class__)
-        # copy each of the key value pairs in the new object dictionary
+        # Copy each of the key value pairs to the new, other dictionary
         for attr, obj in self.__dict__.items():
-            if attr not in parent_attributes:
-                other.__dict__[attr] = copy(obj)
-            else:  # perform the shallow copy on these attributes
+            if attr in parent_attributes:
+                # Perform shallow copy on these attributes. They will be handled correctly below
                 other.__dict__[attr] = obj
 
-        if self.is_parent():  # this Structure is the parent, it's copy should be too
-            # set the copying Structure attribute ".spawn" to indicate to dependents the "other" of this copy
+        if self.is_parent():  # This Structure is the parent, it's copy should be too
+            # Set the copying Structure attribute ".spawn" to indicate to dependents the "other" of this copy
             self.spawn = other
             for attr in parent_attributes:
                 other.__dict__[attr] = copy(self.__dict__[attr])
@@ -4833,20 +4832,14 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
             # other._residues.set_attributes(_parent=other)
             other._copy_structure_containers()
             other._update_structure_container_attributes(_parent=other)
-            # remove the attribute spawn after other Structure containers are copied
+            # Remove the attribute spawn after other Structure containers are copied
             del self.spawn
-        else:  # this Structure is a dependent, it's copy should be too
-            try:
+        else:  # This Structure is a dependent
+            try:  # If initiated by the parent, this Structure's copy should be a dependent too
                 other._parent = self.parent.spawn
-            except AttributeError:  # this copy was initiated by a Structure that is not the parent
+            except AttributeError:  # Copy was not initiated by the parent, set this Structure as parent
                 self.log.debug(f'The copied {type(self).__name__} is being set as a parent. It was a dependent '
                                f'previously')
-                # setattr(other, parent_variable, None)  # set parent explicitly as None
-                # # for attr in new_parent_attributes:
-                # #     other.__dict__[attr] = copy(self.__dict__[attr])
-                # # other._atoms.set_attributes(_parent=other)
-                # # other._residues.set_attributes(_parent=other)
-                # other._assign_residues(other.residues, atoms=other.atoms)
                 other.detach_from_parent()
                 other._copy_structure_containers()
                 other._update_structure_container_attributes(_parent=other)
@@ -5409,7 +5402,10 @@ class Entity(SequenceProfile, Chain, ContainsChainsMixin):
         name: str = None - The EntityID. Typically, EntryID_EntityInteger is used to match PDB API identifier format
     """
     _chain_transforms: list[transformation_mapping]
+    """The specific transformation operators to generate all mate chains of the Oligomer"""
     _chains: list | list[Entity]
+    _disorder: dict[int, dict[str, str]]
+    _oligomer: Structures  # list[Entity]
     _is_captain: bool
     _is_oligomeric: bool
     _number_of_symmetry_mates: int
@@ -5793,8 +5789,6 @@ class Entity(SequenceProfile, Chain, ContainsChainsMixin):
     def _make_mate(self):
         """Turn the Entity into a 'mate' Entity"""
         self._is_captain = False
-        # self._remove_chain_transforms()
-        # self._chains = [self]
         self._chain_ids = [self.chain_id]  # set for a length of 1, using the captain self.chain_id
         del self._chain_transforms  # Todo self._chain_transforms.clear()?
 
@@ -5959,10 +5953,10 @@ class Entity(SequenceProfile, Chain, ContainsChainsMixin):
 
         new_structure = copy(self)
         new_structure._make_mate()
-        # this v should replace the actual numpy array located at coords after the _coords object has been copied
-        # old-style
-        # new_structure.replace_coords(new_coords)
-        # new-style
+        # _make_mate executes the following
+        # self._is_captain = False
+        # self._chain_ids = [self.chain_id]
+        # self._chain_transforms.clear()
         new_structure.coords = new_coords
 
         return new_structure
@@ -6578,28 +6572,6 @@ class Entity(SequenceProfile, Chain, ContainsChainsMixin):
         other = super().__copy__()
         # Set the first chain as the object itself
         other._chains[0] = other
-
-        # # create a copy of all chains
-        # # structures = [other.chains]
-        # # other._copy_structure_containers(structures)
-        # other._copy_structure_containers()  # NEVERMIND uses self.structure_containers... does this use Entity version?
-        # # attributes were updated in the super().__copy__, now need to set attributes in copied chains
-        # # This style v accomplishes the update that the super().__copy__() started using self.structure_containers...
-        # other._update_structure_container_attributes(residues=other._residues, coords=other._coords)
-        # if not other._is_captain:  # this is a mate, set an independent Coords
-        #     # Todo is this needed?
-        #     #  Mirrors what happens when dependent is copied in Structure
-        #     #  The other._coords is new and return_transformed_mate will set coords values...
-        #     other._atoms.set_attributes(_parent=other)
-        #     other._residues.set_attributes(_parent=other)
-        #     other._copy_structure_containers()
-        #     other._update_structure_container_attributes(_parent=other)
-        #     # self.log.info('Copy Entity. Clearing chains, chain_transforms')
-        #     # other._chains.clear()
-        #     other.remove_chain_transforms()
-        #     # other.__chain_transforms = other.chain_transforms  # requires update before copy
-        #     # del other._chain_transforms
-        #     # other.prior_ca_coords = other.ca_coords  # update these as next generation will rely on them for chain_transforms
 
         return other
 
