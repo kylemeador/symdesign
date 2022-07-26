@@ -4822,6 +4822,8 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
             if attr in parent_attributes:
                 # Perform shallow copy on these attributes. They will be handled correctly below
                 other.__dict__[attr] = obj
+            else:  # Perform a deep copy
+                other.__dict__[attr] = copy(obj)
 
         if self.is_parent():  # This Structure is the parent, it's copy should be too
             # Set the copying Structure attribute ".spawn" to indicate to dependents the "other" of this copy

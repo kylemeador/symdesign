@@ -3818,11 +3818,12 @@ class SymmetricModel(Models):
     #     for idx, entity in enumerate(self.entities):
     #         entity.make_oligomer(symmetry=self.sym_entry.groups[idx], **self.transformations[idx])
 
-    def symmetric_assembly_is_clash(self, distance: float = 2.1) -> bool:  # Todo design_selector
+    def symmetric_assembly_is_clash(self, distance: float = 2.1, warn: bool = True) -> bool:  # Todo design_selector
         """Returns True if the SymmetricModel presents any clashes. Checks only backbone and CB atoms
 
         Args:
             distance: The cutoff distance for the coordinate overlap
+            warn: Whether to emit warnings about identified clashes. Output grouped into measure vs non-measure
         Returns:
             True if the symmetric assembly clashes with the asu, False otherwise
         """
@@ -3992,7 +3993,7 @@ class Pose(SequenceProfile, SymmetricModel):
         # Model init will handle Structure set up if a structure file is present
         # SymmetricModel init will generate_symmetric_coords() if symmetry specification present
         super().__init__(**kwargs)
-        if self.is_clash():
+        if self.is_clash(warn=self.ignore_clashes):
             if not self.ignore_clashes:
                 raise ClashError(f'{self.name} contains Backbone clashes and is not being considered further!')
 
