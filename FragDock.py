@@ -1383,21 +1383,22 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
                                          translation2=None)
                                   )
 
-    inverse_transformed_surf_frags2_guide_coords_ = np.array([
-        transform_coordinate_sets(transform_coordinate_sets(surf_guide_coords2,
-                                                            **dict(rotation=full_rotation2[idx],
-                                                                   translation=full_int_tx2[idx],
-                                                                   rotation2=set_mat2,
-                                                                   translation2=full_ext_tx_sum[idx]
-                                                                   if full_ext_tx_sum is not None else None)
-                                                            ),
-                                  **dict(rotation=inv_setting1,
-                                         translation=full_int_tx1[idx] * -1,
-                                         rotation2=full_inv_rotation1[idx],
-                                         translation2=None)
-                                  ) for idx in range(5)])
-    log.debug(f'transform is correct?: '
-              f'{np.all(inverse_transformed_surf_frags2_guide_coords[:5] == inverse_transformed_surf_frags2_guide_coords_)}')
+    # transform one by one to ensure that stacked transform is accurate
+    # inverse_transformed_surf_frags2_guide_coords_ = np.array([
+    #     transform_coordinate_sets(transform_coordinate_sets(surf_guide_coords2,
+    #                                                         **dict(rotation=full_rotation2[idx],
+    #                                                                translation=full_int_tx2[idx],
+    #                                                                rotation2=set_mat2,
+    #                                                                translation2=full_ext_tx_sum[idx]
+    #                                                                if full_ext_tx_sum is not None else None)
+    #                                                         ),
+    #                               **dict(rotation=inv_setting1,
+    #                                      translation=full_int_tx1[idx] * -1,
+    #                                      rotation2=full_inv_rotation1[idx],
+    #                                      translation2=None)
+    #                               ) for idx in range(5)])
+    # log.debug(f'transform is correct?: '
+    #           f'{np.all(inverse_transformed_surf_frags2_guide_coords[:5] == inverse_transformed_surf_frags2_guide_coords_)}')
     log.debug(f'inverse_transformed_surf_frags2_guide_coords.shape: '
               f'{inverse_transformed_surf_frags2_guide_coords.shape}')
     # log.debug('Transformed guide_coords')
@@ -1518,7 +1519,8 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
                 ghost_indices_in_interface1[int_euler_matching_ghost_indices1],
                 surf_indices_in_interface2[int_euler_matching_surf_indices2]
             ]  # Subtract each of the resulting surface_residue_numbers by 1 to get the index
-        # ij_type_match = [True for _ in range(len(ij_type_match))]  # Todo remove this overwrite of above
+        # If ij_type_match needs to be removed for testing
+        # ij_type_match = np.array([True for _ in range(len(ij_type_match))])
         # Surface selecting
         # [0, 1, 3, 5, ...] with fancy indexing [0, 1, 5, 10, 12, 13, 34, ...]
         # log.debug('Euler lookup')
@@ -1682,6 +1684,7 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
             rename_chains=True, sym_entry=sym_entry,
             surrounding_uc=output_surrounding_uc, ignore_clashes=True, uc_dimensions=uc_dimensions)
         # ignore ASU clashes since already checked ^
+        log.info(f'\tCopy and Transform Oligomer1 and Oligomer2 (took {time.time() - copy_model_start:8f}s)')
 
         if write_and_quit:  # Todo remove after debugging
             degen_str = 'DEGEN_{}'.format('_'.join(map(str, degen_counts[idx])))
@@ -1695,7 +1698,6 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
             sampling_id = f'{degen_str}-{rot_str}-{tx_str}'
             for idx, entity in enumerate(pose.entities, 1):
                 entity.write_oligomer(out_path=os.path.join(tx_dir, f'{entity.name}_{sampling_id}.pdb'))
-        log.info(f'\tCopy and Transform Oligomer1 and Oligomer2 (took {time.time() - copy_model_start:8f}s)')
         # log.debug('Checked expand clash')
         # pose.entities[0].write_oligomer(out_path=os.path.join(tx_dir, '%s_symmetric_material.pdb' % entity2.name))
         # pose.entities[1].write_oligomer(out_path=os.path.join(tx_dir, '%s_symmetric_material.pdb' % entity1.name))
