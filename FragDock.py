@@ -482,6 +482,11 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
         # Make, then save a new model based on the symmetric version of each Entity in the Model
         models[idx] = Model.from_chains([chain for entity in model.entities for chain in entity.chains],
                                         name=model.name, pose_format=True)
+        # Todo remove below write debug
+        for entity in models[idx].entities:
+            entity.write_oligomer(out_path=os.path.join(master_output,
+                                                        f'TEST_FragDock_from_chains_Entity-{entity.name}'
+                                                        f'_write_oligomer.pdb'))
         models[idx].file_path = model.file_path
 
     # Set up output mechanism
@@ -1698,6 +1703,7 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
             sampling_id = f'{degen_str}-{rot_str}-{tx_str}'
             for idx, entity in enumerate(pose.entities, 1):
                 entity.write_oligomer(out_path=os.path.join(tx_dir, f'{entity.name}_{sampling_id}.pdb'))
+            input_ = input('Please press enter to proceed')  # Todo remove
         # log.debug('Checked expand clash')
         # pose.entities[0].write_oligomer(out_path=os.path.join(tx_dir, '%s_symmetric_material.pdb' % entity2.name))
         # pose.entities[1].write_oligomer(out_path=os.path.join(tx_dir, '%s_symmetric_material.pdb' % entity1.name))
