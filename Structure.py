@@ -3877,7 +3877,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
             new_coords += np.array(translation)
 
         if rotation2 is not None:  # required for np.ndarray or None checks
-            new_coords = np.matmul(new_coords, np.transpose(rotation2))
+            np.matmul(new_coords, np.transpose(rotation2), out=new_coords)
 
         if translation2 is not None:  # required for np.ndarray or None checks
             new_coords += np.array(translation2)
@@ -5936,7 +5936,7 @@ class Entity(SequenceProfile, Chain, ContainsChainsMixin):
             new_coords += np.array(translation)
 
         if rotation2 is not None:  # required for np.ndarray or None checks
-            new_coords = np.matmul(new_coords, np.transpose(rotation2))
+            np.matmul(new_coords, np.transpose(rotation2), out=new_coords)
 
         if translation2 is not None:  # required for np.ndarray or None checks
             new_coords += np.array(translation2)
