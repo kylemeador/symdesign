@@ -5571,11 +5571,31 @@ class Entity(SequenceProfile, Chain, ContainsChainsMixin):
     @Chain.chain_id.setter
     def chain_id(self, chain_id: str):
         self.set_residues_attributes(chain=chain_id)
-        # try:
-        # if chain_ids is an attribute, then it will be at least length 1
-        self.chain_ids[0] = chain_id
-        # except AttributeError:
-        #     pass
+        self._chain_id = chain_id
+        self._set_chain_ids()
+
+    def _set_chain_ids(self):
+        """From the Entity.chain_id set all mate Chains with an incrementally higher id
+
+        Sets:
+            self.chain_ids:
+                list(str)
+        """
+        # first_chain_id = self._chain_id
+        self.chain_ids = [self._chain_id]  # use the existing chain_id
+        chain_gen = self.chain_id_generator()
+        # Iterate over the generator until the current chain_id is found
+        discard = next(chain_gen)
+        while discard != self._chain_id:
+            discard = next(chain_gen)
+
+        # Iterate over the generator adding each successive chain_id to self.chain_ids
+        for _ in range(self.number_of_symmetry_mates - 1):  # Only get ids for the mate chains
+            chain_id = next(chain_gen)
+            while chain_id in self.chain_ids:
+                chain_id = next(chain_gen)
+
+            self.chain_ids.append(chain_id)
 
     # @property
     # def chain_ids(self) -> list:  # Also used in Model
@@ -5879,48 +5899,7 @@ class Entity(SequenceProfile, Chain, ContainsChainsMixin):
 
         # Set the new properties
         self.number_of_symmetry_mates = number_of_subunits
-        self.chain_ids = [self.chain_id]  # use the existing chain_id
-        chain_gen = self.chain_id_generator()
-        for _ in range(number_of_subunits - 1):  # Only get ids for the mate chains
-            chain_id = next(chain_gen)
-            while chain_id in self.chain_ids:
-                chain_id = next(chain_gen)
-
-            self.chain_ids.append(chain_id)
-
-    # def translate(self, **kwargs):
-    #     """Perform a translation to the Structure ensuring only the Structure container of interest is translated
-    #     ensuring the underlying coords are not modified
-    #
-    #     Keyword Args:
-    #         translation: The first translation to apply, expected array shape (3,)
-    #     """
-    #     # self._remove_chain_transforms()
-    #     super().translate(**kwargs)
-    #
-    # def rotate(self, **kwargs):
-    #     """Perform a rotation to the Structure ensuring only the Structure container of interest is rotated ensuring the
-    #     underlying coords are not modified
-    #
-    #     Keyword Args:
-    #         rotation: The first rotation to apply, expected array shape (3, 3)
-    #     """
-    #     # self._remove_chain_transforms()
-    #     super().rotate(**kwargs)
-    #
-    # def transform(self, **kwargs):
-    #     """Perform a specific transformation to the Structure ensuring only the Structure container of interest is
-    #     transformed ensuring the underlying coords are not modified
-    #
-    #     Keyword Args:
-    #         rotation=None (list[list[float]] | numpy.ndarray): The first rotation to apply, expected array shape (3, 3)
-    #         translation=None (list[float] | numpy.ndarray): The first translation to apply, expected array shape (3,)
-    #         rotation2=None (list[list[float]] | numpy.ndarray): The second rotation to apply, expected array shape (3,
-    #             3)
-    #         translation2=None (list[float] | numpy.ndarray): The second translation to apply, expected array shape (3,)
-    #     """
-    #     # self._remove_chain_transforms()
-    #     super().transform(**kwargs)
+        self._set_chain_ids()
 
     def return_transformed_mate(self, rotation: list[list[float]] | np.ndarray = None,
                                 translation: list[float] | np.ndarray = None,
