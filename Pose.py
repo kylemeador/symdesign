@@ -1117,6 +1117,10 @@ class Model(Structure, ContainsChainsMixin):
                     available_chain_ids = self.chain_id_generator()
                     for idx, entity in enumerate(self.entities):
                         entity.chain_id = next(available_chain_ids)
+                        # If the full structure wanted contiguous chain_ids, this should be used
+                        # for _ in range(entity.number_of_symmetry_mates):
+                        #     # Discard ids
+                        #     next(available_chain_ids)
                         self.log.debug(f'Entity {entity.name} new chain identifier {entity.chain_id}')
 
                 # update chains to entities after everything is set
@@ -2209,6 +2213,7 @@ class Models(Model):
     PDB files that share a common element.
     """
     _models_coords: Coords
+    models: list[Model]
     # state_attributes: set[str] = Model.state_attributes | {'_models_coords'}
 
     def __init__(self, models: Iterable[Model] = None, **kwargs):

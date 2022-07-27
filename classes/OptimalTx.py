@@ -105,7 +105,7 @@ class OptimalTx:
         # dinvdelta = guide_delta / var_tot
         # below is essentially (SUM(dof basis * guide atom basis difference) for each guide atom) /variance by each DOF
         # | vtdinvdelta = np.matmul(self.dof9_t, dinvdelta)  # transpose of degrees of freedom (n_dof x 9) x (9 x 1) = (n_dof x 1)
-        vtdinvdelta = np.matmul(self.dof9_t, guide_delta) / var_tot # transpose of degrees of freedom (n_dof x 9) x (9 x 1) = (n_dof x 1)
+        vtdinvdelta = np.matmul(self.dof9_t, guide_delta) / var_tot  # transpose of degrees of freedom (n_dof x 9) x (9 x 1) = (n_dof x 1)
 
         # below is inverse dof covariance matrix/variance * dof guide_atom_delta sum / variance
         # | shift = np.matmul(vtdinvvinv, vtdinvdelta)  # (n_dof x n_dof) x (n_dof x 1) = (n_dof x 1)
