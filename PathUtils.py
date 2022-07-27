@@ -1,10 +1,19 @@
 from __future__ import annotations
 
+import subprocess
 from os import path, environ
 
 # Project strings and file names
 program_name = 'SymDesign'
 source = path.dirname(path.realpath(__file__))  # reveals master symdesign folder
+try:
+    p = subprocess.Popen(['git', '--git-dir', path.join(source, '.git'), 'rev-parse' '--short', 'HEAD'],
+                         stdout=subprocess.PIPE)
+    stdout, _ = p.communicate()
+    program_version = stdout.decode().strip()
+except subprocess.CalledProcessError:
+    program_version = 'unknown'
+
 program_exe = path.join(path.dirname(__file__), f'{program_name}.py')
 program_output = f'{program_name}Output'
 projects = 'Projects'
