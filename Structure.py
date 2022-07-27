@@ -1207,9 +1207,13 @@ class ContainsAtomsMixin(StructureBase):
                              f'Consider initializing {type(self).__name__} without explicitly passing coords if this '
                              f'isn\'t expected')
 
-    def renumber_atoms(self):
-        """Renumber all Atom objects sequentially starting with 1"""
-        for idx, atom in enumerate(self.atoms, 1):
+    def renumber_atoms(self, at: int = 1):
+        """Renumber all Atom objects sequentially starting with 1
+
+        Args:
+            at: The number to start renumbering at
+        """
+        for idx, atom in enumerate(self.atoms, at):
             atom.number = idx
 
     @property
@@ -3518,9 +3522,13 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         self.renumber_residues()
         self.log.debug(f'{self.name} was formatted in Pose numbering (residues now 1 to {self.number_of_residues})')
 
-    def renumber_residues(self):
-        """Renumber Residue objects sequentially starting with 1"""
-        for idx, residue in enumerate(self.residues, 1):
+    def renumber_residues(self, at: int = 1):
+        """Renumber Residue objects sequentially starting with 1
+
+        Args:
+            at: The number to start renumbering at
+        """
+        for idx, residue in enumerate(self.residues, at):
             residue.number = idx
 
     def get_residues(self, numbers: Container[int] = None, pdb: bool = False, **kwargs) -> list[Residue]:
