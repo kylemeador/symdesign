@@ -5754,9 +5754,12 @@ class Entity(SequenceProfile, Chain, ContainsChainsMixin):
 
     @Chain.chain_id.setter
     def chain_id(self, chain_id: str):
+        # Same as Chain class property
         self.set_residues_attributes(chain=chain_id)
         self._chain_id = chain_id
-        self._set_chain_ids()
+        # Different from Chain class
+        if self._is_captain:
+            self._set_chain_ids()
 
     def _set_chain_ids(self):
         """From the Entity.chain_id set all mate Chains with an incrementally higher id
@@ -5774,12 +5777,16 @@ class Entity(SequenceProfile, Chain, ContainsChainsMixin):
             discard = next(chain_gen)
 
         # Iterate over the generator adding each successive chain_id to self.chain_ids
-        for _ in range(self.number_of_symmetry_mates - 1):  # Only get ids for the mate chains
+        for idx in range(1, self.number_of_symmetry_mates):  # Only get ids for the mate chains
             chain_id = next(chain_gen)
-            while chain_id in self.chain_ids:
-                chain_id = next(chain_gen)
-
+            # while chain_id in self.chain_ids:
+            #     chain_id = next(chain_gen)
+            # chain.chain_id = chain_id
             self.chain_ids.append(chain_id)
+
+        # Must set chain_ids first, then chains
+        for idx, chain in enumerate(self.chains[1:], 1):
+            chain.chain_id = self.chain_ids[idx]
 
     # @property
     # def chain_ids(self) -> list:  # Also used in Model
