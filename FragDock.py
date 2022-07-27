@@ -514,6 +514,8 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
     for model in models:
         model.log = log
 
+    model1: Model
+    model2: Model
     model1, model2 = models
     # Write to Logfile
     if resume:
@@ -681,9 +683,9 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
     else:
         init_ghost_frag_indices1 = \
             [idx for idx, ghost_frag in enumerate(complete_ghost_frags1) if ghost_frag.j_type == initial_surf_type2]
-        init_ghost_guide_coords1 = ghost_guide_coords1[init_ghost_frag_indices1]
-        init_ghost_rmsds1 = ghost_rmsds1[init_ghost_frag_indices1]
-        init_ghost_residue_numbers1 = ghost_residue_numbers1[init_ghost_frag_indices1]
+        init_ghost_guide_coords1: np.ndarray = ghost_guide_coords1[init_ghost_frag_indices1]
+        init_ghost_rmsds1: np.ndarray = ghost_rmsds1[init_ghost_frag_indices1]
+        init_ghost_residue_numbers1: np.ndarray = ghost_residue_numbers1[init_ghost_frag_indices1]
 
     idx = 1
     log.debug(f'Found ghost guide coordinates {idx} with shape {ghost_guide_coords1.shape}')
@@ -971,10 +973,10 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
 
                 optimal_shifts_start = time.time()
                 # if rot2_count % 2 == 0:
-                #     optimal_shifts = [optimal_tx.solve_optimal_shift(ghost_coords, passing_surf_coords[idx],
-                #                                                      reference_rmsds[idx])
-                #                       for idx, ghost_coords in enumerate(passing_ghost_coords)]
-                #     transform_passing_shifts = np.array([shift for shift in optimal_shifts if shift is not None])
+                # optimal_shifts_ = [optimal_tx.solve_optimal_shift(ghost_coords, passing_surf_coords[idx],
+                #                                                   reference_rmsds[idx])
+                #                    for idx, ghost_coords in enumerate(passing_ghost_coords)]
+                # transform_passing_shifts_ = np.array([shift for shift in optimal_shifts_ if shift is not None])
                 # else:
                 transform_passing_shifts = \
                     optimal_tx.solve_optimal_shifts(passing_ghost_coords, passing_surf_coords, reference_rmsds)
@@ -1080,8 +1082,9 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
                          f' coordinate pairs')
                 log.info(f'\t{final_passing_shifts if final_passing_shifts else "No"} Initial Interface Fragment '
                          f'Match{"es" if final_passing_shifts != 1 else ""} Found')
-                # log.debug(f'Method without finding forward and reverse pairs produces {final_passing_shifts_} '
-                #           f'Initial Interface Fragments')
+                # log.debug(f'Method without vectorized search produces {final_passing_shifts_} '
+                #           f'Initial Interface Fragments. Equality '
+                #           f'{np.all(transform_passing_shifts == transform_passing_shifts_)}')
 
     ##############
     # Here represents an important break in the execution of this code. Vectorized scoring and clash testing!
@@ -1489,7 +1492,7 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
         unique_interface_frag_count_model1, unique_interface_frag_count_model2 = \
             len(ghost_indices_in_interface1), len(surf_indices_in_interface2)
         get_int_frags_time = time.time() - int_frags_time_start
-        log.info(f'\tNewly Formed Interface Contains {unique_interface_frag_count_model1} Unique Fragments on Oligomer '
+        log.info(f'\tNewly formed interface contains {unique_interface_frag_count_model1} unique Fragments on Oligomer '
                  f'1 from {len(interface_residue_numbers1)} Residues and '
                  f'{unique_interface_frag_count_model2} on Oligomer 2 from {len(interface_residue_numbers2)} Residues '
                  f'\n\t(took {get_int_frags_time:8f}s to to get interface fragments, including '
@@ -1761,7 +1764,7 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
                 assembly_path = os.path.join(tx_dir, 'expanded_assembly.pdb')
                 # pose.write(out_path=os.path.join(tx_dir, 'expanded_assembly.pdb'))
             pose.write(assembly=True, out_path=assembly_path, header=cryst_record, surrounding_uc=output_surrounding_uc)
-        log.info('\tSUCCESSFUL DOCKED POSE: %s' % tx_dir)
+        log.info(f'\tSUCCESSFUL DOCKED POSE: {tx_dir}')
 
         # return the indices sorted by z_value then pull information accordingly
         sorted_fragment_indices = np.argsort(all_fragment_match)[::-1]  # return the indices in descending order

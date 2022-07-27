@@ -502,7 +502,7 @@ class Coords:
     def __iter__(self) -> list[float, float, float]:
         yield from self.coords.tolist()
 
-    def __copy__(self):
+    def __copy__(self):  # -> Self Todo python3.11
         other = self.__class__.__new__(self.__class__)
         # other.__dict__ = self.__dict__.copy()
         other.coords = self.coords.copy()
@@ -979,7 +979,7 @@ class Atoms:
             for key, value in kwargs.items():
                 setattr(atom, key, value)
 
-    def __copy__(self) -> Atoms:
+    def __copy__(self) -> Atoms:  # -> Self Todo python3.11
         other = self.__class__.__new__(self.__class__)
         # other.__dict__ = self.__dict__.copy()
         other.atoms = self.atoms.copy()
@@ -2546,7 +2546,7 @@ class Residue(ResidueFragment, ContainsAtomsMixin):
     def __hash__(self) -> int:
         return hash(self.__key())
 
-    def __copy__(self):
+    def __copy__(self) -> Residue:  # -> Self Todo python3.11
         other = self.__class__.__new__(self.__class__)
         # Todo only copy mutable objects like
         #  _atom_indices
@@ -2671,7 +2671,7 @@ class Residues:
             for key, value in kwargs.items():
                 setattr(residue, key, value[idx])
 
-    def __copy__(self):
+    def __copy__(self) -> Residues:  # -> Self Todo python3.11
         other = self.__class__.__new__(self.__class__)
         other.residues = self.residues.copy()
         for idx, residue in enumerate(other.residues):
@@ -3541,7 +3541,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         Returns:
             The requested Residue objects
         """
-        if numbers:
+        if numbers is not None:
             if isinstance(numbers, Container):
                 number_source = 'number_pdb' if pdb else 'number'
                 return [residue for residue in self.residues if getattr(residue, number_source) in numbers]
@@ -3560,7 +3560,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         Returns:
             The requested Atom objects
         """
-        if numbers:
+        if numbers is not None:
             if isinstance(numbers, Container):
                 number_source = 'number_pdb' if pdb else 'number'
                 return [atom for atom in self.atoms if getattr(atom, number_source) in numbers]
@@ -3757,24 +3757,6 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         for residue in self.residues:
             if residue.number == residue_number:
                 return residue.number_pdb
-
-    # def renumber_residues(self):
-    #     """Starts numbering Residues at 1 and number sequentially until last Residue"""
-    #     atoms = self.atoms
-    #     last_atom_index = len(atoms)
-    #     idx = 0  # offset , 1
-    #     for i, residue in enumerate(self.residues, 1):
-    #         # current_res_num = self.atoms[idx].residue_number
-    #         # try:
-    #         current_res_num = residue.number
-    #         # except AttributeError:
-    #         #     print('\n'.join(str(atom) for atom in residue.atoms))
-    #         while atoms[idx].residue_number == current_res_num:
-    #             atoms[idx].residue_number = i  # + offset
-    #             idx += 1
-    #             if idx == last_atom_index:
-    #                 break
-    #     # self.renumber_atoms()  # should be unnecessary
 
     def mutate_residue(self, residue: Residue = None, number: int = None, to: str = 'ALA', **kwargs) -> \
             list[int] | list:
@@ -4997,7 +4979,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
     def __key(self) -> tuple[str, int, ...]:
         return self.name, *self._residue_indices
 
-    def __copy__(self):
+    def __copy__(self):  # -> Self Todo python3.11
         other = self.__class__.__new__(self.__class__)
         # Copy each of the key value pairs to the new, other dictionary
         for attr, obj in self.__dict__.items():
@@ -6722,7 +6704,7 @@ class Entity(SequenceProfile, Chain, ContainsChainsMixin):
             for idx, structure in enumerate(structures[1:], 1):  # only operate on [1:] slice since index 0 is different
                 structures[idx] = copy(structure)
 
-    def __copy__(self):
+    def __copy__(self) -> Entity:  # -> Self Todo python3.11
         other = super().__copy__()
         # Set the first chain as the object itself
         other._chains[0] = other
