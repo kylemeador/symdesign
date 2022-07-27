@@ -1124,6 +1124,7 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
                                                                        rotation=rot_mat1, rotation2=inv_rot_mat1)
                     log.debug(f'start data: {passing_ghost_coords_}')
                     log.debug(f'rotate, invert equality: {np.all(inverse_reverse_coords == passing_ghost_coords_)}')
+                    log.debug(f'rotate, invert equality: {np.flatnonzero(np.where(inverse_reverse_coords == passing_ghost_coords_))}')
                     log.debug(f'rotate, invert data: {inverse_reverse_coords}')
                     passing_surf_coords_ = transform_coordinate_sets(
                         transform_coordinate_sets(surf_test_inv_guide_coords, rotation=rot_mat2,
