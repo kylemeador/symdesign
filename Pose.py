@@ -779,7 +779,7 @@ class State(Structures):
     #         return self._ca_indices
     #
 
-    # Todo Modernize
+    # Todo implement
     def write(self, increment_chains: bool = False, **kwargs) -> str | None:
         """Write Structures to a file specified by out_path or with a passed file_handle.
 
@@ -787,13 +787,12 @@ class State(Structures):
             out_path: The location where the Structure object should be written to disk
             file_handle: Used to write Structure details to an open FileObject
             increment_chains: Whether to write each Structure with a new chain name, otherwise write as a new Model
-            header: If there is header information that should be included. Pass new lines with a "\n"
         Returns:
             The name of the written file if out_path is used
         """
-        self.log.warning('The ability to write States to file has not been thoroughly debugged. If your State consists '
-                         'of various types of Structure containers (PDB, Structures, chains, or entities, check your '
-                         'file is as expected before preceeding')
+        raise NotImplementedError('The ability to write States to file has not been thoroughly debugged')
+        warning = 'If your State consists of various types of Structure containers (Models, Structures) check your ' \
+                  'file is as expected before preceeding'
         return super().write(increment_chains=increment_chains, **kwargs)
 
         # if file_handle:  # Todo handle with multiple Structure containers
@@ -1006,13 +1005,19 @@ class Model(Structure, ContainsChainsMixin):
     def number_of_residues_per_entity(self) -> list[int]:  # UNUSED
         return [structure.number_of_residues for structure in self.entities]
 
-    def format_header(self, **kwargs) -> str:
+    def format_header(self, **kwargs) -> str:  # Todo move near format_seqres
         """Return the BIOMT and the SEQRES records based on the Model
 
         Returns:
             The header with PDB file formatting
         """
-        return self.format_biomt(**kwargs) + self.format_seqres(**kwargs)
+        if isinstance(self.cryst_record, str):
+            _header = self.cryst_record
+        else:
+            _header = ''
+
+        return super().format_header() + self.format_seqres(**kwargs) + _header
+        # return super().format_header() + self.format_biomt(**kwargs) + self.format_seqres(**kwargs) + _header
 
     @property
     def number_of_entities(self) -> int:
@@ -1190,20 +1195,17 @@ class Model(Structure, ContainsChainsMixin):
         else:
             return ''
 
-    def write(self, **kwargs) -> AnyStr | None:  # Todo Depreciate. require Pose or self.cryst_record -> Structure?
-        """Write Atoms to a file specified by out_path or with a passed file_handle
-
-        Keyword Args
-            header: None | str - A string that is desired at the top of the .pdb file
-            pdb: bool = False - Whether the Residue representation should use the number at file parsing
-        Returns:
-            The name of the written file if out_path is used
-        """
-        self.log.debug(f'Model is writing')
-        if not kwargs.get('header') and self.cryst_record:
-            kwargs['header'] = self.cryst_record
-
-        return super().write(**kwargs)
+    # def write(self, **kwargs) -> AnyStr | None:
+    #     """Write Atoms to a file specified by out_path or with a passed file_handle
+    #
+    #     Keyword Args
+    #         header: None | str - A string that is desired at the top of the file
+    #         pdb: bool = False - Whether the Residue representation should use the number at file parsing
+    #     Returns:
+    #         The name of the written file if out_path is used
+    #     """
+    #     self.log.debug(f'Model is writing')
+    #     return super().write(**kwargs)
 
     def orient(self, symmetry: str = None, log: AnyStr = None):  # similar function in Entity
         """Orient a symmetric PDB at the origin with its symmetry axis canonically set on axes defined by symmetry
@@ -2245,16 +2247,17 @@ class Models(Model):
         else:
             self._models_coords = Coords(coords)
 
-    def write(self, out_path: bytes | str = os.getcwd(), file_handle: IO = None, increment_chains: bool = False,
-              **kwargs) -> AnyStr | None:
+    def write(self, out_path: bytes | str = os.getcwd(), file_handle: IO = None, header: str = None,
+              increment_chains: bool = False, **kwargs) -> AnyStr | None:
         """Write Model Atoms to a file specified by out_path or with a passed file_handle
 
         Args:
             out_path: The location where the Structure object should be written to disk
             file_handle: Used to write Structure details to an open FileObject
-            increment_chains: Whether to write each Structure with a new chain name, otherwise write as a new Model
+            header: A string that is desired at the top of the file
+            increment_chains: Whether to write each Chain with an incremental chain ID,
+                otherwise write with the chain IDs present, repeating for each Model
         Keyword Args
-            header: None | str - A string that is desired at the top of the .pdb file
             pdb: bool = False - Whether the Residue representation should use the number at file parsing
         Returns:
             The name of the written file if out_path is used
@@ -2263,36 +2266,36 @@ class Models(Model):
 
         def models_write(handle):
             # self.models is populated
-            if increment_chains:  # assembly requested, check on the mechanism of symmetric writing
-                # we won't allow incremental chains when the Model is plain as the models are all the same and
-                # therefore belong with the models label
+            if increment_chains:
                 available_chain_ids = self.chain_id_generator()
                 for structure in self.models:
-                    for entity in structure.entities:
-                        chain = next(available_chain_ids)
-                        entity.write(file_handle=handle, chain=chain)
-                        c_term_residue = entity.c_terminal_residue
-                        handle.write('{:6s}{:>5d}      {:3s} {:1s}{:>4d}\n'.
-                                     format('TER', c_term_residue.atoms[-1].number + 1, c_term_residue.type, chain,
-                                            c_term_residue.number))
+                    for chain in structure.chains:
+                        chain_id = next(available_chain_ids)
+                        chain.write(file_handle=handle, chain=chain_id, **kwargs)
+                        c_term_residue = chain.c_terminal_residue
+                        handle.write(f'TER   {c_term_residue.atoms[-1].number + 1:>5d}      {c_term_residue.type:3s} '
+                                     f'{chain_id:1s}{c_term_residue.number:>4d}\n')
             else:
                 for model_number, structure in enumerate(self.models, 1):
                     handle.write('{:9s}{:>4d}\n'.format('MODEL', model_number))
-                    for entity in structure.entities:
-                        entity.write(file_handle=handle)
-                        c_term_residue = entity.c_terminal_residue
-                        handle.write('{:6s}{:>5d}      {:3s} {:1s}{:>4d}\n'.
-                                     format('TER', c_term_residue.atoms[-1].number + 1, c_term_residue.type,
-                                            entity.chain_id, c_term_residue.number))
+                    for chain in structure.chains:
+                        chain.write(file_handle=handle, **kwargs)
+                        c_term_residue = chain.c_terminal_residue
+                        handle.write(f'TER   {c_term_residue.atoms[-1].number + 1:>5d}      {c_term_residue.type:3s} '
+                                     f'{chain.chain_id:1s}{c_term_residue.number:>4d}\n')
+
                     handle.write('ENDMDL\n')
 
         if file_handle:
-            # self.write_header(file_handle, **kwargs)
             models_write(file_handle)
             return None
-        else:
+        else:  # out_path always has default argument current working directory
+            _header = self.format_header(**kwargs)
+            if header is not None and isinstance(header, str):
+                _header += (header if header[-2:] == '\n' else f'{header}\n')
+
             with open(out_path, 'w') as outfile:
-                self.write_header(outfile, **kwargs)
+                outfile.write(_header)
                 models_write(outfile)
             return out_path
 
@@ -3907,51 +3910,52 @@ class SymmetricModel(Models):
         else:  # TODO write so that the oligomeric units are populated?
             return ''
 
-    def write(self, out_path: bytes | str = os.getcwd(), file_handle: IO = None, assembly: bool = False, **kwargs) -> \
-            AnyStr | None:
+    def write(self, out_path: bytes | str = os.getcwd(), file_handle: IO = None, header: str = None,
+              assembly: bool = False, **kwargs) -> AnyStr | None:
         """Write SymmetricModel Atoms to a file specified by out_path or with a passed file_handle
 
         Args:
             out_path: The location where the Structure object should be written to disk
             file_handle: Used to write Structure details to an open FileObject
+            header: A string that is desired at the top of the file
             assembly: Whether to write the full assembly. Default writes only the ASU
         Keyword Args:
             increment_chains: bool = False - Whether to write each Structure with a new chain name, otherwise write as
                 a new Model
             surrounding_uc: bool = True - Write the surrounding unit cell if assembly is True and self.dimension > 1
-            header: None | str - A string that is desired at the top of the .pdb file
             pdb: bool = False - Whether the Residue representation should use the number at file parsing
         Returns:
             The name of the written file if out_path is used
         """
         self.log.debug(f'SymmetricModel is writing')
 
-        def symmetric_model_write(handle):
-            if assembly:  # will make models and use next logic steps to write them out
-                self.generate_assembly_symmetry_models(**kwargs)
-                # self.models is populated, use Models.write() to finish
-                super(SymmetricModel, SymmetricModel).write(self, file_handle=handle, **kwargs)
-            else:  # skip models, write asu using biomt_record/cryst_record for sym
-                for entity in self.entities:
-                    entity.write(file_handle=handle, **kwargs)
-
-        def model_write(handle):
-            super(Models, Models).write(self, file_handle=handle, **kwargs)
+        def write_pose(handle):
+            if self.symmetry:
+                # symmetric_model_write(outfile)
+                # def symmetric_model_write(handle):
+                if assembly:  # will make models and use next logic steps to write them out
+                    self.generate_assembly_symmetry_models(**kwargs)
+                    # self.models is populated, use Models.write() to finish
+                    super(SymmetricModel, SymmetricModel).write(self, file_handle=handle, **kwargs)
+                else:  # skip models, write asu using biomt_record/cryst_record for sym
+                    for entity in self.entities:
+                        entity.write(file_handle=handle, **kwargs)
+            else:
+                # model_write(outfile)
+                # def model_write(handle):
+                super(Models, Models).write(self, file_handle=handle, **kwargs)
 
         if file_handle:
-            # self.write_header(file_handle, **kwargs)
-            if self.symmetry:
-                symmetric_model_write(file_handle)
-            else:
-                model_write(file_handle)
+            write_pose(file_handle)
             return None
-        else:
+        else:  # out_path always has default argument current working directory
+            _header = self.format_header(**kwargs)
+            if header is not None and isinstance(header, str):
+                _header += (header if header[-2:] == '\n' else f'{header}\n')
+
             with open(out_path, 'w') as outfile:
-                self.write_header(outfile, **kwargs)
-                if self.symmetry:
-                    symmetric_model_write(outfile)
-                else:
-                    model_write(outfile)
+                outfile.write(_header)
+                write_pose(outfile)
             return out_path
 
 
