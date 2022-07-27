@@ -6134,13 +6134,17 @@ class Entity(SequenceProfile, Chain, ContainsChainsMixin):
                         for line_number in range(1, 1 + ceil(len(formated_reference_sequence)/seq_res_len)))
 
     # Todo overwrite Structure.write() method with oligomer=True flag?
-    def write_oligomer(self, out_path: bytes | str = os.getcwd(), file_handle: IO = None, **kwargs) -> str | None:
+    def write_oligomer(self, out_path: bytes | str = os.getcwd(), file_handle: IO = None, header: str = None,
+                       **kwargs) -> str | None:
         #               header=None,
         """Write Entity.oligomer Structure to a file specified by out_path or with a passed file_handle
 
         Args:
             out_path: The location where the Structure object should be written to disk
             file_handle: Used to write Structure details to an open FileObject
+            header: A string that is desired at the top of the file
+        Keyword Args:
+            asu: (bool) = True - Whether to output SEQRES for the Entity ASU or the full oligomer
         Returns:
             The name of the written file if out_path is used
         """
@@ -6152,8 +6156,12 @@ class Entity(SequenceProfile, Chain, ContainsChainsMixin):
             return None
 
         if out_path:
+            _header = self.format_header(asu=False, **kwargs)
+            if header is not None and isinstance(header, str):  # used for cryst_record now...
+                _header += (header if header[-2:] == '\n' else f'{header}\n')
+
             with open(out_path, 'w') as outfile:
-                self.write_header(outfile, asu=False, **kwargs)  # function implies we want all chains, i.e. asu=False
+                outfile.write(_header)  # function implies we want all chains, i.e. asu=False
                 for chain in self.chains:
                     outfile.write(f'{chain.return_atom_record(atom_offset=offset, **kwargs)}\n')
                     offset += chain.number_of_atoms
