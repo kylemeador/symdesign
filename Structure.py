@@ -1397,12 +1397,25 @@ class Fragment:
         self.i_type = fragment_type
         self.guide_coords = guide_coords
         self.fragment_length = fragment_length
-        self.frag_lower_range, self.frag_upper_range = fragment_db.fragment_range
         self.rotation = identity_matrix
         self.translation = origin
+        # if fragment_db is not None:
         self.fragment_db = fragment_db
+        # self.frag_lower_range, self.frag_upper_range = fragment_db.fragment_range
         super().__init__(**kwargs)
         # may need FragmentBase to clean extras for proper method resolution order (MRO)
+
+    @property
+    def fragment_db(self) -> object | None:
+        """The secondary structure of the Fragment"""
+        return self._fragment_db
+
+    @fragment_db.setter
+    def fragment_db(self, fragment_db: object):  # Todo typing with FragmentDatabase
+        """Set the secondary structure of the Fragment"""
+        self._fragment_db = fragment_db
+        if fragment_db is not None:
+            self.frag_lower_range, self.frag_upper_range = fragment_db.fragment_range
 
     @property
     def frag_type(self) -> int | None:
