@@ -16,7 +16,7 @@ from ClusterUtils import cluster_transformation_pairs, find_cluster_representati
 from fragment import FragmentDatabase, fragment_factory
 from PathUtils import frag_text_file, master_log, frag_dir, biological_interfaces, asu_file_name
 from Pose import Pose, Model
-from Structure import Structure, write_frag_match_info_file
+from Structure import Structure, write_frag_match_info_file, GhostFragment, Residue
 from SymDesignUtils import calculate_overlap, match_score_from_z_value, start_log, null_log, dictionary_lookup, \
     calculate_match, z_value_from_match_score, set_logging_to_debug, unpickle, rmsd
 from classes.EulerLookup import EulerLookup, euler_factory
@@ -140,9 +140,9 @@ def find_docked_poses(sym_entry, ijk_frag_db, pdb1, pdb2, optimal_tx_params, com
         #   Think D2 symmetry...
         #  Store all the ghost/surface frags in a chain/residue dictionary?
         interface_ghost_frags = [ghost_frag for ghost_frag in complete_ghost_frags
-                                 if ghost_frag.get_aligned_chain_and_residue() in interface_chain_residues_pdb1]
+                                 if ghost_frag.get_aligned_chain_and_residue in interface_chain_residues_pdb1]
         interface_surf_frags = [surf_frag for surf_frag in complete_surf_frags
-                                if surf_frag.get_central_res_tup() in interface_chain_residues_pdb2]
+                                if surf_frag.get_aligned_chain_and_residue in interface_chain_residues_pdb2]
         # if unique_total_monofrags_count == 0:
         if not interface_ghost_frags or not interface_surf_frags:
             log.info('\tNO Interface Mono Fragments Found')
@@ -300,8 +300,8 @@ def find_docked_poses(sym_entry, ijk_frag_db, pdb1, pdb2, optimal_tx_params, com
 
         res_pair_freq_info_list = []
         for frag_idx, (int_ghost_frag, int_surf_frag) in enumerate(zip(int_ghostfrags, int_monofrags2)):
-            surf_frag_chain1, surf_frag_central_res_num1 = int_ghost_frag.get_aligned_chain_and_residue()
-            surf_frag_chain2, surf_frag_central_res_num2 = int_surf_frag.get_central_res_tup()
+            surf_frag_chain1, surf_frag_central_res_num1 = int_ghost_frag.get_aligned_chain_and_residue
+            surf_frag_chain2, surf_frag_central_res_num2 = int_surf_frag.get_aligned_chain_and_residue
 
             covered_residues_pdb1 = [(surf_frag_chain1, surf_frag_central_res_num1 + j) for j in range(-2, 3)]
             covered_residues_pdb2 = [(surf_frag_chain2, surf_frag_central_res_num2 + j) for j in range(-2, 3)]
@@ -338,15 +338,15 @@ def find_docked_poses(sym_entry, ijk_frag_db, pdb1, pdb2, optimal_tx_params, com
             trnsfmd_ghost_fragment.transform(rotation=rot_mat1, translation=internal_tx_param1,
                                              rotation2=sym_entry.setting_matrix1, translation2=external_tx_params1)
             trnsfmd_ghost_fragment.write(out_path=os.path.join(matched_fragment_dir, 'int_frag_%s_%d.pdb'
-                                                               % ('i%d_j%d_k%d' % int_ghost_frag.get_ijk(), frag_idx + 1)))
+                                                               % ('i%d_j%d_k%d' % int_ghost_frag.ijk, frag_idx + 1)))
             # transformed_ghost_fragment = int_ghost_frag.structure.return_transformed_copy(
             #     rotation=rot_mat1, translation=internal_tx_param1,
             #     rotation2=sym_entry.setting_matrix1, translation2=external_tx_params1)
             # transformed_ghost_fragment.write(os.path.join(matched_fragment_dir, 'int_frag_%s_%d.pdb'
-            #                                               % ('i%d_j%d_k%d' % int_ghost_frag.get_ijk(), frag_idx + 1)))
+            #                                               % ('i%d_j%d_k%d' % int_ghost_frag.ijk, frag_idx + 1)))
 
             ghost_frag_central_freqs = \
-                dictionary_lookup(ijk_frag_db.info, int_ghost_frag.get_ijk()).central_residue_pair_freqs
+                dictionary_lookup(ijk_frag_db.info, int_ghost_frag.ijk).central_residue_pair_freqs
             # write out associated match information to frag_info_file
             write_frag_match_info_file(ghost_frag=int_ghost_frag, matched_frag=int_surf_frag,
                                        overlap_error=z_value, match_number=frag_idx + 1,
@@ -526,9 +526,9 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
     # Get Surface Fragments With Guide Coordinates Using COMPLETE Fragment Database
     get_complete_surf_frags2_time_start = time.time()
     complete_surf_frags2 = \
-        model2.get_fragment_residues(residues=model2.surface_residues, representatives=ijk_frag_db.reps)
+        model2.get_fragment_residues(residues=model2.surface_residues, fragment_db=ijk_frag_db)
     # complete_surf_frags2 = \
-    #     model2.get_fragments(residue_numbers=model2.get_surface_residues(), representatives=ijk_frag_db.reps)
+    #     model2.get_fragments(residue_numbers=model2.get_surface_residues(), fragment_db=ijk_frag_db)
 
     # calculate the initial match type by finding the predominant surface type
     # surf_i_indices2 = np.array([surf_frag.i_type for surf_frag in complete_surf_frags2])
@@ -563,8 +563,8 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
 
     # Set up Building Block1
     get_complete_surf_frags1_time_start = time.time()
-    surf_frags1 = model1.get_fragment_residues(residues=model1.surface_residues, representatives=ijk_frag_db.reps)
-    # surf_frags1 = model1.get_fragments(residue_numbers=model1.get_surface_residues(), representatives=ijk_frag_db.reps)
+    surf_frags1 = model1.get_fragment_residues(residues=model1.surface_residues, fragment_db=ijk_frag_db)
+    # surf_frags1 = model1.get_fragments(residue_numbers=model1.get_surface_residues(), fragment_db=ijk_frag_db)
 
     # calculate the initial match type by finding the predominant surface type
     # surf_i_indices1 = [surf_frag.i_type for surf_frag in surf_frags1]
@@ -598,7 +598,8 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
     ghost_frags_by_residue1 = \
         [frag.get_ghost_fragments(ijk_frag_db.indexed_ghosts, clash_tree=oligomer1_backbone_cb_tree)
          for frag in surf_frags1]
-    complete_ghost_frags1 = []
+
+    complete_ghost_frags1: list[GhostFragment] = []
     for ghosts in ghost_frags_by_residue1:
         complete_ghost_frags1.extend(ghosts)
     # complete_ghost_frags1 = np.array(complete_ghost_frags1)
@@ -678,10 +679,6 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
         init_ghost_rmsds1 = np.array([ghost_frag.rmsd for ghost_frag in initial_ghost_frags])
         init_ghost_residue_numbers1 = np.array([ghost_frag.number for ghost_frag in initial_ghost_frags])
     else:
-        complete_ghost_frags1 = []
-        for frag in surf_frags1:
-            complete_ghost_frags1.extend(frag.get_ghost_fragments(ijk_frag_db.indexed_ghosts,
-                                                                  clash_tree=oligomer1_backbone_cb_tree))
         init_ghost_frag_indices1 = \
             [idx for idx, ghost_frag in enumerate(complete_ghost_frags1) if ghost_frag.j_type == initial_surf_type2]
         init_ghost_guide_coords1 = ghost_guide_coords1[init_ghost_frag_indices1]
@@ -1784,10 +1781,10 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
         #                   if bool_result and bool_idx in overlap_passing_surf]
         # interface_ghost_frags = complete_ghost_frags1[interface_ghost_indices1]
         # interface_surf_frags = complete_surf_frags2[surf_indices_in_interface2]
-        sorted_int_ghostfrags = [complete_ghost_frags1[ghost_indices_in_interface1[idx]]
-                                 for idx in overlap_ghosts[:number_passing_overlaps]]
-        sorted_int_surffrags2 = [complete_surf_frags2[surf_indices_in_interface2[idx]]
-                                 for idx in overlap_surf[:number_passing_overlaps]]
+        sorted_int_ghostfrags: list[GhostFragment] = [complete_ghost_frags1[ghost_indices_in_interface1[idx]]
+                                                      for idx in overlap_ghosts[:number_passing_overlaps]]
+        sorted_int_surffrags2: list[Residue] = [complete_surf_frags2[surf_indices_in_interface2[idx]]
+                                                for idx in overlap_surf[:number_passing_overlaps]]
         # For all matched interface fragments
         # Keys are (chain_id, res_num) for every residue that is covered by at least 1 fragment
         # Values are lists containing 1 / (1 + z^2) values for every (chain_id, res_num) residue fragment match
@@ -1797,8 +1794,8 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
         res_pair_freq_info_list = []
         for frag_idx, (int_ghost_frag, int_surf_frag, match) in \
                 enumerate(zip(sorted_int_ghostfrags, sorted_int_surffrags2, sorted_match_scores), 1):
-            surf_frag_chain1, surf_frag_central_res_num1 = int_ghost_frag.get_aligned_chain_and_residue()
-            surf_frag_chain2, surf_frag_central_res_num2 = int_surf_frag.get_central_res_tup()
+            surf_frag_chain1, surf_frag_central_res_num1 = int_ghost_frag.get_aligned_chain_and_residue
+            surf_frag_chain2, surf_frag_central_res_num2 = int_surf_frag.get_aligned_chain_and_residue
             # Todo
             #  surf_frag_chain1, surf_frag_central_res_num1 = int_ghost_residue.chain, int_ghost_residue.number
             #  surf_frag_chain2, surf_frag_central_res_num2 = int_surf_residue.chain, int_surf_residue.number
@@ -1832,20 +1829,26 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
             os.makedirs(matched_fragment_dir, exist_ok=True)
 
             # if write_frags:  # write out aligned cluster representative fragment
+            # Old method
             fragment, _ = dictionary_lookup(ijk_frag_db.paired_frags, int_ghost_frag.ijk)
             trnsfmd_ghost_fragment = fragment.return_transformed_copy(**int_ghost_frag.transformation)
             trnsfmd_ghost_fragment.transform(**specific_transformation1)
             trnsfmd_ghost_fragment.write(
                 out_path=os.path.join(matched_fragment_dir,
-                                      'int_frag_%s_%d.pdb' % ('i%d_j%d_k%d' % int_ghost_frag.get_ijk(), frag_idx)))
+                                      'int_frag_i{}_j{}_k{}_{}OLD.pdb'.format(
+                                          *int_ghost_frag.ijk, frag_idx)))
+            # New Method
+            int_ghost_frag.write(out_path=os.path.join(matched_fragment_dir,
+                                                       'int_frag_i{}_j{}_k{}_{}.pdb'.format(
+                                                           *int_ghost_frag.ijk, frag_idx)))
             # transformed_ghost_fragment = int_ghost_frag.structure.return_transformed_copy(
             #     rotation=rot_mat1, translation=internal_tx_param1,
             #     rotation2=sym_entry.setting_matrix1, translation2=external_tx_params1)
             # transformed_ghost_fragment.write(os.path.join(matched_fragment_dir, 'int_frag_%s_%d.pdb'
-            #                                               % ('i%d_j%d_k%d' % int_ghost_frag.get_ijk(), frag_idx)))
+            #                                               % ('i%d_j%d_k%d' % int_ghost_frag.ijk, frag_idx)))
             z_value = z_value_from_match_score(match)
             ghost_frag_central_freqs = \
-                dictionary_lookup(ijk_frag_db.info, int_ghost_frag.get_ijk()).central_residue_pair_freqs
+                dictionary_lookup(ijk_frag_db.info, int_ghost_frag.ijk).central_residue_pair_freqs
             # write out associated match information to frag_info_file
             write_frag_match_info_file(ghost_frag=int_ghost_frag, matched_frag=int_surf_frag,
                                        overlap_error=z_value, match_number=frag_idx,

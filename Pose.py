@@ -21,7 +21,7 @@ import wrapapi
 from DesignMetrics import calculate_match_metrics, fragment_metric_template, format_fragment_metrics
 from Query.PDB import retrieve_entity_id_by_sequence, query_pdb_by, get_entity_reference_sequence
 from SequenceProfile import SequenceProfile, alignment_types, generate_alignment, get_equivalent_indices
-from Structure import Coords, Structure, Structures, Chain, Entity, Residue, Residues, GhostFragment, MonoFragment, \
+from Structure import Coords, Structure, Structures, Chain, Entity, Residue, Residues, GhostFragment, \
     write_frag_match_info_file, Fragment, StructureBase, ContainsAtomsMixin, superposition3d, ContainsChainsMixin
 from SymDesignUtils import DesignError, ClashError, SymmetryError, z_value_from_match_score, start_log, null_log, \
     dictionary_lookup, digit_translate_table, calculate_match
@@ -137,14 +137,14 @@ def get_matching_fragment_pairs_info(ghostfrag_frag_pairs: list[tuple[GhostFragm
     """
     fragment_matches = []
     for interface_ghost_frag, interface_surf_frag, match_score in ghostfrag_frag_pairs:
-        _, surffrag_resnum1 = interface_ghost_frag.get_aligned_chain_and_residue()  # surffrag_ch1,
-        _, surffrag_resnum2 = interface_surf_frag.get_central_res_tup()  # surffrag_ch2,
+        _, surffrag_resnum1 = interface_ghost_frag.get_aligned_chain_and_residue  # surffrag_ch1,
+        _, surffrag_resnum2 = interface_surf_frag.get_aligned_chain_and_residue  # surffrag_ch2,
         # Todo
         #  surf_frag_central_res_num1 = interface_ghost_residue.number
         #  surf_frag_central_res_num2 = interface_surf_residue.number
         fragment_matches.append(dict(zip(('mapped', 'paired', 'match', 'cluster'),
                                      (surffrag_resnum1, surffrag_resnum2,  match_score,
-                                      '%d_%d_%d' % interface_ghost_frag.ijk))))
+                                      '{}_{}_{}'.format(*interface_ghost_frag.ijk)))))
     logger.debug('Fragments for Entity1 found at residues: %s' % [fragment['mapped'] for fragment in fragment_matches])
     logger.debug('Fragments for Entity2 found at residues: %s' % [fragment['paired'] for fragment in fragment_matches])
 
@@ -4463,9 +4463,9 @@ class Pose(SequenceProfile, SymmetricModel):
 
         # residue_numbers1 = sorted(residue.number for residue in entity1_residues)
         # surface_frags1 = entity1.get_fragments(residue_numbers=residue_numbers1,
-        #                                        representatives=self.fragment_db.reps)
+        #                                        fragment_db=self.fragment_db)
         frag_residues1 = \
-            entity1.get_fragment_residues(residues=entity1_residues, representatives=self.fragment_db.reps)
+            entity1.get_fragment_residues(residues=entity1_residues, fragment_db=self.fragment_db)
         if not entity2_residues:  # entity1 == entity2 and not entity2_residues:
             # entity1_residues = set(entity1_residues + entity2_residues)
             entity2_residues = entity1_residues
@@ -4474,9 +4474,9 @@ class Pose(SequenceProfile, SymmetricModel):
         else:
             # residue_numbers2 = sorted(residue.number for residue in entity2_residues)
             # surface_frags2 = entity2.get_fragments(residue_numbers=residue_numbers2,
-            #                                        representatives=self.fragment_db.reps)
+            #                                        fragment_db=self.fragment_db)
             frag_residues2 = \
-                entity2.get_fragment_residues(residues=entity2_residues, representatives=self.fragment_db.reps)
+                entity2.get_fragment_residues(residues=entity2_residues, fragment_db=self.fragment_db)
 
         # self.log.debug(f'At Entity {entity1.name} | Entity {entity2.name} interface, searching for fragments at the '
         #                f'surface of:\n\tEntity {entity1.name}: Residues {", ".join(map(str, residue_numbers1))}'
@@ -5121,12 +5121,12 @@ class Pose(SequenceProfile, SymmetricModel):
                                            overlap_error=z_value_from_match_score(match),
                                            match_number=match_count, out_path=out_path)
 
-    def write_fragment_pairs(self, ghost_mono_frag_pairs: list[tuple[GhostFragment, MonoFragment, float]],
+    def write_fragment_pairs(self, ghost_mono_frag_pairs: list[tuple[GhostFragment, Fragment, float]],
                              out_path: AnyStr = os.getcwd()):
         ghost_frag: GhostFragment
-        mono_frag: MonoFragment
+        mono_frag: Fragment
         for idx, (ghost_frag, mono_frag, match_score) in enumerate(ghost_mono_frag_pairs, 1):
-            ijk = ghost_frag.get_ijk()
+            ijk = ghost_frag.ijk
             fragment_pdb, _ = dictionary_lookup(self.fragment_db.paired_frags, ijk)
             trnsfmd_fragment = fragment_pdb.return_transformed_copy(**ghost_frag.transformation)
             trnsfmd_fragment.write(out_path=os.path.join(out_path, f'%d_%d_%d_fragment_match_{idx}.pdb' % ijk))
