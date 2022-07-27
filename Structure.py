@@ -6707,10 +6707,13 @@ class Entity(SequenceProfile, Chain, ContainsChainsMixin):
 
     def _update_structure_container_attributes(self, **kwargs):
         """Update attributes specified by keyword args for all Structure container members. Entity specific handling"""
-        for structure_type in self.structure_containers:
-            for structure in getattr(self, structure_type)[1:]:  # only operate on [1:] slice since index 0 is different
-                for kwarg, value in kwargs.items():
-                    setattr(structure, kwarg, value)
+        # As this was causing error with keeping mate chains, mates, just return
+        return
+        # The below code mirrors the _update_structure_container_attributes() from Structure, mius the [1:] slice
+        # for structure_type in self.structure_containers:
+        #     for structure in getattr(self, structure_type)[1:]:  # only operate on [1:] slice since index 0 is different
+        #         for kwarg, value in kwargs.items():
+        #             setattr(structure, kwarg, value)
 
     def _copy_structure_containers(self):
         """Copy all member Structures that reside in Structure containers. Entity specific handling of chains index 0"""
