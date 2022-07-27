@@ -4003,9 +4003,13 @@ class Pose(SequenceProfile, SymmetricModel):
         # Model init will handle Structure set up if a structure file is present
         # SymmetricModel init will generate_symmetric_coords() if symmetry specification present
         super().__init__(**kwargs)
-        if self.is_clash(warn=self.ignore_clashes):
-            if not self.ignore_clashes:
-                raise ClashError(f'{self.name} contains Backbone clashes and is not being considered further!')
+        try:
+            self.is_clash(warn=not self.ignore_clashes)
+        except ClashError as error:
+            if self.ignore_clashes:
+                pass
+            else:
+                raise error
 
         # need to set up after load Entities so that they can have this added to their SequenceProfile
         self.fragment_db = fragment_db  # kwargs.get('fragment_db', None)
