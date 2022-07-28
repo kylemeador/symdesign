@@ -18,9 +18,9 @@ from PathUtils import frag_text_file, master_log, frag_dir, biological_interface
 from Pose import Pose, Model
 from Structure import Structure, write_frag_match_info_file, GhostFragment, Residue
 from SymDesignUtils import calculate_overlap, match_score_from_z_value, start_log, null_log, dictionary_lookup, \
-    calculate_match, z_value_from_match_score, set_logging_to_debug, unpickle, rmsd
+    calculate_match, z_value_from_match_score, set_logging_to_debug, unpickle, rmsd, format_guide_coords_as_atom
 from classes.EulerLookup import EulerLookup, euler_factory
-from classes.OptimalTx import OptimalTx
+from classes.OptimalTx import OptimalTx, OptimalTxOLD
 from classes.SymEntry import SymEntry, get_rot_matrices, make_rotations_degenerate, symmetry_factory
 from classes.WeightedSeqFreq import FragMatchInfo, SeqFreqInfo
 from utils.CmdLineArgParseUtils import get_docking_parameters
@@ -677,14 +677,15 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
             same_component_overlapping_ghost_frags[residue_idx2, residue_idx2_ghost_indices[same_component_overlapping_indices]] += 1
 
         # Using the tabulated results, prioritize those fragments which have same component, ghost fragment overlap
-        initial_ghost_frags = \
+        initial_ghost_frags1 = \
             [complete_ghost_frags1[idx] for idx in same_component_overlapping_ghost_frags.flatten().tolist()]
-        init_ghost_guide_coords1 = np.array([ghost_frag.guide_coords for ghost_frag in initial_ghost_frags])
-        init_ghost_rmsds1 = np.array([ghost_frag.rmsd for ghost_frag in initial_ghost_frags])
-        init_ghost_residue_numbers1 = np.array([ghost_frag.number for ghost_frag in initial_ghost_frags])
+        init_ghost_guide_coords1 = np.array([ghost_frag.guide_coords for ghost_frag in initial_ghost_frags1])
+        init_ghost_rmsds1 = np.array([ghost_frag.rmsd for ghost_frag in initial_ghost_frags1])
+        init_ghost_residue_numbers1 = np.array([ghost_frag.number for ghost_frag in initial_ghost_frags1])
     else:
         init_ghost_frag_indices1 = \
             [idx for idx, ghost_frag in enumerate(complete_ghost_frags1) if ghost_frag.j_type == initial_surf_type2]
+        initial_ghost_frags1: np.ndarray = np.array([complete_ghost_frags1[idx] for idx in init_ghost_frag_indices1])
         init_ghost_guide_coords1: np.ndarray = ghost_guide_coords1[init_ghost_frag_indices1]
         init_ghost_rmsds1: np.ndarray = ghost_rmsds1[init_ghost_frag_indices1]
         init_ghost_residue_numbers1: np.ndarray = ghost_residue_numbers1[init_ghost_frag_indices1]
@@ -836,8 +837,8 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
     # log.debug('sup_rmsd, superposition_setting_1to2, sup_tx: %s, %s, %s' % (sup_rmsd, superposition_setting_1to2, sup_tx))
 
     # these must be 2d array, thus the 2:3].T instead of 2. Using [:, 2][:, None] would also work
-    zshift1 = set_mat1[:, 2:3].T if sym_entry.is_internal_tx1 else None
-    zshift2 = set_mat2[:, 2:3].T if sym_entry.is_internal_tx2 else None
+    zshift1 = set_mat1[:, None, 2].T if sym_entry.is_internal_tx1 else None
+    zshift2 = set_mat2[:, None, 2].T if sym_entry.is_internal_tx2 else None
 
     log.debug(f'zshift1 = {zshift1}, zshift2 = {zshift2}, max_z_value={initial_z_value:2f}')
     optimal_tx = \
@@ -1272,6 +1273,9 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
     log.info(f'Found {starting_transforms} total transforms, {starting_transforms - number_of_dense_transforms} of '
              f'which are missing the minimum number of close transforms to be viable. {number_of_dense_transforms} '
              f'remain (took {time.time() - clustering_start:8f}s)')
+    if not number_of_dense_transforms:  # There were no successful transforms
+        log.warning(f'No viable transforms, terminating {building_blocks} docking')
+        return
     # representative_labels = cluster_labels[cluster_representative_indices]
 
     # Transform the oligomeric coords to query for clashes
@@ -1402,6 +1406,9 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
     number_non_clashing_transforms = len(asu_is_viable)
     log.info(f'Clash testing for All Oligomer1 and Oligomer2 (took {time.time() - check_clash_coords_start:8f}s) '
              f'found {number_non_clashing_transforms} viable ASU\'s out of {number_of_dense_transforms}')
+    if not number_non_clashing_transforms:  # There were no successful asus that don't clash
+        log.warning(f'No viable asymmetric units, terminating {building_blocks} docking')
+        return
 
     # Update the transformation array and counts with the asu_is_viable indices
     degen_counts, rot_counts, tx_counts = zip(*[(degen_counts[idx], rot_counts[idx], tx_counts[idx])
