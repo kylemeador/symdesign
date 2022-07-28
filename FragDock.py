@@ -601,8 +601,7 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
     oligomer1_backbone_cb_tree = BallTree(model1.backbone_and_cb_coords)
     get_complete_ghost_frags1_time_start = time.time()
     ghost_frags_by_residue1 = \
-        [frag.get_ghost_fragments(ijk_frag_db.indexed_ghosts, clash_tree=oligomer1_backbone_cb_tree)
-         for frag in surf_frags1]
+        [frag.get_ghost_fragments(clash_tree=oligomer1_backbone_cb_tree) for frag in surf_frags1]
 
     complete_ghost_frags1: list[GhostFragment] = []
     for ghosts in ghost_frags_by_residue1:
@@ -774,8 +773,7 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
     get_complete_ghost_frags2_time_start = time.time()
     complete_ghost_frags2 = []
     for frag in complete_surf_frags2:
-        complete_ghost_frags2.extend(frag.get_ghost_fragments(ijk_frag_db.indexed_ghosts,
-                                                              clash_tree=bb_cb_tree2))
+        complete_ghost_frags2.extend(frag.get_ghost_fragments(clash_tree=bb_cb_tree2))
     init_ghost_frags2 = [ghost_frag for ghost_frag in complete_ghost_frags2 if ghost_frag.j_type == initial_surf_type1]
     init_ghost_guide_coords2 = np.array([ghost_frag.guide_coords for ghost_frag in init_ghost_frags2])
     init_ghost_residue_numbers2 = np.array([ghost_frag.number for ghost_frag in init_ghost_frags2])

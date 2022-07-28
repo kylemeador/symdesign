@@ -73,9 +73,9 @@ def find_fragment_overlap(entity1_coords: np.ndarray, residues1: list[Residue] |
     oligomer1_bb_tree = BallTree(entity1_coords)
     ghost_frags1: list[GhostFragment] = []
     for residue in residues1:
-        ghost_frags1.extend(residue.get_ghost_fragments(frag_db.indexed_ghosts, clash_tree=oligomer1_bb_tree))
+        ghost_frags1.extend(residue.get_ghost_fragments(clash_tree=oligomer1_bb_tree))
     # for frag1 in interface_frags1:
-    #     ghostfrags = frag1.get_ghost_fragments(fragdb.indexed_ghosts, clash_tree=oligomer1_bb_tree)
+    #     ghostfrags = frag1.get_ghost_fragments(clash_tree=oligomer1_bb_tree)
     #     if ghostfrags:
     #         ghost_frags1.extend(ghostfrags)
     logger.debug('Finished Ghost Frag Lookup')

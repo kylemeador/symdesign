@@ -1461,22 +1461,27 @@ class Fragment:
     #     else:
     #         return None
 
-    def find_ghost_fragments(self, indexed_ghost_fragments: dict[int, tuple[np.ndarray, np.ndarray, np.ndarray,
-                                                                            np.ndarray]],
+    def find_ghost_fragments(self,
+                             # indexed_ghost_fragments: dict[int, tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]]
                              clash_tree: BinaryTree = None, clash_dist: float = 2.2):
         """Find all the GhostFragments associated with the Fragment
 
         Args:
-            indexed_ghost_fragments: The paired fragment database to match to the Fragment instance
             clash_tree: Allows clash prevention during search. Typical use is the backbone and CB atoms of the
                 Structure that the Fragment is assigned
             clash_dist: The distance to check for backbone clashes
         Returns:
             The ghost fragments associated with the fragment
         """
-        ghost_i_type = indexed_ghost_fragments.get(self.i_type, None)
-        if not ghost_i_type:
+        #             indexed_ghost_fragments: The paired fragment database to match to the Fragment instance
+        # ghost_i_type = indexed_ghost_fragments.get(self.i_type, None)
+
+        # self.fragment_db.indexed_ghosts : dict[int,
+        #                                        tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]]
+        ghost_i_type_arrays = self.fragment_db.indexed_ghosts.get(self.i_type, None)
+        if not ghost_i_type_arrays:
             self.ghost_fragments = []
+            return
 
         stacked_bb_coords, stacked_guide_coords, ijk_types, rmsd_array = ghost_i_type
         transformed_guide_coords = transform_coordinate_sets(stacked_guide_coords, **self.transformation)
@@ -1495,12 +1500,12 @@ class Fragment:
                                                                      *zip(*ijk_types[viable_indices].tolist()),
                                                                      rmsd_array[viable_indices].tolist(), repeat(self))]
 
-    def get_ghost_fragments(self, indexed_ghost_fragments: dict, **kwargs) -> list | list[GhostFragment]:
+    def get_ghost_fragments(self,
+                            # indexed_ghost_fragments: dict,
+                            **kwargs) -> list | list[GhostFragment]:
         """Find and return all the GhostFragments associated with the Fragment. Optionally check clashing with the
         original structure backbone
 
-        Args:
-            indexed_ghost_fragments: The paired fragment database to match to the Fragment instance
         Keyword Args:
             clash_tree: sklearn.neighbors._ball_tree.BinaryTree = None - Allows clash prevention during search.
                 Typical use is the backbone and CB coordinates of the Structure that the Fragment is assigned
@@ -1508,7 +1513,9 @@ class Fragment:
         Returns:
             The ghost fragments associated with the fragment
         """
-        self.find_ghost_fragments(indexed_ghost_fragments, **kwargs)
+        #         Args:
+        #             indexed_ghost_fragments: The paired fragment database to match to the Fragment instance
+        self.find_ghost_fragments(**kwargs)
         return self.ghost_fragments
 
 
