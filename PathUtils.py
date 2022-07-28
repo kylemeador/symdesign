@@ -7,7 +7,7 @@ from os import path, environ
 program_name = 'SymDesign'
 source = path.dirname(path.realpath(__file__))  # reveals master symdesign folder
 try:
-    p = subprocess.Popen(['git', '--git-dir', path.join(source, '.git'), 'rev-parse' '--short', 'HEAD'],
+    p = subprocess.Popen(['git', '--git-dir', path.join(source, '.git'), 'rev-parse', '--short', 'HEAD'],
                          stdout=subprocess.PIPE)
     stdout, _ = p.communicate()
     program_version = stdout.decode().strip()
