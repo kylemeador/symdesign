@@ -1019,6 +1019,9 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
                         np.in1d(forward_ghosts_numbers1[forward_index], reverse_surface_numbers1[reverse_index])
                     prior = current
 
+                # Todo remove once residue numbers are debugged
+                possible_overlaps = np.ones(number_overlapping_pairs, dtype=np.bool8)
+
                 # forward_ghosts_numbers1[possible_overlaps]
                 # forward_surface_numbers2[possible_overlaps]
 
@@ -1581,6 +1584,14 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
                                   translation=full_int_tx1[:, None, :] * -1,
                                   rotation2=full_inv_rotation1,
                                   translation2=None)
+    # Todo remove when done debugging
+    transformed_model2_tiled_cb_coords = \
+        transform_coordinate_sets(np.tile(model2.cb_coords, (number_non_clashing_transforms, 1, 1)),
+                                  rotation=full_rotation2,
+                                  translation=full_int_tx2[:, None, :],
+                                  rotation2=set_mat2,
+                                  translation2=None if full_ext_tx_sum is None
+                                  else full_ext_tx_sum[:, None, :])
 
     # Transform the surface guide coords of oligomer 2 to each identified transformation
     # Makes a shape (full_rotations.shape[0], surf_guide_coords.shape[0], 3, 3)
