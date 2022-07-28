@@ -40,9 +40,7 @@ def decorate_with_fragments(pdb_path, out_path=os.getcwd()):
     # ghost_frag_guide_coords_list = []
     for frag1 in surf_frags_1:
         monofrag1 = MonoFragment(frag1, {'1': ijk_monofrag_cluster_rep_pdb_dict['1']})
-        monofrag_ghostfrag_list = monofrag1.get_ghost_fragments({'1': {'1': ijk_intfrag_cluster_rep_dict['1']['1']}},
-                                                                kdtree_oligomer1_backbone,
-                                                                {'1': {'1': ijk_intfrag_cluster_info_dict['1']['1']}})
+        monofrag_ghostfrag_list = monofrag1.get_ghost_fragments(clash_tree=kdtree_oligomer1_backbone)
         if monofrag_ghostfrag_list is not None:
             ghost_frag_list.extend(monofrag_ghostfrag_list)
             # ghost_frag_guide_coords_list.extend(map(GhostFragment.get_guide_coords, monofrag_ghostfrag_list))
@@ -51,8 +49,7 @@ def decorate_with_fragments(pdb_path, out_path=os.getcwd()):
     complete_ghost_frag_list = []
     for frag1 in surf_frags_1:
         complete_monofrag1 = MonoFragment(frag1, ijk_monofrag_cluster_rep_pdb_dict)
-        complete_monofrag1_ghostfrag_list = complete_monofrag1.get_ghost_fragments(
-            ijk_intfrag_cluster_rep_dict, kdtree_oligomer1_backbone, ijk_intfrag_cluster_info_dict)
+        complete_monofrag1_ghostfrag_list = complete_monofrag1.get_ghost_fragments(clash_tree=kdtree_oligomer1_backbone)
         if complete_monofrag1_ghostfrag_list:
             complete_ghost_frag_list.extend(complete_monofrag1_ghostfrag_list)
 
