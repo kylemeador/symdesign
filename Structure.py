@@ -1548,6 +1548,11 @@ class Fragment:
         self.find_ghost_fragments(**kwargs)
         return self.ghost_fragments
 
+    def __copy__(self):  # -> Self # Todo python3.11
+        other = self.__class__.__new__(self.__class__)
+        other.__dict__ = copy(self.__dict__)
+        other.__dict__['ghost_fragments'] = copy(self.ghost_fragments)
+
 
 class MonoFragment(Fragment):
     """Used to represent Fragment information when treated as a continuous Structure Fragment of length fragment_length
