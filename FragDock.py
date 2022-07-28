@@ -2037,6 +2037,7 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
              for entity in model.entities],
             # [entity.return_transformed_copy(**specific_transformation1) for entity in model1.entities] +
             # [entity.return_transformed_copy(**specific_transformation2) for entity in model2.entities],
+            pose_format=True,
             name='asu', log=log, entity_names=[entity for entity in model.entities for idx, model in enumerate(models)],
             rename_chains=True, sym_entry=sym_entry,
             surrounding_uc=output_surrounding_uc, ignore_clashes=True, uc_dimensions=uc_dimensions)
