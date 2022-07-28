@@ -1127,7 +1127,7 @@ class Model(Structure, ContainsChainsMixin):
                 self.chain_ids.extend([entity.chain_id for entity in self.entities])
 
         if pose_format:
-            self.renumber_structure()
+            self.pose_numbering()
 
     # def copy_metadata(self, other):  # Todo, rework for all Structure
     #     temp_metadata = \

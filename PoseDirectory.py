@@ -2058,17 +2058,16 @@ class PoseDirectory:
         else:
             self.pose = Pose.from_file(source if source else self.source, entity_names=self.entity_names, **pose_kwargs)
             #                                     pass names if available ^
-        if self.pose.symmetry:  # generate oligomers for each entity in the pose  # Todo move to SymmetricModel
+        if self.pose.symmetry:  # Generate oligomers for each entity in the pose  # Todo move to SymmetricModel
             for idx, entity in enumerate(self.pose.entities):
                 if entity.number_of_symmetry_mates != self.sym_entry.group_subunit_numbers[idx]:
                     entity.make_oligomer(symmetry=self.sym_entry.groups[idx], **self.pose_transformation[idx])
-                # write out new oligomers to the PoseDirectory
-                if self.write_oligomers:
+                if self.write_oligomers:  # Write out new oligomers to the PoseDirectory
                     entity.write_oligomer(out_path=path.join(self.path, f'{entity.name}_oligomer.pdb'))
 
-        # then modify numbering to ensure standard and accurate use during protocols
-        self.pose.renumber_structure()
-        if not self.entity_names:  # store the entity names if they were never generated
+        # Then modify numbering to ensure standard and accurate use during protocols
+        self.pose.pose_numbering()
+        if not self.entity_names:  # Store the entity names if they were never generated
             self.entity_names = [entity.name for entity in self.pose.entities]
             self.log.info(f'Input Entities: {", ".join(self.entity_names)}')
             self.info['entity_names'] = self.entity_names
