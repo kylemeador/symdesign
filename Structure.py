@@ -1818,14 +1818,14 @@ class Residue(ResidueFragment, ContainsAtomsMixin):
         # populate the Structure with its existing instances removed of any indexing
         self._assign_atoms(self.atoms)  # , coords=coords)
 
-    @StructureBase.coords.setter
-    def coords(self, coords: np.ndarray | list[list[float]]):
-        """Set the Residue coords according to a new coordinate system. Transforms .guide_coords to the new reference"""
-        if self.i_type:  # Fragment has been assigned. Transform the guide_coords according to the new coords
-            _, self.rotation, self.translation = superposition3d(coords, self.coords)
-            # self.guide_coords = np.matmul(self.guide_coords, np.transpose(self.rotation)) + self.translation
-        super(Residue, Residue).coords.fset(self, coords)  # prefer this over below, as this mechanism could change
-        # self._coords.replace(self._atom_indices, coords)
+    # @StructureBase.coords.setter
+    # def coords(self, coords: np.ndarray | list[list[float]]):
+    #     """Set the Residue coords according to a new coordinate system. Transforms .guide_coords to the new reference"""
+    #     # if self.i_type:  # Fragment has been assigned. Transform the guide_coords according to the new coords
+    #     #     _, self.rotation, self.translation = superposition3d(coords, self.coords)
+    #     #     # self.guide_coords = np.matmul(self.guide_coords, np.transpose(self.rotation)) + self.translation
+    #     super(Residue, Residue).coords.fset(self, coords)  # prefer this over below, as this mechanism could change
+    #     # self._coords.replace(self._atom_indices, coords)
 
     def is_residue_valid(self) -> bool:
         """Returns True if the Residue is constructed properly otherwise raises an error
