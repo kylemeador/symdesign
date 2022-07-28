@@ -1274,7 +1274,7 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
     else:
         full_uc_dimensions = None
     #     full_ext_tx_sum = None
-
+    fragment_pairs = np.array(fragment_pairs)
     # Make full, numpy vectorized transformations overwriting individual variables for memory management
     full_rotation1 = np.concatenate(full_rotation1, axis=0)
     full_rotation2 = np.concatenate(full_rotation2, axis=0)
@@ -1356,6 +1356,7 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
     degen_counts, rot_counts, tx_counts = zip(*[(degen_counts[idx], rot_counts[idx], tx_counts[idx])
                                                 for idx in sufficiently_dense_indices.tolist()])
     # Update the transformation array and counts with the sufficiently_dense_indices
+    fragment_pairs = fragment_pairs[sufficiently_dense_indices]
     full_rotation1 = full_rotation1[sufficiently_dense_indices]
     full_rotation2 = full_rotation2[sufficiently_dense_indices]
     full_int_tx1 = full_int_tx1[sufficiently_dense_indices]
@@ -1492,6 +1493,7 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
     # Update the transformation array and counts with the asu_is_viable indices
     degen_counts, rot_counts, tx_counts = zip(*[(degen_counts[idx], rot_counts[idx], tx_counts[idx])
                                                 for idx in asu_is_viable.tolist()])
+    fragment_pairs = fragment_pairs[asu_is_viable]
     full_rotation1 = full_rotation1[asu_is_viable]
     full_rotation2 = full_rotation2[asu_is_viable]
     full_int_tx1 = full_int_tx1[asu_is_viable]
@@ -1630,7 +1632,12 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
     model2_cb_indices = model2.cb_indices
     model2_coords_indexed_residues = model2.coords_indexed_residues
     # Get residue number for all model1, model2 CB Pairs that interact within cb_distance
-    for idx in range(inverse_transformed_surf_frags2_guide_coords.shape[0]):
+    for idx in range(number_non_clashing_transforms):
+        log.debug(f' investigating initial fragment pair {fragment_pairs[idx]} for interface potential')
+        overlap_residues1 = model1.get_residues(numbers=[fragment_pairs[idx][0]])
+        overlap_residues2 = model2.get_residues(numbers=[fragment_pairs[idx][1]])
+        res_ghost_guide_coords = fragment_pairs[idx][2]
+
         # query/contact pairs/isin  - 0.028367  <- I predict query is about 0.015
         # indexing guide_coords     - 0.000389
         # total get_int_frags_time  - 0.028756 s
@@ -1999,6 +2006,20 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
                 surf2_residue_structure_trans.write(out_path=os.path.join(tx_dir, f'{model2.name}_RESIDUES_POSTTRANSFORM.pdb'))
                 entity_ = entity.return_transformed_copy(**inv1).return_transformed_copy(**inv2)
                 entity_.write_oligomer(out_path=os.path.join(tx_dir, f'{entity.name}_POSTTRANSFORM.pdb'))
+
+            tsfmd_res_ghost_guide_coords = transform_coordinate_sets(res_ghost_guide_coords,
+                                                                     **specific_transformation1)
+            tsfmd_res1_coords = transform_coordinate_sets(overlap_residues1[0].guide_coords,
+                                                          **specific_transformation1)
+            tsfmd_res2_coords = transform_coordinate_sets(overlap_residues2[0].guide_coords,
+                                                          **specific_transformation2)
+            atoms = format_guide_coords_as_atom([tsfmd_res_ghost_guide_coords,
+                                                 tsfmd_res1_coords,
+            # atoms1 = format_guide_coords_as_atom(tsfmd_res1_coords[None, ...])
+                                                 tsfmd_res2_coords])
+            # atoms2 = format_guide_coords_as_atom(tsfmd_res2_coords[None, ...])
+            with open(os.path.join(tx_dir, 'init_guide_coords.pdb'), 'w') as f:
+                f.write(f'%s\n' % '\n'.join(atoms))
 
         pose = Pose.from_entities(
             [entity.return_transformed_copy(**specific_transformations[idx]) for idx, model in enumerate(models)
