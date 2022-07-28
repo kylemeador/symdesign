@@ -909,7 +909,7 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
     # superposition_setting_2to1 = np.linalg.inv(superposition_setting_1to2)
     # log.debug('sup_rmsd, superposition_setting_1to2, sup_tx: %s, %s, %s' % (sup_rmsd, superposition_setting_1to2, sup_tx))
 
-    # these must be 2d array, thus the 2:3].T instead of 2. Using [:, 2][:, None] would also work
+    # these must be 2d array, thus the , 2:3].T instead of , 2].T. [:, None, 2] also works
     zshift1 = set_mat1[:, None, 2].T if sym_entry.is_internal_tx1 else None
     zshift2 = set_mat2[:, None, 2].T if sym_entry.is_internal_tx2 else None
 
@@ -949,9 +949,9 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
             rot1_count = idx1 % number_of_rotations1 + 1
             degen1_count = idx1 // number_of_rotations1 + 1
             rot_mat1 = rotation_matrices1[idx1]
-            ghost_frag1_guide_coords_rot_and_set = \
+            ghost_guide_coords_rot_and_set1 = \
                 transform_coordinate_sets(init_ghost_guide_coords1, rotation=rot_mat1, rotation2=set_mat1)
-            surf_frags1_guide_coords_rot_and_set = \
+            surf_guide_coords_rot_and_set1 = \
                 transform_coordinate_sets(init_surf_guide_coords1, rotation=rot_mat1, rotation2=set_mat1)
 
             for idx2 in range(min(rotation_matrices2.shape[0], 5)):  # Todo remove min
@@ -959,9 +959,9 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
                 rot2_count = idx2 % number_of_rotations2 + 1
                 degen2_count = idx2 // number_of_rotations2 + 1
                 rot_mat2 = rotation_matrices2[idx2]
-                surf_frags2_guide_coords_rot_and_set = \
+                surf_guide_coords_rot_and_set2 = \
                     transform_coordinate_sets(init_surf_guide_coords2, rotation=rot_mat2, rotation2=set_mat2)
-                ghost_frag2_guide_coords_rot_and_set = \
+                ghost_guide_coords_rot_and_set2 = \
                     transform_coordinate_sets(init_ghost_guide_coords2, rotation=rot_mat2, rotation2=set_mat2)
 
                 log.info(f'***** OLIGOMER 1: Degeneracy {degen1_count} Rotation {rot1_count} | '
@@ -971,15 +971,14 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
                 # First returned variable has indices increasing 0,0,0,0,1,1,1,1,1,2,2,2,3,...
                 # Second returned variable has indices increasing 2,3,4,14,...
                 euler_matched_surf_indices2, euler_matched_ghost_indices1 = \
-                    euler_lookup.check_lookup_table(surf_frags2_guide_coords_rot_and_set,
-                                                    ghost_frag1_guide_coords_rot_and_set)
+                    euler_lookup.check_lookup_table(surf_guide_coords_rot_and_set2,
+                                                    ghost_guide_coords_rot_and_set1)
                 euler_matched_ghost_indices_rev2, euler_matched_surf_indices_rev1 = \
-                    euler_lookup.check_lookup_table(ghost_frag2_guide_coords_rot_and_set,
-                                                    surf_frags1_guide_coords_rot_and_set)
+                    euler_lookup.check_lookup_table(ghost_guide_coords_rot_and_set2,
+                                                    surf_guide_coords_rot_and_set1)
 
                 log.info(f'\tEuler Search Took: {time.time() - euler_start:8f}s for '
                          f'{len(init_ghost_residue_numbers1) * len(init_surf_residue_numbers2)} ghost/surf pairs')
-                number_overlapping_pairs = len(euler_matched_ghost_indices1)
                 # log.debug('Number of matching euler angle pairs FORWARD: %d' % number_overlapping_pairs)
                 # log.debug('Number of matching euler angle pairs REVERSE: %d' % len(euler_matched_ghost_indices_rev2))
                 # Ensure pairs are similar between euler_matched_surf_indices2 and euler_matched_ghost_indices_rev2
@@ -1005,6 +1004,7 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
                 # inverse transform at 1 (i) 1 (j) 230 (k) for instance
 
                 prior = 0
+                number_overlapping_pairs = euler_matched_ghost_indices1.shape[0]
                 possible_overlaps = np.zeros(number_overlapping_pairs, dtype=np.bool8)
                 # Residue numbers are in order for forward_surface_numbers2 and reverse_ghosts_numbers2
                 for residue in init_surf_residue_numbers2:
@@ -1028,7 +1028,7 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
                 # indexing_possible_overlap_time = time.time() - indexing_possible_overlap_start
 
                 number_of_successful = possible_overlaps.sum()
-                log.info(f'\tIndexing {number_overlapping_pairs * len(euler_matched_surf_indices2)} '
+                log.info(f'\tIndexing {number_overlapping_pairs * euler_matched_surf_indices2.shape[0]} '
                          f'possible overlap pairs found only {number_of_successful} possible out of '
                          f'{number_overlapping_pairs} (took {time.time() - forward_reverse_comparison_start:8f}s)')
 
@@ -1036,8 +1036,8 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
 
                 # Todo remove all dksgjhkh"_" variables
                 # reference_rmsds_ = init_ghost_rmsds1[euler_matched_ghost_indices1]
-                # passing_ghost_coords_ = ghost_frag1_guide_coords_rot_and_set[euler_matched_ghost_indices1]
-                # passing_surf_coords_ = surf_frags2_guide_coords_rot_and_set[euler_matched_surf_indices2]
+                # passing_ghost_coords_ = ghost_guide_coords_rot_and_set1[euler_matched_ghost_indices1]
+                # passing_surf_coords_ = surf_guide_coords_rot_and_set2[euler_matched_surf_indices2]
 
                 # transform_passing_shifts_ = \
                 #     optimal_tx.solve_optimal_shifts(passing_ghost_coords_, passing_surf_coords_, reference_rmsds_)
@@ -1046,8 +1046,8 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
                 possible_surf_frag_indices = euler_matched_surf_indices2[possible_overlaps]
 
                 reference_rmsds = init_ghost_rmsds1[possible_ghost_frag_indices]
-                passing_ghost_coords = ghost_frag1_guide_coords_rot_and_set[possible_ghost_frag_indices]
-                passing_surf_coords = surf_frags2_guide_coords_rot_and_set[euler_matched_surf_indices2[possible_overlaps]]
+                passing_ghost_coords = ghost_guide_coords_rot_and_set1[possible_ghost_frag_indices]
+                passing_surf_coords = surf_guide_coords_rot_and_set2[euler_matched_surf_indices2[possible_overlaps]]
 
                 optimal_shifts_start = time.time()
                 # if rot2_count % 2 == 0:
@@ -1066,7 +1066,7 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
                 # for idx, tx_parameters in enumerate(transform_passing_shifts, 1):
 
                 # number_passing_shifts_ = len(transform_passing_shifts_)
-                number_passing_shifts = len(transform_passing_shifts)
+                number_passing_shifts = transform_passing_shifts.shape[0]
                 if number_passing_shifts == 0:
                     # log.debug('Length %d' % len(optimal_shifts))
                     # log.debug('Shape %d' % transform_passing_shifts.shape[0])
@@ -1137,9 +1137,9 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
                 # Prepare the transformation parameters for storage in full transformation arrays
                 # Use of [:, None] transforms the array into an array with each internal dof sored as a scalar in
                 # axis 1 and each successive index along axis 0 as each passing shift
-                internal_tx_params1 = transform_passing_shifts[:, sym_entry.n_dof_external][:, None] \
+                internal_tx_params1 = transform_passing_shifts[:, None, sym_entry.n_dof_external] \
                     if sym_entry.is_internal_tx1 else blank_vector
-                internal_tx_params2 = transform_passing_shifts[:, sym_entry.n_dof_external+1][:, None] \
+                internal_tx_params2 = transform_passing_shifts[:, None, sym_entry.n_dof_external+1] \
                     if sym_entry.is_internal_tx2 else blank_vector
                 # Stack each internal parameter along with a blank vector, this isolates the tx vector along z axis
                 stacked_internal_tx_vectors1 = np.hstack((blank_vector, blank_vector, internal_tx_params1))
