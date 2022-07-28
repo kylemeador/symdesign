@@ -4795,7 +4795,8 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
                 # OLD superposition3d(residue_ca_coords[idx+frag_lower_range: idx+frag_upper_range], cluster_coords)
                 if rmsd <= rmsd_thresh and rmsd <= min_rmsd:
                     residue.frag_type = fragment_type
-                    min_rmsd, residue.rotation, residue.translation = rmsd, rot, tx
+                    min_rmsd = rmsd
+                    # min_rmsd, residue.rotation, residue.translation = rmsd, rot, tx
 
             if residue.frag_type:
                 # residue.guide_coords = \
