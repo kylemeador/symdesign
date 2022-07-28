@@ -325,7 +325,7 @@ class SymEntry:
                     self._setting_matrices.append(setting_matrices[set_mat])
                     ref_frame_tx_dof = list(map(str.strip, ext_dof.strip('<>').split(',')))
                     self._ref_frame_tx_dof.append(ref_frame_tx_dof)
-                    if group_idx <= 1:
+                    if group_idx <= 2:
                         # this wouldn't be possible with more than 2 groups unless we tether group to an existing group
                         self.__external_dof.append(construct_uc_matrix(ref_frame_tx_dof))
                     else:
