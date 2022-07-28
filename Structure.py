@@ -3983,12 +3983,6 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         Args:
             translation: The first translation to apply, expected array shape (3,)
         """
-        # old-style
-        # translation_array = np.zeros(self._coords.coords.shape)
-        # translation_array[self._atom_indices] = np.array(translation)
-        # new_coords = self._coords.coords + translation_array
-        # self.replace_coords(new_coords)
-        # new-style
         self.coords = self.coords + translation
 
     def rotate(self, rotation: list[list[float]] | np.ndarray, **kwargs):
@@ -3998,13 +3992,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         Args:
             rotation: The first rotation to apply, expected array shape (3, 3)
         """
-        # old-style
-        # rotation_array = np.tile(identity_matrix, (self._coords.coords.shape[0], 1, 1))
-        # rotation_array[self._atom_indices] = np.array(rotation)
-        # new_coords = np.matmul(self._coords.coords, rotation_array.swapaxes(-2, -1))  # essentially a transpose
-        # self.replace_coords(new_coords)
-        # new-style
-        self.coords = np.matmul(self.coords, rotation.swapaxes(-2, -1))  # essentially a transpose
+        self.coords = np.matmul(self.coords, rotation.swapaxes(-2, -1))  # Essentially a transpose
 
     def transform(self, rotation: list[list[float]] | np.ndarray = None, translation: list[float] | np.ndarray = None,
                   rotation2: list[list[float]] | np.ndarray = None, translation2: list[float] | np.ndarray = None,
@@ -4022,46 +4010,20 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
             translation2: The second translation to apply, expected array shape (3,)
         """
         if rotation is not None:  # required for np.ndarray or None checks
-            # old-style
-            # rotation_array = np.tile(identity_matrix, (self._coords.coords.shape[0], 1, 1))
-            # rotation_array[self._atom_indices] = np.array(rotation)
-            # new_coords = np.matmul(self._coords.coords.reshape(-1, 1, 3), rotation_array.swapaxes(-2, -1))
-            # new-style
-            new_coords = np.matmul(self.coords, rotation.swapaxes(-2, -1))  # essentially a transpose
+            new_coords = np.matmul(self.coords, rotation.swapaxes(-2, -1))  # Essentially a transpose
         else:
-            # old-style
-            # new_coords = self._coords.coords.reshape(-1, 1, 3)
-            # new-style
-            new_coords = self.coords
+            new_coords = self.coords  # No need to copy as this is a view
 
         if translation is not None:  # required for np.ndarray or None checks
-            # old-style
-            # translation_array = np.zeros(new_coords.shape)
-            # translation_array[self._atom_indices] = np.array(translation)
-            # new_coords += translation_array
-            # new-style
             new_coords += translation
 
         if rotation2 is not None:  # required for np.ndarray or None checks
-            # old-style
-            # rotation_array2 = np.tile(identity_matrix, (self._coords.coords.shape[0], 1, 1))
-            # rotation_array2[self._atom_indices] = np.array(rotation2)
-            # new_coords = np.matmul(new_coords, rotation_array2.swapaxes(-2, -1))  # essentially transpose
-            # new-style
-            new_coords = np.matmul(new_coords, rotation2.swapaxes(-2, -1))  # essentially a transpose
+            np.matmul(new_coords, rotation2.swapaxes(-2, -1), out=new_coords)  # Essentially a transpose
 
         if translation2 is not None:  # required for np.ndarray or None checks
-            # old-style
-            # translation_array2 = np.zeros(new_coords.shape)
-            # translation_array2[self._atom_indices] = np.array(translation2)
-            # new_coords += translation_array2
-            # new-style
             new_coords += translation2
 
-        # old-style
-        # self.replace_coords(new_coords.reshape(-1, 3))
-        # new-style
-        self.coords = new_coords  # .reshape(-1, 3)
+        self.coords = new_coords
 
     def return_transformed_copy(self, rotation: list[list[float]] | np.ndarray = None,
                                 translation: list[float] | np.ndarray = None,
@@ -4081,15 +4043,17 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
             A transformed copy of the original object
         """
         if rotation is not None:  # required for np.ndarray or None checks
-            new_coords = np.matmul(self.coords, np.transpose(rotation))
+            new_coords = np.matmul(self.coords, np.transpose(rotation))  # This allows list to be passed...
+            # new_coords = np.matmul(self.coords, rotation.swapaxes(-2, -1))
         else:
-            new_coords = self.coords
+            new_coords = self.coords  # No need to copy as this is a view
 
         if translation is not None:  # required for np.ndarray or None checks
             new_coords += np.array(translation)
 
         if rotation2 is not None:  # required for np.ndarray or None checks
-            np.matmul(new_coords, np.transpose(rotation2), out=new_coords)
+            np.matmul(new_coords, np.transpose(rotation2), out=new_coords)  # This allows list to be passed...
+            # np.matmul(new_coords, rotation2.swapaxes(-2, -1), out=new_coords)
 
         if translation2 is not None:  # required for np.ndarray or None checks
             new_coords += np.array(translation2)
