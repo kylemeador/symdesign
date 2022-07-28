@@ -1110,44 +1110,55 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
                         f'\t{high_qual_match_count} High Quality Fragments Out of {number_passing_overlaps} '
                         f'Matches Found in Complete Fragment Library')
                 # now try inverse
-                inv_set_mat1 = np.linalg.inv(set_mat1)
-                inv_rot_mat1 = np.linalg.inv(rot_mat1)
-                for shift_idx in range(5):
-                    tx1 = stacked_internal_tx_vectors1[shift_idx]
-                    tx2 = stacked_internal_tx_vectors2[shift_idx]
-                    ghost_test_inv_guide_coords = init_ghost_guide_coords1[possible_ghost_frag_indices]
-                    surf_test_inv_guide_coords = init_surf_guide_coords2[euler_matched_surf_indices2[possible_overlaps]]
-                    passing_ghost_coords_ = ghost_test_inv_guide_coords
-                    # passing_ghost_coords_ = transform_coordinate_sets(ghost_test_inv_guide_coords, rotation=rot_mat1,
-                    #                                                   translation=tx1, rotation2=set_mat1)
-                    inverse_reverse_coords = transform_coordinate_sets(passing_ghost_coords_,
-                                                                       rotation=rot_mat1, rotation2=inv_rot_mat1)
-                    log.debug(f'start data: {passing_ghost_coords_}')
-                    log.debug(f'rotate, invert equality: {np.all(inverse_reverse_coords == passing_ghost_coords_)}')
-                    log.debug(f'rotate, invert equality: {np.flatnonzero(np.where(inverse_reverse_coords == passing_ghost_coords_))}')
-                    log.debug(f'rotate, invert data: {inverse_reverse_coords}')
-                    passing_surf_coords_ = transform_coordinate_sets(
-                        transform_coordinate_sets(surf_test_inv_guide_coords, rotation=rot_mat2,
-                                                  translation=tx2, rotation2=set_mat2),
-                        rotation=inv_rot_mat1, translation=tx1 * -1, rotation2=inv_set_mat1)
-                    all_fragment_match = calculate_match(passing_ghost_coords_,
-                                                         passing_surf_coords_,
-                                                         reference_rmsds)
-                    log.debug(f'Found INV all_fragment_match with shape {all_fragment_match.shape}')
-                    log.debug(f'And INV Data: {all_fragment_match[:3]}')
-                    high_qual_match_indices = np.flatnonzero(all_fragment_match >= high_quality_match_value)
-                    high_qual_match_count = len(high_qual_match_indices)
-                    if high_qual_match_count < min_matched:
-                        log.info(
-                            f'\tINV {high_qual_match_count} < {min_matched} Which is Set as the Minimal Required Amount'
-                            f' of High Quality Fragment Matches')
-
-                    # Find the passing overlaps to limit the output to only those passing the low_quality_match_value
-                    passing_overlaps_indices = np.flatnonzero(all_fragment_match >= low_quality_match_value)
-                    number_passing_overlaps = len(passing_overlaps_indices)
-                    log.info(
-                        f'\t{high_qual_match_count} High Quality Fragments Out of {number_passing_overlaps} '
-                        f'Matches Found in Complete Fragment Library')
+                # inv_set_mat1 = np.linalg.inv(set_mat1)
+                # inv_set_mat2 = np.linalg.inv(set_mat2)
+                # inv_rot_mat1 = np.linalg.inv(rot_mat1)
+                # inv_rot_mat2 = np.linalg.inv(rot_mat2)
+                # for shift_idx in range(5):
+                #     tx1 = stacked_internal_tx_vectors1[shift_idx]
+                #     tx2 = stacked_internal_tx_vectors2[shift_idx]
+                #     ghost_test_inv_guide_coords = init_ghost_guide_coords1[possible_ghost_frag_indices]
+                #     surf_test_inv_guide_coords = init_surf_guide_coords2[euler_matched_surf_indices2[possible_overlaps]]
+                #     passing_ghost_coords_ = ghost_test_inv_guide_coords
+                #     # passing_ghost_coords_ = transform_coordinate_sets(ghost_test_inv_guide_coords, rotation=rot_mat1,
+                #     #                                                   translation=tx1, rotation2=set_mat1)
+                #     inverse_reverse_coords = transform_coordinate_sets(passing_ghost_coords_,
+                #                                                        rotation=rot_mat1, rotation2=inv_rot_mat1)
+                #     log.debug(f'rotate, invert equality: {np.allclose(inverse_reverse_coords, passing_ghost_coords_)}')
+                #     different_indices = np.where(inverse_reverse_coords == passing_ghost_coords_)
+                #     # print(all_different_indices[:5])
+                #     # different_indices = np.nonzero(np.where(inverse_reverse_coords == passing_ghost_coords_))
+                #     log.debug(f'rotate, invert equality indices: {different_indices}')
+                #     log.debug(f'start different data: {passing_ghost_coords_[different_indices]}')
+                #     log.debug(f'rotate, invert different data: {inverse_reverse_coords[different_indices]}')
+                #     passing_surf_coords_ = transform_coordinate_sets(
+                #         transform_coordinate_sets(surf_test_inv_guide_coords, rotation=rot_mat2,
+                #                                   translation=tx2, rotation2=set_mat2),
+                #         rotation=inv_set_mat1, translation=tx1 * -1, rotation2=inv_rot_mat1)
+                #     inv_inv_passing_surf_coords = transform_coordinate_sets(
+                #         transform_coordinate_sets(passing_surf_coords_, rotation=rot_mat1,
+                #                                   translation=tx1, rotation2=set_mat1),
+                #         rotation=inv_set_mat2, translation=tx2 * -1, rotation2=inv_rot_mat2)
+                #     log.debug(f'rotate, invert equality: {np.allclose(surf_test_inv_guide_coords, inv_inv_passing_surf_coords)}')
+                #     all_fragment_match = calculate_match(passing_ghost_coords_,
+                #                                          passing_surf_coords_,
+                #                                          reference_rmsds)
+                #     log.debug(f'Found INV all_fragment_match with shape {all_fragment_match.shape}')
+                #     log.debug(f'And INV Data: {all_fragment_match[:3]}')
+                #     high_qual_match_indices = np.flatnonzero(all_fragment_match >= high_quality_match_value)
+                #     high_qual_match_count = len(high_qual_match_indices)
+                #     if high_qual_match_count < min_matched:
+                #         log.info(
+                #             f'\tINV {high_qual_match_count} < {min_matched} Which is Set as the Minimal Required Amount'
+                #             f' of High Quality Fragment Matches')
+                #
+                #     # Find the passing overlaps to limit the output to only those passing the low_quality_match_value
+                #     passing_overlaps_indices = np.flatnonzero(all_fragment_match >= low_quality_match_value)
+                #     number_passing_overlaps = len(passing_overlaps_indices)
+                #     log.info(
+                #         f'\t{high_qual_match_count} High Quality Fragments Out of {number_passing_overlaps} '
+                #         f'Matches Found in Complete Fragment Library')
+                # Todo remove debug
     ##############
     # Here represents an important break in the execution of this code. Vectorized scoring and clash testing!
     ##############
@@ -1164,9 +1175,13 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
 
     # Make full, numpy vectorized transformations overwriting individual variables for memory management
     full_rotation1 = np.concatenate(full_rotation1, axis=0)
+    log.debug(f'shape of full_rotation1 {full_rotation1.shape}')
     full_rotation2 = np.concatenate(full_rotation2, axis=0)
+    log.debug(f'shape of full_rotation2 {full_rotation2.shape}')
     full_int_tx1 = np.concatenate(full_int_tx1, axis=0)
+    log.debug(f'shape of full_int_tx1 {full_int_tx1.shape}')
     full_int_tx2 = np.concatenate(full_int_tx2, axis=0)
+    log.debug(f'shape of full_int_tx2 {full_int_tx2.shape}')
     starting_transforms = len(full_int_tx1)
 
     # tile_transform1 = {'rotation': full_rotation2,
@@ -1220,6 +1235,7 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
     # Todo comment back after test?
     # sufficiently_dense_indices = np.arange(starting_transforms)
     # number_of_dense_transforms = starting_transforms
+    log.debug(f'shape of cluster_labels: {cluster_labels.shape}')
     sufficiently_dense_indices = np.flatnonzero(cluster_labels != -1)
     number_of_dense_transforms = len(sufficiently_dense_indices)
 
@@ -1318,17 +1334,15 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
                 inverse_transformed_model2_tiled_coords = \
                     transform_coordinate_sets(
                         transform_coordinate_sets(tiled_coords2[:len(_full_rotation2)],  # Slice ensures same size
-                                                  **dict(rotation=_full_rotation2,
-                                                         translation=full_int_tx2[:, None, :][chunk_slice],
-                                                         rotation2=set_mat2,
-                                                         translation2=None if full_ext_tx_sum is None
-                                                         else full_ext_tx_sum[:, None, :][chunk_slice])
-                                                  ),
-                        **dict(rotation=inv_setting1,
-                               translation=full_int_tx1[:, None, :][chunk_slice] * -1,
-                               rotation2=full_inv_rotation1[chunk_slice],
-                               translation2=None)
-                    )
+                                                  rotation=_full_rotation2,
+                                                  translation=full_int_tx2[:, None, :][chunk_slice],
+                                                  rotation2=set_mat2,
+                                                  translation2=None if full_ext_tx_sum is None
+                                                  else full_ext_tx_sum[:, None, :][chunk_slice]),
+                        rotation=inv_setting1,
+                        translation=full_int_tx1[:, None, :][chunk_slice] * -1,
+                        rotation2=full_inv_rotation1[chunk_slice],
+                        translation2=None)
                 # Check each transformed oligomer 2 coordinate set for clashing against oligomer 1
                 asu_clash_counts[chunk_slice] = \
                     [oligomer1_backbone_cb_tree.two_point_correlation(inverse_transformed_model2_tiled_coords[idx], clash_vect)[0]
@@ -1426,30 +1440,28 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
     inverse_transformed_model2_tiled_cb_coords = \
         transform_coordinate_sets(transform_coordinate_sets(np.tile(model2.cb_coords,
                                                                     (number_non_clashing_transforms, 1, 1)),
-                                                            **dict(rotation=full_rotation2,
-                                                                   translation=full_int_tx2[:, None, :],
-                                                                   rotation2=set_mat2,
-                                                                   translation2=None if full_ext_tx_sum is None
-                                                                   else full_ext_tx_sum[:, None, :])),
-                                  **dict(rotation=inv_setting1,
-                                         translation=full_int_tx1[:, None, :] * -1,
-                                         rotation2=full_inv_rotation1,
-                                         translation2=None))
+                                                            rotation=full_rotation2,
+                                                            translation=full_int_tx2[:, None, :],
+                                                            rotation2=set_mat2,
+                                                            translation2=None if full_ext_tx_sum is None
+                                                            else full_ext_tx_sum[:, None, :]),
+                                  rotation=inv_setting1,
+                                  translation=full_int_tx1[:, None, :] * -1,
+                                  rotation2=full_inv_rotation1,
+                                  translation2=None)
 
     # Transform the surface guide coords of oligomer 2 to each identified transformation
     inverse_transformed_surf_frags2_guide_coords = \
         transform_coordinate_sets(transform_coordinate_sets(surf_guide_coords2[None, :, :, :],
-                                                            **dict(rotation=full_rotation2[:, None, :, :],
-                                                                   translation=full_int_tx2[:, None, None, :],
-                                                                   rotation2=set_mat2[None, None, :, :],
-                                                                   translation2=None if full_ext_tx_sum is None
-                                                                   else full_ext_tx_sum[:, None, None, :])
-                                                            ),
-                                  **dict(rotation=inv_setting1[None, None, :, :],
-                                         translation=full_int_tx1[:, None, None, :] * -1,
-                                         rotation2=full_inv_rotation1[:, None, :, :],
-                                         translation2=None)
-                                  )
+                                                            rotation=full_rotation2[:, None, :, :],
+                                                            translation=full_int_tx2[:, None, None, :],
+                                                            rotation2=set_mat2[None, None, :, :],
+                                                            translation2=None if full_ext_tx_sum is None
+                                                            else full_ext_tx_sum[:, None, None, :]),
+                                  rotation=inv_setting1[None, None, :, :],
+                                  translation=full_int_tx1[:, None, None, :] * -1,
+                                  rotation2=full_inv_rotation1[:, None, :, :],
+                                  translation2=None)
 
     # transform one by one to ensure that stacked transform is accurate
     # inverse_transformed_surf_frags2_guide_coords_ = np.array([
