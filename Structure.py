@@ -1283,7 +1283,7 @@ class GhostFragment:
 
     def __init__(self, guide_coords: np.ndarray, i_type: int, j_type: int, k_type: int, ijk_rmsd: float,
                  aligned_fragment: Fragment):
-        self.guide_coords = guide_coords
+        self._guide_coords = guide_coords
         self.i_type = i_type
         self.j_type = j_type
         self.k_type = k_type
@@ -1335,6 +1335,21 @@ class GhostFragment:
         return self.aligned_fragment.number
 
     @property
+    def guide_coords(self) -> np.ndarray:
+        """Return the CA coordinates of the mapped fragment"""
+        return np.matmul(self._guide_coords, np.transpose(self.rotation)) + self.translation
+
+    @property
+    def rotation(self) -> np.ndarray:
+        """The rotation of the aligned Fragment from the Fragment Database"""
+        return self.aligned_fragment.rotation
+
+    @property
+    def translation(self) -> np.ndarray:
+        """The rotation of the aligned Fragment from the Fragment Database"""
+        return self.aligned_fragment.translation
+
+    @property
     def transformation(self) -> dict[str, np.ndarray]:
         """The transformation of the aligned Fragment from the Fragment Database"""
         return self.aligned_fragment.transformation
@@ -1384,7 +1399,7 @@ class Fragment:
     frag_upper_range: int
     fragment_db: object  # Todo typing with FragmentDatabase
     ghost_fragments: list | list[GhostFragment] | None
-    guide_coords: np.ndarray | None
+    # guide_coords: np.ndarray | None
     i_type: int | None
     number: int
     rmsd_thresh: float = 0.75
@@ -1392,13 +1407,15 @@ class Fragment:
     template_coords = np.array([[0., 0., 0.], [3., 0., 0.], [0., 3., 0.]])
     translation: np.ndarray
 
-    def __init__(self, fragment_type: int = None, guide_coords: np.ndarray = None, fragment_length: int = 5,
+    def __init__(self, fragment_type: int = None,
+                 # guide_coords: np.ndarray = None,
+                 fragment_length: int = 5,
                  fragment_db: object = None,
                  # fragment_db: FragmentDatabase = None,  # Todo typing with FragmentDatabase
                  **kwargs):
         self.ghost_fragments = None
         self.i_type = fragment_type
-        self.guide_coords = guide_coords
+        # self.guide_coords = guide_coords
         self.fragment_length = fragment_length
         self.rotation = identity_matrix
         self.translation = origin
@@ -1453,6 +1470,15 @@ class Fragment:
         self._representative_ca_coords = coords
 
     @property
+    def guide_coords(self) -> np.ndarray:
+        """Return the CA coordinates of the mapped fragment"""
+        return np.matmul(self.template_coords, np.transpose(self.rotation)) + self.translation
+
+    # @guide_coords.setter
+    # def guide_coords(self, coords: np.ndarray):
+    #     self.guide_coords = coords
+
+    @property
     def transformation(self) -> dict[str, np.ndarray]:
         """The transformation of the Fragment from the Fragment Database"""
         # return dict(rotation=self.rotation, translation=self.translation)
@@ -1486,9 +1512,11 @@ class Fragment:
             self.ghost_fragments = []
             return
 
-        stacked_bb_coords, stacked_guide_coords, ijk_types, rmsd_array = ghost_i_type
-        transformed_guide_coords = transform_coordinate_sets(stacked_guide_coords, **self.transformation)
-        if clash_tree:
+        stacked_bb_coords, stacked_guide_coords, ijk_types, rmsd_array = ghost_i_type_arrays
+        # transformed_guide_coords = transform_coordinate_sets(stacked_guide_coords, **self.transformation)
+        if clash_tree is None:
+            viable_indices = None
+        else:
             transformed_bb_coords = transform_coordinate_sets(stacked_bb_coords, **self.transformation)
             # with .reshape(), we query on a np.view saving memory
             neighbors = clash_tree.query_radius(transformed_bb_coords.reshape(-1, 3), clash_dist)
@@ -1496,10 +1524,9 @@ class Fragment:
             # reshape to original size then query for existence of any neighbors for each fragment individually
             clashing_indices = neighbor_counts.reshape(transformed_bb_coords.shape[0], -1).any(axis=1)
             viable_indices = ~clashing_indices
-        else:
-            viable_indices = None
 
-        self.ghost_fragments = [GhostFragment(*info) for info in zip(list(transformed_guide_coords[viable_indices]),
+        # self.ghost_fragments = [GhostFragment(*info) for info in zip(list(transformed_guide_coords[viable_indices]),
+        self.ghost_fragments = [GhostFragment(*info) for info in zip(list(stacked_guide_coords[viable_indices]),
                                                                      *zip(*ijk_types[viable_indices].tolist()),
                                                                      rmsd_array[viable_indices].tolist(), repeat(self))]
 
@@ -1555,8 +1582,8 @@ class MonoFragment(Fragment):
                 min_rmsd, self.rotation, self.translation = rmsd, rot, tx
 
         if self.i_type:
-            self.guide_coords = \
-                np.matmul(self.template_coords, np.transpose(self.rotation)) + self.translation
+            # self.guide_coords = \
+            #     np.matmul(self.template_coords, np.transpose(self.rotation)) + self.translation
             self._representative_ca_coords = representatives[self.i_type]
 
     @property
@@ -1588,7 +1615,7 @@ class MonoFragment(Fragment):
         if coords.shape == (3, 3):
             # Move the transformation accordingly
             _, self.rotation, self.translation = superposition3d(coords, self.template_coords)
-            self.guide_coords = coords
+            # self.guide_coords = coords
         else:
             raise ValueError(f'{type(self).__name__} coords must be shape (3, 3), not {coords.shape}')
 
@@ -1662,8 +1689,8 @@ class ResidueFragment(Fragment):
     def transformation(self) -> dict[str, np.ndarray]:
         """The transformation of the Fragment from the Fragment Database"""
         # return dict(rotation=self.rotation, translation=self.translation)
-        _, rot, tx = superposition3d(self._fragment_coords, self._representative_coords)
-        return dict(rotation=rot, translation=tx)
+        _, self.rotation, self.translation = superposition3d(self._fragment_coords, self._representative_coords)
+        return dict(rotation=self.rotation, translation=self.translation)
 
     @property
     def get_aligned_chain_and_residue(self) -> tuple[str, int]:
@@ -1784,8 +1811,8 @@ class Residue(ResidueFragment, ContainsAtomsMixin):
     def coords(self, coords: np.ndarray | list[list[float]]):
         """Set the Residue coords according to a new coordinate system. Transforms .guide_coords to the new reference"""
         if self.i_type:  # Fragment has been assigned. Transform the guide_coords according to the new coords
-            _, rot, tx = superposition3d(self.coords, coords)
-            self.guide_coords = np.matmul(self.guide_coords, np.transpose(rot)) + tx
+            _, self.rotation, self.translation = superposition3d(coords, self.coords)
+            # self.guide_coords = np.matmul(self.guide_coords, np.transpose(self.rotation)) + self.translation
         super(Residue, Residue).coords.fset(self, coords)  # prefer this over below, as this mechanism could change
         # self._coords.replace(self._atom_indices, coords)
 
@@ -4788,8 +4815,8 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
                     min_rmsd, residue.rotation, residue.translation = rmsd, rot, tx
 
             if residue.frag_type:
-                residue.guide_coords = \
-                    np.matmul(Fragment.template_coords, np.transpose(residue.rotation)) + residue.translation
+                # residue.guide_coords = \
+                #     np.matmul(Fragment.template_coords, np.transpose(residue.rotation)) + residue.translation
                 residue.fragment_db = fragment_db
                 # residue._fragment_coords = residue_ca_coord_set
                 residue._representative_coords = representatives[residue.frag_type]
