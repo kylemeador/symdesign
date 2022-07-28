@@ -1269,14 +1269,17 @@ class ContainsAtomsMixin(StructureBase):
 
 
 class GhostFragment:
+    _guide_coords: np.ndarray
+    """The guide coordinates according to the representative ghost fragment"""
     _representative: Structure
+    aligned_fragment: Fragment
+    """Must support .chain, .number, and .transformation attributes"""
     fragment_db: object  # Todo typing with FragmentDatabase
-    guide_coords: np.ndarray
     i_type: int
     j_type: int
     k_type: int
     rmsd: float
-    aligned_fragment: Fragment  # must support chain, number, and transformation property/methods
+    """The deviation from the representative ghost fragment"""
 
     def __init__(self, guide_coords: np.ndarray, i_type: int, j_type: int, k_type: int, ijk_rmsd: float,
                  aligned_fragment: Fragment):
@@ -1340,7 +1343,7 @@ class GhostFragment:
     def representative(self) -> Structure:
         """Access the Representative GhostFragment Structure"""
         try:
-            return self._representative
+            return self._representative.return_transformed_copy(**self.transformation)
         except AttributeError:
             self._representative, _ = dictionary_lookup(self.fragment_db.paired_frags, self.ijk)
 
@@ -1566,7 +1569,7 @@ class MonoFragment(Fragment):
         return self.central_residue.chain, self.central_residue.number
 
     @property
-    def chain(self) -> int:
+    def chain(self) -> str:
         """The Residue number"""
         return self.central_residue.chain
 
