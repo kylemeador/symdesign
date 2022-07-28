@@ -3579,11 +3579,18 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
     def renumber_structure(self):
         """Change the Atom and Residue numbering. Access the readtime Residue number in .pdb_number attribute"""
         self.renumber_atoms()
-        self.renumber_residues()
+        self.pose_numbering()
+        # self.renumber_residues()
+        # self.log.debug(f'{self.name} was formatted in Pose numbering (residues now 1 to {self.number_of_residues})')
+
+    def pose_numbering(self):
+        """Change the Residue numbering to start at 1. Access the readtime Residue number in .pdb_number attribute"""
+        for idx, residue in enumerate(self.residues, 1):
+            residue.number = idx
         self.log.debug(f'{self.name} was formatted in Pose numbering (residues now 1 to {self.number_of_residues})')
 
     def renumber_residues(self, at: int = 1):
-        """Renumber Residue objects sequentially starting with 1
+        """Renumber Residue objects sequentially starting with at
 
         Args:
             at: The number to start renumbering at
