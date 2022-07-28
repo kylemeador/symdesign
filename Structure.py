@@ -1336,8 +1336,9 @@ class GhostFragment:
 
     @property
     def guide_coords(self) -> np.ndarray:
-        """Return the CA coordinates of the mapped fragment"""
-        return np.matmul(self._guide_coords, np.transpose(self.rotation)) + self.translation
+        """Return the guide coordinates of the GhostFragment"""
+        rotation, translation = self.aligned_fragment.transformation  # self.transformation
+        return np.matmul(self._guide_coords, np.transpose(rotation)) + translation
 
     @property
     def rotation(self) -> np.ndarray:
@@ -1350,7 +1351,7 @@ class GhostFragment:
         return self.aligned_fragment.translation
 
     @property
-    def transformation(self) -> dict[str, np.ndarray]:
+    def transformation(self) -> tuple[np.ndarray, np.ndarray]:  # dict[str, np.ndarray]:
         """The transformation of the aligned Fragment from the Fragment Database"""
         return self.aligned_fragment.transformation
 
@@ -1358,11 +1359,11 @@ class GhostFragment:
     def representative(self) -> Structure:
         """Access the Representative GhostFragment Structure"""
         try:
-            return self._representative.return_transformed_copy(**self.transformation)
+            return self._representative.return_transformed_copy(*self.transformation)
         except AttributeError:
             self._representative, _ = dictionary_lookup(self.fragment_db.paired_frags, self.ijk)
 
-        return self._representative.return_transformed_copy(**self.transformation)
+        return self._representative.return_transformed_copy(*self.transformation)
 
     def write(self, out_path: bytes | str = os.getcwd(), file_handle: IO = None, header: str = None, **kwargs) -> \
             str | None:
@@ -1471,18 +1472,21 @@ class Fragment:
 
     @property
     def guide_coords(self) -> np.ndarray:
-        """Return the CA coordinates of the mapped fragment"""
-        return np.matmul(self.template_coords, np.transpose(self.rotation)) + self.translation
+        """Return the guide coordinates of the mapped Fragment"""
+        rotation, translation = self.transformation  # This updates the transformation on the fly if possible
+        return np.matmul(self.template_coords, np.transpose(rotation)) + translation
+        # return np.matmul(self.template_coords, np.transpose(self.rotation)) + self.translation
 
     # @guide_coords.setter
     # def guide_coords(self, coords: np.ndarray):
     #     self.guide_coords = coords
 
     @property
-    def transformation(self) -> dict[str, np.ndarray]:
-        """The transformation of the Fragment from the Fragment Database"""
+    def transformation(self) -> tuple[np.ndarray, np.ndarray]:  # dict[str, np.ndarray]:
+        """The transformation of the Fragment from the FragmentDatabase to its current position"""
         # return dict(rotation=self.rotation, translation=self.translation)
-        return dict(rotation=self.rotation, translation=self.translation)
+        return self.rotation, self.translation
+        # return dict(rotation=self.rotation, translation=self.translation)
 
     # def get_center_of_mass(self):  # UNUSED
     #     if self.guide_coords:
@@ -1513,11 +1517,11 @@ class Fragment:
             return
 
         stacked_bb_coords, stacked_guide_coords, ijk_types, rmsd_array = ghost_i_type_arrays
-        # transformed_guide_coords = transform_coordinate_sets(stacked_guide_coords, **self.transformation)
+        # transformed_guide_coords = transform_coordinate_sets(stacked_guide_coords, *self.transformation)
         if clash_tree is None:
             viable_indices = None
         else:
-            transformed_bb_coords = transform_coordinate_sets(stacked_bb_coords, **self.transformation)
+            transformed_bb_coords = transform_coordinate_sets(stacked_bb_coords, *self.transformation)
             # with .reshape(), we query on a np.view saving memory
             neighbors = clash_tree.query_radius(transformed_bb_coords.reshape(-1, 3), clash_dist)
             neighbor_counts = np.array([neighbor.size for neighbor in neighbors])
@@ -1691,11 +1695,12 @@ class ResidueFragment(Fragment):
     #     self._fragment_ca_coords = coords
 
     @property
-    def transformation(self) -> dict[str, np.ndarray]:
-        """The transformation of the Fragment from the Fragment Database"""
+    def transformation(self) -> tuple[np.ndarray, np.ndarray]:  # dict[str, np.ndarray]:
+        """The transformation of the Fragment from the FragmentDatabase to its current position"""
         # return dict(rotation=self.rotation, translation=self.translation)
         _, self.rotation, self.translation = superposition3d(self._fragment_coords, self._representative_coords)
-        return dict(rotation=self.rotation, translation=self.translation)
+        return self.rotation, self.translation
+        # return dict(rotation=self.rotation, translation=self.translation)
 
     @property
     def get_aligned_chain_and_residue(self) -> tuple[str, int]:
