@@ -856,6 +856,7 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
         rot_counts = [(idx, idx) for idx in range(1, len(full_rotation1) + 1)]
         tx_counts = list(range(1, len(full_rotation1) + 1))
     else:
+        fragment_pairs = []
         rot_counts, degen_counts, tx_counts = [], [], []
         full_rotation1, full_rotation2, full_int_tx1, full_int_tx2, full_setting1, full_setting2, full_ext_tx1, \
             full_ext_tx2, full_optimal_ext_dof_shifts = [], [], [], [], [], [], [], [], []
@@ -965,7 +966,7 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
                 #     optimal_tx.solve_optimal_shifts(passing_ghost_coords_, passing_surf_coords_, reference_rmsds_)
                 # Take the boolean index of the indices
                 possible_ghost_frag_indices = euler_matched_ghost_indices1[possible_overlaps]
-                # possible_surf_frag_indices = euler_matched_surf_indices2[possible_overlaps]
+                possible_surf_frag_indices = euler_matched_surf_indices2[possible_overlaps]
 
                 reference_rmsds = init_ghost_rmsds1[possible_ghost_frag_indices]
                 passing_ghost_coords = ghost_frag1_guide_coords_rot_and_set[possible_ghost_frag_indices]
@@ -1085,64 +1086,93 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
                 # log.debug(f'Method without vectorized search produces {final_passing_shifts_} '
                 #           f'Initial Interface Fragments. Equality '
                 #           f'{np.all(transform_passing_shifts == transform_passing_shifts_)}')
-                # Todo remove debug
-                for shift_idx in range(5):
-                    set_tx1 = np.matmul(stacked_internal_tx_vectors1[shift_idx], set_mat1.T)
-                    set_tx2 = np.matmul(stacked_internal_tx_vectors2[shift_idx], set_mat2.T)
-                    all_fragment_match = calculate_match(passing_ghost_coords + set_tx1,
-                                                         passing_surf_coords + set_tx2,
-                                                         reference_rmsds)
-                    log.debug(f'Found all_fragment_match with shape {all_fragment_match.shape}')
-                    log.debug(f'And Data: {all_fragment_match[:3]}')
-                    high_qual_match_indices = np.flatnonzero(all_fragment_match >= high_quality_match_value)
-                    high_qual_match_count = len(high_qual_match_indices)
-                    if high_qual_match_count < min_matched:
-                        log.info(
-                            f'\t{high_qual_match_count} < {min_matched} Which is Set as the Minimal Required Amount of '
-                            f'High Quality Fragment Matches')
+                # # Todo remove debug
+                tx_param_list = []
+                init_pass_ghost_numbers = init_ghost_residue_numbers1[possible_ghost_frag_indices]
+                init_pass_surf_numbers = init_surf_residue_numbers2[possible_surf_frag_indices]
+                for index in range(passing_ghost_coords.shape[0]):
+                    o = OptimalTxOLD(set_mat1, set_mat2, sym_entry.is_internal_tx1, sym_entry.is_internal_tx2,
+                                     reference_rmsds[index],
+                                     passing_ghost_coords[index], passing_surf_coords[index], sym_entry.external_dof)
+                    o.solve_optimal_shift()
+                    if o.get_zvalue() <= initial_z_value:
+                        # log.debug(f'overlap found at ghost/surf residue pair {init_pass_ghost_numbers[index]} | '
+                        #           f'{init_pass_surf_numbers[index]}')
+                        fragment_pairs.append((init_pass_ghost_numbers[index], init_pass_surf_numbers[index],
+                                               initial_ghost_frags1[possible_ghost_frag_indices[index]].guide_coords))
+                        all_optimal_shifts = o.get_all_optimal_shifts()  # [OptimalExternalDOFShifts, OptimalInternalDOFShifts]
+                        tx_param_list.append(all_optimal_shifts)
 
-                    # Find the passing overlaps to limit the output to only those passing the low_quality_match_value
-                    passing_overlaps_indices = np.flatnonzero(all_fragment_match >= low_quality_match_value)
-                    number_passing_overlaps = len(passing_overlaps_indices)
-                    log.info(
-                        f'\t{high_qual_match_count} High Quality Fragments Out of {number_passing_overlaps} '
-                        f'Matches Found in Complete Fragment Library')
-                # now try inverse
+                log.info(f'\t{len(tx_param_list) if tx_param_list else "No"} Initial Interface Fragment '
+                         f'Matches Found')
+                tx_param_list = np.array(tx_param_list)
+                # log.debug(f'Equality of vectorized versus individual tx array: '
+                #           f'{np.all(tx_param_list == transform_passing_shifts)}')
+                # log.debug(f'ALLCLOSE Equality of vectorized versus individual tx array: '
+                #           f'{np.allclose(tx_param_list, transform_passing_shifts)}')
+                # # Todo remove debug
+                # check_forward_and_reverse(init_ghost_guide_coords1[possible_ghost_frag_indices],
+                #                           [rot_mat1], stacked_internal_tx_vectors1,
+                #                           init_surf_guide_coords2[euler_matched_surf_indices2[possible_overlaps]],
+                #                           [rot_mat2], stacked_internal_tx_vectors2,
+                #                           reference_rmsds)
+                # for shift_idx in range(1):
+                #     set_tx1 = np.matmul(stacked_internal_tx_vectors1[shift_idx], set_mat1.T)
+                #     set_tx2 = np.matmul(stacked_internal_tx_vectors2[shift_idx], set_mat2.T)
+                #     all_fragment_match = calculate_match(passing_ghost_coords + set_tx1,
+                #                                          passing_surf_coords + set_tx2,
+                #                                          reference_rmsds)
+                #     # log.debug(f'Found all_fragment_match with shape {all_fragment_match.shape}')
+                #     # log.debug(f'And Data: {all_fragment_match[:3]}')
+                #     high_qual_match_indices = np.flatnonzero(all_fragment_match >= high_quality_match_value)
+                #     high_qual_match_count = len(high_qual_match_indices)
+                #     if high_qual_match_count < min_matched:
+                #         log.info(
+                #             f'\t{high_qual_match_count} < {min_matched} Which is Set as the Minimal Required Amount of '
+                #             f'High Quality Fragment Matches')
+                #
+                #     # Find the passing overlaps to limit the output to only those passing the low_quality_match_value
+                #     passing_overlaps_indices = np.flatnonzero(all_fragment_match >= low_quality_match_value)
+                #     number_passing_overlaps = len(passing_overlaps_indices)
+                #     log.info(
+                #         f'\t{high_qual_match_count} High Quality Fragments Out of {number_passing_overlaps} '
+                #         f'Matches Found in Complete Fragment Library')
+                # # now try inverse
                 # inv_set_mat1 = np.linalg.inv(set_mat1)
-                # inv_set_mat2 = np.linalg.inv(set_mat2)
+                # # inv_set_mat2 = np.linalg.inv(set_mat2)
                 # inv_rot_mat1 = np.linalg.inv(rot_mat1)
-                # inv_rot_mat2 = np.linalg.inv(rot_mat2)
-                # for shift_idx in range(5):
+                # # inv_rot_mat2 = np.linalg.inv(rot_mat2)
+                # for shift_idx in range(1):
                 #     tx1 = stacked_internal_tx_vectors1[shift_idx]
                 #     tx2 = stacked_internal_tx_vectors2[shift_idx]
                 #     ghost_test_inv_guide_coords = init_ghost_guide_coords1[possible_ghost_frag_indices]
                 #     surf_test_inv_guide_coords = init_surf_guide_coords2[euler_matched_surf_indices2[possible_overlaps]]
                 #     passing_ghost_coords_ = ghost_test_inv_guide_coords
-                #     # passing_ghost_coords_ = transform_coordinate_sets(ghost_test_inv_guide_coords, rotation=rot_mat1,
-                #     #                                                   translation=tx1, rotation2=set_mat1)
-                #     inverse_reverse_coords = transform_coordinate_sets(passing_ghost_coords_,
-                #                                                        rotation=rot_mat1, rotation2=inv_rot_mat1)
-                #     log.debug(f'rotate, invert equality: {np.allclose(inverse_reverse_coords, passing_ghost_coords_)}')
-                #     different_indices = np.where(inverse_reverse_coords == passing_ghost_coords_)
-                #     # print(all_different_indices[:5])
-                #     # different_indices = np.nonzero(np.where(inverse_reverse_coords == passing_ghost_coords_))
-                #     log.debug(f'rotate, invert equality indices: {different_indices}')
-                #     log.debug(f'start different data: {passing_ghost_coords_[different_indices]}')
-                #     log.debug(f'rotate, invert different data: {inverse_reverse_coords[different_indices]}')
+                #     # # passing_ghost_coords_ = transform_coordinate_sets(ghost_test_inv_guide_coords, rotation=rot_mat1,
+                #     # #                                                   translation=tx1, rotation2=set_mat1)
+                #     # inverse_reverse_coords = transform_coordinate_sets(passing_ghost_coords_,
+                #     #                                                    rotation=rot_mat1, rotation2=inv_rot_mat1)
+                #     # log.debug(f'rotate, invert equality: {np.allclose(inverse_reverse_coords, passing_ghost_coords_)}')
+                #     # different_indices = np.where(inverse_reverse_coords == passing_ghost_coords_)
+                #     # # print(all_different_indices[:5])
+                #     # # different_indices = np.nonzero(np.where(inverse_reverse_coords == passing_ghost_coords_))
+                #     # log.debug(f'rotate, invert equality indices: {different_indices}')
+                #     # log.debug(f'start different data: {passing_ghost_coords_[different_indices]}')
+                #     # log.debug(f'rotate, invert different data: {inverse_reverse_coords[different_indices]}')
                 #     passing_surf_coords_ = transform_coordinate_sets(
                 #         transform_coordinate_sets(surf_test_inv_guide_coords, rotation=rot_mat2,
                 #                                   translation=tx2, rotation2=set_mat2),
                 #         rotation=inv_set_mat1, translation=tx1 * -1, rotation2=inv_rot_mat1)
-                #     inv_inv_passing_surf_coords = transform_coordinate_sets(
-                #         transform_coordinate_sets(passing_surf_coords_, rotation=rot_mat1,
-                #                                   translation=tx1, rotation2=set_mat1),
-                #         rotation=inv_set_mat2, translation=tx2 * -1, rotation2=inv_rot_mat2)
-                #     log.debug(f'rotate, invert equality: {np.allclose(surf_test_inv_guide_coords, inv_inv_passing_surf_coords)}')
+                #     # inv_inv_passing_surf_coords = transform_coordinate_sets(
+                #     #     transform_coordinate_sets(passing_surf_coords_, rotation=rot_mat1,
+                #     #                               translation=tx1, rotation2=set_mat1),
+                #     #     rotation=inv_set_mat2, translation=tx2 * -1, rotation2=inv_rot_mat2)
+                #     # log.debug(f'rotate, invert equality: {np.allclose(surf_test_inv_guide_coords, inv_inv_passing_surf_coords)}')
                 #     all_fragment_match = calculate_match(passing_ghost_coords_,
                 #                                          passing_surf_coords_,
                 #                                          reference_rmsds)
-                #     log.debug(f'Found INV all_fragment_match with shape {all_fragment_match.shape}')
-                #     log.debug(f'And INV Data: {all_fragment_match[:3]}')
+                #     # log.debug(f'Found INV all_fragment_match with shape {all_fragment_match.shape}')
+                #     # log.debug(f'And INV Data: {all_fragment_match[:3]}')
                 #     high_qual_match_indices = np.flatnonzero(all_fragment_match >= high_quality_match_value)
                 #     high_qual_match_count = len(high_qual_match_indices)
                 #     if high_qual_match_count < min_matched:
@@ -1156,7 +1186,7 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
                 #     log.info(
                 #         f'\t{high_qual_match_count} High Quality Fragments Out of {number_passing_overlaps} '
                 #         f'Matches Found in Complete Fragment Library')
-                # Todo remove debug
+                # # Todo remove debug
     ##############
     # Here represents an important break in the execution of this code. Vectorized scoring and clash testing!
     ##############
