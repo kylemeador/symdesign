@@ -1171,6 +1171,36 @@ def z_score(sample: float | np.ndarray, mean: float | np.ndarray, stdev: float |
         return 0.
 
 
+def format_guide_coords_as_atom(coordinate_sets: Iterable[np.array]):
+    atom_string = 'ATOM  %s {:>4s}{:1s}%s %s%s{:1s}   %s{:6.2f}{:6.2f}          {:>2s}{:2s}'
+    alt_location = ''
+    code_for_insertion = ''
+    occ = 1
+    temp_fact = 20.
+    charge = ''
+    atom_types = ['O', 'N', 'C']
+    # chain_letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
+    chain_numbers = '0123456789'
+    atom_idx = 1
+
+    # add placeholder atoms for setting matrix transform
+    atoms = []
+    # it_chain_numbers = iter(chain_numbers)
+    # chain = next(it_chain_numbers)
+    chain = chain_numbers[0]
+    for set_idx, points in enumerate(coordinate_sets, 1):
+        for point_idx, point in enumerate(points):
+            atom_type = atom_types[point_idx]
+            atoms.append(
+                atom_string.format(format(atom_type, '<3s'), alt_location, code_for_insertion, occ, temp_fact,
+                                   atom_type, charge)
+                % (format(atom_idx, '5d'), 'XXX', chain, format(set_idx, '4d'),
+                   '{:8.3f}{:8.3f}{:8.3f}'.format(*point)))
+            atom_idx += 1
+
+    return atoms
+
+
 ######################
 # Matrix Handling
 ######################

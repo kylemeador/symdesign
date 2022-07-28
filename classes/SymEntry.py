@@ -8,7 +8,7 @@ from typing import AnyStr
 import numpy as np
 
 import PathUtils as PUtils
-from SymDesignUtils import start_log, dictionary_lookup, DesignError, SymmetryError
+from SymDesignUtils import start_log, dictionary_lookup, DesignError, SymmetryError, format_guide_coords_as_atom
 from utils.SymmetryUtils import valid_subunit_number, space_group_symmetry_operators, point_group_symmetry_operators, \
     all_sym_entry_dict, rotation_range, setting_matrices, identity_matrix, sub_symmetries, flip_y_matrix, max_sym, \
     valid_symmetries
@@ -1385,32 +1385,18 @@ if __name__ == '__main__':
     for idx, matrix in enumerate(setting_matrices.values()):
         transformed_points[idx] = np.matmul(point_cloud, np.transpose(matrix))
 
-    atom_string = '{:6s}%s {:^4s}{:1s}%s %s%s{:1s}   %s{:6.2f}{:6.2f}          {:>2s}{:2s}'
+    atom_string = 'ATOM  %s {:^4s}{:1s}%s %s%s{:1s}   %s{:6.2f}{:6.2f}          {:>2s}{:2s}'
     alt_location = ''
     code_for_insertion = ''
     occ = 1
-    temp_fact = 20.0
+    temp_fact = 20.
     charge = ''
-    atom_types = ['O', 'N', 'C']
-    chain_letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
-    atom_idx = 1
 
-    # add placeholder atoms for setting matrix transform
-    atoms = []
-    it_chain_letters = iter(chain_letters)
-    for set_idx, points in enumerate(transformed_points.tolist(), 1):
-        chain = next(it_chain_letters)
-        for point_idx, point in enumerate(points):
-            atom_type = atom_types[point_idx]
-            atoms.append(atom_string.format('ATOM', format(atom_type, '3s'), alt_location, code_for_insertion, occ, temp_fact,
-                                            atom_type, charge)
-                         % (format(atom_idx, '5d'), '%s%2d' % (atom_type, set_idx), chain, format(point_idx + 1, '4d'),
-                            '{:8.3f}{:8.3f}{:8.3f}'.format(*tuple(point))))
-            atom_idx += 1
+    atoms = format_guide_coords_as_atom(transformed_points.tolist())
 
     # add origin
     atom_idx = 1
-    atoms.append(atom_string.format('ATOM', format('C', '3s'), alt_location, code_for_insertion, occ, temp_fact,
+    atoms.append(atom_string.format(format('C', '3s'), alt_location, code_for_insertion, occ, temp_fact,
                                     'C', charge)
                  % (format(atom_idx, '5d'), 'GLY', 'O', format(0, '4d'),
                     '{:8.3f}{:8.3f}{:8.3f}'.format(*tuple([0, 0, 0]))))
@@ -1422,7 +1408,7 @@ if __name__ == '__main__':
         atom_idx += 1
         axis_point = axis_list.copy()
         axis_point[axis_idx] = axis_length
-        atoms.append(atom_string.format('ATOM', format('C', '3s'), alt_location, code_for_insertion, occ, temp_fact,
+        atoms.append(atom_string.format(format('C', '3s'), alt_location, code_for_insertion, occ, temp_fact,
                                         'C', charge)
                      % (format(atom_idx, '5d'), 'GLY', axis_type[axis_idx], format(axis_idx + 1, '4d'),
                         '{:8.3f}{:8.3f}{:8.3f}'.format(*tuple(axis_point))))
