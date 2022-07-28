@@ -1017,7 +1017,7 @@ class ContainsAtomsMixin(StructureBase):
     side_chain_indices: list[int]
     # These state_attributes are used by all subclasses despite no usage in this class
     state_attributes: set[str] = StructureBase.state_attributes | \
-        {'_ca_indices', '_cb_indices', '_backbone_indices', '_backbone_and_cb_indices', '_heavy_indices',
+        {'_backbone_and_cb_indices', '_backbone_indices', '_ca_indices', '_cb_indices', '_heavy_indices',
          '_side_chain_indices'}
 
     def __init__(self, **kwargs):
@@ -1703,7 +1703,7 @@ class Residue(ResidueFragment, ContainsAtomsMixin):
     # coords: Coords
     number: int
     number_pdb: int
-    state_attributes: set[str] = StructureBase.state_attributes | \
+    state_attributes: set[str] = ContainsAtomsMixin.state_attributes | \
         {'_secondary_structure', '_sasa', '_sasa_aploar', '_sasa_polar', '_contact_order', '_local_density'}
     type: str
 
