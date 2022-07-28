@@ -827,6 +827,79 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
         rotation_matrices.append(rot_degen_matrices)
 
     set_mat1, set_mat2 = sym_entry.setting_matrix1, sym_entry.setting_matrix2
+
+    def check_forward_and_reverse(test_ghost_guide_coords, stack_rot1, stack_tx1,
+                                  test_surf_guide_coords, stack_rot2, stack_tx2,
+                                  reference_rmsds):
+        """Debug forward versus reverse guide coordinate fragment matching
+
+        All guide_coords and reference_rmsds should be indexed to the same length and overlap
+        """
+        inv_set_mat1 = np.linalg.inv(set_mat1)
+        for shift_idx in range(1):
+            rot1 = stack_rot1[shift_idx]
+            tx1 = stack_tx1[shift_idx]
+            rot2 = stack_rot2[shift_idx]
+            tx2 = stack_tx2[shift_idx]
+
+            passing_ghost_coords = transform_coordinate_sets(test_ghost_guide_coords,
+                                                             rotation=rot1,
+                                                             translation=tx1,
+                                                             rotation2=set_mat1)
+            passing_surf_coords = transform_coordinate_sets(test_surf_guide_coords,
+                                                            rotation=rot2,
+                                                            translation=tx2,
+                                                            rotation2=set_mat2)
+            int_euler_matching_ghost_indices, int_euler_matching_surf_indices = \
+                euler_lookup.check_lookup_table(passing_ghost_coords, passing_surf_coords)
+
+            all_fragment_match = calculate_match(passing_ghost_coords[int_euler_matching_ghost_indices],
+                                                 passing_surf_coords[int_euler_matching_surf_indices],
+                                                 reference_rmsds[int_euler_matching_ghost_indices])
+            high_qual_match_indices = np.flatnonzero(all_fragment_match >= high_quality_match_value)
+            high_qual_match_count = len(high_qual_match_indices)
+            if high_qual_match_count < min_matched:
+                log.info(
+                    f'\t{high_qual_match_count} < {min_matched} Which is Set as the Minimal Required Amount of '
+                    f'High Quality Fragment Matches')
+
+            # Find the passing overlaps to limit the output to only those passing the low_quality_match_value
+            passing_overlaps_indices = np.flatnonzero(all_fragment_match >= low_quality_match_value)
+            number_passing_overlaps = len(passing_overlaps_indices)
+            log.info(
+                f'\t{high_qual_match_count} High Quality Fragments Out of {number_passing_overlaps} '
+                f'Matches Found in Complete Fragment Library')
+
+            # now try inverse
+            inv_rot_mat1 = np.linalg.inv(rot1)
+            passing_surf_coords = transform_coordinate_sets(
+                transform_coordinate_sets(test_surf_guide_coords,
+                                          rotation=rot2,
+                                          translation=tx2,
+                                          rotation2=set_mat2),
+                rotation=inv_set_mat1,
+                translation=tx1 * -1,
+                rotation2=inv_rot_mat1)
+            int_euler_matching_ghost_indices, int_euler_matching_surf_indices = \
+                euler_lookup.check_lookup_table(test_ghost_guide_coords, passing_surf_coords)
+
+            all_fragment_match = calculate_match(test_ghost_guide_coords[int_euler_matching_ghost_indices],
+                                                 passing_surf_coords[int_euler_matching_surf_indices],
+                                                 reference_rmsds[int_euler_matching_ghost_indices])
+            high_qual_match_indices = np.flatnonzero(all_fragment_match >= high_quality_match_value)
+            high_qual_match_count = len(high_qual_match_indices)
+            if high_qual_match_count < min_matched:
+                log.info(
+                    f'\tINV {high_qual_match_count} < {min_matched} Which is Set as the Minimal Required Amount'
+                    f' of High Quality Fragment Matches')
+
+            # Find the passing overlaps to limit the output to only those passing the low_quality_match_value
+            passing_overlaps_indices = np.flatnonzero(all_fragment_match >= low_quality_match_value)
+            number_passing_overlaps = len(passing_overlaps_indices)
+            log.info(
+                f'\t{high_qual_match_count} High Quality Fragments Out of {number_passing_overlaps} '
+                f'Matches Found in Complete Fragment Library')
+
     # find superposition matrices to rotate setting matrix1 to setting matrix2 and vise versa
     # guide_coords = np.array([[0., 0., 0.], [1., 0., 0.], [0., 1., 0.]])
     # asym_guide_coords = np.array([[0., 0., 0.], [1., 0., 0.], [0., 2., 0.]])
@@ -1299,6 +1372,12 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
     # log.debug(f'Identity of inverse rotations: {identity[:5]}')
     inv_setting1 = np.linalg.inv(set_mat1)
 
+    log.debug('Checking rotation and translation fidelity after removing sufficiently dense indices')
+    check_forward_and_reverse(ghost_guide_coords1,
+                              full_rotation1, full_int_tx1,
+                              surf_guide_coords2,
+                              full_rotation2, full_int_tx2,
+                              ghost_rmsds1)
     # Measure clashes of each transformation by moving component2 copies to interact with original model1
     # inverting translation and rotations
     # og_transform1 = {'rotation': full_rotation1,
@@ -1426,6 +1505,13 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
 
     full_inv_rotation1 = full_inv_rotation1[asu_is_viable]
     # viable_cluster_labels = cluster_labels[asu_is_viable[0]]
+
+    log.debug('Checking rotation and translation fidelity after removing non viable asu indices')
+    check_forward_and_reverse(ghost_guide_coords1,
+                              full_rotation1, full_int_tx1,
+                              surf_guide_coords2,
+                              full_rotation2, full_int_tx2,
+                              ghost_rmsds1)
 
     # # check of transformation with forward of 2 and reverse of 1
     # model1.write(out_path=os.path.join(os.getcwd(), 'TEST_forward_reverse_model1.model'))
@@ -1564,6 +1650,48 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
         # Euler Lookup              - 0.005603 s for 35400 fragment pairs
         # Overlap Score Calculation - 0.000209 s for 887 fragment pairs
         # Total Match time          - 0.006250 s
+        model1_tnsfmd = model1.return_transformed_copy(rotation=full_rotation1[idx],
+                                                       translation=full_int_tx1[idx],
+                                                       rotation2=set_mat1,
+                                                       translation2=None)
+        model1_cb_balltree_tnsfmd = BallTree(model1_tnsfmd.cb_coords)
+        model2_query_tnsfmd = model1_cb_balltree_tnsfmd.query_radius(transformed_model2_tiled_cb_coords[idx], cb_distance)
+        contacting_pairs_tnsfmd = [(model1_coords_indexed_residues[model1_cb_indices[model1_idx]].number,
+                                    model2_coords_indexed_residues[model2_cb_indices[model2_idx]].number)
+                                   for model2_idx, model1_contacts in enumerate(model2_query_tnsfmd)
+                                   for model1_idx in model1_contacts]
+        interface_residue_numbers1_tnsfmd, interface_residue_numbers2_tnsfmd = \
+            map(list, map(set, zip(*contacting_pairs_tnsfmd)))
+        ghost_indices_in_interface1_tnsfmd = \
+            np.flatnonzero(np.in1d(ghost_residue_numbers1, interface_residue_numbers1_tnsfmd))
+        surf_indices_in_interface2_tnsfmd = \
+            np.flatnonzero(np.in1d(surf_residue_numbers2, interface_residue_numbers2_tnsfmd, assume_unique=True))
+        log.debug(f'ghost_indices_in_interface1: {ghost_indices_in_interface1_tnsfmd[:10]}')
+        # log.debug(f'ghost_residue_numbers1[:10]: {ghost_residue_numbers1[:10]}')
+        log.debug(f'interface_residue_numbers1: {interface_residue_numbers1_tnsfmd}')
+        ghost_interface_residues_tnsfmd = set(ghost_residue_numbers1[ghost_indices_in_interface1_tnsfmd])
+        log.debug(f'ghost_residue_numbers1 in interface: {ghost_interface_residues_tnsfmd}')
+        log.debug(f'---------------')
+        log.debug(f'surf_indices_in_interface2: {surf_indices_in_interface2_tnsfmd[:10]}')
+        # log.debug(f'surf_residue_numbers2[:10]: {surf_residue_numbers2[:10]}')
+        log.debug(f'interface_residue_numbers2: {interface_residue_numbers2_tnsfmd}')
+        surf_interface_residues_tnsfmd = surf_residue_numbers2[surf_indices_in_interface2_tnsfmd]
+        log.debug(f'surf_residue_numbers2 in interface: {surf_interface_residues_tnsfmd}')
+
+        log.debug('Checking rotation and translation fidelity during interface fragment expansion')
+        check_forward_and_reverse(ghost_guide_coords1[ghost_indices_in_interface1_tnsfmd],
+                                  [full_rotation1[idx]], [full_int_tx1[idx]],
+                                  surf_guide_coords2[surf_indices_in_interface2_tnsfmd],
+                                  [full_rotation2[idx]], [full_int_tx2[idx]],
+                                  ghost_rmsds1[ghost_indices_in_interface1_tnsfmd])
+        log.debug('Checking rotation and translation fidelity no interface fragment expansion')
+        check_forward_and_reverse(ghost_guide_coords1,
+                                  [full_rotation1[idx]], [full_int_tx1[idx]],
+                                  surf_guide_coords2,
+                                  [full_rotation2[idx]], [full_int_tx2[idx]],
+                                  ghost_rmsds1)
+
+        log.debug(f'\n++++++++++++++++\n')
         int_frags_time_start = time.time()
         model2_query = model1_cb_balltree.query_radius(inverse_transformed_model2_tiled_cb_coords[idx], cb_distance)
         model1_cb_balltree_time = time.time() - int_frags_time_start
@@ -1605,17 +1733,23 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
         surf_interface_residues_guide_coords = np.array([residue.guide_coords for residue in model2_surf_residues])
         inverse_transformed_surf_interface_residues_guide_coords_ = \
             transform_coordinate_sets(transform_coordinate_sets(surf_interface_residues_guide_coords,
-                                                                **dict(rotation=full_rotation2[idx],
-                                                                       translation=full_int_tx2[idx],
-                                                                       rotation2=set_mat2,
-                                                                       translation2=None if full_ext_tx_sum is None
-                                                                       else full_ext_tx_sum[idx])
-                                                                ),
-                                      **dict(rotation=inv_setting1,
-                                             translation=full_int_tx1[idx] * -1,
-                                             rotation2=full_inv_rotation1[idx],
-                                             translation2=None)
-                                      )
+                                                                rotation=full_rotation2[idx],
+                                                                translation=full_int_tx2[idx],
+                                                                rotation2=set_mat2,
+                                                                translation2=None if full_ext_tx_sum is None
+                                                                else full_ext_tx_sum[idx]),
+                                      rotation=inv_setting1,
+                                      translation=full_int_tx1[idx] * -1,
+                                      rotation2=full_inv_rotation1[idx],
+                                      translation2=None)
+
+        log.debug('Checking rotation and translation fidelity during interface fragment expansion')
+        check_forward_and_reverse(ghost_guide_coords1[ghost_indices_in_interface1],
+                                  [full_rotation1[idx]], [full_int_tx1[idx]],
+                                  surf_interface_residues_guide_coords,
+                                  [full_rotation2[idx]], [full_int_tx2[idx]],
+                                  ghost_rmsds1[ghost_indices_in_interface1])
+
         is_in_index_time = time.time() - is_in_index_start
         all_fragment_match_time_start = time.time()
         # if idx % 2 == 0:
