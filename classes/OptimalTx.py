@@ -8,10 +8,14 @@ logger = start_log(name=__name__)
 
 
 class OptimalTx:
-    def __init__(self, dof_ext=None, zshift1=None, zshift2=None, max_z_value=1., number_of_coordinates=3):
+    def __init__(self, dof_ext: np.ndarray = None, zshift1: np.ndarray = None, zshift2: np.ndarray = None,
+                 max_z_value: float = 1., number_of_coordinates: int = 3):
         self.max_z_value = max_z_value
         self.number_of_coordinates = number_of_coordinates
-        self.dof_ext = np.array(dof_ext)  # External translational DOF (number DOF external x 3)
+        if dof_ext is None:
+            raise ValueError(f"Can't initialize {type(self.__name__)} without passing dof_ext")
+        else:
+            self.dof_ext = dof_ext  # External translational DOF (number DOF external x 3)
         self.dof = self.dof_ext.copy()
         # print('self.dof', self.dof)
         self.zshift1 = zshift1  # internal translational DOF1
