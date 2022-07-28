@@ -1410,14 +1410,14 @@ class Fragment:
 
     def __init__(self, fragment_type: int = None,
                  # guide_coords: np.ndarray = None,
-                 fragment_length: int = 5,
+                 # fragment_length: int = 5,
                  fragment_db: object = None,
                  # fragment_db: FragmentDatabase = None,  # Todo typing with FragmentDatabase
                  **kwargs):
         self.ghost_fragments = None
         self.i_type = fragment_type
         # self.guide_coords = guide_coords
-        self.fragment_length = fragment_length
+        # self.fragment_length = fragment_length
         self.rotation = identity_matrix
         self.translation = origin
         # if fragment_db is not None:
@@ -1437,6 +1437,7 @@ class Fragment:
         self._fragment_db = fragment_db
         if fragment_db is not None:
             self.frag_lower_range, self.frag_upper_range = fragment_db.fragment_range
+            self.fragment_length = fragment_db.fragment_length
 
     @property
     def frag_type(self) -> int | None:
@@ -1463,7 +1464,7 @@ class Fragment:
         try:
             return self._representative_ca_coords
         except AttributeError:
-            self._representative_ca_coords = self.fragment_db.reps.get(self.i_type)
+            self._representative_ca_coords = self.fragment_db.reps[self.i_type]
             return self._representative_ca_coords
 
     @_representative_coords.setter
@@ -4774,7 +4775,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
 
     # Preferred method using Residue fragments
     def get_fragment_residues(self, residues: list[Residue] = None, residue_numbers: list[int] = None,
-                              fragment_length: int = 5,
+                              # fragment_length: int = 5,
                               fragment_db: object = None,
                               # fragment_db: FragmentDatabase = None, # Todo typing with FragmentDatabase
                               rmsd_thresh: float = Fragment.rmsd_thresh, **kwargs) -> list | list[Residue]:
@@ -4783,7 +4784,6 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         Args:
             residues: The specific Residues to search for
             residue_numbers: The specific residue numbers to search for
-            fragment_length: The length of the fragment observations used
             fragment_db: The FragmentDatabase with representative fragment types to query the Residue against
             rmsd_thresh: The threshold for which a rmsd should fail to produce a fragment match
         Sets:
@@ -4791,6 +4791,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         Returns:
             The Residue instances that match Fragment representatives from the Structure
         """
+        #            fragment_length: The length of the fragment observations used
         if fragment_db is None:
             raise ValueError(f"Can't assign fragments without passing fragment_db")
         else:
@@ -4806,18 +4807,19 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         residues = self.residues if residues is None else residues
 
         # Get neighboring ca coords on each side by retrieving flanking residues. If not fragment_length, we remove
-        frag_lower_range, frag_upper_range = parameterize_frag_length(fragment_length)
+        fragment_length = fragment_db.fragment_length
+        frag_lower_range, frag_upper_range = fragment_db.fragment_range
 
         # Iterate over the residues in reverse to remove any indices that are missing and convert to coordinates
-        residues_coords = []
+        residues_ca_coords = []
         for idx, residue in zip(range(len(residues)-1, -1, -1), residues[::-1]):
             residue_set = \
                 residue.get_upstream(frag_lower_range) + [residue] + residue.get_downstream(frag_upper_range-1)
             if len(residue_set) == fragment_length:
-                residues_coords.append([residue.ca_coords for residue in residue_set])
+                residues_ca_coords.append([residue.ca_coords for residue in residue_set])
             else:
                 residues.pop(idx)
-        residue_ca_coords = np.array(residues_coords)
+        residue_ca_coords = np.array(residues_ca_coords)
 
         # Solve for fragment type (secondary structure classification could be used too)
         found_fragments = []
