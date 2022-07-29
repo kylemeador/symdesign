@@ -1108,9 +1108,12 @@ class Model(Structure, ContainsChainsMixin):
                 # set the parent attribute for all containers
                 self._update_structure_container_attributes(_parent=self)
                 if rename_chains:  # set each successive Entity to have an incrementally higher chain id
+                    self.chain_ids = []
                     available_chain_ids = self.chain_id_generator()
                     for idx, entity in enumerate(self.entities):
-                        entity.chain_id = next(available_chain_ids)
+                        chain_id = next(available_chain_ids)
+                        entity.chain_id = chain_id
+                        self.chain_ids.append(chain_id)
                         # If the full structure wanted contiguous chain_ids, this should be used
                         # for _ in range(entity.number_of_symmetry_mates):
                         #     # Discard ids
