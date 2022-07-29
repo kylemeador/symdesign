@@ -6801,6 +6801,176 @@ def superposition3d(fixed_coords: np.ndarray, moving_coords: np.ndarray, a_weigh
     Args:
         fixed_coords: The coordinates for the 'frozen' object
         moving_coords: The coordinates for the 'mobile' object
+        quaternion: Whether to report the rotation angle and axis in Scipy.Rotation quaternion format
+    Raises:
+        AssertionError: If coordinates are not the same length
+    Returns:
+        rmsd, rotation/quaternion_matrix, translation_vector
+    """
+    number_of_points = fixed_coords.shape[0]
+    if number_of_points != moving_coords.shape[0]:
+        raise ValueError(f'{superposition3d.__name__}: Inputs should have the same size. '
+                         f'Input 1={number_of_points}, 2={moving_coords.shape[0]}')
+
+    # convert weights into array
+    # if a_weights is None or len(a_weights) == 0:
+    # a_weights = np.full((number_of_points, 1), 1.)
+    # sum_weights = float(number_of_points)
+    # else:  # reshape a_eights so multiplications are done column-wise
+    #     a_weights = np.array(a_weights).reshape(number_of_points, 1)
+    #     sum_weights = np.sum(a_weights, axis=0)
+
+    # Find the center of mass of each object:
+    a_center_f = fixed_coords.sum(axis=0)
+    a_center_m = moving_coords.sum(axis=0)
+
+    # Subtract the centers-of-mass from the original coordinates for each object
+    # if sum_weights != 0:
+    try:
+        a_center_f /= number_of_points
+        a_center_m /= number_of_points
+    except ZeroDivisionError:
+        pass  # the weights are a total of zero which is allowed algorithmically, but not possible
+
+    # Translate the center of mass to the origin
+    aa_xf = fixed_coords - a_center_f
+    aa_xm = moving_coords - a_center_m
+
+    # Calculate the "m" array from the Diamond paper (equation 16)
+    m = np.matmul(aa_xm.T, aa_xf)
+
+    # Calculate "v" (equation 18)
+    # v = np.empty(3)
+    # v[0] = m[1][2] - m[2][1]
+    # v[1] = m[2][0] - m[0][2]
+    # v[2] = m[0][1] - m[1][0]
+    v = [m[1][2] - m[2][1], m[2][0] - m[0][2], m[0][1] - m[1][0]]
+
+    # Calculate "P" (equation 22)
+    matrix_p = np.zeros((4, 4))
+    # Calculate "q" (equation 17)
+    # q = m + m.T - 2*identity_matrix*np.trace(m)
+    matrix_p[:3, :3] = m + m.T - 2*identity_matrix*np.trace(m)
+    matrix_p[3, :3] = v
+    matrix_p[:3, 3] = v
+    # [[ q[0][0] q[0][1] q[0][2] v[0] ]
+    #  [ q[1][0] q[1][1] q[1][2] v[1] ]
+    #  [ q[2][0] q[2][1] q[2][2] v[2] ]
+    #  [ v[0]    v[1]    v[2]    0    ]]
+
+    # Calculate "p" - optimal_quat
+    # "p" contains the optimal rotation (in backwards-quaternion format)
+    # (Note: A discussion of various quaternion conventions is included below)
+    if number_of_points < 2:
+        # Specify the default values for p, pPp
+        optimal_quat = np.array([0., 0., 0., 1.])  # p = [0,0,0,1]    default value
+        pPp = 0.  # = p^T * P * p    (zero by default)
+    else:
+        # try:
+        # The a_eigenvals are returned as 1D array in ascending order; largest is last
+        a_eigenvals, aa_eigenvects = np.linalg.eigh(matrix_p)
+        # except np.linalg.LinAlgError:
+        #     singular = True  # I have never seen this happen
+        pPp = a_eigenvals[-1]
+        optimal_quat = aa_eigenvects[:, -1]  # pull out the largest magnitude eigenvector
+        # normalize the vector
+        # (It should be normalized already, but just in case it is not, do it again)
+        # optimal_quat /= np.linalg.norm(optimal_quat)  # Todo reinstate
+
+    if quaternion:  # does the caller want the quaternion?
+        # The p array is a quaternion that uses this convention:
+        # https://docs.scipy.org/doc/scipy/reference/generated/scipy.spatial.transform.Rotation.from_quat.html
+        # However it seems that the following convention is much more popular:
+        # https://en.wikipedia.org/wiki/Quaternions_and_spatial_rotation
+        # https://mathworld.wolfram.com/Quaternion.html
+        # So I return "q" (a version of "p" using the more popular convention).
+        # q = np.empty(4)
+        # q[0], q[1], q[2], q[3] = p[3], p[0], p[1], p[2]
+        # aa_rotate = np.array([p[3], p[0], p[1], p[2]])
+        # KM I am using the scipy version for python continuity
+        aa_rotate = optimal_quat
+    else:
+        # Calculate the rotation matrix corresponding to "optimal_quat" which is in scipi quaternion format
+        """
+        aa_rotate = np.empty((3, 3))
+        aa_rotate[0][0] = (optimal_quat[0]*optimal_quat[0])-(optimal_quat[1]*optimal_quat[1])
+                         -(optimal_quat[2]*optimal_quat[2])+(optimal_quat[3]*optimal_quat[3])
+        aa_rotate[1][1] = -(optimal_quat[0]*optimal_quat[0])+(optimal_quat[1]*optimal_quat[1])
+                          -(optimal_quat[2]*optimal_quat[2])+(optimal_quat[3]*optimal_quat[3])
+        aa_rotate[2][2] = -(optimal_quat[0]*optimal_quat[0])-(optimal_quat[1]*optimal_quat[1])
+                          +(optimal_quat[2]*optimal_quat[2])+(optimal_quat[3]*optimal_quat[3])
+        aa_rotate[0][1] = 2*(optimal_quat[0]*optimal_quat[1] - optimal_quat[2]*optimal_quat[3])
+        aa_rotate[1][0] = 2*(optimal_quat[0]*optimal_quat[1] + optimal_quat[2]*optimal_quat[3])
+        aa_rotate[1][2] = 2*(optimal_quat[1]*optimal_quat[2] - optimal_quat[0]*optimal_quat[3])
+        aa_rotate[2][1] = 2*(optimal_quat[1]*optimal_quat[2] + optimal_quat[0]*optimal_quat[3])
+        aa_rotate[0][2] = 2*(optimal_quat[0]*optimal_quat[2] + optimal_quat[1]*optimal_quat[3])
+        aa_rotate[2][0] = 2*(optimal_quat[0]*optimal_quat[2] - optimal_quat[1]*optimal_quat[3])
+        """
+        # Alternatively, in modern python versions, this code also works:
+        the_rotation = Rotation.from_quat(optimal_quat)
+        aa_rotate = the_rotation.as_matrix()
+
+    # Finally compute the RMSD between the two coordinate sets:
+    # First compute E0 from equation 24 of the paper
+    # e0 = np.sum((aa_xf - aa_xm) ** 2)
+    # sum_sqr_dist = max(0, ((aa_xf-aa_xm) ** 2).sum() - 2.*pPp)
+
+    # if sum_weights != 0.:
+    try:
+        rmsd = np.sqrt(max(0, ((aa_xf-aa_xm) ** 2).sum() - 2.*pPp) / number_of_points)
+    except ZeroDivisionError:
+        rmsd = 0.  # the weights are a total of zero which is allowed algorithmically, but not possible
+
+    # Lastly, calculate the translational offset:
+    # Recall that:
+    # RMSD=sqrt((Σ_i  w_i * |X_i - (Σ_j c*R_ij*x_j + T_i))|^2) / (Σ_j w_j))
+    #    =sqrt((Σ_i  w_i * |X_i - x_i'|^2) / (Σ_j w_j))
+    #  where
+    # x_i' = Σ_j c*R_ij*x_j + T_i
+    #      = Xcm_i + c*R_ij*(x_j - xcm_j)
+    #  and Xcm and xcm = center_of_mass for the frozen and mobile point clouds
+    #                  = a_center_f[]       and       a_center_m[],  respectively
+    # Hence:
+    #  T_i = Xcm_i - Σ_j c*R_ij*xcm_j  =  a_translate[i]
+
+    # a_translate = a_center_f - np.matmul(c * aa_rotate, a_center_m).T.reshape(3,)
+
+    return rmsd, aa_rotate, a_center_f - np.matmul(aa_rotate, a_center_m).T.reshape(3,)
+
+
+def superposition3d_weighted(fixed_coords: np.ndarray, moving_coords: np.ndarray, a_weights: np.ndarray = None,
+                             quaternion: bool = False) -> tuple[float, np.ndarray, np.ndarray]:
+    """Takes two xyz coordinate sets (same length), and attempts to superimpose them using rotations, translations,
+    and (optionally) rescale operations to minimize the root mean squared distance (RMSD) between them. The found
+    transformation operations should be applied to the "moving_coords" to place them in the setting of the fixed_coords
+
+    This function implements a more general variant of the method from:
+    R. Diamond, (1988) "A Note on the Rotational Superposition Problem", Acta Cryst. A44, pp. 211-216
+    This version has been augmented slightly. The version in the original paper only considers rotation and translation
+    and does not allow the coordinates of either object to be rescaled (multiplication by a scalar).
+    (Additional documentation can be found at https://pypi.org/project/superpose3d/ )
+
+    The quaternion_matrix has the last entry storing cos(θ/2) (where θ is the rotation angle). The first 3 entries
+    form a vector (of length sin(θ/2)), pointing along the axis of rotation.
+    Details: https://en.wikipedia.org/wiki/Quaternions_and_spatial_rotation
+
+    MIT License. Copyright (c) 2016, Andrew Jewett
+    Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated
+    documentation files (the "Software"), to deal in the Software without restriction, including without limitation the
+    rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to
+    permit persons to whom the Software is furnished to do so, subject to the following conditions:
+
+    The above copyright notice and this permission notice shall be included in all copies or substantial portions of the
+    Software.
+
+    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE
+    WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS
+    OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
+    OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+    Args:
+        fixed_coords: The coordinates for the 'frozen' object
+        moving_coords: The coordinates for the 'mobile' object
         a_weights: Weights for the calculation of RMSD
         quaternion: Whether to report the rotation angle and axis in Scipy.Rotation quaternion format
     Raises:
@@ -6839,7 +7009,7 @@ def superposition3d(fixed_coords: np.ndarray, moving_coords: np.ndarray, a_weigh
     # Calculate the "m" array from the Diamond paper (equation 16)
     m = np.matmul(aa_xm.T, (aa_xf * a_weights))
 
-    # Calculate "v" (equation 18)  # KM this appears to be the cross product...
+    # Calculate "v" (equation 18)
     v = np.empty(3)
     v[0] = m[1][2] - m[2][1]
     v[1] = m[2][0] - m[0][2]
