@@ -443,7 +443,7 @@ class Coords:
             raise TypeError(f'Can\'t initialize {type(self).__name__} with {type(coords).__name__}. Type must be a '
                             f'numpy.ndarray of float with shape (n, 3) or list[list[float]]')
         else:
-            self.coords = np.array(coords)
+            self.coords = np.array(coords, np.float_)
 
     def delete(self, indices: Sequence[int]):
         """Delete coordinates from the Coords container
@@ -922,7 +922,7 @@ class Atoms:
             raise TypeError(f'Can\'t initialize {type(self).__name__} with {type(atoms).__name__}. Type must be a '
                             f'numpy.ndarray or list of {Atom.__name__} instances')
         else:
-            self.atoms = np.array(atoms)
+            self.atoms = np.array(atoms, dtype=np.object_)
 
     def are_dependents(self) -> bool:
         """Check if any of the Atom instance are dependents on another Structure"""
@@ -2661,7 +2661,7 @@ class Residues:
             raise TypeError(f'Can\'t initialize {type(self).__name__} with {type(residues).__name__}. Type must be a '
                             f'numpy.ndarray or list of {Residue.__name__} instances')
         else:
-            self.residues = np.array(residues)
+            self.residues = np.array(residues, dtype=np.object_)
         self.find_prev_and_next()
 
     def find_prev_and_next(self):
