@@ -920,7 +920,7 @@ class Atoms:
             self.atoms = np.array([])
         elif not isinstance(atoms, (np.ndarray, list)):
             raise TypeError(f'Can\'t initialize {type(self).__name__} with {type(atoms).__name__}. Type must be a '
-                            f'numpy.ndarray of {Atom.__name__} instances or list[{Atom.__name__}]')
+                            f'numpy.ndarray or list of {Atom.__name__} instances')
         else:
             self.atoms = np.array(atoms)
 
@@ -1285,7 +1285,7 @@ class GhostFragment:
                  aligned_fragment: Fragment):
         self._guide_coords = guide_coords
         self.i_type = i_type
-        self.j_type = j_type
+        self.j_type = self.frag_type = j_type
         self.k_type = k_type
         self.rmsd = ijk_rmsd
         self.aligned_fragment = aligned_fragment
@@ -1296,20 +1296,20 @@ class GhostFragment:
         """The secondary structure of the Fragment"""
         return self.j_type
 
-    @type.setter
-    def type(self, frag_type: int):
-        """Set the secondary structure of the Fragment"""
-        self.j_type = frag_type
+    # @type.setter
+    # def type(self, frag_type: int):
+    #     """Set the secondary structure of the Fragment"""
+    #     self.j_type = frag_type
 
-    @property
-    def frag_type(self) -> int:
-        """The secondary structure of the Fragment"""
-        return self.j_type
+    # @property
+    # def frag_type(self) -> int:
+    #     """The secondary structure of the Fragment"""
+    #     return self.j_type
 
-    @frag_type.setter
-    def frag_type(self, frag_type: int):
-        """Set the secondary structure of the Fragment"""
-        self.j_type = frag_type
+    # @frag_type.setter
+    # def frag_type(self, frag_type: int):
+    #     """Set the secondary structure of the Fragment"""
+    #     self.j_type = frag_type
 
     @property
     def ijk(self) -> tuple[int, int, int]:
@@ -1352,7 +1352,11 @@ class GhostFragment:
 
     @property
     def transformation(self) -> tuple[np.ndarray, np.ndarray]:  # dict[str, np.ndarray]:
-        """The transformation of the aligned Fragment from the Fragment Database"""
+        """The transformation of the aligned Fragment from the Fragment Database
+
+        Returns:
+            The rotation (3, 3), the translation (3,)
+        """
         return self.aligned_fragment.transformation
 
     @property
@@ -1513,7 +1517,7 @@ class Fragment:
         # self.fragment_db.indexed_ghosts : dict[int,
         #                                        tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]]
         ghost_i_type_arrays = self.fragment_db.indexed_ghosts.get(self.i_type, None)
-        if not ghost_i_type_arrays:
+        if ghost_i_type_arrays is None:
             self.ghost_fragments = []
             return
 
@@ -1671,15 +1675,15 @@ class ResidueFragment(Fragment):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
-    @property
-    def frag_type(self) -> int | None:
-        """The secondary structure of the Fragment"""
-        return self.i_type
-
-    @frag_type.setter
-    def frag_type(self, frag_type: int):
-        """Set the secondary structure of the Fragment"""
-        self.i_type = frag_type
+    # @property
+    # def frag_type(self) -> int | None:
+    #     """The secondary structure of the Fragment"""
+    #     return self.i_type
+    #
+    # @frag_type.setter
+    # def frag_type(self, frag_type: int):
+    #     """Set the secondary structure of the Fragment"""
+    #     self.i_type = frag_type
 
     @property
     def _fragment_coords(self) -> np.ndarray:
@@ -2655,7 +2659,7 @@ class Residues:
             self.residues = np.array([])
         elif not isinstance(residues, (np.ndarray, list)):
             raise TypeError(f'Can\'t initialize {type(self).__name__} with {type(residues).__name__}. Type must be a '
-                            f'numpy.ndarray of {Residue.__name__} instances or list[{Residue.__name__}]')
+                            f'numpy.ndarray or list of {Residue.__name__} instances')
         else:
             self.residues = np.array(residues)
         self.find_prev_and_next()
@@ -2865,27 +2869,6 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         # we are setting up a parent (independent) Structure
         elif residues:  # is not None  # assume the passed residues aren't bound to an existing Structure
             self._assign_residues(residues, atoms=atoms)
-            # self._residue_indices = list(range(len(residues)))
-            # if isinstance(residues, Residues):  # already have a residues object
-            #     # assume it is dependent on another Structure and clear runtime attributes
-            #     residues.reset_state()
-            # else:  # must create the residues object
-            #     residues = Residues(residues)
-            # # have to copy Residues object to set new attributes on each member Residue
-            # # self.residues = copy(residues)
-            # self._residues = copy(residues)
-            # # set residue attributes, index according to new Atoms/Coords index
-            # self._residues.set_attributes(_parent=self)
-            # # self.set_residues_attributes(_parent=self)
-            # self._residues.reindex_atoms()
-            # self._coords.set(np.concatenate([residue.coords for residue in residues]))
-            # # else:
-            # #     self._residue_indices = residue_indices
-            # #     self.set_residues(residues)
-            # #     # self.parent = parent_structure
-            # #     assert coords, \
-            # #         'Can\'t initialize Structure with residues and residue_indices when no Coords obj is passed'
-            # #     self.coords = coords
         elif atoms:  # is not None
             self._assign_atoms(atoms)
             self._create_residues()
@@ -4792,7 +4775,6 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
             residue_ca_coord_set = residue_ca_coords[idx]
             for fragment_type, cluster_coords in representatives.items():
                 rmsd, rot, tx = superposition3d(residue_ca_coord_set, cluster_coords)
-                # OLD superposition3d(residue_ca_coords[idx+frag_lower_range: idx+frag_upper_range], cluster_coords)
                 if rmsd <= rmsd_thresh and rmsd <= min_rmsd:
                     residue.frag_type = fragment_type
                     min_rmsd = rmsd
@@ -6875,7 +6857,7 @@ def superposition3d(fixed_coords: np.ndarray, moving_coords: np.ndarray, a_weigh
         optimal_quat = aa_eigenvects[:, -1]  # pull out the largest magnitude eigenvector
         # normalize the vector
         # (It should be normalized already, but just in case it is not, do it again)
-        # optimal_quat /= np.linalg.norm(optimal_quat)  # Todo reinstate
+        # optimal_quat /= np.linalg.norm(optimal_quat)
 
     if quaternion:  # does the caller want the quaternion?
         # The p array is a quaternion that uses this convention:

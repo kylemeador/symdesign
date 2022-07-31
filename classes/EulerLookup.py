@@ -156,6 +156,14 @@ class EulerLookup:
     def __init__(self, scale: float = 3.):
         # 6-d bool array [[[[[[True, False, ...], ...]]]]] with shape (37, 19, 37, 37, 19, 37)
         self.eul_lookup_40 = np.load(binary_lookup_table_path)['a']
+        """Indicates whether two sets of triplet integer values for each Euler angle are within an acceptable angular 
+        offset. Acceptable offset is approximately +/- 40 degrees, or +/- 3 integers in one of the rotation angles and
+        a couple of integers in another i.e.
+        eul_lookup_40[1,5,1,1,8,1] -> True
+        eul_lookup_40[1,5,1,1,9,1] -> False
+        eul_lookup_40[1,5,1,1,7,4] -> True
+        KM doesn't completely know how Todd made these
+        """
         self.indices_lens = [0, 0]
         self.normalization = 1. / scale
         self.one_tolerance = 1. - 1.e-6
@@ -168,10 +176,6 @@ class EulerLookup:
         array with the vectors stored *in columns*, i.e. one vector is in [i,:,j]. Use known scale value to normalize,
         to save repeated sqrt calculations
         """
-        # guide_coords[:, 1:, :] = (guide_coords[:, 1:, :] - guide_coords[:, :1, :]) * self.normalization
-        # v1_a_ = guide_coords[:, 1, :]
-        # v2_a_ = guide_coords[:, 2, :]
-        # v3_a = np.cross(guide_coords[:, 1, :], guide_coords[:, 2, :])  # Todo
         """
         v1_a: An array of vectors containing the first vector which is orthogonal to v2_a (canonically on x)
         v2_a: An array of vectors containing the second vector which is orthogonal to v1_a (canonically on y)
@@ -179,11 +183,6 @@ class EulerLookup:
         """
         v1_a = (guide_coords[:, 1, :] - guide_coords[:, 0, :]) * self.normalization
         v2_a = (guide_coords[:, 2, :] - guide_coords[:, 0, :]) * self.normalization
-        # guide_coords[:, 1:, :] = (guide_coords[:, 1:, :] - guide_coords[:, :1, :]) * self.normalization
-        # v1_a = guide_coords[:, 1, :]
-        # v2_a = guide_coords[:, 2, :]
-        # print('v1_a equallity', np.all(v1_a_ == v1_a))
-        # print('v2_a equallity', np.all(v2_a_ == v2_a))
         v3_a = np.cross(v1_a, v2_a)
 
         """Convert rotation matrix to euler angles in the form of an integer triplet (integer values are degrees
