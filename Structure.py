@@ -667,6 +667,8 @@ class Atom(StructureBase):
     """An Atom container with the full Structure coordinates and the Atom unique data"""
     # . Pass a reference to the full Structure coordinates for Keyword Arg coords=self.coords
     __coords: list[float]
+    # _next_atom: Atom
+    # _prev_atom: Atom
     _sasa: float
     _type_str: str
     index: int | None
@@ -841,6 +843,34 @@ class Atom(StructureBase):
         """Is the Atom a heavy atom?"""
         return 'H' not in self.type
 
+    # @property
+    # def next_atom(self) -> Atom | None:
+    #     """The next Atom in the Structure if this Atom is part of a polymer"""
+    #     try:
+    #         return self._next_atom
+    #     except AttributeError:
+    #         return None
+    #
+    # @next_atom.setter
+    # def next_atom(self, other: Atom):
+    #     """Set the next_atom for this Atom and the prev_atom for the other Atom"""
+    #     self._next_atom = other
+    #     other._next_atom = self
+    #
+    # @property
+    # def prev_atom(self) -> Atom | None:
+    #     """The next Atom in the Structure if this Atom is part of a polymer"""
+    #     try:
+    #         return self._prev_atom
+    #     except AttributeError:
+    #         return None
+    #
+    # @prev_atom.setter
+    # def prev_atom(self, other: Atom):
+    #     """Set the prev_atom for this Atom and the next_atom for the other Atom"""
+    #     self._prev_atom = other
+    #     other._prev_atom = self
+
     def __key(self) -> tuple[int, str, str, float]:
         return self.index, self.type, self.residue_type, self.b_factor
 
@@ -919,6 +949,12 @@ class Atoms:
                             f'numpy.ndarray or list of {Atom.__name__} instances')
         else:
             self.atoms = np.array(atoms, dtype=np.object_)
+    #     self.find_prev_and_next()
+    #
+    # def find_prev_and_next(self):
+    #     """Set prev_atom and next_atom attributes for each Atom. One inherently sets the other in Atom"""
+    #     for next_idx, atom in enumerate(self.atoms[:-1], 1):
+    #         atom.next_atom = self.atoms[next_idx]
 
     def are_dependents(self) -> bool:
         """Check if any of the Atom instance are dependents on another Structure"""
