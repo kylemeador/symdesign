@@ -502,15 +502,16 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
     #     pass
     #     Todo make a docking directory object compatible with this and implement sql handle
 
+    # Setup log
     if log is None:
         log_file_path = os.path.join(outdir, f'{building_blocks}_log.txt')
     else:
         log_file_path = getattr(log.handlers[0], 'baseFilename', None)
-    if not log_file_path:
+    if log_file_path:
         # we are probably logging to stream and we need to check another method to see if output exists
-        resume = False
-    else:  # it has been set. Does it exist?
-        resume = True if os.path.exists(log_file_path) else False
+        # resume = False
+    # else:  # it has been set. Does it exist?
+    #     resume = True if os.path.exists(log_file_path) else False
         log = start_log(name=building_blocks, handler=2, location=log_file_path, format_log=False, propagate=True)
 
     for model in models:
@@ -520,11 +521,11 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
     model2: Model
     model1, model2 = models
     # Write to Logfile
-    if resume:
-        log.info('Found a prior incomplete run! Resuming from last sampled transformation.\n')
-    else:
-        log.info(f'DOCKING {model1.name} TO {model2.name}\n'
-                 f'Oligomer 1 Path: {model1.file_path}\nOligomer 2 Path: {model2.file_path}')
+    # if resume:
+    #     log.info('Found a prior incomplete run! Resuming from last sampled transformation.\n')
+    # else:
+    log.info(f'DOCKING {model1.name} TO {model2.name}\n'
+             f'Oligomer 1 Path: {model1.file_path}\nOligomer 2 Path: {model2.file_path}')
 
     # Set up Building Block2
     # Get Surface Fragments With Guide Coordinates Using COMPLETE Fragment Database
@@ -553,13 +554,11 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
     log.debug(f'Found surface guide coordinates {idx} with shape {surf_guide_coords2.shape}')
     log.debug(f'Found surface residue numbers {idx} with shape {surf_residue_numbers2.shape}')
     log.debug(f'Found surface indices {idx} with shape {surf_i_indices2.shape}')
-    log.debug(f'Found {len(init_surf_frag_indices2)} initial surface {idx} fragments with type {initial_surf_type2}')
+    log.debug(f'Found {init_surf_residue_numbers2.shape[0]} initial surface {idx} fragments with type: {initial_surf_type2}')
 
     # log.debug('Found oligomer 2 fragment content: %s' % fragment_content2)
-    # log.debug('Found initial fragment type: %d' % initial_surf_type2)
-    if not resume and keep_time:
-        log.info(f'Getting Oligomer 2 Surface Fragments and Guides Using COMPLETE Fragment Database (took '
-                 f'{time.time() - get_complete_surf_frags2_time_start:8f}s)')
+    log.info(f'Getting Oligomer 2 Surface Fragments and Guides Using COMPLETE Fragment Database (took '
+             f'{time.time() - get_complete_surf_frags2_time_start:8f}s)')
 
     # log.debug('init_surf_frag_indices2: %s' % slice_variable_for_log(init_surf_frag_indices2))
     # log.debug('init_surf_guide_coords2: %s' % slice_variable_for_log(init_surf_guide_coords2))
@@ -583,7 +582,7 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
     # log.debug(f'Found surface guide coordinates {idx} with shape {surf_guide_coords1.shape}')
     # log.debug(f'Found surface residue numbers {idx} with shape {surf_residue_numbers1.shape}')
     # log.debug(f'Found surface indices {idx} with shape {surf_i_indices1.shape}')
-    log.debug(f'Found {len(init_surf_frags1)} initial surface {idx} fragments with type {initial_surf_type1}')
+    log.debug(f'Found {len(init_surf_frags1)} initial surface {idx} fragments with type: {initial_surf_type1}')
     # log.debug('Found oligomer 2 fragment content: %s' % fragment_content2)
     # log.debug('init_surf_frag_indices2: %s' % slice_variable_for_log(init_surf_frag_indices2))
     # log.debug('init_surf_guide_coords2: %s' % slice_variable_for_log(init_surf_guide_coords2))
@@ -591,9 +590,8 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
     # log.debug('init_surf_guide_coords1: %s' % slice_variable_for_log(init_surf_guide_coords1))
     # log.debug('init_surf_residue_numbers1: %s' % slice_variable_for_log(init_surf_residue_numbers1))
 
-    if not resume and keep_time:
-        log.info(f'Getting Oligomer 1 Surface Fragments and Guides Using COMPLETE Fragment Database (took '
-                 f'{time.time() - get_complete_surf_frags1_time_start:8f}s)')
+    log.info(f'Getting Oligomer 1 Surface Fragments and Guides Using COMPLETE Fragment Database (took '
+             f'{time.time() - get_complete_surf_frags1_time_start:8f}s)')
 
     #################################
     # Get component 1 ghost fragments and associated data from complete fragment database
@@ -694,11 +692,11 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
     log.debug(f'Found ghost residue numbers {idx} with shape {ghost_residue_numbers1.shape}')
     log.debug(f'Found ghost indices {idx} with shape {ghost_j_indices1.shape}')
     log.debug(f'Found ghost rmsds {idx} with shape {ghost_rmsds1.shape}')
-    log.debug(f'Found {len(init_ghost_guide_coords1)} initial ghost {idx} fragments with type {initial_surf_type2}')
+    log.debug(f'Found {init_ghost_guide_coords1.shape[0]} initial ghost {idx} fragments with type {initial_surf_type2}')
 
-    if not resume and keep_time:
-        log.info(f'Getting {model1.name} Oligomer 1 Ghost Fragments and Guides Using COMPLETE Fragment Database '
-                 f'(took {time.time() - get_complete_ghost_frags1_time_start:8f}s)')
+    log.info(f'Getting {model1.name} Oligomer 1 Ghost Fragments and Guides Using COMPLETE Fragment Database '
+             f'(took {time.time() - get_complete_ghost_frags1_time_start:8f}s)')
+
     #################################
     if write_frags:  # implemented for Todd to work on C1 instances
         guide_file_ghost = os.path.join(os.getcwd(), f'{model1.name}_ghost_coords.txt')
@@ -793,12 +791,10 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
     # surface1_residue_array = np.tile(init_surf_residue_numbers1, len(init_ghost_residue_numbers2))
     # surface2_residue_array = np.tile(init_surf_residue_numbers2, len(init_ghost_residue_numbers1))
 
-    if not resume and keep_time:
-        log.info(f'Getting {model2.name} Oligomer 2 Ghost Fragments and Guides Using COMPLETE Fragment Database '
-                 f'(took {time.time() - get_complete_ghost_frags2_time_start:8f}s)')
+    log.info(f'Getting {model2.name} Oligomer 2 Ghost Fragments and Guides Using COMPLETE Fragment Database '
+             f'(took {time.time() - get_complete_ghost_frags2_time_start:8f}s)')
 
-    if not resume:
-        log.info('Obtaining Rotation/Degeneracy Matrices\n')
+    log.info('Obtaining Rotation/Degeneracy Matrices\n')
 
     rotation_steps = [rotation_step1, rotation_step2]
     number_of_degens = []
