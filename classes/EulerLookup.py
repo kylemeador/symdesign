@@ -220,36 +220,33 @@ class EulerLookup:
         """Convert rotation matrix to euler angles in the form of an integer triplet (integer values are degrees
         divided by 10; these become indices for a lookup table)
         """
-        # set maximum at 1 and minimum at -1 to obey the domain of arccos
-        # v3_a2 = v3_a[:, 2]
-        v3_a2 = np.maximum(-1, v3_a[:, 2])
-        v3_a2 = np.minimum(1, v3_a2)
-        # v3_a[:, 2] = np.minimum(1, np.maximum(-1, v3_a[:, 2]))
+        # Bound by a min of -1 and max of 1 as arccos is valid in the domain of [1 to -1]
+        e2_v = np.minimum(1, v3_a[:, 2])
+        np.maximum(-1, e2_v, out=e2_v)
 
-        # for the np.where statements below use the vector conditional
-        # # third_angle_not_degenerate = np.logical_or(v3_a[:, 2] < self.one_tolerance, v3_a[:, 2] > -self.one_tolerance)
-        # # third_angle_degenerate = np.abs(v3_a2) > self.one_tolerance
-        # third_angle_not_degenerate = np.abs(v3_a[:, 2]) < self.one_tolerance
-        # e1_v = np.where(~third_angle_not_degenerate,
-        #                 np.arctan2(v2_a[:, 0], v1_a[:, 0]),
-        #                 np.arctan2(v1_a[:, 2], -v2_a[:, 2]))
-        # e2_v = np.where(third_angle_not_degenerate, np.arccos(v3_a[:, 2]), 0)
-        # e2_v = np.where(v3_a[:, 2] < -self.one_tolerance, np.pi, e2_v)
-        # e3_v = np.where(third_angle_not_degenerate, np.arctan2(v3_a[:, 0], v3_a[:, 1]), 0)
-
-        third_angle_degenerate = np.logical_or(v3_a2 > self.one_tolerance, v3_a2 < -self.one_tolerance)
+        # Check if the third angle is degenerate
+        third_angle_degenerate = np.abs(e2_v) > self.one_tolerance
         e1_v = np.where(third_angle_degenerate,
                         np.arctan2(v2_a[:, 0], v1_a[:, 0]),
                         np.arctan2(v1_a[:, 2], -v2_a[:, 2]))
-        e2_v = np.where(~third_angle_degenerate, np.arccos(v3_a2), 0)
-        e2_v = np.where(v3_a2 < -self.one_tolerance, np.pi, e2_v)
-        e3_v = np.where(~third_angle_degenerate, np.arctan2(v3_a[:, 0], v3_a[:, 1]), 0)
 
-        eulint1 = ((np.rint(e1_v * self.eulint_divisor) + 36) % 36).astype(int)
-        eulint2 = np.rint(e2_v * self.eulint_divisor).astype(int)
-        eulint3 = ((np.rint(e3_v * self.eulint_divisor) + 36) % 36).astype(int)
+        # arccos returns values of [0 to pi]
+        np.arccos(e2_v, out=e2_v)
+        e3_v = np.where(third_angle_degenerate, 0, np.arctan2(*v3_a[:, :2].T))
 
-        return eulint1, eulint2, eulint3
+        # np.floor(e1_v*self.eulint_divisor + .5, out=e1_v)  # More accurate
+        np.rint(e1_v * self.eulint_divisor, out=e1_v)
+        e1_v += 36
+        e1_v %= 36
+        # np.floor(e3_v*self.eulint_divisor + .5, out=e3_v)  # More accurate
+        np.rint(e3_v * self.eulint_divisor, out=e3_v)
+        e3_v += 36
+        e3_v %= 36
+        # Values in range (0 to 18) (not inclusive)
+        # np.floor(e2_v*self.eulint_divisor + .5, out=e2_v)  # More accurate
+        np.rint(e2_v * self.eulint_divisor, out=e2_v)
+
+        return e1_v.astype(int), e2_v.astype(int), e3_v.astype(int)
 
     # @njit
     def lookup_by_euler_integers(self, eulintarray1: np.ndarray, eulintarray2: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
@@ -276,6 +273,7 @@ class EulerLookup:
         return index_array1[overlap], index_array2[overlap]  # these are the overlapping ij pairs
 
     def check_lookup_table(self, guide_coords1: np.ndarray, guide_coords2: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+        #                    return_bool: bool = False
         """Returns a tuple with the index of the first fragment and second fragment where they overlap
         """
         # ensure the atoms are passed as an array of (n, 3x3) matrices
@@ -312,7 +310,9 @@ class EulerLookup:
                                      np.tile(eulintarray2_1, indices1_len),
                                      np.tile(eulintarray2_2, indices1_len),
                                      np.tile(eulintarray2_3, indices1_len)]
-
+        # if return_bool:
+        #     return overlap
+        # else:
         return index_array1[overlap], index_array2[overlap]  # these are the overlapping ij pairs
 
 
