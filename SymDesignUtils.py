@@ -1087,7 +1087,7 @@ class SymmetryError(DesignError):
 
 # @njit
 def calculate_match(coords1: float | np.ndarray = None, coords2: float | np.ndarray = None,
-                    coords_rmsd_reference: float | np.ndarray = None) -> np.ndarray:
+                    coords_rmsd_reference: float | np.ndarray = None) -> float | np.ndarray:
     """Calculate the match score(s) between two sets of coordinates given a reference rmsd
 
     Args:
@@ -1143,14 +1143,14 @@ def rmsd(coords1: float | np.ndarray = None, coords2: float | np.ndarray = None)
 
 
 def z_value_from_match_score(match_score: float | np.ndarray) -> float | np.ndarray:
-    """Given a match score, convert to a z-value"""
-    return np.sqrt((1/match_score) - 1)
+    """Given a match score, convert to a z-value. sqrt(1/match_score - 1)"""
+    return np.sqrt(1/match_score - 1)
 
 
 # @njit
 def match_score_from_z_value(z_value: float | np.ndarray) -> float | np.ndarray:
-    """Return the match score from a fragment z-value. Bounded between 0 and 1"""
-    return 1 / (1 + (z_value**2))
+    """Return the match score from a fragment z-value -> 1 / (1 + z_value**2). Bounded between 0 and 1"""
+    return 1 / (1 + z_value**2)
 
 
 # @njit

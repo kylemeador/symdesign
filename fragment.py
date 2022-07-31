@@ -136,19 +136,24 @@ class FragmentDatabase(FragmentInfo):
                         ClusterInfoFile(os.path.join(root, file))
 
     def index_ghosts(self):
-        """From the fragment database, precompute all required data into arrays to populate Ghost Fragments"""
+        """From the fragment database, precompute all required data into numpy arrays to populate Ghost Fragments
+
+        keeping each data type as numpy array allows facile indexing for allowed ghosts if a clash test is performed
+        """
         self.indexed_ghosts = {}
         for i_type in self.paired_frags:
-            # must look up the partner coords by using stored chain_id
+            # Must look up the partner coords by using stored chain_id
             stacked_bb_coords = np.array([frag_pdb.chain(frag_paired_chain).backbone_coords
                                           for j_dict in self.paired_frags[i_type].values()
                                           for frag_pdb, frag_paired_chain in j_dict.values()])
-            # guide coords are stored with chain_id "9"
-            stacked_guide_coords = np.array([frag_pdb.chain('9').coords for j_dict in self.paired_frags[i_type].values()
+            # Todo store these as a numpy array instead of as a chain
+            # Guide coords are stored with chain_id "9"
+            stacked_guide_coords = np.array([frag_pdb.chain('9').coords
+                                             for j_dict in self.paired_frags[i_type].values()
                                              for frag_pdb, _, in j_dict.values()])
-            ijk_types = \
-                np.array([(i_type, j_type, k_type) for j_type, j_dict in self.paired_frags[i_type].items()
-                          for k_type in j_dict])
+            ijk_types = np.array([(i_type, j_type, k_type)
+                                  for j_type, j_dict in self.paired_frags[i_type].items()
+                                  for k_type in j_dict])
             # rmsd_array = np.array([self.info.cluster(type_set).rmsd for type_set in ijk_types])  # Todo
             rmsd_array = np.array([dictionary_lookup(self.info, type_set).rmsd for type_set in ijk_types])
             rmsd_array = np.where(rmsd_array == 0, 0.0001, rmsd_array)  # Todo ensure rmsd rounded correct upon creation
