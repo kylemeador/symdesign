@@ -532,6 +532,8 @@ class StructureBase:
     """
     _atom_indices: list[int] | None  # np.ndarray
     _coords: Coords
+    _copier: bool = False
+    """Whether the StructureBase is being copied by a Container object. If so cut corners"""
     _log: Log
     __parent: StructureBase | None
     state_attributes: set[str] = set()
@@ -896,18 +898,12 @@ class Atom(StructureBase):
     #         try:
     #             other._parent = self.parent.spawn
     #         except AttributeError:  # this copy was initiated by a Structure that is not the parent
-    #             self.log.debug(f'The copied {type(self).__name__} is being set as a parent. It was a dependent '
-    #                            f'previously')
-    #             # setattr(other, parent_variable, None)  # set parent explicitly as None
-    #             # # try:
-    #             # #     for attr in new_parent_attributes:
-    #             # #         other.__dict__[attr] = copy(self.__dict__[attr])
-    #             # # except KeyError:  # '_atoms' is not present and will be after _log, _coords
-    #             # #     pass
-    #             #
-    #             # # create a new, empty Coords instance
-    #             # self._coords = Coords(self.coords)
-    #             other.detach_from_parent()
+    #             # self.log.debug(f'The copied {type(self).__name__} is being set as a parent. It was a dependent '
+    #             #                f'previously')
+    #             if self._copier:  # Copy initiated by Atoms container
+    #                 pass
+    #             else:
+    #                 other.detach_from_parent()
     #
     #     return other
 
@@ -985,15 +981,13 @@ class Atoms:
         other.atoms = self.atoms.copy()
         # copy all Atom
         for idx, atom in enumerate(other.atoms):
+            # Set an attribute to indicate the atom shouldn't be "detached"
+            # since a Structure owns this Atoms instance
+            atom._copier = True
             other.atoms[idx] = copy(atom)
-        # copy all attributes. No! most are unchanged...
-        # # must copy any residue specific attributes
-        # for attr in Atoms.residue_specific_attributes:
-        #     try:
-        #         for idx, atom in enumerate(other):
-        #             setattr(other.atoms[idx], attr, copy(getattr(other.atoms[idx], attr)))
-        #     except AttributeError:  # the attribute may not be set yet, so we should ignore all and move on
-        #         continue
+            atom._copier = False
+
+        # other.find_prev_and_next()
 
         return other
 
@@ -2638,15 +2632,10 @@ class Residue(ResidueFragment, ContainsAtomsMixin):
             except AttributeError:  # this copy was initiated by a Structure that is not the parent
                 # self.log.debug(f'The copied {type(self).__name__} is being set as a parent. It was a dependent '
                 #                f'previously')
-                # setattr(other, parent_variable, None)  # set parent explicitly as None
-                # # try:
-                # #     for attr in new_parent_attributes:
-                # #         other.__dict__[attr] = copy(self.__dict__[attr])
-                # # except KeyError:  # '_residues' is not present and should be last
-                # #     pass
-                # # other._atoms.set_attributes(_parent=other)
-                # other._assign_atoms(self.atoms, coords=self.coords)
-                other.detach_from_parent()
+                if self._copier:  # Copy initiated by Residues container
+                    pass
+                else:
+                    other.detach_from_parent()
 
         return other
 
@@ -2740,7 +2729,11 @@ class Residues:
         other = self.__class__.__new__(self.__class__)
         other.residues = self.residues.copy()
         for idx, residue in enumerate(other.residues):
+            # Set an attribute to indicate the atom shouldn't be "detached"
+            # since a Structure owns this Atoms instance
+            residue._copier = True
             other.residues[idx] = copy(residue)
+            residue._copier = False
 
         other.find_prev_and_next()
 
