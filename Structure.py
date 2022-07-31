@@ -4787,19 +4787,23 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         frag_lower_range, frag_upper_range = fragment_db.fragment_range
 
         # Iterate over the residues in reverse to remove any indices that are missing and convert to coordinates
-        residues_ca_coords = []
-        for idx, residue in zip(range(len(residues)-1, -1, -1), residues[::-1]):
+        viable_residues, residues_ca_coords = [], []
+        # for idx, residue in zip(range(len(residues)-1, -1, -1), residues[::-1]):
+        for residue in residues:
             residue_set = \
                 residue.get_upstream(frag_lower_range) + [residue] + residue.get_downstream(frag_upper_range-1)
             if len(residue_set) == fragment_length:
                 residues_ca_coords.append([residue.ca_coords for residue in residue_set])
-            else:
-                residues.pop(idx)
+                viable_residues.append(residue)
+            # else:
+            #     popped = residues.pop(idx)
+            #     print('Popping', idx, 'which was:', popped.number)
+
         residue_ca_coords = np.array(residues_ca_coords)
 
         # Solve for fragment type (secondary structure classification could be used too)
         found_fragments = []
-        for idx, residue in enumerate(residues):
+        for idx, residue in enumerate(viable_residues):
             min_rmsd = float('inf')
             residue_ca_coord_set = residue_ca_coords[idx]
             for fragment_type, cluster_coords in representatives.items():
