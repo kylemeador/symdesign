@@ -830,6 +830,7 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
     #
     #     All guide_coords and reference_rmsds should be indexed to the same length and overlap
     #     """
+    #     mismatch = False
     #     inv_set_mat1 = np.linalg.inv(set_mat1)
     #     for shift_idx in range(1):
     #         rot1 = stack_rot1[shift_idx]
@@ -837,19 +838,19 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
     #         rot2 = stack_rot2[shift_idx]
     #         tx2 = stack_tx2[shift_idx]
     #
-    #         passing_ghost_coords = transform_coordinate_sets(test_ghost_guide_coords,
-    #                                                          rotation=rot1,
-    #                                                          translation=tx1,
-    #                                                          rotation2=set_mat1)
-    #         passing_surf_coords = transform_coordinate_sets(test_surf_guide_coords,
-    #                                                         rotation=rot2,
-    #                                                         translation=tx2,
-    #                                                         rotation2=set_mat2)
+    #         tnsfmd_ghost_coords = transform_coordinate_sets(test_ghost_guide_coords,
+    #                                                         rotation=rot1,
+    #                                                         translation=tx1,
+    #                                                         rotation2=set_mat1)
+    #         tnsfmd_surf_coords = transform_coordinate_sets(test_surf_guide_coords,
+    #                                                        rotation=rot2,
+    #                                                        translation=tx2,
+    #                                                        rotation2=set_mat2)
     #         int_euler_matching_ghost_indices, int_euler_matching_surf_indices = \
-    #             euler_lookup.check_lookup_table(passing_ghost_coords, passing_surf_coords)
+    #             euler_lookup.check_lookup_table(tnsfmd_ghost_coords, tnsfmd_surf_coords)
     #
-    #         all_fragment_match = calculate_match(passing_ghost_coords[int_euler_matching_ghost_indices],
-    #                                              passing_surf_coords[int_euler_matching_surf_indices],
+    #         all_fragment_match = calculate_match(tnsfmd_ghost_coords[int_euler_matching_ghost_indices],
+    #                                              tnsfmd_surf_coords[int_euler_matching_surf_indices],
     #                                              reference_rmsds[int_euler_matching_ghost_indices])
     #         high_qual_match_indices = np.flatnonzero(all_fragment_match >= high_quality_match_value)
     #         high_qual_match_count = len(high_qual_match_indices)
@@ -867,20 +868,16 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
     #
     #         # now try inverse
     #         inv_rot_mat1 = np.linalg.inv(rot1)
-    #         passing_surf_coords = transform_coordinate_sets(
-    #             transform_coordinate_sets(test_surf_guide_coords,
-    #                                       rotation=rot2,
-    #                                       translation=tx2,
-    #                                       rotation2=set_mat2),
-    #             rotation=inv_set_mat1,
-    #             translation=tx1 * -1,
-    #             rotation2=inv_rot_mat1)
-    #         int_euler_matching_ghost_indices, int_euler_matching_surf_indices = \
-    #             euler_lookup.check_lookup_table(test_ghost_guide_coords, passing_surf_coords)
+    #         tnsfmd_surf_coords_inv = transform_coordinate_sets(tnsfmd_surf_coords,
+    #                                                            rotation=inv_set_mat1,
+    #                                                            translation=tx1 * -1,
+    #                                                            rotation2=inv_rot_mat1)
+    #         int_euler_matching_ghost_indices_inv, int_euler_matching_surf_indices_inv = \
+    #             euler_lookup.check_lookup_table(test_ghost_guide_coords, tnsfmd_surf_coords_inv)
     #
-    #         all_fragment_match = calculate_match(test_ghost_guide_coords[int_euler_matching_ghost_indices],
-    #                                              passing_surf_coords[int_euler_matching_surf_indices],
-    #                                              reference_rmsds[int_euler_matching_ghost_indices])
+    #         all_fragment_match = calculate_match(test_ghost_guide_coords[int_euler_matching_ghost_indices_inv],
+    #                                              tnsfmd_surf_coords_inv[int_euler_matching_surf_indices_inv],
+    #                                              reference_rmsds[int_euler_matching_ghost_indices_inv])
     #         high_qual_match_indices = np.flatnonzero(all_fragment_match >= high_quality_match_value)
     #         high_qual_match_count = len(high_qual_match_indices)
     #         if high_qual_match_count < min_matched:
@@ -891,9 +888,59 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
     #         # Find the passing overlaps to limit the output to only those passing the low_quality_match_value
     #         passing_overlaps_indices = np.flatnonzero(all_fragment_match >= low_quality_match_value)
     #         number_passing_overlaps = len(passing_overlaps_indices)
+    #
     #         log.info(
     #             f'\t{high_qual_match_count} High Quality Fragments Out of {number_passing_overlaps} '
     #             f'Matches Found in Complete Fragment Library')
+    #
+    #         def investigate_mismatch():
+    #             log.info(f'Euler True ghost/surf indices forward and inverse don\'t match. '
+    #                      f'Shapes: Forward={int_euler_matching_ghost_indices.shape}, '
+    #                      f'Inverse={int_euler_matching_ghost_indices_inv.shape}')
+    #             log.debug(f'tnsfmd_ghost_coords.shape {tnsfmd_ghost_coords.shape}')
+    #             log.debug(f'tnsfmd_surf_coords.shape {tnsfmd_surf_coords.shape}')
+    #             int_euler_matching_array = \
+    #                 euler_lookup.check_lookup_table(tnsfmd_ghost_coords, tnsfmd_surf_coords, return_bool=True)
+    #             int_euler_matching_array_inv = \
+    #                 euler_lookup.check_lookup_table(test_ghost_guide_coords, tnsfmd_surf_coords_inv, return_bool=True)
+    #             # Change the shape to allow for relation to guide_coords
+    #             different = np.where(int_euler_matching_array != int_euler_matching_array_inv,
+    #                                  True, False).reshape(tnsfmd_ghost_coords.shape[0], -1)
+    #             ghost_indices, surface_indices = np.nonzero(different)
+    #             log.debug(f'different.shape {different.shape}')
+    #
+    #             different_ghosts = tnsfmd_ghost_coords[ghost_indices]
+    #             different_surf = tnsfmd_surf_coords[surface_indices]
+    #             tnsfmd_ghost_ints1, tnsfmd_ghost_ints2, tnsfmd_ghost_ints3 = \
+    #                 euler_lookup.get_eulint_from_guides(different_ghosts)
+    #             tnsfmd_surf_ints1, tnsfmd_surf_ints2, tnsfmd_surf_ints3 = \
+    #                 euler_lookup.get_eulint_from_guides(different_surf)
+    #             stacked_ints = np.stack([tnsfmd_ghost_ints1, tnsfmd_ghost_ints2, tnsfmd_ghost_ints3,
+    #                                      tnsfmd_surf_ints1, tnsfmd_surf_ints2, tnsfmd_surf_ints3], axis=0).T
+    #             log.info(
+    #                 f'The mismatched forward Euler ints are\n{[ints for ints in list(stacked_ints)[:10]]}\n')
+    #
+    #             different_ghosts_inv = test_ghost_guide_coords[ghost_indices]
+    #             different_surf_inv = tnsfmd_surf_coords_inv[surface_indices]
+    #             tnsfmd_ghost_ints_inv1, tnsfmd_ghost_ints_inv2, tnsfmd_ghost_ints_inv3 = \
+    #                 euler_lookup.get_eulint_from_guides(different_ghosts_inv)
+    #             tnsfmd_surf_ints_inv1, tnsfmd_surf_ints_inv2, tnsfmd_surf_ints_inv3 = \
+    #                 euler_lookup.get_eulint_from_guides(different_surf_inv)
+    #
+    #             stacked_ints_inv = \
+    #                 np.stack([tnsfmd_ghost_ints_inv1, tnsfmd_ghost_ints_inv2, tnsfmd_ghost_ints_inv3,
+    #                           tnsfmd_surf_ints_inv1, tnsfmd_surf_ints_inv2, tnsfmd_surf_ints_inv3], axis=0).T
+    #             log.info(
+    #                 f'The mismatched inverse Euler ints are\n{[ints for ints in list(stacked_ints_inv)[:10]]}\n')
+    #
+    #         if not np.array_equal(int_euler_matching_ghost_indices, int_euler_matching_ghost_indices_inv):
+    #             mismatch = True
+    #
+    #         if not np.array_equal(int_euler_matching_surf_indices, int_euler_matching_surf_indices_inv):
+    #             mismatch = True
+    #
+    #         if mismatch:
+    #             investigate_mismatch()
 
     # These must be 2d array, thus the , 2:3].T instead of , 2].T. [:, None, 2] also works
     zshift1 = set_mat1[:, None, 2].T if sym_entry.is_internal_tx1 else None
