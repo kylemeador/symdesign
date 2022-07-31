@@ -170,7 +170,39 @@ class EulerLookup:
         self.eulint_divisor = 180. / np.pi * 0.1 * self.one_tolerance
 
     # @njit
-    def get_eulint_from_guides(self, guide_coords: np.ndarray):
+    def get_eulint_from_guides_array(self, guide_coords: np.ndarray) -> np.ndarray:
+        """Take a set of guide atoms (3 xyz positions) and return integer indices for the euler angles describing the
+        orientations of the axes they form. Note that the positions are in a 3D array. Each guide_ats[i,:,:] is a 3x3
+        array with the vectors stored *in columns*, i.e. one vector is in [i,:,j]. Use known scale value to normalize,
+        to save repeated sqrt calculations
+        """
+        # # Todo Alternative
+        # e_array = np.zeros(guide_coords.shape)
+        # e_array[:, :2, :] = (guide_coords[:, 1:, :] - guide_coords[:, :1, :]) * self.normalization
+        # e_array[:, 2, :] = np.cross(e_array[:, 0], e_array[:, 1])
+        # # Bound by a min of -1 and max of 1 as arccos is valid in the domain of [1 to -1]
+        # e_array[:, 2, 2] = np.minimum(1, e_array[:, 2, 2])
+        # e_array[:, 2, 2] = np.maximum(-1, e_array[:, 2, 2])
+        # third_angle_degenerate = np.abs(e_array[:, 2, 2]) > self.one_tolerance
+        # # Put the results in the first position of every instances first vector
+        # # Second and third position are disregarded
+        # e_array[:, 0, 0] = np.where(third_angle_degenerate,
+        #                             np.arctan2(*e_array[:, :2, 0].T),
+        #                             np.arctan2(e_array[:, 0, 2], -e_array[:, 1, 2]))
+        # # Put the results in the first position of every instances second vector
+        # # arccos returns values of [0 to pi]
+        # e_array[:, 1, 0] = np.arccos(e_array[:, 2, 2])
+        # # Put the results in the first position of every instances third vector
+        # e_array[:, 2, 0] = np.where(third_angle_degenerate, 0, np.arctan2(*e_array[:, 2, :2].T))
+        # # Values in range (-18 to 18) (not inclusive) v. Then add 36 and divide by 36 to get the abs
+        # np.rint(e_array * self.eulint_divisor, out=e_array)
+        # e_array[:, [0, 2]] += 36
+        # e_array[:, [0, 2]] %= 36
+        # return e_array[:, :, 0].T.astype(int)
+        # # Todo Alternative
+
+    # @njit
+    def get_eulint_from_guides(self, guide_coords: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
         """Take a set of guide atoms (3 xyz positions) and return integer indices for the euler angles describing the
         orientations of the axes they form. Note that the positions are in a 3D array. Each guide_ats[i,:,:] is a 3x3
         array with the vectors stored *in columns*, i.e. one vector is in [i,:,j]. Use known scale value to normalize,
