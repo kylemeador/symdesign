@@ -1105,22 +1105,23 @@ def calculate_match(coords1: float | np.ndarray = None, coords2: float | np.ndar
 
 
 # @njit
-def calculate_overlap(coords1: np.ndarray = None, coords2: np.ndarray = None, coords_rmsd_reference: np.ndarray = None,
-                      max_z_value: float = 2.) -> np.ndarray:
+def rmsd_z_score(coords1: float | np.ndarray = None, coords2: float | np.ndarray = None,
+                 coords_rmsd_reference: float | np.ndarray = None) -> float | np.ndarray:
     """Calculate the overlap between two sets of coordinates given a reference rmsd
 
     Args:
         coords1: The first set of coordinates
         coords2: The second set of coordinates
         coords_rmsd_reference: The reference RMSD to compare each pair of coordinates against
-        max_z_value: The z-score deviation threshold of the overlap to be considered a match
     Returns:
         The overlap z-value where the RMSD between coords1 and coords2 is < max_z_value, otherwise False
     """
+    #         max_z_value: The z-score deviation threshold of the overlap to be considered a match
     # Calculate Guide Atom Overlap Z-Value
-    z_values = rmsd(coords1, coords2) / coords_rmsd_reference
+    return rmsd(coords1, coords2) / coords_rmsd_reference
+    # z_values = rmsd(coords1, coords2) / coords_rmsd_reference
     # filter z_values by passing threshold
-    return np.where(z_values < max_z_value, z_values, False)
+    # return np.where(z_values < max_z_value, z_values, False)
 
 
 # @njit mean doesn't take arguments

@@ -110,7 +110,7 @@ def find_fragment_overlap(entity1_coords: np.ndarray, residues1: list[Residue] |
     all_fragment_match = calculate_match(passing_ghost_coords, passing_frag_coords, reference_rmsds)
     passing_overlaps_indices = np.flatnonzero(all_fragment_match > min_match_value)
     # all_fragment_overlap = \
-    #     calculate_overlap(passing_ghost_coords, passing_frag_coords, reference_rmsds, max_z_value=max_z_value)
+    #     rmsd_z_score(passing_ghost_coords, passing_frag_coords, reference_rmsds, max_z_value=max_z_value)
     # logger.debug('Finished calculating fragment overlaps')
     # passing_overlap_indices = np.flatnonzero(all_fragment_overlap)
     logger.debug(f'Found {len(passing_overlaps_indices)} overlapping fragments over the {min_match_value} threshold')

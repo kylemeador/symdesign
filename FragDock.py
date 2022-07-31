@@ -192,11 +192,10 @@ def find_docked_poses(sym_entry, ijk_frag_db, pdb1, pdb2, optimal_tx_params, com
 
         # precalculate the reference_rmsds for each ghost fragment
         reference_rmsds = np.array([interface_ghost_frags[idx].rmsd for idx in passing_ghost_indices.tolist()])
-        all_fragment_overlap = calculate_overlap(passing_ghost_coords, passing_surf_coords, reference_rmsds,
-                                                 max_z_value=max_z_val)
+        all_fragment_overlap = rmsd_z_score(passing_ghost_coords, passing_surf_coords, reference_rmsds)
         # log.debug('Checking all fragment overlap at interface')
         # get the passing_overlap indices and associated z-values by finding all indices where the value is not false
-        passing_overlaps_indices = np.flatnonzero(all_fragment_overlap)  # .nonzero()[0]
+        passing_overlaps_indices = np.flatnonzero(np.where(all_fragment_overlap <= initial_z_value))
         passing_z_values = all_fragment_overlap[passing_overlaps_indices]
         # log.debug('Overlapping z-values: %s' % passing_z_values)
 
@@ -669,10 +668,10 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
                 raise IndexError('There was an issue indexing')
 
             ghost_reference_rmsds_residue1 = ghost_frag_rmsds_by_residue[residue_idx1][residue_idx1_ghost_indices]
-            overlapping_indices = calculate_overlap(ghost_coords_residue1,
-                                                    ghost_coords_residue2,
-                                                    ghost_reference_rmsds_residue1, max_z_value=initial_z_value)
-            same_component_overlapping_indices = np.flatnonzero(overlapping_indices)
+            overlapping_indices = rmsd_z_score(ghost_coords_residue1,
+                                               ghost_coords_residue2,
+                                               ghost_reference_rmsds_residue1)  # , max_z_value=initial_z_value)
+            same_component_overlapping_indices = np.flatnonzero(np.where(overlapping_indices <= initial_z_value))
             same_component_overlapping_ghost_frags[residue_idx1, residue_idx1_ghost_indices[same_component_overlapping_indices]] += 1
             same_component_overlapping_ghost_frags[residue_idx2, residue_idx2_ghost_indices[same_component_overlapping_indices]] += 1
 
@@ -1825,11 +1824,16 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
         passing_surf_indices = int_euler_matching_surf_indices2[ij_type_match]
         # passing_surf_coords = int_trans_surf_guide_coords2[passing_surf_indices]
 
-        # reference_rmsds = ghost_rmsds1[interface_ghost_indices1][int_euler_matching_ghost_indices1][ij_type_match]
-        # reference_rmsds = ghost_rmsds1[interface_ghost_indices1][passing_ghost_indices]
-        all_fragment_match = calculate_match(int_ghost_guide_coords1[passing_ghost_indices],
-                                             int_trans_surf_guide_coords2[passing_surf_indices],
-                                             ghost_rmsds1[ghost_indices_in_interface1[passing_ghost_indices]])
+        all_fragment_z_score = rmsd_z_score(ghost_guide_coords1[passing_ghost_indices],
+                                            inverse_transformed_surf_frags2_guide_coords[idx, passing_surf_indices],
+                                            ghost_rmsds1[passing_ghost_indices])
+        # all_fragment_match = calculate_match(ghost_guide_coords1[passing_ghost_indices],
+        #                                      inverse_transformed_surf_frags2_guide_coords[idx, passing_surf_indices],
+        #                                      ghost_rmsds1[passing_ghost_indices])
+        # all_fragment_match = calculate_match(np.tile(int_ghost_guide_coords1, (int_trans_surf_guide_coords2.shape[0], 1, 1)),
+        #                                      np.tile(int_trans_surf_guide_coords2, (int_ghost_guide_coords1.shape[0], 1, 1)),
+        #                                      np.tile(ghost_rmsds1[ghost_indices_in_interface1], int_trans_surf_guide_coords2.shape[0]))
+        # log.debug(f'indexing rmsds equality: {np.all(ghost_rmsds1[ghost_indices_in_interface1[passing_ghost_indices]] == ghost_rmsds1[ghost_indices_in_interface1][passing_ghost_indices])}')
         # rmds_ = rmsd(int_ghost_guide_coords1[passing_ghost_indices],
         #              int_trans_surf_guide_coords2[passing_surf_indices])
         # interface_residues = model1.get_residues(numbers=ghost_interface_residues)
