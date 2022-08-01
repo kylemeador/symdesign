@@ -6875,23 +6875,23 @@ def superposition3d(fixed_coords: np.ndarray, moving_coords: np.ndarray, a_weigh
     #     sum_weights = np.sum(a_weights, axis=0)
 
     # Find the center of mass of each object:
-    a_center_f = fixed_coords.sum(axis=0)
-    a_center_m = moving_coords.sum(axis=0)
+    center_of_mass_fixed = fixed_coords.sum(axis=0)
+    center_of_mass_moving = moving_coords.sum(axis=0)
 
     # Subtract the centers-of-mass from the original coordinates for each object
     # if sum_weights != 0:
     try:
-        a_center_f /= number_of_points
-        a_center_m /= number_of_points
+        center_of_mass_fixed /= number_of_points
+        center_of_mass_moving /= number_of_points
     except ZeroDivisionError:
         pass  # the weights are a total of zero which is allowed algorithmically, but not possible
 
     # Translate the center of mass to the origin
-    aa_xf = fixed_coords - a_center_f
-    aa_xm = moving_coords - a_center_m
+    fixed_coords_at_origin = fixed_coords - center_of_mass_fixed
+    moving_coords_at_origin = moving_coords - center_of_mass_moving
 
     # Calculate the "m" array from the Diamond paper (equation 16)
-    m = np.matmul(aa_xm.T, aa_xf)
+    m = np.matmul(moving_coords_at_origin.T, fixed_coords_at_origin)
 
     # Calculate "v" (equation 18)
     # v = np.empty(3)
@@ -6931,47 +6931,33 @@ def superposition3d(fixed_coords: np.ndarray, moving_coords: np.ndarray, a_weigh
         # (It should be normalized already, but just in case it is not, do it again)
         # optimal_quat /= np.linalg.norm(optimal_quat)
 
-    if quaternion:  # does the caller want the quaternion?
-        # The p array is a quaternion that uses this convention:
-        # https://docs.scipy.org/doc/scipy/reference/generated/scipy.spatial.transform.Rotation.from_quat.html
-        # However it seems that the following convention is much more popular:
-        # https://en.wikipedia.org/wiki/Quaternions_and_spatial_rotation
-        # https://mathworld.wolfram.com/Quaternion.html
-        # So I return "q" (a version of "p" using the more popular convention).
-        # q = np.empty(4)
-        # q[0], q[1], q[2], q[3] = p[3], p[0], p[1], p[2]
-        # aa_rotate = np.array([p[3], p[0], p[1], p[2]])
-        # KM I am using the scipy version for python continuity
-        aa_rotate = optimal_quat
-    else:
-        # Calculate the rotation matrix corresponding to "optimal_quat" which is in scipi quaternion format
-        """
-        aa_rotate = np.empty((3, 3))
-        aa_rotate[0][0] = (optimal_quat[0]*optimal_quat[0])-(optimal_quat[1]*optimal_quat[1])
-                         -(optimal_quat[2]*optimal_quat[2])+(optimal_quat[3]*optimal_quat[3])
-        aa_rotate[1][1] = -(optimal_quat[0]*optimal_quat[0])+(optimal_quat[1]*optimal_quat[1])
-                          -(optimal_quat[2]*optimal_quat[2])+(optimal_quat[3]*optimal_quat[3])
-        aa_rotate[2][2] = -(optimal_quat[0]*optimal_quat[0])-(optimal_quat[1]*optimal_quat[1])
-                          +(optimal_quat[2]*optimal_quat[2])+(optimal_quat[3]*optimal_quat[3])
-        aa_rotate[0][1] = 2*(optimal_quat[0]*optimal_quat[1] - optimal_quat[2]*optimal_quat[3])
-        aa_rotate[1][0] = 2*(optimal_quat[0]*optimal_quat[1] + optimal_quat[2]*optimal_quat[3])
-        aa_rotate[1][2] = 2*(optimal_quat[1]*optimal_quat[2] - optimal_quat[0]*optimal_quat[3])
-        aa_rotate[2][1] = 2*(optimal_quat[1]*optimal_quat[2] + optimal_quat[0]*optimal_quat[3])
-        aa_rotate[0][2] = 2*(optimal_quat[0]*optimal_quat[2] + optimal_quat[1]*optimal_quat[3])
-        aa_rotate[2][0] = 2*(optimal_quat[0]*optimal_quat[2] - optimal_quat[1]*optimal_quat[3])
-        """
-        # Alternatively, in modern python versions, this code also works:
-        the_rotation = Rotation.from_quat(optimal_quat)
-        aa_rotate = the_rotation.as_matrix()
+    # Calculate the rotation matrix corresponding to "optimal_quat" which is in scipy quaternion format
+    """
+    rotation_matrix = np.empty((3, 3))
+    rotation_matrix[0][0] = (optimal_quat[0]*optimal_quat[0])-(optimal_quat[1]*optimal_quat[1])
+                     -(optimal_quat[2]*optimal_quat[2])+(optimal_quat[3]*optimal_quat[3])
+    rotation_matrix[1][1] = -(optimal_quat[0]*optimal_quat[0])+(optimal_quat[1]*optimal_quat[1])
+                      -(optimal_quat[2]*optimal_quat[2])+(optimal_quat[3]*optimal_quat[3])
+    rotation_matrix[2][2] = -(optimal_quat[0]*optimal_quat[0])-(optimal_quat[1]*optimal_quat[1])
+                      +(optimal_quat[2]*optimal_quat[2])+(optimal_quat[3]*optimal_quat[3])
+    rotation_matrix[0][1] = 2*(optimal_quat[0]*optimal_quat[1] - optimal_quat[2]*optimal_quat[3])
+    rotation_matrix[1][0] = 2*(optimal_quat[0]*optimal_quat[1] + optimal_quat[2]*optimal_quat[3])
+    rotation_matrix[1][2] = 2*(optimal_quat[1]*optimal_quat[2] - optimal_quat[0]*optimal_quat[3])
+    rotation_matrix[2][1] = 2*(optimal_quat[1]*optimal_quat[2] + optimal_quat[0]*optimal_quat[3])
+    rotation_matrix[0][2] = 2*(optimal_quat[0]*optimal_quat[2] + optimal_quat[1]*optimal_quat[3])
+    rotation_matrix[2][0] = 2*(optimal_quat[0]*optimal_quat[2] - optimal_quat[1]*optimal_quat[3])
+    """
+    # Alternatively, in modern python versions, this code also works:
+    rotation_matrix = Rotation.from_quat(optimal_quat).as_matrix()
 
     # Finally compute the RMSD between the two coordinate sets:
     # First compute E0 from equation 24 of the paper
-    # e0 = np.sum((aa_xf - aa_xm) ** 2)
-    # sum_sqr_dist = max(0, ((aa_xf-aa_xm) ** 2).sum() - 2.*pPp)
+    # e0 = np.sum((fixed_coords_at_origin - moving_coords_at_origin) ** 2)
+    # sum_sqr_dist = max(0, ((fixed_coords_at_origin-moving_coords_at_origin) ** 2).sum() - 2.*pPp)
 
     # if sum_weights != 0.:
     try:
-        rmsd = np.sqrt(max(0, ((aa_xf-aa_xm) ** 2).sum() - 2.*pPp) / number_of_points)
+        rmsd = np.sqrt(max(0, ((fixed_coords_at_origin-moving_coords_at_origin) ** 2).sum() - 2.*pPp) / number_of_points)
     except ZeroDivisionError:
         rmsd = 0.  # the weights are a total of zero which is allowed algorithmically, but not possible
 
@@ -6983,13 +6969,26 @@ def superposition3d(fixed_coords: np.ndarray, moving_coords: np.ndarray, a_weigh
     # x_i' = Σ_j c*R_ij*x_j + T_i
     #      = Xcm_i + c*R_ij*(x_j - xcm_j)
     #  and Xcm and xcm = center_of_mass for the frozen and mobile point clouds
-    #                  = a_center_f[]       and       a_center_m[],  respectively
+    #                  = center_of_mass_fixed[]       and       center_of_mass_moving[],  respectively
     # Hence:
     #  T_i = Xcm_i - Σ_j c*R_ij*xcm_j  =  a_translate[i]
 
-    # a_translate = a_center_f - np.matmul(c * aa_rotate, a_center_m).T.reshape(3,)
+    # a_translate = center_of_mass_fixed - np.matmul(c * rotation_matrix, center_of_mass_moving).T.reshape(3,)
 
-    return rmsd, aa_rotate, a_center_f - np.matmul(aa_rotate, a_center_m).T.reshape(3,)
+    # Calculate the translation
+    translation = center_of_mass_fixed - np.matmul(rotation_matrix, center_of_mass_moving)
+    if quaternion:  # does the caller want the quaternion?
+        # The p array is a quaternion that uses this convention:
+        # https://docs.scipy.org/doc/scipy/reference/generated/scipy.spatial.transform.Rotation.from_quat.html
+        # However it seems that the following convention is much more popular:
+        # https://en.wikipedia.org/wiki/Quaternions_and_spatial_rotation
+        # https://mathworld.wolfram.com/Quaternion.html
+        # So I return "q" (a version of "p" using the more popular convention).
+        # rotation_matrix = np.array([p[3], p[0], p[1], p[2]])
+        # KM: Disregard above, I am using the scipy version for python continuity
+        return rmsd, optimal_quat, translation
+    else:
+        return rmsd, rotation_matrix, translation
 
 
 def superposition3d_weighted(fixed_coords: np.ndarray, moving_coords: np.ndarray, a_weights: np.ndarray = None,
@@ -7099,38 +7098,24 @@ def superposition3d_weighted(fixed_coords: np.ndarray, moving_coords: np.ndarray
         # (It should be normalized already, but just in case it is not, do it again)
         optimal_quat /= np.linalg.norm(optimal_quat)
 
-    if quaternion:  # does the caller want the quaternion?
-        # The p array is a quaternion that uses this convention:
-        # https://docs.scipy.org/doc/scipy/reference/generated/scipy.spatial.transform.Rotation.from_quat.html
-        # However it seems that the following convention is much more popular:
-        # https://en.wikipedia.org/wiki/Quaternions_and_spatial_rotation
-        # https://mathworld.wolfram.com/Quaternion.html
-        # So I return "q" (a version of "p" using the more popular convention).
-        # q = np.empty(4)
-        # q[0], q[1], q[2], q[3] = p[3], p[0], p[1], p[2]
-        # aa_rotate = np.array([p[3], p[0], p[1], p[2]])
-        # KM I am using the scipy version for python continuity
-        aa_rotate = optimal_quat
-    else:
-        # Calculate the rotation matrix corresponding to "optimal_quat" which is in scipi quaternion format
-        """
-        aa_rotate = np.empty((3, 3))
-        aa_rotate[0][0] = (optimal_quat[0]*optimal_quat[0])-(optimal_quat[1]*optimal_quat[1])
-                         -(optimal_quat[2]*optimal_quat[2])+(optimal_quat[3]*optimal_quat[3])
-        aa_rotate[1][1] = -(optimal_quat[0]*optimal_quat[0])+(optimal_quat[1]*optimal_quat[1])
-                          -(optimal_quat[2]*optimal_quat[2])+(optimal_quat[3]*optimal_quat[3])
-        aa_rotate[2][2] = -(optimal_quat[0]*optimal_quat[0])-(optimal_quat[1]*optimal_quat[1])
-                          +(optimal_quat[2]*optimal_quat[2])+(optimal_quat[3]*optimal_quat[3])
-        aa_rotate[0][1] = 2*(optimal_quat[0]*optimal_quat[1] - optimal_quat[2]*optimal_quat[3])
-        aa_rotate[1][0] = 2*(optimal_quat[0]*optimal_quat[1] + optimal_quat[2]*optimal_quat[3])
-        aa_rotate[1][2] = 2*(optimal_quat[1]*optimal_quat[2] - optimal_quat[0]*optimal_quat[3])
-        aa_rotate[2][1] = 2*(optimal_quat[1]*optimal_quat[2] + optimal_quat[0]*optimal_quat[3])
-        aa_rotate[0][2] = 2*(optimal_quat[0]*optimal_quat[2] + optimal_quat[1]*optimal_quat[3])
-        aa_rotate[2][0] = 2*(optimal_quat[0]*optimal_quat[2] - optimal_quat[1]*optimal_quat[3])
-        """
-        # Alternatively, in modern python versions, this code also works:
-        the_rotation = Rotation.from_quat(optimal_quat)
-        aa_rotate = the_rotation.as_matrix()
+    # Calculate the rotation matrix corresponding to "optimal_quat" which is in scipy quaternion format
+    """
+    rotation_matrix = np.empty((3, 3))
+    rotation_matrix[0][0] = (optimal_quat[0]*optimal_quat[0])-(optimal_quat[1]*optimal_quat[1])
+                     -(optimal_quat[2]*optimal_quat[2])+(optimal_quat[3]*optimal_quat[3])
+    rotation_matrix[1][1] = -(optimal_quat[0]*optimal_quat[0])+(optimal_quat[1]*optimal_quat[1])
+                      -(optimal_quat[2]*optimal_quat[2])+(optimal_quat[3]*optimal_quat[3])
+    rotation_matrix[2][2] = -(optimal_quat[0]*optimal_quat[0])-(optimal_quat[1]*optimal_quat[1])
+                      +(optimal_quat[2]*optimal_quat[2])+(optimal_quat[3]*optimal_quat[3])
+    rotation_matrix[0][1] = 2*(optimal_quat[0]*optimal_quat[1] - optimal_quat[2]*optimal_quat[3])
+    rotation_matrix[1][0] = 2*(optimal_quat[0]*optimal_quat[1] + optimal_quat[2]*optimal_quat[3])
+    rotation_matrix[1][2] = 2*(optimal_quat[1]*optimal_quat[2] - optimal_quat[0]*optimal_quat[3])
+    rotation_matrix[2][1] = 2*(optimal_quat[1]*optimal_quat[2] + optimal_quat[0]*optimal_quat[3])
+    rotation_matrix[0][2] = 2*(optimal_quat[0]*optimal_quat[2] + optimal_quat[1]*optimal_quat[3])
+    rotation_matrix[2][0] = 2*(optimal_quat[0]*optimal_quat[2] - optimal_quat[1]*optimal_quat[3])
+    """
+    # Alternatively, in modern python versions, this code also works:
+    rotation_matrix = Rotation.from_quat(optimal_quat).as_matrix()
 
     # Finally compute the RMSD between the two coordinate sets:
     # First compute E0 from equation 24 of the paper
@@ -7158,6 +7143,20 @@ def superposition3d_weighted(fixed_coords: np.ndarray, moving_coords: np.ndarray
     # a_translate = a_center_f - np.matmul(c * aa_rotate, a_center_m).T.reshape(3,)
 
     return rmsd, aa_rotate, a_center_f - np.matmul(aa_rotate, a_center_m).T.reshape(3,)
+    # Calculate the translation
+    translation = center_of_mass_fixed - np.matmul(rotation_matrix, center_of_mass_moving)
+    if quaternion:  # does the caller want the quaternion?
+        # The p array is a quaternion that uses this convention:
+        # https://docs.scipy.org/doc/scipy/reference/generated/scipy.spatial.transform.Rotation.from_quat.html
+        # However it seems that the following convention is much more popular:
+        # https://en.wikipedia.org/wiki/Quaternions_and_spatial_rotation
+        # https://mathworld.wolfram.com/Quaternion.html
+        # So I return "q" (a version of "p" using the more popular convention).
+        # rotation_matrix = np.array([p[3], p[0], p[1], p[2]])
+        # KM: Disregard above, I am using the scipy version for python continuity
+        return rmsd, optimal_quat, translation
+    else:
+        return rmsd, rotation_matrix, translation
 
 
 def parse_stride(stride_file, **kwargs):
