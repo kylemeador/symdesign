@@ -1843,8 +1843,11 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
                              model2_coords_indexed_residues[model2_cb_indices[model2_idx]].number)
                             for model2_idx, model1_contacts in enumerate(model2_query)
                             for model1_idx in model1_contacts]
-        # try:
-        interface_residue_numbers1, interface_residue_numbers2 = map(list, map(set, zip(*contacting_pairs)))
+        try:
+            interface_residue_numbers1, interface_residue_numbers2 = map(list, map(set, zip(*contacting_pairs)))
+        except ValueError:  # not enough values to unpack from interface containing no residues
+            log.warning('Interface contains no residues')
+            continue
         # These were interface_surf_frags and interface_ghost_frags
         # interface_ghost_indices1 = \
         #     np.concatenate([np.where(ghost_residue_numbers1 == residue) for residue in interface_residue_numbers1])
