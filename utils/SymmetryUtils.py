@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import math
 import os
 from typing import List, Union
 
 import numpy as np
+from scipy.spatial.transform import Rotation
 
 from PathUtils import sym_op_location, point_group_symmetry_operator_location, space_group_symmetry_operator_location
 from SymDesignUtils import unpickle, pickle_object
@@ -102,32 +104,41 @@ all_sym_entry_dict = {'T': {'C2': {'C3': 5}, 'C3': {'C2': 5, 'C3': 54}, 'T': 200
 max_sym = 6
 rotation_range = {'C%d' % i: 360 / i for i in map(float, range(1, max_sym + 1))}
 setting_matrices = {
-    1: np.array([[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]]),
-    # identity
-    2: np.array([[0.0, 0.0, 1.0], [0.0, 1.0, 0.0], [-1.0, 0.0, 0.0]]),
-    # 90 degrees CCW on Y
-    3: np.array([[0.707107, 0.0, 0.707107], [0.0, 1.0, 0.0], [-0.707107, 0.0, 0.707107]]),
-    # 45 degrees CCW on Y, which is 2-fold axis in T, O
-    4: np.array([[0.707107, 0.408248, 0.577350], [-0.707107, 0.408248, 0.577350], [0.0, -0.816497, 0.577350]]),
-    # 45 degrees CW on X, 45 degrees CW on Z, which is X,Y,Z body diagonal or 3-fold axis in T, O
-    5: np.array([[0.707107, 0.707107, 0.0], [-0.707107, 0.707107, 0.0], [0.0, 0.0, 1.0]]),
-    # 45 degrees CW on Z
-    6: np.array([[1.0, 0.0, 0.0], [0.0, 0.0, 1.0], [0.0, -1.0, 0.0]]),
+    1: np.array([[1., 0., 0.], [0., 1., 0.], [0., 0., 1.]]),
+    # Identity
+    2: np.array([[0., 0., 1.], [0., 1., 0.], [-1., 0., 0.]]),
+    # 90 degrees CW on Y
+    3: np.array([[.707107, 0., .707107], [0., 1.0, 0.], [-.707107, 0., .707107]]),
+    # 3: Rotation.from_euler('y', -math.pi/2),  # Todo test
+    # 45 degrees CW on Y, which is 2-fold axis in T, O
+    # 4: np.array([[0.707107, 0.408248, 0.577350], [-0.707107, 0.408248, 0.577350], [0.0, -0.816497, 0.577350]]),
+    4: Rotation.from_euler('xz', (-math.acos(-1/3)/2, -math.pi/4)).as_matrix(),
+    # ~54.73 degrees CCW on X, 45 degrees CCW on Z, which is X,Y,Z body diagonal or 3-fold axis in T, O
+    5: np.array([[.707107, .707107, 0.], [-.707107, .707107, 0.0], [0., 0., 1.]]),
+    # 5: Rotation.from_euler('z', -math.pi/4),  # Todo test
+    # 45 degrees CCW on Z
+    6: np.array([[1., 0., 0.], [0., 0., 1.], [0., -1., 0.]]),
     # 90 degrees CW on X
-    7: np.array([[1.0, 0.0, 0.0], [0.0, 0.934172, 0.356822], [0.0, -0.356822, 0.934172]]),
-    # ~20.9 degrees CW on X which is 3-fold axis in I (2-fold is positive Z)
-    8: np.array([[0.0, 0.707107, 0.707107], [0.0, -0.707107, 0.707107], [1.0, 0.0, 0.0]]),
-    # 90 degrees CW on Y, 135 degrees CW on Z, which is 45 degree X,Y plane diagonal in D4
-    9: np.array([[0.850651, 0.0, 0.525732], [0.0, 1.0, 0.0], [-0.525732, 0.0, 0.850651]]),
-    # ~31.7 degrees CCW on Y which is 5-fold axis in I (2-fold is positive Z)
-    10: np.array([[0.0, 0.5, 0.866025], [0.0, -0.866025, 0.5], [1.0, 0.0, 0.0]]),
-    # 90 degrees CW on Y, 150 degrees CW on Z, which is 60 degree X,Y plane diagonal in D6
-    11: np.array([[0.0, -1.0, 0.0], [1.0, 0.0, 0.0], [0.0, 0.0, 1.0]]),
+    # 7: np.array([[1., 0., 0.], [0., .934172, .356822], [0., -.356822, .934172]]),
+    7: Rotation.from_euler('x', (math.pi - math.acos(-math.sqrt(5)/3)) / 2).as_matrix(),
+    # ~20.91 degrees CCW on X which is 3-fold axis in I (2-fold is positive Z)
+    8: np.array([[0., .707107, .707107], [0., -.707107, .707107], [1., 0., 0.]]),
+    # 8: Rotation.from_euler('yz', (-math.pi/2, -math.pi*3/4)),  # Todo test
+    # 90 degrees CCW on Y, 135 degrees CCW on Z, which is 45 degree X,Y plane diagonal in D4
+    # 9: np.array([[.850651, 0., .525732], [0., 1., 0.], [-0.525732, 0., .850651]]),
+    9: Rotation.from_euler('y', (math.pi - math.acos(-math.sqrt(5) / 5)) / 2).as_matrix(),
+    # ~31.72 degrees CW on Y which is 5-fold axis in I (2-fold is positive Z)
+    10: np.array([[0., .5, .866025], [0., -.866025, .5], [1., 0., 0.]]),
+    # 10: Rotation.from_euler('yz', (-math.pi/2, -math.pi/5)),  # Todo test
+    # 90 degrees CCW on Y, 150 degrees CCW on Z, which is 60 degree X,Y plane diagonal in D6
+    11: np.array([[0., -1., 0.], [1., 0., 0.], [0., 0., 1.]]),
     # 90 degrees CCW on Z
-    12: np.array([[0.707107, -0.408248, 0.577350], [0.707107, 0.408248, -0.577350], [0.0, 0.816497, 0.577350]]),
-    # 45 degrees CCW on X, 45 degrees CCW on Z, which is X,-Y,Z body diagonal or opposite 3-fold in T, O
-    13: np.array([[0.5, -0.866025, 0.0], [0.866025, 0.5, 0.0], [0.0, 0.0, 1.0]])
-    # 60 degrees CCW on Z
+    # 12: np.array([[0.707107, -0.408248, 0.577350], [0.707107, 0.408248, -0.577350], [0.0, 0.816497, 0.577350]]),
+    12: Rotation.from_euler('xz', (math.acos(-1 / 3) / 2, math.pi / 4)).as_matrix(),
+    # ~54.73 degrees CW on X, 45 degrees CW on Z, which is X,-Y,Z body diagonal or opposite 3-fold in T, O
+    13: np.array([[.5, -.866025, 0.], [.866025, .5, 0.], [0., 0., 1.]])
+    # 13: Rotation.from_euler('z', math.pi/3),  # Todo test
+    # 60 degrees CW on Z
     }
 inv_setting_matrices = {key: np.linalg.inv(setting_matrix) for key, setting_matrix in setting_matrices.items()}
 flip_x_matrix = np.array([[1.0, 0.0, 0.0], [0.0, -1.0, 0.0], [0.0, 0.0, -1.0]])  # rot 180x
