@@ -1,3 +1,4 @@
+import time
 from typing import Annotated
 
 import numpy as np
@@ -170,36 +171,39 @@ class EulerLookup:
         self.eulint_divisor = 180. / np.pi * 0.1 * self.one_tolerance
 
     # @njit
-    def get_eulint_from_guides_array(self, guide_coords: np.ndarray) -> np.ndarray:
+    def get_eulint_from_guides_as_array(self, guide_coords: np.ndarray) -> np.ndarray:
         """Take a set of guide atoms (3 xyz positions) and return integer indices for the euler angles describing the
         orientations of the axes they form. Note that the positions are in a 3D array. Each guide_ats[i,:,:] is a 3x3
         array with the vectors stored *in columns*, i.e. one vector is in [i,:,j]. Use known scale value to normalize,
         to save repeated sqrt calculations
         """
-        # # Todo Alternative
-        # e_array = np.zeros(guide_coords.shape)
-        # e_array[:, :2, :] = (guide_coords[:, 1:, :] - guide_coords[:, :1, :]) * self.normalization
-        # e_array[:, 2, :] = np.cross(e_array[:, 0], e_array[:, 1])
-        # # Bound by a min of -1 and max of 1 as arccos is valid in the domain of [1 to -1]
-        # e_array[:, 2, 2] = np.minimum(1, e_array[:, 2, 2])
-        # e_array[:, 2, 2] = np.maximum(-1, e_array[:, 2, 2])
-        # third_angle_degenerate = np.abs(e_array[:, 2, 2]) > self.one_tolerance
-        # # Put the results in the first position of every instances first vector
-        # # Second and third position are disregarded
-        # e_array[:, 0, 0] = np.where(third_angle_degenerate,
-        #                             np.arctan2(*e_array[:, :2, 0].T),
-        #                             np.arctan2(e_array[:, 0, 2], -e_array[:, 1, 2]))
-        # # Put the results in the first position of every instances second vector
-        # # arccos returns values of [0 to pi]
-        # e_array[:, 1, 0] = np.arccos(e_array[:, 2, 2])
-        # # Put the results in the first position of every instances third vector
-        # e_array[:, 2, 0] = np.where(third_angle_degenerate, 0, np.arctan2(*e_array[:, 2, :2].T))
-        # # Values in range (-18 to 18) (not inclusive) v. Then add 36 and divide by 36 to get the abs
-        # np.rint(e_array * self.eulint_divisor, out=e_array)
-        # e_array[:, [0, 2]] += 36
-        # e_array[:, [0, 2]] %= 36
+        # Todo Alternative
+        e_array = np.zeros(guide_coords.shape)
+        e_array[:, :2, :] = (guide_coords[:, 1:, :] - guide_coords[:, :1, :]) * self.normalization
+        e_array[:, 2, :] = np.cross(e_array[:, 0], e_array[:, 1])
+        # Bound by a min of -1 and max of 1 as arccos is valid in the domain of [1 to -1]
+        e_array[:, 2, 2] = np.minimum(1, e_array[:, 2, 2])
+        e_array[:, 2, 2] = np.maximum(-1, e_array[:, 2, 2])
+        third_angle_degenerate = np.abs(e_array[:, 2, 2]) > self.one_tolerance
+        # Put the results in the first position of every instances first vector
+        # Second and third position are disregarded
+        e_array[:, 0, 0] = np.where(third_angle_degenerate,
+                                    np.arctan2(*e_array[:, :2, 0].T),
+                                    np.arctan2(e_array[:, 0, 2], -e_array[:, 1, 2]))
+        # Put the results in the first position of every instances second vector
+        # arccos returns values of [0 to pi]
+        e_array[:, 1, 0] = np.arccos(e_array[:, 2, 2])
+        # Put the results in the first position of every instances third vector
+        e_array[:, 2, 0] = np.where(third_angle_degenerate, 0, np.arctan2(*e_array[:, 2, :2].T))
+        # Values in range (-18 to 18) (not inclusive) v. Then add 36 and divide by 36 to get the abs
+        np.rint(e_array * self.eulint_divisor, out=e_array)
+        e_array[:, [0, 2]] += 36
+        e_array[:, [0, 2]] %= 36
+        # # This way allows unpacking for check_lookup_table()
         # return e_array[:, :, 0].T.astype(int)
-        # # Todo Alternative
+        # This returns in the intuitive column orientation with "C" array ordering
+        return e_array[:, :, 0].astype(int)
+        # Todo Alternative
 
     # @njit
     def get_eulint_from_guides(self, guide_coords: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
@@ -249,7 +253,36 @@ class EulerLookup:
         return e1_v.astype(int), e2_v.astype(int), e3_v.astype(int)
 
     # @njit
-    def lookup_by_euler_integers(self, eulintarray1: np.ndarray, eulintarray2: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    def lookup_by_euler_integers(self, *args: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+        """Returns a tuple with the index of the first fragment and second fragment where they overlap
+        """
+        # Unpack each of the integer arrays
+        eulintarray1_1, eulintarray1_2, eulintarray1_3, eulintarray2_1, eulintarray2_2, eulintarray2_3 = args
+
+        indices1_len, indices2_len = eulintarray1_1.shape[0], eulintarray2_1.shape[0]
+
+        index_array1 = np.repeat(np.arange(indices1_len), indices2_len)
+        index_array2 = np.tile(np.arange(indices2_len), indices1_len)
+
+        # Construct the correctly sized arrays to lookup euler space matching pairs from the all to all guide_coords
+        # there may be some solution where numpy.meshgrid is used to broadcast the euler ints
+        # check lookup table
+        # start = time.time()
+        overlap = self.eul_lookup_40[np.repeat(eulintarray1_1, indices2_len),
+                                     np.repeat(eulintarray1_2, indices2_len),
+                                     np.repeat(eulintarray1_3, indices2_len),
+                                     np.tile(eulintarray2_1, indices1_len),
+                                     np.tile(eulintarray2_2, indices1_len),
+                                     np.tile(eulintarray2_3, indices1_len)]
+        # logger.debug(f'took {time.time() - start:8f}s')
+        # overlap = self.eul_lookup_40[*stacked_eulintarray1.T,
+        #                              stacked_eulintarray2.T]
+        # there may be some solution where numpy.ix_ is used to broadcast the index operation
+
+        return index_array1[overlap], index_array2[overlap]  # these are the overlapping ij pairs
+
+    # @njit
+    def lookup_by_euler_integers_as_array(self, eulintarray1: np.ndarray, eulintarray2: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
         """Returns a tuple with the index of the first fragment and second fragment where they overlap
         """
         indices1_len, indices2_len = eulintarray1.shape[0], eulintarray2.shape[0]
@@ -259,15 +292,32 @@ class EulerLookup:
 
         # Construct the correctly sized arrays to lookup euler space matching pairs from the all to all guide_coords
         # there may be some solution where numpy.meshgrid is used to broadcast the euler ints
-        stacked_eulintarray1 = np.tile(eulintarray1, (indices2_len, 1))
-        stacked_eulintarray2 = np.tile(eulintarray2, (indices1_len, 1))
+        # stacked_eulintarray1 = np.tile(eulintarray1, (indices2_len, 1))
+        # stacked_eulintarray2 = np.tile(eulintarray2, (indices1_len, 1))
+        # # check lookup table
+        # overlap = self.eul_lookup_40[stacked_eulintarray1[:, 0],
+        #                              stacked_eulintarray1[:, 1],
+        #                              stacked_eulintarray1[:, 2],
+        #                              stacked_eulintarray2[:, 0],
+        #                              stacked_eulintarray2[:, 1],
+        #                              stacked_eulintarray2[:, 2]]
+        # Transpose the intarray to have each of the columns unpacked as individual arrays
+        eulintarray1_1, eulintarray1_2, eulintarray1_3 = eulintarray1.T
+        eulintarray2_1, eulintarray2_2, eulintarray2_3 = eulintarray2.T
+
+        # Construct the correctly sized arrays to lookup euler space matching pairs from the all to all guide_coords
+        # there may be some solution where numpy.meshgrid is used to broadcast the euler ints
         # check lookup table
-        overlap = self.eul_lookup_40[stacked_eulintarray1[:, 0],
-                                     stacked_eulintarray1[:, 1],
-                                     stacked_eulintarray1[:, 2],
-                                     stacked_eulintarray2[:, 0],
-                                     stacked_eulintarray2[:, 1],
-                                     stacked_eulintarray2[:, 2]]
+        # start = time.time()
+        overlap = self.eul_lookup_40[np.repeat(eulintarray1_1, indices2_len),
+                                     np.repeat(eulintarray1_2, indices2_len),
+                                     np.repeat(eulintarray1_3, indices2_len),
+                                     np.tile(eulintarray2_1, indices1_len),
+                                     np.tile(eulintarray2_2, indices1_len),
+                                     np.tile(eulintarray2_3, indices1_len)]
+        # logger.debug(f'took {time.time() - start:8f}s')
+        # overlap = self.eul_lookup_40[*stacked_eulintarray1.T,
+        #                              stacked_eulintarray2.T]
         # there may be some solution where numpy.ix_ is used to broadcast the index operation
 
         return index_array1[overlap], index_array2[overlap]  # these are the overlapping ij pairs
