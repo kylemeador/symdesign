@@ -896,7 +896,7 @@ def make_rotations_degenerate(rotations: np.ndarray | list[np.ndarray] | list[li
     """
     if rotations is None:
         rotations = identity_matrix[None, :, :]  # expand to shape (1, 3, 3)
-    elif np.all(rotations[0] == identity_matrix):
+    elif np.all(identity_matrix == rotations[0]):
         pass  # This is correct
     else:
         logger.warning(f'{make_rotations_degenerate.__name__}: The argument "rotations" is missing an identity '
@@ -906,7 +906,7 @@ def make_rotations_degenerate(rotations: np.ndarray | list[np.ndarray] | list[li
 
     if degeneracies is None:
         degeneracies = identity_matrix[None, :, :]  # expand to shape (1, 3, 3)
-    elif np.all(degeneracies[0] == identity_matrix):
+    elif np.all(identity_matrix == degeneracies[0]):
         pass  # This is correct
     else:
         logger.warning(f'{make_rotations_degenerate.__name__}: The argument "degeneracies" is missing an identity '
