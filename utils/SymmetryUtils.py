@@ -103,6 +103,7 @@ all_sym_entry_dict = {'T': {'C2': {'C3': 5}, 'C3': {'C2': 5, 'C3': 54}, 'T': 200
                       'I': {'C2': {'C3': 9, 'C5': 16}, 'C3': {'C2': 9, 'C5': 58}, 'C5': {'C2': 16, 'C3': 58}, 'I': 220}}
 max_sym = 6
 rotation_range = {'C%d' % i: 360 / i for i in map(float, range(1, max_sym + 1))}
+# All rotational comments below are described according to a vector emanating from the origin on the specified axis
 setting_matrices = {
     1: np.array([[1., 0., 0.], [0., 1., 0.], [0., 0., 1.]]),
     # Identity
