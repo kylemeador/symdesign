@@ -5755,8 +5755,6 @@ class Entity(SequenceProfile, Chain, ContainsChainsMixin):
             # find the transformation from the old coordinates to the new
             current_ca_coords = self.ca_coords
             _, new_rot, new_tx = superposition3d(current_ca_coords, prior_ca_coords)
-            # Todo?
-            #  _, self.new_rot, self.new_tx = superposition3d(current_ca_coords, prior_ca_coords)
 
             # Remove prior transforms by setting a fresh container
             self._chain_transforms = []
@@ -5770,32 +5768,12 @@ class Entity(SequenceProfile, Chain, ContainsChainsMixin):
                 #               np.transpose(new_rot)) + new_tx
                 new_chain_coords = \
                     np.matmul(chain.ca_coords, np.transpose(new_rot)) + new_tx
-                # print(f'Entity {self.name} chain {chain.chain_id} '
-                #       f'equality: {np.allclose(new_chain_coords, new_chain_coords_)}')
                 # Find the transform from current coords and the new mate chain coords
                 _, rot, tx = superposition3d(new_chain_coords, current_ca_coords)
-                # save transform
+                # Save transform
                 self._chain_transforms.append(dict(rotation=rot, translation=tx))
-                # transform existing mate chain
+                # Transform existing mate chain
                 chain.coords = np.matmul(coords, np.transpose(rot)) + tx
-
-            # Todo?
-            #  for chain in self.chains[1:]:  # chains were populated before new coords are set
-            #      chain.coords = coords
-            #  del self.new_rot
-            #  del self.new_tx
-        # Todo?
-        #  elif self._is_oligomeric and not self._is_captain:
-        #      # Try to transform the new coords.
-        #      # This will work if the parent called.
-        #      # If it failed, it was initiated as a public attribute set outside
-        #      try:
-        #          super(Structure, Structure).coords.fset(self,
-        #                                                  np.matmul(self.coords,
-        #                                                            np.transpose(self.new_rot))
-        #                                                  + self.new_tx)
-        #      except AttributeError:  # This wasn't initiated by the captain
-        #          self.log.error(f"Can't set the coordinates on a mate {type(self).__name__}!")
         else:  # Accept the new coords
             super(Structure, Structure).coords.fset(self, coords)  # prefer this over below, as mechanism could change
             # self._coords.replace(self._atom_indices, coords)
@@ -6066,7 +6044,7 @@ class Entity(SequenceProfile, Chain, ContainsChainsMixin):
             for chain in self._captain.chains:
                 # Find the transform from current coords and the new mate chain coords
                 _, rot, tx = superposition3d(chain.ca_coords, current_ca_coords)
-                if np.all(identity_matrix == rot):
+                if np.allclose(identity_matrix, rot):
                     # This "chain" is the instance of the self, we don't need the identity
                     continue
                 self._chain_transforms.append(dict(rotation=rot, translation=tx))
