@@ -6060,6 +6060,7 @@ class Entity(SequenceProfile, Chain, ContainsChainsMixin):
             #     new_transform = transform['translation'] + offset_tx
             #     self._chain_transforms.append()
 
+            self.chain_id = self._captain.chain_id
             self._captain = None
             self._is_captain = True
 
