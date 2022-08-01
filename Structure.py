@@ -5699,21 +5699,24 @@ class Entity(SequenceProfile, Chain, ContainsChainsMixin):
         # _copy_structure_containers and _update_structure_container_attributes are Entity specific
         self.structure_containers.extend(['_chains'])  # use _chains as chains is okay to equal []
         if len(chains) > 1:
+            # Todo handle chains with imperfect symmetry by using the actual chain and forgoing the transform
+            #  Need to make a copy of the chain and make it an "Entity mate"
             self._is_oligomeric = True  # inherent in Entity type is a single sequence. Therefore, must be oligomeric
             number_of_residues = self.number_of_residues
             self_seq = self.sequence
-            for idx, chain in enumerate(chains[1:]):  # Todo must match this mechanism with the symmetric chain index
+            for idx, chain in enumerate(chains[1:]):  # Todo match this mechanism with the symmetric chain index
                 chain_seq = chain.sequence
                 if chain.number_of_residues == number_of_residues and chain_seq == self_seq:
                     # do an apples to apples comparison
                     # length alone is inaccurate if chain is missing first residue and self is missing it's last...
                     _, rot, tx = superposition3d(chain.cb_coords, self.cb_coords)
-                else:  # do an alignment, get selective indices, then follow with superposition
+                else:  # Do an alignment, get selective indices, then follow with superposition
                     self.log.warning(f'Chain {chain.name} and Entity {self.name} require alignment to symmetrize')
                     fixed_indices, moving_indices = get_equivalent_indices(chain_seq, self_seq)
                     _, rot, tx = superposition3d(chain.cb_coords[fixed_indices], self.cb_coords[moving_indices])
                 self._chain_transforms.append(dict(rotation=rot, translation=tx))
-                # self.chains.append(chain)  # Todo with flag for asymmetric symmetrization
+                # Todo when capable of asymmetric symmetrization
+                # self.chains.append(chain)
             self.number_of_symmetry_mates = len(chains)
         else:
             self._is_oligomeric = False
@@ -5738,6 +5741,7 @@ class Entity(SequenceProfile, Chain, ContainsChainsMixin):
     def coords(self, coords: np.ndarray | list[list[float]]):
         """Set the Coords object while propagating changes to symmetric "mate" chains"""
         if self._is_oligomeric and self._is_captain:
+            # **This routine handles imperfect symmetry**
             # must do these before super().coords.fset()
             # Populate .chains (if not already) with current coords and transformation
             current_chains = self.chains
@@ -5754,21 +5758,20 @@ class Entity(SequenceProfile, Chain, ContainsChainsMixin):
             # Todo?
             #  _, self.new_rot, self.new_tx = superposition3d(current_ca_coords, prior_ca_coords)
 
-            # # Remove prior transforms by setting a fresh container
-            # # .clear() will remove the transforms in current_chain_transforms
+            # Remove prior transforms by setting a fresh container
             self._chain_transforms = []
             # Find the transform between the new coords and the current mate chain coords
             for chain, transform in zip(current_chains[1:], current_chain_transforms):
                 # In liu of using chain.coords as lengths might be different
                 # Transform prior_coords to chain.coords position, then transform using new_rot and new_tx
+                # new_chain_coords = \
+                #     np.matmul(np.matmul(prior_ca_coords,
+                #                         np.transpose(transform['rotation'])) + transform['translation'],
+                #               np.transpose(new_rot)) + new_tx
                 new_chain_coords = \
-                    np.matmul(np.matmul(prior_ca_coords,
-                                        np.transpose(transform['rotation'])) + transform['translation'],
-                              np.transpose(new_rot)) + new_tx
-                new_chain_coords_ = \
-                    np.matmul(chain.coords, np.transpose(new_rot)) + new_tx
-                print(f'Entity {self.name} chain {chain.chain_id} '
-                      f'equality: {np.all(new_chain_coords == new_chain_coords_)}')
+                    np.matmul(chain.ca_coords, np.transpose(new_rot)) + new_tx
+                # print(f'Entity {self.name} chain {chain.chain_id} '
+                #       f'equality: {np.allclose(new_chain_coords, new_chain_coords_)}')
                 # Find the transform from current coords and the new mate chain coords
                 _, rot, tx = superposition3d(new_chain_coords, current_ca_coords)
                 # save transform
