@@ -1429,10 +1429,14 @@ def main():
             cmd = ['python', PUtils.nanohedra_dock_file, '-dock']
             kwargs = dict(outdir=job.docking_master_dir, entry=sym_entry.entry_number, rot_step1=args.rotation_step1,
                           rot_step2=args.rotation_step2, min_matched=args.min_matched,
-                          high_quality_match_value=args.high_quality_match_value,
-                          initial_z_value=args.initial_z_value, output_assembly=args.output_assembly,
-                          output_surrounding_uc=args.output_surrounding_uc)
+                          high_quality_match_value=args.high_quality_match_value, initial_z_value=args.initial_z_value)
             cmd.extend(chain.from_iterable([[f'-{key}', str(value)] for key, value in kwargs.items()]))
+
+            if args.output_assembly:
+                cmd.append('output_assembly')
+            if args.output_surrounding_uc:
+                cmd.append('output_surrounding_uc')
+
             commands = [cmd + [PUtils.nano_entity_flag1, model1.file_path, PUtils.nano_entity_flag2, model2.file_path]
                         + (['-initial'] if idx == 0 else []) for idx, (model1, model2) in enumerate(structure_pairs)]
             terminate(results=commands)

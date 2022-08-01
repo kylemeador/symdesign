@@ -143,9 +143,10 @@ def get_docking_parameters(arg_list):
     else:
         rot_step_deg2 = None
 
-    output_assembly = False
     if "-output_exp_assembly" in arg_list or "-output_assembly" in arg_list or "-output_uc" in arg_list:
         output_assembly = True
+    else:
+        output_assembly = False
 
     if "-output_surrounding_uc" in arg_list:
         output_surrounding_uc = True
