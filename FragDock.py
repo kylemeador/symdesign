@@ -1766,6 +1766,12 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
     model2_cb_indices = model2.cb_indices
     model2_coords_indexed_residues = model2.coords_indexed_residues
     zero_counts = []
+    # Whether the protocol should separate the expansion of coordinates and the measurement of fragment matches
+    overlap_only = False  # True
+    # Save all the indices were matching fragments are identified
+    all_passing_ghost_indices = []
+    all_passing_surf_indices = []
+    all_passing_z_scores = []
     # Get residue number for all model1, model2 CB Pairs that interact within cb_distance
     for idx in range(number_non_clashing_transforms):
         # res_num1, res_num2, res_ghost_guide_coords = fragment_pairs[idx]
@@ -2112,6 +2118,23 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
                 write_and_quit = False
                 report_residue_numbers = False
             continue
+        elif overlap_only:
+            # Find the passing overlaps to limit the output to only those passing the low_quality_match_value
+            # passing_overlaps_indices = np.flatnonzero(all_fragment_match >= low_quality_match_value)
+            passing_overlaps_indices = np.flatnonzero(all_fragment_z_score <= low_quality_z_value)
+            number_passing_overlaps = len(passing_overlaps_indices)
+            # Return the indices sorted by z_value in ascending order, truncated at the number of passing
+            sorted_fragment_indices = np.argsort(all_fragment_z_score)[:number_passing_overlaps]
+            # sorted_match_scores = match_score_from_z_value(sorted_z_values)
+            # log.debug('Overlapping Match Scores: %s' % sorted_match_scores)
+            # sorted_overlap_indices = passing_overlaps_indices[sorted_fragment_indices]
+            # interface_ghost_frags = complete_ghost_frags1[interface_ghost_indices1][passing_ghost_indices[sorted_overlap_indices]]
+            # interface_surf_frags = complete_surf_frags2[surf_indices_in_interface2][passing_surf_indices[sorted_overlap_indices]]
+            # overlap_passing_ghosts = passing_ghost_indices[sorted_fragment_indices]
+            all_passing_ghost_indices.append(passing_ghost_indices[sorted_fragment_indices])
+            all_passing_surf_indices.append(passing_surf_indices[sorted_fragment_indices])
+            all_passing_z_scores.append(all_fragment_z_score[sorted_fragment_indices])
+            continue
         else:
             write_and_quit = False
             report_residue_numbers = False
@@ -2121,7 +2144,7 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
         passing_overlaps_indices = np.flatnonzero(all_fragment_z_score <= low_quality_z_value)
         number_passing_overlaps = len(passing_overlaps_indices)
         # log.debug(f'low quality overlaps: {all_fragment_match[passing_overlaps_indices]}')
-        log.debug(f'low quality overlaps: {all_fragment_z_score[passing_overlaps_indices]}')
+        # log.debug(f'low quality overlaps: {all_fragment_z_score[passing_overlaps_indices]}')
         log.info(f'\t{high_qual_match_count} High Quality Fragments Out of {number_passing_overlaps} Matches Found in '
                  f'Complete Fragment Library (took {all_fragment_match_time:8f}s)')
         # except ValueError:
