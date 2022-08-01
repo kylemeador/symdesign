@@ -864,7 +864,7 @@ class Model(Structure, ContainsChainsMixin):
     original_chain_ids: list[str]
     resolution: float | None
     api_db: wrapapi.APIDatabase
-    _reference_sequence: dict[str, str]
+    # _reference_sequence: dict[str, str]
     # space_group: str | None
     # uc_dimensions: list[float] | None
 
@@ -915,7 +915,7 @@ class Model(Structure, ContainsChainsMixin):
             # self.multimodel = multimodel
             # self.original_chain_ids = []  # [original_chain_id1, id2, ...]
             self.resolution = resolution
-            self._reference_sequence = reference_sequence if reference_sequence else {}
+            # self._reference_sequence = reference_sequence if reference_sequence else {}
             # ^ SEQRES or PDB API entries. key is chainID, value is 'AGHKLAIDL'
             # self.space_group = space_group
             # Todo standardize path with some state variable?
@@ -944,6 +944,10 @@ class Model(Structure, ContainsChainsMixin):
             #     self._process_model(entities=entities, chains=chains, **kwargs)
             # else:
             #     raise ValueError(f'{type(self).__name__} couldn\'t be initialized as there is no specified Structure type')
+
+            if reference_sequence:  # Was parsed from file
+                for idx, chain in enumerate(self.chains):  # self.chains is viable at this point
+                    chain._reference_sequence = reference_sequence[idx]
 
             # if metadata and isinstance(metadata, PDB):
             #     self.copy_metadata(metadata)
@@ -1029,20 +1033,24 @@ class Model(Structure, ContainsChainsMixin):
         return self.chain_ids == self.original_chain_ids
 
     @property
-    def reference_sequence(self) -> str:  # Todo this needs to be reconciled with Pose and Entity and Chain
+    def sequence(self) -> str:
+        """Holds the Model amino acid sequence"""
+        return ''.join(chain.sequence for chain in self.chains)
+
+    @property
+    def reference_sequence(self) -> str:
         """Return the entire Model sequence, constituting all Residues, not just structurally modelled ones
 
         Returns:
-            The sequence according to each of the Entity references
+            The sequence according to each of the Chain reference sequences
         """
-        return ''.join(self._reference_sequence.values())
+        return ''.join(chain.reference_sequence for chain in self.chains)
 
     def _process_model(self, pose_format: bool = False, chains: bool | list[Chain] | Structures = True,
                        rename_chains: bool = False, entities: bool | list[Entity] | Structures = True,
                        **kwargs):
         #               atoms: Union[Atoms, List[Atom]] = None, residues: Union[Residues, List[Residue]] = None,
         #               coords: Union[List[List], np.ndarray, Coords] = None,
-        #               reference_sequence=None
         """Process various types of Structure containers to update the Model with the corresponding information
 
         Args:
@@ -1081,11 +1089,11 @@ class Model(Structure, ContainsChainsMixin):
                 self.chain_ids.extend([chain.chain_id for chain in self.chains])
             else:  # Create Chain instances from Residues
                 self._create_chains()
-                # Todo this isn't super accurate
-                #  Ideally we get correct solution from PDB or UniProt API.
-                #  If no _reference_sequence passed then this will be nothing, so that isn't great.
-                #  It should be at least the structure sequence
-                self._reference_sequence = dict(zip(self.chain_ids, self._reference_sequence.values()))
+                # # this isn't super accurate
+                # # Ideally we get correct solution from PDB or UniProt API.
+                # # If no _reference_sequence passed then this will be nothing, so that isn't great.
+                # # It should be at least the structure sequence
+                # self._reference_sequence = dict(zip(self.chain_ids, self._reference_sequence.values()))
 
             if rename_chains:
                 self.rename_chains()
@@ -1178,23 +1186,19 @@ class Model(Structure, ContainsChainsMixin):
     def format_seqres(self, **kwargs) -> str:
         """Format the reference sequence present in the SEQRES remark for writing to the output header
 
-        Keyword Args:
-            **kwargs
         Returns:
             The PDB formatted SEQRES record
         """
-        if self._reference_sequence:
-            formated_reference_sequence = \
-                {chain: ' '.join(map(str.upper, (protein_letters_1to3_extended.get(aa, 'XXX') for aa in sequence)))
-                 for chain, sequence in self._reference_sequence.items()}
-            chain_lengths = {chain: len(sequence) for chain, sequence in self._reference_sequence.items()}
-            return '%s\n' \
-                % '\n'.join('SEQRES{:4d} {:1s}{:5d}  %s         '.format(line_number, chain, chain_lengths[chain])
-                            % sequence[seq_res_len * (line_number - 1):seq_res_len * line_number]
-                            for chain, sequence in formated_reference_sequence.items()
-                            for line_number in range(1, 1 + ceil(len(sequence)/seq_res_len)))
-        else:
-            return ''
+        formated_reference_sequence = \
+            {chain.chain_id: ' '.join(map(str.upper, (protein_letters_1to3_extended.get(aa, 'XXX')
+                                                      for aa in chain.reference_sequence)))
+             for chain in self.chains}
+        chain_lengths = {chain: len(sequence) for chain, sequence in formated_reference_sequence.items()}
+        return '%s\n' \
+            % '\n'.join(f'SEQRES{line_number:4d} {chain:1s}{chain_lengths[chain]:5d}  '
+                        f'{sequence[seq_res_len * (line_number-1):seq_res_len * line_number]}         '
+                        for chain, sequence in formated_reference_sequence.items()
+                        for line_number in range(1, 1 + ceil(chain_lengths[chain]/seq_res_len)))
 
     # def write(self, **kwargs) -> AnyStr | None:
     #     """Write Atoms to a file specified by out_path or with a passed file_handle
@@ -2506,19 +2510,19 @@ class SymmetricModel(Models):
     #  Todo this is used in atom_indices_per_entity_symmetric
     #     return [self.get_symmetric_indices(entity_indices) for entity_indices in self.atom_indices_per_entity]
 
-    @property
-    def sequence(self) -> str:
-        """Holds the SymmetricModel amino acid sequence"""
-        return ''.join(entity.sequence for entity in self.chains)
-
-    @property
-    def reference_sequence(self) -> str:
-        """Return the entire SymmetricModel sequence, constituting all Residues, not just structurally modelled ones
-
-        Returns:
-            The sequence according to each of the Entity references
-        """
-        return ''.join(entity.reference_sequence for entity in self.chains)
+    # @property
+    # def sequence(self) -> str:
+    #     """Holds the SymmetricModel amino acid sequence"""
+    #     return ''.join(entity.sequence for entity in self.chains)
+    #
+    # @property
+    # def reference_sequence(self) -> str:
+    #     """Return the entire SymmetricModel sequence, constituting all Residues, not just structurally modelled ones
+    #
+    #     Returns:
+    #         The sequence according to each of the Entity references
+    #     """
+    #     return ''.join(entity.reference_sequence for entity in self.chains)
 
     @property
     def sym_entry(self) -> SymEntry | None:
@@ -2964,30 +2968,19 @@ class SymmetricModel(Models):
         # else:
         #     extract_pdb_atoms = getattr(PDB, 'backbone_and_cb_atoms')
 
-        # prior_idx = self.asu.number_of_atoms
-        # if self.dimension > 0:
-        #     number_of_models = self.number_of_symmetry_mates
-        # else:  # layer or space group
         if self.dimension > 0 and surrounding_uc:  # if the surrounding_uc is requested, we might need to generate it
             if self.number_of_symmetry_mates == self.number_of_uc_symmetry_mates:  # ensure surrounding coords exist
                 self.generate_symmetric_coords(surrounding_uc=surrounding_uc)
                 # raise SymmetryError('Cannot return the surrounding unit cells as no coordinates were generated '
                 #                     f'for them. Try passing surrounding_uc=True to '
                 #                     f'{self.generate_symmetric_coords.__name__}')
-        # else:
-        # number_of_models = self.number_of_symmetry_mates
 
         number_of_atoms = self.number_of_atoms
-        # number_of_atoms = len(self.coords)
+        self.log.debug(f'Ensure the output of symmetry mate creation is correct. The copy of a '
+                       f'{type(self).__name__} is being taken which is relying on Structure.__copy__. This may '
+                       f'not be adequate and need to be overwritten')
         for coord_idx in range(self.number_of_symmetry_mates):
-            self.log.critical(f'Ensure the output of symmetry mate creation is correct. The copy of a '
-                              f'{type(self).__name__} is being taken which is relying on Structure.__copy__. This may '
-                              f'not be adequate and need to be overwritten')
             symmetry_mate = copy(self)
-            # old-style
-            # symmetry_mate_pdb.replace_coords(self.symmetric_coords[(coord_idx * number_of_atoms):
-            #                                                        ((coord_idx + 1) * number_of_atoms)])
-            # new-style
             symmetry_mate.coords = self.symmetric_coords[(coord_idx * number_of_atoms):
                                                          ((coord_idx + 1) * number_of_atoms)]
             self.models.append(symmetry_mate)
@@ -5133,27 +5126,27 @@ class Pose(SequenceProfile, SymmetricModel):
             trnsfmd_fragment = fragment_pdb.return_transformed_copy(**ghost_frag.transformation)
             trnsfmd_fragment.write(out_path=os.path.join(out_path, f'%d_%d_%d_fragment_match_{idx}.pdb' % ijk))
 
-    def format_seqres(self, **kwargs) -> str:
-        """Format the reference sequence present in the SEQRES remark for writing to the output header
-
-        Keyword Args:
-            **kwargs
-        Returns:
-            The PDB formatted SEQRES record
-        """
-        # if self.reference_sequence:
-        formated_reference_sequence = {entity.chain_id: entity.reference_sequence for entity in self.entities}
-        formated_reference_sequence = \
-            {chain: ' '.join(map(str.upper, (protein_letters_1to3_extended.get(aa, 'XXX') for aa in sequence)))
-             for chain, sequence in formated_reference_sequence.items()}
-        chain_lengths = {chain: len(sequence) for chain, sequence in formated_reference_sequence.items()}
-        return '%s\n' \
-               % '\n'.join('SEQRES{:4d} {:1s}{:5d}  %s         '.format(line_number, chain, chain_lengths[chain])
-                           % sequence[seq_res_len * (line_number - 1):seq_res_len * line_number]
-                           for chain, sequence in formated_reference_sequence.items()
-                           for line_number in range(1, 1 + ceil(len(sequence)/seq_res_len)))
-        # else:
-        #     return ''
+    # def format_seqres(self, **kwargs) -> str:
+    #     """Format the reference sequence present in the SEQRES remark for writing to the output header
+    #
+    #     Keyword Args:
+    #         **kwargs
+    #     Returns:
+    #         The PDB formatted SEQRES record
+    #     """
+    #     # if self.reference_sequence:
+    #     formated_reference_sequence = \
+    #         {chain.chain_id: ' '.join(map(str.upper, (protein_letters_1to3_extended.get(aa, 'XXX')
+    #                                                   for aa in chain.reference_sequence)))
+    #          for chain in self.chains}
+    #     chain_lengths = {chain: len(sequence) for chain, sequence in formated_reference_sequence.items()}
+    #     return '%s\n' \
+    #            % '\n'.join('SEQRES{:4d} {:1s}{:5d}  %s         '.format(line_number, chain, chain_lengths[chain])
+    #                        % sequence[seq_res_len * (line_number - 1):seq_res_len * line_number]
+    #                        for chain, sequence in formated_reference_sequence.items()
+    #                        for line_number in range(1, 1 + ceil(len(sequence)/seq_res_len)))
+    #     # else:
+    #     #     return ''
 
     def debug_pdb(self, tag: str = None):
         """Write out all Structure objects for the Pose PDB"""

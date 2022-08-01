@@ -337,8 +337,8 @@ def pssm_as_array(pssm: dict[int, dict[str, str | float | int | dict[str, int]]]
 
 class SequenceProfile:
     """Contains the sequence information for a Structure. Should always be subclassed by a Structure object.
-    Currently, Entity and Pose contain the necessary .reference_sequence attribute. Any Structure object with a
-    .reference_sequence attribute could be used however
+    Currently, Chain, Entity, Model and Pose contain the necessary .reference_sequence property.
+    Any Structure object with a .reference_sequence attribute could be used however
     """
     _fragment_db: info.FragmentInfo | None
     a3m_file: AnyStr | None
