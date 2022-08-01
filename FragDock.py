@@ -1530,30 +1530,38 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
     #
 
     # Set up chunks of coordinate transforms for clash testing
+    # Todo make a function to wrap memory errors into chunks
     check_clash_coords_start = time.time()
     memory_constraint = psutil.virtual_memory().available / 4  # use fourth of available during calculation and storage
     # assume each element is np.float64
     element_memory = 8  # where each element is np.float64
+    guide_coords_elements = 9  # For a single guide coordinate with shape (3, 3)
+    coords_multiplier = 2
     number_of_elements_available = memory_constraint / element_memory
     model_elements = prod(bb_cb_coords2.shape)
     total_elements_required = model_elements * number_of_dense_transforms
     # Start with the assumption that all tested clashes are clashing
     asu_clash_counts = np.ones(number_of_dense_transforms)
     clash_vect = [clash_dist]
-    # The chunk_size indicates how many models could fit in the allocated memory. Using floor division to get integer
+    # The chunk_length indicates how many models could fit in the allocated memory. Using floor division to get integer
     start_divisor = divisor = 16
     # Reduce scale by factor of divisor to be safe
-    chunk_size = int(number_of_elements_available // model_elements // start_divisor)
+    chunk_length = int(number_of_elements_available // model_elements // start_divisor)
     while True:
-        try:  # The next chunk_size
+        try:  # The next chunk_length
             # The number_of_chunks indicates how many iterations are needed to exhaust all models
-            number_of_chunks = int(ceil(total_elements_required / (model_elements * chunk_size)) or 1)
-            tiled_coords2 = np.tile(bb_cb_coords2, (chunk_size, 1, 1))
+            chunk_size = model_elements * chunk_length
+            number_of_chunks = int(ceil(total_elements_required/chunk_size) or 1)  # Select at least 1
+            # Todo make this for loop a function.
+            #  test_fragdock_clashes(bb_cb_coords2, full_inv_rotation1, full_int_tx1, inv_setting1, full_rotation2,
+            #                        full_int_tx2, set_mat2, full_ext_tx_sum)
+            #   return asu_clash_counts
+            tiled_coords2 = np.tile(bb_cb_coords2, (chunk_length, 1, 1))
             for chunk in range(number_of_chunks):
                 # Find the upper slice limiting it at a maximum of number_of_dense_transforms
-                # upper = (chunk + 1) * chunk_size if chunk + 1 != number_of_chunks else number_of_dense_transforms
-                # chunk_slice = slice(chunk * chunk_size, upper)
-                chunk_slice = slice(chunk * chunk_size, (chunk+1) * chunk_size)
+                # upper = (chunk + 1) * chunk_length if chunk + 1 != number_of_chunks else number_of_dense_transforms
+                # chunk_slice = slice(chunk * chunk_length, upper)
+                chunk_slice = slice(chunk * chunk_length, (chunk+1) * chunk_length)
                 # Set full rotation chunk to get the length of the remaining transforms
                 _full_rotation2 = full_rotation2[chunk_slice]
                 # Transform the coordinates
@@ -1582,13 +1590,17 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
                 # Save memory by dereferencing the arry before the next calculation
                 del inverse_transformed_model2_tiled_coords
 
-            logger.critical(f'Successful execution with {divisor} using available memory of '
-                            f'{psutil.virtual_memory().available} and chunk_size of {chunk_size}')
-            # input_ = input('Please confirm to continue protocol')
+            log.critical(f'Successful execution with {divisor} using available memory of '
+                         f'{memory_constraint} and chunk_length of {chunk_length}')
+            # This is the number of total guide coordinates allowed in memory at this point...
+            # Given calculation constraints, this will need to be reduced by at least 4 fold
+            euler_divisor = 4
+            euler_lookup_size_threshold = int(chunk_size / guide_coords_elements // coords_multiplier // euler_divisor)
+            log.info(f'Given memory, the euler_lookup_size_threshold is: {euler_lookup_size_threshold}')
             break
         except np.core._exceptions._ArrayMemoryError:
             divisor = divisor * 2
-            chunk_size = int(number_of_elements_available // model_elements // divisor)
+            chunk_length = int(number_of_elements_available // model_elements // divisor)
             pass
 
     # asu_is_viable = np.where(asu_clash_counts.flatten() == 0)  # , True, False)
