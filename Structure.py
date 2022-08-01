@@ -6060,9 +6060,9 @@ class Entity(SequenceProfile, Chain, ContainsChainsMixin):
             #     new_transform = transform['translation'] + offset_tx
             #     self._chain_transforms.append()
 
+            self._is_captain = True
             self.chain_id = self._captain.chain_id
             self._captain = None
-            self._is_captain = True
 
     def make_oligomer(self, symmetry: str = None, rotation: list[list[float]] | np.ndarray = None,
                       translation: list[float] | np.ndarray = None, rotation2: list[list[float]] | np.ndarray = None,
