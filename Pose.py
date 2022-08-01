@@ -3812,10 +3812,10 @@ class SymmetricModel(Models):
         entities = self.find_contacting_asu(**kwargs)
         # self = Model.from_entities(entities, name='asu', log=self.log, **kwargs)
         # self._pdb = Model.from_entities(entities, name='asu', log=self.log, **kwargs)
-        # Todo
-        #  With perfect symmetry, v this is sufficient. Need to figure out setting _process_model keyword args
-        #   self.coords = np.concatenate([entity.coords for entity in entities])
-        self._process_model(entities=entities, chains=False, **kwargs)
+
+        # With perfect symmetry, v this is sufficient
+        self.coords = np.concatenate([entity.coords for entity in entities])
+        # self._process_model(entities=entities, chains=False, **kwargs)
 
     # def make_oligomers(self):
     #     """Generate oligomers for each Entity in the SymmetricModel"""
