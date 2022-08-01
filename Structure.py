@@ -4315,7 +4315,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         else:
             include_hydrogen = []
         p = subprocess.Popen([free_sasa_exe_path, f'--format={out_format}', '--probe-radius', str(probe_radius),
-                              '-c', free_sasa_configuration_path] + include_hydrogen,
+                              '-c', free_sasa_configuration_path, '--n-threads=2'] + include_hydrogen,
                              stdout=subprocess.PIPE, stdin=subprocess.PIPE, stderr=subprocess.PIPE)
         out, err = p.communicate(input=self.return_atom_record().encode('utf-8'))
         # if err:  # usually results from Hydrogen atoms, silencing
