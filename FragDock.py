@@ -2544,28 +2544,30 @@ if __name__ == '__main__':
             # Root logs to stream with level debug
             logger = start_log(level=1)
             set_logging_to_debug()
-            master_logger, bb_logger = logger, logger
-            logger.debug('Debug mode. Produces verbose output and not written to any .log files')
+            bb_logger = logger
+            logger.debug('Debug mode. Generates verbose output. No writing to .log files will occur')
         else:
-            master_logger = start_log(name=os.path.basename(__file__), handler=2, location=master_log_filepath,
-                                      propagate=True)
+            # Root logger logs all emissions to a single file with level 'info'. Stream above still emits at 'warning'
+            start_log(handler=2, location=master_log_filepath)
+            # FragDock main logs to stream with level info
+            logger = start_log(name=os.path.basename(__file__), propagate=True)
         # SymEntry Parameters
         symmetry_entry = symmetry_factory.get(sym_entry_number)  # sym_map inclusion?
 
         if initial:
             # make master output directory
             os.makedirs(master_outdir, exist_ok=True)
-            master_logger.info('Nanohedra\nMODE: DOCK\n')
+            logger.info('Nanohedra\nMODE: DOCK\n')
             write_docking_parameters(model1_path, model2_path, rot_step_deg1, rot_step_deg2, symmetry_entry,
-                                     master_outdir, log=master_logger)
+                                     master_outdir, log=logger)
         else:  # for parallel runs, ensure that the first file was able to write before adding below log
             time.sleep(1)
         rot_step_deg1, rot_step_deg2 = \
-            get_rotation_step(symmetry_entry, rot_step_deg1, rot_step_deg2, log=master_logger)
+            get_rotation_step(symmetry_entry, rot_step_deg1, rot_step_deg2, log=logger)
 
         model1_name = os.path.basename(os.path.splitext(model1_path)[0])
         model2_name = os.path.basename(os.path.splitext(model2_path)[0])
-        master_logger.info('Docking %s / %s \n' % (model1_name, model2_name))
+        logger.info('Docking %s / %s \n' % (model1_name, model2_name))
 
         # Create fragment database for all ijk cluster representatives
         # ijk_frag_db = unpickle(biological_fragment_db_pickle)
@@ -2606,8 +2608,8 @@ if __name__ == '__main__':
                            output_assembly=output_assembly, output_surrounding_uc=output_surrounding_uc,
                            keep_time=timer, high_quality_match_value=high_quality_match_value,
                            initial_z_value=initial_z_value)  # log=bb_logger,
-            master_logger.info('COMPLETE ==> %s\n\n' % os.path.join(master_outdir, building_blocks))
+            logger.info('COMPLETE ==> %s\n\n' % os.path.join(master_outdir, building_blocks))
 
         except KeyboardInterrupt:
-            master_logger.info('\nRun Ended By KeyboardInterrupt\n')
+            logger.info('\nRun Ended By KeyboardInterrupt\n')
             exit(2)
