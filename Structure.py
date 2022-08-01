@@ -5031,9 +5031,6 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
             for idx, structure in enumerate(structures):
                 structures[idx] = copy(structure)
 
-    def __key(self) -> tuple[str, int, ...]:
-        return self.name, *self._residue_indices
-
     def __copy__(self):  # -> Self Todo python3.11
         other = self.__class__.__new__(self.__class__)
         # Copy each of the key value pairs to the new, other dictionary
@@ -5067,11 +5064,16 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
 
         return other
 
+    # Todo this isn't long term sustainable. Perhaps a better case would be the ._sequence
+    def __key(self) -> tuple[str, int, ...]:
+        return self.name, *self._residue_indices
+
     def __eq__(self, other: Structure) -> bool:
         if isinstance(other, Structure):
             return self.__key() == other.__key()
         raise NotImplementedError(f'Can\' compare {type(self).__name__} instance to {type(other).__name__} instance')
 
+    # Must define __hash__ in all subclasses that define an __eq__
     def __hash__(self) -> int:
         return hash(self.__key())
 
@@ -6801,9 +6803,23 @@ class Entity(SequenceProfile, Chain, ContainsChainsMixin):
 
         return other
 
-    # def __key(self):
-    #     return (self.uniprot_id, *super().__key())  # without uniprot_id, could equal a chain...
-    #     # return self.uniprot_id
+    def __key(self) -> tuple[str, int, ...]:
+        return self.name, *self._residue_indices
+
+    def __eq__(self, other: Structure) -> bool:
+        if isinstance(other, Entity):
+            # The first is True if this is a mate, the second is True if this is a captain
+            same_entity = id(self._captain) == id(other) or id(other._captain) == id(self)
+        else:
+            same_entity = False
+
+        if isinstance(other, Structure):
+            return same_entity or self.__key() == other.__key()
+        raise NotImplementedError(f'Can\' compare {type(self).__name__} instance to {type(other).__name__} instance')
+
+    # Must define __hash__ in all subclasses that define an __eq__
+    def __hash__(self) -> int:
+        return hash(self.__key())
 
 
 def superposition3d(fixed_coords: np.ndarray, moving_coords: np.ndarray, a_weights: np.ndarray = None,
