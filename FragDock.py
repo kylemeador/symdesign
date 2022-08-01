@@ -1861,9 +1861,10 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
         # Both residue numbers are one-indexed vv
         # Todo make ghost_residue_numbers1 unique -> unique_ghost_residue_numbers1
         #  index selected numbers against per_residue_ghost_indices 2d (number surface frag residues,
-        ghost_indices_in_interface1 = np.flatnonzero(np.in1d(ghost_residue_numbers1, interface_residue_numbers1))
+        ghost_indices_in_interface1 = \
+            np.flatnonzero(np.isin(ghost_residue_numbers1, interface_residue_numbers1))
         surf_indices_in_interface2 = \
-            np.flatnonzero(np.in1d(surf_residue_numbers2, interface_residue_numbers2, assume_unique=True))
+            np.flatnonzero(np.isin(surf_residue_numbers2, interface_residue_numbers2, assume_unique=True))
         # log.debug(f'ghost_indices_in_interface1: {ghost_indices_in_interface1[:10]}')
         # log.debug(f'ghost_residue_numbers1[:10]: {ghost_residue_numbers1[:10]}')
         # log.debug(f'interface_residue_numbers1: {interface_residue_numbers1}')
@@ -1912,7 +1913,7 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
 
         # NOT crucial ??? vvv ###
         unique_interface_frag_count_model1, unique_interface_frag_count_model2 = \
-            len(ghost_indices_in_interface1), len(surf_indices_in_interface2)
+            ghost_indices_in_interface1.shape[0], surf_indices_in_interface2.shape[0]
         get_int_frags_time = time.time() - int_frags_time_start
         # Todo reinstate this logging?
         # log.info(f'\tNewly formed interface contains {unique_interface_frag_count_model1} unique Fragments on Oligomer '
@@ -2400,10 +2401,8 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
         #                   if bool_result and bool_idx in overlap_passing_surf]
         # interface_ghost_frags = complete_ghost_frags1[interface_ghost_indices1]
         # interface_surf_frags = complete_surf_frags2[surf_indices_in_interface2]
-        sorted_int_ghostfrags: list[GhostFragment] = [complete_ghost_frags1[ghost_indices_in_interface1[idx]]
-                                                      for idx in overlap_ghosts[:number_passing_overlaps]]
-        sorted_int_surffrags2: list[Residue] = [complete_surf_frags2[surf_indices_in_interface2[idx]]
-                                                for idx in overlap_surf[:number_passing_overlaps]]
+        sorted_int_ghostfrags: list[GhostFragment] = [complete_ghost_frags1[idx] for idx in overlap_ghosts]
+        sorted_int_surffrags2: list[Residue] = [complete_surf_frags2[idx] for idx in overlap_surf]
         # For all matched interface fragments
         # Keys are (chain_id, res_num) for every residue that is covered by at least 1 fragment
         # Values are lists containing 1 / (1 + z^2) values for every (chain_id, res_num) residue fragment match
@@ -2457,7 +2456,8 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
             #                           'int_frag_i{}_j{}_k{}_{}OLD.pdb'.format(
             #                               *int_ghost_frag.ijk, frag_idx)))
             # New Method
-            int_ghost_frag.write(out_path=os.path.join(matched_fragment_dir,
+            ghost_frag_rep = int_ghost_frag.representative.return_transformed_copy(**specific_transformation1)
+            ghost_frag_rep.write(out_path=os.path.join(matched_fragment_dir,
                                                        'int_frag_i{}_j{}_k{}_{}.pdb'.format(
                                                            *int_ghost_frag.ijk, frag_idx)))
             # transformed_ghost_fragment = int_ghost_frag.structure.return_transformed_copy(
