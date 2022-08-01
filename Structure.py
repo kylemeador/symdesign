@@ -150,41 +150,44 @@ for res_type, residue_atoms in atomic_polarity_table.items():
     residue_atoms.update(hydrogens[res_type])
 
 
-def parse_seqres(seqres_lines: list[str]) -> dict[str, str]:
+def parse_seqres(seqres_lines: list[str]) -> dict[str, str]:  # list[str]:
     """Convert SEQRES information to single amino acid dictionary format
 
     Args:
         seqres_lines: The list of lines containing SEQRES information
     Returns:
-        The mapping of each chain to it's reference sequence
+        The mapping of each chain to its reference sequence
     """
     # SEQRES   1 A  182  THR THR ALA SER THR SER GLN VAL ARG GLN ASN TYR HIS
     # SEQRES   2 A  182  GLN ASP SER GLU ALA ALA ILE ASN ARG GLN ILE ASN LEU
     # SEQRES   3 A  182  GLU LEU TYR ALA SER TYR VAL TYR LEU SER MET SER TYR
     # SEQRES ...
     # SEQRES  16 C  201  SER TYR ILE ALA GLN GLU
+    # In order to account for MultiModel files where the chain names are all the same, using the parsed order
+    # instead of a dictionary as later entries would overwrite earlier ones making them inaccurate
+    # If the file is screwed up in that it has chains in a different order than the seqres, then this wouldn't work
+    # I am opting for the standard .pdb file format and if it is messed up this is the users problem
     reference_sequence = {}
     for line in seqres_lines:
         chain, length, *sequence = line.split()
         if chain in reference_sequence:
-            reference_sequence[chain].extend(map(str.title, sequence))
+            reference_sequence[chain].extend([char.title() for char in sequence])
         else:
             reference_sequence[chain] = [char.title() for char in sequence]
 
-    for chain, sequence in reference_sequence.items():
-        for idx, aa in enumerate(sequence):
-            try:
-                # if aa.title() in protein_letters_3to1_extended:
-                reference_sequence[chain][idx] = protein_letters_3to1_extended[aa]
-            except KeyError:
-                # else:
-                if aa == 'Mse':
-                    reference_sequence[chain][idx] = 'M'
-                else:
-                    reference_sequence[chain][idx] = '-'
-        reference_sequence[chain] = ''.join(reference_sequence[chain])
+    # Ensure we parse selenomethionine correctly
+    protein_letters_3to1_extended_mse = protein_letters_3to1_extended.copy()
+    protein_letters_3to1_extended_mse['Mse'] = 'M'
 
-    return reference_sequence
+    # Format the sequences as a one AA letter list
+    reference_sequences = {}  # []
+    for chain, sequence in reference_sequence.items():
+        one_letter_sequence = [protein_letters_3to1_extended_mse.get(aa, '-')
+                               for aa in sequence]
+        reference_sequences[chain] = ''.join(one_letter_sequence)
+        # reference_sequences.append(''.join(one_letter_sequence))
+
+    return reference_sequences
 
 
 slice_remark, slice_number, slice_atom_type, slice_alt_location, slice_residue_type, slice_chain, \
@@ -372,13 +375,16 @@ def read_pdb_file(file: AnyStr, pdb_lines: list[str] = None, separate_coords: bo
     if not temp_info:
         raise ValueError(f'The file {file} has no ATOM records!')
 
-    # combine entity_info with the reference_sequence info and dbref info
+    # Combine entity_info with the reference_sequence info and dbref info
     reference_sequence = parse_seqres(seq_res_lines)
     for entity_name, info in entity_info.items():
-        # grab the first chain from the identified chains, and use it to grab the reference sequence
+        # Grab the first chain from the identified chains, and use it to grab the reference sequence
         chain = info['chains'][0]
-        info['reference_sequence'] = reference_sequence[chain]
+        info['reference_sequence'] = reference_sequence[chain]  # Used when parse_seqres returns dict[str, str]
         info['dbref'] = dbref[chain]
+
+    # Convert the incrementing reference sequence to a list of the sequences
+    reference_sequence = list(reference_sequence.values())
 
     parsed_info = \
         dict(biological_assembly=assembly,
@@ -5581,6 +5587,7 @@ class Chain(Structure):
         as_mate: Whether the Chain instances should be controlled by a captain (True), or dependents of their parent
     """
     _chain_id: str
+    _reference_sequence: str
 
     def __init__(self, chain_id: str = None, name: str = None, as_mate: bool = False, **kwargs):
         super().__init__(name=name if name else chain_id, **kwargs)
@@ -5605,6 +5612,24 @@ class Chain(Structure):
         self.set_residues_attributes(chain=chain_id)
         self._chain_id = chain_id
 
+    @property
+    def reference_sequence(self) -> str:
+        """Return the entire Chain sequence, constituting all Residues, not just structurally modelled ones
+
+        Returns:
+            The sequence according to the Chain reference, or the Structure sequence if no reference available
+        """
+        try:
+            return self._reference_sequence
+        except AttributeError:
+            self.log.info('The reference sequence could not be found. Using the observed Residue sequence instead')
+            self._reference_sequence = self.sequence
+            return self._reference_sequence
+
+    # @reference_sequence.setter
+    # def reference_sequence(self, sequence):
+    #     self._reference_sequence = sequence
+
 
 class Entity(SequenceProfile, Chain, ContainsChainsMixin):
     """Entity
@@ -5624,7 +5649,6 @@ class Entity(SequenceProfile, Chain, ContainsChainsMixin):
     _is_captain: bool
     _is_oligomeric: bool
     _number_of_symmetry_mates: int
-    _reference_sequence: str | None
     _uniprot_id: str | None
     api_entry: dict[str, dict[str, str]] | None
     dihedral_chain: str | None
@@ -5919,7 +5943,7 @@ class Entity(SequenceProfile, Chain, ContainsChainsMixin):
         """Return the entire Entity sequence, constituting all Residues, not just structurally modelled ones
 
         Returns:
-            The sequence according to the Entity reference
+            The sequence according to the Entity reference, or the Structure sequence if no reference available
         """
         try:
             return self._reference_sequence
@@ -6166,21 +6190,20 @@ class Entity(SequenceProfile, Chain, ContainsChainsMixin):
 
         Args:
             asu: Whether to output the Entity ASU or the full oligomer
-        Keyword Args:
-            **kwargs
         Returns:
             The PDB formatted SEQRES record
         """
+        asu_slice = 1 if asu else None  # This is the only difference from Model
         formated_reference_sequence = \
-            ' '.join(map(str.upper, (protein_letters_1to3_extended.get(aa, 'XXX') for aa in self.reference_sequence)))
-        chain_length = len(self.reference_sequence)
-        asu_slice = 1 if asu else None
-        # chains = self.chains if asu else None
+            {chain.chain_id: ' '.join(map(str.upper, (protein_letters_1to3_extended.get(aa, 'XXX')
+                                                      for aa in chain.reference_sequence)))
+             for chain in self.chains[:asu_slice]}
+        chain_lengths = {chain: len(sequence) for chain, sequence in formated_reference_sequence.items()}
         return '%s\n' \
-            % '\n'.join('SEQRES{:4d} {:1s}{:5d}  %s         '.format(line_number, chain.chain_id, chain_length)
-                        % formated_reference_sequence[seq_res_len * (line_number - 1):seq_res_len * line_number]
-                        for chain in self.chains[:asu_slice]
-                        for line_number in range(1, 1 + ceil(len(formated_reference_sequence)/seq_res_len)))
+               % '\n'.join(f'SEQRES{line_number:4d} {chain:1s}{chain_lengths[chain]:5d}  '
+                           f'{sequence[seq_res_len * (line_number - 1):seq_res_len * line_number]}         '
+                           for chain, sequence in formated_reference_sequence.items()
+                           for line_number in range(1, 1 + ceil(chain_lengths[chain] / seq_res_len)))
 
     # Todo overwrite Structure.write() method with oligomer=True flag?
     def write_oligomer(self, out_path: bytes | str = os.getcwd(), file_handle: IO = None, header: str = None,
