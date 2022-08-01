@@ -6818,8 +6818,6 @@ class Entity(SequenceProfile, Chain, ContainsChainsMixin):
         captain = self._captain
         del self._captain
         other = super().__copy__()
-        # Set the first chain as the object itself
-        other._chains[0] = other
         if self._is_captain:  # If the copier is a captain
             other._captain = None  # Initialize the copy as a captain -> None
         else:
@@ -6837,6 +6835,8 @@ class Entity(SequenceProfile, Chain, ContainsChainsMixin):
                 # This will remove the variable and set as None
                 other._make_captain()
 
+        # Set the first chain as the object itself
+        other._chains[0] = other
         # Reset the _captain attribute on self as before the copy
         self._captain = captain
 
