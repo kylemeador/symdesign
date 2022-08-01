@@ -17,7 +17,7 @@ from fragment import FragmentDatabase, fragment_factory
 from PathUtils import frag_text_file, master_log, frag_dir, biological_interfaces, asu_file_name
 from Pose import Pose, Model
 from Structure import Structure, write_frag_match_info_file, GhostFragment, Residue
-from SymDesignUtils import calculate_overlap, match_score_from_z_value, start_log, null_log, dictionary_lookup, \
+from SymDesignUtils import rmsd_z_score, match_score_from_z_value, start_log, null_log, dictionary_lookup, \
     calculate_match, z_value_from_match_score, set_logging_to_debug, unpickle, rmsd, format_guide_coords_as_atom
 from classes.EulerLookup import EulerLookup, euler_factory
 from classes.OptimalTx import OptimalTx, OptimalTxOLD
@@ -458,7 +458,9 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
     Returns:
         None
     """
+    high_quality_z_value = z_value_from_match_score(high_quality_match_value)
     low_quality_match_value = .2  # sets the lower bounds on an acceptable match, was upper bound of 2 using z-score
+    low_quality_z_value = z_value_from_match_score(low_quality_match_value)
     cb_distance = 9.  # change to 8.?
     # Get Building Blocks in pose format to remove need for fragments to use chain info
     if not isinstance(model1, Structure):
@@ -1845,6 +1847,7 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
         # DON'T think this is crucial! ###
 
         # Calculate z_value for the selected (Ghost Fragment, Interface Fragment) guide coordinate pairs
+        # Calculate match score for the selected (Ghost Fragment, Interface Fragment) guide coordinate pairs
         overlap_score_time_start = time.time()
         # Get only euler matching fragment indices that pass ij filter. Then index their associated coords
         passing_ghost_indices = int_euler_matching_ghost_indices1[ij_type_match]
@@ -1876,12 +1879,14 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
         # log.debug(f'int_trans_surf_guide_coords2[passing_surf_indices][:5]: {int_trans_surf_guide_coords2[passing_surf_indices][:5]}')
         # log.debug(f'RMSD calc: {rmds_[:5]}')
         # log.debug(f'RMSD reference: {ghost_rmsds1[ghost_indices_in_interface1[passing_ghost_indices]][:5]}')
-        log.info(f'\tEuler Lookup found {len(int_euler_matching_ghost_indices1)} passing overlaps '
-                 f'(took {eul_lookup_time:8f}s) for '
-                 f'{unique_interface_frag_count_model1 * unique_interface_frag_count_model2} fragment pairs and '
-                 f'Overlap Score Calculation took {time.time() - overlap_score_time_start:8f}s for '
-                 f'{len(passing_ghost_indices)} successful ij type matches from a possible '
-                 f'{len(int_euler_matching_ghost_indices1)} fragment pairs')
+        log.info(
+            # f'\tEuler Lookup found {int_euler_matching_ghost_indices1.shape[0]} passing overlaps '
+            #      f'(took {eul_lookup_time:8f}s) for '
+            #      f'{unique_interface_frag_count_model1 * unique_interface_frag_count_model2} fragment pairs and '
+            f'\tZ-score calculation took {time.time() - overlap_score_time_start:8f}s for '
+            f'{passing_ghost_indices.shape[0]} successful ij type matches (indexing time '
+            f'{overlap_score_time_start - index_ij_pairs_start_time:8f}s) from '
+            f'{possible_fragments_pairs} possible fragment pairs')
         # log.debug(f'Found ij_type_match with shape {ij_type_match.shape}')
         # log.debug(f'And Data: {ij_type_match[:3]}')
         # log.debug(f'Found all_fragment_match with shape {all_fragment_match.shape}')
@@ -1925,7 +1930,8 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
         #     all_fragment_match = calculate_match(typed_ghost1_coords, typed_surf2_coords, reference_rmsds)
 
         # check if the pose has enough high quality fragment matches
-        high_qual_match_indices = np.flatnonzero(all_fragment_match >= high_quality_match_value)
+        # high_qual_match_indices = np.flatnonzero(all_fragment_match >= high_quality_match_value)
+        high_qual_match_indices = np.flatnonzero(all_fragment_z_score <= high_quality_z_value)
         high_qual_match_count = len(high_qual_match_indices)
         all_fragment_match_time = time.time() - all_fragment_match_time_start
         # if high_qual_match_count == 0:
@@ -1975,8 +1981,11 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
             write_and_quit = False
 
         # Find the passing overlaps to limit the output to only those passing the low_quality_match_value
-        passing_overlaps_indices = np.flatnonzero(all_fragment_match >= low_quality_match_value)
+        # passing_overlaps_indices = np.flatnonzero(all_fragment_match >= low_quality_match_value)
+        passing_overlaps_indices = np.flatnonzero(all_fragment_z_score <= low_quality_z_value)
         number_passing_overlaps = len(passing_overlaps_indices)
+        # log.debug(f'low quality overlaps: {all_fragment_match[passing_overlaps_indices]}')
+        log.debug(f'low quality overlaps: {all_fragment_z_score[passing_overlaps_indices]}')
         log.info(f'\t{high_qual_match_count} High Quality Fragments Out of {number_passing_overlaps} Matches Found in '
                  f'Complete Fragment Library (took {all_fragment_match_time:8f}s)')
         # except ValueError:
@@ -2189,9 +2198,12 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
             pose.write(assembly=True, out_path=assembly_path, header=cryst_record, surrounding_uc=output_surrounding_uc)
         log.info(f'\tSUCCESSFUL DOCKED POSE: {tx_dir}')
 
-        # return the indices sorted by z_value then pull information accordingly
-        sorted_fragment_indices = np.argsort(all_fragment_match)[::-1]  # return the indices in descending order
-        sorted_match_scores = all_fragment_match[sorted_fragment_indices]
+        # Return the indices sorted by match value in descending order, truncated at the number of passing
+        # sorted_fragment_indices = np.argsort(all_fragment_match)[:number_passing_overlaps:-1]
+        # sorted_match_scores = all_fragment_match[sorted_fragment_indices]
+        # Return the indices sorted by z_value in ascending order, truncated at the number of passing
+        sorted_fragment_indices = np.argsort(all_fragment_z_score)[:number_passing_overlaps]
+        sorted_match_scores = match_score_from_z_value(all_fragment_z_score[sorted_fragment_indices])
         # sorted_match_scores = match_score_from_z_value(sorted_z_values)
         # log.debug('Overlapping Match Scores: %s' % sorted_match_scores)
         # sorted_overlap_indices = passing_overlaps_indices[sorted_fragment_indices]
