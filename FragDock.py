@@ -2065,16 +2065,23 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
         #     with open(os.path.join(tx_dir, 'init_guide_coords.pdb'), 'w') as f:
         #         f.write(f'%s\n' % '\n'.join(atoms))
 
-        pose = Pose.from_entities(
-            [entity.return_transformed_copy(**specific_transformations[idx]) for idx, model in enumerate(models)
-             for entity in model.entities],
-            # [entity.return_transformed_copy(**specific_transformation1) for entity in model1.entities] +
-            # [entity.return_transformed_copy(**specific_transformation2) for entity in model2.entities],
-            pose_format=True,
-            name='asu', log=log, entity_names=[entity.name for entity in model.entities for model in models],
-            rename_chains=True, sym_entry=sym_entry,
-            surrounding_uc=output_surrounding_uc, ignore_clashes=True, uc_dimensions=uc_dimensions)
+        pose = Pose.from_entities([entity.return_transformed_copy(**specific_transformations[idx])
+                                   for idx, model in enumerate(models) for entity in model.entities],
+                                  entity_names=[entity.name for entity in model.entities for model in models],
+                                  name='asu', log=log, sym_entry=sym_entry,
+                                  surrounding_uc=output_surrounding_uc, uc_dimensions=uc_dimensions,
+                                  ignore_clashes=True, rename_chains=True)  # pose_format=True,
         # ignore ASU clashes since already checked ^
+
+        # # Transform using the indexing from the models to pull out the entity on the new pose
+        # ent_idx = 0
+        # for model_idx, model in enumerate(models):
+        #     for _ in model.entities:
+        #         pose.entities[ent_idx].transform(**specific_transformations[model_idx])
+        #         ent_idx += 1
+        # pose.set_symmetry(sym_entry=sym_entry, uc_dimensions=uc_dimensions)
+        # pose.generate_symmetric_coords(surrounding_uc=output_surrounding_uc)
+
         log.info(f'\tCopy and Transform Oligomer1 and Oligomer2 (took {time.time() - copy_model_start:8f}s)')
 
         if write_and_quit:  # Todo remove after debugging
@@ -2143,10 +2150,10 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
         # Check if design has any clashes when expanded
         exp_des_clash_time_start = time.time()
         if pose.symmetric_assembly_is_clash():
-            log.info(f'\tBackbone Clash when Designed Assembly is Expanded (took '
+            log.info(f'\tBackbone Clash when pose is expanded (took '
                      f'{time.time() - exp_des_clash_time_start:8f}s)')
             continue
-        log.info(f'\tNO Backbone Clash when Designed Assembly is Expanded (took '
+        log.info(f'\tNO Backbone Clash when pose is expanded (took '
                  f'{time.time() - exp_des_clash_time_start:8f}s)')
 
         # Todo replace with PoseDirectory? Path object?
@@ -2171,7 +2178,7 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
         low_quality_matches_dir = os.path.join(matching_fragments_dir, 'low_qual_match')
 
         # Write ASU, Model1, Model2, and assembly files
-        pose.set_contacting_asu(distance=cb_distance, rename_chains=True)
+        pose.set_contacting_asu(distance=cb_distance)
         if sym_entry.unit_cell:  # 2, 3 dimensions
             # asu = get_central_asu(asu, uc_dimensions, sym_entry.dimension)
             cryst_record = generate_cryst1_record(uc_dimensions, sym_entry.resulting_symmetry)
