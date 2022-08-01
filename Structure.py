@@ -5645,6 +5645,7 @@ class Entity(SequenceProfile, Chain, ContainsChainsMixin):
     """
     _chain_transforms: list[transformation_mapping]
     """The specific transformation operators to generate all mate chains of the Oligomer"""
+    _captain: Entity | None
     _chains: list | list[Entity]
     _disorder: dict[int, dict[str, str]]
     _oligomer: Structures  # list[Entity]
@@ -5663,6 +5664,7 @@ class Entity(SequenceProfile, Chain, ContainsChainsMixin):
         """When init occurs chain_ids are set if chains were passed. If not, then they are auto generated"""
         self.thermophilic = thermophilic
         self._chain_transforms = []
+        self._captain = None
         self._is_captain = True
         self.api_entry = None  # {chain: {'accession': 'Q96DC8', 'db': 'UNP'}, ...}
         self.dihedral_chain = None
@@ -6044,11 +6046,41 @@ class Entity(SequenceProfile, Chain, ContainsChainsMixin):
         except AttributeError:
             pass
 
-    def _make_mate(self):
-        """Turn the Entity into a 'mate' Entity"""
+    def _make_mate(self, other: Entity):
+        """Turn the Entity into a "mate" Entity"""
+        self._captain = other
         self._is_captain = False
         self._chain_ids = [self.chain_id]  # set for a length of 1, using the captain self.chain_id
         self._chain_transforms.clear()
+
+    def _make_captain(self):
+        """Turn the Entity into a "captain" Entity if it isn't already"""
+        if not self._is_captain:
+            # Todo handle superposition with imperfect symmetry
+            # Find and save the transforms between the self.coords and the prior captains mate chains
+            current_ca_coords = self.ca_coords
+            self._chain_transforms = []
+            for chain in self._captain.chains:
+                # Find the transform from current coords and the new mate chain coords
+                _, rot, tx = superposition3d(chain.ca_coords, current_ca_coords)
+                if np.all(identity_matrix == rot):
+                    # This "chain" is the instance of the self, we don't need the identity
+                    continue
+                self._chain_transforms.append(dict(rotation=rot, translation=tx))
+
+            # # Alternative:
+            # # Transform the transforms by finding transform from the old captain to the current coords
+            # # Not sure about the algebraic requirements of the old translation. It may require rotation with offset_ro...
+            # _, offset_rot, offset_tx = superposition3d(self.ca_coords, self._captain.ca_coords)
+            # self._chain_transforms = []  # self._captain._chain_transforms.copy()
+            # for idx, transform in enumerate(self._captain._chain_transforms):  # self._chain_transforms):
+            #     # Rotate the captain oriented rotation matrix to the current coordinates
+            #     new_rotation = np.matmul(transform['rotation'], offset_rot)
+            #     new_transform = transform['translation'] + offset_tx
+            #     self._chain_transforms.append()
+
+            self._captain = None
+            self._is_captain = True
 
     def make_oligomer(self, symmetry: str = None, rotation: list[list[float]] | np.ndarray = None,
                       translation: list[float] | np.ndarray = None, rotation2: list[list[float]] | np.ndarray = None,
@@ -6169,7 +6201,7 @@ class Entity(SequenceProfile, Chain, ContainsChainsMixin):
             new_coords += np.array(translation2)
 
         new_structure = copy(self)
-        new_structure._make_mate()
+        new_structure._make_mate(self)
         # _make_mate executes the following
         # self._is_captain = False
         # self._chain_ids = [self.chain_id]
@@ -6794,12 +6826,38 @@ class Entity(SequenceProfile, Chain, ContainsChainsMixin):
         for structure_type in self.structure_containers:
             structures = getattr(self, structure_type)
             for idx, structure in enumerate(structures[1:], 1):  # only operate on [1:] slice since index 0 is different
-                structures[idx] = copy(structure)
+                # structures[idx] = copy(structure)
+                structure.entity_spawn = True
+                new_structure = copy(structure)
+                new_structure._captain = self
+                structures[idx] = new_structure
 
     def __copy__(self) -> Entity:  # -> Self Todo python3.11
+        # Temporarily remove the _captain attribute for the copy
+        captain = self._captain
+        del self._captain
         other = super().__copy__()
         # Set the first chain as the object itself
         other._chains[0] = other
+        if self._is_captain:  # If the copier is a captain
+            other._captain = None  # Initialize the copy as a captain -> None
+        else:
+            # If the copy was initiated by Entity captain, ._captain
+            # will be set after __copy__ return in _copy_structure_containers()
+            # This is Ture if the .entity_spawn attribute is set
+            try:  # To delete entity_spawn attribute for the self and the copy (it was copied)
+                del self.entity_spawn
+                del other.entity_spawn
+            except AttributeError:
+                # This isn't a captain and a captain didn't initiate the copy
+                # We have to make it a captain
+                # Add self._captain object to other._captain
+                other._captain = captain
+                # This will remove the variable and set as None
+                other._make_captain()
+
+        # Reset the _captain attribute on self as before the copy
+        self._captain = captain
 
         return other
 
