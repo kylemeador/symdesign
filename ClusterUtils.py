@@ -8,14 +8,7 @@ from warnings import catch_warnings, simplefilter
 
 import numpy as np
 import pandas as pd
-from sklearn.cluster import DBSCAN
-from sklearn.linear_model import MultiTaskLassoCV, LassoCV, MultiTaskElasticNetCV, ElasticNetCV
-from sklearn.metrics import median_absolute_error  # r2_score,
-# from sklearn.decomposition import PCA
-# from scipy.spatial.distance import euclidean, pdist
-from sklearn.model_selection import train_test_split
-from sklearn.neighbors import NearestNeighbors
-from sklearn.preprocessing import StandardScaler
+import sklearn
 
 #     handle_design_errors, DesignError
 from DesignMetrics import prioritize_design_indices, nanohedra_metrics  # query_user_for_metrics,
@@ -249,14 +242,14 @@ def cluster_poses(identifier_pairs: Iterable[tuple[Any, Any]], values: Iterable[
     # symmetric_pair_values = sym(pair_df.values)
 
     # PCA analysis of distances
-    # building_block_rmsd_matrix = StandardScaler().fit_transform(symmetric_pair_values)
+    # building_block_rmsd_matrix = sklearn.preprocessing.StandardScaler().fit_transform(symmetric_pair_values)
     # pca = PCA(PUtils.variance)
     # building_block_rmsd_pc_np = pca.fit_transform(building_block_rmsd_matrix)
     # pca_distance_vector = pdist(building_block_rmsd_pc_np)
     # epsilon = pca_distance_vector.mean() * 0.5
     # Compute pose clusters using DBSCAN algorithm
     # precomputed specifies that a precomputed distance matrix is being passed
-    dbscan = DBSCAN(eps=epsilon, min_samples=2, metric='precomputed')
+    dbscan = sklearn.cluster.DBSCAN(eps=epsilon, min_samples=2, metric='precomputed')
     dbscan.fit(sym(pair_df.to_numpy()))
     # find the cluster representative by minimizing the cluster mean
     cluster_ids = set(dbscan.labels_)
@@ -298,10 +291,10 @@ def predict_best_pose_from_transformation_cluster(train_trajectories_file, train
     Returns:
         (sklearn.linear_model)
     """
-    possible_lin_reg = {'MultiTaskLassoCV': MultiTaskLassoCV,
-                        'LassoCV': LassoCV,
-                        'MultiTaskElasticNetCV': MultiTaskElasticNetCV,
-                        'ElasticNetCV': ElasticNetCV}
+    possible_lin_reg = {'MultiTaskLassoCV': sklearn.linear_model.MultiTaskLassoCV,
+                        'LassoCV': sklearn.linear_model.LassoCV,
+                        'MultiTaskElasticNetCV': sklearn.linear_model.MultiTaskElasticNetCV,
+                        'ElasticNetCV': sklearn.linear_model.ElasticNetCV}
     idx_slice = pd.IndexSlice
     trajectory_df = pd.read_csv(train_trajectories_file, index_col=0, header=[0, 1, 2])
     # 'dock' category is synonymous with nanohedra metrics
@@ -309,7 +302,7 @@ def predict_best_pose_from_transformation_cluster(train_trajectories_file, train
                                                    ['mean', 'dock', 'seq_design'], :]].droplevel(1, axis=1)
     # scale the data to a standard gaussian distribution for each trajectory independently
     # Todo ensure this mechanism of scaling is correct for each cluster individually
-    scaler = StandardScaler()
+    scaler = sklearn.preprocessing.StandardScaler()
     train_traj_df = pd.concat([scaler.fit_transform(trajectory_df.loc[cluster_members, :])
                                for cluster_members in training_clusters.values()], keys=list(training_clusters.keys()),
                               axis=0)
@@ -322,10 +315,10 @@ def predict_best_pose_from_transformation_cluster(train_trajectories_file, train
     # select the Rosetta metrics to train model on
     # potential_training_metrics = set(train_traj_df.columns).difference(nanohedra_metrics)
     # rosetta_select_metrics = query_user_for_metrics(potential_training_metrics, mode='design', level='pose')
-    rosetta_metrics = {'shape_complementarity': StandardScaler(),  # I think a gaussian dist is preferable to MixMax
+    rosetta_metrics = {'shape_complementarity': sklearn.preprocessing.StandardScaler(),  # I think a gaussian dist is preferable to MixMax
                        # 'protocol_energy_distance_sum': 0.25,  This will select poses by evolution
-                       'int_composition_similarity': StandardScaler(),  # gaussian preferable to MixMax
-                       'interface_energy': StandardScaler(),  # gaussian preferable to MaxAbsScaler,
+                       'int_composition_similarity': sklearn.preprocessing.StandardScaler(),  # gaussian preferable to MixMax
+                       'interface_energy': sklearn.preprocessing.StandardScaler(),  # gaussian preferable to MaxAbsScaler,
                        # 'observed_evolution': 0.25}  # also selects by evolution
                        }
     # assign each metric a weight proportional to it's share of the total weight
@@ -342,9 +335,10 @@ def predict_best_pose_from_transformation_cluster(train_trajectories_file, train
     targets2d = pd.concat([pose_traj_df, no_constraint_traj_df])
 
     # split training and test dataset
-    trajectory_train, trajectory_test, target_train, target_test = train_test_split(nano_traj, targets, random_state=42)
-    trajectory_train2d, trajectory_test2d, target_train2d, target_test2d = train_test_split(nano_traj, targets2d,
-                                                                                            random_state=42)
+    trajectory_train, trajectory_test, target_train, target_test = \
+        sklearn.model_selection.train_test_split(nano_traj, targets, random_state=42)
+    trajectory_train2d, trajectory_test2d, target_train2d, target_test2d = \
+        sklearn.model_selection.train_test_split(nano_traj, targets2d, random_state=42)
     # calculate model performance with cross-validation, alpha tuning
     alphas = np.logspace(-10, 10, 21)  # Todo why log space here?
     # then compare between models based on various model scoring parameters
@@ -358,7 +352,7 @@ def predict_best_pose_from_transformation_cluster(train_trajectories_file, train
         test_reg = model(alphas=alphas).fit(trajectory_train, target_train)
         reg_scores.append(test_reg.score(trajectory_train, target_train))
         target_test_prediction = test_reg.predict(trajectory_test, target_test)
-        mae_scores.append(median_absolute_error(target_test, target_test_prediction))
+        mae_scores.append(sklearn.metrics.median_absolute_error(target_test, target_test_prediction))
 
 
 def chose_top_pose_from_model(test_trajectories_file, clustered_poses, model):
@@ -386,20 +380,23 @@ def return_transform_pair_as_guide_coordinate_pair(transform1, transform2):
     return np.concatenate([transformed_guide_coords1.reshape(-1, 9), transformed_guide_coords2.reshape(-1, 9)], axis=1)
 
 
-def cluster_transformation_pairs(transform1, transform2, distance=1.0, minimum_members=2):  # , return_representatives=True):
+def cluster_transformation_pairs(transform1: dict[str, np.ndarray], transform2: dict[str, np.ndarray],
+                                 distance: float = 1., minimum_members: int = 2) -> \
+        tuple[sklearn.neighbors._unsupervised.NearestNeighbors, sklearn.cluster._dbscan.DBSCAN]:
+    #                              return_representatives=True):
     """Cluster Pose conformations according to their specific transformation parameters to find Poses which occupy
     essentially the same space
 
     Args:
-        transform1 (dict[mapping[str, numpy.ndarray]]): First set of rotations/translations to be clustered
+        transform1: First set of rotations/translations to be clustered
             {'rotation': rot_array, 'translation': tx_array, 'rotation2': rot2_array, 'translation2': tx2_array}
-        transform2 (dict[mapping[str, numpy.ndarray]]): Second set of rotations/translations to be clustered
+        transform2: Second set of rotations/translations to be clustered
             {'rotation': rot_array, 'translation': tx_array, 'rotation2': rot2_array, 'translation2': tx2_array}
-    Keyword Args:
-        distance=1.0 (float): The distance to query neighbors in transformational space
-        minimum_members (int): The minimum number of members in each cluster
+        distance: The distance to query neighbors in transformational space
+        minimum_members: The minimum number of members in each cluster
     Returns:
-        (tuple[sklearn.neighbors.NearestNeighbors, sklearn.dbscan_cluster.DBSCAN]): Representative indices DBSCAN cluster membership indices
+        The sklearn tree with the calculated nearest neighbors, the DBSCAN clustering object
+        Representative indices, DBSCAN cluster membership indices
     """
     # Todo tune DBSCAN distance (epsilon) to be reflective of the data, should be related to radius in NearestNeighbors
     #  but smaller by some amount. Ideal amount would be the distance between two transformed guide coordinate sets of
@@ -407,13 +404,15 @@ def cluster_transformation_pairs(transform1, transform2, distance=1.0, minimum_m
     transformed_guide_coords = return_transform_pair_as_guide_coordinate_pair(transform1, transform2)
 
     # create a tree structure describing the distances of all transformed points relative to one another
-    nearest_neightbors_ball_tree = NearestNeighbors(algorithm='ball_tree', radius=distance)
+    nearest_neightbors_ball_tree = sklearn.neighbors.NearestNeighbors(algorithm='ball_tree', radius=distance)
     nearest_neightbors_ball_tree.fit(transformed_guide_coords)
     #                                sort_results returns only non-zero entries and provides the smallest distance first
     distance_graph = nearest_neightbors_ball_tree.radius_neighbors_graph(mode='distance', sort_results=True)  # <- sort doesn't work?
     #                                                      X=transformed_guide_coords is implied
     # because this doesn't work to sort_results and pull out indices, I have to do another step 'radius_neighbors'
-    dbscan_cluster = DBSCAN(eps=distance, min_samples=minimum_members, metric='precomputed').fit(distance_graph)  # , sample_weight=A WEIGHT?
+    dbscan_cluster: sklearn.cluster.DBSCAN = \
+        sklearn.cluster.DBSCAN(eps=distance, min_samples=minimum_members, metric='precomputed').fit(distance_graph)
+    #                                         sample_weight=A WEIGHT?
 
     # if return_representatives:
     #     return find_cluster_representatives(nearest_neightbors_ball_tree, dbscan_cluster)
@@ -421,31 +420,36 @@ def cluster_transformation_pairs(transform1, transform2, distance=1.0, minimum_m
     return nearest_neightbors_ball_tree, dbscan_cluster  # .labels_
 
 
-def find_cluster_representatives(transform_tree, cluster) -> tuple[list, np.ndarray]:
+def find_cluster_representatives(transform_tree: sklearn.neighbors._unsupervised.NearestNeighbors,
+                                 cluster: sklearn.cluster._dbscan.DBSCAN) \
+        -> tuple[list[int], np.ndarray]:
     """Return the cluster representative indices and the cluster membership identity for all member data
 
     Args:
-        transform_tree (sklearn.neighbors.NearestNeighbors):
-        cluster (sklearn.cluster.DBSCAN):
+        transform_tree: The sklearn tree with the calculated nearest neighbors
+        cluster: The DBSCAN clustering object
     Returns:
-        (tuple[list, numpy.ndarray]) The list of representative indices and the array of all indices membership
+        The list of representative indices, array of all indices membership
     """
-    outlier = -1  # -1 are outliers in DBSCAN
+    # Get the neighbors for each point in the tree according to the fit distance
     tree_distances, tree_indices = transform_tree.radius_neighbors(sort_results=True)
-    # find cluster mean for each index
+    # Find mean distance to all neighbors for each index
     with catch_warnings():
-        # empty slices can't have mean, so catch warning if cluster is an outlier
+        # Empty slices can't compute mean, so catch warning if cluster is an outlier
         simplefilter('ignore', category=RuntimeWarning)
         mean_cluster_dist = np.empty(tree_distances.shape[0])
-        for idx, array in enumerate(tree_distances.tolist()):
-            mean_cluster_dist[idx] = array.mean()
+        for idx in range(tree_distances.shape[0]):
+            mean_cluster_dist[idx] = tree_distances[idx].mean()
 
-    # for each label (cluster), add the minimal mean (representative) the representative transformation indices
+    # For each label (cluster), add the minimal mean (representative) the representative transformation indices
+    outlier = -1  # -1 are outliers in DBSCAN
     representative_transformation_indices = []
     for label in set(cluster.labels_) - {outlier}:  # labels live here
         cluster_indices = np.flatnonzero(cluster.labels_ == label)
+        # Get the minimal argument from the mean distances for each index in the cluster
+        # This index is the cluster representative
         representative_transformation_indices.append(cluster_indices[mean_cluster_dist[cluster_indices].argmin()])
-    # add all outliers to representatives
+    # Add all outliers to representatives
     representative_transformation_indices.extend(np.flatnonzero(cluster.labels_ == outlier).tolist())
 
     return representative_transformation_indices, cluster.labels_
