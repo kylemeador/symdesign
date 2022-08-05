@@ -1779,6 +1779,7 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
     # Whether the protocol should separate the expansion of coordinates and the measurement of fragment matches
     overlap_only = False  # True
     # Save all the indices were matching fragments are identified
+    interface_is_viable = []
     all_passing_ghost_indices = []
     all_passing_surf_indices = []
     all_passing_z_scores = []
@@ -1954,7 +1955,6 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
         if maximum_number_of_pairs < euler_lookup_size_threshold:
             # Todo there may be memory leak by Pose objects sharing memory with persistent objects
             #  that prevent garbage collection and stay attached to the run
-            log.info(f'Available memory: {psutil.virtual_memory().available}')
             # Skipping EulerLookup as it has issues with precision
             index_ij_pairs_start_time = time.time()
             ghost_indices_repeated = np.repeat(ghost_indices_in_interface1, int_ghost_shape)
@@ -2169,8 +2169,11 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
         if sym_entry.unit_cell:
             external_tx_params1 = full_ext_tx1[idx]
             external_tx_params2 = full_ext_tx2[idx]
+            # asu.space_group = sym_entry.resulting_symmetry
+            uc_dimensions = full_uc_dimensions[idx]
         else:
             external_tx_params1, external_tx_params2 = None, None
+            uc_dimensions = None
         specific_transformation1 = dict(rotation=rot_mat1, translation=internal_tx_param1,
                                         rotation2=set_mat1, translation2=external_tx_params1)
         specific_transformation2 = dict(rotation=rot_mat2, translation=internal_tx_param2,
@@ -2181,12 +2184,6 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
         #                                             'rotation2': set_mat2, 'translation2': external_tx_params2})
         # asu = Model.from_entities([model1_copy.entities[0], model2_copy.entities[0]], log=log, name='asu',
         #                           entity_names=[model1_copy.name, model2_copy.name], rename_chains=True)
-
-        if sym_entry.unit_cell:
-            # asu.space_group = sym_entry.resulting_symmetry
-            uc_dimensions = full_uc_dimensions[idx]
-        else:
-            uc_dimensions = None
 
         # if write_and_quit:  # Todo remove after debugging
         #     degen_str = 'DEGEN_{}'.format('_'.join(map(str, degen_counts[idx])))
@@ -2237,8 +2234,7 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
         pose = Pose.from_entities([entity.return_transformed_copy(**specific_transformations[idx])
                                    for idx, model in enumerate(models) for entity in model.entities],
                                   entity_names=[entity.name for entity in model.entities for model in models],
-                                  name='asu', log=log, sym_entry=sym_entry,
-                                  surrounding_uc=output_surrounding_uc, uc_dimensions=uc_dimensions,
+                                  name='asu', log=log, sym_entry=sym_entry, uc_dimensions=uc_dimensions,
                                   ignore_clashes=True, rename_chains=True)  # pose_format=True,
         # ignore ASU clashes since already checked ^
 
