@@ -25,6 +25,7 @@ sym_entry = 'sym_entry'
 output_oligomers = 'output_oligomers'
 output_fragments = 'output_fragments'
 nano = 'nanohedra'
+nano_publication = 'Laniado, Meador, & Yeates, PEDS. 2021'
 nano_entity_flag1 = '-oligomer1'  # Todo make -entity1
 nano_entity_flag2 = '-oligomer2'
 refine = 'refine'
