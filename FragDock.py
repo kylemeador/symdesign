@@ -10,6 +10,7 @@ from typing import AnyStr
 
 import numpy as np
 import psutil
+from sklearn.cluster import DBSCAN
 from sklearn.neighbors import BallTree
 
 from ClusterUtils import cluster_transformation_pairs, find_cluster_representatives
@@ -458,6 +459,7 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
     Returns:
         None
     """
+    outlier = -1
     high_quality_z_value = z_value_from_match_score(high_quality_match_value)
     low_quality_match_value = .2  # sets the lower bounds on an acceptable match, was upper bound of 2 using z-score
     low_quality_z_value = z_value_from_match_score(low_quality_match_value)
@@ -483,14 +485,6 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
         # Make, then save a new model based on the symmetric version of each Entity in the Model
         models[idx] = Model.from_chains([chain for entity in model.entities for chain in entity.chains],
                                         name=model.name, pose_format=True)
-        # # Todo remove below write debug
-        # models[idx].write(out_path=os.path.join(master_output,
-        #                                         f'TEST_FragDock_from_chains_Model-{model.name}'
-        #                                         f'_write.pdb'))
-        # for entity in models[idx].entities:
-        #     entity.write_oligomer(out_path=os.path.join(master_output,
-        #                                                 f'TEST_FragDock_from_chains_Entity-{entity.name}'
-        #                                                 f'_write_oligomer.pdb'))
         models[idx].file_path = model.file_path
 
     # Set up output mechanism
@@ -986,6 +980,9 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
 
         # Perform Euler integer extraction for all rotations
         init_time_start = time.time()
+        # Todo set as parameters?
+        cluster_translations = True
+        translation_epsilon = 1
         # Rotate Oligomer1 surface and ghost guide coordinates using rotation_matrices1 and set_mat1
         # Must add a new axis so that the multiplication is broadcast
         ghost_frag1_guide_coords_rot_and_set = \
@@ -1207,7 +1204,18 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
                     log.info(f'\tNo transforms were found passing optimal shift criteria '
                              f'(took {optimal_shifts_time:8f}s)')
                     continue
-
+                elif cluster_translations:
+                    log.info(f'Found {number_passing_shifts} before clustering')
+                    # tx_params = np.vstack()
+                    # tx_params = transform_passing_shifts
+                    cluster_time_start = time.time()
+                    translation_cluster = DBSCAN(eps=translation_epsilon, min_samples=min_matched).fit(transform_passing_shifts)
+                    transform_passing_shifts = transform_passing_shifts[translation_cluster.labels_ != outlier]
+                    number_passing_shifts = transform_passing_shifts.shape[0]
+                    log.info(f'Found {number_passing_shifts} after clustering '
+                             f'(took {time.time() - cluster_time_start:8f}s)')
+                else:  # Use all translations
+                    pass
                 # transform_passing_shift_indices = np.array(
                 #     [idx for idx, shift in enumerate(optimal_shifts) if shift is not None])
 
@@ -1454,7 +1462,9 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
     # del transformation1
     # del transformation2
     # cluster_representative_indices, cluster_labels = find_cluster_representatives(transform_neighbor_tree, cluster)
-    _, cluster_labels = find_cluster_representatives(transform_neighbor_tree, cluster)
+    # Todo?
+    #  _, cluster_labels = find_cluster_representatives(transform_neighbor_tree, cluster)
+    cluster_labels = cluster.labels_
     # log.debug(f'shape of cluster_labels: {cluster_labels.shape}')
     sufficiently_dense_indices = np.flatnonzero(cluster_labels != -1)
     number_of_dense_transforms = len(sufficiently_dense_indices)
