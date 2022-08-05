@@ -2713,8 +2713,10 @@ class SymmetricModel(Models):
     #         self._symmetric_coords = coords
     #     else:
     #         self._symmetric_coords = Coords(coords)
-    #     Todo make below standard (like StructureBase) once symmetric_coords are part of other Structures (Entity?)
-    #     self._symmetric_coords.replace(self.get_symmetric_indices(self._atom_indices), coords)
+    #     # Todo make below like StructureBase
+    #     #  once symmetric_coords are handled as a settable property
+    #     #  this requires setting the asu if these are set
+    #     self._models_coords.replace(self.get_symmetric_indices(self._atom_indices), coords)
 
     @property
     def symmetric_coords_split(self) -> list[np.ndarray]:
@@ -2975,15 +2977,20 @@ class SymmetricModel(Models):
                 #                     f'for them. Try passing surrounding_uc=True to '
                 #                     f'{self.generate_symmetric_coords.__name__}')
 
-        number_of_atoms = self.number_of_atoms
         self.log.debug(f'Ensure the output of symmetry mate creation is correct. The copy of a '
                        f'{type(self).__name__} is being taken which is relying on Structure.__copy__. This may '
                        f'not be adequate and need to be overwritten')
-        for coord_idx in range(self.number_of_symmetry_mates):
-            symmetry_mate = copy(self)
-            symmetry_mate.coords = self.symmetric_coords[(coord_idx * number_of_atoms):
-                                                         ((coord_idx + 1) * number_of_atoms)]
-            self.models.append(symmetry_mate)
+
+        if not self.models:
+            for coord_idx in range(self.number_of_symmetry_mates):
+                symmetry_mate = copy(self)
+                self.models.append(symmetry_mate)
+
+        number_of_atoms = self.number_of_atoms
+        for model_idx, model in enumerate(self.models):
+            # symmetry_mate = copy(self)
+            model.coords = self.symmetric_coords[model_idx*number_of_atoms: (model_idx+1) * number_of_atoms]
+            # self.models.append(symmetry_mate)
 
     @property
     def asu_model_index(self) -> int:
@@ -3810,8 +3817,6 @@ class SymmetricModel(Models):
             self: To a SymmetricModel with the minimal set of Entities containing the maximally touching configuration
         """
         entities = self.find_contacting_asu(**kwargs)
-        # self = Model.from_entities(entities, name='asu', log=self.log, **kwargs)
-        # self._pdb = Model.from_entities(entities, name='asu', log=self.log, **kwargs)
 
         # With perfect symmetry, v this is sufficient
         self.coords = np.concatenate([entity.coords for entity in entities])
@@ -3833,18 +3838,7 @@ class SymmetricModel(Models):
         """
         if not self.symmetry:
             raise SymmetryError('Cannot check if the assembly is clashing as it has no symmetry!')
-        # elif self.number_of_symmetry_mates == 1:
-        #     raise ValueError(f'Cannot check if the assembly is clashing without first calling '
-        #                      f'{self.generate_symmetric_coords.__name__}')
 
-        # if self.coords_type != 'bb_cb':
-        # Need to select only coords that are BB or CB from the model coords
-        # asu_indices = self.backbone_and_cb_indices
-        # else:
-        #     asu_indices = None
-
-        # self.generate_assembly_tree()
-        # clashes = asu_coord_tree.two_point_correlation(self.symmetric_coords[model_indices_without_asu], [distance])
         clashes = self.assembly_tree.two_point_correlation(self.coords[self.backbone_and_cb_indices], [distance])
         if clashes[0] > 0:
             self.log.warning(f'{self.name}: Found {clashes[0]} clashing sites! Pose is not a viable symmetric assembly')
@@ -3854,7 +3848,7 @@ class SymmetricModel(Models):
 
     @property
     def assembly_tree(self) -> BinaryTree:
-        """Holds the tree structure of the symmetric_coords"""
+        """Holds the tree structure of the symmetric_coords not including the asu coords"""
         try:
             return self._assembly_tree
         except AttributeError:
