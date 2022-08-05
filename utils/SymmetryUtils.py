@@ -102,8 +102,9 @@ all_sym_entry_dict = {'T': {'C2': {'C3': 5}, 'C3': {'C2': 5, 'C3': 54}, 'T': 200
                       'O': {'C2': {'C3': 7, 'C4': 13}, 'C3': {'C2': 7, 'C4': 56}, 'C4': {'C2': 13, 'C3': 56}, 'O': 210},
                       'I': {'C2': {'C3': 9, 'C5': 16}, 'C3': {'C2': 9, 'C5': 58}, 'C5': {'C2': 16, 'C3': 58}, 'I': 220}}
 max_sym = 6
-rotation_range = {'C%d' % i: 360 / i for i in map(float, range(1, max_sym + 1))}
+rotation_range = {f'C{int(i)}': 360 / i for i in map(float, range(1, max_sym + 1))}
 # All rotational comments below are described according to a vector emanating from the origin on the specified axis
+# The dihedral angles (in radians) are sourced from https://en.wikipedia.org/wiki/Table_of_polyhedron_dihedral_angles
 setting_matrices = {
     1: np.array([[1., 0., 0.], [0., 1., 0.], [0., 0., 1.]]),
     # Identity
@@ -263,7 +264,7 @@ def frac_to_cart(frac_coords, dimensions):
 
     else:
         raise ValueError(
-            "UNIT CELL DIMENSIONS INCORRECTLY SPECIFIED. CORRECT FORMAT IS: [a, b, c,  alpha, beta, gamma]")
+            "UNIT CELL DIMENSIONS INCORRECTLY SPECIFIED. CORRECT FORMAT IS: [a, b, c, alpha, beta, gamma]")
 
 
 def get_central_asu(pdb, uc_dimensions, design_dimension):  # Todo remove from FragDock then Depreciate
