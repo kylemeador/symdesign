@@ -51,8 +51,8 @@ from utils.GeneralUtils import write_docking_parameters
 from utils.SetUp import set_up_instructions
 from SymDesignUtils import SymmetryError
 from utils.guide import interface_design_guide, analysis_guide, interface_metrics_guide, select_poses_guide, \
-    select_designs_guide, select_sequences_guide, cluster_poses_guide, refine_guide, optimize_designs_guide
-
+    select_designs_guide, select_sequences_guide, cluster_poses_guide, refine_guide, optimize_designs_guide, \
+    nanohedra_guide, orient_guide, expand_asu_guide
 
 # def rename(des_dir, increment=PUtils.nstruct):
 #     """Rename the decoy numbers in a PoseDirectory by a specified increment
@@ -647,7 +647,7 @@ def main():
         elif args.module == PUtils.refine:
             print(refine_guide)
         elif args.module == PUtils.nano:
-            print()
+            print(nanohedra_guide)
         elif args.module == PUtils.select_poses:
             print(select_poses_guide)
         elif args.module == PUtils.select_designs:
@@ -655,13 +655,13 @@ def main():
         elif args.module == PUtils.select_sequences:
             print(select_sequences_guide)
         elif args.module == 'expand_asu':
-            print()
+            print(expand_asu_guide)
         elif args.module == 'orient':
-            print()
-        elif args.module == 'check_clashes':
-            print()
-        elif args.module == 'residue_selector':
-            print()
+            print(orient_guide)
+        # elif args.module == 'check_clashes':
+        #     print()
+        # elif args.module == 'residue_selector':
+        #     print()
         # elif args.module == 'visualize':
         #     print('Usage: %s -r %s -- [-d %s, -df %s, -f %s] visualize --range 0-10'
         #           % (SDUtils.ex_path('pymol'), PUtils.program_command.replace('python ', ''),
