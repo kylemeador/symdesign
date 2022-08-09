@@ -1227,7 +1227,7 @@ class SequenceProfile:
             for residue in no_design:
                 self.fragment_profile.pop(residue)
 
-    def find_alpha(self, alpha=0.5):
+    def find_alpha(self, alpha: float = .5):
         """Find fragment contribution to design with a maximum contribution of alpha. Used subsequently to integrate
         fragment profile during combination with evolutionary profile in calculate_design_profile
 
@@ -1242,14 +1242,17 @@ class SequenceProfile:
         Then makes self.alpha
             (dict): {1: 0.5, 2: 0.321, ...}
 
-        Keyword Args:
-            alpha=0.5 (float): The maximum alpha value to use, should be bounded between 0 and 1
+        Args:
+            alpha: The maximum contribution of the fragment profile to use, bounded between (0, 1]. 0 means
         """
         if not self.fragment_db:
             raise AttributeError(f'{self.find_alpha.__name__}: No fragment database connected! Cannot calculate optimal'
                                  f' fragment contribution without one')
-        if alpha < 0 or 1 < alpha:
+        if alpha <= 0 or 1 <= alpha:
             raise ValueError(f'{self.find_alpha.__name__}: Alpha parameter must be bounded between 0 and 1')
+        else:
+            self._alpha = alpha
+
         alignment_type_to_idx = {'mapped': 0, 'paired': 1}  # could move to class, but not used elsewhere
         match_score_average = 0.5  # when fragment pair rmsd equal to the mean cluster rmsd
         bounded_floor = 0.2
@@ -1270,9 +1273,9 @@ class SequenceProfile:
             match_average = match_sum / float(count)
             # find the match modifier which spans from 0 to 1
             if match_average < match_score_average:
-                match_modifier = ((match_average - bounded_floor) / (match_score_average - bounded_floor))
-            else:
-                match_modifier = 1  # match_score_average / match_score_average  # 1 is the maximum bound
+                match_modifier = (match_average-bounded_floor) / (match_score_average-bounded_floor)
+            else:  # Set modifier to 1, the maximum bound
+                match_modifier = 1
 
             # find the total contribution from a typical fragment of this type
             contribution_total = sum(fragment_stats[self.fragment_db.get_cluster_id(obs['cluster'], index=2)][0]
@@ -1296,11 +1299,11 @@ class SequenceProfile:
 
             # modify alpha proportionally to cluster average weight and match_modifier
             if frag_weight_average < stats_average:  # if design frag weight is less than db cluster average weight
-                self.alpha[entry] = alpha * (frag_weight_average / stats_average) * match_modifier
+                self.alpha[entry] = self._alpha * match_modifier * (frag_weight_average/stats_average)
             else:
-                self.alpha[entry] = alpha * match_modifier
+                self.alpha[entry] = self._alpha * match_modifier
 
-    def calculate_design_profile(self, favor_fragments=True, boltzmann=False, alpha=0.5):
+    def calculate_design_profile(self, favor_fragments: bool = True, boltzmann: bool = False):
         """Combine weights for profile PSSM and fragment SSM using fragment significance value to determine overlap
 
         Takes self.evolutionary_profile
@@ -1312,33 +1315,35 @@ class SequenceProfile:
             (dict): {48: {'A': 0.167, 'D': 0.028, 'E': 0.056, ..., 'stats': [4, 0.274]}, 50: {...}, ...}
         and self.alpha
             (dict): {48: 0.5, 50: 0.321, ...}
-        Keyword Args:
-            favor_fragments=True (bool): Whether to favor fragment profile in the lod score of the resulting profile
-            boltzmann=True (bool): Whether to weight the fragment profile by the Boltzmann probability.
-                                   lod = z[i]/Z, Z = sum(exp(score[i]/kT))
-                   If=False, residues are weighted by the residue local maximum lod score in a linear fashion.
-            All lods are scaled to a maximum provided in the Rosetta REF2015 per residue reference weight.
-            alpha=0.5 (float): The maximum alpha value to use, bounded between 0 and 1
+        Args:
+            favor_fragments: Whether to favor fragment profile in the lod score of the resulting profile
+            boltzmann: Whether to weight the fragment profile by the Boltzmann probability.
+                lod = z[i]/Z, Z = sum(exp(score[i]/kT))
+                If False, residues are weighted by the residue local maximum lod score in a linear fashion
+                All lods are scaled to a maximum provided in the Rosetta REF2015 per residue reference weight.
 
         And outputs self.profile
             (dict): {1: {'A': 0.04, 'C': 0.12, ..., 'lod': {'A': -5, 'C': -9, ...}, 'type': 'W', 'info': 0.00,
                          'weight': 0.00}, ...}} - combined PSSM dictionary
         """
-        assert 0 <= alpha <= 1, '%s: Alpha parameter must be between 0 and 1' % self.calculate_design_profile.__name__
-        # copy the evol profile to self.profile (design specific scoring matrix)
+        if self._alpha == 0:  # We get a division error
+            self.log.info(f'{self.calculate_design_profile.__name__}: _alpha set with 1e-5 tolerance due to 0 value')
+            self._alpha = 0.000001
+        # Copy the evolutionary profile to self.profile (design specific scoring matrix)
         self.profile = deepcopy(self.evolutionary_profile)
         # Combine fragment and evolutionary probability profile according to alpha parameter
         if self.alpha:
-            self.log.info('At Entity %s, combined evolutionary and fragment profiles into Design Profile with:\n\t%s'
-                          % (self.name, '\n\t'.join('Residue %4d: %d%% fragment weight' %
-                                                    (entry, weight * 100) for entry, weight in self.alpha.items())))
+            self.log.info(f'At {self.name}, combined evolutionary and fragment profiles into Design Profile with:'
+                          f'\n\t%s'
+                          % '\n\t'.join(f'Residue {entry:5d}: {weight*100:.0f}% fragment weight'
+                                        for entry, weight in self.alpha.items()))
         for entry, weight in self.alpha.items():  # weight will be 0 if the fragment_profile is empty
             for aa in protein_letters:
                 self.profile[entry][aa] = \
                     (weight * self.fragment_profile[entry][aa]) + ((1 - weight) * self.profile[entry][aa])
 
         if favor_fragments:
-            # Modify final lod scores to fragment profile lods. Otherwise use evolutionary profile lod scores
+            # Modify final lod scores to fragment profile lods. Otherwise, use evolutionary profile lod scores
             # Used to weight fragments higher in design
             boltzman_energy = 1
             favor_seqprofile_score_modifier = 0.2 * CommandDistributer.reference_average_residue_weight
@@ -1365,7 +1370,7 @@ class SequenceProfile:
                     if self.profile[entry]['lod'][aa] > max_lod:
                         max_lod = self.profile[entry]['lod'][aa]
                 # takes the percent of max alpha for each entry multiplied by the standard residue scaling factor
-                modified_entry_alpha = (weight / alpha) * favor_seqprofile_score_modifier
+                modified_entry_alpha = (weight / self._alpha) * favor_seqprofile_score_modifier
                 if boltzmann:
                     modifier = partition
                     modified_entry_alpha /= (max_lod / partition)
