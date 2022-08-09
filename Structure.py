@@ -5923,8 +5923,12 @@ class Entity(SequenceProfile, Chain, ContainsChainsMixin):
         self._number_of_symmetry_mates = number_of_symmetry_mates
 
     def is_captain(self) -> bool:
-        """Is the Entity the captain chain?"""
+        """Is the Entity instance the captain?"""
         return self._is_captain
+
+    def is_mate(self) -> bool:
+        """Is the Entity instance a mate?"""
+        return not self._is_captain
 
     def is_oligomeric(self) -> bool:
         """Is the Entity oligomeric?"""
@@ -6060,20 +6064,18 @@ class Entity(SequenceProfile, Chain, ContainsChainsMixin):
 
     def remove_mate_chains(self):
         """Clear the Entity of all Chain and Oligomer information"""
-        self._chain_transforms = []  # [dict(rotation=identity_matrix, translation=origin)]
+        self._chain_transforms.clear()
         self.number_of_symmetry_mates = 1
         # self._chains.clear()
         self._chains = [self]
-        try:
-            del self._chain_ids
-        except AttributeError:
-            pass
+        self._is_captain = False
+        self.chain_ids = [self.chain_id]
 
     def _make_mate(self, other: Entity):
         """Turn the Entity into a "mate" Entity"""
         self._captain = other
         self._is_captain = False
-        self._chain_ids = [self.chain_id]  # set for a length of 1, using the captain self.chain_id
+        self.chain_ids = [self.chain_id]  # set for a length of 1, using the captain self.chain_id
         self._chain_transforms.clear()
 
     def _make_captain(self):
