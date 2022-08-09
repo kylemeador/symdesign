@@ -1494,7 +1494,7 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
              f'{time.time() - int_cb_and_frags_start:8f}s')
 
     # @profile
-    def create_and_write_new_pose(idx):
+    def create_and_write_new_pose(idx, sequence_design: bool = True):
         # Get contacting PDB 1 ASU and PDB 2 ASU
         copy_model_start = time.time()
         rot_mat1 = full_rotation1[idx]
@@ -1564,6 +1564,8 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
         high_quality_matches_dir = os.path.join(matching_fragments_dir, 'high_qual_match')
         low_quality_matches_dir = os.path.join(matching_fragments_dir, 'low_qual_match')
 
+        if sequence_design:
+            pose.design_sequence()
         # Write ASU, Model1, Model2, and assembly files
         pose.set_contacting_asu(distance=cb_distance)
         if sym_entry.unit_cell:  # 2, 3 dimensions

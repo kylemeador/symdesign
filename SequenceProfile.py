@@ -52,7 +52,7 @@ subs_matrices = {'BLOSUM62': substitution_matrices.load('BLOSUM62')}
 
 protein_letters_1aa_literal = Literal[tuple(protein_letters)]
 # protein_letters_literal: tuple[str, ...] = get_args(protein_letters_1aa_literal)
-gapped_protein_letters = protein_letters + '-'
+gapped_protein_letters = protein_letters + '-'  # Todo should use 'X' as gap and unknown?
 # numerical_translation = dict(zip(protein_letters, range(len(protein_letters))))
 numerical_translation_bytes = dict(zip([item.encode() for item in protein_letters], range(len(protein_letters))))
 gapped_numerical_translation = defaultdict(lambda: 20, zip(gapped_protein_letters, range(len(gapped_protein_letters))))
