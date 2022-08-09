@@ -4,3 +4,6 @@
 [submodule "codon-usage-tables"]
 	path = python-codon-tables
 	url = https://github.com/kylemeador/codon-usage-tables.git
+[submodule "ProteinMPNN"]
+	path = ProteinMPNN
+	url = https://github.com/kylemeador/ProteinMPNN.git
