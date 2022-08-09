@@ -1136,6 +1136,8 @@ class Model(Structure, ContainsChainsMixin):
             else:  # create Entities from Chain.Residues
                 self._create_entities(**kwargs)
 
+            self._symmetric_dependents = self.entities  # Todo ensure these never change
+
             if not self.chain_ids:  # set according to self.entities
                 self.chain_ids.extend([entity.chain_id for entity in self.entities])
 
@@ -2324,7 +2326,7 @@ class SymmetricModel(Models):
     _number_of_symmetry_mates: int
     _point_group_symmetry: str
     _oligomeric_model_indices: dict[Entity, list[int]]
-    _sym_entry: SymEntry
+    _sym_entry: SymEntry | None
     _symmetry: str
     _symmetric_coords_by_entity: list[np.ndarray]
     _symmetric_coords_split: list[np.ndarray]
@@ -2353,15 +2355,15 @@ class SymmetricModel(Models):
         #     generate_assembly_coords: Whether the symmetric coords should be generated from the ASU coords
         #     generate_symmetry_mates: Whether the symmetric models should be generated from the ASU model
         #          asu: PDB = None, asu_file: str = None
-        # Initialize symmetry first
+        # Initialize symmetry first incase initialization of Model requires symmetric coordinate handling
         self.expand_matrices = None
         self.expand_translations = None
-        self.uc_dimensions = None  # uc_dimensions
+        # self.uc_dimensions = None  # uc_dimensions
         self.set_symmetry(sym_entry=sym_entry, symmetry=symmetry, uc_dimensions=uc_dimensions,
                           expand_matrices=expand_matrices)
         super().__init__(**kwargs)
 
-        if self.symmetry:  # True if symmetry keyword args were passed
+        if self.is_symmetric():  # True if symmetry keyword args were passed
             # Ensure that the symmetric system is set up properly which could require finding the ASU
             if self.number_of_entities != self.number_of_chains:  # ensure the structure is an asu
                 self.log.debug('Setting Pose ASU to the ASU with the most contacting interface')
@@ -2553,6 +2555,10 @@ class SymmetricModel(Models):
                 delattr(self, attribute)
             except AttributeError:
                 continue
+        self.symmetry = getattr(self.sym_entry, 'resulting_symmetry', None)
+        self.point_group_symmetry = getattr(self.sym_entry, 'point_group_symmetry', None)
+        self.dimension = getattr(self.sym_entry, 'dimension', None)
+        self.number_of_symmetry_mates = getattr(self.sym_entry, 'number_of_operations', 1)
 
     @property
     def symmetry(self) -> str | None:
@@ -2560,8 +2566,7 @@ class SymmetricModel(Models):
         try:
             return self._symmetry
         except AttributeError:
-            self._symmetry = getattr(self.sym_entry, 'resulting_symmetry', None)
-            return self._symmetry
+            return None
 
     @symmetry.setter
     def symmetry(self, symmetry: str | None):
@@ -2573,8 +2578,7 @@ class SymmetricModel(Models):
         try:
             return self._point_group_symmetry
         except AttributeError:
-            self._point_group_symmetry = getattr(self.sym_entry, 'point_group_symmetry', None)
-            return self._point_group_symmetry
+            return None
 
     @point_group_symmetry.setter
     def point_group_symmetry(self, point_group_symmetry: str | None):
@@ -2586,8 +2590,7 @@ class SymmetricModel(Models):
         try:
             return self._dimension
         except AttributeError:
-            self._dimension = getattr(self.sym_entry, 'dimension', None)
-            return self._dimension
+            return None
 
     @dimension.setter
     def dimension(self, dimension: int | None):
@@ -2601,7 +2604,7 @@ class SymmetricModel(Models):
         try:
             return self._cryst_record
         except AttributeError:  # for now don't use if the structure wasn't symmetric and no attribute was parsed
-            self._cryst_record = None if not self.symmetry or self.dimension == 0 \
+            self._cryst_record = None if not self.is_symmetric() or self.dimension == 0 \
                 else generate_cryst1_record(self.uc_dimensions, self.symmetry)
             return self._cryst_record
 
@@ -2627,8 +2630,7 @@ class SymmetricModel(Models):
         try:
             return self._number_of_symmetry_mates
         except AttributeError:
-            self._number_of_symmetry_mates = getattr(self.sym_entry, 'number_of_operations', 1)
-            return self._number_of_symmetry_mates
+            return 1
 
     @number_of_symmetry_mates.setter
     def number_of_symmetry_mates(self, number_of_symmetry_mates: int):
@@ -2683,12 +2685,14 @@ class SymmetricModel(Models):
     @StructureBase.coords.setter
     def coords(self, coords: np.ndarray | list[list[float]]):
         # self.coords = coords
+        # self.log.debug(f'Setting {type(self).__name__} coords')
         super(Structure, Structure).coords.fset(self, coords)  # prefer this over below, as this mechanism could change
         # self._coords.replace(self._atom_indices, coords)
-        if self.symmetry:  # set the symmetric coords according to the ASU
+        if self.is_symmetric():  # set the symmetric coords according to the ASU
+            # self.log.debug(f'Updating symmetric coords')
             self.generate_symmetric_coords()
 
-        # delete any saved attributes from the SymmetricModel (or Model)
+        # Delete any saved attributes from the SymmetricModel (or Model)
         self.reset_state()
 
     @property
@@ -2962,7 +2966,7 @@ class SymmetricModel(Models):
         Sets:
             self.models (list[Structure]): All symmetry mates where each mate has Chain names matching the ASU
         """
-        if not self.symmetry:
+        if not self.is_symmetric():
             # self.log.critical('%s: No symmetry set for %s! Cannot get symmetry mates'  # Todo
             #                   % (self.generate_assembly_symmetry_models.__name__, self.name))
             raise SymmetryError(f'{self.generate_assembly_symmetry_models.__name__}: No symmetry set for {self.name}! '
@@ -3374,7 +3378,7 @@ class SymmetricModel(Models):
         the global symmetry. Construct the sub-symmetry by copying each symmetric chain to the Entity's .chains
         attribute"""
         raise NotImplementedError('Cannot assign entities to sub symmetry yet! Need to debug this function')
-        if not self.symmetry:
+        if not self.is_symmetric():
             raise SymmetryError('Must set a global symmetry to assign entities to sub symmetry!')
 
         # Get the rotation matrices for each group then orient along the setting matrix "axis"
@@ -3532,7 +3536,7 @@ class SymmetricModel(Models):
         Returns:
             The specific transformation dictionaries which place each Entity with proper symmetry axis in the Pose
         """
-        if not self.symmetry:
+        if not self.is_symmetric():
             raise SymmetryError(f'Must set a global symmetry to {self.assign_pose_transformation.__name__}!')
 
         # get optimal external translation
@@ -3542,10 +3546,10 @@ class SymmetricModel(Models):
             try:
                 optimal_external_shifts = self.sym_entry.get_optimal_shift_from_uc_dimensions(*self.uc_dimensions)
             except AttributeError as error:
-                print(f'\n\n\n{self.assign_pose_transformation.__name__}: Couldn\'t '
+                print(f"\n\n\n{self.assign_pose_transformation.__name__}: Couldn't "
                       f'{SymEntry.get_optimal_shift_from_uc_dimensions.__name__} with dimensions: {self.uc_dimensions}'
                       f'\nAnd sym_entry.unit_cell specification: {self.sym_entry.unit_cell}\nThis is likely because '
-                      f'{self.symmetry} isn\'t a lattice with parameterized external translations\n\n\n')
+                      f"{self.symmetry} isn't a lattice with parameterized external translations\n\n\n")
                 raise error
             # external_tx1 = optimal_external_shifts[:, None] * self.sym_entry.external_dof1
             # external_tx2 = optimal_external_shifts[:, None] * self.sym_entry.external_dof2
@@ -3822,6 +3826,7 @@ class SymmetricModel(Models):
 
         # With perfect symmetry, v this is sufficient
         self.coords = np.concatenate([entity.coords for entity in entities])
+        # If imperfect symmetry, below may find some use
         # self._process_model(entities=entities, chains=False, **kwargs)
 
     # def make_oligomers(self):
@@ -3838,7 +3843,7 @@ class SymmetricModel(Models):
         Returns:
             True if the symmetric assembly clashes with the asu, False otherwise
         """
-        if not self.symmetry:
+        if not self.is_symmetric():
             raise SymmetryError('Cannot check if the assembly is clashing as it has no symmetry!')
 
         clashes = self.assembly_tree.two_point_correlation(self.coords[self.backbone_and_cb_indices], [distance])
@@ -3921,7 +3926,7 @@ class SymmetricModel(Models):
         self.log.debug(f'SymmetricModel is writing')
 
         def write_pose(handle):
-            if self.symmetry:
+            if self.is_symmetric():
                 # symmetric_model_write(outfile)
                 # def symmetric_model_write(handle):
                 if assembly:  # will make models and use next logic steps to write them out
@@ -3931,9 +3936,7 @@ class SymmetricModel(Models):
                 else:  # skip models, write asu using biomt_record/cryst_record for sym
                     for entity in self.entities:
                         entity.write(file_handle=handle, **kwargs)
-            else:
-                # model_write(outfile)
-                # def model_write(handle):
+            else:  # Use Model.write() to finish
                 super(Models, Models).write(self, file_handle=handle, **kwargs)
 
         if file_handle:
@@ -3975,6 +3978,9 @@ class Pose(SequenceProfile, SymmetricModel):
                  design_selector: dict[str, dict[str, dict[str, set[int] | set[str] | None]]] = None, **kwargs):
         # unused args
         #           euler_lookup: EulerLookup = None,
+        # Model init will handle Structure set up if a structure file is present
+        # SymmetricModel init will generate_symmetric_coords() if symmetry specification present
+        super().__init__(**kwargs)
         self.design_selector = design_selector if design_selector else {}  # kwargs.get('design_selector', {})
         self.design_selector_entities = set()
         self.design_selector_indices = set()
@@ -3991,9 +3997,6 @@ class Pose(SequenceProfile, SymmetricModel):
         self.ss_index_array = []  # stores secondary structure elements by incrementing index
         self.ss_type_array = []  # stores secondary structure type ('H', 'S', ...)
 
-        # Model init will handle Structure set up if a structure file is present
-        # SymmetricModel init will generate_symmetric_coords() if symmetry specification present
-        super().__init__(**kwargs)
         try:
             self.is_clash(warn=not self.ignore_clashes)
         except ClashError as error:
@@ -4483,7 +4486,7 @@ class Pose(SequenceProfile, SymmetricModel):
         if not entity1_indices or not entity2_indices:
             return
 
-        if self.symmetry:  # get the symmetric indices of interest
+        if self.is_symmetric():  # get the symmetric indices of interest
             entity2_indices = self.get_symmetric_indices(entity2_indices)
             # solve for entity2_indices to query
             if entity1 == entity2:  # We don't want symmetry interactions with the asu model or intra-oligomeric models
@@ -4623,7 +4626,7 @@ class Pose(SequenceProfile, SymmetricModel):
             for residue in residues2:
                 entity2_indices.extend(residue.heavy_indices)
 
-        if self.symmetry:  # get all symmetric indices for entity2
+        if self.is_symmetric():  # get all symmetric indices for entity2
             query_coords = self.symmetric_coords[self.get_symmetric_indices(entity2_indices)]
         else:
             query_coords = self.coords[entity2_indices]
@@ -4649,7 +4652,7 @@ class Pose(SequenceProfile, SymmetricModel):
                 split_number_pairs_and_sort(self.find_interface_atoms(entity1=entity1, entity2=entity2))
             interface_indices1.extend(atoms_indices1), interface_indices2.extend(atoms_indices2)
 
-        if self.symmetry:
+        if self.is_symmetric():
             interface_coords = self.symmetric_coords[list(set(interface_indices1).union(interface_indices2))]
         else:
             interface_coords = self.coords[list(set(interface_indices1).union(interface_indices2))]
@@ -4706,7 +4709,7 @@ class Pose(SequenceProfile, SymmetricModel):
                            f'{entity1.name} has {len(frag_residues1)} interface fragments at residues {",".join(map(str, [res.number for res in frag_residues1]))}\t'
                            f'{entity2.name} has {len(frag_residues2)} interface fragments at residues {",".join(map(str, [res.number for res in frag_residues2]))}')
 
-        if self.symmetry:
+        if self.is_symmetric():
             # even if entity1 == entity2, only need to expand the entity2 fragments due to surface/ghost frag mechanics
             # asu frag subtraction is unnecessary THIS IS ALL WRONG DEPENDING ON THE CONTEXT
             if entity1 == entity2:
@@ -4856,7 +4859,7 @@ class Pose(SequenceProfile, SymmetricModel):
                               % (' | '.join(':'.join(entity.name for entity in interface_entities)
                                             for interface_entities in interface.values()),
                                  'Symmetry was set which may have influenced this unfeasible topology, you can try to '
-                                 'set it False. ' if self.symmetry else ''))
+                                 'set it False. ' if self.is_symmetric() else ''))
             raise DesignError('The specified interfaces generated a topologically disallowed combination! Check the log'
                               ' for more information.')
 
