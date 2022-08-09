@@ -1158,7 +1158,7 @@ class Model(Structure, ContainsChainsMixin):
     #          # 'reference_aa': other.__dict__['reference_aa'],
     #          'resolution': other.__dict__['resolution'],
     #          'rotation_d': other.__dict__['rotation_d'],
-    #          'max_symmetry': other.__dict__['max_symmetry'],
+    #          'max_symmetry_chain': other.__dict__['max_symmetry_chain'],
     #          'dihedral_chain': other.__dict__['dihedral_chain'],
     #          }
     #     # temp_metadata = copy(other.__dict__)
