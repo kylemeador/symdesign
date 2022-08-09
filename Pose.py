@@ -19,8 +19,10 @@ import PathUtils as PUtils
 import fragment
 import wrapapi
 from DesignMetrics import calculate_match_metrics, fragment_metric_template, format_fragment_metrics
+from ProteinMPNN.vanilla_proteinmpnn.helper_scripts.other_tools.make_pssm_dict import softmax
 from Query.PDB import retrieve_entity_id_by_sequence, query_pdb_by, get_entity_reference_sequence
-from SequenceProfile import SequenceProfile, alignment_types, generate_alignment, get_equivalent_indices
+from SequenceProfile import SequenceProfile, alignment_types, generate_alignment, get_equivalent_indices, \
+    pssm_as_array, gapped_protein_letters
 from Structure import Coords, Structure, Structures, Chain, Entity, Residue, Residues, GhostFragment, \
     write_frag_match_info_file, Fragment, StructureBase, ContainsAtomsMixin, superposition3d, ContainsChainsMixin
 from SymDesignUtils import DesignError, ClashError, SymmetryError, z_value_from_match_score, start_log, null_log, \
@@ -4109,6 +4111,230 @@ class Pose(SequenceProfile, SymmetricModel):
                 self.required_residues = self.get_residues_by_atom_indices(atom_indices=self.required_indices)
         else:
             entity_required, self.required_indices = set(), set()
+
+    def design_sequence(self, number: int = PUtils.number_of_trajectories,
+                        protein_mpnn: bool = True, model_name: str = 'v_48_020',
+                        backbone_noise: float = 0.,
+                        pssm_multi: float = 0., pssm_log_odds_flag: bool = False, pssm_bias_flag: bool = False,
+                        temperature: float = .1, decode_core_first: bool = True,
+                        interface: bool = True,
+                        rosetta: bool = True):
+        """
+
+        Args:
+            number: The number of sequences to design
+            protein_mpnn: Whether to design using ProteinMPNN
+            model_name: The model name to use from ProteinMPNN. v_X_Y where X is neighbor distance, and Y is noise
+            backbone_noise: The amount of backbone noise to add to the pose during design
+            pssm_multi: How much to skew the design probabilities towards the sequence profile.
+                Bounded between [1, 0] where 0 is no sequence profile probability.
+                Only used with pssm_bias_flag
+            pssm_log_odds_flag: Whether to use log_odds mask to limit the residues designed
+            pssm_bias_flag: Whether to use bias to modulate the residue probabilites designed
+            temperature: The temperature to perform design at
+            interface: Whether to design the interface only
+            decode_core_first: Whether to decode the interface core first
+            rosetta:
+
+        Returns:
+
+        """
+        if rosetta:
+            raise NotImplementedError(f"Can't design with Rosetta from this method yet...")
+
+        # Design with vanilla version of ProteinMPNN
+        import torch
+        from ProteinMPNN.vanilla_proteinmpnn.protein_mpnn_utils import ProteinMPNN, _scores, _S_to_seq
+
+        # Acquire a adequate computing device
+        device = torch.device('cuda:0' if (torch.cuda.is_available()) else 'cpu')
+
+        # Set up the model with the desired weights
+        # Todo set up a MPNN factory(model_name)
+        checkpoint = torch.load(os.path.join(PUtils.protein_mpnn_weights_dir, f'{model_name}.pt'), map_location=device)
+        self.log.info(f'Number of edges: {checkpoint["num_edges"]}')
+        self.log.info(f'Training noise level: {checkpoint["noise_level"]}A')
+        hidden_dim = 128
+        num_layers = 3
+        mpnn_alphabet_length = len(gapped_protein_letters)  # 21
+        model = ProteinMPNN(num_letters=mpnn_alphabet_length,
+                            node_features=hidden_dim,
+                            edge_features=hidden_dim,
+                            hidden_dim=hidden_dim,
+                            num_encoder_layers=num_layers,
+                            num_decoder_layers=num_layers,
+                            augment_eps=backbone_noise,
+                            k_neighbors=checkpoint['num_edges'])
+        model.to(device)
+        model.load_state_dict(checkpoint['model_state_dict'])
+        model.eval()
+
+        zero_offset = 1
+        if interface:
+            self.find_and_split_interface()
+
+            design_residues = []  # Add all interface residues
+            for number, residues_entities in self.split_interface_residues.items():
+                design_residues.extend([residue.number - zero_offset for residue, _ in residues_entities])
+        else:
+            design_residues = list(range(self.number_of_residues))
+
+        # Initialize pose data structures for design
+
+        # Make masks for the sequence design task
+        # Residue position mask denotes which residues should be designed. 1 - designed, 0 - known
+        residue_mask = np.zeros(self.number_of_residues, dtype=np.int32)  # (number_of_residues,)
+        residue_mask[design_residues] = 1.
+        # Set up a simple array where each residue index has the index of the chain starting with the index of 1
+        chain_encoding = np.zeros_like(residue_mask)  # (number_of_residues,)
+        # Set up an array where each residue index is incremented, however each chain break has an increment of 100
+        residue_idx = np.arange(self.number_of_residues, dtype=np.int32)  # (number_of_residues,)
+        for idx, chain in enumerate(self.chains, 1):
+            # Todo make Chain with SequenceProfile
+            chain_encoding[chain.offset_index: chain.number_of_residues+chain.offset_index] = idx
+            residue_idx[chain.offset_index: chain.number_of_residues+chain.offset_index] += 100*(idx-1)
+
+        # Todo resolve these data structures as flags
+        omit_AAs_np = np.zeros(mpnn_alphabet_length, dtype=np.int32)  # (alphabet_length,)
+        bias_AAs_np = np.zeros_like(omit_AAs_np)  # (alphabet_length,)
+        omit_AA_mask = np.zeros((self.number_of_residues, mpnn_alphabet_length),
+                                dtype=np.int32)  # (number_of_residues, alphabet_length)
+        # Todo what is enough bias?
+        bias_by_res = np.zeros(omit_AA_mask, dtype=np.float32)  # (number_of_residues, alphabet_length)
+        # Todo
+        #  In tied_sample() add the following statement to see the typical values
+        #  print(probs[:2])
+
+        # Get sequence profile to include for design bias
+        # Todo parameterize _threshold, _coef
+        pssm_threshold = 0.  # Must be a greater probability than wild-type
+        pssm_log_odds = pssm_as_array(self.profile, lod=True)  # (number_of_residues, 20)
+        pssm_log_odds_mask = np.where(pssm_log_odds >= pssm_threshold, 1., 0.)  # (number_of_residues, 20)
+        pssm_coef = np.ones(residue_mask.shape, dtype=np.float32)  # (number_of_residues,)
+        # shape (1, 21) where last index (20) is 1
+        # Make the pssm_bias between 1 and 0 specifying how important position is
+        pssm_bias = softmax(pssm_log_odds, 1.)  # (number_of_residues, 20)
+        # X_mask = np.concatenate([np.zeros([1, 20]), np.ones([1, 1])], -1)
+        # pssm_bias = softmax(pssm_log_odds-X_mask*1e8, 1.)  # This subtraction is wrong from ProteinMPNN helpers...
+        # Todo how similar is this to pssm_probability
+        pssm_probability = pssm_as_array(self.profile)
+        self.log.info(f'Testing equality of pssm bias and probability. Is softmax reverse of logodds? '
+                      f'prob not... more like boltzman distribution')
+        self.log.info(f'pssm_probability {pssm_probability[:5]}')
+        self.log.info(f'pssm_bias {pssm_bias[:5]}')
+
+        if self.is_symmetric():
+            number_of_sym_residues = self.number_of_residues*self.number_of_symmetry_mates
+            X = self.return_symmetric_coords(self.backbone_coords)
+            # Should be N, CA, C, O for each residue
+            #  v - Residue
+            # [[[N  [x, y, z],
+            #   [CA [x, y, z],
+            #   [C  [x, y, z],
+            #   [O  [x, y, z]],
+            #  [[], ...      ]]
+            # split the coordinates into those grouped by residues
+            # X = np.array(.split(X, self.number_of_residues))
+            X = X.reshape((number_of_sym_residues, 4, 3))  # (number_of_sym_residues, 4, 3)
+
+            S = np.tile(self.sequence_numeric, self.number_of_symmetry_mates)  # (number_of_sym_residues,)
+            # Todo ensure tile works
+            self.log.info(f'Tiled sequence_numeric.shape: {S.shape}')
+            self.log.info(f'Tiled sequence_numeric start: {S[:5]}')
+            self.log.info(f'Tiled sequence_numeric chain_break: '
+                          f'{S[self.number_of_residues-5: self.number_of_residues+5]}')
+
+            # Make masks for the sequence design task
+            residue_mask = np.tile(residue_mask, self.number_of_symmetry_mates)  # (number_of_sym_residues,)
+            mask = np.zeros_like(residue_mask)  # (number_of_sym_residues,)
+            # Chain mask denotes which chains should be designed. 1 - designed, 0 - known
+            # For symmetric systems, treat each chain as designed as the logits are averaged during model.tied_sample()
+            chain_mask = np.ones_like(residue_mask)  # (number_of_sym_residues,)
+            chain_encoding = np.tile(chain_encoding, self.number_of_symmetry_mates)  # (number_of_sym_residues,)
+
+            pssm_coef = np.tile(pssm_coef, self.number_of_symmetry_mates)  # (number_of_sym_residues,)
+            # Below have shape (number_of_sym_residues, alphabet_length)
+            pssm_bias = np.tile(pssm_bias, (self.number_of_symmetry_mates, 1))
+            pssm_log_odds_mask = np.tile(pssm_log_odds_mask, (self.number_of_symmetry_mates, 1))
+            bias_by_res = np.tile(bias_by_res, (self.number_of_symmetry_mates, 1))
+            # Todo remove once confirmed tile works
+            self.log.info(f'Expected tiled bias_by_res.shape: {(number_of_sym_residues, mpnn_alphabet_length)}')
+            self.log.info(f'Tiled bias_by_res.shape: {bias_by_res.shape}')
+            self.log.info(f'Tiled sequence_numeric start: {bias_by_res[:5]}')
+            self.log.info(f'Tiled bias_by_res: '
+                          f'{bias_by_res[self.number_of_residues-5: self.number_of_residues+5]}')
+            tied_beta = np.ones_like(residue_mask)  # (number_of_sym_residues,)
+            tied_pos = [self.get_symmetric_indices([idx]) for idx in design_residues]
+            # (design_residues, number_of_symmetry_mates)
+        else:
+            X = self.backbone_coords.reshape((self.number_of_residues, 4, 3))  # (number_of_residues, 4, 3)
+            S = self.sequence_numeric  # (number_of_residues,)
+            mask = np.zeros_like(residue_mask)  # (number_of_residues,)
+            chain_mask = np.ones_like(residue_mask)  # (number_of_residues,)
+
+        # Make all data set up for batch design
+        # Todo make a dynamic solve based on device memory and memory error routine from Nanohedra
+        batch_length = 10
+        number_of_batches = number//batch_length
+
+        # Stack sequence design task in "batches"
+        X = np.tile(X, (batch_length,) + (1,)*X.ndim)
+        S = np.tile(S, (batch_length,) + (1,)*S.ndim)
+        mask = np.tile(mask, (batch_length,) + (1,)*mask.ndim)
+        residue_mask = np.tile(residue_mask, (batch_length,) + (1,)*residue_mask.ndim)
+        chain_mask = np.tile(chain_mask, (batch_length,) + (1,)*chain_mask.ndim)
+        chain_encoding = np.tile(chain_encoding, (batch_length,) + (1,)*chain_encoding.ndim)
+        residue_idx = np.tile(residue_idx, (batch_length,) + (1,)*residue_idx.ndim)
+        omit_AA_mask = np.tile(omit_AA_mask, (batch_length,) + (1,)*omit_AA_mask.ndim)
+        tied_beta = np.tile(tied_beta, (batch_length,) + (1,)*tied_beta.ndim)
+        pssm_coef = np.tile(pssm_coef, (batch_length,) + (1,)*pssm_coef.ndim)
+        pssm_bias = np.tile(pssm_bias, (batch_length,) + (1,)*pssm_bias.ndim)
+        pssm_log_odds_mask = np.tile(pssm_log_odds_mask, (batch_length,) + (1,)*pssm_log_odds_mask.ndim)
+
+        # Convert all numpy arrays to pytorch
+        X = torch.from_numpy(X).to(dtype=torch.float32, device=device)
+        S = torch.from_numpy(S).to(dtype=torch.long, device=device)
+        mask = torch.from_numpy(mask).to(dtype=torch.float32, device=device)
+        residue_mask = torch.from_numpy(residue_mask).to(dtype=torch.float32, device=device)
+        chain_mask = torch.from_numpy(chain_mask).to(dtype=torch.float32, device=device)
+        chain_encoding = torch.from_numpy(chain_encoding).to(dtype=torch.long, device=device)
+        residue_idx = torch.from_numpy(residue_idx).to(dtype=torch.long, device=device)
+        omit_AA_mask = torch.from_numpy(omit_AA_mask).to(dtype=torch.float32, device=device)
+        tied_beta = torch.from_numpy(tied_beta).to(dtype=torch.float32, device=device)
+        pssm_coef = torch.from_numpy(pssm_coef).to(dtype=torch.float32, device=device)
+        pssm_bias = torch.from_numpy(pssm_bias).to(dtype=torch.float32, device=device)
+        pssm_log_odds_mask = torch.from_numpy(pssm_log_odds_mask).to(dtype=torch.float32, device=device)
+        # torch.from_numpy(omit_aas).to(dtype=torch.float32, device=device)
+
+        # Solve decoding order
+        if decode_core_first:
+            # Todo set up core residues to be higher in value that other designable residues
+            raise NotImplementedError(f'decode_core_first is not available yet')
+            pass
+        else:  # random decoding order
+            randn_2 = torch.randn_like(chain_mask.shape, device=X.device)
+
+        for batch in range(number_of_batches):
+            if self.is_symmetric():
+                sample_dict = model.tied_sample(X, randn_2, S, chain_mask, chain_encoding, residue_idx, mask,
+                                                temperature=temperature, omit_aas=omit_AAs_np, bias_aas=bias_AAs_np,
+                                                chain_M_pos=residue_mask, omit_aa_mask=omit_AA_mask, pssm_coef=pssm_coef,
+                                                pssm_bias=pssm_bias, pssm_multi=pssm_multi,
+                                                pssm_log_odds_flag=pssm_log_odds_flag,
+                                                pssm_log_odds_mask=pssm_log_odds_mask, pssm_bias_flag=pssm_bias_flag,
+                                                tied_pos=tied_pos, tied_beta=tied_beta,
+                                                bias_by_res=bias_by_res)
+            else:
+                sample_dict = model.sample(X, randn_2, S, chain_mask, chain_encoding, residue_idx, mask,
+                                           temperature=temperature, omit_AAs_np=omit_AAs_np, bias_AAs_np=bias_AAs_np,
+                                           chain_M_pos=residue_mask, omit_AA_mask=omit_AA_mask,
+                                           pssm_coef=pssm_coef, pssm_bias=pssm_bias,
+                                           pssm_multi=pssm_multi, pssm_log_odds_flag=pssm_log_odds_flag,
+                                           pssm_log_odds_mask=pssm_log_odds_mask, pssm_bias_flag=pssm_bias_flag,
+                                           bias_by_res=bias_by_res)
+            # Compute scores
+            S_sample = sample_dict['S']
+            # Todo finish this routine
 
     def return_interface(self, distance: float = 8.) -> Structure:
         """Provide a view of the Pose interface by generating a Structure containing only interface Residues
