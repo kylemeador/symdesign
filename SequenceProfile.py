@@ -346,7 +346,10 @@ class SequenceProfile:
     Currently, Chain, Entity, Model and Pose contain the necessary .reference_sequence property.
     Any Structure object with a .reference_sequence attribute could be used however
     """
+    _alpha: float
     _fragment_db: info.FragmentInfo | None
+    fragment_db: info.FragmentInfo | None
+    _msa: MultipleSequenceAlignment | None
     a3m_file: AnyStr | None
     alpha: dict
     disorder: dict[int, dict[str, str]]
@@ -369,33 +372,20 @@ class SequenceProfile:
     def __init__(self, **kwargs):
         # super().__init__()
         super().__init__(**kwargs)
-        self.evolutionary_profile: dict = {}  # position specific scoring matrix
         # self.design_pssm_file = None
-        self.profile: dict = {}  # design specific scoring matrix
-        self._fragment_db = None
         # {(ent1, ent2): [{mapped: res_num1, paired: res_num2, cluster: id, match: score}, ...], ...}
-        self.fragment_map: dict | None = None  # {}
-        self.alpha: dict = {}
-        self.fragment_profile: dict = {}
-        # self.fragment_pssm_file = None
-        # self.interface_data_file = None
-        self.a3m_file: AnyStr | None = None
-        self.h_fields: np.ndarray | None = None
-        self.j_couplings: np.ndarray | None = None
-        # self.msa: Optional[MultipleSequenceAlignment] = None
-        self.msa_file: AnyStr | None = None
-        self.pssm_file: AnyStr | None = None
-        # self.sequence_source = None
-        self.sequence_file: AnyStr | None = None
-
-    # @classmethod
-    # def from_structure(cls, structure=None):
-    #     return cls(structure=structure)
-
-    # @property
-    # def profile_length(self) -> int:
-    #     """Returns the number of Structured residues"""
-    #     return self.number_of_residues
+        self._fragment_db = None
+        self.a3m_file = None
+        self.alpha = {}
+        self.evolutionary_profile = {}  # position specific scoring matrix
+        self.fragment_map = None  # {}
+        self.fragment_profile = {}
+        self.h_fields = None
+        self.j_couplings = None
+        self.msa_file = None
+        self.profile = {}  # design specific scoring matrix
+        self.pssm_file = None
+        self.sequence_file = None
 
     @property
     def offset_index(self) -> int:

@@ -5687,6 +5687,7 @@ class Entity(SequenceProfile, Chain, ContainsChainsMixin):
     api_entry: dict[str, dict[str, str]] | None
     dihedral_chain: str | None
     max_symmetry: int | None
+    max_symmetry_chain: str | None
     rotation_d: dict[str, dict[str, int | np.ndarray]] | None
     symmetry: str | None
 
