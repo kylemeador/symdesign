@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 import os
 import subprocess
 from collections import UserList, defaultdict
@@ -7,7 +8,6 @@ from collections.abc import Iterable, Generator
 from copy import copy
 from itertools import repeat
 from logging import Logger
-from math import ceil
 from pathlib import Path
 from random import random
 from typing import IO, Sequence, Container, Literal, get_args, Callable, Any, AnyStr
@@ -524,7 +524,26 @@ parent_attributes = (parent_variable,) + new_parent_attributes
 """Holds all the attributes which the parent StructureBase controls"""
 
 
-class StructureBase:
+class Symmetry:
+    # _has_symmetry: bool | None
+    symmetry: str | None
+    _symmetric_dependents: list[Structure]
+
+    def __init__(self, **kwargs):
+        # self._has_symmetry = None
+        self._symmetric_dependents = []
+        super().__init__(**kwargs)
+
+    # @property
+    def is_symmetric(self) -> bool:
+        """Query whether the Structure is symmetric"""
+        try:
+            return self.symmetry is not None
+        except AttributeError:
+            return False
+
+
+class StructureBase(Symmetry):
     """Structure object sets up and handles Coords and Log objects as well as maintaining atom_indices and the history
     of Structure subclass creation and subdivision from parent Structure to dependent Structure's. Collects known
     keyword arguments for all derived class construction calls to protect base object. Should always be the last class
@@ -5718,7 +5737,10 @@ class Entity(SequenceProfile, Chain, ContainsChainsMixin):
                 # Todo when capable of asymmetric symmetrization
                 # self.chains.append(chain)
             self.number_of_symmetry_mates = len(chains)
+            self.symmetry = f'D{self.number_of_symmetry_mates/2}' if self.is_dihedral() \
+                else f'C{self.number_of_symmetry_mates}'
         else:
+            self.symmetry = None
             self._is_oligomeric = False
 
         # if chain_ids:
@@ -6219,7 +6241,7 @@ class Entity(SequenceProfile, Chain, ContainsChainsMixin):
                % '\n'.join(f'SEQRES{line_number:4d} {chain:1s}{chain_lengths[chain]:5d}  '
                            f'{sequence[seq_res_len * (line_number - 1):seq_res_len * line_number]}         '
                            for chain, sequence in formated_reference_sequence.items()
-                           for line_number in range(1, 1 + ceil(chain_lengths[chain] / seq_res_len)))
+                           for line_number in range(1, 1 + math.ceil(chain_lengths[chain] / seq_res_len)))
 
     # Todo overwrite Structure.write() method with oligomer=True flag?
     def write_oligomer(self, out_path: bytes | str = os.getcwd(), file_handle: IO = None, header: str = None,
