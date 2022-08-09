@@ -320,19 +320,25 @@ def sequence_to_numeric(sequence: Sequence) -> np.ndarray:
     return np.vectorize(numerical_translation_bytes.__getitem__)(_array)
 
 
-def pssm_as_array(pssm: dict[int, dict[str, str | float | int | dict[str, int]]]) -> np.ndarray:
+def pssm_as_array(pssm: dict[int, dict[str, str | float | int | dict[str, int]]], lod: bool = False) -> np.ndarray:
     """Convert a position specific profile matrix into a numeric array
 
     Args:
         pssm: {1: {'A': 0, 'R': 0, ..., 'lod': {'A': -5, 'R': -5, ...}, 'type': 'W', 'info': 3.20, 'weight': 0.73},
                   2: {}, ...}
+        lod: Whether to return the array for the log of odds values
     Returns:
         The numerically encoded pssm where each entry along axis 0 is the position, and the entries on axis 1 are the
             frequency data at every indexed amino acid. Indices are according to the 1 letter alphabetical amino acid,
             i.e array([[0.1, 0.01, 0.12, ...], ...])
     """
-    return np.array([[residue_info[aa] for aa in protein_letters] for residue_info in pssm.values()])
-    # return np.vectorize(numerical_translation_bytes.__getitem__)(_array)
+    if lod:
+        return np.array([[residue_info['lod'][aa] for aa in protein_letters]
+                         for residue_info in pssm.values()], dtype=np.float32)
+    else:
+        return np.array([[residue_info[aa] for aa in protein_letters]
+                         for residue_info in pssm.values()], dtype=np.float32)
+        # return np.vectorize(numerical_translation_bytes.__getitem__)(_array)
 
 
 class SequenceProfile:
@@ -413,7 +419,23 @@ class SequenceProfile:
             self._msa = copy(msa)
             self.fit_msa_to_structure()
         else:
-            self.log.warning(f'The passed msa isn\'t of the required type {MultipleSequenceAlignment.__name__}')
+            self.log.warning(f"The passed {self.msa.__name__} isn't of the required type "
+                             f"{MultipleSequenceAlignment.__name__}")
+
+    @property
+    def sequence_numeric(self) -> np.ndarray:
+        """Return the sequence as an integer array (number_of_residuces, alphabet_length) of the amino acid characters
+
+        Maps "ACDEFGHIKLMNPQRSTVWY-" to the resulting index
+        """
+        try:
+            return self._sequence_numeric
+        except AttributeError:
+            self._sequence_array = np.array(self.sequence, np.string_)
+            self._sequence_numeric = \
+                np.vectorize(gapped_numerical_translation_bytes.__getitem__)(self._sequence_array)
+            self._sequence_numeric = self._sequence_numeric.astype(np.int32)
+            return self._sequence_numeric
 
     # def disorder(self):
     #     try:
