@@ -1501,8 +1501,7 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
     log.info(f'\tTransformation of all viable Oligomer 2 CB atoms and surface fragments took '
              f'{time.time() - int_cb_and_frags_start:8f}s')
 
-    # @profile
-    def create_and_write_new_pose(idx, sequence_design: bool = True):
+    def update_pose_coords_and_check_symmetric_clashes(idx) -> bool:
         # Get contacting PDB 1 ASU and PDB 2 ASU
         copy_model_start = time.time()
         rot_mat1 = full_rotation1[idx]
@@ -1551,14 +1550,12 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
         log.info(f'\tCopy and Transform Oligomer1 and Oligomer2 (took {time.time() - copy_model_start:8f}s)')
 
         # Check if design has any clashes when expanded
-        exp_des_clash_time_start = time.time()
-        if pose.symmetric_assembly_is_clash():
-            log.info(f'\tBackbone Clash when pose is expanded (took '
-                     f'{time.time() - exp_des_clash_time_start:8f}s)')
-            return
-        log.info(f'\tNO Backbone Clash when pose is expanded (took '
-                 f'{time.time() - exp_des_clash_time_start:8f}s)')
+        return pose.symmetric_assembly_is_clash()
 
+    def perturb_transformation():
+        pass
+
+    def write_pose(idx, sequence_design: bool = True):
         # Todo replace with PoseDirectory? Path object?
         # temp indexing on degen and rot counts
         # degen1_count, degen2_count = degen_counts[idx]
@@ -2091,7 +2088,7 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
         # else:
         #     write_and_quit = False
         #     report_residue_numbers = False
-            # create_and_write_new_pose()
+            # update_pose_coords_and_check_symmetric_clashes()
 
         # Find the passing overlaps to limit the output to only those passing the low_quality_match_value
         # passing_overlaps_indices = np.flatnonzero(all_fragment_match >= low_quality_match_value)
@@ -2362,6 +2359,7 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
                               # uc_dimensions=uc_dimensions,
                               ignore_clashes=True, rename_chains=True)  # pose_format=True,
 
+    symmetric_clashes = np.zeros(len(interface_is_viable), dtype=np.bool)
     for idx, overlap_ghosts in enumerate(all_passing_ghost_indices):
         # log.info(f'Available memory: {psutil.virtual_memory().available}')
         # Load the z-scores and fragments
@@ -2369,7 +2367,36 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
         overlap_surf = all_passing_surf_indices[idx]
         sorted_z_scores = all_passing_z_scores[idx]
         # Find the pose
-        create_and_write_new_pose(idx)
+        exp_des_clash_time_start = time.time()
+        clash = update_pose_coords_and_check_symmetric_clashes(idx)
+        if clash:
+            log.info(f'\tBackbone Clash when pose is expanded (took '
+                     f'{time.time() - exp_des_clash_time_start:8f}s)')
+        else:
+            log.info(f'\tNO Backbone Clash when pose is expanded (took '
+                     f'{time.time() - exp_des_clash_time_start:8f}s)')
+        symmetric_clashes[idx] = clash
+
+    # Expand successful poses from coarse search of transformational space to randomly perturbed offset
+    # Delta parameters
+    internal_rotation, internal_translation, external_translation = 1, 0.5, 0.5  # degrees, Angstroms, Angstroms
+    perturb_number = 100
+    internal_rotations = get_rotmatrices(-1, perturb_number, 1)
+    internal_translations =  external_translations = np.linspace(-internal_translation, internal_translation, perturb_number)
+    # fragment_pairs = fragment_pairs[symmetric_clashes]
+    full_rotation1 = full_rotation1[symmetric_clashes]
+    full_rotation2 = full_rotation2[symmetric_clashes]
+    full_int_tx1 = full_int_tx1[symmetric_clashes]
+    full_int_tx2 = full_int_tx2[symmetric_clashes]
+    # superposition_setting1_stack = superposition_setting1_stack[asu_is_viable]
+    if sym_entry.unit_cell:
+        full_uc_dimensions = full_uc_dimensions[symmetric_clashes]
+        full_ext_tx1 = full_ext_tx1[symmetric_clashes]
+        full_ext_tx2 = full_ext_tx2[symmetric_clashes]
+        full_ext_tx_sum = full_ext_tx2 - full_ext_tx1
+
+    for idx in range(full_rotation1.shape[0]):
+        perturb_transformation(idx, internal_rotations, internal_translations, external_translations)
 
     log.info(f'Total dock trajectory took {time.time() - frag_dock_time_start:.2f}s')
 
