@@ -674,7 +674,19 @@ class StructureBase(Symmetry):
 
     @coords.setter
     def coords(self, coords: np.ndarray | list[list[float]]):
-        self._coords.replace(self._atom_indices, coords)
+        if self.is_parent() and self.is_symmetric() and self._symmetric_dependents:
+            # This Structure is a symmetric parent, update dependent coords to update the parent
+            self.log.debug(f'self._symmetric_dependents: {self._symmetric_dependents}')
+            for dependent in self._symmetric_dependents:
+                if dependent.is_symmetric():
+                    dependent._parent_is_updating = True
+                    self.log.debug(f'Setting {dependent.name} _symmetric_dependent coords')
+                    dependent.coords = coords[dependent.atom_indices]
+                    del dependent._parent_is_updating
+            # Update the whole Coords.coords as symmetry is not everywhere
+            self._coords.replace(self._atom_indices, coords)
+        else:  # Simply update these Coords.coords
+            self._coords.replace(self._atom_indices, coords)
 
     def reset_state(self):
         """Remove StructureBase attributes that are valid for the current state but not for a new state
@@ -5774,7 +5786,14 @@ class Entity(SequenceProfile, Chain, ContainsChainsMixin):
             # Set coords with new coords
             super(Structure, Structure).coords.fset(self, coords)  # prefer this over below, as mechanism could change
             # self._coords.replace(self._atom_indices, coords)
-            # find the transformation from the old coordinates to the new
+            try:
+                if self.parent.is_symmetric() and not self._parent_is_updating:
+                    # Update the parent coords accordingly if a Pose and is symmetric
+                    self.parent.coords = self.parent.coords
+            except AttributeError:  # No parent
+                pass
+
+            # Find the transformation from the old coordinates to the new
             current_ca_coords = self.ca_coords
             _, new_rot, new_tx = superposition3d(current_ca_coords, prior_ca_coords)
 
