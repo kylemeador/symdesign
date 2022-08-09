@@ -465,7 +465,7 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
     low_quality_match_value = .2  # sets the lower bounds on an acceptable match, was upper bound of 2 using z-score
     cb_distance = 9.  # change to 8.?
     # cluster_translations = True
-    translation_epsilon = 0.75
+    translation_epsilon = 1  # 0.75
     high_quality_z_value = z_value_from_match_score(high_quality_match_value)
     low_quality_z_value = z_value_from_match_score(low_quality_match_value)
     # Get Building Blocks in pose format to remove need for fragments to use chain info
@@ -1146,16 +1146,24 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
                     continue
                 # elif cluster_translations:
                 else:
-                    log.info(f'\tFound {number_passing_shifts} before clustering')
+                    # log.info(f'\tFound {pre_cluster_passing_shifts} before clustering')
                     # tx_params = np.vstack()
                     # tx_params = transform_passing_shifts
                     cluster_time_start = time.time()
                     translation_cluster = DBSCAN(eps=translation_epsilon, min_samples=min_matched).fit(transform_passing_shifts)
                     transform_passing_shifts = transform_passing_shifts[translation_cluster.labels_ != outlier]
                     number_passing_shifts = transform_passing_shifts.shape[0]
-                    log.info(f'\tFound {number_passing_shifts} transforms after clustering from '
-                             f'{pre_cluster_passing_shifts} possible transforms (took '
-                             f'{time.time() - cluster_time_start:8f}s)')
+                    if pre_cluster_passing_shifts == 0:
+                        # log.debug('Length %d' % len(optimal_shifts))
+                        # log.debug('Shape %d' % transform_passing_shifts.shape[0])
+                        log.info(f'\tNo transforms were found after clustering optimal shifts '
+                                 f'(took {time.time() - cluster_time_start:8f}s)')
+                        continue
+                    else:
+                        log.info(f'\tFound {number_passing_shifts} transforms after clustering from '
+                                 f'{pre_cluster_passing_shifts} possible transforms (took '
+                                 f'{time.time() - cluster_time_start:8f}s)')
+
                 # else:  # Use all translations
                 #     pass
 
@@ -1526,8 +1534,16 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
         # ignore ASU clashes since already checked ^
 
         # Transform each starting coords to the candidate pose coords then update the Pose coords
+        # log.debug(f'Transforming pose coordinates to the current docked configuration')
         new_coords = []
         for entity_idx, entity in enumerate(pose.entities):
+            # log.debug(f'transform_indices[entity_idx]={transform_indices[entity_idx]}'
+            #           f'entity_idx={entity_idx}')
+            # tsnfmd = transform_coordinate_sets(entity_start_coords[entity_idx],
+            #                                    **specific_transformations[transform_indices[entity_idx]])
+            # log.debug(f'Equality of tsnfmd and original {np.allclose(tsnfmd, entity_start_coords[entity_idx])}')
+            # log.debug(f'tsnfmd: {tsnfmd[:5]}')
+            # log.debug(f'start_coords: {entity_start_coords[entity_idx][:5]}')
             new_coords.append(transform_coordinate_sets(entity_start_coords[entity_idx],
                                                         **specific_transformations[transform_indices[entity_idx]]))
         pose.coords = np.concatenate(new_coords)
@@ -2049,12 +2065,6 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
             # Debug. Why are there no matches?
             if high_qual_match_count == 0:
                 zero_counts.append(1)
-                # write_and_quit = True
-                write_and_quit = False
-                report_residue_numbers = False
-            else:
-                write_and_quit = False
-                report_residue_numbers = False
             continue
         # elif overlap_only:
         else:
@@ -2113,57 +2123,6 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
         specific_transformation2 = dict(rotation=rot_mat2, translation=internal_tx_param2,
                                         rotation2=set_mat2, translation2=external_tx_params2)
         specific_transformations = [specific_transformation1, specific_transformation2]
-        # model1_copy = model1.return_transformed_copy(**specific_transformation1)
-        # model2_copy = model2.return_transformed_copy(**{'rotation': rot_mat2, 'translation': internal_tx_param2,
-        #                                             'rotation2': set_mat2, 'translation2': external_tx_params2})
-        # asu = Model.from_entities([model1_copy.entities[0], model2_copy.entities[0]], log=log, name='asu',
-        #                           entity_names=[model1_copy.name, model2_copy.name], rename_chains=True)
-
-        # if write_and_quit:  # Todo remove after debugging
-        #     degen_str = 'DEGEN_{}'.format('_'.join(map(str, degen_counts[idx])))
-        #     rot_str = 'ROT_{}'.format('_'.join(map(str, rot_counts[idx])))
-        #     tx_str = f'TX_{tx_counts[idx]}'  # translation idx
-        #     # degen_subdir_out_path = os.path.join(outdir, degen_str)
-        #     # rot_subdir_out_path = os.path.join(degen_subdir_out_path, rot_str)
-        #     tx_dir = os.path.join(outdir, degen_str, rot_str,
-        #                           tx_str.lower())  # .lower() keeps original publication format
-        #     os.makedirs(tx_dir, exist_ok=True)
-        #     sampling_id = f'{degen_str}-{rot_str}-{tx_str}'
-        #     inv1 = dict(rotation=full_rotation2[idx],
-        #                 translation=full_int_tx2[idx],
-        #                 rotation2=set_mat2,
-        #                 translation2=full_ext_tx_sum[idx]
-        #                 if full_ext_tx_sum is not None else None)
-        #
-        #     inv2 = dict(rotation=inv_setting1,
-        #                 translation=full_int_tx1[idx] * -1,
-        #                 rotation2=full_inv_rotation1[idx],
-        #                 translation2=None)
-        #
-        #     surf2_residue_structure = Structure.from_residues(model2_surf_residues)
-        #     # for idx_, model in enumerate(models, 0):
-        #     #     for entity in model.entities:
-        #     for entity in model2.entities:
-        #         # entity.write_oligomer(out_path=os.path.join(tx_dir, f'{entity.name}_PRETRANSFORM.pdb'))
-        #         surf2_residue_structure.write(out_path=os.path.join(tx_dir, f'{model2.name}_RESIDUES_PreTRANSFORM.pdb'))
-        #         surf2_residue_structure_trans = surf2_residue_structure.return_transformed_copy(**inv1).return_transformed_copy(**inv2)
-        #         surf2_residue_structure_trans.write(out_path=os.path.join(tx_dir, f'{model2.name}_RESIDUES_POSTTRANSFORM.pdb'))
-        #         entity_ = entity.return_transformed_copy(**inv1).return_transformed_copy(**inv2)
-        #         entity_.write_oligomer(out_path=os.path.join(tx_dir, f'{entity.name}_POSTTRANSFORM.pdb'))
-        #
-        #     tsfmd_res_ghost_guide_coords = transform_coordinate_sets(res_ghost_guide_coords,
-        #                                                              **specific_transformation1)
-        #     tsfmd_res1_coords = transform_coordinate_sets(overlap_residues1[0].guide_coords,
-        #                                                   **specific_transformation1)
-        #     tsfmd_res2_coords = transform_coordinate_sets(overlap_residues2[0].guide_coords,
-        #                                                   **specific_transformation2)
-        #     atoms = format_guide_coords_as_atom([tsfmd_res_ghost_guide_coords,
-        #                                          tsfmd_res1_coords,
-        #     # atoms1 = format_guide_coords_as_atom(tsfmd_res1_coords[None, ...])
-        #                                          tsfmd_res2_coords])
-        #     # atoms2 = format_guide_coords_as_atom(tsfmd_res2_coords[None, ...])
-        #     with open(os.path.join(tx_dir, 'init_guide_coords.pdb'), 'w') as f:
-        #         f.write(f'%s\n' % '\n'.join(atoms))
 
         pose = Pose.from_entities([entity.return_transformed_copy(**specific_transformations[idx])
                                    for idx, model in enumerate(models) for entity in model.entities],
@@ -2182,126 +2141,6 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
         # pose.generate_symmetric_coords(surrounding_uc=output_surrounding_uc)
 
         log.info(f'\tCopy and Transform Oligomer1 and Oligomer2 (took {time.time() - copy_model_start:8f}s)')
-
-        # if write_and_quit:  # Todo remove after debugging
-        #     degen_str = 'DEGEN_{}'.format('_'.join(map(str, degen_counts[idx])))
-        #     rot_str = 'ROT_{}'.format('_'.join(map(str, rot_counts[idx])))
-        #     tx_str = f'TX_{tx_counts[idx]}'  # translation idx
-        #     # degen_subdir_out_path = os.path.join(outdir, degen_str)
-        #     # rot_subdir_out_path = os.path.join(degen_subdir_out_path, rot_str)
-        #     tx_dir = os.path.join(outdir, degen_str, rot_str,
-        #                           tx_str.lower())  # .lower() keeps original publication format
-        #     os.makedirs(tx_dir, exist_ok=True)
-        #     sampling_id = f'{degen_str}-{rot_str}-{tx_str}'
-        #     for idx, entity in enumerate(pose.entities, 1):
-        #         entity.write_oligomer(out_path=os.path.join(tx_dir, f'{entity.name}_{sampling_id}.pdb'))
-        #
-        #     low_quality_ghost_frags = [complete_ghost_frags1[idx]
-        #                                for idx in ghost_indices_in_interface1[passing_ghost_indices[passing_overlaps_indices]]]
-        #
-        #     ghost_atoms = format_guide_coords_as_atom([frag.guide_coords for frag in low_quality_ghost_frags])
-        #     ghost_surf_atoms = format_guide_coords_as_atom([frag.aligned_fragment.guide_coords
-        #                                                     for frag in low_quality_ghost_frags])
-        #     with open(os.path.join(tx_dir, 'subsequent_ghost_guide_coords.pdb'), 'w') as f:
-        #         f.write(f'%s\n' % '\n'.join(ghost_atoms))
-        #     with open(os.path.join(tx_dir, 'subsequent_ghost_surf_guide_coords.pdb'), 'w') as f:
-        #         f.write(f'%s\n' % '\n'.join(ghost_surf_atoms))
-        #
-        #     tsfmd_guide_coords = [transform_coordinate_sets(frag.guide_coords, **specific_transformation1)
-        #                           for frag in low_quality_ghost_frags]
-        #     tsfmd_ghost_atoms = format_guide_coords_as_atom(tsfmd_guide_coords)
-        #     with open(os.path.join(tx_dir, 'subsequent_ghost_guide_coords_tnsfmd.pdb'), 'w') as f:
-        #         f.write(f'%s\n' % '\n'.join(tsfmd_ghost_atoms))
-        #
-        #     tsfmd_ghost_surf_guide_coords = [transform_coordinate_sets(frag.aligned_fragment.guide_coords,
-        #                                                                **specific_transformation1)
-        #                                      for frag in low_quality_ghost_frags]
-        #     tsfmd_ghost_surf_guide_atoms = format_guide_coords_as_atom(tsfmd_ghost_surf_guide_coords)
-        #     with open(os.path.join(tx_dir, 'subsequent_ghost_surf_guide_coords_tnsfmd.pdb'), 'w') as f:
-        #         f.write(f'%s\n' % '\n'.join(tsfmd_ghost_surf_guide_atoms))
-        #
-        #     low_quality_surf_frags = [complete_surf_frags2[idx]
-        #                               for idx in surf_indices_in_interface2[passing_surf_indices[passing_overlaps_indices]]]
-        #     tsfmd_surf_coords = [transform_coordinate_sets(frag.guide_coords, **specific_transformation2)
-        #                          for frag in low_quality_surf_frags]
-        #     tsfmd_surf_atoms = format_guide_coords_as_atom(tsfmd_surf_coords)
-        #     with open(os.path.join(tx_dir, 'subsequent_surf_guide_coords_tnsfmd.pdb'), 'w') as f:
-        #         f.write(f'%s\n' % '\n'.join(tsfmd_surf_atoms))
-        #
-        #     # write initial guide coordinates as well
-        #     tsfmd_res_ghost_guide_coords = transform_coordinate_sets(res_ghost_guide_coords,
-        #                                                              **specific_transformation1)
-        #     tsfmd_res1_coords = transform_coordinate_sets(overlap_residues1[0].guide_coords,
-        #                                                   **specific_transformation1)
-        #     tsfmd_res2_coords = transform_coordinate_sets(overlap_residues2[0].guide_coords,
-        #                                                   **specific_transformation2)
-        #     atoms = format_guide_coords_as_atom([tsfmd_res_ghost_guide_coords,
-        #                                          tsfmd_res1_coords,
-        #                                          # atoms1 = format_guide_coords_as_atom(tsfmd_res1_coords[None, ...])
-        #                                          tsfmd_res2_coords])
-        #     # atoms2 = format_guide_coords_as_atom(tsfmd_res2_coords[None, ...])
-        #     with open(os.path.join(tx_dir, 'init_guide_coords_tnsfmd.pdb'), 'w') as f:
-        #         f.write(f'%s\n' % '\n'.join(atoms))
-        #
-        #     init_ghost_surf_atoms = format_guide_coords_as_atom([overlap_residues1[0].guide_coords])
-        #     with open(os.path.join(tx_dir, 'init_ghost_surf_guide_coords.pdb'), 'w') as f:
-        #         f.write(f'%s\n' % '\n'.join(init_ghost_surf_atoms))
-        #
-        #     init_ghost_atoms = format_guide_coords_as_atom([res_ghost_guide_coords])
-        #     with open(os.path.join(tx_dir, 'init_ghost_guide_coords.pdb'), 'w') as f:
-        #         f.write(f'%s\n' % '\n'.join(init_ghost_atoms))
-        #
-        #     log.debug(f'ghost residue numbers with overlapping fragments: '
-        #               f'{[frag.number for frag in low_quality_ghost_frags]}')
-        #     log.debug(f'surface residue numbers with overlapping fragments: '
-        #               f'{[frag.number for frag in low_quality_surf_frags]}')
-        #
-        #     print(f'Debugging done with {tx_dir}')
-        #     input_ = input('press enter to proceed')
-        #     continue
-        # elif report_residue_numbers:
-        #     low_quality_ghost_frags = [complete_ghost_frags1[idx]
-        #                                for idx in
-        #                                ghost_indices_in_interface1[passing_ghost_indices[passing_overlaps_indices]]]
-        #     low_quality_surf_frags = [complete_surf_frags2[idx]
-        #                               for idx in surf_indices_in_interface2[passing_surf_indices[passing_overlaps_indices]]]
-        #     log.debug(f'ghost residue numbers with overlapping fragments: '
-        #               f'{[frag.number for frag in low_quality_ghost_frags]}')
-        #     log.debug(f'surface residue numbers with overlapping fragments: '
-        #               f'{[frag.number for frag in low_quality_surf_frags]}')
-        #
-        #     matching_fragments_dir = os.path.join(tx_dir, frag_dir)
-        #     os.makedirs(matching_fragments_dir, exist_ok=True)
-        #     ghost_frag_test_path = f'{sampling_id}_INTERFACE_GHOST_FRAGS.pdb'
-        #     with open(os.path.join(matching_fragments_dir, ghost_frag_test_path), 'w') as f:
-        #         chain_gen = model1.chain_id_generator()
-        #         _idx = 0
-        #         for residue in interface_residues:
-        #             if _idx > 52:
-        #                 break
-        #             for frag in residue.ghost_fragments:
-        #                 frag.write(file_handle=f, chain=next(chain_gen))
-        #                 _idx += 1
-        #                 if _idx > 52:
-        #                     break
-        #
-        #     ghost_frag_test_path = f'{sampling_id}_TNSFM_INTERFACE_GHOST_FRAGS.pdb'
-        #     with open(os.path.join(matching_fragments_dir, ghost_frag_test_path), 'w') as f:
-        #         chain_gen = model1.chain_id_generator()
-        #         _idx = 0
-        #         for residue in interface_residues:
-        #             if _idx > 52:
-        #                 break
-        #             for frag in residue.ghost_fragments:
-        #                 tnsfm = frag.representative.return_transformed_copy(**specific_transformation1)
-        #                 tnsfm.write(file_handle=f, chain=next(chain_gen))
-        #                 _idx += 1
-        #                 if _idx > 52:
-        #                     break
-        #     input_ = input('Please press enter to proceed')
-        # log.debug('Checked expand clash')
-        # pose.entities[0].write_oligomer(out_path=os.path.join(tx_dir, '%s_symmetric_material.pdb' % entity2.name))
-        # pose.entities[1].write_oligomer(out_path=os.path.join(tx_dir, '%s_symmetric_material.pdb' % entity1.name))
 
         # Check if design has any clashes when expanded
         exp_des_clash_time_start = time.time()
