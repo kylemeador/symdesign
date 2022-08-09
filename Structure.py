@@ -5700,8 +5700,8 @@ class Entity(SequenceProfile, Chain, ContainsChainsMixin):
         self.api_entry = None  # {chain: {'accession': 'Q96DC8', 'db': 'UNP'}, ...}
         self.dihedral_chain = None
         self.max_symmetry = None
-        self.rotation_d = {}
-        self.symmetry = None
+        self.max_symmetry_chain = None
+        self.rotation_d = {}  # maps mate entities to their rotation matrix
         if chains:  # Instance was initialized with .from_chains()
             # Todo choose most symmetrically average
             #  Move chain symmetry ops below to here?
@@ -6386,108 +6386,113 @@ class Entity(SequenceProfile, Chain, ContainsChainsMixin):
         self.transform(rotation=rot, translation=tx)
         clean_orient_input_output()
 
-    def find_chain_symmetry(self, struct_file: AnyStr = None) -> AnyStr:
-        """Search for the chains involved in a complex using a truncated make_symmdef_file.pl script
+    def find_chain_symmetry(self):
+        """Search for the chain symmetry by using quaternion geometry to solve the symmetric order of the rotations
+         which superimpose chains on the Entity. Translates the Entity to the origin using center of mass, then the axis
+        of rotation only needs to be translated to the center of mass to recapitulate the specific symmetry operation
 
         Requirements - all chains are the same length
-        This script translates the PDB center of mass to the origin then uses quaternion geometry to solve for the
-        rotations which superimpose chains provided by -i onto a designated chain (usually A). It returns the order of
-        the rotation as well as the axis along which the rotation must take place. The axis of the rotation only needs
-        to be translated to the center of mass to recapitulate the specific symmetry operation.
 
-        perl symdesign/dependencies/rosetta/sdf/scout_symmdef_file.pl -p 1ho1_tx_4.pdb -i B C D E F G H
-        >B:3-fold axis: -0.00800197 -0.01160998 0.99990058
-        >C:3-fold axis: 0.00000136 -0.00000509 1.00000000
-
-        Args:
-            struct_file: The location of the input .pdb file
         Sets:
-            self.rotation_d (dict[str, dict[str, int | np.ndarray]])
+            self.rotation_d (dict[Entity, dict[str, int | np.ndarray]])
+            self.max_symmetry_chain (str)
         Returns:
             The name of the file written for symmetry definition file creation
         """
-        if not struct_file:
-            struct_file = self.write_oligomer(out_path=f'make_sdf_input-{self.name}-{random() * 100000:.0f}.pdb')
+        # Find the superposition from the Entity to every mate chain
+        center_of_mass = self.center_of_mass
+        symmetric_center_of_mass = self.center_of_mass_symmetric
+        print('symmetric_center_of_mass', symmetric_center_of_mass)
+        cb_coords = self.cb_coords
+        for chain in self.chains[1:]:
+            # System must be transformed to the origin
+            rmsd, quat, tx = superposition3d(cb_coords, chain.cb_coords, quaternion=True)
+            # rmsd, quat, tx = superposition3d(cb_coords-center_of_mass, chain.cb_coords-center_of_mass, quaternion=True)
+            self.log.debug(f'rmsd={rmsd} quaternion={quat} translation={tx}')
+            # python pseudo
+            w = abs(quat[3])
+            omega = math.acos(w)
+            symmetry_order = int(math.pi/omega + .5)  # round to the nearest integer
+            self.log.debug(f'{chain.chain_id}:{symmetry_order}-fold axis {quat[0]:8f} {quat[1]:8f} {quat[2]:8f}')
+            self.rotation_d[chain.chain_id] = {'sym': symmetry_order, 'axis': quat[:3]}
 
-        # Todo initiate this process in house using superposition3D for every chain
-        start_chain, *rest = self.chain_ids
-        scout_cmd = ['perl', scout_symmdef, '-p', struct_file, '-a', start_chain, '-i'] + rest
-        self.log.debug(f'Scouting chain symmetry: {subprocess.list2cmdline(scout_cmd)}')
-        p = subprocess.Popen(scout_cmd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
-        out, err = p.communicate()
+        # if not struct_file:
+        #     struct_file = self.write_oligomer(out_path=f'make_sdf_input-{self.name}-{random() * 100000:.0f}.pdb')
+        #
+        # This script translates the center of mass to the origin then uses quaternion geometry to solve for the
+        # rotations which superimpose chains provided by -i onto a designated chain (usually A). It returns the order of
+        # the rotation as well as the axis along which the rotation must take place. The axis of the rotation only needs
+        # to be translated to the center of mass to recapitulate the specific symmetry operation.
+        #
+        #  perl symdesign/dependencies/rosetta/sdf/scout_symmdef_file.pl -p 1ho1_tx_4.pdb -i B C D E F G H
+        #  >B:3-fold axis: -0.00800197 -0.01160998 0.99990058
+        #  >C:3-fold axis: 0.00000136 -0.00000509 1.00000000
+        #
+        # start_chain, *rest = self.chain_ids
+        # scout_cmd = ['perl', scout_symmdef, '-p', struct_file, '-a', start_chain, '-i'] + rest
+        # self.log.debug(f'Scouting chain symmetry: {subprocess.list2cmdline(scout_cmd)}')
+        # p = subprocess.Popen(scout_cmd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+        # out, err = p.communicate()
+        # self.log.debug(out.decode('utf-8').strip().split('\n'))
+        #
+        # for line in out.decode('utf-8').strip().split('\n'):
+        #     chain, symmetry, axis = line.split(':')
+        #     self.rotation_d[chain] = \
+        #         {'sym': int(symmetry[:6].rstrip('-fold')), 'axis': np.array(list(map(float, axis.strip().split())))}
+        #     # the returned axis is from a center of mass at the origin as Structure has been translated there
+        #
+        # return struct_file
 
-        for line in out.decode('utf-8').strip().split('\n'):
-            chain, symmetry, axis = line.split(':')
-            self.rotation_d[chain] = \
-                {'sym': int(symmetry[:6].rstrip('-fold')), 'axis': np.array(list(map(float, axis.strip().split())))}
-            # the returned axis is from a center of mass at the origin as Structure has been translated there
-
-        return struct_file
-
-    def find_max_chain_symmetry(self):
-        """Find the highest order symmetry in the Structure
-
-        Sets:
-            self.max_symmetry (str)
-        """
-        max_sym, max_chain = 0, None
+        # Find the highest order symmetry in the Structure
+        max_sym, max_chain_id = 0, None
         for chain, data in self.rotation_d.items():
             if data['sym'] > max_sym:
                 max_sym = data['sym']
-                max_chain = chain
+                max_chain_id = chain
 
-        self.max_symmetry = max_chain
+        self.max_symmetry = max_sym
+        self.max_symmetry_chain = max_chain_id
 
-    def scout_symmetry(self, **kwargs) -> AnyStr:
-        """Check the PDB for the required symmetry parameters to generate a proper symmetry definition file
-
-        Keyword Args:
-            struct_file: AnyStr = None - The location of the input Structure file
-        Sets:
-            self.rotation_d (dict[str, dict[str, int | np.ndarray]])
-            self.max_symmetry (str)
-        Returns:
-            The location of the oligomeric Structure
-        """
-        struct_file = self.find_chain_symmetry(**kwargs)
-        self.find_max_chain_symmetry()
-
-        return struct_file
-
-    def is_dihedral(self, **kwargs) -> bool:
+    def is_dihedral(self) -> bool:
         """Report whether a structure is dihedral or not
 
-        Keyword Args:
-            struct_file: AnyStr = None - The location of the input Structure file
-        Sets:
-            self.rotation_d (dict[str, dict[str, int | np.ndarray]])
-            self.max_symmetry (str)
-            self.dihedral_chain (str): The name of the chain that is dihedral
         Returns:
             True if the Structure is dihedral, False if not
         """
-        if not self.max_symmetry:
-            self.scout_symmetry(**kwargs)
-        # ensure if the structure is dihedral a selected dihedral_chain is orthogonal to the maximum symmetry axis
-        max_symmetry_data = self.rotation_d[self.max_symmetry]
-        if self.number_of_symmetry_mates / max_symmetry_data['sym'] == 2:
-            for chain, data in self.rotation_d.items():
-                if data['sym'] == 2:
-                    axis_dot_product = np.dot(max_symmetry_data['axis'], data['axis'])
-                    if axis_dot_product < 0.01:
-                        if np.allclose(data['axis'], [1, 0, 0]):
-                            self.log.debug('The relation between %s and %s would result in a malformed .sdf file'
-                                           % (self.max_symmetry, chain))
-                            pass  # this will not work in the make_symmdef.pl script, we should choose orthogonal y-axis
-                        else:
-                            self.dihedral_chain = chain
-                            return True
-        elif 1 < self.number_of_symmetry_mates / max_symmetry_data['sym'] < 2:
-            self.log.critical('The symmetry of %s is malformed! Highest symmetry (%d-fold) is less than 2x greater than'
-                              ' the number (%d) of chains'
-                              % (self.name, max_symmetry_data['sym'], self.number_of_symmetry_mates))
+        if self.max_symmetry_chain is None:
+            self.find_chain_symmetry()
 
-        return False
+        # if 1 < self.number_of_symmetry_mates/self.max_symmetry < 2:
+        #     self.log.critical(f'{self.name} symmetry is malformed! Highest symmetry ({max_symmetry_data["sym"]}-fold)'
+        #                       f' is less than 2x greater than the number ({self.number_of_symmetry_mates}) of chains')
+
+        return self.number_of_symmetry_mates/self.max_symmetry == 2
+
+    def find_dihedral_chain(self) -> Entity | None:
+        """From the symmetric system, find a dihedral chain and return the instance
+
+        Sets:
+            self.dihedral_chain (str): The name of the chain that is dihedral
+        Returns:
+            The dihedral mate chain
+        """
+        if not self.is_dihedral():
+            return None
+
+        # Ensure if the structure is dihedral a selected dihedral_chain is orthogonal to the maximum symmetry axis
+        max_symmetry_data = self.rotation_d[self.max_symmetry_chain]
+        for chain, data in self.rotation_d.items():
+            if data['sym'] == 2:
+                axis_dot_product = np.dot(max_symmetry_data['axis'], data['axis'])
+                if axis_dot_product < 0.01:
+                    if np.allclose(data['axis'], [1, 0, 0]):
+                        self.log.debug(f'The relation between {self.max_symmetry_chain} and {chain} would result in a '
+                                       f'malformed .sdf file')
+                        pass  # this will not work in the make_symmdef.pl script, we should choose orthogonal y-axis
+                    else:
+                        return chain
+
+        return None
 
     def make_sdf(self, struct_file: AnyStr = None, out_path: AnyStr = os.getcwd(), **kwargs) -> \
             AnyStr:
@@ -6523,13 +6528,14 @@ class Entity(SequenceProfile, Chain, ContainsChainsMixin):
             sdf_mode = 'NCS'
 
         if not struct_file:
-            struct_file = self.scout_symmetry(struct_file=struct_file)
+            # struct_file = self.scout_symmetry(struct_file=struct_file)
+            struct_file = self.write_oligomer(out_path=f'make_sdf_input-{self.name}-{random() * 100000:.0f}.pdb')
 
-        dihedral = self.is_dihedral(struct_file=struct_file)  # include so we don't write another struct_file
-        if dihedral:  # dihedral_chain will be set
-            chains = [self.max_symmetry, self.dihedral_chain]
+        if self.is_dihedral():
+            dihedral_chain = self.find_dihedral_chain()
+            chains = [self.max_symmetry_chain, dihedral_chain]
         else:
-            chains = [self.max_symmetry]
+            chains = [self.max_symmetry_chain]
 
         sdf_cmd = \
             ['perl', make_symmdef, '-m', sdf_mode, '-q', '-p', struct_file, '-a', self.chain_ids[0], '-i'] + chains
@@ -7066,7 +7072,7 @@ def superposition3d(fixed_coords: np.ndarray, moving_coords: np.ndarray, a_weigh
         # https://mathworld.wolfram.com/Quaternion.html
         # So I return "q" (a version of "p" using the more popular convention).
         # rotation_matrix = np.array([p[3], p[0], p[1], p[2]])
-        # KM: Disregard above, I am using the scipy version for python continuity
+        # KM: Disregard above, I am using the scipy version for python continuity which returns X, Y, Z, W
         return rmsd, optimal_quat, translation
     else:
         return rmsd, rotation_matrix, translation
