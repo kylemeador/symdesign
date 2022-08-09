@@ -486,7 +486,7 @@ class SequenceProfile:
                 self.fragment_db._load_cluster_info(ids=retrieve_fragments)
             else:
                 raise AttributeError('Fragments were specified but there is no fragment database attached. Ensure '
-                                     'fragment_db is set before requesting fragment information')
+                                     f'{self.fragment_db.__name__} is set before requesting fragment information')
 
             # process fragment profile from self.fragment_map or self.fragment_query
             self.add_fragment_profile()

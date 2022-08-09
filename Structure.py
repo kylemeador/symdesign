@@ -5057,6 +5057,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
 
     def _copy_structure_containers(self):  # Todo what about Structures() use. change mechanism
         """Copy all member Structures that reside in Structure containers"""
+        # self.log.debug('In Structure copy_structure_containers()')
         for structure_type in self.structure_containers:
             structures = getattr(self, structure_type)
             for idx, structure in enumerate(structures):
@@ -5077,7 +5078,8 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
             self.spawn = other
             for attr in parent_attributes:
                 other.__dict__[attr] = copy(self.__dict__[attr])
-            other._atoms.set_attributes(_parent=other)  # Todo comment out when Atom.__copy__ needed somewhere
+            # Todo comment out when Atom.__copy__ needed somewhere. Maybe used in Atoms.__copy__
+            other._atoms.set_attributes(_parent=other)
             # other._residues.set_attributes(_parent=other)
             other._copy_structure_containers()
             other._update_structure_container_attributes(_parent=other)
@@ -5777,6 +5779,7 @@ class Entity(SequenceProfile, Chain, ContainsChainsMixin):
         """Set the Coords object while propagating changes to symmetric "mate" chains"""
         if self._is_oligomeric and self._is_captain:
             # **This routine handles imperfect symmetry**
+            # self.log.debug('Entity captain is modifying coords')
             # must do these before super().coords.fset()
             # Populate .chains (if not already) with current coords and transformation
             current_chains = self.chains
@@ -5802,6 +5805,7 @@ class Entity(SequenceProfile, Chain, ContainsChainsMixin):
             self._chain_transforms = []
             # Find the transform between the new coords and the current mate chain coords
             for chain, transform in zip(current_chains[1:], current_chain_transforms):
+                # self.log.debug(f'Updated transform of mate {chain.chain_id}')
                 # In liu of using chain.coords as lengths might be different
                 # Transform prior_coords to chain.coords position, then transform using new_rot and new_tx
                 # new_chain_coords = \
@@ -6081,16 +6085,20 @@ class Entity(SequenceProfile, Chain, ContainsChainsMixin):
     def _make_captain(self):
         """Turn the Entity into a "captain" Entity if it isn't already"""
         if not self._is_captain:
+            # self.log.debug(f'Promoting mate Entity {self.chain_id} to a captain')
             # Todo handle superposition with imperfect symmetry
             # Find and save the transforms between the self.coords and the prior captains mate chains
             current_ca_coords = self.ca_coords
             self._chain_transforms = []
+            # for idx, chain in enumerate(self._captain.chains, 1):
             for chain in self._captain.chains:
                 # Find the transform from current coords and the new mate chain coords
                 _, rot, tx = superposition3d(chain.ca_coords, current_ca_coords)
                 if np.allclose(identity_matrix, rot):
                     # This "chain" is the instance of the self, we don't need the identity
+                    # self.log.debug(f'Skipping identity transform')
                     continue
+                # self.log.debug(f'Adding transform between self._captain.chain idx {idx} and the new captain')
                 self._chain_transforms.append(dict(rotation=rot, translation=tx))
 
             # # Alternative:
@@ -6138,7 +6146,7 @@ class Entity(SequenceProfile, Chain, ContainsChainsMixin):
                 # must transpose these along last axis as they are pre-transposed upon creation
                 rotation_matrices = point_group_symmetry_operators[symmetry].swapaxes(-2, -1)
                 degeneracy_matrices = None  # Todo may need to add T degeneracy here!
-            elif 'D' in symmetry:  # provide a 180 degree rotation along x (all D orient symmetries have axis here)
+            elif 'D' in symmetry:  # provide a 180-degree rotation along x (all D orient symmetries have axis here)
                 rotation_matrices = get_rot_matrices(rotation_range[symmetry.replace('D', 'C')], 'z', 360)
                 degeneracy_matrices = [identity_matrix, flip_x_matrix]
             else:  # symmetry is cyclic
@@ -6146,7 +6154,7 @@ class Entity(SequenceProfile, Chain, ContainsChainsMixin):
                 degeneracy_matrices = None
             degeneracy_rotation_matrices = make_rotations_degenerate(rotation_matrices, degeneracy_matrices)
         except KeyError:
-            raise ValueError(f'The symmetry {symmetry} is not a viable symmetry! You should try to add compatibility '
+            raise ValueError(f'The symmetry {symmetry} is not viable! You should try to add compatibility '
                              f'for it if you believe this is a mistake')
 
         self.symmetry = symmetry
@@ -6855,6 +6863,7 @@ class Entity(SequenceProfile, Chain, ContainsChainsMixin):
 
     def _copy_structure_containers(self):
         """Copy all member Structures that reside in Structure containers. Entity specific handling of chains index 0"""
+        # self.log.debug('In Entity copy_structure_containers()')
         for structure_type in self.structure_containers:
             structures = getattr(self, structure_type)
             for idx, structure in enumerate(structures[1:], 1):  # only operate on [1:] slice since index 0 is different
@@ -6866,15 +6875,16 @@ class Entity(SequenceProfile, Chain, ContainsChainsMixin):
 
     def __copy__(self) -> Entity:  # -> Self Todo python3.11
         # Temporarily remove the _captain attribute for the copy
+        # self.log.debug('In Entity copy')
         captain = self._captain
         del self._captain
         other = super().__copy__()
         if self._is_captain:  # If the copier is a captain
             other._captain = None  # Initialize the copy as a captain -> None
         else:
-            # If the copy was initiated by Entity captain, ._captain
-            # will be set after __copy__ return in _copy_structure_containers()
-            # This is Ture if the .entity_spawn attribute is set
+            # If the copy was initiated by the captain, ._captain
+            # will be set after this __copy__ return in _copy_structure_containers()
+            # This is True if the .entity_spawn attribute is set
             try:  # To delete entity_spawn attribute for the self and the copy (it was copied)
                 del self.entity_spawn
                 del other.entity_spawn
@@ -6883,7 +6893,7 @@ class Entity(SequenceProfile, Chain, ContainsChainsMixin):
                 # We have to make it a captain
                 # Add self._captain object to other._captain
                 other._captain = captain
-                # This will remove the variable and set as None
+                # _make_captain will set _captain as None
                 other._make_captain()
 
         # Set the first chain as the object itself
