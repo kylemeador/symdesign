@@ -2331,14 +2331,17 @@ class SymmetricModel(Models):
     _symmetric_coords_by_entity: list[np.ndarray]
     _symmetric_coords_split: list[np.ndarray]
     _symmetric_coords_split_by_entity: list[list[np.ndarray]]
+    _uc_dimensions: list[float] | None
+    deorthogonalization_matrix: np.ndarray
     expand_matrices: np.ndarray | list[list[float]] | None
     expand_translations: np.ndarray | list[float] | None
-    uc_dimensions: list[float] | None
+    orthogonalization_matrix: np.ndarray
     state_attributes: set[str] = Models.state_attributes | \
         {'_assembly', '_assembly_minimally_contacting', '_assembly_tree', '_asu_indices', '_asu_model_idx',
          '_center_of_mass_symmetric_entities', '_center_of_mass_symmetric_models',
          '_oligomeric_model_indices', '_symmetric_coords_by_entity', '_symmetric_coords_split',
          '_symmetric_coords_split_by_entity'}
+    uc_volume: float
 
     def __init__(self, sym_entry: SymEntry | int = None, symmetry: str = None,
                  uc_dimensions: list[float] = None, expand_matrices: np.ndarray | list = None,
@@ -2597,6 +2600,66 @@ class SymmetricModel(Models):
         self._dimension = dimension
 
     @property
+    def uc_dimensions(self) -> tuple[float, float, float, float, float, float] | None:
+        """The unit cell dimensions for the lattice specified by lengths a, b, c and angles alpha, beta, gamma
+
+        Returns:
+            length a, length b, length c, angle alpha, angle beta, angle gamma
+        """
+        try:
+            return self._uc_dimensions
+        except AttributeError:
+            return None
+
+    # @property
+    # def uc_dimensions(self) -> list[float]:
+    #     try:
+    #         return self._uc_dimensions
+    #     except AttributeError:
+    #         self._uc_dimensions = list(self.cryst['a_b_c']) + list(self.cryst['ang_a_b_c'])
+    #         return self._uc_dimensions
+
+    @uc_dimensions.setter
+    def uc_dimensions(self, uc_dimensions: tuple[float, float, float, float, float, float]):
+        """Set the unit cell dimensions according to the lengths a, b, and c, and angles alpha, beta, and gamma
+
+        From http://www.ruppweb.org/Xray/tutorial/Coordinate%20system%20transformation.htm
+        """
+        try:
+            a, b, c, alpha, beta, gamma = self._uc_dimensions = uc_dimensions
+        except (TypeError, ValueError):  # Unpacking didn't work
+            return
+
+        degree_to_radians = pi / 180.
+        gamma *= degree_to_radians
+
+        # unit cell volume
+        a_cos = cos(alpha*degree_to_radians)
+        b_cos = cos(beta*degree_to_radians)
+        g_cos = cos(gamma)
+        g_sin = float(sin(gamma))
+        self.uc_volume = float(a*b*c*sqrt(1 - a_cos**2 - b_cos**2 - g_cos**2 + 2*a_cos*b_cos*g_cos))
+
+        # deorthogonalization matrix m
+        # m0 = [1./a, -g_cos / (a*g_sin),
+        #       ((b*g_cos*c*(a_cos - b_cos*g_cos) / g_sin) - b*c*b_cos*g_sin) * (1/self.uc_volume)]
+        # m1 = [0., 1./b*g_sin, -(a*c*(a_cos - b_cos*g_cos) / (self.uc_volume*g_sin))]
+        # m2 = [0., 0., a*b*g_sin/self.uc_volume]
+        self.deorthogonalization_matrix = \
+            np.array([[1./a, -g_cos / (a*g_sin),
+                       ((b*g_cos*c*(a_cos - b_cos*g_cos) / g_sin) - b*c*b_cos*g_sin) * (1/self.uc_volume)],
+                      [0., 1./b*g_sin, -(a*c*(a_cos - b_cos*g_cos) / (self.uc_volume*g_sin))],
+                      [0., 0., a*b*g_sin/self.uc_volume]])
+
+        # orthogonalization matrix m_inv
+        # m_inv_0 = [a, b*g_cos, c*b_cos]
+        # m_inv_1 = [0., b*g_sin, (c*(a_cos - b_cos*g_cos))/g_sin]
+        # m_inv_2 = [0., 0., self.uc_volume/(a*b*g_sin)]
+        self.orthogonalization_matrix = np.array([[a, b*g_cos, c*b_cos],
+                                                 [0., b*g_sin, (c*(a_cos - b_cos*g_cos))/g_sin],
+                                                 [0., 0., self.uc_volume/(a*b*g_sin)]])
+
+    @property
     def cryst_record(self) -> str | None:
         """Return the symmetry parameters as a CRYST1 entry"""
         # Todo should we always use a generated _cryst_record? If read from file, but a Nanohedra based cryst was made
@@ -2611,18 +2674,6 @@ class SymmetricModel(Models):
     @cryst_record.setter
     def cryst_record(self, cryst_record: str | None):
         self._cryst_record = cryst_record
-
-    # @property
-    # def uc_dimensions(self) -> list[float]:
-    #     try:
-    #         return self._uc_dimensions
-    #     except AttributeError:
-    #         self._uc_dimensions = list(self.cryst['a_b_c']) + list(self.cryst['ang_a_b_c'])
-    #         return self._uc_dimensions
-    #
-    # @uc_dimensions.setter
-    # def uc_dimensions(self, dimensions: list[float]):
-    #     self._uc_dimensions = dimensions
 
     @property
     def number_of_symmetry_mates(self) -> int:
@@ -2884,29 +2935,29 @@ class SymmetricModel(Models):
             The fractional coordinates of a unit cell
         """
         if self.uc_dimensions is None:
-            raise ValueError('Can\'t manipulate unit cell, no unit cell dimensions were passed')
+            raise ValueError("Can't manipulate unit cell, no unit cell dimensions were passed")
 
-        degree_to_radians = pi / 180.
-        a, b, c, alpha, beta, gamma = self.uc_dimensions
-        alpha *= degree_to_radians
-        beta *= degree_to_radians
-        gamma *= degree_to_radians
+        # degree_to_radians = pi / 180.
+        # a, b, c, alpha, beta, gamma = self.uc_dimensions
+        # alpha *= degree_to_radians
+        # beta *= degree_to_radians
+        # gamma *= degree_to_radians
+        #
+        # # unit cell volume
+        # a_cos = cos(alpha)
+        # b_cos = cos(beta)
+        # g_cos = cos(gamma)
+        # g_sin = sin(gamma)
+        # v = a * b * c * sqrt(1 - a_cos ** 2 - b_cos ** 2 - g_cos ** 2 + 2 * (a_cos * b_cos * g_cos))
+        #
+        # # deorthogonalization matrix m
+        # m0 = [1 / a, -(g_cos / float(a * g_sin)),
+        #       (((b * g_cos * c * (a_cos - (b_cos * g_cos))) / float(g_sin)) - (b * c * b_cos * g_sin)) * (1 / float(v))]
+        # m1 = [0, 1 / (b * g_sin), -((a * c * (a_cos - (b_cos * g_cos))) / float(v * g_sin))]
+        # m2 = [0, 0, (a * b * g_sin) / float(v)]
+        # m = [m0, m1, m2]
 
-        # unit cell volume
-        a_cos = cos(alpha)
-        b_cos = cos(beta)
-        g_cos = cos(gamma)
-        g_sin = sin(gamma)
-        v = a * b * c * sqrt(1 - a_cos ** 2 - b_cos ** 2 - g_cos ** 2 + 2 * (a_cos * b_cos * g_cos))
-
-        # deorthogonalization matrix m
-        m0 = [1 / a, -(g_cos / float(a * g_sin)),
-              (((b * g_cos * c * (a_cos - (b_cos * g_cos))) / float(g_sin)) - (b * c * b_cos * g_sin)) * (1 / float(v))]
-        m1 = [0, 1 / (b * g_sin), -((a * c * (a_cos - (b_cos * g_cos))) / float(v * g_sin))]
-        m2 = [0, 0, (a * b * g_sin) / float(v)]
-        m = [m0, m1, m2]
-
-        return np.matmul(cart_coords, np.transpose(m))
+        return np.matmul(cart_coords, np.transpose(self.deorthogonalization_matrix))
 
     def frac_to_cart(self, frac_coords: np.ndarray | Iterable | int | float) -> np.ndarray:
         """Return cartesian coordinates from fractional coordinates
@@ -2918,28 +2969,28 @@ class SymmetricModel(Models):
             The cartesian coordinates of a unit cell
         """
         if self.uc_dimensions is None:
-            raise ValueError('Can\'t manipulate unit cell, no unit cell dimensions were passed')
+            raise ValueError("Can't manipulate unit cell, no unit cell dimensions were passed")
 
-        degree_to_radians = pi / 180.
-        a, b, c, alpha, beta, gamma = self.uc_dimensions
-        alpha *= degree_to_radians
-        beta *= degree_to_radians
-        gamma *= degree_to_radians
+        # degree_to_radians = pi / 180.
+        # a, b, c, alpha, beta, gamma = self.uc_dimensions
+        # alpha *= degree_to_radians
+        # beta *= degree_to_radians
+        # gamma *= degree_to_radians
+        #
+        # # unit cell volume
+        # a_cos = cos(alpha)
+        # b_cos = cos(beta)
+        # g_cos = cos(gamma)
+        # g_sin = sin(gamma)
+        # v = a * b * c * sqrt(1 - a_cos**2 - b_cos**2 - g_cos**2 + 2 * (a_cos * b_cos * g_cos))
+        #
+        # # orthogonalization matrix m_inv
+        # m_inv_0 = [a, b * g_cos, c * b_cos]
+        # m_inv_1 = [0, b * g_sin, (c * (a_cos - (b_cos * g_cos))) / float(g_sin)]
+        # m_inv_2 = [0, 0, v / float(a * b * g_sin)]
+        # m_inv = [m_inv_0, m_inv_1, m_inv_2]
 
-        # unit cell volume
-        a_cos = cos(alpha)
-        b_cos = cos(beta)
-        g_cos = cos(gamma)
-        g_sin = sin(gamma)
-        v = a * b * c * sqrt(1 - a_cos**2 - b_cos**2 - g_cos**2 + 2 * (a_cos * b_cos * g_cos))
-
-        # orthogonalization matrix m_inv
-        m_inv_0 = [a, b * g_cos, c * b_cos]
-        m_inv_1 = [0, b * g_sin, (c * (a_cos - (b_cos * g_cos))) / float(g_sin)]
-        m_inv_2 = [0, 0, v / float(a * b * g_sin)]
-        m_inv = [m_inv_0, m_inv_1, m_inv_2]
-
-        return np.matmul(frac_coords, np.transpose(m_inv))
+        return np.matmul(frac_coords, np.transpose(self.orthogonalization_matrix))
 
     def get_assembly_symmetry_models(self, **kwargs) -> list[Structure]:
         """Return symmetry mates as a collection of Structures with symmetric coordinates
