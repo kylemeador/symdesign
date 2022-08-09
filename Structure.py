@@ -5926,6 +5926,31 @@ class Entity(SequenceProfile, Chain, ContainsChainsMixin):
     def number_of_symmetry_mates(self, number_of_symmetry_mates: int):
         self._number_of_symmetry_mates = number_of_symmetry_mates
 
+    @property
+    def center_of_mass_symmetric(self) -> np.ndarray:  # Todo mirrors SymmetricModel
+        """The center of mass for the entire symmetric system"""
+        # number_of_symmetry_atoms = len(self.symmetric_coords)
+        # return np.matmul(np.full(number_of_symmetry_atoms, 1 / number_of_symmetry_atoms), self.symmetric_coords)
+        # v since all symmetry by expand_matrix anyway
+        return self.center_of_mass_symmetric_models.mean(axis=-2)
+
+    @property
+    def center_of_mass_symmetric_models(self) -> np.ndarray:
+        """The individual centers of mass for each model in the symmetric system"""
+        # try:
+        #     return self._center_of_mass_symmetric_models
+        # except AttributeError:
+        com = self.center_of_mass
+        mate_coms = [com]
+        for transform in self._chain_transforms:
+            mate_coms.append(np.matmul(com, transform['rotation'].T) + transform['translation'])
+
+        print('MATE COMS', mate_coms)
+        # np.array makes the right shape while concatenate doesn't
+        return np.array(mate_coms)
+        # self._center_of_mass_symmetric_models = np.array(mate_coms)
+        # return self._center_of_mass_symmetric_models
+
     def is_captain(self) -> bool:
         """Is the Entity instance the captain?"""
         return self._is_captain
