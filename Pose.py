@@ -222,7 +222,7 @@ def get_matching_fragment_pairs_info(ghostfrag_frag_pairs: list[tuple[GhostFragm
 #                          'number_fragment_residues_central': central_residues_with_fragment_overlap,
 #                          'number_fragment_residues_all': total_residues_with_fragment_overlap,
 #                          'total_interface_residues': total_residues,
-#                          'number_fragments': len(fragment_matches),
+#                          'number_of_fragments': len(fragment_matches),
 #                          'percent_residues_fragment_total': percent_interface_covered,
 #                          'percent_residues_fragment_center': percent_interface_matched,
 #                          'percent_fragment_helix': fragment_content_d['1'],
@@ -5416,19 +5416,19 @@ class Pose(SequenceProfile, SymmetricModel):
                     metric_d[entity]['multiple_fragment_ratio'] += metrics[align_type]['multiple_ratio']
                     metric_d[entity]['number_fragment_residues_total'] += metrics[align_type]['total']['number']
                     metric_d[entity]['number_fragment_residues_center'] += metrics[align_type]['center']['number']
-                    metric_d[entity]['number_fragments'] += metrics['total']['observations']
+                    metric_d[entity]['number_of_fragments'] += metrics['total']['observations']
                     metric_d[entity]['percent_fragment_helix'] += metrics[align_type]['index_count'][1]
                     metric_d[entity]['percent_fragment_strand'] += metrics[align_type]['index_count'][2]
                     metric_d[entity]['percent_fragment_coil'] += (metrics[align_type]['index_count'][3] +
                                                                   metrics[align_type]['index_count'][4] +
                                                                   metrics[align_type]['index_count'][5])
             for entity in metric_d:
-                metric_d[entity]['percent_fragment_helix'] /= metric_d[entity]['number_fragments']
-                metric_d[entity]['percent_fragment_strand'] /= metric_d[entity]['number_fragments']
-                metric_d[entity]['percent_fragment_coil'] /= metric_d[entity]['number_fragments']
+                metric_d[entity]['percent_fragment_helix'] /= metric_d[entity]['number_of_fragments']
+                metric_d[entity]['percent_fragment_strand'] /= metric_d[entity]['number_of_fragments']
+                metric_d[entity]['percent_fragment_coil'] /= metric_d[entity]['number_of_fragments']
 
             return metric_d
-        else:
+        else:  # For the entire interface
             metric_d = fragment_metric_template
             for query_pair, metrics in self.fragment_metrics.items():
                 if not metrics:
@@ -5442,16 +5442,16 @@ class Pose(SequenceProfile, SymmetricModel):
                 metric_d['multiple_fragment_ratio'] += metrics['total']['multiple_ratio']
                 metric_d['number_fragment_residues_total'] += metrics['total']['total']['number']
                 metric_d['number_fragment_residues_center'] += metrics['total']['center']['number']
-                metric_d['number_fragments'] += metrics['total']['observations']
+                metric_d['number_of_fragments'] += metrics['total']['observations']
                 metric_d['percent_fragment_helix'] += metrics['total']['index_count'][1]
                 metric_d['percent_fragment_strand'] += metrics['total']['index_count'][2]
                 metric_d['percent_fragment_coil'] += (metrics['total']['index_count'][3] +
                                                       metrics['total']['index_count'][4] +
                                                       metrics['total']['index_count'][5])
             try:
-                metric_d['percent_fragment_helix'] /= (metric_d['number_fragments'] * 2)  # account for 2x observations
-                metric_d['percent_fragment_strand'] /= (metric_d['number_fragments'] * 2)  # account for 2x observations
-                metric_d['percent_fragment_coil'] /= (metric_d['number_fragments'] * 2)  # account for 2x observations
+                metric_d['percent_fragment_helix'] /= metric_d['number_of_fragments']*2  # Account for 2x observations
+                metric_d['percent_fragment_strand'] /= metric_d['number_of_fragments']*2  # Account for 2x observations
+                metric_d['percent_fragment_coil'] /= metric_d['number_of_fragments']*2  # Account for 2x observations
             except ZeroDivisionError:
                 metric_d['percent_fragment_helix'], metric_d['percent_fragment_strand'], \
                     metric_d['percent_fragment_coil'] = 0., 0., 0.
