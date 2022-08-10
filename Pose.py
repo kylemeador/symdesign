@@ -4013,6 +4013,7 @@ class Pose(SequenceProfile, SymmetricModel):
     All objects share a common feature such as the same symmetric system or the same general atom configuration in
     separate models across the Structure or sequence.
     """
+    center_residue_numbers: list[int]
     design_selector: dict[str, dict[str, dict[str, set[int] | set[str] | None]]] | None
     design_selector_entities: set[Entity]
     design_selector_indices: set[int]
@@ -4036,6 +4037,7 @@ class Pose(SequenceProfile, SymmetricModel):
         # Model init will handle Structure set up if a structure file is present
         # SymmetricModel init will generate_symmetric_coords() if symmetry specification present
         super().__init__(**kwargs)
+        self.center_residue_numbers = []
         self.design_selector = design_selector if design_selector else {}  # kwargs.get('design_selector', {})
         self.design_selector_entities = set()
         self.design_selector_indices = set()
@@ -4393,6 +4395,237 @@ class Pose(SequenceProfile, SymmetricModel):
             # Compute scores
             S_sample = sample_dict['S']
             # Todo finish this routine
+
+    def return_termini_accessibility(self, entity: Entity = None, report_if_helix: bool = False) -> \
+            dict[str, bool]:
+        """Return the termini which are not buried in the Pose
+
+        Args:
+            entity: The Structure to query which originates in the pose
+            report_if_helix: Whether the query should additionally report on the helicity of the termini
+        Returns:
+            {'n': True, 'c': False}
+        """
+        if not self.assembly.sasa:
+            self.assembly.get_sasa()
+
+        entity_chain = self.assembly.chain(entity.chain_id)
+        n_term, c_term = False, False
+        if self.is_symmetric():
+            if self.dimension > 0:
+                raise NotImplementedError("Can't measure the reference of an entity currently for lattice symmetries")
+                entity_reference = self.pose_transformation[index].get('translation2', None)
+            else:
+                entity_reference = None
+        if entity.termini_proximity_from_reference(reference=entity_reference) == 1:  # if outward
+            if entity_chain.n_terminal_residue.relative_sasa > 0.25:
+                n_term = True
+
+        if entity.termini_proximity_from_reference(termini='c', reference=entity_reference) == 1:  # if outward
+            if entity_chain.c_terminal_residue.relative_sasa > 0.25:
+                c_term = True
+
+        if report_if_helix:
+            # if self.api_db:
+            parsed_secondary_structure = self.api_db.stride.retrieve_data(name=entity.name)
+            if parsed_secondary_structure:
+                entity.fill_secondary_structure(secondary_structure=parsed_secondary_structure)
+            else:
+                entity.stride(to_file=self.api_db.stride.path_to(entity.name))
+            n_term = True if n_term and entity.is_termini_helical() else False
+            c_term = True if c_term and entity.is_termini_helical(termini='c') else False
+
+        return dict(n=n_term, c=c_term)
+
+    # def get_interface_fragment_metrics(self) -> dict:
+    #     """Generate fragment metrics for the interfaces in the Pose"""
+    #     self.generate_interface_fragments(write_fragments=False)  # out_path=self.frags, self.write_frags)
+    #     fragment_observations = self.return_fragment_observations()
+    #
+    #     if fragment_observations == list():
+    #         frag_metrics = fragment_metric_template
+    #         self.log.debug(f'No fragment metrics found')
+    #     else:
+    #         self.log.debug('Fragment observations found in Pose. Adding to the Design state')
+    #         frag_metrics = format_fragment_metrics(calculate_match_metrics(fragment_observations))
+    #
+    #     return frag_metrics
+
+    def interface_metrics(self) -> dict:
+        """Gather all metrics relating to the Pose and the interfaces within the Pose
+
+        Returns:
+            {'nanohedra_score_normalized': , 'nanohedra_score_center_normalized':,
+             'nanohedra_score': , 'nanohedra_score_center': , 'number_fragment_residues_total': ,
+             'number_fragment_residues_center': , 'multiple_fragment_ratio': ,
+             'percent_fragment_helix': , 'percent_fragment_strand': ,
+             'percent_fragment_coil': , 'number_of_fragments': , 'total_interface_residues': ,
+             'percent_residues_fragment_total': , 'percent_residues_fragment_center': }
+        """
+        # frag_metrics = self.get_interface_fragment_metrics()
+        # total_residue_numbers = frag_metrics['total_residues']
+        # all_residue_score = frag_metrics['nanohedra_score']
+        # center_residue_score = frag_metrics['nanohedra_score_center']
+        # fragment_residues_total = frag_metrics['number_fragment_residues_total']
+        # ^ can be more than self.total_interface_residues because each fragment may have members not in the interface
+        # central_residues_with_fragment_overlap = frag_metrics['number_fragment_residues_center']
+        # multiple_frag_ratio = frag_metrics['multiple_fragment_ratio']
+        # helical_fragment_content = frag_metrics['percent_fragment_helix']
+        # strand_fragment_content = frag_metrics['percent_fragment_strand']
+        # coil_fragment_content = frag_metrics['percent_fragment_coil']
+        frag_metrics = self.return_fragment_metrics()
+        self.center_residue_numbers = frag_metrics.get('center_residues', [])
+        total_interface_residues = len(self.interface_residues)
+        total_non_fragment_interface_residues = \
+            max(total_interface_residues-frag_metrics['number_fragment_residues_center'], 0)
+
+        try:  # If interface_distance is different from interface query and fragment generation these can be < 0 or > 1
+            percent_residues_fragment_center = \
+                min(frag_metrics['number_fragment_residues_center']/total_interface_residues, 1)
+            percent_residues_fragment_total = \
+                min(frag_metrics['number_fragment_residues_total']/total_interface_residues, 1)
+        except ZeroDivisionError:
+            self.log.warning(f'{self.name}: No interface residues were found. Is there an interface in your design?')
+            percent_residues_fragment_center, percent_residues_fragment_total = 0., 0.
+
+        # try:
+        #     nanohedra_score_normalized = \
+        #         frag_metrics['nanohedra_score'] / frag_metrics['number_fragment_residues_total']
+        # except ZeroDivisionError:
+        #     nanohedra_score_normalized = 0.
+        # try:
+        #     nanohedra_score_center_normalized = \
+        #         frag_metrics['nanohedra_score_center']/frag_metrics['number_fragment_residues_center']
+        # except ZeroDivisionError:
+        #     self.log.warning(f'{self.name}: No interface residues were found. Is there an interface in your design?')
+        #     nanohedra_score_center_normalized = 0.
+        # number_of_fragments = frag_metrics['number_of_fragments']
+
+        metrics = frag_metrics
+        # Interface B Factor
+        int_b_factor = sum(residue.b_factor for residue in self.interface_residues)
+        metrics.update({
+            'interface_b_factor_per_residue': round(int_b_factor / total_interface_residues, 2),
+            # 'nanohedra_score': all_residue_score,
+            # 'nanohedra_score_normalized': nanohedra_score_normalized,
+            # 'nanohedra_score_center': center_residue_score,
+            # 'nanohedra_score_center_normalized': nanohedra_score_center_normalized,
+            # 'number_fragment_residues_total': fragment_residues_total,
+            # 'number_fragment_residues_center': central_residues_with_fragment_overlap,
+            # 'multiple_fragment_ratio': multiple_frag_ratio,
+            'percent_fragment': frag_metrics['number_fragment_residues_total'] / total_interface_residues,
+            # 'percent_fragment_helix': helical_fragment_content,
+            # 'percent_fragment_strand': strand_fragment_content,
+            # 'percent_fragment_coil': coil_fragment_content,
+            # 'number_of_fragments': number_of_fragments,
+            'total_interface_residues': total_interface_residues,
+            'total_non_fragment_interface_residues': total_non_fragment_interface_residues,
+            'percent_residues_fragment_total': percent_residues_fragment_total,
+            'percent_residues_fragment_center': percent_residues_fragment_center})
+
+        if not self.ss_index_array or not self.ss_type_array:
+            self.interface_secondary_structure()  # api_db=self.api_db, source_dir=self.job_resource.stride_dir)
+
+        interface_ss_topology = {}  # {1: 'HHLH', 2: 'HSH'}
+        interface_ss_fragment_topology = {}  # {1: 'HHH', 2: 'HH'}
+        for number, elements in self.split_interface_ss_elements.items():
+            fragment_elements = set()
+            # residues, entities = self.pose.split_interface_residues[number]
+            for residue, _, element in zip(*zip(*self.split_interface_residues[number]), elements):
+                if residue.number in self.center_residue_numbers:
+                    fragment_elements.add(element)
+            # Take the set of elements as there are element repeats if SS is continuous over residues
+            interface_ss_topology[number] = \
+                ''.join(self.ss_type_array[element] for element in set(elements))
+            interface_ss_fragment_topology[number] = \
+                ''.join(self.ss_type_array[element] for element in fragment_elements)
+
+        # total_fragment_elements, total_interface_elements = '', ''
+        for number, topology in interface_ss_topology.items():
+            metrics[f'interface_secondary_structure_topology_{number}'] = topology
+            # total_interface_elements += topology
+            metrics[f'interface_secondary_structure_fragment_topology_{number}'] = \
+                interface_ss_fragment_topology.get(number, '-')
+            # total_fragment_elements += interface_ss_fragment_topology.get(number, '')
+
+        metrics['interface_secondary_structure_fragment_topology'] = ''.join(interface_ss_fragment_topology.values())
+        metrics['interface_secondary_structure_fragment_count'] = \
+            len(metrics['interface_secondary_structure_fragment_topology'])
+        metrics['interface_secondary_structure_topology'] = ''.join(interface_ss_topology.values())
+        metrics['interface_secondary_structure_count'] = \
+            len(metrics['interface_secondary_structure_topology'])
+
+        if self.is_symmetric():
+            metrics['design_dimension'] = self.dimension
+            for idx, group in enumerate(self.sym_entry.groups, 1):
+                metrics[f'symmetry_group_{idx}'] = group
+        else:
+            metrics['design_dimension'] = 'asymmetric'
+
+        try:
+            is_ukb_thermophilic = self.api_db.uniprot.is_thermophilic
+            is_pdb_thermophile = self.api_db.pdb.is_thermophilic
+        except AttributeError:
+            is_ukb_thermophilic = is_uniprot_thermophilic
+            is_pdb_thermophile = is_entity_thermophilic
+
+        # total_residue_counts = []
+        minimum_radius, maximum_radius = float('inf'), 0
+        for idx, entity in enumerate(self.entities, 1):
+            if self.dimension and self.dimension > 0:
+                raise NotImplementedError('Need to add keyword reference= to Structure.distance_from_reference() call')
+            min_rad = entity.distance_from_reference(measure='min')  # Todo add reference=
+            if min_rad < minimum_radius:
+                minimum_radius = min_rad
+            max_rad = entity.distance_from_reference(measure='max')  # Todo add reference=
+            if max_rad > maximum_radius:
+                maximum_radius = max_rad
+            # distances.append(np.array([ent_idx, ent_com, min_rad, max_rad]))
+            # distances[entity] = np.array([ent_idx, ent_com, min_rad, max_rad, entity.number_of_residues])
+            # total_residue_counts.append(entity.number_of_residues)
+            if entity.thermophilic is not None:
+                thermophile = 1 if entity.thermophilic else 0
+            else:
+                thermophile = 1 if is_pdb_thermophile(entity.name) or is_ukb_thermophilic(entity.uniprot_id) else 0
+
+            metrics.update({
+                f'entity_{idx}_symmetry': entity.symmetry if entity.is_oligomeric() else 'asymmetric',
+                f'entity_{idx}_name': entity.name,
+                f'entity_{idx}_number_of_residues': entity.number_of_residues,
+                f'entity_{idx}_radius': entity.distance_from_reference(),  # Todo add reference=
+                f'entity_{idx}_min_radius': min_rad, f'entity_{idx}_max_radius': max_rad,
+                f'entity_{idx}_n_terminal_helix': entity.is_termini_helical(),
+                f'entity_{idx}_c_terminal_helix': entity.is_termini_helical(termini='c'),
+                f'entity_{idx}_n_terminal_orientation': entity.termini_proximity_from_reference(),
+                f'entity_{idx}_c_terminal_orientation': entity.termini_proximity_from_reference(termini='c'),
+                f'entity_{idx}_thermophile': thermophile})
+
+        metrics['entity_minimum_radius'] = minimum_radius
+        metrics['entity_maximum_radius'] = maximum_radius
+        metrics['entity_residue_length_total'] = \
+            sum(metrics[f'entity_{idx + 1}_number_of_residues'] for idx in range(self.pose.number_of_entities))
+
+        radius_ratio_sum, min_ratio_sum, max_ratio_sum, residue_ratio_sum = 0, 0, 0, 0
+        for counter, (entity_idx1, entity_idx2) in enumerate(combinations(range(1, self.pose.number_of_entities + 1),
+                                                                          2), 1):
+            radius_ratio = metrics[f'entity_{entity_idx1}_radius'] / metrics[f'entity_{entity_idx2}_radius']
+            min_ratio = metrics[f'entity_{entity_idx1}_min_radius'] / metrics[f'entity_{entity_idx2}_min_radius']
+            max_ratio = metrics[f'entity_{entity_idx1}_max_radius'] / metrics[f'entity_{entity_idx2}_max_radius']
+            residue_ratio = metrics[f'entity_{entity_idx1}_number_of_residues'] \
+                / metrics[f'entity_{entity_idx1}_number_of_residues']
+            radius_ratio_sum += abs(1-radius_ratio)
+            min_ratio_sum += abs(1-min_ratio)
+            max_ratio_sum += abs(1-max_ratio)
+            residue_ratio_sum += abs(1-residue_ratio)
+            metrics.update({f'entity_radius_ratio_{entity_idx1}v{entity_idx2}': radius_ratio,
+                            f'entity_min_radius_ratio_{entity_idx1}v{entity_idx2}': min_ratio,
+                            f'entity_max_radius_ratio_{entity_idx1}v{entity_idx2}': max_ratio,
+                            f'entity_number_of_residues_ratio_{entity_idx1}v{entity_idx2}': residue_ratio})
+        metrics.update({'entity_radius_average_deviation': radius_ratio_sum / counter,
+                        'entity_min_radius_average_deviation': min_ratio_sum / counter,
+                        'entity_max_radius_average_deviation': max_ratio_sum / counter,
+                        'entity_number_of_residues_average_deviation': residue_ratio_sum / counter})
+        return metrics
 
     def return_interface(self, distance: float = 8.) -> Structure:
         """Provide a view of the Pose interface by generating a Structure containing only interface Residues
