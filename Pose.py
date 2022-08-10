@@ -4022,7 +4022,9 @@ class Pose(SequenceProfile, SymmetricModel):
     fragment_pairs: list[tuple[GhostFragment, Fragment, float]] | list
     fragment_queries: dict[tuple[Entity, Entity], list[dict[str, Any]]]
     ignore_clashes: bool
-    interface_residues: dict[tuple[Entity, Entity], tuple[list[Residue], list[Residue]]]
+    interface_design_residues: set[Residue]
+    interface_residues: set[Residue]
+    interface_residues_by_entity_pair: dict[tuple[Entity, Entity], tuple[list[Residue], list[Residue]]]
     required_indices: set[int]
     required_residues: list[Residue] | None
     split_interface_residues: dict[int, list[tuple[Residue, Entity]]]
@@ -4046,11 +4048,13 @@ class Pose(SequenceProfile, SymmetricModel):
         self.fragment_pairs = []
         self.fragment_queries = {}
         self.ignore_clashes = ignore_clashes
-        self.interface_residues = {}
+        self.interface_design_residues = set()
+        self.interface_residues = set()
+        self.interface_residues_by_entity_pair = {}
         self.required_indices = set()
         self.required_residues = None
         self.split_interface_residues = {}  # {1: [(Residue obj, Entity obj), ...], 2: [(Residue obj, Entity obj), ...]}
-        self.split_interface_ss_elements = {}  # {1: [0, 1, 2] , 2: [9, 13, 19]]}
+        self.split_interface_ss_elements = {}  # {1: [0, 0, 1, 2, ...] , 2: [9, 9, 9, 13, ...]]}
         self.ss_index_array = []  # stores secondary structure elements by incrementing index
         self.ss_type_array = []  # stores secondary structure type ('H', 'S', ...)
 
@@ -4125,12 +4129,12 @@ class Pose(SequenceProfile, SymmetricModel):
 
             if entities:
                 atom_indices = set_function(atom_indices, iter_chain.from_iterable([self.entity(entity).atom_indices
-                                                                                   for entity in entities]))
+                                                                                    for entity in entities]))
                 entity_set = set_function(entity_set, [self.entity(entity) for entity in entities])
             if chains:
                 # vv This is for the intersectional model
                 atom_indices = set_function(atom_indices, iter_chain.from_iterable([self.chain(chain_id).atom_indices
-                                                                                   for chain_id in chains]))
+                                                                                    for chain_id in chains]))
                 # atom_indices.union(iter_chain.from_iterable(self.chain(chain_id).get_residue_atom_indices(numbers=residues)
                 #                                     for chain_id in chains))
                 # ^^ This is for the additive model
@@ -4645,7 +4649,7 @@ class Pose(SequenceProfile, SymmetricModel):
 
         # interface_residues = []
         # interface_core_coords = []
-        # for residues1, residues2 in self.interface_residues.values():
+        # for residues1, residues2 in self.interface_residues_by_entity_pair.values():
         #     if not residues1 and not residues2:  # no interface
         #         continue
         #     elif residues1 and not residues2:  # symmetric case
@@ -4700,7 +4704,7 @@ class Pose(SequenceProfile, SymmetricModel):
         # initial_cluster_indices = [interface_cb_indices[0] + (coords_length * model_number)
         #                            for model_number in range(self.number_of_symmetry_mates)]
         # fit a KMeans model to the symmetric interface cb coords
-        kmeans_cluster_model: KMeans = KMeans(n_clusters=number_of_models, init=initial_interface_coords, n_init=1)\
+        kmeans_cluster_model: KMeans = KMeans(n_clusters=number_of_models, init=initial_interface_coords, n_init=1) \
             .fit(symmetric_interface_coords[symmetric_cb_indices])
         # kmeans_cluster_model = \
         #     KMeans(n_clusters=self.number_of_symmetry_mates, init=symmetric_interface_coords[initial_cluster_indices],
@@ -4884,7 +4888,7 @@ class Pose(SequenceProfile, SymmetricModel):
         Keyword Args:
             distance=8. (float): The distance to measure Residues across an interface
         Sets:
-            self.interface_residues (dict[tuple[Entity, Entity], tuple[list[Residue], list[Residue]]]):
+            self.interface_residues_by_entity_pair (dict[tuple[Entity, Entity], tuple[list[Residue], list[Residue]]]):
                 The Entity1/Entity2 interface mapped to the interface Residues
         """
         entity1_residues, entity2_residues = \
@@ -4892,7 +4896,7 @@ class Pose(SequenceProfile, SymmetricModel):
 
         if not entity1_residues or not entity2_residues:
             self.log.info(f'Interface search at {entity1.name} | {entity2.name} found no interface residues')
-            self.interface_residues[(entity1, entity2)] = ([], [])
+            self.interface_residues_by_entity_pair[(entity1, entity2)] = ([], [])
             return
 
         if entity1 == entity2:  # if symmetric query
@@ -4907,7 +4911,7 @@ class Pose(SequenceProfile, SymmetricModel):
                       f'\n\t{entity1.name} found residue numbers: {", ".join(str(r.number) for r in entity1_residues)}'
                       f'\n\t{entity2.name} found residue numbers: {", ".join(str(r.number) for r in entity2_residues)}')
 
-        self.interface_residues[(entity1, entity2)] = (entity1_residues, entity2_residues)
+        self.interface_residues_by_entity_pair[(entity1, entity2)] = (entity1_residues, entity2_residues)
         # entities = [entity1, entity2]
         # self.log.debug(f'Added interface_residues: {", ".join(f"{residue.number}{entities[idx].chain_id}")}'
         #                for idx, entity_residues in enumerate(self.interface_residues_by_entity_pair[(entity1, entity2)])
@@ -4929,11 +4933,11 @@ class Pose(SequenceProfile, SymmetricModel):
             The Atom indices for the interface
         """
         try:
-            residues1, residues2 = self.interface_residues[(entity1, entity2)]
+            residues1, residues2 = self.interface_residues_by_entity_pair[(entity1, entity2)]
         except KeyError:  # when interface_residues haven't been set
             self.find_interface_residues(entity1=entity1, entity2=entity2)
             try:
-                residues1, residues2 = self.interface_residues[(entity1, entity2)]
+                residues1, residues2 = self.interface_residues_by_entity_pair[(entity1, entity2)]
             except KeyError:
                 raise DesignError(f'{self.find_interface_atoms.__name__} can\'t access interface_residues as the Entity'
                                   f' pair {entity1.name}, {entity2.name} hasn\'t located interface_residues')
@@ -4973,7 +4977,7 @@ class Pose(SequenceProfile, SymmetricModel):
             The local atom density around the interface
         """
         interface_indices1, interface_indices2 = [], []
-        for entity1, entity2 in self.interface_residues:
+        for entity1, entity2 in self.interface_residues_by_entity_pair:
             atoms_indices1, atoms_indices2 = \
                 split_number_pairs_and_sort(self.find_interface_atoms(entity1=entity1, entity2=entity2))
             interface_indices1.extend(atoms_indices1), interface_indices2.extend(atoms_indices2)
@@ -4997,8 +5001,8 @@ class Pose(SequenceProfile, SymmetricModel):
         Sets:
             self.fragment_queries (dict[tuple[Entity, Entity], list[dict[str, Any]]])
         """
-        entity1_residues, entity2_residues = self.interface_residues.get((entity1, entity2))
-        # because the way self.interface_residues is set, when there is not interface, a check on entity1_residues is
+        entity1_residues, entity2_residues = self.interface_residues_by_entity_pair.get((entity1, entity2))
+        # because the way self.interface_residues_by_entity_pair is set, when there is not interface, a check on entity1_residues is
         # sufficient, however entity2_residues is empty with an interface present across a non-oligomeric dimeric 2-fold
         if not entity1_residues:  # or not entity2_residues:
             self.log.info(f'No residues at the {entity1.name} | {entity2.name} interface. Fragments not available')
@@ -5099,8 +5103,8 @@ class Pose(SequenceProfile, SymmetricModel):
         first_side, second_side = 0, 1
         interface = {first_side: {}, second_side: {}, 'self': [False, False]}  # assume no symmetric contacts to start
         terminate = False
-        # self.log.debug('Pose contains interface residues: %s' % self.interface_residues)
-        for entity_pair, entity_residues in self.interface_residues.items():
+        # self.log.debug('Pose contains interface residues: %s' % self.interface_residues_by_entity_pair)
+        for entity_pair, entity_residues in self.interface_residues_by_entity_pair.items():
             entity1, entity2 = entity_pair
             residues1, residues2 = entity_residues
             # if not entity_residues:
@@ -5647,7 +5651,7 @@ class Pose(SequenceProfile, SymmetricModel):
             write_fragments: Whether to write the located fragments
             out_path: The location to write each fragment file
         """
-        if not self.interface_residues:
+        if not self.interface_residues_by_entity_pair:
             self.find_and_split_interface()
 
         for entity_pair in combinations_with_replacement(self.active_entities, 2):
@@ -5710,7 +5714,7 @@ class Pose(SequenceProfile, SymmetricModel):
                     chain.write(file_handle=f, chain=next(available_chain_ids))
 
     # def get_interface_surface_area(self):
-    #     # pdb1_interface_sa = entity1.get_surface_area_residues(entity1_residue_numbers)
-    #     # pdb2_interface_sa = entity2.get_surface_area_residues(self.interface_residues or entity2_residue_numbers)
+    #     # pdb1_interface_sa = entity1.get_surface_area_residues(self.split_residue_numbers[1])
+    #     # pdb2_interface_sa = entity2.get_surface_area_residues(self.split_residue_numbers[2])
     #     # interface_buried_sa = pdb1_interface_sa + pdb2_interface_sa
     #     return
