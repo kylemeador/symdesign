@@ -2220,33 +2220,13 @@ class PoseDirectory:
                 self.pose.write(out_path=path.join(self.path, 'DEBUG_pose_asu.pdb'), increment_chains=self.increment_chains)
                 self.pose.write(assembly=True, out_path=self.assembly_path, increment_chains=self.increment_chains)
                 self.log.info(f'Symmetric assembly written to: "{self.assembly_path}"')
-        self.pose.find_and_split_interface()
 
-        self.interface_design_residues = set()  # update False to set() or replace set() and add new residues
+        self.pose.find_and_split_interface()
+        self.interface_design_residues = self.pose.interface_design_residues
+        self.interface_residues = self.pose.interface_residues
         for number, residues_entities in self.pose.split_interface_residues.items():
             self.interface_residue_ids[f'interface{number}'] = \
                 ','.join(f'{residue.number}{entity.chain_id}' for residue, entity in residues_entities)
-            self.interface_design_residues.update([residue.number for residue, _ in residues_entities])
-
-        self.interface_residues = set()  # update False to set() or replace set() and add new residues
-        for entity in self.pose.entities:  # Todo v clean as it is redundant with analysis and falls out of scope
-            entity_oligomer = Model.from_chains(entity.chains, log=self.log, entities=False)
-            # entity.oligomer.get_sasa()
-            for residue in entity_oligomer.get_residues(self.interface_design_residues):
-            # for residue in entity.get_residues(self.interface_design_residues):
-                if residue.sasa > 0:  # we will have repeats as the Entity is symmetric
-                    self.interface_residues.add(residue.number)
-
-        # # interface1, interface2 = \
-        # #     self.interface_residue_ids.get('interface1'), self.interface_residue_ids.get('interface2')
-        # interface_string = []
-        # for idx, interface_info in enumerate(self.interface_residue_ids.values()):
-        #     if interface_info != '':
-        #         interface_string.append('interface%d: %s' % (idx, interface_info))
-        # if len(interface_string) == len(self.pose.split_interface_residues):
-        #     self.log.info('Interface Residues:\n\t%s' % '\n\t'.join(interface_string))
-        # else:
-        #     self.log.info('No Residues found at the design interface!')
 
         self.info['interface_design_residues'] = self.interface_design_residues
         self.info['interface_residues'] = self.interface_residues
