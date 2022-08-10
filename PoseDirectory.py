@@ -3069,13 +3069,16 @@ class PoseDirectory:
                 continue
             hydrophobicity_deviation_magnitude, new_collapse_islands, new_collapse_island_significance = [], [], []
             contact_order_collapse_z_sum, sequential_collapse_peaks_z_sum, sequential_collapse_z_sum, \
-                global_collapse_z_sum, collapse_concatenated = [], [], [], [], []
-            for entity_idx, design_sequences in entity_sequences.items():
-                sequence = design_sequences[design]
-                sequence_length = len(sequence)
-                standardized_collapse = hydrophobic_collapse_index(sequence)
-                collapse_concatenated.append(standardized_collapse)
+                global_collapse_z_sum, = [], [], [], []
+            # collapse_concatenated = []
+            for entity_idx, entity in enumerate(pose.entities):
+                # sequence = design_sequences[design]
+                # sequence_length = len(sequence)
                 # Todo -> observed_collapse, standardized_collapse = hydrophobic_collapse_index(sequence)
+                # standardized_collapse = hydrophobic_collapse_index(sequence)
+                sequence_length = entity.number_of_residues
+                standardized_collapse = entity.hydrophobic_collapse
+                # collapse_concatenated.append(standardized_collapse)
                 # normalized_collapse = standardized_collapse - wt_collapse[entity]
                 # find collapse where: delta above standard collapse, collapsable boolean, and successive number
                 # collapse_propensity = np.where(standardized_collapse > 0.43, standardized_collapse - 0.43, 0)
