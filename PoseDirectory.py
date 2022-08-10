@@ -2657,8 +2657,7 @@ class PoseDirectory:
                     entity.make_oligomer(symmetry=self.sym_entry.groups[idx], **self.pose_transformation[idx])
             design_poses.append(pose)
 
-        # initialize empty design dataframes
-        idx_slice = IndexSlice
+        # Assumes each structure is the same length
         pose_length = self.pose.number_of_residues
         residue_indices = list(range(1, pose_length + 1))
         pose_source = 'pose_source'
@@ -2669,7 +2668,6 @@ class PoseDirectory:
         all_mutations = generate_mutations_from_reference(self.pose.sequence, pose_sequences)
         #    generate_mutations_from_reference(''.join(self.pose.atom_sequences.values()), pose_sequences)
 
-        # Assumes each structure is the same length
         entity_sequences = \
             {idx: {design: sequence[entity.n_terminal_residue.number - 1:entity.c_terminal_residue.number]
                    for design, sequence in pose_sequences.items()} for idx, entity in enumerate(self.pose.entities)}
@@ -2838,7 +2836,7 @@ class PoseDirectory:
         scores_df.drop(remove_columns, axis=1, inplace=True, errors='ignore')
         viable_designs = scores_df.index.to_list()
         assert viable_designs, 'No viable designs remain after processing!'
-        self.log.debug('Viable designs remaining after cleaning:\n\t%s' % ', '.join(viable_designs))
+        self.log.debug(f'Viable designs remaining after cleaning:\n\t{", ".join(viable_designs)}')
         other_pose_metrics['observations'] = len(viable_designs)
         pose_sequences = {design: sequence for design, sequence in pose_sequences.items() if design in viable_designs}
 
@@ -2852,7 +2850,7 @@ class PoseDirectory:
         designs_by_protocol.pop(PUtils.consensus, None)
         # Get unique protocols
         unique_design_protocols = set(designs_by_protocol.keys())
-        self.log.info('Unique Design Protocols: %s' % ', '.join(unique_design_protocols))
+        self.log.info(f'Unique Design Protocols: {", ".join(unique_design_protocols)}')
 
         # Replace empty strings with np.nan and convert remaining to float
         scores_df.replace('', np.nan, inplace=True)
@@ -2978,6 +2976,19 @@ class PoseDirectory:
             # per_residue_data[pose.name]['sasa_polar_bound'] = per_residue_sasa_unbound_polar
             # per_residue_data[pose.name]['sasa_relative_bound'] = per_residue_sasa_unbound_relative
 
+        # Convert per_residue_data into a dataframe matching residue_df orientation
+        per_residue_df = concat({name: DataFrame(data, index=residue_indices)
+                                 for name, data in per_residue_data.items()}).unstack().swaplevel(0, 1, axis=1)
+        # Process mutational frequencies, H-bond, and Residue energy metrics to dataframe
+        residue_df = concat({design: DataFrame(info) for design, info in residue_info.items()}).unstack()
+        # returns multi-index column with residue number as first (top) column index, metric as second index
+        # during residue_df unstack, all residues with missing dicts are copied as nan
+        # Merge interface design specific residue metrics with total per residue metrics
+        index_residues = list(self.interface_design_residues)
+        idx_slice = IndexSlice
+        residue_df = merge(residue_df.loc[:, idx_slice[index_residues, :]],
+                           per_residue_df.loc[:, idx_slice[index_residues, :]],
+                           left_index=True, right_index=True)
         # scores_df['errat_accuracy'] = Series(atomic_deviation)
         scores_df['interface_local_density'] = Series(interface_local_density)
 
@@ -3046,11 +3057,16 @@ class PoseDirectory:
         # weighted at 1
         midpoint = 0.5
         scale = 1 / midpoint
-        folding_and_collapse = \
-            {'hydrophobicity_deviation_magnitude': {}, 'new_collapse_islands': {},
-             'new_collapse_island_significance': {}, 'contact_order_collapse_z_sum': {},
-             'sequential_collapse_peaks_z_sum': {}, 'sequential_collapse_z_sum': {}, 'global_collapse_z_sum': {}}
-        for design in viable_designs:  # includes the pose_source
+        folding_and_collapse = {}
+        # folding_and_collapse = \
+        #     {'hydrophobicity_deviation_magnitude': {}, 'new_collapse_islands': {},
+        #      'new_collapse_island_significance': {}, 'contact_order_collapse_z_sum': {},
+        #      'sequential_collapse_peaks_z_sum': {}, 'sequential_collapse_z_sum': {}, 'global_collapse_z_sum': {}}
+        # for design in viable_designs:  # includes the pose_source
+        # Include the pose_source
+        for pose_idx, pose in enumerate([self.pose] + design_poses):
+            if pose.name not in viable_designs:
+                continue
             hydrophobicity_deviation_magnitude, new_collapse_islands, new_collapse_island_significance = [], [], []
             contact_order_collapse_z_sum, sequential_collapse_peaks_z_sum, sequential_collapse_z_sum, \
                 global_collapse_z_sum, collapse_concatenated = [], [], [], [], []
@@ -3073,7 +3089,7 @@ class PoseDirectory:
                 reference_collapse = reference_collapse_bool[entity_idx]
                 increased_collapse = np.where(collapse_bool - reference_collapse == 1, 1, 0)
                 # check if the increased collapse has made new collapse
-                new_collapse = np.zeros(collapse_propensity_z.shape)  # [0, 0, 1, 1, 0, 0, 0, 0, 0, 0, ...]
+                new_collapse = np.zeros_like(collapse_bool)  # [0, 0, 1, 1, 0, 0, 0, 0, 0, 0, ...]
                 for idx, _bool in enumerate(increased_collapse.tolist()[1:-1], 1):
                     if _bool and (not reference_collapse[idx - 1] or not reference_collapse[idx + 1]):
                         new_collapse[idx] = _bool
@@ -3084,9 +3100,9 @@ class PoseDirectory:
                 # high contact order (-) use collapse
                 collapse_significance = inverse_residue_contact_order_z[entity_idx] * collapse_propensity_z_positive
 
-                collapse_peak_start = np.zeros(collapse_propensity_z.shape)  # [0, 0, 0, 0, 1, 0, 0, 0, 1, 0, ...]
-                sequential_collapse_points = np.zeros(collapse_propensity_z.shape)  # [0, 0, 0, 0, 1, 1, 0, 0, 2, 2, ..]
-                new_collapse_peak_start = np.zeros(collapse_propensity_z.shape)  # [0, 0, 0, 1, 0, 0, 0, 0, 0, 0, ...]
+                collapse_peak_start = np.zeros_like(collapse_bool)  # [0, 0, 0, 0, 1, 0, 0, 0, 1, 0, ...]
+                sequential_collapse_points = np.zeros_like(collapse_bool)  # [0, 0, 0, 0, 1, 1, 0, 0, 2, 2, ..]
+                new_collapse_peak_start = np.zeros_like(collapse_bool)  # [0, 0, 0, 1, 0, 0, 0, 0, 0, 0, ...]
                 collapse_iterator = 0
                 for idx in range(1, collapse_propensity_z.shape[0]):
                     # check for the new_collapse islands and collapse peak start position by neighbor res similarity
@@ -3129,33 +3145,24 @@ class PoseDirectory:
 
             # add the total and concatenated metrics to analysis structures
             # collapse_concatenated = Series(np.concatenate(collapse_concatenated), name=design)
-            per_residue_data['hydrophobic_collapse'][design] = Series(np.concatenate(collapse_concatenated),
-                                                                      name=design)
-            folding_and_collapse['new_collapse_islands'][design] = sum(new_collapse_islands)
+            # per_residue_data[design]['hydrophobic_collapse'] = Series(np.concatenate(collapse_concatenated),
+            #                                                           name=design)
+            if pose_idx == 0:  # Name the design according to pose_source
+                design = pose_source
+            else:
+                design = pose.name
+            folding_and_collapse[design] = {}
+            folding_and_collapse[design]['new_collapse_islands'] = sum(new_collapse_islands)
             # takes into account new collapse positions contact order and measures the deviation of collapse and
             # contact order to indicate the potential effect to folding
-            folding_and_collapse['new_collapse_island_significance'][design] = sum(new_collapse_island_significance)
-            folding_and_collapse['hydrophobicity_deviation_magnitude'][design] = sum(hydrophobicity_deviation_magnitude)
-            folding_and_collapse['contact_order_collapse_z_sum'][design] = sum(contact_order_collapse_z_sum)
-            folding_and_collapse['sequential_collapse_peaks_z_sum'][design] = sum(sequential_collapse_peaks_z_sum)
-            folding_and_collapse['sequential_collapse_z_sum'][design] = sum(sequential_collapse_z_sum)
-            folding_and_collapse['global_collapse_z_sum'][design] = sum(global_collapse_z_sum)
+            folding_and_collapse[design]['new_collapse_island_significance'] = sum(new_collapse_island_significance)
+            folding_and_collapse[design]['hydrophobicity_deviation_magnitude'] = sum(hydrophobicity_deviation_magnitude)
+            folding_and_collapse[design]['contact_order_collapse_z_sum'] = sum(contact_order_collapse_z_sum)
+            folding_and_collapse[design]['sequential_collapse_peaks_z_sum'] = sum(sequential_collapse_peaks_z_sum)
+            folding_and_collapse[design]['sequential_collapse_z_sum'] = sum(sequential_collapse_z_sum)
+            folding_and_collapse[design]['global_collapse_z_sum'] = sum(global_collapse_z_sum)
 
-        pose_collapse_df = DataFrame(folding_and_collapse)
-        # Convert per_residue_data into a dataframe matching residue_df orientation
-        per_residue_df = concat({name: DataFrame(data, index=residue_indices)
-                                 for name, data in per_residue_data.items()}).unstack().swaplevel(0, 1, axis=1)
-        # Process mutational frequencies, H-bond, and Residue energy metrics to dataframe
-        residue_df = concat({design: DataFrame(info) for design, info in residue_info.items()}).unstack()
-        # returns multi-index column with residue number as first (top) column index, metric as second index
-        # during residue_df unstack, all residues with missing dicts are copied as nan
-        # Merge interface design specific residue metrics with total per residue metrics
-        # residue_df = merge(residue_df, per_residue_df.loc[:, idx_slice[residue_df.columns.levels[0], :]],
-        #                       left_index=True, right_index=True)
-        index_residues = list(self.interface_design_residues)
-        residue_df = merge(residue_df.loc[:, idx_slice[index_residues, :]],
-                           per_residue_df.loc[:, idx_slice[index_residues, :]],
-                           left_index=True, right_index=True)
+        pose_collapse_df = DataFrame(folding_and_collapse).T
         # include in errat_deviation if errat score is < 2 std devs and isn't 0 to begin with
         source_errat_inclusion_boolean = np.logical_and(pose_source_errat_s < errat_2_sigma, pose_source_errat_s != 0.)
         errat_df = per_residue_df.loc[:, idx_slice[:, 'errat_deviation']].droplevel(-1, axis=1)
