@@ -2167,12 +2167,12 @@ def main():
                     sequence_id = f'{des_dir}_{source_entity.name}'
                     # design_string = '%s_design_%s_%s' % (des_dir, design, source_entity.name)  # [i])), pdb_code)
                     design_string = f'{design}_{source_entity.name}'
-                    termini_availability = des_dir.return_termini_accessibility(source_entity, idx)
+                    termini_availability = des_dir.pose.return_termini_accessibility(source_entity)
                     logger.debug(f'Design {sequence_id} has the following termini accessible for tags: '
                                  f'{termini_availability}')
                     if args.avoid_tagging_helices:
                         termini_helix_availability = \
-                            des_dir.return_termini_accessibility(source_entity, idx, report_if_helix=True)
+                            des_dir.pose.return_termini_accessibility(source_entity, report_if_helix=True)
                         logger.debug(f'Design {sequence_id} has the following helical termini available: '
                                      f'{termini_helix_availability}')
                         termini_availability = {'n': termini_availability['n'] and not termini_helix_availability['n'],

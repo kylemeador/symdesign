@@ -5259,13 +5259,14 @@ class Pose(SequenceProfile, SymmetricModel):
             self.ss_index_array.append(ss_increment_index)
 
         for number, residues_entities in self.split_interface_residues.items():
-            self.split_interface_ss_elements[number] = []
+            interface_number_elements = []  # Todo list comprehension
             for residue, entity in residues_entities:
                 try:
-                    self.split_interface_ss_elements[number].append(self.ss_index_array[residue.number - 1])
+                    interface_number_elements.append(self.ss_index_array[residue.number-1])
                 except IndexError:
-                    raise IndexError('The index %d, from entity %s, residue %d is not found in ss_index_array size %d'
-                                     % (residue.number - 1, entity.name, residue.number, len(self.ss_index_array)))
+                    raise IndexError(f'The index {residue.number-1}, from Entity {entity.name}, residue '
+                                     f'{residue.number} is not found in ss_index_array size {len(self.ss_index_array)}')
+            self.split_interface_ss_elements[number] = interface_number_elements
 
         self.log.debug(f'Found interface secondary structure: {self.split_interface_ss_elements}')
 
@@ -5342,7 +5343,7 @@ class Pose(SequenceProfile, SymmetricModel):
     #     # self.solve_consensus()
     #     # -------------------------------------------------------------------------
 
-    def return_fragment_observations(self) -> list[dict[str, str | int | float]]:
+    def return_fragment_observations(self) -> list[dict[str, str | int | float]] | list:
         """Return the fragment observations identified on the pose regardless of Entity binding
 
         Returns:
@@ -5357,7 +5358,7 @@ class Pose(SequenceProfile, SymmetricModel):
 
     def return_fragment_metrics(self, fragments: list[dict] = None, by_interface: bool = False, by_entity: bool = False,
                                 entity1: Structure = None, entity2: Structure = None) -> dict:
-        """Return fragment metrics from the Pose. Entire Pose unless by_interface or by_entity is used
+        """Return fragment metrics from the Pose. Returns the entire Pose unless by_interface or by_entity is True
 
         Uses data from self.fragment_queries unless fragments are passed
 

@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import time
 from copy import copy
 from functools import wraps
 from glob import glob
@@ -39,11 +38,8 @@ from DesignMetrics import read_scores, interface_composition_similarity, unneces
     process_residue_info
 from JobResources import JobResources, job_resources_factory
 from Pose import Pose, MultiModel, Models, Model
-from Query.PDB import is_entity_thermophilic
-from Query.UniProt import is_uniprot_thermophilic
-from SequenceProfile import parse_pssm, generate_mutations_from_reference, \
-    simplify_mutation_dict, position_specific_jsd, sequence_difference, \
-    jensen_shannon_divergence, hydrophobic_collapse_index, alignment_types, MultipleSequenceAlignment, pssm_as_array, \
+from SequenceProfile import parse_pssm, generate_mutations_from_reference, simplify_mutation_dict, \
+    sequence_difference, hydrophobic_collapse_index, alignment_types, MultipleSequenceAlignment, pssm_as_array, \
     position_specific_divergence
 from Structure import Structure, Entity  # , Structures
 from SymDesignUtils import unpickle, start_log, null_log, handle_errors, write_shell_script, match_score_from_z_value, \
@@ -2825,6 +2821,7 @@ class PoseDirectory:
             reference_collapse = hydrophobic_collapse_index(entity_sequences[idx][PUtils.reference_name])
             reference_collapse_concat.append(reference_collapse)
             # reference_collapse = hydrophobic_collapse_index(self.api_db.sequences.retrieve_data(name=entity.name))
+            # Todo change from the self.pose if reference is provided!
             reference_collapse_bool.append(np.where(reference_collapse > collapse_significance_threshold, 1, 0))
             # [0, 0, 0, 0, 1, 1, 0, 0, 1, 1, ...]
             # entity = self.structure_db.refined.retrieve_data(name=entity.name))  # Todo always use wild-type?
@@ -2958,7 +2955,7 @@ class PoseDirectory:
                 if msa_metrics:
                     z_array = z_score(standardized_collapse,  # observed_collapse,
                                       entity_collapse_mean[entity_idx], entity_collapse_std[entity_idx])
-                    # todo test for magnitude of the wt versus profile, remove subtraction?
+                    # Todo test for magnitude of the wt versus profile, remove subtraction?
                     normalized_collapse_z = z_array - reference_collapse_z_score[entity_idx]
                     hydrophobicity_deviation_magnitude.append(sum(abs(normalized_collapse_z)))
                     global_collapse_z = np.where(normalized_collapse_z > 0, normalized_collapse_z, 0)
