@@ -5092,6 +5092,20 @@ class Pose(SequenceProfile, SymmetricModel):
 
         self.check_interface_topology()
 
+        self.interface_design_residues = set()  # Replace set(). Add new residues
+        for number, residues_entities in self.split_interface_residues.items():
+            self.interface_design_residues.update([residue for residue, _ in residues_entities])
+
+        self.interface_residues = set()  # Replace set(). Add new residues
+        for entity in self.entities:
+            # Todo v clean as it is redundant with analysis and falls out of scope
+            entity_oligomer = Model.from_chains(entity.chains, log=self.log, entities=False)
+            # entity.oligomer.get_sasa()
+            # Must check by number as the Residue instance will be different in entity_oligomer
+            for residue in entity_oligomer.get_residues([residue.number for residue in self.interface_design_residues]):
+                if residue.sasa > 0:  # we will have repeats as the Entity is symmetric
+                    self.interface_residues.add(residue)
+
     def check_interface_topology(self):
         """From each pair of entities that share an interface, split the identified residues into two distinct groups.
         If an interface can't be composed into two distinct groups, raise DesignError
