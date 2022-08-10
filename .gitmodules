@@ -1,7 +1,3 @@
-[submodule "DnaChisel"]
-    path = DnaChisel
-    branch = main
-    url = https://github.com/kylemeador/DnaChisel.git
 [submodule "ProteinMPNN"]
 	path = ProteinMPNN
 	branch = main
@@ -10,3 +6,7 @@
 	path = python_codon_tables
 	branch = main
 	url = https://github.com/kylemeador/codon-usage-tables.git
+[submodule "DnaChisel"]
+	path = DnaChisel
+	branch = main
+	url = https://github.com/kylemeador/DnaChisel.git
