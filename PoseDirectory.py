@@ -2860,25 +2860,28 @@ class PoseDirectory:
         scores_df = scores_df.astype(float)  # , copy=False, errors='ignore')
 
         # per residue data includes every residue in the pose
-        per_residue_data = {'errat_deviation': {}, 'hydrophobic_collapse': {}, 'contact_order': {},
-                            'sasa_hydrophobic_complex': {}, 'sasa_polar_complex': {}, 'sasa_relative_complex': {},
-                            'sasa_hydrophobic_bound': {}, 'sasa_polar_bound': {}, 'sasa_relative_bound': {}}
-        interface_local_density, atomic_deviation = {pose_source: self.pose.local_density_interface()}, {}
-        pose_assembly_minimally_contacting = self.pose.assembly_minimally_contacting
+        # per_residue_data = {'errat_deviation': {}, 'hydrophobic_collapse': {}, 'contact_order': {},
+        #                     'sasa_hydrophobic_complex': {}, 'sasa_polar_complex': {}, 'sasa_relative_complex': {},
+        #                     'sasa_hydrophobic_bound': {}, 'sasa_polar_bound': {}, 'sasa_relative_bound': {}}
+        interface_local_density = {pose_source: self.pose.local_density_interface()}
+        # atomic_deviation = {}
+        per_residue_data = {pose_source: self.pose.get_per_residue_interface_metrics()}
+        # pose_assembly_minimally_contacting = self.pose.assembly_minimally_contacting
         # perform SASA measurements
-        pose_assembly_minimally_contacting.get_sasa()
-        assembly_asu_residues = pose_assembly_minimally_contacting.residues[:pose_length]
-        per_residue_data['sasa_hydrophobic_complex'][pose_source] = \
-            [residue.sasa_apolar for residue in assembly_asu_residues]
-        per_residue_data['sasa_polar_complex'][pose_source] = [residue.sasa_polar for residue in assembly_asu_residues]
-        per_residue_data['sasa_relative_complex'][pose_source] = \
-            [residue.relative_sasa for residue in assembly_asu_residues]
+        # pose_assembly_minimally_contacting.get_sasa()
+        # assembly_asu_residues = pose_assembly_minimally_contacting.residues[:pose_length]
+        # per_residue_data['sasa_hydrophobic_complex'][pose_source] = \
+        #     [residue.sasa_apolar for residue in assembly_asu_residues]
+        # per_residue_data['sasa_polar_complex'][pose_source] = [residue.sasa_polar for residue in assembly_asu_residues]
+        # per_residue_data['sasa_relative_complex'][pose_source] = \
+        #     [residue.relative_sasa for residue in assembly_asu_residues]
 
         # Grab metrics for the pose source. Checks if self.pose was designed
         # Favor pose source errat/collapse on a per entity basis if design occurred
         # As the pose source assumes no legit interface present while designs have an interface
-        per_residue_sasa_unbound_apolar, per_residue_sasa_unbound_polar, per_residue_sasa_unbound_relative = [], [], []
-        source_errat_accuracy, source_errat, source_contact_order, inverse_residue_contact_order_z = [], [], [], []
+        # per_residue_sasa_unbound_apolar, per_residue_sasa_unbound_polar, per_residue_sasa_unbound_relative = [], [], []
+        # source_errat_accuracy, source_errat, source_contact_order, inverse_residue_contact_order_z = [], [], [], []
+        source_errat, source_contact_order, inverse_residue_contact_order_z = [], [], []
         for idx, entity in enumerate(self.pose.entities):
             # Contact order is the same for every design in the Pose and not dependent on pose
             # Todo clean this behavior up as it is not good if entity is used downstream...
@@ -2894,39 +2897,38 @@ class PoseDirectory:
             inverse_residue_contact_order_z.append(residue_contact_order_z * -1)
             # Get errat from the symmetric Entity
             # entity.oligomer.get_sasa()  # Todo when Entity.oligomer works
-            entity_oligomer = Model.from_chains(entity.chains, log=self.log, entities=False)
-            entity_oligomer.get_sasa()
-            oligomer_asu_residues = entity_oligomer.residues[:entity.number_of_residues]
-            per_residue_sasa_unbound_apolar.extend([residue.sasa_apolar for residue in oligomer_asu_residues])
-            per_residue_sasa_unbound_polar.extend([residue.sasa_polar for residue in oligomer_asu_residues])
-            per_residue_sasa_unbound_relative.extend([residue.relative_sasa for residue in oligomer_asu_residues])
+            # entity_oligomer = Model.from_chains(entity.chains, log=self.log, entities=False)
+            # entity_oligomer.get_sasa()
+            # oligomer_asu_residues = entity_oligomer.residues[:entity.number_of_residues]
+            # per_residue_sasa_unbound_apolar.extend([residue.sasa_apolar for residue in oligomer_asu_residues])
+            # per_residue_sasa_unbound_polar.extend([residue.sasa_polar for residue in oligomer_asu_residues])
+            # per_residue_sasa_unbound_relative.extend([residue.relative_sasa for residue in oligomer_asu_residues])
             if design_was_performed:  # we should respect input structure was not meant to be together
-                self.log.debug('Starting Entity Errat')
-                errat_start = time.time()
-                oligomer_errat_accuracy, oligomeric_errat = entity_oligomer.errat(out_path=self.data)
-                self.log.debug(f'Finished Errat, time = {time.time() - errat_start:6f}')
-                source_errat_accuracy.append(oligomer_errat_accuracy)
+                # oligomer_errat_accuracy, oligomeric_errat = entity_oligomer.errat(out_path=self.data)
+                # source_errat_accuracy.append(oligomer_errat_accuracy)
+                # Todo when Entity.oligomer works
+                #  _, oligomeric_errat = entity.oligomer.errat(out_path=self.data)
+                entity_oligomer = Model.from_chains(entity.chains, log=self.log, entities=False)
+                _, oligomeric_errat = entity_oligomer.errat(out_path=self.data)
                 source_errat.append(oligomeric_errat[:entity.number_of_residues])
-        per_residue_data['sasa_hydrophobic_bound'][pose_source] = per_residue_sasa_unbound_apolar
-        per_residue_data['sasa_polar_bound'][pose_source] = per_residue_sasa_unbound_polar
-        per_residue_data['sasa_relative_bound'][pose_source] = per_residue_sasa_unbound_relative
-
-        number_of_entities = self.pose.number_of_entities
-        if design_was_performed:
-            atomic_deviation[pose_source] = sum(source_errat_accuracy) / float(number_of_entities)
-            pose_source_errat_s = Series(np.concatenate(source_errat), index=residue_indices)
-            per_residue_data['errat_deviation'][pose_source] = pose_source_errat_s
-        else:
-            self.log.debug('Starting Pose Errat')
-            errat_start = time.time()
-            atomic_deviation[pose_source], pose_per_residue_errat = \
-                pose_assembly_minimally_contacting.errat(out_path=self.data)
-            self.log.debug(f'Finished Errat, time = {time.time() - errat_start:6f}')
-            per_residue_data['errat_deviation'][pose_source] = pose_per_residue_errat[:pose_length]
+        # per_residue_data['sasa_hydrophobic_bound'][pose_source] = per_residue_sasa_unbound_apolar
+        # per_residue_data['sasa_polar_bound'][pose_source] = per_residue_sasa_unbound_polar
+        # per_residue_data['sasa_relative_bound'][pose_source] = per_residue_sasa_unbound_relative
 
         pose_source_contact_order_s = \
             Series(np.concatenate(source_contact_order), index=residue_indices, name='contact_order')
-        per_residue_data['contact_order'][pose_source] = pose_source_contact_order_s
+        per_residue_data[pose_source]['contact_order'] = pose_source_contact_order_s
+
+        number_of_entities = self.pose.number_of_entities
+        if design_was_performed:  # Replace 'errat_deviation' measurement with uncomplexed entities
+            # atomic_deviation[pose_source] = sum(source_errat_accuracy) / float(number_of_entities)
+            pose_source_errat_s = Series(np.concatenate(source_errat), index=residue_indices)
+            per_residue_data[pose_source]['errat_deviation'] = pose_source_errat_s
+        # else:
+        #     # atomic_deviation[pose_source], pose_per_residue_errat = \
+        #     _, pose_per_residue_errat = \
+        #         pose_assembly_minimally_contacting.errat(out_path=self.data)
+        #     per_residue_data[pose_source]['errat_deviation'] = pose_per_residue_errat[:pose_length]
 
         # Compute structural measurements for all designs
         for pose in design_poses:  # Takes 1-2 seconds for Structure -> assembly -> errat
@@ -2942,41 +2944,41 @@ class PoseDirectory:
 
             # must find interface residues before measure local_density
             pose.find_and_split_interface()
-            # this is a measurement of interface_connectivity like from Rosetta  Todo remove Rosetta and use here
+            per_residue_data[pose.name] = pose.get_per_residue_interface_metrics()
+            # Todo remove Rosetta
+            #  This is a measurement of interface_connectivity like from Rosetta
             interface_local_density[pose.name] = pose.local_density_interface()
-            assembly_minimally_contacting = pose.assembly_minimally_contacting
-            self.log.debug(f'Starting Design {pose.name} Errat')
-            errat_start = time.time()
-            atomic_deviation[pose.name], per_residue_errat = \
-                assembly_minimally_contacting.errat(out_path=self.data)
-            self.log.debug(f'Finished Errat, time = {time.time() - errat_start:6f}')
-            per_residue_data['errat_deviation'][pose.name] = per_residue_errat[:pose_length]
-            # perform SASA measurements
-            assembly_minimally_contacting.get_sasa()
-            assembly_asu_residues = assembly_minimally_contacting.residues[:pose_length]
-            per_residue_data['sasa_hydrophobic_complex'][pose.name] = \
-                [residue.sasa_apolar for residue in assembly_asu_residues]
-            per_residue_data['sasa_polar_complex'][pose.name] = \
-                [residue.sasa_polar for residue in assembly_asu_residues]
-            per_residue_data['sasa_relative_complex'][pose.name] = \
-                [residue.relative_sasa for residue in assembly_asu_residues]
-            per_residue_sasa_unbound_apolar, per_residue_sasa_unbound_polar, per_residue_sasa_unbound_relative = \
-                [], [], []
-            for entity in pose.entities:
-                # entity.oligomer.get_sasa()  # Todo when Entity.oligomer works
-                entity_oligomer = Model.from_chains(entity.chains, log=self.log, entities=False)
-                entity_oligomer.get_sasa()
-                per_residue_sasa_unbound_apolar.extend(
-                    [residue.sasa_apolar for residue in entity_oligomer.residues[:entity.number_of_residues]])
-                per_residue_sasa_unbound_polar.extend(
-                    [residue.sasa_polar for residue in entity_oligomer.residues[:entity.number_of_residues]])
-                per_residue_sasa_unbound_relative.extend(
-                    [residue.relative_sasa for residue in entity_oligomer.residues[:entity.number_of_residues]])
-            per_residue_data['sasa_hydrophobic_bound'][pose.name] = per_residue_sasa_unbound_apolar
-            per_residue_data['sasa_polar_bound'][pose.name] = per_residue_sasa_unbound_polar
-            per_residue_data['sasa_relative_bound'][pose.name] = per_residue_sasa_unbound_relative
+            # assembly_minimally_contacting = pose.assembly_minimally_contacting
+            # atomic_deviation[pose.name], per_residue_errat = \
+            # _, per_residue_errat = \
+            #     assembly_minimally_contacting.errat(out_path=self.data)
+            # per_residue_data[pose.name]['errat_deviation'] = per_residue_errat[:pose_length]
+            # # perform SASA measurements
+            # assembly_minimally_contacting.get_sasa()
+            # assembly_asu_residues = assembly_minimally_contacting.residues[:pose_length]
+            # per_residue_data[pose.name]['sasa_hydrophobic_complex'] = \
+            #     [residue.sasa_apolar for residue in assembly_asu_residues]
+            # per_residue_data[pose.name]['sasa_polar_complex'] = \
+            #     [residue.sasa_polar for residue in assembly_asu_residues]
+            # per_residue_data[pose.name]['sasa_relative_complex'] = \
+            #     [residue.relative_sasa for residue in assembly_asu_residues]
+            # per_residue_sasa_unbound_apolar, per_residue_sasa_unbound_polar, per_residue_sasa_unbound_relative = \
+            #     [], [], []
+            # for entity in pose.entities:
+            #     # entity.oligomer.get_sasa()  # Todo when Entity.oligomer works
+            #     entity_oligomer = Model.from_chains(entity.chains, log=self.log, entities=False)
+            #     entity_oligomer.get_sasa()
+            #     per_residue_sasa_unbound_apolar.extend(
+            #         [residue.sasa_apolar for residue in entity_oligomer.residues[:entity.number_of_residues]])
+            #     per_residue_sasa_unbound_polar.extend(
+            #         [residue.sasa_polar for residue in entity_oligomer.residues[:entity.number_of_residues]])
+            #     per_residue_sasa_unbound_relative.extend(
+            #         [residue.relative_sasa for residue in entity_oligomer.residues[:entity.number_of_residues]])
+            # per_residue_data[pose.name]['sasa_hydrophobic_bound'] = per_residue_sasa_unbound_apolar
+            # per_residue_data[pose.name]['sasa_polar_bound'] = per_residue_sasa_unbound_polar
+            # per_residue_data[pose.name]['sasa_relative_bound'] = per_residue_sasa_unbound_relative
 
-        scores_df['errat_accuracy'] = Series(atomic_deviation)
+        # scores_df['errat_accuracy'] = Series(atomic_deviation)
         scores_df['interface_local_density'] = Series(interface_local_density)
 
         # Calculate hydrophobic collapse for each design
@@ -3141,8 +3143,8 @@ class PoseDirectory:
 
         pose_collapse_df = DataFrame(folding_and_collapse)
         # Convert per_residue_data into a dataframe matching residue_df orientation
-        per_residue_df = concat({measure: DataFrame(data, index=residue_indices)
-                                 for measure, data in per_residue_data.items()}).T.swaplevel(0, 1, axis=1)
+        per_residue_df = concat({name: DataFrame(data, index=residue_indices)
+                                 for name, data in per_residue_data.items()}).unstack().swaplevel(0, 1, axis=1)
         # Process mutational frequencies, H-bond, and Residue energy metrics to dataframe
         residue_df = concat({design: DataFrame(info) for design, info in residue_info.items()}).unstack()
         # returns multi-index column with residue number as first (top) column index, metric as second index
