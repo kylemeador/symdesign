@@ -349,7 +349,9 @@ class SequenceProfile:
     _alpha: float
     _fragment_db: info.FragmentInfo | None
     fragment_db: info.FragmentInfo | None
+    _hydrophobic_collapse: np.ndarray
     _msa: MultipleSequenceAlignment | None
+    _sequence_numeric: np.ndarray
     a3m_file: AnyStr | None
     alpha: dict
     disorder: dict[int, dict[str, str]]
@@ -426,6 +428,15 @@ class SequenceProfile:
                 np.vectorize(gapped_numerical_translation_bytes.__getitem__)(self._sequence_array)
             self._sequence_numeric = self._sequence_numeric.astype(np.int32)
             return self._sequence_numeric
+
+    @property
+    def hydrophobic_collapse(self) -> np.array:
+        """Return the hydrophobic collapse for the Structure"""
+        try:
+            return self._hydrophobic_collapse
+        except AttributeError:
+            self._hydrophobic_collapse = hydrophobic_collapse_index(self.sequence)
+            return self._hydrophobic_collapse
 
     # def disorder(self):
     #     try:

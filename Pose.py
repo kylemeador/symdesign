@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import subprocess
+import time
 from copy import copy, deepcopy
 from itertools import chain as iter_chain, combinations_with_replacement, combinations, product
 from math import sqrt, cos, sin, prod, ceil, pi
@@ -10,6 +11,7 @@ from typing import Iterable, IO, Any, Sequence, AnyStr
 
 import numpy as np
 # from numba import njit, jit
+import pandas as pd
 from Bio.Data.IUPACData import protein_letters_1to3_extended
 from sklearn.cluster import KMeans
 from sklearn.neighbors import BallTree
@@ -20,7 +22,9 @@ import fragment
 import wrapapi
 from DesignMetrics import calculate_match_metrics, fragment_metric_template, format_fragment_metrics
 from ProteinMPNN.vanilla_proteinmpnn.helper_scripts.other_tools.make_pssm_dict import softmax
-from Query.PDB import retrieve_entity_id_by_sequence, query_pdb_by, get_entity_reference_sequence
+from Query.PDB import retrieve_entity_id_by_sequence, query_pdb_by, get_entity_reference_sequence, \
+    is_entity_thermophilic
+from Query.UniProt import is_uniprot_thermophilic
 from SequenceProfile import SequenceProfile, alignment_types, generate_alignment, get_equivalent_indices, \
     pssm_as_array, gapped_protein_letters
 from Structure import Coords, Structure, Structures, Chain, Entity, Residue, Residues, GhostFragment, \
@@ -4507,6 +4511,44 @@ class Pose(SequenceProfile, SymmetricModel):
 
         return interface_asu_structure
 
+    def get_per_residue_interface_metrics(self):
+        """Return the per Residue metrics for every Residue in the Pose"""
+        per_residue_data = {}
+        pose_length = self.number_of_residues
+        assembly_minimally_contacting = self.assembly_minimally_contacting
+        self.log.debug(f'Starting Pose {self.name} Errat')
+        errat_start = time.time()
+        _, per_residue_errat = assembly_minimally_contacting.errat(out_path=self.data)
+        self.log.debug(f'Finished Errat, time = {time.time() - errat_start:6f}')
+        per_residue_data['errat_deviation'] = per_residue_errat[:pose_length]
+        # perform SASA measurements
+        assembly_minimally_contacting.get_sasa()
+        assembly_asu_residues = assembly_minimally_contacting.residues[:pose_length]
+        per_residue_data['sasa_hydrophobic_complex'] = \
+            [residue.sasa_apolar for residue in assembly_asu_residues]
+        per_residue_data['sasa_polar_complex'] = \
+            [residue.sasa_polar for residue in assembly_asu_residues]
+        per_residue_data['sasa_relative_complex'] = \
+            [residue.relative_sasa for residue in assembly_asu_residues]
+        per_residue_sasa_unbound_apolar, per_residue_sasa_unbound_polar, per_residue_sasa_unbound_relative = \
+            [], [], []
+        collapse_concatenated = []
+        for entity in self.entities:
+            # entity.oligomer.get_sasa()  # Todo when Entity.oligomer works
+            entity_oligomer = Model.from_chains(entity.chains, log=self.log, entities=False)
+            entity_oligomer.get_sasa()
+            oligomer_asu_residues = entity_oligomer.residues[:entity.number_of_residues]
+            per_residue_sasa_unbound_apolar.extend([residue.sasa_apolar for residue in oligomer_asu_residues])
+            per_residue_sasa_unbound_polar.extend([residue.sasa_polar for residue in oligomer_asu_residues])
+            per_residue_sasa_unbound_relative.extend([residue.relative_sasa for residue in oligomer_asu_residues])
+            collapse_concatenated.append(entity.hydrophobic_collapse)
+        per_residue_data['sasa_hydrophobic_bound'] = per_residue_sasa_unbound_apolar
+        per_residue_data['sasa_polar_bound'] = per_residue_sasa_unbound_polar
+        per_residue_data['sasa_relative_bound'] = per_residue_sasa_unbound_relative
+        per_residue_data['hydrophobic_collapse'] = pd.Series(np.concatenate(collapse_concatenated), name=design)
+
+        return per_residue_data
+
     def find_interface_pairs(self, entity1: Entity = None, entity2: Entity = None, distance: float = 8.) -> \
             list[tuple[Residue, Residue]] | None:
         """Get pairs of Residues that have CB Atoms within a distance between two Entities
@@ -4635,7 +4677,7 @@ class Pose(SequenceProfile, SymmetricModel):
         self.interface_residues[(entity1, entity2)] = (entity1_residues, entity2_residues)
         # entities = [entity1, entity2]
         # self.log.debug(f'Added interface_residues: {", ".join(f"{residue.number}{entities[idx].chain_id}")}'
-        #                for idx, entity_residues in enumerate(self.interface_residues[(entity1, entity2)])
+        #                for idx, entity_residues in enumerate(self.interface_residues_by_entity_pair[(entity1, entity2)])
         #                for residue in entity_residues)
 
     def find_interface_atoms(self, entity1: Entity = None, entity2: Entity = None, distance: float = 4.68) -> \
