@@ -752,7 +752,7 @@ multiple_sequence_alignment_dependent_metrics = \
 fragment_metric_template = {'center_residues': set(), 'total_residues': set(),
                             'nanohedra_score': 0.0, 'nanohedra_score_center': 0.0, 'multiple_fragment_ratio': 0.0,
                             'number_fragment_residues_total': 0, 'number_fragment_residues_center': 0,
-                            'number_fragments': 0, 'percent_fragment_helix': 0.0, 'percent_fragment_strand': 0.0,
+                            'number_of_fragments': 0, 'percent_fragment_helix': 0.0, 'percent_fragment_strand': 0.0,
                             'percent_fragment_coil': 0.0}
 
 
@@ -1437,7 +1437,7 @@ def format_fragment_metrics(metrics: dict, null: bool = False) -> dict:
     Returns:
         {center_residues, total_residues,
          nanohedra_score, nanohedra_score_center, multiple_fragment_ratio, number_fragment_residues_total,
-         number_fragment_residues_center, number_fragments, percent_fragment_helix, percent_fragment_strand,
+         number_fragment_residues_center, number_of_fragments, percent_fragment_helix, percent_fragment_strand,
          percent_fragment_coil}
     """
     if null or not metrics:
@@ -1449,7 +1449,7 @@ def format_fragment_metrics(metrics: dict, null: bool = False) -> dict:
             'multiple_fragment_ratio': metrics['total']['multiple_ratio'],
             'number_fragment_residues_total': metrics['total']['total']['number'],
             'number_fragment_residues_center': metrics['total']['center']['number'],
-            'number_fragments': metrics['total']['observations'],
+            'number_of_fragments': metrics['total']['observations'],
             'percent_fragment_helix': (metrics['total']['index_count'][1] / (metrics['total']['observations'] * 2)),
             'percent_fragment_strand': (metrics['total']['index_count'][2] / (metrics['total']['observations'] * 2)),
             'percent_fragment_coil': ((metrics['total']['index_count'][3] + metrics['total']['index_count'][4]
