@@ -5455,6 +5455,14 @@ class Pose(SequenceProfile, SymmetricModel):
             except ZeroDivisionError:
                 metric_d['percent_fragment_helix'], metric_d['percent_fragment_strand'], \
                     metric_d['percent_fragment_coil'] = 0., 0., 0.
+            try:
+                metric_d['nanohedra_score_normalized'] = \
+                    metric_d['nanohedra_score'] / metric_d['number_fragment_residues_total']
+                metric_d['nanohedra_score_center_normalized'] = \
+                    metric_d['nanohedra_score_center']/metric_d['number_fragment_residues_center']
+            except ZeroDivisionError:
+                self.log.warning(f'{self.name}: No interface residues were found. Is there an interface in your design?')
+                metric_d['nanohedra_score_normalized'], metric_d['nanohedra_score_center_normalized'] = 0., 0.
 
             return metric_d
 
