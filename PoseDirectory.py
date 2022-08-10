@@ -2669,7 +2669,7 @@ class PoseDirectory:
         #    generate_mutations_from_reference(''.join(self.pose.atom_sequences.values()), pose_sequences)
 
         entity_sequences = \
-            {idx: {design: sequence[entity.n_terminal_residue.number - 1:entity.c_terminal_residue.number]
+            {idx: {design: sequence[entity.n_terminal_residue.number-1:entity.c_terminal_residue.number-1]
                    for design, sequence in pose_sequences.items()} for idx, entity in enumerate(self.pose.entities)}
         # Todo generate_multiple_mutations accounts for offsets from the reference sequence. Not necessary YET
         # sequence_mutations = \
