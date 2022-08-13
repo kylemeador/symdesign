@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 import os
 import sys
 import time
@@ -462,6 +463,7 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
     frag_dock_time_start = time.time()
     outlier = -1
     # Todo set below as parameters?
+    design_output = False
     low_quality_match_value = .2  # sets the lower bounds on an acceptable match, was upper bound of 2 using z-score
     cb_distance = 9.  # change to 8.?
     # cluster_translations = True
@@ -778,8 +780,7 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
 
         degeneracy_matrices = getattr(sym_entry, f'degeneracy_matrices{idx}')
         rot_degen_matrices = make_rotations_degenerate(get_rot_matrices(rotation_step, 'z',
-                                                                        getattr(sym_entry, f'rotation_range{idx}')
-                                                                        ),
+                                                                        getattr(sym_entry, f'rotation_range{idx}')),
                                                        degeneracy_matrices)
         log.debug(f'Degeneracy shape for component {idx}: {degeneracy_matrices.shape}')
         log.debug(f'Combined rotation shape for component {idx}: {rot_degen_matrices.shape}')
@@ -1448,7 +1449,6 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
     full_rotation2 = full_rotation2[asu_is_viable]
     full_int_tx1 = full_int_tx1[asu_is_viable]
     full_int_tx2 = full_int_tx2[asu_is_viable]
-    # superposition_setting1_stack = superposition_setting1_stack[asu_is_viable]
     if sym_entry.unit_cell:
         full_uc_dimensions = full_uc_dimensions[asu_is_viable]
         full_ext_tx1 = full_ext_tx1[asu_is_viable]
@@ -1456,7 +1456,6 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
         full_ext_tx_sum = full_ext_tx2 - full_ext_tx1
 
     full_inv_rotation1 = full_inv_rotation1[asu_is_viable]
-    # viable_cluster_labels = cluster_labels[asu_is_viable[0]]
 
     # log.debug('Checking rotation and translation fidelity after removing non viable asu indices')
     # check_forward_and_reverse(ghost_guide_coords1,
@@ -1552,10 +1551,44 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
         # Check if design has any clashes when expanded
         return pose.symmetric_assembly_is_clash()
 
-    def perturb_transformation():
-        pass
+    def perturb_transformation(idx, sequence_design: bool = True):
+        # Stack each local perturbation up and multiply individual entity coords
+        specific_transformation1 = dict(rotation=full_rotation_perturb1[idx], translation=full_int_tx_perturb1[idx],
+                                        rotation2=set_mat1, translation2=full_ext_tx_perturb1[idx])
+        specific_transformation2 = dict(rotation=full_rotation_perturb2[idx], translation=full_int_tx_perturb2[idx],
+                                        rotation2=set_mat2, translation2=full_ext_tx_perturb2[idx])
+        specific_transformations = [specific_transformation1, specific_transformation2]
+        new_coords = []
+        for entity_idx, entity in enumerate(pose.entities):
+            # Todo may need to grab entity_start_coords as backbone coords for input as X tensor to ProteinMPNN
+            # Todo
+            #  Need to tile the entity_start_coords if operating like this
+            new_coords.append(transform_coordinate_sets(entity_start_coords[entity_idx],
+                                                        **specific_transformations[transform_indices[entity_idx]]))
+        # Todo test this
+        #  Stack the entity coordinates to make up a contiguous block for each pose
+        #  If entity_start_coords are stacked, then must concatenate along axis=1 or =2 to get full pose
+        #  If entity_start_coords aren't stacked, individually transformed, then axis=0 will work
+        perturb_coords = np.concatenate(new_coords, axis=1)
+        X = perturb_coords
 
-    def write_pose(idx, sequence_design: bool = True):
+        if sequence_design:
+            # Todo make this return correct
+            _, S, mask, chain_mask, residue_mask, pssm_coef, pssm_bias, pssm_log_odds_mask, tied_beta, tied_positions, \
+                bias_aas, omit_aas = \
+                pose.get_proteinmpnn_params()
+            # Todo above should suffice and can be functionalized by breaking down
+            #  pose.design_sequence(number=perturb_number)
+            #  I can just disregard the X return (which would be used in the Pose) and use the stacked X from above
+            model = proteinmpnn_factory(model_name)
+            model.tied_sample()
+        # Create sequence design task for them in chunks for ProteinMPNN
+        for idx in range(full_rotation_perturb1.shape[0]):
+            for entity_idx, entity in enumerate(pose.entities):
+                transform_coordinate_sets(entity_start_coords[entity_idx],
+                                          **specific_transformations[transform_indices[entity_idx]])
+
+    def output_pose(idx, sequence_design: bool = True):
         # Todo replace with PoseDirectory? Path object?
         # temp indexing on degen and rot counts
         # degen1_count, degen2_count = degen_counts[idx]
@@ -1869,17 +1902,15 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
         #     transform_coordinate_sets(int_surf_frag_guide_coords, rotation=rot_mat2, translation=internal_tx_param2,
         #                               rotation2=sym_entry.setting_matrix2, translation2=external_tx_params2)
 
-        # NOT crucial ??? vvv ###
         unique_interface_frag_count_model1, unique_interface_frag_count_model2 = \
             ghost_indices_in_interface1.shape[0], surf_indices_in_interface2.shape[0]
-        get_int_frags_time = time.time() - int_frags_time_start
+        # get_int_frags_time = time.time() - int_frags_time_start
         # Todo reinstate this logging?
         # log.info(f'\tNewly formed interface contains {unique_interface_frag_count_model1} unique Fragments on Oligomer '
         #          f'1 from {len(interface_residue_numbers1)} Residues and '
         #          f'{unique_interface_frag_count_model2} on Oligomer 2 from {len(interface_residue_numbers2)} Residues '
         #          f'\n\t(took {get_int_frags_time:8f}s to to get interface fragments, including '
         #          f'{model1_cb_balltree_time:8f}s to query distances, {is_in_index_time:8f}s to index residue numbers)')
-        # NOT crucial ??? ^^^ ###
 
         # Get (Oligomer1 Interface Ghost Fragment, Oligomer2 Interface Surface Fragment) guide coordinate pairs
         # in the same Euler rotational space bucket
@@ -2329,15 +2360,13 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
 
     log.info(f'Found {len(zero_counts)} zero counts')
 
-    # Update the transformation array and counts with the asu_is_viable indices
+    # Update the transformation array and counts with the interface_is_viable indices
     degen_counts, rot_counts, tx_counts = zip(*[(degen_counts[idx], rot_counts[idx], tx_counts[idx])
                                                 for idx in interface_is_viable])
-    # fragment_pairs = fragment_pairs[interface_is_viable]
     full_rotation1 = full_rotation1[interface_is_viable]
     full_rotation2 = full_rotation2[interface_is_viable]
     full_int_tx1 = full_int_tx1[interface_is_viable]
     full_int_tx2 = full_int_tx2[interface_is_viable]
-    # superposition_setting1_stack = superposition_setting1_stack[asu_is_viable]
     if sym_entry.unit_cell:
         full_uc_dimensions = full_uc_dimensions[interface_is_viable]
         full_ext_tx1 = full_ext_tx1[interface_is_viable]
@@ -2377,28 +2406,98 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
                      f'{time.time() - exp_des_clash_time_start:8f}s)')
         symmetric_clashes[idx] = clash
 
-    # Expand successful poses from coarse search of transformational space to randomly perturbed offset
-    # Delta parameters
-    internal_rotation, internal_translation, external_translation = 1, 0.5, 0.5  # degrees, Angstroms, Angstroms
-    perturb_number = 100
-    internal_rotations = get_rotmatrices(-1, perturb_number, 1)
-    internal_translations =  external_translations = np.linspace(-internal_translation, internal_translation, perturb_number)
-    # fragment_pairs = fragment_pairs[symmetric_clashes]
-    full_rotation1 = full_rotation1[symmetric_clashes]
-    full_rotation2 = full_rotation2[symmetric_clashes]
-    full_int_tx1 = full_int_tx1[symmetric_clashes]
-    full_int_tx2 = full_int_tx2[symmetric_clashes]
-    # superposition_setting1_stack = superposition_setting1_stack[asu_is_viable]
+    # Update the transformation array and counts with the passing_symmetric_clashes indices
+    passing_symmetric_clashes = np.flatnonzero(symmetric_clashes)
+    degen_counts, rot_counts, tx_counts = zip(*[(degen_counts[idx], rot_counts[idx], tx_counts[idx])
+                                                for idx in passing_symmetric_clashes])
+    all_passing_ghost_indices = [all_passing_ghost_indices[idx] for idx in passing_symmetric_clashes]
+    all_passing_surf_indices = [all_passing_surf_indices[idx] for idx in passing_symmetric_clashes]
+    all_passing_z_scores = [all_passing_z_scores[idx] for idx in passing_symmetric_clashes]
+
+    full_rotation1 = full_rotation1[passing_symmetric_clashes]
+    full_rotation2 = full_rotation2[passing_symmetric_clashes]
+    full_int_tx1 = full_int_tx1[passing_symmetric_clashes]
+    full_int_tx2 = full_int_tx2[passing_symmetric_clashes]
     if sym_entry.unit_cell:
-        full_uc_dimensions = full_uc_dimensions[symmetric_clashes]
-        full_ext_tx1 = full_ext_tx1[symmetric_clashes]
-        full_ext_tx2 = full_ext_tx2[symmetric_clashes]
+        full_uc_dimensions = full_uc_dimensions[passing_symmetric_clashes]
+        full_ext_tx1 = full_ext_tx1[passing_symmetric_clashes]
+        full_ext_tx2 = full_ext_tx2[passing_symmetric_clashes]
         full_ext_tx_sum = full_ext_tx2 - full_ext_tx1
 
-    for idx in range(full_rotation1.shape[0]):
-        perturb_transformation(idx, internal_rotations, internal_translations, external_translations)
+    # Next, expand successful poses from coarse search of transformational space to randomly perturbed offset
+    # This occurs by perturbing the transformation by a random small amount to generate transformational diversity from
+    # the already identified solutions.
+    # Delta parameters
+    internal_rot_perturb, internal_trans_perturb, external_trans_perturb = 1, 0.5, 0.5  # degrees, Angstroms, Angstroms
+    perturb_number = 100
+    grid_size = int(math.sqrt(perturb_number))  # Get the dimensions of the search
+    internal_rotations = get_rot_matrices(internal_rotation_perturb/grid_size, rot_range_deg=internal_rotation)
+    half_grid_range = int(grid_size/2)
+    step_degrees = internal_rot_perturb/grid_size
+    perturb_matrices = []
+    for step in range(-half_grid_range, half_grid_range):  # Range from -5 to 4 for example. 0 is identity matrix
+        rad = math.radians(step*step_degrees)
+        rad_s = math.sin(rad)
+        rad_c = math.cos(rad)
+        perturb_matrices.append([[rad_c, -rad_s, 0.], [rad_s, rad_c, 0.], [0., 0., 1.]])
 
-    log.info(f'Total dock trajectory took {time.time() - frag_dock_time_start:.2f}s')
+    perturb_matrices = np.array(perturb_matrices)
+    internal_translations = external_translations = \
+        np.linspace(-internal_trans_perturb, internal_trans_perturb, grid_size)
+    if sym_entry.unit_cell:
+        # Todo modify to search over 3 dof grid...
+        raise NotImplementedError(f'Perturbation for lattice symmetries isn\'t working')
+        external_translation_grid = np.repeat(external_translations, perturb_matrices.shape[0])
+        internal_translation_grid = np.repeat(internal_translations, perturb_matrices.shape[0])
+        perturb_matrix_grid = np.tile(perturb_matrices, (internal_translations.shape[0], 1, 1))
+        # Todo
+        #  If the ext_tx are all 0 or not possible even if lattice, must not modify them. Need analogous check for
+        #  is_ext_dof()
+        full_ext_tx_perturb1 = full_ext_tx1[None, :, :] + external_translation_grid[:, None, :]
+        full_ext_tx_perturb2 = full_ext_tx2[None, :, :] + external_translation_grid[:, None, :]
+    else:
+        internal_translation_grid = np.repeat(internal_translations, perturb_matrices.shape[0])
+        perturb_matrix_grid = np.tile(perturb_matrices, (internal_translations.shape[0], 1, 1))
+        full_ext_tx_perturb1, full_ext_tx_perturb2 = None, None
+
+    # Apply the full perturbation landscape to the degrees of freedom
+    if sym_entry.is_internal_rot1:
+        # Ensure that the second matrix is transposed to dot multiply row s(mat1) by columns (mat2)
+        full_rotation_perturb1 = np.matmul(full_rotation1[None, :, :, :],
+                                           perturb_matrix_grid[:, None, :, :].swapaxes(-1, -2))
+    else:  # Todo ensure that identity matrix is the length of internal_translation_grid
+        full_rotation_perturb1 = np.matmul(full_rotation1[None, :, :, :], identity_matrix[None, None, :, :])
+    if sym_entry.is_internal_rot2:
+        full_rotation_perturb2 = np.matmul(full_rotation2[None, :, :, :],
+                                           perturb_matrix_grid[:, None, :, :].swapaxes(-1, -2))
+    else:
+        full_rotation_perturb2 = np.matmul(full_rotation2[None, :, :, :], identity_matrix[None, None, :, :])
+
+    origin = np.array([0., 0., 0.])
+    if sym_entry.is_internal_tx1:
+        full_int_tx_perturb1 = full_int_tx1[None, :, :] + internal_translation_grid[:, None, :]
+    else:
+        full_int_tx_perturb1 = full_int_tx1[None, :, :] + origin[None, None, :]
+
+    if sym_entry.is_internal_tx2:
+        full_int_tx_perturb2 = full_int_tx2[None, :, :] + internal_translation_grid[:, None, :]
+    else:
+        full_int_tx_perturb2 = full_int_tx2[None, :, :] + origin[None, None, :]
+
+    # This will utilize a single input from each pose and create a sequence design batch over each transformation.
+    # Todo
+    #  The only modification to each ProteinMPNN input is the X tensor with the modified coordinates from each transform
+    for idx in range(full_rotation1.shape[0]):
+        perturb_transformation(idx)
+
+    # Write the resulting pose and sequences
+    for idx, overlap_ghosts in enumerate(all_passing_ghost_indices):
+        # Load the z-scores and fragments for use in output_pose()
+        overlap_surf = all_passing_surf_indices[idx]
+        sorted_z_scores = all_passing_z_scores[idx]
+        output_pose(idx, sequence_design=design_output)
+
+    log.info(f'Total {building_block} dock trajectory took {time.time() - frag_dock_time_start:.2f}s')
 
 
 if __name__ == '__main__':
