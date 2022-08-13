@@ -864,17 +864,17 @@ def get_rot_matrices(step_deg: int | float, axis: str = 'z', rot_range_deg: int 
     rot_matrices = []
     axis = axis.lower()
     if axis == 'x':
-        for step in range(0, int(rot_range_deg // step_deg)):
+        for step in range(0, int(rot_range_deg//step_deg)):
             rad = math.radians(step * step_deg)
-            rot_matrices.append([[1, 0, 0], [0, math.cos(rad), -1 * math.sin(rad)], [0, math.sin(rad), math.cos(rad)]])
+            rot_matrices.append([[1., 0., 0.], [0., math.cos(rad), -math.sin(rad)], [0., math.sin(rad), math.cos(rad)]])
     elif axis == 'y':
-        for step in range(0, int(rot_range_deg // step_deg)):
+        for step in range(0, int(rot_range_deg//step_deg)):
             rad = math.radians(step * step_deg)
-            rot_matrices.append([[math.cos(rad), 0, math.sin(rad)], [0, 1, 0], [-1 * math.sin(rad), 0, math.cos(rad)]])
+            rot_matrices.append([[math.cos(rad), 0., math.sin(rad)], [0., 1., 0.], [-math.sin(rad), 0., math.cos(rad)]])
     elif axis == 'z':
-        for step in range(0, int(rot_range_deg // step_deg)):
+        for step in range(0, int(rot_range_deg//step_deg)):
             rad = math.radians(step * step_deg)
-            rot_matrices.append([[math.cos(rad), -1 * math.sin(rad), 0], [math.sin(rad), math.cos(rad), 0], [0, 0, 1]])
+            rot_matrices.append([[math.cos(rad), -math.sin(rad), 0.], [math.sin(rad), math.cos(rad), 0.], [0., 0., 1.]])
     else:
         raise ValueError(f'Axis "{axis}" is not supported')
 
