@@ -1924,52 +1924,52 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
         int_ghost_shape = surf_indices_in_interface2.shape[0]
         int_surf_shape = ghost_indices_in_interface1.shape[0]
         maximum_number_of_pairs = int_surf_shape*int_ghost_shape
-        if maximum_number_of_pairs < euler_lookup_size_threshold:
-            # Todo there may be memory leak by Pose objects sharing memory with persistent objects
-            #  that prevent garbage collection and stay attached to the run
-            # Skipping EulerLookup as it has issues with precision
-            index_ij_pairs_start_time = time.time()
-            ghost_indices_repeated = np.repeat(ghost_indices_in_interface1, int_ghost_shape)
-            surf_indices_tiled = np.tile(surf_indices_in_interface2, int_surf_shape)
-            ij_type_match = ij_type_match_lookup_table[ghost_indices_repeated, surf_indices_tiled]
-            # DEBUG: If ij_type_match needs to be removed for testing
-            # ij_type_match = np.array([True for _ in range(len(ij_type_match))])
-            # Surface selecting
-            # [0, 1, 3, 5, ...] with fancy indexing [0, 1, 5, 10, 12, 13, 34, ...]
-            # log.debug('Euler lookup')
-            # DON'T think this is crucial! ###
-            # Todo Debug skipping EulerLookup to see if issues with precision
-            possible_fragments_pairs = ghost_indices_repeated.shape[0]
-            passing_ghost_indices = ghost_indices_repeated[ij_type_match]
-            passing_surf_indices = surf_indices_tiled[ij_type_match]
-        else:  # Narrow candidates by EulerLookup
-            log.warning(f'The interface size is too large ({maximum_number_of_pairs} maximum pairs). '
-                        f'Trimming possible fragments by EulerLookup')
-            eul_lookup_start_time = time.time()
-            int_ghost_guide_coords1 = ghost_guide_coords1[ghost_indices_in_interface1]
-            int_trans_surf_guide_coords2 = inverse_transformed_surf_frags2_guide_coords[idx, surf_indices_in_interface2]
-            # Todo Debug skipping EulerLookup to see if issues with precision
-            int_euler_matching_ghost_indices1, int_euler_matching_surf_indices2 = \
-                euler_lookup.check_lookup_table(int_ghost_guide_coords1, int_trans_surf_guide_coords2)
-            # log.debug(f'int_euler_matching_ghost_indices1: {int_euler_matching_ghost_indices1[:5]}')
-            # log.debug(f'int_euler_matching_surf_indices2: {int_euler_matching_surf_indices2[:5]}')
-            eul_lookup_time = time.time() - eul_lookup_start_time
+        # if maximum_number_of_pairs < euler_lookup_size_threshold:
+        #     # Todo there may be memory leak by Pose objects sharing memory with persistent objects
+        #     #  that prevent garbage collection and stay attached to the run
+        #     # Skipping EulerLookup as it has issues with precision
+        #     index_ij_pairs_start_time = time.time()
+        #     ghost_indices_repeated = np.repeat(ghost_indices_in_interface1, int_ghost_shape)
+        #     surf_indices_tiled = np.tile(surf_indices_in_interface2, int_surf_shape)
+        #     ij_type_match = ij_type_match_lookup_table[ghost_indices_repeated, surf_indices_tiled]
+        #     # DEBUG: If ij_type_match needs to be removed for testing
+        #     # ij_type_match = np.array([True for _ in range(len(ij_type_match))])
+        #     # Surface selecting
+        #     # [0, 1, 3, 5, ...] with fancy indexing [0, 1, 5, 10, 12, 13, 34, ...]
+        #     # log.debug('Euler lookup')
+        #     # DON'T think this is crucial! ###
+        #     # Todo Debug skipping EulerLookup to see if issues with precision
+        #     possible_fragments_pairs = ghost_indices_repeated.shape[0]
+        #     passing_ghost_indices = ghost_indices_repeated[ij_type_match]
+        #     passing_surf_indices = surf_indices_tiled[ij_type_match]
+        # else:  # Narrow candidates by EulerLookup
+        log.warning(f'The interface size is too large ({maximum_number_of_pairs} maximum pairs). '
+                    f'Trimming possible fragments by EulerLookup')
+        eul_lookup_start_time = time.time()
+        int_ghost_guide_coords1 = ghost_guide_coords1[ghost_indices_in_interface1]
+        int_trans_surf_guide_coords2 = inverse_transformed_surf_frags2_guide_coords[idx, surf_indices_in_interface2]
+        # Todo Debug skipping EulerLookup to see if issues with precision
+        int_euler_matching_ghost_indices1, int_euler_matching_surf_indices2 = \
+            euler_lookup.check_lookup_table(int_ghost_guide_coords1, int_trans_surf_guide_coords2)
+        # log.debug(f'int_euler_matching_ghost_indices1: {int_euler_matching_ghost_indices1[:5]}')
+        # log.debug(f'int_euler_matching_surf_indices2: {int_euler_matching_surf_indices2[:5]}')
+        eul_lookup_time = time.time() - eul_lookup_start_time
 
-            # Find the ij_type_match which is the same length as the int_euler_matching indices
-            # this has data type bool so indexing selects al original
-            index_ij_pairs_start_time = time.time()
-            ij_type_match = \
-                ij_type_match_lookup_table[
-                    ghost_indices_in_interface1[int_euler_matching_ghost_indices1],
-                    surf_indices_in_interface2[int_euler_matching_surf_indices2]]
-            possible_fragments_pairs = int_euler_matching_ghost_indices1.shape[0]
+        # Find the ij_type_match which is the same length as the int_euler_matching indices
+        # this has data type bool so indexing selects al original
+        index_ij_pairs_start_time = time.time()
+        ij_type_match = \
+            ij_type_match_lookup_table[
+                ghost_indices_in_interface1[int_euler_matching_ghost_indices1],
+                surf_indices_in_interface2[int_euler_matching_surf_indices2]]
+        possible_fragments_pairs = int_euler_matching_ghost_indices1.shape[0]
 
-            # Get only euler matching fragment indices that pass ij filter. Then index their associated coords
-            passing_ghost_indices = int_euler_matching_ghost_indices1[ij_type_match]
-            # passing_ghost_coords = int_trans_ghost_guide_coords[passing_ghost_indices]
-            # passing_ghost_coords = int_ghost_guide_coords1[passing_ghost_indices]
-            passing_surf_indices = int_euler_matching_surf_indices2[ij_type_match]
-            # passing_surf_coords = int_trans_surf_guide_coords2[passing_surf_indices]
+        # Get only euler matching fragment indices that pass ij filter. Then index their associated coords
+        passing_ghost_indices = int_euler_matching_ghost_indices1[ij_type_match]
+        # passing_ghost_coords = int_trans_ghost_guide_coords[passing_ghost_indices]
+        # passing_ghost_coords = int_ghost_guide_coords1[passing_ghost_indices]
+        passing_surf_indices = int_euler_matching_surf_indices2[ij_type_match]
+        # passing_surf_coords = int_trans_surf_guide_coords2[passing_surf_indices]
 
         # Calculate z_value for the selected (Ghost Fragment, Interface Fragment) guide coordinate pairs
         # Calculate match score for the selected (Ghost Fragment, Interface Fragment) guide coordinate pairs
