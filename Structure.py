@@ -19,12 +19,11 @@ from scipy.spatial.transform import Rotation
 from sklearn.neighbors import BallTree  # , KDTree, NearestNeighbors
 from sklearn.neighbors._ball_tree import BinaryTree  # this typing implementation supports BallTree or KDTree
 
-from PathUtils import free_sasa_exe_path, stride_exe_path, errat_exe_path, make_symmdef, scout_symmdef, \
-    free_sasa_configuration_path, frag_text_file, orient_exe_path, orient_dir, reference_residues_pkl, program_name, \
-    program_version
-from Query.PDB import get_entity_reference_sequence, retrieve_entity_id_by_sequence, query_pdb_by
+from PathUtils import free_sasa_exe_path, stride_exe_path, errat_exe_path, make_symmdef, free_sasa_configuration_path, \
+    frag_text_file, orient_exe_path, orient_dir, reference_residues_pkl, program_name, program_version
+from resources.query.pdb import get_entity_reference_sequence, retrieve_entity_id_by_sequence, query_pdb_by
 from SequenceProfile import SequenceProfile, generate_mutations, get_equivalent_indices
-from SymDesignUtils import start_log, null_log, DesignError, parameterize_frag_length, digit_translate_table, unpickle, \
+from SymDesignUtils import start_log, null_log, DesignError, parameterize_frag_length, digit_translate_table, unpickle,\
     remove_duplicates, ClashError, dictionary_lookup
 from classes.SymEntry import get_rot_matrices, make_rotations_degenerate
 from utils.GeneralUtils import transform_coordinate_sets

@@ -22,9 +22,9 @@ import utils.Flags
 from resources import wrapapi, fragment
 from DesignMetrics import calculate_match_metrics, fragment_metric_template, format_fragment_metrics
 from ProteinMPNN.vanilla_proteinmpnn.helper_scripts.other_tools.make_pssm_dict import softmax
-from Query.PDB import retrieve_entity_id_by_sequence, query_pdb_by, get_entity_reference_sequence, \
+from resources.query.pdb import retrieve_entity_id_by_sequence, query_pdb_by, get_entity_reference_sequence, \
     is_entity_thermophilic
-from Query.UniProt import is_uniprot_thermophilic
+from resources.query.uniprot import is_uniprot_thermophilic
 from SequenceProfile import SequenceProfile, alignment_types, generate_alignment, get_equivalent_indices, \
     pssm_as_array, gapped_protein_letters
 from Structure import Coords, Structure, Structures, Chain, Entity, Residue, Residues, GhostFragment, \

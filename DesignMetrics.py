@@ -10,7 +10,7 @@ import numpy as np
 import pandas as pd
 
 from PathUtils import groups, reference_name, structure_background, design_profile, hbnet_design_profile
-from Query.utils import input_string, validate_type, verify_choice, header_string
+from resources.query.utils import input_string, validate_type, verify_choice, header_string
 from SymDesignUtils import start_log, DesignError, index_intersection, handle_errors, \
     pretty_format_table, digit_translate_table
 

@@ -36,8 +36,9 @@ from PoseDirectory import PoseDirectory
 from ProteinExpression import find_expression_tags, find_matching_expression_tags, add_expression_tag, \
     select_tags_for_sequence, remove_expression_tags, expression_tags, optimize_protein_sequence, \
     default_multicistronic_sequence
-from Query.PDB import retrieve_pdb_entries_by_advanced_query
-from Query.utils import input_string, bool_d, boolean_choice, invalid_string, validate_input_return_response_value
+from resources.query.pdb import retrieve_pdb_entries_by_advanced_query
+from resources.query.utils import input_string, bool_d, boolean_choice, invalid_string, \
+    validate_input_return_response_value
 from SequenceProfile import generate_mutations, find_orf_offset, read_fasta_file
 from classes.EulerLookup import euler_factory
 from classes.SymEntry import SymEntry, parse_symmetry_to_sym_entry, symmetry_factory

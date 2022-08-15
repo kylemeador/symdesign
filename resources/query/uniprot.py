@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from requests import Response
 
-from Query.utils import connection_exception_handler
+from resources.query.utils import connection_exception_handler
 from SymDesignUtils import start_log
 
 # Globals
