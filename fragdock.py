@@ -1382,7 +1382,7 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
              f'which are missing the minimum number of close transforms to be viable. {number_of_dense_transforms} '
              f'remain (took {time.time() - clustering_start:8f}s)')
     if not number_of_dense_transforms:  # There were no successful transforms
-        log.warning(f'No viable transforms, terminating {building_blocks} docking')
+        log.warning(f'No viable transformations found. Terminating {building_blocks} docking')
         return
     # representative_labels = cluster_labels[cluster_representative_indices]
 
@@ -1490,7 +1490,7 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
     # input_ = input('Please confirm to continue protocol')
 
     if not number_non_clashing_transforms:  # There were no successful asus that don't clash
-        log.warning(f'No viable asymmetric units, terminating {building_blocks} docking')
+        log.warning(f'No viable asymmetric units. Terminating {building_blocks} docking')
         return
 
     # Update the transformation array and counts with the asu_is_viable indices
@@ -2411,6 +2411,9 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
                                model2.file_path, pose_id)
 
     log.info(f'Found {len(zero_counts)} zero counts')
+    if not interface_is_viable:  # There were no successful transforms
+        log.warning(f'No interfaces have enough fragment matches. Terminating {building_blocks} docking')
+        return
 
     # Update the transformation array and counts with the interface_is_viable indices
     degen_counts, rot_counts, tx_counts = zip(*[(degen_counts[idx], rot_counts[idx], tx_counts[idx])
@@ -2440,7 +2443,7 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
                               # uc_dimensions=uc_dimensions,
                               ignore_clashes=True, rename_chains=True)  # pose_format=True,
 
-    symmetric_clashes = np.zeros(len(interface_is_viable), dtype=np.bool)
+    passing_symmetric_clashes = np.ones(len(interface_is_viable), dtype=np.bool)
     for idx, overlap_ghosts in enumerate(all_passing_ghost_indices):
         # log.info(f'Available memory: {psutil.virtual_memory().available}')
         # Load the z-scores and fragments
@@ -2453,13 +2456,17 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
         if clash:
             log.info(f'\tBackbone Clash when pose is expanded (took '
                      f'{time.time() - exp_des_clash_time_start:8f}s)')
+            passing_symmetric_clashes[idx] = 0
         else:
             log.info(f'\tNO Backbone Clash when pose is expanded (took '
                      f'{time.time() - exp_des_clash_time_start:8f}s)')
-        symmetric_clashes[idx] = clash
 
     # Update the transformation array and counts with the passing_symmetric_clashes indices
-    passing_symmetric_clashes = np.flatnonzero(symmetric_clashes)
+    passing_symmetric_clashes = np.flatnonzero(passing_symmetric_clashes)
+    if passing_symmetric_clashes.shape[0] == 0:  # There were no successful transforms
+        log.warning(f'No viable poses without symmetric clashes. Terminating {building_blocks} docking')
+        return
+
     degen_counts, rot_counts, tx_counts = zip(*[(degen_counts[idx], rot_counts[idx], tx_counts[idx])
                                                 for idx in passing_symmetric_clashes])
     all_passing_ghost_indices = [all_passing_ghost_indices[idx] for idx in passing_symmetric_clashes]
@@ -2483,7 +2490,7 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
     internal_rot_perturb, internal_trans_perturb, external_trans_perturb = 1, 0.5, 0.5  # degrees, Angstroms, Angstroms
     perturb_number = 100
     grid_size = int(math.sqrt(perturb_number))  # Get the dimensions of the search
-    internal_rotations = get_rot_matrices(internal_rotation_perturb/grid_size, rot_range_deg=internal_rotation)
+    # internal_rotations = get_rot_matrices(internal_rot_perturb/grid_size, rot_range_deg=internal_rotation)
     half_grid_range = int(grid_size/2)
     step_degrees = internal_rot_perturb/grid_size
     perturb_matrices = []
