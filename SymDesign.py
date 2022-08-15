@@ -43,12 +43,12 @@ from SequenceProfile import generate_mutations, find_orf_offset, read_fasta_file
 from classes.EulerLookup import euler_factory
 from classes.SymEntry import SymEntry, parse_symmetry_to_sym_entry, symmetry_factory
 from utils.nanohedra.cmdline import query_mode
-from utils.Flags import argparsers, parser_entire, parser_options, parser_module, parser_input, parser_guide, \
+from flags import argparsers, parser_entire, parser_options, parser_module, parser_input, parser_guide, \
     process_design_selector_flags, parser_residue_selector, parser_output
 from utils.nanohedra.general import write_docking_parameters
-from utils.SetUp import set_up_instructions
+from setup import set_up_instructions
 from SymDesignUtils import SymmetryError
-from utils.guide import interface_design_guide, analysis_guide, interface_metrics_guide, select_poses_guide, \
+from guide import interface_design_guide, analysis_guide, interface_metrics_guide, select_poses_guide, \
     select_designs_guide, select_sequences_guide, cluster_poses_guide, refine_guide, optimize_designs_guide, \
     nanohedra_guide, orient_guide, expand_asu_guide
 

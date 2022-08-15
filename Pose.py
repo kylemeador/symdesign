@@ -18,7 +18,7 @@ from sklearn.neighbors import BallTree
 from sklearn.neighbors._ball_tree import BinaryTree  # this typing implementation supports BallTree or KDTree
 
 import PathUtils as PUtils
-import utils.Flags
+import flags
 from resources import wrapapi, fragment
 from DesignMetrics import calculate_match_metrics, fragment_metric_template, format_fragment_metrics
 from ProteinMPNN.vanilla_proteinmpnn.helper_scripts.other_tools.make_pssm_dict import softmax
@@ -4174,7 +4174,7 @@ class Pose(SequenceProfile, SymmetricModel):
         else:
             entity_required, self.required_indices = set(), set()
 
-    def design_sequence(self, number: int = utils.Flags.nstruct,
+    def design_sequence(self, number: int = Flags.nstruct,
                         protein_mpnn: bool = True, model_name: str = 'v_48_020',
                         backbone_noise: float = 0.,
                         pssm_multi: float = 0., pssm_log_odds_flag: bool = False, pssm_bias_flag: bool = False,
