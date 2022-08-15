@@ -10,3 +10,6 @@
 	path = DnaChisel
 	branch = main
 	url = https://github.com/kylemeador/DnaChisel.git
+[submodule "freesasa"]
+	path = freesasa
+	url = https://github.com/mittinatten/freesasa.git
