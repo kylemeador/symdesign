@@ -28,11 +28,64 @@ from classes.WeightedSeqFreq import FragMatchInfo, SeqFreqInfo
 from utils.CmdLineArgParseUtils import get_docking_parameters
 from utils.GeneralUtils import write_docked_pose_info, transform_coordinate_sets, \
     get_rotation_step, write_docking_parameters
-from utils.PDBUtils import get_interface_residues
 from utils.SymmetryUtils import generate_cryst1_record, get_central_asu
 
 # Globals
 logger = start_log(name=__name__, format_log=False, propagate=True)
+
+
+def get_interface_residues(pdb1, pdb2, cb_distance=9.0):
+    """Calculate all the residues within a cb_distance between two oligomers, identify associated ghost and surface
+    fragments on each, by the chain name and residue number, translated the selected fragments to the oligomers using
+    symmetry specific rotation matrix, internal translation vector, setting matrix, and external translation vector then
+    return copies of these translated fragments
+
+    Returns:
+        (tuple[list[tuple], list[tuple]]): interface chain/residues on pdb1, interface chain/residues on pdb2
+    """
+    pdb1_cb_indices = pdb1.cb_indices
+    pdb2_cb_indices = pdb2.cb_indices
+    pdb1_coords_indexed_residues = pdb1.coords_indexed_residues
+    pdb2_coords_indexed_residues = pdb2.coords_indexed_residues
+
+    pdb1_cb_kdtree = BallTree(pdb1.cb_coords)
+
+    # Query PDB1 CB Tree for all PDB2 CB Atoms within "cb_distance" in A of a PDB1 CB Atom
+    query = pdb1_cb_kdtree.query_radius(pdb2.cb_coords, cb_distance)
+
+    # Get ResidueNumber, ChainID for all Interacting PDB1 CB, PDB2 CB Pairs
+    # interacting_pairs = [(pdb1_residue.number, pdb1_residue.chain, pdb2_residue.number, pdb2_residue.chain)
+    #                      for pdb2_query_index, pdb1_query in enumerate(query) for pdb1_query_index in pdb1_query]
+    interacting_pairs = []
+    for pdb2_query_index in range(len(query)):
+        if query[pdb2_query_index].size > 0:
+            # pdb2_atom = pdb2.atoms[pdb2_cb_indices[pdb2_query_index]]
+            pdb2_residue = pdb2_coords_indexed_residues[pdb2_cb_indices[pdb2_query_index]]
+            # pdb2_cb_chain_id = pdb2.atoms[pdb2_cb_indices[pdb2_query_index]].chain
+            for pdb1_query_index in query[pdb2_query_index]:
+                # pdb1_atom = pdb1.atoms[pdb1_cb_indices[pdb1_query_index]]
+                pdb1_residue = pdb1_coords_indexed_residues[pdb1_cb_indices[pdb1_query_index]]
+                # pdb1_cb_res_num = pdb1.atoms[pdb1_cb_indices[pdb1_query_index]].residue_number
+                # pdb1_cb_chain_id = pdb1.atoms[pdb1_cb_indices[pdb1_query_index]].chain
+                interacting_pairs.append((pdb1_residue.number, pdb1_residue.chain, pdb2_residue.number,
+                                          pdb2_residue.chain))
+
+    pdb1_unique_chain_central_resnums, pdb2_unique_chain_central_resnums = [], []
+    for pdb1_central_res_num, pdb1_central_chain_id, pdb2_central_res_num, pdb2_central_chain_id in interacting_pairs:
+        pdb1_res_num_list = [pdb1_central_res_num + i for i in range(-2, 3)]  # Todo parameterize by frag length
+        pdb2_res_num_list = [pdb2_central_res_num + i for i in range(-2, 3)]
+
+        frag1_length = len(pdb1.chain(pdb1_central_chain_id).get_residues(numbers=pdb1_res_num_list))
+        frag2_length = len(pdb2.chain(pdb2_central_chain_id).get_residues(numbers=pdb2_res_num_list))
+
+        if frag1_length == 5 and frag2_length == 5:
+            if (pdb1_central_chain_id, pdb1_central_res_num) not in pdb1_unique_chain_central_resnums:
+                pdb1_unique_chain_central_resnums.append((pdb1_central_chain_id, pdb1_central_res_num))
+
+            if (pdb2_central_chain_id, pdb2_central_res_num) not in pdb2_unique_chain_central_resnums:
+                pdb2_unique_chain_central_resnums.append((pdb2_central_chain_id, pdb2_central_res_num))
+
+    return pdb1_unique_chain_central_resnums, pdb2_unique_chain_central_resnums
 
 
 def get_contacting_asu(pdb1, pdb2, contact_dist=8, **kwargs):
