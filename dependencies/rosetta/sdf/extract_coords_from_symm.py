@@ -2,8 +2,8 @@ import sys
 
 import numpy as np
 
-from Pose import Model
-from Structure import superposition3d
+from structure.Pose import Model
+from structure.base import superposition3d
 
 
 def coords_to_pdb(coords):

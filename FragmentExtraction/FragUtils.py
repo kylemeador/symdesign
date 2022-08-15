@@ -11,7 +11,7 @@ current_dir = os.path.dirname(os.path.abspath(__file__))
 parent_dir = os.path.dirname(current_dir)
 sys.path.append(parent_dir)
 from Bio.PDB import PDBParser, Atom, Residue, Chain, Superimposer
-from Structure import Structure
+from structure.base import Structure
 from utils import DesignError
 
 # Globals

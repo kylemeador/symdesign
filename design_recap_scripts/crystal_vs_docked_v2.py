@@ -6,7 +6,7 @@ from itertools import repeat
 from Bio.PDB.Atom import PDBConstructionWarning
 
 import utils
-from Pose import Model
+from structure.Pose import Model
 from top_n_all_to_all_docked_poses_irmsd import map_align_interface_chains, interface_chains_and_resnums
 import PoseDirectory
 

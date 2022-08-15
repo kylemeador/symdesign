@@ -7,8 +7,8 @@ import numpy as np
 
 from utils.path import intfrag_cluster_rep_dirpath, intfrag_cluster_info_dirpath, monofrag_cluster_rep_dirpath, \
     biological_interfaces, biological_fragment_db_pickle
-import Pose
-from Structure import Structure
+from structure import Pose
+from structure.base import Structure
 from utils import dictionary_lookup, start_log, unpickle
 from resources.info import FragmentInfo
 

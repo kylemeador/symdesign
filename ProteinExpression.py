@@ -9,7 +9,7 @@ from utils import path as PUtils
 # from Pose import Model
 # import Pose
 import utils
-from SequenceProfile import generate_alignment
+from structure.sequence import generate_alignment
 from DnaChisel.dnachisel import DnaOptimizationProblem, CodonOptimize, reverse_translate, AvoidHairpins, \
     EnforceGCContent, AvoidPattern, AvoidRareCodons, UniquifyAllKmers, EnforceTranslation  # EnforceMeltingTemperature
 from resources.query.pdb import get_entity_reference_sequence, pdb_id_matching_uniprot_id

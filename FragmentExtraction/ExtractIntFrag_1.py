@@ -2,8 +2,8 @@ from itertools import repeat
 import os
 import sys
 
-from Pose import Model
-from Structure import Structure
+from structure.Pose import Model
+from structure.base import Structure
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
 parent_dir = os.path.dirname(current_dir)

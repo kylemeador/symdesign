@@ -6,11 +6,10 @@ import math
 import os
 import random
 import re
-from typing import Optional
 
 import numpy as np
 
-from Pose import Model
+from structure.Pose import Model
 from classes.SymEntry import get_optimal_external_tx_vector, get_uc_dimensions
 from utils.SymmetryUtils import generate_cryst1_record
 

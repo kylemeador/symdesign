@@ -9,8 +9,8 @@ from lxml import etree, html
 from requests import get, post
 
 from utils.path import pisa_db
-from Pose import Model
-from Structure import Structure
+from structure.Pose import Model
+from structure.base import Structure
 from utils import start_log, pickle_object, io_save, to_iterable, remove_duplicates
 
 # from interface_analysis.InterfaceSorting import logger
