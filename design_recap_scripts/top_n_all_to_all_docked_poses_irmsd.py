@@ -12,7 +12,7 @@ import sklearn.neighbors
 from Bio.PDB.Atom import PDBConstructionWarning, Atom as BioPDBAtom
 
 import PoseDirectory
-import PathUtils as PUtils
+from utils import path as PUtils
 import utils
 from Pose import Model
 from Structure import Atom

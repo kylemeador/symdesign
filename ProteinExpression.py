@@ -5,7 +5,7 @@ import csv
 import numpy as np
 from Bio.Data.IUPACData import protein_letters
 
-import PathUtils as PUtils
+from utils import path as PUtils
 # from Pose import Model
 # import Pose
 import utils

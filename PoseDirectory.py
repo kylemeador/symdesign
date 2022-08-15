@@ -27,7 +27,6 @@ from sklearn.decomposition import PCA
 from sklearn.neighbors import BallTree
 from sklearn.preprocessing import StandardScaler
 
-import PathUtils as PUtils
 from CommandDistributer import reference_average_residue_weight, run_cmds, script_cmd, rosetta_flags, \
     rosetta_variables, relax_flags_cmdline
 from DesignMetrics import read_scores, interface_composition_similarity, unnecessary, necessary_metrics, rosetta_terms,\
@@ -44,7 +43,7 @@ from SequenceProfile import parse_pssm, generate_mutations_from_reference, simpl
 from Structure import Structure, Entity  # , Structures
 from utils import large_color_array, handle_errors, starttime, start_log, null_log, make_path, unpickle, pickle_object, \
     index_intersection, write_shell_script, DesignError, ClashError, SymmetryError, match_score_from_z_value, z_score, \
-    all_vs_all, sym, condensed_to_square
+    all_vs_all, sym, condensed_to_square, path as PUtils
 from classes.EulerLookup import EulerLookup
 from classes.SymEntry import SymEntry, symmetry_factory
 from resources.fragment import FragmentDatabase

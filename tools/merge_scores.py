@@ -2,7 +2,7 @@ import argparse
 import os
 from json import loads, dumps
 
-import PathUtils as PUtils
+from utils import path as PUtils
 import PoseDirectory
 import utils
 

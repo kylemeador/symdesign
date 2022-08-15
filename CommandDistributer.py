@@ -9,7 +9,7 @@ import subprocess
 from itertools import repeat, chain
 from typing import AnyStr
 
-from PathUtils import sbatch_template_dir, nano, rosetta_main, rosetta_extras, dalphaball, submodule_help, \
+from utils.path import sbatch_template_dir, nano, rosetta_main, rosetta_extras, dalphaball, submodule_help, \
     cmd_dist, program_name, interface_design, interface_metrics, optimize_designs, refine, rosetta_scripts, \
     sym_weights, solvent_weights_sym, solvent_weights, scout, consensus, hbnet_design_profile, structure_background
 from utils import start_log, unpickle, pickle_object, calculate_mp_cores, mp_starmap, collect_designs, DesignError

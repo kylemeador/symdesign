@@ -23,8 +23,8 @@ from Bio.SeqRecord import SeqRecord
 
 import CommandDistributer
 from resources import info
-import PathUtils as PUtils
-from utils import handle_errors, start_log, pretty_format_table, unpickle, get_base_root_paths_recursively, DesignError
+from utils import handle_errors, start_log, pretty_format_table, unpickle, get_base_root_paths_recursively, DesignError, \
+    path as PUtils
 # import dependencies.bmdca as bmdca
 
 # Globals

@@ -3,7 +3,7 @@ import os
 from glob import glob
 from itertools import chain
 
-import PathUtils as PUtils
+from utils import path as PUtils
 import PoseDirectory
 import utils
 from Pose import Model, MultiModel

@@ -8,7 +8,7 @@ from typing import AnyStr
 from psutil import cpu_count
 
 from DesignMetrics import metric_weight_functions
-from PathUtils import submodule_guide, submodule_help, force_flags, fragment_dbs, biological_interfaces, \
+from utils.path import submodule_guide, submodule_help, force_flags, fragment_dbs, biological_interfaces, \
     sym_entry, program_output, nano_entity_flag1, nano_entity_flag2, data, \
     clustered_poses, interface_design, no_evolution_constraint, no_hbnet, no_term_constraint, number_of_trajectories, \
     structure_background, scout, design_profile, evolutionary_profile, \

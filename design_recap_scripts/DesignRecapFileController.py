@@ -7,7 +7,7 @@ from itertools import repeat
 
 import pandas as pd
 
-import PathUtils as PUtils
+from utils import path as PUtils
 import utils
 from SequenceProfile import generate_mutations
 from Structure import superposition3d

@@ -10,7 +10,7 @@ from typing import Iterable, Annotated, AnyStr
 
 from CommandDistributer import rosetta_flags, relax_flags, rosetta_variables, script_cmd, distribute
 from database import Database, DataStore
-from PathUtils import qs_bio, pdb_db, orient_log_file, rosetta_scripts, refine, models_to_multimodel_exe, program_name,\
+from utils.path import qs_bio, pdb_db, orient_log_file, rosetta_scripts, refine, models_to_multimodel_exe, program_name,\
     data, structure_info
 import Pose
 from query.utils import boolean_choice

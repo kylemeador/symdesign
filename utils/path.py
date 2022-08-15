@@ -4,7 +4,7 @@ import subprocess
 from os import path, environ
 
 # Project strings and file names
-source = path.dirname(path.realpath(__file__))  # reveals master symdesign folder
+source = path.dirname(path.dirname(path.realpath(__file__)))  # reveals master symdesign folder
 try:
     p = subprocess.Popen(['git', '--git-dir', path.join(source, '.git'), 'rev-parse', '--short', 'HEAD'],
                          stdout=subprocess.PIPE)
@@ -14,7 +14,7 @@ except subprocess.CalledProcessError:
     program_version = 'unknown'
 
 program_name = 'SymDesign'
-program_exe = path.join(path.dirname(__file__), f'{program_name}.py')
+program_exe = path.join(source, f'{program_name}.py')
 program_output = f'{program_name}Output'
 projects = 'Projects'
 program_command = f'python {program_exe}'
@@ -93,9 +93,9 @@ pssm = 'evolutionary.pssm'  # was 'asu_pose.pssm' 1/25/21
 fssm = 'fragment.pssm'
 dssm = 'design.pssm'
 assembly = 'assembly.pdb'
+docked_pose_file = 'docked_pose_info_file.txt'
 frag_dir = 'matching_fragments'  # was 'matching_fragments_representatives' in v0
 frag_text_file = 'frag_match_info_file.txt'
-docked_pose_file = 'docked_pose_info_file.txt'
 frag_file = path.join(frag_dir, frag_text_file)
 pose_file = 'docked_pose_info_file.txt'
 design_profile = 'design_profile'

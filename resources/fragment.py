@@ -5,7 +5,7 @@ from typing import Annotated
 
 import numpy as np
 
-from PathUtils import intfrag_cluster_rep_dirpath, intfrag_cluster_info_dirpath, monofrag_cluster_rep_dirpath, \
+from utils.path import intfrag_cluster_rep_dirpath, intfrag_cluster_info_dirpath, monofrag_cluster_rep_dirpath, \
     biological_interfaces, biological_fragment_db_pickle
 import Pose
 from Structure import Structure

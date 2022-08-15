@@ -3,11 +3,10 @@ import sys
 import time
 from itertools import product, combinations
 
-import PathUtils as PUtils
 from FragDock import nanohedra_dock
 from resources.structure_db import orient_structure_files
 from resources.fragment import fragment_factory
-from utils import start_log, set_logging_to_debug, get_directory_file_paths
+from utils import start_log, set_logging_to_debug, get_directory_file_paths, path as PUtils
 from classes.EulerLookup import euler_factory
 from classes.SymEntry import symmetry_factory
 from utils.nanohedra.cmdline import get_docking_parameters, query_mode, postprocess_mode
