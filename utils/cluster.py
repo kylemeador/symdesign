@@ -12,7 +12,7 @@ import sklearn
 
 #     handle_design_errors, DesignError
 from DesignMetrics import prioritize_design_indices, nanohedra_metrics  # query_user_for_metrics,
-from path import ialign_exe_path
+from utils.path import ialign_exe_path
 from PoseDirectory import PoseDirectory
 from Structure import superposition3d, transform_coordinate_sets
 from utils import start_log, digit_translate_table, sym

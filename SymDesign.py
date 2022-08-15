@@ -28,7 +28,7 @@ from utils.cluster import cluster_designs, invert_cluster_map, group_composition
 from CommandDistributer import distribute, hhblits_memory_threshold
 from DesignMetrics import prioritize_design_indices, query_user_for_metrics
 from DnaChisel.dnachisel.DnaOptimizationProblem.NoSolutionError import NoSolutionError
-from FragDock import nanohedra_dock
+from fragdock import nanohedra_dock
 from JobResources import job_resources_factory
 from resources.fragment import fragment_factory
 from Pose import Model
@@ -674,9 +674,9 @@ def main():
     # ---------------------------------------------------
     # elif args.flags:  # Todo
     #     if args.template:
-    #         Flags.query_user_for_flags(template=True)
+    #         flags.query_user_for_flags(template=True)
     #     else:
-    #         Flags.query_user_for_flags(mode=args.flags_module)
+    #         flags.query_user_for_flags(mode=args.flags_module)
     # ---------------------------------------------------
     # elif args.module == 'distribute':  # -s stage, -y success_file, -n failure_file, -m max_jobs
     #     distribute(**vars(args))

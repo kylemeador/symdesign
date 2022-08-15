@@ -140,7 +140,7 @@ sym_op_location = path.join(dependency_dir, 'symmetry_operators')
 point_group_symmetry_operator_location = path.join(sym_op_location, 'point_group_operators.pkl')
 space_group_symmetry_operator_location = path.join(sym_op_location, 'space_group_operators.pkl')
 nanohedra_main = path.join(source, f'{nano.title()}.py')
-nanohedra_dock_file = path.join(source, 'FragDock.py')
+nanohedra_dock_file = path.join(source, 'fragdock.py')
 binaries = path.join(dependency_dir, 'bin')
 models_to_multimodel_exe = path.join(tools, 'models_to_multimodel.py')
 list_pdb_files = path.join(tools, 'list_files_in_directory.py')
@@ -205,7 +205,7 @@ intfrag_cluster_info_dirpath = path.join(fragment_db, 'IJK_ClusteredInterfaceFra
 # External Program Dependencies
 # Free SASA Executable Path
 freesasa_exe_path = path.join(source, 'freesasa', 'src', 'freesasa')
-freesasa_config_path = path.join(dependency_dir, 'sasa', 'freesasa-2.0.config')
+freesasa_config_path = path.join(dependency_dir, 'freesasa-2.0.config')
 
 orient_dir = path.join(dependency_dir, 'orient')
 # orient_exe = 'orient_oligomer.f'  # Non_compiled
