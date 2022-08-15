@@ -5614,7 +5614,7 @@ class ContainsChainsMixin:
                 list(getattr(Structure.available_letters, 'lower')()))
 
 
-class Chain(Structure):
+class Chain(SequenceProfile, Structure):
     """Create a connected polymer. Usually a subset of the coords and Atom and Residue instances of a larger Structure
 
     Args:
@@ -5665,7 +5665,7 @@ class Chain(Structure):
     #     self._reference_sequence = sequence
 
 
-class Entity(SequenceProfile, Chain, ContainsChainsMixin):
+class Entity(Chain, ContainsChainsMixin):
     """Entity
 
     Args:
