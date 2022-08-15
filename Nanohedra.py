@@ -10,9 +10,9 @@ from resources.fragment import fragment_factory
 from SymDesignUtils import get_directory_file_paths, start_log, set_logging_to_debug
 from classes.EulerLookup import euler_factory
 from classes.SymEntry import symmetry_factory
-from utils.CmdLineArgParseUtils import get_docking_parameters, query_mode, postprocess_mode
-from utils.GeneralUtils import write_docking_parameters
-from utils.NanohedraManualUtils import print_usage
+from utils.nanohedra.cmdline import get_docking_parameters, query_mode, postprocess_mode
+from utils.nanohedra.general import write_docking_parameters
+from utils.nanohedra.manual import print_usage
 
 # Copyright 2020 Joshua Laniado and Todd O. Yeates.
 __author__ = "Joshua Laniado and Todd O. Yeates"

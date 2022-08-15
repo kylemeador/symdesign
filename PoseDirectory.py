@@ -49,7 +49,7 @@ from classes.EulerLookup import EulerLookup
 from classes.SymEntry import SymEntry, symmetry_factory
 from resources.fragment import FragmentDatabase
 from resources.structure_db import StructureDatabase
-from utils.GeneralUtils import get_components_from_nanohedra_docking
+from utils.nanohedra.general import get_components_from_nanohedra_docking
 from utils.SymmetryUtils import identity_matrix, origin
 from resources.wrapapi import APIDatabase
 
