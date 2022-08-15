@@ -19,7 +19,7 @@ from scipy.spatial.transform import Rotation
 from sklearn.neighbors import BallTree  # , KDTree, NearestNeighbors
 from sklearn.neighbors._ball_tree import BinaryTree  # this typing implementation supports BallTree or KDTree
 
-from PathUtils import free_sasa_exe_path, stride_exe_path, errat_exe_path, make_symmdef, free_sasa_configuration_path, \
+from utils.path import free_sasa_exe_path, stride_exe_path, errat_exe_path, make_symmdef, free_sasa_configuration_path, \
     frag_text_file, orient_exe_path, orient_dir, reference_residues_pkl, program_name, program_version
 from resources.query.pdb import get_entity_reference_sequence, retrieve_entity_id_by_sequence, query_pdb_by
 from SequenceProfile import SequenceProfile, generate_mutations, get_equivalent_indices

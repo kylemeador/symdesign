@@ -1,5 +1,5 @@
 from DesignMetrics import master_metrics, rosetta_required_metrics
-from PathUtils import no_term_constraint, no_evolution_constraint, no_hbnet, scout, program_command, select_sequences, \
+from utils.path import no_term_constraint, no_evolution_constraint, no_hbnet, scout, program_command, select_sequences, \
     program_name, structure_background, current_energy_function, number_of_trajectories, force_flags, interface_design, \
     select_poses, analysis, protocol, select_designs, nano, nano_publication, interface_metrics, cluster_poses, \
     optimize_designs

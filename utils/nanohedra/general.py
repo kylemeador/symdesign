@@ -4,7 +4,7 @@ import os
 from logging import Logger
 
 from classes.SymEntry import SymEntry
-from PathUtils import docked_pose_file
+from utils.path import docked_pose_file
 from utils import start_log
 
 # Globals

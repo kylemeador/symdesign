@@ -5,7 +5,7 @@ from csv import reader
 from itertools import repeat
 
 
-from PathUtils import submodule_help
+from utils.path import submodule_help
 from utils import io_save
 
 

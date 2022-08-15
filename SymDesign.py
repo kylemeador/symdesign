@@ -22,9 +22,9 @@ from Bio.Data.IUPACData import protein_letters
 from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
 
-import PathUtils as PUtils
 import utils
-from ClusterUtils import cluster_designs, invert_cluster_map, group_compositions, ialign, cluster_poses, pose_pair_rmsd
+from utils import path as PUtils
+from utils.cluster import cluster_designs, invert_cluster_map, group_compositions, ialign, cluster_poses, pose_pair_rmsd
 from CommandDistributer import distribute, hhblits_memory_threshold
 from DesignMetrics import prioritize_design_indices, query_user_for_metrics
 from DnaChisel.dnachisel.DnaOptimizationProblem.NoSolutionError import NoSolutionError

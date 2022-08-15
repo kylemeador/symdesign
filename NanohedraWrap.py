@@ -5,8 +5,7 @@ import subprocess
 from itertools import chain
 from typing import Union
 
-import PathUtils as PUtils
-from utils import handle_errors, unpickle, write_shell_script, DesignError
+from utils import handle_errors, unpickle, write_shell_script, DesignError, path as PUtils
 
 
 @handle_errors(errors=(DesignError, ))

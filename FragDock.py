@@ -14,9 +14,9 @@ import psutil
 from sklearn.cluster import DBSCAN
 from sklearn.neighbors import BallTree
 
-from ClusterUtils import cluster_transformation_pairs
+from utils.cluster import cluster_transformation_pairs
 from resources.fragment import FragmentDatabase, fragment_factory
-from PathUtils import frag_text_file, master_log, frag_dir, biological_interfaces, asu_file_name
+from utils.path import frag_text_file, master_log, frag_dir, biological_interfaces, asu_file_name
 from Pose import Pose, Model
 from Structure import Structure, write_frag_match_info_file, GhostFragment, Residue, transform_coordinate_sets
 from utils import dictionary_lookup, start_log, null_log, set_logging_to_debug, unpickle, rmsd_z_score, \

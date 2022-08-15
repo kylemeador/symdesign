@@ -3,7 +3,7 @@ import sys
 from itertools import product
 
 from FragDock import nanohedra_dock
-from PathUtils import biological_fragment_db_pickle
+from utils.path import biological_fragment_db_pickle
 from utils import unpickle
 from classes.EulerLookup import euler_factory
 from classes.SymEntry import symmetry_factory

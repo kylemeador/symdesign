@@ -8,7 +8,7 @@ from itertools import repeat
 from lxml import etree, html
 from requests import get, post
 
-from PathUtils import pisa_db
+from utils.path import pisa_db
 from Pose import Model
 from Structure import Structure
 from utils import start_log, pickle_object, io_save, to_iterable, remove_duplicates

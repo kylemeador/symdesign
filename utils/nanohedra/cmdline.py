@@ -4,7 +4,7 @@ import sys
 from classes.SymEntry import all_entries, query_combination, query_result, query_counterpart, dimension
 from classes.SymEntry import nanohedra_symmetry_combinations
 from utils.nanohedra import postprocess
-from PathUtils import nano_entity_flag1, nano_entity_flag2
+from utils.path import nano_entity_flag1, nano_entity_flag2
 from utils import start_log
 
 # Globals

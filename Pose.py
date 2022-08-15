@@ -17,7 +17,6 @@ from sklearn.cluster import KMeans
 from sklearn.neighbors import BallTree
 from sklearn.neighbors._ball_tree import BinaryTree  # this typing implementation supports BallTree or KDTree
 
-import PathUtils as PUtils
 from resources import wrapapi, fragment
 from DesignMetrics import calculate_match_metrics, fragment_metric_template, format_fragment_metrics
 from ProteinMPNN.vanilla_proteinmpnn.helper_scripts.other_tools.make_pssm_dict import softmax
@@ -30,7 +29,7 @@ from Structure import Coords, Structure, Structures, Chain, Entity, Residue, Res
     write_frag_match_info_file, Fragment, StructureBase, ContainsAtomsMixin, superposition3d, ContainsChainsMixin, \
     transform_coordinate_sets
 from utils import dictionary_lookup, start_log, null_log, digit_translate_table, DesignError, ClashError, SymmetryError, \
-    calculate_match, z_value_from_match_score
+    calculate_match, z_value_from_match_score, path as PUtils
 from classes.EulerLookup import EulerLookup, euler_factory
 from classes.SymEntry import get_rot_matrices, make_rotations_degenerate, SymEntry, point_group_setting_matrix_members,\
     symmetry_combination_format, parse_symmetry_to_sym_entry, symmetry_factory

@@ -2,7 +2,7 @@ from typing import Annotated
 
 import numpy as np
 
-from PathUtils import binary_lookup_table_path
+from utils.path import binary_lookup_table_path
 from utils import start_log
 
 # from numba import njit

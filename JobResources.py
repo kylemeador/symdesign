@@ -4,7 +4,7 @@ import os
 from typing import Annotated, AnyStr
 
 from resources.structure_db import structure_database_factory
-from PathUtils import sym_entry, all_scores, projects, sequence_info, data, output_oligomers, output_fragments, \
+from utils.path import sym_entry, all_scores, projects, sequence_info, data, output_oligomers, output_fragments, \
     structure_background, scout, generate_fragments, number_of_trajectories, no_hbnet, \
     ignore_symmetric_clashes, ignore_pose_clashes, ignore_clashes, force_flags, no_evolution_constraint, \
     no_term_constraint, consensus
