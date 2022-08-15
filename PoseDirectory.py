@@ -35,7 +35,7 @@ from DesignMetrics import read_scores, interface_composition_similarity, unneces
     protocol_specific_columns, rank_dataframe_by_metric_weights, filter_df_for_index_by_value, \
     multiple_sequence_alignment_dependent_metrics, format_fragment_metrics, calculate_match_metrics, \
     process_residue_info
-from JobResources import JobResources, job_resources_factory
+from resources.job import JobResources, job_resources_factory
 from Pose import Pose, MultiModel, Models, Model
 from SequenceProfile import parse_pssm, generate_mutations_from_reference, simplify_mutation_dict, \
     sequence_difference, hydrophobic_collapse_index, alignment_types, MultipleSequenceAlignment, pssm_as_array, \
