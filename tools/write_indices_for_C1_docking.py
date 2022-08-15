@@ -2,7 +2,7 @@ import os
 import sys
 from itertools import product
 
-from FragDock import nanohedra_dock
+from fragdock import nanohedra_dock
 from utils.path import biological_fragment_db_pickle
 from utils import unpickle
 from classes.EulerLookup import euler_factory

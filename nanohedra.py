@@ -3,7 +3,7 @@ import sys
 import time
 from itertools import product, combinations
 
-from FragDock import nanohedra_dock
+from fragdock import nanohedra_dock
 from resources.structure_db import orient_structure_files
 from resources.fragment import fragment_factory
 from utils import start_log, set_logging_to_debug, get_directory_file_paths, path as PUtils
