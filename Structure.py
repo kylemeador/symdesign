@@ -7169,19 +7169,19 @@ def superposition3d_weighted(fixed_coords: np.ndarray, moving_coords: np.ndarray
         sum_weights = np.sum(a_weights, axis=0)
 
     # Find the center of mass of each object:
-    a_center_f = np.sum(fixed_coords * a_weights, axis=0)
-    a_center_m = np.sum(moving_coords * a_weights, axis=0)
+    center_of_mass_fixed = np.sum(fixed_coords * a_weights, axis=0)
+    center_of_mass_moving = np.sum(moving_coords * a_weights, axis=0)
 
     # Subtract the centers-of-mass from the original coordinates for each object
     # if sum_weights != 0:
     try:
-        a_center_f /= sum_weights
-        a_center_m /= sum_weights
+        center_of_mass_fixed /= sum_weights
+        center_of_mass_moving /= sum_weights
     except ZeroDivisionError:
         pass  # the weights are a total of zero which is allowed algorithmically, but not possible
 
-    aa_xf = fixed_coords - a_center_f
-    aa_xm = moving_coords - a_center_m
+    aa_xf = fixed_coords - center_of_mass_fixed
+    aa_xm = moving_coords - center_of_mass_moving
 
     # Calculate the "m" array from the Diamond paper (equation 16)
     m = np.matmul(aa_xm.T, (aa_xf * a_weights))
@@ -7260,13 +7260,13 @@ def superposition3d_weighted(fixed_coords: np.ndarray, moving_coords: np.ndarray
     # x_i' = Σ_j c*R_ij*x_j + T_i
     #      = Xcm_i + c*R_ij*(x_j - xcm_j)
     #  and Xcm and xcm = center_of_mass for the frozen and mobile point clouds
-    #                  = a_center_f[]       and       a_center_m[],  respectively
+    #                  = center_of_mass_fixed[]       and       center_of_mass_moving[],  respectively
     # Hence:
     #  T_i = Xcm_i - Σ_j c*R_ij*xcm_j  =  a_translate[i]
 
-    # a_translate = a_center_f - np.matmul(c * aa_rotate, a_center_m).T.reshape(3,)
+    # a_translate = center_of_mass_fixed - np.matmul(c * aa_rotate, center_of_mass_moving).T.reshape(3,)
 
-    return rmsd, aa_rotate, a_center_f - np.matmul(aa_rotate, a_center_m).T.reshape(3,)
+    # return rmsd, aa_rotate, center_of_mass_fixed - np.matmul(aa_rotate, center_of_mass_moving).T.reshape(3,)
     # Calculate the translation
     translation = center_of_mass_fixed - np.matmul(rotation_matrix, center_of_mass_moving)
     if quaternion:  # does the caller want the quaternion?
