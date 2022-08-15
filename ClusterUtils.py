@@ -14,9 +14,8 @@ import sklearn
 from DesignMetrics import prioritize_design_indices, nanohedra_metrics  # query_user_for_metrics,
 from PathUtils import ialign_exe_path
 from PoseDirectory import PoseDirectory
-from Structure import superposition3d
+from Structure import superposition3d, transform_coordinate_sets
 from SymDesignUtils import index_intersection, mp_map, sym, rmsd_threshold, digit_translate_table, start_log
-from utils.GeneralUtils import transform_coordinate_sets
 
 # globals
 logger = start_log(name=__name__)

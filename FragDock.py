@@ -18,7 +18,7 @@ from ClusterUtils import cluster_transformation_pairs
 from resources.fragment import FragmentDatabase, fragment_factory
 from PathUtils import frag_text_file, master_log, frag_dir, biological_interfaces, asu_file_name
 from Pose import Pose, Model
-from Structure import Structure, write_frag_match_info_file, GhostFragment, Residue
+from Structure import Structure, write_frag_match_info_file, GhostFragment, Residue, transform_coordinate_sets
 from SymDesignUtils import rmsd_z_score, match_score_from_z_value, start_log, null_log, dictionary_lookup, \
     z_value_from_match_score, set_logging_to_debug, unpickle
 from classes.EulerLookup import EulerLookup, euler_factory
