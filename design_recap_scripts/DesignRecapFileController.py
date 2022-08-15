@@ -11,7 +11,7 @@ import PathUtils as PUtils
 from SequenceProfile import generate_mutations
 import SymDesignUtils as SDUtils
 from Structure import superposition3d
-from structure_db import fetch_pdb_file
+from resources.structure_db import fetch_pdb_file
 from Pose import Model
 
 # if sys.version[0] < 3:

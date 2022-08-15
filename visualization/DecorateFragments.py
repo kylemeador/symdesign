@@ -10,7 +10,7 @@ from sklearn.neighbors import BallTree
 
 from SymDesignUtils import start_log, collect_designs, set_logging_to_debug
 from Structure import MonoFragment
-from fragment import FragmentDatabase
+from resources.fragment import FragmentDatabase
 from Pose import Model
 
 

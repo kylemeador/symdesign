@@ -47,11 +47,11 @@ from SymDesignUtils import unpickle, start_log, null_log, handle_errors, write_s
     starttime, DesignError, ClashError, SymmetryError
 from classes.EulerLookup import EulerLookup
 from classes.SymEntry import SymEntry, symmetry_factory
-from fragment import FragmentDatabase
-from structure_db import StructureDatabase
+from resources.fragment import FragmentDatabase
+from resources.structure_db import StructureDatabase
 from utils.GeneralUtils import get_components_from_nanohedra_docking
 from utils.SymmetryUtils import identity_matrix, origin
-from wrapapi import APIDatabase
+from resources.wrapapi import APIDatabase
 
 # Globals
 logger = start_log(name=__name__)

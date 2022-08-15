@@ -3,16 +3,17 @@ from __future__ import annotations
 import os
 from typing import Annotated, AnyStr
 
-from structure_db import structure_database_factory
+from resources.structure_db import structure_database_factory
 from PathUtils import sym_entry, all_scores, projects, sequence_info, data, output_oligomers, output_fragments, \
-    structure_background, scout, generate_fragments, number_of_trajectories, nstruct, no_hbnet, \
+    structure_background, scout, generate_fragments, number_of_trajectories, no_hbnet, \
     ignore_symmetric_clashes, ignore_pose_clashes, ignore_clashes, force_flags, no_evolution_constraint, \
     no_term_constraint, consensus
+from utils.Flags import nstruct
 from SymDesignUtils import start_log, make_path
 from classes.EulerLookup import EulerLookup
 from classes.SymEntry import SymEntry
-import fragment
-from wrapapi import api_database_factory
+from resources import fragment
+from resources.wrapapi import api_database_factory
 
 logger = start_log(name=__name__)
 
