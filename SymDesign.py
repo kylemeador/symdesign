@@ -29,7 +29,7 @@ from CommandDistributer import distribute, hhblits_memory_threshold
 from DesignMetrics import prioritize_design_indices, query_user_for_metrics
 from DnaChisel.dnachisel.DnaOptimizationProblem.NoSolutionError import NoSolutionError
 from fragdock import nanohedra_dock
-from JobResources import job_resources_factory
+from resources.job import job_resources_factory
 from resources.fragment import fragment_factory
 from Pose import Model
 from PoseDirectory import PoseDirectory
