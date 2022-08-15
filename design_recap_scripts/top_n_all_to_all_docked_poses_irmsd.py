@@ -1,21 +1,49 @@
+from __future__ import annotations
+
 import os
 import sys
 import warnings
 from itertools import permutations, combinations
 
+import Bio.PDB
 import Bio.PDB.Superimposer
 import numpy as np
 import sklearn.neighbors
-from Bio.PDB.Atom import PDBConstructionWarning
+from Bio.PDB.Atom import PDBConstructionWarning, Atom as BioPDBAtom
 
 import PoseDirectory
 import PathUtils as PUtils
 import SymDesignUtils as SDUtils
-from utils.PDBUtils import biopdb_superimposer
 from Pose import Model
 from Structure import Atom
 
 warnings.simplefilter('ignore', PDBConstructionWarning)
+
+
+def biopdb_superimposer(atoms_fixed, atoms_moving) -> tuple[float, np.ndarray, np.ndarray]:
+    """
+
+    Args:
+        atoms_fixed:
+        atoms_moving:
+    Returns:
+        RMSD, Rotation matrix(BioPDB format), Translation vector
+    """
+    biopdb_atom_fixed = [BioPDBAtom(atom.type, (atom.x, atom.y, atom.z), atom.temp_fact, atom.occ, atom.alt_location,
+                                    " %s " % atom.type, atom.number, element=atom.element_symbol)
+                         for atom in atoms_fixed]
+    biopdb_atom_moving = [BioPDBAtom(atom.type, (atom.x, atom.y, atom.z), atom.temp_fact, atom.occ, atom.alt_location,
+                                     " %s " % atom.type, atom.number, element=atom.element_symbol)
+                          for atom in atoms_moving]
+
+    sup = Bio.PDB.Superimposer()
+    sup.set_atoms(biopdb_atom_fixed, biopdb_atom_moving)
+
+    # rmsd = sup.rms
+    # rot = np.transpose(sup.rotran[0]).tolist()
+    # tx = sup.rotran[1].tolist()
+
+    return sup.rms, *sup.rotran
 
 
 ########################################## STANDARDIZE OLIGOMER CHAIN LENGTHS ##########################################
