@@ -9,9 +9,9 @@ from SequenceProfile import MultipleSequenceAlignment, parse_hhblits_pssm, read_
 from Structure import parse_stride
 from database import Database, DataStore
 from PathUtils import program_name, data, sequence_info, structure_info
-from Query.PDB import query_entity_id, query_assembly_id, parse_entities_json, parse_assembly_json, query_entry_id, \
+from query.pdb import query_entity_id, query_assembly_id, parse_entities_json, parse_assembly_json, query_entry_id, \
     parse_entry_json, _is_entity_thermophilic
-from Query.UniProt import query_uniprot
+from query.uniprot import query_uniprot
 from SymDesignUtils import make_path, start_log
 # import dependencies.bmdca as bmdca
 

@@ -16,7 +16,8 @@ from PathUtils import submodule_guide, submodule_help, force_flags, fragment_dbs
     program_command, analysis, select_poses, output_fragments, output_oligomers, protocol, current_energy_function, \
     ignore_clashes, ignore_pose_clashes, ignore_symmetric_clashes, select_designs
 from ProteinExpression import expression_tags
-from Query.utils import input_string, confirmation_string, bool_d, invalid_string, header_string, format_string
+from resources.query.utils import input_string, confirmation_string, bool_d, invalid_string, header_string, \
+    format_string
 from SequenceProfile import read_fasta_file
 from SymDesignUtils import pretty_format_table, DesignError, handle_errors, clean_comma_separated_string, \
     format_index_string, ex_path

@@ -14,7 +14,7 @@ from PathUtils import pdb_db, pisa_db, qs_bio, qs_bio_monomers_file
 from Pose import Model
 from Structure import Chain
 from SymDesignUtils import start_log, pickle_object, unpickle, get_file_paths_recursively, to_iterable, ex_path
-import Query.PDB as qPDB
+from resources import query as qPDB
 # from PDB import extract_interface
 # from Pose import retrieve_pdb_file_path
 

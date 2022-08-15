@@ -12,8 +12,8 @@ from SequenceProfile import generate_alignment
 import SymDesignUtils as SDUtils
 from DnaChisel.dnachisel import DnaOptimizationProblem, CodonOptimize, reverse_translate, AvoidHairpins, \
     EnforceGCContent, AvoidPattern, AvoidRareCodons, UniquifyAllKmers, EnforceTranslation  # EnforceMeltingTemperature
-from Query.PDB import get_entity_reference_sequence, pdb_id_matching_uniprot_id
-from Query.utils import input_string
+from resources.query.pdb import get_entity_reference_sequence, pdb_id_matching_uniprot_id
+from resources.query.utils import input_string
 
 # Globals
 logger = SDUtils.start_log(name=__name__)
