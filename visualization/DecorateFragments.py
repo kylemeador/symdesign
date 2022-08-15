@@ -8,7 +8,7 @@ sys.path.append(parent_dir)
 import numpy as np
 from sklearn.neighbors import BallTree
 
-from SymDesignUtils import start_log, collect_designs, set_logging_to_debug
+from utils import start_log, set_logging_to_debug, collect_designs
 from Structure import MonoFragment
 from resources.fragment import FragmentDatabase
 from Pose import Model

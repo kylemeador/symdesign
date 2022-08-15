@@ -19,8 +19,9 @@ from ProteinExpression import expression_tags
 from resources.query.utils import input_string, confirmation_string, bool_d, invalid_string, header_string, \
     format_string
 from SequenceProfile import read_fasta_file
-from SymDesignUtils import pretty_format_table, DesignError, handle_errors, clean_comma_separated_string, \
-    format_index_string, ex_path
+from utils import handle_errors, pretty_format_table, clean_comma_separated_string, format_index_string, DesignError, \
+    ex_path
+
 
 # terminal_formatter = '\n\t\t\t\t\t\t     '
 

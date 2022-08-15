@@ -3,7 +3,7 @@ from __future__ import annotations
 from requests import Response
 
 from resources.query.utils import connection_exception_handler
-from SymDesignUtils import start_log
+from utils import start_log
 
 # Globals
 logger = start_log(name=__name__)

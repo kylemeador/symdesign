@@ -2,7 +2,7 @@ from shutil import copy, move
 
 from resources.fragment import FragmentDatabase
 from PathUtils import biological_fragment_db_pickle, reference_aa_file, reference_residues_pkl
-from SymDesignUtils import pickle_object, timestamp
+from utils import timestamp, pickle_object
 
 try:
     import Structure

@@ -42,9 +42,9 @@ from SequenceProfile import parse_pssm, generate_mutations_from_reference, simpl
     sequence_difference, hydrophobic_collapse_index, alignment_types, MultipleSequenceAlignment, pssm_as_array, \
     position_specific_divergence
 from Structure import Structure, Entity  # , Structures
-from SymDesignUtils import unpickle, start_log, null_log, handle_errors, write_shell_script, match_score_from_z_value, \
-    pickle_object, all_vs_all, make_path, condensed_to_square, sym, index_intersection, z_score, large_color_array, \
-    starttime, DesignError, ClashError, SymmetryError
+from utils import large_color_array, handle_errors, starttime, start_log, null_log, make_path, unpickle, pickle_object, \
+    index_intersection, write_shell_script, DesignError, ClashError, SymmetryError, match_score_from_z_value, z_score, \
+    all_vs_all, sym, condensed_to_square
 from classes.EulerLookup import EulerLookup
 from classes.SymEntry import SymEntry, symmetry_factory
 from resources.fragment import FragmentDatabase

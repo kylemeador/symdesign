@@ -15,7 +15,7 @@ from PathUtils import qs_bio, pdb_db, orient_log_file, rosetta_scripts, refine, 
 import Pose
 from query.utils import boolean_choice
 from Structure import Structure, parse_stride, Entity
-from SymDesignUtils import unpickle, to_iterable, start_log, write_commands, starttime, make_path, write_shell_script
+from utils import starttime, start_log, make_path, unpickle, to_iterable, write_shell_script, write_commands
 from classes.SymEntry import parse_symmetry_to_sym_entry, sdf_lookup
 
 logger = start_log(name=__name__)

@@ -5,7 +5,7 @@ import FragUtils as Frag
 
 from Pose import Model
 from Structure import Atom, Structure
-from SymDesignUtils import get_file_paths_recursively
+from utils import get_file_paths_recursively
 
 # Globals
 module = 'Extract Interface Fragments:'

@@ -5,7 +5,7 @@ from itertools import chain
 
 import PathUtils as PUtils
 import PoseDirectory
-import SymDesignUtils as SDUtils
+import utils
 from Pose import Model, MultiModel
 
 
@@ -65,13 +65,13 @@ if __name__ == '__main__':
     args = parser.parse_args()
     # Start logging output
     if args.debug:
-        logger = SDUtils.start_log(name=os.path.basename(__file__), level=1)
-        SDUtils.set_logging_to_debug()
+        logger = utils.start_log(name=os.path.basename(__file__), level=1)
+        utils.set_logging_to_debug()
         logger.debug('Debug mode. Produces verbose output and not written to any .log files')
     else:
-        logger = SDUtils.start_log(name=os.path.basename(__file__), propagate=True)
+        logger = utils.start_log(name=os.path.basename(__file__), propagate=True)
 
-    all_poses, location = SDUtils.collect_designs(files=args.file, directory=args.directory)
+    all_poses, location = utils.collect_designs(files=args.file, directory=args.directory)
     assert all_poses, 'No %s directories found within \'%s\'! Please ensure correct location' \
                       % (PUtils.nano.title(), location)
 

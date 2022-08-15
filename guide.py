@@ -3,7 +3,7 @@ from PathUtils import no_term_constraint, no_evolution_constraint, no_hbnet, sco
     program_name, structure_background, current_energy_function, number_of_trajectories, force_flags, interface_design, \
     select_poses, analysis, protocol, select_designs, nano, nano_publication, interface_metrics, cluster_poses, \
     optimize_designs
-from SymDesignUtils import pretty_format_table
+from utils import pretty_format_table
 
 nltb = '\n\t'
 module_help_string = f'"{program_command} MODULE --help" will direct you towards the proper formatting of program flags'

@@ -3,7 +3,7 @@ import os
 
 import numpy as np
 
-from SymDesignUtils import to_iterable, io_save
+from utils import io_save, to_iterable
 
 
 def set_overlap(_set):

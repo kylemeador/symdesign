@@ -6,9 +6,10 @@ import sys
 from glob import glob
 from itertools import repeat
 
-import SymDesignUtils as SDUtils
+import utils
 
-logger = SDUtils.start_log(name=os.path.basename(__file__))
+
+logger = utils.start_log(name=os.path.basename(__file__))
 
 
 def find_list_indices(reference_cmds, query_ids):
@@ -217,7 +218,7 @@ if __name__ == '__main__':
         # logger.info('Job Array ID\'s with other outcome:\n\t%s' % ','.join(map(str, map(operator.add, other, repeat(1)))))
         # logger.info('Job Array ID\'s with failed outcome:\n\t%s' % ','.join(map(str, map(operator.add, all_array, repeat(1)))))
         if args.file:
-            reference_commands = SDUtils.to_iterable(args.file, ensure_file=True)
+            reference_commands = utils.to_iterable(args.file, ensure_file=True)
             logger.info('There are %d total commands found in %s' % (len(reference_commands), args.file))
             reference_array = set(range(len(reference_commands)))
         else:
@@ -252,12 +253,12 @@ if __name__ == '__main__':
             restart_memory = [reference_commands[idx] for idx in memory]
             restart_failure = [reference_commands[idx] for idx in failure]
             restart_other = [reference_commands[idx] for idx in other]
-            SDUtils.io_save(restart_memory, file_name='%s_%s' % (args.file, 'memory_failures'))
-            SDUtils.io_save(restart_failure, file_name='%s_%s' % (args.file, 'other_failures'))
-            SDUtils.io_save(restart_other, file_name='%s_%s' % (args.file, 'other_output'))
+            utils.io_save(restart_memory, file_name='%s_%s' % (args.file, 'memory_failures'))
+            utils.io_save(restart_failure, file_name='%s_%s' % (args.file, 'other_failures'))
+            utils.io_save(restart_other, file_name='%s_%s' % (args.file, 'other_output'))
 
     elif args.sub_module == 'scancel':
-        array_ids = SDUtils.to_iterable(args.file, ensure_file=True)
+        array_ids = utils.to_iterable(args.file, ensure_file=True)
         job_array = concat_job_to_array(args.job_id, array_ids)
         status_array = [scancel(job) for job in job_array]
         # mode = sys.argv[1]
@@ -267,23 +268,23 @@ if __name__ == '__main__':
         # job_array = concat_job_to_array(job_id, array_ids)
         # status_array = [scancel(job) for job in job_array]
     elif args.sub_module == 'filter':  # -e exclude, -r running, -q query
-        reference_commands = SDUtils.to_iterable(args.file, ensure_file=True)
-        query_ids = SDUtils.to_iterable(args.query)
+        reference_commands = utils.to_iterable(args.file, ensure_file=True)
+        query_ids = utils.to_iterable(args.query)
 
         index_array = find_list_indices(reference_commands, query_ids)
         filtered_reference_commands = filter_by_indices(index_array, reference_commands)
         if args.exclude:
             modified_reference = list(set(reference_commands) - set(filtered_reference_commands))
-            SDUtils.io_save(modified_reference, file_name='%s_excluded_%s' % (args.file, os.path.basename(args.query)))
+            utils.io_save(modified_reference, file_name='%s_excluded_%s' % (args.file, os.path.basename(args.query)))
         else:
-            SDUtils.io_save(filtered_reference_commands,
-                            file_name='%s_filtered_%s' % (args.file, os.path.basename(args.query)))
+            utils.io_save(filtered_reference_commands,
+                          file_name='%s_filtered_%s' % (args.file, os.path.basename(args.query)))
     elif args.sub_module == 'link':
         output_dir = os.path.join(os.getcwd(), args.directory)
         if not os.path.exists(output_dir):
             os.makedirs(output_dir)
 
-        reference_commands = SDUtils.to_iterable(args.file, ensure_file=True)
+        reference_commands = utils.to_iterable(args.file, ensure_file=True)
         link_names = map(os.path.basename, reference_commands)
         link_name_dirs = list(map(os.path.join, repeat(output_dir), link_names))
 

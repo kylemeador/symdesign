@@ -1,3 +1,4 @@
+from itertools import repeat
 import os
 import sys
 
@@ -7,13 +8,12 @@ from Structure import Structure
 current_dir = os.path.dirname(os.path.abspath(__file__))
 parent_dir = os.path.dirname(current_dir)
 sys.path.append(parent_dir)
-from itertools import repeat
 import FragUtils as Frag
-import SymDesignUtils as SDUtils
+import utils
 
 # Globals
 module = 'Extract Interface Fragments:'
-logger = SDUtils.start_log(name=__name__)
+logger = utils.start_log(name=__name__)
 
 
 def extract_to_db(db_cursor, fragment_length=5):
@@ -56,8 +56,8 @@ def find_interacting_residue_fragments(chain1, chain2, interacting_pairs, frag_l
                               'Residue.get_downstream() and Residue.get_upstream() based on frag_length')
     for residue1, residue2 in interacting_pairs:
         # parameterize fragments based on input length
-        res_nums_pdb1 = set(residue1 + i for i in range(*SDUtils.parameterize_frag_length(frag_length)))
-        res_nums_pdb2 = set(residue2 + i for i in range(*SDUtils.parameterize_frag_length(frag_length)))
+        res_nums_pdb1 = set(residue1 + i for i in range(*utils.parameterize_frag_length(frag_length)))
+        res_nums_pdb2 = set(residue2 + i for i in range(*utils.parameterize_frag_length(frag_length)))
 
         if same_chain:
             # break iteration if residue 1 succeeds residue 2 or they are sequential, or frag 1 residues are in frag 2
@@ -100,7 +100,7 @@ def main(int_db_dir, outdir, frag_length, interface_dist, individual=True, paire
     # TODO parameterize individual and outdir in ExtractFragments main script. Change paired keyword to same_chain
     print('%s Beginning' % module)
     # Get Natural Interface PDB File Paths
-    int_db_filepaths = SDUtils.get_file_paths_recursively(int_db_dir, extension='.pdb')
+    int_db_filepaths = utils.get_file_paths_recursively(int_db_dir, extension='.pdb')
     lower_bound, upper_bound, index_offset = Frag.parameterize_frag_length(frag_length)
 
     print('%s Creating Neighbor CB Atom Trees at %d Angstroms Distance' % (module, interface_dist))
@@ -113,7 +113,7 @@ def main(int_db_dir, outdir, frag_length, interface_dist, individual=True, paire
     if multi:
         zipped_args = zip(pdbs_of_interest, repeat(interface_dist), repeat(frag_length), repeat(outdir),
                           repeat(individual), repeat(paired))
-        result = SDUtils.mp_starmap(extract_to_file, zipped_args, num_threads)
+        result = utils.mp_starmap(extract_to_file, zipped_args, num_threads)
 
         Frag.report_errors(result)
     else:

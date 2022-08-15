@@ -7,7 +7,7 @@ from typing import AnyStr, Iterable, Literal
 from Bio.Data.IUPACData import protein_letters
 
 from PathUtils import biological_interfaces, frag_directory
-from SymDesignUtils import parameterize_frag_length, unpickle, DesignError, get_base_root_paths_recursively, start_log
+from utils import start_log, unpickle, get_base_root_paths_recursively, DesignError, parameterize_frag_length
 from utils.MysqlPython import Mysql
 
 logger = start_log(name=__name__)

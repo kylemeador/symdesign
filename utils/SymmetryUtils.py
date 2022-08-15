@@ -8,7 +8,7 @@ import numpy as np
 from scipy.spatial.transform import Rotation
 
 from PathUtils import sym_op_location, point_group_symmetry_operator_location, space_group_symmetry_operator_location
-from SymDesignUtils import unpickle, pickle_object
+from utils import unpickle, pickle_object
 
 chiral_space_groups = [
     'P1',  # TRICLINIC

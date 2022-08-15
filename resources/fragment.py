@@ -9,7 +9,7 @@ from PathUtils import intfrag_cluster_rep_dirpath, intfrag_cluster_info_dirpath,
     biological_interfaces, biological_fragment_db_pickle
 import Pose
 from Structure import Structure
-from SymDesignUtils import dictionary_lookup, unpickle, start_log
+from utils import dictionary_lookup, start_log, unpickle
 from resources.info import FragmentInfo
 
 # Globals

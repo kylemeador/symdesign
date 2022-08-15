@@ -8,8 +8,8 @@ from itertools import repeat
 import pandas as pd
 
 import PathUtils as PUtils
+import utils
 from SequenceProfile import generate_mutations
-import SymDesignUtils as SDUtils
 from Structure import superposition3d
 from resources.structure_db import fetch_pdb_file
 from Pose import Model
@@ -94,11 +94,11 @@ def design_recapitulation(design_file, output_dir, pdb_dir=None, oligomer=False)
     Keyword Args
         pdb_dir=None (str): Location on disk of all design .pdb files. If not provided, then the PDB will be sourced
             from the default directory structure, i.e. output_dir/design_asus/design_name.pdb
-        oligomer=False (bool): Whether or not the output ASU should contain the oligomer (True) or just the ASU (False)
+        oligomer=False (bool): Whether the output ASU should contain the oligomer (True) or just the ASU (False)
     Returns:
         None
     """
-    qsbio_assemblies = SDUtils.unpickle(PUtils.qsbio)
+    qsbio_assemblies = utils.unpickle(PUtils.qsbio)
     with open(design_file, 'r') as f_csv:
         reading_csv = reader(f_csv)
         if pdb_dir:
@@ -263,8 +263,8 @@ def design_recapitulation(design_file, output_dir, pdb_dir=None, oligomer=False)
             sym_d = {'%s_%s' % (i, sym): pdb.lower() for i, (pdb, sym) in enumerate(design_file_input[design]['source_pdb'])}
             sym_d['final_symmetry'] = design_file_input[design]['final_sym']
             # 10/6/20 removed _vflip
-            SDUtils.pickle_object(sym_d, name='%s_dock' % design, out_path=os.path.join(output_dir, design),
-                                  protocol=pickle_prot)
+            utils.pickle_object(sym_d, name='%s_dock' % design, out_path=os.path.join(output_dir, design),
+                                protocol=pickle_prot)
 
         # with open(os.path.join(output_dir, design, '%s_components.dock' % design), 'w') as f:
         #     f.write('\n'.join('%s %s' % (pdb.lower(), sym) for pdb, sym in design_file_input[design]['source_pdb']))
@@ -272,8 +272,8 @@ def design_recapitulation(design_file, output_dir, pdb_dir=None, oligomer=False)
     # 10/6/20 removed _vflip
     if rmsd_comp_commands:
         # {design: {'nanohedra_output': /path/to/directory, 'pdb1': /path/to/design_asu/pdb1_oligomer.pdb, 'pdb2': ...}}
-        SDUtils.pickle_object(rmsd_comp_commands, name='recap_rmsd_command_paths', out_path=output_dir,
-                              protocol=pickle_prot)
+        utils.pickle_object(rmsd_comp_commands, name='recap_rmsd_command_paths', out_path=output_dir,
+                            protocol=pickle_prot)
 
     missing = []
     for design in chain_correspondence:
@@ -284,8 +284,8 @@ def design_recapitulation(design_file, output_dir, pdb_dir=None, oligomer=False)
         missing_str = map(str, missing)
         logger.critical('Designs missing one of two chains:\n%s' % ', '.join(missing_str))
     # 10/6/20 removed _vflip
-    SDUtils.pickle_object(chain_correspondence, 'asu_to_oriented_oligomer_chain_correspondance',
-                          out_path=output_dir, protocol=pickle_prot)
+    utils.pickle_object(chain_correspondence, 'asu_to_oriented_oligomer_chain_correspondance',
+                        out_path=output_dir, protocol=pickle_prot)
 
 
 def run_rmsd_calc(design_list, design_map_pickle, command_only=False):
@@ -297,7 +297,7 @@ def run_rmsd_calc(design_list, design_map_pickle, command_only=False):
     Returns:
         None
     """
-    design_map = SDUtils.unpickle(design_map_pickle)
+    design_map = utils.unpickle(design_map_pickle)
     logger.info('Design Analysis mode: RMSD calculation')
     log_file = os.path.join(os.getcwd(), 'RMSD_calc.log')
     rmsd_commands = []
@@ -313,8 +313,8 @@ def run_rmsd_calc(design_list, design_map_pickle, command_only=False):
                         outdir]
             if command_only:
                 rmsd_commands.append(
-                    SDUtils.write_shell_script(subprocess.list2cmdline(rmsd_cmd), name='rmsd_calculation',
-                                               out_path=outdir))
+                    utils.write_shell_script(subprocess.list2cmdline(rmsd_cmd), name='rmsd_calculation',
+                                             out_path=outdir))
             else:
                 p = subprocess.Popen(rmsd_cmd, stdout=log_f, stderr=log_f)
                 p.communicate()
@@ -337,7 +337,7 @@ def run_all_to_all_calc(design_list, design_map_pickle, command_only=False):
     Returns:
         None
     """
-    design_map = SDUtils.unpickle(design_map_pickle)
+    design_map = utils.unpickle(design_map_pickle)
     logger.info('Design Analysis mode: All to All calculations')
     log_file = os.path.join(os.getcwd(), 'RMSD_calc.log')
     all_to_all_commands = []
@@ -352,7 +352,7 @@ def run_all_to_all_calc(design_list, design_map_pickle, command_only=False):
                     design_map[design]['nanohedra_output'], os.path.join(outdir, 'crystal_vs_docked_irmsd.txt')]
             if command_only:
                 all_to_all_commands.append(
-                    SDUtils.write_shell_script(subprocess.list2cmdline(_cmd), name='all_to_all', out_path=outdir))
+                    utils.write_shell_script(subprocess.list2cmdline(_cmd), name='all_to_all', out_path=outdir))
             else:
                 p = subprocess.Popen(_cmd, stdout=log_f, stderr=log_f)
                 p.communicate()
@@ -371,7 +371,7 @@ def run_cluster_calc(design_list, design_map_pickle, command_only=False):
     Returns:
         None
     """
-    design_map = SDUtils.unpickle(design_map_pickle)
+    design_map = utils.unpickle(design_map_pickle)
     logger.info('Design Analysis mode: Clustering RMSD\'s')
     log_file = os.path.join(os.getcwd(), 'RMSD_calc.log')
     cluster_commands = []
@@ -387,7 +387,7 @@ def run_cluster_calc(design_list, design_map_pickle, command_only=False):
                     os.path.join(outdir, 'crystal_vs_docked_irmsd.txt'), design]
             if command_only:
                 cluster_commands.append(
-                    SDUtils.write_shell_script(subprocess.list2cmdline(_cmd), name='rmsd_clustering', out_path=outdir))
+                    utils.write_shell_script(subprocess.list2cmdline(_cmd), name='rmsd_clustering', out_path=outdir))
             else:
                 p = subprocess.Popen(_cmd, stdout=log_f, stderr=log_f)
                 p.communicate()
@@ -478,11 +478,11 @@ if __name__ == '__main__':
     args = parser.parse_args()
     # Start logging output
     if args.debug:
-        logger = SDUtils.start_log(level=1)
-        SDUtils.set_logging_to_debug()
+        logger = utils.start_log(level=1)
+        utils.set_logging_to_debug()
         logger.debug('Debug mode. Produces verbose output and not written to any .log files')
     else:
-        logger = SDUtils.start_log(name=os.path.basename(__file__), propagate=True)
+        logger = utils.start_log(name=os.path.basename(__file__), propagate=True)
 
     logger.info('Starting %s with options:\n\t%s' %
                 (os.path.basename(__file__),
@@ -517,7 +517,7 @@ if __name__ == '__main__':
 
         if args.design_map:
             if args.flip:
-                chain_map = SDUtils.unpickle(args.design_map)
+                chain_map = utils.unpickle(args.design_map)
                 for design in chain_map:
                     try:
                         input_pdb = chain_map[design]['pdb2']['path']
@@ -528,7 +528,7 @@ if __name__ == '__main__':
                     # update the file name in the docking pickle
                     dock_instructions = glob(os.path.join(os.path.dirname(os.path.dirname(input_pdb)), '*_vflip_dock.pkl'))
                     try:
-                        dock_d = SDUtils.unpickle(dock_instructions[0])
+                        dock_d = utils.unpickle(dock_instructions[0])
                     except IndexError:
                         print('No %s found for design %s' % (os.path.join(os.path.dirname(input_pdb), '*_vflip_dock.pkl'),
                                                              design))
@@ -543,13 +543,13 @@ if __name__ == '__main__':
                         #     max_name = sym
                         if sym.split('_')[0] == 1:  # The higher symmetry
                             dock_d[sym] = os.path.splitext(input_pdb)[0] + '_flipped_180y'  # .pdb'
-                    SDUtils.pickle_object(dock_d, os.path.splitext(dock_instructions[0])[0], protocol=pickle_prot)
+                    utils.pickle_object(dock_d, os.path.splitext(dock_instructions[0])[0], protocol=pickle_prot)
 
                     # update the path in the chain pickle
                     chain_map[design]['pdb2']['path'] = os.path.splitext(input_pdb)[0] + '_flipped_180y.pdb'
                     p.communicate()
-                SDUtils.pickle_object(chain_map, 'asu_to_oriented_oligomer_chain_correspondance_vflip_flipped',
-                                      protocol=pickle_prot)
+                utils.pickle_object(chain_map, 'asu_to_oriented_oligomer_chain_correspondance_vflip_flipped',
+                                    protocol=pickle_prot)
                 exit('All second oligomer chains flipped')
 
             with open(args.file, 'r') as f:
@@ -573,8 +573,8 @@ if __name__ == '__main__':
                 modified_commands1 = map(subprocess.list2cmdline, zip(repeat('bash'), commands1))
                 modified_commands2 = list(map(subprocess.list2cmdline, zip(repeat('bash'), commands2)))
                 all_commands = [
-                    SDUtils.write_shell_script(cmd1, name='all_to_cluster', out_path=os.path.dirname(commands1[l]),
-                                               additional=[modified_commands2[l]])
+                    utils.write_shell_script(cmd1, name='all_to_cluster', out_path=os.path.dirname(commands1[l]),
+                                             additional=[modified_commands2[l]])
                     for l, cmd1 in enumerate(modified_commands1)]
             elif args.mode == 'all_rmsd':
                 commands1 = run_rmsd_calc(design_d_names, args.design_map, args.command_only)
@@ -584,20 +584,20 @@ if __name__ == '__main__':
                 modified_commands2 = list(map(subprocess.list2cmdline, zip(repeat('bash'), commands2)))
                 modified_commands3 = list(map(subprocess.list2cmdline, zip(repeat('bash'), commands3)))
                 all_commands = [
-                    SDUtils.write_shell_script(cmd1, name='rmsd_to_cluster', out_path=os.path.dirname(commands1[l]),
-                                               additional=[modified_commands2[l], modified_commands3[l]])
+                    utils.write_shell_script(cmd1, name='rmsd_to_cluster', out_path=os.path.dirname(commands1[l]),
+                                             additional=[modified_commands2[l], modified_commands3[l]])
                     for l, cmd1 in enumerate(modified_commands1)]
             else:
                 exit('Invalid Input: \'-mode\' must be specified if using design_map!')
 
             if args.command_only:
                 all_command_locations = list(map(os.path.dirname, all_commands))  # TODO remove command distributer naming
-                SDUtils.write_commands(all_command_locations, name=args.mode, out_path=args.directory)
+                utils.write_commands(all_command_locations, name=args.mode, out_path=args.directory)
         else:
             design_recapitulation(args.file, args.out_path, pdb_dir=args.directory, oligomer=args.oligomer_asu)
     else:
         if args.directory or args.file:
-            file_paths, location = SDUtils.collect_designs(files=args.file, directory=args.directory)
+            file_paths, location = utils.collect_designs(files=args.file, directory=args.directory)
         else:
             exit('Specify either a file or a directory to locate the files!')
 

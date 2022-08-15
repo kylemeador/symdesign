@@ -3,7 +3,7 @@ import os
 import subprocess
 import sys
 from collections import defaultdict
-from itertools import repeat, chain as iter_chain
+from itertools import repeat
 
 from lxml import etree, html
 from requests import get, post
@@ -11,7 +11,7 @@ from requests import get, post
 from PathUtils import pisa_db
 from Pose import Model
 from Structure import Structure
-from SymDesignUtils import pickle_object, to_iterable, remove_duplicates, io_save, start_log  # logger,
+from utils import start_log, pickle_object, io_save, to_iterable, remove_duplicates
 
 # from interface_analysis.InterfaceSorting import logger
 

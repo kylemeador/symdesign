@@ -12,7 +12,7 @@ from PathUtils import program_name, data, sequence_info, structure_info
 from query.pdb import query_entity_id, query_assembly_id, parse_entities_json, parse_assembly_json, query_entry_id, \
     parse_entry_json, _is_entity_thermophilic
 from query.uniprot import query_uniprot
-from SymDesignUtils import make_path, start_log
+from utils import start_log, make_path
 # import dependencies.bmdca as bmdca
 
 logger = start_log(name=__name__)

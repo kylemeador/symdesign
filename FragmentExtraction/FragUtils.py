@@ -12,7 +12,7 @@ parent_dir = os.path.dirname(current_dir)
 sys.path.append(parent_dir)
 from Bio.PDB import PDBParser, Atom, Residue, Chain, Superimposer
 from Structure import Structure
-from SymDesignUtils import DesignError
+from utils import DesignError
 
 # Globals
 module = 'Fragment Utilities:'

@@ -2,7 +2,7 @@ import argparse
 import os
 
 from Pose import Model
-from SymDesignUtils import get_directory_file_paths, start_log
+from utils import start_log, get_directory_file_paths
 
 # globals
 logger = start_log(name=os.path.basename(__file__))
