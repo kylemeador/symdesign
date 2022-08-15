@@ -3,7 +3,7 @@ import sys
 
 from classes.SymEntry import all_entries, query_combination, query_result, query_counterpart, dimension
 from classes.SymEntry import nanohedra_symmetry_combinations
-from utils import PostProcessUtils
+from utils.nanohedra import postprocess
 from PathUtils import nano_entity_flag1, nano_entity_flag2
 from SymDesignUtils import start_log
 
@@ -297,7 +297,7 @@ def postprocess_mode(arg_list):
                 min_matched_str = arg_list[min_matched_index]
                 try:
                     min_matched = int(min_matched_str)
-                    PostProcessUtils.frag_match_count_filter(design_dir_path, min_matched, outdir)
+                    postprocess.frag_match_count_filter(design_dir_path, min_matched, outdir)
                 except ValueError:
                     logfile = open(log_filepath, "w")
                     logfile.write("ERROR: MINIMUM MATCHED FRAGMENT COUNT SPECIFIED IS NOT AN INTEGER\n")
