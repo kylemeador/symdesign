@@ -204,9 +204,8 @@ intfrag_cluster_info_dirpath = path.join(fragment_db, 'IJK_ClusteredInterfaceFra
 
 # External Program Dependencies
 # Free SASA Executable Path
-free_sasa_exe_path = path.join(dependency_dir, 'sasa', 'freesasa-2.0', 'src', 'freesasa')
-free_sasa_configuration_path = path.join(dependency_dir, 'sasa', 'freesasa-2.0.config')
-# free_sasa_exe_path = path.join(nanohedra_source, "sasa", "freesasa-2.0", "src", "freesasa")
+freesasa_exe_path = path.join(source, 'freesasa', 'src', 'freesasa')
+freesasa_config_path = path.join(dependency_dir, 'sasa', 'freesasa-2.0.config')
 
 orient_dir = path.join(dependency_dir, 'orient')
 # orient_exe = 'orient_oligomer.f'  # Non_compiled
