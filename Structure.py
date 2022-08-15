@@ -10,7 +10,7 @@ from itertools import repeat
 from logging import Logger
 from pathlib import Path
 from random import random
-from typing import IO, Sequence, Container, Literal, get_args, Callable, Any, AnyStr
+from typing import IO, Sequence, Container, Literal, get_args, Callable, Any, AnyStr, Iterable
 
 import numpy as np
 from Bio.Data.IUPACData import protein_letters, protein_letters_1to3, protein_letters_3to1_extended, \
@@ -26,7 +26,6 @@ from SequenceProfile import SequenceProfile, generate_mutations, get_equivalent_
 from SymDesignUtils import start_log, null_log, DesignError, parameterize_frag_length, digit_translate_table, unpickle,\
     remove_duplicates, ClashError, dictionary_lookup
 from classes.SymEntry import get_rot_matrices, make_rotations_degenerate
-from utils.GeneralUtils import transform_coordinate_sets
 from utils.SymmetryUtils import valid_subunit_number, cubic_point_groups, point_group_symmetry_operators, \
     rotation_range, identity_matrix, origin, flip_x_matrix, valid_symmetries
 
@@ -7294,3 +7293,124 @@ def parse_stride(stride_file, **kwargs):
 
     return ''.join(line[24:25] for line in stride_output if line[0:3] == 'ASG')
 
+
+# @njit
+def transform_coordinates(coords: np.ndarray | Iterable, rotation: np.ndarray | Iterable = None,
+                          translation: np.ndarray | Iterable | int | float = None,
+                          rotation2: np.ndarray | Iterable = None,
+                          translation2: np.ndarray | Iterable | int | float = None) -> np.ndarray:
+    """Take a set of x,y,z coordinates and transform. Transformation proceeds by matrix multiplication with the order of
+    operations as: rotation, translation, rotation2, translation2
+
+    Args:
+        coords: The coordinates to transform, can be shape (number of coordinates, 3)
+        rotation: The first rotation to apply, expected general rotation matrix shape (3, 3)
+        translation: The first translation to apply, expected shape (3)
+        rotation2: The second rotation to apply, expected general rotation matrix shape (3, 3)
+        translation2: The second translation to apply, expected shape (3)
+    Returns:
+        The transformed coordinate set with the same shape as the original
+    """
+    new_coords = coords.copy()
+
+    if rotation is not None:
+        np.matmul(new_coords, np.transpose(rotation), out=new_coords)
+
+    if translation is not None:
+        new_coords += translation  # No array allocation, sets in place
+
+    if rotation2 is not None:
+        np.matmul(new_coords, np.transpose(rotation2), out=new_coords)
+
+    if translation2 is not None:
+        new_coords += translation2
+
+    return coords
+
+
+# @njit
+def transform_coordinate_sets_with_broadcast(coord_sets: np.ndarray,
+                                             rotation: np.ndarray = None,
+                                             translation: np.ndarray | Iterable | int | float = None,
+                                             rotation2: np.ndarray = None,
+                                             translation2: np.ndarray | Iterable | int | float = None) \
+        -> np.ndarray:
+    """Take stacked sets of x,y,z coordinates and transform. Transformation proceeds by matrix multiplication with the
+    order of operations as: rotation, translation, rotation2, translation2. Non-efficient memory use
+
+    Args:
+        coord_sets: The coordinates to transform, can be shape (number of sets, number of coordinates, 3)
+        rotation: The first rotation to apply, expected general rotation matrix shape (number of sets, 3, 3)
+        translation: The first translation to apply, expected shape (number of sets, 3)
+        rotation2: The second rotation to apply, expected general rotation matrix shape (number of sets, 3, 3)
+        translation2: The second translation to apply, expected shape (number of sets, 3)
+    Returns:
+        The transformed coordinate set with the same shape as the original
+    """
+    # in general, the np.tensordot module accomplishes this coordinate set multiplication without stacking
+    # np.tensordot(a, b, axes=1)  <-- axes=1 performs the correct multiplication with a 3d (3,3,N) by 2d (3,3) matrix
+    # np.matmul solves as well due to broadcasting
+    set_shape = getattr(coord_sets, 'shape', None)
+    if set_shape is None or set_shape[0] < 1:
+        return coord_sets
+    # else:  # Create a new array for the result
+    #     new_coord_sets = coord_sets.copy()
+
+    if rotation is not None:
+        coord_sets = np.matmul(coord_sets, rotation.swapaxes(-2, -1))
+
+    if translation is not None:
+        coord_sets += translation  # No array allocation, sets in place
+
+    if rotation2 is not None:
+        coord_sets = np.matmul(coord_sets, rotation2.swapaxes(-2, -1))
+
+    if translation2 is not None:
+        coord_sets += translation2
+
+    return coord_sets
+
+
+# @njit
+def transform_coordinate_sets(coord_sets: np.ndarray,
+                              rotation: np.ndarray = None, translation: np.ndarray | Iterable | int | float = None,
+                              rotation2: np.ndarray = None, translation2: np.ndarray | Iterable | int | float = None) \
+        -> np.ndarray:
+    """Take stacked sets of x,y,z coordinates and transform. Transformation proceeds by matrix multiplication with the
+    order of operations as: rotation, translation, rotation2, translation2. If transformation uses broadcasting, for
+    efficient memory use, the returned array will be the size of the coord_sets multiplied by rotation. Additional
+    broadcasting is not allowed. If that behavior is desired, use "transform_coordinate_sets_with_broadcast()" instead
+
+    Args:
+        coord_sets: The coordinates to transform, can be shape (number of sets, number of coordinates, 3)
+        rotation: The first rotation to apply, expected general rotation matrix shape (number of sets, 3, 3)
+        translation: The first translation to apply, expected shape (number of sets, 3)
+        rotation2: The second rotation to apply, expected general rotation matrix shape (number of sets, 3, 3)
+        translation2: The second translation to apply, expected shape (number of sets, 3)
+    Returns:
+        The transformed coordinate set with the same shape as the original
+    """
+    # in general, the np.tensordot module accomplishes this coordinate set multiplication without stacking
+    # np.tensordot(a, b, axes=1)  <-- axes=1 performs the correct multiplication with a 3d (3,3,N) by 2d (3,3) matrix
+    # np.matmul solves as well due to broadcasting
+    set_shape = getattr(coord_sets, 'shape', None)
+    if set_shape is None or set_shape[0] < 1:
+        return coord_sets
+
+    if rotation is not None:
+        new_coord_sets = np.matmul(coord_sets, rotation.swapaxes(-2, -1))
+    else:  # Create a new array for the result
+        new_coord_sets = coord_sets.copy()
+
+    if translation is not None:
+        new_coord_sets += translation  # No array allocation, sets in place
+
+    if rotation2 is not None:
+        np.matmul(new_coord_sets, rotation2.swapaxes(-2, -1), out=new_coord_sets)
+        # new_coord_sets[:] = np.matmul(new_coord_sets, rotation2.swapaxes(-2, -1))
+        # new_coord_sets = np.matmul(new_coord_sets, rotation2.swapaxes(-2, -1))
+
+    if translation2 is not None:
+        new_coord_sets += translation2
+
+    return new_coord_sets
