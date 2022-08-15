@@ -64,6 +64,7 @@ residue_classificiation = ['core', 'rim', 'support']  # 'hot_spot'
 errat_1_sigma, errat_2_sigma, errat_3_sigma = 5.76, 11.52, 17.28  # these are approximate magnitude of deviation
 collapse_significance_threshold = 0.43
 variance = 0.8
+symmetry_protocol = {0: 'make_point_group', 2: 'make_layer', 3: 'make_lattice'}  # -1: 'asymmetric',
 
 
 # Todo move PDB coordinate information to Pose. Only use to handle Pose paths/options
@@ -1575,7 +1576,7 @@ class PoseDirectory:
         """
         if self.design_dimension is not None:  # symmetric, could be 0
             # self.log.debug('Design has Symmetry Entry Number: %s (Laniado & Yeates, 2020)' % str(self.sym_entry_number))
-            self.symmetry_protocol = PUtils.symmetry_protocol[self.design_dimension]
+            self.symmetry_protocol = symmetry_protocol[self.design_dimension]
             self.sym_def_file = self.sym_entry.sdf_lookup()
         else:  # asymmetric
             self.symmetry_protocol = 'asymmetric'

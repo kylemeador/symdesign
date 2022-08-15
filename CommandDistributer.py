@@ -7,11 +7,11 @@ import os
 import signal
 import subprocess
 from itertools import repeat, chain
-from typing import Any, AnyStr
+from typing import AnyStr
 
-from PathUtils import stage, sbatch_template_dir, nano, rosetta_main, rosetta_extras, dalphaball, submodule_help, \
+from PathUtils import sbatch_template_dir, nano, rosetta_main, rosetta_extras, dalphaball, submodule_help, \
     cmd_dist, program_name, interface_design, interface_metrics, optimize_designs, refine, rosetta_scripts, \
-    sym_weights, solvent_weights_sym, solvent_weights, scout, consensus
+    sym_weights, solvent_weights_sym, solvent_weights, scout, consensus, hbnet_design_profile, structure_background
 from SymDesignUtils import start_log, DesignError, collect_designs, mp_starmap, unpickle, pickle_object, \
     calculate_mp_cores
 
@@ -69,6 +69,9 @@ rosetta_variables = [('scripts', rosetta_scripts), ('sym_score_patch', sym_weigh
                      ('solvent_score_patch', solvent_weights)]
 # Those jobs having a scale of 2 utilize two threads. Therefore, two commands are selected from a supplied commands list
 # and are launched inside a python environment once the SLURM controller starts a SBATCH array job
+stage = {1: refine, 2: interface_design, 3: 'metrics', 4: 'analysis', 5: consensus,
+         6: 'rmsd_calculation', 7: 'all_to_all', 8: 'rmsd_clustering', 9: 'rmsd_to_cluster', 10: 'rmsd',
+         11: 'all_to_cluster', 12: scout, 13: hbnet_design_profile, 14: structure_background}
 process_scale = {refine: 2, interface_design: 2, stage[3]: 2, consensus: 2, nano: 2,
                  stage[6]: 1, stage[7]: 1, stage[8]: 1, stage[9]: 1, stage[10]: 1,
                  stage[11]: 1, stage[12]: 2, stage[13]: 2, optimize_designs: 2,

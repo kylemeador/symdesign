@@ -45,8 +45,6 @@ from utils.SymmetryUtils import valid_subunit_number, layer_group_cryst1_fmt_dic
 logger = start_log(name=__name__)
 index_offset = 1
 seq_res_len = 52
-config_directory = PUtils.pdb_db
-sym_op_location = PUtils.sym_op_location
 
 
 def subdirectory(name):
@@ -4176,7 +4174,7 @@ class Pose(SequenceProfile, SymmetricModel):
         else:
             entity_required, self.required_indices = set(), set()
 
-    def design_sequence(self, number: int = PUtils.number_of_trajectories,
+    def design_sequence(self, number: int = utils.Flags.nstruct,
                         protein_mpnn: bool = True, model_name: str = 'v_48_020',
                         backbone_noise: float = 0.,
                         pssm_multi: float = 0., pssm_log_odds_flag: bool = False, pssm_bias_flag: bool = False,

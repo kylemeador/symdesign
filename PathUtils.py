@@ -4,7 +4,6 @@ import subprocess
 from os import path, environ
 
 # Project strings and file names
-program_name = 'SymDesign'
 source = path.dirname(path.realpath(__file__))  # reveals master symdesign folder
 try:
     p = subprocess.Popen(['git', '--git-dir', path.join(source, '.git'), 'rev-parse', '--short', 'HEAD'],
@@ -14,6 +13,7 @@ try:
 except subprocess.CalledProcessError:
     program_version = 'unknown'
 
+program_name = 'SymDesign'
 program_exe = path.join(path.dirname(__file__), f'{program_name}.py')
 program_output = f'{program_name}Output'
 projects = 'Projects'
@@ -80,16 +80,6 @@ def search_env_for_variable(search_variable: str) -> str | None:
     return env_variable
 
 
-nstruct = 20
-stage = {1: refine, 2: interface_design, 3: 'metrics', 4: 'analysis', 5: consensus,
-         6: 'rmsd_calculation', 7: 'all_to_all', 8: 'rmsd_clustering', 9: 'rmsd_to_cluster', 10: 'rmsd',
-         11: 'all_to_cluster', 12: scout, 13: hbnet_design_profile, 14: structure_background}
-stage_f = {refine: {'path': '*_refine.pdb', 'len': 1}, interface_design: {'path': '*_design_*.pdb', 'len': nstruct},
-           stage[3]: {'path': '', 'len': None}, stage[4]: {'path': '', 'len': None},
-           consensus: {'path': '*_consensus.pdb', 'len': 1}, nano: {'path': '', 'len': None},
-           stage[6]: {'path': '', 'len': None}, stage[7]: {'path': '', 'len': None},
-           stage[8]: {'path': '', 'len': None}, stage[9]: {'path': '', 'len': None},
-           stage[10]: {'path': '', 'len': None}, stage[11]: {'path': '', 'len': None}}
 rosetta_extras = 'mpi'  # 'cxx11threadmpi' TODO make dynamic at config
 temp = 'temp.hold'
 pose_prefix = 'tx_'
@@ -251,7 +241,6 @@ sym_weights = 'ref2015_sym.wts_patch'
 solvent_weights = 'ref2015_solvent.wts_patch'
 solvent_weights_sym = 'ref2015_sym_solvent.wts_patch'
 scout_symmdef = path.join(symmetry_def_files, 'scout_symmdef_file.pl')
-symmetry_protocol = {0: 'make_point_group', 2: 'make_layer', 3: 'make_lattice'}  # -1: 'asymmetric',
 
 sym_utils_file = 'SymmetryUtils.py'
 path_to_sym_utils = path.join(path.dirname(__file__), sym_utils_file)
