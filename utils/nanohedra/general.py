@@ -5,7 +5,7 @@ from logging import Logger
 
 from classes.SymEntry import SymEntry
 from PathUtils import docked_pose_file
-from SymDesignUtils import start_log
+from utils import start_log
 
 # Globals
 logger = start_log(name=__name__)

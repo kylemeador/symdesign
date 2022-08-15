@@ -4,7 +4,7 @@ from json import loads, dumps
 
 import PathUtils as PUtils
 import PoseDirectory
-import SymDesignUtils as SDUtils
+import utils
 
 
 def merge_scores(dirs1, dirs2):
@@ -40,18 +40,18 @@ if __name__ == '__main__':
 
     # Start logging output
     if args.debug:
-        logger = SDUtils.start_log(name=os.path.basename(__file__), level=1)
-        SDUtils.set_logging_to_debug()
+        logger = utils.start_log(name=os.path.basename(__file__), level=1)
+        utils.set_logging_to_debug()
         logger.debug('Debug mode. Produces verbose output and not written to any .log files')
     else:
-        logger = SDUtils.start_log(name=os.path.basename(__file__), propagate=True)
+        logger = utils.start_log(name=os.path.basename(__file__), propagate=True)
 
     logger.info('Starting %s with options:\n%s' %
                 (os.path.basename(__file__),
                  '\n'.join([str(arg) + ':' + str(getattr(args, arg)) for arg in vars(args)])))
 
     # Grab all poses (directories) to be processed from either directory name or file
-    all_poses1, location = SDUtils.collect_designs(files=args.file, directory=args.directory)
+    all_poses1, location = utils.collect_designs(files=args.file, directory=args.directory)
     assert all_poses1 != list(), 'No %s directories found within \'%s\' input! Please ensure correct location' \
                                  % (PUtils.nano, location)
     all_design_directories1 = [PoseDirectory.PoseDirectory.from_nanohedra(design_path)
@@ -59,7 +59,7 @@ if __name__ == '__main__':
     logger.info('%d Poses found in \'%s\'' % (len(all_poses1), location))
 
     # Grab all poses (directories) to be processed from either directory name or file
-    all_poses2, location = SDUtils.collect_designs(files=args.file, directory=args.directory)
+    all_poses2, location = utils.collect_designs(files=args.file, directory=args.directory)
     assert all_poses2 != list(), 'No %s directories found within \'%s\' input! Please ensure correct location' \
                                  % (PUtils.nano, location)
     all_design_directories2 = [PoseDirectory.PoseDirectory.from_nanohedra(design_path)

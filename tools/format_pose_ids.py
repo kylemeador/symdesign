@@ -6,7 +6,7 @@ from itertools import repeat
 
 
 from PathUtils import submodule_help
-from SymDesignUtils import io_save
+from utils import io_save
 
 
 if __name__ == '__main__':

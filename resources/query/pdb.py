@@ -15,7 +15,7 @@ current_dir = os.path.dirname(os.path.abspath(__file__))
 parent_dir = os.path.dirname(current_dir)
 sys.path.append(parent_dir)
 
-from SymDesignUtils import start_log, io_save, unpickle, pickle_object, ex_path
+from utils import start_log, unpickle, pickle_object, io_save, ex_path
 from resources.query.utils import input_string, confirmation_string, bool_d, validate_input, invalid_string, header_string, \
     format_string, connection_exception_handler
 

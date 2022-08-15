@@ -11,8 +11,7 @@ import pandas as pd
 
 from PathUtils import groups, reference_name, structure_background, design_profile, hbnet_design_profile
 from resources.query.utils import input_string, validate_type, verify_choice, header_string
-from SymDesignUtils import start_log, DesignError, index_intersection, handle_errors, \
-    pretty_format_table, digit_translate_table
+from utils import handle_errors, start_log, pretty_format_table, index_intersection, digit_translate_table, DesignError
 
 # Globals
 logger = start_log(name=__name__)

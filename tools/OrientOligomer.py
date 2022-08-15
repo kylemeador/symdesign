@@ -2,7 +2,7 @@ import os
 import sys
 
 from Pose import Model
-from SymDesignUtils import get_directory_file_paths
+from utils import get_directory_file_paths
 
 
 def orient_oligomer(pdb_path, sym, out_dir=os.getcwd()):

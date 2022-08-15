@@ -1,7 +1,7 @@
 from os import path
 from argparse import ArgumentParser
 
-from SymDesignUtils import get_directory_file_paths
+from utils import get_directory_file_paths
 
 
 if __name__ == '__main__':

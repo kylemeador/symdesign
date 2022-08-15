@@ -4,7 +4,7 @@ from itertools import combinations, repeat
 from random import shuffle
 
 import FragUtils as Frag
-from SymDesignUtils import get_file_paths_recursively
+from utils import get_file_paths_recursively
 
 # Globals
 module = 'Individual Fragment All to All RMSD:'

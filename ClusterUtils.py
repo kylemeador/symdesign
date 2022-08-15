@@ -15,7 +15,7 @@ from DesignMetrics import prioritize_design_indices, nanohedra_metrics  # query_
 from PathUtils import ialign_exe_path
 from PoseDirectory import PoseDirectory
 from Structure import superposition3d, transform_coordinate_sets
-from SymDesignUtils import index_intersection, mp_map, sym, rmsd_threshold, digit_translate_table, start_log
+from utils import start_log, digit_translate_table, sym
 
 # globals
 logger = start_log(name=__name__)

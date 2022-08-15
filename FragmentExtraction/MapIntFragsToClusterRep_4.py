@@ -5,7 +5,7 @@ from itertools import repeat
 
 from Bio.PDB import PDBParser, Superimposer, PDBIO
 from FragUtils import get_biopdb_ca, add_guide_atoms
-from SymDesignUtils import get_file_paths_recursively, mp_starmap, start_log
+from utils import start_log, mp_starmap, get_file_paths_recursively
 
 # Globals
 logger = start_log(name=__name__)

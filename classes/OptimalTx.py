@@ -2,7 +2,7 @@ from math import sqrt
 
 import numpy as np
 
-from SymDesignUtils import start_log
+from utils import start_log
 
 logger = start_log(name=__name__)
 

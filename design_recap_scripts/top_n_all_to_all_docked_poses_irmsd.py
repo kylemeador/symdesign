@@ -13,7 +13,7 @@ from Bio.PDB.Atom import PDBConstructionWarning, Atom as BioPDBAtom
 
 import PoseDirectory
 import PathUtils as PUtils
-import SymDesignUtils as SDUtils
+import utils
 from Pose import Model
 from Structure import Atom
 
@@ -785,7 +785,7 @@ def all_to_all_docked_poses_irmsd_mp(design_directories, threads):
         # directory_pairs.append((str(pair[0]), str(pair[1])))
 
     # print(directory_pairs)
-    irmsds, errors = zip(*SDUtils.mp_starmap(map_align_interface_chains_km_mp, zipped_args, processes=threads))
+    irmsds, errors = zip(*utils.mp_starmap(map_align_interface_chains_km_mp, zipped_args, processes=threads))
     irmsds = list(irmsds)
     errors = list(errors)
     for i, error in enumerate(errors):
@@ -874,7 +874,7 @@ def main():
                 top_ranked_ids.append(pose_id)
 
     # retrieve all poses and filter for those ID's in consideration
-    all_poses, location = SDUtils.collect_designs(directory=docked_poses_dirpath)  # , file=args.file)
+    all_poses, location = utils.collect_designs(directory=docked_poses_dirpath)  # , file=args.file)
     assert all_poses != list(), 'No %s directories found within \'%s\'! Please ensure correct location' \
                                 % (PUtils.nano.title(), location)
     all_design_directories = [PoseDirectory.PoseDirectory.from_nanohedra(design_path)

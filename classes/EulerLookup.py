@@ -1,10 +1,9 @@
-import time
 from typing import Annotated
 
 import numpy as np
 
 from PathUtils import binary_lookup_table_path
-from SymDesignUtils import start_log
+from utils import start_log
 
 # from numba import njit
 # from numba.experimental import jitclass

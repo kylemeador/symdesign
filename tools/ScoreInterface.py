@@ -7,7 +7,7 @@ import pandas as pd
 from resources.fragment import fragment_factory
 from PathUtils import biological_interfaces
 from Pose import Pose
-from SymDesignUtils import start_log, unpickle, get_directory_file_paths, to_iterable, mp_starmap, set_logging_to_debug
+from utils import start_log, set_logging_to_debug, unpickle, to_iterable, mp_starmap, get_directory_file_paths
 from classes.EulerLookup import EulerLookup
 
 # Globals

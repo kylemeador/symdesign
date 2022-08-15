@@ -1,7 +1,4 @@
-import os
-from SymDesignUtils import pickle_object, unpickle, get_directory_file_paths
-import Bio.Seq
-
+from utils import get_directory_file_paths
 
 # first, import sequence files, by directory name
 # next import plasmid vectors by template file

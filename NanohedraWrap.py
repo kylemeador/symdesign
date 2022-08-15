@@ -6,7 +6,7 @@ from itertools import chain
 from typing import Union
 
 import PathUtils as PUtils
-from SymDesignUtils import DesignError, write_shell_script, unpickle, handle_errors
+from utils import handle_errors, unpickle, write_shell_script, DesignError
 
 
 @handle_errors(errors=(DesignError, ))

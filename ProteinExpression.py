@@ -8,16 +8,16 @@ from Bio.Data.IUPACData import protein_letters
 import PathUtils as PUtils
 # from Pose import Model
 # import Pose
+import utils
 from SequenceProfile import generate_alignment
-import SymDesignUtils as SDUtils
 from DnaChisel.dnachisel import DnaOptimizationProblem, CodonOptimize, reverse_translate, AvoidHairpins, \
     EnforceGCContent, AvoidPattern, AvoidRareCodons, UniquifyAllKmers, EnforceTranslation  # EnforceMeltingTemperature
 from resources.query.pdb import get_entity_reference_sequence, pdb_id_matching_uniprot_id
 from resources.query.utils import input_string
 
 # Globals
-logger = SDUtils.start_log(name=__name__)
-uniprot_pdb_d = SDUtils.unpickle(PUtils.uniprot_pdb_map)
+logger = utils.start_log(name=__name__)
+uniprot_pdb_d = utils.unpickle(PUtils.uniprot_pdb_map)
 with open(PUtils.affinity_tags, 'r') as f:
     expression_tags = {'_'.join(map(str.lower, row[0].split())): row[1] for row in csv.reader(f)}
 ndeI_multicistronic_sequence = \

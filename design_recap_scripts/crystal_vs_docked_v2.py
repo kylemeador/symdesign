@@ -5,10 +5,10 @@ from itertools import repeat
 
 from Bio.PDB.Atom import PDBConstructionWarning
 
+import utils
 from Pose import Model
 from top_n_all_to_all_docked_poses_irmsd import map_align_interface_chains, interface_chains_and_resnums
 import PoseDirectory
-import SymDesignUtils as SDUtils
 
 warnings.simplefilter('ignore', PDBConstructionWarning)
 
@@ -102,7 +102,7 @@ def main():
     xtal_pdb_name = xtal_pdb1_name + "_" + xtal_pdb2_name
 
     # Retrieve all directories for the docked directory output
-    all_poses, location = SDUtils.collect_designs(directory=docked_poses_dirpath)  # , file=args.file)
+    all_poses, location = utils.collect_designs(directory=docked_poses_dirpath)  # , file=args.file)
     all_design_directories = [PoseDirectory.PoseDirectory.from_nanohedra(design_path)
                               for design_path in all_poses]  # , symmetry=args.design_string)
 
@@ -112,7 +112,7 @@ def main():
     # align reference structures to docked poses and calculate interface RMSD
     zipped_args = zip(repeat(ref_pdb1), repeat(ref_pdb2), repeat(ref1_chain_id_residue_d),
                       repeat(ref2_chain_id_residue_d), all_design_directories)
-    aligned_xtal_pdbs = SDUtils.mp_starmap(reference_vs_docked_irmsd, zipped_args, processes=cores)
+    aligned_xtal_pdbs = utils.mp_starmap(reference_vs_docked_irmsd, zipped_args, processes=cores)
 
     # sort by RMSD value from lowest to highest
     aligned_xtal_pdbs_sorted = sorted(aligned_xtal_pdbs, key=lambda tup: tup[1], reverse=False)

@@ -6,7 +6,7 @@ from glob import glob
 from logging import Logger
 from typing import Any, Callable, AnyStr
 
-from SymDesignUtils import start_log
+from utils import start_log
 
 logger = start_log(name=__name__)
 # for checking out the options to read and write Rosetta runs to a relational DB such as MySQL

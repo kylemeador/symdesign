@@ -9,7 +9,7 @@ from PathUtils import sym_entry, all_scores, projects, sequence_info, data, outp
     ignore_symmetric_clashes, ignore_pose_clashes, ignore_clashes, force_flags, no_evolution_constraint, \
     no_term_constraint, consensus
 from flags import nstruct
-from SymDesignUtils import start_log, make_path
+from utils import start_log, make_path
 from classes.EulerLookup import EulerLookup
 from classes.SymEntry import SymEntry
 from resources import fragment

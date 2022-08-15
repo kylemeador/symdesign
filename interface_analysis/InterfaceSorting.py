@@ -13,7 +13,7 @@ from interface_analysis.ParsePisa import retrieve_pisa_file_path, get_complex_in
 from PathUtils import pdb_db, pisa_db, qs_bio, qs_bio_monomers_file
 from Pose import Model
 from Structure import Chain
-from SymDesignUtils import start_log, pickle_object, unpickle, get_file_paths_recursively, to_iterable, ex_path
+from utils import start_log, unpickle, pickle_object, to_iterable, get_file_paths_recursively, ex_path
 from resources import query as qPDB
 # from PDB import extract_interface
 # from Pose import retrieve_pdb_file_path

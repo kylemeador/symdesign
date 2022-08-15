@@ -4,7 +4,7 @@ import math
 import os
 import subprocess
 from collections import UserList, defaultdict
-from collections.abc import Iterable, Generator
+from collections.abc import Generator
 from copy import copy
 from itertools import repeat
 from logging import Logger
@@ -23,8 +23,8 @@ from PathUtils import free_sasa_exe_path, stride_exe_path, errat_exe_path, make_
     frag_text_file, orient_exe_path, orient_dir, reference_residues_pkl, program_name, program_version
 from resources.query.pdb import get_entity_reference_sequence, retrieve_entity_id_by_sequence, query_pdb_by
 from SequenceProfile import SequenceProfile, generate_mutations, get_equivalent_indices
-from SymDesignUtils import start_log, null_log, DesignError, parameterize_frag_length, digit_translate_table, unpickle,\
-    remove_duplicates, ClashError, dictionary_lookup
+from utils import dictionary_lookup, start_log, null_log, unpickle, digit_translate_table, remove_duplicates, \
+    DesignError, ClashError, parameterize_frag_length
 from classes.SymEntry import get_rot_matrices, make_rotations_degenerate
 from utils.SymmetryUtils import valid_subunit_number, cubic_point_groups, point_group_symmetry_operators, \
     rotation_range, identity_matrix, origin, flip_x_matrix, valid_symmetries

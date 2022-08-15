@@ -3,7 +3,7 @@ import logging
 import os
 import sys
 
-import SymDesignUtils as SDUtils
+import utils
 
 logging.getLogger().setLevel(logging.DEBUG)
 
@@ -54,5 +54,5 @@ if __name__ == '__main__':
     else:
         command, array = map_commands(args.commands)
     if not args.no_output:
-        SDUtils.pickle_object(command, args.commands + '_CommandToArray')
-        SDUtils.pickle_object(array, args.commands + '_ArrayToCommand')
+        utils.pickle_object(command, args.commands + '_CommandToArray')
+        utils.pickle_object(array, args.commands + '_ArrayToCommand')
