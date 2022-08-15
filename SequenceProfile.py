@@ -22,7 +22,7 @@ from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
 
 import CommandDistributer
-import info
+from resources import info
 import PathUtils as PUtils
 from SymDesignUtils import handle_errors, unpickle, get_base_root_paths_recursively, DesignError, start_log, pretty_format_table
 # import dependencies.bmdca as bmdca

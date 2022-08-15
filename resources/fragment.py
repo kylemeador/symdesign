@@ -10,7 +10,7 @@ from PathUtils import intfrag_cluster_rep_dirpath, intfrag_cluster_info_dirpath,
 import Pose
 from Structure import Structure
 from SymDesignUtils import dictionary_lookup, unpickle, start_log
-from info import FragmentInfo
+from resources.info import FragmentInfo
 
 # Globals
 logger = start_log(name=__name__)
