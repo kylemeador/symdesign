@@ -246,7 +246,7 @@ usage_string = f'\n      python %s.py %%s [{module_title.lower()}] [{input_title
 guide_args = ('--guide',)
 guide_kwargs = dict(action='store_true', help=f'Display the {program_name} or {program_name} Module specific guide\nEx:'
                                               f' "{program_command} --guide" or "{submodule_guide}"')
-# Todo allow SetUp.py main
+# Todo allow setup.py main
 setup_args = ('--set_up',)
 setup_kwargs = dict(action='store_true', help='Show the %(prog)s set up instructions\nDefault=%(default)s')
 
@@ -323,7 +323,7 @@ options_arguments = {
                                               help=f'The entry number of {nano.title()} docking combinations to use'),
     setup_args: setup_kwargs,
     # ('--set_up',): dict(action='store_true',
-    #                     help='Show the %(prog)s set up instructions\nDefault=%(default)s'),  # Todo allow SetUp.py main
+    #                     help='Show the %(prog)s set up instructions\nDefault=%(default)s'),  # Todo allow setup.py main
     ('--skip_logging',): dict(action='store_true',
                               help='Skip logging output to files and direct all logging to stream?'
                                    '\nDefault=%(default)s'),
