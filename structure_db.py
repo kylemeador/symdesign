@@ -14,7 +14,7 @@ from PathUtils import qs_bio, pdb_db, orient_log_file, rosetta_scripts, refine, 
     data, structure_info
 import Pose
 from Query.utils import boolean_choice
-from Structure import Structure, parse_stride
+from Structure import Structure, parse_stride, Entity
 from SymDesignUtils import unpickle, to_iterable, start_log, write_commands, starttime, make_path, write_shell_script
 from classes.SymEntry import parse_symmetry_to_sym_entry, sdf_lookup
 
@@ -185,17 +185,80 @@ class StructureDatabase(Database):
         # Todo only load the necessary structural template
         self.sources = [self.oriented_asu, self.refined, self.stride]  # self.full_models
 
+    def download_structures(self, structure_identifiers: Iterable[str], out_dir: str = os.getcwd()) -> list[Pose.Model]:
+        """Given EntryIDs/EntityIDs, retrieve/save .pdb files, then return the Model for each identifier
+
+        Args:
+            structure_identifiers: The names of all entity_ids requiring orientation
+            out_dir: The directory to write downloaded files to
+        Returns:
+            The requested Models
+        """
+        all_structures = []
+        for structure_identifier in structure_identifiers:
+            # Retrieve the proper files using PDB ID's
+            entry = structure_identifier.split('_')
+            if len(entry) == 2:
+                entry, entity = entry
+                entry_entity = structure_identifier
+                logger.debug(f'Fetching entry {entry}, entity {entity} from PDB')
+            else:
+                entry = entry_entity = structure_identifier
+                entity = None
+                logger.debug(f'Fetching entry {entry} from PDB')
+
+            # if symmetry == 'C1':
+            #     # Todo modify if monomers are removed from qs_bio
+            #     assembly = query_qs_bio(entry)
+            #     # assembly = None  # 1 is the default
+            #     asu = True
+            # else:
+            #     asu = False
+            assembly = query_qs_bio(entry)
+            # Get the specified file_path for the assembly state of interest
+            file_path = fetch_pdb_file(entry, assembly=assembly, asu=False, out_dir=out_dir)
+
+            if not file_path:
+                logger.warning(f'Couldn\'t locate the file "{file_path}", there may have been an issue '
+                               'downloading it from the PDB. Attempting to copy from job data source...')
+                # Todo
+                raise NotImplementedError("This functionality hasn't been written yet. Use the canonical_pdb1/2 "
+                                          'attribute of PoseDirectory to pull the pdb file source.')
+            # remove any PDB Database mirror specific naming from fetch_pdb_file such as pdb1ABC.ent
+            file_name = os.path.splitext(os.path.basename(file_path))[0].replace('pdb', '')
+            model = Pose.Model.from_pdb(file_path, name=file_name)
+            # entity_out_path = os.path.join(out_dir, f'{entry_entity}.pdb')
+            if entity:  # replace Structure from fetched file with the Entity Structure
+                # entry_entity will be formatted the exact same as the desired EntityID if it was provided correctly
+                entity = model.entity(entry_entity)
+                if entity:
+                    model = entity
+                else:  # We couldn't find the specified EntityID
+                    logger.warning(f'For {entry_entity}, couldn\'t locate the specified Entity "{entity}". The'
+                                   f' available Entities are {", ".join(entity.name for entity in model.entities)}')
+                    continue
+            #
+            #     # Write out the entity as parsed. since this is assembly we should get the correct state
+            #     entity_file_path = model.write_oligomer(out_path=entity_out_path)
+            # else:
+            #     # Write out file for the orient database
+            #     orient_file = model.write(out_path=entity_out_path)
+
+            all_structures.append(model)
+
+        return all_structures
+
     def orient_structures(self, structure_identifiers: Iterable[str], symmetry: str = 'C1', by_file: bool = False) -> \
-            list[Pose.Model] | list:
-        """Given entity_ids and their corresponding symmetry, retrieve .pdb files, orient and save Database files then
-        return the ASU for each
+            list[Pose.Model | Entity] | list:
+        """Given EntryIDs/EntityIDs, and their corresponding symmetry, retrieve .pdb files, orient and save files to
+        the Database, then return the symmetric Model for each
 
         Args:
             structure_identifiers: The names of all entity_ids requiring orientation
             symmetry: The symmetry to treat each passed Entity. Default assumes no symmetry
             by_file: Whether to parse the structure_identifiers as file paths. Default treats as PDB EntryID or EntityID
         Returns:
-            The symmetrized Poses, oriented in a canonical orientation
+            The symmetric Models, oriented in a canonical orientation
         """
         if not structure_identifiers:
             return []
@@ -288,7 +351,9 @@ class StructureDatabase(Database):
                     logger.debug(f'Fetching entry {entry} from PDB')
 
                 if symmetry == 'C1':
-                    assembly = None  # 1 is the default
+                    # Todo modify if monomers are removed from qs_bio
+                    assembly = query_qs_bio(entry)
+                    # assembly = None  # 1 is the default
                     asu = True
                 else:
                     asu = False
@@ -300,7 +365,7 @@ class StructureDatabase(Database):
                     logger.warning(f'Couldn\'t locate the file "{file_path}", there may have been an issue '
                                    'downloading it from the PDB. Attempting to copy from job data source...')
                     # Todo
-                    raise NotImplementedError('This functionality hasn\'t been written yet. Use the canonical_pdb1/2 '
+                    raise NotImplementedError("This functionality hasn't been written yet. Use the canonical_pdb1/2 "
                                               'attribute of PoseDirectory to pull the pdb file source.')
                 # remove any PDB Database mirror specific naming from fetch_pdb_file such as pdb1ABC.ent
                 file_name = os.path.splitext(os.path.basename(file_path))[0].replace('pdb', '')
@@ -312,7 +377,7 @@ class StructureDatabase(Database):
                         model = entity
                     else:  # we couldn't find the specified EntityID
                         logger.warning(f'For {entry_entity}, couldn\'t locate the specified Entity "{entity}". The'
-                                       f' available Entities are {", ".join(entity.name for entity in pose.entities)}')
+                                       f' available Entities are {", ".join(entity.name for entity in model.entities)}')
                         continue
 
                     entity_out_path = os.path.join(models_dir, f'{entry_entity}.pdb')
