@@ -26,12 +26,12 @@ import utils
 from utils import path as PUtils
 from utils.cluster import cluster_designs, invert_cluster_map, group_compositions, ialign, cluster_poses, pose_pair_rmsd
 from CommandDistributer import distribute, hhblits_memory_threshold
-from DesignMetrics import prioritize_design_indices, query_user_for_metrics
+from metrics import prioritize_design_indices, query_user_for_metrics
 from DnaChisel.dnachisel.DnaOptimizationProblem.NoSolutionError import NoSolutionError
 from fragdock import nanohedra_dock
 from resources.job import job_resources_factory
 from resources.fragment import fragment_factory
-from Pose import Model
+from structure.Pose import Model
 from PoseDirectory import PoseDirectory
 from ProteinExpression import find_expression_tags, find_matching_expression_tags, add_expression_tag, \
     select_tags_for_sequence, remove_expression_tags, expression_tags, optimize_protein_sequence, \
@@ -39,7 +39,7 @@ from ProteinExpression import find_expression_tags, find_matching_expression_tag
 from resources.query.pdb import retrieve_pdb_entries_by_advanced_query
 from resources.query.utils import input_string, bool_d, boolean_choice, invalid_string, \
     validate_input_return_response_value
-from SequenceProfile import generate_mutations, find_orf_offset, read_fasta_file
+from structure.sequence import generate_mutations, find_orf_offset, read_fasta_file
 from classes.EulerLookup import euler_factory
 from classes.SymEntry import SymEntry, parse_symmetry_to_sym_entry, symmetry_factory
 from utils.nanohedra.cmdline import query_mode

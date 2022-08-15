@@ -29,18 +29,18 @@ from sklearn.preprocessing import StandardScaler
 
 from CommandDistributer import reference_average_residue_weight, run_cmds, script_cmd, rosetta_flags, \
     rosetta_variables, relax_flags_cmdline
-from DesignMetrics import read_scores, interface_composition_similarity, unnecessary, necessary_metrics, rosetta_terms,\
+from metrics import read_scores, interface_composition_similarity, unnecessary, necessary_metrics, rosetta_terms,\
     columns_to_new_column, division_pairs, delta_pairs, dirty_hbond_processing, significance_columns, \
     df_permutation_test, clean_up_intermediate_columns, fragment_metric_template, \
     protocol_specific_columns, rank_dataframe_by_metric_weights, filter_df_for_index_by_value, \
     multiple_sequence_alignment_dependent_metrics, format_fragment_metrics, calculate_match_metrics, \
     process_residue_info
 from resources.job import JobResources, job_resources_factory
-from Pose import Pose, MultiModel, Models, Model
-from SequenceProfile import parse_pssm, generate_mutations_from_reference, simplify_mutation_dict, \
+from structure.Pose import Pose, MultiModel, Models, Model
+from structure.sequence import parse_pssm, generate_mutations_from_reference, simplify_mutation_dict, \
     sequence_difference, hydrophobic_collapse_index, alignment_types, MultipleSequenceAlignment, pssm_as_array, \
     position_specific_divergence
-from Structure import Structure, Entity  # , Structures
+from structure.base import Structure, Entity  # , Structures
 from utils import large_color_array, handle_errors, starttime, start_log, null_log, make_path, unpickle, pickle_object, \
     index_intersection, write_shell_script, DesignError, ClashError, SymmetryError, match_score_from_z_value, z_score, \
     all_vs_all, sym, condensed_to_square, path as PUtils

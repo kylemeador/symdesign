@@ -19,18 +19,18 @@ from sklearn.neighbors._ball_tree import BinaryTree  # this typing implementatio
 
 import flags
 from resources import wrapapi, fragment
-from DesignMetrics import calculate_match_metrics, fragment_metric_template, format_fragment_metrics
+from metrics import calculate_match_metrics, fragment_metric_template, format_fragment_metrics
 from ProteinMPNN.vanilla_proteinmpnn.helper_scripts.other_tools.make_pssm_dict import softmax
 from resources.query.pdb import retrieve_entity_id_by_sequence, query_pdb_by, get_entity_reference_sequence, \
     is_entity_thermophilic
 from resources.query.uniprot import is_uniprot_thermophilic
-from SequenceProfile import SequenceProfile, alignment_types, generate_alignment, get_equivalent_indices, \
+from structure.sequence import SequenceProfile, alignment_types, generate_alignment, get_equivalent_indices, \
     pssm_as_array, gapped_protein_letters
-from Structure import Coords, Structure, Structures, Chain, Entity, Residue, Residues, GhostFragment, \
+from structure.base import Coords, Structure, Structures, Chain, Entity, Residue, Residues, GhostFragment, \
     write_frag_match_info_file, Fragment, StructureBase, ContainsAtomsMixin, superposition3d, ContainsChainsMixin, \
     transform_coordinate_sets
-from utils import dictionary_lookup, start_log, null_log, digit_translate_table, DesignError, ClashError, SymmetryError, \
-    calculate_match, z_value_from_match_score, path as PUtils
+from utils import dictionary_lookup, start_log, null_log, digit_translate_table, DesignError, ClashError, \
+    SymmetryError, calculate_match, z_value_from_match_score, path as PUtils
 from classes.EulerLookup import EulerLookup, euler_factory
 from classes.SymEntry import get_rot_matrices, make_rotations_degenerate, SymEntry, point_group_setting_matrix_members,\
     symmetry_combination_format, parse_symmetry_to_sym_entry, symmetry_factory

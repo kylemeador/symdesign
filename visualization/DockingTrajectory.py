@@ -6,7 +6,7 @@ from itertools import chain
 from utils import path as PUtils
 import PoseDirectory
 import utils
-from Pose import Model, MultiModel
+from structure.Pose import Model, MultiModel
 
 
 def create_trajectory(design_directories, name='docking_trajectory', output_dir=os.getcwd()):

@@ -5,8 +5,8 @@ from logging import Logger
 from pathlib import Path
 from typing import Annotated, AnyStr
 
-from SequenceProfile import MultipleSequenceAlignment, parse_hhblits_pssm, read_fasta_file, write_sequence_to_fasta
-from Structure import parse_stride
+from structure.sequence import MultipleSequenceAlignment, parse_hhblits_pssm, read_fasta_file, write_sequence_to_fasta
+from structure.base import parse_stride
 from resources.database import Database, DataStore
 from utils.path import program_name, data, sequence_info, structure_info
 from query.pdb import query_entity_id, query_assembly_id, parse_entities_json, parse_assembly_json, query_entry_id, \

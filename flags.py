@@ -7,7 +7,7 @@ from typing import AnyStr
 
 from psutil import cpu_count
 
-from DesignMetrics import metric_weight_functions
+from metrics import metric_weight_functions
 from utils.path import submodule_guide, submodule_help, force_flags, fragment_dbs, biological_interfaces, \
     sym_entry, program_output, nano_entity_flag1, nano_entity_flag2, data, \
     clustered_poses, interface_design, no_evolution_constraint, no_hbnet, no_term_constraint, number_of_trajectories, \
@@ -18,7 +18,7 @@ from utils.path import submodule_guide, submodule_help, force_flags, fragment_db
 from ProteinExpression import expression_tags
 from resources.query.utils import input_string, confirmation_string, bool_d, invalid_string, header_string, \
     format_string
-from SequenceProfile import read_fasta_file
+from structure.sequence import read_fasta_file
 from utils import handle_errors, pretty_format_table, clean_comma_separated_string, format_index_string, DesignError, \
     ex_path
 

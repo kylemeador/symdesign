@@ -1,7 +1,7 @@
 import argparse
 import os
 
-from Pose import Model
+from structure.Pose import Model
 from utils import start_log, get_directory_file_paths
 
 # globals

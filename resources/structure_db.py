@@ -12,9 +12,9 @@ from CommandDistributer import rosetta_flags, relax_flags, rosetta_variables, sc
 from resources.database import Database, DataStore
 from utils.path import qs_bio, pdb_db, orient_log_file, rosetta_scripts, refine, models_to_multimodel_exe, program_name,\
     data, structure_info
-import Pose
+from structure import Pose
 from query.utils import boolean_choice
-from Structure import Structure, parse_stride, Entity
+from structure.base import Structure, parse_stride, Entity
 from utils import starttime, start_log, make_path, unpickle, to_iterable, write_shell_script, write_commands
 from classes.SymEntry import parse_symmetry_to_sym_entry, sdf_lookup
 
