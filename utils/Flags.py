@@ -11,7 +11,7 @@ from DesignMetrics import metric_weight_functions
 from PathUtils import submodule_guide, submodule_help, force_flags, fragment_dbs, biological_interfaces, \
     sym_entry, program_output, nano_entity_flag1, nano_entity_flag2, data, \
     clustered_poses, interface_design, no_evolution_constraint, no_hbnet, no_term_constraint, number_of_trajectories, \
-    nstruct, structure_background, scout, design_profile, evolutionary_profile, \
+    structure_background, scout, design_profile, evolutionary_profile, \
     fragment_profile, all_scores, analysis_file, select_sequences, program_name, nano, \
     program_command, analysis, select_poses, output_fragments, output_oligomers, protocol, current_energy_function, \
     ignore_clashes, ignore_pose_clashes, ignore_symmetric_clashes, select_designs
@@ -474,6 +474,7 @@ parser_design = dict(interface_design=dict(help='Gather poses of interest and fo
                                                 'homologous sequences and/or fragment profiles extracted from the PDB '
                                                 'or neither.'))
 # parser_design = subparsers.add_parser(interface_design, help='Gather poses of interest and format for design using sequence constraints in Rosetta. Constrain using evolutionary profiles of homologous sequences and/or fragment profiles extracted from the PDB or neither.')
+nstruct = 20
 interface_design_arguments = {
     ('-nec', f'--{no_evolution_constraint}'): dict(action='store_true',
                                                    help='Whether to skip evolutionary constraints during design'
