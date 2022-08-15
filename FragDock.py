@@ -6,7 +6,7 @@ import sys
 import time
 from collections.abc import Iterable
 from logging import Logger
-from math import floor, prod, ceil
+from math import prod, ceil
 from typing import AnyStr
 
 import numpy as np
@@ -20,9 +20,9 @@ from PathUtils import frag_text_file, master_log, frag_dir, biological_interface
 from Pose import Pose, Model
 from Structure import Structure, write_frag_match_info_file, GhostFragment, Residue
 from SymDesignUtils import rmsd_z_score, match_score_from_z_value, start_log, null_log, dictionary_lookup, \
-    calculate_match, z_value_from_match_score, set_logging_to_debug, unpickle, rmsd, format_guide_coords_as_atom
+    z_value_from_match_score, set_logging_to_debug, unpickle
 from classes.EulerLookup import EulerLookup, euler_factory
-from classes.OptimalTx import OptimalTx, OptimalTxOLD
+from classes.OptimalTx import OptimalTx
 from classes.SymEntry import SymEntry, get_rot_matrices, make_rotations_degenerate, symmetry_factory
 from classes.WeightedSeqFreq import FragMatchInfo, SeqFreqInfo
 from utils.CmdLineArgParseUtils import get_docking_parameters
