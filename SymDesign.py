@@ -6,16 +6,13 @@ SLURM computational clusters, analysis of designed poses, and sequence selection
 from __future__ import annotations
 
 import copy
-import datetime
 import os
 import shutil
 import sys
-import time
 from argparse import _SubParsersAction
 from csv import reader
 from glob import glob
 from itertools import repeat, product, combinations, chain
-from json import loads, dumps
 from subprocess import list2cmdline
 from typing import Any, AnyStr
 
@@ -28,7 +25,7 @@ from Bio.SeqRecord import SeqRecord
 import PathUtils as PUtils
 import SymDesignUtils as SDUtils
 from ClusterUtils import cluster_designs, invert_cluster_map, group_compositions, ialign, cluster_poses, pose_pair_rmsd
-from CommandDistributer import distribute, hhblits_memory_threshold, update_status
+from CommandDistributer import distribute, hhblits_memory_threshold
 from DesignMetrics import prioritize_design_indices, query_user_for_metrics
 from DnaChisel.dnachisel.DnaOptimizationProblem.NoSolutionError import NoSolutionError
 from FragDock import nanohedra_dock
@@ -41,7 +38,7 @@ from ProteinExpression import find_expression_tags, find_matching_expression_tag
     default_multicistronic_sequence
 from Query.PDB import retrieve_pdb_entries_by_advanced_query
 from Query.utils import input_string, bool_d, boolean_choice, invalid_string, validate_input_return_response_value
-from SequenceProfile import generate_mutations, find_orf_offset, write_fasta, read_fasta_file  # , pdb_to_pose_offset
+from SequenceProfile import generate_mutations, find_orf_offset, read_fasta_file
 from classes.EulerLookup import euler_factory
 from classes.SymEntry import SymEntry, parse_symmetry_to_sym_entry, symmetry_factory
 from utils.CmdLineArgParseUtils import query_mode

@@ -11,7 +11,7 @@ from SymDesignUtils import get_directory_file_paths, start_log, set_logging_to_d
 from classes.EulerLookup import euler_factory
 from classes.SymEntry import symmetry_factory
 from utils.CmdLineArgParseUtils import get_docking_parameters, query_mode, postprocess_mode
-from utils.GeneralUtils import write_docking_parameters, get_rotation_step
+from utils.GeneralUtils import write_docking_parameters
 from utils.NanohedraManualUtils import print_usage
 
 # Copyright 2020 Joshua Laniado and Todd O. Yeates.

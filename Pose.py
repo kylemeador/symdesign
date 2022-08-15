@@ -5,7 +5,7 @@ import subprocess
 import time
 from copy import copy, deepcopy
 from itertools import chain as iter_chain, combinations_with_replacement, combinations, product
-from math import sqrt, cos, sin, prod, ceil, pi
+import math
 from pathlib import Path
 from typing import Iterable, IO, Any, Sequence, AnyStr
 
@@ -1204,7 +1204,7 @@ class Model(Structure, ContainsChainsMixin):
             % '\n'.join(f'SEQRES{line_number:4d} {chain:1s}{chain_lengths[chain]:5d}  '
                         f'{sequence[seq_res_len * (line_number-1):seq_res_len * line_number]}         '
                         for chain, sequence in formated_reference_sequence.items()
-                        for line_number in range(1, 1 + ceil(chain_lengths[chain]/seq_res_len)))
+                        for line_number in range(1, 1 + math.ceil(chain_lengths[chain]/seq_res_len)))
 
     # def write(self, **kwargs) -> AnyStr | None:
     #     """Write Atoms to a file specified by out_path or with a passed file_handle
@@ -2632,15 +2632,15 @@ class SymmetricModel(Models):
         except (TypeError, ValueError):  # Unpacking didn't work
             return
 
-        degree_to_radians = pi / 180.
+        degree_to_radians = math.pi / 180.
         gamma *= degree_to_radians
 
         # unit cell volume
-        a_cos = cos(alpha*degree_to_radians)
-        b_cos = cos(beta*degree_to_radians)
-        g_cos = cos(gamma)
-        g_sin = float(sin(gamma))
-        self.uc_volume = float(a*b*c*sqrt(1 - a_cos**2 - b_cos**2 - g_cos**2 + 2*a_cos*b_cos*g_cos))
+        a_cos = math.cos(alpha * degree_to_radians)
+        b_cos = math.cos(beta * degree_to_radians)
+        g_cos = math.cos(gamma)
+        g_sin = float(math.sin(gamma))
+        self.uc_volume = float(a * b * c * math.sqrt(1 - a_cos ** 2 - b_cos ** 2 - g_cos ** 2 + 2 * a_cos * b_cos * g_cos))
 
         # deorthogonalization matrix m
         # m0 = [1./a, -g_cos / (a*g_sin),
@@ -3729,7 +3729,7 @@ class SymmetricModel(Models):
             idx = 0
             asu_indices_combinations = []
             asu_indices_index, asu_coms_index = [], []
-            com_offsets = np.zeros(sum(map(prod, combinations((len(indices) for indices in asu_indices), 2))))
+            com_offsets = np.zeros(sum(map(math.prod, combinations((len(indices) for indices in asu_indices), 2))))
             for idx1, idx2 in combinations(range(len(asu_indices)), 2):
                 # for index1 in asu_indices[idx1]:
                 for idx_com1, com1 in enumerate(all_coms[idx1]):
@@ -3804,7 +3804,7 @@ class SymmetricModel(Models):
             chain_combinations: list[tuple[Entity, Entity]] = []
             entity_combinations: list[tuple[Entity, Entity]] = []
             contact_count = \
-                np.zeros(sum(map(prod, combinations((entity.number_of_symmetry_mates for entity in entities), 2))))
+                np.zeros(sum(map(math.prod, combinations((entity.number_of_symmetry_mates for entity in entities), 2))))
             for entity1, entity2 in combinations(entities, 2):
                 for chain1 in entity1.chains:
                     chain_cb_coord_tree = BallTree(chain1.cb_coords)
