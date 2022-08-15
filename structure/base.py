@@ -4343,9 +4343,10 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
             include_hydrogen = ['--hydrogen']  # the addition of hydrogen changes results quite a bit
         else:
             include_hydrogen = []
-        p = subprocess.Popen([freesasa_exe_path, f'--format={out_format}', '--probe-radius', str(probe_radius),
-                              '-c', freesasa_config_path, '--n-threads=2'] + include_hydrogen,
-                             stdout=subprocess.PIPE, stdin=subprocess.PIPE, stderr=subprocess.PIPE)
+        cmd = [freesasa_exe_path, f'--format={out_format}', '--probe-radius', str(probe_radius),
+               '-c', freesasa_config_path, '--n-threads=2'] + include_hydrogen
+        self.log.debug(f'FreeSASA:\n{subprocess.list2cmdline(cmd)}')
+        p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stdin=subprocess.PIPE, stderr=subprocess.PIPE)
         out, err = p.communicate(input=self.return_atom_record().encode('utf-8'))
         # if err:  # usually results from Hydrogen atoms, silencing
         #     self.log.warning('\n%s' % err.decode('utf-8'))
