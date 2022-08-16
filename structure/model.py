@@ -1086,16 +1086,17 @@ class Entity(Chain, ContainsChainsMixin):
             self._is_oligomeric = True  # inherent in Entity type is a single sequence. Therefore, must be oligomeric
             number_of_residues = self.number_of_residues
             self_seq = self.sequence
+            ca_coords = self.ca_coords
             for idx, chain in enumerate(chains[1:]):  # Todo match this mechanism with the symmetric chain index
                 chain_seq = chain.sequence
                 if chain.number_of_residues == number_of_residues and chain_seq == self_seq:
                     # do an apples to apples comparison
                     # length alone is inaccurate if chain is missing first residue and self is missing it's last...
-                    _, rot, tx = superposition3d(chain.cb_coords, self.cb_coords)
+                    _, rot, tx = superposition3d(chain.ca_coords, ca_coords)
                 else:  # Do an alignment, get selective indices, then follow with superposition
                     self.log.warning(f'Chain {chain.name} and Entity {self.name} require alignment to symmetrize')
                     fixed_indices, moving_indices = get_equivalent_indices(chain_seq, self_seq)
-                    _, rot, tx = superposition3d(chain.cb_coords[fixed_indices], self.cb_coords[moving_indices])
+                    _, rot, tx = superposition3d(chain.ca_coords[fixed_indices], ca_coords[moving_indices])
                 self._chain_transforms.append(dict(rotation=rot, translation=tx))
                 # Todo when capable of asymmetric symmetrization
                 # self.chains.append(chain)
