@@ -111,7 +111,7 @@ class FragmentDatabase(FragmentInfo):
                     self.paired_frags[i_cluster_type][j_cluster_type] = {}
 
                 for file in files:
-                    ijk_frag_cluster_rep_pdb = Pose.Model.from_file(os.path.join(root, file), entities=False, log=None)
+                    ijk_frag_cluster_rep_pdb = model.Model.from_file(os.path.join(root, file), entities=False, log=None)
                     # mapped_chain_idx = file.find('mappedchain')
                     # ijk_cluster_rep_mapped_chain = file[mapped_chain_idx + 12:mapped_chain_idx + 13]
                     # must look up the partner coords later by using chain_id stored in file

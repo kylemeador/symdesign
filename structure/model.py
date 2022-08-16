@@ -30,7 +30,7 @@ from structure.sequence import SequenceProfile, alignment_types, generate_alignm
     pssm_as_array, gapped_protein_letters, generate_mutations
 from structure.base import Coords, Structure, Structures, Residue, Residues, GhostFragment, \
     write_frag_match_info_file, Fragment, StructureBase, ContainsAtomsMixin, superposition3d, \
-    transform_coordinate_sets, transformation_mapping
+    transform_coordinate_sets
 from utils import dictionary_lookup, start_log, null_log, digit_translate_table, DesignError, ClashError, \
     SymmetryError, calculate_match, z_value_from_match_score, remove_duplicates, path as PUtils
 from classes.EulerLookup import EulerLookup, euler_factory
@@ -45,6 +45,7 @@ from utils.SymmetryUtils import valid_subunit_number, layer_group_cryst1_fmt_dic
 logger = start_log(name=__name__)
 index_offset = 1
 seq_res_len = 52
+transformation_mapping: dict[str, list[float] | list[list[float]] | np.ndarray]
 
 
 def subdirectory(name):
