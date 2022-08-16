@@ -9,7 +9,7 @@ import numpy as np
 from sklearn.neighbors import BallTree
 
 from utils import start_log, set_logging_to_debug, collect_designs
-from structure.base import MonoFragment
+from structure.fragment import MonoFragment
 from resources.fragment import FragmentDatabase
 from structure.model import Model
 
