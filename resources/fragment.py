@@ -18,16 +18,12 @@ logger = start_log(name=__name__)
 
 class ClusterInfoFile:
     def __init__(self, infofile_path):
-        # self.infofile_path = infofile_path
         self.name = os.path.splitext(os.path.basename(infofile_path))[0]
         self.size = None
         self.rmsd = None
         self.representative_filename = None
         self.central_residue_pair_freqs = []
-        # self.central_residue_pair_counts = []
-        # self.load_info()
 
-    # def load_info(self):
         with open(infofile_path, 'r') as f:
             info_lines = f.readlines()
 
@@ -35,35 +31,20 @@ class ClusterInfoFile:
         for line in info_lines:
             # if line.startswith("CLUSTER NAME:"):
             #     self.name = line.split()[2]
-            if line.startswith("CLUSTER SIZE:"):
+            if line.startswith('CLUSTER SIZE:'):
                 self.size = int(line.split()[2])
-            elif line.startswith("CLUSTER RMSD:"):
+            elif line.startswith('CLUSTER RMSD:'):
                 self.rmsd = float(line.split()[2])
-            elif line.startswith("CLUSTER REPRESENTATIVE NAME:"):
+            elif line.startswith('CLUSTER REPRESENTATIVE NAME:'):
                 self.representative_filename = line.split()[3]
-            elif line.startswith("CENTRAL RESIDUE PAIR COUNT:"):
+            elif line.startswith('CENTRAL RESIDUE PAIR COUNT:'):
                 is_res_freq_line = False
             elif is_res_freq_line:
                 res_pair_type = (line.split()[0][0], line.split()[0][1])
                 res_pair_freq = float(line.split()[1])
                 self.central_residue_pair_freqs.append((res_pair_type, res_pair_freq))
-            elif line.startswith("CENTRAL RESIDUE PAIR FREQUENCY:"):
+            elif line.startswith('CENTRAL RESIDUE PAIR FREQUENCY:'):
                 is_res_freq_line = True
-
-    def get_name(self):
-        return self.name
-
-    def get_size(self):
-        return self.size
-
-    def get_rmsd(self):
-        return self.rmsd
-
-    def get_representative_filename(self):
-        return self.representative_filename
-
-    def get_central_residue_pair_freqs(self):
-        return self.central_residue_pair_freqs
 
 
 class FragmentDatabase(FragmentInfo):
