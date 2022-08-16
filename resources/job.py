@@ -11,7 +11,7 @@ from utils.path import sym_entry, all_scores, projects, sequence_info, data, out
 from flags import nstruct
 from utils import start_log, make_path
 from resources.EulerLookup import EulerLookup
-from classes.SymEntry import SymEntry
+from utils.SymEntry import SymEntry
 from resources import fragment
 from resources.wrapapi import api_database_factory
 

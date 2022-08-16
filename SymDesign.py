@@ -41,7 +41,7 @@ from resources.query.utils import input_string, bool_d, boolean_choice, invalid_
     validate_input_return_response_value
 from structure.sequence import generate_mutations, find_orf_offset, read_fasta_file
 from resources.EulerLookup import euler_factory
-from classes.SymEntry import SymEntry, parse_symmetry_to_sym_entry, symmetry_factory
+from utils.SymEntry import SymEntry, parse_symmetry_to_sym_entry, symmetry_factory
 from utils.nanohedra.cmdline import query_mode
 from flags import argparsers, parser_entire, parser_options, parser_module, parser_input, parser_guide, \
     process_design_selector_flags, parser_residue_selector, parser_output

@@ -9,7 +9,7 @@ import numpy as np
 
 from utils import dictionary_lookup, start_log, DesignError, SymmetryError, format_guide_coords_as_atom, \
     path as PUtils
-from utils.SymmetryUtils import valid_subunit_number, space_group_symmetry_operators, point_group_symmetry_operators, \
+from utils.symmetry import valid_subunit_number, space_group_symmetry_operators, point_group_symmetry_operators, \
     all_sym_entry_dict, rotation_range, setting_matrices, identity_matrix, sub_symmetries, flip_y_matrix, max_sym, \
     valid_symmetries
 

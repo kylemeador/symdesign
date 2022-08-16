@@ -45,11 +45,11 @@ from utils import large_color_array, handle_errors, starttime, start_log, null_l
     index_intersection, write_shell_script, DesignError, ClashError, SymmetryError, match_score_from_z_value, z_score, \
     all_vs_all, sym, condensed_to_square, path as PUtils
 from resources.EulerLookup import EulerLookup
-from classes.SymEntry import SymEntry, symmetry_factory
+from utils.SymEntry import SymEntry, symmetry_factory
 from resources.fragment import FragmentDatabase
 from resources.structure_db import StructureDatabase
 from utils.nanohedra.general import get_components_from_nanohedra_docking
-from utils.SymmetryUtils import identity_matrix, origin
+from utils.symmetry import identity_matrix, origin
 from resources.wrapapi import APIDatabase
 
 # Globals

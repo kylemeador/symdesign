@@ -1,8 +1,8 @@
 import os
 import sys
 
-from classes.SymEntry import all_entries, query_combination, query_result, query_counterpart, dimension
-from classes.SymEntry import nanohedra_symmetry_combinations
+from utils.SymEntry import all_entries, query_combination, query_result, query_counterpart, dimension
+from utils.SymEntry import nanohedra_symmetry_combinations
 from utils.nanohedra import postprocess
 from utils.path import nano_entity_flag1, nano_entity_flag2
 from utils import start_log
