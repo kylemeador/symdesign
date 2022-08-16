@@ -21,10 +21,9 @@ from Bio.Data.IUPACData import protein_letters, extended_protein_letters, protei
 from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
 
-import CommandDistributer
 from resources import info
-from utils import handle_errors, start_log, pretty_format_table, unpickle, get_base_root_paths_recursively, DesignError, \
-    path as PUtils
+from utils import handle_errors, start_log, pretty_format_table, unpickle, get_base_root_paths_recursively, \
+    DesignError, CommandDistributer, path as PUtils
 # import dependencies.bmdca as bmdca
 
 # Globals

@@ -25,7 +25,7 @@ from Bio.SeqRecord import SeqRecord
 import utils
 from utils import path as PUtils
 from utils.cluster import cluster_designs, invert_cluster_map, group_compositions, ialign, cluster_poses, pose_pair_rmsd
-from CommandDistributer import distribute, hhblits_memory_threshold
+from utils.CommandDistributer import distribute, hhblits_memory_threshold
 from metrics import prioritize_design_indices, query_user_for_metrics
 from DnaChisel.dnachisel.DnaOptimizationProblem.NoSolutionError import NoSolutionError
 from fragdock import nanohedra_dock
