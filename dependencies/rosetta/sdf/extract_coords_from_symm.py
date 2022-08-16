@@ -2,7 +2,7 @@ import sys
 
 import numpy as np
 
-from structure.Pose import Model
+from structure.model import Model
 from structure.base import superposition3d
 
 

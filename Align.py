@@ -2,7 +2,7 @@ import argparse
 import math
 import os
 
-from structure.Pose import Model
+from structure.model import Model
 from structure.base import superposition3d
 
 

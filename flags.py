@@ -537,7 +537,7 @@ optimize_designs_arguments = {
 #                                 help='Additional variables that should be populated in the script.\nProvide a list of '
 #                                      'such variables with the format "variable1=value variable2=value". Where variable1'
 #                                      ' is a RosettaScripts %%%%variable1%%%% and value is a known value. For variables '
-#                                      'that must be calculated on the fly for each design, please modify the Pose.py '
+#                                      'that must be calculated on the fly for each design, please modify structure.model.py '
 #                                      'class to produce a method that can generate an attribute with the specified name')
 #     # Todo ' either a known value or an attribute available to the Pose object'
 # }

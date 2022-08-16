@@ -1,7 +1,7 @@
 import os
 import sys
 
-from structure.Pose import Model
+from structure.model import Model
 from utils import get_directory_file_paths
 
 

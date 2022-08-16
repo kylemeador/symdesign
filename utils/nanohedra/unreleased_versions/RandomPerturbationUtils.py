@@ -9,7 +9,7 @@ import re
 
 import numpy as np
 
-from structure.Pose import Model
+from structure.model import Model
 from classes.SymEntry import get_optimal_external_tx_vector, get_uc_dimensions
 from utils.SymmetryUtils import generate_cryst1_record
 

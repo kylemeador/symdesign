@@ -2,7 +2,7 @@ import argparse
 import os
 from typing import Union
 
-from structure.Pose import Model
+from structure.model import Model
 from utils import start_log, set_logging_to_debug, to_iterable
 from utils.SymmetryUtils import cubic_point_groups, point_group_symmetry_operators
 

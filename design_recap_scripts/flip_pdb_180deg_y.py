@@ -1,7 +1,7 @@
 import os
 import sys
 
-from structure.Pose import Model
+from structure.model import Model
 from utils.SymmetryUtils import flip_y_matrix
 
 pdb_filepath = sys.argv[1]

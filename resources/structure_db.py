@@ -12,7 +12,7 @@ from CommandDistributer import rosetta_flags, relax_flags, rosetta_variables, sc
 from resources.database import Database, DataStore
 from utils.path import qs_bio, pdb_db, orient_log_file, rosetta_scripts, refine, models_to_multimodel_exe, program_name,\
     data, structure_info
-from structure import Pose
+from structure import model
 from query.utils import boolean_choice
 from structure.base import Structure, parse_stride, Entity
 from utils import starttime, start_log, make_path, unpickle, to_iterable, write_shell_script, write_commands
@@ -132,7 +132,7 @@ def orient_structure_files(files: Iterable[AnyStr], log: Logger = logger, symmet
         model_name = os.path.splitext(os.path.basename(file))[0]
         oriented_file_path = os.path.join(out_dir, f'{model_name}.pdb')
         if not os.path.exists(oriented_file_path):
-            model = Pose.Model.from_file(file, log=log)  # must load entities to solve multi-component orient problem
+            model = model.Model.from_file(file, log=log)  # must load entities to solve multi-component orient problem
             try:
                 model.orient(symmetry=symmetry)
             except (ValueError, RuntimeError) as error:
@@ -172,13 +172,13 @@ class StructureDatabase(Database):
         super().__init__(**kwargs)  # Database
 
         self.full_models = DataStore(location=full_models, extension='_ensemble.pdb', sql=self.sql, log=self.log,
-                                     load_file=Pose.Model.from_pdb)
+                                     load_file=model.Model.from_pdb)
         self.oriented = DataStore(location=oriented, extension='.pdb', sql=self.sql, log=self.log,
-                                  load_file=Pose.Model.from_pdb)
+                                  load_file=model.Model.from_pdb)
         self.oriented_asu = DataStore(location=oriented_asu, extension='.pdb', sql=self.sql, log=self.log,
                                       load_file=Pose.Model.from_pdb)
         self.refined = DataStore(location=refined, extension='.pdb', sql=self.sql, log=self.log,
-                                 load_file=Pose.Model.from_pdb)
+                                 load_file=model.Model.from_pdb)
         self.stride = DataStore(location=stride, extension='.stride', sql=self.sql, log=self.log,
                                 load_file=parse_stride)
 
@@ -226,7 +226,7 @@ class StructureDatabase(Database):
                                           'attribute of PoseDirectory to pull the pdb file source.')
             # remove any PDB Database mirror specific naming from fetch_pdb_file such as pdb1ABC.ent
             file_name = os.path.splitext(os.path.basename(file_path))[0].replace('pdb', '')
-            model = Pose.Model.from_pdb(file_path, name=file_name)
+            model = model.Model.from_pdb(file_path, name=file_name)
             # entity_out_path = os.path.join(out_dir, f'{entry_entity}.pdb')
             if entity:  # replace Structure from fetched file with the Entity Structure
                 # entry_entity will be formatted the exact same as the desired EntityID if it was provided correctly
@@ -249,7 +249,7 @@ class StructureDatabase(Database):
         return all_structures
 
     def orient_structures(self, structure_identifiers: Iterable[str], symmetry: str = 'C1', by_file: bool = False) -> \
-            list[Pose.Model | Entity] | list:
+            list[model.Model | Entity] | list:
         """Given EntryIDs/EntityIDs, and their corresponding symmetry, retrieve .pdb files, orient and save files to
         the Database, then return the symmetric Model for each
 
@@ -319,14 +319,14 @@ class StructureDatabase(Database):
             # First, check if the structure_identifier ASU has been processed. This happens when files are passed
             if structure_identifier in orient_asu_names:  # orient_asu file exists, stride should as well. Just load asu
                 orient_asu_file = self.oriented_asu.retrieve_file(name=structure_identifier)
-                pose = Pose.Pose.from_file(orient_asu_file, name=structure_identifier, sym_entry=sym_entry)
+                pose = model.Pose.from_file(orient_asu_file, name=structure_identifier, sym_entry=sym_entry)
                 # Get the full assembly and set the symmetry as it has none
                 model = pose.assembly
                 model.name = structure_identifier
                 model.file_path = pose.file_path
             elif structure_identifier in orient_names:  # orient file exists, load asu, save and create stride
                 orient_file = self.oriented.retrieve_file(name=structure_identifier)
-                pose = Pose.Pose.from_file(orient_file, name=structure_identifier, sym_entry=sym_entry)
+                pose = model.Pose.from_file(orient_file, name=structure_identifier, sym_entry=sym_entry)
                 # Write out the Pose ASU
                 pose.file_path = pose.write(out_path=self.oriented_asu.path_to(name=structure_identifier))
                 # save Stride results

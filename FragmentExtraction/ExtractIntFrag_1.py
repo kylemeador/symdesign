@@ -2,7 +2,7 @@ from itertools import repeat
 import os
 import sys
 
-from structure.Pose import Model
+from structure.model import Model
 from structure.base import Structure
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
