@@ -1,5 +1,4 @@
-"""For wrapping the distribution of Nanohedra jobs to Cassini Cluster
-"""
+"""For wrapping the distribution of Nanohedra jobs to Cassini Cluster"""
 import os
 import subprocess
 from itertools import chain
