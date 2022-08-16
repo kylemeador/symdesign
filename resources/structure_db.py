@@ -14,7 +14,7 @@ from utils.path import qs_bio, pdb_db, orient_log_file, rosetta_scripts, refine,
     data, structure_info
 from structure import model
 from query.utils import boolean_choice
-from structure.base import Structure, parse_stride, Entity
+from structure.base import Structure, parse_stride
 from utils import starttime, start_log, make_path, unpickle, to_iterable, write_shell_script, write_commands
 from classes.SymEntry import parse_symmetry_to_sym_entry, sdf_lookup
 
@@ -176,7 +176,7 @@ class StructureDatabase(Database):
         self.oriented = DataStore(location=oriented, extension='.pdb', sql=self.sql, log=self.log,
                                   load_file=model.Model.from_pdb)
         self.oriented_asu = DataStore(location=oriented_asu, extension='.pdb', sql=self.sql, log=self.log,
-                                      load_file=Pose.Model.from_pdb)
+                                      load_file=model.Model.from_pdb)
         self.refined = DataStore(location=refined, extension='.pdb', sql=self.sql, log=self.log,
                                  load_file=model.Model.from_pdb)
         self.stride = DataStore(location=stride, extension='.stride', sql=self.sql, log=self.log,
@@ -185,7 +185,8 @@ class StructureDatabase(Database):
         # Todo only load the necessary structural template
         self.sources = [self.oriented_asu, self.refined, self.stride]  # self.full_models
 
-    def download_structures(self, structure_identifiers: Iterable[str], out_dir: str = os.getcwd()) -> list[Pose.Model]:
+    def download_structures(self, structure_identifiers: Iterable[str], out_dir: str = os.getcwd()) -> \
+            list[model.Model]:
         """Given EntryIDs/EntityIDs, retrieve/save .pdb files, then return the Model for each identifier
 
         Args:
@@ -249,7 +250,7 @@ class StructureDatabase(Database):
         return all_structures
 
     def orient_structures(self, structure_identifiers: Iterable[str], symmetry: str = 'C1', by_file: bool = False) -> \
-            list[model.Model | Entity] | list:
+            list[model.Model | model.Entity] | list:
         """Given EntryIDs/EntityIDs, and their corresponding symmetry, retrieve .pdb files, orient and save files to
         the Database, then return the symmetric Model for each
 
@@ -293,7 +294,7 @@ class StructureDatabase(Database):
             if by_file:
                 structure_identifiers_ = []
                 for file in structure_identifiers:
-                    model = Pose.Model.from_file(file)
+                    model = model.Model.from_file(file)
                     # Loading the file will parse the file name and set .name
                     model.write(out_path=self.oriented.path_to(name=model.name))
                     # Write out each Entity in Model to ASU file for the oriented_asu database
@@ -369,7 +370,7 @@ class StructureDatabase(Database):
                                               'attribute of PoseDirectory to pull the pdb file source.')
                 # remove any PDB Database mirror specific naming from fetch_pdb_file such as pdb1ABC.ent
                 file_name = os.path.splitext(os.path.basename(file_path))[0].replace('pdb', '')
-                model = Pose.Model.from_pdb(file_path, name=file_name)  # , sym_entry=sym_entry
+                model = model.Model.from_pdb(file_path, name=file_name)  # , sym_entry=sym_entry
                 if entity:  # replace Structure from fetched file with the Entity Structure
                     # entry_entity will be formatted the exact same as the desired EntityID if it was provided correctly
                     entity = model.entity(entry_entity)
