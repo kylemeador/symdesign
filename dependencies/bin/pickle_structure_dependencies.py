@@ -6,8 +6,9 @@ from utils import timestamp, pickle_object
 
 try:
     from structure import base
-except Exception:  # If something goes wrong, we should remake this too
+except Exception as error:  # If something goes wrong, we should remake this too
     # Create and save the new reference_residues_pkl from scratch
+    # Todo if this never catches then these aren't updated
     ref_aa = base.Structure.from_file(reference_aa_file)
     move(reference_residues_pkl, f'{reference_residues_pkl}.bak')
     pickle_object(ref_aa.residues, name=reference_residues_pkl, out_path='')
