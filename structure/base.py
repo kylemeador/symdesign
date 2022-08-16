@@ -1085,8 +1085,14 @@ class ContainsAtomsMixin(StructureBase):
         {'_backbone_and_cb_indices', '_backbone_indices', '_ca_indices', '_cb_indices', '_heavy_indices',
          '_side_chain_indices'}
 
-    def __init__(self, **kwargs):
+    def __init__(self, atoms: list[Atom] | Atoms = None, **kwargs):
         super().__init__(**kwargs)
+        if atoms is not None:
+            self._assign_atoms(atoms)
+
+    @classmethod
+    def from_atoms(cls, atoms: list[Atom] | Atoms = None, **kwargs):
+        return cls(atoms=atoms, **kwargs)
 
     @property
     def atoms(self) -> list[Atom] | None:
@@ -1199,9 +1205,8 @@ class ContainsAtomsMixin(StructureBase):
         """Return a view of the Coords from the StructureBase with side chain atom coordinates"""
         return self._coords.coords[self.side_chain_indices]
 
-    def _assign_atoms(self, atoms: Atoms | list[Atom], atoms_only: bool = True,
-                      **kwargs):  # same function in Residue
-        """Assign Atom instances to the Structure, create Atoms object, and create Residue instances/Residues
+    def _assign_atoms(self, atoms: Atoms | list[Atom], atoms_only: bool = True, **kwargs):
+        """Assign Atom instances to the Structure, create Atoms object
 
         Args:
             atoms: The Atom instances to assign to the Structure
@@ -1210,8 +1215,8 @@ class ContainsAtomsMixin(StructureBase):
                 When False, atoms won't become dependents of this instance until specifically called using
                 Atoms.set_attributes(_parent=self)
         Keyword Args:
-            coords=None (numpy.ndarray): The coordinates to assign to the Structure.
-                Optional, will use Residues.coords if not specified
+            coords: (numpy.ndarray) = None - The coordinates to assign to the Structure.
+                Optional, will use a .coords attribute from Atoms container if not specified
         Sets:
             self._atom_indices (list[int])
 
@@ -1331,6 +1336,36 @@ class ContainsAtomsMixin(StructureBase):
                 outfile.write(_header)
                 outfile.write(f'{self.return_atom_record(**kwargs)}\n')
             return out_path
+
+    def get_atoms(self, numbers: Container = None, pdb: bool = False, **kwargs) -> list[Atom]:
+        """Retrieve Atom objects in Structure. Returns all by default. If a list of numbers is provided, the selected
+        Atom numbers are returned
+
+        Args:
+            numbers: The Atom numbers of interest
+            pdb: Whether to search for numbers as they were parsed
+        Returns:
+            The requested Atom objects
+        """
+        if numbers is not None:
+            if isinstance(numbers, Container):
+                number_source = 'number_pdb' if pdb else 'number'
+                return [atom for atom in self.atoms if getattr(atom, number_source) in numbers]
+            else:
+                self.log.error(f'The passed numbers type "{type(numbers).__name__}" must be a Container. Returning'
+                               f' all Atom instances instead')
+        return self.atoms
+
+    def set_atoms_attributes(self, **kwargs):
+        """Set attributes specified by key, value pairs for Atoms in the Structure
+
+        Keyword Args:
+            numbers: (Container[int]) = None - The Atom numbers of interest
+            pdb: (bool) = False - Whether to search for numbers as they were parsed (if True)
+        """
+        for atom in self.get_atoms(**kwargs):
+            for kwarg, value in kwargs.items():
+                setattr(atom, kwarg, value)
 
 
 class GhostFragment:
@@ -2187,7 +2222,7 @@ class Residue(ResidueFragment, ContainsAtomsMixin):
         try:
             return self._coords.coords[self._atom_indices[self._ca_index]]
         except AttributeError:
-            return None
+            return None  # np.ndarray([])
 
     @property
     def ca_atom_index(self) -> int | None:
@@ -2876,6 +2911,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
     _coords_indexed_residue_atoms: np.ndarray  # list[int]
     _residues: Residues | None
     _residue_indices: list[int] | None
+    _sequence: str
     biomt: list
     biomt_header: str
     file_path: AnyStr | None
@@ -2893,7 +2929,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
                  **kwargs):
         # kwargs passed to StructureBase
         #          parent: StructureBase = None, log: Log | Logger | bool = True, coords: list[list[float]] = None
-        super().__init__(**kwargs)
+        super().__init__(atoms=atoms, **kwargs)
         # self._atoms = None
         # self._atom_indices = None
         # self._coords = None
@@ -2933,8 +2969,8 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         # we are setting up a parent (independent) Structure
         elif residues:  # is not None  # assume the passed residues aren't bound to an existing Structure
             self._assign_residues(residues, atoms=atoms)
-        elif atoms:  # is not None
-            self._assign_atoms(atoms)
+        elif self.atoms:  # assume ContainsAtomsMixin initialized .atoms, continue making Residues
+            # self._assign_atoms(atoms)
             self._create_residues()
             self._set_coords_indexed()
         else:  # set up an empty Structure or let subclass handle population
@@ -2963,11 +2999,6 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         """Create a new Model from a .cif formatted file"""
         raise NotImplementedError(mmcif_error)
         return cls(file_path=file, **read_mmcif_file(file, **kwargs))
-
-    @classmethod
-    def from_atoms(cls, atoms: list[Atom] | Atoms = None, coords: Coords | np.ndarray = None, **kwargs):
-        assert coords, 'Can\'t initialize Structure with Atom objects when no Coords object is passed!'
-        return cls(atoms=atoms, coords=coords, **kwargs)
 
     @classmethod
     def from_residues(cls, residues: list[Residue] | Residues = None, **kwargs):
@@ -3044,67 +3075,6 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
     def structure_sequence(self, sequence: str):
         self._sequence = sequence
 
-    # @property
-    # def coords(self) -> np.ndarray:
-    #     """Return the atomic coordinates for the Atoms in the Structure"""
-    #     return self._coords.coords[self._atom_indices]
-
-    # @coords.setter
-    # def coords(self, coords: Coords | np.ndarray | list[list[float]]):
-    #     """Replace the Structure, Atom, and Residue coordinates with specified Coords Object or numpy.ndarray"""
-    #     try:
-    #         coords.coords
-    #     except AttributeError:  # not yet a Coords object, so create one
-    #         coords = Coords(coords)
-    #     self._coords = coords
-    #
-    #     if self._coords.coords.shape[0] != 0:
-    #         assert len(self.atoms) <= len(self.coords), \
-    #             f'{self.name}: ERROR number of Atoms ({len(self.atoms)}) > number of Coords ({len(self.coords)})!'
-
-    # def set_coords(self, coords: Coords | np.ndarray | list[list[float]] = None):  # Todo Depreciate
-    #     """Set the coordinates for the Structure as a Coord object. Additionally, updates all member Residues with the
-    #     Coords object and maps the atom/coordinate index to each Residue, residue atom index pair.
-    #
-    #     Only use set_coords once per Structure object creation otherwise Structures with multiple containers will be
-    #     corrupted
-    #
-    #     Args:
-    #         coords: The coordinates to set for the structure
-    #     """
-    #     # self.coords = coords
-    #     try:
-    #         coords = coords.coords  # if Coords object, extract array
-    #     except AttributeError:  # not yet a Coords object, either a np.ndarray or a array like list
-    #         pass
-    #     self._coords.set(coords)
-    #     # self.set_residues_attributes(coords=self._coords)
-    #     # self._residues.set_attributes(coords=self._coords)
-    #
-    #     # index the coordinates to the Residue they belong to and their associated atom_index
-    #     residues_atom_idx = [(residue, res_atom_idx) for residue in self.residues for res_atom_idx in residue.range]
-    #     self.coords_indexed_residues, self.coords_indexed_residue_atoms = zip(*residues_atom_idx)
-    #     # # for every Residue in the Structure set the Residue instance indexed, Atom indices
-    #     # range_idx = prior_range_idx = 0
-    #     # residue_indexed_ranges = []
-    #     # for residue in self.residues:
-    #     #     range_idx += residue.number_of_atoms
-    #     #     residue_indexed_ranges.append(list(range(prior_range_idx, range_idx)))
-    #     #     prior_range_idx = range_idx
-    #     # self.residue_indexed_atom_indices = residue_indexed_ranges
-
-    # @property
-    # def atom_indices(self) -> list[int] | None:
-    #     """The indices which belong to the Structure Atoms/Coords container"""
-    #     try:
-    #         return self._atom_indices
-    #     except AttributeError:
-    #         return
-
-    # @atom_indices.setter
-    # def atom_indices(self, indices: list[int]):
-    #     self._atom_indices = indices
-
     def _start_indices(self, at: int = 0, dtype: atom_or_residue = None):
         """Modify Structure container indices by a set integer amount
 
@@ -3160,7 +3130,6 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
             self._atom_indices = list(range(self.number_of_atoms))
         else:
             raise ValueError(f'{self.name}: Must include start_at when re-indexing atoms from a child structure!')
-
 
     @property
     def residue_indices(self) -> list[int] | None:
@@ -3390,16 +3359,6 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         """Access the number of Residues in the Structure"""
         return len(self._residue_indices)
 
-    @property
-    def ca_coords(self) -> np.ndarray:  # NOT in Residue, ca_coord
-        """Return a view of the Coords from the Structure with CA atom coordinates"""
-        return self._coords.coords[self.ca_indices]
-
-    @property
-    def cb_coords(self) -> np.ndarray:  # NOT in Residue, cb_coord
-        """Return a view of the Coords from the Structure with CB atom coordinates"""
-        return self._coords.coords[self.cb_indices]
-
     def get_coords_subset(self, res_start: int, res_end: int, ca: bool = True) -> np.ndarray:
         """Return a view of a subset of the Coords from the Structure specified by a range of Residue numbers"""
         out_coords = []
@@ -3419,23 +3378,12 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
                 for kwarg, value in kwargs.items():
                     setattr(structure, kwarg, value)
 
-    def set_atoms_attributes(self, **kwargs):
-        """Set attributes specified by key, value pairs for Atoms in the Structure
-
-        Keyword Args:
-            numbers=None (Container[int]): The Atom numbers of interest
-            pdb=False (bool): Whether to search for numbers as they were parsed (True)
-        """
-        for atom in self.get_atoms(**kwargs):
-            for kwarg, value in kwargs.items():
-                setattr(atom, kwarg, value)
-
     def set_residues_attributes(self, **kwargs):
         """Set attributes specified by key, value pairs for Residues in the Structure
 
         Keyword Args:
-            numbers=None (Container[int]): The Residue numbers of interest
-            pdb=False (bool): Whether to search for numbers as they were parsed (True)
+            numbers: (Container[int]) = None - The Atom numbers of interest
+            pdb: (bool) = False - Whether to search for numbers as they were parsed (if True)
         """
         for residue in self.get_residues(**kwargs):
             for kwarg, value in kwargs.items():
@@ -3447,13 +3395,6 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
     #     for idx, residue in enumerate(self.residues):
     #         for key, value in kwargs.items():
     #             setattr(residue, key, value[idx])
-
-    # @staticmethod
-    # def set_structure_attributes(structure, **kwargs):
-    #     """Set structure attributes specified by key, value pairs for all object instances in the structure iterator"""
-    #     for obj in structure:
-    #         for kwarg, value in kwargs.items():
-    #             setattr(obj, kwarg, value)
 
     def get_residue_atom_indices(self, **kwargs) -> list[int]:
         """Retrieve Atom indices for Residues in the Structure. Returns all by default. If residue numbers are provided
@@ -3638,7 +3579,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         self.log.debug(f'{self.name} was formatted in Pose numbering (residues now 1 to {self.number_of_residues})')
 
     def renumber_residues(self, at: int = 1):
-        """Renumber Residue objects sequentially starting with at
+        """Renumber Residue objects sequentially starting with "at"
 
         Args:
             at: The number to start renumbering at
@@ -3664,35 +3605,6 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
                 self.log.error(f'The passed numbers type "{type(numbers).__name__}" must be a Container. Returning'
                                f' all Residue instances instead')
         return self.residues
-
-    def get_atoms(self, numbers: Container = None, pdb: bool = False, **kwargs) -> list[Atom]:
-        """Retrieve Atom objects in Structure. Returns all by default. If a list of numbers is provided, the selected
-        Atom numbers are returned
-
-        Args:
-            numbers: The Atom numbers of interest
-            pdb: Whether to search for numbers as they were parsed
-        Returns:
-            The requested Atom objects
-        """
-        if numbers is not None:
-            if isinstance(numbers, Container):
-                number_source = 'number_pdb' if pdb else 'number'
-                return [atom for atom in self.atoms if getattr(atom, number_source) in numbers]
-            else:
-                self.log.error(f'The passed numbers type "{type(numbers).__name__}" must be a Container. Returning'
-                               f' all Atom instances instead')
-        return self.atoms
-
-    # def set_residues(self, residues: list[Residue] | Residues):  # UNUSED
-    #     """Set the Structure .residues, ._atom_indices, and .atoms"""
-    #     self.residues = residues
-    #     self._atom_indices = [idx for residue in self.residues for idx in residue.atom_indices]
-    #     self.atoms = self.residues[0]._atoms
-
-    # update_structure():
-    #  self._offset_indices() -> self.coords = np.append(self.coords, [atom.coords for atom in atoms]) ->
-    #  self.set_atom_coordinates(self.coords) -> self._create_residues() -> self.set_length()
 
     def _create_residues(self):
         """For the Structure, create Residue instances/Residues object. Doesn't allow for alternative atom locations
