@@ -491,19 +491,19 @@ def write_shell_script(command: str, name: str = 'script', out_path: Union[str, 
     """
     if status_wrap:
         modifier = '&&'
-        check = subprocess.list2cmdline(['python', os.path.join(PUtils.source, '../CommandDistributer.py'), '--stage',
-                                         name, 'status', '--info', status_wrap, '--check', modifier, '\n'])
-        _set = subprocess.list2cmdline(['python', os.path.join(PUtils.source, '../CommandDistributer.py'), '--stage', name,
-                                       'status', '--info', status_wrap, '--set'])
+        check = subprocess.list2cmdline(['python', os.path.join(PUtils.utils_dir, 'CommandDistributer.py'),
+                                         '--stage', name, 'status', '--info', status_wrap, '--check', modifier, '\n'])
+        _set = subprocess.list2cmdline(['python', os.path.join(PUtils.utils_dir, 'CommandDistributer.py'),
+                                        '--stage', name, 'status', '--info', status_wrap, '--set'])
     else:
         check, _set, modifier = '', '', ''
 
-    file_name = os.path.join(out_path, name if name.endswith('.sh') else '%s.sh' % name)
+    file_name = os.path.join(out_path, name if name.endswith('.sh') else f'{name}.sh')
     with open(file_name, 'w') as f:
-        f.write('#!/bin/%s\n\n%s%s %s\n\n' % (shell, check, command, modifier))
+        f.write(f'#!/bin/{shell}\n\n{check}{command} {modifier}\n\n')
         if additional:
-            f.write('%s\n\n' % ('\n\n'.join('%s %s' % (x, modifier) for x in additional)))
-        f.write('%s\n' % _set)
+            f.write('%s\n\n' % ('\n\n'.join(f'{x} {modifier}' for x in additional)))
+        f.write(f'{_set}\n')
 
     return file_name
 

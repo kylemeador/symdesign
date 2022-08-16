@@ -4,7 +4,8 @@ import subprocess
 from os import path, environ
 
 # Project strings and file names
-source = path.dirname(path.dirname(path.realpath(__file__)))  # reveals master symdesign folder
+utils_dir = path.dirname(path.realpath(__file__))  # reveals utils subdirectory
+source = path.dirname(utils_dir)  # reveals master symdesign directory
 try:
     p = subprocess.Popen(['git', '--git-dir', path.join(source, '.git'), 'rev-parse', '--short', 'HEAD'],
                          stdout=subprocess.PIPE)
