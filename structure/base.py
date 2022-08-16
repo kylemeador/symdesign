@@ -514,14 +514,6 @@ class Coords:
         return other
 
 
-# null_coords = Coords()
-# parent Structure controls these attributes
-parent_variable = '_StructureBase__parent'
-new_parent_attributes = ('_coords', '_log', '_atoms', '_residues')
-parent_attributes = (parent_variable,) + new_parent_attributes
-"""Holds all the attributes which the parent StructureBase controls"""
-
-
 class Symmetry:
     # _has_symmetry: bool | None
     symmetry: str | None
@@ -539,6 +531,13 @@ class Symmetry:
             return self.symmetry is not None
         except AttributeError:
             return False
+
+
+# parent Structure controls these attributes
+parent_variable = '_StructureBase__parent'
+new_parent_attributes = ('_coords', '_log', '_atoms', '_residues')
+parent_attributes = (parent_variable,) + new_parent_attributes
+"""Holds all the attributes which the parent StructureBase controls"""
 
 
 class StructureBase(Symmetry):
@@ -562,8 +561,8 @@ class StructureBase(Symmetry):
     state_attributes: set[str] = set()
 
     def __init__(self, parent: StructureBase = None, log: Log | Logger | bool = True, coords: np.ndarray | Coords = None
-                 , header=None, biological_assembly=None, cryst_record=None, entity_info=None, multimodel=None,
-                 resolution=None, reference_sequence=None, sequence=None, entities=None,
+                 , biological_assembly=None, cryst_record=None, entity_info=None, file_path=None, header=None,
+                 multimodel=None, resolution=None, reference_sequence=None, sequence=None, entities=None,
                  pose_format=None, query_by_sequence=True, entity_names=None, rename_chains=None, **kwargs):
         if parent:  # initialize StructureBase from parent
             self._parent = parent
@@ -578,7 +577,7 @@ class StructureBase(Symmetry):
                 elif isinstance(log, Logger):  # logging.Logger object
                     self._log = Log(log)
                 else:
-                    raise TypeError(f'Can\'t set Log to {type(log).__name__}. Must be type logging.Logger')
+                    raise TypeError(f"Can't set Log to {type(log).__name__}. Must be type logging.Logger")
             else:  # when explicitly passed as None or False, uses the null logger
                 self._log = null_struct_log  # Log()
 
@@ -594,7 +593,7 @@ class StructureBase(Symmetry):
         try:
             super().__init__(**kwargs)
         except TypeError:
-            raise TypeError(f'The argument(s) passed to the StructureBase object were not recognized and aren\'t '
+            raise TypeError(f"The argument(s) passed to the StructureBase object were not recognized and aren't "
                             f'accepted by the object class: {", ".join(kwargs.keys())}')
 
     @property
@@ -2978,7 +2977,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
 
     @classmethod
     def from_file(cls, file: AnyStr, **kwargs):
-        """Create a new Model from a file with Atom records"""
+        """Create a new Structure from a file with Atom records"""
         if '.pdb' in file:
             return cls.from_pdb(file, **kwargs)
         elif '.cif' in file:
@@ -2991,12 +2990,12 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
 
     @classmethod
     def from_pdb(cls, file: AnyStr, **kwargs):
-        """Create a new Model from a .pdb formatted file"""
+        """Create a new Structure from a .pdb formatted file"""
         return cls(file_path=file, **read_pdb_file(file, **kwargs))
 
     @classmethod
     def from_mmcif(cls, file: AnyStr, **kwargs):
-        """Create a new Model from a .cif formatted file"""
+        """Create a new Structure from a .cif formatted file"""
         raise NotImplementedError(mmcif_error)
         return cls(file_path=file, **read_mmcif_file(file, **kwargs))
 
