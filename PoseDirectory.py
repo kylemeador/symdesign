@@ -27,7 +27,7 @@ from sklearn.decomposition import PCA
 from sklearn.neighbors import BallTree
 from sklearn.preprocessing import StandardScaler
 
-from CommandDistributer import reference_average_residue_weight, run_cmds, script_cmd, rosetta_flags, \
+from utils.CommandDistributer import reference_average_residue_weight, run_cmds, script_cmd, rosetta_flags, \
     rosetta_variables, relax_flags_cmdline
 from metrics import read_scores, interface_composition_similarity, unnecessary, necessary_metrics, rosetta_terms,\
     columns_to_new_column, division_pairs, delta_pairs, dirty_hbond_processing, significance_columns, \

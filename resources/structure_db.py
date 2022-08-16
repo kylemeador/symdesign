@@ -8,7 +8,7 @@ from logging import Logger
 from pathlib import Path
 from typing import Iterable, Annotated, AnyStr
 
-from CommandDistributer import rosetta_flags, relax_flags, rosetta_variables, script_cmd, distribute
+from utils.CommandDistributer import rosetta_flags, relax_flags, rosetta_variables, script_cmd, distribute
 from resources.database import Database, DataStore
 from utils.path import qs_bio, pdb_db, orient_log_file, rosetta_scripts, refine, models_to_multimodel_exe, program_name,\
     data, structure_info
