@@ -33,7 +33,7 @@ from resources.job import job_resources_factory
 from resources.fragment import fragment_factory
 from structure.model import Model
 from PoseDirectory import PoseDirectory
-from ProteinExpression import find_expression_tags, find_matching_expression_tags, add_expression_tag, \
+from utils.ProteinExpression import find_expression_tags, find_matching_expression_tags, add_expression_tag, \
     select_tags_for_sequence, remove_expression_tags, expression_tags, optimize_protein_sequence, \
     default_multicistronic_sequence
 from resources.query.pdb import retrieve_pdb_entries_by_advanced_query

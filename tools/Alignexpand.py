@@ -1,6 +1,6 @@
 import sys
 
-from Align import align
+from tools.Align import align
 from tools.ExpandASU import expand_asu
 
 # sys.argv = list
