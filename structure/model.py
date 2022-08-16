@@ -28,8 +28,8 @@ from resources.query.pdb import retrieve_entity_id_by_sequence, query_pdb_by, ge
 from resources.query.uniprot import is_uniprot_thermophilic
 from structure.sequence import SequenceProfile, alignment_types, generate_alignment, get_equivalent_indices, \
     pssm_as_array, gapped_protein_letters, generate_mutations
-from structure.base import Coords, Structure, Structures, Residue, Residues, StructureBase, ContainsAtomsMixin, superposition3d, \
-    transform_coordinate_sets
+from structure.base import Structure, Structures, Residue, Residues, StructureBase, ContainsAtomsMixin
+from structure.coords import Coords, superposition3d, transform_coordinate_sets
 from structure.fragment import GhostFragment, Fragment, write_frag_match_info_file
 from utils import dictionary_lookup, start_log, null_log, digit_translate_table, DesignError, ClashError, \
     SymmetryError, calculate_match, z_value_from_match_score, remove_duplicates, path as PUtils

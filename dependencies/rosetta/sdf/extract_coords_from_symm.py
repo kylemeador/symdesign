@@ -3,7 +3,7 @@ import sys
 import numpy as np
 
 from structure.model import Model
-from structure.base import superposition3d
+from structure.coords import superposition3d
 
 
 def coords_to_pdb(coords):

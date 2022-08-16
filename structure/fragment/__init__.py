@@ -7,7 +7,8 @@ from typing import IO, Sequence, AnyStr
 import numpy as np
 from sklearn.neighbors._ball_tree import BinaryTree
 
-from structure.base import Structure, transform_coordinate_sets, Residue, superposition3d
+import structure
+from structure.coords import superposition3d, transform_coordinate_sets
 from utils import dictionary_lookup
 from utils.path import frag_text_file
 from utils.symmetry import identity_matrix, origin
@@ -16,7 +17,7 @@ from utils.symmetry import identity_matrix, origin
 class GhostFragment:
     _guide_coords: np.ndarray
     """The guide coordinates according to the representative ghost fragment"""
-    _representative: Structure
+    _representative: 'structure.base.Structure'
     aligned_fragment: Fragment
     """Must support .chain, .number, and .transformation attributes"""
     fragment_db: object  # Todo typing with FragmentDatabase
@@ -105,7 +106,7 @@ class GhostFragment:
         return self.aligned_fragment.transformation
 
     @property
-    def representative(self) -> Structure:
+    def representative(self) -> 'structure.base.Structure':
         """Access the Representative GhostFragment Structure"""
         try:
             return self._representative.return_transformed_copy(*self.transformation)
@@ -312,9 +313,9 @@ class MonoFragment(Fragment):
     """Used to represent Fragment information when treated as a continuous Structure Fragment of length fragment_length
     """
     _fragment_coords: np.ndarray  # This is a property in ResidueFragment
-    central_residue: Residue
+    central_residue: 'structure.base.Residue'
 
-    def __init__(self, residues: Sequence[Residue],
+    def __init__(self, residues: Sequence['structure.base.Residue'],
                  fragment_db: object = None,
                  # fragment_db: FragmentDatabase = None,  # Todo typing with FragmentDatabase
                  **kwargs):
