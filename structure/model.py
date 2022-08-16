@@ -2342,6 +2342,7 @@ class Model(Structure, ContainsChainsMixin):
                  # multimodel: bool = False,
                  resolution: float = None,
                  # api_db: wrapapi.APIDatabase = None,
+                 # reference_sequence: list[str] = None,
                  reference_sequence: dict[str, str] = None,
                  # metadata: Model = None,
                  **kwargs):
@@ -2410,9 +2411,9 @@ class Model(Structure, ContainsChainsMixin):
             # else:
             #     raise ValueError(f'{type(self).__name__} couldn\'t be initialized as there is no specified Structure type')
 
-            if reference_sequence:  # Was parsed from file
-                for idx, chain in enumerate(self.chains):  # self.chains is viable at this point
-                    chain._reference_sequence = reference_sequence[idx]
+            if reference_sequence is not None:  # Was parsed from file
+                for original_chain, chain in zip(self.original_chain_ids, self.chains):  # self.chains is viable at this point
+                    chain._reference_sequence = reference_sequence[original_chain]
 
             # if metadata and isinstance(metadata, PDB):
             #     self.copy_metadata(metadata)

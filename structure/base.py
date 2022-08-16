@@ -390,8 +390,8 @@ def read_pdb_file(file: AnyStr, pdb_lines: list[str] = None, separate_coords: bo
         info['reference_sequence'] = reference_sequence[chain]  # Used when parse_seqres returns dict[str, str]
         info['dbref'] = dbref[chain]
 
-    # Convert the incrementing reference sequence to a list of the sequences
-    reference_sequence = list(reference_sequence.values())
+    # # Convert the incrementing reference sequence to a list of the sequences
+    # reference_sequence = list(reference_sequence.values())
 
     parsed_info = \
         dict(biological_assembly=assembly,
