@@ -21,7 +21,7 @@ from structure.model import Pose, Model
 from structure.base import Structure, write_frag_match_info_file, GhostFragment, Residue, transform_coordinate_sets
 from utils import dictionary_lookup, start_log, null_log, set_logging_to_debug, unpickle, rmsd_z_score, \
     z_value_from_match_score, match_score_from_z_value
-from classes.EulerLookup import EulerLookup, euler_factory
+from resources.EulerLookup import EulerLookup, euler_factory
 from classes.OptimalTx import OptimalTx
 from classes.SymEntry import SymEntry, get_rot_matrices, make_rotations_degenerate, symmetry_factory
 from utils.nanohedra.WeightedSeqFreq import FragMatchInfo, SeqFreqInfo

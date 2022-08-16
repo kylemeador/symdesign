@@ -44,7 +44,7 @@ from structure.base import Structure  # , Structures
 from utils import large_color_array, handle_errors, starttime, start_log, null_log, make_path, unpickle, pickle_object, \
     index_intersection, write_shell_script, DesignError, ClashError, SymmetryError, match_score_from_z_value, z_score, \
     all_vs_all, sym, condensed_to_square, path as PUtils
-from classes.EulerLookup import EulerLookup
+from resources.EulerLookup import EulerLookup
 from classes.SymEntry import SymEntry, symmetry_factory
 from resources.fragment import FragmentDatabase
 from resources.structure_db import StructureDatabase
