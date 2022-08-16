@@ -9,7 +9,7 @@ from lxml import etree, html
 from requests import get, post
 
 from utils.path import pisa_db
-from structure.Pose import Model
+from structure.model import Model
 from structure.base import Structure
 from utils import start_log, pickle_object, io_save, to_iterable, remove_duplicates
 

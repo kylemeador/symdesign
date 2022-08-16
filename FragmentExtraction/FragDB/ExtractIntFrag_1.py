@@ -3,7 +3,7 @@ from itertools import repeat
 
 import FragUtils as Frag
 
-from structure.Pose import Model
+from structure.model import Model
 from structure.base import Atom, Structure
 from utils import get_file_paths_recursively
 

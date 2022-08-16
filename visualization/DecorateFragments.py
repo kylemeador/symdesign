@@ -11,7 +11,7 @@ from sklearn.neighbors import BallTree
 from utils import start_log, set_logging_to_debug, collect_designs
 from structure.base import MonoFragment
 from resources.fragment import FragmentDatabase
-from structure.Pose import Model
+from structure.model import Model
 
 
 def decorate_with_fragments(pdb_path, out_path=os.getcwd()):

@@ -14,7 +14,7 @@ from Bio.PDB.Atom import PDBConstructionWarning, Atom as BioPDBAtom
 import PoseDirectory
 from utils import path as PUtils
 import utils
-from structure.Pose import Model
+from structure.model import Model
 from structure.base import Atom
 
 warnings.simplefilter('ignore', PDBConstructionWarning)

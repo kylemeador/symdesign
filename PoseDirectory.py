@@ -36,7 +36,7 @@ from metrics import read_scores, interface_composition_similarity, unnecessary, 
     multiple_sequence_alignment_dependent_metrics, format_fragment_metrics, calculate_match_metrics, \
     process_residue_info
 from resources.job import JobResources, job_resources_factory
-from structure.Pose import Pose, MultiModel, Models, Model
+from structure.model import Pose, MultiModel, Models, Model
 from structure.sequence import parse_pssm, generate_mutations_from_reference, simplify_mutation_dict, \
     sequence_difference, hydrophobic_collapse_index, alignment_types, MultipleSequenceAlignment, pssm_as_array, \
     position_specific_divergence

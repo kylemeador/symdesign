@@ -12,7 +12,7 @@ import utils
 from structure.sequence import generate_mutations
 from structure.base import superposition3d
 from resources.structure_db import fetch_pdb_file
-from structure.Pose import Model
+from structure.model import Model
 
 # if sys.version[0] < 3:
 pickle_prot = 2

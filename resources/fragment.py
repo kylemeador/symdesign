@@ -7,7 +7,7 @@ import numpy as np
 
 from utils.path import intfrag_cluster_rep_dirpath, intfrag_cluster_info_dirpath, monofrag_cluster_rep_dirpath, \
     biological_interfaces, biological_fragment_db_pickle
-from structure import Pose
+from structure import model
 from structure.base import Structure
 from utils import dictionary_lookup, start_log, unpickle
 from resources.info import FragmentInfo
@@ -73,7 +73,7 @@ class FragmentDatabase(FragmentInfo):
     # dict[int, tuple[3x3, 1x3, tuple[int, int, int], float]]
     info: dict[int, dict[int, dict[int, ClusterInfoFile]]]
     # monofrag_representatives_path: str
-    paired_frags: dict[int, dict[int, dict[int, tuple['Pose.Model', str]]]]
+    paired_frags: dict[int, dict[int, dict[int, tuple['model.Model', str]]]]
     reps: dict[int, np.ndarray]
 
     def __init__(self, init_db: bool = True, **kwargs):  # fragment_length: int = 5

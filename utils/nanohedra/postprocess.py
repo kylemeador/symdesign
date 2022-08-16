@@ -7,7 +7,7 @@ parent_dir = os.path.dirname(current_dir)
 sys.path.extend([parent_dir])
 # from PoseDirectory import set_up_directory_objects
 # from SymDesignUtils import collect_designs
-from structure.Pose import Model
+from structure.model import Model
 
 
 def frag_match_count_filter(master_design_dirpath, min_frag_match_count, master_design_outdir_path):

@@ -6,7 +6,7 @@ import FragUtils as Frag
 import numpy as np
 from Bio.Data.IUPACData import protein_letters_3to1
 
-from structure.Pose import Model
+from structure.model import Model
 
 # Globals
 module = 'Make IJK Cluster Frequency Files:'
