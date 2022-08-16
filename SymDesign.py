@@ -40,7 +40,7 @@ from resources.query.pdb import retrieve_pdb_entries_by_advanced_query
 from resources.query.utils import input_string, bool_d, boolean_choice, invalid_string, \
     validate_input_return_response_value
 from structure.sequence import generate_mutations, find_orf_offset, read_fasta_file
-from classes.EulerLookup import euler_factory
+from resources.EulerLookup import euler_factory
 from classes.SymEntry import SymEntry, parse_symmetry_to_sym_entry, symmetry_factory
 from utils.nanohedra.cmdline import query_mode
 from flags import argparsers, parser_entire, parser_options, parser_module, parser_input, parser_guide, \

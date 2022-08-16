@@ -33,7 +33,7 @@ from structure.base import Coords, Structure, Structures, Residue, Residues, Gho
     transform_coordinate_sets
 from utils import dictionary_lookup, start_log, null_log, digit_translate_table, DesignError, ClashError, \
     SymmetryError, calculate_match, z_value_from_match_score, remove_duplicates, path as PUtils
-from classes.EulerLookup import EulerLookup, euler_factory
+from resources.EulerLookup import EulerLookup, euler_factory
 from classes.SymEntry import get_rot_matrices, make_rotations_degenerate, SymEntry, point_group_setting_matrix_members,\
     symmetry_combination_format, parse_symmetry_to_sym_entry, symmetry_factory
 from utils.SymmetryUtils import valid_subunit_number, layer_group_cryst1_fmt_dict, \
