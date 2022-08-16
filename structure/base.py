@@ -85,51 +85,72 @@ polarity_types_literal = Literal['apolar', 'polar']
 polarity_types: tuple[polarity_types_literal, ...] = get_args(polarity_types_literal)
 atomic_polarity_table = {  # apolar = 0, polar = 1
     'ALA': defaultdict(unknown_index, {'N': 1, 'CA': 0, 'C': 0, 'O': 1, 'CB': 0}),
-    'ARG': defaultdict(unknown_index, {'N': 1, 'CA': 0, 'C': 0, 'O': 1, 'CB': 0, 'CG': 0, 'CD': 0, 'NE': 1, 'CZ': 0, 'NH1': 1, 'NH2': 1}),
+    'ARG': defaultdict(unknown_index, {'N': 1, 'CA': 0, 'C': 0, 'O': 1, 'CB': 0, 'CG': 0, 'CD': 0, 'NE': 1, 'CZ': 0,
+                                       'NH1': 1, 'NH2': 1}),
     'ASN': defaultdict(unknown_index, {'N': 1, 'CA': 0, 'C': 0, 'O': 1, 'CB': 0, 'CG': 0, 'OD1': 1, 'ND2': 1}),
     'ASP': defaultdict(unknown_index, {'N': 1, 'CA': 0, 'C': 0, 'O': 1, 'CB': 0, 'CG': 0, 'OD1': 1, 'OD2': 1}),
     'CYS': defaultdict(unknown_index, {'N': 1, 'CA': 0, 'C': 0, 'O': 1, 'CB': 0, 'SG': 1}),
     'GLN': defaultdict(unknown_index, {'N': 1, 'CA': 0, 'C': 0, 'O': 1, 'CB': 0, 'CG': 0, 'CD': 0, 'OE1': 1, 'NE2': 1}),
     'GLU': defaultdict(unknown_index, {'N': 1, 'CA': 0, 'C': 0, 'O': 1, 'CB': 0, 'CG': 0, 'CD': 0, 'OE1': 1, 'OE2': 1}),
     'GLY': defaultdict(unknown_index, {'N': 1, 'CA': 0, 'C': 0, 'O': 1}),
-    'HIS': defaultdict(unknown_index, {'N': 1, 'CA': 0, 'C': 0, 'O': 1, 'CB': 0, 'CG': 0, 'ND1': 1, 'CD2': 0, 'CE1': 0, 'NE2': 1}),
+    'HIS': defaultdict(unknown_index, {'N': 1, 'CA': 0, 'C': 0, 'O': 1, 'CB': 0, 'CG': 0, 'ND1': 1, 'CD2': 0, 'CE1': 0,
+                                       'NE2': 1}),
     'ILE': defaultdict(unknown_index, {'N': 1, 'CA': 0, 'C': 0, 'O': 1, 'CB': 0, 'CG1': 0, 'CG2': 0, 'CD1': 0}),
     'LEU': defaultdict(unknown_index, {'N': 1, 'CA': 0, 'C': 0, 'O': 1, 'CB': 0, 'CG': 0, 'CD1': 0, 'CD2': 0}),
     'LYS': defaultdict(unknown_index, {'N': 1, 'CA': 0, 'C': 0, 'O': 1, 'CB': 0, 'CG': 0, 'CD': 0, 'CE': 0, 'NZ': 1}),
     'MET': defaultdict(unknown_index, {'N': 1, 'CA': 0, 'C': 0, 'O': 1, 'CB': 0, 'CG': 0, 'SD': 1, 'CE': 0}),
-    'PHE': defaultdict(unknown_index, {'N': 1, 'CA': 0, 'C': 0, 'O': 1, 'CB': 0, 'CG': 0, 'CD1': 0, 'CD2': 0, 'CE1': 0, 'CE2': 0, 'CZ': 0,}),
+    'PHE': defaultdict(unknown_index, {'N': 1, 'CA': 0, 'C': 0, 'O': 1, 'CB': 0, 'CG': 0, 'CD1': 0, 'CD2': 0, 'CE1': 0,
+                                       'CE2': 0, 'CZ': 0}),
     'PRO': defaultdict(unknown_index, {'N': 1, 'CA': 0, 'C': 0, 'O': 1, 'CB': 0, 'CG': 0, 'CD': 0}),
     'SER': defaultdict(unknown_index, {'N': 1, 'CA': 0, 'C': 0, 'O': 1, 'CB': 0, 'OG': 1}),
     'THR': defaultdict(unknown_index, {'N': 1, 'CA': 0, 'C': 0, 'O': 1, 'CB': 0, 'OG1': 1, 'CG2': 0}),
-    'TRP': defaultdict(unknown_index, {'N': 1, 'CA': 0, 'C': 0, 'O': 1, 'CB': 0, 'CG': 0, 'CD1': 0, 'CD2': 0, 'NE1': 1, 'CE2': 0, 'CE3': 0, 'CZ2': 0, 'CZ3': 0, 'CH2': 0}),
-    'TYR': defaultdict(unknown_index, {'N': 1, 'CA': 0, 'C': 0, 'O': 1, 'CB': 0, 'CG': 0, 'CD1': 0, 'CD2': 0, 'CE1': 0, 'CE2': 0, 'CZ': 0, 'OH': 1}),
+    'TRP': defaultdict(unknown_index, {'N': 1, 'CA': 0, 'C': 0, 'O': 1, 'CB': 0, 'CG': 0, 'CD1': 0, 'CD2': 0, 'NE1': 1,
+                                       'CE2': 0, 'CE3': 0, 'CZ2': 0, 'CZ3': 0, 'CH2': 0}),
+    'TYR': defaultdict(unknown_index, {'N': 1, 'CA': 0, 'C': 0, 'O': 1, 'CB': 0, 'CG': 0, 'CD1': 0, 'CD2': 0, 'CE1': 0,
+                                       'CE2': 0, 'CZ': 0, 'OH': 1}),
     'VAL': defaultdict(unknown_index, {'N': 1, 'CA': 0, 'C': 0, 'O': 1, 'CB': 0, 'CG1': 0, 'CG2': 0})}
-hydrogens = {
-    'ALA': {'H': 1, 'HA': 0, '1HB': 0, '2HB': 0, '3HB': 0},
-    'ARG': {'H': 1, 'HA': 0, '1HB': 0, '2HB': 0, '1HG': 0, '2HG': 0, '1HD': 0, '2HD': 0, 'HE': 1, '1HH1': 1, '2HH1': 1, '1HH2': 1, '2HH2': 1},
-    'ASN': {'H': 1, 'HA': 0, '1HB': 0, '2HB': 0, '1HD2': 1, '2HD2': 1,
-            '1HD1': 1, '2HD1': 1},  # these are the alternative specification
-    'ASP': {'H': 1, 'HA': 0, '1HB': 0, '2HB': 0},
-    'CYS': {'H': 1, 'HA': 0, '1HB': 0, '2HB': 0, 'HG': 1},
-    'GLN': {'H': 1, 'HA': 0, '1HB': 0, '2HB': 0, '1HG': 0, '2HG': 0, '1HE2': 1, '2HE2': 1,
-            '1HE1': 1, '2HE1': 1},  # these are the alternative specification
-    'GLU': {'H': 1, 'HA': 0, '1HB': 0, '2HB': 0, '1HG': 0, '2HG': 0},
-    'GLY': {'2HA': 0, 'H': 1, '1HA': 0, 'HA3': 0},  # last entry is from PDB version
-    'HIS': {'H': 1, 'HA': 0, '1HB': 0, '2HB': 0, 'HD1': 1, 'HD2': 0, 'HE1': 0, 'HE2': 1},  # this assumes HD1 is on ND1, HE2 is on NE2
-    'ILE': {'H': 1, 'HA': 0, 'HB': 0, '1HG1': 0, '2HG1': 0, '1HG2': 0, '2HG2': 0, '3HG2': 0, '1HD1': 0, '2HD1': 0, '3HD1': 0,
-            '3HG1': 0},  # this is the alternative specification
-    'LEU': {'H': 1, 'HA': 0, '1HB': 0, '2HB': 0, 'HG': 0, '1HD1': 0, '2HD1': 0, '3HD1': 0, '1HD2': 0, '2HD2': 0, '3HD2': 0},
-    'LYS': {'H': 1, 'HA': 0, '1HB': 0, '2HB': 0, '1HG': 0, '2HG': 0, '1HD': 0, '2HD': 0, '1HE': 0, '2HE': 0, '1HZ': 1, '2HZ': 1, '3HZ': 1},
-    'MET': {'H': 1, 'HA': 0, '1HB': 0, '2HB': 0, '1HG': 0, '2HG': 0, '1HE': 0, '2HE': 0, '3HE': 0},
-    'PHE': {'H': 1, 'HA': 0, '1HB': 0, '2HB': 0, 'HD1': 0, 'HD2': 0, 'HE1': 0, 'HE2': 0, 'HZ': 0},
-    'PRO': {'HA': 0, '1HB': 0, '2HB': 0, '1HG': 0, '2HG': 0, '1HD': 0, '2HD': 1},
-    'SER': {'H': 1, 'HA': 0, '1HB': 0, '2HB': 0, 'HG': 1},
-    'THR': {'HA': 0, 'HB': 0, 'H': 1, 'HG1': 1, '1HG2': 0, '2HG2': 0, '3HG2': 0,
-            'HG2': 1, '1HG1': 0, '2HG1': 0, '3HG1': 0},  # these are the alternative specification
-    'TRP': {'H': 1, 'HA': 0, '1HB': 0, '2HB': 0, 'HD1': 0, 'HE1': 1, 'HE3': 0, 'HZ2': 0, 'HZ3': 0, 'HH2': 0,  # assumes HE1 is on NE1
-            'HE2': 0, 'HZ1': 0, 'HH1': 0, 'HH3': 0},  # none of these should be possible given standard nomenclature, but including incase
-    'TYR': {'H': 1, 'HA': 0, '1HB': 0, '2HB': 0, 'HD1': 0, 'HD2': 0, 'HE1': 0, 'HE2': 0, 'HH': 1},
-    'VAL': {'H': 1, 'HA': 0, 'HB': 0, '1HG1': 0, '2HG1': 0, '3HG1': 0, '1HG2': 0, '2HG2': 0, '3HG2': 0}}
+hydrogens = {   # the doubled up numbers (and single number second) are from PDB version of hydrogen inclusion
+    'ALA': {'H': 1, 'HA': 0, '1HB': 0, '2HB': 0, '3HB': 0, 'HB1': 0, 'HB2': 0, 'HB3': 0},
+    'ARG': {'H': 1, 'HA': 0, '1HB': 0, '2HB': 0, '1HG': 0, '2HG': 0, '1HD': 0, '2HD': 0, 'HE': 1, '1HH1': 1, '2HH1': 1,
+            '1HH2': 1, '2HH2': 1,
+            'HB1': 0, 'HB2': 0, 'HG1': 0, 'HG2': 0, 'HD1': 0, 'HD2': 0, 'HH11': 1, 'HH12': 1, 'HH21': 1, 'HH22': 1},
+    'ASN': {'H': 1, 'HA': 0, '1HB': 0, '2HB': 0, '1HD2': 1, '2HD2': 1, 'HB1': 0, 'HB2': 0, 'HD21': 1, 'HD22': 1,
+            '1HD1': 1, '2HD1': 1, 'HD11': 1, 'HD12': 1},  # these are the alternative specification
+    'ASP': {'H': 1, 'HA': 0, '1HB': 0, '2HB': 0, 'HB1': 0, 'HB2': 0},
+    'CYS': {'H': 1, 'HA': 0, '1HB': 0, '2HB': 0, 'HB1': 0, 'HB2': 0, 'HG': 1},
+    'GLN': {'H': 1, 'HA': 0, '1HB': 0, '2HB': 0, '1HG': 0, '2HG': 0, '1HE2': 1, '2HE2': 1, 'HB1': 0, 'HB2': 0, 'HG1': 0,
+            'HG2': 0, 'HE21': 1, 'HE22': 1,
+            '1HE1': 1, '2HE1': 1, 'HE11': 1, 'HE12': 1},  # these are the alternative specification
+    'GLU': {'H': 1, 'HA': 0, '1HB': 0, '2HB': 0, '1HG': 0, '2HG': 0, 'HB1': 0, 'HB2': 0, 'HG1': 0, 'HG2': 0},
+    'GLY': {'H': 1, '1HA': 0, 'HA1': 0, '2HA': 0, 'HA2': 0, '3HA': 0, 'HA3': 0},
+    'HIS': {'H': 1, 'HA': 0, '1HB': 0, '2HB': 0, 'HD1': 1, 'HD2': 0, 'HE1': 0, 'HE2': 1, 'HB1': 0, 'HB2': 0, '1HD': 1,
+            '2HD': 0, '1HE': 0, '2HE': 1},  # this assumes HD1 is on ND1, HE2 is on NE2
+    'ILE': {'H': 1, 'HA': 0, 'HB': 0, '1HG1': 0, '2HG1': 0, '1HG2': 0, '2HG2': 0, '3HG2': 0, '1HD1': 0, '2HD1': 0,
+            '3HD1': 0, 'HG11': 0, 'HG12': 0, 'HG21': 0, 'HG22': 0, 'HG23': 0, 'HD11': 0, 'HD12': 0, 'HD13': 0,
+            'HG13': 0, '3HG1': 0},  # this is the alternative specification
+    'LEU': {'H': 1, 'HA': 0, '1HB': 0, '2HB': 0, 'HG': 0, '1HD1': 0, '2HD1': 0, '3HD1': 0, '1HD2': 0, '2HD2': 0,
+            '3HD2': 0, 'HB1': 0, 'HB2': 0, 'HD11': 0, 'HD12': 0, 'HD13': 0, 'HD21': 0, 'HD22': 0, 'HD23': 0},
+    'LYS': {'H': 1, 'HA': 0, '1HB': 0, '2HB': 0, '1HG': 0, '2HG': 0, '1HD': 0, '2HD': 0, '1HE': 0, '2HE': 0, '1HZ': 1,
+            '2HZ': 1, '3HZ': 1, 'HB1': 0, 'HB2': 0, 'HG1': 0, 'HG2': 0, 'HD1': 0, 'HD2': 0, 'HE1': 0, 'HE2': 0,
+            'HZ1': 1, 'HZ2': 1, 'HZ3': 1},
+    'MET': {'H': 1, 'HA': 0, '1HB': 0, '2HB': 0, '1HG': 0, '2HG': 0, '1HE': 0, '2HE': 0, '3HE': 0, 'HB1': 0, 'HB2': 0,
+            'HG1': 0, 'HG2': 0, 'HE1': 0, 'HE2': 0, 'HE3': 0},
+    'PHE': {'H': 1, 'HA': 0, '1HB': 0, '2HB': 0, 'HD1': 0, 'HD2': 0, 'HE1': 0, 'HE2': 0, 'HB1': 0, 'HB2': 0, '1HD': 0,
+            '2HD': 0, '1HE': 0, '2HE': 0, 'HZ': 0},
+    'PRO': {'HA': 0, '1HB': 0, '2HB': 0, '1HG': 0, '2HG': 0, '1HD': 0, '2HD': 1, 'HB1': 0, 'HB2': 0, 'HG1': 0, 'HG2': 0,
+            'HD1': 0, 'HD2': 1},
+    # Yes, 3HB is not in existence on this residue, but 5upp.pdb has it...
+    'SER': {'H': 1, 'HA': 0, '1HB': 0, '2HB': 0, '3HB': 0, 'HB1': 0, 'HB2': 0, 'HB3': 0, 'HG': 1},
+    'THR': {'HA': 0, 'HB': 0, 'H': 1, 'HG1': 1, '1HG2': 0, '2HG2': 0, '3HG2': 0, '1HG': 1, 'HG21': 0, 'HG22': 0,
+            # these are the alternative specification
+            'HG23': 0, 'HG2': 1, '1HG1': 0, '2HG1': 0, '3HG1': 0, '2HG': 1, 'HG11': 0, 'HG12': 0, 'HG13': 0},
+    'TRP': {'H': 1, 'HA': 0, '1HB': 0, '2HB': 0, 'HD1': 0, 'HE1': 1, 'HE3': 0, 'HZ2': 0, 'HZ3': 0, 'HH2': 0, 'HB1': 0,
+            'HB2': 0, '1HD': 0, '1HE': 1, '3HE': 0, '2HZ': 0, '3HZ': 0, '2HH': 0,  # assumes HE1 is on NE1
+            'HE2': 0, 'HZ1': 0, 'HH1': 0, 'HH3': 0, '2HE': 0, '1HZ': 0, '1HH': 0, '3HH': 0},  # none of these should be possible given standard nomenclature, but including incase
+    'TYR': {'H': 1, 'HA': 0, '1HB': 0, '2HB': 0, 'HD1': 0, 'HD2': 0, 'HE1': 0, 'HE2': 0, 'HB1': 0, 'HB2': 0, '1HD': 0,
+            '2HD': 0, '1HE': 0, '2HE': 0, 'HH': 1},
+    'VAL': {'H': 1, 'HA': 0, 'HB': 0, '1HG1': 0, '2HG1': 0, '3HG1': 0, '1HG2': 0, '2HG2': 0, '3HG2': 0, 'HG11': 0,
+            'HG12': 0, 'HG13': 0, 'HG21': 0, 'HG22': 0, 'HG23': 0}}
 termini_polarity = {'1H': 1, '2H': 1, '3H': 1, 'OXT': 1}
 for res_type, residue_atoms in atomic_polarity_table.items():
     residue_atoms.update(termini_polarity)
@@ -1915,12 +1936,16 @@ class Residue(ResidueFragment, ContainsAtomsMixin):
         residue_atom_polarity = atomic_polarity_table[self.type]
         polarity_list = [[], [], []]  # apolar = 0, polar = 1, unknown = 2 (-1)
         try:
+            # Careful. residue_atom_polarity.get() doesn't work properly with defaultdict return -1
+            #  this was causing TypeError on 8/15/22
             for atom in self.atoms:
-                polarity_list[residue_atom_polarity.get(atom.type)].append(atom.sasa)
+                polarity_list[residue_atom_polarity[atom.type]].append(atom.sasa)
         except AttributeError:  # missing atom.sasa
             self.parent.get_sasa()
             for atom in self.atoms:
-                polarity_list[residue_atom_polarity.get(atom.type)].append(atom.sasa)
+                polarity_list[residue_atom_polarity[atom.type]].append(atom.sasa)
+        # except TypeError:
+        #     print(residue_atom_polarity, atom.type, self.type, self.number)
 
         self._sasa_apolar, self._sasa_polar, _ = map(sum, polarity_list)
         # if _ > 0:
