@@ -4,7 +4,7 @@ from glob import glob
 from itertools import chain
 
 from utils import path as PUtils
-import PoseDirectory
+import protocols
 import utils
 from structure.model import Model, MultiModel
 
@@ -75,7 +75,7 @@ if __name__ == '__main__':
     assert all_poses, 'No %s directories found within \'%s\'! Please ensure correct location' \
                       % (PUtils.nano.title(), location)
 
-    all_design_directories = [PoseDirectory.PoseDirectory.from_nanohedra(design_path, symmetry=args.design_string)
+    all_design_directories = [protocols.PoseDirectory.from_nanohedra(design_path, symmetry=args.design_string)
                               for design_path in all_poses]
     logger.info('%d Poses found in \'%s\'' % (len(all_poses), location))
     logger.info('All pose specific logs are located in corresponding directories, ex:\n%s' %

@@ -8,7 +8,7 @@ from Bio.PDB.Atom import PDBConstructionWarning
 import utils
 from structure.model import Model
 from top_n_all_to_all_docked_poses_irmsd import map_align_interface_chains, interface_chains_and_resnums
-import PoseDirectory
+import protocols
 
 warnings.simplefilter('ignore', PDBConstructionWarning)
 
@@ -103,7 +103,7 @@ def main():
 
     # Retrieve all directories for the docked directory output
     all_poses, location = utils.collect_designs(directory=docked_poses_dirpath)  # , file=args.file)
-    all_design_directories = [PoseDirectory.PoseDirectory.from_nanohedra(design_path)
+    all_design_directories = [protocols.PoseDirectory.from_nanohedra(design_path)
                               for design_path in all_poses]  # , symmetry=args.design_string)
 
     # find the chain and residue numbers at the interface of the reference pose

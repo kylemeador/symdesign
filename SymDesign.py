@@ -32,7 +32,7 @@ from fragdock import nanohedra_dock
 from resources.job import job_resources_factory
 from resources.fragment import fragment_factory
 from structure.model import Model
-from PoseDirectory import PoseDirectory
+from protocols import PoseDirectory
 from utils.ProteinExpression import find_expression_tags, find_matching_expression_tags, add_expression_tag, \
     select_tags_for_sequence, remove_expression_tags, expression_tags, optimize_protein_sequence, \
     default_multicistronic_sequence
