@@ -2965,8 +2965,8 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         try:
             return self._cb_indices
         except AttributeError:
-            # self._cb_indices = [residue.cb_atom_index for residue in self.residues if residue.cb_atom_index]
-            self._cb_indices = [residue.cb_atom_index for residue in self.residues]
+            self._cb_indices = [residue.cb_atom_index for residue in self.residues if residue.cb_atom_index]
+            # self._cb_indices = [residue.cb_atom_index for residue in self.residues]
             return self._cb_indices
 
     @property
