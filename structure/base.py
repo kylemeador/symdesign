@@ -18,7 +18,7 @@ from sklearn.neighbors._ball_tree import BinaryTree  # this typing implementatio
 from utils.path import freesasa_exe_path, stride_exe_path, errat_exe_path, freesasa_config_path, \
     frag_text_file, reference_residues_pkl, program_name, program_version
 from utils import dictionary_lookup, start_log, null_log, unpickle, digit_translate_table, DesignError, ClashError, parameterize_frag_length
-from utils.SymmetryUtils import identity_matrix, origin
+from utils.symmetry import identity_matrix, origin
 
 # globals
 logger = start_log(name=__name__)

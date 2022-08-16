@@ -6,7 +6,7 @@ from fragdock import nanohedra_dock
 from utils.path import biological_fragment_db_pickle
 from utils import unpickle
 from resources.EulerLookup import euler_factory
-from classes.SymEntry import symmetry_factory
+from utils.SymEntry import symmetry_factory
 
 
 print('USAGE:\nNavigate to a directory with the ".pdb" files of interest to generate fragment indices for and execute:'

@@ -10,8 +10,8 @@ import re
 import numpy as np
 
 from structure.model import Model
-from classes.SymEntry import get_optimal_external_tx_vector, get_uc_dimensions
-from utils.SymmetryUtils import generate_cryst1_record
+from utils.SymEntry import get_optimal_external_tx_vector, get_uc_dimensions
+from utils.symmetry import generate_cryst1_record
 
 
 def get_rot_matrix_z(angle_deg):

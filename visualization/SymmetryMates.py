@@ -3,7 +3,7 @@ import os
 from pymol import cmd, stored
 
 # from Pose import Pose
-from utils.SymmetryUtils import possible_symmetries, point_group_symmetry_operators
+from utils.symmetry import possible_symmetries, point_group_symmetry_operators
 
 
 def generate_symmetry_mates_pymol(name, expand_matrices):  # name: str, expand_matrices: list[list[float]]):

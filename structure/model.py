@@ -34,9 +34,9 @@ from structure.base import Coords, Structure, Structures, Residue, Residues, Gho
 from utils import dictionary_lookup, start_log, null_log, digit_translate_table, DesignError, ClashError, \
     SymmetryError, calculate_match, z_value_from_match_score, remove_duplicates, path as PUtils
 from resources.EulerLookup import EulerLookup, euler_factory
-from classes.SymEntry import get_rot_matrices, make_rotations_degenerate, SymEntry, point_group_setting_matrix_members,\
+from utils.SymEntry import get_rot_matrices, make_rotations_degenerate, SymEntry, point_group_setting_matrix_members,\
     symmetry_combination_format, parse_symmetry_to_sym_entry, symmetry_factory
-from utils.SymmetryUtils import valid_subunit_number, layer_group_cryst1_fmt_dict, \
+from utils.symmetry import valid_subunit_number, layer_group_cryst1_fmt_dict, \
     generate_cryst1_record, space_group_number_operations, point_group_symmetry_operators, \
     space_group_symmetry_operators, rotation_range, setting_matrices, inv_setting_matrices, \
     origin, flip_x_matrix, identity_matrix, valid_symmetries, multicomponent_valid_subunit_number, cubic_point_groups

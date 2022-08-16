@@ -3,7 +3,7 @@ from __future__ import annotations
 import os
 from logging import Logger
 
-from classes.SymEntry import SymEntry
+from utils.SymEntry import SymEntry
 from utils.path import docked_pose_file
 from utils import start_log
 

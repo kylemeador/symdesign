@@ -241,7 +241,7 @@ solvent_weights = 'ref2015_solvent.wts_patch'
 solvent_weights_sym = 'ref2015_sym_solvent.wts_patch'
 scout_symmdef = path.join(symmetry_def_files, 'scout_symmdef_file.pl')
 
-sym_utils_file = 'SymmetryUtils.py'
+sym_utils_file = 'symmetry.py'
 path_to_sym_utils = path.join(path.dirname(__file__), sym_utils_file)
 # help and warnings
 warn_missing_symmetry = f'Cannot %s without providing symmetry! Provide symmetry with "--symmetry" or "--{sym_entry}"'

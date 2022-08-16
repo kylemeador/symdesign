@@ -16,7 +16,7 @@ from structure import model
 from query.utils import boolean_choice
 from structure.base import Structure, parse_stride
 from utils import starttime, start_log, make_path, unpickle, to_iterable, write_shell_script, write_commands
-from classes.SymEntry import parse_symmetry_to_sym_entry, sdf_lookup
+from utils.SymEntry import parse_symmetry_to_sym_entry, sdf_lookup
 
 logger = start_log(name=__name__)
 qsbio_confirmed = unpickle(qs_bio)

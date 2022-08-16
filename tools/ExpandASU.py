@@ -4,7 +4,7 @@ from typing import Union
 
 from structure.model import Model
 from utils import start_log, set_logging_to_debug, to_iterable
-from utils.SymmetryUtils import cubic_point_groups, point_group_symmetry_operators
+from utils.symmetry import cubic_point_groups, point_group_symmetry_operators
 
 
 def get_expanded_ptgrp_pdb(pdb_asu, expand_matrices):
