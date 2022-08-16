@@ -24,7 +24,7 @@ from utils import dictionary_lookup, start_log, null_log, set_logging_to_debug, 
 from classes.EulerLookup import EulerLookup, euler_factory
 from classes.OptimalTx import OptimalTx
 from classes.SymEntry import SymEntry, get_rot_matrices, make_rotations_degenerate, symmetry_factory
-from classes.WeightedSeqFreq import FragMatchInfo, SeqFreqInfo
+from utils.nanohedra.WeightedSeqFreq import FragMatchInfo, SeqFreqInfo
 from utils.nanohedra.cmdline import get_docking_parameters
 from utils.nanohedra.general import write_docked_pose_info, get_rotation_step, write_docking_parameters
 from utils.SymmetryUtils import generate_cryst1_record, get_central_asu
