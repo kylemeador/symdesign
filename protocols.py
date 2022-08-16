@@ -66,7 +66,6 @@ variance = 0.8
 symmetry_protocol = {0: 'make_point_group', 2: 'make_layer', 3: 'make_lattice'}  # -1: 'asymmetric',
 
 
-# Todo move PDB coordinate information to Pose. Only use to handle Pose paths/options
 class PoseDirectory:
     _design_profile: np.ndarry | None
     _evolutionary_profile: np.ndarry | None

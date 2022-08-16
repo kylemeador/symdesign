@@ -3,7 +3,7 @@ import os
 from json import loads, dumps
 
 from utils import path as PUtils
-import PoseDirectory
+import protocols
 import utils
 
 
@@ -54,7 +54,7 @@ if __name__ == '__main__':
     all_poses1, location = utils.collect_designs(files=args.file, directory=args.directory)
     assert all_poses1 != list(), 'No %s directories found within \'%s\' input! Please ensure correct location' \
                                  % (PUtils.nano, location)
-    all_design_directories1 = [PoseDirectory.PoseDirectory.from_nanohedra(design_path)
+    all_design_directories1 = [protocols.PoseDirectory.from_nanohedra(design_path)
                                for design_path in all_poses1]
     logger.info('%d Poses found in \'%s\'' % (len(all_poses1), location))
 
@@ -62,7 +62,7 @@ if __name__ == '__main__':
     all_poses2, location = utils.collect_designs(files=args.file, directory=args.directory)
     assert all_poses2 != list(), 'No %s directories found within \'%s\' input! Please ensure correct location' \
                                  % (PUtils.nano, location)
-    all_design_directories2 = [PoseDirectory.PoseDirectory.from_nanohedra(design_path)
+    all_design_directories2 = [protocols.PoseDirectory.from_nanohedra(design_path)
                                for design_path in all_poses2]
     logger.info('%d Poses found in \'%s\'' % (len(all_poses2), location))
 

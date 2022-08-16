@@ -11,7 +11,7 @@ import numpy as np
 import sklearn.neighbors
 from Bio.PDB.Atom import PDBConstructionWarning, Atom as BioPDBAtom
 
-import PoseDirectory
+import protocols
 from utils import path as PUtils
 import utils
 from structure.model import Model
@@ -877,7 +877,7 @@ def main():
     all_poses, location = utils.collect_designs(directory=docked_poses_dirpath)  # , file=args.file)
     assert all_poses != list(), 'No %s directories found within \'%s\'! Please ensure correct location' \
                                 % (PUtils.nano.title(), location)
-    all_design_directories = [PoseDirectory.PoseDirectory.from_nanohedra(design_path)
+    all_design_directories = [protocols.PoseDirectory.from_nanohedra(design_path)
                               for design_path in all_poses]  # , symmetry=args.design_string)
     # return only directories for which an id is matched
     top_design_directories = [des_dir for des_dir in all_design_directories if des_dir in top_ranked_ids]  # Todo test
