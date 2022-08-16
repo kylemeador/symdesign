@@ -11,8 +11,7 @@ sys.path.append(parent_dir)
 
 from interface_analysis.ParsePisa import retrieve_pisa_file_path, get_complex_interfaces
 from utils.path import pdb_db, pisa_db, qs_bio, qs_bio_monomers_file
-from structure.model import Model
-from structure.base import Chain
+from structure.model import Model, Chain
 from utils import start_log, unpickle, pickle_object, to_iterable, get_file_paths_recursively, ex_path
 from resources import query as qPDB
 # from PDB import extract_interface

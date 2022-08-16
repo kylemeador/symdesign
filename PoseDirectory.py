@@ -36,11 +36,11 @@ from metrics import read_scores, interface_composition_similarity, unnecessary, 
     multiple_sequence_alignment_dependent_metrics, format_fragment_metrics, calculate_match_metrics, \
     process_residue_info
 from resources.job import JobResources, job_resources_factory
-from structure.model import Pose, MultiModel, Models, Model
+from structure.model import Pose, MultiModel, Models, Model, Entity
 from structure.sequence import parse_pssm, generate_mutations_from_reference, simplify_mutation_dict, \
     sequence_difference, hydrophobic_collapse_index, alignment_types, MultipleSequenceAlignment, pssm_as_array, \
     position_specific_divergence
-from structure.base import Structure, Entity  # , Structures
+from structure.base import Structure  # , Structures
 from utils import large_color_array, handle_errors, starttime, start_log, null_log, make_path, unpickle, pickle_object, \
     index_intersection, write_shell_script, DesignError, ClashError, SymmetryError, match_score_from_z_value, z_score, \
     all_vs_all, sym, condensed_to_square, path as PUtils
