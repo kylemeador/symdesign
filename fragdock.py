@@ -18,7 +18,8 @@ from utils.cluster import cluster_transformation_pairs
 from resources.fragment import FragmentDatabase, fragment_factory
 from utils.path import frag_text_file, master_log, frag_dir, biological_interfaces, asu_file_name
 from structure.model import Pose, Model
-from structure.base import Structure, Residue, transform_coordinate_sets
+from structure.base import Structure, Residue
+from structure.coords import transform_coordinate_sets
 from structure.fragment import GhostFragment, write_frag_match_info_file
 from utils import dictionary_lookup, start_log, null_log, set_logging_to_debug, unpickle, rmsd_z_score, \
     z_value_from_match_score, match_score_from_z_value

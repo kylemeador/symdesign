@@ -10,7 +10,7 @@ import pandas as pd
 from utils import path as PUtils
 import utils
 from structure.sequence import generate_mutations
-from structure.base import superposition3d
+from structure.coords import superposition3d
 from resources.structure_db import fetch_pdb_file
 from structure.model import Model
 

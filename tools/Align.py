@@ -3,7 +3,7 @@ import math
 import os
 
 from structure.model import Model
-from structure.base import superposition3d
+from structure.coords import superposition3d
 
 
 class ListFile:
