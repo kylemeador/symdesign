@@ -1294,7 +1294,7 @@ class Entity(Chain, ContainsChainsMixin):
         for transform in self._chain_transforms:
             mate_coms.append(np.matmul(com, transform['rotation'].T) + transform['translation'])
 
-        print('MATE COMS', mate_coms)
+        # print('MATE COMS', mate_coms)
         # np.array makes the right shape while concatenate doesn't
         return np.array(mate_coms)
         # self._center_of_mass_symmetric_models = np.array(mate_coms)
@@ -1787,7 +1787,7 @@ class Entity(Chain, ContainsChainsMixin):
         # Find the superposition from the Entity to every mate chain
         center_of_mass = self.center_of_mass
         symmetric_center_of_mass = self.center_of_mass_symmetric
-        print('symmetric_center_of_mass', symmetric_center_of_mass)
+        # print('symmetric_center_of_mass', symmetric_center_of_mass)
         cb_coords = self.cb_coords
         for chain in self.chains[1:]:
             # System must be transformed to the origin
