@@ -29,7 +29,6 @@ mutation_directives: tuple[directives, ...] = get_args(directives)
 atom_or_residue = Literal['atom', 'residue']
 structure_container_types = Literal['atoms', 'residues', 'chains', 'entities']
 termini_literal = Literal['n', 'c']
-transformation_mapping: dict[str, list[float] | list[list[float]] | np.ndarray]
 # protein_backbone_atom_types = {'N', 'CA', 'O'}  # 'C', Removing 'C' for fragment library guide atoms...
 protein_backbone_atom_types = {'N', 'CA', 'C', 'O'}
 protein_backbone_and_cb_atom_types = {'N', 'CA', 'C', 'O', 'CB'}
