@@ -1428,27 +1428,27 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
     # Start with the assumption that all tested clashes are clashing
     asu_clash_counts = np.ones(number_of_dense_transforms)
     clash_vect = [clash_dist]
-    # The chunk_length indicates how many models could fit in the allocated memory. Using floor division to get integer
-    start_divisor = divisor = 16
+    # The batch_length indicates how many models could fit in the allocated memory. Using floor division to get integer
     # Reduce scale by factor of divisor to be safe
-    chunk_length = int(number_of_elements_available // model_elements // start_divisor)
+    start_divisor = divisor = 16
+    batch_length = int(number_of_elements_available // model_elements // start_divisor)
     while True:
-        try:  # The next chunk_length
-            # The number_of_chunks indicates how many iterations are needed to exhaust all models
-            chunk_size = model_elements * chunk_length
-            number_of_chunks = int(ceil(total_elements_required/chunk_size) or 1)  # Select at least 1
+        try:  # The next batch_length
+            # The number_of_batches indicates how many iterations are needed to exhaust all models
+            chunk_size = model_elements * batch_length
+            number_of_batches = int(ceil(total_elements_required/chunk_size) or 1)  # Select at least 1
             # Todo make this for loop a function.
             #  test_fragdock_clashes(bb_cb_coords2, full_inv_rotation1, full_int_tx1, inv_setting1, full_rotation2,
             #                        full_int_tx2, set_mat2, full_ext_tx_sum)
             #   return asu_clash_counts
-            tiled_coords2 = np.tile(bb_cb_coords2, (chunk_length, 1, 1))
-            for chunk in range(number_of_chunks):
+            tiled_coords2 = np.tile(bb_cb_coords2, (batch_length, 1, 1))
+            for batch in range(number_of_batches):
                 # Find the upper slice limiting it at a maximum of number_of_dense_transforms
-                # upper = (chunk + 1) * chunk_length if chunk + 1 != number_of_chunks else number_of_dense_transforms
-                # chunk_slice = slice(chunk * chunk_length, upper)
-                chunk_slice = slice(chunk * chunk_length, (chunk+1) * chunk_length)
-                # Set full rotation chunk to get the length of the remaining transforms
-                _full_rotation2 = full_rotation2[chunk_slice]
+                # upper = (batch + 1) * batch_length if batch + 1 != number_of_batches else number_of_dense_transforms
+                # batch_slice = slice(batch * batch_length, upper)
+                batch_slice = slice(batch * batch_length, (batch+1) * batch_length)
+                # Set full rotation batch to get the length of the remaining transforms
+                _full_rotation2 = full_rotation2[batch_slice]
                 # Transform the coordinates
                 number_of_transforms = _full_rotation2.shape[0]
                 # Todo for performing broadcasting of this operation
@@ -1459,16 +1459,16 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
                     transform_coordinate_sets(
                         transform_coordinate_sets(tiled_coords2[:number_of_transforms],  # Slice ensures same size
                                                   rotation=_full_rotation2,
-                                                  translation=full_int_tx2[chunk_slice, None, :],
+                                                  translation=full_int_tx2[batch_slice, None, :],
                                                   rotation2=set_mat2,
                                                   translation2=None if full_ext_tx_sum is None
-                                                  else full_ext_tx_sum[chunk_slice, None, :]),
+                                                  else full_ext_tx_sum[batch_slice, None, :]),
                         rotation=inv_setting1,
-                        translation=full_int_tx1[chunk_slice, None, :] * -1,
-                        rotation2=full_inv_rotation1[chunk_slice],
+                        translation=full_int_tx1[batch_slice, None, :] * -1,
+                        rotation2=full_inv_rotation1[batch_slice],
                         translation2=None)
                 # Check each transformed oligomer 2 coordinate set for clashing against oligomer 1
-                asu_clash_counts[chunk_slice] = \
+                asu_clash_counts[batch_slice] = \
                     [oligomer1_backbone_cb_tree.two_point_correlation(
                         inverse_transformed_model2_tiled_coords[idx],
                         clash_vect)[0] for idx in range(number_of_transforms)]
@@ -1476,7 +1476,7 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
                 del inverse_transformed_model2_tiled_coords
 
             log.critical(f'Successful execution with {divisor} using available memory of '
-                         f'{memory_constraint} and chunk_length of {chunk_length}')
+                         f'{memory_constraint} and batch_length of {batch_length}')
             # This is the number of total guide coordinates allowed in memory at this point...
             # Given calculation constraints, this will need to be reduced by at least 4 fold
             euler_divisor = 4
@@ -1484,9 +1484,8 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
             log.info(f'Given memory, the euler_lookup_size_threshold is: {euler_lookup_size_threshold}')
             break
         except np.core._exceptions._ArrayMemoryError:
-            divisor = divisor * 2
-            chunk_length = int(number_of_elements_available // model_elements // divisor)
-            pass
+            divisor = divisor*2
+            batch_length = int(number_of_elements_available // model_elements // divisor)
 
     # asu_is_viable = np.where(asu_clash_counts.flatten() == 0)  # , True, False)
     # asu_is_viable = np.where(np.array(asu_clash_counts) == 0)
@@ -1560,7 +1559,7 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
     log.info(f'\tTransformation of all viable Oligomer 2 CB atoms and surface fragments took '
              f'{time.time() - int_cb_and_frags_start:8f}s')
 
-    def update_pose_coords_and_check_symmetric_clashes(idx) -> bool:
+    def update_pose_coords(idx) -> bool:
         # Get contacting PDB 1 ASU and PDB 2 ASU
         copy_model_start = time.time()
         rot_mat1 = full_rotation1[idx]
@@ -1606,10 +1605,10 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
                                                         **specific_transformations[transform_indices[entity_idx]]))
         pose.coords = np.concatenate(new_coords)
 
-        log.info(f'\tCopy and Transform Oligomer1 and Oligomer2 (took {time.time() - copy_model_start:8f}s)')
+        log.debug(f'\tCopy and Transform Oligomer1 and Oligomer2 (took {time.time() - copy_model_start:8f}s)')
 
-        # Check if design has any clashes when expanded
-        return pose.symmetric_assembly_is_clash()
+        # # Check if design has any clashes when expanded
+        # return pose.symmetric_assembly_is_clash()
 
     def perturb_transformation(idx, sequence_design: bool = True):
         # Stack each local perturbation up and multiply individual entity coords
@@ -1821,6 +1820,7 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
             cryst_record = None
         pose.write(out_path=os.path.join(tx_dir, asu_file_name), header=cryst_record)
 
+        # Todo group by input model... not entities
         for entity in pose.entities:
             entity.write_oligomer(out_path=os.path.join(tx_dir, f'{entity.name}_{sampling_id}.pdb'))
 
@@ -1851,7 +1851,7 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
         # Number of unique interface mono fragments matched
         unique_frags_info1, unique_frags_info2 = set(), set()
         res_pair_freq_info_list = []
-        # Todo refactor this whole part below
+        # Todo refactor this whole part below to use pose.something()... interface_metrics()?
         for frag_idx, (int_ghost_frag, int_surf_frag, match) in \
                 enumerate(zip(sorted_int_ghostfrags, sorted_int_surffrags2, sorted_match_scores), 1):
             surf_frag_chain1, surf_frag_central_res_num1 = int_ghost_frag.get_aligned_chain_and_residue
@@ -2288,9 +2288,9 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
         #     # pose.write(assembly=True, out_path=assembly_path, header=cryst_record,
         #     #                          surrounding_uc=output_surrounding_uc)
         if high_qual_match_count < min_matched:
-            log.info(f'\t{high_qual_match_count} < {min_matched} Which is Set as the Minimal Required Amount of '
-                     f'High Quality Fragment Matches (took {all_fragment_match_time:8f}s)')
-            # Debug. Why are there no matches?
+            log.debug(f'\t{high_qual_match_count} < {min_matched} Which is Set as the Minimal Required Amount of '
+                      f'High Quality Fragment Matches (took {all_fragment_match_time:8f}s)')
+            # Debug. Why are there no matches... cb_distance?
             if high_qual_match_count == 0:
                 zero_counts.append(1)
             continue
@@ -2314,12 +2314,12 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
             all_passing_surf_indices.append(passing_surf_indices[sorted_fragment_indices])
             all_passing_z_scores.append(all_fragment_z_score[sorted_fragment_indices])
             interface_is_viable.append(idx)
-            log.info(f'Interface fragment search time took {time.time() - int_frags_time_start:8f}')
+            log.debug(f'\tInterface fragment search time took {time.time() - int_frags_time_start:8f}')
             continue
         # else:
         #     write_and_quit = False
         #     report_residue_numbers = False
-            # update_pose_coords_and_check_symmetric_clashes()
+        #     update_pose_coords()
 
         # Find the passing overlaps to limit the output to only those passing the low_quality_match_value
         # passing_overlaps_indices = np.flatnonzero(all_fragment_match >= low_quality_match_value)
@@ -2600,8 +2600,8 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
         sorted_z_scores = all_passing_z_scores[idx]
         # Find the pose
         exp_des_clash_time_start = time.time()
-        clash = update_pose_coords_and_check_symmetric_clashes(idx)
-        if clash:
+        update_pose_coords(idx)
+        if pose.symmetric_assembly_is_clash():
             log.info(f'\tBackbone Clash when pose is expanded (took '
                      f'{time.time() - exp_des_clash_time_start:8f}s)')
             passing_symmetric_clashes[idx] = 0
@@ -2611,15 +2611,17 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
 
     # Update the transformation array and counts with the passing_symmetric_clashes indices
     passing_symmetric_clashes = np.flatnonzero(passing_symmetric_clashes)
-    if passing_symmetric_clashes.shape[0] == 0:  # There were no successful transforms
+    number_passing_symmetric_clashes = passing_symmetric_clashes.shape[0]
+    if number_passing_symmetric_clashes == 0:  # There were no successful transforms
         log.warning(f'No viable poses without symmetric clashes. Terminating {building_blocks} docking')
         return
+    log.info(f'After symmetric clash testing, found {number_passing_symmetric_clashes} viable poses')
 
     degen_counts, rot_counts, tx_counts = zip(*[(degen_counts[idx], rot_counts[idx], tx_counts[idx])
-                                                for idx in passing_symmetric_clashes])
-    all_passing_ghost_indices = [all_passing_ghost_indices[idx] for idx in passing_symmetric_clashes]
-    all_passing_surf_indices = [all_passing_surf_indices[idx] for idx in passing_symmetric_clashes]
-    all_passing_z_scores = [all_passing_z_scores[idx] for idx in passing_symmetric_clashes]
+                                                for idx in passing_symmetric_clashes.tolist()])
+    all_passing_ghost_indices = [all_passing_ghost_indices[idx] for idx in passing_symmetric_clashes.tolist()]
+    all_passing_surf_indices = [all_passing_surf_indices[idx] for idx in passing_symmetric_clashes.tolist()]
+    all_passing_z_scores = [all_passing_z_scores[idx] for idx in passing_symmetric_clashes.tolist()]
 
     full_rotation1 = full_rotation1[passing_symmetric_clashes]
     full_rotation2 = full_rotation2[passing_symmetric_clashes]
@@ -2642,7 +2644,7 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
     half_grid_range = int(grid_size/2)
     step_degrees = internal_rot_perturb/grid_size
     perturb_matrices = []
-    for step in range(-half_grid_range, half_grid_range):  # Range from -5 to 4 for example. 0 is identity matrix
+    for step in range(-half_grid_range, half_grid_range):  # Range from -5 to 4(5) for example. 0 is identity matrix
         rad = math.radians(step*step_degrees)
         rad_s = math.sin(rad)
         rad_c = math.cos(rad)
@@ -2710,6 +2712,8 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
         # Load the z-scores and fragments for use in output_pose()
         overlap_surf = all_passing_surf_indices[idx]
         sorted_z_scores = all_passing_z_scores[idx]
+        # Todo must make the pose coordinates again as in the above call:
+        #  clash = update_pose_coords(idx)
         output_pose(idx, sequence_design=design_output)
 
     log.info(f'Total {building_block} dock trajectory took {time.time() - frag_dock_time_start:.2f}s')
