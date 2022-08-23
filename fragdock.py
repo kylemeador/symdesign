@@ -11,9 +11,11 @@ from typing import AnyStr
 
 import numpy as np
 import psutil
+import torch
 from sklearn.cluster import DBSCAN
 from sklearn.neighbors import BallTree
 
+from resources.ml import proteinmpnn_factory, batch_proteinmpnn, mpnn_alphabet, score_sequences
 from utils.cluster import cluster_transformation_pairs
 from resources.fragment import FragmentDatabase, fragment_factory
 from utils.path import frag_text_file, master_log, frag_dir, biological_interfaces, asu_file_name
@@ -518,6 +520,10 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
     outlier = -1
     # Todo set below as parameters?
     design_output = False
+    design_temperature = 0.1
+    mpnn_model = proteinmpnn_factory()  # Todo accept model_name arg. Now just use the default
+    number_of_mpnn_model_parameters = sum([prod(param.size()) for param in mpnn_model.parameters()])
+    log.critical(f'The number of proteinmpnn model parameters is: {number_of_mpnn_model_parameters}')
     low_quality_match_value = .2  # sets the lower bounds on an acceptable match, was upper bound of 2 using z-score
     cb_distance = 9.  # change to 8.?
     # cluster_translations = True
@@ -567,7 +573,7 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
         # Start logging to a file in addition
         log = start_log(name=building_blocks, handler=2, location=log_file_path, format_log=False, propagate=True)
     # else:
-        # we are probably logging to stream and we need to check another method to see if output exists
+    #     # we are probably logging to stream and we need to check another method to see if output exists
 
     for model in models:
         model.log = log
@@ -1607,40 +1613,180 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
 
     def perturb_transformation(idx, sequence_design: bool = True):
         # Stack each local perturbation up and multiply individual entity coords
-        specific_transformation1 = dict(rotation=full_rotation_perturb1[idx], translation=full_int_tx_perturb1[idx],
-                                        rotation2=set_mat1, translation2=full_ext_tx_perturb1[idx])
-        specific_transformation2 = dict(rotation=full_rotation_perturb2[idx], translation=full_int_tx_perturb2[idx],
-                                        rotation2=set_mat2, translation2=full_ext_tx_perturb2[idx])
+        specific_transformation1 = dict(rotation=full_rotation_perturb1[idx], translation=full_int_tx_perturb1[idx, :, None, :],
+                                        rotation2=set_mat1, translation2=full_ext_tx_perturb1[idx])  # [:, None, :])
+        # Todo set up translation2 correct to handle None
+        specific_transformation2 = dict(rotation=full_rotation_perturb2[idx], translation=full_int_tx_perturb2[idx, :, None, :],
+                                        rotation2=set_mat2, translation2=full_ext_tx_perturb2[idx])  # [:, None, :])
         specific_transformations = [specific_transformation1, specific_transformation2]
-        new_coords = []
-        for entity_idx, entity in enumerate(pose.entities):
-            # Todo may need to grab entity_start_coords as backbone coords for input as X tensor to ProteinMPNN
-            # Todo
-            #  Need to tile the entity_start_coords if operating like this
-            new_coords.append(transform_coordinate_sets(entity_start_coords[entity_idx],
-                                                        **specific_transformations[transform_indices[entity_idx]]))
-        # Todo test this
-        #  Stack the entity coordinates to make up a contiguous block for each pose
-        #  If entity_start_coords are stacked, then must concatenate along axis=1 or =2 to get full pose
-        #  If entity_start_coords aren't stacked, individually transformed, then axis=0 will work
-        perturb_coords = np.concatenate(new_coords, axis=1)
-        X = perturb_coords
 
+        # Get batch size
+        number_of_perturbations = full_rotation_perturb1[idx].shape[0]
+
+        # Todo move this outside to own function?
         if sequence_design:
-            # Todo make this return correct
-            _, S, mask, chain_mask, residue_mask, pssm_coef, pssm_bias, pssm_log_odds_mask, tied_beta, tied_positions, \
-                bias_aas, omit_aas = \
-                pose.get_proteinmpnn_params()
-            # Todo above should suffice and can be functionalized by breaking down
-            #  pose.design_sequence(number=perturb_number)
-            #  I can just disregard the X return (which would be used in the Pose) and use the stacked X from above
-            model = proteinmpnn_factory(model_name)
-            model.tied_sample()
-        # Create sequence design task for them in chunks for ProteinMPNN
-        for idx in range(full_rotation_perturb1.shape[0]):
+            new_coords = []
             for entity_idx, entity in enumerate(pose.entities):
-                transform_coordinate_sets(entity_start_coords[entity_idx],
-                                          **specific_transformations[transform_indices[entity_idx]])
+                # Todo Need to tile the entity_bb_coords if operating like this
+                new_coords.append(transform_coordinate_sets(entity_bb_coords[entity_idx],
+                                                            **specific_transformations[transform_indices[entity_idx]]))
+
+            # Todo test this
+            #  Stack the entity coordinates to make up a contiguous block for each pose
+            #  If entity_bb_coords are stacked, then must concatenate along axis=1 or =2 to get full pose
+            #  If entity_bb_coords aren't stacked (individually transformed), then axis=0 will work
+            log.debug(f'new_coords.shape: {tuple([coords.shape for coords in new_coords])}')
+            perturb_coords = np.concatenate(new_coords, axis=1)
+            log.debug(f'perturb_coords.shape: {perturb_coords.shape}')
+
+            # Let -1 fill in the pose length dimension with the number of residues
+            # 4 is shape of backbone coords (N, Ca, C, O), 3 is x,y,z
+            X = perturb_coords.reshape((number_of_perturbations, -1, 4, 3))
+            log.debug(f'X.shape: {X.shape}')
+            # Todo
+            #  return X
+
+            # Design sequences
+            parameters = pose.get_proteinmpnn_params()
+            # Disregard the X return (which would be used in the Pose) and use the stacked X from above
+            parameters['X'] = X
+            # Create batches for ProteinMPNN sequence design task
+            # Without keyword argument "size=", X will be used to determine size of batch_parameters
+            batch_parameters = batch_proteinmpnn(device=mpnn_model.device, **parameters)
+            parameters.update(batch_parameters)
+
+            X = parameters.get('X', None)
+            S = parameters.get('S', None)
+            chain_mask = parameters.get('chain_mask', None)
+            chain_encoding = parameters.get('chain_encoding', None)
+            residue_idx = parameters.get('residue_idx', None)
+            mask = parameters.get('mask', None)
+            omit_AAs_np = parameters.get('omit_AAs_np', None)
+            bias_AAs_np = parameters.get('bias_AAs_np', None)
+            residue_mask = parameters.get('chain_M_pos', None)
+            omit_AA_mask = parameters.get('omit_AA_mask', None)
+            pssm_coef = parameters.get('pssm_coef', None)
+            pssm_bias = parameters.get('pssm_bias', None)
+            pssm_multi = parameters.get('pssm_multi', None)
+            pssm_log_odds_flag = parameters.get('pssm_log_odds_flag', None)
+            pssm_log_odds_mask = parameters.get('pssm_log_odds_mask', None)
+            pssm_bias_flag = parameters.get('pssm_bias_flag', None)
+            tied_pos = parameters.get('tied_pos', None)
+            tied_beta = parameters.get('tied_beta', None)
+            bias_by_res = parameters.get('bias_by_res', None)
+
+            decode_order = pose.generate_proteinmpnn_decode_order(to_device=mpnn_model.device)
+
+            size = X.shape[0]
+
+            log.debug(f'The mpnn_model.device is: {mpnn_model.device}')
+            if mpnn_model.device == 'cpu':
+                mpnn_memory_constraint = psutil.virtual_memory().available
+                log.critical(f'The available cpu memory is: {mpnn_memory_constraint}')
+            else:
+                mpnn_memory_constraint, gpu_memory_total = torch.cuda.mem_get_info()
+                log.critical(f'The available gpu memory is: {mpnn_memory_constraint}')
+
+            element_memory = 4  # where each element is np.int/float32
+            number_of_elements_available = mpnn_memory_constraint / element_memory
+            model_elements = number_of_mpnn_model_parameters
+            # Only get the shape of the first element in the batch
+            model_elements += prod(X[0].shape)
+            model_elements += prod(S[0].shape)
+            model_elements += prod(chain_encoding[0].shape)
+            model_elements += prod(residue_idx[0].shape)
+            model_elements += prod(mask[0].shape)
+            model_elements += prod(pssm_log_odds_mask[0].shape)
+            model_elements += prod(tied_beta[0].shape)
+            model_elements += prod(bias_by_res[0].shape)
+            log.critical(f'The number of model_elements is: {model_elements}')
+            total_elements_required = model_elements * size
+
+            # The batch_length indicates how many models could fit in the allocated memory. Using floor division to get integer
+            # Reduce scale by factor of divisor to be safe
+            start_divisor = divisor = 4
+            # batch_length = 10
+            batch_length = int(number_of_elements_available // model_elements // start_divisor)
+            log.critical(f'The number_of_elements_available is: {number_of_elements_available}')
+            while True:
+                try:
+                    chunk_size = model_elements * batch_length
+                    # number_of_batches = int(ceil(size/batch_length) or 1)
+                    number_of_batches = int(ceil(total_elements_required/chunk_size) or 1)  # Select at least 1
+                    generated_sequences = []
+                    probabilities = []
+                    sequence_scores = []
+                    for batch in range(number_of_batches):
+                        batch_slice = slice(batch * batch_length, (batch+1) * batch_length)
+                        sample_dict = mpnn_model.tied_sample(X[batch_slice], decode_order, S[batch_slice],
+                                                             chain_mask[batch_slice],
+                                                             chain_encoding[batch_slice], residue_idx[batch_slice],
+                                                             mask[batch_slice],
+                                                             temperature=design_temperature, omit_AAs_np=omit_AAs_np,
+                                                             bias_AAs_np=bias_AAs_np, chain_M_pos=residue_mask[batch_slice],
+                                                             omit_AA_mask=omit_AA_mask[batch_slice],
+                                                             pssm_coef=pssm_coef[batch_slice],
+                                                             pssm_bias=pssm_bias[batch_slice],
+                                                             pssm_multi=pssm_multi, pssm_log_odds_flag=pssm_log_odds_flag,
+                                                             pssm_log_odds_mask=pssm_log_odds_mask[batch_slice],
+                                                             pssm_bias_flag=pssm_bias_flag,
+                                                             tied_pos=tied_pos, tied_beta=tied_beta[batch_slice],
+                                                             bias_by_res=bias_by_res[batch_slice])
+                        # sample_dict = mpnn_model.tied_sample(X, decode_order, S, chain_mask, chain_encoding, residue_idx, mask,
+                        #                                      temperature=design_temperature, omit_AAs_np=omit_AAs_np,
+                        #                                      bias_AAs_np=bias_AAs_np, chain_M_pos=residue_mask,
+                        #                                      omit_AA_mask=omit_AA_mask,
+                        #                                      pssm_coef=pssm_coef, pssm_bias=pssm_bias, pssm_multi=pssm_multi,
+                        #                                      pssm_log_odds_flag=pssm_log_odds_flag,
+                        #                                      pssm_log_odds_mask=pssm_log_odds_mask, pssm_bias_flag=pssm_bias_flag,
+                        #                                      tied_pos=tied_pos, tied_beta=tied_beta,
+                        #                                      bias_by_res=bias_by_res)
+                        S_sample = sample_dict['S']
+                        tied_decoding_order = sample_dict['decoding_order']
+                        chain_residue_mask = chain_mask*residue_mask
+                        chain_residue_mask = chain_residue_mask[batch_slice]
+                        log_probs = mpnn_model(X[batch_slice], S_sample, mask[batch_slice], chain_residue_mask,
+                                               residue_idx[batch_slice], chain_encoding[batch_slice],
+                                               None,  # decode_order <- this argument is provided but with below args, is not used
+                                               use_input_decoding_order=True, decoding_order=tied_decoding_order)
+                        mask_for_loss = mask * chain_residue_mask
+                        scores = score_sequences(S_sample, log_probs, mask_for_loss)
+                        scores = scores.cpu().data.numpy()
+                        sequence_scores.extend(scores)  # .tolist())
+                        batch_probabilities = sample_dict['probs'].cpu().data.numpy()
+                        probabilities.extend(batch_probabilities)  # .tolist())
+                        for idx in range(batch_length):
+                            numeric_sequence = S_sample[idx]
+                            sequence = ''.join([mpnn_alphabet[residue_int] for residue_int in numeric_sequence])
+                            generated_sequences.append(sequence)
+                            # sequence_scores.append(scores[idx])
+
+                    log.critical(f'Successful execution with {divisor} using available memory of '
+                                 f'{memory_constraint} and batch_length of {batch_length}')
+                    _input = input(f'Press enter to continue')
+                    break
+                except (RuntimeError, np.core._exceptions._ArrayMemoryError) as error:  # for (gpu, cpu)
+                    log.critical(f'Calculation failed with {divisor}.\n{error}\nTrying again...')
+                    divisor = divisor*2
+                    batch_length = int(number_of_elements_available // model_elements // divisor)
+
+            return generated_sequences, sequence_scores, probabilities
+        else:
+            new_coords = []
+            for entity_idx, entity in enumerate(pose.entities):
+                # Todo Need to tile the entity_bb_coords if operating like this
+                new_coords.append(transform_coordinate_sets(entity_start_coords[entity_idx],
+                                                            **specific_transformations[transform_indices[entity_idx]]))
+
+            # Todo test this
+            #  Stack the entity coordinates to make up a contiguous block for each pose
+            #  If entity_bb_coords are stacked, then must concatenate along axis=1 or =2 to get full pose
+            #  If entity_bb_coords aren't stacked (individually transformed), then axis=0 will work
+            log.debug(f'new_coords.shape: {tuple([coords.shape for coords in new_coords])}')
+            perturb_coords = np.concatenate(new_coords, axis=1)
+            log.debug(f'perturb_coords.shape: {perturb_coords.shape}')
+
+            return perturb_coords.reshape((number_of_perturbations, -1, 3))
 
     def output_pose(idx, sequence_design: bool = True):
         # Todo replace with PoseDirectory? Path object?
@@ -2549,7 +2695,15 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
     # Todo
     #  The only modification to each ProteinMPNN input is the X tensor with the modified coordinates from each transform
     for idx in range(full_rotation1.shape[0]):
-        perturb_transformation(idx)
+        update_pose_coords(idx)
+        batch_time_start = time.time()
+        sequences, scores, probabilities = perturb_transformation(idx)  # Todo , sequence_design=design_output)
+        print(sequences[:5])
+        print(scores[:5])
+        print(probabilities[:5])
+        log.info(f'Batch design took {time.time() - batch_time_start:8f}s')
+        # Todo
+        #  coords = perturb_transformation(idx)  # Todo , sequence_design=design_output)
 
     # Write the resulting pose and sequences
     for idx, overlap_ghosts in enumerate(all_passing_ghost_indices):

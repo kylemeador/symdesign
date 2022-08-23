@@ -14,6 +14,7 @@ from typing import Iterable, IO, Any, Sequence, AnyStr, Generator
 import numpy as np
 # from numba import njit, jit
 import pandas as pd
+import torch
 from Bio.Data.IUPACData import protein_letters_1to3_extended, protein_letters_3to1_extended
 from sklearn.cluster import KMeans
 from sklearn.neighbors import BallTree
@@ -23,6 +24,7 @@ import flags
 from resources import wrapapi, fragment
 from metrics import calculate_match_metrics, fragment_metric_template, format_fragment_metrics
 from ProteinMPNN.vanilla_proteinmpnn.helper_scripts.other_tools.make_pssm_dict import softmax
+from resources.ml import proteinmpnn_factory, batch_proteinmpnn
 from resources.query.pdb import retrieve_entity_id_by_sequence, query_pdb_by, get_entity_reference_sequence, \
     is_entity_thermophilic
 from resources.query.uniprot import is_uniprot_thermophilic
@@ -42,6 +44,7 @@ from utils.symmetry import valid_subunit_number, layer_group_cryst1_fmt_dict, \
     origin, flip_x_matrix, identity_matrix, valid_symmetries, multicomponent_valid_subunit_number, cubic_point_groups
 
 # Globals
+mpnn_alphabet_length = len(gapped_protein_letters)  # 21
 logger = start_log(name=__name__)
 index_offset = 1
 seq_res_len = 52
@@ -5636,63 +5639,24 @@ class Pose(SequenceProfile, SymmetricModel):
         else:
             entity_required, self.required_indices = set(), set()
 
-    def design_sequence(self, number: int = flags.nstruct,
-                        protein_mpnn: bool = True, model_name: str = 'v_48_020',
-                        backbone_noise: float = 0.,
-                        pssm_multi: float = 0., pssm_log_odds_flag: bool = False, pssm_bias_flag: bool = False,
-                        temperature: float = .1, decode_core_first: bool = True,
-                        interface: bool = True,
-                        rosetta: bool = True):
+    def get_proteinmpnn_params(self, pssm_multi: float = 0., pssm_log_odds_flag: bool = False,
+                               pssm_bias_flag: bool = False, interface: bool = True, decode_core_first: bool = False,
+                               **kwargs):
         """
 
         Args:
-            number: The number of sequences to design
-            protein_mpnn: Whether to design using ProteinMPNN
-            model_name: The model name to use from ProteinMPNN. v_X_Y where X is neighbor distance, and Y is noise
-            backbone_noise: The amount of backbone noise to add to the pose during design
             pssm_multi: How much to skew the design probabilities towards the sequence profile.
                 Bounded between [1, 0] where 0 is no sequence profile probability.
                 Only used with pssm_bias_flag
             pssm_log_odds_flag: Whether to use log_odds mask to limit the residues designed
             pssm_bias_flag: Whether to use bias to modulate the residue probabilites designed
-            temperature: The temperature to perform design at
             interface: Whether to design the interface only
             decode_core_first: Whether to decode the interface core first
-            rosetta:
 
         Returns:
 
         """
-        if rosetta:
-            raise NotImplementedError(f"Can't design with Rosetta from this method yet...")
-
-        # Design with vanilla version of ProteinMPNN
-        import torch
-        from ProteinMPNN.vanilla_proteinmpnn.protein_mpnn_utils import ProteinMPNN, _scores, _S_to_seq
-
-        # Acquire a adequate computing device
-        device = torch.device('cuda:0' if (torch.cuda.is_available()) else 'cpu')
-
-        # Set up the model with the desired weights
-        # Todo set up a MPNN factory(model_name)
-        checkpoint = torch.load(os.path.join(PUtils.protein_mpnn_weights_dir, f'{model_name}.pt'), map_location=device)
-        self.log.info(f'Number of edges: {checkpoint["num_edges"]}')
-        self.log.info(f'Training noise level: {checkpoint["noise_level"]}A')
-        hidden_dim = 128
-        num_layers = 3
-        mpnn_alphabet_length = len(gapped_protein_letters)  # 21
-        model = ProteinMPNN(num_letters=mpnn_alphabet_length,
-                            node_features=hidden_dim,
-                            edge_features=hidden_dim,
-                            hidden_dim=hidden_dim,
-                            num_encoder_layers=num_layers,
-                            num_decoder_layers=num_layers,
-                            augment_eps=backbone_noise,
-                            k_neighbors=checkpoint['num_edges'])
-        model.to(device)
-        model.load_state_dict(checkpoint['model_state_dict'])
-        model.eval()
-
+        # Initialize pose data structures for design
         zero_offset = 1
         if interface:
             self.find_and_split_interface()
@@ -5702,8 +5666,6 @@ class Pose(SequenceProfile, SymmetricModel):
                 design_residues.extend([residue.number - zero_offset for residue, _ in residues_entities])
         else:
             design_residues = list(range(self.number_of_residues))
-
-        # Initialize pose data structures for design
 
         # Make masks for the sequence design task
         # Residue position mask denotes which residues should be designed. 1 - designed, 0 - known
@@ -5715,8 +5677,8 @@ class Pose(SequenceProfile, SymmetricModel):
         residue_idx = np.arange(self.number_of_residues, dtype=np.int32)  # (number_of_residues,)
         for idx, chain in enumerate(self.chains, 1):
             # Todo make Chain with SequenceProfile
-            chain_encoding[chain.offset_index: chain.number_of_residues+chain.offset_index] = idx
-            residue_idx[chain.offset_index: chain.number_of_residues+chain.offset_index] += 100*(idx-1)
+            chain_encoding[chain.offset_index: chain.number_of_residues + chain.offset_index] = idx
+            residue_idx[chain.offset_index: chain.number_of_residues + chain.offset_index] += 100 * (idx - 1)
 
         # Todo resolve these data structures as flags
         omit_AAs_np = np.zeros(mpnn_alphabet_length, dtype=np.int32)  # (alphabet_length,)
@@ -5724,7 +5686,7 @@ class Pose(SequenceProfile, SymmetricModel):
         omit_AA_mask = np.zeros((self.number_of_residues, mpnn_alphabet_length),
                                 dtype=np.int32)  # (number_of_residues, alphabet_length)
         # Todo what is enough bias?
-        bias_by_res = np.zeros(omit_AA_mask, dtype=np.float32)  # (number_of_residues, alphabet_length)
+        bias_by_res = np.zeros(omit_AA_mask.shape, dtype=np.float32)  # (number_of_residues, alphabet_length)
         # Todo
         #  In tied_sample() add the following statement to see the typical values
         #  print(probs[:2])
@@ -5748,7 +5710,7 @@ class Pose(SequenceProfile, SymmetricModel):
         self.log.info(f'pssm_bias {pssm_bias[:5]}')
 
         if self.is_symmetric():
-            number_of_sym_residues = self.number_of_residues*self.number_of_symmetry_mates
+            number_of_sym_residues = self.number_of_residues * self.number_of_symmetry_mates
             X = self.return_symmetric_coords(self.backbone_coords)
             # Should be N, CA, C, O for each residue
             #  v - Residue
@@ -5766,7 +5728,7 @@ class Pose(SequenceProfile, SymmetricModel):
             self.log.info(f'Tiled sequence_numeric.shape: {S.shape}')
             self.log.info(f'Tiled sequence_numeric start: {S[:5]}')
             self.log.info(f'Tiled sequence_numeric chain_break: '
-                          f'{S[self.number_of_residues-5: self.number_of_residues+5]}')
+                          f'{S[self.number_of_residues - 5: self.number_of_residues + 5]}')
 
             # Make masks for the sequence design task
             residue_mask = np.tile(residue_mask, self.number_of_symmetry_mates)  # (number_of_sym_residues,)
@@ -5786,7 +5748,7 @@ class Pose(SequenceProfile, SymmetricModel):
             self.log.info(f'Tiled bias_by_res.shape: {bias_by_res.shape}')
             self.log.info(f'Tiled sequence_numeric start: {bias_by_res[:5]}')
             self.log.info(f'Tiled bias_by_res: '
-                          f'{bias_by_res[self.number_of_residues-5: self.number_of_residues+5]}')
+                          f'{bias_by_res[self.number_of_residues - 5: self.number_of_residues + 5]}')
             tied_beta = np.ones_like(residue_mask)  # (number_of_sym_residues,)
             tied_pos = [self.get_symmetric_indices([idx]) for idx in design_residues]
             # (design_residues, number_of_symmetry_mates)
@@ -5795,70 +5757,151 @@ class Pose(SequenceProfile, SymmetricModel):
             S = self.sequence_numeric  # (number_of_residues,)
             mask = np.zeros_like(residue_mask)  # (number_of_residues,)
             chain_mask = np.ones_like(residue_mask)  # (number_of_residues,)
+            tied_beta = np.ones_like(residue_mask)  # (number_of_sym_residues,)
+            tied_pos = [[]]
 
-        # Make all data set up for batch design
-        # Todo make a dynamic solve based on device memory and memory error routine from Nanohedra
-        batch_length = 10
-        number_of_batches = number//batch_length
+        return dict(X=X,
+                    S=S,
+                    chain_mask=chain_mask,
+                    chain_encoding=chain_encoding,
+                    residue_idx=residue_idx,
+                    mask=mask,
+                    omit_AAs_np=omit_AAs_np,
+                    bias_AAs_np=bias_AAs_np,
+                    chain_M_pos=residue_mask,
+                    omit_AA_mask=omit_AA_mask,
+                    pssm_coef=pssm_coef,
+                    pssm_bias=pssm_bias,
+                    pssm_multi=pssm_multi,
+                    pssm_log_odds_flag=pssm_log_odds_flag,
+                    pssm_log_odds_mask=pssm_log_odds_mask,
+                    pssm_bias_flag=pssm_bias_flag,
+                    tied_pos=tied_pos,
+                    tied_beta=tied_beta,
+                    bias_by_res=bias_by_res
+                    )
 
-        # Stack sequence design task in "batches"
-        X = np.tile(X, (batch_length,) + (1,)*X.ndim)
-        S = np.tile(S, (batch_length,) + (1,)*S.ndim)
-        mask = np.tile(mask, (batch_length,) + (1,)*mask.ndim)
-        residue_mask = np.tile(residue_mask, (batch_length,) + (1,)*residue_mask.ndim)
-        chain_mask = np.tile(chain_mask, (batch_length,) + (1,)*chain_mask.ndim)
-        chain_encoding = np.tile(chain_encoding, (batch_length,) + (1,)*chain_encoding.ndim)
-        residue_idx = np.tile(residue_idx, (batch_length,) + (1,)*residue_idx.ndim)
-        omit_AA_mask = np.tile(omit_AA_mask, (batch_length,) + (1,)*omit_AA_mask.ndim)
-        tied_beta = np.tile(tied_beta, (batch_length,) + (1,)*tied_beta.ndim)
-        pssm_coef = np.tile(pssm_coef, (batch_length,) + (1,)*pssm_coef.ndim)
-        pssm_bias = np.tile(pssm_bias, (batch_length,) + (1,)*pssm_bias.ndim)
-        pssm_log_odds_mask = np.tile(pssm_log_odds_mask, (batch_length,) + (1,)*pssm_log_odds_mask.ndim)
+    def generate_proteinmpnn_decode_order(self, to_device: str = None, core_first: bool = False) -> \
+            torch.Tensor | np.ndarray:
+        """For original ProteinMPNN GitHub release, the decoding order is only dependent on first entry order for
+        model.tied_sample() while it is dependent on each individual sequence for model.sample()
 
-        # Convert all numpy arrays to pytorch
-        X = torch.from_numpy(X).to(dtype=torch.float32, device=device)
-        S = torch.from_numpy(S).to(dtype=torch.long, device=device)
-        mask = torch.from_numpy(mask).to(dtype=torch.float32, device=device)
-        residue_mask = torch.from_numpy(residue_mask).to(dtype=torch.float32, device=device)
-        chain_mask = torch.from_numpy(chain_mask).to(dtype=torch.float32, device=device)
-        chain_encoding = torch.from_numpy(chain_encoding).to(dtype=torch.long, device=device)
-        residue_idx = torch.from_numpy(residue_idx).to(dtype=torch.long, device=device)
-        omit_AA_mask = torch.from_numpy(omit_AA_mask).to(dtype=torch.float32, device=device)
-        tied_beta = torch.from_numpy(tied_beta).to(dtype=torch.float32, device=device)
-        pssm_coef = torch.from_numpy(pssm_coef).to(dtype=torch.float32, device=device)
-        pssm_bias = torch.from_numpy(pssm_bias).to(dtype=torch.float32, device=device)
-        pssm_log_odds_mask = torch.from_numpy(pssm_log_odds_mask).to(dtype=torch.float32, device=device)
-        # torch.from_numpy(omit_aas).to(dtype=torch.float32, device=device)
+        Args:
+            to_device: Whether the decoding order should be transferred to the device that a ProteinMPNN model is on
+            core_first: Whether the core residues (identified as fragment pairs) should be decoded first
+        Returns:
+            The decoding order to be used in ProteinMPNN graph decoding
+        """
+        pose_length = self.number_of_residues
+        if self.is_symmetric():
+            pose_length = self.number_of_symmetry_mates * pose_length
 
-        # Solve decoding order
-        if decode_core_first:
+        if core_first:
             # Todo set up core residues to be higher in value that other designable residues
-            raise NotImplementedError(f'decode_core_first is not available yet')
-            pass
+            raise NotImplementedError(f'core_first is not available yet')
         else:  # random decoding order
-            randn_2 = torch.randn_like(chain_mask.shape, device=X.device)
+            decode_order = np.random.rand(pose_length)
 
-        for batch in range(number_of_batches):
-            if self.is_symmetric():
-                sample_dict = model.tied_sample(X, randn_2, S, chain_mask, chain_encoding, residue_idx, mask,
-                                                temperature=temperature, omit_aas=omit_AAs_np, bias_aas=bias_AAs_np,
-                                                chain_M_pos=residue_mask, omit_aa_mask=omit_AA_mask, pssm_coef=pssm_coef,
-                                                pssm_bias=pssm_bias, pssm_multi=pssm_multi,
-                                                pssm_log_odds_flag=pssm_log_odds_flag,
-                                                pssm_log_odds_mask=pssm_log_odds_mask, pssm_bias_flag=pssm_bias_flag,
-                                                tied_pos=tied_pos, tied_beta=tied_beta,
-                                                bias_by_res=bias_by_res)
-            else:
-                sample_dict = model.sample(X, randn_2, S, chain_mask, chain_encoding, residue_idx, mask,
-                                           temperature=temperature, omit_AAs_np=omit_AAs_np, bias_AAs_np=bias_AAs_np,
-                                           chain_M_pos=residue_mask, omit_AA_mask=omit_AA_mask,
-                                           pssm_coef=pssm_coef, pssm_bias=pssm_bias,
-                                           pssm_multi=pssm_multi, pssm_log_odds_flag=pssm_log_odds_flag,
-                                           pssm_log_odds_mask=pssm_log_odds_mask, pssm_bias_flag=pssm_bias_flag,
-                                           bias_by_res=bias_by_res)
-            # Compute scores
-            S_sample = sample_dict['S']
-            # Todo finish this routine
+        if to_device is not None:
+            return torch.from_numpy(decode_order).to(dtype=torch.float32, device=to_device)
+        else:
+            return decode_order
+
+    def design_sequence(self, number: int = flags.nstruct,
+                        protein_mpnn: bool = True, model_name: str = 'v_48_020',
+                        backbone_noise: float = 0.,
+                        temperature: float = .1,
+                        rosetta: bool = True, **kwargs):
+        # pssm_multi: float = 0., pssm_log_odds_flag: bool = False, pssm_bias_flag: bool = False,
+        # decode_core_first: bool = False, interface: bool = True,
+        """
+
+        Args:
+            number: The number of sequences to design
+            protein_mpnn: Whether to design using ProteinMPNN
+            temperature: The temperature to perform design at
+            rosetta: Whether to design using Rosetta energy functions
+        Keyword Args:
+            model_name - (str) = 'v_48_020' - The name of the model to use from ProteinMPNN.
+                v_X_Y where X is neighbor distance, and Y is noise
+            backbone_noise - (float) = 0.0 - The amount of backbone noise to add to the pose during design
+            interface - (bool) = True - Whether to design the interface only
+            pssm_log_odds_flag - (bool) = False - Whether to use log_odds mask to limit the residues designed
+            pssm_bias_flag - (bool) = False - Whether to use bias to modulate the residue probabilites designed
+            pssm_multi - (float) = 0.0 - How much to skew the design probabilities towards the sequence profile.
+                Bounded between [1, 0] where 0 is no sequence profile probability.
+                Only used with pssm_bias_flag
+            core_first - (bool) = False - Whether to decode identified fragments (constituting the protein core) first
+
+        Returns:
+
+        """
+        if rosetta:
+            raise NotImplementedError(f"Can't design with Rosetta from this method yet...")
+        else:  # Design with vanilla version of ProteinMPNN
+            import torch
+            from ProteinMPNN.vanilla_proteinmpnn.protein_mpnn_utils import ProteinMPNN, _scores, _S_to_seq
+
+            # Set up the model with the desired weights
+            model = proteinmpnn_factory(model_name)
+            device = model.device
+
+            parameters = self.get_proteinmpnn_params()
+            batch_parameters = batch_proteinmpnn(device=device, **parameters)
+            parameters.update(batch_parameters)
+
+            X = parameters.get('X', None)
+            S = parameters.get('S', None)
+            chain_mask = parameters.get('chain_mask', None)
+            chain_encoding = parameters.get('chain_encoding', None)
+            residue_idx = parameters.get('residue_idx', None)
+            mask = parameters.get('mask', None)
+            omit_AAs_np = parameters.get('omit_AAs_np', None)
+            bias_AAs_np = parameters.get('bias_AAs_np', None)
+            residue_mask = parameters.get('chain_M_pos', None)
+            omit_AA_mask = parameters.get('omit_AA_mask', None)
+            pssm_coef = parameters.get('pssm_coef', None)
+            pssm_bias = parameters.get('pssm_bias', None)
+            pssm_multi = parameters.get('pssm_multi', None)
+            pssm_log_odds_flag = parameters.get('pssm_log_odds_flag', None)
+            pssm_log_odds_mask = parameters.get('pssm_log_odds_mask', None)
+            pssm_bias_flag = parameters.get('pssm_bias_flag', None)
+            tied_pos = parameters.get('tied_pos', None)
+            tied_beta = parameters.get('tied_beta', None)
+            bias_by_res = parameters.get('bias_by_res', None)
+
+            # Solve decoding order
+            decode_order = self.generate_proteinmpnn_decode_order(to_device=device)
+
+            size = X.shape[0]
+            batch_length = 10
+            number_of_batches = size // batch_length
+
+            for batch in range(number_of_batches):
+                # Todo implement batching like in fragdock.py
+                if self.is_symmetric():
+                    sample_dict = model.tied_sample(X, decode_order, S, chain_mask, chain_encoding, residue_idx, mask,
+                                                    temperature=temperature, omit_AAs_np=omit_AAs_np,
+                                                    bias_AAs_np=bias_AAs_np, chain_M_pos=residue_mask,
+                                                    omit_AA_mask=omit_AA_mask,
+                                                    pssm_coef=pssm_coef, pssm_bias=pssm_bias, pssm_multi=pssm_multi,
+                                                    pssm_log_odds_flag=pssm_log_odds_flag,
+                                                    pssm_log_odds_mask=pssm_log_odds_mask, pssm_bias_flag=pssm_bias_flag,
+                                                    tied_pos=tied_pos, tied_beta=tied_beta,
+                                                    bias_by_res=bias_by_res)
+                else:
+                    # For sample(), decode order must be the length of the X tensor
+                    decode_order = decode_order.repeat((X.shape[0], 1))
+                    sample_dict = model.sample(X, decode_order, S, chain_mask, chain_encoding, residue_idx, mask,
+                                               temperature=temperature, omit_AAs_np=omit_AAs_np, bias_AAs_np=bias_AAs_np,
+                                               chain_M_pos=residue_mask, omit_AA_mask=omit_AA_mask,
+                                               pssm_coef=pssm_coef, pssm_bias=pssm_bias,
+                                               pssm_multi=pssm_multi, pssm_log_odds_flag=pssm_log_odds_flag,
+                                               pssm_log_odds_mask=pssm_log_odds_mask, pssm_bias_flag=pssm_bias_flag,
+                                               bias_by_res=bias_by_res)
+                # Compute scores
+                S_sample = sample_dict['S']
+                # Todo finish this routine
 
     def return_termini_accessibility(self, entity: Entity = None, report_if_helix: bool = False) -> \
             dict[str, bool]:
