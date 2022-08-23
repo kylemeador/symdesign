@@ -1417,7 +1417,7 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
     # Set up chunks of coordinate transforms for clash testing
     # Todo make a function to wrap memory errors into chunks
     check_clash_coords_start = time.time()
-    memory_constraint = psutil.virtual_memory().available / 4  # use fourth of available during calculation and storage
+    memory_constraint = psutil.virtual_memory().available
     # assume each element is np.float64
     element_memory = 8  # where each element is np.float64
     guide_coords_elements = 9  # For a single guide coordinate with shape (3, 3)
@@ -1516,7 +1516,7 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
 
     full_inv_rotation1 = full_inv_rotation1[asu_is_viable]
 
-    # log.debug('Checking rotation and translation fidelity after removing non viable asu indices')
+    # log.debug('Checking rotation and translation fidelity after removing non-viable asu indices')
     # check_forward_and_reverse(ghost_guide_coords1,
     #                           full_rotation1, full_int_tx1,
     #                           surf_guide_coords2,
@@ -1559,7 +1559,7 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
     log.info(f'\tTransformation of all viable Oligomer 2 CB atoms and surface fragments took '
              f'{time.time() - int_cb_and_frags_start:8f}s')
 
-    def update_pose_coords(idx) -> bool:
+    def update_pose_coords(idx):
         # Get contacting PDB 1 ASU and PDB 2 ASU
         copy_model_start = time.time()
         rot_mat1 = full_rotation1[idx]
@@ -1627,9 +1627,10 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
             new_coords = []
             for entity_idx, entity in enumerate(pose.entities):
                 # Todo Need to tile the entity_bb_coords if operating like this
+                # perturbed_coords = transform_coordinate_sets(entity_bb_coords[entity_idx],
+                #                                              **specific_transformations[transform_indices[entity_idx]])
                 new_coords.append(transform_coordinate_sets(entity_bb_coords[entity_idx],
                                                             **specific_transformations[transform_indices[entity_idx]]))
-
             # Todo test this
             #  Stack the entity coordinates to make up a contiguous block for each pose
             #  If entity_bb_coords are stacked, then must concatenate along axis=1 or =2 to get full pose
@@ -1708,6 +1709,7 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
             batch_length = int(number_of_elements_available // model_elements // start_divisor)
             log.critical(f'The number_of_elements_available is: {number_of_elements_available}')
             while True:
+                log.critical(f'The batch_length is: {batch_length}')
                 try:
                     chunk_size = model_elements * batch_length
                     # number_of_batches = int(ceil(size/batch_length) or 1)
@@ -1782,10 +1784,10 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
             #  If entity_bb_coords are stacked, then must concatenate along axis=1 or =2 to get full pose
             #  If entity_bb_coords aren't stacked (individually transformed), then axis=0 will work
             log.debug(f'new_coords.shape: {tuple([coords.shape for coords in new_coords])}')
-            perturb_coords = np.concatenate(new_coords, axis=1)
-            log.debug(f'perturb_coords.shape: {perturb_coords.shape}')
+            perturbed_coords = np.concatenate(new_coords, axis=1)
+            log.debug(f'perturbed_coords.shape: {perturbed_coords.shape}')
 
-            return perturb_coords.reshape((number_of_perturbations, -1, 3))
+            return perturbed_coords.reshape((number_of_perturbations, -1, 3))
 
     def output_pose(idx, sequence_design: bool = True):
         # Todo replace with PoseDirectory? Path object?
@@ -2577,6 +2579,7 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
         full_ext_tx_sum = full_ext_tx2 - full_ext_tx1
 
     entity_names = [entity.name for model in models for entity in model.entities]
+    entity_bb_coords = [entity.backbone_coords for model in models for entity in model.entities]
     entity_start_coords = [entity.coords for model in models for entity in model.entities]
     transform_indices = {}
     entity_idx = 0
