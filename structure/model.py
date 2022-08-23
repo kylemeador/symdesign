@@ -3798,7 +3798,7 @@ class SymmetricModel(Models):
     _symmetric_coords_by_entity: list[np.ndarray]
     _symmetric_coords_split: list[np.ndarray]
     _symmetric_coords_split_by_entity: list[list[np.ndarray]]
-    _uc_dimensions: list[float] | None
+    _uc_dimensions: tuple[float, float, float, float, float, float] | None
     deorthogonalization_matrix: np.ndarray
     expand_matrices: np.ndarray | list[list[float]] | None
     expand_translations: np.ndarray | list[float] | None
@@ -6339,7 +6339,7 @@ class Pose(SequenceProfile, SymmetricModel):
             # without symmetry, we can't measure this, unless intra-oligomeric contacts are desired
             self.log.warning('Entities are the same, but no symmetry is present. The interface between them will not be'
                              ' detected!')
-            raise NotImplementedError('These entities shouldn\'t necessarily be equal. This issue needs to be addressed'
+            raise NotImplementedError("These entities shouldn't necessarily be equal. This issue needs to be addressed"
                                       'by expanding the __eq__ method of Entity to more accurately reflect what a '
                                       'Structure object represents programmatically')
             # return
