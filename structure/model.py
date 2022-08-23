@@ -5671,14 +5671,14 @@ class Pose(SequenceProfile, SymmetricModel):
         # Residue position mask denotes which residues should be designed. 1 - designed, 0 - known
         residue_mask = np.zeros(self.number_of_residues, dtype=np.int32)  # (number_of_residues,)
         residue_mask[design_residues] = 1.
-        # Set up a simple array where each residue index has the index of the chain starting with the index of 1
-        chain_encoding = np.zeros_like(residue_mask)  # (number_of_residues,)
-        # Set up an array where each residue index is incremented, however each chain break has an increment of 100
-        residue_idx = np.arange(self.number_of_residues, dtype=np.int32)  # (number_of_residues,)
-        for idx, chain in enumerate(self.chains, 1):
-            # Todo make Chain with SequenceProfile
-            chain_encoding[chain.offset_index: chain.offset_index+chain.number_of_residues] = idx
-            residue_idx[chain.offset_index: chain.offset_index+chain.number_of_residues] += 100 * (idx-1)
+        # # Set up a simple array where each residue index has the index of the chain starting with the index of 1
+        # chain_encoding = np.zeros_like(residue_mask)  # (number_of_residues,)
+        # # Set up an array where each residue index is incremented, however each chain break has an increment of 100
+        # residue_idx = np.arange(self.number_of_residues, dtype=np.int32)  # (number_of_residues,)
+        # for idx, chain in enumerate(self.chains, 1):
+        #     # Todo fix def offset_index
+        #     chain_encoding[chain.offset_index: chain.offset_index + chain.number_of_residues] = idx
+        #     residue_idx[chain.offset_index: chain.offset_index + chain.number_of_residues] += 100 * (idx - 1)
 
         # Todo resolve these data structures as flags
         omit_AAs_np = np.zeros(mpnn_alphabet_length, dtype=np.int32)  # (alphabet_length,)
@@ -5739,16 +5739,31 @@ class Pose(SequenceProfile, SymmetricModel):
             # Chain mask denotes which chains should be designed. 1 - designed, 0 - known
             # For symmetric systems, treat each chain as designed as the logits are averaged during model.tied_sample()
             chain_mask = np.ones_like(residue_mask)  # (number_of_sym_residues,)
-            chain_encoding = np.tile(chain_encoding, number_of_symmetry_mates)  # (number_of_sym_residues,)
-            residue_idx = np.tile(residue_idx, number_of_symmetry_mates)  # (number_of_sym_residues,)
+            # Set up a simple array where each residue index has the index of the chain starting with the index of 1
+            chain_encoding = np.zeros_like(residue_mask)  # (number_of_residues,)
+            # Set up an array where each residue index is incremented, however each chain break has an increment of 100
+            residue_idx = np.arange(number_of_sym_residues, dtype=np.int32)  # (number_of_residues,)
             number_of_chains = self.number_of_chains
-            chain_increment = number_of_chains * 100
-            # Increase the symmetric edge encoding features by a set increment
-            for model_idx in range(number_of_symmetry_mates):
-                chain_encoding[model_idx*number_of_residues: (model_idx+1) * number_of_residues] += \
-                    model_idx*number_of_chains
-                residue_idx[model_idx*number_of_residues: (model_idx+1) * number_of_residues] += \
-                    model_idx*chain_increment
+            for idx, chain in enumerate(self.chains, 1):
+                for model_idx in range(number_of_symmetry_mates):
+                    model_offset = model_idx*number_of_residues
+                    model_chain_number = model_idx*number_of_chains
+                    # Todo fix def offset_index
+                    chain_encoding[chain.offset_index+model_offset:
+                                   chain.offset_index+model_offset+chain.number_of_residues] = model_chain_number+idx
+                    residue_idx[chain.offset_index+model_offset:
+                                chain.offset_index+model_offset+chain.number_of_residues] += \
+                        100 * (model_chain_number+idx)
+
+            # chain_encoding = np.tile(chain_encoding, number_of_symmetry_mates)  # (number_of_sym_residues,)
+            # residue_idx = np.tile(residue_idx, number_of_symmetry_mates)  # (number_of_sym_residues,)
+            # chain_increment = number_of_chains*100
+            # # Increase the symmetric edge encoding features by a set increment
+            # for model_idx in range(number_of_symmetry_mates):
+            #     chain_encoding[model_idx*number_of_residues: (model_idx+1) * number_of_residues] += \
+            #         model_idx*number_of_chains
+            #     residue_idx[model_idx*number_of_residues: (model_idx+1) * number_of_residues] += \
+            #         model_idx*chain_increment
 
             self.log.info(f'Tiled chain_encoding chain_break: '
                           f'{chain_encoding[number_of_residues-5: number_of_residues+5]}')
@@ -5763,7 +5778,7 @@ class Pose(SequenceProfile, SymmetricModel):
             # Todo remove once confirmed tile works
             self.log.info(f'Expected tiled bias_by_res.shape: {(number_of_sym_residues, mpnn_alphabet_length)}')
             self.log.info(f'Tiled bias_by_res.shape: {bias_by_res.shape}')
-            self.log.info(f'Tiled sequence_numeric start: {bias_by_res[:5]}')
+            self.log.info(f'Tiled bias_by_res start: {bias_by_res[:5]}')
             self.log.info(f'Tiled bias_by_res: '
                           f'{bias_by_res[number_of_residues-5: number_of_residues+5]}')
             tied_beta = np.ones_like(residue_mask)  # (number_of_sym_residues,)
@@ -5774,6 +5789,14 @@ class Pose(SequenceProfile, SymmetricModel):
             S = self.sequence_numeric  # (number_of_residues,)
             mask = np.zeros_like(residue_mask)  # (number_of_residues,)
             chain_mask = np.ones_like(residue_mask)  # (number_of_residues,)
+            # Set up a simple array where each residue index has the index of the chain starting with the index of 1
+            chain_encoding = np.zeros_like(residue_mask)  # (number_of_residues,)
+            # Set up an array where each residue index is incremented, however each chain break has an increment of 100
+            residue_idx = np.arange(self.number_of_residues, dtype=np.int32)  # (number_of_residues,)
+            for idx, chain in enumerate(self.chains, 1):
+                # Todo fix def offset_index
+                chain_encoding[chain.offset_index: chain.offset_index + chain.number_of_residues] = idx
+                residue_idx[chain.offset_index: chain.offset_index + chain.number_of_residues] += 100 * (idx - 1)
             tied_beta = np.ones_like(residue_mask)  # (number_of_sym_residues,)
             tied_pos = [[]]
 
