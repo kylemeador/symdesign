@@ -1636,12 +1636,20 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
             #  If entity_bb_coords are stacked, then must concatenate along axis=1 or =2 to get full pose
             #  If entity_bb_coords aren't stacked (individually transformed), then axis=0 will work
             log.debug(f'new_coords.shape: {tuple([coords.shape for coords in new_coords])}')
-            perturb_coords = np.concatenate(new_coords, axis=1)
-            log.debug(f'perturb_coords.shape: {perturb_coords.shape}')
+            perturbed_coords = np.concatenate(new_coords, axis=1)
+            log.debug(f'perturbed_coords.shape: {perturbed_coords.shape}')
+
+            # Make each set of coordinates "symmetric"
+            # Todo - This uses starting coords to symmetrize... Crystalline won't be right with external_translation
+            symmetric_coords = []
+            for idx in range(perturbed_coords.shape[0]):
+                symmetric_coords.append(pose.return_symmetric_coords(perturbed_coords[idx]))
 
             # Let -1 fill in the pose length dimension with the number of residues
             # 4 is shape of backbone coords (N, Ca, C, O), 3 is x,y,z
-            X = perturb_coords.reshape((number_of_perturbations, -1, 4, 3))
+            # X = perturbed_coords.reshape((number_of_perturbations, -1, 4, 3))
+            symmetric_coords = np.concatenate(symmetric_coords)
+            X = symmetric_coords.reshape((number_of_perturbations, -1, 4, 3))
             log.debug(f'X.shape: {X.shape}')
             # Todo
             #  return X
@@ -1704,7 +1712,7 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
 
             # The batch_length indicates how many models could fit in the allocated memory. Using floor division to get integer
             # Reduce scale by factor of divisor to be safe
-            start_divisor = divisor = 4
+            start_divisor = divisor = 128
             # batch_length = 10
             batch_length = int(number_of_elements_available // model_elements // start_divisor)
             log.critical(f'The number_of_elements_available is: {number_of_elements_available}')
@@ -1719,6 +1727,10 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
                     sequence_scores = []
                     for batch in range(number_of_batches):
                         batch_slice = slice(batch * batch_length, (batch+1) * batch_length)
+                        # log.debug(f'X[batch_slice].shape: {X[batch_slice].shape}')
+                        # log.debug(f'chain_mask[batch_slice].shape: {chain_mask[batch_slice].shape}')
+                        # log.debug(f'mask[batch_slice].shape: {mask[batch_slice].shape}')
+                        # log.debug(f'residue_mask[batch_slice].shape: {residue_mask[batch_slice].shape}')
                         sample_dict = mpnn_model.tied_sample(X[batch_slice], decode_order, S[batch_slice],
                                                              chain_mask[batch_slice],
                                                              chain_encoding[batch_slice], residue_idx[batch_slice],
@@ -1767,6 +1779,7 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
                     _input = input(f'Press enter to continue')
                     break
                 except (RuntimeError, np.core._exceptions._ArrayMemoryError) as error:  # for (gpu, cpu)
+                    raise error
                     log.critical(f'Calculation failed with {divisor}.\n{error}\nTrying again...')
                     divisor = divisor*2
                     batch_length = int(number_of_elements_available // model_elements // divisor)
