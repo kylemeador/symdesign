@@ -2657,7 +2657,9 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
         # Todo modify to search over 3 dof grid...
         raise NotImplementedError(f'Perturbation for lattice symmetries isn\'t working')
         external_translation_grid = np.repeat(external_translations, perturb_matrices.shape[0])
-        internal_translation_grid = np.repeat(internal_translations, perturb_matrices.shape[0])
+        internal_z_translation_grid = np.repeat(internal_translations, perturb_matrices.shape[0])
+        internal_translation_grid = np.zeros((internal_z_translation_grid.shape[0], 3))
+        internal_translation_grid[:, 2] = internal_z_translation_grid
         perturb_matrix_grid = np.tile(perturb_matrices, (internal_translations.shape[0], 1, 1))
         # Todo
         #  If the ext_tx are all 0 or not possible even if lattice, must not modify them. Need analogous check for
@@ -2665,33 +2667,41 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
         full_ext_tx_perturb1 = full_ext_tx1[None, :, :] + external_translation_grid[:, None, :]
         full_ext_tx_perturb2 = full_ext_tx2[None, :, :] + external_translation_grid[:, None, :]
     else:
-        internal_translation_grid = np.repeat(internal_translations, perturb_matrices.shape[0])
+        internal_z_translation_grid = np.repeat(internal_translations, perturb_matrices.shape[0])
+        internal_translation_grid = np.zeros((internal_z_translation_grid.shape[0], 3))
+        internal_translation_grid[:, 2] = internal_z_translation_grid
         perturb_matrix_grid = np.tile(perturb_matrices, (internal_translations.shape[0], 1, 1))
-        full_ext_tx_perturb1, full_ext_tx_perturb2 = None, None
+        full_ext_tx_perturb1 = full_ext_tx_perturb2 = [None for _ in range(perturb_matrix_grid.shape[0])]
 
     # Apply the full perturbation landscape to the degrees of freedom
+    # These operations add an axis to the transformation operators
+    # Each transformation is along axis=0 and the perturbations are along axis=1
     if sym_entry.is_internal_rot1:
         # Ensure that the second matrix is transposed to dot multiply row s(mat1) by columns (mat2)
-        full_rotation_perturb1 = np.matmul(full_rotation1[None, :, :, :],
-                                           perturb_matrix_grid[:, None, :, :].swapaxes(-1, -2))
+        full_rotation_perturb1 = np.matmul(full_rotation1[:, None, :, :],
+                                           perturb_matrix_grid[None, :, :, :].swapaxes(-1, -2))
     else:  # Todo ensure that identity matrix is the length of internal_translation_grid
-        full_rotation_perturb1 = np.matmul(full_rotation1[None, :, :, :], identity_matrix[None, None, :, :])
+        full_rotation_perturb1 = np.matmul(full_rotation1[:, None, :, :], identity_matrix[None, None, :, :])
     if sym_entry.is_internal_rot2:
-        full_rotation_perturb2 = np.matmul(full_rotation2[None, :, :, :],
-                                           perturb_matrix_grid[:, None, :, :].swapaxes(-1, -2))
+        full_rotation_perturb2 = np.matmul(full_rotation2[:, None, :, :],
+                                           perturb_matrix_grid[None, :, :, :].swapaxes(-1, -2))
     else:
-        full_rotation_perturb2 = np.matmul(full_rotation2[None, :, :, :], identity_matrix[None, None, :, :])
+        full_rotation_perturb2 = np.matmul(full_rotation2[:, None, :, :], identity_matrix[None, None, :, :])
 
-    origin = np.array([0., 0., 0.])
-    if sym_entry.is_internal_tx1:
-        full_int_tx_perturb1 = full_int_tx1[None, :, :] + internal_translation_grid[:, None, :]
+    # origin = np.array([0., 0., 0.])
+    if sym_entry.is_internal_tx1:  # add the translation to Z (axis=2)
+        full_int_tx_perturb1 = full_int_tx1[:, None, :] + internal_translation_grid[None, :, :]
     else:
-        full_int_tx_perturb1 = full_int_tx1[None, :, :] + origin[None, None, :]
+        # full_int_tx1 is empty and adds the origin repeatedly.
+        full_int_tx_perturb1 = full_int_tx1[:, None, :]  # + origin[None, None, :]
 
     if sym_entry.is_internal_tx2:
-        full_int_tx_perturb2 = full_int_tx2[None, :, :] + internal_translation_grid[:, None, :]
+        full_int_tx_perturb2 = full_int_tx2[:, None, :] + internal_translation_grid[None, :, :]
     else:
-        full_int_tx_perturb2 = full_int_tx2[None, :, :] + origin[None, None, :]
+        full_int_tx_perturb2 = full_int_tx2[:, None, :]  # + origin[None, None, :]
+
+    log.info(f'internal_tx 1 shape: {full_int_tx_perturb1.shape}')
+    log.info(f'internal_tx 2 shape: {full_int_tx_perturb2.shape}')
 
     # This will utilize a single input from each pose and create a sequence design batch over each transformation.
     # Todo
