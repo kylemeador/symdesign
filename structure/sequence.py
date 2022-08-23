@@ -390,7 +390,7 @@ class SequenceProfile:
 
     @property
     def offset_index(self) -> int:
-        """Return the starting index for the Entity based on pose numbering of the residues. Zero-indexed"""
+        """Return the starting index for the SequenceProfile based on pose numbering of the residues. Zero-indexed"""
         return self.residues[0].number - 1
 
     # @offset_index.setter
@@ -422,7 +422,7 @@ class SequenceProfile:
         try:
             return self._sequence_numeric
         except AttributeError:
-            self._sequence_array = np.array(self.sequence, np.string_)
+            self._sequence_array = np.array(list(self.sequence), np.string_)
             self._sequence_numeric = \
                 np.vectorize(gapped_numerical_translation_bytes.__getitem__)(self._sequence_array)
             self._sequence_numeric = self._sequence_numeric.astype(np.int32)
