@@ -5677,8 +5677,8 @@ class Pose(SequenceProfile, SymmetricModel):
         residue_idx = np.arange(self.number_of_residues, dtype=np.int32)  # (number_of_residues,)
         for idx, chain in enumerate(self.chains, 1):
             # Todo make Chain with SequenceProfile
-            chain_encoding[chain.offset_index: chain.number_of_residues + chain.offset_index] = idx
-            residue_idx[chain.offset_index: chain.number_of_residues + chain.offset_index] += 100 * (idx - 1)
+            chain_encoding[chain.offset_index: chain.offset_index+chain.number_of_residues] = idx
+            residue_idx[chain.offset_index: chain.offset_index+chain.number_of_residues] += 100 * (idx-1)
 
         # Todo resolve these data structures as flags
         omit_AAs_np = np.zeros(mpnn_alphabet_length, dtype=np.int32)  # (alphabet_length,)
@@ -5710,7 +5710,9 @@ class Pose(SequenceProfile, SymmetricModel):
         self.log.info(f'pssm_bias {pssm_bias[:5]}')
 
         if self.is_symmetric():
-            number_of_sym_residues = self.number_of_residues * self.number_of_symmetry_mates
+            number_of_symmetry_mates = self.number_of_symmetry_mates
+            number_of_residues = self.number_of_residues
+            number_of_sym_residues = number_of_residues * number_of_symmetry_mates
             X = self.return_symmetric_coords(self.backbone_coords)
             # Should be N, CA, C, O for each residue
             #  v - Residue
@@ -5723,32 +5725,47 @@ class Pose(SequenceProfile, SymmetricModel):
             # X = np.array(.split(X, self.number_of_residues))
             X = X.reshape((number_of_sym_residues, 4, 3))  # (number_of_sym_residues, 4, 3)
 
-            S = np.tile(self.sequence_numeric, self.number_of_symmetry_mates)  # (number_of_sym_residues,)
+            S = np.tile(self.sequence_numeric, number_of_symmetry_mates)  # (number_of_sym_residues,)
             # Todo ensure tile works
+            self.log.info(f'self.sequence_numeric: {self.sequence_numeric}')
             self.log.info(f'Tiled sequence_numeric.shape: {S.shape}')
             self.log.info(f'Tiled sequence_numeric start: {S[:5]}')
             self.log.info(f'Tiled sequence_numeric chain_break: '
-                          f'{S[self.number_of_residues - 5: self.number_of_residues + 5]}')
+                          f'{S[number_of_residues-5: number_of_residues+5]}')
 
             # Make masks for the sequence design task
-            residue_mask = np.tile(residue_mask, self.number_of_symmetry_mates)  # (number_of_sym_residues,)
+            residue_mask = np.tile(residue_mask, number_of_symmetry_mates)  # (number_of_sym_residues,)
             mask = np.zeros_like(residue_mask)  # (number_of_sym_residues,)
             # Chain mask denotes which chains should be designed. 1 - designed, 0 - known
             # For symmetric systems, treat each chain as designed as the logits are averaged during model.tied_sample()
             chain_mask = np.ones_like(residue_mask)  # (number_of_sym_residues,)
-            chain_encoding = np.tile(chain_encoding, self.number_of_symmetry_mates)  # (number_of_sym_residues,)
+            chain_encoding = np.tile(chain_encoding, number_of_symmetry_mates)  # (number_of_sym_residues,)
+            residue_idx = np.tile(residue_idx, number_of_symmetry_mates)  # (number_of_sym_residues,)
+            number_of_chains = self.number_of_chains
+            chain_increment = number_of_chains * 100
+            # Increase the symmetric edge encoding features by a set increment
+            for model_idx in range(number_of_symmetry_mates):
+                chain_encoding[model_idx*number_of_residues: (model_idx+1) * number_of_residues] += \
+                    model_idx*number_of_chains
+                residue_idx[model_idx*number_of_residues: (model_idx+1) * number_of_residues] += \
+                    model_idx*chain_increment
 
-            pssm_coef = np.tile(pssm_coef, self.number_of_symmetry_mates)  # (number_of_sym_residues,)
+            self.log.info(f'Tiled chain_encoding chain_break: '
+                          f'{chain_encoding[number_of_residues-5: number_of_residues+5]}')
+            self.log.info(f'Tiled residue_idx chain_break: '
+                          f'{residue_idx[number_of_residues-5: number_of_residues+5]}')
+
+            pssm_coef = np.tile(pssm_coef, number_of_symmetry_mates)  # (number_of_sym_residues,)
             # Below have shape (number_of_sym_residues, alphabet_length)
-            pssm_bias = np.tile(pssm_bias, (self.number_of_symmetry_mates, 1))
-            pssm_log_odds_mask = np.tile(pssm_log_odds_mask, (self.number_of_symmetry_mates, 1))
-            bias_by_res = np.tile(bias_by_res, (self.number_of_symmetry_mates, 1))
+            pssm_bias = np.tile(pssm_bias, (number_of_symmetry_mates, 1))
+            pssm_log_odds_mask = np.tile(pssm_log_odds_mask, (number_of_symmetry_mates, 1))
+            bias_by_res = np.tile(bias_by_res, (number_of_symmetry_mates, 1))
             # Todo remove once confirmed tile works
             self.log.info(f'Expected tiled bias_by_res.shape: {(number_of_sym_residues, mpnn_alphabet_length)}')
             self.log.info(f'Tiled bias_by_res.shape: {bias_by_res.shape}')
             self.log.info(f'Tiled sequence_numeric start: {bias_by_res[:5]}')
             self.log.info(f'Tiled bias_by_res: '
-                          f'{bias_by_res[self.number_of_residues - 5: self.number_of_residues + 5]}')
+                          f'{bias_by_res[number_of_residues-5: number_of_residues+5]}')
             tied_beta = np.ones_like(residue_mask)  # (number_of_sym_residues,)
             tied_pos = [self.get_symmetric_indices([idx]) for idx in design_residues]
             # (design_residues, number_of_symmetry_mates)
