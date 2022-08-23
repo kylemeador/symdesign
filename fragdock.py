@@ -1712,7 +1712,8 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
 
             # The batch_length indicates how many models could fit in the allocated memory. Using floor division to get integer
             # Reduce scale by factor of divisor to be safe
-            start_divisor = divisor = 128
+            # Todo 256 doesn't work on 32 GB of RAM CPU
+            start_divisor = divisor = 256  # 128
             # batch_length = 10
             batch_length = int(number_of_elements_available // model_elements // start_divisor)
             log.critical(f'The number_of_elements_available is: {number_of_elements_available}')
