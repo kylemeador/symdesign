@@ -391,7 +391,7 @@ class SequenceProfile:
     @property
     def offset_index(self) -> int:
         """Return the starting index for the SequenceProfile based on pose numbering of the residues. Zero-indexed"""
-        return self.residues[0].number - 1
+        return self.residues[0].index
 
     # @offset_index.setter
     # def offset_index(self, offset_index):

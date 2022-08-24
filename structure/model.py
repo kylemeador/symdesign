@@ -2851,14 +2851,18 @@ class Model(Structure, ContainsChainsMixin):
         # residue = self.get_residue(chain, residue_number)
         # residue.delete_atoms()  # deletes Atoms from Residue. unneccessary?
 
-        delete_indices = self.chain(chain_id).residue(residue_number).atom_indices
+        residue = self.chain(chain_id).residue(residue_number)
+        if residue is None:
+            raise ValueError(f'The residue number {residue_number} was not found')
+        delete_indices = residue.atom_indices
         # Atoms() handles all Atom instances for the object
         self._atoms.delete(delete_indices)
         # self.delete_atoms(residue.atoms)  # deletes Atoms from PDB
         # chain._residues.remove(residue)  # deletes Residue from Chain
         # self._residues.remove(residue)  # deletes Residue from PDB
         self.renumber_structure()
-        self._residues.reindex_atoms()
+        self._residues.delete([residue.index])
+        self._residues.reindex(start_at=residue.index)
         # remove these indices from all Structure atom_indices including structure_containers
         # Todo, turn this loop into Structure routine and implement for self, and structure_containers
         atom_delete_index = self._atom_indices.index(delete_indices[0])
@@ -5676,7 +5680,6 @@ class Pose(SequenceProfile, SymmetricModel):
         # # Set up an array where each residue index is incremented, however each chain break has an increment of 100
         # residue_idx = np.arange(self.number_of_residues, dtype=np.int32)  # (number_of_residues,)
         # for idx, chain in enumerate(self.chains, 1):
-        #     # Todo fix def offset_index
         #     chain_encoding[chain.offset_index: chain.offset_index + chain.number_of_residues] = idx
         #     residue_idx[chain.offset_index: chain.offset_index + chain.number_of_residues] += 100 * (idx - 1)
 
@@ -5748,7 +5751,6 @@ class Pose(SequenceProfile, SymmetricModel):
                 for model_idx in range(number_of_symmetry_mates):
                     model_offset = model_idx*number_of_residues
                     model_chain_number = model_idx*number_of_chains
-                    # Todo fix def offset_index
                     chain_encoding[chain.offset_index+model_offset:
                                    chain.offset_index+model_offset+chain.number_of_residues] = model_chain_number+idx
                     residue_idx[chain.offset_index+model_offset:
@@ -5794,7 +5796,6 @@ class Pose(SequenceProfile, SymmetricModel):
             # Set up an array where each residue index is incremented, however each chain break has an increment of 100
             residue_idx = np.arange(self.number_of_residues, dtype=np.int32)  # (number_of_residues,)
             for idx, chain in enumerate(self.chains, 1):
-                # Todo fix def offset_index
                 chain_encoding[chain.offset_index: chain.offset_index + chain.number_of_residues] = idx
                 residue_idx[chain.offset_index: chain.offset_index + chain.number_of_residues] += 100 * (idx - 1)
             tied_beta = np.ones_like(residue_mask)  # (number_of_sym_residues,)
