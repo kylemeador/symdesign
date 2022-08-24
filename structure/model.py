@@ -1935,13 +1935,12 @@ class Entity(Chain, ContainsChainsMixin):
         if p.returncode != 0:
             raise DesignError(f'Symmetry definition file creation failed for {self.name}')
 
-        self.format_sdf(out.decode('utf-8').split('\n')[:-1], to_file=out_file, dihedral=dihedral, **kwargs)
-        #               modify_sym_energy_for_cryst=False, energy=2)
+        self.format_sdf(out.decode('utf-8').split('\n')[:-1], to_file=out_file, **kwargs)
+        #                 modify_sym_energy_for_cryst=False, energy=2)
 
         return out_file
 
-    def format_sdf(self, lines: list, to_file: AnyStr = None,
-                   out_path: AnyStr = os.getcwd(), dihedral: bool = False,
+    def format_sdf(self, lines: list, to_file: AnyStr = None, out_path: AnyStr = os.getcwd(),
                    modify_sym_energy_for_cryst: bool = False, energy: int = None) -> AnyStr:
         """Ensure proper sdf formatting before proceeding
 
@@ -1949,7 +1948,6 @@ class Entity(Chain, ContainsChainsMixin):
             lines: The symmetry definition file lines
             to_file: The name of the symmetry definition file
             out_path: The location the symmetry definition file should be written
-            dihedral: Whether the assembly is in dihedral symmetry
             modify_sym_energy_for_cryst: Whether the symmetric energy should match crystallographic systems
             energy: Scalar to modify the Rosetta energy by
         Returns:
@@ -1977,7 +1975,7 @@ class Entity(Chain, ContainsChainsMixin):
         assert set(trunk) - set(virtuals) == set(), 'Symmetry Definition File VRTS are malformed'
         assert self.number_of_symmetry_mates == len(subunits), 'Symmetry Definition File VRTX_base are malformed'
 
-        if dihedral:  # Remove dihedral connecting (trunk) virtuals: VRT, VRT0, VRT1
+        if self.is_dihedral():  # Remove dihedral connecting (trunk) virtuals: VRT, VRT0, VRT1
             virtuals = [virtual for virtual in virtuals if len(virtual) > 1]  # subunit_
         else:
             if '' in virtuals:
@@ -6242,7 +6240,7 @@ class Pose(SequenceProfile, SymmetricModel):
         per_residue_data['sasa_hydrophobic_bound'] = per_residue_sasa_unbound_apolar
         per_residue_data['sasa_polar_bound'] = per_residue_sasa_unbound_polar
         per_residue_data['sasa_relative_bound'] = per_residue_sasa_unbound_relative
-        per_residue_data['hydrophobic_collapse'] = pd.Series(np.concatenate(collapse_concatenated), name=design)
+        per_residue_data['hydrophobic_collapse'] = pd.Series(np.concatenate(collapse_concatenated))  # , name=self.name)
 
         return per_residue_data
 
@@ -6848,10 +6846,11 @@ class Pose(SequenceProfile, SymmetricModel):
                 self.fragment_metrics[query_pair] = self.fragment_db.calculate_match_metrics(fragment_matches)
 
         if by_interface:
-            if entity1 and entity2:
+            if entity1 is not None and entity2 is not None:
                 for query_pair, metrics in self.fragment_metrics.items():
                     if not metrics:
                         continue
+                    # Check either orientation as the function query could vary from self.fragment_metrics
                     if (entity1, entity2) in query_pair or (entity2, entity1) in query_pair:
                         return format_fragment_metrics(metrics)
                 self.log.info(f'Couldn\'t locate query metrics for Entity pair {entity1.name}, {entity2.name}')
@@ -6886,6 +6885,16 @@ class Pose(SequenceProfile, SymmetricModel):
                 metric_d[entity]['percent_fragment_helix'] /= metric_d[entity]['number_of_fragments']
                 metric_d[entity]['percent_fragment_strand'] /= metric_d[entity]['number_of_fragments']
                 metric_d[entity]['percent_fragment_coil'] /= metric_d[entity]['number_of_fragments']
+                try:
+                    metric_d[entity]['nanohedra_score_normalized'] = \
+                        metric_d[entity]['nanohedra_score'] / metric_d[entity]['number_fragment_residues_total']
+                    metric_d[entity]['nanohedra_score_center_normalized'] = \
+                        metric_d[entity]['nanohedra_score_center']/metric_d[entity]['number_fragment_residues_center']
+                except ZeroDivisionError:
+                    self.log.warning(f'{self.name}: No interface residues were found. Is there an interface in your '
+                                     f'design?')
+                    metric_d[entity]['nanohedra_score_normalized'], \
+                    metric_d[entity]['nanohedra_score_center_normalized'] = 0., 0.
 
             return metric_d
         else:  # For the entire interface
