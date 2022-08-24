@@ -6213,7 +6213,7 @@ class Pose(SequenceProfile, SymmetricModel):
         assembly_minimally_contacting = self.assembly_minimally_contacting
         self.log.debug(f'Starting Pose {self.name} Errat')
         errat_start = time.time()
-        _, per_residue_errat = assembly_minimally_contacting.errat(out_path=self.data)
+        _, per_residue_errat = assembly_minimally_contacting.errat(out_path=os.devnull)
         self.log.debug(f'Finished Errat, time = {time.time() - errat_start:6f}')
         per_residue_data['errat_deviation'] = per_residue_errat[:pose_length]
         # perform SASA measurements
