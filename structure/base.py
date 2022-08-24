@@ -1342,7 +1342,7 @@ class Residue(ResidueFragment, ContainsAtomsMixin):
             try:
                 self._start_index = atom_indices[0]
             except (TypeError, IndexError):
-                raise IndexError('The Residue wasn\'t passed atom_indices which are required for initialization')
+                raise ValueError("The Residue wasn't passed atom_indices which are required for initialization")
         # we are setting up a parent (independent) Residue
         elif atoms:  # is not None  # no parent passed, construct from atoms
             self._assign_atoms(atoms)
@@ -2284,29 +2284,37 @@ class Residues:
         """Index the Residue instances Atoms/Coords indices according to incremental Atoms/Coords index
 
         Args:
-            start_at: The integer to start renumbering Residue, Atom objects at
+            start_at: The Residue index to start reindexing at
         """
         residue: Residue
         if start_at > 0:
             if start_at < self.residues.shape[0]:  # if in the Residues index range
-                prior_residue = self.residues[start_at - 1]
+                prior_residue = self.residues[start_at-1]
                 # prior_residue.start_index = start_at
                 for residue in self.residues[start_at:].tolist():
-                    residue.start_index = prior_residue.atom_indices[-1] + 1
+                    residue.start_index = prior_residue.atom_indices[-1]+1
                     prior_residue = residue
             else:
-                # self.residues[-1].start_index = self.residues[-2].atom_indices[-1] + 1
+                # self.residues[-1].start_index = self.residues[-2].atom_indices[-1]+1
                 raise IndexError(f'{Residues.reindex_atoms.__name__}: Starting index is outside of the '
                                  f'allowable indices in the Residues object!')
         else:  # when start_at is 0 or less
             prior_residue = self.residues[0]
             prior_residue.start_index = start_at
             for residue in self.residues[1:].tolist():
-                residue.start_index = prior_residue.atom_indices[-1] + 1
+                residue.start_index = prior_residue.atom_indices[-1]+1
                 prior_residue = residue
 
+    def delete(self, indices: Sequence[int]):
+        """Delete Residue instances from the Residues container
+
+        Args:
+            indices: The indices to delete from the Residues array
+        """
+        self.residues = np.delete(self.residues, indices)
+
     def insert(self, new_residues: list[Residue] | np.ndarray, at: int = None):
-        """Insert Residue(s) into the Residues object
+        """Insert Residue instances into the Residues object
 
         Args:
             new_residues: The residues to include into Residues
@@ -3105,8 +3113,6 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
                 if protein_backbone_atom_types.difference(found_types):  # not an empty set, remove start idx to idx indices
                     remove_atom_indices.extend(list(range(start_atom_index, idx)))
                 else:  # proper format
-                    # new_residues.append(Residue(atom_indices=list(range(start_atom_index, idx)), atoms=self._atoms,
-                    #                             coords=self._coords, log=self._log))
                     new_residues.append(Residue(atom_indices=list(range(start_atom_index, idx)), parent=self))
                 start_atom_index = idx
                 found_types = {atom.type}  # atom_indices = [idx]
@@ -3116,8 +3122,6 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         if protein_backbone_atom_types.difference(found_types):  # not an empty set, remove indices from start idx to idx
             remove_atom_indices.extend(list(range(start_atom_index, idx + 1)))
         else:  # proper format. For each need to increment one higher than the last v
-            # new_residues.append(Residue(atom_indices=list(range(start_atom_index, idx + 1)), atoms=self._atoms,
-            #                             coords=self._coords, log=self._log))
             new_residues.append(Residue(atom_indices=list(range(start_atom_index, idx + 1)), parent=self))
 
         self._residue_indices = list(range(len(new_residues)))
@@ -3365,14 +3369,14 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
             new_residue.next_residue = next_residue
         except IndexError:  # c_termini = True
             if not prior_residue:  # insertion on an empty Structure? block for now to simplify chain identification
-                raise DesignError(f'Can\'t insert_residue_type for an empty {type(self).__name__} class')
+                raise DesignError(f"Can't insert_residue_type for an empty {type(self).__name__} class")
             next_residue = None
 
         # set the new chain_id, number_pdb. Must occur after self._residue_indices update if chain isn't provided
-        chain_assignment_error = 'Can\'t solve for the new Residue polymer association automatically! If the new ' \
+        chain_assignment_error = "Can't solve for the new Residue polymer association automatically! If the new " \
                                  'Residue is at a Structure termini in a multi-Structure Structure container, you must'\
                                  ' specify which Structure it belongs to by passing chain='
-        if chain:
+        if chain is not None:
             new_residue.chain = chain
         else:  # try to solve without it...
             if prior_residue and next_residue:
