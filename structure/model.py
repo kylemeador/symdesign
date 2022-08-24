@@ -21,7 +21,7 @@ from sklearn.neighbors._ball_tree import BinaryTree  # this typing implementatio
 
 import flags
 from resources import wrapapi, fragment
-from metrics import calculate_match_metrics, fragment_metric_template, format_fragment_metrics
+from resources.fragment import format_fragment_metrics, fragment_metric_template
 from ProteinMPNN.vanilla_proteinmpnn.helper_scripts.other_tools.make_pssm_dict import softmax
 from resources.query.pdb import retrieve_entity_id_by_sequence, query_pdb_by, get_entity_reference_sequence, \
     is_entity_thermophilic
@@ -6839,13 +6839,13 @@ class Pose(SequenceProfile, SymmetricModel):
         #  'percent_residues_fragment_total': percent_interface_covered,
         #  'percent_residues_fragment_center': percent_interface_matched,
 
-        if fragments:
-            return format_fragment_metrics(calculate_match_metrics(fragments))
+        if fragments is not None:
+            return format_fragment_metrics(self.fragment_db.calculate_match_metrics(fragments))
 
-        # self.calculate_fragment_query_metrics()  # populates self.fragment_metrics
+        # Populate self.fragment_metrics for repeat calculation efficiency
         if not self.fragment_metrics:
             for query_pair, fragment_matches in self.fragment_queries.items():
-                self.fragment_metrics[query_pair] = calculate_match_metrics(fragment_matches)
+                self.fragment_metrics[query_pair] = self.fragment_db.calculate_match_metrics(fragment_matches)
 
         if by_interface:
             if entity1 and entity2:
