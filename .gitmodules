@@ -5,7 +5,7 @@
 [submodule "python_codon_tables"]
 	path = python_codon_tables
 	branch = main
-	url = https://github.com/kylemeador/codon-usage-tables.git
+	url = https://github.com/kylemeador/python_codon_tables.git
 [submodule "DnaChisel"]
 	path = DnaChisel
 	branch = main
