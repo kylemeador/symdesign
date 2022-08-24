@@ -2262,8 +2262,26 @@ class Residues:
                 return True
         return False
 
-    def reindex_atoms(self, start_at: int = 0):  # , offset=None):
-        """Set each member Residue indices according to incremental Atoms/Coords index
+    def reindex(self, start_at: int = 0):
+        """Index the Residue instances and their corresponding Atom/Coords indices according to their position
+
+        Args:
+            start_at: The Residue index to start reindexing at
+        """
+        self.set_index(start_at=start_at)
+        self.reindex_atoms(start_at=start_at)
+
+    def set_index(self, start_at: int = 0):
+        """Index the Residue instances according to their position in the Residues container
+
+        Args:
+            start_at: The Residue index to start reindexing at
+        """
+        for idx, residue in enumerate(self.residues[start_at:], start_at):
+            residue._index = idx
+
+    def reindex_atoms(self, start_at: int = 0):
+        """Index the Residue instances Atoms/Coords indices according to incremental Atoms/Coords index
 
         Args:
             start_at: The integer to start renumbering Residue, Atom objects at
@@ -3326,7 +3344,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         self._atoms.reindex(start_at=new_residue.start_index)
         # insert the new_residue into the Structure Residues
         self._residues.insert([new_residue], at=residue_index)
-        self._residues.reindex_atoms(start_at=residue_index)
+        self._residues.reindex(start_at=residue_index)
         # after coords, atoms, residues insertion into "_" containers, set parent to self
         new_residue.parent = self
         # set new residue_indices and atom_indices
