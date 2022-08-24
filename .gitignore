@@ -1,6 +1,6 @@
 __pycache__
 dependencies/nanohedra
-dependencies/hh-suite
+dependencies/hhsuite
 dependencies/orient/orient_oligomer
 symdesign/data/databases/fragment_db/biological_interfaces
 .DS_Store
