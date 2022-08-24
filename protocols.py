@@ -31,10 +31,8 @@ from utils.CommandDistributer import reference_average_residue_weight, run_cmds,
     rosetta_variables, relax_flags_cmdline
 from metrics import read_scores, interface_composition_similarity, unnecessary, necessary_metrics, rosetta_terms,\
     columns_to_new_column, division_pairs, delta_pairs, dirty_hbond_processing, significance_columns, \
-    df_permutation_test, clean_up_intermediate_columns, fragment_metric_template, \
-    protocol_specific_columns, rank_dataframe_by_metric_weights, filter_df_for_index_by_value, \
-    multiple_sequence_alignment_dependent_metrics, format_fragment_metrics, calculate_match_metrics, \
-    process_residue_info
+    df_permutation_test, clean_up_intermediate_columns, protocol_specific_columns, rank_dataframe_by_metric_weights, filter_df_for_index_by_value, \
+    multiple_sequence_alignment_dependent_metrics, process_residue_info
 from resources.job import JobResources, job_resources_factory
 from structure.model import Pose, MultiModel, Models, Model, Entity
 from structure.sequence import parse_pssm, generate_mutations_from_reference, simplify_mutation_dict, \
@@ -46,7 +44,7 @@ from utils import large_color_array, handle_errors, starttime, start_log, null_l
     all_vs_all, sym, condensed_to_square, path as PUtils
 from resources.EulerLookup import EulerLookup
 from utils.SymEntry import SymEntry, symmetry_factory
-from resources.fragment import FragmentDatabase
+from resources.fragment import FragmentDatabase, format_fragment_metrics, fragment_metric_template
 from resources.structure_db import StructureDatabase
 from utils.nanohedra.general import get_components_from_nanohedra_docking
 from utils.symmetry import identity_matrix, origin
@@ -1130,12 +1128,12 @@ class PoseDirectory:
 
         self.log.debug('Starting fragment metric collection')
         if self.fragment_observations:  # check if fragment generation has been populated somewhere
-            frag_metrics = format_fragment_metrics(calculate_match_metrics(self.fragment_observations))
+            frag_metrics = format_fragment_metrics(self.fragment_db.calculate_match_metrics(self.fragment_observations))
             # frag_metrics = self.pose.return_fragment_metrics(fragments=self.fragment_observations)
         elif path.exists(self.frag_file):  # try to pull them from disk
             self.log.debug('Fragment observations found on disk. Adding to the Design state')
             self.retrieve_fragment_info_from_file()
-            frag_metrics = format_fragment_metrics(calculate_match_metrics(self.fragment_observations))
+            frag_metrics = format_fragment_metrics(self.fragment_db.calculate_match_metrics(self.fragment_observations))
             # frag_metrics = self.pose.return_fragment_metrics(fragments=self.fragment_observations)
         else:
             if self.interface_design_residues is False:  # no search yet, so self.interface_design_residues = False
