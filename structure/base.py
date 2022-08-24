@@ -1299,6 +1299,7 @@ class Residue(ResidueFragment, ContainsAtomsMixin):
     _bb_indices: list[int]
     _bb_and_cb_indices: list[int]
     _heavy_atom_indices: list[int]
+    _index: int
     _sc_indices: list[int]
     _atoms: Atoms
     _backbone_indices: list[int]
@@ -1334,10 +1335,6 @@ class Residue(ResidueFragment, ContainsAtomsMixin):
         # kwargs passed to ResidueFragment -> Fragment
         #          fragment_type: int = None, guide_coords: np.ndarray = None, fragment_length: int = 5,
         super().__init__(**kwargs)
-        # Unused args now
-        #  atoms: Atoms = None,
-        #        index=None
-        # self.index = index
 
         parent = self.parent
         if parent:  # we are setting up a dependent Residue
@@ -1361,6 +1358,18 @@ class Residue(ResidueFragment, ContainsAtomsMixin):
         else:  # create an empty Residue
             self._atoms = Atoms()
         self.delegate_atoms()
+
+    @property
+    def index(self):
+        """The Residue index in a Residues container"""
+        try:
+            return self._index
+        except AttributeError:
+            raise TypeError(f"{type(self).__name__} is not a member of a Residues container and has no index!")
+
+    # @index.setter
+    # def index(self, index):
+    #     self._index = index
 
     @StructureBase._parent.setter
     def _parent(self, parent: StructureBase):
@@ -2237,6 +2246,8 @@ class Residues:
                             f'numpy.ndarray or list of {Residue.__name__} instances')
         else:
             self.residues = np.array(residues, dtype=np.object_)
+
+        self.set_index()
         self.find_prev_and_next()
 
     def find_prev_and_next(self):
@@ -3277,7 +3288,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         self._coords.delete(delete_indices)
         self._atoms.delete(delete_indices)
         self._atoms.reindex(start_at=atom_delete_index)
-        self._residues.reindex_atoms(start_at=residue.start_index)
+        self._residues.reindex_atoms(start_at=residue.index)
 
         return delete_indices
 
