@@ -5751,15 +5751,14 @@ class Pose(SequenceProfile, SymmetricModel):
             # Set up an array where each residue index is incremented, however each chain break has an increment of 100
             residue_idx = np.arange(number_of_sym_residues, dtype=np.int32)  # (number_of_residues,)
             number_of_chains = self.number_of_chains
-            for idx, chain in enumerate(self.chains, 1):
-                for model_idx in range(number_of_symmetry_mates):
-                    model_offset = model_idx*number_of_residues
-                    model_chain_number = model_idx*number_of_chains
-                    chain_encoding[chain.offset_index+model_offset:
-                                   chain.offset_index+model_offset+chain.number_of_residues] = model_chain_number+idx
-                    residue_idx[chain.offset_index+model_offset:
-                                chain.offset_index+model_offset+chain.number_of_residues] += \
-                        100 * (model_chain_number+idx)
+            for model_idx in range(number_of_symmetry_mates):
+                model_offset = model_idx*number_of_residues
+                model_chain_number = model_idx*number_of_chains
+                for idx, chain in enumerate(self.chains, 1):
+                    chain_number_of_residues = chain.number_of_residues
+                    chain_start = chain.offset_index+model_offset
+                    chain_encoding[chain_start:chain_start+chain_number_of_residues] = model_chain_number+idx
+                    residue_idx[chain_start:chain_start+chain_number_of_residues] += 100 * (model_chain_number+idx)
 
             # chain_encoding = np.tile(chain_encoding, number_of_symmetry_mates)  # (number_of_sym_residues,)
             # residue_idx = np.tile(residue_idx, number_of_symmetry_mates)  # (number_of_sym_residues,)
@@ -5839,7 +5838,7 @@ class Pose(SequenceProfile, SymmetricModel):
         """
         pose_length = self.number_of_residues
         if self.is_symmetric():
-            pose_length = self.number_of_symmetry_mates * pose_length
+            pose_length *= self.number_of_symmetry_mates
 
         if core_first:
             # Todo set up core residues to be higher in value that other designable residues
