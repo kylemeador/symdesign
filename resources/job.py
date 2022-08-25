@@ -120,7 +120,7 @@ class JobResources:
         self.specific_protocol: str = kwargs.get('specific_protocol', False)
         self.structure_background: bool = kwargs.get(structure_background, False)
         self.sym_entry: SymEntry | None = kwargs.get(sym_entry, None)
-        self.write_frags: bool = kwargs.get(output_fragments, True)  # todo, if generate_fragments module, ensure True
+        self.write_fragments: bool = kwargs.get(output_fragments, False)
         self.write_oligomers: bool = kwargs.get(output_oligomers, False)
         self.skip_logging: bool = kwargs.get('skip_logging', False)
         self.nanohedra_output: bool = kwargs.get('nanohedra_output', False)
@@ -130,7 +130,7 @@ class JobResources:
         self.development: bool = kwargs.get('development', False)
 
         if self.nanohedra_output and not self.construct_pose:  # no construction specific flags
-            self.write_frags = False
+            self.write_fragments = False
             self.write_oligomers = False
 
         if self.no_term_constraint:

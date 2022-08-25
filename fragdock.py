@@ -390,7 +390,7 @@ def find_docked_poses(sym_entry, ijk_frag_db, pdb1, pdb2, optimal_tx_params, com
             if not os.path.exists(matched_fragment_dir):
                 os.makedirs(matched_fragment_dir)
 
-            # if write_frags:  # write out aligned cluster representative fragment
+            # if write_fragments:  # write out aligned cluster representative fragment
             fragment, _ = dictionary_lookup(ijk_frag_db.paired_frags, int_ghost_frag.ijk)
             trnsfmd_ghost_fragment = fragment.return_transformed_copy(**int_ghost_frag.transformation)
             trnsfmd_ghost_fragment.transform(rotation=rot_mat1, translation=internal_tx_param1,
@@ -408,7 +408,6 @@ def find_docked_poses(sym_entry, ijk_frag_db, pdb1, pdb2, optimal_tx_params, com
             # write out associated match information to frag_info_file
             write_frag_match_info_file(ghost_frag=int_ghost_frag, matched_frag=int_surf_frag,
                                        overlap_error=z_value, match_number=frag_idx + 1,
-                                       central_frequencies=ghost_frag_central_freqs,
                                        out_path=matching_fragments_dir, pose_id=pose_id)
 
             # Keep track of residue pair frequencies and match information
@@ -511,8 +510,7 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
         output_surrounding_uc: Whether the surrounding unit cells should be output? Only for infinite materials
         log: The logger to keep track of program messages
         clash_dist: The distance to measure for clashing atoms
-        keep_time: Whether the times for each step should be reported
-        write_frags: Whether to write fragment information to a file (useful for fragment based docking w/o Nanohedra)
+        write_frags_only: Whether to write fragment information to a file (useful for fragment based docking w/o Nanohedra)
         same_component_filter: Whether to use the overlap potential on the same component to filter ghost fragments
     Returns:
         None
@@ -555,7 +553,7 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
         models[idx].file_path = model.file_path
 
     # Set up output mechanism
-    if isinstance(master_output, str) and not write_frags:  # we just want to write, so don't make a directory
+    if isinstance(master_output, str) and not write_frags_only:  # we just want to write, so don't make a directory
         building_blocks = '-'.join(model.name for model in models)
         outdir = os.path.join(master_output, building_blocks)
         os.makedirs(outdir, exist_ok=True)
@@ -745,7 +743,7 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
              f'(took {time.time() - get_complete_ghost_frags1_time_start:8f}s)')
 
     #################################
-    if write_frags:  # implemented for Todd to work on C1 instances
+    if write_frags_only:  # implemented for Todd to work on C1 instances
         guide_file_ghost = os.path.join(os.getcwd(), f'{model1.name}_ghost_coords.txt')
         with open(guide_file_ghost, 'w') as f:
             for coord_group in ghost_guide_coords1.tolist():
@@ -2541,7 +2539,7 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
 
             os.makedirs(matched_fragment_dir, exist_ok=True)
 
-            # if write_frags:  # write out aligned cluster representative fragment
+            # if write_fragments:  # write out aligned cluster representative fragment
             # # Old method
             # fragment, _ = dictionary_lookup(ijk_frag_db.paired_frags, int_ghost_frag.ijk)
             # trnsfmd_ghost_fragment = fragment.return_transformed_copy(*int_ghost_frag.transformation)
@@ -2566,7 +2564,6 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
             # write out associated match information to frag_info_file
             write_frag_match_info_file(ghost_frag=int_ghost_frag, matched_frag=int_surf_frag,
                                        overlap_error=z_value, match_number=frag_idx,
-                                       central_frequencies=ghost_frag_central_freqs,
                                        out_path=matching_fragments_dir, pose_id=pose_id)
 
             # Keep track of residue pair frequencies and match information

@@ -543,8 +543,8 @@ class PoseDirectory:
         return self.job_resources.structure_background
 
     @property
-    def write_frags(self) -> bool:
-        return self.job_resources.write_frags
+    def write_fragments(self) -> bool:
+        return self.job_resources.write_fragments
 
     @property
     def write_oligomers(self) -> bool:
@@ -1140,8 +1140,8 @@ class PoseDirectory:
                 self.identify_interface()
             else:  # it is True, but we haven't got the fragments yet, so we will get them by the same means
                 self.load_pose()
-            make_path(self.frags, condition=self.write_frags)
-            self.pose.generate_interface_fragments(out_path=self.frags, write_fragments=self.write_frags)
+            make_path(self.frags, condition=self.write_fragments)
+            self.pose.generate_interface_fragments(out_path=self.frags, write_fragments=self.write_fragments)
             if self.pose.fragment_queries:
                 self.log.debug('Fragment observations found in Pose. Adding to the Design state')
                 self.fragment_observations = self.pose.return_fragment_observations()
@@ -2187,8 +2187,8 @@ class PoseDirectory:
         information between Entities. Aware of symmetry and design_selectors in fragment generation file
         """
         self.identify_interface()
-        make_path(self.frags, condition=self.write_frags)
-        self.pose.generate_interface_fragments(out_path=self.frags, write_fragments=self.write_frags)
+        make_path(self.frags, condition=self.write_fragments)
+        self.pose.generate_interface_fragments(out_path=self.frags, write_fragments=self.write_fragments)
         self.fragment_observations = self.pose.return_fragment_observations()
         self.info['fragments'] = self.fragment_observations
         self.info['fragment_source'] = self.fragment_source
@@ -2238,7 +2238,7 @@ class PoseDirectory:
         else:
             self.identify_interface()
             if self.generate_fragments:
-                make_path(self.frags, condition=self.write_frags)
+                make_path(self.frags, condition=self.write_fragments)
             elif self.fragment_observations or self.fragment_observations == list():
                 pass  # fragment generation was run and maybe succeeded. If not ^
             elif path.exists(self.frag_file):
@@ -2250,7 +2250,7 @@ class PoseDirectory:
             make_path(self.data)  # Todo consolidate this check with pickle_info()
             # Create all files which store the evolutionary_profile and/or fragment_profile -> design_profile
             if self.generate_fragments:
-                self.pose.generate_interface_fragments(out_path=self.frags, write_fragments=self.write_frags)
+                self.pose.generate_interface_fragments(out_path=self.frags, write_fragments=self.write_fragments)
 
                 for query_pair, fragment_info in self.pose.fragment_queries.items():
                     self.log.debug('Query Pair: %s, %s\n\tFragment Info:%s' % (query_pair[0].name, query_pair[1].name,
@@ -2452,8 +2452,8 @@ class PoseDirectory:
             self.identify_interface()
         self.log.debug(f'Found design residues: {", ".join(map(str, sorted(self.interface_design_residues)))}')
         if (not self.fragment_observations and self.fragment_observations != list()) and self.generate_fragments:
-            make_path(self.frags, condition=self.write_frags)
-            self.pose.generate_interface_fragments(out_path=self.frags, write_fragments=self.write_frags)
+            make_path(self.frags, condition=self.write_fragments)
+            self.pose.generate_interface_fragments(out_path=self.frags, write_fragments=self.write_fragments)
 
         # Gather miscellaneous pose specific metrics
         other_pose_metrics = self.pose.interface_metrics()
