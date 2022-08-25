@@ -1627,7 +1627,7 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
             new_coords = []
             for entity_idx, entity in enumerate(pose.entities):
                 # Todo Need to tile the entity_bb_coords if operating like this
-                # perturbed_coords = transform_coordinate_sets(entity_bb_coords[entity_idx],
+                # perturbed_bb_coords = transform_coordinate_sets(entity_bb_coords[entity_idx],
                 #                                              **specific_transformations[transform_indices[entity_idx]])
                 new_coords.append(transform_coordinate_sets(entity_bb_coords[entity_idx],
                                                             **specific_transformations[transform_indices[entity_idx]]))
@@ -1636,34 +1636,36 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
             #  If entity_bb_coords are stacked, then must concatenate along axis=1 or =2 to get full pose
             #  If entity_bb_coords aren't stacked (individually transformed), then axis=0 will work
             log.debug(f'new_coords.shape: {tuple([coords.shape for coords in new_coords])}')
-            perturbed_coords = np.concatenate(new_coords, axis=1)
-            log.debug(f'perturbed_coords.shape: {perturbed_coords.shape}')
+            perturbed_bb_coords = np.concatenate(new_coords, axis=1)
+            log.debug(f'perturbed_bb_coords.shape: {perturbed_bb_coords.shape}')
 
             # Make each set of coordinates "symmetric"
             # Todo - This uses starting coords to symmetrize... Crystalline won't be right with external_translation
-            symmetric_coords = []
-            for idx in range(perturbed_coords.shape[0]):
-                symmetric_coords.append(pose.return_symmetric_coords(perturbed_coords[idx]))
+            symmetric_bb_coords = []
+            for idx in range(perturbed_bb_coords.shape[0]):
+                symmetric_bb_coords.append(pose.return_symmetric_coords(perturbed_bb_coords[idx]))
 
             # Let -1 fill in the pose length dimension with the number of residues
             # 4 is shape of backbone coords (N, Ca, C, O), 3 is x,y,z
-            # X = perturbed_coords.reshape((number_of_perturbations, -1, 4, 3))
-            symmetric_coords = np.concatenate(symmetric_coords)
-            X = symmetric_coords.reshape((number_of_perturbations, -1, 4, 3))
+            # X = perturbed_bb_coords.reshape((number_of_perturbations, -1, 4, 3))
+            symmetric_bb_coords = np.concatenate(symmetric_bb_coords)
+            X = symmetric_bb_coords.reshape((number_of_perturbations, -1, 4, 3))
             log.debug(f'X.shape: {X.shape}')
             # Todo
             #  return X
 
             # Design sequences
             parameters = pose.get_proteinmpnn_params()
-            # Disregard the X return (which would be used in the Pose) and use the stacked X from above
-            parameters['X'] = X
-            # Create batches for ProteinMPNN sequence design task
-            # Without keyword argument "size=", X will be used to determine size of batch_parameters
-            batch_parameters = batch_proteinmpnn(device=mpnn_model.device, **parameters)
+            # # Disregard the X return (which would be used in the Pose) and use the stacked X from above
+            # parameters['X'] = X
+            # # Create batches for ProteinMPNN sequence design task
+            # # Without keyword argument "size=", X will be used to determine size of batch_parameters
+            # Todo separate the batch and the torch.from_numpy()
+            batch_parameters = batch_proteinmpnn(size=1, device=mpnn_model.device, **parameters)
             parameters.update(batch_parameters)
 
-            X = parameters.get('X', None)
+            # X = parameters.get('X', None)
+            X = torch.from_numpy(X).to(dtype=torch.float32, device=mpnn_model.device)
             S = parameters.get('S', None)
             chain_mask = parameters.get('chain_mask', None)
             chain_encoding = parameters.get('chain_encoding', None)
@@ -1713,7 +1715,8 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
             # The batch_length indicates how many models could fit in the allocated memory. Using floor division to get integer
             # Reduce scale by factor of divisor to be safe
             # Todo 256 doesn't work on 32 GB of RAM CPU
-            start_divisor = divisor = 256  # 128
+            # Todo 2048 doesn't work on 24 GB of RAM GPU
+            start_divisor = divisor = 2048  # 256  # 128
             # batch_length = 10
             batch_length = int(number_of_elements_available // model_elements // start_divisor)
             log.critical(f'The number_of_elements_available is: {number_of_elements_available}')
@@ -1732,20 +1735,40 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
                         # log.debug(f'chain_mask[batch_slice].shape: {chain_mask[batch_slice].shape}')
                         # log.debug(f'mask[batch_slice].shape: {mask[batch_slice].shape}')
                         # log.debug(f'residue_mask[batch_slice].shape: {residue_mask[batch_slice].shape}')
-                        sample_dict = mpnn_model.tied_sample(X[batch_slice], decode_order, S[batch_slice],
-                                                             chain_mask[batch_slice],
-                                                             chain_encoding[batch_slice], residue_idx[batch_slice],
-                                                             mask[batch_slice],
+                        # # When batches are sliced for multiple inputs
+                        # sample_dict = mpnn_model.tied_sample(X[batch_slice], decode_order, S[batch_slice],
+                        #                                      chain_mask[batch_slice],
+                        #                                      chain_encoding[batch_slice], residue_idx[batch_slice],
+                        #                                      mask[batch_slice],
+                        #                                      temperature=design_temperature, omit_AAs_np=omit_AAs_np,
+                        #                                      bias_AAs_np=bias_AAs_np,
+                        #                                      chain_M_pos=residue_mask[batch_slice],
+                        #                                      omit_AA_mask=omit_AA_mask[batch_slice],
+                        #                                      pssm_coef=pssm_coef[batch_slice],
+                        #                                      pssm_bias=pssm_bias[batch_slice],
+                        #                                      pssm_multi=pssm_multi,
+                        #                                      pssm_log_odds_flag=pssm_log_odds_flag,
+                        #                                      pssm_log_odds_mask=pssm_log_odds_mask[batch_slice],
+                        #                                      pssm_bias_flag=pssm_bias_flag,
+                        #                                      tied_pos=tied_pos, tied_beta=tied_beta[batch_slice],
+                        #                                      bias_by_res=bias_by_res[batch_slice])
+                        # When batches are single input
+                        sample_dict = mpnn_model.tied_sample(X[batch_slice], decode_order, S[None],
+                                                             chain_mask[None],
+                                                             chain_encoding[None], residue_idx[None],
+                                                             mask[None],
                                                              temperature=design_temperature, omit_AAs_np=omit_AAs_np,
-                                                             bias_AAs_np=bias_AAs_np, chain_M_pos=residue_mask[batch_slice],
-                                                             omit_AA_mask=omit_AA_mask[batch_slice],
-                                                             pssm_coef=pssm_coef[batch_slice],
-                                                             pssm_bias=pssm_bias[batch_slice],
-                                                             pssm_multi=pssm_multi, pssm_log_odds_flag=pssm_log_odds_flag,
-                                                             pssm_log_odds_mask=pssm_log_odds_mask[batch_slice],
+                                                             bias_AAs_np=bias_AAs_np,
+                                                             chain_M_pos=residue_mask[None],
+                                                             omit_AA_mask=omit_AA_mask[None],
+                                                             pssm_coef=pssm_coef[None],
+                                                             pssm_bias=pssm_bias[None],
+                                                             pssm_multi=pssm_multi,
+                                                             pssm_log_odds_flag=pssm_log_odds_flag,
+                                                             pssm_log_odds_mask=pssm_log_odds_mask[None],
                                                              pssm_bias_flag=pssm_bias_flag,
-                                                             tied_pos=tied_pos, tied_beta=tied_beta[batch_slice],
-                                                             bias_by_res=bias_by_res[batch_slice])
+                                                             tied_pos=tied_pos, tied_beta=tied_beta[None],
+                                                             bias_by_res=bias_by_res[None])
                         # sample_dict = mpnn_model.tied_sample(X, decode_order, S, chain_mask, chain_encoding, residue_idx, mask,
                         #                                      temperature=design_temperature, omit_AAs_np=omit_AAs_np,
                         #                                      bias_AAs_np=bias_AAs_np, chain_M_pos=residue_mask,
@@ -1781,7 +1804,8 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
                     break
                 except (RuntimeError, np.core._exceptions._ArrayMemoryError) as error:  # for (gpu, cpu)
                     raise error
-                    log.critical(f'Calculation failed with {divisor}.\n{error}\nTrying again...')
+                    # log.critical(f'Calculation failed with {divisor}.\n{error}\nTrying again...')
+                    log.critical(f'{error}\nTrying again...')
                     divisor = divisor*2
                     batch_length = int(number_of_elements_available // model_elements // divisor)
 
@@ -2608,7 +2632,7 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
                               # uc_dimensions=uc_dimensions,
                               ignore_clashes=True, rename_chains=True)  # pose_format=True,
 
-    passing_symmetric_clashes = np.ones(len(interface_is_viable), dtype=np.bool)
+    passing_symmetric_clashes = np.ones(len(interface_is_viable), dtype=bool)
     for idx, overlap_ghosts in enumerate(all_passing_ghost_indices):
         # log.info(f'Available memory: {psutil.virtual_memory().available}')
         # Load the z-scores and fragments

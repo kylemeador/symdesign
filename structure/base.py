@@ -1027,29 +1027,29 @@ class ContainsAtomsMixin(StructureBase):
         except AttributeError:  # when self._atoms isn't set or is None and doesn't have .atoms
             return
 
-    @atoms.setter
-    def atoms(self, atoms: Atoms | list[Atom]):
-        """Set the Structure atoms to an Atoms object"""
-        # Todo make this setter function in the same way as self._coords.replace?
-        if isinstance(atoms, Atoms):
-            self._atoms = atoms
-        else:
-            self._atoms = Atoms(atoms)
+    # @atoms.setter
+    # def atoms(self, atoms: Atoms | list[Atom]):
+    #     """Set the Structure atoms to an Atoms object"""
+    #     # Todo make this setter function in the same way as self._coords.replace?
+    #     if isinstance(atoms, Atoms):
+    #         self._atoms = atoms
+    #     else:
+    #         self._atoms = Atoms(atoms)
 
     # # Todo enable this type of functionality
     # @atoms.setter
     # def atoms(self, atoms: Atoms):
     #     self._atoms.replace(self._atom_indices, atoms)
 
-    # Todo create add_atoms that is like list append
-    def add_atoms(self, atom_list):
-        """Add Atoms in atom_list to the Structure instance"""
-        raise NotImplementedError('This function (add_atoms) is currently broken')
-        atoms = self.atoms.tolist()
-        atoms.extend(atom_list)
-        self.atoms = atoms
-        # Todo need to update all referrers
-        # Todo need to add the atoms to coords
+    # # Todo create add_atoms that is like list append
+    # def add_atoms(self, atom_list):
+    #     """Add Atoms in atom_list to the Structure instance"""
+    #     raise NotImplementedError('This function (add_atoms) is currently broken')
+    #     atoms = self.atoms.tolist()
+    #     atoms.extend(atom_list)
+    #     self.atoms = atoms
+    #     # Todo need to update all referrers
+    #     # Todo need to add the atoms to coords
 
     @property
     def ca_atoms(self) -> list[Atom]:
@@ -2242,7 +2242,7 @@ class Residues:
         if residues is None:
             self.residues = np.array([])
         elif not isinstance(residues, (np.ndarray, list)):
-            raise TypeError(f'Can\'t initialize {type(self).__name__} with {type(residues).__name__}. Type must be a '
+            raise TypeError(f"Can't initialize {type(self).__name__} with {type(residues).__name__}. Type must be a "
                             f'numpy.ndarray or list of {Residue.__name__} instances')
         else:
             self.residues = np.array(residues, dtype=np.object_)
@@ -2570,8 +2570,8 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         try:  # To get the indices through the public property
             indices = getattr(self, f'{dtype}_indices')
         except AttributeError:
-            raise AttributeError(f'The dtype {dtype}_indices was not found the Structure object. Possible values of '
-                                 f'dtype are "atom" or "residue"')
+            raise AttributeError(f'The dtype {dtype}_indices was not found the in {type(self).__name__} object. '
+                                 f'Possible values of dtype are "atom" or "residue"')
         offset = at - indices[0]
         # Set the indices through the private attribute
         setattr(self, f'_{dtype}_indices', [prior_idx + offset for prior_idx in indices])
@@ -2636,14 +2636,14 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         except AttributeError:  # when self._residues isn't set or is None and doesn't have .residues
             return
 
-    @residues.setter
-    def residues(self, residues: Residues | list[Residue]):
-        """Set the Structure atoms to a Residues object"""
-        # Todo make this setter function in the same way as self._coords.replace?
-        if isinstance(residues, Residues):
-            self._residues = residues
-        else:
-            self._residues = Residues(residues)
+    # @residues.setter
+    # def residues(self, residues: Residues | list[Residue]):
+    #     """Set the Structure atoms to a Residues object"""
+    #     # Todo make this setter function in the same way as self._coords.replace?
+    #     if isinstance(residues, Residues):
+    #         self._residues = residues
+    #     else:
+    #         self._residues = Residues(residues)
 
     # def add_residues(self, residue_list):
     #     """Add Residue objects in a list to the Structure instance"""
