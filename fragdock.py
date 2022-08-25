@@ -15,7 +15,8 @@ import torch
 from sklearn.cluster import DBSCAN
 from sklearn.neighbors import BallTree
 
-from resources.ml import proteinmpnn_factory, batch_proteinmpnn, mpnn_alphabet, score_sequences
+from resources.ml import proteinmpnn_factory, batch_proteinmpnn_input, mpnn_alphabet, score_sequences, \
+    proteinmpnn_to_device
 from utils.cluster import cluster_transformation_pairs
 from resources.fragment import FragmentDatabase, fragment_factory
 from utils.path import frag_text_file, master_log, frag_dir, biological_interfaces, asu_file_name
@@ -1657,15 +1658,16 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
             # Design sequences
             parameters = pose.get_proteinmpnn_params()
             # # Disregard the X return (which would be used in the Pose) and use the stacked X from above
-            # parameters['X'] = X
+            parameters['X'] = X
             # # Create batches for ProteinMPNN sequence design task
             # # Without keyword argument "size=", X will be used to determine size of batch_parameters
             # Todo separate the batch and the torch.from_numpy()
-            batch_parameters = batch_proteinmpnn(size=1, device=mpnn_model.device, **parameters)
+            # batch_parameters = batch_proteinmpnn_input(size=1, **parameters)
+            batch_parameters = proteinmpnn_to_device(mpnn_model.device, **parameters)
             parameters.update(batch_parameters)
 
             # X = parameters.get('X', None)
-            X = torch.from_numpy(X).to(dtype=torch.float32, device=mpnn_model.device)
+            # X = torch.from_numpy(X).to(dtype=torch.float32, device=mpnn_model.device)
             S = parameters.get('S', None)
             chain_mask = parameters.get('chain_mask', None)
             chain_encoding = parameters.get('chain_encoding', None)

@@ -24,7 +24,7 @@ import flags
 from resources import wrapapi, fragment
 from resources.fragment import format_fragment_metrics, fragment_metric_template
 from ProteinMPNN.vanilla_proteinmpnn.helper_scripts.other_tools.make_pssm_dict import softmax
-from resources.ml import proteinmpnn_factory, batch_proteinmpnn
+from resources.ml import proteinmpnn_factory, batch_proteinmpnn_input, proteinmpnn_to_device
 from resources.query.pdb import retrieve_entity_id_by_sequence, query_pdb_by, get_entity_reference_sequence, \
     is_entity_thermophilic
 from resources.query.uniprot import is_uniprot_thermophilic
@@ -5891,8 +5891,9 @@ class Pose(SequenceProfile, SymmetricModel):
             device = model.device
 
             parameters = self.get_proteinmpnn_params()
-            batch_parameters = batch_proteinmpnn(device=device, **parameters)
-            parameters.update(batch_parameters)
+            batch_parameters = batch_proteinmpnn_input(device=device, **parameters)
+            torch_parameters = proteinmpnn_to_device(device, **batch_parameters)
+            parameters.update(torch_parameters)
 
             X = parameters.get('X', None)
             S = parameters.get('S', None)
