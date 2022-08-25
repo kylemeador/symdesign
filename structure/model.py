@@ -30,7 +30,7 @@ from resources.query.pdb import retrieve_entity_id_by_sequence, query_pdb_by, ge
 from resources.query.uniprot import is_uniprot_thermophilic
 from structure.sequence import SequenceProfile, alignment_types, generate_alignment, get_equivalent_indices, \
     pssm_as_array, gapped_protein_letters, generate_mutations
-from structure.base import Structure, Structures, Residue, Residues, StructureBase, ContainsAtomsMixin
+from structure.base import Structure, Structures, Residue, Residues, StructureBase, ContainsAtomsMixin, atom_or_residue
 from structure.coords import Coords, superposition3d, transform_coordinate_sets
 from structure.fragment import GhostFragment, Fragment, write_frag_match_info_file
 from utils import dictionary_lookup, start_log, null_log, digit_translate_table, DesignError, ClashError, \
@@ -4686,16 +4686,22 @@ class SymmetricModel(Models):
 
         return interacting_indices
 
-    def get_symmetric_indices(self, indices: list[int]) -> list[int]:
-        """Extend asymmetric indices across the symmetric_coords using the symmetry state
+    def get_symmetric_indices(self, indices: list[int], dtype: atom_or_residue = 'atom') -> list[int]:
+        """Extend asymmetric indices using the symmetry state across atom or residue indices
 
         Args:
             indices: The asymmetric indices to symmetrize
+            dtype: The type of indices to perform symmetrization with
         Returns:
             The symmetric indices of the asymmetric input
         """
-        atom_num = self.number_of_atoms
-        return [idx + (atom_num * model_num) for model_num in range(self.number_of_symmetry_mates) for idx in indices]
+        try:
+            jump_num = getattr(self, f'number_of_{dtype}s')
+        except AttributeError:
+            raise AttributeError(f'The dtype number_of_{dtype} was not found in the {type(self).__name__} object. '
+                                 f'Possible values of dtype are "atom" or "residue"')
+
+        return [idx + (jump_num * model_num) for model_num in range(self.number_of_symmetry_mates) for idx in indices]
 
     def return_symmetric_copies(self, structure: ContainsAtomsMixin, return_side_chains: bool = True,
                                 surrounding_uc: bool = True, **kwargs) -> list[ContainsAtomsMixin]:
@@ -5728,11 +5734,11 @@ class Pose(SequenceProfile, SymmetricModel):
 
             S = np.tile(self.sequence_numeric, number_of_symmetry_mates)  # (number_of_sym_residues,)
             # Todo ensure tile works
-            self.log.info(f'self.sequence_numeric: {self.sequence_numeric}')
-            self.log.info(f'Tiled sequence_numeric.shape: {S.shape}')
-            self.log.info(f'Tiled sequence_numeric start: {S[:5]}')
-            self.log.info(f'Tiled sequence_numeric chain_break: '
-                          f'{S[number_of_residues-5: number_of_residues+5]}')
+            # self.log.info(f'self.sequence_numeric: {self.sequence_numeric}')
+            # self.log.info(f'Tiled sequence_numeric.shape: {S.shape}')
+            # self.log.info(f'Tiled sequence_numeric start: {S[:5]}')
+            # self.log.info(f'Tiled sequence_numeric chain_break: '
+            #               f'{S[number_of_residues-5: number_of_residues+5]}')
 
             # Make masks for the sequence design task
             residue_mask = np.tile(residue_mask, number_of_symmetry_mates)  # (number_of_sym_residues,)
@@ -5782,7 +5788,7 @@ class Pose(SequenceProfile, SymmetricModel):
             self.log.info(f'Tiled bias_by_res: '
                           f'{bias_by_res[number_of_residues-5: number_of_residues+5]}')
             tied_beta = np.ones_like(residue_mask)  # (number_of_sym_residues,)
-            tied_pos = [self.get_symmetric_indices([idx]) for idx in design_residues]
+            tied_pos = [self.get_symmetric_indices([idx], dtype='residue') for idx in design_residues]
             # (design_residues, number_of_symmetry_mates)
         else:
             X = self.backbone_coords.reshape((self.number_of_residues, 4, 3))  # (number_of_residues, 4, 3)
