@@ -15,6 +15,7 @@ import torch
 from sklearn.cluster import DBSCAN
 from sklearn.neighbors import BallTree
 
+from resources.job import job_resources_factory, JobResources
 from resources.ml import proteinmpnn_factory, batch_proteinmpnn_input, mpnn_alphabet, score_sequences, \
     proteinmpnn_to_device
 from utils.cluster import cluster_transformation_pairs
@@ -482,23 +483,21 @@ def compute_ij_type_lookup(indices1: np.ndarray | Iterable | int | float,
     return np.where(indices1_repeated == indices2_tiled, True, False).reshape(len(indices1), -1)
 
 
-def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_lookup: EulerLookup,
-                   master_output: AnyStr, model1: Structure | AnyStr, model2: Structure | AnyStr,
+def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure | AnyStr, model2: Structure | AnyStr,
                    rotation_step1: float = 3., rotation_step2: float = 3., min_matched: int = 3,
-                   high_quality_match_value: float = .5, initial_z_value: float = 1., output_assembly: bool = False,
-                   output_surrounding_uc: bool = False, log: Logger = logger, clash_dist: float = 2.2,
-                   keep_time: bool = True, write_frags: bool = False, same_component_filter: bool = False, **kwargs):
-    #                resume=False,
+                   high_quality_match_value: float = .5, initial_z_value: float = 1., log: Logger = logger,
+                   job: JobResources = None, fragment_db: FragmentDatabase | str = biological_interfaces,
+                   clash_dist: float = 2.2, write_frags_only: bool = False, same_component_filter: bool = False,
+                   **kwargs):
     """
     Perform the fragment docking routine described in Laniado, Meador, & Yeates, PEDS. 2021
 
     Args:
         sym_entry: The SymmetryEntry object describing the material
-        ijk_frag_db: The FragmentDatabase object used for finding fragment pairs
-        euler_lookup: The EulerLookup object used to search for overlapping euler angles
         master_output: The object to issue outputs to
         model1: The first Structure to be used in docking
         model2: The second Structure to be used in docking
+        fragment_db: The FragmentDatabase object used for finding fragment pairs
         rotation_step1: The number of degrees to increment the rotational degrees of freedom search
         rotation_step2: The number of degrees to increment the rotational degrees of freedom search
         min_matched: How many high quality fragment pairs should be present before a pose is identified?
@@ -506,8 +505,6 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
             When z-value was used this was 1.0, however 0.5 when match score is used
         initial_z_value: The acceptable standard deviation z score for initial fragment overlap identification.
             Smaller values lead to more stringent matching criteria
-        output_assembly: Whether the assembly should be output? Infinite materials are output in a unit cell
-        output_surrounding_uc: Whether the surrounding unit cells should be output? Only for infinite materials
         log: The logger to keep track of program messages
         clash_dist: The distance to measure for clashing atoms
         write_frags_only: Whether to write fragment information to a file (useful for fragment based docking w/o Nanohedra)
@@ -515,6 +512,15 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
     Returns:
         None
     """
+    # Create JobResources for all flags
+    if job is None:
+        job = job_resources_factory.get(program_root=master_output, **kwargs)
+
+    # Create FragmenDatabase for all ijk cluster representatives
+    if not isinstance(fragment_db, FragmentDatabase):
+        fragment_db = fragment_factory(source=fragment_db)
+
+    euler_lookup = euler_factory()
     frag_dock_time_start = time.time()
     outlier = -1
     # Todo set below as parameters?
@@ -588,7 +594,7 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
     # Get Surface Fragments With Guide Coordinates Using COMPLETE Fragment Database
     get_complete_surf_frags2_time_start = time.time()
     complete_surf_frags2 = \
-        model2.get_fragment_residues(residues=model2.surface_residues, fragment_db=ijk_frag_db)
+        model2.get_fragment_residues(residues=model2.surface_residues, fragment_db=fragment_db)
 
     # Calculate the initial match type by finding the predominant surface type
     surf_guide_coords2 = np.array([surf_frag.guide_coords for surf_frag in complete_surf_frags2])
@@ -616,7 +622,7 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
 
     # Set up Building Block1
     get_complete_surf_frags1_time_start = time.time()
-    surf_frags1 = model1.get_fragment_residues(residues=model1.surface_residues, fragment_db=ijk_frag_db)
+    surf_frags1 = model1.get_fragment_residues(residues=model1.surface_residues, fragment_db=fragment_db)
 
     # Calculate the initial match type by finding the predominant surface type
     fragment_content1 = np.bincount([surf_frag.i_type for surf_frag in surf_frags1])
@@ -1585,7 +1591,7 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
         # pose = Pose.from_entities([entity.return_transformed_copy(**specific_transformations[idx])
         #                            for idx, model in enumerate(models) for entity in model.entities],
         #                           entity_names=entity_names, name='asu', log=log, sym_entry=sym_entry,
-        #                           surrounding_uc=output_surrounding_uc, uc_dimensions=uc_dimensions,
+        #                           surrounding_uc=job.output_surrounding_uc, uc_dimensions=uc_dimensions,
         #                           ignore_clashes=True, rename_chains=True)  # pose_format=True,
         # ignore ASU clashes since already checked ^
 
@@ -1866,18 +1872,20 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
         pose.write(out_path=os.path.join(tx_dir, asu_file_name), header=cryst_record)
 
         # Todo group by input model... not entities
-        for entity in pose.entities:
-            entity.write_oligomer(out_path=os.path.join(tx_dir, f'{entity.name}_{sampling_id}.pdb'))
+        if job.write_oligomers:
+            for entity in pose.entities:
+                entity.write_oligomer(out_path=os.path.join(tx_dir, f'{entity.name}_{sampling_id}.pdb'))
 
-        if output_assembly:
+        if job.output_assembly:
             if sym_entry.unit_cell:  # 2, 3 dimensions
-                if output_surrounding_uc:
+                if job.output_surrounding_uc:
                     assembly_path = os.path.join(tx_dir, 'surrounding_unit_cells.pdb')
                 else:
                     assembly_path = os.path.join(tx_dir, 'central_uc.pdb')
             else:  # 0 dimension
                 assembly_path = os.path.join(tx_dir, 'expanded_assembly.pdb')
-            pose.write(assembly=True, out_path=assembly_path, header=cryst_record, surrounding_uc=output_surrounding_uc)
+            pose.write(assembly=True, out_path=assembly_path, header=cryst_record,
+                       surrounding_uc=job.output_surrounding_uc)
         log.info(f'\tSUCCESSFUL DOCKED POSE: {tx_dir}')
 
         # Return the indices sorted by z_value in ascending order, truncated at the number of passing
@@ -2458,19 +2466,17 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
         for entity in pose.entities:
             entity.write_oligomer(out_path=os.path.join(tx_dir, f'{entity.name}_{sampling_id}.pdb'))
 
-        if output_assembly:
+        if job.output_assembly:
             # pose.generate_assembly_symmetry_models(surrounding_uc=output_surrounding_uc)
             if sym_entry.unit_cell:  # 2, 3 dimensions
-                if output_surrounding_uc:
+                if job.output_surrounding_uc:
                     assembly_path = os.path.join(tx_dir, 'surrounding_unit_cells.pdb')
-                    # pose.write(out_path=os.path.join(tx_dir, 'surrounding_unit_cells.pdb'),
-                    #                          header=cryst_record, assembly=True, surrounding_uc=output_surrounding_uc)
                 else:
                     assembly_path = os.path.join(tx_dir, 'central_uc.pdb')
             else:  # 0 dimension
                 assembly_path = os.path.join(tx_dir, 'expanded_assembly.pdb')
-                # pose.write(out_path=os.path.join(tx_dir, 'expanded_assembly.pdb'))
-            pose.write(assembly=True, out_path=assembly_path, header=cryst_record, surrounding_uc=output_surrounding_uc)
+            pose.write(assembly=True, out_path=assembly_path, header=cryst_record,
+                       surrounding_uc=job.output_surrounding_uc)
         log.info(f'\tSUCCESSFUL DOCKED POSE: {tx_dir}')
 
         # Return the indices sorted by match value in descending order, truncated at the number of passing
@@ -2514,7 +2520,7 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
             covered_residues_model1 = [(surf_frag_chain1, surf_frag_central_res_num1 + j) for j in range(-2, 3)]
             covered_residues_model2 = [(surf_frag_chain2, surf_frag_central_res_num2 + j) for j in range(-2, 3)]
             # match = sorted_match_scores[frag_idx - 1]
-            for k in range(ijk_frag_db.fragment_length):
+            for k in range(fragment_db.fragment_length):
                 chain_resnum1 = covered_residues_model1[k]
                 chain_resnum2 = covered_residues_model2[k]
                 if chain_resnum1 not in chid_resnum_scores_dict_model1:
@@ -2560,7 +2566,7 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
             #                                               % ('i%d_j%d_k%d' % int_ghost_frag.ijk, frag_idx)))
             z_value = z_value_from_match_score(match)
             ghost_frag_central_freqs = \
-                dictionary_lookup(ijk_frag_db.info, int_ghost_frag.ijk).central_residue_pair_freqs
+                dictionary_lookup(fragment_db.info, int_ghost_frag.ijk).central_residue_pair_freqs
             # write out associated match information to frag_info_file
             write_frag_match_info_file(ghost_frag=int_ghost_frag, matched_frag=int_surf_frag,
                                        overlap_error=z_value, match_number=frag_idx,
@@ -2632,7 +2638,7 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
 
     pose = Pose.from_entities([entity for idx, model in enumerate(models) for entity in model.entities],
                               entity_names=entity_names, name='asu', log=log, sym_entry=sym_entry,
-                              surrounding_uc=output_surrounding_uc,
+                              surrounding_uc=job.output_surrounding_uc,
                               # uc_dimensions=uc_dimensions,
                               pose_format=True,
                               ignore_clashes=True, rename_chains=True)
@@ -2811,24 +2817,11 @@ if __name__ == '__main__':
 
         model1_name = os.path.basename(os.path.splitext(model1_path)[0])
         model2_name = os.path.basename(os.path.splitext(model2_path)[0])
-        logger.info('Docking %s / %s \n' % (model1_name, model2_name))
-
-        # Create fragment database for all ijk cluster representatives
-        # ijk_frag_db = unpickle(biological_fragment_db_pickle)
-        # Todo parameterize when more available
-        ijk_frag_db = fragment_factory(source=biological_interfaces)
-        # Load Euler Lookup table for each instance
-        euler_lookup = euler_factory()
-        # ijk_frag_db = FragmentDB()
-        #
-        # # Get complete IJK fragment representatives database dictionaries
-        # ijk_frag_db.get_monofrag_cluster_rep_dict()
-        # ijk_frag_db.get_intfrag_cluster_rep_dict()
-        # ijk_frag_db.get_intfrag_cluster_info_dict()
+        logger.info(f'Docking {model1_name} / {model2_name}\n')
 
         try:
             # Output Directory  # Todo PoseDirectory
-            building_blocks = '%s_%s' % (model1_name, model2_name)
+            building_blocks = f'{model1_name}_{model2_name}'
             # outdir = os.path.join(master_outdir, building_blocks)
             # if not os.path.exists(outdir):
             #     os.makedirs(outdir)
@@ -2847,11 +2840,9 @@ if __name__ == '__main__':
             #     bb_logger.info('DOCKING %s TO %s' % (model1_name, model2_name))
             #     bb_logger.info('Oligomer 1 Path: %s\nOligomer 2 Path: %s\n' % (model1_path, model2_path))
 
-            nanohedra_dock(symmetry_entry, ijk_frag_db, euler_lookup, master_outdir, model1_path, model2_path,
+            nanohedra_dock(symmetry_entry, master_outdir, model1_path, model2_path,
                            rotation_step1=rot_step_deg1, rotation_step2=rot_step_deg2, min_matched=min_matched,
-                           output_assembly=output_assembly, output_surrounding_uc=output_surrounding_uc,
-                           keep_time=timer, high_quality_match_value=high_quality_match_value,
-                           initial_z_value=initial_z_value)  # log=bb_logger,
+                           high_quality_match_value=high_quality_match_value, initial_z_value=initial_z_value)
             logger.info('COMPLETE ==> %s\n\n' % os.path.join(master_outdir, building_blocks))
 
         except KeyboardInterrupt:
