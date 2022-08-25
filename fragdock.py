@@ -21,7 +21,7 @@ from resources.ml import proteinmpnn_factory, batch_proteinmpnn_input, mpnn_alph
 from utils.cluster import cluster_transformation_pairs
 from resources.fragment import FragmentDatabase, fragment_factory
 from utils.path import frag_text_file, master_log, frag_dir, biological_interfaces, asu_file_name
-from structure.model import Pose, Model
+from structure.model import Pose, Model, get_matching_fragment_pairs_info
 from structure.base import Structure, Residue
 from structure.coords import transform_coordinate_sets
 from structure.fragment import GhostFragment, write_frag_match_info_file
@@ -1902,90 +1902,101 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
         # For all matched interface fragments
         # Keys are (chain_id, res_num) for every residue that is covered by at least 1 fragment
         # Values are lists containing 1 / (1 + z^2) values for every (chain_id, res_num) residue fragment match
-        chid_resnum_scores_dict_model1, chid_resnum_scores_dict_model2 = {}, {}
+        # chid_resnum_scores_dict_model1, chid_resnum_scores_dict_model2 = {}, {}
         # Number of unique interface mono fragments matched
-        unique_frags_info1, unique_frags_info2 = set(), set()
-        res_pair_freq_info_list = []
+        # unique_frags_info1, unique_frags_info2 = set(), set()
+        # res_pair_freq_info_list = []
         # Todo refactor this whole part below to use pose.something()... interface_metrics()?
-        for frag_idx, (int_ghost_frag, int_surf_frag, match) in \
-                enumerate(zip(sorted_int_ghostfrags, sorted_int_surffrags2, sorted_match_scores), 1):
-            surf_frag_chain1, surf_frag_central_res_num1 = int_ghost_frag.get_aligned_chain_and_residue
-            surf_frag_chain2, surf_frag_central_res_num2 = int_surf_frag.get_aligned_chain_and_residue
-            # Todo
-            #  surf_frag_chain1, surf_frag_central_res_num1 = int_ghost_residue.chain, int_ghost_residue.number
-            #  surf_frag_chain2, surf_frag_central_res_num2 = int_surf_residue.chain, int_surf_residue.number
-
-            covered_residues_model1 = [(surf_frag_chain1, surf_frag_central_res_num1 + j) for j in range(-2, 3)]
-            covered_residues_model2 = [(surf_frag_chain2, surf_frag_central_res_num2 + j) for j in range(-2, 3)]
-            # match = sorted_match_scores[frag_idx - 1]
-            for k in range(ijk_frag_db.fragment_length):
-                chain_resnum1 = covered_residues_model1[k]
-                chain_resnum2 = covered_residues_model2[k]
-                if chain_resnum1 not in chid_resnum_scores_dict_model1:
-                    chid_resnum_scores_dict_model1[chain_resnum1] = [match]
-                else:
-                    chid_resnum_scores_dict_model1[chain_resnum1].append(match)
-
-                if chain_resnum2 not in chid_resnum_scores_dict_model2:
-                    chid_resnum_scores_dict_model2[chain_resnum2] = [match]
-                else:
-                    chid_resnum_scores_dict_model2[chain_resnum2].append(match)
-
-            unique_frags_info1.add((surf_frag_chain1, surf_frag_central_res_num1))
-            unique_frags_info2.add((surf_frag_chain2, surf_frag_central_res_num2))
-
-            if match >= high_quality_match_value:
-                matched_fragment_dir = high_quality_matches_dir
-            else:
-                matched_fragment_dir = low_quality_matches_dir
-
-            os.makedirs(matched_fragment_dir, exist_ok=True)
-
-            # if write_frags:  # write out aligned cluster representative fragment
-            ghost_frag_rep = int_ghost_frag.representative.return_transformed_copy(**specific_transformation1)
-            ghost_frag_rep.write(out_path=os.path.join(matched_fragment_dir,
-                                                       'int_frag_i{}_j{}_k{}_{}.pdb'.format(
-                                                           *int_ghost_frag.ijk, frag_idx)))
-            z_value = z_value_from_match_score(match)
-            ghost_frag_central_freqs = \
-                dictionary_lookup(ijk_frag_db.info, int_ghost_frag.ijk).central_residue_pair_freqs
-            # write out associated match information to frag_info_file
-            write_frag_match_info_file(ghost_frag=int_ghost_frag, matched_frag=int_surf_frag,
-                                       overlap_error=z_value, match_number=frag_idx,
-                                       central_frequencies=ghost_frag_central_freqs,
-                                       out_path=matching_fragments_dir, pose_id=pose_id)
-
-            # Keep track of residue pair frequencies and match information
-            res_pair_freq_info_list.append(FragMatchInfo(ghost_frag_central_freqs,
-                                                         surf_frag_chain1, surf_frag_central_res_num1,
-                                                         surf_frag_chain2, surf_frag_central_res_num2, z_value))
+        fragment_pairs = list(zip(sorted_int_ghostfrags, sorted_int_surffrags2, sorted_match_scores))
+        frag_match_info = get_matching_fragment_pairs_info(fragment_pairs)
+        # First, for the current pose, must identify interfaces
+        pose.find_and_split_interface()
+        # Next, set the interface fragment info
+        pose.fragment_metrics = {(model1, model2): frag_match_info}
+        # Alternatively, query fragments
+        pose.generate_interface_fragments(write_fragments=job.write_fragments)
+        # Next, gather interface metrics
+        interface_metrics = pose.interface_metrics()
+        # if job.write_fragments:
+        #     for frag_idx, (int_ghost_frag, int_surf_frag, match) in enumerate(fragment_pairs, 1):
+        #         # surf_frag_chain1, surf_frag_central_res_num1 = int_ghost_frag.aligned_chain_and_residue
+        #         # surf_frag_chain2, surf_frag_central_res_num2 = int_surf_frag.aligned_chain_and_residue
+        #         # Todo
+        #         #  surf_frag_chain1, surf_frag_central_res_num1 = int_ghost_residue.chain, int_ghost_residue.number
+        #         #  surf_frag_chain2, surf_frag_central_res_num2 = int_surf_residue.chain, int_surf_residue.number
+        #
+        #         # covered_residues_model1 = [(surf_frag_chain1, surf_frag_central_res_num1 + j) for j in range(-2, 3)]
+        #         # covered_residues_model2 = [(surf_frag_chain2, surf_frag_central_res_num2 + j) for j in range(-2, 3)]
+        #         # match = sorted_match_scores[frag_idx - 1]
+        #         # for k in range(ijk_frag_db.fragment_length):
+        #         #     chain_resnum1 = covered_residues_model1[k]
+        #         #     chain_resnum2 = covered_residues_model2[k]
+        #         #     if chain_resnum1 not in chid_resnum_scores_dict_model1:
+        #         #         chid_resnum_scores_dict_model1[chain_resnum1] = [match]
+        #         #     else:
+        #         #         chid_resnum_scores_dict_model1[chain_resnum1].append(match)
+        #         #
+        #         #     if chain_resnum2 not in chid_resnum_scores_dict_model2:
+        #         #         chid_resnum_scores_dict_model2[chain_resnum2] = [match]
+        #         #     else:
+        #         #         chid_resnum_scores_dict_model2[chain_resnum2].append(match)
+        #
+        #         # unique_frags_info1.add((surf_frag_chain1, surf_frag_central_res_num1))
+        #         # unique_frags_info2.add((surf_frag_chain2, surf_frag_central_res_num2))
+        #
+        #         if match >= high_quality_match_value:
+        #             matched_fragment_dir = high_quality_matches_dir
+        #         else:
+        #             matched_fragment_dir = low_quality_matches_dir
+        #
+        #         os.makedirs(matched_fragment_dir, exist_ok=True)
+        #
+        #         # if write_fragments:  # write out aligned cluster representative fragment
+        #         ghost_frag_rep = int_ghost_frag.representative.return_transformed_copy(**specific_transformation1)
+        #         ghost_frag_rep.write(out_path=os.path.join(matched_fragment_dir,
+        #                                                    'int_frag_i{}_j{}_k{}_{}.pdb'.format(
+        #                                                        *int_ghost_frag.ijk, frag_idx)))
+        #         z_value = z_value_from_match_score(match)
+        #         # ghost_frag_central_freqs = \
+        #         #     dictionary_lookup(ijk_frag_db.info, int_ghost_frag.ijk).central_residue_pair_freqs
+        #         # write out associated match information to frag_info_file
+        #         write_frag_match_info_file(ghost_frag=int_ghost_frag, matched_frag=int_surf_frag,
+        #                                    overlap_error=z_value, match_number=frag_idx,
+        #                                    out_path=matching_fragments_dir, pose_id=pose_id)
+        #
+        #         # # Keep track of residue pair frequencies and match information
+        #         # res_pair_freq_info_list.append(FragMatchInfo(ghost_frag_central_freqs,
+        #         #                                              surf_frag_chain1, surf_frag_central_res_num1,
+        #         #                                              surf_frag_chain2, surf_frag_central_res_num2, z_value))
 
         # log.debug('Wrote Fragments to matching_fragments')
         # calculate weighted frequency for central residues and write weighted frequencies to frag_text_file
-        weighted_seq_freq_info = SeqFreqInfo(res_pair_freq_info_list)
-        weighted_seq_freq_info.write(os.path.join(matching_fragments_dir, frag_text_file))
+        # weighted_seq_freq_info = SeqFreqInfo(res_pair_freq_info_list)
+        # weighted_seq_freq_info.write(os.path.join(matching_fragments_dir, frag_text_file))
 
-        unique_matched_monofrag_count = len(unique_frags_info1) + len(unique_frags_info2)
-        unique_total_monofrags_count = unique_interface_frag_count_model1 + unique_interface_frag_count_model2
-        percent_of_interface_covered = unique_matched_monofrag_count / float(unique_total_monofrags_count)
+        unique_matched_monofrag_count = interface_metrics['number_fragment_residues_center']
+        unique_total_monofrags_count = interface_metrics['total_interface_residues']
+        # unique_total_monofrags_count = unique_interface_frag_count_model1 + unique_interface_frag_count_model2
+        percent_of_interface_covered = interface_metrics['percent_residues_fragment_center']
 
-        # Calculate Nanohedra Residue Level Summation Score
-        res_lev_sum_score = 0
-        for res_scores_list1 in chid_resnum_scores_dict_model1.values():
-            n1 = 1
-            res_scores_list_sorted1 = sorted(res_scores_list1, reverse=True)
-            for sc1 in res_scores_list_sorted1:
-                res_lev_sum_score += sc1 * (1 / float(n1))
-                n1 = n1 * 2
-        for res_scores_list2 in chid_resnum_scores_dict_model2.values():
-            n2 = 1
-            res_scores_list_sorted2 = sorted(res_scores_list2, reverse=True)
-            for sc2 in res_scores_list_sorted2:
-                res_lev_sum_score += sc2 * (1 / float(n2))
-                n2 = n2 * 2
+        # # Calculate Nanohedra Residue Level Summation Score
+        # nanohedra_score = 0
+        # for res_scores_list1 in chid_resnum_scores_dict_model1.values():
+        #     n1 = 1
+        #     res_scores_list_sorted1 = sorted(res_scores_list1, reverse=True)
+        #     for sc1 in res_scores_list_sorted1:
+        #         nanohedra_score += sc1 * (1 / float(n1))
+        #         n1 = n1 * 2
+        # for res_scores_list2 in chid_resnum_scores_dict_model2.values():
+        #     n2 = 1
+        #     res_scores_list_sorted2 = sorted(res_scores_list2, reverse=True)
+        #     for sc2 in res_scores_list_sorted2:
+        #         nanohedra_score += sc2 * (1 / float(n2))
+        #         n2 = n2 * 2
 
+        nanohedra_score = interface_metrics['nanohedra_score']
         # Write Out Docked Pose Info to docked_pose_info_file.txt
-        write_docked_pose_info(tx_dir, res_lev_sum_score, high_qual_match_count, unique_matched_monofrag_count,
+        write_docked_pose_info(tx_dir, nanohedra_score, high_qual_match_count, unique_matched_monofrag_count,
                                unique_total_monofrags_count, percent_of_interface_covered, rot_mat1, internal_tx_param1,
                                sym_entry.setting_matrix1, external_tx_params1, rot_mat2, internal_tx_param2,
                                sym_entry.setting_matrix2, external_tx_params2, cryst_record, model1.file_path,
