@@ -2630,7 +2630,8 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
                               entity_names=entity_names, name='asu', log=log, sym_entry=sym_entry,
                               surrounding_uc=output_surrounding_uc,
                               # uc_dimensions=uc_dimensions,
-                              ignore_clashes=True, rename_chains=True)  # pose_format=True,
+                              pose_format=True,
+                              ignore_clashes=True, rename_chains=True)
 
     passing_symmetric_clashes = np.ones(len(interface_is_viable), dtype=bool)
     for idx, overlap_ghosts in enumerate(all_passing_ghost_indices):
