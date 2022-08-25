@@ -315,7 +315,7 @@ def sequence_to_numeric(sequence: Sequence) -> np.ndarray:
         The numerically encoded sequence where each entry along axis 0 is the indexed amino acid. Indices are according
             to the 1 letter alphabetical amino acid
     """
-    _array = np.array(list(sequence), np.string_)  # for single sequence
+    _array = np.array(list(sequence), np.string_)
     return np.vectorize(numerical_translation_bytes.__getitem__)(_array)
 
 
