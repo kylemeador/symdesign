@@ -528,6 +528,7 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
     low_quality_match_value = .2  # sets the lower bounds on an acceptable match, was upper bound of 2 using z-score
     cb_distance = 9.  # change to 8.?
     # cluster_translations = True
+    perturb_transformations = True
     translation_epsilon = 1  # 0.75
     high_quality_z_value = z_value_from_match_score(high_quality_match_value)
     low_quality_z_value = z_value_from_match_score(low_quality_match_value)
@@ -1655,6 +1656,8 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
             # Todo
             #  return X
 
+        # def proteinmpnn_perturb_design(pose, X, model_name):  # Todo Make this pose compatible?
+        #     mpnn_model = proteinmpnn_factory(model_name)
             # Design sequences
             parameters = pose.get_proteinmpnn_params()
             # # Disregard the X return (which would be used in the Pose) and use the stacked X from above
@@ -1816,7 +1819,7 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
                     divisor = divisor*2
                     batch_length = int(number_of_elements_available // model_elements // divisor)
 
-            return generated_sequences, sequence_scores, probabilities
+            return numeric_to_sequence(generated_sequences), sequence_scores, probabilities
         else:
             new_coords = []
             for entity_idx, entity in enumerate(pose.entities):
@@ -2685,86 +2688,86 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
     # Next, expand successful poses from coarse search of transformational space to randomly perturbed offset
     # This occurs by perturbing the transformation by a random small amount to generate transformational diversity from
     # the already identified solutions.
-    # Delta parameters
-    internal_rot_perturb, internal_trans_perturb, external_trans_perturb = 1, 0.5, 0.5  # degrees, Angstroms, Angstroms
-    perturb_number = 100
-    grid_size = int(math.sqrt(perturb_number))  # Get the dimensions of the search
-    # internal_rotations = get_rot_matrices(internal_rot_perturb/grid_size, rot_range_deg=internal_rotation)
-    half_grid_range = int(grid_size/2)
-    step_degrees = internal_rot_perturb/grid_size
-    perturb_matrices = []
-    for step in range(-half_grid_range, half_grid_range):  # Range from -5 to 4(5) for example. 0 is identity matrix
-        rad = math.radians(step*step_degrees)
-        rad_s = math.sin(rad)
-        rad_c = math.cos(rad)
-        perturb_matrices.append([[rad_c, -rad_s, 0.], [rad_s, rad_c, 0.], [0., 0., 1.]])
+    if perturb_transformations:
+        # Delta parameters
+        internal_rot_perturb, internal_trans_perturb, external_trans_perturb = 1, 0.5, 0.5  # degrees, Angstroms, Angstroms
+        perturb_number = 100
+        grid_size = int(math.sqrt(perturb_number))  # Get the dimensions of the search
+        # internal_rotations = get_rot_matrices(internal_rot_perturb/grid_size, rot_range_deg=internal_rotation)
+        half_grid_range = int(grid_size/2)
+        step_degrees = internal_rot_perturb/grid_size
+        perturb_matrices = []
+        for step in range(-half_grid_range, half_grid_range):  # Range from -5 to 4(5) for example. 0 is identity matrix
+            rad = math.radians(step*step_degrees)
+            rad_s = math.sin(rad)
+            rad_c = math.cos(rad)
+            perturb_matrices.append([[rad_c, -rad_s, 0.], [rad_s, rad_c, 0.], [0., 0., 1.]])
 
-    perturb_matrices = np.array(perturb_matrices)
-    internal_translations = external_translations = \
-        np.linspace(-internal_trans_perturb, internal_trans_perturb, grid_size)
-    if sym_entry.unit_cell:
-        # Todo modify to search over 3 dof grid...
-        raise NotImplementedError(f'Perturbation for lattice symmetries isn\'t working')
-        external_translation_grid = np.repeat(external_translations, perturb_matrices.shape[0])
-        internal_z_translation_grid = np.repeat(internal_translations, perturb_matrices.shape[0])
-        internal_translation_grid = np.zeros((internal_z_translation_grid.shape[0], 3))
-        internal_translation_grid[:, 2] = internal_z_translation_grid
-        perturb_matrix_grid = np.tile(perturb_matrices, (internal_translations.shape[0], 1, 1))
-        # Todo
-        #  If the ext_tx are all 0 or not possible even if lattice, must not modify them. Need analogous check for
-        #  is_ext_dof()
-        full_ext_tx_perturb1 = full_ext_tx1[None, :, :] + external_translation_grid[:, None, :]
-        full_ext_tx_perturb2 = full_ext_tx2[None, :, :] + external_translation_grid[:, None, :]
-    else:
-        internal_z_translation_grid = np.repeat(internal_translations, perturb_matrices.shape[0])
-        internal_translation_grid = np.zeros((internal_z_translation_grid.shape[0], 3))
-        internal_translation_grid[:, 2] = internal_z_translation_grid
-        perturb_matrix_grid = np.tile(perturb_matrices, (internal_translations.shape[0], 1, 1))
-        full_ext_tx_perturb1 = full_ext_tx_perturb2 = [None for _ in range(perturb_matrix_grid.shape[0])]
+        perturb_matrices = np.array(perturb_matrices)
+        internal_translations = external_translations = \
+            np.linspace(-internal_trans_perturb, internal_trans_perturb, grid_size)
+        if sym_entry.unit_cell:
+            # Todo modify to search over 3 dof grid...
+            raise NotImplementedError(f'Perturbation for lattice symmetries isn\'t working')
+            external_translation_grid = np.repeat(external_translations, perturb_matrices.shape[0])
+            internal_z_translation_grid = np.repeat(internal_translations, perturb_matrices.shape[0])
+            internal_translation_grid = np.zeros((internal_z_translation_grid.shape[0], 3))
+            internal_translation_grid[:, 2] = internal_z_translation_grid
+            perturb_matrix_grid = np.tile(perturb_matrices, (internal_translations.shape[0], 1, 1))
+            # Todo
+            #  If the ext_tx are all 0 or not possible even if lattice, must not modify them. Need analogous check for
+            #  is_ext_dof()
+            full_ext_tx_perturb1 = full_ext_tx1[None, :, :] + external_translation_grid[:, None, :]
+            full_ext_tx_perturb2 = full_ext_tx2[None, :, :] + external_translation_grid[:, None, :]
+        else:
+            internal_z_translation_grid = np.repeat(internal_translations, perturb_matrices.shape[0])
+            internal_translation_grid = np.zeros((internal_z_translation_grid.shape[0], 3))
+            internal_translation_grid[:, 2] = internal_z_translation_grid
+            perturb_matrix_grid = np.tile(perturb_matrices, (internal_translations.shape[0], 1, 1))
+            full_ext_tx_perturb1 = full_ext_tx_perturb2 = [None for _ in range(perturb_matrix_grid.shape[0])]
 
-    # Apply the full perturbation landscape to the degrees of freedom
-    # These operations add an axis to the transformation operators
-    # Each transformation is along axis=0 and the perturbations are along axis=1
-    if sym_entry.is_internal_rot1:
-        # Ensure that the second matrix is transposed to dot multiply row s(mat1) by columns (mat2)
-        full_rotation_perturb1 = np.matmul(full_rotation1[:, None, :, :],
-                                           perturb_matrix_grid[None, :, :, :].swapaxes(-1, -2))
-    else:  # Todo ensure that identity matrix is the length of internal_translation_grid
-        full_rotation_perturb1 = np.matmul(full_rotation1[:, None, :, :], identity_matrix[None, None, :, :])
-    if sym_entry.is_internal_rot2:
-        full_rotation_perturb2 = np.matmul(full_rotation2[:, None, :, :],
-                                           perturb_matrix_grid[None, :, :, :].swapaxes(-1, -2))
-    else:
-        full_rotation_perturb2 = np.matmul(full_rotation2[:, None, :, :], identity_matrix[None, None, :, :])
+        # Apply the full perturbation landscape to the degrees of freedom
+        # These operations add an axis to the transformation operators
+        # Each transformation is along axis=0 and the perturbations are along axis=1
+        if sym_entry.is_internal_rot1:
+            # Ensure that the second matrix is transposed to dot multiply row s(mat1) by columns (mat2)
+            full_rotation_perturb1 = np.matmul(full_rotation1[:, None, :, :],
+                                               perturb_matrix_grid[None, :, :, :].swapaxes(-1, -2))
+        else:  # Todo ensure that identity matrix is the length of internal_translation_grid
+            full_rotation_perturb1 = np.matmul(full_rotation1[:, None, :, :], identity_matrix[None, None, :, :])
+        if sym_entry.is_internal_rot2:
+            full_rotation_perturb2 = np.matmul(full_rotation2[:, None, :, :],
+                                               perturb_matrix_grid[None, :, :, :].swapaxes(-1, -2))
+        else:
+            full_rotation_perturb2 = np.matmul(full_rotation2[:, None, :, :], identity_matrix[None, None, :, :])
 
-    # origin = np.array([0., 0., 0.])
-    if sym_entry.is_internal_tx1:  # add the translation to Z (axis=2)
-        full_int_tx_perturb1 = full_int_tx1[:, None, :] + internal_translation_grid[None, :, :]
-    else:
-        # full_int_tx1 is empty and adds the origin repeatedly.
-        full_int_tx_perturb1 = full_int_tx1[:, None, :]  # + origin[None, None, :]
+        # origin = np.array([0., 0., 0.])
+        if sym_entry.is_internal_tx1:  # add the translation to Z (axis=2)
+            full_int_tx_perturb1 = full_int_tx1[:, None, :] + internal_translation_grid[None, :, :]
+        else:
+            # full_int_tx1 is empty and adds the origin repeatedly.
+            full_int_tx_perturb1 = full_int_tx1[:, None, :]  # + origin[None, None, :]
 
-    if sym_entry.is_internal_tx2:
-        full_int_tx_perturb2 = full_int_tx2[:, None, :] + internal_translation_grid[None, :, :]
-    else:
-        full_int_tx_perturb2 = full_int_tx2[:, None, :]  # + origin[None, None, :]
+        if sym_entry.is_internal_tx2:
+            full_int_tx_perturb2 = full_int_tx2[:, None, :] + internal_translation_grid[None, :, :]
+        else:
+            full_int_tx_perturb2 = full_int_tx2[:, None, :]  # + origin[None, None, :]
 
-    log.info(f'internal_tx 1 shape: {full_int_tx_perturb1.shape}')
-    log.info(f'internal_tx 2 shape: {full_int_tx_perturb2.shape}')
+        log.info(f'internal_tx 1 shape: {full_int_tx_perturb1.shape}')
+        log.info(f'internal_tx 2 shape: {full_int_tx_perturb2.shape}')
 
-    # This will utilize a single input from each pose and create a sequence design batch over each transformation.
-    # Todo
-    #  The only modification to each ProteinMPNN input is the X tensor with the modified coordinates from each transform
-    for idx in range(full_rotation1.shape[0]):
-        update_pose_coords(idx)
-        batch_time_start = time.time()
-        sequences, scores, probabilities = perturb_transformation(idx)  # Todo , sequence_design=design_output)
-        print(sequences[:5])
-        print(scores[:5])
-        print(probabilities[:5])
-        log.info(f'Batch design took {time.time() - batch_time_start:8f}s')
-        # Todo
-        #  coords = perturb_transformation(idx)  # Todo , sequence_design=design_output)
+        # This will utilize a single input from each pose and create a sequence design batch over each transformation.
+        for idx in range(full_rotation1.shape[0]):
+            update_pose_coords(idx)
+            batch_time_start = time.time()
+            sequences, scores, probabilities = perturb_transformation(idx)  # Todo , sequence_design=design_output)
+            print(sequences[:5])
+            print(scores[:5])
+            print(np.format_float_positional(np.float32(probabilities[0, 0, 0]), unique=False, precision=4))
+            print(probabilities[:5])
+            log.info(f'Batch design took {time.time() - batch_time_start:8f}s')
+            # Todo
+            #  coords = perturb_transformation(idx)  # Todo , sequence_design=design_output)
 
     # Write the resulting pose and sequences
     for idx, overlap_ghosts in enumerate(all_passing_ghost_indices):
