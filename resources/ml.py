@@ -39,9 +39,8 @@ class ProteinMPNNFactory:
             return model
         else:  # Create a new ProteinMPNN model instance
             # Acquire a adequate computing device
-            device = torch.device('cpu')
-            # Todo, reinstate
-            #  device = torch.device('cuda:0' if (torch.cuda.is_available()) else 'cpu')
+            device = torch.device('cuda:0' if (torch.cuda.is_available()) else 'cpu')
+            # device = torch.device('cpu')
             checkpoint = torch.load(os.path.join(protein_mpnn_weights_dir, f'{model_name}.pt'),
                                     map_location=device)
             logger.info(f'Number of edges: {checkpoint["num_edges"]}')
