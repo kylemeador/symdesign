@@ -17,6 +17,7 @@ from sklearn.neighbors import BallTree
 
 from resources.ml import proteinmpnn_factory, batch_proteinmpnn_input, mpnn_alphabet, score_sequences, \
     proteinmpnn_to_device
+from structure.sequence import numeric_to_sequence
 from utils.cluster import cluster_transformation_pairs
 from resources.fragment import FragmentDatabase, fragment_factory
 from utils.path import frag_text_file, master_log, frag_dir, biological_interfaces, asu_file_name
