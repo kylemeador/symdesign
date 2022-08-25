@@ -1666,7 +1666,7 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
             batch_parameters = proteinmpnn_to_device(mpnn_model.device, **parameters)
             parameters.update(batch_parameters)
 
-            # X = parameters.get('X', None)
+            X = parameters.get('X', None)
             # X = torch.from_numpy(X).to(dtype=torch.float32, device=mpnn_model.device)
             S = parameters.get('S', None)
             chain_mask = parameters.get('chain_mask', None)
