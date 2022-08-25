@@ -6006,6 +6006,8 @@ class Pose(SequenceProfile, SymmetricModel):
     def interface_metrics(self) -> dict:
         """Gather all metrics relating to the Pose and the interfaces within the Pose
 
+        Calls return_fragment_metrics(), interface_secondary_structure()
+
         Returns:
             {'nanohedra_score_normalized': , 'nanohedra_score_center_normalized':,
              'nanohedra_score': , 'nanohedra_score_center': , 'number_fragment_residues_total': ,
@@ -6943,9 +6945,9 @@ class Pose(SequenceProfile, SymmetricModel):
                     # Check either orientation as the function query could vary from self.fragment_metrics
                     if (entity1, entity2) in query_pair or (entity2, entity1) in query_pair:
                         return format_fragment_metrics(metrics)
-                self.log.info(f'Couldn\'t locate query metrics for Entity pair {entity1.name}, {entity2.name}')
+                self.log.info(f"Couldn't locate query metrics for Entity pair {entity1.name}, {entity2.name}")
             else:
-                self.log.error(f'{self.return_fragment_metrics.__name__}: entity1 or entity1 can\'t be None!')
+                self.log.error(f"{self.return_fragment_metrics.__name__}: entity1 or entity1 can't be None!")
 
             return fragment_metric_template
         elif by_entity:
