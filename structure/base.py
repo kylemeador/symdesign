@@ -2247,8 +2247,9 @@ class Residues:
         else:
             self.residues = np.array(residues, dtype=np.object_)
 
-        self.set_index()
-        self.find_prev_and_next()
+        # can't set these here since we don't always make Residue copies
+        # self.set_index()
+        # self.find_prev_and_next()
 
     def find_prev_and_next(self):
         """Set prev_residue and next_residue attributes for each Residue. One inherently sets the other in Residue"""
@@ -2359,6 +2360,7 @@ class Residues:
             residue._copier = False
 
         other.find_prev_and_next()
+        # other.set_index()
 
         return other
 
@@ -2700,7 +2702,8 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         # update Residue instance attributes to ensure they are dependants of this instance
         # perform after populate_coords due to possible coords setting to ensure that 'residues' .coords not overwritten
         self._residues.set_attributes(_parent=self)
-        self._residues.reindex_atoms()
+        self._residues.find_prev_and_next()
+        self._residues.reindex()  # reindex_atoms()
         self._set_coords_indexed()
 
     # def store_coordinate_index_residue_map(self):
@@ -3126,6 +3129,9 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
 
         self._residue_indices = list(range(len(new_residues)))
         self._residues = Residues(new_residues)
+        # Set these attributes since this is a fresh Residues
+        self._residues.find_prev_and_next()
+        self._residues.set_index()
 
         # remove bad atom_indices
         atom_indices = self._atom_indices
