@@ -1378,6 +1378,7 @@ def main():
         terminate(results=results)
     # ---------------------------------------------------
     elif args.module == PUtils.generate_fragments:
+        job.write_fragments = True
         if args.multi_processing:
             results = utils.mp_map(PoseDirectory.generate_interface_fragments, pose_directories, processes=cores)
         else:

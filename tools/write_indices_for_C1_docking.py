@@ -32,7 +32,7 @@ if not entities1:
 
 for pdb1, pdb2 in list(product(entities1, entities2)):
     try:
-        nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pdb2, write_frags=True)
+        nanohedra_dock(sym_entry, master_outdir, pdb1, pdb2, write_frags_only=True)
     except RuntimeError as error:
         print(error)
         continue

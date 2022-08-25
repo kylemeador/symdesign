@@ -5991,7 +5991,7 @@ class Pose(SequenceProfile, SymmetricModel):
 
     # def get_interface_fragment_metrics(self) -> dict:
     #     """Generate fragment metrics for the interfaces in the Pose"""
-    #     self.generate_interface_fragments(write_fragments=False)  # out_path=self.frags, self.write_frags)
+    #     self.generate_interface_fragments(write_fragments=False)  # out_path=self.frags, self.write_fragments)
     #     fragment_observations = self.return_fragment_observations()
     #
     #     if fragment_observations == list():
@@ -7226,7 +7226,7 @@ class Pose(SequenceProfile, SymmetricModel):
     #     """
     #     self.fragment_db = fragment.fragment_factory(source=source, **kwargs)
 
-    def generate_interface_fragments(self, write_fragments: bool = True, out_path: AnyStr = None):
+    def generate_interface_fragments(self, write_fragments: bool = False, out_path: AnyStr = None):
         """Generate fragments between the Pose interface(s). Finds interface(s) if not already available
 
         Args:
@@ -7243,23 +7243,24 @@ class Pose(SequenceProfile, SymmetricModel):
 
         if write_fragments:
             self.write_fragment_pairs(self.fragment_pairs, out_path=out_path)
-            frag_file = os.path.join(out_path, PUtils.frag_text_file)
-            if os.path.exists(frag_file):
-                os.system(f'rm {frag_file}')  # ensure old file is removed before new write
-            for match_count, (ghost_frag, surface_frag, match) in enumerate(self.fragment_pairs, 1):
-                write_frag_match_info_file(ghost_frag=ghost_frag, matched_frag=surface_frag,
-                                           overlap_error=z_value_from_match_score(match),
-                                           match_number=match_count, out_path=out_path)
 
     def write_fragment_pairs(self, ghost_mono_frag_pairs: list[tuple[GhostFragment, Fragment, float]],
                              out_path: AnyStr = os.getcwd()):
         ghost_frag: GhostFragment
-        mono_frag: Fragment
-        for idx, (ghost_frag, mono_frag, match_score) in enumerate(ghost_mono_frag_pairs, 1):
+        surface_frag: Fragment
+        frag_file = os.path.join(out_path, PUtils.frag_text_file)
+        if os.path.exists(frag_file):
+            os.system(f'rm {frag_file}')  # ensure old file is removed before new write
+
+        for match_count, (ghost_frag, surface_frag, match_score) in enumerate(ghost_mono_frag_pairs, 1):
             ijk = ghost_frag.ijk
             fragment_pdb, _ = dictionary_lookup(self.fragment_db.paired_frags, ijk)
-            trnsfmd_fragment = fragment_pdb.return_transformed_copy(**ghost_frag.transformation)
-            trnsfmd_fragment.write(out_path=os.path.join(out_path, f'%d_%d_%d_fragment_match_{idx}.pdb' % ijk))
+            trnsfmd_fragment = fragment_pdb.return_transformed_copy(*ghost_frag.transformation)
+            trnsfmd_fragment.write(out_path=os.path.join(out_path,
+                                                         '{}_{}_{}_fragment_match_{}.pdb'.format(*ijk, match_count)))
+            write_frag_match_info_file(ghost_frag=ghost_frag, matched_frag=surface_frag,
+                                       overlap_error=z_value_from_match_score(match_score),
+                                       match_number=match_count, out_path=out_path)
 
     # def format_seqres(self, **kwargs) -> str:
     #     """Format the reference sequence present in the SEQRES remark for writing to the output header
