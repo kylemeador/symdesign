@@ -1784,9 +1784,14 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
                         tied_decoding_order = sample_dict['decoding_order']
                         chain_residue_mask = chain_mask*residue_mask
                         chain_residue_mask = chain_residue_mask[batch_slice]
-                        log_probs = mpnn_model(X[batch_slice], S_sample, mask[batch_slice], chain_residue_mask,
-                                               residue_idx[batch_slice], chain_encoding[batch_slice],
-                                               None,  # decode_order <- this argument is provided but with below args, is not used
+                        # # When batches are sliced for multiple inputs
+                        # log_probs = mpnn_model(X[batch_slice], S_sample, mask[batch_slice], chain_residue_mask,
+                        #                        residue_idx[batch_slice], chain_encoding[batch_slice],
+                        #                        None,  # decode_order <- this argument is provided but with below args, is not used
+                        #                        use_input_decoding_order=True, decoding_order=tied_decoding_order)
+                        # When batches are single input
+                        log_probs = mpnn_model(X[batch_slice], S_sample, mask[None], chain_residue_mask,
+                                               residue_idx[None], chain_encoding[None], None,
                                                use_input_decoding_order=True, decoding_order=tied_decoding_order)
                         mask_for_loss = mask * chain_residue_mask
                         scores = score_sequences(S_sample, log_probs, mask_for_loss)
