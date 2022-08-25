@@ -67,7 +67,7 @@ class GhostFragment:
         return self.i_type, self.j_type, self.k_type
 
     @property
-    def get_aligned_chain_and_residue(self) -> tuple[str, int]:
+    def aligned_chain_and_residue(self) -> tuple[str, int]:
         """Return the Fragment identifiers that the GhostFragment was mapped to
 
         Returns:
@@ -200,7 +200,7 @@ class Fragment:
         self.i_type = frag_type
 
     @property
-    def get_aligned_chain_and_residue(self) -> tuple[str, int]:
+    def aligned_chain_and_residue(self) -> tuple[str, int]:
         """Return the Fragment identifiers that the MonoFragment was mapped to
 
         Returns:
@@ -347,7 +347,7 @@ class MonoFragment(Fragment):
             self._representative_ca_coords = representatives[self.i_type]
 
     @property
-    def get_aligned_chain_and_residue(self) -> tuple[str, int]:
+    def aligned_chain_and_residue(self) -> tuple[str, int]:
         """Return the Fragment identifiers that the MonoFragment was mapped to
 
         Returns:
@@ -454,7 +454,7 @@ class ResidueFragment(Fragment):
         # return dict(rotation=self.rotation, translation=self.translation)
 
     @property
-    def get_aligned_chain_and_residue(self) -> tuple[str, int]:
+    def aligned_chain_and_residue(self) -> tuple[str, int]:
         """Return the Fragment identifiers that the ResidueFragment was mapped to
 
         Returns:
@@ -465,7 +465,8 @@ class ResidueFragment(Fragment):
 
 def write_frag_match_info_file(ghost_frag: GhostFragment = None, matched_frag: Fragment = None,
                                overlap_error: float = None, match_number: int = None,
-                               central_frequencies=None, out_path: AnyStr = os.getcwd(), pose_id: str = None):
+                               out_path: AnyStr = os.getcwd(), pose_id: str = None):
+    # central_frequencies=None,
     # ghost_residue: Residue = None, matched_residue: Residue = None,
 
     # if not ghost_frag and not matched_frag and not overlap_error and not match_number:  # TODO
@@ -474,22 +475,22 @@ def write_frag_match_info_file(ghost_frag: GhostFragment = None, matched_frag: F
     with open(os.path.join(out_path, frag_text_file), 'a+') as out_info_file:
         # if is_initial_match:
         if match_number == 1:
-            out_info_file.write('DOCKED POSE ID: %s\n\n' % pose_id)
+            out_info_file.write(f'DOCKED POSE ID: {pose_id}\n\n')
             out_info_file.write('***** ALL FRAGMENT MATCHES *****\n\n')
             # out_info_file.write("***** INITIAL MATCH FROM REPRESENTATIVES OF INITIAL FRAGMENT CLUSTERS *****\n\n")
         cluster_id = 'i{}_j{}_k{}'.format(*ghost_frag.ijk)
         out_info_file.write(f'MATCH {match_number}\n')
         out_info_file.write(f'z-val: {overlap_error}\n')
         out_info_file.write('CENTRAL RESIDUES\noligomer1 ch, resnum: {}, {}\noligomer2 ch, resnum: {}, {}\n'.format(
-            *ghost_frag.get_aligned_chain_and_residue, *matched_frag.get_aligned_chain_and_residue))
+            *ghost_frag.aligned_chain_and_residue, *matched_frag.aligned_chain_and_residue))
         # Todo
         #  out_info_file.write('oligomer1 ch, resnum: %s, %d\n' % (ghost_residue.chain, ghost_residue.residue))
         #  out_info_file.write('oligomer2 ch, resnum: %s, %d\n' % (matched_residue.chain, matched_residue.residue))
         out_info_file.write('FRAGMENT CLUSTER\n')
-        out_info_file.write('id: %s\n' % cluster_id)
-        out_info_file.write('mean rmsd: %f\n' % ghost_frag.rmsd)
-        out_info_file.write('aligned rep: int_frag_%s_%d.pdb\n' % (cluster_id, match_number))
-        out_info_file.write('central res pair freqs:\n%s\n\n' % str(central_frequencies))
+        out_info_file.write(f'id: {cluster_id}\n')
+        out_info_file.write(f'mean rmsd: {ghost_frag.rmsd}\n')
+        out_info_file.write(f'aligned rep: int_frag_{cluster_id}_{match_number}.pdb\n')
+        # out_info_file.write(f'central res pair freqs:\n{central_frequencies}\n\n')
 
         # if is_initial_match:
         #     out_info_file.write("***** ALL MATCH(ES) FROM REPRESENTATIVES OF ALL FRAGMENT CLUSTERS *****\n\n")
