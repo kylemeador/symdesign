@@ -11,10 +11,7 @@ from utils.SymEntry import symmetry_factory
 
 print('USAGE:\nNavigate to a directory with the ".pdb" files of interest to generate fragment indices for and execute:'
       f'\npython {os.path.abspath(__file__)} file_name_for_ghost_fragments.pdb')
-# Create fragment database for all ijk cluster representatives
-ijk_frag_db = unpickle(biological_fragment_db_pickle)
-# Load Euler Lookup table for each instance
-euler_lookup = euler_factory()
+
 sym_entry = symmetry_factory.get(261)
 master_outdir = os.getcwd()
 entities1, entities2 = [], []

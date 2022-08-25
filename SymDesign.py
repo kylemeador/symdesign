@@ -1402,22 +1402,20 @@ def main():
             write_docking_parameters(args.oligomer1, args.oligomer2, args.rotation_step1, args.rotation_step2,
                                      sym_entry, job.docking_master_dir, log=master_logger)
             if args.multi_processing:
-                zipped_args = zip(repeat(sym_entry), repeat(fragment_db), repeat(euler_lookup),
-                                  repeat(job.docking_master_dir), *zip(*structure_pairs),
+                zipped_args = zip(repeat(sym_entry), repeat(job.docking_master_dir), *zip(*structure_pairs),
                                   repeat(args.rotation_step1), repeat(args.rotation_step2), repeat(args.min_matched),
                                   repeat(args.high_quality_match_value), repeat(args.initial_z_value),
-                                  repeat(args.output_assembly), repeat(args.output_surrounding_uc), repeat(bb_logger))
+                                  repeat(bb_logger), repeat(job))
                 results = utils.mp_starmap(nanohedra_dock, zipped_args, processes=cores)
             else:  # using combinations of directories with .pdb files
                 for model1, model2 in structure_pairs:
                     master_logger.info(f'Docking {model1.name} / {model2.name}')
                     # result = nanohedra_dock(sym_entry, fragment_db, euler_lookup, job.docking_master_dir, pdb1, pdb2,
                     # result = None
-                    nanohedra_dock(sym_entry, fragment_db, euler_lookup, job.docking_master_dir, model1, model2,
+                    nanohedra_dock(sym_entry, job.docking_master_dir, model1, model2,
                                    rotation_step1=args.rotation_step1, rotation_step2=args.rotation_step2,
                                    min_matched=args.min_matched, high_quality_match_value=args.high_quality_match_value,
-                                   initial_z_value=args.initial_z_value, output_assembly=args.output_assembly,
-                                   output_surrounding_uc=args.output_surrounding_uc, log=bb_logger)
+                                   initial_z_value=args.initial_z_value, log=bb_logger, job=job)
                     # results.append(result)  # DONT need. Results uses pose_directories. There are none and no output
             terminate(results=results, output=False)
         else:  # write all commands to a file and use sbatch
