@@ -1797,9 +1797,9 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
                         log_probs = mpnn_model(X[batch_slice], S_sample, mask[None], chain_residue_mask,
                                                residue_idx[None], chain_encoding[None], None,
                                                use_input_decoding_order=True, decoding_order=tied_decoding_order)
-                        mask_for_loss = mask * chain_residue_mask
-                        scores = score_sequences(S_sample, log_probs, mask_for_loss)
-                        scores = scores.cpu().data.numpy()
+                        mask_for_loss = mask*chain_residue_mask
+                        scores = score_sequences(S_sample, log_probs, mask_for_loss).cpu().data.numpy()
+                        # scores = scores.cpu().data.numpy()
                         sequence_scores.extend(scores)  # .tolist())
                         batch_probabilities = sample_dict['probs'].cpu().data.numpy()
                         probabilities.extend(batch_probabilities)  # .tolist())
@@ -1814,12 +1814,14 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
                     _input = input(f'Press enter to continue')
                     break
                 except (RuntimeError, np.core._exceptions._ArrayMemoryError) as error:  # for (gpu, cpu)
-                    raise error
-                    # log.critical(f'Calculation failed with {divisor}.\n{error}\nTrying again...')
+                    # raise error
+                    log.critical(f'Calculation failed with {divisor}.\n{error}\nTrying again...')
                     log.critical(f'{error}\nTrying again...')
                     divisor = divisor*2
                     batch_length = int(number_of_elements_available // model_elements // divisor)
 
+            sequence_scores = np.concatenate(sequence_scores)
+            probabilities = np.concatenate(probabilities)
             return generated_sequences, sequence_scores, probabilities
         else:
             new_coords = []
