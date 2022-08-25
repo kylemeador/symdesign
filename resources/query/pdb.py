@@ -27,7 +27,8 @@ additional_input_string = '\nWould you like to add another%s? [y/n]%s' % ('%s', 
 instance_d = {'string': str, 'integer': int, 'number': float, 'date': str}
 
 # Websites
-pdb_query_url = 'https://search.rcsb.org/rcsbsearch/v1/query'
+# pdb_query_url = 'https://search.rcsb.org/rcsbsearch/v1/query'
+pdb_query_url = 'https://search.rcsb.org/rcsbsearch/v2/query'  # Use started 8/25/22
 # v TODO use inspect webpage to pull the entire dictionary of possibilities
 pdb_advanced_search_url = 'http://www.rcsb.org/search/advanced'
 pdb_rest_url = 'http://data.rcsb.org/rest/v1/core/'  # uniprot/  # 1AB3/1'
