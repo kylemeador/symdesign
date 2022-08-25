@@ -199,9 +199,9 @@ def find_docked_poses(sym_entry, ijk_frag_db, pdb1, pdb2, optimal_tx_params, com
         #   Think D2 symmetry...
         #  Store all the ghost/surface frags in a chain/residue dictionary?
         interface_ghost_frags = [ghost_frag for ghost_frag in complete_ghost_frags
-                                 if ghost_frag.get_aligned_chain_and_residue in interface_chain_residues_pdb1]
+                                 if ghost_frag.aligned_chain_and_residue in interface_chain_residues_pdb1]
         interface_surf_frags = [surf_frag for surf_frag in complete_surf_frags
-                                if surf_frag.get_aligned_chain_and_residue in interface_chain_residues_pdb2]
+                                if surf_frag.aligned_chain_and_residue in interface_chain_residues_pdb2]
         # if unique_total_monofrags_count == 0:
         if not interface_ghost_frags or not interface_surf_frags:
             log.info('\tNO Interface Mono Fragments Found')
@@ -358,8 +358,8 @@ def find_docked_poses(sym_entry, ijk_frag_db, pdb1, pdb2, optimal_tx_params, com
 
         res_pair_freq_info_list = []
         for frag_idx, (int_ghost_frag, int_surf_frag) in enumerate(zip(int_ghostfrags, int_monofrags2)):
-            surf_frag_chain1, surf_frag_central_res_num1 = int_ghost_frag.get_aligned_chain_and_residue
-            surf_frag_chain2, surf_frag_central_res_num2 = int_surf_frag.get_aligned_chain_and_residue
+            surf_frag_chain1, surf_frag_central_res_num1 = int_ghost_frag.aligned_chain_and_residue
+            surf_frag_chain2, surf_frag_central_res_num2 = int_surf_frag.aligned_chain_and_residue
 
             covered_residues_pdb1 = [(surf_frag_chain1, surf_frag_central_res_num1 + j) for j in range(-2, 3)]
             covered_residues_pdb2 = [(surf_frag_chain2, surf_frag_central_res_num2 + j) for j in range(-2, 3)]
@@ -2507,8 +2507,8 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
         res_pair_freq_info_list = []
         for frag_idx, (int_ghost_frag, int_surf_frag, match) in \
                 enumerate(zip(sorted_int_ghostfrags, sorted_int_surffrags2, sorted_match_scores), 1):
-            surf_frag_chain1, surf_frag_central_res_num1 = int_ghost_frag.get_aligned_chain_and_residue
-            surf_frag_chain2, surf_frag_central_res_num2 = int_surf_frag.get_aligned_chain_and_residue
+            surf_frag_chain1, surf_frag_central_res_num1 = int_ghost_frag.aligned_chain_and_residue
+            surf_frag_chain2, surf_frag_central_res_num2 = int_surf_frag.aligned_chain_and_residue
             # Todo
             #  surf_frag_chain1, surf_frag_central_res_num1 = int_ghost_residue.chain, int_ghost_residue.number
             #  surf_frag_chain2, surf_frag_central_res_num2 = int_surf_residue.chain, int_surf_residue.number

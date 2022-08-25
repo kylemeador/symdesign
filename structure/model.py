@@ -145,13 +145,13 @@ def get_matching_fragment_pairs_info(ghostfrag_frag_pairs: list[tuple[GhostFragm
     """
     fragment_matches = []
     for interface_ghost_frag, interface_surf_frag, match_score in ghostfrag_frag_pairs:
-        _, surffrag_resnum1 = interface_ghost_frag.get_aligned_chain_and_residue  # surffrag_ch1,
-        _, surffrag_resnum2 = interface_surf_frag.get_aligned_chain_and_residue  # surffrag_ch2,
+        _, surffrag_resnum1 = interface_ghost_frag.aligned_chain_and_residue  # surffrag_ch1,
+        _, surffrag_resnum2 = interface_surf_frag.aligned_chain_and_residue  # surffrag_ch2,
         # Todo
         #  surf_frag_central_res_num1 = interface_ghost_residue.number
         #  surf_frag_central_res_num2 = interface_surf_residue.number
         fragment_matches.append(dict(zip(('mapped', 'paired', 'match', 'cluster'),
-                                     (surffrag_resnum1, surffrag_resnum2,  match_score,
+                                     (surffrag_resnum1, surffrag_resnum2, match_score,
                                       '{}_{}_{}'.format(*interface_ghost_frag.ijk)))))
     logger.debug('Fragments for Entity1 found at residues: %s' % [fragment['mapped'] for fragment in fragment_matches])
     logger.debug('Fragments for Entity2 found at residues: %s' % [fragment['paired'] for fragment in fragment_matches])
