@@ -2769,8 +2769,6 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
     log.info(f'internal_tx 2 shape: {full_int_tx_perturb2.shape}')
 
     # This will utilize a single input from each pose and create a sequence design batch over each transformation.
-    # Todo
-    #  The only modification to each ProteinMPNN input is the X tensor with the modified coordinates from each transform
     for idx in range(full_rotation1.shape[0]):
         update_pose_coords(idx)
         batch_time_start = time.time()

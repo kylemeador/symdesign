@@ -28,7 +28,7 @@ class JobResources:
             if os.path.exists(program_root):
                 self.program_root = program_root
             else:
-                raise FileNotFoundError(f'Path does not exist!\n\t{program_root}')
+                raise FileNotFoundError(f"Path doesn't exist!\n\t{program_root}")
         except TypeError:
             raise TypeError(f'Can\'t initialize {JobResources.__name__} without parameter "program_root"')
 
@@ -112,6 +112,7 @@ class JobResources:
         self.overwrite: bool = kwargs.get('overwrite', False)
         self.output_directory: bool = kwargs.get('output_directory', False)
         self.output_assembly: bool = kwargs.get('output_assembly', False)
+        self.output_surrounding_uc: bool = kwargs.get('output_surrounding_uc', False)
         self.run_in_shell: bool = kwargs.get('run_in_shell', False)
         # self.pre_refine: bool = kwargs.get('pre_refine', True)
         # self.pre_loop_model: bool = kwargs.get('pre_loop_model', True)
@@ -173,7 +174,7 @@ class JobResourcesFactory:
                 #     fragment_db.update(kwargs)
                 # except RuntimeError:
                 self._warn = True
-                logger.warning(f'Can\'t pass the new arguments {", ".join(kwargs.keys())} to JobResources '
+                logger.warning(f"Can't pass the new arguments {', '.join(kwargs.keys())} to JobResources "
                                f'since it was already initialized and is a singleton')
                 # raise RuntimeError(f'Can\'t pass the new arguments {", ".join(kwargs.keys())} to JobResources '
                 #                    f'since it was already initialized')
