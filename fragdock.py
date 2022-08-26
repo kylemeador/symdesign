@@ -1663,162 +1663,161 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
             parameters = pose.get_proteinmpnn_params()
             # # Disregard the X return (which would be used in the Pose) and use the stacked X from above
             parameters['X'] = X
-            # # Create batches for ProteinMPNN sequence design task
-            # # Without keyword argument "size=", X will be used to determine size of batch_parameters
-            # Todo separate the batch and the torch.from_numpy()
-            # batch_parameters = batch_proteinmpnn_input(size=1, **parameters)
-            batch_parameters = proteinmpnn_to_device(mpnn_model.device, **parameters)
-            parameters.update(batch_parameters)
+            # Ensure no gradients are produced
+            with torch.no_grad():
+                # Create batches for ProteinMPNN sequence design task
+                # Without keyword argument "size=", X will be used to determine size of batch_parameters
+                batch_parameters = batch_proteinmpnn_input(**parameters)
+                parameters.update(proteinmpnn_to_device(mpnn_model.device, **batch_parameters))
 
-            X = parameters.get('X', None)
-            # X = torch.from_numpy(X).to(dtype=torch.float32, device=mpnn_model.device)
-            S = parameters.get('S', None)
-            chain_mask = parameters.get('chain_mask', None)
-            chain_encoding = parameters.get('chain_encoding', None)
-            residue_idx = parameters.get('residue_idx', None)
-            mask = parameters.get('mask', None)
-            omit_AAs_np = parameters.get('omit_AAs_np', None)
-            bias_AAs_np = parameters.get('bias_AAs_np', None)
-            residue_mask = parameters.get('chain_M_pos', None)
-            omit_AA_mask = parameters.get('omit_AA_mask', None)
-            pssm_coef = parameters.get('pssm_coef', None)
-            pssm_bias = parameters.get('pssm_bias', None)
-            pssm_multi = parameters.get('pssm_multi', None)
-            pssm_log_odds_flag = parameters.get('pssm_log_odds_flag', None)
-            pssm_log_odds_mask = parameters.get('pssm_log_odds_mask', None)
-            pssm_bias_flag = parameters.get('pssm_bias_flag', None)
-            tied_pos = parameters.get('tied_pos', None)
-            tied_beta = parameters.get('tied_beta', None)
-            bias_by_res = parameters.get('bias_by_res', None)
+                X = parameters.get('X', None)
+                S = parameters.get('S', None)
+                chain_mask = parameters.get('chain_mask', None)
+                chain_encoding = parameters.get('chain_encoding', None)
+                residue_idx = parameters.get('residue_idx', None)
+                mask = parameters.get('mask', None)
+                omit_AAs_np = parameters.get('omit_AAs_np', None)
+                bias_AAs_np = parameters.get('bias_AAs_np', None)
+                residue_mask = parameters.get('chain_M_pos', None)
+                omit_AA_mask = parameters.get('omit_AA_mask', None)
+                pssm_coef = parameters.get('pssm_coef', None)
+                pssm_bias = parameters.get('pssm_bias', None)
+                pssm_multi = parameters.get('pssm_multi', None)
+                pssm_log_odds_flag = parameters.get('pssm_log_odds_flag', None)
+                pssm_log_odds_mask = parameters.get('pssm_log_odds_mask', None)
+                pssm_bias_flag = parameters.get('pssm_bias_flag', None)
+                tied_pos = parameters.get('tied_pos', None)
+                tied_beta = parameters.get('tied_beta', None)
+                bias_by_res = parameters.get('bias_by_res', None)
 
-            decode_order = pose.generate_proteinmpnn_decode_order(to_device=mpnn_model.device)
+                decode_order = pose.generate_proteinmpnn_decode_order(to_device=mpnn_model.device)
 
-            size = X.shape[0]
+                size, number_of_residues, *_ = X.shape
+                chain_residue_mask = chain_mask*residue_mask
+                # chain_residue_mask = chain_residue_mask[batch_slice]
+                mask_for_loss = mask*chain_residue_mask
 
-            log.debug(f'The mpnn_model.device is: {mpnn_model.device}')
-            if mpnn_model.device == 'cpu':
-                mpnn_memory_constraint = psutil.virtual_memory().available
-                log.critical(f'The available cpu memory is: {mpnn_memory_constraint}')
-            else:
-                mpnn_memory_constraint, gpu_memory_total = torch.cuda.mem_get_info()
-                log.critical(f'The available gpu memory is: {mpnn_memory_constraint}')
+                log.debug(f'The mpnn_model.device is: {mpnn_model.device}')
+                if mpnn_model.device == 'cpu':
+                    mpnn_memory_constraint = psutil.virtual_memory().available
+                    log.critical(f'The available cpu memory is: {mpnn_memory_constraint}')
+                else:
+                    mpnn_memory_constraint, gpu_memory_total = torch.cuda.mem_get_info()
+                    log.critical(f'The available gpu memory is: {mpnn_memory_constraint}')
 
-            element_memory = 4  # where each element is np.int/float32
-            number_of_elements_available = mpnn_memory_constraint / element_memory
-            model_elements = number_of_mpnn_model_parameters
-            # Only get the shape of the first element in the batch
-            model_elements += prod(X[0].shape)
-            model_elements += prod(S[0].shape)
-            model_elements += prod(chain_encoding[0].shape)
-            model_elements += prod(residue_idx[0].shape)
-            model_elements += prod(mask[0].shape)
-            model_elements += prod(pssm_log_odds_mask[0].shape)
-            model_elements += prod(tied_beta[0].shape)
-            model_elements += prod(bias_by_res[0].shape)
-            log.critical(f'The number of model_elements is: {model_elements}')
-            total_elements_required = model_elements * size
+                element_memory = 4  # where each element is np.int/float32
+                number_of_elements_available = mpnn_memory_constraint / element_memory
+                model_elements = number_of_mpnn_model_parameters
+                # Only get the shape of the first element in the batch
+                model_elements += prod(X[0].shape)
+                model_elements += prod(S[0].shape)
+                model_elements += prod(chain_encoding[0].shape)
+                model_elements += prod(residue_idx[0].shape)
+                model_elements += prod(mask[0].shape)
+                model_elements += prod(pssm_log_odds_mask[0].shape)
+                model_elements += prod(tied_beta[0].shape)
+                model_elements += prod(bias_by_res[0].shape)
+                log.critical(f'The number of model_elements is: {model_elements}')
+                total_elements_required = model_elements * size
 
-            # The batch_length indicates how many models could fit in the allocated memory. Using floor division to get integer
-            # Reduce scale by factor of divisor to be safe
-            # Todo 256 doesn't work on 32 GB of RAM CPU
-            # Todo 2048 doesn't work on 24 GB of RAM GPU
-            start_divisor = divisor = 2048  # 256  # 128
-            # batch_length = 10
-            batch_length = int(number_of_elements_available // model_elements // start_divisor)
-            log.critical(f'The number_of_elements_available is: {number_of_elements_available}')
-            while True:
-                log.critical(f'The batch_length is: {batch_length}')
-                try:
-                    chunk_size = model_elements * batch_length
-                    # number_of_batches = int(ceil(size/batch_length) or 1)
-                    number_of_batches = int(ceil(total_elements_required/chunk_size) or 1)  # Select at least 1
-                    generated_sequences = []
-                    probabilities = []
-                    sequence_scores = []
-                    for batch in range(number_of_batches):
-                        batch_slice = slice(batch * batch_length, (batch+1) * batch_length)
-                        # log.debug(f'X[batch_slice].shape: {X[batch_slice].shape}')
-                        # log.debug(f'chain_mask[batch_slice].shape: {chain_mask[batch_slice].shape}')
-                        # log.debug(f'mask[batch_slice].shape: {mask[batch_slice].shape}')
-                        # log.debug(f'residue_mask[batch_slice].shape: {residue_mask[batch_slice].shape}')
-                        # # When batches are sliced for multiple inputs
-                        # sample_dict = mpnn_model.tied_sample(X[batch_slice], decode_order, S[batch_slice],
-                        #                                      chain_mask[batch_slice],
-                        #                                      chain_encoding[batch_slice], residue_idx[batch_slice],
-                        #                                      mask[batch_slice],
-                        #                                      temperature=design_temperature, omit_AAs_np=omit_AAs_np,
-                        #                                      bias_AAs_np=bias_AAs_np,
-                        #                                      chain_M_pos=residue_mask[batch_slice],
-                        #                                      omit_AA_mask=omit_AA_mask[batch_slice],
-                        #                                      pssm_coef=pssm_coef[batch_slice],
-                        #                                      pssm_bias=pssm_bias[batch_slice],
-                        #                                      pssm_multi=pssm_multi,
-                        #                                      pssm_log_odds_flag=pssm_log_odds_flag,
-                        #                                      pssm_log_odds_mask=pssm_log_odds_mask[batch_slice],
-                        #                                      pssm_bias_flag=pssm_bias_flag,
-                        #                                      tied_pos=tied_pos, tied_beta=tied_beta[batch_slice],
-                        #                                      bias_by_res=bias_by_res[batch_slice])
-                        # When batches are single input
-                        sample_dict = mpnn_model.tied_sample(X[batch_slice], decode_order, S[None],
-                                                             chain_mask[None],
-                                                             chain_encoding[None], residue_idx[None],
-                                                             mask[None],
-                                                             temperature=design_temperature, omit_AAs_np=omit_AAs_np,
-                                                             bias_AAs_np=bias_AAs_np,
-                                                             chain_M_pos=residue_mask[None],
-                                                             omit_AA_mask=omit_AA_mask[None],
-                                                             pssm_coef=pssm_coef[None],
-                                                             pssm_bias=pssm_bias[None],
-                                                             pssm_multi=pssm_multi,
-                                                             pssm_log_odds_flag=pssm_log_odds_flag,
-                                                             pssm_log_odds_mask=pssm_log_odds_mask[None],
-                                                             pssm_bias_flag=pssm_bias_flag,
-                                                             tied_pos=tied_pos, tied_beta=tied_beta[None],
-                                                             bias_by_res=bias_by_res[None])
-                        # sample_dict = mpnn_model.tied_sample(X, decode_order, S, chain_mask, chain_encoding, residue_idx, mask,
-                        #                                      temperature=design_temperature, omit_AAs_np=omit_AAs_np,
-                        #                                      bias_AAs_np=bias_AAs_np, chain_M_pos=residue_mask,
-                        #                                      omit_AA_mask=omit_AA_mask,
-                        #                                      pssm_coef=pssm_coef, pssm_bias=pssm_bias, pssm_multi=pssm_multi,
-                        #                                      pssm_log_odds_flag=pssm_log_odds_flag,
-                        #                                      pssm_log_odds_mask=pssm_log_odds_mask, pssm_bias_flag=pssm_bias_flag,
-                        #                                      tied_pos=tied_pos, tied_beta=tied_beta,
-                        #                                      bias_by_res=bias_by_res)
-                        S_sample = sample_dict['S']
-                        tied_decoding_order = sample_dict['decoding_order']
-                        chain_residue_mask = chain_mask*residue_mask
-                        chain_residue_mask = chain_residue_mask[batch_slice]
-                        # # When batches are sliced for multiple inputs
-                        # log_probs = mpnn_model(X[batch_slice], S_sample, mask[batch_slice], chain_residue_mask,
-                        #                        residue_idx[batch_slice], chain_encoding[batch_slice],
-                        #                        None,  # decode_order <- this argument is provided but with below args, is not used
-                        #                        use_input_decoding_order=True, decoding_order=tied_decoding_order)
-                        # When batches are single input
-                        log_probs = mpnn_model(X[batch_slice], S_sample, mask[None], chain_residue_mask,
-                                               residue_idx[None], chain_encoding[None], None,
-                                               use_input_decoding_order=True, decoding_order=tied_decoding_order)
-                        mask_for_loss = mask * chain_residue_mask
-                        scores = score_sequences(S_sample, log_probs, mask_for_loss)
-                        scores = scores.cpu().data.numpy()
-                        sequence_scores.extend(scores)  # .tolist())
-                        batch_probabilities = sample_dict['probs'].cpu().data.numpy()
-                        probabilities.extend(batch_probabilities)  # .tolist())
-                        for idx in range(batch_length):
-                            numeric_sequence = S_sample[idx]
-                            sequence = ''.join([mpnn_alphabet[residue_int] for residue_int in numeric_sequence])
-                            generated_sequences.append(sequence)
-                            # sequence_scores.append(scores[idx])
+                # The batch_length indicates how many models could fit in the allocated memory. Using floor division to get integer
+                # Reduce scale by factor of divisor to be safe
+                start_divisor = divisor = 256  # 128  # 2048 still breaks when there is a gradient for training
+                # batch_length = 10
+                batch_length = int(number_of_elements_available // model_elements // start_divisor)
+                log.critical(f'The number_of_elements_available is: {number_of_elements_available}')
+                while True:
+                    log.critical(f'The batch_length is: {batch_length}')
+                    try:
+                        chunk_size = model_elements * batch_length
+                        # number_of_batches = int(ceil(size/batch_length) or 1)
+                        number_of_batches = int(ceil(total_elements_required/chunk_size) or 1)  # Select at least 1
+                        # generated_sequences = []
+                        # probabilities = []
+                        # sequence_scores = []
+                        generated_sequences = np.empty((size, number_of_residues))
+                        probabilities = np.empty((size, number_of_residues, proteinmpnn_factory.mpnn_alphabet_length))
+                        sequence_scores = np.empty((size,))
+                        for batch in range(number_of_batches):
+                            batch_slice = slice(batch * batch_length, (batch+1) * batch_length)
+                            # log.debug(f'X[batch_slice].shape: {X[batch_slice].shape}')
+                            # log.debug(f'chain_mask[batch_slice].shape: {chain_mask[batch_slice].shape}')
+                            # log.debug(f'mask[batch_slice].shape: {mask[batch_slice].shape}')
+                            # log.debug(f'residue_mask[batch_slice].shape: {residue_mask[batch_slice].shape}')
+                            # When batches are sliced for multiple inputs
+                            sample_dict = mpnn_model.tied_sample(X[batch_slice], decode_order, S[batch_slice],
+                                                                 chain_mask[batch_slice],
+                                                                 chain_encoding[batch_slice], residue_idx[batch_slice],
+                                                                 mask[batch_slice],
+                                                                 temperature=design_temperature, omit_AAs_np=omit_AAs_np,
+                                                                 bias_AAs_np=bias_AAs_np,
+                                                                 chain_M_pos=residue_mask[batch_slice],
+                                                                 omit_AA_mask=omit_AA_mask[batch_slice],
+                                                                 pssm_coef=pssm_coef[batch_slice],
+                                                                 pssm_bias=pssm_bias[batch_slice],
+                                                                 pssm_multi=pssm_multi,
+                                                                 pssm_log_odds_flag=pssm_log_odds_flag,
+                                                                 pssm_log_odds_mask=pssm_log_odds_mask[batch_slice],
+                                                                 pssm_bias_flag=pssm_bias_flag,
+                                                                 tied_pos=tied_pos, tied_beta=tied_beta[batch_slice],
+                                                                 bias_by_res=bias_by_res[batch_slice])
+                            # When batches are sliced for multiple inputs
+                            S_sample = sample_dict['S']
+                            tied_decoding_order = sample_dict['decoding_order']
+                            log_probs = mpnn_model(X[batch_slice], S_sample, mask[batch_slice],
+                                                   chain_residue_mask[batch_slice], residue_idx[batch_slice],
+                                                   chain_encoding[batch_slice],
+                                                   None,  # decode_order <- this argument is provided but with below args, is not used
+                                                   use_input_decoding_order=True, decoding_order=tied_decoding_order)
+                            print(log_probs[:5])
+                            # S_sample, log_probs, and mask_for_loss should all be the same size
+                            scores = score_sequences(S_sample, log_probs, mask_for_loss[batch_slice])
 
-                    log.critical(f'Successful execution with {divisor} using available memory of '
-                                 f'{memory_constraint} and batch_length of {batch_length}')
-                    _input = input(f'Press enter to continue')
-                    break
-                except (RuntimeError, np.core._exceptions._ArrayMemoryError) as error:  # for (gpu, cpu)
-                    raise error
-                    # log.critical(f'Calculation failed with {divisor}.\n{error}\nTrying again...')
-                    log.critical(f'{error}\nTrying again...')
-                    divisor = divisor*2
-                    batch_length = int(number_of_elements_available // model_elements // divisor)
+                            # # When batches are single input
+                            # sample_dict = mpnn_model.tied_sample(X[batch_slice], decode_order, S[None],
+                            #                                      chain_mask[None],
+                            #                                      chain_encoding[None], residue_idx[None],
+                            #                                      mask[None],
+                            #                                      temperature=design_temperature, omit_AAs_np=omit_AAs_np,
+                            #                                      bias_AAs_np=bias_AAs_np,
+                            #                                      chain_M_pos=residue_mask[None],
+                            #                                      omit_AA_mask=omit_AA_mask[None],
+                            #                                      pssm_coef=pssm_coef[None],
+                            #                                      pssm_bias=pssm_bias[None],
+                            #                                      pssm_multi=pssm_multi,
+                            #                                      pssm_log_odds_flag=pssm_log_odds_flag,
+                            #                                      pssm_log_odds_mask=pssm_log_odds_mask[None],
+                            #                                      pssm_bias_flag=pssm_bias_flag,
+                            #                                      tied_pos=tied_pos, tied_beta=tied_beta[None],
+                            #                                      bias_by_res=bias_by_res[None])
+                            # S_sample = sample_dict['S']
+                            # tied_decoding_order = sample_dict['decoding_order']
+                            # # When batches are single input
+                            # log_probs = mpnn_model(X[batch_slice], S_sample, mask[None], chain_residue_mask[None],
+                            #                        residue_idx[None], chain_encoding[None], None,
+                            #                        use_input_decoding_order=True, decoding_order=tied_decoding_order)
+                            # # S_sample, log_probs, and mask_for_loss should all be the same size
+                            # scores = score_sequences(S_sample, log_probs, mask_for_loss[None])
+
+                            # Format output for return
+                            sequence_scores[batch_slice] = scores.cpu().numpy()  # scores
+                            probabilities[batch_slice] = sample_dict['probs'].cpu().numpy()  # batch_probabilities
+                            generated_sequences[batch_slice] = S_sample.cpu().numpy()
+                            # for idx in range(batch_length):
+                            #     numeric_sequence = S_sample[idx]
+                            #     sequence = ''.join([mpnn_alphabet[residue_int] for residue_int in numeric_sequence])
+                            #     generated_sequences.append(sequence)
+
+                        log.critical(f'Successful execution with {divisor} using available memory of '
+                                     f'{memory_constraint} and batch_length of {batch_length}')
+                        _input = input(f'Press enter to continue')
+                        break
+                    except (RuntimeError, np.core._exceptions._ArrayMemoryError) as error:  # for (gpu, cpu)
+                        # raise error
+                        log.critical(f'Calculation failed with {divisor}.\n{error}\n{torch.cuda.memory_stats()}\nTrying again...')
+                        # log.critical(f'{error}\nTrying again...')
+                        divisor = divisor*2
+                        batch_length = int(number_of_elements_available // model_elements // divisor)
 
             return numeric_to_sequence(generated_sequences), sequence_scores, probabilities
         else:
