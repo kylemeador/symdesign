@@ -53,7 +53,9 @@ protein_letters_1aa_literal = Literal[tuple(protein_letters)]
 # protein_letters_literal: tuple[str, ...] = get_args(protein_letters_1aa_literal)
 gapped_protein_letters = protein_letters + '-'  # Todo should use 'X' as gap and unknown?
 # numerical_translation = dict(zip(protein_letters, range(len(protein_letters))))
-numerical_translation_bytes = dict(zip([item.encode() for item in protein_letters], range(len(protein_letters))))
+numerical_translation_bytes = defaultdict(lambda: 20, zip([item.encode() for item in protein_letters],
+                                                          range(len(protein_letters))))
+numeric_to_sequence_translation = defaultdict(lambda: '-', zip(range(len(protein_letters)), protein_letters))
 gapped_numerical_translation = defaultdict(lambda: 20, zip(gapped_protein_letters, range(len(gapped_protein_letters))))
 gapped_numerical_translation_bytes = defaultdict(lambda: 20, zip([item.encode() for item in gapped_protein_letters],
                                                                  range(len(gapped_protein_letters))))
@@ -315,8 +317,32 @@ def sequence_to_numeric(sequence: Sequence) -> np.ndarray:
         The numerically encoded sequence where each entry along axis 0 is the indexed amino acid. Indices are according
             to the 1 letter alphabetical amino acid
     """
-    _array = np.array(list(sequence), np.string_)  # for single sequence
+    _array = np.array(list(sequence), np.string_)
     return np.vectorize(numerical_translation_bytes.__getitem__)(_array)
+
+
+def sequences_to_numeric(sequences: list[Sequence]) -> np.ndarray:
+    """Convert a position specific profile matrix into a numeric array
+
+    Args:
+        sequences: The sequences to encode
+    Returns:
+        The numerically encoded sequence where each entry along axis 0 is the indexed amino acid. Indices are according
+            to the 1 letter alphabetical amino acid
+    """
+    _array = np.array([list(sequence) for sequence in sequences], np.string_)
+    return np.vectorize(numerical_translation_bytes.__getitem__)(_array)
+
+
+def numeric_to_sequence(numeric_sequence: np.ndarray) -> np.ndarray:
+    """Convert a position specific profile matrix into a numeric array
+
+    Args:
+        numeric_sequence: The sequence to encode
+    Returns:
+        The alphabet encoded sequence where each entry along axis=-1 is the amino acid identity
+    """
+    return np.vectorize(numeric_to_sequence_translation.__getitem__)(numeric_sequence)
 
 
 def pssm_as_array(pssm: dict[int, dict[str, str | float | int | dict[str, int]]], lod: bool = False) -> np.ndarray:

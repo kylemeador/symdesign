@@ -12,5 +12,6 @@
     <mapping directory="$PROJECT_DIR$/dependencies/hh-suite" vcs="Git" />
     <mapping directory="$PROJECT_DIR$/dependencies/libcifpp" vcs="Git" />
     <mapping directory="$PROJECT_DIR$/dependencies/nanohedra" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/python_codon_tables" vcs="Git" />
   </component>
 </project>
