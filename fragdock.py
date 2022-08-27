@@ -1770,6 +1770,14 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
                                                    None,  # decode_order <- this argument is provided but with below args, is not used
                                                    use_input_decoding_order=True, decoding_order=tied_decoding_order)
                             print(log_probs[:5])
+                            # tensor([[[-2.7691, -3.5265, -2.9001,  ..., -3.3623, -3.0247, -4.2772],
+                            #          [-2.7691, -3.5265, -2.9001,  ..., -3.3623, -3.0247, -4.2772],
+                            #          [-2.7691, -3.5265, -2.9001,  ..., -3.3623, -3.0247, -4.2772],
+                            #          ...,
+                            #          [-2.7691, -3.5265, -2.9001,  ..., -3.3623, -3.0247, -4.2772],
+                            #          [-2.7691, -3.5265, -2.9001,  ..., -3.3623, -3.0247, -4.2772],
+                            #          [-2.7691, -3.5265, -2.9001,  ..., -3.3623, -3.0247, -4.2772]]]
+
                             # S_sample, log_probs, and mask_for_loss should all be the same size
                             scores = score_sequences(S_sample, log_probs, mask_for_loss[batch_slice])
 
