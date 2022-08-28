@@ -663,7 +663,12 @@ class Atom(StructureBase):
         self.pdb_residue_number = residue_number
         self.residue_number = residue_number  # originally set the same as parsing
         self.code_for_insertion = code_for_insertion
-        self.__coords = coords if coords else []
+        if coords is not None:
+            self.__coords = coords
+        elif x is not None and y is not None and z is not None:
+            self.__coords = [x, y, z]
+        else:
+            self.__coords = []
         self.occupancy = occupancy
         self.b_factor = b_factor
         self.element = element
