@@ -898,6 +898,83 @@ class Atom(StructureBase):
     #     return other
 
 
+alpha_helix_15 = [Atom(1, 'N', ' ', 'ALA', 'A', 1, ' ', 27.128, 20.897, 37.943, 1.00, 0.00, 'N', ''),
+                  Atom(2, 'CA', ' ', 'ALA', 'A', 1, ' ', 27.933, 21.940, 38.546, 1.00, 0.00, 'C', ''),
+                  Atom(3, 'C', ' ', 'ALA', 'A', 1, ' ', 28.402, 22.920, 37.481, 1.00, 0.00, 'C', ''),
+                  Atom(4, 'O', ' ', 'ALA', 'A', 1, ' ', 28.303, 24.132, 37.663, 1.00, 0.00, 'O', ''),
+                  Atom(5, 'CB', ' ', 'ALA', 'A', 1, ' ', 29.162, 21.356, 39.234, 1.00, 0.00, 'C', ''),
+                  Atom(6, 'N', ' ', 'ALA', 'A', 2, ' ', 28.914, 22.392, 36.367, 1.00, 0.00, 'N', ''),
+                  Atom(7, 'CA', ' ', 'ALA', 'A', 2, ' ', 29.395, 23.219, 35.278, 1.00, 0.00, 'C', ''),
+                  Atom(8, 'C', ' ', 'ALA', 'A', 2, ' ', 28.286, 24.142, 34.793, 1.00, 0.00, 'C', ''),
+                  Atom(9, 'O', ' ', 'ALA', 'A', 2, ' ', 28.508, 25.337, 34.610, 1.00, 0.00, 'O', ''),
+                  Atom(10, 'CB', ' ', 'ALA', 'A', 2, ' ', 29.857, 22.365, 34.102, 1.00, 0.00, 'C', ''),
+                  Atom(11, 'N', ' ', 'ALA', 'A', 3, ' ', 27.092, 23.583, 34.584, 1.00, 0.00, 'N', ''),
+                  Atom(12, 'CA', ' ', 'ALA', 'A', 3, ' ', 25.956, 24.355, 34.121, 1.00, 0.00, 'C', ''),
+                  Atom(13, 'C', ' ', 'ALA', 'A', 3, ' ', 25.681, 25.505, 35.079, 1.00, 0.00, 'C', ''),
+                  Atom(14, 'O', ' ', 'ALA', 'A', 3, ' ', 25.488, 26.639, 34.648, 1.00, 0.00, 'O', ''),
+                  Atom(15, 'CB', ' ', 'ALA', 'A', 3, ' ', 24.703, 23.490, 34.038, 1.00, 0.00, 'C', ''),
+                  Atom(16, 'N', ' ', 'ALA', 'A', 4, ' ', 25.662, 25.208, 36.380, 1.00, 0.00, 'N', ''),
+                  Atom(17, 'CA', ' ', 'ALA', 'A', 4, ' ', 25.411, 26.214, 37.393, 1.00, 0.00, 'C', ''),
+                  Atom(18, 'C', ' ', 'ALA', 'A', 4, ' ', 26.424, 27.344, 37.270, 1.00, 0.00, 'C', ''),
+                  Atom(19, 'O', ' ', 'ALA', 'A', 4, ' ', 26.055, 28.516, 37.290, 1.00, 0.00, 'O', ''),
+                  Atom(20, 'CB', ' ', 'ALA', 'A', 4, ' ', 25.519, 25.624, 38.794, 1.00, 0.00, 'C', ''),
+                  Atom(21, 'N', ' ', 'ALA', 'A', 5, ' ', 27.704, 26.987, 37.142, 1.00, 0.00, 'N', ''),
+                  Atom(22, 'CA', ' ', 'ALA', 'A', 5, ' ', 28.764, 27.968, 37.016, 1.00, 0.00, 'C', ''),
+                  Atom(23, 'C', ' ', 'ALA', 'A', 5, ' ', 28.497, 28.876, 35.825, 1.00, 0.00, 'C', ''),
+                  Atom(24, 'O', ' ', 'ALA', 'A', 5, ' ', 28.602, 30.096, 35.937, 1.00, 0.00, 'O', ''),
+                  Atom(25, 'CB', ' ', 'ALA', 'A', 5, ' ', 30.115, 27.292, 36.812, 1.00, 0.00, 'C', ''),
+                  Atom(26, 'N', ' ', 'ALA', 'A', 6, ' ', 28.151, 28.278, 34.682, 1.00, 0.00, 'N', ''),
+                  Atom(27, 'CA', ' ', 'ALA', 'A', 6, ' ', 27.871, 29.032, 33.478, 1.00, 0.00, 'C', ''),
+                  Atom(28, 'C', ' ', 'ALA', 'A', 6, ' ', 26.759, 30.040, 33.737, 1.00, 0.00, 'C', ''),
+                  Atom(29, 'O', ' ', 'ALA', 'A', 6, ' ', 26.876, 31.205, 33.367, 1.00, 0.00, 'O', ''),
+                  Atom(30, 'CB', ' ', 'ALA', 'A', 6, ' ', 27.429, 28.113, 32.344, 1.00, 0.00, 'C', ''),
+                  Atom(31, 'N', ' ', 'ALA', 'A', 7, ' ', 25.678, 29.586, 34.376, 1.00, 0.00, 'N', ''),
+                  Atom(32, 'CA', ' ', 'ALA', 'A', 7, ' ', 24.552, 30.444, 34.682, 1.00, 0.00, 'C', ''),
+                  Atom(33, 'C', ' ', 'ALA', 'A', 7, ' ', 25.013, 31.637, 35.507, 1.00, 0.00, 'C', ''),
+                  Atom(34, 'O', ' ', 'ALA', 'A', 7, ' ', 24.652, 32.773, 35.212, 1.00, 0.00, 'O', ''),
+                  Atom(35, 'CB', ' ', 'ALA', 'A', 7, ' ', 23.489, 29.693, 35.478, 1.00, 0.00, 'C', ''),
+                  Atom(36, 'N', ' ', 'ALA', 'A', 8, ' ', 25.814, 31.374, 36.543, 1.00, 0.00, 'N', ''),
+                  Atom(37, 'CA', ' ', 'ALA', 'A', 8, ' ', 26.321, 32.423, 37.405, 1.00, 0.00, 'C', ''),
+                  Atom(38, 'C', ' ', 'ALA', 'A', 8, ' ', 27.081, 33.454, 36.583, 1.00, 0.00, 'C', ''),
+                  Atom(39, 'O', ' ', 'ALA', 'A', 8, ' ', 26.874, 34.654, 36.745, 1.00, 0.00, 'O', ''),
+                  Atom(40, 'CB', ' ', 'ALA', 'A', 8, ' ', 25.581, 31.506, 36.435, 1.00, 0.00, 'C', ''),
+                  Atom(41, 'N', ' ', 'ALA', 'A', 9, ' ', 27.963, 32.980, 35.700, 1.00, 0.00, 'N', ''),
+                  Atom(42, 'CA', ' ', 'ALA', 'A', 9, ' ', 28.750, 33.859, 34.858, 1.00, 0.00, 'C', ''),
+                  Atom(43, 'C', ' ', 'ALA', 'A', 9, ' ', 27.834, 34.759, 34.042, 1.00, 0.00, 'C', ''),
+                  Atom(44, 'O', ' ', 'ALA', 'A', 9, ' ', 28.052, 35.967, 33.969, 1.00, 0.00, 'O', ''),
+                  Atom(45, 'CB', ' ', 'ALA', 'A', 9, ' ', 29.621, 33.061, 33.894, 1.00, 0.00, 'C', ''),
+                  Atom(46, 'N', ' ', 'ALA', 'A', 10, ' ', 26.807, 34.168, 33.427, 1.00, 0.00, 'N', ''),
+                  Atom(47, 'CA', ' ', 'ALA', 'A', 10, ' ', 25.864, 34.915, 32.620, 1.00, 0.00, 'C', ''),
+                  Atom(48, 'C', ' ', 'ALA', 'A', 10, ' ', 25.230, 36.024, 33.448, 1.00, 0.00, 'C', ''),
+                  Atom(49, 'O', ' ', 'ALA', 'A', 10, ' ', 25.146, 37.165, 33.001, 1.00, 0.00, 'O', ''),
+                  Atom(50, 'CB', ' ', 'ALA', 'A', 10, ' ', 24.752, 34.012, 32.097, 1.00, 0.00, 'C', ''),
+                  Atom(51, 'N', ' ', 'ALA', 'A', 11, ' ', 24.783, 35.683, 34.660, 1.00, 0.00, 'N', ''),
+                  Atom(52, 'CA', ' ', 'ALA', 'A', 11, ' ', 24.160, 36.646, 35.544, 1.00, 0.00, 'C', ''),
+                  Atom(53, 'C', ' ', 'ALA', 'A', 11, ' ', 25.104, 37.812, 35.797, 1.00, 0.00, 'C', ''),
+                  Atom(54, 'O', ' ', 'ALA', 'A', 11, ' ', 24.699, 38.970, 35.714, 1.00, 0.00, 'O', ''),
+                  Atom(55, 'CB', ' ', 'ALA', 'A', 11, ' ', 23.810, 36.012, 36.887, 1.00, 0.00, 'C', ''),
+                  Atom(56, 'N', ' ', 'ALA', 'A', 12, ' ', 26.365, 37.503, 36.107, 1.00, 0.00, 'N', ''),
+                  Atom(57, 'CA', ' ', 'ALA', 'A', 12, ' ', 27.361, 38.522, 36.370, 1.00, 0.00, 'C', ''),
+                  Atom(58, 'C', ' ', 'ALA', 'A', 12, ' ', 27.477, 39.461, 35.177, 1.00, 0.00, 'C', ''),
+                  Atom(59, 'O', ' ', 'ALA', 'A', 12, ' ', 27.485, 40.679, 35.342, 1.00, 0.00, 'O', ''),
+                  Atom(60, 'CB', ' ', 'ALA', 'A', 12, ' ', 28.730, 37.900, 36.625, 1.00, 0.00, 'C', ''),
+                  Atom(61, 'N', ' ', 'ALA', 'A', 13, ' ', 27.566, 38.890, 33.974, 1.00, 0.00, 'N', ''),
+                  Atom(62, 'CA', ' ', 'ALA', 'A', 13, ' ', 27.680, 39.674, 32.761, 1.00, 0.00, 'C', ''),
+                  Atom(63, 'C', ' ', 'ALA', 'A', 13, ' ', 26.504, 40.634, 32.645, 1.00, 0.00, 'C', ''),
+                  Atom(64, 'O', ' ', 'ALA', 'A', 13, ' ', 26.690, 41.815, 32.360, 1.00, 0.00, 'O', ''),
+                  Atom(65, 'CB', ' ', 'ALA', 'A', 13, ' ', 27.690, 38.779, 31.527, 1.00, 0.00, 'C', ''),
+                  Atom(66, 'N', ' ', 'ALA', 'A', 14, ' ', 25.291, 40.121, 32.868, 1.00, 0.00, 'N', ''),
+                  Atom(67, 'CA', ' ', 'ALA', 'A', 14, ' ', 24.093, 40.932, 32.789, 1.00, 0.00, 'C', ''),
+                  Atom(68, 'C', ' ', 'ALA', 'A', 14, ' ', 24.193, 42.112, 33.745, 1.00, 0.00, 'C', ''),
+                  Atom(69, 'O', ' ', 'ALA', 'A', 14, ' ', 23.905, 43.245, 33.367, 1.00, 0.00, 'O', ''),
+                  Atom(70, 'CB', ' ', 'ALA', 'A', 14, ' ', 22.856, 40.120, 33.158, 1.00, 0.00, 'C', ''),
+                  Atom(71, 'N', ' ', 'ALA', 'A', 15, ' ', 24.604, 41.841, 34.986, 1.00, 0.00, 'N', ''),
+                  Atom(72, 'CA', ' ', 'ALA', 'A', 15, ' ', 24.742, 42.878, 35.989, 1.00, 0.00, 'C', ''),
+                  Atom(73, 'C', ' ', 'ALA', 'A', 15, ' ', 25.691, 43.960, 35.497, 1.00, 0.00, 'C', ''),
+                  Atom(74, 'O', ' ', 'ALA', 'A', 15, ' ', 25.390, 45.147, 35.602, 1.00, 0.00, 'O', ''),
+                  Atom(75, 'CB', ' ', 'ALA', 'A', 15, ' ', 24.418, 41.969, 34.808, 1.00, 0.00, 'C', '')]
+
+
 class Atoms:
     atoms: np.ndarray
 
@@ -3223,6 +3300,66 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
     def c_terminal_residue(self) -> Residue:
         """Retrieve the Residue from the c-termini"""
         return self.residues[-1]
+
+    def add_ideal_helix(self, termini: termini_literal = 'n', length: int = 5):
+        """Add an ideal helix to a termini given by a certain length
+        
+        Args:
+            termini: The termini to add the ideal helix to
+            length: The length of the addition
+        """
+        self.log.debug(f'Adding ideal helix to {termini}-terminus of {self.name}')
+
+        if length > 10:
+            raise ValueError(f'{self.add_ideal_helix.__name__}: length can not be greater than 10')
+
+        alpha_helix_15_struct = Structure(atoms=alpha_helix_15)
+
+        align_length = 4  # 4 as the get_coords_subset is inclusive
+        if termini == 'n':
+            first_residue = self.n_terminal_residue
+            first_residue_number = first_residue.number
+            last_residue_number = first_residue_number+align_length
+            fixed_coords = self.get_coords_subset(start=first_residue_number, end=last_residue_number, 
+                                                  dtype='backbone')
+            helix_align_start = 11
+            helix_align_end = 15
+            helix_start = helix_align_start - length
+            # helix_end = helix_align_start-1
+            moving_coords = alpha_helix_15_struct.get_coords_subset(start=helix_align_start, end=helix_align_end, dtype='backbone')
+            rmsd, rot, tx = superposition3d(fixed_coords, moving_coords)
+            alpha_helix_15_struct.transform(rotation=rot, translation=tx)
+
+            # Add residues then renumber
+            self._residues.insert(0, alpha_helix_15_struct.get_residues(
+                list(range(helix_start, helix_align_start))))  # helix_end+1
+            self._residues.reindex()
+            # Rename new residues to self.chain
+            self.set_residues_attributes(chain=first_residue.chain)
+
+        elif termini == 'c':
+            last_residue = self.c_terminal_residue
+            last_residue_number = last_residue.number
+            first_residue_number = last_residue_number-align_length
+            fixed_coords = self.get_coords_subset(start=first_residue_number, end=last_residue_number, 
+                                                  dtype='backbone')
+            helix_align_start = 1
+            helix_align_end = 5
+            # helix_start = helix_align_end+1
+            helix_end = helix_align_end + length
+            moving_coords = alpha_helix_15_struct.get_coords_subset(start=helix_align_start, end=helix_align_end,
+                                                                    dtype='backbone')
+            rmsd, rot, tx = superposition3d(fixed_coords, moving_coords)
+            alpha_helix_15_struct.transform(rotation=rot, translation=tx)
+
+            # Add residues then renumber
+            self._residues.append(
+                alpha_helix_15_struct.get_residues(list(range(helix_align_end, helix_end+1))))  # helix_start
+            self._residues.reindex()
+            # Rename new residues to self.chain
+            self.set_residues_attributes(chain=last_residue.chain)
+        else:
+            raise ValueError('termini must be wither "n" or "c"')
 
     @property
     def radius(self) -> float:
