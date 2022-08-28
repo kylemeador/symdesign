@@ -646,10 +646,10 @@ class Atom(StructureBase):
     charge: str | None
     state_attributes: set[str] = StructureBase.state_attributes | {'_sasa'}
 
-    def __init__(self, index: int = None, number: int = None, atom_type: str = None, alt_location: str = None,
-                 residue_type: str = None, chain: str = None, residue_number: int = None,
-                 code_for_insertion: str = None, coords: list[float] = None, occupancy: float = None,
-                 b_factor: float = None, element: str = None, charge: str = None, **kwargs):
+    def __init__(self, index: int = None, number: int = None, atom_type: str = None, alt_location: str = ' ',
+                 residue_type: str = None, chain: str = None, residue_number: int = None, code_for_insertion: str = ' ',
+                 x: float = None, y: float = None, z: float = None, occupancy: float = None, b_factor: float = None,
+                 element: str = None, charge: str = None, coords: list[float] = None, **kwargs):
         # kwargs passed to StructureBase
         #          parent: StructureBase = None, log: Log | Logger | bool = True, coords: list[list[float]] = None
         super().__init__(**kwargs)
@@ -678,12 +678,10 @@ class Atom(StructureBase):
     @classmethod
     def without_coordinates(cls, idx, number, atom_type, alt_location, residue_type, chain, residue_number,
                             code_for_insertion, occupancy, b_factor, element, charge):
-        # number, atom_type, alt_location, residue_type, chain, residue_number, code_for_insertion, occupancy, b_factor,
-        # element, charge
         """Initialize without coordinates"""
         return cls(index=idx, number=number, atom_type=atom_type, alt_location=alt_location, residue_type=residue_type,
                    chain=chain, residue_number=residue_number, code_for_insertion=code_for_insertion,
-                   occupancy=occupancy, b_factor=b_factor, element=element, charge=charge)
+                   occupancy=occupancy, b_factor=b_factor, element=element, charge=charge, coords=[])  # list for speed
 
     def detach_from_parent(self):
         """Remove the current instance from the parent that created it"""
