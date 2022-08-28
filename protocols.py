@@ -1727,7 +1727,7 @@ class PoseDirectory:
         """
         self.get_entities(**kwargs)
         if self.pose_transformation:
-            self.entities = [entity.return_transformed_copy(**self.pose_transformation[idx])
+            self.entities = [entity.get_transformed_copy(**self.pose_transformation[idx])
                              for idx, entity in enumerate(self.entities)]
             self.log.debug('Entities were transformed to the found docking parameters')
         else:
@@ -1748,7 +1748,7 @@ class PoseDirectory:
         if self.pose_transformation:
             self.log.debug('Structures were transformed to the found docking parameters')
             # Todo assumes a 1:1 correspondence between structures and transforms (component group numbers) CHANGE
-            return [structure.return_transformed_copy(**self.pose_transformation[idx])
+            return [structure.get_transformed_copy(**self.pose_transformation[idx])
                     for idx, structure in enumerate(structures)]
         else:
             # raise DesignError('The design could not be transformed as it is missing the required transformation '

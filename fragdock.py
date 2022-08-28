@@ -15,13 +15,14 @@ import torch
 from sklearn.cluster import DBSCAN
 from sklearn.neighbors import BallTree
 
+from resources.job import job_resources_factory, JobResources
 from resources.ml import proteinmpnn_factory, batch_proteinmpnn_input, mpnn_alphabet, score_sequences, \
     proteinmpnn_to_device
 from structure.sequence import numeric_to_sequence
 from utils.cluster import cluster_transformation_pairs
 from resources.fragment import FragmentDatabase, fragment_factory
 from utils.path import frag_text_file, master_log, frag_dir, biological_interfaces, asu_file_name
-from structure.model import Pose, Model
+from structure.model import Pose, Model, get_matching_fragment_pairs_info
 from structure.base import Structure, Residue
 from structure.coords import transform_coordinate_sets
 from structure.fragment import GhostFragment, write_frag_match_info_file
@@ -159,12 +160,10 @@ def find_docked_poses(sym_entry, ijk_frag_db, pdb1, pdb2, optimal_tx_params, com
         #  In theory, the rotation and setting matrix are the same for all tx_parameters, can we accelerate even though
         #  order of operations matters? by applying the setting matrix to the translation, in theory the translation
         #  will be along the same axis. This removes repeated multiplications and instead has array addition
-        pdb1_copy = pdb1.return_transformed_copy(rotation=rot_mat1, translation=internal_tx_param1,
-                                                 rotation2=sym_entry.setting_matrix1,
-                                                 translation2=external_tx_params1)
-        pdb2_copy = pdb2.return_transformed_copy(rotation=rot_mat2, translation=internal_tx_param2,
-                                                 rotation2=sym_entry.setting_matrix2,
-                                                 translation2=external_tx_params2)
+        pdb1_copy = pdb1.get_transformed_copy(rotation=rot_mat1, translation=internal_tx_param1,
+                                              rotation2=sym_entry.setting_matrix1, translation2=external_tx_params1)
+        pdb2_copy = pdb2.get_transformed_copy(rotation=rot_mat2, translation=internal_tx_param2,
+                                              rotation2=sym_entry.setting_matrix2, translation2=external_tx_params2)
 
         copy_rot_tr_set_time_stop = time.time()
         copy_rot_tr_set_time = copy_rot_tr_set_time_stop - copy_rot_tr_set_time_start
@@ -200,9 +199,9 @@ def find_docked_poses(sym_entry, ijk_frag_db, pdb1, pdb2, optimal_tx_params, com
         #   Think D2 symmetry...
         #  Store all the ghost/surface frags in a chain/residue dictionary?
         interface_ghost_frags = [ghost_frag for ghost_frag in complete_ghost_frags
-                                 if ghost_frag.get_aligned_chain_and_residue in interface_chain_residues_pdb1]
+                                 if ghost_frag.aligned_chain_and_residue in interface_chain_residues_pdb1]
         interface_surf_frags = [surf_frag for surf_frag in complete_surf_frags
-                                if surf_frag.get_aligned_chain_and_residue in interface_chain_residues_pdb2]
+                                if surf_frag.aligned_chain_and_residue in interface_chain_residues_pdb2]
         # if unique_total_monofrags_count == 0:
         if not interface_ghost_frags or not interface_surf_frags:
             log.info('\tNO Interface Mono Fragments Found')
@@ -359,8 +358,8 @@ def find_docked_poses(sym_entry, ijk_frag_db, pdb1, pdb2, optimal_tx_params, com
 
         res_pair_freq_info_list = []
         for frag_idx, (int_ghost_frag, int_surf_frag) in enumerate(zip(int_ghostfrags, int_monofrags2)):
-            surf_frag_chain1, surf_frag_central_res_num1 = int_ghost_frag.get_aligned_chain_and_residue
-            surf_frag_chain2, surf_frag_central_res_num2 = int_surf_frag.get_aligned_chain_and_residue
+            surf_frag_chain1, surf_frag_central_res_num1 = int_ghost_frag.aligned_chain_and_residue
+            surf_frag_chain2, surf_frag_central_res_num2 = int_surf_frag.aligned_chain_and_residue
 
             covered_residues_pdb1 = [(surf_frag_chain1, surf_frag_central_res_num1 + j) for j in range(-2, 3)]
             covered_residues_pdb2 = [(surf_frag_chain2, surf_frag_central_res_num2 + j) for j in range(-2, 3)]
@@ -391,14 +390,14 @@ def find_docked_poses(sym_entry, ijk_frag_db, pdb1, pdb2, optimal_tx_params, com
             if not os.path.exists(matched_fragment_dir):
                 os.makedirs(matched_fragment_dir)
 
-            # if write_frags:  # write out aligned cluster representative fragment
+            # if write_fragments:  # write out aligned cluster representative fragment
             fragment, _ = dictionary_lookup(ijk_frag_db.paired_frags, int_ghost_frag.ijk)
-            trnsfmd_ghost_fragment = fragment.return_transformed_copy(**int_ghost_frag.transformation)
+            trnsfmd_ghost_fragment = fragment.get_transformed_copy(**int_ghost_frag.transformation)
             trnsfmd_ghost_fragment.transform(rotation=rot_mat1, translation=internal_tx_param1,
                                              rotation2=sym_entry.setting_matrix1, translation2=external_tx_params1)
             trnsfmd_ghost_fragment.write(out_path=os.path.join(matched_fragment_dir, 'int_frag_%s_%d.pdb'
                                                                % ('i%d_j%d_k%d' % int_ghost_frag.ijk, frag_idx + 1)))
-            # transformed_ghost_fragment = int_ghost_frag.structure.return_transformed_copy(
+            # transformed_ghost_fragment = int_ghost_frag.structure.get_transformed_copy(
             #     rotation=rot_mat1, translation=internal_tx_param1,
             #     rotation2=sym_entry.setting_matrix1, translation2=external_tx_params1)
             # transformed_ghost_fragment.write(os.path.join(matched_fragment_dir, 'int_frag_%s_%d.pdb'
@@ -409,7 +408,6 @@ def find_docked_poses(sym_entry, ijk_frag_db, pdb1, pdb2, optimal_tx_params, com
             # write out associated match information to frag_info_file
             write_frag_match_info_file(ghost_frag=int_ghost_frag, matched_frag=int_surf_frag,
                                        overlap_error=z_value, match_number=frag_idx + 1,
-                                       central_frequencies=ghost_frag_central_freqs,
                                        out_path=matching_fragments_dir, pose_id=pose_id)
 
             # Keep track of residue pair frequencies and match information
@@ -484,23 +482,21 @@ def compute_ij_type_lookup(indices1: np.ndarray | Iterable | int | float,
     return np.where(indices1_repeated == indices2_tiled, True, False).reshape(len(indices1), -1)
 
 
-def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_lookup: EulerLookup,
-                   master_output: AnyStr, model1: Structure | AnyStr, model2: Structure | AnyStr,
+def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure | AnyStr, model2: Structure | AnyStr,
                    rotation_step1: float = 3., rotation_step2: float = 3., min_matched: int = 3,
-                   high_quality_match_value: float = .5, initial_z_value: float = 1., output_assembly: bool = False,
-                   output_surrounding_uc: bool = False, log: Logger = logger, clash_dist: float = 2.2,
-                   keep_time: bool = True, write_frags: bool = False, same_component_filter: bool = False, **kwargs):
-    #                resume=False,
+                   high_quality_match_value: float = .5, initial_z_value: float = 1., log: Logger = logger,
+                   job: JobResources = None, fragment_db: FragmentDatabase | str = biological_interfaces,
+                   clash_dist: float = 2.2, write_frags_only: bool = False, same_component_filter: bool = False,
+                   **kwargs):
     """
     Perform the fragment docking routine described in Laniado, Meador, & Yeates, PEDS. 2021
 
     Args:
         sym_entry: The SymmetryEntry object describing the material
-        ijk_frag_db: The FragmentDatabase object used for finding fragment pairs
-        euler_lookup: The EulerLookup object used to search for overlapping euler angles
         master_output: The object to issue outputs to
         model1: The first Structure to be used in docking
         model2: The second Structure to be used in docking
+        fragment_db: The FragmentDatabase object used for finding fragment pairs
         rotation_step1: The number of degrees to increment the rotational degrees of freedom search
         rotation_step2: The number of degrees to increment the rotational degrees of freedom search
         min_matched: How many high quality fragment pairs should be present before a pose is identified?
@@ -508,16 +504,22 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
             When z-value was used this was 1.0, however 0.5 when match score is used
         initial_z_value: The acceptable standard deviation z score for initial fragment overlap identification.
             Smaller values lead to more stringent matching criteria
-        output_assembly: Whether the assembly should be output? Infinite materials are output in a unit cell
-        output_surrounding_uc: Whether the surrounding unit cells should be output? Only for infinite materials
         log: The logger to keep track of program messages
         clash_dist: The distance to measure for clashing atoms
-        keep_time: Whether the times for each step should be reported
-        write_frags: Whether to write fragment information to a file (useful for fragment based docking w/o Nanohedra)
+        write_frags_only: Whether to write fragment information to a file (useful for fragment based docking w/o Nanohedra)
         same_component_filter: Whether to use the overlap potential on the same component to filter ghost fragments
     Returns:
         None
     """
+    # Create JobResources for all flags
+    if job is None:
+        job = job_resources_factory.get(program_root=master_output, **kwargs)
+
+    # Create FragmenDatabase for all ijk cluster representatives
+    if not isinstance(fragment_db, FragmentDatabase):
+        fragment_db = fragment_factory(source=fragment_db)
+
+    euler_lookup = euler_factory()
     frag_dock_time_start = time.time()
     outlier = -1
     # Todo set below as parameters?
@@ -557,7 +559,7 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
         models[idx].file_path = model.file_path
 
     # Set up output mechanism
-    if isinstance(master_output, str) and not write_frags:  # we just want to write, so don't make a directory
+    if isinstance(master_output, str) and not write_frags_only:  # we just want to write, so don't make a directory
         building_blocks = '-'.join(model.name for model in models)
         outdir = os.path.join(master_output, building_blocks)
         os.makedirs(outdir, exist_ok=True)
@@ -592,7 +594,7 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
     # Get Surface Fragments With Guide Coordinates Using COMPLETE Fragment Database
     get_complete_surf_frags2_time_start = time.time()
     complete_surf_frags2 = \
-        model2.get_fragment_residues(residues=model2.surface_residues, fragment_db=ijk_frag_db)
+        model2.get_fragment_residues(residues=model2.surface_residues, fragment_db=fragment_db)
 
     # Calculate the initial match type by finding the predominant surface type
     surf_guide_coords2 = np.array([surf_frag.guide_coords for surf_frag in complete_surf_frags2])
@@ -620,7 +622,7 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
 
     # Set up Building Block1
     get_complete_surf_frags1_time_start = time.time()
-    surf_frags1 = model1.get_fragment_residues(residues=model1.surface_residues, fragment_db=ijk_frag_db)
+    surf_frags1 = model1.get_fragment_residues(residues=model1.surface_residues, fragment_db=fragment_db)
 
     # Calculate the initial match type by finding the predominant surface type
     fragment_content1 = np.bincount([surf_frag.i_type for surf_frag in surf_frags1])
@@ -747,7 +749,7 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
              f'(took {time.time() - get_complete_ghost_frags1_time_start:8f}s)')
 
     #################################
-    if write_frags:  # implemented for Todd to work on C1 instances
+    if write_frags_only:  # implemented for Todd to work on C1 instances
         guide_file_ghost = os.path.join(os.getcwd(), f'{model1.name}_ghost_coords.txt')
         with open(guide_file_ghost, 'w') as f:
             for coord_group in ghost_guide_coords1.tolist():
@@ -1586,10 +1588,10 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
 
         # Set the next unit cell dimensions
         pose.uc_dimensions = uc_dimensions
-        # pose = Pose.from_entities([entity.return_transformed_copy(**specific_transformations[idx])
+        # pose = Pose.from_entities([entity.get_transformed_copy(**specific_transformations[idx])
         #                            for idx, model in enumerate(models) for entity in model.entities],
         #                           entity_names=entity_names, name='asu', log=log, sym_entry=sym_entry,
-        #                           surrounding_uc=output_surrounding_uc, uc_dimensions=uc_dimensions,
+        #                           surrounding_uc=job.output_surrounding_uc, uc_dimensions=uc_dimensions,
         #                           ignore_clashes=True, rename_chains=True)  # pose_format=True,
         # ignore ASU clashes since already checked ^
 
@@ -1879,18 +1881,20 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
         pose.write(out_path=os.path.join(tx_dir, asu_file_name), header=cryst_record)
 
         # Todo group by input model... not entities
-        for entity in pose.entities:
-            entity.write_oligomer(out_path=os.path.join(tx_dir, f'{entity.name}_{sampling_id}.pdb'))
+        if job.write_oligomers:
+            for entity in pose.entities:
+                entity.write_oligomer(out_path=os.path.join(tx_dir, f'{entity.name}_{sampling_id}.pdb'))
 
-        if output_assembly:
+        if job.output_assembly:
             if sym_entry.unit_cell:  # 2, 3 dimensions
-                if output_surrounding_uc:
+                if job.output_surrounding_uc:
                     assembly_path = os.path.join(tx_dir, 'surrounding_unit_cells.pdb')
                 else:
                     assembly_path = os.path.join(tx_dir, 'central_uc.pdb')
             else:  # 0 dimension
                 assembly_path = os.path.join(tx_dir, 'expanded_assembly.pdb')
-            pose.write(assembly=True, out_path=assembly_path, header=cryst_record, surrounding_uc=output_surrounding_uc)
+            pose.write(assembly=True, out_path=assembly_path, header=cryst_record,
+                       surrounding_uc=job.output_surrounding_uc)
         log.info(f'\tSUCCESSFUL DOCKED POSE: {tx_dir}')
 
         # Return the indices sorted by z_value in ascending order, truncated at the number of passing
@@ -1905,90 +1909,101 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
         # For all matched interface fragments
         # Keys are (chain_id, res_num) for every residue that is covered by at least 1 fragment
         # Values are lists containing 1 / (1 + z^2) values for every (chain_id, res_num) residue fragment match
-        chid_resnum_scores_dict_model1, chid_resnum_scores_dict_model2 = {}, {}
+        # chid_resnum_scores_dict_model1, chid_resnum_scores_dict_model2 = {}, {}
         # Number of unique interface mono fragments matched
-        unique_frags_info1, unique_frags_info2 = set(), set()
-        res_pair_freq_info_list = []
+        # unique_frags_info1, unique_frags_info2 = set(), set()
+        # res_pair_freq_info_list = []
         # Todo refactor this whole part below to use pose.something()... interface_metrics()?
-        for frag_idx, (int_ghost_frag, int_surf_frag, match) in \
-                enumerate(zip(sorted_int_ghostfrags, sorted_int_surffrags2, sorted_match_scores), 1):
-            surf_frag_chain1, surf_frag_central_res_num1 = int_ghost_frag.get_aligned_chain_and_residue
-            surf_frag_chain2, surf_frag_central_res_num2 = int_surf_frag.get_aligned_chain_and_residue
-            # Todo
-            #  surf_frag_chain1, surf_frag_central_res_num1 = int_ghost_residue.chain, int_ghost_residue.number
-            #  surf_frag_chain2, surf_frag_central_res_num2 = int_surf_residue.chain, int_surf_residue.number
-
-            covered_residues_model1 = [(surf_frag_chain1, surf_frag_central_res_num1 + j) for j in range(-2, 3)]
-            covered_residues_model2 = [(surf_frag_chain2, surf_frag_central_res_num2 + j) for j in range(-2, 3)]
-            # match = sorted_match_scores[frag_idx - 1]
-            for k in range(ijk_frag_db.fragment_length):
-                chain_resnum1 = covered_residues_model1[k]
-                chain_resnum2 = covered_residues_model2[k]
-                if chain_resnum1 not in chid_resnum_scores_dict_model1:
-                    chid_resnum_scores_dict_model1[chain_resnum1] = [match]
-                else:
-                    chid_resnum_scores_dict_model1[chain_resnum1].append(match)
-
-                if chain_resnum2 not in chid_resnum_scores_dict_model2:
-                    chid_resnum_scores_dict_model2[chain_resnum2] = [match]
-                else:
-                    chid_resnum_scores_dict_model2[chain_resnum2].append(match)
-
-            unique_frags_info1.add((surf_frag_chain1, surf_frag_central_res_num1))
-            unique_frags_info2.add((surf_frag_chain2, surf_frag_central_res_num2))
-
-            if match >= high_quality_match_value:
-                matched_fragment_dir = high_quality_matches_dir
-            else:
-                matched_fragment_dir = low_quality_matches_dir
-
-            os.makedirs(matched_fragment_dir, exist_ok=True)
-
-            # if write_frags:  # write out aligned cluster representative fragment
-            ghost_frag_rep = int_ghost_frag.representative.return_transformed_copy(**specific_transformation1)
-            ghost_frag_rep.write(out_path=os.path.join(matched_fragment_dir,
-                                                       'int_frag_i{}_j{}_k{}_{}.pdb'.format(
-                                                           *int_ghost_frag.ijk, frag_idx)))
-            z_value = z_value_from_match_score(match)
-            ghost_frag_central_freqs = \
-                dictionary_lookup(ijk_frag_db.info, int_ghost_frag.ijk).central_residue_pair_freqs
-            # write out associated match information to frag_info_file
-            write_frag_match_info_file(ghost_frag=int_ghost_frag, matched_frag=int_surf_frag,
-                                       overlap_error=z_value, match_number=frag_idx,
-                                       central_frequencies=ghost_frag_central_freqs,
-                                       out_path=matching_fragments_dir, pose_id=pose_id)
-
-            # Keep track of residue pair frequencies and match information
-            res_pair_freq_info_list.append(FragMatchInfo(ghost_frag_central_freqs,
-                                                         surf_frag_chain1, surf_frag_central_res_num1,
-                                                         surf_frag_chain2, surf_frag_central_res_num2, z_value))
+        fragment_pairs = list(zip(sorted_int_ghostfrags, sorted_int_surffrags2, sorted_match_scores))
+        frag_match_info = get_matching_fragment_pairs_info(fragment_pairs)
+        # First, for the current pose, must identify interfaces
+        pose.find_and_split_interface()
+        # Next, set the interface fragment info
+        pose.fragment_metrics = {(model1, model2): frag_match_info}
+        # Alternatively, query fragments
+        pose.generate_interface_fragments(write_fragments=job.write_fragments)
+        # Next, gather interface metrics
+        interface_metrics = pose.interface_metrics()
+        # if job.write_fragments:
+        #     for frag_idx, (int_ghost_frag, int_surf_frag, match) in enumerate(fragment_pairs, 1):
+        #         # surf_frag_chain1, surf_frag_central_res_num1 = int_ghost_frag.aligned_chain_and_residue
+        #         # surf_frag_chain2, surf_frag_central_res_num2 = int_surf_frag.aligned_chain_and_residue
+        #         # Todo
+        #         #  surf_frag_chain1, surf_frag_central_res_num1 = int_ghost_residue.chain, int_ghost_residue.number
+        #         #  surf_frag_chain2, surf_frag_central_res_num2 = int_surf_residue.chain, int_surf_residue.number
+        #
+        #         # covered_residues_model1 = [(surf_frag_chain1, surf_frag_central_res_num1 + j) for j in range(-2, 3)]
+        #         # covered_residues_model2 = [(surf_frag_chain2, surf_frag_central_res_num2 + j) for j in range(-2, 3)]
+        #         # match = sorted_match_scores[frag_idx - 1]
+        #         # for k in range(ijk_frag_db.fragment_length):
+        #         #     chain_resnum1 = covered_residues_model1[k]
+        #         #     chain_resnum2 = covered_residues_model2[k]
+        #         #     if chain_resnum1 not in chid_resnum_scores_dict_model1:
+        #         #         chid_resnum_scores_dict_model1[chain_resnum1] = [match]
+        #         #     else:
+        #         #         chid_resnum_scores_dict_model1[chain_resnum1].append(match)
+        #         #
+        #         #     if chain_resnum2 not in chid_resnum_scores_dict_model2:
+        #         #         chid_resnum_scores_dict_model2[chain_resnum2] = [match]
+        #         #     else:
+        #         #         chid_resnum_scores_dict_model2[chain_resnum2].append(match)
+        #
+        #         # unique_frags_info1.add((surf_frag_chain1, surf_frag_central_res_num1))
+        #         # unique_frags_info2.add((surf_frag_chain2, surf_frag_central_res_num2))
+        #
+        #         if match >= high_quality_match_value:
+        #             matched_fragment_dir = high_quality_matches_dir
+        #         else:
+        #             matched_fragment_dir = low_quality_matches_dir
+        #
+        #         os.makedirs(matched_fragment_dir, exist_ok=True)
+        #
+        #         # if write_fragments:  # write out aligned cluster representative fragment
+        #         ghost_frag_rep = int_ghost_frag.representative.get_transformed_copy(**specific_transformation1)
+        #         ghost_frag_rep.write(out_path=os.path.join(matched_fragment_dir,
+        #                                                    'int_frag_i{}_j{}_k{}_{}.pdb'.format(
+        #                                                        *int_ghost_frag.ijk, frag_idx)))
+        #         z_value = z_value_from_match_score(match)
+        #         # ghost_frag_central_freqs = \
+        #         #     dictionary_lookup(ijk_frag_db.info, int_ghost_frag.ijk).central_residue_pair_freqs
+        #         # write out associated match information to frag_info_file
+        #         write_frag_match_info_file(ghost_frag=int_ghost_frag, matched_frag=int_surf_frag,
+        #                                    overlap_error=z_value, match_number=frag_idx,
+        #                                    out_path=matching_fragments_dir, pose_id=pose_id)
+        #
+        #         # # Keep track of residue pair frequencies and match information
+        #         # res_pair_freq_info_list.append(FragMatchInfo(ghost_frag_central_freqs,
+        #         #                                              surf_frag_chain1, surf_frag_central_res_num1,
+        #         #                                              surf_frag_chain2, surf_frag_central_res_num2, z_value))
 
         # log.debug('Wrote Fragments to matching_fragments')
         # calculate weighted frequency for central residues and write weighted frequencies to frag_text_file
-        weighted_seq_freq_info = SeqFreqInfo(res_pair_freq_info_list)
-        weighted_seq_freq_info.write(os.path.join(matching_fragments_dir, frag_text_file))
+        # weighted_seq_freq_info = SeqFreqInfo(res_pair_freq_info_list)
+        # weighted_seq_freq_info.write(os.path.join(matching_fragments_dir, frag_text_file))
 
-        unique_matched_monofrag_count = len(unique_frags_info1) + len(unique_frags_info2)
-        unique_total_monofrags_count = unique_interface_frag_count_model1 + unique_interface_frag_count_model2
-        percent_of_interface_covered = unique_matched_monofrag_count / float(unique_total_monofrags_count)
+        unique_matched_monofrag_count = interface_metrics['number_fragment_residues_center']
+        unique_total_monofrags_count = interface_metrics['total_interface_residues']
+        # unique_total_monofrags_count = unique_interface_frag_count_model1 + unique_interface_frag_count_model2
+        percent_of_interface_covered = interface_metrics['percent_residues_fragment_center']
 
-        # Calculate Nanohedra Residue Level Summation Score
-        res_lev_sum_score = 0
-        for res_scores_list1 in chid_resnum_scores_dict_model1.values():
-            n1 = 1
-            res_scores_list_sorted1 = sorted(res_scores_list1, reverse=True)
-            for sc1 in res_scores_list_sorted1:
-                res_lev_sum_score += sc1 * (1 / float(n1))
-                n1 = n1 * 2
-        for res_scores_list2 in chid_resnum_scores_dict_model2.values():
-            n2 = 1
-            res_scores_list_sorted2 = sorted(res_scores_list2, reverse=True)
-            for sc2 in res_scores_list_sorted2:
-                res_lev_sum_score += sc2 * (1 / float(n2))
-                n2 = n2 * 2
+        # # Calculate Nanohedra Residue Level Summation Score
+        # nanohedra_score = 0
+        # for res_scores_list1 in chid_resnum_scores_dict_model1.values():
+        #     n1 = 1
+        #     res_scores_list_sorted1 = sorted(res_scores_list1, reverse=True)
+        #     for sc1 in res_scores_list_sorted1:
+        #         nanohedra_score += sc1 * (1 / float(n1))
+        #         n1 = n1 * 2
+        # for res_scores_list2 in chid_resnum_scores_dict_model2.values():
+        #     n2 = 1
+        #     res_scores_list_sorted2 = sorted(res_scores_list2, reverse=True)
+        #     for sc2 in res_scores_list_sorted2:
+        #         nanohedra_score += sc2 * (1 / float(n2))
+        #         n2 = n2 * 2
 
+        nanohedra_score = interface_metrics['nanohedra_score']
         # Write Out Docked Pose Info to docked_pose_info_file.txt
-        write_docked_pose_info(tx_dir, res_lev_sum_score, high_qual_match_count, unique_matched_monofrag_count,
+        write_docked_pose_info(tx_dir, nanohedra_score, high_qual_match_count, unique_matched_monofrag_count,
                                unique_total_monofrags_count, percent_of_interface_covered, rot_mat1, internal_tx_param1,
                                sym_entry.setting_matrix1, external_tx_params1, rot_mat2, internal_tx_param2,
                                sym_entry.setting_matrix2, external_tx_params2, cryst_record, model1.file_path,
@@ -2042,7 +2057,7 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
         # Euler Lookup              - 0.005603 s for 35400 fragment pairs
         # Overlap Score Calculation - 0.000209 s for 887 fragment pairs
         # Total Match time          - 0.006250 s
-        # model1_tnsfmd = model1.return_transformed_copy(rotation=full_rotation1[idx],
+        # model1_tnsfmd = model1.get_transformed_copy(rotation=full_rotation1[idx],
         #                                                translation=full_int_tx1[idx],
         #                                                rotation2=set_mat1,
         #                                                translation2=None)
@@ -2337,8 +2352,8 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
         #     assembly_path = os.path.join(tx_dir, 'surrounding_unit_cells.pdb')
         #     specific_transformation1 = {'rotation': rot_mat1, 'translation': internal_tx_param1,
         #                                 'rotation2': set_mat1, 'translation2': external_tx_params1}
-        #     model1_copy = model1.return_transformed_copy(**specific_transformation1)
-        #     model2_copy = model2.return_transformed_copy(**{'rotation': rot_mat2, 'translation': internal_tx_param2,
+        #     model1_copy = model1.get_transformed_copy(**specific_transformation1)
+        #     model2_copy = model2.get_transformed_copy(**{'rotation': rot_mat2, 'translation': internal_tx_param2,
         #                                                 'rotation2': set_mat2, 'translation2': external_tx_params2})
         #     model1_copy.write(out_path=os.path.join(tx_dir, '%s_%s.pdb' % (model1_copy.name, sampling_id)))
         #     model2_copy.write(out_path=os.path.join(tx_dir, '%s_%s.pdb' % (model2_copy.name, sampling_id)))
@@ -2410,7 +2425,7 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
                                         rotation2=set_mat2, translation2=external_tx_params2)
         specific_transformations = [specific_transformation1, specific_transformation2]
 
-        pose = Pose.from_entities([entity.return_transformed_copy(**specific_transformations[idx])
+        pose = Pose.from_entities([entity.get_transformed_copy(**specific_transformations[idx])
                                    for idx, model in enumerate(models) for entity in model.entities],
                                   entity_names=[entity.name for entity in model.entities for model in models],
                                   name='asu', log=log, sym_entry=sym_entry, uc_dimensions=uc_dimensions,
@@ -2471,19 +2486,17 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
         for entity in pose.entities:
             entity.write_oligomer(out_path=os.path.join(tx_dir, f'{entity.name}_{sampling_id}.pdb'))
 
-        if output_assembly:
+        if job.output_assembly:
             # pose.generate_assembly_symmetry_models(surrounding_uc=output_surrounding_uc)
             if sym_entry.unit_cell:  # 2, 3 dimensions
-                if output_surrounding_uc:
+                if job.output_surrounding_uc:
                     assembly_path = os.path.join(tx_dir, 'surrounding_unit_cells.pdb')
-                    # pose.write(out_path=os.path.join(tx_dir, 'surrounding_unit_cells.pdb'),
-                    #                          header=cryst_record, assembly=True, surrounding_uc=output_surrounding_uc)
                 else:
                     assembly_path = os.path.join(tx_dir, 'central_uc.pdb')
             else:  # 0 dimension
                 assembly_path = os.path.join(tx_dir, 'expanded_assembly.pdb')
-                # pose.write(out_path=os.path.join(tx_dir, 'expanded_assembly.pdb'))
-            pose.write(assembly=True, out_path=assembly_path, header=cryst_record, surrounding_uc=output_surrounding_uc)
+            pose.write(assembly=True, out_path=assembly_path, header=cryst_record,
+                       surrounding_uc=job.output_surrounding_uc)
         log.info(f'\tSUCCESSFUL DOCKED POSE: {tx_dir}')
 
         # Return the indices sorted by match value in descending order, truncated at the number of passing
@@ -2518,8 +2531,8 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
         res_pair_freq_info_list = []
         for frag_idx, (int_ghost_frag, int_surf_frag, match) in \
                 enumerate(zip(sorted_int_ghostfrags, sorted_int_surffrags2, sorted_match_scores), 1):
-            surf_frag_chain1, surf_frag_central_res_num1 = int_ghost_frag.get_aligned_chain_and_residue
-            surf_frag_chain2, surf_frag_central_res_num2 = int_surf_frag.get_aligned_chain_and_residue
+            surf_frag_chain1, surf_frag_central_res_num1 = int_ghost_frag.aligned_chain_and_residue
+            surf_frag_chain2, surf_frag_central_res_num2 = int_surf_frag.aligned_chain_and_residue
             # Todo
             #  surf_frag_chain1, surf_frag_central_res_num1 = int_ghost_residue.chain, int_ghost_residue.number
             #  surf_frag_chain2, surf_frag_central_res_num2 = int_surf_residue.chain, int_surf_residue.number
@@ -2527,7 +2540,7 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
             covered_residues_model1 = [(surf_frag_chain1, surf_frag_central_res_num1 + j) for j in range(-2, 3)]
             covered_residues_model2 = [(surf_frag_chain2, surf_frag_central_res_num2 + j) for j in range(-2, 3)]
             # match = sorted_match_scores[frag_idx - 1]
-            for k in range(ijk_frag_db.fragment_length):
+            for k in range(fragment_db.fragment_length):
                 chain_resnum1 = covered_residues_model1[k]
                 chain_resnum2 = covered_residues_model2[k]
                 if chain_resnum1 not in chid_resnum_scores_dict_model1:
@@ -2552,32 +2565,31 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
 
             os.makedirs(matched_fragment_dir, exist_ok=True)
 
-            # if write_frags:  # write out aligned cluster representative fragment
+            # if write_fragments:  # write out aligned cluster representative fragment
             # # Old method
             # fragment, _ = dictionary_lookup(ijk_frag_db.paired_frags, int_ghost_frag.ijk)
-            # trnsfmd_ghost_fragment = fragment.return_transformed_copy(*int_ghost_frag.transformation)
+            # trnsfmd_ghost_fragment = fragment.get_transformed_copy(*int_ghost_frag.transformation)
             # trnsfmd_ghost_fragment.transform(**specific_transformation1)
             # trnsfmd_ghost_fragment.write(
             #     out_path=os.path.join(matched_fragment_dir,
             #                           'int_frag_i{}_j{}_k{}_{}OLD.pdb'.format(
             #                               *int_ghost_frag.ijk, frag_idx)))
             # New Method
-            ghost_frag_rep = int_ghost_frag.representative.return_transformed_copy(**specific_transformation1)
+            ghost_frag_rep = int_ghost_frag.representative.get_transformed_copy(**specific_transformation1)
             ghost_frag_rep.write(out_path=os.path.join(matched_fragment_dir,
                                                        'int_frag_i{}_j{}_k{}_{}.pdb'.format(
                                                            *int_ghost_frag.ijk, frag_idx)))
-            # transformed_ghost_fragment = int_ghost_frag.structure.return_transformed_copy(
+            # transformed_ghost_fragment = int_ghost_frag.structure.get_transformed_copy(
             #     rotation=rot_mat1, translation=internal_tx_param1,
             #     rotation2=sym_entry.setting_matrix1, translation2=external_tx_params1)
             # transformed_ghost_fragment.write(os.path.join(matched_fragment_dir, 'int_frag_%s_%d.pdb'
             #                                               % ('i%d_j%d_k%d' % int_ghost_frag.ijk, frag_idx)))
             z_value = z_value_from_match_score(match)
             ghost_frag_central_freqs = \
-                dictionary_lookup(ijk_frag_db.info, int_ghost_frag.ijk).central_residue_pair_freqs
+                dictionary_lookup(fragment_db.info, int_ghost_frag.ijk).central_residue_pair_freqs
             # write out associated match information to frag_info_file
             write_frag_match_info_file(ghost_frag=int_ghost_frag, matched_frag=int_surf_frag,
                                        overlap_error=z_value, match_number=frag_idx,
-                                       central_frequencies=ghost_frag_central_freqs,
                                        out_path=matching_fragments_dir, pose_id=pose_id)
 
             # Keep track of residue pair frequencies and match information
@@ -2646,7 +2658,7 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
 
     pose = Pose.from_entities([entity for idx, model in enumerate(models) for entity in model.entities],
                               entity_names=entity_names, name='asu', log=log, sym_entry=sym_entry,
-                              surrounding_uc=output_surrounding_uc,
+                              surrounding_uc=job.output_surrounding_uc,
                               # uc_dimensions=uc_dimensions,
                               pose_format=True,
                               ignore_clashes=True, rename_chains=True)
@@ -2825,24 +2837,11 @@ if __name__ == '__main__':
 
         model1_name = os.path.basename(os.path.splitext(model1_path)[0])
         model2_name = os.path.basename(os.path.splitext(model2_path)[0])
-        logger.info('Docking %s / %s \n' % (model1_name, model2_name))
-
-        # Create fragment database for all ijk cluster representatives
-        # ijk_frag_db = unpickle(biological_fragment_db_pickle)
-        # Todo parameterize when more available
-        ijk_frag_db = fragment_factory(source=biological_interfaces)
-        # Load Euler Lookup table for each instance
-        euler_lookup = euler_factory()
-        # ijk_frag_db = FragmentDB()
-        #
-        # # Get complete IJK fragment representatives database dictionaries
-        # ijk_frag_db.get_monofrag_cluster_rep_dict()
-        # ijk_frag_db.get_intfrag_cluster_rep_dict()
-        # ijk_frag_db.get_intfrag_cluster_info_dict()
+        logger.info(f'Docking {model1_name} / {model2_name}\n')
 
         try:
             # Output Directory  # Todo PoseDirectory
-            building_blocks = '%s_%s' % (model1_name, model2_name)
+            building_blocks = f'{model1_name}_{model2_name}'
             # outdir = os.path.join(master_outdir, building_blocks)
             # if not os.path.exists(outdir):
             #     os.makedirs(outdir)
@@ -2861,12 +2860,10 @@ if __name__ == '__main__':
             #     bb_logger.info('DOCKING %s TO %s' % (model1_name, model2_name))
             #     bb_logger.info('Oligomer 1 Path: %s\nOligomer 2 Path: %s\n' % (model1_path, model2_path))
 
-            nanohedra_dock(symmetry_entry, ijk_frag_db, euler_lookup, master_outdir, model1_path, model2_path,
+            nanohedra_dock(symmetry_entry, master_outdir, model1_path, model2_path,
                            rotation_step1=rot_step_deg1, rotation_step2=rot_step_deg2, min_matched=min_matched,
-                           output_assembly=output_assembly, output_surrounding_uc=output_surrounding_uc,
-                           keep_time=timer, high_quality_match_value=high_quality_match_value,
-                           initial_z_value=initial_z_value)  # log=bb_logger,
-            logger.info('COMPLETE ==> %s\n\n' % os.path.join(master_outdir, building_blocks))
+                           high_quality_match_value=high_quality_match_value, initial_z_value=initial_z_value)
+            logger.info(f'COMPLETE ==> {os.path.join(master_outdir, building_blocks)}\n\n')
 
         except KeyboardInterrupt:
             logger.info('\nRun Ended By KeyboardInterrupt\n')

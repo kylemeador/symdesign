@@ -13,7 +13,7 @@ def get_expanded_ptgrp_pdb(pdb_asu, expand_matrices):
     # asu_coords = pdb_asu.extract_coords()
     # asu_coords = pdb_asu.extract_all_coords()
     for r in expand_matrices:
-        asu_sym_mate_pdb = pdb_asu.return_transformed_copy(rotation=r.T)
+        asu_sym_mate_pdb = pdb_asu.get_transformed_copy(rotation=r.T)
         asu_symm_mates.append(asu_sym_mate_pdb)
 
     return asu_symm_mates

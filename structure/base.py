@@ -3471,10 +3471,10 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
 
         self.coords = new_coords
 
-    def return_transformed_copy(self, rotation: list[list[float]] | np.ndarray = None,
-                                translation: list[float] | np.ndarray = None,
-                                rotation2: list[list[float]] | np.ndarray = None,
-                                translation2: list[float] | np.ndarray = None) -> Structure:
+    def get_transformed_copy(self, rotation: list[list[float]] | np.ndarray = None,
+                             translation: list[float] | np.ndarray = None,
+                             rotation2: list[list[float]] | np.ndarray = None,
+                             translation2: list[float] | np.ndarray = None) -> Structure:
         """Make a semi-deep copy of the Structure object with the coordinates transformed in cartesian space
 
         Transformation proceeds by matrix multiplication and vector addition with the order of operations as:
@@ -4813,7 +4813,7 @@ class Structures(Structure, UserList):
     #     for structure in self:
     #         structure.transform(**kwargs)
     #
-    # def return_transformed_copy(self, **kwargs):  # rotation=None, translation=None, rotation2=None, translation2=None):
+    # def get_transformed_copy(self, **kwargs):  # rotation=None, translation=None, rotation2=None, translation2=None):
     #     """Make a semi-deep copy of the Structure object with the coordinates transformed in cartesian space
     #
     #     Transformation proceeds by matrix multiplication and vector addition with the order of operations as:
@@ -4829,11 +4829,11 @@ class Structures(Structure, UserList):
     #     new_structures = self.__new__(self.__class__)
     #     # print('Transformed Structure type (__new__) %s' % type(new_structures))
     #     # print('self.__dict__ is %s' % self.__dict__)
-    #     new_structures.__init__([structure.return_transformed_copy(**kwargs) for structure in self])
+    #     new_structures.__init__([structure.get_transformed_copy(**kwargs) for structure in self])
     #     # print('Transformed Structures, structures %s' % [structure for structure in new_structures.structures])
     #     # print('Transformed Structures, models %s' % [structure for structure in new_structures.models])
     #     return new_structures
-    #     # return Structures(structures=[structure.return_transformed_copy(**kwargs) for structure in self.structures])
+    #     # return Structures(structures=[structure.get_transformed_copy(**kwargs) for structure in self.structures])
 
     # def write(self, out_path: bytes | str = os.getcwd(), file_handle: IO = None, increment_chains: bool = True,
     #           header: str = None, **kwargs) -> str | None:
