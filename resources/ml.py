@@ -4,7 +4,7 @@ from typing import Annotated
 import numpy as np
 import torch
 
-from ProteinMPNN.vanilla_proteinmpnn.protein_mpnn_utils import ProteinMPNN
+from ProteinMPNN.protein_mpnn_utils import ProteinMPNN
 from utils import start_log
 from utils.path import protein_mpnn_weights_dir
 
