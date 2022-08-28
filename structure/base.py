@@ -2944,15 +2944,30 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         """Access the number of Residues in the Structure"""
         return len(self._residue_indices)
 
-    def get_coords_subset(self, res_start: int, res_end: int, ca: bool = True) -> np.ndarray:
-        """Return a view of a subset of the Coords from the Structure specified by a range of Residue numbers"""
+    def get_coords_subset(self, residue_numbers: Container[int] = None, start: int = None, end: int = None, 
+                          dtype: coords_type_literal = 'ca') -> np.ndarray:
+        """Return a view of a subset of the Coords from the Structure specified by a range of Residue numbers
+        
+        Args:
+            residue_numbers: The Residue numbers to return
+            start: The Residue number to start at. Inclusive
+            end: The Residue number to end at. Inclusive
+            dtype: The type of coordinates to get
+        Returns:
+            The specifiec coordinates 
+        """
+        coords_type = 'coords' if dtype == 'all' else f'{dtype}_coords'
+
+        if residue_numbers is None:
+            if start is not None and end is not None:
+                residue_numbers = list(range(start, end+1))
+            else:
+                raise ValueError(f'{self.get_coords_subset.__name__}:'
+                                 f' Must provide either residue_numbers or start and end')
+
         out_coords = []
-        if ca:
-            for residue in self.get_residues(range(res_start, res_end + 1)):
-                out_coords.append(residue.ca_coords)
-        else:
-            for residue in self.get_residues(range(res_start, res_end + 1)):
-                out_coords.extend(residue.coords)
+        for residue in self.get_residues(residue_numbers):
+            out_coords.append(getattr(residue, coords_type))
 
         return np.concatenate(out_coords)
 
