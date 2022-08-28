@@ -109,11 +109,11 @@ class GhostFragment:
     def representative(self) -> 'structure.base.Structure':
         """Access the Representative GhostFragment Structure"""
         try:
-            return self._representative.return_transformed_copy(*self.transformation)
+            return self._representative.get_transformed_copy()
         except AttributeError:
             self._representative, _ = dictionary_lookup(self.fragment_db.paired_frags, self.ijk)
 
-        return self._representative.return_transformed_copy(*self.transformation)
+        return self._representative.get_transformed_copy()
 
     def write(self, out_path: bytes | str = os.getcwd(), file_handle: IO = None, header: str = None, **kwargs) -> \
             str | None:
@@ -379,7 +379,7 @@ class MonoFragment(Fragment):
         else:
             raise ValueError(f'{type(self).__name__} coords must be shape (3, 3), not {coords.shape}')
 
-    # def return_transformed_copy(self, rotation: list | np.ndarray = None, translation: list | np.ndarray = None,
+    # def get_transformed_copy(self, rotation: list | np.ndarray = None, translation: list | np.ndarray = None,
     #                             rotation2: list | np.ndarray = None, translation2: list | np.ndarray = None) -> \
     #         MonoFragment:
     #     """Make a semi-deep copy of the Structure object with the coordinates transformed in cartesian space

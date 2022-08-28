@@ -72,7 +72,7 @@ def make_asu_oligomer(asu, chain_map, location=os.getcwd()):
         # transpose rotation matrix as superposition3d returns correct matrix to rotate using np.matmul
         rmsd, rot, tx = \
             superposition3d(asu.chain(asu_chain).cb_coords, oriented_oligomer.chain(oligomer_chain).cb_coords)
-        moved_oligomer[pdb] = oriented_oligomer.return_transformed_copy(rotation=rot, translation=tx)
+        moved_oligomer[pdb] = oriented_oligomer.get_transformed_copy(rotation=rot, translation=tx)
         # moved_oligomer[pdb] = biopdb_aligned_chain(asu, asu_chain, oriented_oligomer, oligomer_chain)
         # moved_oligomer = biopdb_aligned_chain(pdb_fixed, chain_id_fixed, pdb_moving, chain_id_moving)
     final_comparison = {'nanohedra_output': glob(os.path.join(os.path.dirname(location), 'NanohedraEntry*DockedPoses'))[0]}

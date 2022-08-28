@@ -1553,7 +1553,7 @@ class Entity(Chain, ContainsChainsMixin):
         if translation2 is None:
             translation2 = origin
         # this is helpful for dihedral symmetry as entity must be transformed to origin to get canonical dihedral
-        # entity_inv = entity.return_transformed_copy(rotation=inv_expand_matrix, rotation2=inv_set_matrix[group])
+        # entity_inv = entity.get_transformed_copy(rotation=inv_expand_matrix, rotation2=inv_set_matrix[group])
         # need to reverse any external transformation to the entity coords so rotation occurs at the origin...
         # and undo symmetry expansion matrices
         # centered_coords = transform_coordinate_sets(self.coords, translation=-translation2,
@@ -5027,7 +5027,7 @@ class SymmetricModel(Models):
                 # #  test if the change to local point group symmetry in a layer or space group is sufficient
                 # inv_expand_matrix = np.linalg.inv(rot_op)
                 # inv_rotation_matrix = np.linalg.inv(dummy_rotation)
-                # # entity_inv = entity.return_transformed_copy(rotation=inv_expand_matrix, rotation2=inv_set_matrix[group])
+                # # entity_inv = entity.get_transformed_copy(rotation=inv_expand_matrix, rotation2=inv_set_matrix[group])
                 # # need to reverse any external transformation to the entity coords so rotation occurs at the origin...
                 # centered_coords = transform_coordinate_sets(entity.coords, translation=-ext_tx)
                 # sym_on_z_coords = transform_coordinate_sets(centered_coords, rotation=inv_expand_matrix,
@@ -7234,7 +7234,7 @@ class Pose(SequenceProfile, SymmetricModel):
         for match_count, (ghost_frag, surface_frag, match_score) in enumerate(ghost_mono_frag_pairs, 1):
             ijk = ghost_frag.ijk
             fragment_pdb, _ = dictionary_lookup(self.fragment_db.paired_frags, ijk)
-            trnsfmd_fragment = fragment_pdb.return_transformed_copy(*ghost_frag.transformation)
+            trnsfmd_fragment = fragment_pdb.get_transformed_copy()
             trnsfmd_fragment.write(out_path=os.path.join(out_path,
                                                          '{}_{}_{}_fragment_match_{}.pdb'.format(*ijk, match_count)))
             write_frag_match_info_file(ghost_frag=ghost_frag, matched_frag=surface_frag,

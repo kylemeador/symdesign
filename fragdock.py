@@ -160,12 +160,10 @@ def find_docked_poses(sym_entry, ijk_frag_db, pdb1, pdb2, optimal_tx_params, com
         #  In theory, the rotation and setting matrix are the same for all tx_parameters, can we accelerate even though
         #  order of operations matters? by applying the setting matrix to the translation, in theory the translation
         #  will be along the same axis. This removes repeated multiplications and instead has array addition
-        pdb1_copy = pdb1.return_transformed_copy(rotation=rot_mat1, translation=internal_tx_param1,
-                                                 rotation2=sym_entry.setting_matrix1,
-                                                 translation2=external_tx_params1)
-        pdb2_copy = pdb2.return_transformed_copy(rotation=rot_mat2, translation=internal_tx_param2,
-                                                 rotation2=sym_entry.setting_matrix2,
-                                                 translation2=external_tx_params2)
+        pdb1_copy = pdb1.get_transformed_copy(rotation=rot_mat1, translation=internal_tx_param1,
+                                              rotation2=sym_entry.setting_matrix1, translation2=external_tx_params1)
+        pdb2_copy = pdb2.get_transformed_copy(rotation=rot_mat2, translation=internal_tx_param2,
+                                              rotation2=sym_entry.setting_matrix2, translation2=external_tx_params2)
 
         copy_rot_tr_set_time_stop = time.time()
         copy_rot_tr_set_time = copy_rot_tr_set_time_stop - copy_rot_tr_set_time_start
@@ -394,12 +392,12 @@ def find_docked_poses(sym_entry, ijk_frag_db, pdb1, pdb2, optimal_tx_params, com
 
             # if write_fragments:  # write out aligned cluster representative fragment
             fragment, _ = dictionary_lookup(ijk_frag_db.paired_frags, int_ghost_frag.ijk)
-            trnsfmd_ghost_fragment = fragment.return_transformed_copy(**int_ghost_frag.transformation)
+            trnsfmd_ghost_fragment = fragment.get_transformed_copy(**int_ghost_frag.transformation)
             trnsfmd_ghost_fragment.transform(rotation=rot_mat1, translation=internal_tx_param1,
                                              rotation2=sym_entry.setting_matrix1, translation2=external_tx_params1)
             trnsfmd_ghost_fragment.write(out_path=os.path.join(matched_fragment_dir, 'int_frag_%s_%d.pdb'
                                                                % ('i%d_j%d_k%d' % int_ghost_frag.ijk, frag_idx + 1)))
-            # transformed_ghost_fragment = int_ghost_frag.structure.return_transformed_copy(
+            # transformed_ghost_fragment = int_ghost_frag.structure.get_transformed_copy(
             #     rotation=rot_mat1, translation=internal_tx_param1,
             #     rotation2=sym_entry.setting_matrix1, translation2=external_tx_params1)
             # transformed_ghost_fragment.write(os.path.join(matched_fragment_dir, 'int_frag_%s_%d.pdb'
@@ -1590,7 +1588,7 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
 
         # Set the next unit cell dimensions
         pose.uc_dimensions = uc_dimensions
-        # pose = Pose.from_entities([entity.return_transformed_copy(**specific_transformations[idx])
+        # pose = Pose.from_entities([entity.get_transformed_copy(**specific_transformations[idx])
         #                            for idx, model in enumerate(models) for entity in model.entities],
         #                           entity_names=entity_names, name='asu', log=log, sym_entry=sym_entry,
         #                           surrounding_uc=job.output_surrounding_uc, uc_dimensions=uc_dimensions,
@@ -1961,7 +1959,7 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
         #         os.makedirs(matched_fragment_dir, exist_ok=True)
         #
         #         # if write_fragments:  # write out aligned cluster representative fragment
-        #         ghost_frag_rep = int_ghost_frag.representative.return_transformed_copy(**specific_transformation1)
+        #         ghost_frag_rep = int_ghost_frag.representative.get_transformed_copy(**specific_transformation1)
         #         ghost_frag_rep.write(out_path=os.path.join(matched_fragment_dir,
         #                                                    'int_frag_i{}_j{}_k{}_{}.pdb'.format(
         #                                                        *int_ghost_frag.ijk, frag_idx)))
@@ -2059,7 +2057,7 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
         # Euler Lookup              - 0.005603 s for 35400 fragment pairs
         # Overlap Score Calculation - 0.000209 s for 887 fragment pairs
         # Total Match time          - 0.006250 s
-        # model1_tnsfmd = model1.return_transformed_copy(rotation=full_rotation1[idx],
+        # model1_tnsfmd = model1.get_transformed_copy(rotation=full_rotation1[idx],
         #                                                translation=full_int_tx1[idx],
         #                                                rotation2=set_mat1,
         #                                                translation2=None)
@@ -2354,8 +2352,8 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
         #     assembly_path = os.path.join(tx_dir, 'surrounding_unit_cells.pdb')
         #     specific_transformation1 = {'rotation': rot_mat1, 'translation': internal_tx_param1,
         #                                 'rotation2': set_mat1, 'translation2': external_tx_params1}
-        #     model1_copy = model1.return_transformed_copy(**specific_transformation1)
-        #     model2_copy = model2.return_transformed_copy(**{'rotation': rot_mat2, 'translation': internal_tx_param2,
+        #     model1_copy = model1.get_transformed_copy(**specific_transformation1)
+        #     model2_copy = model2.get_transformed_copy(**{'rotation': rot_mat2, 'translation': internal_tx_param2,
         #                                                 'rotation2': set_mat2, 'translation2': external_tx_params2})
         #     model1_copy.write(out_path=os.path.join(tx_dir, '%s_%s.pdb' % (model1_copy.name, sampling_id)))
         #     model2_copy.write(out_path=os.path.join(tx_dir, '%s_%s.pdb' % (model2_copy.name, sampling_id)))
@@ -2427,7 +2425,7 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
                                         rotation2=set_mat2, translation2=external_tx_params2)
         specific_transformations = [specific_transformation1, specific_transformation2]
 
-        pose = Pose.from_entities([entity.return_transformed_copy(**specific_transformations[idx])
+        pose = Pose.from_entities([entity.get_transformed_copy(**specific_transformations[idx])
                                    for idx, model in enumerate(models) for entity in model.entities],
                                   entity_names=[entity.name for entity in model.entities for model in models],
                                   name='asu', log=log, sym_entry=sym_entry, uc_dimensions=uc_dimensions,
@@ -2570,18 +2568,18 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
             # if write_fragments:  # write out aligned cluster representative fragment
             # # Old method
             # fragment, _ = dictionary_lookup(ijk_frag_db.paired_frags, int_ghost_frag.ijk)
-            # trnsfmd_ghost_fragment = fragment.return_transformed_copy(*int_ghost_frag.transformation)
+            # trnsfmd_ghost_fragment = fragment.get_transformed_copy(*int_ghost_frag.transformation)
             # trnsfmd_ghost_fragment.transform(**specific_transformation1)
             # trnsfmd_ghost_fragment.write(
             #     out_path=os.path.join(matched_fragment_dir,
             #                           'int_frag_i{}_j{}_k{}_{}OLD.pdb'.format(
             #                               *int_ghost_frag.ijk, frag_idx)))
             # New Method
-            ghost_frag_rep = int_ghost_frag.representative.return_transformed_copy(**specific_transformation1)
+            ghost_frag_rep = int_ghost_frag.representative.get_transformed_copy(**specific_transformation1)
             ghost_frag_rep.write(out_path=os.path.join(matched_fragment_dir,
                                                        'int_frag_i{}_j{}_k{}_{}.pdb'.format(
                                                            *int_ghost_frag.ijk, frag_idx)))
-            # transformed_ghost_fragment = int_ghost_frag.structure.return_transformed_copy(
+            # transformed_ghost_fragment = int_ghost_frag.structure.get_transformed_copy(
             #     rotation=rot_mat1, translation=internal_tx_param1,
             #     rotation2=sym_entry.setting_matrix1, translation2=external_tx_params1)
             # transformed_ghost_fragment.write(os.path.join(matched_fragment_dir, 'int_frag_%s_%d.pdb'
@@ -2865,7 +2863,7 @@ if __name__ == '__main__':
             nanohedra_dock(symmetry_entry, master_outdir, model1_path, model2_path,
                            rotation_step1=rot_step_deg1, rotation_step2=rot_step_deg2, min_matched=min_matched,
                            high_quality_match_value=high_quality_match_value, initial_z_value=initial_z_value)
-            logger.info('COMPLETE ==> %s\n\n' % os.path.join(master_outdir, building_blocks))
+            logger.info(f'COMPLETE ==> {os.path.join(master_outdir, building_blocks)}\n\n')
 
         except KeyboardInterrupt:
             logger.info('\nRun Ended By KeyboardInterrupt\n')
