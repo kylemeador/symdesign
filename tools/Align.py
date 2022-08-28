@@ -2,8 +2,11 @@ import argparse
 import math
 import os
 
+import structure
 from structure.model import Model
 from structure.coords import superposition3d
+from utils.SymEntry import parse_symmetry_to_sym_entry
+from utils.path import sym_entry, nano
 
 
 class ListFile:
@@ -391,9 +394,9 @@ class HelixFusion:
                             return -1
 
                         # Extract coordinates of segment to be overlapped from PDB Fixed
-                        pdb_fixed_coords = target_protein.chain(self.add_target_helix[2]).get_coords_subset(target_term_resi + i, target_term_resi + 4 + i)
+                        pdb_fixed_coords = target_protein.chain(self.add_target_helix[2]).get_coords_subset(target_term_resi+i, target_term_resi+4+i)
                         # Extract coordinates of segment to be overlapped from PDB Moving
-                        pdb_moble_coords = pdb_oligomer.chains[0].get_coords_subset(oligomer_term_resi, oligomer_term_resi + 4)
+                        pdb_moble_coords = pdb_oligomer.chains[0].get_coords_subset(oligomer_term_resi, oligomer_term_resi+4)
 
                         # Create PDBOverlap instance
                         # pdb_overlap = PDBOverlap(pdb_fixed_coords, pdb_moble_coords)
@@ -564,25 +567,66 @@ class HelixFusion:
         print('Done')
 
 
-def align(pdb1_path, start_1, end_1, chain_1, pdb2_path, start_2, end_2, chain_2, extend_helix=False):
-        pdb1 = Model.from_file(pdb1_path)
-        pdb2 = Model.from_file(pdb2_path)
+def align(model1, residue_start1, residue_end1, model2, residue_start2, residue_end2,
+          chain1: str = 'A', chain2: str = 'A', extend_helix: bool = False) -> tuple(Model, Model):
+    """Take two Structure Models and align the second one to the first along a helical termini
 
-        if extend_helix:
-            n_terminus = pdb1.chain(chain_1).n_terminal_residue.number
-            if n_terminus in range(start_1, end_1) or n_terminus < start_1:
-                term = 'N'
-            else:
-                term = 'C'
-            print('Adding ideal helix to %s-terminus of reference molecule' % term)
-            pdb1.add_ideal_helix(term, chain_1)  # terminus, chain number
-        coords1 = pdb1.chain(chain_1).get_coords_subset(start_1, end_1)
-        coords2 = pdb2.chain(chain_2).get_coords_subset(start_2, end_2)
+    Args:
+        model1: The first model. This model will be fixed during the procedure
+        residue_start1: The first residue to use for alignment from model1
+        residue_end1: The last residue to use for alignment from model1
+        model2: The second model. This model will be moved during the procedure
+        residue_start2: The first residue to use for alignment from model2
+        residue_end2: The last residue to use for alignment from model2
+        chain1: The chainID to perform the alignment on in model1
+        chain2: The chainID to perform the alignment on in model2
+        extend_helix: Whether an ideal helix should be used to extend the model1 alignment window
+    Returns:
+        The aligned Models
+    """
+    # Get Building Blocks in pose format to remove need for fragments to use chain info
+    if not isinstance(model1, structure.base.Structure):
+        model1 = Model.from_file(model1)
+    if not isinstance(model2, structure.base.Structure):
+        model2 = Model.from_file(model2)
 
-        rmsd, rot, tx = superposition3d(coords1, coords2)
-        pdb2.transform(rot, tx)
+    if residue_end1-residue_start1 != residue_end2-residue_start2:
+        raise ValueError(f'The aligned lengths are not equal! '
+                         f'model1 length ({residue_end1-residue_start1}) '
+                         f'!= model2 length ({residue_end2-residue_start2})')
 
-        return pdb2
+    _chain1 = model1.chain(chain1)
+    if not _chain1:
+        raise ValueError(f'The provided chain1 {_chain1} was not found in model1')
+    else:  # Set the new variable to prepare for the case that an ideal helix is added
+        _chain1_ = _chain1
+
+    _chain2 = model2.chain(chain2)
+    if not _chain2:
+        raise ValueError(f'The provided chain1 {_chain1} was not found in model1')
+
+    while extend_helix:
+        n_terminal_number = _chain1.n_terminal_residue.number
+        c_terminal_number = _chain1.c_terminal_residue.number
+
+        model_residue_range = range(residue_start1, residue_end1 + 1)
+        if n_terminal_number in model_residue_range or n_terminal_number < residue_start1:
+            termini = 'N'
+        elif c_terminal_number in model_residue_range or c_terminal_number > residue_start1:
+            termini = 'C'
+        else:  # we can't extend...
+            break
+
+        _chain1_ = _chain1.copy()
+        _chain1_.add_ideal_helix(termini=termini, length=residue_end2-residue_start2)
+        break
+
+    coords1 = _chain1_.get_coords_subset(residue_start1, residue_end1)
+    coords2 = _chain2.get_coords_subset(residue_start2, residue_end2)
+
+    rmsd, rot, tx = superposition3d(coords1, coords2)
+
+    return model1, model2.get_transformed_copy(rotation=rot, translation=tx)
 
 
 if __name__ == '__main__':
