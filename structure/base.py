@@ -3751,7 +3751,6 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         Raises:
             ClashError if the Structure has an identified clash
         """
-        measure_function: Callable[[Atom], bool]
         # Todo switch measure:
         if measure == 'backbone_and_cb':
             other = 'non-cb sidechain'
@@ -4180,8 +4179,8 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         # if not residues[0].secondary_structure:
         #     raise DesignError(f'You must call {self.get_secondary_structure.__name__} on {self.name} before querying '
         #                       f'for helical termini')
-        term_window = ''.join(residue.secondary_structure for residue in residues[:window * 2])
-        if 'H' * window in term_window:
+        term_window = ''.join(residue.secondary_structure for residue in residues[:window*2])
+        if 'H'*window in term_window:
             return 1  # True
         else:
             return 0  # False
