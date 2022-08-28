@@ -23,7 +23,7 @@ from sklearn.neighbors._ball_tree import BinaryTree  # this typing implementatio
 import flags
 from resources import wrapapi, fragment
 from resources.fragment import format_fragment_metrics, fragment_metric_template
-from ProteinMPNN.vanilla_proteinmpnn.helper_scripts.other_tools.make_pssm_dict import softmax
+from ProteinMPNN.helper_scripts.other_tools.make_pssm_dict import softmax
 from resources.ml import proteinmpnn_factory, batch_proteinmpnn_input, proteinmpnn_to_device
 from resources.query.pdb import retrieve_entity_id_by_sequence, query_pdb_by, get_entity_reference_sequence, \
     is_entity_thermophilic
@@ -5683,7 +5683,6 @@ class Pose(SequenceProfile, SymmetricModel):
             raise NotImplementedError(f"Can't design with Rosetta from this method yet...")
         else:  # Design with vanilla version of ProteinMPNN
             import torch
-            from ProteinMPNN.vanilla_proteinmpnn.protein_mpnn_utils import ProteinMPNN, _scores, _S_to_seq
 
             # Set up the model with the desired weights
             model = proteinmpnn_factory(model_name)
