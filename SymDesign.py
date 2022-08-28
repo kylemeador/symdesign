@@ -441,7 +441,7 @@ def main():
             print('\n')
             logger.warning(
                 f'Exceptions were thrown for {len(exceptions)} designs. Check their logs for further details\n\t'
-                f'%s' % ('\n\t'.join(f'{design.path}: {_error}' for design, _error in exceptions)))
+                f'%s' % '\n\t'.join(f'{design.path}: {_error}' for design, _error in exceptions))
             print('\n')
             # exit_code = 1
 
@@ -496,8 +496,8 @@ def main():
                     f'Found {len(pose_cluster_map)} unique clusters from {len(pose_directories)} pose inputs. All '
                     f'clusters stored in {pose_cluster_file}')
                 logger.info('Each cluster above has one representative which identifies with each of the members. If '
-                            'clustering was performed by transformation or interface_residues, then the representative is '
-                            'the most similar to all members. If clustering was performed by ialign, then the '
+                            'clustering was performed by transformation or interface_residues, then the representative '
+                            'is the most similar to all members. If clustering was performed by ialign, then the '
                             'representative is randomly chosen.')
                 logger.info(
                     f'To utilize the above clustering, during {PUtils.select_poses}, using the option --cluster_map'
@@ -620,6 +620,11 @@ def main():
         raise utils.SymmetryError(f'Nanohedra master docking file {log_path} is malformed. Missing required info '
                                   f'"Nanohedra Entry Number:"')
 
+    def print_guide():
+        """Print the SymDesign guide and exit"""
+        with open(PUtils.readme, 'r') as f:
+            print(f.read(), end='')
+        exit()
     # -----------------------------------------------------------------------------------------------------------------
     # Process optional program flags
     # -----------------------------------------------------------------------------------------------------------------
@@ -665,9 +670,7 @@ def main():
         #              SDUtils.ex_path('pose_directory'), SDUtils.ex_path('DataFrame.csv'),
         #              SDUtils.ex_path('design.paths')))
         else:  # print the full program readme
-            with open(PUtils.readme, 'r') as f:
-                print(f.read(), end='')
-        exit()
+            print_guide()
     elif args.set_up:
         set_up_instructions()
         exit()
@@ -802,8 +805,10 @@ def main():
             # change default number to a single sequence/pose when not doing a total selection
             args.select_number = 1
     else:  # [PUtils.nano, 'multicistronic']
-        if not sym_entry:
+        if args.module == PUtils.nano and not sym_entry:
             raise RuntimeError(f'When running {PUtils.nano}, the argument -e/--entry/--{PUtils.sym_entry} is required')
+        else:  # We have no module passed. Print the guide
+            print_guide()
         initialize = False
 
     # create JobResources which holds shared program objects and options
@@ -909,7 +914,7 @@ def main():
             design_specification = utils.PoseSpecification(args.specification_file)
             pose_directories = [PoseDirectory.from_pose_id(pose, root=args.directory, specific_design=design,
                                                            directives=directives, **queried_flags)
-                                for pose, design, directives in design_specification.return_directives()]
+                                for pose, design, directives in design_specification.get_directives()]
             location = args.specification_file
         else:
             all_poses, location = utils.collect_designs(files=args.file, directory=args.directory,
@@ -919,8 +924,8 @@ def main():
                     # assume that we have received pose-IDs and process accordingly
                     if not args.directory:
                         raise utils.DesignError('Your input specification appears to be pose IDs, however no '
-                                                  '--directory location was passed. Please resubmit with --directory '
-                                                  'and use --pose_file or --specification_file with pose IDs')
+                                                '--directory location was passed. Please resubmit with --directory '
+                                                'and use --pose_file or --specification_file with pose IDs')
                     pose_directories = [PoseDirectory.from_pose_id(pose, root=args.directory, **queried_flags)
                                         for pose in all_poses[low_range:high_range]]
                 else:
@@ -928,7 +933,7 @@ def main():
                                         for pose in all_poses[low_range:high_range]]
         if not pose_directories:
             raise utils.DesignError(f'No {PUtils.program_name} directories found within "{location}"! Please ensure '
-                                      f'correct location')
+                                    f'correct location')
         representative_pose_directory = next(iter(pose_directories))
         design_source = os.path.splitext(os.path.basename(location))[0]
         default_output_tuple = (utils.starttime, args.module, design_source)
@@ -1018,8 +1023,8 @@ def main():
                 #                       '-d', os.path.join(job.profiles, f'{entity.name}_bmDCA')])
             if hhblits_cmds:
                 if not os.access(PUtils.hhblits_exe, os.X_OK):
-                    print(f'Couldn\'t locate the {PUtils.hhblits} executable. Ensure the executable file '
-                          f'{PUtils.hhblits_exe} exists then try your job again.')
+                    print(f"Couldn't locate the {PUtils.hhblits} executable. Ensure the executable file "
+                          f'{PUtils.hhblits_exe} exists then try your job again')
                     exit()
                 utils.make_path(job.profiles)
                 utils.make_path(job.sbatch_scripts)
@@ -1040,7 +1045,7 @@ def main():
                                             finishing_commands=[list2cmdline(reformat_msa_cmd1),
                                                                 list2cmdline(reformat_msa_cmd2)])
                 hhblits_sbatch_message = \
-                    f'Enter the following to distribute {PUtils.hhblits} jobs:\n\tsbatch %s' % hhblits_sbatch
+                    f'Enter the following to distribute {PUtils.hhblits} jobs:\n\tsbatch {hhblits_sbatch}'
                 info_messages.append(hhblits_sbatch_message)
                 load_resources = True
             else:
@@ -1071,7 +1076,7 @@ def main():
                     'Once you are satisfied, enter the following to distribute jobs:\n\tsbatch %s' \
                     % bmdca_sbatch if not load_resources else 'ONCE this job is finished, to calculate evolutionary ' \
                                                               'couplings i,j for each amino acid in the multiple ' \
-                                                              'sequence alignment, enter:\n\tsbatch %s' % bmdca_sbatch
+                                                              f'sequence alignment, enter:\n\tsbatch {bmdca_sbatch}'
                 info_messages.append(bmdca_sbatch_message)
                 load_resources = True
             else:
@@ -1096,7 +1101,7 @@ def main():
                     # After completion of sbatch, the next time initialized, there will be no refine files left allowing
                     # initialization to proceed
                 else:
-                    raise utils.DesignError('This shouldn\'t have happened!')
+                    raise utils.DesignError("This shouldn't have happened!")
 
             if args.preprocessed:  # ensure we report to PoseDirectory the results after skiping set up
                 pre_refine = True
@@ -1129,8 +1134,6 @@ def main():
         # Transform input entities to canonical orientation and return their ASU
         all_structures = []
         load_resources = False
-        orient_log = utils.start_log(name='orient', handler=2, propagate=True,
-                                     location=os.path.join(job.structure_db.oriented.location, PUtils.orient_log_file))
         # Set up variables for the correct parsing of provided file paths
         by_file1, by_file2 = False, False
         eventual_structure_names1, eventual_structure_names2 = None, None
@@ -1163,8 +1166,7 @@ def main():
         single_component_design = False
         if args.oligomer2:
             if args.oligomer1 != args.oligomer2:  # see if they are the same input
-                logger.critical('Ensuring provided file(s) at %s are oriented for Nanohedra Docking'
-                                % args.oligomer1)
+                logger.critical(f'Ensuring provided file(s) at {args.oligomer1} are oriented for Nanohedra Docking')
                 if '.pdb' in args.oligomer2:
                     pdb2_filepaths = [args.oligomer2]
                 else:
@@ -1815,7 +1817,7 @@ def main():
             design_interfaces = []
             for design in pose_directories:
                 design.identify_interface()  # calls design.load_pose()
-                interface = design.pose.return_interface()  # Todo this doesn't work for asymmetric Poses
+                interface = design.pose.get_interface()  # Todo this doesn't work for asymmetric Poses
                 design_interfaces.append(
                     # interface.write(out_path=os.path.join(temp_file_dir, f'{design.name}_interface.pdb')))  # Todo reinstate
                     interface.write(out_path=os.path.join(temp_file_dir, f'{design.name}.pdb')))
@@ -2163,12 +2165,12 @@ def main():
                     sequence_id = f'{des_dir}_{source_entity.name}'
                     # design_string = '%s_design_%s_%s' % (des_dir, design, source_entity.name)  # [i])), pdb_code)
                     design_string = f'{design}_{source_entity.name}'
-                    termini_availability = des_dir.pose.return_termini_accessibility(source_entity)
+                    termini_availability = des_dir.pose.get_termini_accessibility(source_entity)
                     logger.debug(f'Design {sequence_id} has the following termini accessible for tags: '
                                  f'{termini_availability}')
                     if args.avoid_tagging_helices:
                         termini_helix_availability = \
-                            des_dir.pose.return_termini_accessibility(source_entity, report_if_helix=True)
+                            des_dir.pose.get_termini_accessibility(source_entity, report_if_helix=True)
                         logger.debug(f'Design {sequence_id} has the following helical termini available: '
                                      f'{termini_helix_availability}')
                         termini_availability = {'n': termini_availability['n'] and not termini_helix_availability['n'],
@@ -2239,7 +2241,8 @@ def main():
 
                         if uniprot_id_matching_tags:
                             tag_names, tag_termini, _ = \
-                                zip(*[(tag['name'], tag['termini'], tag['sequence']) for tag in uniprot_id_matching_tags])
+                                zip(*[(tag['name'], tag['termini'], tag['sequence'])
+                                      for tag in uniprot_id_matching_tags])
                         else:
                             tag_names, tag_termini, _ = [], [], []
 
@@ -2453,28 +2456,29 @@ def main():
 
         # Report Errors
         if codon_optimization_errors:
+            # Todo utilize errors
             error_file = \
                 utils.write_sequence_file(codon_optimization_errors, csv=args.csv,
                                           file_name=os.path.join(outdir,
-                                                                   f'{args.prefix}OptimizationErrorProteinSequences'
-                                                                   f'{args.suffix}'))
+                                                                 f'{args.prefix}OptimizationErrorProteinSequences'
+                                                                 f'{args.suffix}'))
         # Write output sequences to fasta file
         seq_file = utils.write_sequence_file(final_sequences, csv=args.csv,
                                              file_name=os.path.join(outdir,
-                                                                      f'{args.prefix}SelectedSequences{args.suffix}'))
+                                                                    f'{args.prefix}SelectedSequences{args.suffix}'))
         logger.info(f'Final Design protein sequences written to {seq_file}')
         seq_comparison_file = \
             utils.write_sequence_file(inserted_sequences, csv=args.csv,
                                       file_name=os.path.join(outdir,
-                                                               f'{args.prefix}SelectedSequencesExpressionAdditions'
-                                                               f'{args.suffix}'))
+                                                             f'{args.prefix}SelectedSequencesExpressionAdditions'
+                                                             f'{args.suffix}'))
         logger.info(f'Final Expression sequence comparison to Design sequence written to {seq_comparison_file}')
         # check for protein or nucleotide output
         if args.nucleotide:
             nucleotide_sequence_file = \
                 utils.write_sequence_file(nucleotide_sequences, csv=args.csv,
                                           file_name=os.path.join(outdir, f'{args.prefix}SelectedSequencesNucleotide'
-                                                                           f'{args.suffix}'))
+                                                                         f'{args.suffix}'))
             logger.info(f'Final Design nucleotide sequences written to {nucleotide_sequence_file}')
     # ---------------------------------------------------
     # Tools are found below here

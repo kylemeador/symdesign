@@ -1083,7 +1083,7 @@ class PoseDirectory:
     # def return_unique_pose_stats(self):  # Depreciated
     #     return len(bb for symm in self.composition for bb in symm)
 
-    # def return_fragment_metrics(self):
+    # def get_fragment_metrics(self):
     #     self.all_residue_score, self.center_residue_score, self.fragment_residues_total, \
     #         self.central_residues_with_fragment_overlap, self.multiple_frag_ratio, self.fragment_content_d
 
@@ -1129,12 +1129,12 @@ class PoseDirectory:
         self.log.debug('Starting fragment metric collection')
         if self.fragment_observations:  # check if fragment generation has been populated somewhere
             frag_metrics = format_fragment_metrics(self.fragment_db.calculate_match_metrics(self.fragment_observations))
-            # frag_metrics = self.pose.return_fragment_metrics(fragments=self.fragment_observations)
+            # frag_metrics = self.pose.get_fragment_metrics(fragments=self.fragment_observations)
         elif path.exists(self.frag_file):  # try to pull them from disk
             self.log.debug('Fragment observations found on disk. Adding to the Design state')
             self.retrieve_fragment_info_from_file()
             frag_metrics = format_fragment_metrics(self.fragment_db.calculate_match_metrics(self.fragment_observations))
-            # frag_metrics = self.pose.return_fragment_metrics(fragments=self.fragment_observations)
+            # frag_metrics = self.pose.get_fragment_metrics(fragments=self.fragment_observations)
         else:
             if self.interface_design_residues is False:  # no search yet, so self.interface_design_residues = False
                 self.identify_interface()
@@ -1145,7 +1145,7 @@ class PoseDirectory:
             if self.pose.fragment_queries:
                 self.log.debug('Fragment observations found in Pose. Adding to the Design state')
                 self.fragment_observations = self.pose.return_fragment_observations()
-                frag_metrics = self.pose.return_fragment_metrics()
+                frag_metrics = self.pose.get_fragment_metrics()
                 self.info['fragments'] = self.fragment_observations
                 self.pickle_info()  # Todo remove once PoseDirectory state can be returned to SymDesign dispatch w/ MP
 

@@ -804,7 +804,7 @@ class State(Structures):
         return super().write(increment_chains=increment_chains, **kwargs)
 
         # if file_handle:  # Todo handle with multiple Structure containers
-        #     file_handle.write('%s\n' % self.return_atom_record(**kwargs))
+        #     file_handle.write('%s\n' % self.get_atom_record(**kwargs))
         #     return
         #
         # with open(out_path, 'w') as f:
@@ -1338,7 +1338,7 @@ class Entity(Chain, ContainsChainsMixin):
         # Set in init -> self._chains = [self]
         if len(self._chains) == 1 and self._chain_transforms and self._is_captain:
             # populate ._chains with Entity mates
-            self._chains.extend([self.return_transformed_mate(**transform) for transform in self._chain_transforms])
+            self._chains.extend([self.get_transformed_mate(**transform) for transform in self._chain_transforms])
             chain_ids = self.chain_ids
             self.log.debug(f'Entity chains property has {len(self._chains)} chains because the underlying '
                            f'chain_transforms has {len(self._chain_transforms)}. chain_ids has {len(chain_ids)}')
@@ -1580,10 +1580,10 @@ class Entity(Chain, ContainsChainsMixin):
         self.number_of_symmetry_mates = number_of_subunits
         self._set_chain_ids()
 
-    def return_transformed_mate(self, rotation: list[list[float]] | np.ndarray = None,
-                                translation: list[float] | np.ndarray = None,
-                                rotation2: list[list[float]] | np.ndarray = None,
-                                translation2: list[float] | np.ndarray = None) -> Entity:
+    def get_transformed_mate(self, rotation: list[list[float]] | np.ndarray = None,
+                             translation: list[float] | np.ndarray = None,
+                             rotation2: list[list[float]] | np.ndarray = None,
+                             translation2: list[float] | np.ndarray = None) -> Entity:
         """Make a semi-deep copy of the Entity, stripping any captain attributes, transforming the coordinates
 
         Transformation proceeds by matrix multiplication and vector addition with the order of operations as:
@@ -1668,7 +1668,7 @@ class Entity(Chain, ContainsChainsMixin):
         offset = 0
         if file_handle:
             for chain in self.chains:
-                file_handle.write(f'{chain.return_atom_record(atom_offset=offset, **kwargs)}\n')
+                file_handle.write(f'{chain.get_atom_record(atom_offset=offset, **kwargs)}\n')
                 offset += chain.number_of_atoms
             return None
 
@@ -1680,7 +1680,7 @@ class Entity(Chain, ContainsChainsMixin):
             with open(out_path, 'w') as outfile:
                 outfile.write(_header)  # function implies we want all chains, i.e. asu=False
                 for chain in self.chains:
-                    outfile.write(f'{chain.return_atom_record(atom_offset=offset, **kwargs)}\n')
+                    outfile.write(f'{chain.get_atom_record(atom_offset=offset, **kwargs)}\n')
                     offset += chain.number_of_atoms
 
             return out_path
@@ -4543,22 +4543,12 @@ class SymmetricModel(Models):
         coords = structure.coords if return_side_chains else structure.backbone_and_cb_coords
         uc_number = 1
         if self.dimension == 0:
-            # return self.return_point_group_copies(structure, **kwargs)
             number_of_symmetry_mates = self.number_of_symmetry_mates
             # favoring this as it is more explicit
             sym_coords = (np.matmul(np.tile(coords, (self.number_of_symmetry_mates, 1, 1)),
                                     self.expand_matrices) + self.expand_translations).reshape(-1, 3)
-            # coords_length = sym_coords.shape[1]
-            # sym_mates = []
-            # for model_num in range(self.number_of_symmetry_mates):
-            #     symmetry_mate_pdb = copy(structure)
-            #     symmetry_mate_pd.replace_coords(sym_coords[model_num * coords_length:(model_num + 1) * coords_length])
-            #     sym_mates.append(symmetry_mate_pdb)
-            # return sym_mates
         else:
-            # return self.return_lattice_copies(structure, **kwargs)
             if surrounding_uc:
-                # return self.return_surrounding_unit_cell_symmetry_mates(structure, **kwargs)  # return_side_chains
                 shift_3d = [0., 1., -1.]
                 if self.dimension == 3:
                     z_shifts, uc_number = shift_3d, 27
@@ -4576,14 +4566,9 @@ class SymmetricModel(Models):
                 number_of_symmetry_mates = self.number_of_uc_symmetry_mates
                 sym_coords = self.return_unit_cell_coords(coords)
 
-        # coords_length = coords.shape[0]
         sym_mates = []
-        for coord_set in np.split(sym_coords, number_of_symmetry_mates):  # uc_number):
-            # for model_num in range(self.number_of_symmetry_mates):
+        for coord_set in np.split(sym_coords, number_of_symmetry_mates):
             symmetry_mate = copy(structure)
-            # old-style
-            # symmetry_mate_pdb.replace_coords(coord_set)  # [model_num * coords_length:(model_num + 1) * coords_length])
-            # new-style
             symmetry_mate.coords = coord_set
             sym_mates.append(symmetry_mate)
 
@@ -4591,74 +4576,6 @@ class SymmetricModel(Models):
             raise SymmetryError(f'Number of models ({len(sym_mates)}) is incorrect! Should be '
                                 f'{uc_number * self.number_of_uc_symmetry_mates}')
         return sym_mates
-
-    # def return_point_group_copies(self, structure: Structure, return_side_chains: bool = True, **kwargs) -> \
-    #         list[Structure]:
-    #     """Expand the coordinates for every symmetric copy within the point group assembly
-    #
-    #     Args:
-    #         structure: A Structure containing some collection of Residues
-    #         return_side_chains: Whether to make the structural copy with side chains
-    #     Returns:
-    #         The symmetric copies of the input structure
-    #     """
-    #     # Caution, this function will return poor if the number of atoms in the structure is 1!
-    #     coords = structure.coords if return_side_chains else structure.backbone_and_cb_coords
-    #     # Favoring this alternative way as it is more explicit
-    #     coord_set = (np.matmul(np.tile(coords, (self.number_of_symmetry_mates, 1, 1)),
-    #                            self.expand_matrices) + self.expand_translations).reshape(-1, 3)
-    #     coords_length = coord_set.shape[1]
-    #     sym_mates = []
-    #     for model_num in range(self.number_of_symmetry_mates):
-    #         symmetry_mate_pdb = copy(structure)
-    #         symmetry_mate_pdb.replace_coords(coord_set[model_num * coords_length:(model_num + 1) * coords_length])
-    #         sym_mates.append(symmetry_mate_pdb)
-    #     return sym_mates
-    #
-    # def return_lattice_copies(self, structure: Structure, surrounding_uc: bool = True, return_side_chains: bool = True,
-    #                           **kwargs) -> list[Structure]:
-    #     """Expand the coordinates for every symmetric copy within the unit cell
-    #
-    #     Args:
-    #         structure: A Structure containing some collection of Residues
-    #         surrounding_uc: Whether to return the surrounding unit cells along with the central unit cell
-    #         return_side_chains: Whether to make the structural copy with side chains
-    #     Returns:
-    #         The symmetric copies of the input structure
-    #     """
-    #     # Caution, this function will return poor if the number of atoms in the structure is 1!
-    #     coords = structure.coords if return_side_chains else structure.backbone_and_cb_coords
-    #
-    #     if surrounding_uc:
-    #         # return self.return_surrounding_unit_cell_symmetry_mates(structure, **kwargs)  # return_side_chains
-    #         shift_3d = [0., 1., -1.]
-    #         if self.dimension == 3:
-    #             z_shifts, uc_number = shift_3d, 27
-    #         elif self.dimension == 2:
-    #             z_shifts, uc_number = [0.], 9
-    #         else:
-    #             raise SymmetryError(f'The specified dimension "{self.dimension}" is not crystalline')
-    #
-    #         uc_frac_coords = self.return_unit_cell_coords(coords, fractional=True)
-    #         surrounding_frac_coords = np.concatenate([uc_frac_coords + [x, y, z] for x in shift_3d for y in shift_3d
-    #                                                   for z in z_shifts])
-    #         sym_coords = self.frac_to_cart(surrounding_frac_coords)
-    #     else:
-    #         uc_number = 1
-    #         sym_coords = self.return_unit_cell_coords(coords)
-    #
-    #     coords_length = coords.shape[0]
-    #     sym_mates = []
-    #     for coord_set in np.split(sym_coords, uc_number):
-    #         for model_num in range(self.number_of_symmetry_mates):
-    #             symmetry_mate_pdb = copy(structure)
-    #             symmetry_mate_pdb.replace_coords(coord_set[model_num * coords_length:(model_num + 1) * coords_length])
-    #             sym_mates.append(symmetry_mate_pdb)
-    #
-    #     assert len(sym_mates) == uc_number * self.number_of_uc_symmetry_mates, \
-    #         f'Number of models ({len(sym_mates)}) is incorrect! ' \
-    #         f'Should be {uc_number * self.number_of_uc_symmetry_mates}'
-    #     return sym_mates
 
     def return_symmetric_coords(self, coords: list | np.ndarray, surrounding_uc: bool = True) -> np.ndarray:
         """Provided an input set of coordinates, return the symmetrized coordinates corresponding to the SymmetricModel
@@ -5746,7 +5663,7 @@ class Pose(SequenceProfile, SymmetricModel):
                 S_sample = sample_dict['S']
                 # Todo finish this routine
 
-    def return_termini_accessibility(self, entity: Entity = None, report_if_helix: bool = False) -> \
+    def get_termini_accessibility(self, entity: Entity = None, report_if_helix: bool = False) -> \
             dict[str, bool]:
         """Return the termini which are not buried in the Pose
 
@@ -5804,7 +5721,7 @@ class Pose(SequenceProfile, SymmetricModel):
     def interface_metrics(self) -> dict:
         """Gather all metrics relating to the Pose and the interfaces within the Pose
 
-        Calls return_fragment_metrics(), interface_secondary_structure()
+        Calls get_fragment_metrics(), interface_secondary_structure()
 
         Returns:
             {'nanohedra_score_normalized': , 'nanohedra_score_center_normalized':,
@@ -5825,7 +5742,7 @@ class Pose(SequenceProfile, SymmetricModel):
         # helical_fragment_content = frag_metrics['percent_fragment_helix']
         # strand_fragment_content = frag_metrics['percent_fragment_strand']
         # coil_fragment_content = frag_metrics['percent_fragment_coil']
-        frag_metrics = self.return_fragment_metrics()
+        frag_metrics = self.get_fragment_metrics()
         self.center_residue_numbers = frag_metrics.get('center_residues', [])
         total_interface_residues = len(self.interface_residues)
         total_non_fragment_interface_residues = \
@@ -5979,7 +5896,7 @@ class Pose(SequenceProfile, SymmetricModel):
                         'entity_number_of_residues_average_deviation': residue_ratio_sum / counter})
         return metrics
 
-    def return_interface(self, distance: float = 8.) -> Structure:
+    def get_interface(self, distance: float = 8.) -> Structure:
         """Provide a view of the Pose interface by generating a Structure containing only interface Residues
 
         Args:
@@ -6424,7 +6341,7 @@ class Pose(SequenceProfile, SymmetricModel):
             self.find_interface_residues(entity1=entity1, entity2=entity2)
             self.query_interface_for_fragments(entity1=entity1, entity2=entity2)
 
-        return self.return_fragment_metrics(by_interface=True, entity1=entity1, entity2=entity2)
+        return self.get_fragment_metrics(by_interface=True, entity1=entity1, entity2=entity2)
 
     def find_and_split_interface(self):
         """Locate the interface residues for the designable entities and split into two interfaces
@@ -6704,8 +6621,8 @@ class Pose(SequenceProfile, SymmetricModel):
 
         return observations
 
-    def return_fragment_metrics(self, fragments: list[dict] = None, by_interface: bool = False, by_entity: bool = False,
-                                entity1: Structure = None, entity2: Structure = None) -> dict:
+    def get_fragment_metrics(self, fragments: list[dict] = None, by_interface: bool = False, by_entity: bool = False,
+                             entity1: Structure = None, entity2: Structure = None) -> dict:
         """Return fragment metrics from the Pose. Returns the entire Pose unless by_interface or by_entity is True
 
         Uses data from self.fragment_queries unless fragments are passed
@@ -6745,7 +6662,7 @@ class Pose(SequenceProfile, SymmetricModel):
                         return format_fragment_metrics(metrics)
                 self.log.info(f"Couldn't locate query metrics for Entity pair {entity1.name}, {entity2.name}")
             else:
-                self.log.error(f"{self.return_fragment_metrics.__name__}: entity1 or entity1 can't be None!")
+                self.log.error(f"{self.get_fragment_metrics.__name__}: entity1 or entity1 can't be None!")
 
             return fragment_metric_template
         elif by_entity:

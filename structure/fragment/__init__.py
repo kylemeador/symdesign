@@ -126,7 +126,7 @@ class GhostFragment:
             header: A string that is desired at the top of the file
         """
         if file_handle:
-            file_handle.write(f'{self.representative.return_atom_record(**kwargs)}\n')
+            file_handle.write(f'{self.representative.get_atom_record(**kwargs)}\n')
             return None
         else:  # out_path always has default argument current working directory
             _header = self.representative.format_header(**kwargs)
@@ -135,7 +135,7 @@ class GhostFragment:
 
             with open(out_path, 'w') as outfile:
                 outfile.write(_header)
-                outfile.write(f'{self.representative.return_atom_record(**kwargs)}\n')
+                outfile.write(f'{self.representative.get_atom_record(**kwargs)}\n')
             return out_path
 
     # def get_center_of_mass(self):  # UNUSED

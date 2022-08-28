@@ -1340,7 +1340,7 @@ class ContainsAtomsMixin(StructureBase):
             The name of the written file if out_path is used
         """
         if file_handle:
-            file_handle.write(f'{self.return_atom_record(**kwargs)}\n')
+            file_handle.write(f'{self.get_atom_record(**kwargs)}\n')
             return None
         else:  # out_path always has default argument current working directory
             _header = self.format_header(**kwargs)
@@ -1349,7 +1349,7 @@ class ContainsAtomsMixin(StructureBase):
 
             with open(out_path, 'w') as outfile:
                 outfile.write(_header)
-                outfile.write(f'{self.return_atom_record(**kwargs)}\n')
+                outfile.write(f'{self.get_atom_record(**kwargs)}\n')
             return out_path
 
     def get_atoms(self, numbers: Container = None, pdb: bool = False, **kwargs) -> list[Atom]:
@@ -3849,14 +3849,14 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
 
             if clashes:
                 if measured_clashes:
-                    bb_info = '\n\t'.join(f'Residue {residue.number:5d}: {atom.return_atom_record()}'
+                    bb_info = '\n\t'.join(f'Residue {residue.number:5d}: {atom.get_atom_record()}'
                                           for residue, atom in measured_clashes)
                     self.log.error(f'{self.name} contains {len(measured_clashes)} {measure} clashes from the following '
                                    f'Residues to the corresponding Atom:\n\t{bb_info}')
                 raise ClashError(clash_msg)
             else:
                 if other_clashes:
-                    sc_info = '\n\t'.join(f'Residue {residue.number:5d}: {atom.return_atom_record()}'
+                    sc_info = '\n\t'.join(f'Residue {residue.number:5d}: {atom.get_atom_record()}'
                                           for residue, atom in other_clashes)
                     self.log.warning(f'{self.name} contains {len(other_clashes)} {other} clashes between the '
                                      f'following Residues:\n\t{sc_info}')
@@ -3920,7 +3920,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
                '-c', freesasa_config_path, '--n-threads=2'] + include_hydrogen
         self.log.debug(f'FreeSASA:\n{subprocess.list2cmdline(cmd)}')
         p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stdin=subprocess.PIPE, stderr=subprocess.PIPE)
-        out, err = p.communicate(input=self.return_atom_record().encode('utf-8'))
+        out, err = p.communicate(input=self.get_atom_record().encode('utf-8'))
         # if err:  # usually results from Hydrogen atoms, silencing
         #     self.log.warning('\n%s' % err.decode('utf-8'))
         sasa_output = out.decode('utf-8').split('\n')
@@ -4034,12 +4034,12 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         out_path = out_path if out_path[-1] == os.sep else out_path + os.sep  # errat needs trailing "/"
         errat_cmd = [errat_exe_path, out_path]  # for passing atoms by stdin
         # p = subprocess.Popen(errat_cmd, stdin=subprocess.PIPE, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        # out, err = p.communicate(input=self.return_atom_record().encode('utf-8'))
-        # logger.info(self.return_atom_record()[:120])
+        # out, err = p.communicate(input=self.get_atom_record().encode('utf-8'))
+        # logger.info(self.get_atom_record()[:120])
         iteration = 1
         all_residue_scores = []
         while iteration < 5:
-            p = subprocess.run(errat_cmd, input=self.return_atom_record(), encoding='utf-8', capture_output=True)
+            p = subprocess.run(errat_cmd, input=self.get_atom_record(), encoding='utf-8', capture_output=True)
             all_residue_scores = p.stdout.strip().split('\n')
             if len(all_residue_scores) - 1 == self.number_of_residues:  # subtract overall_score from all_residue_scores
                 break
@@ -4316,12 +4316,12 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
     #         The name of the written file if out_path is used
     #     """
     #     if file_handle:
-    #         file_handle.write(f'{self.return_atom_record(**kwargs)}\n')
+    #         file_handle.write(f'{self.get_atom_record(**kwargs)}\n')
     #         return None
     #     else:  # out_path always has default argument current working directory
     #         with open(out_path, 'w') as outfile:
     #             self.write_header(outfile, **kwargs)
-    #             outfile.write(f'{self.return_atom_record(**kwargs)}\n')
+    #             outfile.write(f'{self.get_atom_record(**kwargs)}\n')
     #         return out_path
 
     def get_fragments(self, residues: list[Residue] = None, residue_numbers: list[int] = None, fragment_db: int = None,
@@ -5022,7 +5022,7 @@ class Structures(Structure, UserList):
     #         The name of the written file if out_path is used
     #     """
     #     if file_handle:  # _Todo increment_chains compatibility
-    #         file_handle.write('%s\n' % self.return_atom_record(**kwargs))
+    #         file_handle.write('%s\n' % self.get_atom_record(**kwargs))
     #         return
     #
     #     with open(out_path, 'w') as f:
