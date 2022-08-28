@@ -1024,7 +1024,7 @@ class PoseSpecification(Dialect):
             self.directives.append(dict(residue_directive for residue_directive in residue_directives))
         # print('Total Design Directives', self.directives)
 
-    def return_directives(self) -> Iterator[Tuple[str, str, Dict[int, str]]]:
+    def get_directives(self) -> Iterator[Tuple[str, str, Dict[int, str]]]:
         all_poses_len = len(self.all_poses)
         if self.directives:
             if all_poses_len == len(self.design_names) == len(self.directives):  # specification file
