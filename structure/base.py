@@ -1023,16 +1023,26 @@ class Atoms:
         """
         self.atoms = np.delete(self.atoms, indices)
 
-    def insert(self, new_atoms: list[Atom] | np.ndarray, at: int = None):
+    def insert(self, at: int, new_atoms: list[Atom] | np.ndarray):
         """Insert Atom objects into the Atoms container
 
         Args:
-            new_atoms: The residues to include into Residues
             at: The index to perform the insert at
+            new_atoms: The residues to include into Residues
         """
-        self.atoms = np.concatenate((self.atoms[:at] if 0 <= at <= len(self.atoms) else self.atoms,
+        self.atoms = np.concatenate((self.atoms[:at],
                                      new_atoms if isinstance(new_atoms, Iterable) else [new_atoms],
-                                     self.atoms[at:] if at is not None else []))
+                                     self.atoms[at:]))
+
+    def append(self, new_atoms: list[Atom] | np.ndarray):
+        """Append additional Atom instances into the Atoms container
+
+        Args:
+            new_atoms: The Atom instances to include into Atoms
+        Sets:
+            self.atoms = numpy.concatenate((self.atoms, new_atoms))
+        """
+        self.atoms = np.concatenate((self.atoms, new_atoms))
 
     def reset_state(self):
         """Remove any attributes from the Atom instances that are part of the current Structure state
@@ -2391,16 +2401,26 @@ class Residues:
         """
         self.residues = np.delete(self.residues, indices)
 
-    def insert(self, new_residues: list[Residue] | np.ndarray, at: int = None):
+    def insert(self, at: int, new_residues: list[Residue] | np.ndarray):
         """Insert Residue instances into the Residues object
 
         Args:
-            new_residues: The residues to include into Residues
             at: The index to perform the insert at
+            new_residues: The residues to include into Residues
         """
-        self.residues = np.concatenate((self.residues[:at] if 0 <= at <= len(self.residues) else self.residues,
+        self.residues = np.concatenate((self.residues[:at],
                                         new_residues if isinstance(new_residues, Iterable) else [new_residues],
-                                        self.residues[at:] if at is not None else []))
+                                        self.residues[at:]))
+
+    def append(self, new_residues: list[Residue] | np.ndarray):
+        """Append additional Residue instances into the Residues container
+
+        Args:
+            new_residues: The Residue instances to include into Residues
+        Sets:
+            self.residues = numpy.concatenate((self.residues, new_residues))
+        """
+        self.residues = np.concatenate((self.residues, new_residues))
 
     def reset_state(self):
         """Remove any attributes from the Residue instances that are part of the current Structure state
@@ -3486,11 +3506,11 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         new_residue.number = at
         residue_index = at - 1  # since at is one-indexed integer, take from pose numbering to zero-indexed
         # insert the new_residue coords and atoms into the Structure Atoms
-        self._coords.insert(new_residue.coords, at=new_residue.start_index)
-        self._atoms.insert(new_residue.atoms, at=new_residue.start_index)
+        self._coords.insert(new_residue.start_index, new_residue.coords)
+        self._atoms.insert(new_residue.start_index, new_residue.atoms)
         self._atoms.reindex(start_at=new_residue.start_index)
         # insert the new_residue into the Structure Residues
-        self._residues.insert([new_residue], at=residue_index)
+        self._residues.insert(residue_index, [new_residue])
         self._residues.reindex(start_at=residue_index)
         # after coords, atoms, residues insertion into "_" containers, set parent to self
         new_residue.parent = self
