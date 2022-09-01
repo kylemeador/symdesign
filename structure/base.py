@@ -837,7 +837,7 @@ class Atom(StructureBase):
     def __key(self) -> tuple[int, str, str, float]:
         return self.index, self.type, self.residue_type, self.b_factor
 
-    def return_atom_record(self) -> str:
+    def get_atom_record(self) -> str:
         """Provide the Atom as an Atom record string
 
         Returns:
@@ -2247,7 +2247,7 @@ class Residue(ResidueFragment, ContainsAtomsMixin):
             return self.__key() == other.__key()
         raise NotImplementedError(f'Can\' compare {type(self).__name__} instance to {type(other).__name__} instance')
 
-    def return_atom_record(self, **kwargs) -> str:
+    def get_atom_record(self, **kwargs) -> str:
         """Provide the Structure Atoms as a PDB file string
 
         Keyword Args:
@@ -4248,7 +4248,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         """
         return getattr(np, measure)(np.linalg.norm(self.coords - reference, axis=1))
 
-    def return_atom_record(self, **kwargs) -> str:
+    def get_atom_record(self, **kwargs) -> str:
         """Provide the Structure Atoms as a PDB file string
 
         Keyword Args:
