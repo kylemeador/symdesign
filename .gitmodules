@@ -13,3 +13,6 @@
 [submodule "freesasa"]
 	path = freesasa
 	url = https://github.com/mittinatten/freesasa.git
+[submodule "alphafold"]
+	path = alphafold
+	url = https://github.com/deepmind/alphafold.git
