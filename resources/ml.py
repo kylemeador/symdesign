@@ -231,7 +231,7 @@ def proteinmpnn_to_device(device: str = None,
                 tied_beta=tied_beta)
 
 
-def score_sequences(S, log_probs, mask) -> torch.Tensor:
+def score_sequences(S: torch.Tensor, log_probs: torch.Tensor, mask: torch.Tensor) -> torch.Tensor:
     """Score ProteinMPNN sequences using Negative log likelihood probabilities
 
     Args:
