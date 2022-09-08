@@ -993,10 +993,10 @@ class SequenceProfile:
 
     def direct_coupling_analysis(self, msa: MultipleSequenceAlignment = None) -> np.ndarray:  # , data_dir=None):
         """Using boltzmann machine direct coupling analysis (bmDCA), score each sequence in an alignment based on the
-         statistical energy compared to the learn DCA model
+         statistical energy compared to the learned DCA model
 
         Args:
-            msa: A MSA object to score. By default will use self.msa attribute
+            msa: A MSA object to score. By default, will use self.msa attribute
         Returns:
             The energy for each residue in each sequence of the alignment based on direct coupling
                 analysis parameters. Sequences exist on axis 0, residues along axis 1
