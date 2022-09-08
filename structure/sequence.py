@@ -372,6 +372,7 @@ class SequenceProfile:
     Any Structure object with a .reference_sequence attribute could be used however
     """
     _alpha: float
+    _collapse_profile: pd.DataFrame
     _fragment_db: info.FragmentInfo | None
     fragment_db: info.FragmentInfo | None
     _hydrophobic_collapse: np.ndarray
@@ -928,6 +929,8 @@ class SequenceProfile:
     def collapse_profile(self, msa: str | MultipleSequenceAlignment = None) -> pd.DataFrame:
         """Make a profile out of the hydrophobic collapse index (HCI) for each sequence in a multiple sequence alignment
 
+        Takes ~5-10 seconds depending on the size of the msa
+
         Calculate HCI for each sequence (different lengths) into an array. For each msa sequence, make a gap array
         (# msa sequences x alignment length) to account for gaps from each individual sequence. Create a map between the
         gap array and the HCI array
@@ -957,31 +960,36 @@ class SequenceProfile:
         Returns:
             DataFrame containing each sequences hydrophobic collapse values for the profile
         """
-        if not self.msa:
-            try:
-                self.add_msa(msa)
-            except FileNotFoundError:
-                raise DesignError(f'Ensure that you have set up the .msa for this {type(self).__name__}. To do this, '
-                                  f'either link to the Master Database, call {msa_generation_function}, or pass the '
-                                  f'location of a multiple sequence alignment. '
-                                  f'Supported formats:\n{pretty_format_table(msa_supported_types.items())}')
+        try:  # Todo ensure that the file hasn't changed...
+            return self._collapse_profile
+        except AttributeError:
+            if not self.msa:
+                try:
+                    self.add_msa(msa)
+                except FileNotFoundError:
+                    raise DesignError(f'Ensure that you have set up the .msa for this {type(self).__name__}. To do this'
+                                      f', either link to the Master Database, call {msa_generation_function}, or pass '
+                                      f'the location of a multiple sequence alignment. '
+                                      f'Supported formats:\n{pretty_format_table(msa_supported_types.items())}')
 
-        # Make the output array. Use one additional length to add np.nan value at the 0 index for gaps
-        evolutionary_collapse_np = np.zeros((self.msa.number_of_sequences, self.msa.length + 1))  # aligned_hci_np.copy()
-        evolutionary_collapse_np[:, 0] = np.nan  # np.nan for all missing indices
-        for idx, record in enumerate(self.msa.alignment):
-            non_gapped_sequence = str(record.seq).replace('-', '')
-            evolutionary_collapse_np[idx, 1:len(non_gapped_sequence) + 1] = \
-                hydrophobic_collapse_index(non_gapped_sequence)
+            # Make the output array. Use one additional length to add np.nan value at the 0 index for gaps
+            evolutionary_collapse_np = np.zeros((self.msa.number_of_sequences, self.msa.length+1))
+            evolutionary_collapse_np[:, 0] = np.nan  # np.nan for all missing indices
+            for idx, record in enumerate(self.msa.alignment):
+                non_gapped_sequence = str(record.seq).replace('-', '')
+                evolutionary_collapse_np[idx, 1:len(non_gapped_sequence)+1] = \
+                    hydrophobic_collapse_index(non_gapped_sequence)
 
-        iterator_np = np.cumsum(self.msa.sequence_indices, axis=1) * self.msa.sequence_indices
-        aligned_hci_np = np.take_along_axis(evolutionary_collapse_np, iterator_np, axis=1)
-        # select only the query sequence indices
-        # sequence_hci_np = aligned_hci_np[:, self.msa.query_indices]
-        return pd.DataFrame(aligned_hci_np[:, self.msa.query_indices],
-                            columns=list(range(1, self.msa.query_length + 1)))  # include last residue
-        # summary = pd.concat([sequence_hci_df, pd.concat([sequence_hci_df.mean(), sequence_hci_df.std()], axis=1,
-        #                                                 keys=['mean', 'std']).T])
+            iterator_np = np.cumsum(self.msa.sequence_indices, axis=1) * self.msa.sequence_indices
+            aligned_hci_np = np.take_along_axis(evolutionary_collapse_np, iterator_np, axis=1)
+            # Select only the query sequence indices
+            # sequence_hci_np = aligned_hci_np[:, self.msa.query_indices]
+            self._collapse_profile = pd.DataFrame(aligned_hci_np[:, self.msa.query_indices],
+                                                  columns=list(range(1, self.msa.query_length+1)))  # One-indexed
+            # summary = pd.concat([sequence_hci_df, pd.concat([sequence_hci_df.mean(), sequence_hci_df.std()], axis=1,
+            #                                                 keys=['mean', 'std']).T])
+
+            return self._collapse_profile
 
     def direct_coupling_analysis(self, msa: MultipleSequenceAlignment = None) -> np.ndarray:  # , data_dir=None):
         """Using boltzmann machine direct coupling analysis (bmDCA), score each sequence in an alignment based on the
