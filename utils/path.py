@@ -57,7 +57,7 @@ consensus = 'consensus'
 hhblits = 'hhblits'
 rosetta_str = 'rosetta'
 protein_mpnn_dir = 'ProteinMPNN'
-protein_mpnn_weights_dir = path.join(source, protein_mpnn_dir, 'vanilla_proteinmpnn', 'vanilla_model_weights')
+protein_mpnn_weights_dir = path.join(source, protein_mpnn_dir, 'vanilla_model_weights')
 string_ops = [str.upper, str.lower, str.title]
 
 
