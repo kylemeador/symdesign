@@ -5471,7 +5471,7 @@ class Pose(SequenceProfile, SymmetricModel):
 
             # Make masks for the sequence design task
             residue_mask = np.tile(residue_mask, number_of_symmetry_mates)  # (number_of_sym_residues,)
-            mask = np.zeros_like(residue_mask)  # (number_of_sym_residues,)
+            mask = np.ones_like(residue_mask)  # (number_of_sym_residues,)
             # Chain mask denotes which chains should be designed. 1 - designed, 0 - known
             # For symmetric systems, treat each chain as designed as the logits are averaged during model.tied_sample()
             chain_mask = np.ones_like(residue_mask)  # (number_of_sym_residues,)
@@ -5498,6 +5498,7 @@ class Pose(SequenceProfile, SymmetricModel):
             # Below have shape (number_of_sym_residues, alphabet_length)
             pssm_bias = np.tile(pssm_bias, (number_of_symmetry_mates, 1))
             pssm_log_odds_mask = np.tile(pssm_log_odds_mask, (number_of_symmetry_mates, 1))
+            omit_AA_mask = np.tile(omit_AA_mask, (number_of_symmetry_mates, 1))
             bias_by_res = np.tile(bias_by_res, (number_of_symmetry_mates, 1))
             self.log.info(f'Tiled bias_by_res start: {bias_by_res[:5]}')
             self.log.info(f'Tiled bias_by_res: '
@@ -5508,7 +5509,7 @@ class Pose(SequenceProfile, SymmetricModel):
         else:
             X = self.backbone_coords.reshape((self.number_of_residues, 4, 3))  # (number_of_residues, 4, 3)
             S = self.sequence_numeric  # (number_of_residues,)
-            mask = np.zeros_like(residue_mask)  # (number_of_residues,)
+            mask = np.ones_like(residue_mask)  # (number_of_residues,)
             chain_mask = np.ones_like(residue_mask)  # (number_of_residues,)
             # Set up a simple array where each residue index has the index of the chain starting with the index of 1
             chain_encoding = np.zeros_like(residue_mask)  # (number_of_residues,)
