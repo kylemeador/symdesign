@@ -1907,12 +1907,14 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
         # Number of unique interface mono fragments matched
         # unique_frags_info1, unique_frags_info2 = set(), set()
         # res_pair_freq_info_list = []
-        fragment_pairs = list(zip(sorted_int_ghostfrags, sorted_int_surffrags2, sorted_match_scores))
-        frag_match_info = get_matching_fragment_pairs_info(fragment_pairs)
         # First, for the current pose, must identify interfaces
         pose.find_and_split_interface()
         # Next, set the interface fragment info
-        pose.fragment_metrics = {(model1, model2): frag_match_info}
+        fragment_pairs = list(zip(sorted_int_ghostfrags, sorted_int_surffrags2, sorted_match_scores))
+        frag_match_info = get_matching_fragment_pairs_info(fragment_pairs)
+        pose.fragment_queries = {(model1, model2): frag_match_info}
+        fragment_metrics = fragment_db.calculate_match_metrics(frag_match_info)
+        pose.fragment_metrics = {(model1, model2): fragment_metrics}
         # # Alternatively, query fragments
         # pose.generate_interface_fragments(write_fragments=job.write_fragments)
         # Next, gather interface metrics
