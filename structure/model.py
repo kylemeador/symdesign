@@ -5404,20 +5404,20 @@ class Pose(SequenceProfile, SymmetricModel):
 
         """
         # Initialize pose data structures for design
-        zero_offset = 1
         if interface:
             self.find_and_split_interface()
 
+            zero_offset = 1
             design_residues = []  # Add all interface residues
             for number, residues_entities in self.split_interface_residues.items():
-                design_residues.extend([residue.number - zero_offset for residue, _ in residues_entities])
+                design_residues.extend([residue.number-zero_offset for residue, _ in residues_entities])
         else:
             design_residues = list(range(self.number_of_residues))
 
         # Make masks for the sequence design task
         # Residue position mask denotes which residues should be designed. 1 - designed, 0 - known
         residue_mask = np.zeros(self.number_of_residues, dtype=np.int32)  # (number_of_residues,)
-        residue_mask[design_residues] = 1.
+        residue_mask[design_residues] = 1
 
         # Todo resolve these data structures as flags
         omit_AAs_np = np.zeros(mpnn_alphabet_length, dtype=np.int32)  # (alphabet_length,)

@@ -111,19 +111,20 @@ def batch_proteinmpnn_input(size: int = None,
 
     Args:
         size: The number of inputs to use. If left blank, the size will be inferred from axis=0 of the X array
-        X: The arrays specifying the parameter X of ProteinMPNN
-        S: The arrays specifying the parameter S of ProteinMPNN
-        chain_mask: The arrays specifying the parameter chain_mask of ProteinMPNN
-        chain_encoding: The arrays specifying the parameter chain_encoding of ProteinMPNN
-        residue_idx: The arrays specifying the parameter residue_idx of ProteinMPNN
-        mask: The arrays specifying the parameter mask of ProteinMPNN
-        chain_M_pos: The arrays specifying the parameter residue_mask of ProteinMPNN
-        residue_mask: The arrays specifying the parameter residue_mask of ProteinMPNN
-        omit_AA_mask: The arrays specifying the parameter omit_AA_mask of ProteinMPNN
-        pssm_coef: The arrays specifying the parameter pssm_coef of ProteinMPNN
-        pssm_bias: The arrays specifying the parameter pssm_bias of ProteinMPNN
-        pssm_log_odds_mask: The arrays specifying the parameter pssm_log_odds_mask of ProteinMPNN
-        tied_beta: The arrays specifying the parameter tied_beta of ProteinMPNN
+        X: The array specifying the parameter X of ProteinMPNN
+        S: The array specifying the parameter S of ProteinMPNN
+        chain_mask: The array specifying the parameter chain_mask of ProteinMPNN
+        chain_encoding: The array specifying the parameter chain_encoding of ProteinMPNN
+        residue_idx: The array specifying the parameter residue_idx of ProteinMPNN
+        mask: The array specifying the parameter mask of ProteinMPNN
+        chain_M_pos: The array specifying the parameter residue_mask of ProteinMPNN
+        # residue_mask: The array specifying the parameter residue_mask of ProteinMPNN
+        omit_AA_mask: The array specifying the parameter omit_AA_mask of ProteinMPNN
+        pssm_coef: The array specifying the parameter pssm_coef of ProteinMPNN
+        pssm_bias: The array specifying the parameter pssm_bias of ProteinMPNN
+        pssm_log_odds_mask: The array specifying the parameter pssm_log_odds_mask of ProteinMPNN
+        bias_by_res: The array specifying the parameter bias_by_res of ProteinMPNN
+        # tied_beta: The array specifying the parameter tied_beta of ProteinMPNN
     Returns:
         A dictionary with each of the proteinmpnn parameters formatted in a batch
     """
@@ -188,19 +189,20 @@ def proteinmpnn_to_device(device: str = None,
 
     Args:
         device: The device to load tensors to
-        X: The arrays specifying the parameter X of ProteinMPNN
-        S: The arrays specifying the parameter S of ProteinMPNN
-        chain_mask: The arrays specifying the parameter chain_mask of ProteinMPNN
-        chain_encoding: The arrays specifying the parameter chain_encoding of ProteinMPNN
-        residue_idx: The arrays specifying the parameter residue_idx of ProteinMPNN
-        mask: The arrays specifying the parameter mask of ProteinMPNN
-        chain_M_pos: The arrays specifying the parameter residue_mask of ProteinMPNN
-        residue_mask: The arrays specifying the parameter residue_mask of ProteinMPNN
-        omit_AA_mask: The arrays specifying the parameter omit_AA_mask of ProteinMPNN
-        pssm_coef: The arrays specifying the parameter pssm_coef of ProteinMPNN
-        pssm_bias: The arrays specifying the parameter pssm_bias of ProteinMPNN
-        pssm_log_odds_mask: The arrays specifying the parameter pssm_log_odds_mask of ProteinMPNN
-        tied_beta: The arrays specifying the parameter tied_beta of ProteinMPNN
+        X: The array specifying the parameter X of ProteinMPNN
+        S: The array specifying the parameter S of ProteinMPNN
+        chain_mask: The array specifying the parameter chain_mask of ProteinMPNN
+        chain_encoding: The array specifying the parameter chain_encoding of ProteinMPNN
+        residue_idx: The array specifying the parameter residue_idx of ProteinMPNN
+        mask: The array specifying the parameter mask of ProteinMPNN
+        chain_M_pos: The array specifying the parameter residue_mask of ProteinMPNN
+        # residue_mask: The array specifying the parameter residue_mask of ProteinMPNN
+        omit_AA_mask: The array specifying the parameter omit_AA_mask of ProteinMPNN
+        pssm_coef: The array specifying the parameter pssm_coef of ProteinMPNN
+        pssm_bias: The array specifying the parameter pssm_bias of ProteinMPNN
+        pssm_log_odds_mask: The array specifying the parameter pssm_log_odds_mask of ProteinMPNN
+        bias_by_res: The array specifying the parameter bias_by_res of ProteinMPNN
+        tied_beta: The array specifying the parameter tied_beta of ProteinMPNN
     Returns:
         The torch.Tensor proteinmpnn parameters
     """
@@ -250,8 +252,10 @@ def score_sequences(S: torch.Tensor, log_probs: torch.Tensor, mask: torch.Tensor
         The loss calculated over the log probabilites compared to the sequence tensor
     """
     criterion = torch.nn.NLLLoss(reduction='none')
+    # Measure log_probs loss with respect to the sequence. Make each sequence and log probs stacked along axis=0
     loss = criterion(
         log_probs.contiguous().view(-1, log_probs.size(-1)),
         S.contiguous().view(-1)
     ).view(S.size())
+    # Revert the shape to the original sequence shape
     return torch.sum(loss*mask, dim=-1) / torch.sum(mask, dim=-1)

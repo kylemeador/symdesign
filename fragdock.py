@@ -1771,16 +1771,6 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
                                                    chain_encoding[batch_slice],
                                                    None,  # decode_order <- this argument is provided but with below args, is not used
                                                    use_input_decoding_order=True, decoding_order=tied_decoding_order)
-                            print('S_sample', S_sample[:5])
-                            print('log_probs', log_probs[:5])
-                            # tensor([[[-2.7691, -3.5265, -2.9001,  ..., -3.3623, -3.0247, -4.2772],
-                            #          [-2.7691, -3.5265, -2.9001,  ..., -3.3623, -3.0247, -4.2772],
-                            #          [-2.7691, -3.5265, -2.9001,  ..., -3.3623, -3.0247, -4.2772],
-                            #          ...,
-                            #          [-2.7691, -3.5265, -2.9001,  ..., -3.3623, -3.0247, -4.2772],
-                            #          [-2.7691, -3.5265, -2.9001,  ..., -3.3623, -3.0247, -4.2772],
-                            #          [-2.7691, -3.5265, -2.9001,  ..., -3.3623, -3.0247, -4.2772]]]
-                            print('mask_for_loss', mask_for_loss[:5])
                             # S_sample, log_probs, and mask_for_loss should all be the same size
                             # Score the redesigned structure-sequence
                             scores = score_sequences(S_sample, log_probs, mask_for_loss[batch_slice])
@@ -1870,8 +1860,8 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
         # high_qual_match for fragments that were matched with z values <= 1, otherwise, low_qual_match
         matching_fragments_dir = os.path.join(tx_dir, frag_dir)
         os.makedirs(matching_fragments_dir, exist_ok=True)
-        high_quality_matches_dir = os.path.join(matching_fragments_dir, 'high_qual_match')
-        low_quality_matches_dir = os.path.join(matching_fragments_dir, 'low_qual_match')
+        # high_quality_matches_dir = os.path.join(matching_fragments_dir, 'high_qual_match')
+        # low_quality_matches_dir = os.path.join(matching_fragments_dir, 'low_qual_match')
 
         if sequence_design:
             pose.design_sequence()
