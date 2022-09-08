@@ -2742,15 +2742,28 @@ class PoseDirectory:
         per_residue_data[pose_source]['contact_order'] = pose_source_contact_order_s
 
         number_of_entities = self.pose.number_of_entities
-        if design_was_performed:  # Replace 'errat_deviation' measurement with uncomplexed entities
+        if design_was_performed:  # The input structure was not meant to be together, treat as such
+            source_errat = []
+            for idx, entity in enumerate(self.pose.entities):
+                # Replace 'errat_deviation' measurement with uncomplexed entities
+                # oligomer_errat_accuracy, oligomeric_errat = entity_oligomer.errat(out_path=self.data)
+                # source_errat_accuracy.append(oligomer_errat_accuracy)
+                # Todo when Entity.oligomer works
+                #  _, oligomeric_errat = entity.oligomer.errat(out_path=self.data)
+                entity_oligomer = Model.from_chains(entity.chains, log=self.log, entities=False)
+                _, oligomeric_errat = entity_oligomer.errat(out_path=self.data)
+                source_errat.append(oligomeric_errat[:entity.number_of_residues])
             # atomic_deviation[pose_source] = sum(source_errat_accuracy) / float(number_of_entities)
             pose_source_errat_s = Series(np.concatenate(source_errat), index=residue_indices)
-            per_residue_data[pose_source]['errat_deviation'] = pose_source_errat_s
-        # else:
-        #     # atomic_deviation[pose_source], pose_per_residue_errat = \
-        #     _, pose_per_residue_errat = \
-        #         pose_assembly_minimally_contacting.errat(out_path=self.data)
-        #     per_residue_data[pose_source]['errat_deviation'] = pose_per_residue_errat[:pose_length]
+        else:
+            pose_source_errat_s = Series(contact_order, index=residue_indices)
+            pose_assembly_minimally_contacting = self.pose.assembly_minimally_contacting
+            # atomic_deviation[pose_source], pose_per_residue_errat = \
+            _, pose_per_residue_errat = \
+                pose_assembly_minimally_contacting.errat(out_path=self.data)
+            pose_source_errat_s = pose_per_residue_errat[:pose_length]
+
+        per_residue_data[pose_source]['errat_deviation'] = pose_source_errat_s
 
         # Compute structural measurements for all designs
         for pose in design_poses:  # Takes 1-2 seconds for Structure -> assembly -> errat
@@ -2818,7 +2831,7 @@ class PoseDirectory:
 
         # Calculate hydrophobic collapse for each design
         # for design in viable_designs:  # includes the pose_source
-        # Include the pose_source
+        # Include the pose_source in the measured designs
         folding_and_collapse = calculate_collapse_metrics(self.pose, [pose for pose in [self.pose] + design_poses
                                                                       if pose.name in viable_designs])
         # # Measure the wild type (reference) entity versus modified entity(ies) to find the hci delta
@@ -3480,7 +3493,7 @@ class PoseDirectory:
 
             # Process similarity between protocols
             sim_measures_s = concat([Series(values) for values in sim_measures.values()],
-                                       keys=list(sim_measures.keys()))
+                                    keys=list(sim_measures.keys()))
             # # Todo test
             # sim_stdev_s = concat(list(sim_stdev.values()),
             #                         keys=list(zip(repeat('std'), sim_stdev.keys()))).swaplevel(1, 2)
