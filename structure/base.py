@@ -4461,17 +4461,17 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         """
         residues = self.residues
         if len(residues) != len(contact_order):
-            raise ValueError(f'Can\'t set {self.contact_order.__name__} with a Sequence of length, {len(contact_order)}'
+            raise ValueError(f"Can't set {self.contact_order.__name__} with a Sequence of length, {len(contact_order)}"
                              f'!= to the number of residues, {self.number_of_residues}')
         for residue, contact_order in zip(residues, contact_order):
             residue.contact_order = contact_order
 
     # distance of 6 angstroms between heavy atoms was used for 1998 contact order work,
-    # subsequent residue wise contact order has focused on the Cb Cb heuristic of 12 A
+    # subsequent residue wise contact order has focused on the Cb-Cb heuristic of 12 A
     # KM thinks that an atom-atom based measure is more accurate, see below for alternative method
     # The BallTree creation is the biggest time cost regardless
     def contact_order_per_residue(self, sequence_distance_cutoff: int = 2, distance: float = 6.) -> list[float]:
-        """Calculate the contact order on a per residue basis using calculated heavy atom contacts
+        """Calculate the contact order on a per-residue basis using calculated heavy atom contacts
 
         Args:
             sequence_distance_cutoff: The residue spacing required to count a contact as a true contact
@@ -4507,7 +4507,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
 
     # # this method uses 12 A cb - cb heuristic
     # def contact_order_per_residue(self, sequence_distance_cutoff: int = 2, distance: float = 12.) -> list[float]:
-    #     """Calculate the contact order on a per residue basis using CB - CB contacts
+    #     """Calculate the contact order on a per-residue basis using CB - CB contacts
     #
     #     Args:
     #         sequence_distance_cutoff: The residue spacing required to count a contact as a true contact

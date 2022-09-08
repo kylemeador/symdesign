@@ -48,6 +48,7 @@ from utils.SymEntry import SymEntry, symmetry_factory
 from resources.fragment import FragmentDatabase, format_fragment_metrics, fragment_metric_template
 from resources.structure_db import StructureDatabase
 from utils.nanohedra.general import get_components_from_nanohedra_docking
+from utils.path import pose_source
 from utils.symmetry import identity_matrix, origin
 from resources.wrapapi import APIDatabase
 
@@ -2467,7 +2468,7 @@ class PoseDirectory:
             pose = Pose.from_file(file, entity_names=self.entity_names, log=self.log, pose_format=True,
                                   sym_entry=self.sym_entry, api_db=self.api_db, fragment_db=self.fragment_db,
                                   design_selector=self.design_selector, ignore_clashes=self.ignore_pose_clashes)
-            # pose format should already be the case, but lets make sure
+            # pose format should already be the case, but let's make sure
             if self.symmetric:
                 for idx, entity in enumerate(pose.entities):
                     entity.make_oligomer(symmetry=self.sym_entry.groups[idx], **self.pose_transformation[idx])
@@ -2476,7 +2477,6 @@ class PoseDirectory:
         # Assumes each structure is the same length
         pose_length = self.pose.number_of_residues
         residue_indices = list(range(1, pose_length + 1))
-        pose_source = 'pose_source'
         pose_sequences = {pose_source: self.pose.sequence}
         # Todo implement reference sequence from included file(s) or as with self.pose.sequence below
         pose_sequences.update({PUtils.reference_name: self.pose.sequence})
@@ -2554,7 +2554,8 @@ class PoseDirectory:
             # Check proper input
             metric_set = necessary_metrics.difference(set(scores_df.columns))
             # self.log.debug('Score columns present before required metric check: %s' % scores_df.columns.to_list())
-            assert metric_set == set(), f'Missing required metrics: "{", ".join(metric_set)}"'
+            if not metric_set:
+                raise DesignError(f'Missing required metrics: "{", ".join(metric_set)}"')
 
             # Remove unnecessary (old scores) as well as Rosetta pose score terms besides ref (has been renamed above)
             # TODO learn know how to produce score terms in output score file. Not in FastRelax...
@@ -2651,7 +2652,9 @@ class PoseDirectory:
         # protocol_s.drop(missing_group_indices, inplace=True, errors='ignore')
         scores_df.drop(remove_columns, axis=1, inplace=True, errors='ignore')
         viable_designs = scores_df.index.to_list()
-        assert viable_designs, 'No viable designs remain after processing!'
+        if not viable_designs:
+            raise DesignError('No viable designs remain after processing!')
+
         self.log.debug(f'Viable designs remaining after cleaning:\n\t{", ".join(viable_designs)}')
         other_pose_metrics['observations'] = len(viable_designs)
         pose_sequences = {design: sequence for design, sequence in pose_sequences.items() if design in viable_designs}
@@ -2691,7 +2694,7 @@ class PoseDirectory:
         #     [residue.relative_sasa for residue in assembly_asu_residues]
 
         # Grab metrics for the pose source. Checks if self.pose was designed
-        # Favor pose source errat/collapse on a per entity basis if design occurred
+        # Favor pose source errat/collapse on a per-entity basis if design occurred
         # As the pose source assumes no legit interface present while designs have an interface
         # per_residue_sasa_unbound_apolar, per_residue_sasa_unbound_polar, per_residue_sasa_unbound_relative = [], [], []
         # source_errat_accuracy, source_errat, source_contact_order, inverse_residue_contact_order_z = [], [], [], []
@@ -3059,7 +3062,7 @@ class PoseDirectory:
             residue_df = concat([residue_df] + observed_dfs, axis=1)
             # Calculate Jensen Shannon Divergence using different SSM occurrence data and design mutations
             #                                              both mut_freq and profile_background[profile] are one-indexed
-            interface_indexer = [residue - 1 for residue in self.interface_design_residues]
+            interface_indexer = [residue-1 for residue in self.interface_design_residues]
             divergence = {f'divergence_{profile}':
                           # position_specific_jsd(pose_alignment.frequencies, background)[interface_indexer]
                           position_specific_divergence(pose_alignment.frequencies, background)[interface_indexer]
@@ -3141,6 +3144,8 @@ class PoseDirectory:
         dca_background_energies, dca_design_energies = {}, {}
         for idx, entity in enumerate(self.pose.entities):
             try:  # TODO add these to the analysis
+                entity.h_fields = self.api_db.bmdca_fields.retrieve_data(name=entity.name)
+                entity.j_couplings = self.api_db.bmdca_couplings.retrieve_data(name=entity.name)
                 dca_background_residue_energies = entity.direct_coupling_analysis()
                 # Todo INSTEAD OF USING BELOW, split Pose.MultipleSequenceAlignment at entity.chain_break...
                 entity_alignment = MultipleSequenceAlignment.from_dictionary(entity_sequences[idx])
@@ -3152,14 +3157,14 @@ class PoseDirectory:
                 dca_background_energies[entity] = dca_background_residue_energies.sum(axis=1)  # turns data to 1D
                 dca_design_energies[entity] = dca_design_residue_energies.sum(axis=1)
             except AttributeError:
-                self.log.warning('For %s, DCA analysis couldn\'t be performed. Missing required parameter files'
-                                 % entity.name)
+                self.log.warning(f"For {entity.name}, DCA analysis couldn't be performed. "
+                                 f"Missing required parameter files")
                 dca_succeed = False
 
         if dca_succeed:
             # concatenate along columns, adding residue index to column, design name to row
             dca_concatenated_df = DataFrame(np.concatenate(dca_design_residues_concat, axis=1),
-                                               index=list(entity_sequences[0].keys()), columns=residue_indices)
+                                            index=list(entity_sequences[0].keys()), columns=residue_indices)
             # get all design names                                         ^
             # dca_concatenated_df.columns = MultiIndex.from_product([dca_concatenated_df.columns, ['dca_energy']])
             dca_concatenated_df = concat([dca_concatenated_df], keys=['dca_energy'], axis=1).swaplevel(0, 1, axis=1)
@@ -3343,7 +3348,7 @@ class PoseDirectory:
                 protocol_stats[idx] = protocol_stats[idx].rename(index={protocol: f'{protocol}_{stat}'
                                                                         for protocol in unique_design_protocols})
         # trajectory_df = concat([trajectory_df, concat(pose_stats, axis=1).T] + protocol_stats)
-        # remove std rows if their is no stdev
+        # remove std rows if there is no stdev
         number_of_trajectories = len(trajectory_df) + len(protocol_groups) + 1  # 1 for the mean
         final_trajectory_indices = trajectory_df.index.to_list() + unique_protocols + [mean]
         trajectory_df = concat([trajectory_df] +
@@ -3569,8 +3574,9 @@ class PoseDirectory:
             # Plot: Format the collapse data with residues as index and each design as column
             # collapse_graph_df = DataFrame(per_residue_data['hydrophobic_collapse'])
             collapse_graph_df = per_residue_df.loc[:, idx_slice[:, 'hydrophobic_collapse']].droplevel(-1, axis=1)
+            reference_collapse = [entity.hydrophobic_collapse for entity in self.pose.entities]
             reference_collapse_concatenated_s = \
-                Series(np.concatenate(reference_collapse_concat), name=PUtils.reference_name)
+                Series(np.concatenate(reference_collapse), name=PUtils.reference_name)
             collapse_graph_df[PUtils.reference_name] = reference_collapse_concatenated_s
             # collapse_graph_df.columns += 1  # offset index to residue numbering
             # collapse_graph_df.sort_index(axis=1, inplace=True)

@@ -90,6 +90,7 @@ asu_file_name = 'asu.pdb'
 # asu = 'central_asu.pdb'
 clean_asu = 'clean_asu.pdb'
 reference_name = 'reference'
+pose_source = 'pose_source'
 pssm = 'evolutionary.pssm'  # was 'asu_pose.pssm' 1/25/21
 fssm = 'fragment.pssm'
 dssm = 'design.pssm'
