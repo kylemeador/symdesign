@@ -1669,8 +1669,8 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
             with torch.no_grad():
                 # Create batches for ProteinMPNN sequence design task
                 # Without keyword argument "size=", X will be used to determine size of batch_parameters
-                batch_parameters = batch_proteinmpnn_input(**parameters)
-                parameters.update(proteinmpnn_to_device(mpnn_model.device, **batch_parameters))
+                parameters.update(**batch_proteinmpnn_input(**parameters))
+                parameters.update(proteinmpnn_to_device(mpnn_model.device, **parameters))
 
                 X = parameters.get('X', None)
                 S = parameters.get('S', None)
@@ -1761,7 +1761,7 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
                                                                  pssm_log_odds_flag=pssm_log_odds_flag,
                                                                  pssm_log_odds_mask=pssm_log_odds_mask[batch_slice],
                                                                  pssm_bias_flag=pssm_bias_flag,
-                                                                 tied_pos=tied_pos, tied_beta=tied_beta[batch_slice],
+                                                                 tied_pos=tied_pos, tied_beta=tied_beta,
                                                                  bias_by_res=bias_by_res[batch_slice])
                             # When batches are sliced for multiple inputs
                             S_sample = sample_dict['S']  # This is the shape of the input X Tensor
@@ -1782,7 +1782,10 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
                             #          [-2.7691, -3.5265, -2.9001,  ..., -3.3623, -3.0247, -4.2772]]]
                             print('mask_for_loss', mask_for_loss[:5])
                             # S_sample, log_probs, and mask_for_loss should all be the same size
+                            # Score the redesigned structure-sequence
                             scores = score_sequences(S_sample, log_probs, mask_for_loss[batch_slice])
+                            # Score the whole structure-sequence
+                            # global_scores = score_sequences(S_sample, log_probs, mask[batch_slice])
 
                             # # When batches are single input
                             # sample_dict = mpnn_model.tied_sample(X[batch_slice], decode_order, S[None],
@@ -1799,7 +1802,7 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
                             #                                      pssm_log_odds_flag=pssm_log_odds_flag,
                             #                                      pssm_log_odds_mask=pssm_log_odds_mask[None],
                             #                                      pssm_bias_flag=pssm_bias_flag,
-                            #                                      tied_pos=tied_pos, tied_beta=tied_beta[None],
+                            #                                      tied_pos=tied_pos, tied_beta=tied_beta,
                             #                                      bias_by_res=bias_by_res[None])
                             # S_sample = sample_dict['S']
                             # tied_decoding_order = sample_dict['decoding_order']

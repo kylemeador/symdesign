@@ -97,7 +97,8 @@ def batch_proteinmpnn_input(size: int = None,
                             pssm_coef: np.ndarray = None,
                             pssm_bias: np.ndarray = None,
                             pssm_log_odds_mask: np.ndarray = None,
-                            tied_beta: np.ndarray = None,
+                            bias_by_res: np.ndarray = None,
+                            # tied_beta: np.ndarray = None,
                             **kwargs) -> dict[str, np.ndarray]:
     # omit_AAs_np: np.ndarray = None, #
     # bias_AAs_np: np.ndarray = None, #
@@ -130,19 +131,20 @@ def batch_proteinmpnn_input(size: int = None,
     if size is None:  # Use X as is
         size = X.shape[0]
     else:
-        X = np.tile(X, (size,) + (1,) * X.ndim)
+        X = np.tile(X, (size,) + (1,)*X.ndim)
 
-    S = np.tile(S, (size,) + (1,) * S.ndim)
-    mask = np.tile(mask, (size,) + (1,) * mask.ndim)
-    residue_mask = np.tile(chain_M_pos, (size,) + (1,) * chain_M_pos.ndim)  # residue_mask
-    chain_mask = np.tile(chain_mask, (size,) + (1,) * chain_mask.ndim)
-    chain_encoding = np.tile(chain_encoding, (size,) + (1,) * chain_encoding.ndim)
-    residue_idx = np.tile(residue_idx, (size,) + (1,) * residue_idx.ndim)
-    omit_AA_mask = np.tile(omit_AA_mask, (size,) + (1,) * omit_AA_mask.ndim)
-    tied_beta = np.tile(tied_beta, (size,) + (1,) * tied_beta.ndim)
-    pssm_coef = np.tile(pssm_coef, (size,) + (1,) * pssm_coef.ndim)
-    pssm_bias = np.tile(pssm_bias, (size,) + (1,) * pssm_bias.ndim)
-    pssm_log_odds_mask = np.tile(pssm_log_odds_mask, (size,) + (1,) * pssm_log_odds_mask.ndim)
+    S = np.tile(S, (size,) + (1,)*S.ndim)
+    mask = np.tile(mask, (size,) + (1,)*mask.ndim)
+    residue_mask = np.tile(chain_M_pos, (size,) + (1,)*chain_M_pos.ndim)
+    chain_mask = np.tile(chain_mask, (size,) + (1,)*chain_mask.ndim)
+    chain_encoding = np.tile(chain_encoding, (size,) + (1,)*chain_encoding.ndim)
+    residue_idx = np.tile(residue_idx, (size,) + (1,)*residue_idx.ndim)
+    omit_AA_mask = np.tile(omit_AA_mask, (size,) + (1,)*omit_AA_mask.ndim)
+    # tied_beta = np.tile(tied_beta, (size,) + (1,)*tied_beta.ndim)
+    bias_by_res = np.tile(bias_by_res, (size,) + (1,)*bias_by_res.ndim)
+    pssm_coef = np.tile(pssm_coef, (size,) + (1,)*pssm_coef.ndim)
+    pssm_bias = np.tile(pssm_bias, (size,) + (1,)*pssm_bias.ndim)
+    pssm_log_odds_mask = np.tile(pssm_log_odds_mask, (size,) + (1,)*pssm_log_odds_mask.ndim)
 
     return dict(X=X,
                 S=S,
@@ -155,7 +157,9 @@ def batch_proteinmpnn_input(size: int = None,
                 pssm_coef=pssm_coef,
                 pssm_bias=pssm_bias,
                 pssm_log_odds_mask=pssm_log_odds_mask,
-                tied_beta=tied_beta)
+                bias_by_res=bias_by_res,
+                # tied_beta=tied_beta
+                )
 
 
 def proteinmpnn_to_device(device: str = None,
@@ -170,6 +174,7 @@ def proteinmpnn_to_device(device: str = None,
                           pssm_coef: np.ndarray = None,
                           pssm_bias: np.ndarray = None,
                           pssm_log_odds_mask: np.ndarray = None,
+                          bias_by_res: np.ndarray = None,
                           tied_beta: np.ndarray = None,
                           **kwargs) -> dict[str, torch.Tensor]:
     # omit_AAs_np = kwargs.get('omit_AAs_np', None)
@@ -215,6 +220,7 @@ def proteinmpnn_to_device(device: str = None,
     pssm_coef = torch.from_numpy(pssm_coef).to(dtype=torch.float32, device=device)
     pssm_bias = torch.from_numpy(pssm_bias).to(dtype=torch.float32, device=device)
     pssm_log_odds_mask = torch.from_numpy(pssm_log_odds_mask).to(dtype=torch.float32, device=device)
+    bias_by_res = torch.from_numpy(bias_by_res).to(dtype=torch.float32, device=device)
     # torch.from_numpy(omit_aas).to(dtype=torch.float32, device=device)
 
     return dict(X=X,
@@ -228,7 +234,9 @@ def proteinmpnn_to_device(device: str = None,
                 pssm_coef=pssm_coef,
                 pssm_bias=pssm_bias,
                 pssm_log_odds_mask=pssm_log_odds_mask,
-                tied_beta=tied_beta)
+                tied_beta=tied_beta,
+                bias_by_res=bias_by_res
+                )
 
 
 def score_sequences(S: torch.Tensor, log_probs: torch.Tensor, mask: torch.Tensor) -> torch.Tensor:
