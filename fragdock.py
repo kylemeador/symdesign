@@ -1914,17 +1914,20 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
         # Number of unique interface mono fragments matched
         # unique_frags_info1, unique_frags_info2 = set(), set()
         # res_pair_freq_info_list = []
-        # Todo refactor this whole part below to use pose.something()... interface_metrics()?
         fragment_pairs = list(zip(sorted_int_ghostfrags, sorted_int_surffrags2, sorted_match_scores))
         frag_match_info = get_matching_fragment_pairs_info(fragment_pairs)
         # First, for the current pose, must identify interfaces
         pose.find_and_split_interface()
         # Next, set the interface fragment info
         pose.fragment_metrics = {(model1, model2): frag_match_info}
-        # Alternatively, query fragments
-        pose.generate_interface_fragments(write_fragments=job.write_fragments)
+        # # Alternatively, query fragments
+        # pose.generate_interface_fragments(write_fragments=job.write_fragments)
         # Next, gather interface metrics
         interface_metrics = pose.interface_metrics()
+        pose_per_residue_data = pose.get_per_residue_interface_metrics()
+        # Todo remove Rosetta
+        #  This is a measurement of interface_connectivity like from Rosetta
+        pose_interface_local_density = pose.local_density_interface()
         # if job.write_fragments:
         #     for frag_idx, (int_ghost_frag, int_surf_frag, match) in enumerate(fragment_pairs, 1):
         #         # surf_frag_chain1, surf_frag_central_res_num1 = int_ghost_frag.aligned_chain_and_residue
@@ -2798,6 +2801,13 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
         # Todo must make the pose coordinates again as in the above call:
         #  clash = update_pose_coords(idx)
         output_pose(idx, sequence_design=design_output)
+
+    # Todo ensure that this is performed correctly and that msa is loaded upon docking initialization
+    # Calculate hydrophobic collapse for each design
+    # for design in viable_designs:  # includes the pose_source
+    # Include the pose_source in the measured designs
+    folding_and_collapse = calculate_collapse_metrics(self.pose, [pose for pose in [self.pose] + design_poses
+                                                                  if pose.name in viable_designs])
 
     log.info(f'Total {building_block} dock trajectory took {time.time() - frag_dock_time_start:.2f}s')
 
