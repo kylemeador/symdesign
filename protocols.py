@@ -2712,12 +2712,6 @@ class PoseDirectory:
                 # msa_metrics = False
                 # pass
             # Contact order is the same for every design in the Pose and not dependent on pose
-            # Todo clean this behavior up as it is not good if entity is used downstream...
-            #  for contact order we must give a copy of coords_indexed_residues from the pose to each entity
-            #  This behavior is fine and follows all of Structure API, however the setting and maintanence is not
-            #  connected. Need to reconcile this mantainence with Structures data access
-            #  Perhaps the separation of each Structure into a unique Coords object is fine?
-            entity._coords_indexed_residues = self.pose._coords_indexed_residues
             contact_order = entity.contact_order
             # Save the contact order for plotting
             source_contact_order.append(contact_order)
