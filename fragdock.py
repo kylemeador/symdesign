@@ -1764,14 +1764,15 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
                                                                  tied_pos=tied_pos, tied_beta=tied_beta[batch_slice],
                                                                  bias_by_res=bias_by_res[batch_slice])
                             # When batches are sliced for multiple inputs
-                            S_sample = sample_dict['S']
+                            S_sample = sample_dict['S']  # This is the shape of the input X Tensor
                             tied_decoding_order = sample_dict['decoding_order']
                             log_probs = mpnn_model(X[batch_slice], S_sample, mask[batch_slice],
                                                    chain_residue_mask[batch_slice], residue_idx[batch_slice],
                                                    chain_encoding[batch_slice],
                                                    None,  # decode_order <- this argument is provided but with below args, is not used
                                                    use_input_decoding_order=True, decoding_order=tied_decoding_order)
-                            print(log_probs[:5])
+                            print('S_sample', S_sample[:5])
+                            print('log_probs', log_probs[:5])
                             # tensor([[[-2.7691, -3.5265, -2.9001,  ..., -3.3623, -3.0247, -4.2772],
                             #          [-2.7691, -3.5265, -2.9001,  ..., -3.3623, -3.0247, -4.2772],
                             #          [-2.7691, -3.5265, -2.9001,  ..., -3.3623, -3.0247, -4.2772],
@@ -1779,7 +1780,7 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
                             #          [-2.7691, -3.5265, -2.9001,  ..., -3.3623, -3.0247, -4.2772],
                             #          [-2.7691, -3.5265, -2.9001,  ..., -3.3623, -3.0247, -4.2772],
                             #          [-2.7691, -3.5265, -2.9001,  ..., -3.3623, -3.0247, -4.2772]]]
-
+                            print('mask_for_loss', mask_for_loss[:5])
                             # S_sample, log_probs, and mask_for_loss should all be the same size
                             scores = score_sequences(S_sample, log_probs, mask_for_loss[batch_slice])
 
