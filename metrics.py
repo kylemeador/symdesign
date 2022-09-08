@@ -8,7 +8,7 @@ from typing import Literal, AnyStr, Any
 import numpy as np
 import pandas as pd
 
-from structure.model import Pose
+import structure
 from utils.path import groups, reference_name, structure_background, design_profile, hbnet_design_profile, pose_source
 from resources.query.utils import input_string, validate_type, verify_choice, header_string
 from utils import handle_errors, start_log, pretty_format_table, index_intersection, digit_translate_table, DesignError, \
@@ -1035,7 +1035,7 @@ def process_residue_info(design_residue_scores: dict, mutations: dict, hbonds: d
     return design_residue_scores
 
 
-def calculate_collapse_metrics(reference_pose: Pose, poses_of_interest: list[Pose]):
+def calculate_collapse_metrics(reference_pose: 'structure.model.Pose', poses_of_interest: list['structure.model.Pose']):
     # Measure the wild type (reference) entity versus modified entity(ies) to find the hci delta
     # Calculate Reference sequence statistics
     entity_collapse_mean, entity_collapse_std, reference_collapse_bool, reference_collapse_z_score = [], [], [], []
