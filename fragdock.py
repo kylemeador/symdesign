@@ -3098,7 +3098,7 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
                         del X
                         del residue_mask
                         del bias_by_res
-                        del decode_order
+                        del decoding_order
                         # outputs
                         del sample_dict
                         del S_sample
