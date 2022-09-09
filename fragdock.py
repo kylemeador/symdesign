@@ -490,7 +490,7 @@ def perturb_transformations(sym_entry: SymEntry,
         tuple[dict[str, np.ndarray], dict[str, np.ndarray]]:
     # Delta parameters
     internal_rot_perturb, internal_trans_perturb, external_trans_perturb = 1, 0.5, 0.5  # degrees, Angstroms, Angstroms
-    perturb_number = 100
+    perturb_number = 9  # 100  Todo replace
 
     grid_size = int(math.sqrt(perturb_number))  # Get the dimensions of the search
     # internal_rotations = get_rot_matrices(internal_rot_perturb/grid_size, rot_range_deg=internal_rotation)
