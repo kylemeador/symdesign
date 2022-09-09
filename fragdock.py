@@ -2008,33 +2008,38 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
 
         log.info(f'\tSUCCESSFUL DOCKED POSE: {out_path}')
 
-    def gather_pose_metrics(overlap_ghosts, overlap_surf, sorted_z_scores):
-        # Return the indices sorted by z_value in ascending order, truncated at the number of passing
-        sorted_match_scores = match_score_from_z_value(sorted_z_scores)
-
-        # These are indexed outside this function
-        # overlap_ghosts = passing_ghost_indices[sorted_fragment_indices]
-        # overlap_surf = passing_surf_indices[sorted_fragment_indices]
-
-        sorted_int_ghostfrags: list[GhostFragment] = [complete_ghost_frags1[idx] for idx in overlap_ghosts]
-        sorted_int_surffrags2: list[Residue] = [complete_surf_frags2[idx] for idx in overlap_surf]
-        # For all matched interface fragments
-        # Keys are (chain_id, res_num) for every residue that is covered by at least 1 fragment
-        # Values are lists containing 1 / (1 + z^2) values for every (chain_id, res_num) residue fragment match
-        # chid_resnum_scores_dict_model1, chid_resnum_scores_dict_model2 = {}, {}
-        # Number of unique interface mono fragments matched
-        # unique_frags_info1, unique_frags_info2 = set(), set()
-        # res_pair_freq_info_list = []
-        # First, for the current pose, must identify interfaces
+    def gather_pose_metrics(overlap_ghosts: list[int] = None, overlap_surf: list[int] = None,
+                            sorted_z_scores: np.ndarray = None):
+        # First, force identify interface of the current pose
         pose.find_and_split_interface()
+
         # Next, set the interface fragment info
-        fragment_pairs = list(zip(sorted_int_ghostfrags, sorted_int_surffrags2, sorted_match_scores))
-        frag_match_info = get_matching_fragment_pairs_info(fragment_pairs)
-        pose.fragment_queries = {(model1, model2): frag_match_info}
-        fragment_metrics = fragment_db.calculate_match_metrics(frag_match_info)
-        pose.fragment_metrics = {(model1, model2): fragment_metrics}
-        # # Alternatively, query fragments
-        # pose.generate_interface_fragments(write_fragments=job.write_fragments)
+        if overlap_ghosts is None and overlap_surf is None and sorted_z_scores is None:
+            # Query fragments
+            pose.generate_interface_fragments(write_fragments=job.write_fragments)
+        else:  # Process with provided data
+            # Return the indices sorted by z_value in ascending order, truncated at the number of passing
+            sorted_match_scores = match_score_from_z_value(sorted_z_scores)
+
+            # These are indexed outside this function
+            # overlap_ghosts = passing_ghost_indices[sorted_fragment_indices]
+            # overlap_surf = passing_surf_indices[sorted_fragment_indices]
+
+            sorted_int_ghostfrags: list[GhostFragment] = [complete_ghost_frags1[idx] for idx in overlap_ghosts]
+            sorted_int_surffrags2: list[Residue] = [complete_surf_frags2[idx] for idx in overlap_surf]
+            # For all matched interface fragments
+            # Keys are (chain_id, res_num) for every residue that is covered by at least 1 fragment
+            # Values are lists containing 1 / (1 + z^2) values for every (chain_id, res_num) residue fragment match
+            # chid_resnum_scores_dict_model1, chid_resnum_scores_dict_model2 = {}, {}
+            # Number of unique interface mono fragments matched
+            # unique_frags_info1, unique_frags_info2 = set(), set()
+            # res_pair_freq_info_list = []
+            fragment_pairs = list(zip(sorted_int_ghostfrags, sorted_int_surffrags2, sorted_match_scores))
+            frag_match_info = get_matching_fragment_pairs_info(fragment_pairs)
+            # pose.fragment_queries = {(model1, model2): frag_match_info}
+            fragment_metrics = fragment_db.calculate_match_metrics(frag_match_info)
+            pose.fragment_metrics = {(model1, model2): fragment_metrics}
+
         # Next, gather interface metrics
         interface_metrics = pose.interface_metrics()
         pose_per_residue_data = pose.get_per_residue_interface_metrics()
@@ -3025,6 +3030,34 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
                     for idx, transform_idx in enumerate(range(batch_slice.start, batch_slice.stop)):
                         update_pose_coords(transform_idx)
                         pose.find_and_split_interface()
+
+                        # Todo replace with PoseDirectory? Path object?
+                        # temp indexing on degen and rot counts
+                        # degen1_count, degen2_count = degen_counts[idx]
+                        # rot1_count, rot2_count = rot_counts[idx]
+                        # temp indexing on degen and rot counts
+                        degen_str = 'DEGEN_{}'.format('_'.join(map(str, degen_counts[idx])))
+                        rot_str = 'ROT_{}'.format('_'.join(map(str, rot_counts[idx])))
+                        tx_str = f'TX_{tx_counts[idx]}'  # translation idx
+                        pt_str = f'PT_{transform_idx%number_of_perturbations}'
+                        # degen_subdir_out_path = os.path.join(outdir, degen_str)
+                        # rot_subdir_out_path = os.path.join(degen_subdir_out_path, rot_str)
+                        tx_dir = os.path.join(outdir, degen_str, rot_str, tx_str.lower(), pt_str)
+                        sampling_id = f'{degen_str}-{rot_str}-{tx_str}-{pt_str}'
+                        pose_id = f'{building_blocks}-{sampling_id}'
+
+                        # Load the z-scores and fragments for use in output_pose()
+                        # overlap_surf = all_passing_surf_indices[idx]
+                        # sorted_z_scores = all_passing_z_scores[idx]
+                        _per_residue_data, _interface_metrics, _interface_local_density = \
+                            gather_pose_metrics(overlap_ghosts, all_passing_surf_indices[idx],
+                                                all_passing_z_scores[idx])
+
+                        per_residue_data[pose_id] = _per_residue_data
+                        interface_metrics[pose_id] = _interface_metrics
+                        interface_local_density[pose_id] = _interface_local_density
+                        output_pose(tx_dir, sampling_id)  # , sequence_design=design_output)
+
                         # Format the bb coords for ProteinMPNN with reshape
                         # new_coords.append(pose.bb_coords.reshape((-1, 4, 3)))  # -1 axis should == pose.number_of_residues
                         # new_coords[idx] = pose.bb_coords.reshape((-1, 4, 3))  # -1 axis should == pose.number_of_residues
