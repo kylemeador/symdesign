@@ -340,15 +340,21 @@ def sequences_to_numeric(sequences: list[Sequence]) -> np.ndarray:
     return np.vectorize(numerical_translation_bytes.__getitem__)(_array)
 
 
-def numeric_to_sequence(numeric_sequence: np.ndarray) -> np.ndarray:
-    """Convert a position specific profile matrix into a numeric array
+def numeric_to_sequence(numeric_sequence: np.ndarray, alphabet_order: int = 1) -> np.ndarray:
+    """Convert a numeric sequence array into a sequence array
 
     Args:
-        numeric_sequence: The sequence to encode
+        numeric_sequence: The sequence to convert
+        alphabet_order: The alphabetical order of the amino acid alphabet. Can be either 1 or 3
     Returns:
-        The alphabet encoded sequence where each entry along axis=-1 is the amino acid identity
+        The alphabetic encoded sequence where each entry along axis=-1 is the one letter amino acid
     """
-    return np.vectorize(numeric_to_sequence_translation.__getitem__)(numeric_sequence)
+    if alphabet_order == 1:
+        return np.vectorize(numeric_to_sequence_translation.__getitem__)(numeric_sequence)
+    elif alphabet_order == 3:
+        return np.vectorize(numeric_to_sequence_translation3.__getitem__)(numeric_sequence)
+    else:
+        raise ValueError(f"The alphabet_order {alphabet_order} isn't valid. Choose from either 1 or 3")
 
 
 def pssm_as_array(pssm: dict[int, dict[str, str | float | int | dict[str, int]]], lod: bool = False) -> np.ndarray:
