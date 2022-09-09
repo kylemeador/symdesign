@@ -2827,6 +2827,7 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
     if perturb_dofs:
         # # Stack transformation operations up for individual multiplication
         # Pack transformation operations up that are available to perturb and pass to function
+        pre_perturb_number_transformations = full_rotation1.shape[0]
         specific_transformation1 = dict(rotation=full_rotation1,
                                         translation=full_int_tx1,
                                         # rotation2=set_mat1,
@@ -2848,6 +2849,9 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
         # set_mat2 = transformation2['rotation2']
         full_ext_tx2 = transformation2['translation2']
 
+        post_perturb_number_transformations = full_rotation1.shape[0]
+        number_of_perturbations = post_perturb_number_transformations/pre_perturb_number_transformations
+
         # V1 below was working with commit 808eedcf
         # # This will utilize a single input from each pose and create a sequence design batch over each transformation.
         # for idx in range(full_rotation1.shape[0]):
@@ -2861,6 +2865,15 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
         #     log.info(f'Batch design took {time.time() - batch_time_start:8f}s')
         #     # Todo
         #     #  coords = perturb_transformation(idx)  # Todo , sequence_design=design_output)
+    else:
+        number_of_perturbations = 1
+
+    per_residue_data = {}
+    interface_metrics = {}
+    interface_local_density = {}
+    all_sequences = {}
+    all_scores = {}
+    all_probabilities = {}
 
     if design_output:
         # Extract parameters to run ProteinMPNN design and modulate memory requirements
@@ -3166,15 +3179,15 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
 
         log.info(f'Design with ProteinMPNN took {time.time() - proteinmpnn_time_start:8f}')
 
-        # Save each pose information
         sequences = numeric_to_sequence(generated_sequences)
-        all_scores
-        probabilities
+        # Save each pose information
+        for idx, pose_id in enumerate(pose_ids):
+            all_sequences[pose_id] = sequences[idx]
+            all_scores[pose_id] = scores[idx]
+            all_probabilities[pose_id] = probabilities[idx]
 
     else:
         # Only get metrics for pose, no sequences
-        interface_local_density = {}
-        per_residue_data = {}
         for idx, overlap_ghosts in enumerate(all_passing_ghost_indices):
             update_pose_coords(idx)
 
