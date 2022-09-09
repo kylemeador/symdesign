@@ -6960,15 +6960,24 @@ class Pose(SequenceProfile, SymmetricModel):
             self.query_interface_for_fragments(*entity_pair)
 
         if write_fragments:
-            self.write_fragment_pairs(self.fragment_pairs, out_path=out_path)
+            self.write_fragment_pairs(out_path=out_path)
 
-    def write_fragment_pairs(self, ghost_mono_frag_pairs: list[tuple[GhostFragment, Fragment, float]],
+    def write_fragment_pairs(self, ghost_mono_frag_pairs: list[tuple[GhostFragment, Fragment, float]] = None,
                              out_path: AnyStr = os.getcwd()):
+        """Write the fragments associated with the pose to disk
+
+        Args:
+            ghost_mono_frag_pairs: Optional, the specified fragment pairs with associated match score
+            out_path: The path to the directory to output files to
+        """
         ghost_frag: GhostFragment
         surface_frag: Fragment
         frag_file = os.path.join(out_path, PUtils.frag_text_file)
         if os.path.exists(frag_file):
             os.system(f'rm {frag_file}')  # ensure old file is removed before new write
+
+        if ghost_mono_frag_pairs is None:
+            ghost_mono_frag_pairs = self.fragment_pairs
 
         for match_count, (ghost_frag, surface_frag, match_score) in enumerate(ghost_mono_frag_pairs, 1):
             ijk = ghost_frag.ijk
