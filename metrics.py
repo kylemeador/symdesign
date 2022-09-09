@@ -1036,19 +1036,22 @@ def process_residue_info(design_residue_scores: dict, mutations: dict, hbonds: d
     return design_residue_scores
 
 
-def calculate_collapse_metrics(reference_pose: 'structure.model.Pose', poses_of_interest: list['structure.model.Pose']):
+def calculate_collapse_metrics(reference_model: 'structure.model.Model',
+                               # poses_of_interest: list['structure.model.Pose'],
+                               sequences_of_interest: Iterable[Iterable[Sequence[str]]]) -> list[dict[str, float]]:
     # Measure the wild type (reference) entity versus modified entity(ies) to find the hci delta
     # Calculate Reference sequence statistics
     entity_collapse_mean, entity_collapse_std, reference_collapse_bool, reference_collapse_z_score = [], [], [], []
     source_contact_order, inverse_residue_contact_order_z = [], []
-    for idx, entity in enumerate(reference_pose.entities):
-        contact_order = entity.contact_order
+    msa_metrics = True
+    for idx, chain in enumerate(reference_model.chains):
+        contact_order = chain.contact_order
         # contact_order = entity_oligomer.contact_order[:entity.number_of_residues]
         source_contact_order.append(contact_order)  # save the contact order for plotting
         residue_contact_order_z = z_score(contact_order, contact_order.mean(), contact_order.std())
         inverse_residue_contact_order_z.append(residue_contact_order_z * -1)
 
-        reference_collapse = entity.hydrophobic_collapse
+        reference_collapse = chain.hydrophobic_collapse
         # reference_collapse = hydrophobic_collapse_index(self.api_db.sequences.retrieve_data(name=entity.name))
         # Todo change from the self.pose if reference is provided!
         reference_collapse_bool.append(np.where(reference_collapse > collapse_significance_threshold, 1, 0))
@@ -1056,11 +1059,12 @@ def calculate_collapse_metrics(reference_pose: 'structure.model.Pose', poses_of_
         # entity = self.structure_db.refined.retrieve_data(name=entity.name))  # Todo always use wild-type?
         # set the entity.msa which makes a copy and adjusts for any disordered residues
 
-        if not entity.msa:
+        if not chain.msa:
             # set anything found to null values
             entity_collapse_mean, entity_collapse_std, reference_collapse_z_score = [], [], []
+            msa_metrics = False
             continue
-        collapse = entity.collapse_profile()
+        collapse = chain.collapse_profile()
         # TODO must update the collapse profile (Prob SEQRES) to be the same size as the sequence (ATOM)
         entity_collapse_mean.append(collapse.mean())
         entity_collapse_std.append(collapse.std())
@@ -1094,19 +1098,21 @@ def calculate_collapse_metrics(reference_pose: 'structure.model.Pose', poses_of_
     # linearly weight residue by sequence position (early > late) with the halfway position (midpoint)
     # weighted at 1
     midpoint = 0.5
-    scale = 1 / midpoint
-    folding_and_collapse = {}
-    for pose_idx, pose in enumerate(poses_of_interest):
+    scale = 1/midpoint
+    folding_and_collapse = []
+    # for pose_idx, pose in enumerate(poses_of_interest):
+    for pose_idx, sequences in enumerate(sequences_of_interest):
         new_collapse_islands, new_collapse_island_significance = [], []
         hydrophobicity_deviation_magnitude, contact_order_collapse_z_sum, sequential_collapse_peaks_z_sum, \
             sequential_collapse_z_sum, global_collapse_z_sum, = [], [], [], [], []
-        for entity_idx, entity in enumerate(pose.entities):
+        # for entity_idx, entity in enumerate(pose.entities):
+        for entity_idx, sequence in enumerate(sequences):
             # sequence = design_sequences[design]
-            # sequence_length = len(sequence)
+            sequence_length = len(sequence)
             # Todo -> observed_collapse, standardized_collapse = hydrophobic_collapse_index(sequence)
-            # standardized_collapse = hydrophobic_collapse_index(sequence)
-            sequence_length = entity.number_of_residues
-            standardized_collapse = entity.hydrophobic_collapse
+            standardized_collapse = hydrophobic_collapse_index(sequence)
+            # sequence_length = entity.number_of_residues
+            # standardized_collapse = entity.hydrophobic_collapse
             # collapse_concatenated.append(standardized_collapse)
             # normalized_collapse = standardized_collapse - wt_collapse[entity]
             # find collapse where: delta above standard collapse, collapsable boolean, and successive number
@@ -1161,7 +1167,7 @@ def calculate_collapse_metrics(reference_pose: 'structure.model.Pose', poses_of_
             new_collapse_islands.append(new_collapse_peak_start.sum())
             new_collapse_island_significance.append(sum(new_collapse_peak_start * abs(collapse_significance)))
 
-            if not entity.msa:
+            if msa_metrics:
                 z_array = z_score(standardized_collapse,  # observed_collapse,
                                   entity_collapse_mean[entity_idx], entity_collapse_std[entity_idx])
                 # Todo test for magnitude of the wt versus profile, remove subtraction?
@@ -1179,20 +1185,20 @@ def calculate_collapse_metrics(reference_pose: 'structure.model.Pose', poses_of_
         # collapse_concatenated = Series(np.concatenate(collapse_concatenated), name=design)
         # per_residue_data[design]['hydrophobic_collapse'] = Series(np.concatenate(collapse_concatenated),
         #                                                           name=design)
-        if pose_idx == 0:  # Name the design according to pose_source
-            design = pose_source
-        else:
-            design = pose.name
-        folding_and_collapse[design] = {}
-        folding_and_collapse[design]['new_collapse_islands'] = sum(new_collapse_islands)
-        # takes into account new collapse positions contact order and measures the deviation of collapse and
-        # contact order to indicate the potential effect to folding
-        folding_and_collapse[design]['new_collapse_island_significance'] = sum(new_collapse_island_significance)
-        folding_and_collapse[design]['hydrophobicity_deviation_magnitude'] = sum(hydrophobicity_deviation_magnitude)
-        folding_and_collapse[design]['contact_order_collapse_z_sum'] = sum(contact_order_collapse_z_sum)
-        folding_and_collapse[design]['sequential_collapse_peaks_z_sum'] = sum(sequential_collapse_peaks_z_sum)
-        folding_and_collapse[design]['sequential_collapse_z_sum'] = sum(sequential_collapse_z_sum)
-        folding_and_collapse[design]['global_collapse_z_sum'] = sum(global_collapse_z_sum)
+        # if pose_idx == 0:  # Name the design according to pose_source
+        #     design = pose_source
+        # else:
+        #     design = reference_model.name
+        # folding_and_collapse[design] = {}
+        folding_and_collapse.append({'new_collapse_islands': sum(new_collapse_islands),
+                                     # Takes into account new collapse positions contact order and measures deviation
+                                     # of collapse and contact order to indicate the potential effect to folding
+                                     'new_collapse_island_significance': sum(new_collapse_island_significance),
+                                     'hydrophobicity_deviation_magnitude': sum(hydrophobicity_deviation_magnitude),
+                                     'contact_order_collapse_z_sum': sum(contact_order_collapse_z_sum),
+                                     'sequential_collapse_peaks_z_sum': sum(sequential_collapse_peaks_z_sum),
+                                     'sequential_collapse_z_sum': sum(sequential_collapse_z_sum),
+                                     'global_collapse_z_sum': sum(global_collapse_z_sum)})
 
     return folding_and_collapse
 
