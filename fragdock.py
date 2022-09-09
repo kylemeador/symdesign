@@ -2928,7 +2928,7 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
         start_divisor = divisor = 512  # 256 # 128  # 2048 breaks when there is a gradient for training
         # batch_length = 10
         # batch_length = int(number_of_elements_available//model_elements//start_divisor)
-        batch_length = 7  # 6  # works for 24 GiB mem
+        batch_length = 6  # works for 24 GiB mem, 7 is too much
         once, twice = False, False
         log.critical(f'The number_of_elements_available is: {number_of_elements_available}')
         proteinmpnn_time_start = time.time()
@@ -2976,7 +2976,7 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
 
                 # Gather the coordinates according to the transformations identified
                 for batch in range(number_of_batches):
-                    batch_slice = slice(batch*batch_length, (batch+1) * batch_length)
+                    batch_slice = slice(batch*batch_length, min((batch+1) * batch_length, size))
                     # # Get the transformations based on slices of batch_length
                     # # Stack each local perturbation up and multiply individual entity coords
                     # transformation1 = dict(rotation=full_rotation1[batch_slice],
@@ -3085,22 +3085,31 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
                         bias_by_res = separate_parameters.get('bias_by_res', None)
                         decoding_order = pose.generate_proteinmpnn_decode_order(to_device=mpnn_model.device)
 
-                        sample_dict = mpnn_sample(X, decoding_order, S, chain_mask, chain_encoding, residue_idx,
-                                                  mask, temperature=design_temperature,
+                        # For the final batch which may have fewer inputs
+                        actual_batch_length = batch_slice.stop-batch_slice.start
+                        sample_dict = mpnn_sample(X, decoding_order,
+                                                  S[:actual_batch_length], chain_mask[:actual_batch_length],
+                                                  chain_encoding[:actual_batch_length],
+                                                  residue_idx[:actual_batch_length],
+                                                  mask[:actual_batch_length], temperature=design_temperature,
                                                   omit_AAs_np=omit_AAs_np, bias_AAs_np=bias_AAs_np,
-                                                  chain_M_pos=residue_mask, omit_AA_mask=omit_AA_mask,
-                                                  pssm_coef=pssm_coef, pssm_bias=pssm_bias, pssm_multi=pssm_multi,
+                                                  chain_M_pos=residue_mask[:actual_batch_length],
+                                                  omit_AA_mask=omit_AA_mask[:actual_batch_length],
+                                                  pssm_coef=pssm_coef[:actual_batch_length],
+                                                  pssm_bias=pssm_bias[:actual_batch_length],
+                                                  pssm_multi=pssm_multi,
                                                   pssm_log_odds_flag=pssm_log_odds_flag,
-                                                  pssm_log_odds_mask=pssm_log_odds_mask,
+                                                  pssm_log_odds_mask=pssm_log_odds_mask[:actual_batch_length],
                                                   pssm_bias_flag=pssm_bias_flag,
                                                   tied_pos=tied_pos, tied_beta=tied_beta,
-                                                  bias_by_res=bias_by_res)
+                                                  bias_by_res=bias_by_res[:actual_batch_length])
                         # When batches are sliced for multiple inputs
                         S_sample = sample_dict['S']  # This is the shape of the input X Tensor
                         decoding_order_out = sample_dict['decoding_order']
-                        chain_residue_mask = chain_mask*residue_mask
-                        log_probs = mpnn_model(X, S_sample, mask, chain_residue_mask, residue_idx, chain_encoding, None,
-                                               # this argument is provided but with below args, is not used        ^
+                        chain_residue_mask = (chain_mask*residue_mask)[:actual_batch_length]
+                        log_probs = mpnn_model(X, S_sample, mask[:actual_batch_length], chain_residue_mask,
+                                               residue_idx[:actual_batch_length], chain_encoding[:actual_batch_length],
+                                               None,  # this argument is provided but with below args, is not used
                                                use_input_decoding_order=True, decoding_order=decoding_order_out)
 
                         # Score the redesigned structure-sequence
