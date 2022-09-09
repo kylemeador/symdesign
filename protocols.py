@@ -33,12 +33,11 @@ from metrics import read_scores, interface_composition_similarity, unnecessary, 
     columns_to_new_column, division_pairs, delta_pairs, dirty_hbond_processing, significance_columns, \
     df_permutation_test, clean_up_intermediate_columns, protocol_specific_columns, rank_dataframe_by_metric_weights, \
     filter_df_for_index_by_value, multiple_sequence_alignment_dependent_metrics, process_residue_info, \
-    collapse_significance_threshold, calculate_collapse_metrics
+    collapse_significance_threshold, calculate_collapse_metrics, errat_1_sigma, errat_2_sigma
 from resources.job import JobResources, job_resources_factory
 from structure.model import Pose, MultiModel, Models, Model, Entity
 from structure.sequence import parse_pssm, generate_mutations_from_reference, simplify_mutation_dict, \
-    sequence_difference, hydrophobic_collapse_index, alignment_types, MultipleSequenceAlignment, pssm_as_array, \
-    position_specific_divergence
+    sequence_difference, alignment_types, MultipleSequenceAlignment, pssm_as_array, position_specific_divergence
 from structure.base import Structure  # , Structures
 from utils import large_color_array, handle_errors, starttime, start_log, null_log, make_path, unpickle, pickle_object, \
     index_intersection, write_shell_script, DesignError, ClashError, SymmetryError, match_score_from_z_value, z_score, \
@@ -60,7 +59,6 @@ cst_value = round(0.2 * reference_average_residue_weight, 2)
 mean, std = 'mean', 'std'
 stats_metrics = [mean, std]
 residue_classificiation = ['core', 'rim', 'support']  # 'hot_spot'
-errat_1_sigma, errat_2_sigma, errat_3_sigma = 5.76, 11.52, 17.28  # these are approximate magnitude of deviation
 variance = 0.8
 symmetry_protocol = {0: 'make_point_group', 2: 'make_layer', 3: 'make_lattice'}  # -1: 'asymmetric',
 
@@ -2484,16 +2482,6 @@ class PoseDirectory:
         all_mutations = generate_mutations_from_reference(self.pose.sequence, pose_sequences)
         #    generate_mutations_from_reference(''.join(self.pose.atom_sequences.values()), pose_sequences)
 
-        entity_sequences = \
-            {idx: {design: sequence[entity.n_terminal_residue.number-1:entity.c_terminal_residue.number-1]
-                   for design, sequence in pose_sequences.items()} for idx, entity in enumerate(self.pose.entities)}
-        # Todo generate_multiple_mutations accounts for offsets from the reference sequence. Not necessary YET
-        # sequence_mutations = \
-        #     generate_multiple_mutations(self.pose.atom_sequences, pose_sequences, pose_num=False)
-        # sequence_mutations.pop('reference')
-        # entity_sequences = generate_sequences(self.pose.atom_sequences, sequence_mutations)
-        # entity_sequences = {chain: keys_from_trajectory_number(named_sequences)
-        #                         for chain, named_sequences in entity_sequences.items()}
         entity_energies = [0. for ent in self.pose.entities]
         pose_source_residue_info = \
             {residue.number: {'complex': 0., 'bound': copy(entity_energies), 'unbound': copy(entity_energies),
@@ -2658,6 +2646,18 @@ class PoseDirectory:
         self.log.debug(f'Viable designs remaining after cleaning:\n\t{", ".join(viable_designs)}')
         other_pose_metrics['observations'] = len(viable_designs)
         pose_sequences = {design: sequence for design, sequence in pose_sequences.items() if design in viable_designs}
+
+        entity_sequences = []
+        for entity in self.pose.entities:
+            entity_slice = slice(entity.n_terminal_residue.number-1, entity.c_terminal_residue.number-1)
+            entity_sequences.append({design: sequence[entity_slice] for design, sequence in pose_sequences.items()})
+        # Todo generate_multiple_mutations accounts for offsets from the reference sequence. Not necessary YET
+        # sequence_mutations = \
+        #     generate_multiple_mutations(self.pose.atom_sequences, pose_sequences, pose_num=False)
+        # sequence_mutations.pop('reference')
+        # entity_sequences = generate_sequences(self.pose.atom_sequences, sequence_mutations)
+        # entity_sequences = {chain: keys_from_trajectory_number(named_sequences)
+        #                         for chain, named_sequences in entity_sequences.items()}
 
         # Find protocols for protocol specific data processing
         protocol_s = scores_df.pop(PUtils.groups).copy()
@@ -2835,6 +2835,7 @@ class PoseDirectory:
         folding_and_collapse = calculate_collapse_metrics(self.pose,
                                                           list(zip(*[list(design_sequences.values())
                                                                      for design_sequences in entity_sequences])))
+        pose_collapse_df = DataFrame(folding_and_collapse).T
         # folding_and_collapse = calculate_collapse_metrics(self.pose, [pose for pose in [self.pose] + design_poses
         #                                                               if pose.name in viable_designs])
         # # Measure the wild type (reference) entity versus modified entity(ies) to find the hci delta
@@ -3010,14 +3011,13 @@ class PoseDirectory:
         #     folding_and_collapse[design]['sequential_collapse_z_sum'] = sum(sequential_collapse_z_sum)
         #     folding_and_collapse[design]['global_collapse_z_sum'] = sum(global_collapse_z_sum)
 
-        pose_collapse_df = DataFrame(folding_and_collapse).T
         # include in errat_deviation if errat score is < 2 std devs and isn't 0 to begin with
         source_errat_inclusion_boolean = np.logical_and(pose_source_errat_s < errat_2_sigma, pose_source_errat_s != 0.)
         errat_df = per_residue_df.loc[:, idx_slice[:, 'errat_deviation']].droplevel(-1, axis=1)
         # find where designs deviate above wild-type errat scores
         errat_sig_df = (errat_df.sub(pose_source_errat_s, axis=1)) > errat_1_sigma  # axis=1 Series is column oriented
         # then select only those residues which are expressly important by the inclusion boolean
-        pose_collapse_df['errat_deviation'] = (errat_sig_df.loc[:, source_errat_inclusion_boolean] * 1).sum(axis=1)
+        scores_df['errat_deviation'] = (errat_sig_df.loc[:, source_errat_inclusion_boolean] * 1).sum(axis=1)
         # Get design information including: interface residues, SSM's, and wild_type/design files
         profile_background = {}
         if self.design_profile is not None:
@@ -3174,8 +3174,8 @@ class PoseDirectory:
         if dca_succeed:
             # concatenate along columns, adding residue index to column, design name to row
             dca_concatenated_df = DataFrame(np.concatenate(dca_design_residues_concat, axis=1),
-                                            index=list(entity_sequences[0].keys()), columns=residue_indices)
-            # get all design names                                         ^
+                                            index=list(pose_sequences.keys()), columns=residue_indices)
+            # get all design names                                    ^
             # dca_concatenated_df.columns = MultiIndex.from_product([dca_concatenated_df.columns, ['dca_energy']])
             dca_concatenated_df = concat([dca_concatenated_df], keys=['dca_energy'], axis=1).swaplevel(0, 1, axis=1)
             # merge with per_residue_df
@@ -3779,24 +3779,24 @@ class PoseDirectory:
                 designs.extend(trajectory_df[trajectory_df['protocol'] == protocol].index.to_list())
 
             if not designs:
-                raise DesignError('No designs found for protocols %s!' % protocols)
+                raise DesignError(f'No designs found for protocols {protocols}!')
         else:
             designs = trajectory_df.index.to_list()
 
-        self.log.info('Number of starting trajectories = %d' % len(trajectory_df))
+        self.log.info(f'Number of starting trajectories = {len(trajectory_df)}')
         df = trajectory_df.loc[designs, :]
 
         if filters:
-            self.log.info('Using filter parameters: %s' % str(filters))
+            self.log.info(f'Using filter parameters: {filters}')
             # Filter the DataFrame to include only those values which are le/ge the specified filter
             filtered_designs = index_intersection(filter_df_for_index_by_value(df, filters).values())
             df = trajectory_df.loc[filtered_designs, :]
 
         if weights:
             # No filtering of protocol/indices to use as poses should have similar protocol scores coming in
-            self.log.info('Using weighting parameters: %s' % str(weights))
+            self.log.info(f'Using weighting parameters: {weights}')
             design_list = rank_dataframe_by_metric_weights(df, weights=weights, **kwargs).index.to_list()
-            self.log.info('Final ranking of trajectories:\n%s' % ', '.join(pose for pose in design_list))
+            self.log.info(f'Final ranking of trajectories:\n{", ".join(pose for pose in design_list)}')
 
             return design_list[:number]
         else:
@@ -3806,10 +3806,11 @@ class PoseDirectory:
             #
             # chain_sequences = SDUtils.unpickle(sequences_pickle[0])
             # {chain: {name: sequence, ...}, ...}
-            entity_sequences = unpickle(self.design_sequences)
-            concatenated_sequences = [''.join([entity_sequences[entity][design] for entity in entity_sequences])
-                                      for design in designs]
-            self.log.debug('The final concatenated sequences are:\n%s' % concatenated_sequences)
+            design_sequences_by_entity: list[dict[str, str]] = unpickle(self.design_sequences)
+            entity_sequences = list(zip(*[list(design_sequences.values())
+                                          for design_sequences in design_sequences_by_entity]))
+            concatenated_sequences = [''.join(entity_sequence) for entity_sequence in entity_sequences]
+            self.log.debug(f'The final concatenated sequences are:\n{concatenated_sequences}')
 
             # pairwise_sequence_diff_np = SDUtils.all_vs_all(concatenated_sequences, sequence_difference)
             # Using concatenated sequences makes the values very similar and inflated as most residues are the same
@@ -3835,7 +3836,7 @@ class PoseDirectory:
             seq_pca_distance_vector = pdist(seq_pc_np)
             # epsilon = math.sqrt(seq_pca_distance_vector.mean()) * 0.5
             epsilon = seq_pca_distance_vector.mean() * 0.5
-            self.log.info('Finding maximum neighbors within distance of %f' % epsilon)
+            self.log.info(f'Finding maximum neighbors within distance of {epsilon}')
 
             # self.log.info(pairwise_sequence_diff_np)
             # epsilon = pairwise_sequence_diff_mat.mean() * 0.5
@@ -3859,7 +3860,7 @@ class PoseDirectory:
                              for idx, count in enumerate(seq_neighbor_counts) if count == num_neighbors}
             self.log.info('The final sequence(s) and file(s):\nNeighbors\tDesign\n%s'
                           # % '\n'.join('%d %s' % (top_neighbor_counts.index(neighbors) + SDUtils.index_offset,
-                          % '\n'.join('\t%d\t%s' % (neighbors, path.join(self.designs, design))
+                          % '\n'.join(f'\t{neighbors}\t{path.join(self.designs, design)}'
                                       for design, neighbors in final_designs.items()))
 
             # self.log.info('Corresponding PDB file(s):\n%s' % '\n'.join('%d %s' % (i, path.join(self.designs, seq))

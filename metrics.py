@@ -20,6 +20,7 @@ logger = start_log(name=__name__)
 _min, _max = 'min', 'max'
 rank, normalize, boolean = 'rank', 'normalize', 'boolean'
 metric_weight_functions = [rank, normalize]
+errat_1_sigma, errat_2_sigma, errat_3_sigma = 5.76, 11.52, 17.28  # these are approximate magnitude of deviation
 collapse_significance_threshold = 0.43
 collapse_deviation = 0.05
 master_metrics = {
