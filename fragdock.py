@@ -3103,8 +3103,10 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
                     #     # If entity_bb_coords are individually transformed, then axis=0 works
                     #     perturbed_bb_coords = np.concatenate(new_coords, axis=0)
 
+                    # For the final batch which may have fewer inputs
+                    actual_batch_length = batch_slice.stop-batch_slice.start
                     log.debug(f'perturbed_bb_coords.shape: {perturbed_bb_coords.shape}')
-                    X = perturbed_bb_coords.reshape((batch_length, -1, 4, 3))
+                    X = perturbed_bb_coords.reshape((actual_batch_length, -1, 4, 3))
                     log.debug(f'X.shape: {X.shape}')
 
                     with torch.no_grad():  # Ensure no gradients are produced
@@ -3124,8 +3126,6 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
                         bias_by_res = separate_parameters.get('bias_by_res', None)
                         decoding_order = pose.generate_proteinmpnn_decode_order(to_device=mpnn_model.device)
 
-                        # For the final batch which may have fewer inputs
-                        actual_batch_length = batch_slice.stop-batch_slice.start
                         sample_dict = mpnn_sample(X, decoding_order,
                                                   S[:actual_batch_length], chain_mask[:actual_batch_length],
                                                   chain_encoding[:actual_batch_length],
