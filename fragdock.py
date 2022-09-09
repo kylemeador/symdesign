@@ -2911,7 +2911,8 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
         # Reduce scale by factor of divisor to be safe
         start_divisor = divisor = 512  # 256 # 128  # 2048 breaks when there is a gradient for training
         # batch_length = 10
-        batch_length = int(number_of_elements_available // model_elements // start_divisor)
+        # batch_length = int(number_of_elements_available//model_elements//start_divisor)
+        batch_length = 8
         log.critical(f'The number_of_elements_available is: {number_of_elements_available}')
         proteinmpnn_time_start = time.time()
         while True:
@@ -3118,11 +3119,50 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
                 # _input = input(f'Press enter to continue')
                 break
             except (RuntimeError, np.core._exceptions._ArrayMemoryError) as error:  # for (gpu, cpu)
-                raise error
-                log.critical(f'Calculation failed with {divisor}.\n{error}\n{torch.cuda.memory_stats()}\nTrying again...')
+                # raise error
+                # log.critical(f'Calculation failed with {divisor}.\n{error}\n{torch.cuda.memory_stats()}\nTrying again...')
+                log.critical(f'Calculation failed with {batch_length}.\n{error}\n{torch.cuda.memory_stats()}\nTrying again...')
                 # log.critical(f'{error}\nTrying again...')
-                divisor = divisor*2
-                batch_length = int(number_of_elements_available // model_elements // divisor)
+                # Remove all tensors from memory
+                try:
+                    # constants
+                    del parameters
+                    del S
+                    del chain_mask
+                    del chain_encoding
+                    del residue_idx
+                    del mask
+                    del omit_AAs_np
+                    del bias_AAs_np
+                    del omit_AA_mask
+                    del pssm_coef
+                    del pssm_bias
+                    del pssm_multi
+                    del pssm_log_odds_flag
+                    del pssm_log_odds_mask
+                    del pssm_bias_flag
+                    del tied_pos
+                    del tied_beta
+                    del chain_mask_and_mask
+                    # inputs
+                    del separate_parameters
+                    del X
+                    del residue_mask
+                    del bias_by_res
+                    del decoding_order
+                    # outputs
+                    del sample_dict
+                    del S_sample
+                    del decoding_order_out
+                    del chain_residue_mask
+                    del log_probs
+                    del mask_for_loss
+                    del batch_scores
+                except NameError:
+                    pass
+                # divisor = divisor*2
+                # batch_length = int(number_of_elements_available//model_elements//divisor)
+                batch_length -= 1
 
         log.info(f'Design with ProteinMPNN took {time.time() - proteinmpnn_time_start:8f}')
 
