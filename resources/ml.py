@@ -101,6 +101,8 @@ dtype_map = dict(
     tied_beta=torch.float32,  # tied_beta,
     bias_by_res=torch.float32,  # bias_by_res
 )
+batch_params = list(dtype_map.keys())
+batch_params.pop(batch_params.index('tied_beta'))
 
 
 def batch_proteinmpnn_input(size: int = None,
@@ -158,7 +160,7 @@ def batch_proteinmpnn_input(size: int = None,
 
     # Stack ProteinMPNN sequence design task in "batches"
     device_kwargs = {}
-    for key in dtype_map:
+    for key in batch_params:
         param = kwargs.get(key)
         if param is not None:
             device_kwargs[key] = np.tile(param, (size,) + (1,)*param.ndim)
