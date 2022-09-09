@@ -3032,7 +3032,6 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
                                           dtype=np.float32)
                     for transform_idx in range(batch_slice.start, batch_slice.stop):
                         update_pose_coords(transform_idx)
-                        pose.find_and_split_interface()
 
                         # Todo replace with PoseDirectory? Path object?
                         idx = int(transform_idx//number_of_perturbations)
@@ -3050,7 +3049,8 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
                         sampling_id = f'{degen_str}-{rot_str}-{tx_str}-{pt_str}'
                         pose_id = f'{building_blocks}-{sampling_id}'
 
-                        # Load the z-scores and fragments for use in output_pose()
+                        # Load the z-scores and fragments for use in gather_pose_metrics()
+                        # pose.find_and_split_interface()  # Now done in gather_pose_metrics()
                         # overlap_surf = all_passing_surf_indices[idx]
                         # sorted_z_scores = all_passing_z_scores[idx]
                         _per_residue_data, _interface_metrics, _interface_local_density = \
