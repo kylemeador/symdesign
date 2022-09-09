@@ -3061,7 +3061,8 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
                         per_residue_data[pose_id] = _per_residue_data
                         interface_metrics[pose_id] = _interface_metrics
                         interface_local_density[pose_id] = _interface_local_density
-                        output_pose(tx_dir, sampling_id)  # , sequence_design=design_output)
+                        # Todo reinstate?
+                        # output_pose(tx_dir, sampling_id)  # , sequence_design=design_output)
 
                         # Format the bb coords for ProteinMPNN with reshape
                         # new_coords.append(pose.bb_coords.reshape((-1, 4, 3)))  # -1 axis should == pose_length
