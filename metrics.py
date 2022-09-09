@@ -1046,6 +1046,7 @@ def calculate_collapse_metrics(reference_model: 'structure.model.Model',
     source_contact_order, inverse_residue_contact_order_z = [], []
     msa_metrics = True
     for idx, chain in enumerate(reference_model.chains):
+        print(chain.name, chain.sequence)  # Todo remove Debug
         contact_order = chain.contact_order
         # contact_order = entity_oligomer.contact_order[:entity.number_of_residues]
         source_contact_order.append(contact_order)  # save the contact order for plotting
@@ -1108,6 +1109,7 @@ def calculate_collapse_metrics(reference_model: 'structure.model.Model',
             sequential_collapse_z_sum, global_collapse_z_sum, = [], [], [], [], []
         # for entity_idx, entity in enumerate(pose.entities):
         for entity_idx, sequence in enumerate(sequences):
+            print(reference_model.chains[entity_idx].name, sequence)  # Todo remove Debug
             # sequence = design_sequences[design]
             sequence_length = len(sequence)
             # Todo -> observed_collapse, standardized_collapse = hydrophobic_collapse_index(sequence)
@@ -1126,7 +1128,7 @@ def calculate_collapse_metrics(reference_model: 'structure.model.Model',
             collapse_bool = np.where(collapse_propensity_z_positive, 1, 0)  # [0, 0, 0, 0, 1, 1, 0, 0, 1, 1, ...]
             # collapse_bool = np.nonzero(collapse_propensity_z_positive)[0]  # [0, 0, 0, 0, 1, 1, 0, 0, 1, 1, ...]
             reference_collapse = reference_collapse_bool[entity_idx]
-            increased_collapse = np.where(collapse_bool - reference_collapse == 1, 1, 0)
+            increased_collapse = np.where(collapse_bool-reference_collapse == 1, 1, 0)
             # check if the increased collapse has made new collapse
             new_collapse = np.zeros_like(collapse_bool)  # [0, 0, 1, 1, 0, 0, 0, 0, 0, 0, ...]
             for idx, _bool in enumerate(increased_collapse.tolist()[1:-1], 1):
