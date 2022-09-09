@@ -5563,10 +5563,10 @@ class Pose(SequenceProfile, SymmetricModel):
         else:  # random decoding order
             decode_order = np.random.rand(pose_length)
 
-        if to_device is not None:
-            return torch.from_numpy(decode_order).to(dtype=torch.float32, device=to_device)
-        else:
+        if to_device is None:
             return decode_order
+        else:
+            return torch.from_numpy(decode_order).to(dtype=torch.float32, device=to_device)
 
     def design_sequence(self, number: int = flags.nstruct,
                         protein_mpnn: bool = True, model_name: str = 'v_48_020',
