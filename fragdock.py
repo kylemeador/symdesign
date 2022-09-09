@@ -1998,6 +1998,9 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
             # low_quality_matches_dir = os.path.join(matching_fragments_dir, 'low_qual_match')
             pose.write_fragment_pairs(out_path=matching_fragments_dir)
 
+        log.info(f'\tSUCCESSFUL DOCKED POSE: {out_path}')
+
+    def gather_pose_metrics(overlap_ghosts, overlap_surf, sorted_z_scores):
         # Return the indices sorted by z_value in ascending order, truncated at the number of passing
         sorted_match_scores = match_score_from_z_value(sorted_z_scores)
 
@@ -2114,6 +2117,8 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
                                sym_entry.setting_matrix1, external_tx_params1, rot_mat2, internal_tx_param2,
                                sym_entry.setting_matrix2, external_tx_params2, cryst_record, model1.file_path,
                                model2.file_path, pose_id)
+
+        return pose_per_residue_data, interface_metrics, pose_interface_local_density
 
     # Use below instead of this until can TODO vectorize asu_interface_residue_processing
     # asu_interface_residues = \
@@ -3133,12 +3138,40 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
             interface_local_density[pose_id] = _interface_local_density
             output_pose(tx_dir, sampling_id)  # , sequence_design=design_output)
 
+    scores_df = pd.DataFrame()
+    # Calculate full suite of metrics
+    scores_df['interface_local_density'] = pd.Series(interface_local_density)
+
+    pose_length = pose.number_of_residues
+    residue_indices = list(range(1, pose_length+1))
+    per_residue_df = concat({name: pd.DataFrame(data, index=residue_indices)
+                             for name, data in per_residue_data.items()}).unstack().swaplevel(0, 1, axis=1)
     # Todo ensure that this is performed correctly and that msa is loaded upon docking initialization
     # Calculate hydrophobic collapse for each design
-    # for design in viable_designs:  # includes the pose_source
-    # Include the pose_source in the measured designs
-    folding_and_collapse = calculate_collapse_metrics(self.pose, [pose for pose in [self.pose] + design_poses
-                                                                  if pose.name in viable_designs])
+    # Include the pose as the pose_source in the measured designs
+    folding_and_collapse = calculate_collapse_metrics(pose, [_pose for _pose in [pose] + design_poses])
+    pose_collapse_df = DataFrame(folding_and_collapse).T
+
+    source_errat = []
+    for idx, entity in enumerate(pose.entities):
+        # Replace 'errat_deviation' measurement with uncomplexed entities
+        # oligomer_errat_accuracy, oligomeric_errat = entity_oligomer.errat(out_path=self.data)
+        # source_errat_accuracy.append(oligomer_errat_accuracy)
+        # Todo when Entity.oligomer works
+        #  _, oligomeric_errat = entity.oligomer.errat(out_path=self.data)
+        entity_oligomer = Model.from_chains(entity.chains, log=self.log, entities=False)
+        _, oligomeric_errat = entity_oligomer.errat(out_path=self.data)
+        source_errat.append(oligomeric_errat[:entity.number_of_residues])
+    # atomic_deviation[pose_source] = sum(source_errat_accuracy) / float(number_of_entities)
+    pose_source_errat_s = pd.Series(np.concatenate(source_errat), index=residue_indices)
+
+    # include in errat_deviation if errat score is < 2 std devs and isn't 0 to begin with
+    source_errat_inclusion_boolean = np.logical_and(pose_source_errat_s < errat_2_sigma, pose_source_errat_s != 0.)
+    errat_df = per_residue_df.loc[:, idx_slice[:, 'errat_deviation']].droplevel(-1, axis=1)
+    # find where designs deviate above wild-type errat scores
+    errat_sig_df = (errat_df.sub(pose_source_errat_s, axis=1)) > errat_1_sigma  # axis=1 Series is column oriented
+    # then select only those residues which are expressly important by the inclusion boolean
+    pose_collapse_df['errat_deviation'] = (errat_sig_df.loc[:, source_errat_inclusion_boolean] * 1).sum(axis=1)
 
     log.info(f'Total {building_block} dock trajectory took {time.time() - frag_dock_time_start:.2f}s')
 
