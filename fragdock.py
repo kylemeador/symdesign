@@ -3259,7 +3259,9 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
         # Calculate hydrophobic collapse for each design
         # Include the pose as the pose_source in the measured designs
         folding_and_collapse = calculate_collapse_metrics(pose, all_sequences_by_entity)
-        pose_collapse_df = pd.DataFrame(folding_and_collapse).T
+        # Todo, should the reference pose be used? -> + [entity.sequence for entity in pose.entities]
+        pose_collapse_df = pd.DataFrame({pose_ids[idx]: data for idx, data in enumerate(folding_and_collapse)}).T
+        print(pose_collapse_df)
     else:
         pose_collapse_df = pd.DataFrame()
         # Only get metrics for pose, no sequences
