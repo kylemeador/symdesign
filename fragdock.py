@@ -1954,84 +1954,49 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
     #
     #         return perturbed_coords.reshape((number_of_perturbations, -1, 3))
 
-                        log.critical(f'Successful execution with {divisor} using available memory of '
-                                     f'{memory_constraint} and batch_length of {batch_length}')
-                        _input = input(f'Press enter to continue')
-                        break
-                    except (RuntimeError, np.core._exceptions._ArrayMemoryError) as error:  # for (gpu, cpu)
-                        # raise error
-                        log.critical(f'Calculation failed with {divisor}.\n{error}\n{torch.cuda.memory_stats()}\nTrying again...')
-                        # log.critical(f'{error}\nTrying again...')
-                        divisor = divisor*2
-                        batch_length = int(number_of_elements_available // model_elements // divisor)
+    def output_pose(out_path, sampling_id):  # , sequence_design: bool = False):
+        # sampling_id = f'{degen_str}-{rot_str}-{tx_str}'
+        # pose_id = f'{building_blocks}-{sampling_id}'
+        os.makedirs(out_path, exist_ok=True)
 
-            return numeric_to_sequence(generated_sequences), sequence_scores, probabilities
-        else:
-            new_coords = []
-            for entity_idx, entity in enumerate(pose.entities):
-                # Todo Need to tile the entity_bb_coords if operating like this
-                new_coords.append(transform_coordinate_sets(entity_start_coords[entity_idx],
-                                                            **specific_transformations[transform_indices[entity_idx]]))
-
-            # Todo test this
-            #  Stack the entity coordinates to make up a contiguous block for each pose
-            #  If entity_bb_coords are stacked, then must concatenate along axis=1 or =2 to get full pose
-            #  If entity_bb_coords aren't stacked (individually transformed), then axis=0 will work
-            log.debug(f'new_coords.shape: {tuple([coords.shape for coords in new_coords])}')
-            perturbed_coords = np.concatenate(new_coords, axis=1)
-            log.debug(f'perturbed_coords.shape: {perturbed_coords.shape}')
-
-            return perturbed_coords.reshape((number_of_perturbations, -1, 3))
-
-    def output_pose(idx, sequence_design: bool = True):
-        # Todo replace with PoseDirectory? Path object?
-        # temp indexing on degen and rot counts
-        # degen1_count, degen2_count = degen_counts[idx]
-        # rot1_count, rot2_count = rot_counts[idx]
-        # temp indexing on degen and rot counts
-        degen_str = 'DEGEN_{}'.format('_'.join(map(str, degen_counts[idx])))
-        rot_str = 'ROT_{}'.format('_'.join(map(str, rot_counts[idx])))
-        tx_str = f'TX_{tx_counts[idx]}'  # translation idx
-        # degen_subdir_out_path = os.path.join(outdir, degen_str)
-        # rot_subdir_out_path = os.path.join(degen_subdir_out_path, rot_str)
-        tx_dir = os.path.join(outdir, degen_str, rot_str, tx_str.lower())  # .lower() keeps original publication format
-        os.makedirs(tx_dir, exist_ok=True)
-        sampling_id = f'{degen_str}-{rot_str}-{tx_str}'
-        pose_id = f'{building_blocks}-{sampling_id}'
-        # Make directories to output matched fragment PDB files
-        # high_qual_match for fragments that were matched with z values <= 1, otherwise, low_qual_match
-        matching_fragments_dir = os.path.join(tx_dir, frag_dir)
-        os.makedirs(matching_fragments_dir, exist_ok=True)
-        # high_quality_matches_dir = os.path.join(matching_fragments_dir, 'high_qual_match')
-        # low_quality_matches_dir = os.path.join(matching_fragments_dir, 'low_qual_match')
-
-        if sequence_design:
-            pose.design_sequence()
-        # Write ASU, Model1, Model2, and assembly files
+        # if sequence_design:
+        #     pose.design_sequence()
+        # Set the ASU, then write to a file
         pose.set_contacting_asu(distance=cb_distance)
         if sym_entry.unit_cell:  # 2, 3 dimensions
             # asu = get_central_asu(asu, uc_dimensions, sym_entry.dimension)
             cryst_record = generate_cryst1_record(uc_dimensions, sym_entry.resulting_symmetry)
         else:
             cryst_record = None
-        pose.write(out_path=os.path.join(tx_dir, asu_file_name), header=cryst_record)
+        pose.write(out_path=os.path.join(out_path, asu_file_name), header=cryst_record)
 
         # Todo group by input model... not entities
+        # Write Model1, Model2
         if job.write_oligomers:
             for entity in pose.entities:
-                entity.write_oligomer(out_path=os.path.join(tx_dir, f'{entity.name}_{sampling_id}.pdb'))
+                entity.write_oligomer(out_path=os.path.join(out_path, f'{entity.name}_{sampling_id}.pdb'))
 
+        # Write assembly files
         if job.output_assembly:
             if sym_entry.unit_cell:  # 2, 3 dimensions
                 if job.output_surrounding_uc:
-                    assembly_path = os.path.join(tx_dir, 'surrounding_unit_cells.pdb')
+                    assembly_path = os.path.join(out_path, 'surrounding_unit_cells.pdb')
                 else:
-                    assembly_path = os.path.join(tx_dir, 'central_uc.pdb')
+                    assembly_path = os.path.join(out_path, 'central_uc.pdb')
             else:  # 0 dimension
-                assembly_path = os.path.join(tx_dir, 'expanded_assembly.pdb')
+                assembly_path = os.path.join(out_path, 'expanded_assembly.pdb')
             pose.write(assembly=True, out_path=assembly_path, header=cryst_record,
                        surrounding_uc=job.output_surrounding_uc)
-        log.info(f'\tSUCCESSFUL DOCKED POSE: {tx_dir}')
+
+        # Write fragment files
+        if job.write_fragments:
+            # Make directories to output matched fragment files
+            matching_fragments_dir = os.path.join(out_path, frag_dir)
+            os.makedirs(matching_fragments_dir, exist_ok=True)
+            # high_qual_match for fragments that were matched with z values <= 1, otherwise, low_qual_match
+            # high_quality_matches_dir = os.path.join(matching_fragments_dir, 'high_qual_match')
+            # low_quality_matches_dir = os.path.join(matching_fragments_dir, 'low_qual_match')
+            pose.write_fragment_pairs(out_path=matching_fragments_dir)
 
         # Return the indices sorted by z_value in ascending order, truncated at the number of passing
         sorted_match_scores = match_score_from_z_value(sorted_z_scores)
@@ -2849,37 +2814,50 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
     # Next, expand successful poses from coarse search of transformational space to randomly perturbed offset
     # This occurs by perturbing the transformation by a random small amount to generate transformational diversity from
     # the already identified solutions.
-    if perturb_transformations:
-        # Delta parameters
-        internal_rot_perturb, internal_trans_perturb, external_trans_perturb = 1, 0.5, 0.5  # degrees, Angstroms, Angstroms
-        perturb_number = 100
-        grid_size = int(math.sqrt(perturb_number))  # Get the dimensions of the search
-        # internal_rotations = get_rot_matrices(internal_rot_perturb/grid_size, rot_range_deg=internal_rotation)
-        half_grid_range = int(grid_size/2)
-        step_degrees = internal_rot_perturb/grid_size
-        perturb_matrices = []
-        for step in range(-half_grid_range, half_grid_range):  # Range from -5 to 4(5) for example. 0 is identity matrix
-            rad = math.radians(step*step_degrees)
-            rad_s = math.sin(rad)
-            rad_c = math.cos(rad)
-            perturb_matrices.append([[rad_c, -rad_s, 0.], [rad_s, rad_c, 0.], [0., 0., 1.]])
+    if perturb_dofs:
+        # # Stack transformation operations up for individual multiplication
+        # Pack transformation operations up that are available to perturb and pass to function
+        specific_transformation1 = dict(rotation=full_rotation1,
+                                        translation=full_int_tx1,
+                                        # rotation2=set_mat1,
+                                        translation2=full_ext_tx1)
+        specific_transformation2 = dict(rotation=full_rotation2,
+                                        translation=full_int_tx2,
+                                        # rotation2=set_mat2,
+                                        translation2=full_ext_tx2)
+        # specific_transformations = \
+        transformation1, transformation2 = \
+            perturb_transformations(sym_entry, specific_transformation1, specific_transformation2)
+        # Extract transformation operations
+        full_rotation1 = transformation1['rotation']
+        full_int_tx1 = transformation1['translation']
+        # set_mat1 = transformation1['rotation2']
+        full_ext_tx1 = transformation1['translation2']
+        full_rotation2 = transformation2['rotation']
+        full_int_tx2 = transformation2['translation']
+        # set_mat2 = transformation2['rotation2']
+        full_ext_tx2 = transformation2['translation2']
 
-        perturb_matrices = np.array(perturb_matrices)
-        internal_translations = external_translations = \
-            np.linspace(-internal_trans_perturb, internal_trans_perturb, grid_size)
-        if sym_entry.unit_cell:
-            # Todo modify to search over 3 dof grid...
-            raise NotImplementedError(f'Perturbation for lattice symmetries isn\'t working')
-            external_translation_grid = np.repeat(external_translations, perturb_matrices.shape[0])
-            internal_z_translation_grid = np.repeat(internal_translations, perturb_matrices.shape[0])
-            internal_translation_grid = np.zeros((internal_z_translation_grid.shape[0], 3))
-            internal_translation_grid[:, 2] = internal_z_translation_grid
-            perturb_matrix_grid = np.tile(perturb_matrices, (internal_translations.shape[0], 1, 1))
-            # Todo
-            #  If the ext_tx are all 0 or not possible even if lattice, must not modify them. Need analogous check for
-            #  is_ext_dof()
-            full_ext_tx_perturb1 = full_ext_tx1[None, :, :] + external_translation_grid[:, None, :]
-            full_ext_tx_perturb2 = full_ext_tx2[None, :, :] + external_translation_grid[:, None, :]
+        # V1 below was working with commit 808eedcf
+        # # This will utilize a single input from each pose and create a sequence design batch over each transformation.
+        # for idx in range(full_rotation1.shape[0]):
+        #     update_pose_coords(idx)
+        #     batch_time_start = time.time()
+        #     sequences, scores, probabilities = perturb_transformation(idx)  # Todo , sequence_design=design_output)
+        #     print(sequences[:5])
+        #     print(scores[:5])
+        #     print(np.format_float_positional(np.float32(probabilities[0, 0, 0]), unique=False, precision=4))
+        #     print(probabilities[:5])
+        #     log.info(f'Batch design took {time.time() - batch_time_start:8f}s')
+        #     # Todo
+        #     #  coords = perturb_transformation(idx)  # Todo , sequence_design=design_output)
+
+    if design_output:
+        # Extract parameters to run ProteinMPNN design and modulate memory requirements
+        log.debug(f'The mpnn_model.device is: {mpnn_model.device}')
+        if mpnn_model.device == 'cpu':
+            mpnn_memory_constraint = psutil.virtual_memory().available
+            log.critical(f'The available cpu memory is: {mpnn_memory_constraint}')
         else:
             internal_z_translation_grid = np.repeat(internal_translations, perturb_matrices.shape[0])
             internal_translation_grid = np.zeros((internal_z_translation_grid.shape[0], 3))
