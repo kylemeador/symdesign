@@ -635,7 +635,7 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
     frag_dock_time_start = time.time()
     outlier = -1
     # Todo set below as parameters?
-    design_output = False
+    design_output = True
     design_temperature = 0.1
     mpnn_model = proteinmpnn_factory()  # Todo accept model_name arg. Now just use the default
     number_of_mpnn_model_parameters = sum([prod(param.size()) for param in mpnn_model.parameters()])
@@ -643,7 +643,7 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
     low_quality_match_value = .2  # sets the lower bounds on an acceptable match, was upper bound of 2 using z-score
     cb_distance = 9.  # change to 8.?
     # cluster_translations = True
-    perturb_transformations = True
+    perturb_dofs = True
     translation_epsilon = 1  # 0.75
     high_quality_z_value = z_value_from_match_score(high_quality_match_value)
     low_quality_z_value = z_value_from_match_score(low_quality_match_value)
