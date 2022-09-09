@@ -6123,7 +6123,7 @@ class Pose(SequenceProfile, SymmetricModel):
                       f'{len(entity2_indices)} CB residues in {sym_string}Entity {entity2.name}')
 
         coords_indexed_residues = self.coords_indexed_residues
-        # get the modulus of the number_of_atoms to account for symmetry if used
+        # Get the modulus of the number_of_atoms to account for symmetry if used
         number_of_atoms = self.number_of_atoms
         contacting_pairs = [(coords_indexed_residues[entity1_indices[entity1_idx]],
                              coords_indexed_residues[entity2_indices[entity2_idx] % number_of_atoms])
@@ -6206,8 +6206,8 @@ class Pose(SequenceProfile, SymmetricModel):
             try:
                 residues1, residues2 = self.interface_residues_by_entity_pair[(entity1, entity2)]
             except KeyError:
-                raise DesignError(f'{self.find_interface_atoms.__name__} can\'t access interface_residues as the Entity'
-                                  f' pair {entity1.name}, {entity2.name} hasn\'t located interface_residues')
+                raise DesignError(f"{self.find_interface_atoms.__name__} can't access interface_residues as the Entity"
+                                  f" pair {entity1.name}, {entity2.name} hasn't located interface_residues")
 
         if not residues1:
             return
@@ -6224,7 +6224,9 @@ class Pose(SequenceProfile, SymmetricModel):
                 entity2_indices.extend(residue.heavy_indices)
 
         if self.is_symmetric():  # get all symmetric indices for entity2
-            query_coords = self.symmetric_coords[self.get_symmetric_indices(entity2_indices)]
+            entity2_indices = self.get_symmetric_indices(entity2_indices)
+            # No need to remove oligomeric indices as this procedure was done for residues
+            query_coords = self.symmetric_coords[entity2_indices]
         else:
             query_coords = self.coords[entity2_indices]
 
