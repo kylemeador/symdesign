@@ -2832,8 +2832,11 @@ class PoseDirectory:
         # Calculate hydrophobic collapse for each design
         # for design in viable_designs:  # includes the pose_source
         # Include the pose_source in the measured designs
-        folding_and_collapse = calculate_collapse_metrics(self.pose, [pose for pose in [self.pose] + design_poses
-                                                                      if pose.name in viable_designs])
+        folding_and_collapse = calculate_collapse_metrics(self.pose,
+                                                          list(zip(*[list(design_sequences.values())
+                                                                     for design_sequences in entity_sequences])))
+        # folding_and_collapse = calculate_collapse_metrics(self.pose, [pose for pose in [self.pose] + design_poses
+        #                                                               if pose.name in viable_designs])
         # # Measure the wild type (reference) entity versus modified entity(ies) to find the hci delta
         # # Calculate Reference sequence statistics
         # entity_collapse_mean, entity_collapse_std, reference_collapse_bool, reference_collapse_z_score = [], [], [], []
