@@ -3005,7 +3005,7 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
                         # Format the bb coords for ProteinMPNN with reshape
                         # new_coords.append(pose.bb_coords.reshape((-1, 4, 3)))  # -1 axis should == pose.number_of_residues
                         # new_coords[idx] = pose.bb_coords.reshape((-1, 4, 3))  # -1 axis should == pose.number_of_residues
-                        new_coords[idx] = pose.bb_coords
+                        new_coords[idx] = pose.backbone_coords
 
                         design_residues = []  # Add all interface residues
                         for number, residues_entities in pose.split_interface_residues.items():
