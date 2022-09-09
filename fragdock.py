@@ -2984,7 +2984,9 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
 
                 # Gather the coordinates according to the transformations identified
                 for batch in range(number_of_batches):
+                    # For the final batch which may have fewer inputs
                     batch_slice = slice(batch*batch_length, min((batch+1) * batch_length, size))
+                    actual_batch_length = batch_slice.stop-batch_slice.start
                     # # Get the transformations based on slices of batch_length
                     # # Stack each local perturbation up and multiply individual entity coords
                     # transformation1 = dict(rotation=full_rotation1[batch_slice],
@@ -3020,42 +3022,42 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
 
                     # Initialize pose data structures for interface design
                     zero_offset = 1
-                    residue_mask = np.zeros((batch_length, pose_length),
+                    residue_mask = np.zeros((actual_batch_length, pose_length),
                                             dtype=np.int32)
                     # Utilize bias in design
-                    bias_by_res = np.zeros((batch_length, pose_length, 21),
+                    bias_by_res = np.zeros((actual_batch_length, pose_length, 21),
                                            dtype=np.float32)  # (number_of_residues, alphabet_length)
-                    # Use idx to set new numpy arrays, transform_idx to set coords
+                    # Use batch_idx to set new numpy arrays, perturb_idx to set coords
                     # new_coords = []
                     # Each residue will have 4 bb_coords, we will reshape to ProteinMPNN later
-                    new_coords = np.zeros((batch_length, pose_length*4, 3),  # 4, 3)
+                    new_coords = np.zeros((actual_batch_length, pose_length*4, 3),  # 4, 3)
                                           dtype=np.float32)
-                    for transform_idx in range(batch_slice.start, batch_slice.stop):
+                    for batch_idx, transform_idx in enumerate(range(batch_slice.start, batch_slice.stop)):
                         update_pose_coords(transform_idx)
 
                         # Todo replace with PoseDirectory? Path object?
-                        idx = int(transform_idx//number_of_perturbations)
+                        fragment_idx = int(transform_idx//number_of_perturbations)
                         # temp indexing on degen and rot counts
                         # degen1_count, degen2_count = degen_counts[idx]
                         # rot1_count, rot2_count = rot_counts[idx]
                         # temp indexing on degen and rot counts
-                        degen_str = 'DEGEN_{}'.format('_'.join(map(str, degen_counts[idx])))
-                        rot_str = 'ROT_{}'.format('_'.join(map(str, rot_counts[idx])))
-                        tx_str = f'TX_{tx_counts[idx]}'  # translation idx
+                        degen_str = 'DEGEN_{}'.format('_'.join(map(str, degen_counts[fragment_idx])))
+                        rot_str = 'ROT_{}'.format('_'.join(map(str, rot_counts[fragment_idx])))
+                        tx_str = f'TX_{tx_counts[fragment_idx]}'  # translation idx
                         pt_str = f'PT_{int(transform_idx%number_of_perturbations) + 1}'
-                        # degen_subdir_out_path = os.path.join(outdir, degen_str)
-                        # rot_subdir_out_path = os.path.join(degen_subdir_out_path, rot_str)
                         tx_dir = os.path.join(outdir, degen_str, rot_str, tx_str.lower(), pt_str)
                         sampling_id = f'{degen_str}-{rot_str}-{tx_str}-{pt_str}'
                         pose_id = f'{building_blocks}-{sampling_id}'
 
                         # Load the z-scores and fragments for use in gather_pose_metrics()
                         # pose.find_and_split_interface()  # Now done in gather_pose_metrics()
-                        # overlap_surf = all_passing_surf_indices[idx]
-                        # sorted_z_scores = all_passing_z_scores[idx]
                         _per_residue_data, _interface_metrics, _interface_local_density = \
-                            gather_pose_metrics(overlap_ghosts, all_passing_surf_indices[idx],
-                                                all_passing_z_scores[idx])
+                            gather_pose_metrics(all_passing_ghost_indices[fragment_idx],
+                                                all_passing_surf_indices[fragment_idx],
+                                                all_passing_z_scores[fragment_idx])
+                        # # Alternatively, calculate these fresh from the new pose
+                        # _per_residue_data, _interface_metrics, _interface_local_density = \
+                        #     gather_pose_metrics()
 
                         pose_ids.append(pose_id)
                         per_residue_data[pose_id] = _per_residue_data
@@ -3066,18 +3068,18 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
 
                         # Format the bb coords for ProteinMPNN with reshape
                         # new_coords.append(pose.bb_coords.reshape((-1, 4, 3)))  # -1 axis should == pose_length
-                        # new_coords[idx] = pose.bb_coords.reshape((-1, 4, 3))  # -1 axis should == pose_length
-                        new_coords[idx] = pose.backbone_coords
+                        # new_coords[batch_idx] = pose.bb_coords.reshape((-1, 4, 3))  # -1 axis should == pose_length
+                        new_coords[batch_idx] = pose.backbone_coords
 
                         design_residues = []  # Add all interface residues
                         for number, residues_entities in pose.split_interface_residues.items():
                             design_residues.extend([residue.number-zero_offset for residue, _ in residues_entities])
 
-                        residue_mask[idx, design_residues] = 1
+                        residue_mask[batch_idx, design_residues] = 1
                         # Todo Should I use this?
-                        #  bias_by_res[idx] = pose.fragment_profile
+                        #  bias_by_res[batch_idx] = pose.fragment_profile
                         #  OR
-                        #  bias_by_res[idx, fragment_residues] = pose.fragment_profile[fragment_residues]
+                        #  bias_by_res[batch_idx, fragment_residues] = pose.fragment_profile[fragment_residues]
 
                     # If entity_bb_coords are individually transformed, then axis=0 works
                     perturbed_bb_coords = np.concatenate(new_coords, axis=0)
@@ -3103,8 +3105,6 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
                     #     # If entity_bb_coords are individually transformed, then axis=0 works
                     #     perturbed_bb_coords = np.concatenate(new_coords, axis=0)
 
-                    # For the final batch which may have fewer inputs
-                    actual_batch_length = batch_slice.stop-batch_slice.start
                     log.debug(f'perturbed_bb_coords.shape: {perturbed_bb_coords.shape}')
                     X = perturbed_bb_coords.reshape((actual_batch_length, -1, 4, 3))
                     log.debug(f'X.shape: {X.shape}')
@@ -3322,7 +3322,6 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
     residue_indices = list(range(1, pose_length+1))
     per_residue_df = pd.concat({name: pd.DataFrame(data, index=residue_indices)
                                 for name, data in per_residue_data.items()}).unstack().swaplevel(0, 1, axis=1)
-
     source_errat = []
     for idx, entity in enumerate(pose.entities):
         # Replace 'errat_deviation' measurement with uncomplexed entities
@@ -3330,8 +3329,8 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
         # source_errat_accuracy.append(oligomer_errat_accuracy)
         # Todo when Entity.oligomer works
         #  _, oligomeric_errat = entity.oligomer.errat(out_path=self.data)
-        entity_oligomer = Model.from_chains(entity.chains, log=self.log, entities=False)
-        _, oligomeric_errat = entity_oligomer.errat(out_path=self.data)
+        entity_oligomer = Model.from_chains(entity.chains, log=log, entities=False)
+        _, oligomeric_errat = entity_oligomer.errat(out_path=os.devnull)
         source_errat.append(oligomeric_errat[:entity.number_of_residues])
     # atomic_deviation[pose_source] = sum(source_errat_accuracy) / float(number_of_entities)
     pose_source_errat_s = pd.Series(np.concatenate(source_errat), index=residue_indices)
