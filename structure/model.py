@@ -5873,11 +5873,12 @@ class Pose(SequenceProfile, SymmetricModel):
         metrics['entity_minimum_radius'] = minimum_radius
         metrics['entity_maximum_radius'] = maximum_radius
         metrics['entity_residue_length_total'] = \
-            sum(metrics[f'entity_{idx + 1}_number_of_residues'] for idx in range(self.pose.number_of_entities))
+            sum(metrics[f'entity_{idx + 1}_number_of_residues'] for idx in range(self.number_of_entities))
 
         radius_ratio_sum, min_ratio_sum, max_ratio_sum, residue_ratio_sum = 0, 0, 0, 0
-        for counter, (entity_idx1, entity_idx2) in enumerate(combinations(range(1, self.pose.number_of_entities + 1),
-                                                                          2), 1):
+        counter = 1
+        for counter, (entity_idx1, entity_idx2) in enumerate(combinations(range(1, self.number_of_entities + 1),
+                                                                          2), counter):
             radius_ratio = metrics[f'entity_{entity_idx1}_radius'] / metrics[f'entity_{entity_idx2}_radius']
             min_ratio = metrics[f'entity_{entity_idx1}_min_radius'] / metrics[f'entity_{entity_idx2}_min_radius']
             max_ratio = metrics[f'entity_{entity_idx1}_max_radius'] / metrics[f'entity_{entity_idx2}_max_radius']
@@ -5891,10 +5892,10 @@ class Pose(SequenceProfile, SymmetricModel):
                             f'entity_min_radius_ratio_{entity_idx1}v{entity_idx2}': min_ratio,
                             f'entity_max_radius_ratio_{entity_idx1}v{entity_idx2}': max_ratio,
                             f'entity_number_of_residues_ratio_{entity_idx1}v{entity_idx2}': residue_ratio})
-        metrics.update({'entity_radius_average_deviation': radius_ratio_sum / counter,
-                        'entity_min_radius_average_deviation': min_ratio_sum / counter,
-                        'entity_max_radius_average_deviation': max_ratio_sum / counter,
-                        'entity_number_of_residues_average_deviation': residue_ratio_sum / counter})
+        metrics.update({'entity_radius_average_deviation': radius_ratio_sum/counter,
+                        'entity_min_radius_average_deviation': min_ratio_sum/counter,
+                        'entity_max_radius_average_deviation': max_ratio_sum/counter,
+                        'entity_number_of_residues_average_deviation': residue_ratio_sum/counter})
         return metrics
 
     def get_interface(self, distance: float = 8.) -> Structure:
