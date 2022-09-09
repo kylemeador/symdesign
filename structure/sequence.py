@@ -33,7 +33,8 @@ alignment_types_literal = Literal['mapped', 'paired']
 alignment_types: tuple[alignment_types_literal, ...] = get_args(alignment_types_literal)
 sequence_type_literal = Literal['reference', 'structure']
 sequence_types: tuple[sequence_type_literal, ...] = get_args(sequence_type_literal)
-alph_3_aa: tuple[info.protein_letter_literal, ...] = get_args(info.protein_letter_literal)
+_alph_3_aa: tuple[info.protein_letters3_literal, ...] = get_args(info.protein_letters3_literal)
+alph_3_aa = ''.join(_alph_3_aa)
 protein_letter_plus_literals = Literal['A', 'R', 'N', 'D', 'C', 'Q', 'E', 'G', 'H', 'I', 'L', 'K', 'M', 'F', 'P', 'S',
                                        'T', 'W', 'Y', 'V', 'lod', 'type', 'info', 'weight']
 aa_counts = dict(zip(protein_letters, repeat(0)))
@@ -44,14 +45,26 @@ subs_matrices = {'BLOSUM62': substitution_matrices.load('BLOSUM62')}
 
 protein_letters_1aa_literal = Literal[tuple(protein_letters)]
 # protein_letters_literal: tuple[str, ...] = get_args(protein_letters_1aa_literal)
-gapped_protein_letters = protein_letters + '-'  # Todo should use 'X' as gap and unknown?
+protein_letters_unknown = protein_letters + 'X'
+protein_letters3_unknown = alph_3_aa + 'X'
+protein_letters_gapped = protein_letters + '-'
+protein_letters3_gapped = alph_3_aa + '-'
+protein_letters_unknown_gapped = protein_letters + 'X-'
+protein_letters_unknown_gapped3 = alph_3_aa + 'X-'
 # numerical_translation = dict(zip(protein_letters, range(len(protein_letters))))
 numerical_translation_bytes = defaultdict(lambda: 20, zip([item.encode() for item in protein_letters],
                                                           range(len(protein_letters))))
+numerical_translation_bytes3 = defaultdict(lambda: 20, zip([item.encode() for item in alph_3_aa],
+                                                           range(len(alph_3_aa))))
 numeric_to_sequence_translation = defaultdict(lambda: '-', zip(range(len(protein_letters)), protein_letters))
-gapped_numerical_translation = defaultdict(lambda: 20, zip(gapped_protein_letters, range(len(gapped_protein_letters))))
-gapped_numerical_translation_bytes = defaultdict(lambda: 20, zip([item.encode() for item in gapped_protein_letters],
-                                                                 range(len(gapped_protein_letters))))
+numeric_to_sequence_translation3 = defaultdict(lambda: '-', zip(range(len(alph_3_aa)), alph_3_aa))
+gapped_numerical_translation = defaultdict(lambda: 20, zip(protein_letters_gapped, range(len(protein_letters_gapped))))
+gapped_numerical_translation3 = defaultdict(lambda: 20, zip(protein_letters3_gapped,
+                                                            range(len(protein_letters3_gapped))))
+gapped_numerical_translation_bytes = defaultdict(lambda: 20, zip([item.encode() for item in protein_letters_gapped],
+                                                                 range(len(protein_letters_gapped))))
+gapped_numerical_translation_bytes3 = defaultdict(lambda: 20, zip([item.encode() for item in protein_letters3_gapped],
+                                                                  range(len(protein_letters3_gapped))))
 extended_protein_letters_literal = Literal[tuple(extended_protein_letters)]
 # extended_protein_letters: tuple[str, ...] = get_args(extended_protein_letters_literal)
 extended_protein_letters_and_gap_literal = Literal['-', get_args(extended_protein_letters_literal)]
@@ -76,7 +89,7 @@ class MultipleSequenceAlignment:
     counts: list[list[int]] | np.ndarray
 
     def __init__(self, alignment: MultipleSeqAlignment = None, aligned_sequence: str = None,
-                 alphabet: str = gapped_protein_letters,
+                 alphabet: str = protein_letters_gapped,
                  weight_alignment_by_sequence: bool = False, sequence_weights: list[float] = None,
                  count_gaps: bool = False, **kwargs):
         """Take a Biopython MultipleSeqAlignment object and process for residue specific information. One-indexed
@@ -173,7 +186,7 @@ class MultipleSequenceAlignment:
                 print('OLD sequence_weight self._counts', self._counts)
 
                 # add each sequence weight to the indices indicated by the numerical_alignment
-                self.counts = np.zeros((self.length, len(gapped_protein_letters)))
+                self.counts = np.zeros((self.length, len(protein_letters_gapped)))
                 for idx in range(self.number_of_sequences):
                     self.counts[:, numerical_alignment[idx]] += sequence_weights[idx]
                 print('sequence_weight self.counts', self.counts)
@@ -1635,8 +1648,8 @@ class SequenceProfile:
         return {residue: {character: dtype() for character in alphabet} for residue in range(offset, n + offset)}
 
     @staticmethod
-    def get_lod(aa_freqs: dict[info.protein_letter_literal, float],
-                background: dict[info.protein_letter_literal, float],
+    def get_lod(aa_freqs: dict[info.protein_letters3_literal, float],
+                background: dict[info.protein_letters3_literal, float],
                 round_lod: bool = True) -> dict[str, int]:
         """Get the log of the odds that an amino acid is in a frequency distribution compared to a background frequency
 

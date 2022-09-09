@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import math
 import os
-import subprocess
 import sys
 import time
 from collections.abc import Iterable
@@ -10,12 +9,14 @@ from logging import Logger
 from math import prod, ceil
 from typing import AnyStr
 
+import pandas as pd
 import numpy as np
 import psutil
 import torch
 from sklearn.cluster import DBSCAN
 from sklearn.neighbors import BallTree
 
+from metrics import errat_1_sigma, errat_2_sigma
 from resources.job import job_resources_factory, JobResources
 from resources.ml import proteinmpnn_factory, batch_proteinmpnn_input, mpnn_alphabet, score_sequences, \
     proteinmpnn_to_device
@@ -3235,12 +3236,27 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
         log.info(f'Design with ProteinMPNN took {time.time() - proteinmpnn_time_start:8f}')
 
         sequences = numeric_to_sequence(generated_sequences)
+        # Truncate the sequences to the ASU
+        if pose.is_symmetric():
+            sequences = sequences[:, :pose_length]
+
         # Save each pose information
         for idx, pose_id in enumerate(pose_ids):
             all_sequences[pose_id] = sequences[idx]
             all_scores[pose_id] = scores[idx]
             all_probabilities[pose_id] = probabilities[idx]
 
+        all_sequences_split = []
+        for entity in pose.entities:
+            entity_slice = slice(entity.n_terminal_residue.number-1, entity.c_terminal_residue.number-1)
+            all_sequences_split.append(sequences[:, entity_slice].tolist())
+
+        all_sequences_split
+        # Todo ensure that this is performed correctly and that msa is loaded upon docking initialization
+        # Calculate hydrophobic collapse for each design
+        # Include the pose as the pose_source in the measured designs
+        folding_and_collapse = calculate_collapse_metrics(pose, all_sequences_split)
+        pose_collapse_df = DataFrame(folding_and_collapse).T
     else:
         # Only get metrics for pose, no sequences
         for idx, overlap_ghosts in enumerate(all_passing_ghost_indices):
@@ -3296,13 +3312,8 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
     scores_df['interface_local_density'] = pd.Series(interface_local_density)
 
     residue_indices = list(range(1, pose_length+1))
-    per_residue_df = concat({name: pd.DataFrame(data, index=residue_indices)
-                             for name, data in per_residue_data.items()}).unstack().swaplevel(0, 1, axis=1)
-    # Todo ensure that this is performed correctly and that msa is loaded upon docking initialization
-    # Calculate hydrophobic collapse for each design
-    # Include the pose as the pose_source in the measured designs
-    folding_and_collapse = calculate_collapse_metrics(pose, [_pose for _pose in [pose] + design_poses])
-    pose_collapse_df = DataFrame(folding_and_collapse).T
+    per_residue_df = pd.concat({name: pd.DataFrame(data, index=residue_indices)
+                                for name, data in per_residue_data.items()}).unstack().swaplevel(0, 1, axis=1)
 
     source_errat = []
     for idx, entity in enumerate(pose.entities):
@@ -3323,7 +3334,7 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
     # find where designs deviate above wild-type errat scores
     errat_sig_df = (errat_df.sub(pose_source_errat_s, axis=1)) > errat_1_sigma  # axis=1 Series is column oriented
     # then select only those residues which are expressly important by the inclusion boolean
-    pose_collapse_df['errat_deviation'] = (errat_sig_df.loc[:, source_errat_inclusion_boolean] * 1).sum(axis=1)
+    scores_df['errat_deviation'] = (errat_sig_df.loc[:, source_errat_inclusion_boolean] * 1).sum(axis=1)
 
     log.info(f'Total {building_block} dock trajectory took {time.time() - frag_dock_time_start:.2f}s')
 

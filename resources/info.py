@@ -11,8 +11,13 @@ from utils import start_log, unpickle, get_base_root_paths_recursively, DesignEr
 from utils.sql import Mysql
 
 logger = start_log(name=__name__)
-protein_letter_literal = \
+protein_letters3_literal = \
     Literal['A', 'R', 'N', 'D', 'C', 'Q', 'E', 'G', 'H', 'I', 'L', 'K', 'M', 'F', 'P', 'S', 'T', 'W', 'Y', 'V']
+protein_letters3_literal_gapped = \
+    Literal['A', 'R', 'N', 'D', 'C', 'Q', 'E', 'G', 'H', 'I', 'L', 'K', 'M', 'F', 'P', 'S', 'T', 'W', 'Y', 'V', '-']
+protein_letters3_literal_unknown_gapped = \
+    Literal['A', 'R', 'N', 'D', 'C', 'Q', 'E', 'G', 'H', 'I', 'L', 'K', 'M', 'F', 'P', 'S', 'T', 'W', 'Y', 'V',
+            'X', '-']
 
 
 class FragmentInfo:
@@ -80,7 +85,7 @@ class FragmentInfo:
         return self.statistics.get('frequencies', {})
 
     def retrieve_cluster_info(self, cluster: str = None, source: str = None, index: str = None) -> \
-            dict[str, int | float | str | dict[int, dict[protein_letter_literal | str, float | tuple[int, float]]]]:
+            dict[str, int | float | str | dict[int, dict[protein_letters3_literal | str, float | tuple[int, float]]]]:
         # Todo rework this and below func for Database
         """Return information from the fragment information database by cluster_id, information source, and source index
 

@@ -29,7 +29,7 @@ from resources.query.pdb import retrieve_entity_id_by_sequence, query_pdb_by, ge
     is_entity_thermophilic
 from resources.query.uniprot import is_uniprot_thermophilic
 from structure.sequence import SequenceProfile, alignment_types, generate_alignment, get_equivalent_indices, \
-    pssm_as_array, gapped_protein_letters, generate_mutations
+    pssm_as_array, protein_letters_gapped, generate_mutations
 from structure.base import Structure, Structures, Residue, Residues, StructureBase, ContainsAtomsMixin, atom_or_residue
 from structure.coords import Coords, superposition3d, transform_coordinate_sets
 from structure.fragment import GhostFragment, Fragment, write_frag_match_info_file
@@ -44,7 +44,7 @@ from utils.symmetry import valid_subunit_number, layer_group_cryst1_fmt_dict, \
     origin, flip_x_matrix, identity_matrix, valid_symmetries, multicomponent_valid_subunit_number, cubic_point_groups
 
 # Globals
-mpnn_alphabet_length = len(gapped_protein_letters)  # 21
+mpnn_alphabet_length = len(protein_letters_gapped)  # 21
 logger = start_log(name=__name__)
 index_offset = 1
 seq_res_len = 52
