@@ -2476,7 +2476,7 @@ class PoseDirectory:
 
         # Assumes each structure is the same length
         pose_length = self.pose.number_of_residues
-        residue_indices = list(range(1, pose_length + 1))
+        residue_indices = list(range(1, pose_length+1))
         pose_sequences = {pose_source: self.pose.sequence}
         # Todo implement reference sequence from included file(s) or as with self.pose.sequence below
         pose_sequences.update({PUtils.reference_name: self.pose.sequence})
