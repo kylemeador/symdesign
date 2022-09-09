@@ -482,6 +482,118 @@ def compute_ij_type_lookup(indices1: np.ndarray | Iterable | int | float,
     return np.where(indices1_repeated == indices2_tiled, True, False).reshape(len(indices1), -1)
 
 
+def perturb_transformations(sym_entry: SymEntry,
+                            transformation1: dict[str, np.ndarray],
+                            transformation2: dict[str, np.ndarray]) -> \
+        tuple[dict[str, np.ndarray], dict[str, np.ndarray]]:
+    # Delta parameters
+    internal_rot_perturb, internal_trans_perturb, external_trans_perturb = 1, 0.5, 0.5  # degrees, Angstroms, Angstroms
+    perturb_number = 100
+
+    grid_size = int(math.sqrt(perturb_number))  # Get the dimensions of the search
+    # internal_rotations = get_rot_matrices(internal_rot_perturb/grid_size, rot_range_deg=internal_rotation)
+    half_grid_range = int(grid_size / 2)
+    step_degrees = internal_rot_perturb / grid_size
+    perturb_matrices = []
+    for step in range(-half_grid_range, half_grid_range):  # Range from -5 to 4(5) for example. 0 is identity matrix
+        rad = math.radians(step * step_degrees)
+        rad_s = math.sin(rad)
+        rad_c = math.cos(rad)
+        # Perform rotational perturbation on z-axis
+        perturb_matrices.append([[rad_c, -rad_s, 0.], [rad_s, rad_c, 0.], [0., 0., 1.]])
+
+    perturb_matrices = np.array(perturb_matrices)
+    internal_translations = external_translations = \
+        np.linspace(-internal_trans_perturb, internal_trans_perturb, grid_size)
+    if sym_entry.unit_cell:
+        # Todo modify to search over 3 dof grid...
+        raise NotImplementedError(f"{perturb_transformations.__name__} isn't working for lattice symmetries")
+        external_translation_grid = np.repeat(external_translations, perturb_matrices.shape[0])
+        internal_z_translation_grid = np.repeat(internal_translations, perturb_matrices.shape[0])
+        internal_translation_grid = np.zeros((internal_z_translation_grid.shape[0], 3))
+        internal_translation_grid[:, 2] = internal_z_translation_grid
+        perturb_matrix_grid = np.tile(perturb_matrices, (internal_translations.shape[0], 1, 1))
+        # Todo
+        #  If the ext_tx are all 0 or not possible even if lattice, must not modify them. Need analogous check for
+        #  is_ext_dof()
+        full_ext_tx_perturb1 = full_ext_tx1[:, None, :] + external_translation_grid[None, :, :]
+        full_ext_tx_perturb2 = full_ext_tx2[:, None, :] + external_translation_grid[None, :, :]
+    else:
+        internal_z_translation_grid = np.repeat(internal_translations, perturb_matrices.shape[0])
+        internal_translation_grid = np.zeros((internal_z_translation_grid.shape[0], 3))
+        internal_translation_grid[:, 2] = internal_z_translation_grid
+        perturb_matrix_grid = np.tile(perturb_matrices, (internal_translations.shape[0], 1, 1))
+        full_ext_tx_perturb1 = full_ext_tx_perturb2 = [None for _ in range(perturb_matrix_grid.shape[0])]
+
+    # Extract the transformations
+    full_rotation1 = transformation1['rotation']
+    full_int_tx1 = transformation1['translation']
+    # set_mat1 = transformation1['rotation2']
+    # Todo add full_ext_tx1 with above 3 dof search
+    full_ext_tx1 = transformation1['translation2']
+    full_rotation2 = transformation2['rotation']
+    full_int_tx2 = transformation2['translation']
+    # set_mat2 = transformation2['rotation2']
+    full_ext_tx2 = transformation2['translation2']
+
+    # Apply the full perturbation landscape to the degrees of freedom
+    # These operations add an axis to the transformation operators
+    # Each transformation is along axis=0 and the perturbations are along axis=1
+    if sym_entry.is_internal_rot1:
+        # Ensure that the second matrix is transposed to dot multiply row s(mat1) by columns (mat2)
+        full_rotation_perturb1 = np.matmul(full_rotation1[:, None, :, :],
+                                           perturb_matrix_grid[None, :, :, :].swapaxes(-1, -2))
+    else:  # Todo ensure that identity matrix is the length of internal_translation_grid
+        full_rotation_perturb1 = np.matmul(full_rotation1[:, None, :, :], identity_matrix[None, None, :, :])
+
+    if sym_entry.is_internal_rot2:
+        full_rotation_perturb2 = np.matmul(full_rotation2[:, None, :, :],
+                                           perturb_matrix_grid[None, :, :, :].swapaxes(-1, -2))
+    else:
+        full_rotation_perturb2 = np.matmul(full_rotation2[:, None, :, :], identity_matrix[None, None, :, :])
+
+    # origin = np.array([0., 0., 0.])
+    if sym_entry.is_internal_tx1:  # add the translation to Z (axis=2)
+        full_int_tx_perturb1 = full_int_tx1[:, None, :] + internal_translation_grid[None, :, :]
+    else:
+        # full_int_tx1 is empty and adds the origin repeatedly.
+        full_int_tx_perturb1 = full_int_tx1[:, None, :]  # + origin[None, None, :]
+
+    if sym_entry.is_internal_tx2:
+        full_int_tx_perturb2 = full_int_tx2[:, None, :] + internal_translation_grid[None, :, :]
+    else:
+        full_int_tx_perturb2 = full_int_tx2[:, None, :]  # + origin[None, None, :]
+
+    log.info(f'internal_tx 1 shape: {full_int_tx_perturb1.shape}')
+    log.info(f'internal_tx 2 shape: {full_int_tx_perturb2.shape}')
+
+    # Reduce the expanded axis 0 and 1 to a single axis, axis=0 for all perturbations
+    full_rotation1 = full_rotation_perturb1.reshape((-1, 3, 3))
+    full_rotation2 = full_rotation_perturb2.reshape((-1, 3, 3))
+    full_int_tx1 = full_int_tx_perturb1.reshape((-1, 1, 3))
+    full_int_tx2 = full_int_tx_perturb2.reshape((-1, 1, 3))
+    if sym_entry.unit_cell:
+        full_ext_tx1 = full_ext_tx_perturb1.reshape((-1, 1, 3))
+        full_ext_tx2 = full_ext_tx_perturb2.reshape((-1, 1, 3))
+        # asu.space_group = sym_entry.resulting_symmetry
+        uc_dimensions = full_uc_dimensions[idx]
+    else:
+        full_ext_tx1, full_ext_tx2 = None, None
+        uc_dimensions = None
+
+    # Stack perturbation operations (might be perturbed) up for individual multiplication
+    specific_transformation1 = dict(rotation=full_rotation1,
+                                    translation=full_int_tx1,
+                                    # rotation2=set_mat1,
+                                    translation2=full_ext_tx1)
+    specific_transformation2 = dict(rotation=full_rotation2,
+                                    translation=full_int_tx2,
+                                    # rotation2=set_mat2,
+                                    translation2=full_ext_tx2)
+
+    return specific_transformation1, specific_transformation2  # specific_transformations
+
+
 def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure | AnyStr, model2: Structure | AnyStr,
                    rotation_step1: float = 3., rotation_step2: float = 3., min_matched: int = 3,
                    high_quality_match_value: float = .5, initial_z_value: float = 1., log: Logger = logger,
@@ -1615,202 +1727,232 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
         # # Check if design has any clashes when expanded
         # return pose.symmetric_assembly_is_clash()
 
-    def perturb_transformation(idx, sequence_design: bool = True):
-        # Stack each local perturbation up and multiply individual entity coords
-        specific_transformation1 = dict(rotation=full_rotation_perturb1[idx], translation=full_int_tx_perturb1[idx, :, None, :],
-                                        rotation2=set_mat1, translation2=full_ext_tx_perturb1[idx])  # [:, None, :])
-        # Todo set up translation2 correct to handle None
-        specific_transformation2 = dict(rotation=full_rotation_perturb2[idx], translation=full_int_tx_perturb2[idx, :, None, :],
-                                        rotation2=set_mat2, translation2=full_ext_tx_perturb2[idx])  # [:, None, :])
-        specific_transformations = [specific_transformation1, specific_transformation2]
-
-        # Get batch size
-        number_of_perturbations = full_rotation_perturb1[idx].shape[0]
-
-        # Todo move this outside to own function?
-        if sequence_design:
-            new_coords = []
-            for entity_idx, entity in enumerate(pose.entities):
-                # Todo Need to tile the entity_bb_coords if operating like this
-                # perturbed_bb_coords = transform_coordinate_sets(entity_bb_coords[entity_idx],
-                #                                              **specific_transformations[transform_indices[entity_idx]])
-                new_coords.append(transform_coordinate_sets(entity_bb_coords[entity_idx],
-                                                            **specific_transformations[transform_indices[entity_idx]]))
-            # Todo test this
-            #  Stack the entity coordinates to make up a contiguous block for each pose
-            #  If entity_bb_coords are stacked, then must concatenate along axis=1 or =2 to get full pose
-            #  If entity_bb_coords aren't stacked (individually transformed), then axis=0 will work
-            log.debug(f'new_coords.shape: {tuple([coords.shape for coords in new_coords])}')
-            perturbed_bb_coords = np.concatenate(new_coords, axis=1)
-            log.debug(f'perturbed_bb_coords.shape: {perturbed_bb_coords.shape}')
-
-            # Make each set of coordinates "symmetric"
-            # Todo - This uses starting coords to symmetrize... Crystalline won't be right with external_translation
-            symmetric_bb_coords = []
-            for idx in range(perturbed_bb_coords.shape[0]):
-                symmetric_bb_coords.append(pose.return_symmetric_coords(perturbed_bb_coords[idx]))
-
-            # Let -1 fill in the pose length dimension with the number of residues
-            # 4 is shape of backbone coords (N, Ca, C, O), 3 is x,y,z
-            # X = perturbed_bb_coords.reshape((number_of_perturbations, -1, 4, 3))
-            symmetric_bb_coords = np.concatenate(symmetric_bb_coords)
-            X = symmetric_bb_coords.reshape((number_of_perturbations, -1, 4, 3))
-            log.debug(f'X.shape: {X.shape}')
-            # Todo
-            #  return X
-
-        # def proteinmpnn_perturb_design(pose, X, model_name):  # Todo Make this pose compatible?
-        #     mpnn_model = proteinmpnn_factory(model_name)
-            # Design sequences
-            parameters = pose.get_proteinmpnn_params()
-            # # Disregard the X return (which would be used in the Pose) and use the stacked X from above
-            parameters['X'] = X
-            # Ensure no gradients are produced
-            with torch.no_grad():
-                # Create batches for ProteinMPNN sequence design task
-                # Without keyword argument "size=", X will be used to determine size of batch_parameters
-                parameters.update(**batch_proteinmpnn_input(**parameters))
-                parameters.update(proteinmpnn_to_device(mpnn_model.device, **parameters))
-
-                X = parameters.get('X', None)
-                S = parameters.get('S', None)
-                chain_mask = parameters.get('chain_mask', None)
-                chain_encoding = parameters.get('chain_encoding', None)
-                residue_idx = parameters.get('residue_idx', None)
-                mask = parameters.get('mask', None)
-                omit_AAs_np = parameters.get('omit_AAs_np', None)
-                bias_AAs_np = parameters.get('bias_AAs_np', None)
-                residue_mask = parameters.get('chain_M_pos', None)
-                omit_AA_mask = parameters.get('omit_AA_mask', None)
-                pssm_coef = parameters.get('pssm_coef', None)
-                pssm_bias = parameters.get('pssm_bias', None)
-                pssm_multi = parameters.get('pssm_multi', None)
-                pssm_log_odds_flag = parameters.get('pssm_log_odds_flag', None)
-                pssm_log_odds_mask = parameters.get('pssm_log_odds_mask', None)
-                pssm_bias_flag = parameters.get('pssm_bias_flag', None)
-                tied_pos = parameters.get('tied_pos', None)
-                tied_beta = parameters.get('tied_beta', None)
-                bias_by_res = parameters.get('bias_by_res', None)
-
-                decode_order = pose.generate_proteinmpnn_decode_order(to_device=mpnn_model.device)
-
-                size, number_of_residues, *_ = X.shape
-                chain_residue_mask = chain_mask*residue_mask
-                # chain_residue_mask = chain_residue_mask[batch_slice]
-                mask_for_loss = mask*chain_residue_mask
-
-                log.debug(f'The mpnn_model.device is: {mpnn_model.device}')
-                if mpnn_model.device == 'cpu':
-                    mpnn_memory_constraint = psutil.virtual_memory().available
-                    log.critical(f'The available cpu memory is: {mpnn_memory_constraint}')
-                else:
-                    mpnn_memory_constraint, gpu_memory_total = torch.cuda.mem_get_info()
-                    log.critical(f'The available gpu memory is: {mpnn_memory_constraint}')
-
-                element_memory = 4  # where each element is np.int/float32
-                number_of_elements_available = mpnn_memory_constraint / element_memory
-                model_elements = number_of_mpnn_model_parameters
-                # Only get the shape of the first element in the batch
-                model_elements += prod(X[0].shape)
-                model_elements += prod(S[0].shape)
-                model_elements += prod(chain_encoding[0].shape)
-                model_elements += prod(residue_idx[0].shape)
-                model_elements += prod(mask[0].shape)
-                model_elements += prod(pssm_log_odds_mask[0].shape)
-                model_elements += prod(tied_beta[0].shape)
-                model_elements += prod(bias_by_res[0].shape)
-                log.critical(f'The number of model_elements is: {model_elements}')
-                total_elements_required = model_elements * size
-
-                # The batch_length indicates how many models could fit in the allocated memory. Using floor division to get integer
-                # Reduce scale by factor of divisor to be safe
-                start_divisor = divisor = 256  # 128  # 2048 still breaks when there is a gradient for training
-                # batch_length = 10
-                batch_length = int(number_of_elements_available // model_elements // start_divisor)
-                log.critical(f'The number_of_elements_available is: {number_of_elements_available}')
-                while True:
-                    log.critical(f'The batch_length is: {batch_length}')
-                    try:
-                        chunk_size = model_elements * batch_length
-                        # number_of_batches = int(ceil(size/batch_length) or 1)
-                        number_of_batches = int(ceil(total_elements_required/chunk_size) or 1)  # Select at least 1
-                        # generated_sequences = []
-                        # probabilities = []
-                        # sequence_scores = []
-                        generated_sequences = np.empty((size, number_of_residues))
-                        probabilities = np.empty((size, number_of_residues, proteinmpnn_factory.mpnn_alphabet_length))
-                        sequence_scores = np.empty((size,))
-                        for batch in range(number_of_batches):
-                            batch_slice = slice(batch * batch_length, (batch+1) * batch_length)
-                            # log.debug(f'X[batch_slice].shape: {X[batch_slice].shape}')
-                            # log.debug(f'chain_mask[batch_slice].shape: {chain_mask[batch_slice].shape}')
-                            # log.debug(f'mask[batch_slice].shape: {mask[batch_slice].shape}')
-                            # log.debug(f'residue_mask[batch_slice].shape: {residue_mask[batch_slice].shape}')
-                            # When batches are sliced for multiple inputs
-                            sample_dict = mpnn_model.tied_sample(X[batch_slice], decode_order, S[batch_slice],
-                                                                 chain_mask[batch_slice],
-                                                                 chain_encoding[batch_slice], residue_idx[batch_slice],
-                                                                 mask[batch_slice],
-                                                                 temperature=design_temperature, omit_AAs_np=omit_AAs_np,
-                                                                 bias_AAs_np=bias_AAs_np,
-                                                                 chain_M_pos=residue_mask[batch_slice],
-                                                                 omit_AA_mask=omit_AA_mask[batch_slice],
-                                                                 pssm_coef=pssm_coef[batch_slice],
-                                                                 pssm_bias=pssm_bias[batch_slice],
-                                                                 pssm_multi=pssm_multi,
-                                                                 pssm_log_odds_flag=pssm_log_odds_flag,
-                                                                 pssm_log_odds_mask=pssm_log_odds_mask[batch_slice],
-                                                                 pssm_bias_flag=pssm_bias_flag,
-                                                                 tied_pos=tied_pos, tied_beta=tied_beta,
-                                                                 bias_by_res=bias_by_res[batch_slice])
-                            # When batches are sliced for multiple inputs
-                            S_sample = sample_dict['S']  # This is the shape of the input X Tensor
-                            tied_decoding_order = sample_dict['decoding_order']
-                            log_probs = mpnn_model(X[batch_slice], S_sample, mask[batch_slice],
-                                                   chain_residue_mask[batch_slice], residue_idx[batch_slice],
-                                                   chain_encoding[batch_slice],
-                                                   None,  # decode_order <- this argument is provided but with below args, is not used
-                                                   use_input_decoding_order=True, decoding_order=tied_decoding_order)
-                            # S_sample, log_probs, and mask_for_loss should all be the same size
-                            # Score the redesigned structure-sequence
-                            scores = score_sequences(S_sample, log_probs, mask_for_loss[batch_slice])
-                            # Score the whole structure-sequence
-                            # global_scores = score_sequences(S_sample, log_probs, mask[batch_slice])
-
-                            # # When batches are single input
-                            # sample_dict = mpnn_model.tied_sample(X[batch_slice], decode_order, S[None],
-                            #                                      chain_mask[None],
-                            #                                      chain_encoding[None], residue_idx[None],
-                            #                                      mask[None],
-                            #                                      temperature=design_temperature, omit_AAs_np=omit_AAs_np,
-                            #                                      bias_AAs_np=bias_AAs_np,
-                            #                                      chain_M_pos=residue_mask[None],
-                            #                                      omit_AA_mask=omit_AA_mask[None],
-                            #                                      pssm_coef=pssm_coef[None],
-                            #                                      pssm_bias=pssm_bias[None],
-                            #                                      pssm_multi=pssm_multi,
-                            #                                      pssm_log_odds_flag=pssm_log_odds_flag,
-                            #                                      pssm_log_odds_mask=pssm_log_odds_mask[None],
-                            #                                      pssm_bias_flag=pssm_bias_flag,
-                            #                                      tied_pos=tied_pos, tied_beta=tied_beta,
-                            #                                      bias_by_res=bias_by_res[None])
-                            # S_sample = sample_dict['S']
-                            # tied_decoding_order = sample_dict['decoding_order']
-                            # # When batches are single input
-                            # log_probs = mpnn_model(X[batch_slice], S_sample, mask[None], chain_residue_mask[None],
-                            #                        residue_idx[None], chain_encoding[None], None,
-                            #                        use_input_decoding_order=True, decoding_order=tied_decoding_order)
-                            # # S_sample, log_probs, and mask_for_loss should all be the same size
-                            # scores = score_sequences(S_sample, log_probs, mask_for_loss[None])
-
-                            # Format output for return
-                            sequence_scores[batch_slice] = scores.cpu().numpy()  # scores
-                            probabilities[batch_slice] = sample_dict['probs'].cpu().numpy()  # batch_probabilities
-                            generated_sequences[batch_slice] = S_sample.cpu().numpy()
-                            # for idx in range(batch_length):
-                            #     numeric_sequence = S_sample[idx]
-                            #     sequence = ''.join([mpnn_alphabet[residue_int] for residue_int in numeric_sequence])
-                            #     generated_sequences.append(sequence)
+    # def perturb_transformation(idx, sequence_design: bool = True):
+    #     # Stack each local perturbation up and multiply individual entity coords
+    #     specific_transformation1 = dict(rotation=full_rotation_perturb1[idx], translation=full_int_tx_perturb1[idx, :, None, :],
+    #                                     rotation2=set_mat1, translation2=full_ext_tx_perturb1[idx])  # [:, None, :])
+    #     # Todo set up translation2 correct to handle None
+    #     specific_transformation2 = dict(rotation=full_rotation_perturb2[idx], translation=full_int_tx_perturb2[idx, :, None, :],
+    #                                     rotation2=set_mat2, translation2=full_ext_tx_perturb2[idx])  # [:, None, :])
+    #     specific_transformations = [specific_transformation1, specific_transformation2]
+    #
+    #     # Get batch size
+    #     number_of_perturbations = full_rotation_perturb1[idx].shape[0]
+    #
+    #     # Todo move this outside to own function?
+    #     if sequence_design:
+    #         new_coords = []
+    #         for entity_idx, entity in enumerate(pose.entities):
+    #             # Todo Need to tile the entity_bb_coords if operating like this
+    #             # perturbed_bb_coords = transform_coordinate_sets(entity_bb_coords[entity_idx],
+    #             #                                              **specific_transformations[transform_indices[entity_idx]])
+    #             new_coords.append(transform_coordinate_sets(entity_bb_coords[entity_idx],
+    #                                                         **specific_transformations[transform_indices[entity_idx]]))
+    #         # Todo test this
+    #         #  Stack the entity coordinates to make up a contiguous block for each pose
+    #         #  If entity_bb_coords are stacked, then must concatenate along axis=1 or =2 to get full pose
+    #         #  If entity_bb_coords aren't stacked (individually transformed), then axis=0 will work
+    #         log.debug(f'new_coords.shape: {tuple([coords.shape for coords in new_coords])}')
+    #         perturbed_bb_coords = np.concatenate(new_coords, axis=1)
+    #         log.debug(f'perturbed_bb_coords.shape: {perturbed_bb_coords.shape}')
+    #
+    #         if pose.is_symmetric():
+    #             # Make each set of coordinates "symmetric"
+    #             # Todo - This uses starting coords to symmetrize... Crystalline won't be right with external_translation
+    #             perturbed_bb_coords = []
+    #             for idx in range(perturbed_bb_coords.shape[0]):
+    #                 perturbed_bb_coords.append(pose.return_symmetric_coords(perturbed_bb_coords[idx]))
+    #
+    #             # Let -1 fill in the pose length dimension with the number of residues
+    #             # 4 is shape of backbone coords (N, Ca, C, O), 3 is x,y,z
+    #             # X = perturbed_bb_coords.reshape((number_of_perturbations, -1, 4, 3))
+    #             perturbed_bb_coords = np.concatenate(perturbed_bb_coords)
+    #
+    #         X = perturbed_bb_coords.reshape((number_of_perturbations, -1, 4, 3))
+    #         log.debug(f'X.shape: {X.shape}')
+    #         # Todo
+    #         #  return X
+    #
+    #     # def proteinmpnn_perturb_design(pose, X, model_name):  # Todo Make this pose compatible?
+    #     #     mpnn_model = proteinmpnn_factory(model_name)
+    #         # Design sequences
+    #         parameters = pose.get_proteinmpnn_params()
+    #         # # Disregard the X return (which would be used in the Pose) and use the stacked X from above
+    #         parameters['X'] = X
+    #         # Create batches for ProteinMPNN sequence design task
+    #         # Without keyword argument "size=", X will be used to determine size of batch_parameters
+    #         parameters.update(**batch_proteinmpnn_input(**parameters))
+    #         # Ensure no gradients are produced
+    #         with torch.no_grad():
+    #             parameters.update(proteinmpnn_to_device(mpnn_model.device, **parameters))
+    #
+    #             # Same across poses
+    #             S = parameters.get('S', None)
+    #             chain_mask = parameters.get('chain_mask', None)
+    #             chain_encoding = parameters.get('chain_encoding', None)
+    #             residue_idx = parameters.get('residue_idx', None)
+    #             mask = parameters.get('mask', None)
+    #             omit_AAs_np = parameters.get('omit_AAs_np', None)
+    #             bias_AAs_np = parameters.get('bias_AAs_np', None)
+    #             omit_AA_mask = parameters.get('omit_AA_mask', None)
+    #             pssm_coef = parameters.get('pssm_coef', None)
+    #             pssm_bias = parameters.get('pssm_bias', None)
+    #             pssm_multi = parameters.get('pssm_multi', None)
+    #             pssm_log_odds_flag = parameters.get('pssm_log_odds_flag', None)
+    #             pssm_log_odds_mask = parameters.get('pssm_log_odds_mask', None)
+    #             pssm_bias_flag = parameters.get('pssm_bias_flag', None)
+    #             tied_pos = parameters.get('tied_pos', None)
+    #             tied_beta = parameters.get('tied_beta', None)
+    #             # Different across poses
+    #             X = parameters.get('X', None)
+    #             residue_mask = parameters.get('chain_M_pos', None)
+    #             # Potentially different across poses
+    #             bias_by_res = parameters.get('bias_by_res', None)
+    #             decode_order = pose.generate_proteinmpnn_decode_order(to_device=mpnn_model.device)
+    #
+    #             size, number_of_residues, *_ = X.shape
+    #             chain_residue_mask = chain_mask*residue_mask
+    #             # chain_residue_mask = chain_residue_mask[batch_slice]
+    #             mask_for_loss = mask*chain_residue_mask
+    #
+    #             log.debug(f'The mpnn_model.device is: {mpnn_model.device}')
+    #             if mpnn_model.device == 'cpu':
+    #                 mpnn_memory_constraint = psutil.virtual_memory().available
+    #                 log.critical(f'The available cpu memory is: {mpnn_memory_constraint}')
+    #             else:
+    #                 mpnn_memory_constraint, gpu_memory_total = torch.cuda.mem_get_info()
+    #                 log.critical(f'The available gpu memory is: {mpnn_memory_constraint}')
+    #
+    #             element_memory = 4  # where each element is np.int/float32
+    #             number_of_elements_available = mpnn_memory_constraint / element_memory
+    #             model_elements = number_of_mpnn_model_parameters
+    #             # Only get the shape of the first element in the batch
+    #             model_elements += prod(X[0].shape)
+    #             model_elements += prod(S[0].shape)
+    #             model_elements += prod(chain_encoding[0].shape)
+    #             model_elements += prod(residue_idx[0].shape)
+    #             model_elements += prod(mask[0].shape)
+    #             model_elements += prod(pssm_log_odds_mask[0].shape)
+    #             model_elements += prod(tied_beta[0].shape)
+    #             model_elements += prod(bias_by_res[0].shape)
+    #             log.critical(f'The number of model_elements is: {model_elements}')
+    #
+    #             # The batch_length indicates how many models could fit in the allocated memory. Using floor division to get integer
+    #             # Reduce scale by factor of divisor to be safe
+    #             start_divisor = divisor = 256  # 128  # 2048 still breaks when there is a gradient for training
+    #             # batch_length = 10
+    #             batch_length = int(number_of_elements_available // model_elements // start_divisor)
+    #             log.critical(f'The number_of_elements_available is: {number_of_elements_available}')
+    #             while True:
+    #                 log.critical(f'The batch_length is: {batch_length}')
+    #                 try:
+    #                     number_of_batches = int(ceil(size/batch_length) or 1)  # Select at least 1
+    #                     # generated_sequences = []
+    #                     # probabilities = []
+    #                     # sequence_scores = []
+    #                     generated_sequences = np.empty((size, number_of_residues))
+    #                     probabilities = np.empty((size, number_of_residues, proteinmpnn_factory.mpnn_alphabet_length))
+    #                     sequence_scores = np.empty((size,))
+    #                     for batch in range(number_of_batches):
+    #                         batch_slice = slice(batch*batch_length, (batch+1) * batch_length)
+    #                         # log.debug(f'X[batch_slice].shape: {X[batch_slice].shape}')
+    #                         # log.debug(f'chain_mask[batch_slice].shape: {chain_mask[batch_slice].shape}')
+    #                         # log.debug(f'mask[batch_slice].shape: {mask[batch_slice].shape}')
+    #                         # log.debug(f'residue_mask[batch_slice].shape: {residue_mask[batch_slice].shape}')
+    #                         # When batches are sliced for multiple inputs
+    #                         sample_dict = mpnn_model.tied_sample(X[batch_slice], decode_order, S[batch_slice],
+    #                                                              chain_mask[batch_slice],
+    #                                                              chain_encoding[batch_slice], residue_idx[batch_slice],
+    #                                                              mask[batch_slice],
+    #                                                              temperature=design_temperature, omit_AAs_np=omit_AAs_np,
+    #                                                              bias_AAs_np=bias_AAs_np,
+    #                                                              chain_M_pos=residue_mask[batch_slice],
+    #                                                              omit_AA_mask=omit_AA_mask[batch_slice],
+    #                                                              pssm_coef=pssm_coef[batch_slice],
+    #                                                              pssm_bias=pssm_bias[batch_slice],
+    #                                                              pssm_multi=pssm_multi,
+    #                                                              pssm_log_odds_flag=pssm_log_odds_flag,
+    #                                                              pssm_log_odds_mask=pssm_log_odds_mask[batch_slice],
+    #                                                              pssm_bias_flag=pssm_bias_flag,
+    #                                                              tied_pos=tied_pos, tied_beta=tied_beta,
+    #                                                              bias_by_res=bias_by_res[batch_slice])
+    #                         # When batches are sliced for multiple inputs
+    #                         S_sample = sample_dict['S']  # This is the shape of the input X Tensor
+    #                         tied_decoding_order = sample_dict['decoding_order']
+    #                         log_probs = mpnn_model(X[batch_slice], S_sample, mask[batch_slice],
+    #                                                chain_residue_mask[batch_slice], residue_idx[batch_slice],
+    #                                                chain_encoding[batch_slice],
+    #                                                None,  # decode_order <- this argument is provided but with below args, is not used
+    #                                                use_input_decoding_order=True, decoding_order=tied_decoding_order)
+    #                         # S_sample, log_probs, and mask_for_loss should all be the same size
+    #                         # Score the redesigned structure-sequence
+    #                         scores = score_sequences(S_sample, log_probs, mask_for_loss[batch_slice])
+    #                         # Score the whole structure-sequence
+    #                         # global_scores = score_sequences(S_sample, log_probs, mask[batch_slice])
+    #
+    #                         # # When batches are single input
+    #                         # sample_dict = mpnn_model.tied_sample(X[batch_slice], decode_order, S[None],
+    #                         #                                      chain_mask[None],
+    #                         #                                      chain_encoding[None], residue_idx[None],
+    #                         #                                      mask[None],
+    #                         #                                      temperature=design_temperature, omit_AAs_np=omit_AAs_np,
+    #                         #                                      bias_AAs_np=bias_AAs_np,
+    #                         #                                      chain_M_pos=residue_mask[None],
+    #                         #                                      omit_AA_mask=omit_AA_mask[None],
+    #                         #                                      pssm_coef=pssm_coef[None],
+    #                         #                                      pssm_bias=pssm_bias[None],
+    #                         #                                      pssm_multi=pssm_multi,
+    #                         #                                      pssm_log_odds_flag=pssm_log_odds_flag,
+    #                         #                                      pssm_log_odds_mask=pssm_log_odds_mask[None],
+    #                         #                                      pssm_bias_flag=pssm_bias_flag,
+    #                         #                                      tied_pos=tied_pos, tied_beta=tied_beta,
+    #                         #                                      bias_by_res=bias_by_res[None])
+    #                         # S_sample = sample_dict['S']
+    #                         # tied_decoding_order = sample_dict['decoding_order']
+    #                         # # When batches are single input
+    #                         # log_probs = mpnn_model(X[batch_slice], S_sample, mask[None], chain_residue_mask[None],
+    #                         #                        residue_idx[None], chain_encoding[None], None,
+    #                         #                        use_input_decoding_order=True, decoding_order=tied_decoding_order)
+    #                         # # S_sample, log_probs, and mask_for_loss should all be the same size
+    #                         # scores = score_sequences(S_sample, log_probs, mask_for_loss[None])
+    #
+    #                         # Format output for return
+    #                         sequence_scores[batch_slice] = scores.cpu().numpy()  # scores
+    #                         probabilities[batch_slice] = sample_dict['probs'].cpu().numpy()  # batch_probabilities
+    #                         generated_sequences[batch_slice] = S_sample.cpu().numpy()
+    #                         # for idx in range(batch_length):
+    #                         #     numeric_sequence = S_sample[idx]
+    #                         #     sequence = ''.join([mpnn_alphabet[residue_int] for residue_int in numeric_sequence])
+    #                         #     generated_sequences.append(sequence)
+    #
+    #                     log.critical(f'Successful execution with {divisor} using available memory of '
+    #                                  f'{memory_constraint} and batch_length of {batch_length}')
+    #                     _input = input(f'Press enter to continue')
+    #                     break
+    #                 except (RuntimeError, np.core._exceptions._ArrayMemoryError) as error:  # for (gpu, cpu)
+    #                     # raise error
+    #                     log.critical(f'Calculation failed with {divisor}.\n{error}\n{torch.cuda.memory_stats()}\nTrying again...')
+    #                     # log.critical(f'{error}\nTrying again...')
+    #                     divisor = divisor*2
+    #                     batch_length = int(number_of_elements_available // model_elements // divisor)
+    #
+    #         return numeric_to_sequence(generated_sequences), sequence_scores, probabilities
+    #     else:
+    #         new_coords = []
+    #         for entity_idx, entity in enumerate(pose.entities):
+    #             # Todo Need to tile the entity_bb_coords if operating like this
+    #             new_coords.append(transform_coordinate_sets(entity_start_coords[entity_idx],
+    #                                                         **specific_transformations[transform_indices[entity_idx]]))
+    #
+    #         # Todo test this
+    #         #  Stack the entity coordinates to make up a contiguous block for each pose
+    #         #  If entity_bb_coords are stacked, then must concatenate along axis=1 or =2 to get full pose
+    #         #  If entity_bb_coords aren't stacked (individually transformed), then axis=0 will work
+    #         log.debug(f'new_coords.shape: {tuple([coords.shape for coords in new_coords])}')
+    #         perturbed_coords = np.concatenate(new_coords, axis=1)
+    #         log.debug(f'perturbed_coords.shape: {perturbed_coords.shape}')
+    #
+    #         return perturbed_coords.reshape((number_of_perturbations, -1, 3))
 
                         log.critical(f'Successful execution with {divisor} using available memory of '
                                      f'{memory_constraint} and batch_length of {batch_length}')
