@@ -564,8 +564,8 @@ def perturb_transformations(sym_entry: SymEntry,
     else:
         full_int_tx_perturb2 = full_int_tx2[:, None, :]  # + origin[None, None, :]
 
-    log.info(f'internal_tx 1 shape: {full_int_tx_perturb1.shape}')
-    log.info(f'internal_tx 2 shape: {full_int_tx_perturb2.shape}')
+    logger.debug(f'internal_tx 1 shape: {full_int_tx_perturb1.shape}')
+    logger.debug(f'internal_tx 2 shape: {full_int_tx_perturb2.shape}')
 
     # Reduce the expanded axis 0 and 1 to a single axis, axis=0 for all perturbations
     full_rotation1 = full_rotation_perturb1.reshape((-1, 3, 3))
