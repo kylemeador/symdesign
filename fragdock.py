@@ -3246,18 +3246,20 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
             all_scores[pose_id] = scores[idx]
             all_probabilities[pose_id] = probabilities[idx]
 
+        # Separate sequences by entity
         all_sequences_split = []
         for entity in pose.entities:
             entity_slice = slice(entity.n_terminal_residue.number-1, entity.c_terminal_residue.number-1)
             all_sequences_split.append(sequences[:, entity_slice].tolist())
 
-        all_sequences_split
+        all_sequences_by_entity = list(zip(*all_sequences_split))
         # Todo ensure that this is performed correctly and that msa is loaded upon docking initialization
         # Calculate hydrophobic collapse for each design
         # Include the pose as the pose_source in the measured designs
-        folding_and_collapse = calculate_collapse_metrics(pose, all_sequences_split)
-        pose_collapse_df = DataFrame(folding_and_collapse).T
+        folding_and_collapse = calculate_collapse_metrics(pose, all_sequences_by_entity)
+        pose_collapse_df = pd.DataFrame(folding_and_collapse).T
     else:
+        pose_collapse_df = pd.DataFrame()
         # Only get metrics for pose, no sequences
         for idx, overlap_ghosts in enumerate(all_passing_ghost_indices):
             update_pose_coords(idx)
@@ -3335,6 +3337,9 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
     errat_sig_df = (errat_df.sub(pose_source_errat_s, axis=1)) > errat_1_sigma  # axis=1 Series is column oriented
     # then select only those residues which are expressly important by the inclusion boolean
     scores_df['errat_deviation'] = (errat_sig_df.loc[:, source_errat_inclusion_boolean] * 1).sum(axis=1)
+
+    scores_df = pd.concat([scores_df, pose_collapse_df], axis=1)
+    print(scores_df)
 
     log.info(f'Total {building_block} dock trajectory took {time.time() - frag_dock_time_start:.2f}s')
 
