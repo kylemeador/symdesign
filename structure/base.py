@@ -4041,13 +4041,13 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         while iteration < 5:
             p = subprocess.run(errat_cmd, input=self.get_atom_record(), encoding='utf-8', capture_output=True)
             all_residue_scores = p.stdout.strip().split('\n')
-            if len(all_residue_scores) - 1 == self.number_of_residues:  # subtract overall_score from all_residue_scores
+            if len(all_residue_scores)-1 == self.number_of_residues:  # subtract overall_score from all_residue_scores
                 break
             iteration += 1
 
         if iteration == 5:
-            self.log.error(f'{self.errat.__name__} couldn\'t generate the correct output length. '
-                           f'({len(all_residue_scores) - 1}) != number_of_residues ({self.number_of_residues})')
+            self.log.error(f"{self.errat.__name__} couldn't generate the correct output length. "
+                           f'({len(all_residue_scores)-1}) != number_of_residues ({self.number_of_residues})')
         # errat_output_file = os.path.join(out_path, '%s.ps' % name)
         # errat_output_file = os.path.join(out_path, 'errat.ps')
         # else:
@@ -4062,7 +4062,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
             overall_score = all_residue_scores.pop(-1)
             return float(overall_score.split()[-1]), \
                 np.array([float(score[-1]) for score in map(str.split, all_residue_scores)])
-        except (IndexError, AttributeError):
+        except (IndexError, AttributeError, ValueError):  # ValueError when returning text instead of float
             self.log.warning(f'{self.name}: Failed to generate ERRAT measurement. Errat returned: {all_residue_scores}')
             return 0., np.array([0. for _ in range(self.number_of_residues)])
 
