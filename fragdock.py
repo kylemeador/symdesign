@@ -3030,11 +3030,12 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
                     # Each residue will have 4 bb_coords, we will reshape to ProteinMPNN later
                     new_coords = np.zeros((batch_length, pose_length*4, 3),  # 4, 3)
                                           dtype=np.float32)
-                    for idx, transform_idx in enumerate(range(batch_slice.start, batch_slice.stop)):
+                    for transform_idx in range(batch_slice.start, batch_slice.stop):
                         update_pose_coords(transform_idx)
                         pose.find_and_split_interface()
 
                         # Todo replace with PoseDirectory? Path object?
+                        idx = int(transform_idx//number_of_perturbations)
                         # temp indexing on degen and rot counts
                         # degen1_count, degen2_count = degen_counts[idx]
                         # rot1_count, rot2_count = rot_counts[idx]
