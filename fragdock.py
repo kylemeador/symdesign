@@ -2926,6 +2926,7 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
         # batch_length = 10
         # batch_length = int(number_of_elements_available//model_elements//start_divisor)
         batch_length = 7  # 6  # works for 24 GiB mem
+        once = False
         log.critical(f'The number_of_elements_available is: {number_of_elements_available}')
         proteinmpnn_time_start = time.time()
         while True:
@@ -3132,7 +3133,10 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
                 # _input = input(f'Press enter to continue')
                 break
             except (RuntimeError, np.core._exceptions._ArrayMemoryError) as error:  # for (gpu, cpu)
-                raise error
+                if once:
+                    raise error
+                else:
+                    once = True
                 # log.critical(f'Calculation failed with {divisor}.\n{error}\n{torch.cuda.memory_stats()}\nTrying again...')
                 log.critical(f'Calculation failed with {batch_length}.\n{error}\n{torch.cuda.memory_stats()}\nTrying again...')
                 # log.critical(f'{error}\nTrying again...')
