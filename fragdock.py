@@ -2104,33 +2104,33 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
         # weighted_seq_freq_info = SeqFreqInfo(res_pair_freq_info_list)
         # weighted_seq_freq_info.write(os.path.join(matching_fragments_dir, frag_text_file))
 
-        unique_matched_monofrag_count = interface_metrics['number_fragment_residues_center']
-        unique_total_monofrags_count = interface_metrics['total_interface_residues']
-        # unique_total_monofrags_count = unique_interface_frag_count_model1 + unique_interface_frag_count_model2
-        percent_of_interface_covered = interface_metrics['percent_residues_fragment_center']
-
-        # # Calculate Nanohedra Residue Level Summation Score
-        # nanohedra_score = 0
-        # for res_scores_list1 in chid_resnum_scores_dict_model1.values():
-        #     n1 = 1
-        #     res_scores_list_sorted1 = sorted(res_scores_list1, reverse=True)
-        #     for sc1 in res_scores_list_sorted1:
-        #         nanohedra_score += sc1 * (1 / float(n1))
-        #         n1 = n1 * 2
-        # for res_scores_list2 in chid_resnum_scores_dict_model2.values():
-        #     n2 = 1
-        #     res_scores_list_sorted2 = sorted(res_scores_list2, reverse=True)
-        #     for sc2 in res_scores_list_sorted2:
-        #         nanohedra_score += sc2 * (1 / float(n2))
-        #         n2 = n2 * 2
-
-        nanohedra_score = interface_metrics['nanohedra_score']
-        # Write Out Docked Pose Info to docked_pose_info_file.txt
-        write_docked_pose_info(tx_dir, nanohedra_score, high_qual_match_count, unique_matched_monofrag_count,
-                               unique_total_monofrags_count, percent_of_interface_covered, rot_mat1, internal_tx_param1,
-                               sym_entry.setting_matrix1, external_tx_params1, rot_mat2, internal_tx_param2,
-                               sym_entry.setting_matrix2, external_tx_params2, cryst_record, model1.file_path,
-                               model2.file_path, pose_id)
+        # unique_matched_monofrag_count = interface_metrics['number_fragment_residues_center']
+        # unique_total_monofrags_count = interface_metrics['total_interface_residues']
+        # # unique_total_monofrags_count = unique_interface_frag_count_model1 + unique_interface_frag_count_model2
+        # percent_of_interface_covered = interface_metrics['percent_residues_fragment_center']
+        #
+        # # # Calculate Nanohedra Residue Level Summation Score
+        # # nanohedra_score = 0
+        # # for res_scores_list1 in chid_resnum_scores_dict_model1.values():
+        # #     n1 = 1
+        # #     res_scores_list_sorted1 = sorted(res_scores_list1, reverse=True)
+        # #     for sc1 in res_scores_list_sorted1:
+        # #         nanohedra_score += sc1 * (1 / float(n1))
+        # #         n1 = n1 * 2
+        # # for res_scores_list2 in chid_resnum_scores_dict_model2.values():
+        # #     n2 = 1
+        # #     res_scores_list_sorted2 = sorted(res_scores_list2, reverse=True)
+        # #     for sc2 in res_scores_list_sorted2:
+        # #         nanohedra_score += sc2 * (1 / float(n2))
+        # #         n2 = n2 * 2
+        #
+        # nanohedra_score = interface_metrics['nanohedra_score']
+        # # Write Out Docked Pose Info to docked_pose_info_file.txt
+        # write_docked_pose_info(tx_dir, nanohedra_score, high_qual_match_count, unique_matched_monofrag_count,
+        #                        unique_total_monofrags_count, percent_of_interface_covered, rot_mat1, internal_tx_param1,
+        #                        sym_entry.setting_matrix1, external_tx_params1, rot_mat2, internal_tx_param2,
+        #                        sym_entry.setting_matrix2, external_tx_params2, cryst_record, model1.file_path,
+        #                        model2.file_path, pose_id)
 
         return pose_per_residue_data, interface_metrics, pose_interface_local_density
 
