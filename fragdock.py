@@ -3017,10 +3017,6 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
                         #  OR
                         #  bias_by_res[idx, fragment_residues] = pose.fragment_profile[fragment_residues]
 
-                    # # If entity_bb_coords are individually transformed, then axis=0 works
-                    # perturbed_bb_coords = np.concatenate(new_coords, axis=0)
-                    log.debug(f'perturbed_bb_coords.shape: {perturbed_bb_coords.shape}')
-
                     if pose.is_symmetric():
                         # Make each set of coordinates "symmetric"
                         # Todo - This uses starting coords to symmetrize... Crystalline won't be right with external_translation
@@ -3038,7 +3034,11 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
                         # (batch, number_of_sym_residues, ...)
                         residue_mask = np.tile(residue_mask, (1, number_of_symmetry_mates))
                         bias_by_res = np.tile(bias_by_res, (1, number_of_symmetry_mates, 1))
+                    else:
+                        # If entity_bb_coords are individually transformed, then axis=0 works
+                        perturbed_bb_coords = np.concatenate(new_coords, axis=0)
 
+                    log.debug(f'perturbed_bb_coords.shape: {perturbed_bb_coords.shape}')
                     X = perturbed_bb_coords.reshape((batch_length, -1, 4, 3))
                     log.debug(f'X.shape: {X.shape}')
 
