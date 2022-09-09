@@ -2909,7 +2909,7 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
         size = full_rotation1.shape[0]  # This is the number of transformations, i.e. the number_of_designs
         # The batch_length indicates how many models could fit in the allocated memory. Using floor division to get integer
         # Reduce scale by factor of divisor to be safe
-        start_divisor = divisor = 256  # 128  # 2048 still breaks when there is a gradient for training
+        start_divisor = divisor = 512  # 256 # 128  # 2048 breaks when there is a gradient for training
         # batch_length = 10
         batch_length = int(number_of_elements_available // model_elements // start_divisor)
         log.critical(f'The number_of_elements_available is: {number_of_elements_available}')
@@ -3118,7 +3118,7 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
                 # _input = input(f'Press enter to continue')
                 break
             except (RuntimeError, np.core._exceptions._ArrayMemoryError) as error:  # for (gpu, cpu)
-                # raise error
+                raise error
                 log.critical(f'Calculation failed with {divisor}.\n{error}\n{torch.cuda.memory_stats()}\nTrying again...')
                 # log.critical(f'{error}\nTrying again...')
                 divisor = divisor*2
