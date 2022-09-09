@@ -1,9 +1,10 @@
 from __future__ import annotations
 
+import math
 import operator
 from itertools import repeat
 from json import loads
-from typing import Literal, AnyStr, Any
+from typing import Literal, AnyStr, Any, Sequence, Iterable
 
 import numpy as np
 import pandas as pd
@@ -1585,3 +1586,119 @@ def rank_dataframe_by_metric_weights(df: pd.DataFrame, weights: dict[str, float]
         return df.sum(axis=1).sort_values(ascending=False)
     else:  # just sort by lowest energy
         return df['interface_energy'].sort_values('interface_energy', ascending=True)
+
+
+def window_function(data: Sequence[int | float], windows: Iterable[int] = None, lower: int = None,
+                    upper: int = None) -> np.ndarray:
+    """Perform windowing operations on a sequence of data and return the result of the calculation. Window lengths can
+    be specified by passing the windows to perform calculation on as an Iterable or by a range of window lengths
+
+    Args:
+        data: The sequence of numeric data to perform calculations
+        windows: An iterable of window lengths to use. If a single, pass as the Iterable
+        lower: The lower range of the window to operate on. "window" is inclusive of this value
+        upper: The upper range of the window to operate on. "window" is inclusive of this value
+    Returns:
+        The (number of windows, length of data) array of values with each requested window along axis=0
+            and the particular value of the windowed data along axis=1
+    """
+    array_length = len(data)
+    if windows is None:
+        if lower is not None and upper is not None:
+            upper = upper + 1
+            windows = list(range(lower, upper))  # +1 makes inclusive in range
+        else:
+            raise ValueError(f'{window_function.__name__}:'
+                             f' Must provide either window or lower and upper')
+
+    # Make an array with axis=0 equal to number of windows used, axis=1 equal to length of values
+    range_size = len(windows)
+    window_array = np.zeros((range_size, array_length))
+    for array_idx, window_size in enumerate(map(float, windows)):  # Make the divisor a float
+        half_window = math.floor(window_size/2)  # how far on each side should the window extend
+        # # Calculate score accordingly, with cases for N- and C-terminal windows
+        # for data_idx in range(half_window):  # N-terminus windows
+        #     # add 1 as high slice not inclusive
+        #     window_array[array_idx, data_idx] = sequence_array[:data_idx+half_window+1].sum() / window_size
+        # for data_idx in range(half_window, array_length-half_window):  # continuous length windows
+        #     # add 1 as high slice not inclusive
+        #     window_array[array_idx, data_idx] = \
+        #         sequence_array[data_idx - half_window: data_idx+half_window+1].sum() / window_size
+        # for data_idx in range(array_length-half_window, array_length):  # C-terminus windows
+        #     # No add 1 as low slice inclusive
+        #     window_array[array_idx, data_idx] = sequence_array[data_idx-half_window:].sum() / window_size
+        #
+        # # check if the range is even, then subtract 1/2 of the value of trailing and leading window values
+        # if window_size % 2 == 0.:
+        #     # subtract_half_leading_residue = sequence_array[half_window:] * 0.5 / window_size
+        #     window_array[array_idx, :array_length-half_window] -= \
+        #         sequence_array[half_window:] * 0.5 / window_size
+        #     # subtract_half_trailing_residue = sequence_array[:array_length-half_window] * 0.5 / window_size
+        #     window_array[array_idx, half_window:] -= \
+        #         sequence_array[:array_length-half_window] * 0.5 / window_size
+
+        # Calculate score accordingly, with cases for N- and C-terminal windows
+        array_length_range = range(array_length)
+        # Make a "zeros" list
+        data_window = [0 for _ in array_length_range]
+        for data_idx in array_length_range:
+            idx_sum = 0
+            if data_idx < half_window:  # N-terminus
+                for window_position in range(data_idx+half_window+1):
+                    idx_sum += data[window_position]
+            elif data_idx+half_window >= array_length:  # C-terminus
+                for window_position in range(data_idx-half_window, array_length):
+                    idx_sum += data[window_position]
+            else:
+                for window_position in range(data_idx-half_window, data_idx+half_window+1):
+                    idx_sum += data[window_position]
+
+            # Set each idx_sum to the idx in data_window
+            data_window[data_idx] = idx_sum
+        # Handle data_window incorporation into numpy array
+        window_array[array_idx] = data_window
+        window_array[array_idx] /= window_size
+
+        if window_size%2 == 0.:  # range is even
+            even_modifier = 0.5/window_size
+            even_modified_data = [value*even_modifier for value in data]
+            # subtract_half_leading_residue = sequence_array[half_window:] * 0.5 / window_size
+            window_array[array_idx, :array_length-half_window] -= even_modified_data[half_window:]
+            # subtract_half_trailing_residue = sequence_array[:array_length - half_window] * 0.5 / window_size
+            window_array[array_idx, half_window:] -= even_modified_data[:array_length-half_window]
+
+    return window_array
+
+
+hydrophobicity_scale = \
+    {'expanded': {'A': 0, 'C': 0, 'D': 0, 'E': 0, 'F': 1, 'G': 0, 'H': 0, 'I': 1, 'K': 0, 'L': 1, 'M': 1, 'N': 0,
+                  'P': 0, 'Q': 0, 'R': 0, 'S': 0, 'T': 0, 'V': 1, 'W': 1, 'Y': 1, 'B': 0, 'J': 0, 'O': 0, 'U': 0,
+                  'X': 0, 'Z': 0},
+     'standard': {'A': 0, 'C': 0, 'D': 0, 'E': 0, 'F': 1, 'G': 0, 'H': 0, 'I': 1, 'K': 0, 'L': 1, 'M': 0, 'N': 0,
+                  'P': 0, 'Q': 0, 'R': 0, 'S': 0, 'T': 0, 'V': 1, 'W': 0, 'Y': 0, 'B': 0, 'J': 0, 'O': 0, 'U': 0,
+                  'X': 0, 'Z': 0}}
+
+
+def hydrophobic_collapse_index(sequence: Sequence[str], hydrophobicity: str = 'standard', lower_window: int = 3,
+                               upper_window: int = 9) -> np.ndarray:
+    """Calculate hydrophobic collapse index for a particular sequence of an iterable object and return an HCI array
+
+    Args:
+        sequence: The sequence to measure
+        hydrophobicity: The degree of hydrophobicity to consider. Either 'standard' (FILV) or 'expanded' (FMILYVW)
+        lower_window: The smallest window used to measure
+        upper_window: The largest window used to measure
+    Returns:
+        1D array with the mean collapse score for every position on the input sequence
+    """
+    hydrophobicity_values = hydrophobicity_scale.get(hydrophobicity)
+    # hydrophobicity == 'background':  # Todo
+    if not hydrophobicity_values:
+        raise ValueError(f'The hydrophobicity "{hydrophobicity}" table is not available. Add it if you think it should '
+                         f'be')
+    # sequence_array = np.array([hydrophobicity_values.get(aa, 0) for aa in sequence])
+    sequence_array = [hydrophobicity_values.get(aa, 0) for aa in sequence]
+
+    window_array = window_function(sequence_array, lower=lower_window, upper=upper_window)
+
+    return window_array.mean(axis=0)
