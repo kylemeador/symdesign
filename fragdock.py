@@ -2926,7 +2926,7 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
         # batch_length = 10
         # batch_length = int(number_of_elements_available//model_elements//start_divisor)
         batch_length = 7  # 6  # works for 24 GiB mem
-        once = False
+        once, twice = False, False
         log.critical(f'The number_of_elements_available is: {number_of_elements_available}')
         proteinmpnn_time_start = time.time()
         while True:
@@ -2964,7 +2964,7 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
                     tied_pos = parameters.get('tied_pos', None)
                     tied_beta = parameters.get('tied_beta', None)
 
-                    chain_mask_and_mask = chain_mask * mask
+                    chain_mask_and_mask = chain_mask*mask
 
                 # Set up ProteinMPNN output data structures
                 generated_sequences = np.empty((size, number_of_residues))
@@ -3134,7 +3134,10 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
                 break
             except (RuntimeError, np.core._exceptions._ArrayMemoryError) as error:  # for (gpu, cpu)
                 if once:
-                    raise error
+                    if twice:
+                        raise error
+                    else:
+                        twice = True
                 else:
                     once = True
                 # log.critical(f'Calculation failed with {divisor}.\n{error}\n{torch.cuda.memory_stats()}\nTrying again...')
@@ -3142,7 +3145,7 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
                 # log.critical(f'{error}\nTrying again...')
                 # Remove all tensors from memory
                 try:
-                    # constants
+                    # constant parameters
                     del parameters
                     del S
                     del chain_mask
