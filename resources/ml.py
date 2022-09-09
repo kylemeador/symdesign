@@ -9,7 +9,7 @@ from utils import start_log
 from utils.path import protein_mpnn_weights_dir
 
 logger = start_log(name=__name__)
-mpnn_alphabet = 'ACDEFGHIKLMNPQRSTVWYX'  # gapped_protein_letters
+mpnn_alphabet = 'ACDEFGHIKLMNPQRSTVWYX'  # protein_letters_unknown
 
 
 class ProteinMPNNFactory:
