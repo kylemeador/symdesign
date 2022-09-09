@@ -2925,7 +2925,7 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
         start_divisor = divisor = 512  # 256 # 128  # 2048 breaks when there is a gradient for training
         # batch_length = 10
         # batch_length = int(number_of_elements_available//model_elements//start_divisor)
-        batch_length = 8
+        batch_length = 6
         log.critical(f'The number_of_elements_available is: {number_of_elements_available}')
         proteinmpnn_time_start = time.time()
         while True:
