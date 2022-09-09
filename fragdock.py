@@ -3308,11 +3308,13 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
         pose_transformations[pose_id] = dict(rotation1=full_rotation1[idx],  # Replace with deg
                                              translation1=full_int_tx1[idx],
                                              rotation1_2=set_mat1,  # Replace with setting matrix number
-                                             translation1_2=full_ext_tx1[idx],
+                                             translation1_2=None if full_ext_tx1 is None
+                                             else full_ext_tx1[idx],
                                              rotation2=full_rotation2[idx],  # Replace with deg
                                              translation2=full_int_tx2[idx],
                                              rotation2_2=set_mat2,  # Replace with setting matrix number
-                                             translation2_2=full_ext_tx2[idx])
+                                             translation2_2=None if full_ext_tx1 is None
+                                             else full_ext_tx2[idx])
     scores_df = pd.DataFrame(pose_transformations)
     # Calculate full suite of metrics
     scores_df['interface_local_density'] = pd.Series(interface_local_density)
