@@ -2948,8 +2948,8 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
 
                 # Set up ProteinMPNN output data structures
                 generated_sequences = np.empty((size, number_of_residues))
+                scores = np.empty((size,))
                 probabilities = np.empty((size, number_of_residues, proteinmpnn_factory.mpnn_alphabet_length))
-                all_scores = np.empty((size,))
 
                 # Gather the coordinates according to the transformations identified
                 for batch in range(number_of_batches):
@@ -3083,14 +3083,21 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
                         # Score the redesigned structure-sequence
                         mask_for_loss = chain_mask_and_mask*residue_mask
                         # S_sample, log_probs, and mask_for_loss should all be the same size
-                        scores = score_sequences(S_sample, log_probs, mask_for_loss)
+                        batch_scores = score_sequences(S_sample, log_probs, mask_for_loss)
                         # Score the whole structure-sequence
                         # global_scores = score_sequences(S_sample, log_probs, mask)
 
                         # Format outputs
-                        all_scores[batch_slice] = scores.cpu().numpy()  # scores
-                        probabilities[batch_slice] = sample_dict['probs'].cpu().numpy()  # batch_probabilities
                         generated_sequences[batch_slice] = S_sample.cpu().numpy()
+                        scores[batch_slice] = batch_scores.cpu().numpy()  # scores
+                        probabilities[batch_slice] = sample_dict['probs'].cpu().numpy()  # batch_probabilities
+
+                        # Delete intermediate variable to free GPU memory for next cycle
+                        del separate_parameters
+                        del X
+                        del residue_mask
+                        del bias_by_res
+                        del decode_order
 
                 log.critical(f'Successful execution with {divisor} using available memory of '
                              f'{memory_constraint} and batch_length of {batch_length}')
