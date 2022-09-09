@@ -3046,12 +3046,14 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
                     log.debug(f'X.shape: {X.shape}')
 
                     with torch.no_grad():  # Ensure no gradients are produced
-                        separate_parameters['X'] = X
-                        separate_parameters['chain_M_pos'] = residue_mask
-                        separate_parameters['bias_by_res'] = bias_by_res
-
                         # Update parameters as some are not transfered to the identified device
-                        separate_parameters.update(proteinmpnn_to_device(mpnn_model.device, **separate_parameters))
+                        separate_parameters = proteinmpnn_to_device(mpnn_model.device, X=X,
+                                                                    chain_M_pos=residue_mask,
+                                                                    bias_by_res=bias_by_res)
+                        # separate_parameters = dict(X=X,
+                        #                            chain_M_pos=residue_mask,
+                        #                            bias_by_res=bias_by_res)
+                        # separate_parameters.update(proteinmpnn_to_device(mpnn_model.device, **separate_parameters))
 
                         # Different across poses
                         X = separate_parameters.get('X', None)
