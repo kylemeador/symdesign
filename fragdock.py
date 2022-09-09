@@ -3320,5 +3320,6 @@ if __name__ == '__main__':
             logger.info(f'COMPLETE ==> {os.path.join(master_outdir, building_blocks)}\n\n')
 
         except KeyboardInterrupt:
-            logger.info('\nRun Ended By KeyboardInterrupt\n')
+            print('\n')
+            logger.error('Run Ended By KeyboardInterrupt\n')
             exit(2)
