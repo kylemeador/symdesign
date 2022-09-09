@@ -16,7 +16,7 @@ import torch
 from sklearn.cluster import DBSCAN
 from sklearn.neighbors import BallTree
 
-from metrics import errat_1_sigma, errat_2_sigma
+from metrics import calculate_collapse_metrics, errat_1_sigma, errat_2_sigma
 from resources.job import job_resources_factory, JobResources
 from resources.ml import proteinmpnn_factory, batch_proteinmpnn_input, mpnn_alphabet, score_sequences, \
     proteinmpnn_to_device
@@ -3042,7 +3042,7 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
                         degen_str = 'DEGEN_{}'.format('_'.join(map(str, degen_counts[idx])))
                         rot_str = 'ROT_{}'.format('_'.join(map(str, rot_counts[idx])))
                         tx_str = f'TX_{tx_counts[idx]}'  # translation idx
-                        pt_str = f'PT_{transform_idx%number_of_perturbations}'
+                        pt_str = f'PT_{int(transform_idx%number_of_perturbations) + 1}'
                         # degen_subdir_out_path = os.path.join(outdir, degen_str)
                         # rot_subdir_out_path = os.path.join(degen_subdir_out_path, rot_str)
                         tx_dir = os.path.join(outdir, degen_str, rot_str, tx_str.lower(), pt_str)
