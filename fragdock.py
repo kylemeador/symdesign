@@ -2859,63 +2859,279 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
             mpnn_memory_constraint = psutil.virtual_memory().available
             log.critical(f'The available cpu memory is: {mpnn_memory_constraint}')
         else:
-            internal_z_translation_grid = np.repeat(internal_translations, perturb_matrices.shape[0])
-            internal_translation_grid = np.zeros((internal_z_translation_grid.shape[0], 3))
-            internal_translation_grid[:, 2] = internal_z_translation_grid
-            perturb_matrix_grid = np.tile(perturb_matrices, (internal_translations.shape[0], 1, 1))
-            full_ext_tx_perturb1 = full_ext_tx_perturb2 = [None for _ in range(perturb_matrix_grid.shape[0])]
+            mpnn_memory_constraint, gpu_memory_total = torch.cuda.mem_get_info()
+            log.critical(f'The available gpu memory is: {mpnn_memory_constraint}')
 
-        # Apply the full perturbation landscape to the degrees of freedom
-        # These operations add an axis to the transformation operators
-        # Each transformation is along axis=0 and the perturbations are along axis=1
-        if sym_entry.is_internal_rot1:
-            # Ensure that the second matrix is transposed to dot multiply row s(mat1) by columns (mat2)
-            full_rotation_perturb1 = np.matmul(full_rotation1[:, None, :, :],
-                                               perturb_matrix_grid[None, :, :, :].swapaxes(-1, -2))
-        else:  # Todo ensure that identity matrix is the length of internal_translation_grid
-            full_rotation_perturb1 = np.matmul(full_rotation1[:, None, :, :], identity_matrix[None, None, :, :])
-        if sym_entry.is_internal_rot2:
-            full_rotation_perturb2 = np.matmul(full_rotation2[:, None, :, :],
-                                               perturb_matrix_grid[None, :, :, :].swapaxes(-1, -2))
+        element_memory = 4  # where each element is np.int/float32
+        number_of_elements_available = mpnn_memory_constraint / element_memory
+        model_elements = number_of_mpnn_model_parameters
+
+        # Set up parameters and model sampling type based on symmetry
+        if pose.is_symmetric():
+            # number_of_symmetry_mates = pose.number_of_symmetry_mates
+            mpnn_sample = mpnn_model.tied_sample
+            number_of_residues = pose.number_of_residues*pose.number_of_symmetry_mates
         else:
-            full_rotation_perturb2 = np.matmul(full_rotation2[:, None, :, :], identity_matrix[None, None, :, :])
+            mpnn_sample = mpnn_model.sample
+            number_of_residues = pose.number_of_residues
 
-        # origin = np.array([0., 0., 0.])
-        if sym_entry.is_internal_tx1:  # add the translation to Z (axis=2)
-            full_int_tx_perturb1 = full_int_tx1[:, None, :] + internal_translation_grid[None, :, :]
+        ca_only = False
+        if ca_only:
+            num_model_residues = 1
         else:
-            # full_int_tx1 is empty and adds the origin repeatedly.
-            full_int_tx_perturb1 = full_int_tx1[:, None, :]  # + origin[None, None, :]
+            num_model_residues = 5  # use 5 as CB is added by the model later
 
-        if sym_entry.is_internal_tx2:
-            full_int_tx_perturb2 = full_int_tx2[:, None, :] + internal_translation_grid[None, :, :]
-        else:
-            full_int_tx_perturb2 = full_int_tx2[:, None, :]  # + origin[None, None, :]
+        model_elements += prod((number_of_residues, num_model_residues, 3))  # X,
+        model_elements += number_of_residues  # S.shape
+        model_elements += number_of_residues  # chain_mask.shape
+        model_elements += number_of_residues  # chain_encoding.shape
+        model_elements += number_of_residues  # residue_idx.shape
+        model_elements += number_of_residues  # mask.shape
+        model_elements += number_of_residues  # residue_mask.shape
+        model_elements += prod((number_of_residues, 21))  # omit_AA_mask.shape
+        model_elements += number_of_residues  # pssm_coef.shape
+        model_elements += prod((number_of_residues, 20))  # pssm_bias.shape
+        model_elements += prod((number_of_residues, 20))  # pssm_log_odds_mask.shape
+        model_elements += number_of_residues  # tied_beta.shape
+        model_elements += prod((number_of_residues, 21))  # bias_by_res.shape
+        log.critical(f'The number of model_elements is: {model_elements}')
 
-        log.info(f'internal_tx 1 shape: {full_int_tx_perturb1.shape}')
-        log.info(f'internal_tx 2 shape: {full_int_tx_perturb2.shape}')
+        size = full_rotation1.shape[0]  # This is the number of transformations, i.e. the number_of_designs
+        # The batch_length indicates how many models could fit in the allocated memory. Using floor division to get integer
+        # Reduce scale by factor of divisor to be safe
+        start_divisor = divisor = 256  # 128  # 2048 still breaks when there is a gradient for training
+        # batch_length = 10
+        batch_length = int(number_of_elements_available // model_elements // start_divisor)
+        log.critical(f'The number_of_elements_available is: {number_of_elements_available}')
+        proteinmpnn_time_start = time.time()
+        while True:
+            log.critical(f'The batch_length is: {batch_length}')
+            try:  # Design sequences with ProteinMPNN using the optimal batch size given memory
+                number_of_batches = int(ceil(size/batch_length) or 1)  # Select at least 1
 
-        # This will utilize a single input from each pose and create a sequence design batch over each transformation.
-        for idx in range(full_rotation1.shape[0]):
+                parameters = pose.get_proteinmpnn_params()
+                # Disregard the X, chain_M_pos, and bias_by_res parameters return and use the pose specific data from below
+                parameters.pop('X')
+                parameters.pop('chain_M_pos')
+                parameters.pop('bias_by_res')
+                # Create batch_length fixed parameter data which are the same across poses
+                parameters.update(**batch_proteinmpnn_input(size=batch_length, **parameters))
+
+                # Move fixed data structures to the model device
+                with torch.no_grad():  # Ensure no gradients are produced
+                    # Update parameters as some are not transfered to the identified device
+                    parameters.update(proteinmpnn_to_device(mpnn_model.device, **parameters))
+
+                    S = parameters.get('S', None)
+                    chain_mask = parameters.get('chain_mask', None)
+                    chain_encoding = parameters.get('chain_encoding', None)
+                    residue_idx = parameters.get('residue_idx', None)
+                    mask = parameters.get('mask', None)
+                    omit_AAs_np = parameters.get('omit_AAs_np', None)
+                    bias_AAs_np = parameters.get('bias_AAs_np', None)
+                    omit_AA_mask = parameters.get('omit_AA_mask', None)
+                    pssm_coef = parameters.get('pssm_coef', None)
+                    pssm_bias = parameters.get('pssm_bias', None)
+                    pssm_multi = parameters.get('pssm_multi', None)
+                    pssm_log_odds_flag = parameters.get('pssm_log_odds_flag', None)
+                    pssm_log_odds_mask = parameters.get('pssm_log_odds_mask', None)
+                    pssm_bias_flag = parameters.get('pssm_bias_flag', None)
+                    tied_pos = parameters.get('tied_pos', None)
+                    tied_beta = parameters.get('tied_beta', None)
+
+                    chain_mask_and_mask = chain_mask * mask
+
+                # Set up ProteinMPNN output data structures
+                generated_sequences = np.empty((size, number_of_residues))
+                probabilities = np.empty((size, number_of_residues, proteinmpnn_factory.mpnn_alphabet_length))
+                all_scores = np.empty((size,))
+
+                # Gather the coordinates according to the transformations identified
+                for batch in range(number_of_batches):
+                    batch_slice = slice(batch*batch_length, (batch+1) * batch_length)
+                    # # Get the transformations based on slices of batch_length
+                    # # Stack each local perturbation up and multiply individual entity coords
+                    # transformation1 = dict(rotation=full_rotation1[batch_slice],
+                    #                        translation=full_int_tx1[batch_slice],
+                    #                        rotation2=set_mat1,
+                    #                        translation2=None if full_ext_tx1 is None
+                    #                        else full_ext_tx1[batch_slice])
+                    # transformation2 = dict(rotation=full_rotation2[batch_slice],
+                    #                        translation=full_int_tx2[batch_slice],
+                    #                        rotation2=set_mat2,
+                    #                        translation2=None if full_ext_tx2 is None
+                    #                        else full_ext_tx2[batch_slice])
+                    # transformations = [transformation1, transformation2]
+                    #
+                    # # Use this in the case that coordinates being used are a longer length than multiplying matrices
+                    # # _full_rotation1 = full_rotation1[batch_slice]
+                    # # # Transform the coordinates
+                    # # number_of_transforms = _full_rotation1.shape[0]
+
+                    # Get variable data structures for each Pose
+                    # new_coords = []
+                    # for transform_idx, entity_bb_coord in zip(transform_indices, entity_bb_coords):
+                    #     # Todo Need to tile the entity_bb_coords if operating like this
+                    #     # perturbed_bb_coords = transform_coordinate_sets(entity_bb_coords[entity_idx],
+                    #     #                                              **specific_transformations[transform_indices[entity_idx]])
+                    #     new_coords.append(transform_coordinate_sets(entity_bb_coord,
+                    #                                                 **transformations[transform_idx]))
+                    #
+                    # # Stack the entity coordinates to make up a contiguous block for each pose
+                    # # If entity_bb_coords are stacked, then must concatenate along axis=1 to get full pose
+                    # log.debug(f'new_coords.shape: {tuple([coords.shape for coords in new_coords])}')
+                    # perturbed_bb_coords = np.concatenate(new_coords, axis=1)
+
+                    # Initialize pose data structures for interface design
+                    zero_offset = 1
+                    residue_mask = np.zeros((batch_length, pose.number_of_residues),
+                                            dtype=np.int32)
+                    # Utilize bias in design
+                    bias_by_res = np.zeros((batch_length, pose.number_of_residues, 21),
+                                           dtype=np.float32)  # (number_of_residues, alphabet_length)
+                    # Use idx to set new numpy arrays, transform_idx to set coords
+                    # new_coords = []
+                    # Each residue will have 4 bb_coords, we will reshape to ProteinMPNN later
+                    new_coords = np.zeros((batch_length, pose.number_of_residues*4, 3),  # 4, 3)
+                                          dtype=np.float32)
+                    for idx, transform_idx in enumerate(range(batch_slice.start, batch_slice.stop)):
+                        update_pose_coords(transform_idx)
+                        pose.find_and_split_interface()
+                        # Format the bb coords for ProteinMPNN with reshape
+                        # new_coords.append(pose.bb_coords.reshape((-1, 4, 3)))  # -1 axis should == pose.number_of_residues
+                        # new_coords[idx] = pose.bb_coords.reshape((-1, 4, 3))  # -1 axis should == pose.number_of_residues
+                        new_coords[idx] = pose.bb_coords
+
+                        design_residues = []  # Add all interface residues
+                        for number, residues_entities in pose.split_interface_residues.items():
+                            design_residues.extend([residue.number-zero_offset for residue, _ in residues_entities])
+
+                        residue_mask[idx, design_residues] = 1
+                        # Todo Should I use this?
+                        #  bias_by_res[idx] = pose.fragment_profile
+                        #  OR
+                        #  bias_by_res[idx, fragment_residues] = pose.fragment_profile[fragment_residues]
+
+                    # # If entity_bb_coords are individually transformed, then axis=0 works
+                    # perturbed_bb_coords = np.concatenate(new_coords, axis=0)
+                    log.debug(f'perturbed_bb_coords.shape: {perturbed_bb_coords.shape}')
+
+                    if pose.is_symmetric():
+                        # Make each set of coordinates "symmetric"
+                        # Todo - This uses starting coords to symmetrize... Crystalline won't be right with external_translation
+                        _perturbed_bb_coords = []
+                        for idx in range(perturbed_bb_coords.shape[0]):
+                            _perturbed_bb_coords.append(pose.return_symmetric_coords(perturbed_bb_coords[idx]))
+
+                        # Let -1 fill in the pose length dimension with the number of residues
+                        # 4 is shape of backbone coords (N, Ca, C, O), 3 is x,y,z
+                        # X = perturbed_bb_coords.reshape((number_of_perturbations, -1, 4, 3))
+                        perturbed_bb_coords = np.concatenate(_perturbed_bb_coords)
+
+                        # Symmetrize other arrays
+                        number_of_symmetry_mates = pose.number_of_symmetry_mates
+                        # (batch, number_of_sym_residues, ...)
+                        residue_mask = np.tile(residue_mask, (1, number_of_symmetry_mates))
+                        bias_by_res = np.tile(bias_by_res, (1, number_of_symmetry_mates, 1))
+
+                    X = perturbed_bb_coords.reshape((batch_length, -1, 4, 3))
+                    log.debug(f'X.shape: {X.shape}')
+
+                    with torch.no_grad():  # Ensure no gradients are produced
+                        separate_parameters['X'] = X
+                        separate_parameters['chain_M_pos'] = residue_mask
+                        separate_parameters['bias_by_res'] = bias_by_res
+
+                        # Update parameters as some are not transfered to the identified device
+                        separate_parameters.update(proteinmpnn_to_device(mpnn_model.device, **separate_parameters))
+
+                        # Different across poses
+                        X = separate_parameters.get('X', None)
+                        residue_mask = separate_parameters.get('chain_M_pos', None)
+                        # Potentially different across poses
+                        bias_by_res = separate_parameters.get('bias_by_res', None)
+                        decode_order = pose.generate_proteinmpnn_decode_order(to_device=mpnn_model.device)
+
+                        sample_dict = mpnn_sample(X, decode_order, S, chain_mask, chain_encoding, residue_idx,
+                                                  mask, temperature=design_temperature,
+                                                  omit_AAs_np=omit_AAs_np, bias_AAs_np=bias_AAs_np,
+                                                  chain_M_pos=residue_mask, omit_AA_mask=omit_AA_mask,
+                                                  pssm_coef=pssm_coef, pssm_bias=pssm_bias, pssm_multi=pssm_multi,
+                                                  pssm_log_odds_flag=pssm_log_odds_flag,
+                                                  pssm_log_odds_mask=pssm_log_odds_mask,
+                                                  pssm_bias_flag=pssm_bias_flag,
+                                                  tied_pos=tied_pos, tied_beta=tied_beta,
+                                                  bias_by_res=bias_by_res)
+                        # When batches are sliced for multiple inputs
+                        S_sample = sample_dict['S']  # This is the shape of the input X Tensor
+                        tied_decoding_order = sample_dict['decoding_order']
+                        chain_residue_mask = chain_mask*residue_mask
+                        log_probs = mpnn_model(X, S_sample, mask, chain_residue_mask, residue_idx, chain_encoding, None,
+                                               # this argument is provided but with below args, is not used        ^
+                                               use_input_decoding_order=True, decoding_order=tied_decoding_order)
+
+                        # Score the redesigned structure-sequence
+                        mask_for_loss = chain_mask_and_mask*residue_mask
+                        # S_sample, log_probs, and mask_for_loss should all be the same size
+                        scores = score_sequences(S_sample, log_probs, mask_for_loss)
+                        # Score the whole structure-sequence
+                        # global_scores = score_sequences(S_sample, log_probs, mask)
+
+                        # Format outputs
+                        all_scores[batch_slice] = scores.cpu().numpy()  # scores
+                        probabilities[batch_slice] = sample_dict['probs'].cpu().numpy()  # batch_probabilities
+                        generated_sequences[batch_slice] = S_sample.cpu().numpy()
+
+                log.critical(f'Successful execution with {divisor} using available memory of '
+                             f'{memory_constraint} and batch_length of {batch_length}')
+                # _input = input(f'Press enter to continue')
+                break
+            except (RuntimeError, np.core._exceptions._ArrayMemoryError) as error:  # for (gpu, cpu)
+                # raise error
+                log.critical(f'Calculation failed with {divisor}.\n{error}\n{torch.cuda.memory_stats()}\nTrying again...')
+                # log.critical(f'{error}\nTrying again...')
+                divisor = divisor*2
+                batch_length = int(number_of_elements_available // model_elements // divisor)
+
+        log.info(f'Design with ProteinMPNN took {time.time() - proteinmpnn_time_start:8f}')
+
+        # Save each pose information
+        sequences = numeric_to_sequence(generated_sequences)
+        all_scores
+        probabilities
+
+    else:
+        # Only get metrics for pose, no sequences
+        interface_local_density = {}
+        per_residue_data = {}
+        for idx, overlap_ghosts in enumerate(all_passing_ghost_indices):
             update_pose_coords(idx)
-            batch_time_start = time.time()
-            sequences, scores, probabilities = perturb_transformation(idx)  # Todo , sequence_design=design_output)
-            print(sequences[:5])
-            print(scores[:5])
-            print(np.format_float_positional(np.float32(probabilities[0, 0, 0]), unique=False, precision=4))
-            print(probabilities[:5])
-            log.info(f'Batch design took {time.time() - batch_time_start:8f}s')
-            # Todo
-            #  coords = perturb_transformation(idx)  # Todo , sequence_design=design_output)
 
-    # Write the resulting pose and sequences
-    for idx, overlap_ghosts in enumerate(all_passing_ghost_indices):
-        # Load the z-scores and fragments for use in output_pose()
-        overlap_surf = all_passing_surf_indices[idx]
-        sorted_z_scores = all_passing_z_scores[idx]
-        # Todo must make the pose coordinates again as in the above call:
-        #  clash = update_pose_coords(idx)
-        output_pose(idx, sequence_design=design_output)
+            # Todo index the perturbations with an idx for the DEGEN_ROT_TX format
+            # Todo replace with PoseDirectory? Path object?
+            # temp indexing on degen and rot counts
+            # degen1_count, degen2_count = degen_counts[idx]
+            # rot1_count, rot2_count = rot_counts[idx]
+            # temp indexing on degen and rot counts
+            degen_str = 'DEGEN_{}'.format('_'.join(map(str, degen_counts[idx])))
+            rot_str = 'ROT_{}'.format('_'.join(map(str, rot_counts[idx])))
+            tx_str = f'TX_{tx_counts[idx]}'  # translation idx
+            # degen_subdir_out_path = os.path.join(outdir, degen_str)
+            # rot_subdir_out_path = os.path.join(degen_subdir_out_path, rot_str)
+            tx_dir = os.path.join(outdir, degen_str, rot_str, tx_str.lower())
+            sampling_id = f'{degen_str}-{rot_str}-{tx_str}'
+            pose_id = f'{building_blocks}-{sampling_id}'
+
+            # Load the z-scores and fragments for use in output_pose()
+            # overlap_surf = all_passing_surf_indices[idx]
+            # sorted_z_scores = all_passing_z_scores[idx]
+            _per_residue_data, _interface_metrics, _interface_local_density = \
+                gather_pose_metrics(overlap_ghosts, all_passing_surf_indices[idx], all_passing_z_scores[idx])
+
+            per_residue_data[pose_id] = _per_residue_data
+            interface_metrics[pose_id] = _interface_metrics
+            interface_local_density[pose_id] = _interface_local_density
+            output_pose(tx_dir, sampling_id)  # , sequence_design=design_output)
 
     # Todo ensure that this is performed correctly and that msa is loaded upon docking initialization
     # Calculate hydrophobic collapse for each design
