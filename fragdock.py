@@ -3348,7 +3348,7 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
     scores_df = pd.concat([scores_df, pose_collapse_df], axis=1)
     print(scores_df)
 
-    log.info(f'Total {building_block} dock trajectory took {time.time() - frag_dock_time_start:.2f}s')
+    log.info(f'Total {building_blocks} dock trajectory took {time.time() - frag_dock_time_start:.2f}s')
 
 
 if __name__ == '__main__':
