@@ -643,9 +643,7 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
     pytorch_conf = 'PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:-1,roundup_power2_divisions:4,garbage_collection_threshold:0.7'
     set_conf = f'export {pytorch_conf}'
     os.system(set_conf)
-    p = subprocess.Popen(['echo', '$PYTORCH_CUDA_ALLOC_CONF'], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    conf_result, err = p.communicate()
-    log.critical(f'Setting pytorch configuration:\n{set_conf}\nResult:{conf_result}')
+    log.critical(f'Setting pytorch configuration:\n{set_conf}\nResult:{os.getenv("PYTORCH_CUDA_ALLOC_CONF")}')
     number_of_mpnn_model_parameters = sum([prod(param.size()) for param in mpnn_model.parameters()])
     log.critical(f'The number of proteinmpnn model parameters is: {number_of_mpnn_model_parameters}')
     low_quality_match_value = .2  # sets the lower bounds on an acceptable match, was upper bound of 2 using z-score
