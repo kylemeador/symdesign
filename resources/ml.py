@@ -84,21 +84,39 @@ proteinmpnn_factory: Annotated[ProteinMPNNFactory,
 argument
 """
 
+# kwargs = [X, S, mask, chain_M_pos, chain_mask, chain_encoding, residue_idx, omit_AA_mask,
+#           tied_beta, pssm_coef, pssm_bias, pssm_log_odds_mask, bias_by_res]
+dtype_map = dict(
+    X=torch.float32,  # X,
+    S=torch.long,  # S,
+    chain_mask=torch.float32,  # residue_idx,
+    chain_encoding=torch.long,  # mask,
+    residue_idx=torch.long,  # chain_M_pos,  # residue_mask,
+    mask=torch.float32,  # chain_mask,
+    chain_M_pos=torch.float32,  # chain_encoding,
+    omit_AA_mask=torch.float32,  # omit_AA_mask,
+    pssm_coef=torch.float32,  # pssm_coef,
+    pssm_bias=torch.float32,  # pssm_bias,
+    pssm_log_odds_mask=torch.float32,  # pssm_log_odds_mask,
+    tied_beta=torch.float32,  # tied_beta,
+    bias_by_res=torch.float32,  # bias_by_res
+)
+
 
 def batch_proteinmpnn_input(size: int = None,
-                            X: np.ndarray = None,
-                            S: np.ndarray = None,
-                            chain_mask: np.ndarray = None,
-                            chain_encoding: np.ndarray = None,
-                            residue_idx: np.ndarray = None,
-                            mask: np.ndarray = None,
-                            chain_M_pos: np.ndarray = None,  # residue_mask
-                            omit_AA_mask: np.ndarray = None,
-                            pssm_coef: np.ndarray = None,
-                            pssm_bias: np.ndarray = None,
-                            pssm_log_odds_mask: np.ndarray = None,
-                            bias_by_res: np.ndarray = None,
-                            # tied_beta: np.ndarray = None,
+                            # X: np.ndarray = None,
+                            # S: np.ndarray = None,
+                            # chain_mask: np.ndarray = None,
+                            # chain_encoding: np.ndarray = None,
+                            # residue_idx: np.ndarray = None,
+                            # mask: np.ndarray = None,
+                            # chain_M_pos: np.ndarray = None,  # residue_mask
+                            # omit_AA_mask: np.ndarray = None,
+                            # pssm_coef: np.ndarray = None,
+                            # pssm_bias: np.ndarray = None,
+                            # pssm_log_odds_mask: np.ndarray = None,
+                            # bias_by_res: np.ndarray = None,
+                            # # tied_beta: np.ndarray = None,
                             **kwargs) -> dict[str, np.ndarray]:
     # omit_AAs_np: np.ndarray = None, #
     # bias_AAs_np: np.ndarray = None, #
@@ -111,72 +129,85 @@ def batch_proteinmpnn_input(size: int = None,
 
     Args:
         size: The number of inputs to use. If left blank, the size will be inferred from axis=0 of the X array
-        X: The array specifying the parameter X of ProteinMPNN
-        S: The array specifying the parameter S of ProteinMPNN
-        chain_mask: The array specifying the parameter chain_mask of ProteinMPNN
-        chain_encoding: The array specifying the parameter chain_encoding of ProteinMPNN
-        residue_idx: The array specifying the parameter residue_idx of ProteinMPNN
-        mask: The array specifying the parameter mask of ProteinMPNN
-        chain_M_pos: The array specifying the parameter residue_mask of ProteinMPNN
-        # residue_mask: The array specifying the parameter residue_mask of ProteinMPNN
-        omit_AA_mask: The array specifying the parameter omit_AA_mask of ProteinMPNN
-        pssm_coef: The array specifying the parameter pssm_coef of ProteinMPNN
-        pssm_bias: The array specifying the parameter pssm_bias of ProteinMPNN
-        pssm_log_odds_mask: The array specifying the parameter pssm_log_odds_mask of ProteinMPNN
-        bias_by_res: The array specifying the parameter bias_by_res of ProteinMPNN
-        # tied_beta: The array specifying the parameter tied_beta of ProteinMPNN
+    Keyword Args:
+        X: (numpy.ndarray) = None - The array specifying the parameter X of ProteinMPNN
+        S: (numpy.ndarray) = None - The array specifying the parameter S of ProteinMPNN
+        chain_mask: (numpy.ndarray) = None - The array specifying the parameter chain_mask of ProteinMPNN
+        chain_encoding: (numpy.ndarray) = None - The array specifying the parameter chain_encoding of ProteinMPNN
+        residue_idx: (numpy.ndarray) = None - The array specifying the parameter residue_idx of ProteinMPNN
+        mask: (numpy.ndarray) = None - The array specifying the parameter mask of ProteinMPNN
+        chain_M_pos: (numpy.ndarray) = None - The array specifying the parameter residue_mask of ProteinMPNN
+        # residue_mask: (numpy.ndarray) = None - The array specifying the parameter residue_mask of ProteinMPNN
+        omit_AA_mask: (numpy.ndarray) = None - The array specifying the parameter omit_AA_mask of ProteinMPNN
+        pssm_coef: (numpy.ndarray) = None - The array specifying the parameter pssm_coef of ProteinMPNN
+        pssm_bias: (numpy.ndarray) = None - The array specifying the parameter pssm_bias of ProteinMPNN
+        pssm_log_odds_mask: (numpy.ndarray) = None - The array specifying the parameter pssm_log_odds_mask of ProteinMPNN
+        bias_by_res: (numpy.ndarray) = None - The array specifying the parameter bias_by_res of ProteinMPNN
+        tied_beta: (numpy.ndarray) = None - The array specifying the parameter tied_beta of ProteinMPNN
     Returns:
         A dictionary with each of the proteinmpnn parameters formatted in a batch
     """
-    # Stack sequence design task in "batches"
     if size is None:  # Use X as is
+        X = kwargs.get('X')
+        if X is None:
+            raise ValueError(f'{batch_proteinmpnn_input.__name__} must pass keyword argument "X" if argument "size" '
+                             f'is None')
         size = X.shape[0]
-    else:
-        X = np.tile(X, (size,) + (1,)*X.ndim)
+    # else:
+    #     X = np.tile(X, (size,) + (1,)*X.ndim)
 
-    S = np.tile(S, (size,) + (1,)*S.ndim)
-    mask = np.tile(mask, (size,) + (1,)*mask.ndim)
-    residue_mask = np.tile(chain_M_pos, (size,) + (1,)*chain_M_pos.ndim)
-    chain_mask = np.tile(chain_mask, (size,) + (1,)*chain_mask.ndim)
-    chain_encoding = np.tile(chain_encoding, (size,) + (1,)*chain_encoding.ndim)
-    residue_idx = np.tile(residue_idx, (size,) + (1,)*residue_idx.ndim)
-    omit_AA_mask = np.tile(omit_AA_mask, (size,) + (1,)*omit_AA_mask.ndim)
-    # tied_beta = np.tile(tied_beta, (size,) + (1,)*tied_beta.ndim)
-    bias_by_res = np.tile(bias_by_res, (size,) + (1,)*bias_by_res.ndim)
-    pssm_coef = np.tile(pssm_coef, (size,) + (1,)*pssm_coef.ndim)
-    pssm_bias = np.tile(pssm_bias, (size,) + (1,)*pssm_bias.ndim)
-    pssm_log_odds_mask = np.tile(pssm_log_odds_mask, (size,) + (1,)*pssm_log_odds_mask.ndim)
+    # Stack ProteinMPNN sequence design task in "batches"
+    device_kwargs = {}
+    for key in dtype_map:
+        param = kwargs.get(key)
+        if param is not None:
+            device_kwargs[key] = np.tile(param, (size,) + (1,)*param.ndim)
 
-    return dict(X=X,
-                S=S,
-                chain_mask=chain_mask,
-                chain_encoding=chain_encoding,
-                residue_idx=residue_idx,
-                mask=mask,
-                chain_M_pos=residue_mask,
-                omit_AA_mask=omit_AA_mask,
-                pssm_coef=pssm_coef,
-                pssm_bias=pssm_bias,
-                pssm_log_odds_mask=pssm_log_odds_mask,
-                bias_by_res=bias_by_res,
-                # tied_beta=tied_beta
-                )
+    return device_kwargs
+
+    # S = np.tile(S, (size,) + (1,)*S.ndim)
+    # chain_mask = np.tile(chain_mask, (size,) + (1,)*chain_mask.ndim)
+    # chain_encoding = np.tile(chain_encoding, (size,) + (1,)*chain_encoding.ndim)
+    # residue_idx = np.tile(residue_idx, (size,) + (1,)*residue_idx.ndim)
+    # mask = np.tile(mask, (size,) + (1,)*mask.ndim)
+    # chain_M_pos = np.tile(chain_M_pos, (size,) + (1,)*chain_M_pos.ndim)  # residue_mask
+    # omit_AA_mask = np.tile(omit_AA_mask, (size,) + (1,)*omit_AA_mask.ndim)
+    # pssm_coef = np.tile(pssm_coef, (size,) + (1,)*pssm_coef.ndim)
+    # pssm_bias = np.tile(pssm_bias, (size,) + (1,)*pssm_bias.ndim)
+    # pssm_log_odds_mask = np.tile(pssm_log_odds_mask, (size,) + (1,)*pssm_log_odds_mask.ndim)
+    # bias_by_res = np.tile(bias_by_res, (size,) + (1,)*bias_by_res.ndim)
+    # # tied_beta = np.tile(tied_beta, (size,) + (1,)*tied_beta.ndim)
+    #
+    # return dict(X=X,
+    #             S=S,
+    #             chain_mask=chain_mask,
+    #             chain_encoding=chain_encoding,
+    #             residue_idx=residue_idx,
+    #             mask=mask,
+    #             chain_M_pos=residue_mask,
+    #             omit_AA_mask=omit_AA_mask,
+    #             pssm_coef=pssm_coef,
+    #             pssm_bias=pssm_bias,
+    #             pssm_log_odds_mask=pssm_log_odds_mask,
+    #             bias_by_res=bias_by_res,
+    #             # tied_beta=tied_beta
+    #             )
 
 
 def proteinmpnn_to_device(device: str = None,
-                          X: np.ndarray = None,
-                          S: np.ndarray = None,
-                          chain_mask: np.ndarray = None,
-                          chain_encoding: np.ndarray = None,
-                          residue_idx: np.ndarray = None,
-                          mask: np.ndarray = None,
-                          chain_M_pos: np.ndarray = None,  # residue_mask
-                          omit_AA_mask: np.ndarray = None,
-                          pssm_coef: np.ndarray = None,
-                          pssm_bias: np.ndarray = None,
-                          pssm_log_odds_mask: np.ndarray = None,
-                          bias_by_res: np.ndarray = None,
-                          tied_beta: np.ndarray = None,
+                          # X: np.ndarray = None,
+                          # S: np.ndarray = None,
+                          # chain_mask: np.ndarray = None,
+                          # chain_encoding: np.ndarray = None,
+                          # residue_idx: np.ndarray = None,
+                          # mask: np.ndarray = None,
+                          # chain_M_pos: np.ndarray = None,  # residue_mask
+                          # omit_AA_mask: np.ndarray = None,
+                          # pssm_coef: np.ndarray = None,
+                          # pssm_bias: np.ndarray = None,
+                          # pssm_log_odds_mask: np.ndarray = None,
+                          # bias_by_res: np.ndarray = None,
+                          # tied_beta: np.ndarray = None,
                           **kwargs) -> dict[str, torch.Tensor]:
     # omit_AAs_np = kwargs.get('omit_AAs_np', None)
     # bias_AAs_np = kwargs.get('bias_AAs_np', None)
@@ -189,20 +220,21 @@ def proteinmpnn_to_device(device: str = None,
 
     Args:
         device: The device to load tensors to
-        X: The array specifying the parameter X of ProteinMPNN
-        S: The array specifying the parameter S of ProteinMPNN
-        chain_mask: The array specifying the parameter chain_mask of ProteinMPNN
-        chain_encoding: The array specifying the parameter chain_encoding of ProteinMPNN
-        residue_idx: The array specifying the parameter residue_idx of ProteinMPNN
-        mask: The array specifying the parameter mask of ProteinMPNN
-        chain_M_pos: The array specifying the parameter residue_mask of ProteinMPNN
-        # residue_mask: The array specifying the parameter residue_mask of ProteinMPNN
-        omit_AA_mask: The array specifying the parameter omit_AA_mask of ProteinMPNN
-        pssm_coef: The array specifying the parameter pssm_coef of ProteinMPNN
-        pssm_bias: The array specifying the parameter pssm_bias of ProteinMPNN
-        pssm_log_odds_mask: The array specifying the parameter pssm_log_odds_mask of ProteinMPNN
-        bias_by_res: The array specifying the parameter bias_by_res of ProteinMPNN
-        tied_beta: The array specifying the parameter tied_beta of ProteinMPNN
+    Keyword Args:
+        X: (numpy.ndarray) = None - The array specifying the parameter X of ProteinMPNN
+        S: (numpy.ndarray) = None - The array specifying the parameter S of ProteinMPNN
+        chain_mask: (numpy.ndarray) = None - The array specifying the parameter chain_mask of ProteinMPNN
+        chain_encoding: (numpy.ndarray) = None - The array specifying the parameter chain_encoding of ProteinMPNN
+        residue_idx: (numpy.ndarray) = None - The array specifying the parameter residue_idx of ProteinMPNN
+        mask: (numpy.ndarray) = None - The array specifying the parameter mask of ProteinMPNN
+        chain_M_pos: (numpy.ndarray) = None - The array specifying the parameter residue_mask of ProteinMPNN
+        # residue_mask: (numpy.ndarray) = None - The array specifying the parameter residue_mask of ProteinMPNN
+        omit_AA_mask: (numpy.ndarray) = None - The array specifying the parameter omit_AA_mask of ProteinMPNN
+        pssm_coef: (numpy.ndarray) = None - The array specifying the parameter pssm_coef of ProteinMPNN
+        pssm_bias: (numpy.ndarray) = None - The array specifying the parameter pssm_bias of ProteinMPNN
+        pssm_log_odds_mask: (numpy.ndarray) = None - The array specifying the parameter pssm_log_odds_mask of ProteinMPNN
+        bias_by_res: (numpy.ndarray) = None - The array specifying the parameter bias_by_res of ProteinMPNN
+        tied_beta: (numpy.ndarray) = None - The array specifying the parameter tied_beta of ProteinMPNN
     Returns:
         The torch.Tensor proteinmpnn parameters
     """
@@ -210,35 +242,42 @@ def proteinmpnn_to_device(device: str = None,
         raise ValueError('Must provide the desired device to load proteinmpnn')
 
     # Convert all numpy arrays to pytorch
-    X = torch.from_numpy(X).to(dtype=torch.float32, device=device)
-    S = torch.from_numpy(S).to(dtype=torch.long, device=device)
-    mask = torch.from_numpy(mask).to(dtype=torch.float32, device=device)
-    residue_mask = torch.from_numpy(chain_M_pos).to(dtype=torch.float32, device=device)  # residue_mask
-    chain_mask = torch.from_numpy(chain_mask).to(dtype=torch.float32, device=device)
-    chain_encoding = torch.from_numpy(chain_encoding).to(dtype=torch.long, device=device)
-    residue_idx = torch.from_numpy(residue_idx).to(dtype=torch.long, device=device)
-    omit_AA_mask = torch.from_numpy(omit_AA_mask).to(dtype=torch.float32, device=device)
-    tied_beta = torch.from_numpy(tied_beta).to(dtype=torch.float32, device=device)
-    pssm_coef = torch.from_numpy(pssm_coef).to(dtype=torch.float32, device=device)
-    pssm_bias = torch.from_numpy(pssm_bias).to(dtype=torch.float32, device=device)
-    pssm_log_odds_mask = torch.from_numpy(pssm_log_odds_mask).to(dtype=torch.float32, device=device)
-    bias_by_res = torch.from_numpy(bias_by_res).to(dtype=torch.float32, device=device)
-    # torch.from_numpy(omit_aas).to(dtype=torch.float32, device=device)
+    device_kwargs = {}
+    for item, dtype in dtype_map.items():
+        param = kwargs.get(item)
+        if param is not None:
+            device_kwargs[item] = torch.from_numpy(param).to(dtype=dtype, device=device)
 
-    return dict(X=X,
-                S=S,
-                chain_mask=chain_mask,
-                chain_encoding=chain_encoding,
-                residue_idx=residue_idx,
-                mask=mask,
-                chain_M_pos=residue_mask,
-                omit_AA_mask=omit_AA_mask,
-                pssm_coef=pssm_coef,
-                pssm_bias=pssm_bias,
-                pssm_log_odds_mask=pssm_log_odds_mask,
-                tied_beta=tied_beta,
-                bias_by_res=bias_by_res
-                )
+    return device_kwargs
+    # X = torch.from_numpy(X).to(dtype=torch.float32, device=device)
+    # S = torch.from_numpy(S).to(dtype=torch.long, device=device)
+    # mask = torch.from_numpy(mask).to(dtype=torch.float32, device=device)
+    # chain_M_pos = torch.from_numpy(chain_M_pos).to(dtype=torch.float32, device=device)                # residue_mask
+    # chain_mask = torch.from_numpy(chain_mask).to(dtype=torch.float32, device=device)
+    # chain_encoding = torch.from_numpy(chain_encoding).to(dtype=torch.long, device=device)
+    # residue_idx = torch.from_numpy(residue_idx).to(dtype=torch.long, device=device)
+    # omit_AA_mask = torch.from_numpy(omit_AA_mask).to(dtype=torch.float32, device=device)
+    # pssm_coef = torch.from_numpy(pssm_coef).to(dtype=torch.float32, device=device)
+    # pssm_bias = torch.from_numpy(pssm_bias).to(dtype=torch.float32, device=device)
+    # pssm_log_odds_mask = torch.from_numpy(pssm_log_odds_mask).to(dtype=torch.float32, device=device)
+    # tied_beta = torch.from_numpy(tied_beta).to(dtype=torch.float32, device=device)
+    # bias_by_res = torch.from_numpy(bias_by_res).to(dtype=torch.float32, device=device)
+    # # omit_aas = torch.from_numpy(omit_aas).to(dtype=torch.float32, device=device)
+    #
+    # return dict(X=X,
+    #             S=S,
+    #             chain_mask=chain_mask,
+    #             chain_encoding=chain_encoding,
+    #             residue_idx=residue_idx,
+    #             mask=mask,
+    #             chain_M_pos=chain_M_pos,  # residue_mask,
+    #             omit_AA_mask=omit_AA_mask,
+    #             pssm_coef=pssm_coef,
+    #             pssm_bias=pssm_bias,
+    #             pssm_log_odds_mask=pssm_log_odds_mask,
+    #             tied_beta=tied_beta,
+    #             bias_by_res=bias_by_res
+    #             )
 
 
 def score_sequences(S: torch.Tensor, log_probs: torch.Tensor, mask: torch.Tensor) -> torch.Tensor:
