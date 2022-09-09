@@ -2877,6 +2877,7 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
     else:
         number_of_perturbations = 1
 
+    idx_slice = pd.IndexSlice
     pose_ids = []
     per_residue_data = {}
     interface_metrics = {}
@@ -3337,6 +3338,7 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
 
     # include in errat_deviation if errat score is < 2 std devs and isn't 0 to begin with
     source_errat_inclusion_boolean = np.logical_and(pose_source_errat_s < errat_2_sigma, pose_source_errat_s != 0.)
+    print(per_residue_df)
     errat_df = per_residue_df.loc[:, idx_slice[:, 'errat_deviation']].droplevel(-1, axis=1)
     # find where designs deviate above wild-type errat scores
     errat_sig_df = (errat_df.sub(pose_source_errat_s, axis=1)) > errat_1_sigma  # axis=1 Series is column oriented
