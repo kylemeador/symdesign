@@ -4041,7 +4041,8 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         while iteration < 5:
             p = subprocess.run(errat_cmd, input=self.get_atom_record(), encoding='utf-8', capture_output=True)
             all_residue_scores = p.stdout.strip().split('\n')
-            if len(all_residue_scores)-1 == self.number_of_residues:  # subtract overall_score from all_residue_scores
+            # Subtract one due to the addition of overall score
+            if len(all_residue_scores)-1 == self.number_of_residues:
                 break
             iteration += 1
 
