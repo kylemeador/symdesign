@@ -5448,7 +5448,7 @@ class Pose(SequenceProfile, SymmetricModel):
         if self.is_symmetric():
             number_of_symmetry_mates = self.number_of_symmetry_mates
             number_of_residues = self.number_of_residues
-            number_of_sym_residues = number_of_residues * number_of_symmetry_mates
+            number_of_sym_residues = number_of_residues*number_of_symmetry_mates
             X = self.return_symmetric_coords(self.backbone_coords)
             # Should be N, CA, C, O for each residue
             #  v - Residue
