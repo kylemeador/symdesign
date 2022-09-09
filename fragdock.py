@@ -2876,12 +2876,14 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
     else:
         number_of_perturbations = 1
 
+    pose_ids = []
     per_residue_data = {}
     interface_metrics = {}
     interface_local_density = {}
     all_sequences = {}
     all_scores = {}
     all_probabilities = {}
+    pose_length = pose.number_of_residues
 
     if design_output:
         # Extract parameters to run ProteinMPNN design and modulate memory requirements
@@ -2901,10 +2903,10 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
         if pose.is_symmetric():
             # number_of_symmetry_mates = pose.number_of_symmetry_mates
             mpnn_sample = mpnn_model.tied_sample
-            number_of_residues = pose.number_of_residues*pose.number_of_symmetry_mates
+            number_of_residues = pose_length*pose.number_of_symmetry_mates
         else:
             mpnn_sample = mpnn_model.sample
-            number_of_residues = pose.number_of_residues
+            number_of_residues = pose_length
 
         ca_only = False
         if ca_only:
@@ -3017,15 +3019,15 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
 
                     # Initialize pose data structures for interface design
                     zero_offset = 1
-                    residue_mask = np.zeros((batch_length, pose.number_of_residues),
+                    residue_mask = np.zeros((batch_length, pose_length),
                                             dtype=np.int32)
                     # Utilize bias in design
-                    bias_by_res = np.zeros((batch_length, pose.number_of_residues, 21),
+                    bias_by_res = np.zeros((batch_length, pose_length, 21),
                                            dtype=np.float32)  # (number_of_residues, alphabet_length)
                     # Use idx to set new numpy arrays, transform_idx to set coords
                     # new_coords = []
                     # Each residue will have 4 bb_coords, we will reshape to ProteinMPNN later
-                    new_coords = np.zeros((batch_length, pose.number_of_residues*4, 3),  # 4, 3)
+                    new_coords = np.zeros((batch_length, pose_length*4, 3),  # 4, 3)
                                           dtype=np.float32)
                     for idx, transform_idx in enumerate(range(batch_slice.start, batch_slice.stop)):
                         update_pose_coords(transform_idx)
@@ -3053,14 +3055,15 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
                             gather_pose_metrics(overlap_ghosts, all_passing_surf_indices[idx],
                                                 all_passing_z_scores[idx])
 
+                        pose_ids.append(pose_id)
                         per_residue_data[pose_id] = _per_residue_data
                         interface_metrics[pose_id] = _interface_metrics
                         interface_local_density[pose_id] = _interface_local_density
                         output_pose(tx_dir, sampling_id)  # , sequence_design=design_output)
 
                         # Format the bb coords for ProteinMPNN with reshape
-                        # new_coords.append(pose.bb_coords.reshape((-1, 4, 3)))  # -1 axis should == pose.number_of_residues
-                        # new_coords[idx] = pose.bb_coords.reshape((-1, 4, 3))  # -1 axis should == pose.number_of_residues
+                        # new_coords.append(pose.bb_coords.reshape((-1, 4, 3)))  # -1 axis should == pose_length
+                        # new_coords[idx] = pose.bb_coords.reshape((-1, 4, 3))  # -1 axis should == pose_length
                         new_coords[idx] = pose.backbone_coords
 
                         design_residues = []  # Add all interface residues
@@ -3269,11 +3272,29 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
             interface_local_density[pose_id] = _interface_local_density
             output_pose(tx_dir, sampling_id)  # , sequence_design=design_output)
 
-    scores_df = pd.DataFrame()
+    # Save all pose transformations
+    pose_transformations = {}
+    for idx, pose_id in enumerate(pose_ids):  # full_rotation1.shape[0]:
+        # pose_transformations[pose_id] = dict(transformation1=dict(rotation=full_rotation1[idx],
+        #                                                           translation=full_int_tx1[idx],
+        #                                                           rotation2=set_mat1,
+        #                                                           translation2=full_ext_tx1[idx]),
+        #                                      transformation2=dict(rotation=full_rotation2[idx],
+        #                                                           translation=full_int_tx2[idx],
+        #                                                           rotation2=set_mat2,
+        #                                                           translation2=full_ext_tx2[idx]))
+        pose_transformations[pose_id] = dict(rotation1=full_rotation1[idx],  # Replace with deg
+                                             translation1=full_int_tx1[idx],
+                                             rotation1_2=set_mat1,  # Replace with setting matrix number
+                                             translation1_2=full_ext_tx1[idx],
+                                             rotation2=full_rotation2[idx],  # Replace with deg
+                                             translation2=full_int_tx2[idx],
+                                             rotation2_2=set_mat2,  # Replace with setting matrix number
+                                             translation2_2=full_ext_tx2[idx])
+    scores_df = pd.DataFrame(pose_transformations)
     # Calculate full suite of metrics
     scores_df['interface_local_density'] = pd.Series(interface_local_density)
 
-    pose_length = pose.number_of_residues
     residue_indices = list(range(1, pose_length+1))
     per_residue_df = concat({name: pd.DataFrame(data, index=residue_indices)
                              for name, data in per_residue_data.items()}).unstack().swaplevel(0, 1, axis=1)
