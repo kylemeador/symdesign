@@ -3060,9 +3060,9 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
                         residue_mask = separate_parameters.get('chain_M_pos', None)
                         # Potentially different across poses
                         bias_by_res = separate_parameters.get('bias_by_res', None)
-                        decode_order = pose.generate_proteinmpnn_decode_order(to_device=mpnn_model.device)
+                        decoding_order = pose.generate_proteinmpnn_decode_order(to_device=mpnn_model.device)
 
-                        sample_dict = mpnn_sample(X, decode_order, S, chain_mask, chain_encoding, residue_idx,
+                        sample_dict = mpnn_sample(X, decoding_order, S, chain_mask, chain_encoding, residue_idx,
                                                   mask, temperature=design_temperature,
                                                   omit_AAs_np=omit_AAs_np, bias_AAs_np=bias_AAs_np,
                                                   chain_M_pos=residue_mask, omit_AA_mask=omit_AA_mask,
@@ -3074,11 +3074,11 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
                                                   bias_by_res=bias_by_res)
                         # When batches are sliced for multiple inputs
                         S_sample = sample_dict['S']  # This is the shape of the input X Tensor
-                        tied_decoding_order = sample_dict['decoding_order']
+                        decoding_order_out = sample_dict['decoding_order']
                         chain_residue_mask = chain_mask*residue_mask
                         log_probs = mpnn_model(X, S_sample, mask, chain_residue_mask, residue_idx, chain_encoding, None,
                                                # this argument is provided but with below args, is not used        ^
-                                               use_input_decoding_order=True, decoding_order=tied_decoding_order)
+                                               use_input_decoding_order=True, decoding_order=decoding_order_out)
 
                         # Score the redesigned structure-sequence
                         mask_for_loss = chain_mask_and_mask*residue_mask
@@ -3092,12 +3092,21 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
                         scores[batch_slice] = batch_scores.cpu().numpy()  # scores
                         probabilities[batch_slice] = sample_dict['probs'].cpu().numpy()  # batch_probabilities
 
-                        # Delete intermediate variable to free GPU memory for next cycle
+                        # Delete intermediate variable objects to free memory for next cycle
+                        # inputs
                         del separate_parameters
                         del X
                         del residue_mask
                         del bias_by_res
                         del decode_order
+                        # outputs
+                        del sample_dict
+                        del S_sample
+                        del decoding_order_out
+                        del chain_residue_mask
+                        del log_probs
+                        del mask_for_loss
+                        del batch_scores
 
                 log.critical(f'Successful execution with {divisor} using available memory of '
                              f'{memory_constraint} and batch_length of {batch_length}')
