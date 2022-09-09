@@ -2649,7 +2649,7 @@ class PoseDirectory:
 
         entity_sequences = []
         for entity in self.pose.entities:
-            entity_slice = slice(entity.n_terminal_residue.number-1, entity.c_terminal_residue.number-1)
+            entity_slice = slice(entity.n_terminal_residue.index, entity.c_terminal_residue.index)
             entity_sequences.append({design: sequence[entity_slice] for design, sequence in pose_sequences.items()})
         # Todo generate_multiple_mutations accounts for offsets from the reference sequence. Not necessary YET
         # sequence_mutations = \

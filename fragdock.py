@@ -3251,7 +3251,7 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
         # Separate sequences by entity
         all_sequences_split = []
         for entity in pose.entities:
-            entity_slice = slice(entity.n_terminal_residue.number-1, entity.c_terminal_residue.number-1)
+            entity_slice = slice(entity.n_terminal_residue.index, entity.c_terminal_residue.index)
             all_sequences_split.append(sequences[:, entity_slice].tolist())
 
         all_sequences_by_entity = list(zip(*all_sequences_split))
