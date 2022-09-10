@@ -6,6 +6,7 @@ import sys
 import time
 from collections.abc import Iterable
 from logging import Logger
+from itertools import repeat
 from math import prod, ceil
 from typing import AnyStr
 
@@ -2877,6 +2878,9 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
     else:
         number_of_perturbations = 1
 
+    number_of_transforms = full_rotation1.shape[0]
+
+    # Set up data structures for metric capture
     idx_slice = pd.IndexSlice
     pose_ids = []
     per_residue_data = {}
@@ -3296,6 +3300,16 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
             output_pose(tx_dir, sampling_id)  # , sequence_design=design_output)
 
     # Save all pose transformations
+    # Format them for output
+    # full_rotation1 = full_rotation1
+    full_int_tx1 = full_int_tx1.squeeze()
+    # set_mat1 = set_mat1
+    full_ext_tx1 = repeat(None, number_of_transforms) if full_ext_tx1 is None else full_ext_tx1.squeeze()
+    # full_rotation2 = full_rotation2
+    full_int_tx2 = full_int_tx2.squeeze()
+    # set_mat2 = set_mat2
+    full_ext_tx2 = repeat(None, number_of_transforms) if full_ext_tx2 is None else full_ext_tx2.squeeze()
+
     pose_transformations = {}
     for idx, pose_id in enumerate(pose_ids):  # full_rotation1.shape[0]:
         # pose_transformations[pose_id] = dict(transformation1=dict(rotation=full_rotation1[idx],
@@ -3309,14 +3323,12 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
         pose_transformations[pose_id] = dict(rotation1=full_rotation1[idx],  # Replace with deg
                                              translation1=full_int_tx1[idx],
                                              rotation1_2=set_mat1,  # Replace with setting matrix number
-                                             translation1_2=None if full_ext_tx1 is None
-                                             else full_ext_tx1[idx],
+                                             translation1_2=full_ext_tx1[idx],
                                              rotation2=full_rotation2[idx],  # Replace with deg
                                              translation2=full_int_tx2[idx],
                                              rotation2_2=set_mat2,  # Replace with setting matrix number
-                                             translation2_2=None if full_ext_tx1 is None
-                                             else full_ext_tx2[idx])
-    scores_df = pd.DataFrame(pose_transformations)
+                                             translation2_2=full_ext_tx2[idx])
+    scores_df = pd.DataFrame(pose_transformations).T
     # Calculate full suite of metrics
     scores_df['interface_local_density'] = pd.Series(interface_local_density)
 
