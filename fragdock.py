@@ -3304,11 +3304,11 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
     # full_rotation1 = full_rotation1
     full_int_tx1 = full_int_tx1.squeeze()
     # set_mat1 = set_mat1
-    full_ext_tx1 = repeat(None, number_of_transforms) if full_ext_tx1 is None else full_ext_tx1.squeeze()
+    full_ext_tx1 = list(repeat(None, number_of_transforms)) if full_ext_tx1 is None else full_ext_tx1.squeeze()
     # full_rotation2 = full_rotation2
     full_int_tx2 = full_int_tx2.squeeze()
     # set_mat2 = set_mat2
-    full_ext_tx2 = repeat(None, number_of_transforms) if full_ext_tx2 is None else full_ext_tx2.squeeze()
+    full_ext_tx2 = list(repeat(None, number_of_transforms)) if full_ext_tx2 is None else full_ext_tx2.squeeze()
 
     pose_transformations = {}
     for idx, pose_id in enumerate(pose_ids):  # full_rotation1.shape[0]:
