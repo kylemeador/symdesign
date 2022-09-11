@@ -1884,7 +1884,7 @@ class PoseDirectory:
         # Initialize the Pose with the pdb in PDB numbering so that residue_selectors are respected
         pose_kwargs = dict(name=f'{self}-asu' if self.sym_entry else str(self), sym_entry=self.sym_entry, log=self.log,
                            design_selector=self.design_selector, ignore_clashes=self.ignore_pose_clashes,
-                           api_db=self.api_db, fragment_db=self.fragment_db)
+                           fragment_db=self.fragment_db)  # api_db=self.api_db,
 
         if entities:
             self.pose = Pose.from_entities(entities, entity_names=[entity.name for entity in entities], **pose_kwargs)
