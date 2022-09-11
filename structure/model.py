@@ -5174,8 +5174,8 @@ class SymmetricModel(Models):
             The BIOMT REMARK 350 with PDB file formatting
         """
         if self.dimension == 0:
-            return '%s\n' % '\n'.join('REMARK 350   BIOMT{:1d}{:4d}{:10.6f}{:10.6f}{:10.6f}{:15.5f}'
-                                      .format(v_idx, m_idx, *vec, 0.)
+            return '%s\n' % '\n'.join('REMARK 350   BIOMT{:1d}{:4d}{:10.6f}{:10.6f}{:10.6f}{:15.5f}            '
+                                      .format(v_idx, m_idx, *vec, 0.)  # Use 0. as placeholder for translation
                                       for m_idx, mat in enumerate(self.expand_matrices.swapaxes(-2, -1).tolist(), 1)
                                       for v_idx, vec in enumerate(mat, 1))
         else:  # TODO write so that the oligomeric units are populated?
