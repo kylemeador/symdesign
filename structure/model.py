@@ -3124,7 +3124,7 @@ class Model(Structure, ContainsChainsMixin):
             self.entity_info
         """
         if tolerance > 1:
-            raise ValueError(f'{self._get_entity_info_from_atoms.__name__} tolerance={tolerance}. Can\'t be > 1')
+            raise ValueError(f"{self._get_entity_info_from_atoms.__name__} tolerance={tolerance}. Can't be > 1")
         entity_idx = 1
         # get rid of any information already acquired
         self.entity_info = {f'{self.name}_{entity_idx}':
@@ -3155,8 +3155,8 @@ class Model(Structure, ContainsChainsMixin):
                 match_score = score / sequence_length  # could also use which ever sequence is greater
                 length_proportion = abs(len(chain.sequence) - sequence_length) / sequence_length
                 self.log.debug(f'Chain {chain.name} matches Entity {entity_name} with '
-                               f'%0.2f identity and length difference of %0.2f' % (match_score, length_proportion))
-                if match_score >= tolerance and length_proportion <= 1 - tolerance:
+                               f'{match_score:.2f} identity and length difference of {length_proportion:.2f}')
+                if match_score >= tolerance and length_proportion <= 1-tolerance:
                     # if number of sequence matches is > tolerance, and the length difference < tolerance
                     # the current chain is the same as the Entity, add to chains, and move on to the next chain
                     data['chains'].append(chain)
@@ -5299,7 +5299,7 @@ class Pose(SequenceProfile, SymmetricModel):
         if not isinstance(fragment_db, fragment.FragmentDatabase):
             # Todo add fragment_length, sql kwargs
             fragment_db = fragment.fragment_factory(source=PUtils.biological_interfaces)
-            self.log.debug(f'fragment_db was set to the default since {fragment_db} was passed which '
+            self.log.debug(f'fragment_db was set to the default since a {type(fragment_db).__name__} was passed which '
                            f'is not of the required type {fragment.FragmentDatabase.__name__}')
 
         self._fragment_db = fragment_db

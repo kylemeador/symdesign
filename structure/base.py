@@ -599,11 +599,11 @@ class StructureBase(Symmetry):
     def coords(self, coords: np.ndarray | list[list[float]]):
         if self.is_parent() and self.is_symmetric() and self._symmetric_dependents:
             # This Structure is a symmetric parent, update dependent coords to update the parent
-            self.log.debug(f'self._symmetric_dependents: {self._symmetric_dependents}')
+            # self.log.debug(f'self._symmetric_dependents: {self._symmetric_dependents}')
             for dependent in self._symmetric_dependents:
                 if dependent.is_symmetric():
                     dependent._parent_is_updating = True
-                    self.log.debug(f'Setting {dependent.name} _symmetric_dependent coords')
+                    # self.log.debug(f'Setting {dependent.name} _symmetric_dependent coords')
                     dependent.coords = coords[dependent.atom_indices]
                     del dependent._parent_is_updating
             # Update the whole Coords.coords as symmetry is not everywhere
@@ -4669,8 +4669,8 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
             try:  # If initiated by the parent, this Structure's copy should be a dependent too
                 other._parent = self.parent.spawn
             except AttributeError:  # Copy was not initiated by the parent, set this Structure as parent
-                self.log.debug(f'The copied {type(self).__name__} is being set as a parent. It was a dependent '
-                               f'previously')
+                self.log.debug(f'The copied {type(self).__name__} {self.name} is being set as a parent. '
+                               f'It was a dependent previously')
                 other.detach_from_parent()
                 other._copy_structure_containers()
                 other._update_structure_container_attributes(_parent=other)
