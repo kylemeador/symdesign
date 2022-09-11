@@ -23,6 +23,7 @@ metric_weight_functions = [rank, normalize]
 errat_1_sigma, errat_2_sigma, errat_3_sigma = 5.76, 11.52, 17.28  # these are approximate magnitude of deviation
 collapse_significance_threshold = 0.43
 collapse_deviation = 0.05
+idx_slice = pd.IndexSlice
 master_metrics = {
     'average_fragment_z_score':
         dict(description='The average fragment z-value used in docking/design',
@@ -1244,6 +1245,57 @@ def per_res_metric(sequence_metrics: dict[Any, float] | dict[Any, dict[str, floa
         return 0.
     else:
         return s / total
+
+
+def calculate_residue_surface_area(residue_df: pd.DataFrame, index_residues: list[int] = slice(None, None)) \
+        -> pd.DataFrame:
+    # Make buried surface area (bsa) columns
+    residue_df = residue_df.join(residue_df.loc[:, idx_slice[index_residues, 'sasa_hydrophobic_bound']]
+                                 .rename(columns={'sasa_hydrophobic_bound': 'bsa_hydrophobic'}) -
+                                 residue_df.loc[:, idx_slice[index_residues, 'sasa_hydrophobic_complex']]
+                                 .rename(columns={'sasa_hydrophobic_complex': 'bsa_hydrophobic'}))
+    residue_df = residue_df.join(residue_df.loc[:, idx_slice[index_residues, 'sasa_polar_bound']]
+                                 .rename(columns={'sasa_polar_bound': 'bsa_polar'}) -
+                                 residue_df.loc[:, idx_slice[index_residues, 'sasa_polar_complex']]
+                                 .rename(columns={'sasa_polar_complex': 'bsa_polar'}))
+    residue_df = residue_df.join(residue_df.loc[:, idx_slice[index_residues, 'bsa_hydrophobic']]
+                                 .rename(columns={'bsa_hydrophobic': 'bsa_total'}) +
+                                 residue_df.loc[:, idx_slice[index_residues, 'bsa_polar']]
+                                 .rename(columns={'bsa_polar': 'bsa_total'}))
+
+    # Make sasa_complex_total columns
+    residue_df = residue_df.join(residue_df.loc[:, idx_slice[index_residues, 'sasa_hydrophobic_bound']]
+                                 .rename(columns={'sasa_hydrophobic_bound': 'sasa_total_bound'}) +
+                                 residue_df.loc[:, idx_slice[index_residues, 'sasa_polar_bound']]
+                                 .rename(columns={'sasa_polar_bound': 'sasa_total_bound'}))
+    residue_df = residue_df.join(residue_df.loc[:, idx_slice[index_residues, 'sasa_hydrophobic_complex']]
+                                 .rename(columns={'sasa_hydrophobic_complex': 'sasa_total_complex'}) +
+                                 residue_df.loc[:, idx_slice[index_residues, 'sasa_polar_complex']]
+                                 .rename(columns={'sasa_polar_complex': 'sasa_total_complex'}))
+
+    # Find the relative sasa of the complex and the unbound fraction
+    buried_interface_residues = (residue_df.loc[:, idx_slice[index_residues, 'bsa_total']] > 0).to_numpy()
+    # ^ support, rim or core
+    # surface_or_rim = residue_df.loc[:, idx_slice[index_residues, 'sasa_relative_complex']] > 0.25
+    core_or_interior = residue_df.loc[:, idx_slice[index_residues, 'sasa_relative_complex']] < 0.25
+    surface_or_rim = ~core_or_interior
+    support_not_core = residue_df.loc[:, idx_slice[index_residues, 'sasa_relative_bound']] < 0.25
+    # core_sufficient = np.logical_and(core_or_interior, buried_interface_residues).to_numpy()
+    core_residues = np.logical_and(~support_not_core,
+                                   (np.logical_and(core_or_interior, buried_interface_residues)).to_numpy()).rename(
+        columns={'sasa_relative_bound': 'core'})
+    interior_residues = np.logical_and(core_or_interior, ~buried_interface_residues).rename(
+        columns={'sasa_relative_complex': 'interior'})
+    support_residues = np.logical_and(support_not_core, buried_interface_residues).rename(
+        columns={'sasa_relative_bound': 'support'})
+    rim_residues = np.logical_and(surface_or_rim, buried_interface_residues).rename(
+        columns={'sasa_relative_complex': 'rim'})
+    surface_residues = np.logical_and(surface_or_rim, ~buried_interface_residues).rename(
+        columns={'sasa_relative_complex': 'surface'})
+
+    residue_df = pd.concat([residue_df, core_residues, interior_residues, support_residues, rim_residues,
+                            surface_residues], axis=1)
+    return residue_df
 
 
 def df_permutation_test(grouped_df: pd.DataFrame, diff_s: pd.Series, group1_size: int = 0, compare: str = 'mean',
