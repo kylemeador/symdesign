@@ -105,10 +105,16 @@ class SymmetryError(DesignError):
 
 
 def timestamp() -> str:
-    """Return the date/time formatted as YEAR-MO-DA-245959"""
+    """Return the date/time formatted as YR-MO-DA-HRMNSC. Ex: 2022-Jan-01-245959"""
     return time.strftime('%y-%m-%d-%H%M%S')
 
 
+def datestamp() -> str:
+    """Return the date/time formatted as Year-Mon-DA. Ex: 2022-Jan-01"""
+    return time.strftime('%Y-%b-%d')
+
+
+startdate = datestamp()
 starttime = timestamp()
 
 
@@ -118,7 +124,7 @@ def start_log(name: str = '', handler: int = 1, level: int = 2, location: Union[
     """Create a logger to handle program messages
 
     Args:
-        name: The name of the logger. By default the root logger is returned
+        name: The name of the logger. By default, the root logger is returned
         handler: Whether to handle to stream (1), a file (2), or a NullHandler (3+)
         level: What level of messages to emit (1-debug, 2-info, 3-warning, 4-error, 5-critical)
         location: If a FileHandler is used (handler=2) where should file be written? .log is appended to the filename
