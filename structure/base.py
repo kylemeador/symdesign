@@ -2610,7 +2610,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
 
     def get_structure_containers(self) -> dict[str, Any]:
         """Return the instance structural containers as a dictionary with attribute as key and container as value"""
-        return dict(log=self._log, coords=self._coords, atoms=self._atoms, residues=self._residues)
+        return dict(coords=self._coords, atoms=self._atoms, residues=self._residues)  # log=self._log,
 
     # @property
     # def log(self) -> Logger:
