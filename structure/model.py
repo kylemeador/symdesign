@@ -5695,11 +5695,17 @@ class Pose(SequenceProfile, SymmetricModel):
 
         if report_if_helix:
             # if self.api_db:
-            parsed_secondary_structure = self.api_db.stride.retrieve_data(name=entity.name)
+            try:
+                # retrieve_api_info = self.api_db.pdb.retrieve_data
+                retrieve_stride_info = wrapapi.api_database_factory().stride.retrieve_data
+            except AttributeError:
+                retrieve_stride_info = Structure.stride
+
+            parsed_secondary_structure = retrieve_stride_info(name=entity.name)
             if parsed_secondary_structure:
                 entity.fill_secondary_structure(secondary_structure=parsed_secondary_structure)
             else:
-                entity.stride(to_file=self.api_db.stride.path_to(entity.name))
+                entity.stride()  # to_file=self.api_db.stride.path_to(entity.name))
             n_term = True if n_term and entity.is_termini_helical() else False
             c_term = True if c_term and entity.is_termini_helical(termini='c') else False
 
@@ -5833,8 +5839,9 @@ class Pose(SequenceProfile, SymmetricModel):
             metrics['design_dimension'] = 'asymmetric'
 
         try:
-            is_ukb_thermophilic = self.api_db.uniprot.is_thermophilic
-            is_pdb_thermophile = self.api_db.pdb.is_thermophilic
+            api_db = wrapapi.api_database_factory()
+            is_ukb_thermophilic = api_db.uniprot.is_thermophilic
+            is_pdb_thermophile = api_db.pdb.is_thermophilic
         except AttributeError:
             is_ukb_thermophilic = is_uniprot_thermophilic
             is_pdb_thermophile = is_entity_thermophilic
@@ -6511,7 +6518,7 @@ class Pose(SequenceProfile, SymmetricModel):
                 if parsed_secondary_structure:
                     entity.fill_secondary_structure(secondary_structure=parsed_secondary_structure)
                 else:
-                    entity.stride(to_file=self.api_db.stride.path_to(entity.name))
+                    entity.stride()  # to_file=self.api_db.stride.path_to(entity.name))
 
             pose_secondary_structure += entity.secondary_structure
 
