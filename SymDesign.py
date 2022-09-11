@@ -2551,7 +2551,7 @@ def main():
 
         if ':' in args.directory:  # args.file  Todo location
             print('Starting the data transfer from remote source now...')
-            os.system('scp -r %s .' % args.directory)
+            os.system(f'scp -r {args.directory} .')
             file_dir = os.path.basename(args.directory)
         else:  # assume the files are local
             file_dir = args.directory
@@ -2562,7 +2562,7 @@ def main():
         else:  # if args.order == 'none':
             files = VSUtils.get_all_file_paths(file_dir, extension='.pdb', sort=False)
 
-        print('FILES:\n %s' % files[:4])
+        print(f'FILES:\n {files[:4]}')
         if args.order == 'paths':  # TODO FIX janky paths handling below
             # for design in pose_directories:
             with open(args.file[0], 'r') as f:
@@ -2592,8 +2592,8 @@ def main():
                 try:
                     args.dataframe = df_glob[0]
                 except IndexError:
-                    raise IndexError('There was no --dataframe specified and one couldn\'t be located in %s. Initialize'
-                                     ' again with the path to the relevant dataframe' % location)
+                    raise IndexError(f"There was no --dataframe specified and one couldn't be located in {location}. "
+                                     f'Initialize again with the path to the relevant dataframe')
 
             df = pd.read_csv(args.dataframe, index_col=0, header=[0])
             print('INDICES:\n %s' % df.index.to_list()[:4])
@@ -2608,7 +2608,7 @@ def main():
             files = ordered_files
 
         if not files:
-            exit('No .pdb files found in %s. Are you sure this is correct?' % location)
+            exit(f'No .pdb files found in {location}. Are you sure this is correct?')
 
         # if len(sys.argv) > 2:
         #     low, high = map(float, sys.argv[2].split('-'))
