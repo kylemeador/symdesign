@@ -3658,9 +3658,15 @@ class SymmetricModel(Models):
                           expand_matrices=expand_matrices)
         super().__init__(**kwargs)
 
+        # Ensure that the symmetric system is set up properly
         if self.is_symmetric():  # True if symmetry keyword args were passed
-            # Ensure that the symmetric system is set up properly which could require finding the ASU
-            if self.number_of_entities != self.number_of_chains:  # ensure the structure is an asu
+            # Ensure the number of Modela matches the SymEntry groups
+            if self.number_of_entities != self.sym_entry.number_of_groups:
+                raise SymmetryError(f'The {type(self).__name__} has {self.number_of_entities} symmetric entities, but '
+                                    f'{self.sym_entry.number_of_groups} were expected')
+
+            # Ensure the Model is an asu
+            if self.number_of_entities != self.number_of_chains:
                 self.log.debug('Setting Pose ASU to the ASU with the most contacting interface')
                 self.set_contacting_asu()
             elif self.symmetric_coords is None:
