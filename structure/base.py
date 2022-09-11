@@ -3853,19 +3853,20 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
                                           for residue, atom in measured_clashes)
                     self.log.error(f'{self.name} contains {len(measured_clashes)} {measure} clashes from the following '
                                    f'Residues to the corresponding Atom:\n\t{bb_info}')
-                raise ClashError(clash_msg)
-            else:
+                    raise ClashError(clash_msg)
+            # else:
                 if other_clashes:
                     sc_info = '\n\t'.join(f'Residue {residue.number:5d}: {atom.get_atom_record()}'
                                           for residue, atom in other_clashes)
                     self.log.warning(f'{self.name} contains {len(other_clashes)} {other} clashes between the '
                                      f'following Residues:\n\t{sc_info}')
-                return False
         except ClashError as error:  # This was raised from any_clashes()
             if silence_exceptions:
                 return True
             else:
                 raise error
+
+        return False
 
     def get_sasa(self, probe_radius: float = 1.4, atom: bool = True, **kwargs):  # Todo to Residue too? ContainsAtomsMix
         """Use FreeSASA to calculate the surface area of residues in the Structure object.
