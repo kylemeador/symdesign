@@ -934,7 +934,7 @@ def collect_designs(files: Sequence = None, directory: str = None, projects: Seq
             all_paths = get_directory_file_paths(directory, extension='.pdb')
             directory = os.path.basename(directory)  # This is for the location variable return
         else:  # function was called with all set to None. This shouldn't happen
-            raise RuntimeError('Can\'t collect_designs when no arguments were passed!')
+            raise RuntimeError("Can't collect_designs when no arguments were passed!")
 
     location = (files or directory or projects or singles)
 
@@ -950,7 +950,7 @@ def get_base_symdesign_dir(search_path: str = None) -> AnyStr | None:
         The path of the identified program root
     """
     base_dir = None
-    if not search_path:
+    if search_path is None:
         pass
     elif PUtils.program_output in search_path:   # directory1/SymDesignOutput/directory2/directory3
         for idx, dirname in enumerate(search_path.split(os.sep), 1):
