@@ -2905,8 +2905,8 @@ def find_orf_offset(sequence: Sequence,  mutations: dict[int, dict[str, str]]) -
 Alignment = namedtuple('Alignment', 'seqA, seqB, score, start, end')
 
 
-def generate_alignment(seq1: Sequence, seq2: Sequence, matrix: str = 'BLOSUM62', local: bool = False,
-                       top_aligment: bool = True) -> Alignment | list[Alignment]:
+def generate_alignment(seq1: Sequence[str], seq2: Sequence[str], matrix: str = 'BLOSUM62', local: bool = False,
+                       top_alignment: bool = True) -> Alignment | list[Alignment]:
     """Use Biopython's pairwise2 to generate a sequence alignment
 
     Args:
@@ -2914,7 +2914,7 @@ def generate_alignment(seq1: Sequence, seq2: Sequence, matrix: str = 'BLOSUM62',
         seq2: The second sequence to align
         matrix: The matrix used to compare character similarities
         local: Whether to run a local alignment. Only use for generally similar sequences!
-        top_aligment: Only include the highest scoring alignment
+        top_alignment: Only include the highest scoring alignment
     Returns:
         The resulting alignment
     """
@@ -2928,8 +2928,8 @@ def generate_alignment(seq1: Sequence, seq2: Sequence, matrix: str = 'BLOSUM62',
     logger.debug(f'Generating sequence alignment between:\n{seq1}\n\tAND:\n{seq2}')
     # Create sequence alignment
     align = getattr(pairwise2.align, f'{_type}ds')(seq1, seq2, _matrix, gap_penalty, gap_ext_penalty,
-                                                   one_alignment_only=top_aligment)
-    return align[0] if top_aligment else align
+                                                   one_alignment_only=top_alignment)
+    return align[0] if top_alignment else align
 
 
 def generate_mutations(reference: Sequence, query: Sequence, offset: bool = True, blanks: bool = False,
