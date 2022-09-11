@@ -3151,9 +3151,10 @@ class Model(Structure, ContainsChainsMixin):
                     alignment = generate_alignment(chain.sequence, sequence, local=True)
                     # alignment = pairwise2.align.localxx(chain.sequence, sequence)
                     score = alignment[2]  # grab score value
-                sequence_length = len(sequence)
-                match_score = score / sequence_length  # could also use which ever sequence is greater
-                length_proportion = abs(len(chain.sequence) - sequence_length) / sequence_length
+                # Use which ever sequence is greater as the max
+                sequence_length = max(len(sequence), len(chain.sequence))
+                match_score = score / sequence_length
+                length_proportion = abs(len(chain.sequence)-sequence_length) / sequence_length
                 self.log.debug(f'Chain {chain.name} matches Entity {entity_name} with '
                                f'{match_score:.2f} identity and length difference of {length_proportion:.2f}')
                 if match_score >= tolerance and length_proportion <= 1-tolerance:
