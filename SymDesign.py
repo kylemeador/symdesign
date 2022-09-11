@@ -788,10 +788,10 @@ def main():
     if args.module in [PUtils.interface_design, PUtils.generate_fragments, 'orient', 'expand_asu',
                        PUtils.interface_metrics, PUtils.refine, PUtils.optimize_designs, 'rename_chains',
                        'check_clashes']:  # , 'custom_script', 'find_asu', 'status', 'visualize'
-        initialize, queried_flags['construct_pose'] = True, True  # set up design directories
+        initialize = True  # set up design directories
     elif args.module in [PUtils.analysis, PUtils.cluster_poses,
                          PUtils.select_poses, PUtils.select_designs, PUtils.select_sequences]:
-        # analysis types can be run from nanohedra_output, so we ensure that we don't construct new
+        # Analysis types can be run from nanohedra_output, so ensure that we don't construct new
         initialize, queried_flags['construct_pose'] = True, False
         if args.module == PUtils.select_designs:  # alias to module select_sequences with --skip_sequence_generation
             args.module = PUtils.select_sequences

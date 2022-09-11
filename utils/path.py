@@ -89,6 +89,7 @@ master_log = 'nanohedra_master_logfile.txt'  # v1
 asu_file_name = 'asu.pdb'
 # asu = 'central_asu.pdb'
 clean_asu = 'clean_asu.pdb'
+state_file = 'info.pkl'
 reference_name = 'reference'
 pose_source = 'pose_source'
 pssm = 'evolutionary.pssm'  # was 'asu_pose.pssm' 1/25/21

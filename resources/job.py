@@ -30,7 +30,7 @@ class JobResources:
             else:
                 raise FileNotFoundError(f"Path doesn't exist!\n\t{program_root}")
         except TypeError:
-            raise TypeError(f'Can\'t initialize {JobResources.__name__} without parameter "program_root"')
+            raise TypeError(f"Can't initialize {JobResources.__name__} without parameter 'program_root'")
 
         # program_root subdirectories
         self.data = os.path.join(self.program_root, data.title())
@@ -91,7 +91,6 @@ class JobResources:
 
         # Program flags
         self.consensus: bool = kwargs.get(consensus, False)  # Whether to run consensus
-        self.construct_pose: bool = kwargs.get('construct_pose', False)  # whether to construct Nanohedra pose
         self.design_selector: dict[str, dict[str, dict[str, set[int] | set[str]]]] | dict = kwargs.get('design_selector'
                                                                                                        , {})
         self.debug: bool = kwargs.get('debug', False)
@@ -130,9 +129,13 @@ class JobResources:
         self.command_only: bool = kwargs.get('command_only', False)  # Whether to reissue commands, only if run_in_shell=False
         self.development: bool = kwargs.get('development', False)
 
-        if self.nanohedra_output and not self.construct_pose:  # no construction specific flags
-            self.write_fragments = False
-            self.write_oligomers = False
+        if self.nanohedra_output:
+            self.construct_pose: bool = kwargs.get('construct_pose', True)  # Whether to construct the PoseDirectory
+            if not self.construct_pose:  # no construction specific flags
+                self.write_fragments = False
+                self.write_oligomers = False
+        else:
+            self.construct_pose = True
 
         if self.no_term_constraint:
             self.generate_fragments = False

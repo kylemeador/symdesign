@@ -48,7 +48,7 @@ from utils.SymEntry import SymEntry, symmetry_factory
 from resources.fragment import FragmentDatabase, format_fragment_metrics, fragment_metric_template
 from resources.structure_db import StructureDatabase
 from utils.nanohedra.general import get_components_from_nanohedra_docking
-from utils.path import pose_source
+from utils.path import pose_source, state_file
 from utils.symmetry import identity_matrix, origin
 from resources.wrapapi import APIDatabase
 
@@ -309,7 +309,7 @@ class PoseDirectory:
         # /root/Projects/project_Poses/design/data
         self.scores_file: str | Path = path.join(self.data, f'{self.name}.sc')
         # /root/Projects/project_Poses/design/data/name.sc
-        self.serialized_info: str | Path = path.join(self.data, 'info.pkl')
+        self.serialized_info: str | Path = path.join(self.data, state_file)
         # /root/Projects/project_Poses/design/data/info.pkl
         self.asu_path: str | Path = path.join(self.path, f'{self.name}_{PUtils.clean_asu}')
         # /root/Projects/project_Poses/design/design_name_clean_asu.pdb
@@ -647,7 +647,7 @@ class PoseDirectory:
         try:
             return self.sym_entry.resulting_symmetry
         except AttributeError:
-            return
+            return None
 
     @property
     def sym_entry_number(self) -> int | None:
@@ -655,7 +655,7 @@ class PoseDirectory:
         try:
             return self.sym_entry.entry_number
         except AttributeError:
-            return
+            return None
 
     @property
     def sym_entry_map(self) -> str | None:
@@ -664,7 +664,7 @@ class PoseDirectory:
             # return [self.sym_entry.resulting_symmetry] + list(self.sym_entry.sym_map.values())
             return self.sym_entry.sym_map
         except AttributeError:
-            return
+            return None
 
     # @property
     # def sym_entry_combination(self) -> str | None:
@@ -672,7 +672,7 @@ class PoseDirectory:
     #     try:
     #         return self.sym_entry.combination_string
     #     except AttributeError:
-    #         return
+    #         return None
 
     @property
     def design_dimension(self) -> int | None:
@@ -680,7 +680,7 @@ class PoseDirectory:
         try:
             return self.sym_entry.dimension
         except AttributeError:
-            return
+            return None
 
     # @property
     # def number_of_symmetry_mates(self) -> int | None:
@@ -688,7 +688,7 @@ class PoseDirectory:
     #     try:
     #         return self.sym_entry.number_of_operations
     #     except AttributeError:
-    #         return
+    #         return None
 
     @property
     def trajectories(self) -> AnyStr:
@@ -825,7 +825,7 @@ class PoseDirectory:
             return self._pose_transformation
         except AttributeError:
             if self.symmetric:
-                try:  # this may be a Nanohedra output
+                try:  # To retrieve from Nanohedra output
                     self._pose_transformation = self.retrieve_pose_transformation_from_file()
                 except FileNotFoundError:
                     try:
@@ -833,11 +833,11 @@ class PoseDirectory:
                     except DesignError:
                         # Todo this is something outside of the realm of possibilities of Nanohedra symmetry groups
                         #  Perhaps we need to get the parameters for oligomer generation from PISA or other source
-                        self.log.critical('There was no pose transformation file specified at %s and no transformation '
-                                          'found from routine search of Nanohedra docking parameters. Is this pose from'
-                                          ' the PDB? You may need to utilize PISA to accurately deduce the locations of'
-                                          ' pose transformations to make the correct oligomers. For now, using null '
-                                          'transformation which is likely not what you want...' % self.pose_file)
+                        self.log.critical(f'There was no pose transformation file specified at {self.pose_file} and no'
+                                          ' transformation found from routine search of Nanohedra docking parameters. '
+                                          'Is this pose from the PDB? You may need to utilize PISA to accurately deduce'
+                                          ' the locations of pose transformations to make the correct oligomers. For '
+                                          'now, using null transformation which is likely not what you want...')
                         self._pose_transformation = \
                             [dict(rotation=identity_matrix, translation=None) for _ in self.pose.entities]
             else:
@@ -858,14 +858,14 @@ class PoseDirectory:
             raise ValueError(f'The attribute pose_transformation must be a list, not {type(transform)}')
 
     @close_logs
-    def find_entity_names(self) -> None:
+    def find_entity_names(self):
         """Load the Structure source_path and extract the entity_names from the Structure"""
         self.start_log()
         self.initial_model = Model.from_file(self.source_path, log=self.log)
         # self.entity_names = [entity.name for entity in self.initial_model.entities]
         self.info['entity_names'] = [entity.name for entity in self.initial_model.entities]
 
-    def start_log(self, level: int = 2) -> None:
+    def start_log(self, level: int = 2):
         """Initialize the logger for the Pose"""
         if self.log:
             return
@@ -884,10 +884,10 @@ class PoseDirectory:
                                  propagate=propagate, no_log_name=no_log_name)
 
     def directory_string_to_path(self, root: AnyStr, pose_id: str):
-        """Set the PoseDirectory self.path to the root/pose-ID where the pose-ID is converted from dash separation to
-        path separators"""
-        assert root, 'No root directory attribute! Cannot create a path from a pose_id without a root directory!' \
-                     ' Ensure you initialized with the keyword argument root="directory"'
+        """Set self.path to the root/poseID where the poseID is converted from dash "-" separation to path separators"""
+        if root is None:
+            raise ValueError("No 'root' argument was passed. Can't use a pose_id without a root directory")
+
         if self.nanohedra_output:
             self.path = path.join(root, pose_id.replace('-', sep))
         else:
@@ -1007,9 +1007,11 @@ class PoseDirectory:
         else:
             self.refined_pdb = path.join(self.designs, path.basename(self.refine_pdb))
             self.scouted_pdb = f'{path.splitext(self.refined_pdb)[0]}_scout.pdb'
-        # check if the source of the pdb files was loop modelled upon loading
 
-        # configure standard pose loading mechanism with self.source
+        # # Check if the source of the pdb files was loop modelled upon loading
+        # if self.pre_loop_model:
+
+        # Configure standard pose loading mechanism with self.source
         if self.specific_designs:
             self._lock_optimize_designs = True
             self.specific_designs_file_paths = []
