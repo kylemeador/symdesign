@@ -2362,34 +2362,35 @@ class Model(Structure, ContainsChainsMixin):
                                           f'supported')
         else:
             super().__init__(**kwargs)
-            self.api_entry = None
-            # {'entity': {1: {'A', 'B'}, ...}, 'res': resolution, 'dbref': {chain: {'accession': ID, 'db': UNP}, ...},
-            #  'struct': {'space': space_group, 'a_b_c': (a, b, c), 'ang_a_b_c': (ang_a, ang_b, ang_c)}
-            self.biological_assembly = biological_assembly
-            # self.chain_ids = []  # unique chain IDs
-            self.chains = []
-            # self.cryst = cryst
-            # {space: space_group, a_b_c: (a, b, c), ang_a_b_c: (ang_a, _b, _c)}
-            self.cryst_record = cryst_record
-            # self.dbref = dbref if dbref else {}  # {'chain': {'db: 'UNP', 'accession': P12345}, ...}
-            self.design = design  # assumes not a design unless explicitly found to be a design
-            self.entities = []
-            self.entity_info = entity_info if entity_info is not None else {}
-            # [{'chains': [Chain objs], 'seq': 'GHIPLF...', 'name': 'A'}, ...]
-            # ^ ZERO-indexed for recap project!!!
-            # self.file_path = file_path
-            self.header = []
-            # self.multimodel = multimodel
-            # self.original_chain_ids = []  # [original_chain_id1, id2, ...]
-            self.resolution = resolution
-            # self._reference_sequence = reference_sequence if reference_sequence else {}
-            # ^ SEQRES or PDB API entries. key is chainID, value is 'AGHKLAIDL'
-            # self.space_group = space_group
-            # Todo standardize path with some state variable?
-            # self.api_db = api_db if api_db else wrapapi.api_database_factory()
 
-            # self.uc_dimensions = uc_dimensions
-            self.structure_containers.extend(['chains', 'entities'])
+        self.api_entry = None
+        # {'entity': {1: {'A', 'B'}, ...}, 'res': resolution, 'dbref': {chain: {'accession': ID, 'db': UNP}, ...},
+        #  'struct': {'space': space_group, 'a_b_c': (a, b, c), 'ang_a_b_c': (ang_a, ang_b, ang_c)}
+        self.biological_assembly = biological_assembly
+        # self.chain_ids = []  # unique chain IDs
+        self.chains = []
+        # self.cryst = cryst
+        # {space: space_group, a_b_c: (a, b, c), ang_a_b_c: (ang_a, _b, _c)}
+        self.cryst_record = cryst_record
+        # self.dbref = dbref if dbref else {}  # {'chain': {'db: 'UNP', 'accession': P12345}, ...}
+        self.design = design  # assumes not a design unless explicitly found to be a design
+        self.entities = []
+        self.entity_info = entity_info if entity_info is not None else {}
+        # [{'chains': [Chain objs], 'seq': 'GHIPLF...', 'name': 'A'}, ...]
+        # ^ ZERO-indexed for recap project!!!
+        # self.file_path = file_path
+        self.header = []
+        # self.multimodel = multimodel
+        # self.original_chain_ids = []  # [original_chain_id1, id2, ...]
+        self.resolution = resolution
+        # self._reference_sequence = reference_sequence if reference_sequence else {}
+        # ^ SEQRES or PDB API entries. key is chainID, value is 'AGHKLAIDL'
+        # self.space_group = space_group
+        # Todo standardize path with some state variable?
+        # self.api_db = api_db if api_db else wrapapi.api_database_factory()
+
+        # self.uc_dimensions = uc_dimensions
+        self.structure_containers.extend(['chains', 'entities'])
 
         # only pass arguments if they are not None
         if entities is not None:  # if no entities are requested a False argument could be provided
