@@ -446,8 +446,7 @@ def main():
             # exit_code = 1
 
         if success and output:
-            # global out_path
-            # global design_source
+            nonlocal design_source
             job_paths = job.job_paths
             utils.make_path(job_paths)
             if low and high:
