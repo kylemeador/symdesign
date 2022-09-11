@@ -3,7 +3,7 @@ from __future__ import annotations
 import math
 import os
 import warnings
-from typing import AnyStr
+from typing import AnyStr, Iterable
 
 import numpy as np
 
@@ -298,6 +298,7 @@ class SymEntry:
                              f'{", ".join(map(str, custom_entries))}')
         self.entry_number = entry
         entry_groups = [group_name for group_name, group_params in group_info]
+        group1, group2, *extra = entry_groups
         if not sym_map:  # assume standard SymEntry
             # assumes 2 component symmetry. index with only 2 options
             self.groups = entry_groups
@@ -313,8 +314,13 @@ class SymEntry:
                     else:
                         raise ValueError(f'The symmetry "{sub_symmetry}" specified at index "{idx}" is not a valid '
                                          f'sub-symmetry')
-                if sub_symmetry not in entry_groups:  # Todo add sub_symmetry specification to group info
-                    raise SymmetryError('This functionality hasn\'t been implemented yet!')
+                if sub_symmetry not in entry_groups:
+                    # This is probably a sub-symmetry of one of the groups. Is it allowed?
+                    if not symmetry_groups_are_allowed_in_entry(sym_map, result=self.resulting_symmetry,
+                                                                group1=group1, group2=group2):
+                        raise SymmetryError(f"The sub-symmetry {sub_symmetry} isn't an allowed sub-symmetry of the "
+                                            f'result {self.resulting_symmetry}, or the group(s) '
+                                            f'{", ".join(group for group in entry_groups if group is not None)}.')
                 self.groups.append(sub_symmetry)
 
         self._int_dof_groups, self._setting_matrices, self._ref_frame_tx_dof, self.__external_dof = [], [], [], []
@@ -989,7 +995,7 @@ def parse_symmetry_to_sym_entry(sym_entry: int = None, symmetry: str = None, sym
     Returns:
         An instance of the SymEntry
     """
-    if not sym_map:  # find sym_map from symmetry
+    if sym_map is None:  # find sym_map from symmetry
         if symmetry:
             symmetry = symmetry.strip()
             if symmetry in space_group_symmetry_operators:  # ops keywords are Hermann-Mauguin notation
@@ -1006,7 +1012,7 @@ def parse_symmetry_to_sym_entry(sym_entry: int = None, symmetry: str = None, sym
                     logger.error(f'Symmetry specification "{symmetry}" is not understood, trying to solve anyway\n\n')
             elif symmetry in valid_symmetries:
                 logger.critical(f'{parse_symmetry_to_sym_entry.__name__}: The functionality of passing symmetry as '
-                                f'{symmetry} hasn\'t been tested thoroughly yet!')
+                                f"{symmetry} hasn't been tested thoroughly yet!")
                 sym_map = [symmetry, symmetry, None]  # specified as [result, entity1, no other entities]
             elif len(symmetry) == 3 and symmetry[1].isdigit() and symmetry[2].isdigit():  # like I32, O43 format
                 sym_map = [*symmetry]
@@ -1014,7 +1020,7 @@ def parse_symmetry_to_sym_entry(sym_entry: int = None, symmetry: str = None, sym
                 raise ValueError(f'{symmetry} is not a supported symmetry! {highest_point_group_msg}')
         else:
             raise \
-                SymmetryError(f'{parse_symmetry_to_sym_entry.__name__}: Can\'t initialize without symmetry or sym_map!')
+                SymmetryError(f"{parse_symmetry_to_sym_entry.__name__}: Can't initialize without symmetry or sym_map!")
 
     if not sym_entry:
         try:
@@ -1061,6 +1067,48 @@ def print_query_header():
                                       "IntDofRot2", "IntDofTx2", "ReferenceFrameDof2", "RESULT"))
 
 
+def symmetry_groups_are_allowed_in_entry(symmetry_operators: Iterable[str], result: str = None, group1: str = None,
+                                         group2: str = None, entry_number: int = None) -> bool:
+    """Check if the provided symmetry operators are allowed in a SymEntry
+
+    Args:
+        symmetry_operators: The symmetry operators of interest
+        result: The resulting symmetry
+        group1: The first group allowed in the symmetry
+        group2: The second group allowed in the symmetry
+        entry_number: The SymEntry number of interest
+    Returns:
+        True if the symmetry operators are valid, False otherwise
+    """
+    if result is not None:
+        if group1 is None and group2 is None:
+            raise ValueError(f'When using the argument result, must provide at least group1, and optionally group2')
+    elif entry_number is not None:
+        entry = symmetry_combinations.get(entry_number)
+        if entry is None:
+            raise SymmetryError(f"The entry number {entry_number} is not an available SymEntry")
+
+        group1, _, _, _, group2, _, _, _, _, result, *_ = entry
+    else:
+        raise ValueError(f'Must provide entry_number, or the result, group1, and group2 arguments. None were provided')
+    # find all sub_symmetries that are viable in the component group members
+    group1_members = sub_symmetries.get(group1, [None])
+    # group1_members.extend('C2') if 'D' in group1 else None
+    # group1_dihedral = True if 'D' in group1 else False
+    group2_members = sub_symmetries.get(group2, [None])
+    # group2_members.extend('C2') if 'D' in group2 else None
+    # group2_dihedral = True if 'D' in group2 else False
+    for sym_operator in symmetry_operators:
+        if sym_operator in [result, group1, group2]:
+            continue
+        elif sym_operator in group1_members + group2_members:
+            continue
+        else:
+            return False
+
+    return True  # Assume correct unless proven incorrect
+
+
 def lookup_sym_entry_by_symmetry_combination(result: str, *symmetry_operators: str) -> int:
     """Given the resulting symmetry and the symmetry operators for each Entity, solve for the SymEntry
 
@@ -1099,31 +1147,16 @@ def lookup_sym_entry_by_symmetry_combination(result: str, *symmetry_operators: s
             ref_frame_tx_dof_group2, _, resulting_symmetry, dimension, _, _, _ = entry
         if resulting_symmetry == result:
             result_entries.append(entry_number)
-            # find all sub_symmetries that are viable in the component group members
-            group1_members = sub_symmetries.get(group1, [None])
-            # group1_members.extend('C2') if 'D' in group1 else None
-            # group1_dihedral = True if 'D' in group1 else False
-            group2_members = sub_symmetries.get(group2, [None])
-            # group2_members.extend('C2') if 'D' in group2 else None
-            # group2_dihedral = True if 'D' in group2 else False
-            required_sym_operators = True  # assume correct until proven incorrect
-            for sym_operator in symmetry_operators:
-                if sym_operator in [resulting_symmetry, group1, group2]:
-                    continue
-                elif sym_operator in group1_members + group2_members:
-                    continue
-                else:
-                    required_sym_operators = False
 
-            if symmetry_operators and required_sym_operators:
+            if symmetry_operators and symmetry_groups_are_allowed_in_entry(symmetry_operators, entry_number):
                 matching_entries.append(entry_number)  # TODO include the groups?
 
     if matching_entries:
         if len(matching_entries) == 1:
             return matching_entries[0]
         else:
-            print('\033[1mFound multiple specified symmetries matching including %s\033[0m'
-                  % (', '.join(map(str, matching_entries))))
+            print(f'\033[1mFound multiple specified symmetries matching including '
+                  f'{", ".join(map(str, matching_entries))}\033[0m')
             print_matching_entries(matching_entries)
             print(repeat_with_sym_entry)
             exit()
@@ -1136,13 +1169,12 @@ def lookup_sym_entry_by_symmetry_combination(result: str, *symmetry_operators: s
                             ', '.join(all_sym_entry_dict.get(result, {}).keys()), example_symmetry_specification))
     else:  # no symmetry_operators
         if result_entries:
-            print('\033[1mFound specified symmetries matching including %s\033[0m'
-                  % (', '.join(map(str, result_entries))))
+            print(f'\033[1mFound specified symmetries matching including {", ".join(map(str, result_entries))}\033[0m')
             print_matching_entries(result_entries)
             print(repeat_with_sym_entry)
             exit()
         else:  # no matches
-            raise ValueError(f'The resulting symmetry "{result}" didn\'t match any possible symmetry_combinations. You '
+            raise ValueError(f"The resulting symmetry {result} didn't match any possible symmetry_combinations. You "
                              f'are likely requesting a symmetry that is outside of the parameterized SymEntry entries.'
                              f'If this is a chiral plane/space group, modify the function '
                              f'{lookup_sym_entry_by_symmetry_combination.__name__} to use the non Nanohedra compatible '
