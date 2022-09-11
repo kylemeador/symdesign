@@ -33,7 +33,8 @@ from metrics import read_scores, interface_composition_similarity, unnecessary, 
     columns_to_new_column, division_pairs, delta_pairs, dirty_hbond_processing, significance_columns, \
     df_permutation_test, clean_up_intermediate_columns, protocol_specific_columns, rank_dataframe_by_metric_weights, \
     filter_df_for_index_by_value, multiple_sequence_alignment_dependent_metrics, process_residue_info, \
-    collapse_significance_threshold, calculate_collapse_metrics, errat_1_sigma, errat_2_sigma
+    collapse_significance_threshold, calculate_collapse_metrics, errat_1_sigma, errat_2_sigma, \
+    calculate_residue_surface_area
 from resources.job import JobResources, job_resources_factory
 from structure.model import Pose, MultiModel, Models, Model, Entity
 from structure.sequence import parse_pssm, generate_mutations_from_reference, simplify_mutation_dict, \
@@ -3123,7 +3124,6 @@ class PoseDirectory:
                 protocol_divergence_s = Series(dtype=float)
             divergence_s = concat([protocol_divergence_s, pose_divergence_s])
 
-        # reference_mutations = cleaned_mutations.pop(PUtils.reference_name, None)  # save the reference
         scores_df['number_of_mutations'] = \
             Series({design: len(mutations) for design, mutations in all_mutations.items()})
         scores_df['percent_mutations'] = \
@@ -3190,62 +3190,22 @@ class PoseDirectory:
         #     residue_df.loc[:, idx_slice[self.interface_residues, 'local_density']].mean(axis=1)
 
         # Make buried surface area (bsa) columns
-        residue_df = residue_df.join(residue_df.loc[:, idx_slice[index_residues, 'sasa_hydrophobic_bound']]
-                                     .rename(columns={'sasa_hydrophobic_bound': 'bsa_hydrophobic'}) -
-                                     residue_df.loc[:, idx_slice[index_residues, 'sasa_hydrophobic_complex']]
-                                     .rename(columns={'sasa_hydrophobic_complex': 'bsa_hydrophobic'}))
-        residue_df = residue_df.join(residue_df.loc[:, idx_slice[index_residues, 'sasa_polar_bound']]
-                                     .rename(columns={'sasa_polar_bound': 'bsa_polar'}) -
-                                     residue_df.loc[:, idx_slice[index_residues, 'sasa_polar_complex']]
-                                     .rename(columns={'sasa_polar_complex': 'bsa_polar'}))
-        residue_df = residue_df.join(residue_df.loc[:, idx_slice[index_residues, 'bsa_hydrophobic']]
-                                     .rename(columns={'bsa_hydrophobic': 'bsa_total'}) +
-                                     residue_df.loc[:, idx_slice[index_residues, 'bsa_polar']]
-                                     .rename(columns={'bsa_polar': 'bsa_total'}))
+        residue_df = calculate_residue_surface_area(residue_df, index_residues)
+
         scores_df['interface_area_polar'] = residue_df.loc[:, idx_slice[index_residues, 'bsa_polar']].sum(axis=1)
         scores_df['interface_area_hydrophobic'] = \
             residue_df.loc[:, idx_slice[index_residues, 'bsa_hydrophobic']].sum(axis=1)
         # scores_df['interface_area_total'] = \
         #     residue_df.loc[not_pose_source_indices, idx_slice[index_residues, 'bsa_total']].sum(axis=1)
         scores_df['interface_area_total'] = scores_df['interface_area_polar'] + scores_df['interface_area_hydrophobic']
-        # make sasa_complex_total columns
-        residue_df = residue_df.join(residue_df.loc[:, idx_slice[index_residues, 'sasa_hydrophobic_bound']]
-                                     .rename(columns={'sasa_hydrophobic_bound': 'sasa_total_bound'}) +
-                                     residue_df.loc[:, idx_slice[index_residues, 'sasa_polar_bound']]
-                                     .rename(columns={'sasa_polar_bound': 'sasa_total_bound'}))
-        residue_df = residue_df.join(residue_df.loc[:, idx_slice[index_residues, 'sasa_hydrophobic_complex']]
-                                     .rename(columns={'sasa_hydrophobic_complex': 'sasa_total_complex'}) +
-                                     residue_df.loc[:, idx_slice[index_residues, 'sasa_polar_complex']]
-                                     .rename(columns={'sasa_polar_complex': 'sasa_total_complex'}))
-        # find the proportion of the residue surface area that is solvent accessible versus buried in the interface
+
+        # Find the proportion of the residue surface area that is solvent accessible versus buried in the interface
         sasa_assembly_df = residue_df.loc[:, idx_slice[index_residues, 'sasa_total_complex']].droplevel(-1, axis=1)
         bsa_assembly_df = residue_df.loc[:, idx_slice[index_residues, 'bsa_total']].droplevel(-1, axis=1)
         total_surface_area_df = sasa_assembly_df + bsa_assembly_df
         # ratio_df = bsa_assembly_df / total_surface_area_df
         scores_df['interface_area_to_residue_surface_ratio'] = (bsa_assembly_df / total_surface_area_df).mean(axis=1)
 
-        # find the relative sasa of the complex and the unbound fraction
-        buried_interface_residues = (residue_df.loc[:, idx_slice[index_residues, 'bsa_total']] > 0).to_numpy()
-        # ^ support, rim or core
-        # surface_or_rim = residue_df.loc[:, idx_slice[index_residues, 'sasa_relative_complex']] > 0.25
-        core_or_interior = residue_df.loc[:, idx_slice[index_residues, 'sasa_relative_complex']] < 0.25
-        surface_or_rim = ~core_or_interior
-        support_not_core = residue_df.loc[:, idx_slice[index_residues, 'sasa_relative_bound']] < 0.25
-        # core_sufficient = np.logical_and(core_or_interior, buried_interface_residues).to_numpy()
-        core_residues = np.logical_and(~support_not_core,
-                                       (np.logical_and(core_or_interior, buried_interface_residues)).to_numpy()).rename(
-            columns={'sasa_relative_bound': 'core'})
-        interior_residues = np.logical_and(core_or_interior, ~buried_interface_residues).rename(
-            columns={'sasa_relative_complex': 'interior'})
-        support_residues = np.logical_and(support_not_core, buried_interface_residues).rename(
-            columns={'sasa_relative_bound': 'support'})
-        rim_residues = np.logical_and(surface_or_rim, buried_interface_residues).rename(
-            columns={'sasa_relative_complex': 'rim'})
-        surface_residues = np.logical_and(surface_or_rim, ~buried_interface_residues).rename(
-            columns={'sasa_relative_complex': 'surface'})
-
-        residue_df = concat([residue_df, core_residues, interior_residues, support_residues, rim_residues,
-                             surface_residues], axis=1)
         # Check if any columns are > 50% interior (value can be 0 or 1). If so, return True for that column
         # interior_residue_df = residue_df.loc[:, idx_slice[:, 'interior']]
         # interior_residue_numbers = \
