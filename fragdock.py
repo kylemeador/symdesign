@@ -5,38 +5,38 @@ import os
 import sys
 import time
 from collections.abc import Iterable
-from logging import Logger
 from itertools import repeat
+from logging import Logger
 from math import prod, ceil
 from typing import AnyStr
 
-import pandas as pd
 import numpy as np
+import pandas as pd
 import psutil
 import torch
 from sklearn.cluster import DBSCAN
 from sklearn.neighbors import BallTree
 
 from metrics import calculate_collapse_metrics, errat_1_sigma, errat_2_sigma
-from resources.job import job_resources_factory, JobResources
-from resources.ml import proteinmpnn_factory, batch_proteinmpnn_input, mpnn_alphabet, score_sequences, \
-    proteinmpnn_to_device
-from structure.sequence import numeric_to_sequence
-from utils.cluster import cluster_transformation_pairs
+from resources.EulerLookup import euler_factory
 from resources.fragment import FragmentDatabase, fragment_factory
-from utils.path import frag_text_file, master_log, frag_dir, biological_interfaces, asu_file_name
-from structure.model import Pose, Model, get_matching_fragment_pairs_info
+from resources.job import job_resources_factory, JobResources
+from resources.ml import proteinmpnn_factory, batch_proteinmpnn_input, score_sequences, \
+    proteinmpnn_to_device
 from structure.base import Structure, Residue
 from structure.coords import transform_coordinate_sets
 from structure.fragment import GhostFragment, write_frag_match_info_file
+from structure.model import Pose, Model, get_matching_fragment_pairs_info
+from structure.sequence import generate_mutations_from_reference, numeric_to_sequence
 from utils import dictionary_lookup, start_log, null_log, set_logging_to_debug, unpickle, rmsd_z_score, \
     z_value_from_match_score, match_score_from_z_value
-from resources.EulerLookup import EulerLookup, euler_factory
+from utils.cluster import cluster_transformation_pairs
 from utils.nanohedra.OptimalTx import OptimalTx
-from utils.SymEntry import SymEntry, get_rot_matrices, make_rotations_degenerate, symmetry_factory
 from utils.nanohedra.WeightedSeqFreq import FragMatchInfo, SeqFreqInfo
 from utils.nanohedra.cmdline import get_docking_parameters
 from utils.nanohedra.general import write_docked_pose_info, get_rotation_step, write_docking_parameters
+from utils.path import frag_text_file, master_log, frag_dir, biological_interfaces, asu_file_name
+from utils.SymEntry import SymEntry, get_rot_matrices, make_rotations_degenerate, symmetry_factory
 from utils.symmetry import generate_cryst1_record, get_central_asu
 
 # Globals
@@ -626,6 +626,7 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
     Returns:
         None
     """
+    # Todo ensure that msa is loaded upon docking initialization
     # Create JobResources for all flags
     if job is None:
         job = job_resources_factory.get(program_root=master_output, **kwargs)

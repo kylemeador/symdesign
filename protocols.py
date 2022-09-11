@@ -2756,7 +2756,6 @@ class PoseDirectory:
             # atomic_deviation[pose_source] = sum(source_errat_accuracy) / float(number_of_entities)
             pose_source_errat_s = Series(np.concatenate(source_errat), index=residue_indices)
         else:
-            pose_source_errat_s = Series(contact_order, index=residue_indices)
             pose_assembly_minimally_contacting = self.pose.assembly_minimally_contacting
             # atomic_deviation[pose_source], pose_per_residue_errat = \
             _, pose_per_residue_errat = \
@@ -3018,6 +3017,7 @@ class PoseDirectory:
         errat_sig_df = (errat_df.sub(pose_source_errat_s, axis=1)) > errat_1_sigma  # axis=1 Series is column oriented
         # then select only those residues which are expressly important by the inclusion boolean
         scores_df['errat_deviation'] = (errat_sig_df.loc[:, source_errat_inclusion_boolean] * 1).sum(axis=1)
+
         # Get design information including: interface residues, SSM's, and wild_type/design files
         profile_background = {}
         if self.design_profile is not None:
@@ -3130,7 +3130,9 @@ class PoseDirectory:
             scores_df['number_of_mutations'] / other_pose_metrics['entity_residue_length_total']
         # residue_indices_per_entity = self.pose.residue_indices_per_entity
         is_thermophilic = []
-        for idx, (entity, entity_indices) in enumerate(zip(self.pose.entities, self.pose.residue_indices_per_entity), 1):
+        idx = 1
+        for idx, (entity, entity_indices) in enumerate(zip(self.pose.entities,
+                                                           self.pose.residue_indices_per_entity), idx):
             scores_df[f'entity_{idx}_number_of_mutations'] = \
                 Series({design: len([residue_idx for residue_idx in mutations if residue_idx in entity_indices])
                         for design, mutations in all_mutations.items()})
@@ -3330,7 +3332,6 @@ class PoseDirectory:
         # refine is not considered sequence design and destroys mean. remove v
         # trajectory_df = scores_df.sort_index().drop(PUtils.refine, axis=0, errors='ignore')
         # consensus cst_weights are very large and destroy the mean.
-        other_metrics_s = Series(other_pose_metrics)
         # remove this drop for consensus or refine if they are run multiple times
         trajectory_df = \
             scores_df.drop([pose_source, PUtils.refine, PUtils.consensus], axis=0, errors='ignore').sort_index()
@@ -3366,6 +3367,7 @@ class PoseDirectory:
                                [to_numeric(s).to_frame().T for s in pose_stats if not all(s.isna())])
         # this concat ^ puts back pose_source, refine, consensus designs since protocol_stats is calculated on scores_df
         # add all docking and pose information to each trajectory, dropping the pose observations
+        other_metrics_s = Series(other_pose_metrics)
         pose_metrics_df = concat([other_metrics_s] * number_of_trajectories, axis=1).T
         trajectory_df = concat([pose_metrics_df.rename(index=dict(zip(range(number_of_trajectories),
                                                                       final_trajectory_indices)))
@@ -3380,7 +3382,7 @@ class PoseDirectory:
             self.log.info(f'Missing background protocol "{PUtils.structure_background}". No protocol significance '
                           f'measurements available for this pose')
         elif len(similarity_protocols) == 1:  # measure significance
-            self.log.info('Can\'t measure protocol significance, only one protocol of interest')
+            self.log.info("Can't measure protocol significance, only one protocol of interest")
         else:  # Test significance between all combinations of protocols by grabbing mean entries per protocol
             for prot1, prot2 in combinations(sorted(similarity_protocols), 2):
                 select_df = \
