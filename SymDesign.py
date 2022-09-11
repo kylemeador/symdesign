@@ -2633,4 +2633,8 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    try:
+        main()
+    except KeyboardInterrupt:
+        print('\nRun Ended By KeyboardInterrupt\n')
+        exit(2)
