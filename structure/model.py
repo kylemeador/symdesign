@@ -2391,33 +2391,33 @@ class Model(Structure, ContainsChainsMixin):
             # self.uc_dimensions = uc_dimensions
             self.structure_containers.extend(['chains', 'entities'])
 
-            # only pass arguments if they are not None
-            if entities is not None:  # if no entities are requested a False argument could be provided
-                kwargs['entities'] = entities
-            if chains is not None:  # if no chains are requested a False argument could be provided
-                kwargs['chains'] = chains
-            # finish processing the model
-            self._process_model(**kwargs)
-            # below was depreciated in favor of single call above using kwargs unpacking
-            # if self.residues:  # we should have residues if Structure init, otherwise we have None
-            #     if entities is not None:  # if no entities are requested a False argument could be provided
-            #         kwargs['entities'] = entities
-            #     if chains is not None:  # if no chains are requested a False argument could be provided
-            #         kwargs['chains'] = chains
-            #     self._process_model(**kwargs)
-            # elif chains:  # pass the chains which should be a Structure type and designate whether entities should be made
-            #     self._process_model(chains=chains, entities=entities, **kwargs)
-            # elif entities:  # pass the entities which should be a Structure type and designate whether chains should be made
-            #     self._process_model(entities=entities, chains=chains, **kwargs)
-            # else:
-            #     raise ValueError(f'{type(self).__name__} couldn\'t be initialized as there is no specified Structure type')
+        # only pass arguments if they are not None
+        if entities is not None:  # if no entities are requested a False argument could be provided
+            kwargs['entities'] = entities
+        if chains is not None:  # if no chains are requested a False argument could be provided
+            kwargs['chains'] = chains
+        # finish processing the model
+        self._process_model(**kwargs)
+        # below was depreciated in favor of single call above using kwargs unpacking
+        # if self.residues:  # we should have residues if Structure init, otherwise we have None
+        #     if entities is not None:  # if no entities are requested a False argument could be provided
+        #         kwargs['entities'] = entities
+        #     if chains is not None:  # if no chains are requested a False argument could be provided
+        #         kwargs['chains'] = chains
+        #     self._process_model(**kwargs)
+        # elif chains:  # pass the chains which should be a Structure type and designate whether entities should be made
+        #     self._process_model(chains=chains, entities=entities, **kwargs)
+        # elif entities:  # pass the entities which should be a Structure type and designate whether chains should be made
+        #     self._process_model(entities=entities, chains=chains, **kwargs)
+        # else:
+        #     raise ValueError(f'{type(self).__name__} couldn\'t be initialized as there is no specified Structure type')
 
-            if reference_sequence is not None:  # Was parsed from file
-                for original_chain, chain in zip(self.original_chain_ids, self.chains):  # self.chains is viable at this point
-                    chain._reference_sequence = reference_sequence[original_chain]
+        if reference_sequence is not None:  # Was parsed from file
+            for original_chain, chain in zip(self.original_chain_ids, self.chains):  # self.chains is viable at this point
+                chain._reference_sequence = reference_sequence[original_chain]
 
-            # if metadata and isinstance(metadata, PDB):
-            #     self.copy_metadata(metadata)
+        # if metadata and isinstance(metadata, PDB):
+        #     self.copy_metadata(metadata)
 
     @classmethod
     def from_chains(cls, chains: list[Chain] | Structures, **kwargs):
@@ -2526,7 +2526,7 @@ class Model(Structure, ContainsChainsMixin):
             rename_chains: Whether to name each chain an incrementally new Alphabetical character
             entities:
         """
-        # add lists together, only one is populated from class construction
+        # Add lists together, only one is populated from class construction
         structures = (chains if isinstance(chains, (list, Structures)) else []) + \
                      (entities if isinstance(entities, (list, Structures)) else [])
         if structures:  # create from existing
@@ -2537,8 +2537,8 @@ class Model(Structure, ContainsChainsMixin):
                 coords.append(structure.coords)
             self._assign_residues(residues, atoms=atoms, coords=coords)
 
-        if chains:
-            if isinstance(chains, (list, Structures)):  # create the instance from existing chains
+        if chains:  # Create the instance from existing chains
+            if isinstance(chains, (list, Structures)):
                 self.chains = copy(chains)  # copy the passed chains
                 self._copy_structure_containers()  # copy each Chain in chains
                 # Reindex all residue and atom indices
@@ -2550,7 +2550,7 @@ class Model(Structure, ContainsChainsMixin):
                     chain._start_indices(at=self.chains[prior_idx].atom_indices[-1] + 1, dtype='atom')
                     chain._start_indices(at=self.chains[prior_idx].residue_indices[-1] + 1, dtype='residue')
 
-                # set the parent attribute for all containers
+                # Set the parent attribute for all containers
                 self._update_structure_container_attributes(_parent=self)
                 # By using extend, we set self.original_chain_ids too
                 self.chain_ids.extend([chain.chain_id for chain in self.chains])
@@ -2567,8 +2567,8 @@ class Model(Structure, ContainsChainsMixin):
             self.log.debug(f'Original chain_ids: {",".join(self.original_chain_ids)} | '
                            f'Loaded chain_ids: {",".join(self.chain_ids)}')
 
-        if entities:
-            if isinstance(entities, (list, Structures)):  # create the instance from existing entities
+        if entities:  # Create the instance from existing entities
+            if isinstance(entities, (list, Structures)):
                 self.entities = copy(entities)  # copy the passed entities
                 self._copy_structure_containers()  # copy each Entity in entities
                 # Reindex all residue and atom indices
@@ -2580,7 +2580,7 @@ class Model(Structure, ContainsChainsMixin):
                     entity._start_indices(at=self.entities[prior_idx].atom_indices[-1] + 1, dtype='atom')
                     entity._start_indices(at=self.entities[prior_idx].residue_indices[-1] + 1, dtype='residue')
 
-                # set the parent attribute for all containers
+                # Set the parent attribute for all containers
                 self._update_structure_container_attributes(_parent=self)
                 if rename_chains:  # set each successive Entity to have an incrementally higher chain id
                     self.chain_ids = []
@@ -2595,10 +2595,10 @@ class Model(Structure, ContainsChainsMixin):
                         #     next(available_chain_ids)
                         self.log.debug(f'Entity {entity.name} new chain identifier {entity.chain_id}')
 
-                # update chains to entities after everything is set
+                # Update chains to entities after everything is set
                 self.chains = self.entities
                 # self.chain_ids = [chain.name for chain in self.chains]
-            else:  # create Entities from Chain.Residues
+            else:  # Create Entities from Chain.Residues
                 self._create_entities(**kwargs)
 
             self._symmetric_dependents = self.entities  # Todo ensure these never change
