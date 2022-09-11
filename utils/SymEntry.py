@@ -433,6 +433,10 @@ class SymEntry:
         return self._rotation_range[2]
 
     @property
+    def number_of_groups(self) -> int:
+        return len(self.groups)
+
+    @property
     def group1(self) -> str:
         return self.groups[0]
 
@@ -710,7 +714,7 @@ class SymEntry:
             if symmetry == file:
                 return os.path.join(PUtils.symmetry_def_files, file + ext)
 
-        raise FileNotFoundError(f'Couldn\'t locate correct symmetry definition file at "{PUtils.symmetry_def_files}" '
+        raise FileNotFoundError(f"Couldn't locate correct symmetry definition file at '{PUtils.symmetry_def_files}' "
                                 f'for SymEntry: {self.entry_number}')
 
 
