@@ -142,10 +142,12 @@ def start_log(name: str = '', handler: int = 1, level: int = 2, location: Union[
     # Todo make a mechanism to only emit warning or higher if propagate=True
     #  See SymDesign.py use of adding handler[0].addFilter()
     _logger.propagate = propagate
-    lh = log_handler[handler]
+    handler = log_handler[handler]
     if handler == 2:
         # Check for extension. If one doesn't exist, add ".log"
-        lh = FileHandler(f'{location}.log' if os.path.splitext(location)[1] == '' else location)
+        lh = handler(f'{location}.log' if os.path.splitext(location)[1] == '' else location)
+    else:
+        lh = handler()
 
     if handler_level is not None:
         lh.setLevel(log_level[handler_level])
@@ -155,12 +157,12 @@ def start_log(name: str = '', handler: int = 1, level: int = 2, location: Union[
         if no_log_name:
             # log_format = Formatter('%(levelname)s: %(message)s')
             # log_format = Formatter('\033[38;5;208m%(levelname)s\033[0;0m: %(message)s')
-            log_format = Formatter('\033[38;5;208m{levelname}\033[0;0m: {message}', style='{')
+            log_format = Formatter(fmt='\033[38;5;208m{levelname}\033[0;0m: {message}', style='{')
 
         else:
             # log_format = Formatter('[%(name)s]-%(levelname)s: %(message)s')  # \033[48;5;69m background
             # log_format = Formatter('\033[38;5;93m%(name)s\033[0;0m-\033[38;5;208m%(levelname)s\033[0;0m: %(message)s')
-            log_format = Formatter('\033[38;5;93m{name}\033[0;0m-\033[38;5;208m{levelname}\033[0;0m: {message}',
+            log_format = Formatter(fmt='\033[38;5;93m{name}\033[0;0m-\033[38;5;208m{levelname}\033[0;0m: {message}',
                                    style='{')
         lh.setFormatter(log_format)
 
