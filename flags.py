@@ -246,7 +246,7 @@ usage_string = f'\n      python %s.py %%s [{module_title.lower()}] [{input_title
                f'[{design_selector_title.lower()}] [{optional_title.lower()}]' % program_name
 guide_args = ('--guide',)
 guide_kwargs = dict(action='store_true', help=f'Display the {program_name} or {program_name} Module specific guide\nEx:'
-                                              f' "{program_command} --guide" or "{submodule_guide}"')
+                                              f' "{program_command} --guide"\nor "{submodule_guide}"')
 # Todo allow setup.py main
 setup_args = ('--set_up',)
 setup_kwargs = dict(action='store_true', help='Show the %(prog)s set up instructions\nDefault=%(default)s')
@@ -285,14 +285,14 @@ options_arguments = {
                                                     help='Whether symmetric clashes should be ignored and allowed'
                                                          ' to process\nDefault=%(default)s'),
     ('--mpi',): dict(type=int, default=0, help='If commands should be run as MPI parallel processes, how many '
-                                               'processes should be invoked for each job?\nDefault=%(default)s'),
+                                               'processes\nshould be invoked for each job?\nDefault=%(default)s'),
     ('-M', '--multi_processing'): dict(action='store_true',
                                        help='Should job be run with multiple processors?\nDefault=%(default)s'),
     ('--overwrite',): dict(action='store_true',
                            help='Whether to overwrite existing structures upon job fulfillment\nDefault=%(default)s'),
     ('-P', '--preprocessed'): dict(action='store_true',
                                    help=f'Whether the designs of interest have been preprocessed for the '
-                                        f'{current_energy_function} energy function and/or missing loops\n'
+                                        f'{current_energy_function}\nenergy function and/or missing loops\n'
                                         f'Default=%(default)s'),
     ('-R', '--run_in_shell'): dict(action='store_true',
                                    help='Should commands be executed at %(prog)s runtime?\nIn most cases, it won\'t '
@@ -987,11 +987,13 @@ entire_argparser = dict(fromfile_prefix_chars='@', allow_abbrev=False,  # exit_o
                                     '\nAll jobs have built in features for command monitoring & distribution to '
                                     'computational clusters for parallel processing',
                         formatter_class=Formatter, usage=usage_string % 'module',
-                        parents=[argparsers.get(parser) for parser in [parser_options, parser_residue_selector,
-                                                                       parser_output, parser_module]])  # parser_input,
+                        parents=[argparsers.get(parser)
+                                 for parser in [parser_module, parser_options, parser_residue_selector, parser_output]])
 argparsers[parser_entire] = argparse.ArgumentParser(**entire_argparser)
 parser = argparsers[parser_entire]
-# can't set up parser_input via a parent due to mutually_exclusive groups formatting messed up in help, repeat above
+# Can't set up parser_input via a parent due to mutually_exclusive groups formatting messed up in help.
+# Therefore, we repeat the above set-up here...
+
 # Set up entire ArgumentParser with input arguments
 input_group = None  # must get added before mutual groups can be added
 for parser_name, parser_kwargs in input_parsers.items():
