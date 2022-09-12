@@ -5,7 +5,7 @@ from functools import wraps
 from glob import glob
 from itertools import combinations, repeat
 from logging import Logger
-from os import path, sep, getcwd
+from os import path, sep, getcwd, environ
 from pathlib import Path
 from pickle import UnpicklingError
 from re import compile as re_compile
@@ -105,10 +105,6 @@ class PoseDirectory:
         if not path.exists(self.source_path):
             raise FileNotFoundError(f'The specified Pose source "{self.source_path}" was not found!')
 
-        # Todo if I use output_identifier for design, it opens up a can of worms. Maybe it is better to include only for
-        #  specific modules
-        output_identifier = f'{self.name}_' if self.output_directory else ''
-
         # Symmetry attributes
         # self.cryst_record = None
         # self.expand_matrices = None
@@ -173,81 +169,65 @@ class PoseDirectory:
         # self.percent_residues_fragment_total = None
         # self.percent_residues_fragment_center = None
 
-        self.serialized_info = path.join(self.source_path, f'{output_identifier}{PUtils.data}', 'info.pkl')
-        if self.nanohedra_output:
-            # source_path is design_symmetry/building_blocks/DEGEN_A_B/ROT_A_B/tx_C
-            # self.canonical_pdb1 = None  # canonical pdb orientation
-            # self.canonical_pdb2 = None
-            # self.rot_step_deg1 = None
-            # self.rot_step_deg2 = None
+        # Todo if I use output_identifier for design, it opens up a can of worms.
+        #  Maybe it is better to include only for specific modules
+        # Set name initially to the basename. This may change later, but we need to check for serialized info
+        self.name = path.splitext(path.basename(self.source_path))[0]
+        output_identifier = f'{self.name}_' if self.output_directory else ''
 
-            # if self.dock:  # Todo DockDirectory
-            #     # Saves the path of the docking directory as PoseDirectory.path attribute. Try to populate further
-            #     # using typical directory structuring
-            #     # self.program_root = glob(path.join(path, 'NanohedraEntry*DockedPoses*'))
-            #     self.program_root = self.source_path  # Assuming that output directory (^ or v) of Nanohedra was passed
-            #     # v for design_recap
-            #     # self.program_root = glob(path.join(self.path, 'NanohedraEntry*DockedPoses%s'
-            #     #                                                   % str(program_root or '')))
-            #     # self.nano_master_log = path.join(self.program_root, PUtils.master_log)
-            #     # self.log = [path.join(_sym, PUtils.master_log) for _sym in self.program_root]
-            #     # for k, _sym in enumerate(self.program_root):
-            #     # for k, _sym in enumerate(next(walk(self.program_root))):
-            #     # self.building_blocks.append(list())
-            #     # self.building_block_logs.append(list())
-            #     # get all dirs from walk('NanohedraEntry*DockedPoses/) Format: [[], [], ...]
-            #     # for bb_dir in next(walk(_sym))[1]:
-            #     # v used in dock_dir set up
-            #     self.building_block_logs = []
-            #     self.building_block_dirs = []
-            #     for bb_dir in next(walk(self.program_root))[1]:  # [1] grabs dirs from walk, yields only top level
-            #         if path.exists(path.join(self.program_root, bb_dir, '%s_log.txt' % bb_dir)):
-            #             self.building_block_dirs.append(bb_dir)
-            #             # self.building_block_dirs[k].append(bb_dir)
-            #             self.building_block_logs.append(path.join(self.program_root, bb_dir, '%s_log.txt' % bb_dir))
-            #             # self.building_block_logs[k].append(path.join(_sym, bb_dir, '%s_log.txt' % bb_dir))
-            #
-            #     # TODO generators for the various directory levels using the stored directory pieces
-            #     def get_building_block_dir(self, building_block):
-            #         for sym_idx, symm in enumerate(self.program_root):
-            #             try:
-            #                 bb_idx = self.building_block_dirs[sym_idx].index(building_block)
-            #                 return path.join(self.program_root[sym_idx], self.building_block_dirs[sym_idx][bb_idx])
-            #             except ValueError:
-            #                 continue
-            #         return
-            self.initialized = True if path.exists(self.serialized_info) else False
-            if self.initialized:
-                # self.initialized = True
+        self.serialized_info = path.join(self.source_path, f'{output_identifier}{PUtils.data}', state_file)
+        self.initialized = True if path.exists(self.serialized_info) else False
+        if self.initialized:
+            self.source = None  # will be set to self.asu_path later
+            if self.output_directory:
+                self.projects = ''
+                self.project_designs = ''
+                self.path = self.program_root  # /output_directory<- self.path /design.pdb
+            else:
                 self.path = self.source_path
                 self.project_designs = path.dirname(self.path)
                 self.projects = path.dirname(self.project_designs)
-                self.source = None
-            else:
-                # self.initialized = False
-                self.source = path.join(self.source_path, PUtils.asu_file_name)
-                path_components = self.source_path.split(sep)
+        else:
+            path_components = path.splitext(self.source_path)[0].split(sep)
+            # Save the SymEntry initialization key in the state
+            self.info['sym_entry_specification'] = self.sym_entry_number, self.sym_entry_map
+
+            if self.nanohedra_output:
+                # path_components = self.source_path.split(sep)
                 # design_symmetry (P432)
                 # path_components[-4] are the oligomeric names
                 self.name = '-'.join(path_components[-4:])
                 # self.name = self.pose_id.replace('_DEGEN_', '-DEGEN_').replace('_ROT_', '-ROT_').replace('_TX_', '-tx_')
-                # self.composition = self.source_path[:self.source_path.find(path_components[-3]) - 1]
                 # design_symmetry/building_blocks (P432/4ftd_5tch)
-                if self.output_directory:
-                    self.projects = ''
-                    self.project_designs = ''
-                    self.path = self.program_root  # /output_directory<- self.path /design.pdb
-                else:
-                    self.projects = path.join(self.program_root, PUtils.projects)
-                    self.project_designs = path.join(self.projects, f'{path_components[-5]}_{PUtils.pose_directory}')
-                    self.path = path.join(self.project_designs, self.name)
-                    # make_path(self.projects)
-                    # make_path(self.project_designs)
+                # path/to/[design_symmetry]/building_blocks/degen/rot/tx
+                root = path_components[-5] if root is None else root
+                self.source = path.join(self.source_path, PUtils.asu_file_name)
+            else:  # Set up PoseDirectory initially from input file
+                # path_components = path.splitext(self.source_path)[0].split(sep)
+                try:
+                    index = path_components.index(environ['USER'])
+                except (KeyError, ValueError):  # Missing USER enviromental variable, missing in path_components
+                    index = None
+                self.name = '-'.join(path_components[index:])
+                root = path_components[-2] if root is None else root  # path/to/job/[project]/design.pdb
+                self.source = self.source_path
 
-                make_path(self.path, condition=self.construct_pose)
-            self.pose_file = path.join(self.source_path, PUtils.pose_file)
-            self.frag_file = path.join(self.source_path, PUtils.frag_dir, PUtils.frag_text_file)
-            self.info['entity_names'] = get_components_from_nanohedra_docking(self.pose_file)
+            if self.output_directory:
+                self.projects = ''
+                self.project_designs = ''
+                self.path = self.program_root  # /output_directory<- self.path /design.pdb
+            else:
+                self.projects = path.join(self.program_root, PUtils.projects)
+                self.project_designs = path.join(self.projects, f'{root}_{PUtils.pose_directory}')
+                self.path = path.join(self.project_designs, self.name)
+                # ^ /program_root/projects/project/design<- self.path /design.pdb
+
+                # # copy the source file to the PoseDirectory for record keeping...
+                # # Not using now that pose_format can be disregarded...
+                # shcopy(self.source_path, self.path)
+
+            make_path(self.path, condition=self.construct_pose)
+
             # oligomer_names = list(map(str.lower, path_components[-4].split('_')))
             # self.entity_names = [f'{name}_1' for name in oligomer_names]  # assumes the entity is the first
 
@@ -261,39 +241,40 @@ class PoseDirectory:
             #     self.info['oligomer_names'] = self.oligomer_names
             #     self.info['entity_names'] = self.entity_names
             #     self.pickle_info()  # save this info on the first copy so that we don't have to construct again
-        else:
-            self.name = path.splitext(path.basename(self.source_path))[0]
-            # self.composition = None  # building_blocks (4ftd_5tch)
-            # search for serialized_info using the source_path temporarily
-            if path.exists(self.serialized_info):  # PoseDirectory already initialized
-                self.initialized = True
-                self.path = self.source_path
-                self.project_designs = path.dirname(self.path)
-                self.projects = path.dirname(self.project_designs)
-                self.source = None
-            else:  # if '.pdb' in self.source_path:  # Set up PoseDirectory from input initially
-                self.initialized = False
-                self.source = self.source_path
-                if self.output_directory:
-                    self.projects = ''
-                    self.project_designs = ''
-                    self.path = self.program_root  # /output_directory<- self.path /design.pdb
-                else:
-                    self.projects = path.join(self.program_root, PUtils.projects)
-                    self.project_designs = \
-                        path.join(self.projects, f'{self.source_path.split(sep)[-2]}_{PUtils.pose_directory}')
-                    self.path = path.join(self.project_designs, self.name)
-                    # ^ /program_root/projects/project/design<- self.path /design.pdb
-                    # make_path(self.projects)
-                    # make_path(self.project_designs)
-                    make_path(self.path)
-                    # copy the source file to the PoseDirectory for record keeping...
-                    shcopy(self.source_path, self.path)
-                # save the SymEntry initialization key in the state
-                self.info['sym_entry_specification'] = self.sym_entry_number, self.sym_entry_map
-
-            self.pose_file = path.join(self.path, PUtils.pose_file)
-            self.frag_file = path.join(self.path, PUtils.frag_dir, PUtils.frag_text_file)
+        # else:
+        #     # self.composition = None  # building_blocks (4ftd_5tch)
+        #     # search for serialized_info using the source_path temporarily
+        #     self.initialized = True if path.exists(self.serialized_info) else False
+        #     if self.initialized:  # PoseDirectory already initialized
+        #         self.name = path.splitext(path.basename(self.source_path))[0]
+        #         # self.initialized = True
+        #         self.path = self.source_path
+        #         self.project_designs = path.dirname(self.path)
+        #         self.projects = path.dirname(self.project_designs)
+        #         self.source = None
+        #     else:  # if '.pdb' in self.source_path:  # Set up PoseDirectory from input initially
+        #         # self.initialized = False
+        #         self.source = self.source_path
+        #         if self.output_directory:
+        #             self.projects = ''
+        #             self.project_designs = ''
+        #             self.path = self.program_root  # /output_directory<- self.path /design.pdb
+        #         else:
+        #             self.projects = path.join(self.program_root, PUtils.projects)
+        #             self.project_designs = \
+        #                 path.join(self.projects, f'{self.source_path.split(sep)[-2]}_{PUtils.pose_directory}')
+        #             self.path = path.join(self.project_designs, self.name)
+        #             # ^ /program_root/projects/project/design<- self.path /design.pdb
+        #             # make_path(self.projects)
+        #             # make_path(self.project_designs)
+        #             make_path(self.path)
+        #             # copy the source file to the PoseDirectory for record keeping...
+        #             shcopy(self.source_path, self.path)
+        #         # save the SymEntry initialization key in the state
+        #         self.info['sym_entry_specification'] = self.sym_entry_number, self.sym_entry_map
+        #
+        #     self.pose_file = path.join(self.path, PUtils.pose_file)
+        #     self.frag_file = path.join(self.path, PUtils.frag_dir, PUtils.frag_text_file)
 
         # PoseDirectory path attributes. Set after finding correct path
         self.log_path: str | Path = path.join(self.path, f'{self.name}.log')
@@ -330,7 +311,10 @@ class PoseDirectory:
         self.fragment_profile_file: str | Path = path.join(self.data, 'fragment.pssm')
         # /root/Projects/project_Poses/design/data/fragment.pssm
         self.refined_pdb: str | Path | None = None  # /root/Projects/project_Poses/design/design_name_refined.pdb
-        self.scouted_pdb: str | Path | None = None  # /root/Projects/project_Poses/design/designs/design_name_scouted.pdb
+        self.scouted_pdb: str | Path | None = None  # /root/Projects/project_Poses/design/design_name_scouted.pdb
+        # These files may be present from Nanohedra outputs
+        self.pose_file = path.join(self.source_path, PUtils.pose_file)
+        self.frag_file = path.join(self.source_path, PUtils.frag_dir, PUtils.frag_text_file)
 
         # if self.initialized then self.entity_names should be set. If not initialized before, check
         if not self.initialized and 'entity_names' not in self.info:  # none were provided at start up, find them
@@ -988,17 +972,13 @@ class PoseDirectory:
         self.pre_refine = self.info.get('pre_refine', True)
         self.pre_loop_model = self.info.get('pre_loop_model', True)
 
-        if self.nanohedra_output:
-            if self.construct_pose:
-                if not path.exists(path.join(self.path, PUtils.pose_file)):
-                    shcopy(self.pose_file, self.path)
-                    shcopy(self.frag_file, self.path)
-                self.info['nanohedra'] = True
-                self.info['sym_entry_specification'] = self.sym_entry_number, self.sym_entry_map
-                self.pose_transformation = self.retrieve_pose_transformation_from_file()
-                # self.info['oligomer_names'] = self.oligomer_names
-                self.info['entity_names'] = self.entity_names
-                self.pickle_info()  # save this info on the first copy so that we don't have to construct again
+        if self.nanohedra_output and self.construct_pose:
+            if not path.exists(path.join(self.path, PUtils.pose_file)):
+                shcopy(self.pose_file, self.path)
+                shcopy(self.frag_file, self.path)
+            # self.info['oligomer_names'] = self.oligomer_names
+            # self.info['entity_names'] = self.entity_names
+            self.pickle_info()  # save this info on the first copy so that we don't have to construct again
 
         # check if the source of the pdb files was refined upon loading
         if self.pre_refine:

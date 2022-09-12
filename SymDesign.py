@@ -743,11 +743,20 @@ def main():
             (args.directory or (args.project or args.single or [None])[0] or os.getcwd()))
 
     if not symdesign_directory:  # check if there is a file and see if we can solve there
+        # By default, assume new input and make in the current directory
+        symdesign_directory = os.path.join(os.getcwd(), PUtils.program_output)
         if args.file:
+            # See if the file contains SymDesign specified paths
             with open(args.file, 'r') as f:
-                symdesign_directory = utils.get_base_symdesign_dir(f.readline())
-        else:  # assume new input and make in the current directory
-            symdesign_directory = os.path.join(os.getcwd(), PUtils.program_output)
+                line = f.readline()
+                if os.path.splitext(line)[1] == '':  # No extension. Provided as directory/poseid from SymDesign output
+                    symdesign_directory = utils.get_base_symdesign_dir(line)
+                else:
+                    # Set file basename as "root" keyword argument. Designs are being integrated for the first time
+                    queried_flags['root'] = os.path.splitext(os.path.basename(args.file))[0]
+                    # Design names may be the same, so we have to take the full file path as the name to discriminate
+                    # between separate files
+
         os.makedirs(symdesign_directory, exist_ok=True)
     # -----------------------------------------------------------------------------------------------------------------
     # Start Logging - Root logs to stream with level warning
