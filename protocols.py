@@ -213,7 +213,7 @@ class PoseDirectory:
                 self.source = self.source_path
 
             # Remove a leading '-' character from abspath type results
-            self.name.lstrip('-')
+            self.name = self.name.lstrip('-')
             if self.output_to_directory:
                 self.projects = ''
                 self.project_designs = ''
