@@ -774,7 +774,7 @@ def main():
         # # Stream above still emits at 'warning'
         # Set all modules to propagate logs to write to master log file
         utils.set_loggers_to_propagate()
-        utils.set_logging_to_level(3)
+        utils.set_logging_to_level(handler_level=3)
         # Root logger logs to a single file with level 'info'
         utils.start_log(handler=2, location=os.path.join(symdesign_directory, PUtils.program_name))
         # SymDesign main logs to stream with level info and propagates to main log

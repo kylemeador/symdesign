@@ -175,20 +175,36 @@ logger = start_log(name=__name__)
 null_log = start_log(name='null', handler=3)
 
 
-def set_logging_to_level(level: logging_levels = 1):
-    """For each Logger in current run time, set the Logger level to level. level is debug by default
+def set_logging_to_level(level: logging_levels = None, handler_level: logging_levels = None):
+    """For each Logger in current run time, set the Logger or  the Logger.handlers level to level
+
+    level is debug by default if no arguments are specified
 
     Args:
         level: The level to set all loggers to
+        handler_level: The level to set all logger handlers to
     """
-    _level = log_level[level]
+    if level is not None:
+        _level = log_level[level]
+        set_level_func = Logger.setLevel
+    elif handler_level is not None:
+        _level = log_level[level]
+
+        def set_level_func(logger_: Logger, level_: int):
+            for handler in logger_.handlers:
+                handler.setLevel(level_)
+    else:  # if level is None and handler_level is None:
+        _level = log_level[1]
+        set_level_func = Logger.setLevel
+
     for logger_name in root.manager.loggerDict:
         _logger = getLogger(logger_name)
-        _logger.setLevel(_level)
+        set_level_func(_logger, _level)
+        # _logger.setLevel(_level)
 
 
 def set_loggers_to_propagate():
-    """For each Logger in current run time set the Logger level to debug"""
+    """For each Logger in current run time, set the Logger to propagate"""
     for logger_name in root.manager.loggerDict:
         _logger = getLogger(logger_name)
         _logger.propagate = True
