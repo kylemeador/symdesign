@@ -155,12 +155,13 @@ def start_log(name: str = '', handler: int = 1, level: int = 2, location: Union[
         if no_log_name:
             # log_format = Formatter('%(levelname)s: %(message)s')
             # log_format = Formatter('\033[38;5;208m%(levelname)s\033[0;0m: %(message)s')
-            log_format = Formatter('\033[38;5;208m{levelname}\033[0;0m: {message}')
+            log_format = Formatter('\033[38;5;208m{levelname}\033[0;0m: {message}', style='{')
 
         else:
             # log_format = Formatter('[%(name)s]-%(levelname)s: %(message)s')  # \033[48;5;69m background
             # log_format = Formatter('\033[38;5;93m%(name)s\033[0;0m-\033[38;5;208m%(levelname)s\033[0;0m: %(message)s')
-            log_format = Formatter('\033[38;5;93m{name}\033[0;0m-\033[38;5;208m{levelname}\033[0;0m: {message}')
+            log_format = Formatter('\033[38;5;93m{name}\033[0;0m-\033[38;5;208m{levelname}\033[0;0m: {message}',
+                                   style='{')
         lh.setFormatter(log_format)
 
     return _logger
