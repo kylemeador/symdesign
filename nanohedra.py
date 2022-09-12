@@ -5,9 +5,7 @@ from itertools import product, combinations
 
 from fragdock import nanohedra_dock
 from resources.structure_db import orient_structure_files
-from resources.fragment import fragment_factory
-from utils import start_log, set_logging_to_debug, get_directory_file_paths, path as PUtils
-from resources.EulerLookup import euler_factory
+from utils import start_log, set_logging_to_level, get_directory_file_paths, path as PUtils
 from utils.SymEntry import symmetry_factory
 from utils.nanohedra.cmdline import get_docking_parameters, query_mode, postprocess_mode
 from utils.nanohedra.general import write_docking_parameters
@@ -39,7 +37,7 @@ if __name__ == '__main__':
         if debug:
             # Root logs to stream with level debug
             logger = start_log(level=1)
-            set_logging_to_debug()
+            set_logging_to_level()
             master_logger, bb_logger = logger, logger
             logger.debug('Debug mode. Produces verbose output and not written to any .log files')
         else:

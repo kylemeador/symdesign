@@ -7,7 +7,7 @@ import pandas as pd
 from resources.fragment import fragment_factory
 from utils.path import biological_interfaces
 from structure.model import Pose
-from utils import start_log, set_logging_to_debug, unpickle, to_iterable, mp_starmap, get_directory_file_paths
+from utils import start_log, set_logging_to_level, unpickle, to_iterable, mp_starmap, get_directory_file_paths
 from resources.EulerLookup import EulerLookup
 
 # Globals
@@ -42,7 +42,7 @@ if __name__ == '__main__':
 
     if args.debug:
         logger = start_log(name=os.path.basename(__file__), level=1)
-        set_logging_to_debug()
+        set_logging_to_level()
         logger.debug('Debug mode. Produces verbose output and not written to any .log files')
     else:
         logger = start_log(name=os.path.basename(__file__), level=2, propagate=True)

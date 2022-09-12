@@ -28,7 +28,7 @@ from structure.coords import transform_coordinate_sets
 from structure.fragment import GhostFragment, write_frag_match_info_file
 from structure.model import Pose, Model, get_matching_fragment_pairs_info
 from structure.sequence import generate_mutations_from_reference, numeric_to_sequence
-from utils import dictionary_lookup, start_log, null_log, set_logging_to_debug, unpickle, rmsd_z_score, \
+from utils import dictionary_lookup, start_log, null_log, set_logging_to_level, unpickle, rmsd_z_score, \
     z_value_from_match_score, match_score_from_z_value
 from utils.cluster import cluster_transformation_pairs
 from utils.nanohedra.OptimalTx import OptimalTx
@@ -3376,7 +3376,7 @@ if __name__ == '__main__':
         if debug:
             # Root logs to stream with level debug
             logger = start_log(level=1)
-            set_logging_to_debug()
+            set_logging_to_level()
             bb_logger = logger
             logger.debug('Debug mode. Generates verbose output. No writing to .log files will occur')
         else:
