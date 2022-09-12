@@ -467,9 +467,9 @@ def main():
                 with open(designs_file, 'w') as f:
                     f.write('%s\n' % '\n'.join(design.path for design in success))
                 logger.critical(
-                    f'The file "{designs_file}" contains the locations of every poses that passed checks or '
-                    f'filtering for this job. Utilize this file to interact with these poses in future commands'
-                    f' such as:\n\t{PUtils.program_command} --file {designs_file} MODULE\n')
+                    f'The file "{designs_file}" contains the locations of every pose that passed checks/'
+                    f'filters for this job. Utilize this file to inpu these poses in future {PUtils.program_name} '
+                    f'commands such as:\n\t{PUtils.program_command} --file {designs_file} MODULE ...')
 
             if args.module == PUtils.analysis:
                 all_scores = job.all_scores
@@ -490,7 +490,7 @@ def main():
             elif args.module == PUtils.cluster_poses:
                 logger.info('Clustering analysis results in the following similar poses:\nRepresentatives\n\tMembers\n')
                 for representative, members, in results.items():
-                    print(f'{representative}\n\t%s' % ('\n\t'.join(map(str, members))))
+                    print(f'{representative}\n\t%s' % '\n\t'.join(map(str, members)))
                 logger.info(
                     f'Found {len(pose_cluster_map)} unique clusters from {len(pose_directories)} pose inputs. All '
                     f'clusters stored in {pose_cluster_file}')
@@ -547,7 +547,8 @@ def main():
 
         # # test for the size of each of the designdirectories
         # if pose_directories:
-        #     print('Average_design_directory_size equals %f' % (float(psutil.virtual_memory().used) / len(pose_directories)))
+        #     print('Average_design_directory_size equals %f' %
+        #           (float(psutil.virtual_memory().used) / len(pose_directories)))
 
         print('\n')
         exit(exit_code)
