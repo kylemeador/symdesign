@@ -5258,6 +5258,7 @@ class Pose(SequenceProfile, SymmetricModel):
     All objects share a common feature such as the same symmetric system or the same general atom configuration in
     separate models across the Structure or sequence.
     """
+    _active_entities: list[Entity]
     center_residue_numbers: list[int]
     design_selector: dict[str, dict[str, dict[str, set[int] | set[str] | None]]] | None
     design_selector_entities: set[Entity]
@@ -5344,7 +5345,7 @@ class Pose(SequenceProfile, SymmetricModel):
     #         self.set_contacting_asu()  # find maximally touching ASU and set ._pdb
 
     @property
-    def active_entities(self):
+    def active_entities(self) -> list[Entity]:
         try:
             return self._active_entities
         except AttributeError:
@@ -5372,11 +5373,11 @@ class Pose(SequenceProfile, SymmetricModel):
                 atom_indices = set(self._atom_indices)
                 set_function = getattr(set, 'intersection')
 
-            if entities is not None:
+            if entities:  # is not None:  # All of these could be a set() which is still empty, but not None
                 atom_indices = set_function(atom_indices, iter_chain.from_iterable([self.entity(entity).atom_indices
                                                                                     for entity in entities]))
                 entity_set = set_function(entity_set, [self.entity(entity) for entity in entities])
-            if chains is not None:
+            if chains:  # is not None:
                 # vv This is for the intersectional model
                 atom_indices = set_function(atom_indices, iter_chain.from_iterable([self.chain(chain_id).atom_indices
                                                                                     for chain_id in chains]))
@@ -5384,9 +5385,9 @@ class Pose(SequenceProfile, SymmetricModel):
                 #                                     for chain_id in chains))
                 # ^^ This is for the additive model
                 entity_set = set_function(entity_set, [self.chain(chain_id) for chain_id in chains])
-            if residues is not None:
+            if residues:  # is not None:
                 atom_indices = set_function(atom_indices, self.get_residue_atom_indices(numbers=list(residues)))
-            if pdb_residues is not None:
+            if pdb_residues:  # is not None:
                 atom_indices = set_function(atom_indices, self.get_residue_atom_indices(numbers=list(residues),
                                                                                         pdb=True))
             # if atoms:
