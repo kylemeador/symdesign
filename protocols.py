@@ -869,7 +869,7 @@ class PoseDirectory:
             handler = 2  # to a file
             propagate, no_log_name = True, True
 
-        if self.skip_logging or (self.nanohedra_output and not self.construct_pose):  # set up null_logger
+        if self.skip_logging or not self.construct_pose:  # set up null_logger
             self.log = null_log
         else:  # f'{__name__}.{self}'
             self.log = start_log(name=f'pose.{self}', handler=handler, level=level, location=self.log_path,
