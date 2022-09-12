@@ -54,6 +54,7 @@ from resources.wrapapi import APIDatabase
 
 # Globals
 logger = start_log(name=__name__)
+pose_logger = start_log(name='pose', handler_level=3, propagate=True)
 idx_offset = 1
 # design_directory_modes = [PUtils.interface_design, 'dock', 'filter']
 cst_value = round(0.2 * reference_average_residue_weight, 2)
@@ -871,7 +872,7 @@ class PoseDirectory:
         if self.skip_logging or (self.nanohedra_output and not self.construct_pose):  # set up null_logger
             self.log = null_log
         else:
-            self.log = start_log(name=str(self), handler=handler, level=level, location=self.log_path,
+            self.log = start_log(name=f'{__name__}.{self}', handler=handler, level=level, location=self.log_path,
                                  propagate=propagate, no_log_name=no_log_name)
 
     def directory_string_to_path(self, root: AnyStr, pose_id: str):

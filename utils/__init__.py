@@ -181,6 +181,13 @@ def set_logging_to_debug():
         _logger.propagate = False
 
 
+def set_logging_to_propagate():
+    """For each Logger in current run time set the Logger level to debug"""
+    for logger_name in root.manager.loggerDict:
+        _logger = getLogger(logger_name)
+        _logger.propagate = True
+
+
 def pretty_format_table(data: Iterable, justification: Iterable = None, header: Iterable = None,
                         header_justification: Iterable = None) -> List[str]:
     """Present a table in readable format by sizing and justifying columns in a nested data structure
