@@ -212,6 +212,8 @@ class PoseDirectory:
                 root = path_components[-2] if root is None else root  # path/to/job/[project]/design.pdb
                 self.source = self.source_path
 
+            # Remove a leading '-' character from abspath type results
+            self.name.lstrip('-')
             if self.output_to_directory:
                 self.projects = ''
                 self.project_designs = ''
@@ -1044,7 +1046,8 @@ class PoseDirectory:
     def get_wildtype_file(self) -> AnyStr:
         """Retrieve the wild-type file name from PoseDirectory"""
         wt_file = glob(self.asu_path)
-        assert len(wt_file) == 1, 'More than one matching file found during search %s' % self.asu_path
+        if len(wt_file) != 1:
+            raise ValueError(f'More than one matching file found during search {self.asu_path}')
 
         return wt_file[0]
 
@@ -1897,8 +1900,10 @@ class PoseDirectory:
 
         # Save renumbered PDB to clean_asu.pdb
         if not self.asu_path or not path.exists(self.asu_path):
-            if (self.nanohedra_output and not self.construct_pose) or self.output_to_directory:
+            if not self.construct_pose:  # This is only true when self.nanohedra_output is True
                 return
+            # elif self.output_to_directory:
+            #     return
 
             self.save_asu()
 
