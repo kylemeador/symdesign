@@ -3035,6 +3035,7 @@ class Model(Structure, ContainsChainsMixin):
                 self._get_entity_info_from_atoms(**kwargs)
                 if query_by_sequence and not entity_names:
                     for entity_name, data in list(self.entity_info.items()):  # Make a new list to prevent pop issues
+                        # Todo incorporate wrapapi call here to fetch from local sequence db
                         pdb_api_name = retrieve_entity_id_by_sequence(data['sequence'])
                         if pdb_api_name:
                             pdb_api_name = pdb_api_name.lower()
