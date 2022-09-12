@@ -735,10 +735,10 @@ def main():
                  f'append --overwrite to your command')
             symdesign_directory = None
         else:
-            symdesign_directory = args.output_directory
+            queried_flags['output_directory'] = symdesign_directory = args.output_directory
             os.makedirs(symdesign_directory, exist_ok=True)
             # Set queried_flags to True so it is known that output is not typical SymDesignOutput directory structure
-            queried_flags['output_directory'] = True
+            # queried_flags['output_to_directory'] = True
     else:
         symdesign_directory = utils.get_base_symdesign_dir(
             (args.directory or (args.project or args.single or [None])[0] or os.getcwd()))
