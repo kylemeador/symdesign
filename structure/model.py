@@ -5099,12 +5099,35 @@ class SymmetricModel(Models):
         Sets:
             self: To a SymmetricModel with the minimal set of Entities containing the maximally touching configuration
         """
-        entities = self.find_contacting_asu(**kwargs)
+        # Check to see if the parsed Model is already represented symmetrically
+        number_of_symmetry_mates = self.number_of_symmetry_mates
+        if self.number_of_entities * number_of_symmetry_mates == self.number_of_chains:
+            self.log.debug(f'Setting the {type(self).__name__} to an ASU from a symmetric representation')
+            # Remove extra chains. Both from self and from entities
+            self.chains = self.chains[:number_of_symmetry_mates]
+            for entity in self.entities:
+                entity.remove_mate_chains()
+            # Set the symmetric coords according to existing coords
+            self._models_coords = self._coords
+            # Set the base Structure attributes
+            number_of_atoms = self.number_of_atoms
+            desired_number_of_atoms = number_of_atoms / number_of_symmetry_mates
+            self._coords = Coords(self.coords[:desired_number_of_atoms])
+            self._atom_indices = list(range(len(self._coords)))
+            self._atoms.delete(list(range(desired_number_of_atoms, number_of_atoms)))
+            number_of_residues = self.number_of_residues
+            desired_number_of_residues = self.number_of_residues / number_of_symmetry_mates
+            self._residue_indices = list(range(int(number_of_residues / number_of_symmetry_mates)))
+            self._residues.delete(list(range(desired_number_of_residues, number_of_residues)))
+            self._set_coords_indexed()
+        else:
+            self.log.debug(f'Setting {type(self).__name__} ASU to the ASU with the most contacting interface')
+            entities = self.find_contacting_asu(**kwargs)
 
-        # With perfect symmetry, v this is sufficient
-        self.coords = np.concatenate([entity.coords for entity in entities])
-        # If imperfect symmetry, below may find some use
-        # self._process_model(entities=entities, chains=False, **kwargs)
+            # With perfect symmetry, v this is sufficient
+            self.coords = np.concatenate([entity.coords for entity in entities])
+            # If imperfect symmetry, below may find some use
+            # self._process_model(entities=entities, chains=False, **kwargs)
 
     # def make_oligomers(self):
     #     """Generate oligomers for each Entity in the SymmetricModel"""
