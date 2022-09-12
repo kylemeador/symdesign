@@ -736,6 +736,7 @@ def main():
             symdesign_directory = None
         else:
             symdesign_directory = args.output_directory
+            os.makedirs(symdesign_directory, exist_ok=True)
             # Set queried_flags to True so it is known that output is not typical SymDesignOutput directory structure
             queried_flags['output_directory'] = True
     else:
