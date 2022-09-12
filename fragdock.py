@@ -3261,13 +3261,6 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
             all_sequences_split.append(sequences[:, entity_slice].tolist())
 
         all_sequences_by_entity = list(zip(*all_sequences_split))
-        # Todo ensure that this is performed correctly and that msa is loaded upon docking initialization
-        # Calculate hydrophobic collapse for each design
-        # Include the pose as the pose_source in the measured designs
-        folding_and_collapse = calculate_collapse_metrics(pose, all_sequences_by_entity)
-        # Todo, should the reference pose be used? -> + [entity.sequence for entity in pose.entities]
-        pose_collapse_df = pd.DataFrame({pose_ids[idx]: data for idx, data in enumerate(folding_and_collapse)}).T
-        print(pose_collapse_df)
     else:
         pose_collapse_df = pd.DataFrame()
         # Only get metrics for pose, no sequences
@@ -3336,6 +3329,17 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
     residue_indices = list(range(1, pose_length+1))
     per_residue_df = pd.concat({name: pd.DataFrame(data, index=residue_indices)
                                 for name, data in per_residue_data.items()}).unstack().swaplevel(0, 1, axis=1)
+    print(per_residue_df)
+    # Can't use this as each pose is different
+    # index_residues = list(pose.interface_design_residues)
+    # residue_df = pd.merge(residue_df.loc[:, idx_slice[index_residues, :]],
+    #                       per_residue_df.loc[:, idx_slice[index_residues, :]],
+    #                       left_index=True, right_index=True)
+    residue_df = pd.DataFrame()
+    residue_df = pd.merge(residue_df, per_residue_df, left_index=True, right_index=True)
+    # Make buried surface area (bsa) columns
+    residue_df = calculate_residue_surface_area(residue_df, index_residues)
+
     source_errat = []
     for idx, entity in enumerate(pose.entities):
         # Replace 'errat_deviation' measurement with uncomplexed entities
@@ -3351,12 +3355,43 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
 
     # include in errat_deviation if errat score is < 2 std devs and isn't 0 to begin with
     source_errat_inclusion_boolean = np.logical_and(pose_source_errat_s < errat_2_sigma, pose_source_errat_s != 0.)
-    print(per_residue_df)
     errat_df = per_residue_df.loc[:, idx_slice[:, 'errat_deviation']].droplevel(-1, axis=1)
     # find where designs deviate above wild-type errat scores
     errat_sig_df = (errat_df.sub(pose_source_errat_s, axis=1)) > errat_1_sigma  # axis=1 Series is column oriented
     # then select only those residues which are expressly important by the inclusion boolean
     scores_df['errat_deviation'] = (errat_sig_df.loc[:, source_errat_inclusion_boolean] * 1).sum(axis=1)
+
+    interface_metrics_df = pd.DataFrame(interface_metrics)
+    if design_output:
+        # Calculate hydrophobic collapse for each design
+        # Todo, should the reference pose be used? -> + [entity.sequence for entity in pose.entities]
+        # Include the pose as the pose_source in the measured designs
+        folding_and_collapse = calculate_collapse_metrics(pose, all_sequences_by_entity)
+        pose_collapse_df = pd.DataFrame({pose_ids[idx]: data for idx, data in enumerate(folding_and_collapse)}).T
+        print(pose_collapse_df)
+
+        all_mutations = generate_mutations_from_reference(pose.sequence, all_sequences)
+        scores_df['number_of_mutations'] = \
+            pd.Series({design: len(mutations) for design, mutations in all_mutations.items()})
+        scores_df['percent_mutations'] = \
+            scores_df['number_of_mutations'] / interface_metrics_df.loc[:, 'entity_residue_length_total']
+
+        idx = 1
+        for idx, (entity, entity_indices) in enumerate(zip(pose.entities,
+                                                           pose.residue_indices_per_entity), idx):
+            scores_df[f'entity_{idx}_number_of_mutations'] = \
+                Series({design: len([residue_idx for residue_idx in mutations if residue_idx in entity_indices])
+                        for design, mutations in all_mutations.items()})
+            scores_df[f'entity_{idx}_percent_mutations'] = \
+                scores_df[f'entity_{idx}_number_of_mutations'] \
+                / interface_metrics_df.loc[:, f'entity_{idx}_number_of_residues']
+
+    is_thermophilic = []
+    idx = 1
+    for idx, entity in enumerate(pose.entities, idx):
+        is_thermophilic.append(getattr(other_pose_metrics, f'entity_{idx}_thermophile', 0))
+
+    interface_metrics_df['entity_thermophilicity'] = sum(is_thermophilic) / idx  # get the average
 
     scores_df = pd.concat([scores_df, pose_collapse_df], axis=1)
     print(scores_df)
