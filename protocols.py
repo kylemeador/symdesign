@@ -812,7 +812,7 @@ class PoseDirectory:
             if self.symmetric:
                 try:  # To retrieve from Nanohedra output
                     self._pose_transformation = self.retrieve_pose_transformation_from_file()
-                except FileNotFoundError:
+                except (FileNotFoundError, NotADirectoryError):
                     try:
                         self._pose_transformation = self.pose.assign_pose_transformation()
                     except DesignError:
@@ -1184,7 +1184,7 @@ class PoseDirectory:
         #     self.interface_ss_fragment_topology[number] = \
         #         ''.join(self.pose.ss_type_array[element] for element in fragment_elements)
 
-    @handle_errors(errors=(FileNotFoundError,))
+    @handle_errors(errors=(FileNotFoundError, NotADirectoryError))
     def retrieve_fragment_info_from_file(self):
         """Gather observed fragment metrics from fragment matching output
 
@@ -2240,8 +2240,8 @@ class PoseDirectory:
                 self.pose.generate_interface_fragments(out_path=self.frags, write_fragments=self.write_fragments)
 
                 for query_pair, fragment_info in self.pose.fragment_queries.items():
-                    self.log.debug('Query Pair: %s, %s\n\tFragment Info:%s' % (query_pair[0].name, query_pair[1].name,
-                                                                               fragment_info))
+                    self.log.debug(f'Query Pair: {query_pair[0].name}, {query_pair[1].name}'
+                                   f'\n\tFragment Info:{fragment_info}')
                     for query_idx, entity in enumerate(query_pair):
                         entity.map_fragments_to_profile(fragments=fragment_info,
                                                         alignment_type=alignment_types[query_idx])
