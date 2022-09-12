@@ -5418,7 +5418,7 @@ class Pose(SequenceProfile, SymmetricModel):
             # Todo create a separate variable for required_entities?
             self.design_selector_entities = self.design_selector_entities.union(entity_required)
             if self.required_indices:  # Only if indices are specified should we grab them
-                self.required_residues = self.get_residues_by_atom_indices(atom_indices=self.required_indices)
+                self.required_residues = self.get_residues_by_atom_indices(atom_indices=list(self.required_indices))
         else:
             entity_required, self.required_indices = set(), set()
 
