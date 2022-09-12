@@ -776,6 +776,7 @@ def main():
         utils.start_log(handler=2, location=os.path.join(symdesign_directory, PUtils.program_name))
         # Set all modules to propagate logs to write to master log file
         utils.set_loggers_to_propagate()
+        utils.set_logging_to_level(3)
         # SymDesign main logs to stream with level info and propagates to main log
         logger = utils.start_log(name=PUtils.program_name, propagate=True)
 
