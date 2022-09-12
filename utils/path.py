@@ -136,7 +136,6 @@ nanohedra_memory = 30000000000  # 30Gb
 
 # Project paths
 readme = path.join(source, 'README.md')
-cmd_dist = path.join(source, 'CommandDistributer.py')
 dependency_dir = path.join(source, 'dependencies')
 tools = path.join(source, 'tools')
 sym_op_location = path.join(dependency_dir, 'symmetry_operators')
