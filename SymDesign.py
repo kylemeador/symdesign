@@ -769,20 +769,23 @@ def main():
         utils.set_logging_to_debug()
         logger.debug('Debug mode. Generates verbose output. No writing to .log files will occur')
     else:
-        # Root logger logs to stream with level 'warning'
-        utils.start_log(handler_level=3)
-        # Root logger logs to a single file with level 'info'. Stream above still emits at 'warning'
+        # # Root logger logs to stream with level 'warning'
+        # utils.start_log(handler_level=3)
+        # Root logger logs to a single file with level 'info'
+        # # Stream above still emits at 'warning'
         utils.start_log(handler=2, location=os.path.join(symdesign_directory, PUtils.program_name))
+        # Set all modules to propagate logs to write to this file
+        utils.set_logging_to_propagate()
         # SymDesign main logs to stream with level info and propagates to main log
         logger = utils.start_log(name=PUtils.program_name, propagate=True)
 
-        def emit_info_and_lower(record) -> int:
-            if record.levelno < 21:  # logging.INFO and logging.DEBUG
-                return 1
-            else:
-                return 0
-        # Reject any message that is warning or greater to let root handle
-        logger.handlers[0].addFilter(emit_info_and_lower)
+        # def emit_info_and_lower(record) -> int:
+        #     if record.levelno < 21:  # logging.INFO and logging.DEBUG
+        #         return 1
+        #     else:
+        #         return 0
+        # # Reject any message that is warning or greater to let root handle
+        # logger.handlers[0].addFilter(emit_info_and_lower)
 
         # All Designs will log to specific file with level info unless -skip_logging is passed
     # -----------------------------------------------------------------------------------------------------------------
