@@ -1791,10 +1791,10 @@ class Entity(Chain, ContainsChainsMixin):
         # center_of_mass = self.center_of_mass
         # symmetric_center_of_mass = self.center_of_mass_symmetric
         # print('symmetric_center_of_mass', symmetric_center_of_mass)
-        cb_coords = self.cb_coords
+        ca_coords = self.ca_coords
         for chain in self.chains[1:]:
             # System must be transformed to the origin
-            rmsd, quat, tx = superposition3d(cb_coords, chain.cb_coords, quaternion=True)
+            rmsd, quat, tx = superposition3d(ca_coords, chain.ca_coords, quaternion=True)
             # rmsd, quat, tx = superposition3d(cb_coords-center_of_mass, chain.cb_coords-center_of_mass, quaternion=True)
             self.log.debug(f'rmsd={rmsd} quaternion={quat} translation={tx}')
             # python pseudo
