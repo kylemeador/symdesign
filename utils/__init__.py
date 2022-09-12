@@ -116,11 +116,13 @@ def datestamp() -> str:
 
 startdate = datestamp()
 starttime = timestamp()
+log_handler = {1: StreamHandler, 2: FileHandler, 3: NullHandler}
+log_level = {1: DEBUG, 2: INFO, 3: WARNING, 4: ERROR, 5: CRITICAL}
 
 
 def start_log(name: str = '', handler: int = 1, level: int = 2, location: Union[str, bytes] = os.getcwd(),
               propagate: bool = False, format_log: bool = True, no_log_name: bool = False,
-              set_handler_level: bool = False) -> Logger:
+              handler_level: int = None) -> Logger:
     """Create a logger to handle program messages
 
     Args:
@@ -131,40 +133,34 @@ def start_log(name: str = '', handler: int = 1, level: int = 2, location: Union[
         propagate: Whether to propagate messages to parent loggers (such as root or parent.current_logger)
         format_log: Whether to format the log with logger specific formatting otherwise use message format
         no_log_name: Whether to omit the logger name from the output
-        set_handler_level: Whether to set the level for the logger overall in addition to the logHandler
+        handler_level: Whether to set the level for the logger handler on top of the overall level
     Returns:
         Logger object to handle messages
     """
-    # Todo make a mechanism to only emit warning or higher if propagate=True
-    # log_handler = {1: logging.StreamHandler(), 2: logging.FileHandler(location + '.log'), 3: logging.NullHandler}
-    log_level = {1: DEBUG, 2: INFO, 3: WARNING, 4: ERROR, 5: CRITICAL}
-
     _logger = getLogger(name)
     _logger.setLevel(log_level[level])
-    if not propagate:
-        _logger.propagate = False
-    # lh = log_handler[handler]
-    if handler == 1:
-        lh = StreamHandler()
-    elif handler == 2:
-        if os.path.splitext(location)[1] == '':  # no extension, should add one
-            lh = FileHandler(f'{location}.log')
-        else:  # already has extension
-            lh = FileHandler(location)
-    else:  # handler == 3:
-        lh = NullHandler()
-        # return _logger
-    if set_handler_level:
-        lh.setLevel(log_level[level])
+    # Todo make a mechanism to only emit warning or higher if propagate=True
+    #  See SymDesign.py use of adding handler[0].addFilter()
+    _logger.propagate = propagate
+    lh = log_handler[handler]
+    if handler == 2:
+        # Check for extension. If one doesn't exist, add ".log"
+        lh = FileHandler(f'{location}.log' if os.path.splitext(location)[1] == '' else location)
+
+    if handler_level is not None:
+        lh.setLevel(log_level[handler_level])
     _logger.addHandler(lh)
 
     if format_log:
         if no_log_name:
             # log_format = Formatter('%(levelname)s: %(message)s')
-            log_format = Formatter('\033[38;5;208m%(levelname)s\033[0;0m: %(message)s')
+            # log_format = Formatter('\033[38;5;208m%(levelname)s\033[0;0m: %(message)s')
+            log_format = Formatter('\033[38;5;208m{levelname}\033[0;0m: {message}')
+
         else:
             # log_format = Formatter('[%(name)s]-%(levelname)s: %(message)s')  # \033[48;5;69m background
-            log_format = Formatter('\033[38;5;93m%(name)s\033[0;0m-\033[38;5;208m%(levelname)s\033[0;0m: %(message)s')
+            # log_format = Formatter('\033[38;5;93m%(name)s\033[0;0m-\033[38;5;208m%(levelname)s\033[0;0m: %(message)s')
+            log_format = Formatter('\033[38;5;93m{name}\033[0;0m-\033[38;5;208m{levelname}\033[0;0m: {message}')
         lh.setFormatter(log_format)
 
     return _logger
