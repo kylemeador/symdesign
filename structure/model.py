@@ -5267,7 +5267,7 @@ class Pose(SequenceProfile, SymmetricModel):
     fragment_pairs: list[tuple[GhostFragment, Fragment, float]] | list
     fragment_queries: dict[tuple[Entity, Entity], list[dict[str, Any]]]
     ignore_clashes: bool
-    interface_design_residues: set[Residue]
+    interface_design_residues: set[int]  # set[Residue]
     interface_residues: set[Residue]
     interface_residues_by_entity_pair: dict[tuple[Entity, Entity], tuple[list[Residue], list[Residue]]]
     required_indices: set[int]
@@ -6405,7 +6405,7 @@ class Pose(SequenceProfile, SymmetricModel):
 
         self.interface_design_residues = set()  # Replace set(). Add new residues
         for number, residues_entities in self.split_interface_residues.items():
-            self.interface_design_residues.update([residue for residue, _ in residues_entities])
+            self.interface_design_residues.update([residue.number for residue, _ in residues_entities])
 
         self.interface_residues = set()  # Replace set(). Add new residues
         for entity in self.entities:
@@ -6413,7 +6413,7 @@ class Pose(SequenceProfile, SymmetricModel):
             entity_oligomer = Model.from_chains(entity.chains, log=self.log, entities=False)
             # entity.oligomer.get_sasa()
             # Must check by number as the Residue instance will be different in entity_oligomer
-            for residue in entity_oligomer.get_residues([residue.number for residue in self.interface_design_residues]):
+            for residue in entity_oligomer.get_residues(self.interface_design_residues):
                 if residue.sasa > 0:  # we will have repeats as the Entity is symmetric
                     self.interface_residues.add(residue)
 
