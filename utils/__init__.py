@@ -185,7 +185,6 @@ def set_logging_to_level(level: logging_levels = 1):
     for logger_name in root.manager.loggerDict:
         _logger = getLogger(logger_name)
         _logger.setLevel(_level)
-        _logger.propagate = False
 
 
 def set_loggers_to_propagate():
