@@ -173,13 +173,13 @@ class PoseDirectory:
         #  Maybe it is better to include only for specific modules
         # Set name initially to the basename. This may change later, but we need to check for serialized info
         self.name = path.splitext(path.basename(self.source_path))[0]
-        output_identifier = f'{self.name}_' if self.output_directory else ''
+        output_identifier = f'{self.name}_' if self.output_to_directory else ''
 
         self.serialized_info = path.join(self.source_path, f'{output_identifier}{PUtils.data}', state_file)
         self.initialized = True if path.exists(self.serialized_info) else False
         if self.initialized:
             self.source = None  # will be set to self.asu_path later
-            if self.output_directory:
+            if self.output_to_directory:
                 self.projects = ''
                 self.project_designs = ''
                 self.path = self.program_root  # /output_directory<- self.path /design.pdb
@@ -212,7 +212,7 @@ class PoseDirectory:
                 root = path_components[-2] if root is None else root  # path/to/job/[project]/design.pdb
                 self.source = self.source_path
 
-            if self.output_directory:
+            if self.output_to_directory:
                 self.projects = ''
                 self.project_designs = ''
                 self.path = self.program_root  # /output_directory<- self.path /design.pdb
@@ -255,7 +255,7 @@ class PoseDirectory:
         #     else:  # if '.pdb' in self.source_path:  # Set up PoseDirectory from input initially
         #         # self.initialized = False
         #         self.source = self.source_path
-        #         if self.output_directory:
+        #         if self.output_to_directory:
         #             self.projects = ''
         #             self.project_designs = ''
         #             self.path = self.program_root  # /output_directory<- self.path /design.pdb
@@ -456,8 +456,8 @@ class PoseDirectory:
         return self.job_resources.no_evolution_constraint
 
     @property
-    def output_directory(self) -> bool:
-        return self.job_resources.output_directory
+    def output_to_directory(self) -> bool:
+        return self.job_resources.output_to_directory
 
     @property
     def overwrite(self) -> bool:
@@ -1897,7 +1897,7 @@ class PoseDirectory:
 
         # Save renumbered PDB to clean_asu.pdb
         if not self.asu_path or not path.exists(self.asu_path):
-            if (self.nanohedra_output and not self.construct_pose) or self.output_directory:
+            if (self.nanohedra_output and not self.construct_pose) or self.output_to_directory:
                 return
 
             self.save_asu()
@@ -3862,7 +3862,7 @@ class PoseDirectory:
     def __str__(self) -> str:
         if self.nanohedra_output:
             return self.source_path.replace(f'{self.nanohedra_root}{sep}', '').replace(sep, '-')
-        elif self.output_directory:
+        elif self.output_to_directory:
             return self.name
         else:
             # TODO integrate with designDB?
