@@ -1311,13 +1311,13 @@ class PoseDirectory:
             Disk location of the flags file
         """
         # flag_variables (list(tuple)): The variable value pairs to be filed in the RosettaScripts XML
-        self.log.info('Total number of residues in Pose: %d' % self.pose.number_of_residues)
+        self.log.info(f'Total number of residues in Pose: {self.pose.number_of_residues}')
 
         # Get ASU distance parameters
         if self.design_dimension:  # check for None and dimension 0 simultaneously
             # The furthest point from the ASU COM + the max individual Entity radius
             distance = self.pose.radius + max([entity.radius for entity in self.pose.entities])  # all the radii
-            self.log.info('Expanding ASU into symmetry group by %f Angstroms' % distance)
+            self.log.info(f'Expanding ASU into symmetry group by {distance:.2f} Angstroms')
         else:
             distance = 0
 
@@ -1348,7 +1348,7 @@ class PoseDirectory:
 
         # assign any additional designable residues
         if self.pose.required_residues:
-            variables.extend([('required_residues', ','.join('%d%s' % (res.number, res.chain)
+            variables.extend([('required_residues', ','.join(f'{res.number}{res.chain}'
                                                              for res in self.pose.required_residues))])
         else:  # get an out-of-bounds index
             variables.extend([('required_residues', out_of_bounds_residue)])
@@ -1356,16 +1356,16 @@ class PoseDirectory:
         # allocate any "core" residues based on central fragment information
         if self.center_residue_numbers:
             variables.extend([('core_residues', ','.join(map(str, self.center_residue_numbers)))])
-        else:  # get an out of bounds index
+        else:  # get an out-of-bounds index
             variables.extend([('core_residues', out_of_bounds_residue)])
 
         flags = copy(rosetta_flags)
         if pdb_out_path:
-            flags.extend(['-out:path:pdb %s' % pdb_out_path, '-scorefile %s' % self.scores_file])
+            flags.extend([f'-out:path:pdb {pdb_out_path}', f'-scorefile {self.scores_file}'])
         else:
-            flags.extend(['-out:path:pdb %s' % self.designs, '-scorefile %s' % self.scores_file])
-        flags.append('-in:file:native %s' % self.refined_pdb)
-        flags.append('-parser:script_vars %s' % ' '.join(f'{var}={val}' for var, val in variables))
+            flags.extend([f'-out:path:pdb {self.designs}', f'-scorefile {self.scores_file}'])
+        flags.append(f'-in:file:native {self.refined_pdb}')
+        flags.append(f'-parser:script_vars {" ".join(f"{var}={val}" for var, val in variables)}')
 
         out_file = path.join(out_path, 'flags')
         with open(out_file, 'w') as f:
@@ -1480,7 +1480,7 @@ class PoseDirectory:
         cmd = copy(script_cmd)
         script_name = path.splitext(path.basename(script))[0]
         flags = path.join(self.scripts, 'flags')
-        if not path.exists(self.flags) or self.force_flags:  # Generate a new flags_design file
+        if not path.exists(self.flags) or self.force_flags:
             # Need to assign the designable residues for each entity to a interface1 or interface2 variable
             self.identify_interface()
             # self.prepare_symmetry_for_rosetta()
@@ -2056,7 +2056,7 @@ class PoseDirectory:
             # self.load_pose()  # Todo have to use this to get the pose.ss_index in get_fragment_metrics()
             self.identify_interface()
 
-        if not path.exists(flags) or self.force_flags:  # Generate a new flags file
+        if not path.exists(flags) or self.force_flags:
             # self.prepare_symmetry_for_rosetta()
             self.get_fragment_metrics()  # needed for prepare_rosetta_flags -> self.center_residue_numbers
             make_path(flag_dir)
