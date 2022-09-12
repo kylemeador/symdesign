@@ -188,7 +188,7 @@ def set_logging_to_level(level: logging_levels = None, handler_level: logging_le
         _level = log_level[level]
         set_level_func = Logger.setLevel
     elif handler_level is not None:
-        _level = log_level[level]
+        _level = log_level[handler_level]
 
         def set_level_func(logger_: Logger, level_: int):
             for handler in logger_.handlers:
