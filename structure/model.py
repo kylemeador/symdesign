@@ -1788,8 +1788,8 @@ class Entity(Chain, ContainsChainsMixin):
             The name of the file written for symmetry definition file creation
         """
         # Find the superposition from the Entity to every mate chain
-        center_of_mass = self.center_of_mass
-        symmetric_center_of_mass = self.center_of_mass_symmetric
+        # center_of_mass = self.center_of_mass
+        # symmetric_center_of_mass = self.center_of_mass_symmetric
         # print('symmetric_center_of_mass', symmetric_center_of_mass)
         cb_coords = self.cb_coords
         for chain in self.chains[1:]:
@@ -3157,9 +3157,10 @@ class Model(Structure, ContainsChainsMixin):
                 small_sequence_length = min(seq_len, chain_seq_len)
                 match_score = score / large_sequence_length
                 length_proportion = (large_sequence_length-small_sequence_length) / large_sequence_length
-                self.log.debug(f'Chain {chain.name} matches Entity {entity_name} with '
-                               f'{match_score:.2f} identity and length difference of {length_proportion:.2f}')
+                self.log.debug(f'Chain {chain.name} to Entity {entity_name} has {match_score:.2f} identity '
+                               f'and {length_proportion:.2f} length difference')
                 if match_score >= tolerance and length_proportion <= 1-tolerance:
+                    self.log.debug(f'Chain {chain.name} matches Entity {entity_name}')
                     # if number of sequence matches is > tolerance, and the length difference < tolerance
                     # the current chain is the same as the Entity, add to chains, and move on to the next chain
                     data['chains'].append(chain)
@@ -3664,13 +3665,14 @@ class SymmetricModel(Models):
         # Ensure that the symmetric system is set up properly
         if self.is_symmetric():  # True if symmetry keyword args were passed
             # Ensure the number of Modela matches the SymEntry groups
-            if self.number_of_entities != self.sym_entry.number_of_groups:
+            number_of_entities = self.number_of_entities
+            # number_of_chains = self.number_of_chains
+            if number_of_entities != self.sym_entry.number_of_groups:
                 raise SymmetryError(f'The {type(self).__name__} has {self.number_of_entities} symmetric entities, but '
                                     f'{self.sym_entry.number_of_groups} were expected')
 
             # Ensure the Model is an asu
-            if self.number_of_entities != self.number_of_chains:
-                self.log.debug('Setting Pose ASU to the ASU with the most contacting interface')
+            if number_of_entities != self.number_of_chains:
                 self.set_contacting_asu()
             elif self.symmetric_coords is None:
                 # We need to generate the symmetric coords
@@ -5040,7 +5042,7 @@ class SymmetricModel(Models):
             max_contact_idx = contact_count.argmax()
             additional_chains = []
             max_chains = list(chain_combinations[max_contact_idx])
-            if len(max_chains) != self.number_of_entities:
+            if len(max_chains) != self.number_of_entities:  # We found 2 entities at this point
                 # find the indices where either of the maximally contacting chains are utilized
                 selected_chain_indices = {idx for idx, chain_pair in enumerate(chain_combinations)
                                           if max_chains[0] in chain_pair or max_chains[1] in chain_pair}

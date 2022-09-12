@@ -72,7 +72,7 @@ class Coords:
             if self.coords.shape[0] == 0:  # there are no coords, lets use set mechanism
                 self.coords = new_coords
             else:
-                raise ValueError(f'The new_coords are not the same shape as the selected indices {error}')
+                raise ValueError(f'The new_coords are not the same shape as the selected indices: {error}')
 
     def set(self, coords: np.ndarray | list[list[float]]):
         """Set self.coords to the provided coordinates

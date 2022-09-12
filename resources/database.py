@@ -147,7 +147,7 @@ class DataStore:
                 self.log.warning(f'Found more than one file at "{path}". Grabbing the first one: {file}')
             return file
         else:
-            self.log.info(f'No files found for "{path}"')
+            self.log.info(f'No file found for "{path}"')
             return None
 
     def retrieve_files(self) -> list:
@@ -155,7 +155,7 @@ class DataStore:
         path = self.path_to()
         files = sorted(glob(path))
         if not files:
-            self.log.info(f'No files found for "{path}"')
+            self.log.info(f'No files found in "{path}"')
         return files
 
     def retrieve_names(self) -> list[str]:
@@ -163,7 +163,7 @@ class DataStore:
         path = self.path_to()
         names = list(map(os.path.basename, [os.path.splitext(file)[0] for file in sorted(glob(path))]))
         if not names:
-            self.log.warning(f'No files found for "{path}"')
+            self.log.warning(f'No data found with names at "{path}"')
         return names
 
     def store_data(self, data: Any, name: str, **kwargs):
