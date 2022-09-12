@@ -4337,9 +4337,9 @@ class SymmetricModel(Models):
                 #                     f'for them. Try passing surrounding_uc=True to '
                 #                     f'{self.generate_symmetric_coords.__name__}')
 
-        self.log.debug(f'Ensure the output of symmetry mate creation is correct. The copy of a '
-                       f'{type(self).__name__} is being taken which is relying on Structure.__copy__. This may '
-                       f'not be adequate and need to be overwritten')
+        # self.log.debug(f'Ensure the output of symmetry mate creation is correct. The copy of a '
+        #                f'{type(self).__name__} is being taken which is relying on Structure.__copy__. This may '
+        #                f'not be adequate and need to be overwritten')
 
         if not self.models:
             for coord_idx in range(self.number_of_symmetry_mates):
@@ -4548,9 +4548,9 @@ class SymmetricModel(Models):
         Returns:
             The symmetric copies of the input structure
         """
-        self.log.critical(f'Ensure the output of symmetry mate creation is correct. The copy of a '
-                          f'{type(structure).__name__} is being taken which is relying on '
-                          f'{type(structure).__name__}.__copy__. This may not be adequate and need to be overwritten')
+        # self.log.critical(f'Ensure the output of symmetry mate creation is correct. The copy of a '
+        #                   f'{type(structure).__name__} is being taken which is relying on '
+        #                   f'{type(structure).__name__}.__copy__. This may not be adequate and need to be overwritten')
         # Caution, this function will return poor if the number of atoms in the structure is 1!
         coords = structure.coords if return_side_chains else structure.backbone_and_cb_coords
         uc_number = 1
