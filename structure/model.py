@@ -5268,7 +5268,7 @@ class Pose(SequenceProfile, SymmetricModel):
     fragment_queries: dict[tuple[Entity, Entity], list[dict[str, Any]]]
     ignore_clashes: bool
     interface_design_residues: set[int]  # set[Residue]
-    interface_residues: set[Residue]
+    interface_residues: set[int]  # set[Residue]
     interface_residues_by_entity_pair: dict[tuple[Entity, Entity], tuple[list[Residue], list[Residue]]]
     required_indices: set[int]
     required_residues: list[Residue] | None
@@ -5814,7 +5814,7 @@ class Pose(SequenceProfile, SymmetricModel):
 
         metrics = frag_metrics
         # Interface B Factor
-        int_b_factor = sum(residue.b_factor for residue in self.interface_residues)
+        int_b_factor = sum(residue.b_factor for residue in self.get_residues(self.interface_residues))
         metrics.update({
             'interface_b_factor_per_residue': round(int_b_factor / total_interface_residues, 2),
             # 'nanohedra_score': all_residue_score,
@@ -6415,7 +6415,7 @@ class Pose(SequenceProfile, SymmetricModel):
             # Must check by number as the Residue instance will be different in entity_oligomer
             for residue in entity_oligomer.get_residues(self.interface_design_residues):
                 if residue.sasa > 0:  # we will have repeats as the Entity is symmetric
-                    self.interface_residues.add(residue)
+                    self.interface_residues.add(residue.number)
 
     def check_interface_topology(self):
         """From each pair of entities that share an interface, split the identified residues into two distinct groups.
