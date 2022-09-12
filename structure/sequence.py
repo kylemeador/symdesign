@@ -2925,10 +2925,12 @@ def generate_alignment(seq1: Sequence[str], seq2: Sequence[str], matrix: str = '
     _matrix = subs_matrices.get(matrix, substitution_matrices.load(matrix))
     gap_penalty = -10
     gap_ext_penalty = -1
-    logger.debug(f'Generating sequence alignment between:\n{seq1}\n\tAND:\n{seq2}')
+    # logger.debug(f'Generating sequence alignment between:\n{seq1}\n\tAND:\n{seq2}')
     # Create sequence alignment
     align = getattr(pairwise2.align, f'{_type}ds')(seq1, seq2, _matrix, gap_penalty, gap_ext_penalty,
                                                    one_alignment_only=top_alignment)
+    logger.debug(f'Generated alignment: {pairwise2.format_alignment(align[0])}')
+
     return align[0] if top_alignment else align
 
 
