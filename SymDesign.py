@@ -772,7 +772,7 @@ def main():
         # Root logger logs all emissions to a single file with level 'info'. Stream above still emits at 'warning'
         utils.start_log(handler=2, location=os.path.join(symdesign_directory, PUtils.program_name))
         # SymDesign main logs to stream with level info
-        logger = utils.start_log(name=PUtils.program_name, propagate=True)
+        logger = utils.start_log(name=PUtils.program_name)
         # All Designs will log to specific file with level info unless -skip_logging is passed
     # -----------------------------------------------------------------------------------------------------------------
     # Process flags, job information which is necessary for processing and i/o

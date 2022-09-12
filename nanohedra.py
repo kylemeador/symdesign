@@ -43,10 +43,12 @@ if __name__ == '__main__':
             master_logger, bb_logger = logger, logger
             logger.debug('Debug mode. Produces verbose output and not written to any .log files')
         else:
-            master_logger = start_log(name=os.path.basename(__file__), handler=2, location=master_log_filepath,
-                                      propagate=True)
-        master_logger.info('Nanohedra\nMODE: DOCK\n')
+            # Root logger logs all emissions to a single file with level 'info'
+            start_log(handler=2, location=master_log_filepath)
+            # FragDock main logs to stream with level info
+            master_logger = start_log(name=os.path.basename(__file__), propagate=True)
 
+        master_logger.info('Nanohedra\nMODE: DOCK\n')
         try:
             # Orient Oligomer Fortran Executable Path
             orient_executable_path = PUtils.orient_exe_path
