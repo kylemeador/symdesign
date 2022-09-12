@@ -2437,13 +2437,13 @@ class PoseDirectory:
         Returns:
             Series containing summary metrics for all designs in the design directory
         """
-        if self.interface_residues is False or self.interface_design_residues is False:
-            self.identify_interface()
-        else:  # we only need to load pose as we already calculated interface
-            # self.load_pose()
-            # Todo not correct! have to perform below to get pose.ss_index
-            # self.pose.interface_residues = self.interface_residues
-            self.identify_interface()
+        # if self.interface_residues is False or self.interface_design_residues is False:
+        #     self.identify_interface()
+        # else:  # we only need to load pose as we already calculated interface
+        #     # self.load_pose()
+        #     # Todo not correct! have to perform below to get pose.ss_index
+        #     # self.pose.interface_residues = self.interface_residues
+        self.identify_interface()
         self.log.debug(f'Found design residues: {", ".join(map(str, sorted(self.interface_design_residues)))}')
         if (not self.fragment_observations and self.fragment_observations != list()) and self.generate_fragments:
             make_path(self.frags, condition=self.write_fragments)
