@@ -2929,7 +2929,7 @@ def generate_alignment(seq1: Sequence[str], seq2: Sequence[str], matrix: str = '
     # Create sequence alignment
     align = getattr(pairwise2.align, f'{_type}ds')(seq1, seq2, _matrix, gap_penalty, gap_ext_penalty,
                                                    one_alignment_only=top_alignment)
-    logger.debug(f'Generated alignment: {pairwise2.format_alignment(*align[0])}')
+    logger.debug(f'Generated alignment:\n{pairwise2.format_alignment(*align[0])}')
 
     return align[0] if top_alignment else align
 

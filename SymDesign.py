@@ -550,7 +550,7 @@ def main():
         #     print('Average_design_directory_size equals %f' %
         #           (float(psutil.virtual_memory().used) / len(pose_directories)))
 
-        print('\n')
+        # print('\n')
         exit(exit_code)
 
     def load_total_dataframe(pose: bool = False) -> pd.DataFrame:
