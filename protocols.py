@@ -316,11 +316,12 @@ class PoseDirectory:
         self.pose_file = path.join(self.source_path, PUtils.pose_file)
         self.frag_file = path.join(self.source_path, PUtils.frag_dir, PUtils.frag_text_file)
 
-        # if self.initialized then self.entity_names should be set. If not initialized before, check
-        if not self.initialized and 'entity_names' not in self.info:  # none were provided at start up, find them
-            # replace "not self.entity_names" with ^:
-            self.find_entity_names()  # starts self.log
-        self.entity_names = self.info.get('entity_names', [])  # set so that DataBase set up works
+        if not self.initialized and 'entity_names' not in self.info:
+            # None were provided at start up, find them
+            # Starts self.log if not self.nanohedra_output
+            self.find_entity_names()
+        else:
+            self.entity_names = self.info.get('entity_names', [])  # set so that DataBase set up works
 
     @classmethod
     def from_nanohedra(cls, design_path: str, root: AnyStr = None, nanohedra_output: bool = True, **kwargs):
@@ -844,10 +845,14 @@ class PoseDirectory:
     @close_logs
     def find_entity_names(self):
         """Load the Structure source_path and extract the entity_names from the Structure"""
-        self.start_log()
-        self.initial_model = Model.from_file(self.source_path, log=self.log)
+        if self.nanohedra_output:
+            entity_names = get_components_from_nanohedra_docking(self.pose_file)
+        else:
+            self.start_log()
+            self.initial_model = Model.from_file(self.source_path, log=self.log)
+            entity_names = [entity.name for entity in self.initial_model.entities]
         # self.entity_names = [entity.name for entity in self.initial_model.entities]
-        self.info['entity_names'] = [entity.name for entity in self.initial_model.entities]
+        self.entity_names = self.info['entity_names'] = entity_names
 
     def start_log(self, level: int = 2):
         """Initialize the logger for the Pose"""
