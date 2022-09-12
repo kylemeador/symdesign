@@ -696,6 +696,7 @@ class Atom(StructureBase):
         # create a new, empty Coords instance
         self._coords = Coords(self.coords)
         self.index = 0
+        self.reset_state()
 
     @property
     def type(self) -> str:  # This can't be set since the self._type_str needs to be changed then
@@ -1496,6 +1497,7 @@ class Residue(ResidueFragment, ContainsAtomsMixin):
         self._coords = Coords(self.coords)
         # populate the Structure with its existing instances removed of any indexing
         self._assign_atoms(self.atoms)  # , coords=coords)
+        self.reset_state()
 
     # @StructureBase.coords.setter
     # def coords(self, coords: np.ndarray | list[list[float]]):
@@ -2607,6 +2609,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         self._coords = Coords(self.coords)
         # populate the Structure with its existing instances removed of any indexing
         self._assign_residues(self.residues, atoms=self.atoms)  # , coords=coords)
+        self.reset_state()
 
     def get_structure_containers(self) -> dict[str, Any]:
         """Return the instance structural containers as a dictionary with attribute as key and container as value"""
