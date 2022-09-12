@@ -1294,6 +1294,7 @@ class PoseDirectory:
         # try:
         # Todo make better patch for numpy.ndarray compare value of array is ambiguous
         if self.info.keys() != self._info.keys():  # if the state has changed from the original version
+            print('info', self.info)
             pickle_object(self.info, self.serialized_info, out_path='')
         # except ValueError:
         #     print(self.info)
