@@ -5372,11 +5372,11 @@ class Pose(SequenceProfile, SymmetricModel):
                 atom_indices = set(self._atom_indices)
                 set_function = getattr(set, 'intersection')
 
-            if entities:
+            if entities is not None:
                 atom_indices = set_function(atom_indices, iter_chain.from_iterable([self.entity(entity).atom_indices
                                                                                     for entity in entities]))
                 entity_set = set_function(entity_set, [self.entity(entity) for entity in entities])
-            if chains:
+            if chains is not None:
                 # vv This is for the intersectional model
                 atom_indices = set_function(atom_indices, iter_chain.from_iterable([self.chain(chain_id).atom_indices
                                                                                     for chain_id in chains]))
@@ -5384,10 +5384,11 @@ class Pose(SequenceProfile, SymmetricModel):
                 #                                     for chain_id in chains))
                 # ^^ This is for the additive model
                 entity_set = set_function(entity_set, [self.chain(chain_id) for chain_id in chains])
-            if residues:
-                atom_indices = set_function(atom_indices, self.get_residue_atom_indices(numbers=residues))
-            if pdb_residues:
-                atom_indices = set_function(atom_indices, self.get_residue_atom_indices(numbers=residues, pdb=True))
+            if residues is not None:
+                atom_indices = set_function(atom_indices, self.get_residue_atom_indices(numbers=list(residues)))
+            if pdb_residues is not None:
+                atom_indices = set_function(atom_indices, self.get_residue_atom_indices(numbers=list(residues),
+                                                                                        pdb=True))
             # if atoms:
             #     atom_indices = set_function(atom_indices, [idx for idx in self._atom_indices if idx in atoms])
 
@@ -5397,7 +5398,7 @@ class Pose(SequenceProfile, SymmetricModel):
         if selection:
             self.log.debug(f'The design_selection includes: {selection}')
             entity_selection, atom_selection = grab_indices(**selection)
-        else:  # use all the entities and indices
+        else:  # Use all the entities and indices
             entity_selection, atom_selection = set(self.entities), set(self._atom_indices)
 
         mask = self.design_selector.get('mask')
@@ -5414,9 +5415,9 @@ class Pose(SequenceProfile, SymmetricModel):
         if required:
             self.log.debug(f'The required_residues includes: {required}')
             entity_required, self.required_indices = grab_indices(**required, start_with_none=True)
-            # Todo create a separte variable for required_entities?
+            # Todo create a separate variable for required_entities?
             self.design_selector_entities = self.design_selector_entities.union(entity_required)
-            if self.required_indices:  # only if indices are specified should we grab them
+            if self.required_indices:  # Only if indices are specified should we grab them
                 self.required_residues = self.get_residues_by_atom_indices(atom_indices=self.required_indices)
         else:
             entity_required, self.required_indices = set(), set()
