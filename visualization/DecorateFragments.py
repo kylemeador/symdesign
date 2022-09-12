@@ -82,7 +82,7 @@ if __name__ == '__main__':
         set_logging_to_debug()
         logger.debug('Debug mode. Produces verbose output and not written to any .log files')
     else:
-        logger = start_log(name=os.path.basename(__file__), propagate=True)
+        logger = start_log(name=os.path.basename(__file__))
 
     logger.info('Starting %s with options:\n\t%s' %
                 (os.path.basename(__file__),

@@ -69,7 +69,7 @@ if __name__ == '__main__':
         utils.set_logging_to_debug()
         logger.debug('Debug mode. Produces verbose output and not written to any .log files')
     else:
-        logger = utils.start_log(name=os.path.basename(__file__), propagate=True)
+        logger = utils.start_log(name=os.path.basename(__file__))
 
     all_poses, location = utils.collect_designs(files=args.file, directory=args.directory)
     assert all_poses, 'No %s directories found within \'%s\'! Please ensure correct location' \

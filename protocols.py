@@ -108,7 +108,7 @@ class PoseDirectory:
         # Symmetry attributes
         # self.cryst_record = None
         # self.expand_matrices = None
-        # Todo monitor if Rosetta energy mechansims are modified for crystal set ups and adjust parameter accordingly
+        # Todo monitor if Rosetta energy mechanisms are modified for crystal set ups and adjust parameter accordingly
         if PUtils.sym_entry in kwargs:
             self.sym_entry = kwargs[PUtils.sym_entry]
         self.sym_def_file: str | None = None  # The symmetry definition file for the entire Pose
