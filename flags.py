@@ -154,7 +154,7 @@ def query_user_for_flags(mode=interface_design, template=False):
         flag_input = zip(chosen_flags, value_array)  # flag value (key), user input (str)
         while True:
             validation = input('You selected:\n%s\n\nOther flags will take their default values. %s'
-                               % ('\n'.join(format_string % flag for flag in flag_input), confirmation_string))
+                               % ('\n'.join(format_string.format(*flag) for flag in flag_input), confirmation_string))
             if validation.lower() in bool_d:
                 break
             else:
