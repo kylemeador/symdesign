@@ -1416,14 +1416,14 @@ class PoseDirectory:
         # metrics_flags = 'repack=yes'
         protocol = PUtils.interface_metrics
         main_cmd = copy(script_cmd)
-        if self.interface_residues is False or self.interface_design_residues is False:
-            # need these ^ for making flags so get them v
-            self.identify_interface()
-        else:  # we only need to load pose as we already calculated interface
-            # self.load_pose()
-            # Todo not correct!
-            # self.pose.interface_residues = self.interface_residues
-            self.identify_interface()
+        # if self.interface_residues is False or self.interface_design_residues is False:
+        #     # need these ^ for making flags so get them v
+        #     self.identify_interface()
+        # else:  # we only need to load pose as we already calculated interface
+        #     # self.load_pose()
+        #     # Todo not correct!
+        #     # self.pose.interface_residues = self.interface_residues
+        self.identify_interface()
 
         # interface_secondary_structure
         if not path.exists(self.flags) or self.force_flags:
