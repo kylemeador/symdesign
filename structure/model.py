@@ -6521,12 +6521,12 @@ class Pose(SequenceProfile, SymmetricModel):
 
         for key, entity_residues in interface.items():
             all_residues = [(residue, entity) for entity, residues in entity_residues.items() for residue in residues]
-            self.split_interface_residues[key + 1] = sorted(all_residues, key=lambda res_ent: res_ent[0].number)
+            self.split_interface_residues[key+1] = sorted(all_residues, key=lambda res_ent: res_ent[0].number)
 
         if not self.split_interface_residues[1]:
-            # Todo return an error but don't raise anything
-            raise DesignError('Interface was unable to be split because no residues were found on one side of the'
-                              ' interface! Check that your input has an interface or your flags aren\'t too stringent')
+            # raise DesignError('Interface was unable to be split because no residues were found on one side of the'
+            self.log.warning('The interface was unable to be split because no residues were found on one side. '
+                             "Check that your input has an interface or your flags aren't too stringent")
         else:
             self.log.debug('The interface is split as:\n\tInterface 1: %s\n\tInterface 2: %s'
                            % tuple(','.join('%d%s' % (res.number, ent.chain_id) for res, ent in residues_entities)
