@@ -468,7 +468,7 @@ def main():
                     f.write('%s\n' % '\n'.join(design.path for design in success))
                 logger.critical(
                     f'The file "{designs_file}" contains the locations of every pose that passed checks/'
-                    f'filters for this job. Utilize this file to inpu these poses in future {PUtils.program_name} '
+                    f'filters for this job. Utilize this file to input these poses in future {PUtils.program_name} '
                     f'commands such as:\n\t{PUtils.program_command} --file {designs_file} MODULE ...')
 
             if args.module == PUtils.analysis:

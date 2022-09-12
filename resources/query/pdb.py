@@ -22,8 +22,8 @@ from resources.query.utils import input_string, confirmation_string, bool_d, val
 # Globals
 logger = start_log(name=__name__)
 # General Formatting
-user_input_format = '\n%s\n%s' % (format_string % ('Option', 'Description'), '%s')
-additional_input_string = '\nWould you like to add another%s? [y/n]%s' % ('%s', input_string)
+user_input_format = f'\n{format_string.format("Option", "Description")}\n%s'
+additional_input_string = f'\nWould you like to add another%s? [y/n]{input_string}'
 instance_d = {'string': str, 'integer': int, 'number': float, 'date': str}
 
 # Websites
@@ -323,7 +323,7 @@ def retrieve_pdb_entries_by_advanced_query(save: bool = True, return_results: bo
         else:
             intro_string = group_grouping_intro
             available_entity_string = '\nYour available groups are:\n%s\n' % \
-                                      '\n'.join('\tGroup Group #%d%s' % (i, format_string % group)
+                                      '\n'.join(f'\tGroup Group #{i}{format_string.format(*group)}'
                                                 for i, group in enumerate(list(work_on_group.values()), 1))
 
         print(intro_string)  # provide an introduction
@@ -439,9 +439,8 @@ def retrieve_pdb_entries_by_advanced_query(save: bool = True, return_results: bo
         else:
             return_identifier_string = '\nFor each set of options, choose the option from the first column for the ' \
                                        'description in the second.\nWhat type of identifier do you want to search the '\
-                                       'PDB for?%s%s' % (user_input_format % '\n'.join(format_string % item
-                                                                                       for item in return_types.items())
-                                                         , input_string)
+                                       f'PDB for?%s{input_string}' % user_input_format % \
+                                       '\n'.join(format_string.format(*item) for item in return_types.items())
             return_type = validate_input(return_identifier_string, return_types)
 
         terminal_group_queries = []
@@ -453,16 +452,14 @@ def retrieve_pdb_entries_by_advanced_query(save: bool = True, return_results: bo
             #                                (user_input_format % '\n'.join(format_string % item
             #                                                               for item in services.items()), input_string)
             query_builder_attribute_string = '\nWhat type of attribute would you like to use? Examples include:%s' \
-                                             '\n\nFor a more thorough list indicate "s" for search.\n' \
-                                             'Alternatively, you can browse %s\nEnsure that your spelling' \
-                                             ' is exact if you want your query to succeed!%s' % \
-                                             (user_input_format % '\n'.join(format_string % (value, key)
-                                                                            for key, value in attributes.items()),
-                                              attribute_url, input_string)
-            query_builder_operator_string = '\nWhat operator would you like to use?\n' \
-                                            'Possible operators include:\n\t%s\nIf you would like to negate the ' \
-                                            'operator, on input type "not" after your selection. Ex: equals not%s' % \
-                                            ('%s', input_string)
+                                             '\n\nFor a more thorough list indicate "s" for search.\nAlternatively, you' \
+                                             f' can browse {attribute_url}\nEnsure that your spelling' \
+                                             f' is exact if you want your query to succeed!{input_string}' % \
+                                             user_input_format % '\n'.join(format_string.format(value, key)
+                                                                           for key, value in attributes.items())
+            query_builder_operator_string = '\nWhat operator would you like to use?\nPossible operators include:' \
+                                            '\n\t%s\nIf you would like to negate the operator, on input type "not" ' \
+                                            f'after your selection. Ex: equals not{input_string}'
             query_builder_value_string = '\nWhat value should be %s? Required type is: %s.%s%s'
             query_display_string = 'Query #%d: Search the PDB by "%s" for "%s" attributes "%s%s" "%s".'
 
@@ -480,11 +477,11 @@ def retrieve_pdb_entries_by_advanced_query(save: bool = True, return_results: bo
                     attribute = input(query_builder_attribute_string)
                     while attribute.lower() == 's':  # If the user would like to search all possible
                         search_term = input('What term would you like to search?%s' % input_string)
-                        attribute = input('Found the following instances of "%s":\n%s\nWhich option are you interested '
-                                          'in? Enter "s" to repeat search.%s' %
-                                          (search_term.upper(), user_input_format %
-                                           '\n'.join(format_string % key_description_pair for key_description_pair
-                                                     in search_schema(search_term)), input_string))
+                        attribute = input(f'Found the following instances of "{search_term.upper()}":\n%s\nWhich option'
+                                          f' are you interested in? Enter "s" to repeat search.{input_string}' %
+                                          user_input_format %
+                                          '\n'.join(format_string.format(*key_description_pair) for key_description_pair
+                                                    in search_schema(search_term)))
                         if attribute != 's':
                             break
                     if attribute in schema:  # confirm the user wants to go forward with this
