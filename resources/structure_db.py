@@ -644,9 +644,10 @@ class StructureDatabaseFactory:
             raise NotImplementedError('SQL set up has not been completed!')
         else:
             structure_info_dir = os.path.join(source, structure_info)
-            pdbs = os.path.join(structure_info_dir, 'PDBs')  # Used to path downloaded PDB's
+            pdbs = os.path.join(structure_info_dir, 'PDBs')  # Used to store downloaded PDB's
             # stride directory
             stride_dir = os.path.join(structure_info_dir, 'stride')
+            # Todo only make paths if they are needed...
             make_path(stride_dir)
             # pdbs subdirectories
             orient_dir = os.path.join(pdbs, 'oriented')

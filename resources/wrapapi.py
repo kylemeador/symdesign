@@ -91,6 +91,7 @@ class APIDatabaseFactory:
             external_db = os.path.join(source, 'ExternalDatabases')
             # stride directory
             stride_dir = os.path.join(structure_info_dir, 'stride')
+            # Todo only make paths if they are needed...
             make_path(stride_dir)
             # sequence_info subdirectories
             sequences = os.path.join(sequence_info_dir, 'sequences')
