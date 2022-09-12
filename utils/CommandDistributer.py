@@ -11,10 +11,11 @@ from typing import AnyStr
 
 from utils import start_log, unpickle, pickle_object, calculate_mp_cores, mp_starmap, collect_designs, DesignError
 from utils.path import sbatch_template_dir, nano, rosetta_main, rosetta_extras, dalphaball, submodule_help, \
-    cmd_dist, program_name, interface_design, interface_metrics, optimize_designs, refine, rosetta_scripts, \
+    program_name, interface_design, interface_metrics, optimize_designs, refine, rosetta_scripts, \
     sym_weights, solvent_weights_sym, solvent_weights, scout, consensus, hbnet_design_profile, structure_background
 
 # Globals
+cmd_dist = os.path.abspath(__file__)
 logger = start_log(name=__name__)
 index_offset = 1
 min_cores_per_job = 1  # currently one for the MPI node, and 5 workers
