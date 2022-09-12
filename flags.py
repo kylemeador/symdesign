@@ -321,12 +321,12 @@ residue_selector_arguments = {
     ('--require_design_at_residues',):
         dict(type=str, default=None,
              help='Regardless of participation in an interface, if certain\n residues should be included in'
-                  'design, specify the\nresidue POSE numbers as a comma separated string.\n'
+                  ' design, specify the\nresidue POSE numbers as a comma separated string.\n'
                   'Ex: "23,24,35,41,100-110,267,289-293" Ranges are allowed'),
     ('--require_design_at_chains',):
         dict(type=str, default=None,
              help='Regardless of participation in an interface, if certain\n chains should be included in'
-                  'design, specify the\nchain ID\'s as a comma separated string.\n'
+                  " design, specify the\nchain ID's as a comma separated string.\n"
                   'Ex: "A,D"'),
     # ('--select_designable_residues_by_sequence',):
     #     dict(type=str, default=None,
@@ -343,7 +343,7 @@ residue_selector_arguments = {
                   'as a comma separated string\nRanges are allowed Ex: "23,24,35,41,100-110,267,289-293"'),
     ('--select_designable_chains',):
         dict(type=str, default=None,
-             help='If a design should occur ONLY at certain chains, specify\nthe chain ID\'s as a comma '
+             help="If a design should occur ONLY at certain chains, specify\nthe chain ID's as a comma "
                   'separated string\nEx: "A,C,D"'),
     # ('--mask_designable_residues_by_sequence',):
     #     dict(type=str, default=None,
@@ -360,7 +360,7 @@ residue_selector_arguments = {
                   'as a comma separated string\nEx: "27-35,118,281" Ranges are allowed'),
     ('--mask_designable_chains',):
         dict(type=str, default=None,
-             help='If a design should NOT occur at certain chains, provide\nthe chain ID\'s as a comma '
+             help="If a design should NOT occur at certain chains, provide\nthe chain ID's as a comma "
                   'separated string\nEx: "C"')
 }
 # ---------------------------------------------------

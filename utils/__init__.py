@@ -553,7 +553,7 @@ def write_commands(commands: Iterable[str], name: str = 'all_commands', out_path
     Returns:
         The filename of the new file
     """
-    file = os.path.join(out_path, '%s.cmds' % name if len(commands) > 1 else '%s.cmd' % name)
+    file = os.path.join(out_path, f'{name}.cmds' if len(commands) > 1 else f'{name}.cmd')
     with open(file, 'w') as f:
         f.write('%s\n' % '\n'.join(command for command in commands))
 
