@@ -142,12 +142,12 @@ def start_log(name: str = '', handler: int = 1, level: int = 2, location: Union[
     # Todo make a mechanism to only emit warning or higher if propagate=True
     #  See SymDesign.py use of adding handler[0].addFilter()
     _logger.propagate = propagate
-    handler = log_handler[handler]
+    _handler = log_handler[handler]
     if handler == 2:
         # Check for extension. If one doesn't exist, add ".log"
-        lh = handler(f'{location}.log' if os.path.splitext(location)[1] == '' else location)
+        lh = _handler(f'{location}.log' if os.path.splitext(location)[1] == '' else location)
     else:
-        lh = handler()
+        lh = _handler()
 
     if handler_level is not None:
         lh.setLevel(log_level[handler_level])
