@@ -3,7 +3,7 @@ import os
 from typing import Union
 
 from structure.model import Model
-from utils import start_log, set_logging_to_debug, to_iterable
+from utils import start_log, set_logging_to_level, to_iterable
 from utils.symmetry import cubic_point_groups, point_group_symmetry_operators
 
 
@@ -62,7 +62,7 @@ if __name__ == '__main__':
 
     if args.debug:
         logger = start_log(name=os.path.basename(__file__), level=1)
-        set_logging_to_debug()
+        set_logging_to_level()
         logger.debug('Debug mode. Produces verbose output and not written to any .log files')
     else:
         logger = start_log(name=os.path.basename(__file__))

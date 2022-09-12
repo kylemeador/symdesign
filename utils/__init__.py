@@ -15,7 +15,7 @@ from itertools import repeat
 from logging import Logger, DEBUG, INFO, WARNING, ERROR, CRITICAL, getLogger, StreamHandler, FileHandler, NullHandler, \
     Formatter, root
 from string import digits
-from typing import Any, Callable, Union, Iterable, List, Tuple, AnyStr, Dict, DefaultDict, Sequence, Iterator
+from typing import Any, Callable, Union, Iterable, List, Tuple, AnyStr, Dict, DefaultDict, Sequence, Iterator, Literal
 
 import numpy as np
 import psutil
@@ -117,12 +117,14 @@ def datestamp() -> str:
 startdate = datestamp()
 starttime = timestamp()
 log_handler = {1: StreamHandler, 2: FileHandler, 3: NullHandler}
-log_level = {1: DEBUG, 2: INFO, 3: WARNING, 4: ERROR, 5: CRITICAL}
+log_level = {1: DEBUG, 2: INFO, 3: WARNING, 4: ERROR, 5: CRITICAL,
+             10: DEBUG, 20: INFO, 30: WARNING, 40: ERROR, 50: CRITICAL}
+logging_levels: Literal[1, 2, 3, 4, 5, 10, 20, 30, 40, 50]
 
 
-def start_log(name: str = '', handler: int = 1, level: int = 2, location: Union[str, bytes] = os.getcwd(),
+def start_log(name: str = '', handler: int = 1, level: logging_levels = 2, location: Union[str, bytes] = os.getcwd(),
               propagate: bool = False, format_log: bool = True, no_log_name: bool = False,
-              handler_level: int = None) -> Logger:
+              handler_level: logging_levels = None) -> Logger:
     """Create a logger to handle program messages
 
     Args:
@@ -173,15 +175,20 @@ logger = start_log(name=__name__)
 null_log = start_log(name='null', handler=3)
 
 
-def set_logging_to_debug():
-    """For each Logger in current run time set the Logger level to debug"""
+def set_logging_to_level(level: logging_levels = 1):
+    """For each Logger in current run time, set the Logger level to level. level is debug by default
+
+    Args:
+        level: The level to set all loggers to
+    """
+    _level = log_level[level]
     for logger_name in root.manager.loggerDict:
         _logger = getLogger(logger_name)
-        _logger.setLevel(DEBUG)
+        _logger.setLevel(_level)
         _logger.propagate = False
 
 
-def set_logging_to_propagate():
+def set_loggers_to_propagate():
     """For each Logger in current run time set the Logger level to debug"""
     for logger_name in root.manager.loggerDict:
         _logger = getLogger(logger_name)

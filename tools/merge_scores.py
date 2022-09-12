@@ -41,7 +41,7 @@ if __name__ == '__main__':
     # Start logging output
     if args.debug:
         logger = utils.start_log(name=os.path.basename(__file__), level=1)
-        utils.set_logging_to_debug()
+        utils.set_logging_to_level()
         logger.debug('Debug mode. Produces verbose output and not written to any .log files')
     else:
         logger = utils.start_log(name=os.path.basename(__file__))

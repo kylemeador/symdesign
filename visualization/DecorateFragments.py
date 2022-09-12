@@ -8,7 +8,7 @@ sys.path.append(parent_dir)
 import numpy as np
 from sklearn.neighbors import BallTree
 
-from utils import start_log, set_logging_to_debug, collect_designs
+from utils import start_log, set_logging_to_level, collect_designs
 from structure.fragment import MonoFragment
 from resources.fragment import FragmentDatabase
 from structure.model import Model
@@ -79,7 +79,7 @@ if __name__ == '__main__':
     # Start logging output
     if args.debug:
         logger = start_log(name=os.path.basename(__file__), level=1)
-        set_logging_to_debug()
+        set_logging_to_level()
         logger.debug('Debug mode. Produces verbose output and not written to any .log files')
     else:
         logger = start_log(name=os.path.basename(__file__))

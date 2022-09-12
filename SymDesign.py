@@ -766,16 +766,16 @@ def main():
     if args.debug:
         # Root logs to stream with level debug
         logger = utils.start_log(level=1)
-        utils.set_logging_to_debug()
+        utils.set_logging_to_level()
         logger.debug('Debug mode. Generates verbose output. No writing to .log files will occur')
     else:
         # # Root logger logs to stream with level 'warning'
         # utils.start_log(handler_level=3)
-        # Root logger logs to a single file with level 'info'
         # # Stream above still emits at 'warning'
+        # Root logger logs to a single file with level 'info'
         utils.start_log(handler=2, location=os.path.join(symdesign_directory, PUtils.program_name))
-        # Set all modules to propagate logs to write to this file
-        utils.set_logging_to_propagate()
+        # Set all modules to propagate logs to write to master log file
+        utils.set_loggers_to_propagate()
         # SymDesign main logs to stream with level info and propagates to main log
         logger = utils.start_log(name=PUtils.program_name, propagate=True)
 
