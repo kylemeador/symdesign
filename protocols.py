@@ -1413,7 +1413,7 @@ class PoseDirectory:
     @handle_design_errors(errors=(DesignError, AssertionError))
     @close_logs
     @remove_structure_memory
-    def interface_metrics(self):
+    def rosetta_interface_metrics(self):
         """Generate a script capable of running Rosetta interface metrics analysis on the bound and unbound states"""
         # metrics_flags = 'repack=yes'
         protocol = PUtils.interface_metrics
@@ -1566,7 +1566,7 @@ class PoseDirectory:
         else:  # asymmetric
             self.symmetry_protocol = 'asymmetric'
             # self.sym_def_file = sdf_lookup()
-            self.log.critical('No symmetry invoked during design. Rosetta will still design your PDB, however, if it\'s'
+            self.log.critical("No symmetry invoked during design. Rosetta will still design your PDB, however, if it's"
                               ' an ASU it may be missing crucial interface contacts. Is this what you want?')
         self.log.info(f'Symmetry Option: {self.symmetry_protocol}')
 
