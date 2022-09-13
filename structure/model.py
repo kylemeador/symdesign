@@ -6372,7 +6372,7 @@ class Pose(SequenceProfile, SymmetricModel):
         """Generate the fragment metrics for a specified interface between two entities
 
         Returns:
-            (dict): Fragment metrics as key (metric type) value (measurement) pairs
+            Fragment metrics as key (metric type) value (measurement) pairs
         """
         if (entity1, entity2) not in self.fragment_queries or (entity2, entity1) not in self.fragment_queries:
             self.find_interface_residues(entity1=entity1, entity2=entity2)
@@ -6387,8 +6387,8 @@ class Pose(SequenceProfile, SymmetricModel):
             self.split_interface_residues (dict[int, list[tuple[Residue, Entity]]]): Residue/Entity id of each residue
                 at the interface identified by interface id as split by topology
         """
-        self.log.debug('Find and split interface using active_entities: %s' %
-                       ', '.join(entity.name for entity in self.active_entities))
+        self.log.debug('Find and split interface using active_entities: '
+                       f'{", ".join(entity.name for entity in self.active_entities)}')
         for entity_pair in combinations_with_replacement(self.active_entities, 2):
             self.find_interface_residues(*entity_pair)
 
@@ -6645,7 +6645,7 @@ class Pose(SequenceProfile, SymmetricModel):
     #     # self.solve_consensus()
     #     # -------------------------------------------------------------------------
 
-    def return_fragment_observations(self) -> list[dict[str, str | int | float]] | list:
+    def get_fragment_observations(self) -> list[dict[str, str | int | float]] | list:
         """Return the fragment observations identified on the pose regardless of Entity binding
 
         Returns:
