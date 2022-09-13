@@ -165,8 +165,8 @@ class FragmentInfo:
     #     """Generate fragment length range parameters for use in fragment functions"""
     #     _range = math.floor(length / 2)  # get the number of residues extending to each side
     #     if length % 2 == 1:  # fragment length is odd
-    #         self.fragment_range = (0 - _range, 0 + _range + index_offset)
-    #         # return 0 - _range, 0 + _range + index_offset
+    #         self.fragment_range = (0 - _range, 0 + _range + zero_offset)
+    #         # return 0 - _range, 0 + _range + zero_offset
     #     else:  # length is even
     #         logger.critical(f'{length} is an even integer which is not symmetric about a single residue. '
     #                         'Ensure this is what you want')

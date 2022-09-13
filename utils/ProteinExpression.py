@@ -522,7 +522,7 @@ def add_expression_tag(tag, sequence):
     # print(tag_seq)
     # print(seq)
     # starting_index_of_seq2 = seq.find(sequence[0])
-    # i = -starting_index_of_seq2 + index_offset  # make 1 index so residue value starts at 1
+    # i = -starting_index_of_seq2 + zero_offset  # make 1 index so residue value starts at 1
     final_seq = ''
     for i, (seq1_aa, seq2_aa) in enumerate(zip(tag_seq, seq)):
         if seq2_aa == '-':

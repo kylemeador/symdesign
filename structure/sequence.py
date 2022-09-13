@@ -1556,7 +1556,7 @@ class SequenceProfile:
     #     starting_index_of_seq2 = align_seq_2.find(reference[0])
     #     ending_index_of_seq2 = starting_index_of_seq2 + align_seq_2.rfind(reference[-1])  # find offset end_index
     #     mutations = {}
-    #     for i, (seq1_aa, seq2_aa) in enumerate(zip(align_seq_1, align_seq_2), -starting_index_of_seq2 + index_offset):
+    #     for i, (seq1_aa, seq2_aa) in enumerate(zip(align_seq_1, align_seq_2), -starting_index_of_seq2 + zero_offset):
     #         if seq1_aa != seq2_aa:
     #             mutations[i] = {'from': seq2_aa, 'to': seq1_aa}
     #             # mutation_list.append(str(seq2_aa) + str(i) + str(seq1_aa))
@@ -1923,7 +1923,7 @@ def return_cluster_id_string(cluster_rep, index_number=3):
 #     """Generate fragment length range parameters for use in fragment functions"""
 #     _range = floor(length / 2)
 #     if length % 2 == 1:
-#         return 0 - _range, 0 + _range + index_offset
+#         return 0 - _range, 0 + _range + zero_offset
 #     else:
 #         logger.critical('%d is an even integer which is not symmetric about a single residue. '
 #                         'Ensure this is what you want and modify %s' % (length, parameterize_frag_length.__name__))
@@ -2477,7 +2477,7 @@ def combine_pssm(pssms):
 #         for aa in protein_letters:
 #             pssm[entry][aa] = (alpha[entry] * issm[entry][aa]) + ((1 - alpha[entry]) * pssm[entry][aa])
 #         logger.info('Residue %d Combined evolutionary and fragment profile: %.0f%% fragment'
-#                     % (entry + index_offset, alpha[entry] * 100))
+#                     % (entry + zero_offset, alpha[entry] * 100))
 #
 #     if favor_fragments:
 #         # Modify final lod scores to fragment profile lods. Otherwise use evolutionary profile lod scores
@@ -2515,7 +2515,7 @@ def combine_pssm(pssms):
 #                 pssm[entry]['lod'][aa] /= modifier
 #                 pssm[entry]['lod'][aa] *= modified_entry_alpha
 #             logger.info('Residue %d Fragment lod ratio generated with alpha=%f'
-#                         % (entry + index_offset, alpha[entry] / a))
+#                         % (entry + zero_offset, alpha[entry] / a))
 #
 #     return pssm
 #
@@ -2895,7 +2895,7 @@ def find_orf_offset(sequence: Sequence,  mutations: dict[int, dict[str, str]]) -
                     closest_met = met_index
                 else:  # we have passed the identified orf_start_idx
                     if closest_met is not None:
-                        orf_start_idx = closest_met  # + index_offset # change to one-index
+                        orf_start_idx = closest_met  # + zero_offset # change to one-index
                     break
             break
 

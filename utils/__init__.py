@@ -27,7 +27,7 @@ from utils import path as PUtils
 
 # Globals
 input_string = '\nInput: '
-index_offset = 1
+zero_offset = 1
 rmsd_threshold = 1.0
 # from colorbrewer (https://colorbrewer2.org/)
 color_arrays = [
@@ -1299,8 +1299,8 @@ def parameterize_frag_length(length: int) -> tuple[int, int]:
     """
     if length % 2 == 1:  # fragment length is odd
         index_offset = 1
-        # fragment_range = (0 - _range, 0 + _range + index_offset)
-        # return 0 - _range, 0 + _range + index_offset
+        # fragment_range = (0 - _range, 0 + _range + zero_offset)
+        # return 0 - _range, 0 + _range + zero_offset
     else:  # length is even
         logger.critical(f'{length} is an even integer which is not symmetric about a single residue. '
                         'Ensure this is what you want')

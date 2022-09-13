@@ -17,7 +17,7 @@ def atom_record_to_atom(record):
 
 def extract_frags(pdb_path, single_outdir, paired_outdir, interface_dist, lower_bound, upper_bound, frag_length,
                   paired=False):
-    # nonlocal lower_bound, upper_bound, index_offset, paired
+    # nonlocal lower_bound, upper_bound, zero_offset, paired
     # Reading In PDB Structure
     pdb_id = os.path.splitext(os.path.basename(pdb_path))[0]
     pdb = Model.from_file(pdb_path)

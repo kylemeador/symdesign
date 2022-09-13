@@ -46,7 +46,6 @@ from utils.symmetry import valid_subunit_number, layer_group_cryst1_fmt_dict, \
 # Globals
 mpnn_alphabet_length = len(protein_letters_gapped)  # 21
 logger = start_log(name=__name__)
-index_offset = 1
 zero_offset = 1
 seq_res_len = 52
 transformation_mapping: dict[str, list[float] | list[list[float]] | np.ndarray]
@@ -6872,7 +6871,7 @@ class Pose(SequenceProfile, SymmetricModel):
 
                 # use += because instances of symmetric residues from symmetry related chains are summed
                 try:  # to convert to int. Will succeed if we have an entity value, ex: 1,2,3,...
-                    entity = int(entity_or_complex) - index_offset
+                    entity = int(entity_or_complex) - zero_offset
                     residue_data[residue_number][metric][pose_state][entity] += \
                         (scores.get(column, 0) / entity_energy_multiplier[entity])
                 except ValueError:  # complex is the value, use the pose state
@@ -6937,7 +6936,7 @@ class Pose(SequenceProfile, SymmetricModel):
                     entity_or_complex = metadata[3]  # 1,2,3,... or complex
                     # use += because instances of symmetric residues from symmetry related chains are summed
                     try:  # to convert to int. Will succeed if we have an entity as a string integer, ex: 1,2,3,...
-                        entity = int(entity_or_complex) - index_offset
+                        entity = int(entity_or_complex) - zero_offset
                         residue_data[residue_number][pose_state][entity] += (value / entity_energy_multiplier[entity])
                     except ValueError:  # complex is the value, use the pose state
                         residue_data[residue_number][pose_state] += (value / pose_energy_multiplier)
@@ -6946,7 +6945,7 @@ class Pose(SequenceProfile, SymmetricModel):
                     entity_or_complex = metadata[3]  # 1,2,3,... or complex
                     # use += because instances of symmetric residues from symmetry related chains are summed
                     try:  # to convert to int. Will succeed if we have an entity as a string integer, ex: 1,2,3,...
-                        entity = int(entity_or_complex) - index_offset
+                        entity = int(entity_or_complex) - zero_offset
                         residue_data[residue_number][f'solv_{pose_state}'][entity] += \
                             (value / entity_energy_multiplier[entity])
                     except ValueError:  # complex is the value, use the pose state

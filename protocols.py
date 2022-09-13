@@ -3822,7 +3822,7 @@ class PoseDirectory:
             final_designs = {designs[idx]: num_neighbors for num_neighbors in top_neighbor_counts
                              for idx, count in enumerate(seq_neighbor_counts) if count == num_neighbors}
             self.log.info('The final sequence(s) and file(s):\nNeighbors\tDesign\n%s'
-                          # % '\n'.join('%d %s' % (top_neighbor_counts.index(neighbors) + SDUtils.index_offset,
+                          # % '\n'.join('%d %s' % (top_neighbor_counts.index(neighbors) + SDUtils.zero_offset,
                           % '\n'.join(f'\t{neighbors}\t{path.join(self.designs, design)}'
                                       for design, neighbors in final_designs.items()))
 
@@ -3833,7 +3833,7 @@ class PoseDirectory:
             # seq_cluster = DBSCAN(eps=epsilon)
             # seq_cluster.fit(pairwise_sequence_diff_np)
             #
-            # seq_pc_df = DataFrame(seq_pc, index=designs, columns=['pc' + str(x + SDUtils.index_offset)
+            # seq_pc_df = DataFrame(seq_pc, index=designs, columns=['pc' + str(x + SDUtils.zero_offset)
             #                                                          for x in range(len(seq_pca.components_))])
             # seq_pc_df = merge(protocol_s, seq_pc_df, left_index=True, right_index=True)
 
