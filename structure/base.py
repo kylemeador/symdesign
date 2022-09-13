@@ -9,11 +9,11 @@ from random import random
 from typing import IO, Sequence, Container, Literal, get_args, Callable, Any, AnyStr, Iterable
 
 import numpy as np
-from Bio.Data.IUPACData import protein_letters, protein_letters_1to3, protein_letters_3to1_extended
 from sklearn.neighbors import BallTree  # , KDTree, NearestNeighbors
 
 from structure.coords import Coords, superposition3d
 from structure.fragment import Fragment, MonoFragment, ResidueFragment
+from structure.sequence import protein_letters, protein_letters_1to3, protein_letters_3to1_extended
 from utils.path import freesasa_exe_path, stride_exe_path, errat_exe_path, freesasa_config_path, \
     reference_residues_pkl, program_name, program_version
 from utils import start_log, null_log, unpickle, digit_translate_table, DesignError, ClashError, startdate
@@ -21,6 +21,8 @@ from utils.symmetry import origin
 
 # globals
 logger = start_log(name=__name__)
+protein_letters_3to1_extended_mse = protein_letters_3to1_extended.copy()
+protein_letters_3to1_extended_mse['MSE'] = 'M'
 coords_type_literal = Literal['all', 'backbone', 'backbone_and_cb', 'ca', 'cb', 'heavy']
 directives = Literal['special', 'same', 'different', 'charged', 'polar', 'hydrophobic', 'aromatic', 'hbonding',
                      'branched']
@@ -178,17 +180,14 @@ def parse_seqres(seqres_lines: list[str]) -> dict[str, str]:  # list[str]:
     for line in seqres_lines:
         chain, length, *sequence = line.split()
         if chain in reference_sequence:
-            reference_sequence[chain].extend([char.title() for char in sequence])
+            reference_sequence[chain].extend(list(sequence))
         else:
-            reference_sequence[chain] = [char.title() for char in sequence]
-
-    # Ensure we parse selenomethionine correctly
-    protein_letters_3to1_extended_mse = protein_letters_3to1_extended.copy()
-    protein_letters_3to1_extended_mse['Mse'] = 'M'
+            reference_sequence[chain] = list(sequence)
 
     # Format the sequences as a one AA letter list
     reference_sequences = {}  # []
     for chain, sequence in reference_sequence.items():
+        # Ensure we parse selenomethionine correctly
         one_letter_sequence = [protein_letters_3to1_extended_mse.get(aa, '-')
                                for aa in sequence]
         reference_sequences[chain] = ''.join(one_letter_sequence)
@@ -2649,7 +2648,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
             return self._sequence
         except AttributeError:
             self._sequence = \
-                ''.join([protein_letters_3to1_extended.get(res.type.title(), '-') for res in self.residues])
+                ''.join([protein_letters_3to1_extended.get(residue.type, '-') for residue in self.residues])
             return self._sequence
 
     @sequence.setter
@@ -3464,7 +3463,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
             The indices of the Atoms being removed from the Structure
         """
         # Todo using AA reference, align the backbone + CB atoms of the residue then insert side chain atoms?
-        to = protein_letters_1to3.get(to.upper(), to).upper()
+        to = protein_letters_1to3.get(to.upper(), to.upper())
 
         if number is not None:
             residue = self.residue(number, **kwargs)
@@ -3512,11 +3511,11 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         # Todo solve this issue for self.is_dependents()
         #  this check and error really isn't True with the Residues object shared. It can be overcome...
         if self.is_dependent():
-            raise DesignError(f'This Structure "{self.name}" is not the owner of it\'s attributes and therefore cannot '
+            raise DesignError(f"This Structure '{self.name}' is not the owner of it's attributes and therefore cannot "
                               'handle residue insertion!')
         # Convert incoming aa to residue index so that AAReference can fetch the correct amino acid
         reference_index = \
-            protein_letters.find(protein_letters_3to1_extended.get(residue_type.title(), residue_type.upper()))
+            protein_letters.find(protein_letters_3to1_extended.get(residue_type, residue_type.upper()))
         if reference_index == -1:
             raise IndexError(f'{self.insert_residue_type.__name__} of residue_type "{residue_type}" is not allowed')
         if at < 1:
@@ -3598,7 +3597,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
     #     Returns:
     #         (str): The amino acid sequence of the Structure Residues
     #     """
-    #     return ''.join([protein_letters_3to1_extended.get(res.type.title(), '-') for res in self.residues])
+    #     return ''.join([protein_letters_3to1_extended.get(res.type, '-') for res in self.residues])
 
     def translate(self, translation: list[float] | np.ndarray, **kwargs):
         """Perform a translation to the Structure ensuring only the Structure container of interest is translated
@@ -4576,7 +4575,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
                 allowed_aas = residue. \
                     mutation_possibilities_from_directive(directive, background=background.get(residue_number),
                                                           **kwargs)
-                allowed_aas = {protein_letters_3to1_extended[aa.title()] for aa in allowed_aas}
+                allowed_aas = {protein_letters_3to1_extended[aa] for aa in allowed_aas}
                 allowed_aas = allowed_aas.union(include.get(residue_number, {}))
                 res_file_lines.append('%d %s PIKAA %s' % (residue.number, residue.chain, ''.join(sorted(allowed_aas))))
                 # res_file_lines.append('%d %s %s' % (residue.number, residue.chain,
@@ -4586,7 +4585,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
             for residue, directive in residue_directives.items():
                 allowed_aas = residue. \
                     mutation_possibilities_from_directive(directive, background=background.get(residue), **kwargs)
-                allowed_aas = {protein_letters_3to1_extended[aa.title()] for aa in allowed_aas}
+                allowed_aas = {protein_letters_3to1_extended[aa] for aa in allowed_aas}
                 allowed_aas = allowed_aas.union(include.get(residue, {}))
                 res_file_lines.append('%d %s PIKAA %s' % (residue.number, residue.chain, ''.join(sorted(allowed_aas))))
                 # res_file_lines.append('%d %s %s' % (residue.number, residue.chain,

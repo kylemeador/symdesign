@@ -15,7 +15,6 @@ import numpy as np
 # from numba import njit, jit
 import pandas as pd
 import torch
-from Bio.Data.IUPACData import protein_letters_1to3_extended, protein_letters_3to1_extended
 from sklearn.cluster import KMeans
 from sklearn.neighbors import BallTree
 from sklearn.neighbors._ball_tree import BinaryTree  # this typing implementation supports BallTree or KDTree
@@ -29,10 +28,8 @@ from resources.query.pdb import retrieve_entity_id_by_sequence, query_pdb_by, ge
     is_entity_thermophilic
 from resources.query.uniprot import is_uniprot_thermophilic
 from structure.sequence import SequenceProfile, alignment_types, generate_alignment, get_equivalent_indices, \
-    pssm_as_array, protein_letters_gapped, generate_mutations
-from structure.base import Structure, Structures, Residue, Residues, StructureBase, ContainsAtomsMixin, atom_or_residue
-from structure.coords import Coords, superposition3d, transform_coordinate_sets
-from structure.fragment import GhostFragment, Fragment, write_frag_match_info_file
+    pssm_as_array, protein_letters_gapped, generate_mutations, protein_letters_1to3_extended, \
+    protein_letters_3to1_extended
 from utils import dictionary_lookup, start_log, null_log, digit_translate_table, DesignError, ClashError, \
     SymmetryError, calculate_match, z_value_from_match_score, remove_duplicates, path as PUtils
 from resources.EulerLookup import EulerLookup, euler_factory
@@ -1640,8 +1637,8 @@ class Entity(Chain, ContainsChainsMixin):
         """
         asu_slice = 1 if asu else None  # This is the only difference from Model
         formated_reference_sequence = \
-            {chain.chain_id: ' '.join(map(str.upper, (protein_letters_1to3_extended.get(aa, 'XXX')
-                                                      for aa in chain.reference_sequence)))
+            {chain.chain_id: ' '.join(protein_letters_1to3_extended.get(aa, 'XXX')
+                                      for aa in chain.reference_sequence)
              for chain in self.chains[:asu_slice]}
         chain_lengths = {chain: len(sequence) for chain, sequence in formated_reference_sequence.items()}
         return '%s\n' \
@@ -2216,7 +2213,7 @@ class Entity(Chain, ContainsChainsMixin):
         blueprint_lines = []
         for idx, residue in enumerate(residues, 1):
             if isinstance(residue, Residue):  # use structure_str template
-                residue_type = protein_letters_3to1_extended.get(residue.type.title())
+                residue_type = protein_letters_3to1_extended.get(residue.type)
                 blueprint_lines.append(f'{residue.number} {residue_type} '
                                        f'{f"L PIKAA {residue_type}" if idx in disorder_indices else "."}')
             else:  # residue is the residue type from above insertion, use loop_str template
@@ -2660,8 +2657,8 @@ class Model(Structure, ContainsChainsMixin):
             The PDB formatted SEQRES record
         """
         formated_reference_sequence = \
-            {chain.chain_id: ' '.join(map(str.upper, (protein_letters_1to3_extended.get(aa, 'XXX')
-                                                      for aa in chain.reference_sequence)))
+            {chain.chain_id: ' '.join(protein_letters_1to3_extended.get(aa, 'XXX')
+                                      for aa in chain.reference_sequence)
              for chain in self.chains}
         chain_lengths = {chain: len(sequence) for chain, sequence in formated_reference_sequence.items()}
         return '%s\n' \
@@ -7062,8 +7059,8 @@ class Pose(SequenceProfile, SymmetricModel):
     #     """
     #     # if self.reference_sequence:
     #     formated_reference_sequence = \
-    #         {chain.chain_id: ' '.join(map(str.upper, (protein_letters_1to3_extended.get(aa, 'XXX')
-    #                                                   for aa in chain.reference_sequence)))
+    #         {chain.chain_id: ' '.join(protein_letters_1to3_extended.get(aa, 'XXX')
+    #                                   for aa in chain.reference_sequence)
     #          for chain in self.chains}
     #     chain_lengths = {chain: len(sequence) for chain, sequence in formated_reference_sequence.items()}
     #     return '%s\n' \
