@@ -1898,12 +1898,12 @@ class PoseDirectory:
         # Add previously identified state information to the pose
         if self.interface_residues is False:  # or self.interface_design_residues is False:
             # Add interface_residues to the pose
-            self.pose.interface_residues = self.interface_residues
+            self.pose.interface_residue_numbers = self.interface_residues
         if self.fragment_observations is not None:  # or self.interface_design_residues is False:
             # Todo distinguish between entities that are involved
             self.pose.fragment_metrics = self.fragment_observations
             # These are not used...
-            # self.pose.interface_design_residues = self.interface_design_residues
+            # self.pose.interface_design_residue_numbers = self.interface_design_residues
 
         # Save renumbered PDB to clean_asu.pdb
         if not self.asu_path or not path.exists(self.asu_path):
@@ -2031,18 +2031,16 @@ class PoseDirectory:
         else:  # We only need to load pose as we already calculated interface
             self.load_pose()
 
-        if to_design_directory:  # original protocol to refine a pose as provided from Nanohedra
+        if to_design_directory:  # Original protocol to refine a pose as provided from Nanohedra
             # Assign designable residues to interface1/interface2 variables, not necessary for non-complexed PDB jobs
             if interface_to_alanine:  # Mutate all design positions to Ala before the Refinement
-                # mutated_pdb = copy(self.pose)  # copy method implemented, but incompatible!
-                # Have to use self.pose as Residue objects in entity_residues are from self.pose and not copy()!
-                for entity_pair, interface_residue_sets in self.pose.interface_residues.items():
-                    if interface_residue_sets[0]:  # check that there are residues present
+                for entity_pair, interface_residue_sets in self.pose.interface_residues_by_entity_pair.items():
+                    if interface_residue_sets[0]:  # Check that there are residues present
                         for idx, interface_residue_set in enumerate(interface_residue_sets):
                             self.log.debug(f'Mutating residues from Entity {entity_pair[idx].name}')
                             for residue in interface_residue_set:
                                 self.log.debug(f'Mutating {residue.number}{residue.type}')
-                                if residue.type != 'GLY':  # no mutation from GLY to ALA as Rosetta will build a CB.
+                                if residue.type != 'GLY':  # No mutation from GLY to ALA as Rosetta would build a CB
                                     self.pose.mutate_residue(residue=residue, to='A')
 
             self.pose.write(out_path=self.refine_pdb)
@@ -2053,7 +2051,7 @@ class PoseDirectory:
             refine_pdb = self.refine_pdb
             refined_pdb = self.refined_pdb
             additional_flags = []
-        else:  # protocol to refine input structures, place in a common location, then transform for many jobs to source
+        else:  # Protocol to refine input structure, place in a common location, then transform for many jobs to source
             flags = path.join(self.refine_dir, 'refine_flags')
             flag_dir = self.refine_dir
             pdb_out_path = self.refine_dir  # path.join(self.refine_dir, '%s.pdb' % self.name)
@@ -2212,8 +2210,8 @@ class PoseDirectory:
                 self.log.info(f'Symmetric assembly written to: "{self.assembly_path}"')
 
         self.pose.find_and_split_interface()
-        self.interface_design_residues = self.pose.interface_design_residues
-        self.interface_residues = self.pose.interface_residues
+        self.interface_design_residues = self.pose.interface_design_residue_numbers
+        self.interface_residues = self.pose.interface_residue_numbers
         for number, residues_entities in self.pose.split_interface_residues.items():
             self.interface_residue_ids[f'interface{number}'] = \
                 ','.join(f'{residue.number}{entity.chain_id}' for residue, entity in residues_entities)
