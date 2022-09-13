@@ -5260,7 +5260,7 @@ class Pose(SequenceProfile, SymmetricModel):
     separate models across the Structure or sequence.
     """
     _active_entities: list[Entity]
-    center_residue_numbers: list[int]
+    _center_residue_numbers: list[int]
     design_selector: dict[str, dict[str, dict[str, set[int] | set[str] | None]]] | None
     design_selector_entities: set[Entity]
     design_selector_indices: set[int]
@@ -5286,7 +5286,7 @@ class Pose(SequenceProfile, SymmetricModel):
         # Model init will handle Structure set up if a structure file is present
         # SymmetricModel init will generate_symmetric_coords() if symmetry specification present
         super().__init__(**kwargs)
-        self.center_residue_numbers = []
+        # self.center_residue_numbers = []
         self.design_selector = design_selector if design_selector else {}  # kwargs.get('design_selector', {})
         self.design_selector_entities = set()
         self.design_selector_indices = set()
@@ -6380,7 +6380,31 @@ class Pose(SequenceProfile, SymmetricModel):
         # add newly found fragment pairs to the existing fragment observations
         self.fragment_pairs.extend(ghostfrag_surfacefrag_pairs)
 
-    def score_interface(self, entity1=None, entity2=None):
+    @property
+    def center_residue_numbers(self) -> list[int]:
+        """The Residue numbers where Fragment occurances are observed"""
+        # Populate self.fragment_metrics for repeat calculation efficiency
+        try:
+            return self._center_residue_numbers
+        except AttributeError:
+            # if not self.fragment_metrics:
+            #     for query_pair, fragment_matches in self.fragment_queries.items():
+            #         self.fragment_metrics[query_pair] = self.fragment_db.calculate_match_metrics(fragment_matches)
+            # fragment_observations = self.get_fragment_observations()
+            center_residue_numbers = set()
+            for fragment in self.get_fragment_observations():
+                center_residue_numbers.add(fragment['mapped'])
+                center_residue_numbers.add(fragment['paired'])
+
+            self._center_residue_numbers = list(center_residue_numbers)
+
+            return self._center_residue_numbers
+
+    @center_residue_numbers.setter
+    def center_residue_numbers(self, numbers: Iterable[int]):
+        self._center_residue_numbers = list(numbers)
+
+    def score_interface(self, entity1: Chain = None, entity2: Chain = None) -> dict:
         """Generate the fragment metrics for a specified interface between two entities
 
         Returns:

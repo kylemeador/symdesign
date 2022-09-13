@@ -1353,10 +1353,11 @@ class PoseDirectory:
         else:  # get an out-of-bounds index
             variables.extend([('required_residues', out_of_bounds_residue)])
 
-        # allocate any "core" residues based on central fragment information
-        if self.center_residue_numbers:
-            variables.extend([('core_residues', ','.join(map(str, self.center_residue_numbers)))])
-        else:  # get an out-of-bounds index
+        # Allocate any "core" residues based on central fragment information
+        center_residue_numbers = self.pose.center_residue_numbers
+        if center_residue_numbers:
+            variables.extend([('core_residues', ','.join(map(str, center_residue_numbers)))])
+        else:  # Get an out-of-bounds index
             variables.extend([('core_residues', out_of_bounds_residue)])
 
         flags = copy(rosetta_flags)
