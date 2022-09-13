@@ -129,7 +129,7 @@ class PoseDirectory:
         self.directives = kwargs.get('directives', [])
         # Todo refactor to JobResources and save in PoseDirectory state
         # self.design_selector = kwargs.get('design_selector', None)
-        self.fragment_observations = None  # [{'1_2_24': [(78, 87, ...), ...], ...}]
+        self.fragment_observations = None  # [{'cluster': '1_2_24', 'mapped': 78, 'paired': 87, 'match':0.46843}, ...]
         self.info: dict = {}  # internal state info
         self._info: dict = {}  # internal state info at load time
         entity_names = kwargs.get('entity_names', [])
@@ -152,7 +152,7 @@ class PoseDirectory:
         # Metric attributes
         # self.interface_ss_topology = {}  # {1: 'HHLH', 2: 'HSH'}
         # self.interface_ss_fragment_topology = {}  # {1: 'HHH', 2: 'HH'}
-        self.center_residue_numbers = []
+        # self.center_residue_numbers = []
         # self.total_residue_numbers = []
         # self.all_residue_score = None
         # self.center_residue_score = None
@@ -1418,14 +1418,10 @@ class PoseDirectory:
         # metrics_flags = 'repack=yes'
         protocol = PUtils.interface_metrics
         main_cmd = copy(script_cmd)
-        # if self.interface_residues is False or self.interface_design_residues is False:
-        #     # need these ^ for making flags so get them v
-        #     self.identify_interface()
-        # else:  # we only need to load pose as we already calculated interface
-        #     # self.load_pose()
-        #     # Todo not correct!
-        #     # self.pose.interface_residues = self.interface_residues
-        self.identify_interface()
+        if self.interface_residues is False or self.interface_design_residues is False:
+            self.identify_interface()
+        else:  # We only need to load pose as we already calculated interface
+            self.load_pose()
 
         # interface_secondary_structure
         if not path.exists(self.flags) or self.force_flags:
@@ -1480,6 +1476,11 @@ class PoseDirectory:
         raise DesignError('This module is outdated, please update it to use')  # Todo reflect modern metrics collection
         cmd = copy(script_cmd)
         script_name = path.splitext(path.basename(script))[0]
+        if self.interface_residues is False or self.interface_design_residues is False:
+            self.identify_interface()
+        else:  # We only need to load pose as we already calculated interface
+            self.load_pose()
+
         flags = path.join(self.scripts, 'flags')
         if not path.exists(self.flags) or self.force_flags:
             make_path(self.scripts)
@@ -1835,7 +1836,7 @@ class PoseDirectory:
         """For the design info given by a PoseDirectory source, initialize the Pose with self.source file,
         self.symmetry, self.design_selector, self.fragment_database, and self.log objects
 
-        Handles Pose clash testing, writing the Pose
+        Handles Pose clash testing, writing the Pose, adding state variables to the pose
 
         Args:
             source: The file path to a source file
@@ -1893,6 +1894,16 @@ class PoseDirectory:
             self.entity_names = [entity.name for entity in self.pose.entities]
             self.log.info(f'Input Entities: {", ".join(self.entity_names)}')
             self.info['entity_names'] = self.entity_names
+
+        # Add previously identified state information to the pose
+        if self.interface_residues is False:  # or self.interface_design_residues is False:
+            # Add interface_residues to the pose
+            self.pose.interface_residues = self.interface_residues
+        if self.fragment_observations is not None:  # or self.interface_design_residues is False:
+            # Todo distinguish between entities that are involved
+            self.pose.fragment_metrics = self.fragment_observations
+            # These are not used...
+            # self.pose.interface_design_residues = self.interface_design_residues
 
         # Save renumbered PDB to clean_asu.pdb
         if not self.asu_path or not path.exists(self.asu_path):
@@ -2015,12 +2026,13 @@ class PoseDirectory:
         """Refine the source PDB using self.symmetry to specify any symmetry"""
         main_cmd = copy(script_cmd)
         protocol = PUtils.refine
-        if to_design_directory:  # original protocol to refine a pose as provided from Nanohedra
-            # assign designable residues to interface1/interface2 variables, not necessary for non complex PDB jobs
-            # try:
+        if self.interface_residues is False or self.interface_design_residues is False:
             self.identify_interface()
-            # except DesignError:  # Todo handle when no interface residues are found and we just want refinement
-            #     pass
+        else:  # We only need to load pose as we already calculated interface
+            self.load_pose()
+
+        if to_design_directory:  # original protocol to refine a pose as provided from Nanohedra
+            # Assign designable residues to interface1/interface2 variables, not necessary for non-complexed PDB jobs
             if interface_to_alanine:  # Mutate all design positions to Ala before the Refinement
                 # mutated_pdb = copy(self.pose)  # copy method implemented, but incompatible!
                 # Have to use self.pose as Residue objects in entity_residues are from self.pose and not copy()!
@@ -2048,8 +2060,6 @@ class PoseDirectory:
             refine_pdb = self.source
             refined_pdb = path.join(pdb_out_path, refine_pdb)
             additional_flags = ['-no_scorefile', 'true']
-            # self.load_pose()  # Todo have to use this to get the pose.ss_index in get_fragment_metrics()
-            self.identify_interface()
 
         if not path.exists(flags) or self.force_flags:
             make_path(flag_dir)
@@ -2172,11 +2182,14 @@ class PoseDirectory:
         """For the design info given by a PoseDirectory source, initialize the Pose then generate interfacial fragment
         information between Entities. Aware of symmetry and design_selectors in fragment generation file
         """
-        self.identify_interface()
+        if self.interface_residues is False or self.interface_design_residues is False:
+            self.identify_interface()
+        else:  # We only need to load pose as we already calculated interface
+            self.load_pose()
+
         make_path(self.frags, condition=self.write_fragments)
         self.pose.generate_interface_fragments(out_path=self.frags, write_fragments=self.write_fragments)
-        self.fragment_observations = self.pose.get_fragment_observations()
-        self.info['fragments'] = self.fragment_observations
+        self.info['fragments'] = self.fragment_observations = self.pose.get_fragment_observations()
         self.info['fragment_source'] = self.fragment_source
         self.pickle_info()  # Todo remove once PoseDirectory state can be returned to the SymDesign dispatch w/ MP
 
@@ -2220,20 +2233,25 @@ class PoseDirectory:
         if self.command_only and self.run_in_shell:  # just reissue the commands
             pass
         else:
-            self.identify_interface()
-            if self.generate_fragments:
-                make_path(self.frags, condition=self.write_fragments)
-            elif self.fragment_observations or self.fragment_observations == list():
-                pass  # fragment generation was run and maybe succeeded. If not ^
-            elif path.exists(self.frag_file):
-                self.retrieve_fragment_info_from_file()
-            # else:  # self.generate_fragments:
-            # self.generate_interface_fragments()
-                # raise DesignError(f'Fragments were specified during design, but observations have not been yet been '
-                #                   f'generated for this Design! Try with the flag --{PUtils.generate_fragments}')
+            if self.interface_residues is False or self.interface_design_residues is False:
+                self.identify_interface()
+            else:  # We only need to load pose as we already calculated interface
+                self.load_pose()
+
+            # if self.generate_fragments:
+            #     make_path(self.frags, condition=self.write_fragments)
+            # elif self.fragment_observations or self.fragment_observations == list():
+            #     pass  # fragment generation was run and maybe succeeded. If not ^
+            # elif path.exists(self.frag_file):
+            #     self.retrieve_fragment_info_from_file()
+            # # else:  # self.generate_fragments:
+            # # self.generate_interface_fragments()
+            #     # raise DesignError(f'Fragments were specified during design, but observations have not been yet been '
+            #     #                   f'generated for this Design! Try with the flag --{PUtils.generate_fragments}')
             make_path(self.data)  # Todo consolidate this check with pickle_info()
             # Create all files which store the evolutionary_profile and/or fragment_profile -> design_profile
             if self.generate_fragments:
+                make_path(self.frags, condition=self.write_fragments)
                 self.pose.generate_interface_fragments(out_path=self.frags, write_fragments=self.write_fragments)
 
                 for query_pair, fragment_info in self.pose.fragment_queries.items():
@@ -2242,6 +2260,11 @@ class PoseDirectory:
                     for query_idx, entity in enumerate(query_pair):
                         entity.map_fragments_to_profile(fragments=fragment_info,
                                                         alignment_type=alignment_types[query_idx])
+            elif self.fragment_observations or self.fragment_observations == list():
+                pass  # fragment generation was run and maybe succeeded. If not ^
+            elif path.exists(self.frag_file):
+                self.retrieve_fragment_info_from_file()
+
             for entity in self.pose.entities:
                 if entity not in self.pose.active_entities:  # we shouldn't design, add a null profile instead
                     entity.add_profile(null=True)
@@ -2281,15 +2304,14 @@ class PoseDirectory:
             # -------------------------------------------------------------------------
             # Todo self.solve_consensus()
             # -------------------------------------------------------------------------
-            make_path(self.designs)
-            self.fragment_observations = self.pose.get_fragment_observations()
-            self.info['fragments'] = self.fragment_observations
+            self.info['fragments'] = self.fragment_observations = self.pose.get_fragment_observations()
             self.info['fragment_source'] = self.fragment_source
 
         if not self.pre_refine and not path.exists(self.refined_pdb):
             # Todo this doesn't work since it catches Error and we need interface_design to catch errors
             self.refine(to_design_directory=True)
 
+        make_path(self.designs)
         self.rosetta_interface_design()
         self.pickle_info()  # Todo remove once PoseDirectory state can be returned to the SymDesign dispatch w/ MP
 
@@ -2425,14 +2447,13 @@ class PoseDirectory:
         Returns:
             Series containing summary metrics for all designs in the design directory
         """
-        # if self.interface_residues is False or self.interface_design_residues is False:
-        #     self.identify_interface()
-        # else:  # we only need to load pose as we already calculated interface
-        #     # self.load_pose()
-        #     # Todo not correct! have to perform below to get pose.ss_index
-        #     # self.pose.interface_residues = self.interface_residues
-        self.identify_interface()
+        if self.interface_residues is False or self.interface_design_residues is False:
+            self.identify_interface()
+        else:  # We only need to load pose as we already calculated interface
+            self.load_pose()
+
         self.log.debug(f'Found design residues: {", ".join(map(str, sorted(self.interface_design_residues)))}')
+        # Todo reconcile with the splitting mechanism
         if (not self.fragment_observations and self.fragment_observations != list()) and self.generate_fragments:
             make_path(self.frags, condition=self.write_fragments)
             self.pose.generate_interface_fragments(out_path=self.frags, write_fragments=self.write_fragments)
