@@ -47,6 +47,7 @@ from utils.symmetry import valid_subunit_number, layer_group_cryst1_fmt_dict, \
 mpnn_alphabet_length = len(protein_letters_gapped)  # 21
 logger = start_log(name=__name__)
 index_offset = 1
+zero_offset = 1
 seq_res_len = 52
 transformation_mapping: dict[str, list[float] | list[list[float]] | np.ndarray]
 
@@ -5261,6 +5262,8 @@ class Pose(SequenceProfile, SymmetricModel):
     """
     _active_entities: list[Entity]
     _center_residue_numbers: list[int]
+    _design_residues: list[Residue]
+    _interface_residues: list[Residue]
     design_selector: dict[str, dict[str, dict[str, set[int] | set[str] | None]]] | None
     design_selector_entities: set[Entity]
     design_selector_indices: set[int]
@@ -5269,8 +5272,8 @@ class Pose(SequenceProfile, SymmetricModel):
     fragment_pairs: list[tuple[GhostFragment, Fragment, float]] | list
     fragment_queries: dict[tuple[Entity, Entity], list[dict[str, Any]]]
     ignore_clashes: bool
-    interface_design_residues: set[int]  # set[Residue]
-    interface_residues: set[int]  # set[Residue]
+    interface_design_residue_numbers: set[int]  # set[Residue]
+    interface_residue_numbers: set[int]
     interface_residues_by_entity_pair: dict[tuple[Entity, Entity], tuple[list[Residue], list[Residue]]]
     required_indices: set[int]
     required_residues: list[Residue] | None
@@ -5295,8 +5298,8 @@ class Pose(SequenceProfile, SymmetricModel):
         self.fragment_pairs = []
         self.fragment_queries = {}
         self.ignore_clashes = ignore_clashes
-        self.interface_design_residues = set()
-        self.interface_residues = set()
+        self.interface_design_residue_numbers = set()
+        self.interface_residue_numbers = set()
         self.interface_residues_by_entity_pair = {}
         self.required_indices = set()
         self.required_residues = None
@@ -5352,6 +5355,27 @@ class Pose(SequenceProfile, SymmetricModel):
         except AttributeError:
             self._active_entities = [entity for entity in self.entities if entity in self.design_selector_entities]
             return self._active_entities
+
+    @property
+    def interface_residues(self) -> list[Residue]:
+        """The Residue instances identified in interfaces in the Pose"""
+        try:
+            return self._interface_residues
+        except AttributeError:
+            self._interface_residues = []
+            for number, residues_entities in self.split_interface_residues.items():
+                self._interface_residues.extend([residue for residue, _ in residues_entities])
+            return self._interface_residues
+
+    @property
+    def design_residues(self) -> list[Residue]:  # Todo make function to include interface_residues or not
+        """The Residue instances identified for design in the Pose. Includes interface_residues"""
+        try:
+            return self._design_residues
+        except AttributeError:
+            self.log.debug('The design_residues includes interface_residues')
+            self._design_residues = self.required_residues + self.interface_residues
+            return self._design_residues
 
     def create_design_selector(self):
         """Set up a design selector for the Pose including selections, masks, and required Entities and Atoms
@@ -5445,10 +5469,8 @@ class Pose(SequenceProfile, SymmetricModel):
         if interface:
             self.find_and_split_interface()
 
-            zero_offset = 1
-            design_residues = []  # Add all interface residues
-            for number, residues_entities in self.split_interface_residues.items():
-                design_residues.extend([residue.number-zero_offset for residue, _ in residues_entities])
+            # Add all interface + required residues
+            design_residues = [residue.number-zero_offset for residue in self.design_residues]
         else:
             design_residues = list(range(self.number_of_residues))
 
@@ -5770,7 +5792,7 @@ class Pose(SequenceProfile, SymmetricModel):
 
         metrics = frag_metrics
         # Interface B Factor
-        int_b_factor = sum(residue.b_factor for residue in self.get_residues(self.interface_residues))
+        int_b_factor = sum(residue.b_factor for residue in self.interface_residues)
         try:  # If interface_distance is different from interface query and fragment generation these can be < 0 or > 1
             percent_residues_fragment_center = \
                 min(frag_metrics['number_fragment_residues_center']/total_interface_residues, 1)
@@ -6394,19 +6416,19 @@ class Pose(SequenceProfile, SymmetricModel):
 
         self.check_interface_topology()
 
-        self.interface_design_residues = set()  # Replace set(). Add new residues
+        self.interface_design_residue_numbers = set()  # Replace set(). Add new residues
         for number, residues_entities in self.split_interface_residues.items():
-            self.interface_design_residues.update([residue.number for residue, _ in residues_entities])
+            self.interface_design_residue_numbers.update([residue.number for residue, _ in residues_entities])
 
-        self.interface_residues = set()  # Replace set(). Add new residues
+        self.interface_residue_numbers = set()  # Replace set(). Add new residues
         for entity in self.entities:
             # Todo v clean as it is redundant with analysis and falls out of scope
             entity_oligomer = Model.from_chains(entity.chains, log=self.log, entities=False)
             # entity.oligomer.get_sasa()
             # Must check by number as the Residue instance will be different in entity_oligomer
-            for residue in entity_oligomer.get_residues(self.interface_design_residues):
+            for residue in entity_oligomer.get_residues(self.interface_design_residue_numbers):
                 if residue.sasa > 0:  # we will have repeats as the Entity is symmetric
-                    self.interface_residues.add(residue.number)
+                    self.interface_residue_numbers.add(residue.number)
 
     def check_interface_topology(self):
         """From each pair of entities that share an interface, split the identified residues into two distinct groups.

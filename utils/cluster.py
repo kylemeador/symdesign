@@ -87,7 +87,7 @@ def pose_pair_rmsd(pair: tuple[PoseDirectory, PoseDirectory]) -> float:
 
     # # protein_pair_path = pair[0].composition
     # # Grab designed resides from the pose_directory
-    # design_residues = [set(pose.interface_design_residues) for pose in pair]
+    # design_residues = [set(pose.interface_design_residue_numbers) for pose in pair]
     #
     # # Set up the list of residues undergoing design (interface) on each pair. Return the intersection
     # # could use the union as well...?

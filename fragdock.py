@@ -3331,7 +3331,7 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
                                 for name, data in per_residue_data.items()}).unstack().swaplevel(0, 1, axis=1)
     print(per_residue_df)
     # Can't use this as each pose is different
-    # index_residues = list(pose.interface_design_residues)
+    # index_residues = list(pose.interface_design_residue_numbers)
     # residue_df = pd.merge(residue_df.loc[:, idx_slice[index_residues, :]],
     #                       per_residue_df.loc[:, idx_slice[index_residues, :]],
     #                       left_index=True, right_index=True)
