@@ -5768,33 +5768,22 @@ class Pose(SequenceProfile, SymmetricModel):
         total_non_fragment_interface_residues = \
             max(total_interface_residues-frag_metrics['number_fragment_residues_center'], 0)
 
+        metrics = frag_metrics
+        # Interface B Factor
+        int_b_factor = sum(residue.b_factor for residue in self.get_residues(self.interface_residues))
         try:  # If interface_distance is different from interface query and fragment generation these can be < 0 or > 1
             percent_residues_fragment_center = \
                 min(frag_metrics['number_fragment_residues_center']/total_interface_residues, 1)
             percent_residues_fragment_total = \
                 min(frag_metrics['number_fragment_residues_total']/total_interface_residues, 1)
+            percent_fragment = frag_metrics['number_fragment_residues_total'] / total_interface_residues
+            ave_b_factor = int_b_factor / total_interface_residues
         except ZeroDivisionError:
             self.log.warning(f'{self.name}: No interface residues were found. Is there an interface in your design?')
-            percent_residues_fragment_center, percent_residues_fragment_total = 0., 0.
+            percent_fragment = ave_b_factor = percent_residues_fragment_center = percent_residues_fragment_total = 0.
 
-        # try:
-        #     nanohedra_score_normalized = \
-        #         frag_metrics['nanohedra_score'] / frag_metrics['number_fragment_residues_total']
-        # except ZeroDivisionError:
-        #     nanohedra_score_normalized = 0.
-        # try:
-        #     nanohedra_score_center_normalized = \
-        #         frag_metrics['nanohedra_score_center']/frag_metrics['number_fragment_residues_center']
-        # except ZeroDivisionError:
-        #     self.log.warning(f'{self.name}: No interface residues were found. Is there an interface in your design?')
-        #     nanohedra_score_center_normalized = 0.
-        # number_of_fragments = frag_metrics['number_of_fragments']
-
-        metrics = frag_metrics
-        # Interface B Factor
-        int_b_factor = sum(residue.b_factor for residue in self.get_residues(self.interface_residues))
         metrics.update({
-            'interface_b_factor_per_residue': round(int_b_factor / total_interface_residues, 2),
+            'interface_b_factor_per_residue': ave_b_factor,
             # 'nanohedra_score': all_residue_score,
             # 'nanohedra_score_normalized': nanohedra_score_normalized,
             # 'nanohedra_score_center': center_residue_score,
@@ -5802,7 +5791,7 @@ class Pose(SequenceProfile, SymmetricModel):
             # 'number_fragment_residues_total': fragment_residues_total,
             # 'number_fragment_residues_center': central_residues_with_fragment_overlap,
             # 'multiple_fragment_ratio': multiple_frag_ratio,
-            'percent_fragment': frag_metrics['number_fragment_residues_total'] / total_interface_residues,
+            'percent_fragment': percent_fragment,
             # 'percent_fragment_helix': helical_fragment_content,
             # 'percent_fragment_strand': strand_fragment_content,
             # 'percent_fragment_coil': coil_fragment_content,
