@@ -18,7 +18,6 @@ from typing import Any, AnyStr
 
 import pandas as pd
 import psutil
-from Bio.Data.IUPACData import protein_letters
 from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
 
@@ -39,7 +38,7 @@ from utils.ProteinExpression import find_expression_tags, find_matching_expressi
 from resources.query.pdb import retrieve_pdb_entries_by_advanced_query
 from resources.query.utils import input_string, bool_d, boolean_choice, invalid_string, \
     validate_input_return_response_value
-from structure.sequence import generate_mutations, find_orf_offset, read_fasta_file
+from structure.sequence import generate_mutations, find_orf_offset, read_fasta_file, protein_letters
 from resources.EulerLookup import euler_factory
 from utils.SymEntry import SymEntry, parse_symmetry_to_sym_entry, symmetry_factory
 from utils.nanohedra.cmdline import query_mode

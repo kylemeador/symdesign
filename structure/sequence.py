@@ -16,7 +16,6 @@ import numpy as np
 import pandas as pd
 from Bio import pairwise2, SeqIO, AlignIO
 from Bio.Align import MultipleSeqAlignment, substitution_matrices
-from Bio.Data.IUPACData import protein_letters, extended_protein_letters, protein_letters_3to1
 from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
 
@@ -27,6 +26,18 @@ from utils import handle_errors, start_log, pretty_format_table, unpickle, get_b
 # import dependencies.bmdca as bmdca
 
 # Globals
+protein_letters3: tuple[str, ...] = \
+    ('ALA', 'CYS', 'ASP', 'GLU', 'PHE', 'GLY', 'HIS', 'ILE', 'LYS', 'LEU', 'MET', 'ASN',
+     'PRO', 'GLN', 'ARG', 'SER', 'THR', 'VAL', 'TRP', 'TYR')
+extended_protein_letters3: tuple[str, ...] = \
+    ('ALA', 'CYS', 'ASP', 'GLU', 'PHE', 'GLY', 'HIS', 'ILE', 'LYS', 'LEU', 'MET', 'ASN',
+     'PRO', 'GLN', 'ARG', 'SER', 'THR', 'VAL', 'TRP', 'TYR', 'ASX', 'XAA', 'GLX', 'XLE', 'SEC', 'PYL')
+protein_letters: str = 'ACDEFGHIKLMNPQRSTVWY'
+extended_protein_letters: str = 'ACDEFGHIKLMNPQRSTVWYBXZJUO'
+protein_letters_3to1: dict[str, str] = dict(zip(protein_letters3, protein_letters))
+protein_letters_1to3: dict[str, str] = dict(zip(protein_letters, protein_letters3))
+protein_letters_3to1_extended: dict[str, str] = dict(zip(extended_protein_letters3, extended_protein_letters))
+protein_letters_1to3_extended: dict[str, str] = dict(zip(extended_protein_letters, extended_protein_letters3))
 logger = start_log(name=__name__)
 index_offset = 1
 alignment_types_literal = Literal['mapped', 'paired']

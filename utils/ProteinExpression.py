@@ -3,13 +3,10 @@ import csv
 
 # from itertools import chain as iter_chain  # combinations,
 import numpy as np
-from Bio.Data.IUPACData import protein_letters
 
-from utils import path as PUtils
-# from Pose import Model
-# import Pose
 import utils
-from structure.sequence import generate_alignment
+from utils import path as PUtils
+from structure.sequence import generate_alignment, protein_letters
 from DnaChisel.dnachisel import DnaOptimizationProblem, CodonOptimize, reverse_translate, AvoidHairpins, \
     EnforceGCContent, AvoidPattern, AvoidRareCodons, UniquifyAllKmers, EnforceTranslation  # EnforceMeltingTemperature
 from resources.query.pdb import get_entity_reference_sequence, pdb_id_matching_uniprot_id

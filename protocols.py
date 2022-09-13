@@ -18,7 +18,6 @@ import matplotlib.pyplot as plt
 import numpy as np
 # from matplotlib.axes import Axes
 # from mpl_toolkits.mplot3d import Axes3D
-from Bio.Data.IUPACData import protein_letters_3to1, protein_letters_1to3
 from cycler import cycler
 from matplotlib.ticker import MultipleLocator
 from pandas import DataFrame, Series, MultiIndex, IndexSlice, concat, merge, read_csv, to_numeric
@@ -38,8 +37,8 @@ from metrics import read_scores, interface_composition_similarity, unnecessary, 
 from resources.job import JobResources, job_resources_factory
 from structure.model import Pose, MultiModel, Models, Model, Entity
 from structure.sequence import parse_pssm, generate_mutations_from_reference, simplify_mutation_dict, \
-    sequence_difference, alignment_types, MultipleSequenceAlignment, pssm_as_array, position_specific_divergence
-from structure.base import Structure  # , Structures
+    sequence_difference, alignment_types, MultipleSequenceAlignment, pssm_as_array, position_specific_divergence,\
+    protein_letters_3to1, protein_letters_1to3
 from utils import large_color_array, handle_errors, starttime, start_log, null_log, make_path, unpickle, pickle_object, \
     index_intersection, write_shell_script, DesignError, ClashError, SymmetryError, match_score_from_z_value, z_score, \
     all_vs_all, sym, condensed_to_square, path as PUtils
@@ -2351,13 +2350,13 @@ class PoseDirectory:
         # Todo, make threshold and return set of strings a property of a profile object
         # background = \
         #     {self.pose.residue(residue_number):
-        #      {protein_letters_1to3.get(aa).upper() for aa in protein_letters_1to3 if fields.get(aa, -1) > threshold}
+        #      {protein_letters_1to3.get(aa) for aa in protein_letters_1to3 if fields.get(aa, -1) > threshold}
         #      for residue_number, fields in self.background_profile.items() if residue_number in self.interface_design_residues}
-        background = {residue: {protein_letters_1to3.get(aa).upper() for aa in protein_letters_1to3
+        background = {residue: {protein_letters_1to3.get(aa) for aa in protein_letters_1to3
                                 if self.background_profile[residue.number].get(aa, -1) > threshold}
                       for residue in self.pose.get_residues(self.interface_design_residues)}
         # include the wild-type residue from PoseDirectory Pose source and the residue identity of the selected design
-        wt = {residue: {self.background_profile[residue.number].get('type'), protein_letters_3to1[residue.type.title()]}
+        wt = {residue: {self.background_profile[residue.number].get('type'), protein_letters_3to1[residue.type]}
               for residue in background}
         directives = dict(zip(background.keys(), repeat(None)))
         # directives.update({self.pose.residue(residue_number): directive
@@ -2489,7 +2488,7 @@ class PoseDirectory:
             {residue.number: {'complex': 0., 'bound': copy(entity_energies), 'unbound': copy(entity_energies),
                               'solv_complex': 0., 'solv_bound': copy(entity_energies),
                               'solv_unbound': copy(entity_energies), 'fsp': 0., 'cst': 0.,
-                              'type': protein_letters_3to1.get(residue.type.title()), 'hbond': 0}
+                              'type': protein_letters_3to1.get(residue.type), 'hbond': 0}
              for entity in self.pose.entities for residue in entity.residues}
         residue_info = {pose_source: pose_source_residue_info}
         job_key = 'no_energy'
@@ -2602,8 +2601,9 @@ class PoseDirectory:
                 source_df[f'solvation_energy_{idx}_unbound'] = 0
                 source_df[f'interface_connectivity_{idx}'] = 0
                 # residue_info = {'energy': {'complex': 0., 'unbound': 0.}, 'type': None, 'hbond': 0}
-                # design_info.update({residue.number: {'energy_delta': 0., 'type': protein_letters_3to1.get(residue.type.title()),
-                #                          'hbond': 0} for residue in entity.residues})
+                # design_info.update({residue.number: {'energy_delta': 0.,
+                #                                      'type': protein_letters_3to1.get(residue.type),
+                #                                      'hbond': 0} for residue in entity.residues})
             source_df['buns_complex'] = 0
             # source_df['buns_unbound'] = 0
             scores_df['contact_count'] = 0
