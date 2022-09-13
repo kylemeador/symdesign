@@ -1312,7 +1312,8 @@ class PoseDirectory:
             Disk location of the flags file
         """
         # flag_variables (list(tuple)): The variable value pairs to be filed in the RosettaScripts XML
-        self.log.info(f'Total number of residues in Pose: {self.pose.number_of_residues}')
+        number_of_residues = self.pose.number_of_residues
+        self.log.info(f'Total number of residues in Pose: {number_of_residues}')
 
         # Get ASU distance parameters
         if self.design_dimension:  # check for None and dimension 0 simultaneously
@@ -1340,18 +1341,18 @@ class PoseDirectory:
             if not sym_def_file:
                 sym_def_file = self.sym_def_file
             variables.extend([('symmetry', symmetry_protocol), ('sdf', sym_def_file)] if symmetry_protocol else [])
-            out_of_bounds_residue = self.pose.number_of_residues * self.pose.number_of_symmetry_mates + 1
+            out_of_bounds_residue = number_of_residues*self.pose.number_of_symmetry_mates + 1
         else:
             variables.append(('symmetry', symmetry_protocol))
-            out_of_bounds_residue = self.pose.number_of_residues + 1
+            out_of_bounds_residue = number_of_residues + 1
         variables.extend([(interface, residues) if residues else (interface, out_of_bounds_residue)
                           for interface, residues in self.interface_residue_ids.items()])
 
-        # assign any additional designable residues
+        # Assign any additional designable residues
         if self.pose.required_residues:
             variables.extend([('required_residues', ','.join(f'{res.number}{res.chain}'
                                                              for res in self.pose.required_residues))])
-        else:  # get an out-of-bounds index
+        else:  # Get an out-of-bounds index
             variables.extend([('required_residues', out_of_bounds_residue)])
 
         # Allocate any "core" residues based on central fragment information
@@ -1429,7 +1430,7 @@ class PoseDirectory:
         # interface_secondary_structure
         if not path.exists(self.flags) or self.force_flags:
             make_path(self.scripts)
-            self.flags = self.prepare_rosetta_flags(out_path=self.scripts)
+            self.prepare_rosetta_flags(out_path=self.scripts)
             self.log.debug(f'Pose flags written to: {self.flags}')
 
         design_files = path.join(self.scripts,
@@ -1482,7 +1483,7 @@ class PoseDirectory:
         flags = path.join(self.scripts, 'flags')
         if not path.exists(self.flags) or self.force_flags:
             make_path(self.scripts)
-            flags = self.prepare_rosetta_flags(out_path=self.scripts)
+            self.prepare_rosetta_flags(out_path=self.scripts)
             self.log.debug('Pose flags written to: %s' % flags)
 
         cmd += ['-symmetry_definition', 'CRYST1'] if self.design_dimension > 0 else []
@@ -1624,7 +1625,7 @@ class PoseDirectory:
         main_cmd += ['-symmetry_definition', 'CRYST1'] if self.design_dimension > 0 else []
         if not path.exists(self.flags) or self.force_flags:
             make_path(self.scripts)
-            self.flags = self.prepare_rosetta_flags(out_path=self.scripts)
+            self.prepare_rosetta_flags(out_path=self.scripts)
             self.log.debug(f'Pose flags written to: {self.flags}')
 
         if self.consensus:  # Todo add consensus sbatch generator to the symdesign main
@@ -2052,9 +2053,9 @@ class PoseDirectory:
 
         if not path.exists(flags) or self.force_flags:
             make_path(flag_dir)
-            make_path(pdb_out_path)
-            flags = self.prepare_rosetta_flags(out_path=flag_dir, pdb_out_path=pdb_out_path)
+            self.prepare_rosetta_flags(out_path=flag_dir, pdb_out_path=pdb_out_path)
             self.log.debug(f'Pose flags written to: {flags}')
+            make_path(pdb_out_path)
 
         # RELAX: Prepare command
         relax_cmd = main_cmd + relax_flags_cmdline + additional_flags + \
@@ -2174,7 +2175,7 @@ class PoseDirectory:
         self.identify_interface()
         make_path(self.frags, condition=self.write_fragments)
         self.pose.generate_interface_fragments(out_path=self.frags, write_fragments=self.write_fragments)
-        self.fragment_observations = self.pose.return_fragment_observations()
+        self.fragment_observations = self.pose.get_fragment_observations()
         self.info['fragments'] = self.fragment_observations
         self.info['fragment_source'] = self.fragment_source
         self.pickle_info()  # Todo remove once PoseDirectory state can be returned to the SymDesign dispatch w/ MP
@@ -2194,8 +2195,6 @@ class PoseDirectory:
         if self.symmetric:
             self.symmetric_assembly_is_clash()
             if self.output_assembly:
-                j = input('hit enter')
-                self.pose.write(out_path=path.join(self.path, 'DEBUG_pose_asu.pdb'), increment_chains=self.increment_chains)
                 self.pose.write(assembly=True, out_path=self.assembly_path, increment_chains=self.increment_chains)
                 self.log.info(f'Symmetric assembly written to: "{self.assembly_path}"')
 
@@ -2283,7 +2282,7 @@ class PoseDirectory:
             # Todo self.solve_consensus()
             # -------------------------------------------------------------------------
             make_path(self.designs)
-            self.fragment_observations = self.pose.return_fragment_observations()
+            self.fragment_observations = self.pose.get_fragment_observations()
             self.info['fragments'] = self.fragment_observations
             self.info['fragment_source'] = self.fragment_source
 
@@ -2360,7 +2359,7 @@ class PoseDirectory:
         main_cmd += ['-symmetry_definition', 'CRYST1'] if self.design_dimension > 0 else []
         if not path.exists(self.flags) or self.force_flags:
             make_path(self.scripts)
-            self.flags = self.prepare_rosetta_flags(out_path=self.scripts)
+            self.prepare_rosetta_flags(out_path=self.scripts)
             self.log.debug(f'Pose flags written to: {self.flags}')
 
         # DESIGN: Prepare command and flags file
