@@ -5749,20 +5749,6 @@ class Pose(SequenceProfile, SymmetricModel):
 
         return dict(n=n_term, c=c_term)
 
-    # def get_interface_fragment_metrics(self) -> dict:
-    #     """Generate fragment metrics for the interfaces in the Pose"""
-    #     self.generate_interface_fragments(write_fragments=False)  # out_path=self.frags, self.write_fragments)
-    #     fragment_observations = self.return_fragment_observations()
-    #
-    #     if fragment_observations == list():
-    #         frag_metrics = fragment_metric_template
-    #         self.log.debug(f'No fragment metrics found')
-    #     else:
-    #         self.log.debug('Fragment observations found in Pose. Adding to the Design state')
-    #         frag_metrics = format_fragment_metrics(calculate_match_metrics(fragment_observations))
-    #
-    #     return frag_metrics
-
     def interface_metrics(self) -> dict:
         """Gather all metrics relating to the Pose and the interfaces within the Pose
 
@@ -5776,18 +5762,7 @@ class Pose(SequenceProfile, SymmetricModel):
              'percent_fragment_coil': , 'number_of_fragments': , 'total_interface_residues': ,
              'percent_residues_fragment_total': , 'percent_residues_fragment_center': }
         """
-        # frag_metrics = self.get_interface_fragment_metrics()
-        # total_residue_numbers = frag_metrics['total_residues']
-        # all_residue_score = frag_metrics['nanohedra_score']
-        # center_residue_score = frag_metrics['nanohedra_score_center']
-        # fragment_residues_total = frag_metrics['number_fragment_residues_total']
-        # ^ can be more than self.total_interface_residues because each fragment may have members not in the interface
-        # central_residues_with_fragment_overlap = frag_metrics['number_fragment_residues_center']
-        # multiple_frag_ratio = frag_metrics['multiple_fragment_ratio']
-        # helical_fragment_content = frag_metrics['percent_fragment_helix']
-        # strand_fragment_content = frag_metrics['percent_fragment_strand']
-        # coil_fragment_content = frag_metrics['percent_fragment_coil']
-        frag_metrics = self.get_fragment_metrics()
+        frag_metrics = self.get_fragment_metrics(total_interface=True)
         self.center_residue_numbers = frag_metrics.get('center_residues', [])
         total_interface_residues = len(self.interface_residues)
         total_non_fragment_interface_residues = \
@@ -6694,7 +6669,9 @@ class Pose(SequenceProfile, SymmetricModel):
 
         return observations
 
-    def get_fragment_metrics(self, fragments: list[dict] = None, by_interface: bool = False, by_entity: bool = False,
+    # Todo Add all fragment instances (not just interface) to the metrics
+    def get_fragment_metrics(self, fragments: list[dict] = None, total_interface: bool = True,
+                             by_interface: bool = False, by_entity: bool = False,
                              entity1: Structure = None, entity2: Structure = None) -> dict:
         """Return fragment metrics from the Pose. Returns the entire Pose unless by_interface or by_entity is True
 
@@ -6702,7 +6679,8 @@ class Pose(SequenceProfile, SymmetricModel):
 
         Args:
             fragments: A list of fragment observations
-            by_interface: Return fragment metrics for each particular interface found in the Pose
+            total_interface: Return all fragment metrics for every interface found in the Pose
+            by_interface: Return fragment metrics for each particular interface between Chain instances in the Pose
             by_entity: Return fragment metrics for each Entity found in the Pose
             entity1: The first Entity object to identify the interface if per_interface=True
             entity2: The second Entity object to identify the interface if per_interface=True
@@ -6726,18 +6704,19 @@ class Pose(SequenceProfile, SymmetricModel):
                 self.fragment_metrics[query_pair] = self.fragment_db.calculate_match_metrics(fragment_matches)
 
         if by_interface:
+            metric_d = fragment_metric_template
             if entity1 is not None and entity2 is not None:
                 for query_pair, metrics in self.fragment_metrics.items():
                     if not metrics:
                         continue
                     # Check either orientation as the function query could vary from self.fragment_metrics
                     if (entity1, entity2) in query_pair or (entity2, entity1) in query_pair:
-                        return format_fragment_metrics(metrics)
-                self.log.info(f"Couldn't locate query metrics for Entity pair {entity1.name}, {entity2.name}")
+                        metric_d = format_fragment_metrics(metrics)
+                        break
+                else:
+                    self.log.info(f"Couldn't locate query metrics for Entity pair {entity1.name}, {entity2.name}")
             else:
-                self.log.error(f"{self.get_fragment_metrics.__name__}: entity1 or entity1 can't be None!")
-
-            return fragment_metric_template
+                self.log.error(f"{self.get_fragment_metrics.__name__}: entity1 and entity2 can't be None")
         elif by_entity:
             metric_d = {}
             for query_pair, metrics in self.fragment_metrics.items():
@@ -6776,8 +6755,7 @@ class Pose(SequenceProfile, SymmetricModel):
                     metric_d[entity]['nanohedra_score_normalized'], \
                     metric_d[entity]['nanohedra_score_center_normalized'] = 0., 0.
 
-            return metric_d
-        else:  # For the entire interface
+        elif total_interface:  # For the entire interface
             metric_d = fragment_metric_template
             for query_pair, metrics in self.fragment_metrics.items():
                 if not metrics:
@@ -6813,7 +6791,10 @@ class Pose(SequenceProfile, SymmetricModel):
                 self.log.warning(f'{self.name}: No interface residues were found. Is there an interface in your design?')
                 metric_d['nanohedra_score_normalized'], metric_d['nanohedra_score_center_normalized'] = 0., 0.
 
-            return metric_d
+        else:  # For the entire Pose?
+            raise ValueError('There was no mechanism to return fragments specified')
+
+        return metric_d
 
     # def calculate_fragment_query_metrics(self):
     #     """From the profile's fragment queries, calculate and store the query metrics per query"""
