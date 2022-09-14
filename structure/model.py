@@ -20,19 +20,22 @@ from sklearn.neighbors import BallTree
 from sklearn.neighbors._ball_tree import BinaryTree  # this typing implementation supports BallTree or KDTree
 
 import flags
-from resources import wrapapi, fragment
-from resources.fragment import format_fragment_metrics, fragment_metric_template
+from resources.EulerLookup import EulerLookup, euler_factory
+from resources.fragment import format_fragment_metrics, fragment_metric_template, FragmentDatabase, fragment_factory
 from ProteinMPNN.helper_scripts.other_tools.make_pssm_dict import softmax
 from resources.ml import proteinmpnn_factory, batch_proteinmpnn_input, proteinmpnn_to_device
 from resources.query.pdb import retrieve_entity_id_by_sequence, query_pdb_by, get_entity_reference_sequence, \
     is_entity_thermophilic
 from resources.query.uniprot import is_uniprot_thermophilic
+from resources.wrapapi import APIDatabase, api_database_factory
+from structure.base import Structure, Structures, Residue, Residues, StructureBase, ContainsAtomsMixin, atom_or_residue
+from structure.coords import Coords, superposition3d, transform_coordinate_sets
+from structure.fragment import GhostFragment, Fragment, write_frag_match_info_file
 from structure.sequence import SequenceProfile, alignment_types, generate_alignment, get_equivalent_indices, \
     pssm_as_array, protein_letters_gapped, generate_mutations, protein_letters_1to3_extended, \
     protein_letters_3to1_extended
 from utils import dictionary_lookup, start_log, null_log, digit_translate_table, DesignError, ClashError, \
     SymmetryError, calculate_match, z_value_from_match_score, remove_duplicates, path as PUtils
-from resources.EulerLookup import EulerLookup, euler_factory
 from utils.SymEntry import get_rot_matrices, make_rotations_degenerate, SymEntry, point_group_setting_matrix_members,\
     symmetry_combination_format, parse_symmetry_to_sym_entry, symmetry_factory
 from utils.symmetry import valid_subunit_number, layer_group_cryst1_fmt_dict, \
@@ -54,9 +57,8 @@ def subdirectory(name):
 
 # @njit
 def find_fragment_overlap(entity1_coords: np.ndarray, residues1: list[Residue] | Residues,
-                          residues2: list[Residue] | Residues, frag_db: fragment.FragmentDatabase = None,
-                          euler_lookup: EulerLookup = None, min_match_value: float = 0.2) -> \
-        list[tuple[GhostFragment, Fragment, float]]:
+                          residues2: list[Residue] | Residues, euler_lookup: EulerLookup = None,
+                          min_match_value: float = 0.2) -> list[tuple[GhostFragment, Fragment, float]]:
     #           entity1, entity2, entity1_interface_residue_numbers, entity2_interface_residue_numbers, max_z_value=2):
     """From two sets of Residues, score the fragment overlap according to Nanohedra's fragment matching
 
@@ -64,14 +66,10 @@ def find_fragment_overlap(entity1_coords: np.ndarray, residues1: list[Residue] |
         entity1_coords:
         residues1:
         residues2:
-        frag_db:
         euler_lookup:
         min_match_value: The minimum value which constitutes an acceptable fragment match
     """
-    if not frag_db:
-        frag_db = fragment.fragment_factory()
-
-    if not euler_lookup:
+    if euler_lookup is None:
         euler_lookup = euler_factory()
 
     # logger.debug('Starting Ghost Frag Lookup')
@@ -182,7 +180,7 @@ def get_matching_fragment_pairs_info(ghostfrag_frag_pairs: list[tuple[GhostFragm
 #
 #     ghostfrag_surfacefrag_pairs = find_fragment_overlap(entity1_coords, interface_frags1, interface_frags2)
 #     # fragment_matches = find_fragment_overlap(entity1, entity2, entity1_interface_residue_numbers,
-#     #                                                       entity2_interface_residue_numbers)
+#     #                                          entity2_interface_residue_numbers)
 #     fragment_matches = get_matching_fragment_pairs_info(ghostfrag_surfacefrag_pairs)
 #     if write:
 #         write_fragment_pairs(ghostfrag_surfacefrag_pairs, out_path=out_path)
@@ -2326,7 +2324,7 @@ class Model(Structure, ContainsChainsMixin):
     # multimodel: bool
     original_chain_ids: list[str]
     resolution: float | None
-    api_db: wrapapi.APIDatabase
+    api_db: APIDatabase
     # _reference_sequence: dict[str, str]
     # space_group: str | None
     # uc_dimensions: list[float] | None
@@ -2339,7 +2337,7 @@ class Model(Structure, ContainsChainsMixin):
                  entity_info: dict[str, dict[dict | list | str]] = None,
                  # multimodel: bool = False,
                  resolution: float = None,
-                 # api_db: wrapapi.APIDatabase = None,
+                 # api_db: APIDatabase = None,
                  # reference_sequence: list[str] = None,
                  reference_sequence: dict[str, str] = None,
                  # metadata: Model = None,
@@ -2384,7 +2382,7 @@ class Model(Structure, ContainsChainsMixin):
         # ^ SEQRES or PDB API entries. key is chainID, value is 'AGHKLAIDL'
         # self.space_group = space_group
         # Todo standardize path with some state variable?
-        # self.api_db = api_db if api_db else wrapapi.api_database_factory()
+        # self.api_db = api_db if api_db else api_database_factory()
 
         # self.uc_dimensions = uc_dimensions
         self.structure_containers.extend(['chains', 'entities'])
@@ -2897,7 +2895,7 @@ class Model(Structure, ContainsChainsMixin):
         # if self.api_db:
         try:
             # retrieve_api_info = self.api_db.pdb.retrieve_data
-            retrieve_api_info = wrapapi.api_database_factory().pdb.retrieve_data
+            retrieve_api_info = api_database_factory().pdb.retrieve_data
         except AttributeError:
             retrieve_api_info = query_pdb_by
 
@@ -3043,7 +3041,7 @@ class Model(Structure, ContainsChainsMixin):
             # if self.api_db:
             try:
                 # retrieve_api_info = self.api_db.pdb.retrieve_data
-                retrieve_api_info = wrapapi.api_database_factory().pdb.retrieve_data
+                retrieve_api_info = api_database_factory().pdb.retrieve_data
             except AttributeError:
                 retrieve_api_info = query_pdb_by
 
@@ -5278,7 +5276,7 @@ class Pose(SequenceProfile, SymmetricModel):
     ss_index_array: list[int]
     ss_type_array: list[str]
 
-    def __init__(self, fragment_db: fragment.FragmentDatabase = None, ignore_clashes: bool = False,
+    def __init__(self, fragment_db: FragmentDatabase = None, ignore_clashes: bool = False,
                  design_selector: dict[str, dict[str, dict[str, set[int] | set[str] | None]]] = None, **kwargs):
         # unused args
         #           euler_lookup: EulerLookup = None,
@@ -5319,17 +5317,17 @@ class Pose(SequenceProfile, SymmetricModel):
         self.log.debug(f'Active Entities: {", ".join(entity.name for entity in self.active_entities)}')
 
     @property
-    def fragment_db(self) -> fragment.FragmentDatabase:
+    def fragment_db(self) -> FragmentDatabase:
         """The FragmentDatabase with which information about fragment usage will be extracted"""
         return self._fragment_db
 
     @fragment_db.setter
-    def fragment_db(self, fragment_db: fragment.FragmentDatabase):
-        if not isinstance(fragment_db, fragment.FragmentDatabase):
+    def fragment_db(self, fragment_db: FragmentDatabase):
+        if not isinstance(fragment_db, FragmentDatabase):
             # Todo add fragment_length, sql kwargs
-            fragment_db = fragment.fragment_factory(source=PUtils.biological_interfaces)
+            fragment_db = fragment_factory(source=PUtils.biological_interfaces)
             self.log.debug(f'fragment_db was set to the default since a {type(fragment_db).__name__} was passed which '
-                           f'is not of the required type {fragment.FragmentDatabase.__name__}')
+                           f'is not of the required type {FragmentDatabase.__name__}')
 
         self._fragment_db = fragment_db
         for entity in self.entities:
@@ -5753,7 +5751,7 @@ class Pose(SequenceProfile, SymmetricModel):
             # if self.api_db:
             try:
                 # retrieve_api_info = self.api_db.pdb.retrieve_data
-                retrieve_stride_info = wrapapi.api_database_factory().stride.retrieve_data
+                retrieve_stride_info = api_database_factory().stride.retrieve_data
             except AttributeError:
                 retrieve_stride_info = Structure.stride
 
@@ -5859,7 +5857,7 @@ class Pose(SequenceProfile, SymmetricModel):
             metrics['design_dimension'] = 'asymmetric'
 
         try:
-            api_db = wrapapi.api_database_factory()
+            api_db = api_database_factory()
             is_ukb_thermophilic = api_db.uniprot.is_thermophilic
             is_pdb_thermophile = api_db.pdb.is_thermophilic
         except AttributeError:
@@ -6355,7 +6353,7 @@ class Pose(SequenceProfile, SymmetricModel):
 
         entity1_coords = entity1.backbone_and_cb_coords  # for clash check, we only want the backbone and CB
         ghostfrag_surfacefrag_pairs = find_fragment_overlap(entity1_coords, frag_residues1, frag_residues2,
-                                                            frag_db=self.fragment_db, euler_lookup=self.euler_lookup)
+                                                            euler_lookup=self.euler_lookup)
         self.log.info(f'Found {len(ghostfrag_surfacefrag_pairs)} overlapping fragment pairs at the {entity1.name} | '
                       f'{entity2.name} interface')
         self.fragment_queries[(entity1, entity2)] = get_matching_fragment_pairs_info(ghostfrag_surfacefrag_pairs)
@@ -6551,7 +6549,7 @@ class Pose(SequenceProfile, SymmetricModel):
         # if self.api_db:
         try:
             # retrieve_api_info = self.api_db.pdb.retrieve_data
-            retrieve_stride_info = wrapapi.api_database_factory().stride.retrieve_data
+            retrieve_stride_info = api_database_factory().stride.retrieve_data
         except AttributeError:
             retrieve_stride_info = Structure.stride
 
@@ -6995,14 +6993,14 @@ class Pose(SequenceProfile, SymmetricModel):
     #                               ' modifications' % self.add_fragment_query.__name__)
 
     # def connect_fragment_database(self, source: str = PUtils.biological_interfaces, **kwargs):
-    #     """Generate a fragment.FragmentDatabase connection
+    #     """Generate a FragmentDatabase connection
     #
     #     Args:
     #         source: The type of FragmentDatabase to connect
     #     Sets:
-    #         self.fragment_db (fragment.FragmentDatabase)
+    #         self.fragment_db (FragmentDatabase)
     #     """
-    #     self.fragment_db = fragment.fragment_factory(source=source, **kwargs)
+    #     self.fragment_db = fragment_factory(source=source, **kwargs)
 
     def generate_interface_fragments(self, write_fragments: bool = False, out_path: AnyStr = None):
         """Generate fragments between the Pose interface(s). Finds interface(s) if not already available

@@ -35,6 +35,7 @@ from metrics import read_scores, interface_composition_similarity, unnecessary, 
     collapse_significance_threshold, calculate_collapse_metrics, errat_1_sigma, errat_2_sigma, \
     calculate_residue_surface_area
 from resources.job import JobResources, job_resources_factory
+from structure.base import Structure  # , Structures
 from structure.model import Pose, MultiModel, Models, Model, Entity
 from structure.sequence import parse_pssm, generate_mutations_from_reference, simplify_mutation_dict, \
     sequence_difference, alignment_types, MultipleSequenceAlignment, pssm_as_array, position_specific_divergence,\
