@@ -182,7 +182,7 @@ class JobResourcesFactory:
                                f'since it was already initialized and is a singleton')
                 # raise RuntimeError(f'Can\'t pass the new arguments {", ".join(kwargs.keys())} to JobResources '
                 #                    f'since it was already initialized')
-            return fragment_db
+            return job
         else:
             logger.info(f'Initializing {JobResources.__name__}')
             self._resources[source] = JobResources(**kwargs)
