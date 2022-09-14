@@ -6295,6 +6295,9 @@ class Pose(SequenceProfile, SymmetricModel):
         Sets:
             self.fragment_queries (dict[tuple[Entity, Entity], list[dict[str, Any]]])
         """
+        if (entity1, entity2) in self.fragment_queries:  # Due to asymmetry in fragment generation, (2, 1) isn't checked
+            return
+
         entity1_residues, entity2_residues = self.interface_residues_by_entity_pair.get((entity1, entity2))
         # because the way self.interface_residues_by_entity_pair is set, when there is not interface, a check on entity1_residues is
         # sufficient, however entity2_residues is empty with an interface present across a non-oligomeric dimeric 2-fold
