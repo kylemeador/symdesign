@@ -65,6 +65,41 @@ variance = 0.8
 symmetry_protocol = {0: 'make_point_group', 2: 'make_layer', 3: 'make_lattice'}  # -1: 'asymmetric',
 
 
+def handle_design_errors(errors: tuple = (Exception,)) -> Callable:
+    """Wrap a function/method with try: except errors: and log exceptions to the functions first argument .log attribute
+
+    This argument is typically self and is in a class with .log attribute
+
+    Args:
+        errors: A tuple of exceptions to monitor. Must be a tuple even if single exception
+    Returns:
+        Function return upon proper execution, else is error if exception raised, else None
+    """
+    def wrapper(func: Callable) -> Any:
+        @wraps(func)
+        def wrapped(self, *args, **kwargs):
+            try:
+                return func(self, *args, **kwargs)
+            except errors as error:
+                self.log.error(error)  # Allows exception reporting using self.log
+                # self.info['error'] = error  # Todo? include the error code in the design state
+                return error
+        return wrapped
+    return wrapper
+
+
+def close_logs(func):
+    """Wrap a function/method to close the functions first arguments .log attribute FileHandlers after use"""
+    @wraps(func)
+    def wrapped(self, *args, **kwargs):
+        func_return = func(self, *args, **kwargs)
+        # adapted from https://stackoverflow.com/questions/15435652/python-does-not-release-filehandles-to-logfile
+        for handler in self.log.handlers:
+            handler.close()
+        return func_return
+    return wrapped
+
+
 class PoseDirectory:
     _design_profile: np.ndarry | None
     _evolutionary_profile: np.ndarry | None
@@ -352,36 +387,36 @@ class PoseDirectory:
         self._run_in_shell = value
 
     # Decorator static methods: These must be declared above their usage, but made static after each declaration
-    def handle_design_errors(errors: tuple = (Exception,)) -> Callable:
-        """Decorator to wrap a method with try: ... except errors: and log errors to the PoseDirectory
-
-        Args:
-            errors: A tuple of exceptions to monitor. Must be a tuple even if single exception
-        Returns:
-            Function return upon proper execution, else is error if exception raised, else None
-        """
-        def wrapper(func: Callable) -> Any:
-            @wraps(func)
-            def wrapped(self, *args, **kwargs):
-                try:
-                    return func(self, *args, **kwargs)
-                except errors as error:
-                    self.log.error(error)  # Allows exception reporting using self.log
-                    # self.info['error'] = error  # Todo? include the error code in the design state
-                    return error
-            return wrapped
-        return wrapper
-
-    def close_logs(func):
-        """Decorator to close the instance log file after use in an instance method (protocol)"""
-        @wraps(func)
-        def wrapped(self, *args, **kwargs):
-            func_return = func(self, *args, **kwargs)
-            # adapted from https://stackoverflow.com/questions/15435652/python-does-not-release-filehandles-to-logfile
-            for handler in self.log.handlers:
-                handler.close()
-            return func_return
-        return wrapped
+    # def handle_design_errors(errors: tuple = (Exception,)) -> Callable:
+    #     """Decorator to wrap a method with try: ... except errors: and log errors to the PoseDirectory
+    #
+    #     Args:
+    #         errors: A tuple of exceptions to monitor. Must be a tuple even if single exception
+    #     Returns:
+    #         Function return upon proper execution, else is error if exception raised, else None
+    #     """
+    #     def wrapper(func: Callable) -> Any:
+    #         @wraps(func)
+    #         def wrapped(self, *args, **kwargs):
+    #             try:
+    #                 return func(self, *args, **kwargs)
+    #             except errors as error:
+    #                 self.log.error(error)  # Allows exception reporting using self.log
+    #                 # self.info['error'] = error
+    #                 return error
+    #         return wrapped
+    #     return wrapper
+    #
+    # def close_logs(func):
+    #     """Decorator to close the instance log file after use in an instance method (protocol)"""
+    #     @wraps(func)
+    #     def wrapped(self, *args, **kwargs):
+    #         func_return = func(self, *args, **kwargs)
+    #         # adapted from https://stackoverflow.com/questions/15435652/python-does-not-release-filehandles-to-logfile
+    #         for handler in self.log.handlers:
+    #             handler.close()
+    #         return func_return
+    #     return wrapped
 
     def remove_structure_memory(func):
         """Decorator to remove large memory attributes from the instance after processing is complete"""
@@ -1508,8 +1543,8 @@ class PoseDirectory:
         """
         self.get_entities(**kwargs)
         if self.pose_transformation:
-            self.entities = [entity.get_transformed_copy(**self.pose_transformation[idx])
-                             for idx, entity in enumerate(self.entities)]
+            self.entities = [entity.get_transformed_copy(**transformation)
+                             for entity, transformation in zip(self.entities, self.pose_transformation)]
             self.log.debug('Entities were transformed to the found docking parameters')
         else:
             raise SymmetryError('The design could not be transformed as it is missing the required transformation '
@@ -1529,8 +1564,8 @@ class PoseDirectory:
         if self.pose_transformation:
             self.log.debug('Structures were transformed to the found docking parameters')
             # Todo assumes a 1:1 correspondence between structures and transforms (component group numbers) CHANGE
-            return [structure.get_transformed_copy(**self.pose_transformation[idx])
-                    for idx, structure in enumerate(structures)]
+            return [structure.get_transformed_copy(**transformation)
+                    for structure, transformation in zip(structures, self.pose_transformation)]
         else:
             # raise DesignError('The design could not be transformed as it is missing the required transformation '
             #                   'parameters. Were they generated properly?')
@@ -1675,7 +1710,7 @@ class PoseDirectory:
         else:
             self.pose = Pose.from_file(source if source else self.source, entity_names=self.entity_names, **pose_kwargs)
             #                                     pass names if available ^
-        if self.pose.symmetry:  # Generate oligomers for each entity in the pose  # Todo move to SymmetricModel
+        if self.pose.is_symmetric():  # Generate oligomers for each entity in the pose  # Todo move to SymmetricModel
             for idx, entity in enumerate(self.pose.entities):
                 if entity.number_of_symmetry_mates != self.sym_entry.group_subunit_numbers[idx]:
                     entity.make_oligomer(symmetry=self.sym_entry.groups[idx], **self.pose_transformation[idx])
@@ -2264,7 +2299,7 @@ class PoseDirectory:
                                   sym_entry=self.sym_entry, api_db=self.job.api_db, fragment_db=self.job.fragment_db,
                                   design_selector=self.job.design_selector, ignore_clashes=self.job.ignore_pose_clashes)
             # Todo use PoseDirectory self.info.design_selector
-            if self.symmetric:
+            if self.pose.is_symmetric():
                 for idx, entity in enumerate(pose.entities):
                     entity.make_oligomer(symmetry=self.sym_entry.groups[idx], **self.pose_transformation[idx])
             design_poses.append(pose)
@@ -3654,8 +3689,8 @@ class PoseDirectory:
     #     if condition:
     #         makedirs(path_like, exist_ok=True)
 
-    handle_design_errors = staticmethod(handle_design_errors)
-    close_logs = staticmethod(close_logs)
+    # handle_design_errors = staticmethod(handle_design_errors)
+    # close_logs = staticmethod(close_logs)
     remove_structure_memory = staticmethod(remove_structure_memory)
 
     def __key(self) -> str:
