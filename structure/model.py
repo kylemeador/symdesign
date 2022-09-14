@@ -6398,7 +6398,7 @@ class Pose(SequenceProfile, SymmetricModel):
             self.find_interface_residues(entity1=entity1, entity2=entity2)
             self.query_interface_for_fragments(entity1=entity1, entity2=entity2)
 
-        return self.get_fragment_metrics(by_interface=True, entity1=entity1, entity2=entity2)
+        return self.get_fragment_metrics(by_entity=True, entity1=entity1, entity2=entity2)
 
     def find_and_split_interface(self):
         """Locate the interface residues for the designable entities and split into two interfaces
