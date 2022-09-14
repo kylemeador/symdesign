@@ -6390,6 +6390,7 @@ class Pose(SequenceProfile, SymmetricModel):
         Returns:
             Fragment metrics as key (metric type) value (measurement) pairs
         """
+        # Check for either orientation as the final interface score will be the same
         if (entity1, entity2) not in self.fragment_queries or (entity2, entity1) not in self.fragment_queries:
             self.find_interface_residues(entity1=entity1, entity2=entity2)
             self.query_interface_for_fragments(entity1=entity1, entity2=entity2)
@@ -7012,9 +7013,10 @@ class Pose(SequenceProfile, SymmetricModel):
         if not self.interface_residues_by_entity_pair:
             self.find_and_split_interface()
 
+        entity_pair: Iterable[Entity]
         for entity_pair in combinations_with_replacement(self.active_entities, 2):
-            self.log.debug('Querying Entity pair: %s, %s for interface fragments'
-                           % tuple(entity.name for entity in entity_pair))
+            self.log.debug(f'Querying Entity pair: {", ".join(entity.name for entity in entity_pair)} '
+                           f'for interface fragments')
             self.query_interface_for_fragments(*entity_pair)
 
         if write_fragments:
