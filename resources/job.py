@@ -171,8 +171,8 @@ class JobResourcesFactory:
         #         Args:
         #             source: The JobResources source name
         source = 'single'
-        fragment_db = self._resources.get(source)
-        if fragment_db:
+        job = self._resources.get(source)
+        if job:
             if kwargs and not self._warn:
                 # try:
                 #     fragment_db.update(kwargs)

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 from logging import Logger
+from typing import AnyStr
 
 from utils.SymEntry import SymEntry
 from utils.path import docked_pose_file
@@ -177,11 +178,13 @@ def write_docking_parameters(pdb1_path, pdb2_path, rot_step_deg1, rot_step_deg2,
     log.info('Retrieving Database of Complete Interface Fragment Cluster Representatives')
 
 
-def get_components_from_nanohedra_docking(pose_file) -> list[str]:
-    """Gather information for the docked Pose from a Nanohedra output. Includes coarse fragment metrics
+def get_components_from_nanohedra_docking(pose_file: AnyStr) -> list[str]:
+    """Gather information on the docking componenet identifiers for the docked Pose from a Nanohedra output
 
+    Args:
+        pose_file: The file containing pose information from Nanohedra output
     Returns:
-        pose_transformation operations
+        The names of the models used during Nanohedra
     """
     entity_names = []
     with open(pose_file, 'r') as f:  # self.pose_file
