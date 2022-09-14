@@ -3617,6 +3617,7 @@ class SymmetricModel(Models):
     _dimension: int
     _number_of_symmetry_mates: int
     _point_group_symmetry: str
+    _transformation: list[dict]
     _oligomeric_model_indices: dict[Entity, list[int]]
     _sym_entry: SymEntry | None
     _symmetry: str
@@ -3674,6 +3675,9 @@ class SymmetricModel(Models):
                 # We need to generate the symmetric coords
                 self.log.debug('Generating symmetric coords')
                 self.generate_symmetric_coords(surrounding_uc=surrounding_uc)  # default has surrounding_uc=True
+
+            # Generate oligomers for each entity in the pose
+            self.make_oligomers()
             # if generate_symmetry_mates:  # always set to False before. commenting out
             #     self.generate_assembly_symmetry_models(**kwargs)
 
@@ -4802,7 +4806,18 @@ class SymmetricModel(Models):
                 #     # if dihedral:  # TODO
                 #     #     dummy = True
 
-    def assign_pose_transformation(self) -> list[dict]:
+    @property
+    def transformation(self) -> list[dict]:
+        """The transformation parameters for each Entity in the SymmetricModel. Each entry has the
+        transformation_mapping type
+        """
+        try:
+            return self._transformation
+        except AttributeError:
+            self._transformation = self._assign_pose_transformation()
+            return self._transformation
+
+    def _assign_pose_transformation(self) -> list[dict]:
         """Using the symmetry entry and symmetric material, find the specific transformations necessary to establish the
         individual symmetric components in the global symmetry
 
@@ -4810,19 +4825,20 @@ class SymmetricModel(Models):
             The specific transformation dictionaries which place each Entity with proper symmetry axis in the Pose
         """
         if not self.is_symmetric():
-            raise SymmetryError(f'Must set a global symmetry to {self.assign_pose_transformation.__name__}!')
+            raise SymmetryError(f'Must set a global symmetry to {self._assign_pose_transformation.__name__}')
 
-        # get optimal external translation
+        # Get optimal external translation
         if self.dimension == 0:
             external_tx = [None for _ in self.sym_entry.groups]
         else:
             try:
                 optimal_external_shifts = self.sym_entry.get_optimal_shift_from_uc_dimensions(*self.uc_dimensions)
             except AttributeError as error:
-                print(f"\n\n\n{self.assign_pose_transformation.__name__}: Couldn't "
-                      f'{SymEntry.get_optimal_shift_from_uc_dimensions.__name__} with dimensions: {self.uc_dimensions}'
-                      f'\nAnd sym_entry.unit_cell specification: {self.sym_entry.unit_cell}\nThis is likely because '
-                      f"{self.symmetry} isn't a lattice with parameterized external translations\n\n\n")
+                self.log.error(f"\n\n\n{self._assign_pose_transformation.__name__}: Couldn't "
+                               f'{SymEntry.get_optimal_shift_from_uc_dimensions.__name__} with dimensions: '
+                               f'{self.uc_dimensions}\nAnd sym_entry.unit_cell specification: '
+                               f"{self.sym_entry.unit_cell}\nThis is likely because {self.symmetry} isn't a lattice "
+                               "with parameterized external translations\n\n\n")
                 raise error
             # external_tx1 = optimal_external_shifts[:, None] * self.sym_entry.external_dof1
             # external_tx2 = optimal_external_shifts[:, None] * self.sym_entry.external_dof2
@@ -4934,9 +4950,9 @@ class SymmetricModel(Models):
         # Todo find the particular rotation to orient the Entity oligomer to a cannonical orientation. This must
         #  accompany standards required for the SymDesign Database for actions like refinement
 
-        # this routine uses the same logic at the get_contacting_asu however using the COM of the found
-        # pose_transformation coordinates to find the ASU entities. These will then be used to make oligomers
-        # assume a globular nature to entity chains
+        # This routine uses the same logic at the get_contacting_asu(), however, using the COM of the found
+        # pose_transformation coordinates to find the ASU entities.
+        # These will then be used to make oligomers assume a globular nature to entity chains
         # therefore the minimal com to com dist is our asu and therefore naive asu coords
         if len(asu_indices) == 1:
             selected_asu_indices = [asu_indices[0][0]]  # choice doesn't matter, grab the first
@@ -5125,10 +5141,12 @@ class SymmetricModel(Models):
             # If imperfect symmetry, below may find some use
             # self._process_model(entities=entities, chains=False, **kwargs)
 
-    # def make_oligomers(self):
-    #     """Generate oligomers for each Entity in the SymmetricModel"""
-    #     for idx, entity in enumerate(self.entities):
-    #         entity.make_oligomer(symmetry=self.sym_entry.groups[idx], **self.transformations[idx])
+    def make_oligomers(self):
+        """Generate oligomers for each Entity in the SymmetricModel"""
+        for entity, subunit_number, symmetry, transformation in zip(self.entities, self.sym_entry.group_subunit_numbers,
+                                                                    self.sym_entry.groups, self.transformation):
+            if entity.number_of_symmetry_mates != subunit_number:
+                entity.make_oligomer(symmetry=symmetry, **transformation)
 
     def symmetric_assembly_is_clash(self, distance: float = 2.1, warn: bool = True) -> bool:  # Todo design_selector
         """Returns True if the SymmetricModel presents any clashes. Checks only backbone and CB atoms
@@ -5735,8 +5753,14 @@ class Pose(SequenceProfile, SymmetricModel):
         n_term, c_term = False, False
         if self.is_symmetric():
             if self.dimension > 0:
-                raise NotImplementedError("Can't measure the reference of an entity currently for lattice symmetries")
-                entity_reference = self.pose_transformation[index].get('translation2', None)
+                for idx, _entity in enumerate(self.entities):
+                    if entity == _entity:
+                        entity_reference = self.transformation[idx].get('translation2', None)
+                        self.log.critical("Locating the termini accessibility for lattice symmetries has't been tested")
+                        break
+                else:
+                    raise ValueError(f"Can't measure {entity.name} reference as it wasn't found in the "
+                                     f"{type(self).__name__}")
             else:
                 entity_reference = None
         if entity.termini_proximity_from_reference(reference=entity_reference) == 1:  # if outward

@@ -263,6 +263,7 @@ class SymEntry:
     __external_dof: list[np.ndarray]
     _degeneracy_matrices: np.ndarray | None
     _external_dof: np.ndarray
+    _group_subunit_numbers: list[int]
     _int_dof_groups: list[str]
     _ref_frame_tx_dof: list[str]
     _setting_matrices: list[np.ndarray]

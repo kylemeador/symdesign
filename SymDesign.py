@@ -1345,7 +1345,7 @@ def main():
         # if args.multi_processing:
         #     results = SDUtils.mp_map(protocols.PoseDirectory.find_transforms, pose_directories, processes=cores)
         # else:
-        stacked_transforms = [pose_directory.pose_transformation for pose_directory in pose_directories]
+        stacked_transforms = [pose_directory.pose.transformation for pose_directory in pose_directories]
         trans1_rot1, trans1_tx1, trans1_rot2, trans1_tx2 = zip(*[transform[0].values()
                                                                  for transform in stacked_transforms])
         trans2_rot1, trans2_tx1, trans2_rot2, trans2_tx2 = zip(*[transform[1].values()
