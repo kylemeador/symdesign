@@ -43,6 +43,7 @@ from utils.symmetry import generate_cryst1_record, get_central_asu
 
 # Globals
 logger = start_log(name=__name__, format_log=False, propagate=True)
+zero_offset = 1
 
 
 def get_interface_residues(pdb1, pdb2, cb_distance=9.0):
@@ -3055,7 +3056,6 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
                     # perturbed_bb_coords = np.concatenate(new_coords, axis=1)
 
                     # Initialize pose data structures for interface design
-                    zero_offset = 1
                     residue_mask = np.zeros((actual_batch_length, pose_length),
                                             dtype=np.int32)
                     # Utilize bias in design
@@ -3455,12 +3455,15 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
                 scores_df[f'entity_{idx}_number_of_mutations'] \
                 / interface_metrics_df.loc[:, f'entity_{idx}_number_of_residues']
 
-    is_thermophilic = []
-    idx = 1
-    for idx, entity in enumerate(pose.entities, idx):
-        is_thermophilic.append(getattr(other_pose_metrics, f'entity_{idx}_thermophile', 0))
+    # is_thermophilic = []
+    # idx = 1
+    # for idx, entity in enumerate(pose.entities, idx):
+    #     is_thermophilic.append(interface_metrics_df.loc[:, f'entity_{idx}_thermophile'])
 
-    interface_metrics_df['entity_thermophilicity'] = sum(is_thermophilic) / idx  # get the average
+    # Get the average thermophilicity for all entities
+    interface_metrics_df['entity_thermophilicity'] = \
+        interface_metrics_df.loc[:, [f'entity_{idx}_thermophile' for idx in range(1, pose.number_of_entities)]] \
+        / pose.number_of_entities
 
     scores_df = pd.concat([scores_df, pose_collapse_df], axis=1)
     print('scores_df', scores_df)
