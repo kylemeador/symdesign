@@ -5092,9 +5092,12 @@ class SymmetricModel(Models):
 
     def orient(self, symmetry: str = None, log: AnyStr = None):  # similar function in Entity
         """Orient is not available for SymmetricModel"""
-        raise NotImplementedError(f'{self.orient.__name__} is not available for {type(self).__name__}')
-        # Todo is this method at all useful? Could there be a situation where the symmetry is right,
-        #  but the axes aren't in their canonical locations?
+        if self.is_symmetric():
+            raise NotImplementedError(f'{self.orient.__name__} is not available for {type(self).__name__}')
+            # Todo is this method at all useful? Could there be a situation where the symmetry is right,
+            #  but the axes aren't in their canonical locations?
+        else:
+            super().orient(symmetry=symmetry, log=log)
 
     def format_biomt(self, **kwargs) -> str:
         """Return the SymmetricModel expand_matrices as a BIOMT record
