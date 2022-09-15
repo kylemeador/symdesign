@@ -19,49 +19,29 @@ from Bio.Align import MultipleSeqAlignment, substitution_matrices
 from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
 
+import structure.utils
 from metrics import hydrophobic_collapse_index
 from resources import info
+from structure.utils import protein_letters, protein_letters_3to1, alph_3_aa, protein_letter_plus_literals, \
+    protein_letters_gapped, protein_letters3_gapped, extended_protein_letters_literal
 from utils import handle_errors, start_log, pretty_format_table, unpickle, get_base_root_paths_recursively, \
     DesignError, CommandDistributer, path as PUtils
 # import dependencies.bmdca as bmdca
 
 # Globals
-protein_letters3: tuple[str, ...] = \
-    ('ALA', 'CYS', 'ASP', 'GLU', 'PHE', 'GLY', 'HIS', 'ILE', 'LYS', 'LEU', 'MET', 'ASN',
-     'PRO', 'GLN', 'ARG', 'SER', 'THR', 'VAL', 'TRP', 'TYR')
-extended_protein_letters3: tuple[str, ...] = \
-    ('ALA', 'CYS', 'ASP', 'GLU', 'PHE', 'GLY', 'HIS', 'ILE', 'LYS', 'LEU', 'MET', 'ASN',
-     'PRO', 'GLN', 'ARG', 'SER', 'THR', 'VAL', 'TRP', 'TYR', 'ASX', 'XAA', 'GLX', 'XLE', 'SEC', 'PYL')
-protein_letters: str = 'ACDEFGHIKLMNPQRSTVWY'
-extended_protein_letters: str = 'ACDEFGHIKLMNPQRSTVWYBXZJUO'
-protein_letters_3to1: dict[str, str] = dict(zip(protein_letters3, protein_letters))
-protein_letters_1to3: dict[str, str] = dict(zip(protein_letters, protein_letters3))
-protein_letters_3to1_extended: dict[str, str] = dict(zip(extended_protein_letters3, extended_protein_letters))
-protein_letters_1to3_extended: dict[str, str] = dict(zip(extended_protein_letters, extended_protein_letters3))
 logger = start_log(name=__name__)
 index_offset = 1
 alignment_types_literal = Literal['mapped', 'paired']
 alignment_types: tuple[alignment_types_literal, ...] = get_args(alignment_types_literal)
 sequence_type_literal = Literal['reference', 'structure']
 sequence_types: tuple[sequence_type_literal, ...] = get_args(sequence_type_literal)
-_alph_3_aa: tuple[info.protein_letters3_literal, ...] = get_args(info.protein_letters3_literal)
-alph_3_aa = ''.join(_alph_3_aa)
-protein_letter_plus_literals = Literal['A', 'R', 'N', 'D', 'C', 'Q', 'E', 'G', 'H', 'I', 'L', 'K', 'M', 'F', 'P', 'S',
-                                       'T', 'W', 'Y', 'V', 'lod', 'type', 'info', 'weight']
 aa_counts = dict(zip(protein_letters, repeat(0)))
 aa_weighted_counts = dict(zip(protein_letters, repeat(0)))
 aa_weighted_counts.update({'stats': [0, 1]})
 # add_fragment_profile_instructions = 'To add fragment information, call Pose.generate_interface_fragments()'
 subs_matrices = {'BLOSUM62': substitution_matrices.load('BLOSUM62')}
 
-protein_letters_1aa_literal = Literal[tuple(protein_letters)]
 # protein_letters_literal: tuple[str, ...] = get_args(protein_letters_1aa_literal)
-protein_letters_unknown = protein_letters + 'X'
-protein_letters3_unknown = alph_3_aa + 'X'
-protein_letters_gapped = protein_letters + '-'
-protein_letters3_gapped = alph_3_aa + '-'
-protein_letters_unknown_gapped = protein_letters + 'X-'
-protein_letters_unknown_gapped3 = alph_3_aa + 'X-'
 # numerical_translation = dict(zip(protein_letters, range(len(protein_letters))))
 numerical_translation_bytes = defaultdict(lambda: 20, zip([item.encode() for item in protein_letters],
                                                           range(len(protein_letters))))
@@ -76,7 +56,6 @@ gapped_numerical_translation_bytes = defaultdict(lambda: 20, zip([item.encode() 
                                                                  range(len(protein_letters_gapped))))
 gapped_numerical_translation_bytes3 = defaultdict(lambda: 20, zip([item.encode() for item in protein_letters3_gapped],
                                                                   range(len(protein_letters3_gapped))))
-extended_protein_letters_literal = Literal[tuple(extended_protein_letters)]
 # extended_protein_letters: tuple[str, ...] = get_args(extended_protein_letters_literal)
 extended_protein_letters_and_gap_literal = Literal['-', get_args(extended_protein_letters_literal)]
 extended_protein_letters_and_gap: tuple[str, ...] = get_args(extended_protein_letters_and_gap_literal)
@@ -1665,8 +1644,8 @@ class SequenceProfile:
         return {residue: {character: dtype() for character in alphabet} for residue in range(offset, n + offset)}
 
     @staticmethod
-    def get_lod(aa_freqs: dict[info.protein_letters3_literal, float],
-                background: dict[info.protein_letters3_literal, float],
+    def get_lod(aa_freqs: dict[structure.utils.protein_letters3_literal, float],
+                background: dict[structure.utils.protein_letters3_literal, float],
                 round_lod: bool = True) -> dict[str, int]:
         """Get the log of the odds that an amino acid is in a frequency distribution compared to a background frequency
 
@@ -2255,7 +2234,7 @@ def parse_pssm(file: AnyStr, **kwargs) -> dict[int, dict[str, str | float | int 
         if len(line_data) == 44:
             residue_number = int(line_data[0])
             pose_dict[residue_number] = \
-                dict(zip(alph_3_aa, [x/100. for x in map(int, line_data[22:len(alph_3_aa)+22])]))
+                dict(zip(alph_3_aa, [x / 100. for x in map(int, line_data[22:len(alph_3_aa) + 22])]))
             # pose_dict[residue_number] = copy(aa_counts)
             # for i, aa in enumerate(alph_3_aa, 22):
             #     # Get normalized counts for pose_dict
@@ -2263,7 +2242,7 @@ def parse_pssm(file: AnyStr, **kwargs) -> dict[int, dict[str, str | float | int 
 
             # for i, aa in enumerate(alph_3_aa, 2):
             #     pose_dict[residue_number]['lod'][aa] = line_data[i]
-            pose_dict[residue_number]['lod'] = dict(zip(alph_3_aa, line_data[2:len(alph_3_aa)+2]))
+            pose_dict[residue_number]['lod'] = dict(zip(alph_3_aa, line_data[2:len(alph_3_aa) + 2]))
             pose_dict[residue_number]['type'] = line_data[1]
             pose_dict[residue_number]['info'] = float(line_data[42])
             pose_dict[residue_number]['weight'] = float(line_data[43])

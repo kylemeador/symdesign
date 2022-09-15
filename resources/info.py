@@ -2,21 +2,14 @@ from __future__ import annotations
 
 import os
 from glob import glob
-from typing import AnyStr, Iterable, Literal
+from typing import AnyStr, Iterable
 
-from structure.sequence import protein_letters
+from structure.utils import protein_letters, protein_letters3_literal
 from utils.path import biological_interfaces, frag_directory
 from utils import start_log, unpickle, get_base_root_paths_recursively, DesignError, parameterize_frag_length
 from utils.sql import Mysql
 
 logger = start_log(name=__name__)
-protein_letters3_literal = \
-    Literal['A', 'R', 'N', 'D', 'C', 'Q', 'E', 'G', 'H', 'I', 'L', 'K', 'M', 'F', 'P', 'S', 'T', 'W', 'Y', 'V']
-protein_letters3_literal_gapped = \
-    Literal['A', 'R', 'N', 'D', 'C', 'Q', 'E', 'G', 'H', 'I', 'L', 'K', 'M', 'F', 'P', 'S', 'T', 'W', 'Y', 'V', '-']
-protein_letters3_literal_unknown_gapped = \
-    Literal['A', 'R', 'N', 'D', 'C', 'Q', 'E', 'G', 'H', 'I', 'L', 'K', 'M', 'F', 'P', 'S', 'T', 'W', 'Y', 'V',
-            'X', '-']
 
 
 class FragmentInfo:

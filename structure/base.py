@@ -13,7 +13,7 @@ from sklearn.neighbors import BallTree  # , KDTree, NearestNeighbors
 
 from structure.coords import Coords, superposition3d
 from structure.fragment import Fragment, MonoFragment, ResidueFragment
-from structure.sequence import protein_letters, protein_letters_1to3, protein_letters_3to1_extended
+from structure.utils import protein_letters, protein_letters_1to3, protein_letters_3to1_extended
 from utils.path import freesasa_exe_path, stride_exe_path, errat_exe_path, freesasa_config_path, \
     reference_residues_pkl, program_name, program_version
 from utils import start_log, null_log, unpickle, digit_translate_table, DesignError, ClashError, startdate
