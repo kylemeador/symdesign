@@ -647,7 +647,7 @@ class PoseDirectory:
                     self._pose_transformation = retrieve_pose_transformation_from_nanohedra_docking(self.pose_file)
                 except (FileNotFoundError, NotADirectoryError):
                     try:
-                        self._pose_transformation = self.pose.assign_pose_transformation()
+                        self._pose_transformation = self.pose._assign_pose_transformation()
                     except DesignError:
                         # Todo this is something outside of the realm of possibilities of Nanohedra symmetry groups
                         #  Perhaps we need to get the parameters for oligomer generation from PISA or other source
