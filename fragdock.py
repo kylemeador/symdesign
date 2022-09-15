@@ -3254,6 +3254,8 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
                 # log.critical(f'Calculation failed with {divisor}.\n{error}\n{torch.cuda.memory_stats()}\nTrying again...')
                 log.critical(f'Calculation failed with {batch_length}.\n{error}\n{torch.cuda.memory_stats()}\nTrying again...')
                 # log.critical(f'{error}\nTrying again...')
+                # Remove data that has been set
+                pose_ids.clear()
                 # Remove all tensors from memory
                 try:
                     # constant parameters
