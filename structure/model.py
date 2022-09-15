@@ -32,8 +32,8 @@ from structure.base import Structure, Structures, Residue, Residues, StructureBa
 from structure.coords import Coords, superposition3d, transform_coordinate_sets
 from structure.fragment import GhostFragment, Fragment, write_frag_match_info_file
 from structure.sequence import SequenceProfile, alignment_types, generate_alignment, get_equivalent_indices, \
-    pssm_as_array, protein_letters_gapped, generate_mutations, protein_letters_1to3_extended, \
-    protein_letters_3to1_extended
+    pssm_as_array, generate_mutations
+from structure.utils import protein_letters_3to1_extended, protein_letters_1to3_extended, protein_letters_gapped
 from utils import dictionary_lookup, start_log, null_log, digit_translate_table, DesignError, ClashError, \
     SymmetryError, calculate_match, z_value_from_match_score, remove_duplicates, path as PUtils
 from utils.SymEntry import get_rot_matrices, make_rotations_degenerate, SymEntry, point_group_setting_matrix_members,\

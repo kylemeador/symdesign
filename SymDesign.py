@@ -39,7 +39,8 @@ from resources.query.utils import input_string, bool_d, boolean_choice, invalid_
     validate_input_return_response_value
 from setup import set_up_instructions
 from structure.model import Model
-from structure.sequence import generate_mutations, find_orf_offset, read_fasta_file, protein_letters
+from structure.sequence import generate_mutations, find_orf_offset, read_fasta_file
+from structure.utils import protein_letters
 from utils import path as PUtils
 
 # def rename(des_dir, increment=PUtils.nstruct):

@@ -6,7 +6,8 @@ import numpy as np
 
 import utils
 from utils import path as PUtils
-from structure.sequence import generate_alignment, protein_letters
+from structure.sequence import generate_alignment
+from structure.utils import protein_letters
 from DnaChisel.dnachisel import DnaOptimizationProblem, CodonOptimize, reverse_translate, AvoidHairpins, \
     EnforceGCContent, AvoidPattern, AvoidRareCodons, UniquifyAllKmers, EnforceTranslation  # EnforceMeltingTemperature
 from resources.query.pdb import get_entity_reference_sequence, pdb_id_matching_uniprot_id

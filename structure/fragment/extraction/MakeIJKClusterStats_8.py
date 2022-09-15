@@ -5,7 +5,7 @@ from itertools import repeat
 import FragUtils as Frag
 import numpy as np
 
-from structure.sequence import protein_letters_3to1
+from structure.utils import protein_letters_3to1
 from structure.model import Model
 
 # Globals
