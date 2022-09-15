@@ -23,7 +23,7 @@ import flags
 from resources.EulerLookup import EulerLookup, euler_factory
 from resources.fragment import format_fragment_metrics, fragment_metric_template, FragmentDatabase, fragment_factory
 from ProteinMPNN.helper_scripts.other_tools.make_pssm_dict import softmax
-from resources.ml import proteinmpnn_factory, batch_proteinmpnn_input, proteinmpnn_to_device
+from resources.ml import proteinmpnn_factory, batch_proteinmpnn_input, proteinmpnn_to_device, mpnn_alphabet_length
 from resources.query.pdb import retrieve_entity_id_by_sequence, query_pdb_by, get_entity_reference_sequence, \
     is_entity_thermophilic
 from resources.query.uniprot import is_uniprot_thermophilic
@@ -33,7 +33,7 @@ from structure.coords import Coords, superposition3d, transform_coordinate_sets
 from structure.fragment import GhostFragment, Fragment, write_frag_match_info_file
 from structure.sequence import SequenceProfile, alignment_types, generate_alignment, get_equivalent_indices, \
     pssm_as_array, generate_mutations
-from structure.utils import protein_letters_3to1_extended, protein_letters_1to3_extended, protein_letters_gapped
+from structure.utils import protein_letters_3to1_extended, protein_letters_1to3_extended
 from utils import dictionary_lookup, start_log, null_log, digit_translate_table, DesignError, ClashError, \
     SymmetryError, calculate_match, z_value_from_match_score, remove_duplicates, path as PUtils
 from utils.SymEntry import get_rot_matrices, make_rotations_degenerate, SymEntry, point_group_setting_matrix_members,\
@@ -44,7 +44,6 @@ from utils.symmetry import valid_subunit_number, layer_group_cryst1_fmt_dict, \
     origin, flip_x_matrix, identity_matrix, valid_symmetries, multicomponent_valid_subunit_number, cubic_point_groups
 
 # Globals
-mpnn_alphabet_length = len(protein_letters_gapped)  # 21
 logger = start_log(name=__name__)
 zero_offset = 1
 seq_res_len = 52

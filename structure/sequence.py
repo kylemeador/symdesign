@@ -22,42 +22,42 @@ from Bio.SeqRecord import SeqRecord
 import structure.utils
 from metrics import hydrophobic_collapse_index
 from resources import info
-from structure.utils import protein_letters, protein_letters_3to1, alph_3_aa, protein_letter_plus_literals, \
-    protein_letters_gapped, protein_letters3_gapped, extended_protein_letters_literal
+from structure.utils import protein_letters_alph1, protein_letters_3to1, protein_letters_alph3, protein_letters_alph3_plus_literal, \
+    protein_letters_alph1_gapped, protein_letters_alph3_gapped, protein_letters_alph1_extended_literal
 from utils import handle_errors, start_log, pretty_format_table, unpickle, get_base_root_paths_recursively, \
     DesignError, CommandDistributer, path as PUtils
 # import dependencies.bmdca as bmdca
 
 # Globals
 logger = start_log(name=__name__)
-index_offset = 1
+zero_offset = 1
 alignment_types_literal = Literal['mapped', 'paired']
 alignment_types: tuple[alignment_types_literal, ...] = get_args(alignment_types_literal)
 sequence_type_literal = Literal['reference', 'structure']
 sequence_types: tuple[sequence_type_literal, ...] = get_args(sequence_type_literal)
-aa_counts = dict(zip(protein_letters, repeat(0)))
-aa_weighted_counts = dict(zip(protein_letters, repeat(0)))
+aa_counts = dict(zip(protein_letters_alph1, repeat(0)))
+aa_weighted_counts = dict(zip(protein_letters_alph1, repeat(0)))
 aa_weighted_counts.update({'stats': [0, 1]})
 # add_fragment_profile_instructions = 'To add fragment information, call Pose.generate_interface_fragments()'
 subs_matrices = {'BLOSUM62': substitution_matrices.load('BLOSUM62')}
 
-# protein_letters_literal: tuple[str, ...] = get_args(protein_letters_1aa_literal)
-# numerical_translation = dict(zip(protein_letters, range(len(protein_letters))))
-numerical_translation_bytes = defaultdict(lambda: 20, zip([item.encode() for item in protein_letters],
-                                                          range(len(protein_letters))))
-numerical_translation_bytes3 = defaultdict(lambda: 20, zip([item.encode() for item in alph_3_aa],
-                                                           range(len(alph_3_aa))))
-numeric_to_sequence_translation = defaultdict(lambda: '-', zip(range(len(protein_letters)), protein_letters))
-numeric_to_sequence_translation3 = defaultdict(lambda: '-', zip(range(len(alph_3_aa)), alph_3_aa))
-gapped_numerical_translation = defaultdict(lambda: 20, zip(protein_letters_gapped, range(len(protein_letters_gapped))))
-gapped_numerical_translation3 = defaultdict(lambda: 20, zip(protein_letters3_gapped,
-                                                            range(len(protein_letters3_gapped))))
-gapped_numerical_translation_bytes = defaultdict(lambda: 20, zip([item.encode() for item in protein_letters_gapped],
-                                                                 range(len(protein_letters_gapped))))
-gapped_numerical_translation_bytes3 = defaultdict(lambda: 20, zip([item.encode() for item in protein_letters3_gapped],
-                                                                  range(len(protein_letters3_gapped))))
-# extended_protein_letters: tuple[str, ...] = get_args(extended_protein_letters_literal)
-extended_protein_letters_and_gap_literal = Literal['-', get_args(extended_protein_letters_literal)]
+# protein_letters_literal: tuple[str, ...] = get_args(protein_letters_alph1_literal)
+# numerical_translation = dict(zip(protein_letters_alph1, range(len(protein_letters_alph1))))
+numerical_translation_bytes = defaultdict(lambda: 20, zip([item.encode() for item in protein_letters_alph1],
+                                                          range(len(protein_letters_alph1))))
+numerical_translation_bytes3 = defaultdict(lambda: 20, zip([item.encode() for item in protein_letters_alph3],
+                                                           range(len(protein_letters_alph3))))
+numeric_to_sequence_translation = defaultdict(lambda: '-', zip(range(len(protein_letters_alph1)), protein_letters_alph1))
+numeric_to_sequence_translation3 = defaultdict(lambda: '-', zip(range(len(protein_letters_alph3)), protein_letters_alph3))
+gapped_numerical_translation = defaultdict(lambda: 20, zip(protein_letters_alph1_gapped, range(len(protein_letters_alph1_gapped))))
+gapped_numerical_translation3 = defaultdict(lambda: 20, zip(protein_letters_alph3_gapped,
+                                                            range(len(protein_letters_alph3_gapped))))
+gapped_numerical_translation_bytes = defaultdict(lambda: 20, zip([item.encode() for item in protein_letters_alph1_gapped],
+                                                                 range(len(protein_letters_alph1_gapped))))
+gapped_numerical_translation_bytes3 = defaultdict(lambda: 20, zip([item.encode() for item in protein_letters_alph3_gapped],
+                                                                  range(len(protein_letters_alph3_gapped))))
+# protein_letters_alph1_extended: tuple[str, ...] = get_args(protein_letters_alph1_extended_literal)
+extended_protein_letters_and_gap_literal = Literal[get_args(protein_letters_alph1_extended_literal), '-']
 extended_protein_letters_and_gap: tuple[str, ...] = get_args(extended_protein_letters_and_gap_literal)
 
 
@@ -79,7 +79,7 @@ class MultipleSequenceAlignment:
     counts: list[list[int]] | np.ndarray
 
     def __init__(self, alignment: MultipleSeqAlignment = None, aligned_sequence: str = None,
-                 alphabet: str = protein_letters_gapped,
+                 alphabet: str = protein_letters_alph1_gapped,
                  weight_alignment_by_sequence: bool = False, sequence_weights: list[float] = None,
                  count_gaps: bool = False, **kwargs):
         """Take a Biopython MultipleSeqAlignment object and process for residue specific information. One-indexed
@@ -176,7 +176,7 @@ class MultipleSequenceAlignment:
                 print('OLD sequence_weight self._counts', self._counts)
 
                 # add each sequence weight to the indices indicated by the numerical_alignment
-                self.counts = np.zeros((self.length, len(protein_letters_gapped)))
+                self.counts = np.zeros((self.length, len(protein_letters_alph1_gapped)))
                 for idx in range(self.number_of_sequences):
                     self.counts[:, numerical_alignment[idx]] += sequence_weights[idx]
                 print('sequence_weight self.counts', self.counts)
@@ -286,7 +286,7 @@ class MultipleSequenceAlignment:
         #                      for amino_acid_counts, observation in zip(self._counts, self._observations)]
         # print('OLD self._frequencies', self._frequencies)
 
-        # self.frequencies = np.zeros((self.length, len(protein_letters)))  # self.counts.shape)
+        # self.frequencies = np.zeros((self.length, len(protein_letters_alph1)))  # self.counts.shape)
         # for residue_idx in range(self.length):
         #     self.frequencies[residue_idx, :] = self.counts[:, :-1] / self.observations
         try:
@@ -360,10 +360,10 @@ def pssm_as_array(pssm: dict[int, dict[str, str | float | int | dict[str, int]]]
             i.e array([[0.1, 0.01, 0.12, ...], ...])
     """
     if lod:
-        return np.array([[residue_info['lod'][aa] for aa in protein_letters]
+        return np.array([[residue_info['lod'][aa] for aa in protein_letters_alph1]
                          for residue_info in pssm.values()], dtype=np.float32)
     else:
-        return np.array([[residue_info[aa] for aa in protein_letters]
+        return np.array([[residue_info[aa] for aa in protein_letters_alph1]
                          for residue_info in pssm.values()], dtype=np.float32)
         # return np.vectorize(numerical_translation_bytes.__getitem__)(_array)
 
@@ -642,7 +642,7 @@ class SequenceProfile:
             Ex: {1: {'A': 0, 'R': 0, ..., 'lod': {'A': -5, 'R': -5, ...}, 'type': 'W', 'info': 3.20, 'weight': 0.73},
                  2: {}, ...}
         """
-        self.evolutionary_profile = self.populate_design_dictionary(self.number_of_residues, alph_3_aa)
+        self.evolutionary_profile = self.populate_design_dictionary(self.number_of_residues, protein_letters_alph3)
         sequence = self.sequence
         for idx, residue_number in enumerate(self.evolutionary_profile):
             self.evolutionary_profile[residue_number]['lod'] = copy(aa_counts)
@@ -748,11 +748,11 @@ class SequenceProfile:
             if len(line_data) == 44:
                 residue_number = int(line_data[0])
                 self.evolutionary_profile[residue_number] = copy(aa_counts)
-                for i, aa in enumerate(alph_3_aa, 22):  # pose_dict[residue_number], 22):
+                for i, aa in enumerate(protein_letters_alph3, 22):  # pose_dict[residue_number], 22):
                     # Get normalized counts for pose_dict
                     self.evolutionary_profile[residue_number][aa] = (int(line_data[i]) / 100.0)
                 self.evolutionary_profile[residue_number]['lod'] = {}
-                for i, aa in enumerate(alph_3_aa, 2):
+                for i, aa in enumerate(protein_letters_alph3, 2):
                     self.evolutionary_profile[residue_number]['lod'][aa] = line_data[i]
                 self.evolutionary_profile[residue_number]['type'] = line_data[1]
                 self.evolutionary_profile[residue_number]['info'] = float(line_data[42])
@@ -843,15 +843,15 @@ class SequenceProfile:
                     if null_background:
                         # use the provided null background from the profile search
                         background = line.strip().split()
-                        null_bg = {i: {} for i in alph_3_aa}
-                        for i, aa in enumerate(alph_3_aa, 1):
+                        null_bg = {i: {} for i in protein_letters_alph3}
+                        for i, aa in enumerate(protein_letters_alph3, 1):
                             null_bg[aa] = to_freq(background[i])
 
                 if len(line.split()) == 23:
                     items = line.strip().split()
                     residue_number = int(items[1])
                     self.evolutionary_profile[residue_number] = {}
-                    for i, aa in enumerate(protein_letters, 2):
+                    for i, aa in enumerate(protein_letters_alph1, 2):
                         self.evolutionary_profile[residue_number][aa] = to_freq(items[i])
                     self.evolutionary_profile[residue_number]['lod'] = \
                         get_lod(self.evolutionary_profile[residue_number], null_bg)
@@ -1374,7 +1374,7 @@ class SequenceProfile:
                           % '\n\t'.join(f'Residue {entry:5d}: {weight*100:.0f}% fragment weight'
                                         for entry, weight in self.alpha.items()))
         for entry, weight in self.alpha.items():  # weight will be 0 if the fragment_profile is empty
-            for aa in protein_letters:
+            for aa in protein_letters_alph1:
                 self.profile[entry][aa] = \
                     (weight * self.fragment_profile[entry][aa]) + ((1 - weight) * self.profile[entry][aa])
 
@@ -1644,8 +1644,8 @@ class SequenceProfile:
         return {residue: {character: dtype() for character in alphabet} for residue in range(offset, n + offset)}
 
     @staticmethod
-    def get_lod(aa_freqs: dict[structure.utils.protein_letters3_literal, float],
-                background: dict[structure.utils.protein_letters3_literal, float],
+    def get_lod(aa_freqs: dict[structure.utils.protein_letters_alph3_literal, float],
+                background: dict[structure.utils.protein_letters_alph3_literal, float],
                 round_lod: bool = True) -> dict[str, int]:
         """Get the log of the odds that an amino acid is in a frequency distribution compared to a background frequency
 
@@ -1663,7 +1663,7 @@ class SequenceProfile:
             except ValueError:  # math domain error
                 lods[aa] = -9
             except KeyError:
-                if aa in protein_letters:
+                if aa in protein_letters_alph1:
                     raise KeyError(f'{aa} was not in the background frequencies: {", ".join(background)}')
                 else:  # we shouldn't worry about a missing value if it's not an amino acid
                     continue
@@ -1680,7 +1680,7 @@ class SequenceProfile:
             return {aa: (value if value >= -9 else -9) for aa, value in lods.items()}
 
     @staticmethod
-    def write_pssm_file(pssm: dict[protein_letter_plus_literals, float | str | tuple | dict], name: str,
+    def write_pssm_file(pssm: dict[protein_letters_alph3_plus_literal, float | str | tuple | dict], name: str,
                         out_path: AnyStr = os.getcwd()) -> str | None:
         """Create a PSI-BLAST format PSSM file from a PSSM dictionary. Assumes residue numbering is correct!
 
@@ -1705,7 +1705,7 @@ class SequenceProfile:
         # if type(pssm[first_key]['A']) == float:
         #     counts_freq = True
 
-        header = f'\n\n{" " * 12}{separation1.join(alph_3_aa)}{separation1}{(" " * 3).join(alph_3_aa)}\n'
+        header = f'\n\n{" " * 12}{separation1.join(protein_letters_alph3)}{separation1}{(" " * 3).join(protein_letters_alph3)}\n'
         # footer = ''
         out_file = os.path.join(out_path, name)
         with open(out_file, 'w') as f:
@@ -1713,13 +1713,13 @@ class SequenceProfile:
             for residue_number, profile in pssm.items():
                 # aa_type = profile['type']
                 if isinstance(profile['lod']['A'], float):  # lod_freq:  # relevant for favor_fragment
-                    lod_string = '%s ' % ' '.join('{:>4.2f}'.format(profile['lod'][aa]) for aa in alph_3_aa)
+                    lod_string = '%s ' % ' '.join('{:>4.2f}'.format(profile['lod'][aa]) for aa in protein_letters_alph3)
                 else:
-                    lod_string = '%s ' % ' '.join('{:>3d}'.format(profile['lod'][aa]) for aa in alph_3_aa)
+                    lod_string = '%s ' % ' '.join('{:>3d}'.format(profile['lod'][aa]) for aa in protein_letters_alph3)
                 if isinstance(profile['A'], float):  # counts_freq: # relevant for freq calculations
-                    counts_string = '%s ' % ' '.join('{:>3.0f}'.format(floor(profile[aa] * 100)) for aa in alph_3_aa)
+                    counts_string = '%s ' % ' '.join('{:>3.0f}'.format(floor(profile[aa] * 100)) for aa in protein_letters_alph3)
                 else:
-                    counts_string = '%s ' % ' '.join('{:>3d}'.format(profile[aa]) for aa in alph_3_aa)
+                    counts_string = '%s ' % ' '.join('{:>3d}'.format(profile[aa]) for aa in protein_letters_alph3)
                 # info = profile.get('info', 0.)
                 # weight = profile.get('weight', 0.)
                 # line = '{:>5d} {:1s}   {:80s} {:80s} {:4.2f} {:4.2f}\n'.format(residue_number, aa_type, lod_string,
@@ -1850,7 +1850,7 @@ def overlap_consensus(issm, aa_set):
 #     return {}
 #
 #
-# def get_db_aa_frequencies(database: AnyStr) -> dict[protein_letters, float]:
+# def get_db_aa_frequencies(database: AnyStr) -> dict[protein_letters_alph1, float]:
 #     """Retrieve database specific interface background AA frequencies
 #
 #     Args:
@@ -2234,15 +2234,17 @@ def parse_pssm(file: AnyStr, **kwargs) -> dict[int, dict[str, str | float | int 
         if len(line_data) == 44:
             residue_number = int(line_data[0])
             pose_dict[residue_number] = \
-                dict(zip(alph_3_aa, [x / 100. for x in map(int, line_data[22:len(alph_3_aa) + 22])]))
+                dict(zip(protein_letters_alph3,
+                         [x / 100. for x in map(int, line_data[22:len(protein_letters_alph3) + 22])]))
             # pose_dict[residue_number] = copy(aa_counts)
-            # for i, aa in enumerate(alph_3_aa, 22):
+            # for i, aa in enumerate(protein_letters_alph3, 22):
             #     # Get normalized counts for pose_dict
             #     pose_dict[residue_number][aa] = int(line_data[i]) / 100.
 
-            # for i, aa in enumerate(alph_3_aa, 2):
+            # for i, aa in enumerate(protein_letters_alph3, 2):
             #     pose_dict[residue_number]['lod'][aa] = line_data[i]
-            pose_dict[residue_number]['lod'] = dict(zip(alph_3_aa, line_data[2:len(alph_3_aa) + 2]))
+            pose_dict[residue_number]['lod'] = \
+                dict(zip(protein_letters_alph3, line_data[2:len(protein_letters_alph3) + 2]))
             pose_dict[residue_number]['type'] = line_data[1]
             pose_dict[residue_number]['info'] = float(line_data[42])
             pose_dict[residue_number]['weight'] = float(line_data[43])
@@ -2349,15 +2351,15 @@ def parse_hhblits_pssm(file, null_background=True, **kwargs):
                 if null_background:
                     # use the provided null background from the profile search
                     background = line.strip().split()
-                    null_bg = {i: {} for i in alph_3_aa}
-                    for i, aa in enumerate(alph_3_aa, 1):
+                    null_bg = {i: {} for i in protein_letters_alph3}
+                    for i, aa in enumerate(protein_letters_alph3, 1):
                         null_bg[aa] = to_freq(background[i])
 
             if len(line.split()) == 23:
                 items = line.strip().split()
                 residue_number = int(items[1])
                 pose_dict[residue_number] = {}
-                for i, aa in enumerate(protein_letters, 2):
+                for i, aa in enumerate(protein_letters_alph1, 2):
                     pose_dict[residue_number][aa] = to_freq(items[i])
                 pose_dict[residue_number]['lod'] = get_lod(pose_dict[residue_number], null_bg)
                 pose_dict[residue_number]['type'] = items[0]
@@ -2386,8 +2388,8 @@ def make_pssm_file(pssm_dict, name, outpath=os.getcwd()):
     if type(pssm_dict[0]['A']) == float:
         counts_freq = True
 
-    header = '\n\n            ' + (' ' * separation_string1).join(aa for aa in alph_3_aa) \
-             + ' ' * separation_string1 + (' ' * separation_string2).join(aa for aa in alph_3_aa) + '\n'
+    header = '\n\n            ' + (' ' * separation_string1).join(aa for aa in protein_letters_alph3) \
+             + ' ' * separation_string1 + (' ' * separation_string2).join(aa for aa in protein_letters_alph3) + '\n'
     footer = ''
     out_file = os.path.join(outpath, name)  # + '.pssm'
     with open(out_file, 'w') as f:
@@ -2396,17 +2398,17 @@ def make_pssm_file(pssm_dict, name, outpath=os.getcwd()):
             aa_type = pssm_dict[res]['type']
             lod_string = ''
             if lod_freq:
-                for aa in alph_3_aa:  # ensure alpha_3_aa_list for PSSM format
+                for aa in protein_letters_alph3:  # ensure alpha_3_aa_list for PSSM format
                     lod_string += '{:>4.2f} '.format(pssm_dict[res]['lod'][aa])
             else:
-                for aa in alph_3_aa:  # ensure alpha_3_aa_list for PSSM format
+                for aa in protein_letters_alph3:  # ensure alpha_3_aa_list for PSSM format
                     lod_string += '{:>3d} '.format(pssm_dict[res]['lod'][aa])
             counts_string = ''
             if counts_freq:
-                for aa in alph_3_aa:  # ensure alpha_3_aa_list for PSSM format
+                for aa in protein_letters_alph3:  # ensure alpha_3_aa_list for PSSM format
                     counts_string += '{:>3.0f} '.format(floor(pssm_dict[res][aa] * 100))
             else:
-                for aa in alph_3_aa:  # ensure alpha_3_aa_list for PSSM format
+                for aa in protein_letters_alph3:  # ensure alpha_3_aa_list for PSSM format
                     counts_string += '{:>3d} '.format(pssm_dict[res][aa])
             info = pssm_dict[res]['info']
             weight = pssm_dict[res]['weight']
@@ -2464,7 +2466,7 @@ def combine_pssm(pssms):
 #
 #     # Combine fragment and evolutionary probability profile according to alpha parameter
 #     for entry in alpha:
-#         for aa in protein_letters:
+#         for aa in protein_letters_alph1:
 #             pssm[entry][aa] = (alpha[entry] * issm[entry][aa]) + ((1 - alpha[entry]) * pssm[entry][aa])
 #         logger.info('Residue %d Combined evolutionary and fragment profile: %.0f%% fragment'
 #                     % (entry + zero_offset, alpha[entry] * 100))
@@ -2559,7 +2561,7 @@ def consensus_sequence(pssm):
     for residue in pssm:
         max_lod = 0
         max_res = pssm[residue]['type']
-        for aa in alph_3_aa:
+        for aa in protein_letters_alph3:
             if pssm[residue]['lod'][aa] > max_lod:
                 max_lod = pssm[residue]['lod'][aa]
                 max_res = aa
