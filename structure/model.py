@@ -3685,23 +3685,9 @@ class SymmetricModel(Models):
     def from_assembly(cls, assembly: list[Structure], sym_entry: SymEntry | int = None, symmetry: str = None, **kwargs):
         """Initialize from a symmetric assembly"""
         if symmetry is None and sym_entry is None:
-            raise ValueError(f'Can\'t initialize {type(cls).__name__} without symmetry! Pass symmetry or '
+            raise ValueError(f"Can't initialize {type(cls).__name__} without symmetry! Pass symmetry or "
                              f'sym_entry to constructor {cls.from_assembly.__name__}')
         return cls(models=assembly, sym_entry=sym_entry, symmetry=symmetry, **kwargs)
-
-    # @classmethod
-    # def from_asu(cls, asu, **kwargs):  # generate_symmetry_mates=True
-    #     """From a Structure representing an asu, return the SymmetricModel with generated symmetry mates
-    #
-    #     Keyword Args:
-    #         # generate_symmetry_mates=True (bool): Whether the symmetric copies of the ASU model should be generated
-    #         surrounding_uc=True (bool): Whether the 3x3 layer group, or 3x3x3 space group should be generated
-    #     """
-    #     return cls(asu=asu, **kwargs)  # generate_symmetry_mates=generate_symmetry_mates,
-    #
-    # @classmethod
-    # def from_asu_file(cls, asu_file, **kwargs):
-    #     return cls(asu_file=asu_file, **kwargs)
 
     def set_symmetry(self, sym_entry: SymEntry | int = None, symmetry: str = None,
                      uc_dimensions: list[float] = None, expand_matrices: np.ndarray | list = None):
@@ -3794,11 +3780,6 @@ class SymmetricModel(Models):
         #  if not self.sym_entry:
         #      del self._symmetry
 
-        # if generate_assembly_coords:  # if self.asu and generate_assembly_coords:
-        #     self.generate_symmetric_coords(**kwargs)
-        #     if generate_symmetry_mates:
-        #         self.generate_assembly_symmetry_models(**kwargs)
-
     # @property
     # def chains(self) -> list[Entity]:
     #     """Return all the Chain objects including symmetric chains"""
@@ -3819,20 +3800,6 @@ class SymmetricModel(Models):
     #              for idx in entity_indices] for entity_indices in self.atom_indices_per_entity]
     #  Todo this is used in atom_indices_per_entity_symmetric
     #     return [self.get_symmetric_indices(entity_indices) for entity_indices in self.atom_indices_per_entity]
-
-    # @property
-    # def sequence(self) -> str:
-    #     """Holds the SymmetricModel amino acid sequence"""
-    #     return ''.join(entity.sequence for entity in self.chains)
-    #
-    # @property
-    # def reference_sequence(self) -> str:
-    #     """Return the entire SymmetricModel sequence, constituting all Residues, not just structurally modelled ones
-    #
-    #     Returns:
-    #         The sequence according to each of the Entity references
-    #     """
-    #     return ''.join(entity.reference_sequence for entity in self.chains)
 
     @property
     def sym_entry(self) -> SymEntry | None:
@@ -4018,23 +3985,6 @@ class SymmetricModel(Models):
         return [self.get_symmetric_indices(entity_indices) for entity_indices in self.atom_indices_per_entity]
         # return [[idx + (number_of_atoms * model_number) for model_number in range(self.number_of_symmetry_mates)
         #          for idx in entity_indices] for entity_indices in self.atom_indices_per_entity]
-
-    # def set_asu_coords(self, coords: Coords | np.ndarray | list[list[float]]):
-    #     """Set the coordinates corresponding to the asymmetric unit for the SymmetricModel"""
-    #     self._coords.set(coords)
-    #     if self.symmetry:
-    #         self.generate_symmetric_coords()
-
-    # @property
-    # def asu_coords(self) -> np.ndarray:
-    #     """Return a view of the ASU Coords"""
-    #     return self._coords.coords[self.asu_indices]
-    #
-    # @asu_coords.setter
-    # def asu_coords(self, coords: Coords):
-    #     self.coords = coords
-    #     # set the symmetric coords according to the ASU
-    #     self.generate_symmetric_coords()
 
     @StructureBase.coords.setter
     def coords(self, coords: np.ndarray | list[list[float]]):
@@ -4240,26 +4190,6 @@ class SymmetricModel(Models):
         if self.uc_dimensions is None:
             raise ValueError("Can't manipulate unit cell, no unit cell dimensions were passed")
 
-        # degree_to_radians = pi / 180.
-        # a, b, c, alpha, beta, gamma = self.uc_dimensions
-        # alpha *= degree_to_radians
-        # beta *= degree_to_radians
-        # gamma *= degree_to_radians
-        #
-        # # unit cell volume
-        # a_cos = cos(alpha)
-        # b_cos = cos(beta)
-        # g_cos = cos(gamma)
-        # g_sin = sin(gamma)
-        # v = a * b * c * sqrt(1 - a_cos ** 2 - b_cos ** 2 - g_cos ** 2 + 2 * (a_cos * b_cos * g_cos))
-        #
-        # # deorthogonalization matrix m
-        # m0 = [1 / a, -(g_cos / float(a * g_sin)),
-        #       (((b * g_cos * c * (a_cos - (b_cos * g_cos))) / float(g_sin)) - (b * c * b_cos * g_sin)) * (1 / float(v))]
-        # m1 = [0, 1 / (b * g_sin), -((a * c * (a_cos - (b_cos * g_cos))) / float(v * g_sin))]
-        # m2 = [0, 0, (a * b * g_sin) / float(v)]
-        # m = [m0, m1, m2]
-
         return np.matmul(cart_coords, np.transpose(self.deorthogonalization_matrix))
 
     def frac_to_cart(self, frac_coords: np.ndarray | Iterable | int | float) -> np.ndarray:
@@ -4273,25 +4203,6 @@ class SymmetricModel(Models):
         """
         if self.uc_dimensions is None:
             raise ValueError("Can't manipulate unit cell, no unit cell dimensions were passed")
-
-        # degree_to_radians = pi / 180.
-        # a, b, c, alpha, beta, gamma = self.uc_dimensions
-        # alpha *= degree_to_radians
-        # beta *= degree_to_radians
-        # gamma *= degree_to_radians
-        #
-        # # unit cell volume
-        # a_cos = cos(alpha)
-        # b_cos = cos(beta)
-        # g_cos = cos(gamma)
-        # g_sin = sin(gamma)
-        # v = a * b * c * sqrt(1 - a_cos**2 - b_cos**2 - g_cos**2 + 2 * (a_cos * b_cos * g_cos))
-        #
-        # # orthogonalization matrix m_inv
-        # m_inv_0 = [a, b * g_cos, c * b_cos]
-        # m_inv_1 = [0, b * g_sin, (c * (a_cos - (b_cos * g_cos))) / float(g_sin)]
-        # m_inv_2 = [0, 0, v / float(a * b * g_sin)]
-        # m_inv = [m_inv_0, m_inv_1, m_inv_2]
 
         return np.matmul(frac_coords, np.transpose(self.orthogonalization_matrix))
 
@@ -4348,9 +4259,7 @@ class SymmetricModel(Models):
 
         number_of_atoms = self.number_of_atoms
         for model_idx, model in enumerate(self.models):
-            # symmetry_mate = copy(self)
             model.coords = self.symmetric_coords[model_idx*number_of_atoms: (model_idx+1) * number_of_atoms]
-            # self.models.append(symmetry_mate)
 
     @property
     def asu_model_index(self) -> int:
@@ -5173,31 +5082,12 @@ class SymmetricModel(Models):
         try:
             return self._assembly_tree
         except AttributeError:
-            # model_asu_indices = self.get_asu_atom_indices()
-            # if self.coords_type == 'bb_cb':  # grab every coord in the model
-            #     model_indices = np.arange(len(self.symmetric_coords))
-            #     asu_indices = []
-            # else:  # Select only coords that are BB or CB from the model coords
-            asu_indices = self.backbone_and_cb_indices
-            # We have all the BB/CB indices from ASU, must multiply this int's in self.number_of_symmetry_mates
+            # We have all the BB/CB indices from ASU, must multiply these int's in self.number_of_symmetry_mates
             # to get every BB/CB coord in the model
-            # Finally we take out those indices that are inclusive of the model_asu_indices like below
-            # model_indices = self.get_symmetric_indices(asu_indices)
-            # # # make a boolean mask where the model indices of interest are True
-            # # without_asu_mask = np.logical_or(model_indices < model_asu_indices[0],
-            # #                                  model_indices > model_asu_indices[-1])
-            # # model_indices_without_asu = model_indices[without_asu_mask]
-            # # take the boolean mask and filter the model indices mask to leave only symmetry mate indices, NOT asu
-            # model_indices_without_asu = self.get_symmetric_indices(asu_indices)[len(asu_indices):]
-            # selected_assembly_coords = len(model_indices_without_asu) + len(asu_indices)
-            # all_assembly_coords_length = len(asu_indices) * self.number_of_symmetry_mates
-            # assert selected_assembly_coords == all_assembly_coords_length, \
-            #     '%s: Ran into an issue indexing' % self.symmetric_assembly_is_clash.__name__
-
-            # asu_coord_tree = BallTree(self.coords[asu_indices])
-            # return BallTree(self.symmetric_coords[model_indices_without_asu])
+            asu_indices = self.backbone_and_cb_indices
             self._assembly_tree = \
                 BallTree(self.symmetric_coords[self.get_symmetric_indices(asu_indices)[len(asu_indices):]])
+            # Last, we take out those indices that are inclusive of the model_asu_indices like below
             return self._assembly_tree
 
     def orient(self, symmetry: str = None, log: AnyStr = None):  # similar function in Entity
