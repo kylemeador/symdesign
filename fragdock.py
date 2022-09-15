@@ -3341,7 +3341,7 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
     residue_indices = list(range(1, pose_length+1))
     per_residue_df = pd.concat({name: pd.DataFrame(data, index=residue_indices)
                                 for name, data in per_residue_data.items()}).unstack().swaplevel(0, 1, axis=1)
-    print(per_residue_df)
+    print('per_residue_df', per_residue_df)
     # Can't use this as each pose is different
     # index_residues = list(pose.interface_design_residue_numbers)
     # residue_df = pd.merge(residue_df.loc[:, idx_slice[index_residues, :]],
@@ -3386,14 +3386,14 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
     # then select only those residues which are expressly important by the inclusion boolean
     scores_df['errat_deviation'] = (errat_sig_df.loc[:, source_errat_inclusion_boolean] * 1).sum(axis=1)
 
-    interface_metrics_df = pd.DataFrame(interface_metrics)
+    interface_metrics_df = pd.DataFrame(interface_metrics).T
     if design_output:
         # Calculate hydrophobic collapse for each design
         # Todo, should the reference pose be used? -> + [entity.sequence for entity in pose.entities]
         # Include the pose as the pose_source in the measured designs
         folding_and_collapse = calculate_collapse_metrics(pose, all_sequences_by_entity)
         pose_collapse_df = pd.DataFrame({pose_ids[idx]: data for idx, data in enumerate(folding_and_collapse)}).T
-        print(pose_collapse_df)
+        print('pose_collapse_df', pose_collapse_df)
 
         all_mutations = generate_mutations_from_reference(pose.sequence, all_sequences)
         scores_df['number_of_mutations'] = \
