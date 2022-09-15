@@ -642,6 +642,7 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
     outlier = -1
     # Todo set below as parameters?
     design_output = True
+    ca_only = False
     design_temperature = 0.1
     mpnn_model = proteinmpnn_factory()  # Todo accept model_name arg. Now just use the default
     # set the environment to use memory efficient cuda management
@@ -2776,7 +2777,7 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
         full_ext_tx_sum = full_ext_tx2 - full_ext_tx1
 
     entity_names = [entity.name for model in models for entity in model.entities]
-    entity_bb_coords = [entity.backbone_coords for model in models for entity in model.entities]
+    # entity_bb_coords = [entity.backbone_coords for model in models for entity in model.entities]
     entity_start_coords = [entity.coords for model in models for entity in model.entities]
     transform_indices = {}
     entity_idx = 0
@@ -2917,11 +2918,18 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
             mpnn_sample = mpnn_model.sample
             number_of_residues = pose_length
 
-        ca_only = False
         if ca_only:
+            coords_type = 'ca_coords'
             num_model_residues = 1
         else:
-            num_model_residues = 5  # use 5 as CB is added by the model later
+            coords_type = 'backbone_coords'
+            num_model_residues = 5  # use 5 as ideal CB is added by the model later
+
+        # Translate the coordinates along z in increments of 1000 to separate coordinates
+        entity_unbound_coords = [getattr(entity, coords_type) for model in models for entity in model.entities]
+        unbound_transform = np.array([0, 0, 1000])
+        for idx, coords in enumerate(entity_unbound_coords):
+            entity_unbound_coords[idx] = coords + unbound_transform*idx
 
         model_elements += prod((number_of_residues, num_model_residues, 3))  # X,
         model_elements += number_of_residues  # S.shape
@@ -2952,12 +2960,14 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
             log.critical(f'The batch_length is: {batch_length}')
             try:  # Design sequences with ProteinMPNN using the optimal batch size given memory
                 number_of_batches = int(ceil(size/batch_length) or 1)  # Select at least 1
-
                 parameters = pose.get_proteinmpnn_params()
-                # Disregard the X, chain_M_pos, and bias_by_res parameters return and use the pose specific data from below
+                # Disregard X, chain_M_pos, and bias_by_res parameters return and use the pose specific data from below
                 parameters.pop('X')
                 parameters.pop('chain_M_pos')
                 parameters.pop('bias_by_res')
+                # Add a parameter for the unbound version of X to X
+                X_unbound = np.concatenate(entity_unbound_coords)  # .reshape((1, pose_length, num_model_residues, 3))
+                parameters['X'] = X_unbound
                 # Create batch_length fixed parameter data which are the same across poses
                 parameters.update(**batch_proteinmpnn_input(size=batch_length, **parameters))
 
@@ -2966,6 +2976,7 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
                     # Update parameters as some are not transfered to the identified device
                     parameters.update(proteinmpnn_to_device(mpnn_model.device, **parameters))
 
+                    X_unbound = parameters.get('X', None)
                     S = parameters.get('S', None)
                     chain_mask = parameters.get('chain_mask', None)
                     chain_encoding = parameters.get('chain_encoding', None)
@@ -2987,7 +2998,9 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
 
                 # Set up ProteinMPNN output data structures
                 generated_sequences = np.empty((size, number_of_residues))
+                # sequence_scores = np.empty((size,))
                 per_residue_sequence_scores = np.empty((size, number_of_residues))
+                per_residue_unbound_scores = np.empty((size, number_of_residues))
                 probabilities = np.empty((size, number_of_residues, proteinmpnn_factory.mpnn_alphabet_length))
 
                 # Gather the coordinates according to the transformations identified
@@ -3077,7 +3090,7 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
                         # Format the bb coords for ProteinMPNN with reshape
                         # new_coords.append(pose.bb_coords.reshape((-1, 4, 3)))  # -1 axis should == pose_length
                         # new_coords[batch_idx] = pose.bb_coords.reshape((-1, 4, 3))  # -1 axis should == pose_length
-                        new_coords[batch_idx] = pose.backbone_coords
+                        new_coords[batch_idx] = getattr(pose, coords_type)
 
                         design_residues = []  # Add all interface residues
                         for number, residues_entities in pose.split_interface_residues.items():
@@ -3133,12 +3146,15 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
                         # Potentially different across poses
                         bias_by_res = separate_parameters.get('bias_by_res', None)
                         decoding_order = pose.generate_proteinmpnn_decode_order(to_device=mpnn_model.device)
+                        # Slice reused parameters only once
+                        chain_encoding = chain_encoding[:actual_batch_length]
+                        residue_idx = residue_idx[:actual_batch_length]
+                        mask = mask[:actual_batch_length]
 
+                        sample_start_time = time.time()
                         sample_dict = mpnn_sample(X, decoding_order,
                                                   S[:actual_batch_length], chain_mask[:actual_batch_length],
-                                                  chain_encoding[:actual_batch_length],
-                                                  residue_idx[:actual_batch_length],
-                                                  mask[:actual_batch_length], temperature=design_temperature,
+                                                  chain_encoding, residue_idx, mask, temperature=design_temperature,
                                                   omit_AAs_np=omit_AAs_np, bias_AAs_np=bias_AAs_np,
                                                   chain_M_pos=residue_mask[:actual_batch_length],
                                                   omit_AA_mask=omit_AA_mask[:actual_batch_length],
@@ -3150,14 +3166,23 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
                                                   pssm_bias_flag=pssm_bias_flag,
                                                   tied_pos=tied_pos, tied_beta=tied_beta,
                                                   bias_by_res=bias_by_res[:actual_batch_length])
+                        log.info(f'Sample calculation took {time.time() - sample_start_time:8f}')
                         # When batches are sliced for multiple inputs
                         S_sample = sample_dict['S']  # This is the shape of the input X Tensor
                         decoding_order_out = sample_dict['decoding_order']
                         chain_residue_mask = (chain_mask*residue_mask)[:actual_batch_length]
-                        log_probs = mpnn_model(X, S_sample, mask[:actual_batch_length], chain_residue_mask,
-                                               residue_idx[:actual_batch_length], chain_encoding[:actual_batch_length],
-                                               None,  # this argument is provided but with below args, is not used
+                        log_probs_start_time = time.time()
+                        log_probs = mpnn_model(X, S_sample, mask, chain_residue_mask, residue_idx, chain_encoding,
+                                               None,  # This argument is provided but with below args, is not used
                                                use_input_decoding_order=True, decoding_order=decoding_order_out)
+                        log_prob_time = time.time() - log_probs_start_time
+                        log.info(f'Log prob calculation took {log_prob_time:8f}')
+                        unbound_log_probs = \
+                            mpnn_model(X_unbound[:actual_batch_length], S_sample, mask, chain_residue_mask,
+                                       residue_idx, chain_encoding,
+                                       None,  # This argument is provided but with below args, is not used
+                                       use_input_decoding_order=True, decoding_order=decoding_order_out)
+                        log.info(f'Unbound log prob calculation took {time.time() - log_prob_time:8f}')
                         # log_probs is
                         # tensor([[[-2.7691, -3.5265, -2.9001,  ..., -3.3623, -3.0247, -4.2772],
                         #          [-2.7691, -3.5265, -2.9001,  ..., -3.3623, -3.0247, -4.2772],
@@ -3173,12 +3198,14 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
                         # batch_scores is
                         # tensor([2.1039, 2.0618, 2.0802, 2.0538, 2.0114, 2.0002], device='cuda:0')
                         batch_scores_per_residue = score_sequences(S_sample, log_probs)  # , mask_for_loss)
+                        unbound_batch_scores_per_residue = score_sequences(S_sample, unbound_log_probs)  # , mask_for_loss)
                         # Score the whole structure-sequence
                         # global_scores = score_sequences(S_sample, log_probs, mask, per_residue=False)
 
                         # Format outputs
                         generated_sequences[batch_slice] = S_sample.cpu().numpy()
                         per_residue_sequence_scores[batch_slice] = batch_scores_per_residue.cpu().numpy()  # scores
+                        per_residue_unbound_scores[batch_slice] = unbound_batch_scores_per_residue.cpu().numpy()  # scores
                         probabilities[batch_slice] = sample_dict['probs'].cpu().numpy()  # batch_probabilities
 
                         # Delete intermediate variable objects to free memory for next cycle
