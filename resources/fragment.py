@@ -8,8 +8,7 @@ import numpy as np
 
 from utils.path import intfrag_cluster_rep_dirpath, intfrag_cluster_info_dirpath, monofrag_cluster_rep_dirpath, \
     biological_interfaces, biological_fragment_db_pickle
-from structure import model
-from structure.base import Structure
+import structure
 from utils import dictionary_lookup, start_log, unpickle
 from resources.info import FragmentInfo
 
@@ -55,7 +54,7 @@ class FragmentDatabase(FragmentInfo):
     # dict[int, tuple[3x3, 1x3, tuple[int, int, int], float]]
     info: dict[int, dict[int, dict[int, ClusterInfoFile]]]
     # monofrag_representatives_path: str
-    paired_frags: dict[int, dict[int, dict[int, tuple['model.Model', str]]]]
+    paired_frags: dict[int, dict[int, dict[int, tuple['structure.model.Model', str]]]]
     reps: dict[int, np.ndarray]
 
     def __init__(self, init_db: bool = True, **kwargs):  # fragment_length: int = 5
@@ -69,7 +68,7 @@ class FragmentDatabase(FragmentInfo):
             logger.info(f'Initializing {self.source} FragmentDatabase from disk. This may take awhile...')
             # self.get_monofrag_cluster_rep_dict()
             self.reps = {int(os.path.splitext(file)[0]):
-                             Structure.from_file(os.path.join(root, file), entities=False, log=None).ca_coords
+                         structure.base.Structure.from_file(os.path.join(root, file), entities=False, log=None).ca_coords
                          for root, dirs, files in os.walk(self.monofrag_representatives_path) for file in files}
             self.get_intfrag_cluster_rep_dict()
             self.get_intfrag_cluster_info_dict()
@@ -93,7 +92,7 @@ class FragmentDatabase(FragmentInfo):
                     self.paired_frags[i_cluster_type][j_cluster_type] = {}
 
                 for file in files:
-                    ijk_frag_cluster_rep_pdb = model.Model.from_file(os.path.join(root, file), entities=False, log=None)
+                    ijk_frag_cluster_rep_pdb = structure.model.Model.from_file(os.path.join(root, file), entities=False, log=None)
                     # mapped_chain_idx = file.find('mappedchain')
                     # ijk_cluster_rep_mapped_chain = file[mapped_chain_idx + 12:mapped_chain_idx + 13]
                     # must look up the partner coords later by using chain_id stored in file
