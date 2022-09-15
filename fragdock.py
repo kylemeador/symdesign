@@ -3305,7 +3305,7 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
             # all_scores[pose_id] = per_residue_sequence_scores[idx]
             _per_residue_complex_scores = per_residue_sequence_scores[idx]
             _per_residue_unbound_scores = per_residue_unbound_scores[idx]
-            residue_info[pose_if] = {residue.number: {'complex': _per_residue_complex_scores[residue.index],
+            residue_info[pose_id] = {residue.number: {'complex': _per_residue_complex_scores[residue.index],
                                                       'bound': copy(entity_energies),
                                                       'unbound': _per_residue_unbound_scores[residue.index],  # copy(entity_energies),
                                                       'solv_complex': 0., 'solv_bound': copy(entity_energies),
