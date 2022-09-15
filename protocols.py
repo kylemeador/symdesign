@@ -2191,11 +2191,12 @@ class PoseDirectory:
     @handle_design_errors(errors=(DesignError, AssertionError))
     @close_logs
     @remove_structure_memory
-    def interface_design_analysis(self, merge_residue_data: bool = False, save_metrics: bool = True,
-                                  figures: bool = False) -> Series:
+    def interface_design_analysis(self, design_poses: Iterable[Pose] = None, merge_residue_data: bool = False,
+                                  save_metrics: bool = True, figures: bool = False) -> Series:
         """Retrieve all score information from a PoseDirectory and write results to .csv file
 
         Args:
+            design_poses: The subsequent designs to perform analysis on
             merge_residue_data: Whether to incorporate residue data into Pose DataFrame
             save_metrics: Whether to save trajectory and residue DataFrames
             figures: Whether to make and save pose figures
@@ -2218,15 +2219,16 @@ class PoseDirectory:
         # other_pose_metrics = self.pose_metrics()
 
         # Find all designs files Todo fold these into Model(s) and attack metrics from Pose objects?
-        design_poses = []
-        for file in self.get_designs():
-            # pose format should already be the case, but let's make sure
-            #   pass names if available v
-            pose = Pose.from_file(file, entity_names=self.entity_names, log=self.log, pose_format=True,
-                                  sym_entry=self.sym_entry, api_db=self.job.api_db, fragment_db=self.job.fragment_db,
-                                  design_selector=self.job.design_selector, ignore_clashes=self.job.ignore_pose_clashes)
-            # Todo use PoseDirectory self.info.design_selector
-            design_poses.append(pose)
+        if design_poses is None:
+            design_poses = []
+            for file in self.get_designs():
+                # pose format should already be the case, but let's make sure
+                #   pass names if available v
+                pose = Pose.from_file(file, entity_names=self.entity_names, log=self.log, pose_format=True,
+                                      sym_entry=self.sym_entry, api_db=self.job.api_db, fragment_db=self.job.fragment_db,
+                                      design_selector=self.job.design_selector, ignore_clashes=self.job.ignore_pose_clashes)
+                # Todo use PoseDirectory self.info.design_selector
+                design_poses.append(pose)
 
         # Assumes each structure is the same length
         pose_length = self.pose.number_of_residues
@@ -3641,12 +3643,14 @@ class PoseDirectory:
 @handle_design_errors(errors=(DesignError, AssertionError))
 @close_logs
 # @remove_structure_memory
-def interface_design_analysis(self: Pose, merge_residue_data: bool = False, save_metrics: bool = True,
+def interface_design_analysis(self: Pose, design_poses: Iterable[Pose] = None,
+                              merge_residue_data: bool = False, save_metrics: bool = True,
                               figures: bool = False, **kwargs) -> Series:
     """Retrieve all score information from a PoseDirectory and write results to .csv file
 
     Args:
         self: The Pose to perform the analysis on
+        design_poses: The subsequent designs to perform analysis on
         merge_residue_data: Whether to incorporate residue data into Pose DataFrame
         save_metrics: Whether to save trajectory and residue DataFrames
         figures: Whether to make and save pose figures
@@ -3669,14 +3673,15 @@ def interface_design_analysis(self: Pose, merge_residue_data: bool = False, save
     other_pose_metrics = self.interface_metrics()
 
     # Find all designs files Todo fold these into Model(s) and attack metrics from Pose objects?
-    design_poses = []
-    for file in self.get_designs():
-        # pose format should already be the case, but let's make sure
-        #   pass names if available v
-        pose = Pose.from_file(file, entity_names=self.entity_names, log=self.log, pose_format=True,
-                              sym_entry=self.sym_entry, api_db=job.api_db, fragment_db=self.job.fragment_db,
-                              design_selector=self.job.design_selector, ignore_clashes=job.ignore_pose_clashes)
-        design_poses.append(pose)
+    if design_poses is None:
+        design_poses = []
+        for file in self.get_designs():
+            # pose format should already be the case, but let's make sure
+            #   pass names if available v
+            pose = Pose.from_file(file, entity_names=self.entity_names, log=self.log, pose_format=True,
+                                  sym_entry=self.sym_entry, api_db=job.api_db, fragment_db=self.job.fragment_db,
+                                  design_selector=self.job.design_selector, ignore_clashes=job.ignore_pose_clashes)
+            design_poses.append(pose)
 
     # Assumes each structure is the same length
     pose_length = self.number_of_residues
