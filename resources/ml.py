@@ -282,21 +282,29 @@ def proteinmpnn_to_device(device: str = None,
     #             )
 
 
-def score_sequences(S: torch.Tensor, log_probs: torch.Tensor, mask: torch.Tensor) -> torch.Tensor:
+def score_sequences(S: torch.Tensor, log_probs: torch.Tensor, mask: torch.Tensor = None, per_residue: bool = True) \
+        -> torch.Tensor:
     """Score ProteinMPNN sequences using Negative log likelihood probabilities
 
     Args:
         S: The sequence tensor
         log_probs: The logarithmic probabilities as found by a forward pass through ProteinMPNN
         mask: Any positions that are masked in the design task
+        per_residue: Whether to return scores per residue
     Returns:
-        The loss calculated over the log probabilites compared to the sequence tensor
+        The loss calculated over the log probabilities compared to the sequence tensor.
+            If per_residue=True, the returned Tensor is the same shape as S, otherwise, it is the length of S
     """
     criterion = torch.nn.NLLLoss(reduction='none')
     # Measure log_probs loss with respect to the sequence. Make each sequence and log probs stacked along axis=0
     loss = criterion(
         log_probs.contiguous().view(-1, log_probs.size(-1)),
         S.contiguous().view(-1)
-    ).view(S.size())
-    # Revert the shape to the original sequence shape
-    return torch.sum(loss*mask, dim=-1) / torch.sum(mask, dim=-1)
+    ).view(S.size())  # Revert the shape to the original sequence shape
+    # Take the average over every designed position and return the single score
+    if per_residue:
+        return loss
+    elif mask is None:
+        return torch.sum(loss, dim=-1)
+    else:
+        return torch.sum(loss*mask, dim=-1) / torch.sum(mask, dim=-1)
