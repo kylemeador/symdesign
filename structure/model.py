@@ -5241,15 +5241,6 @@ class Pose(SequenceProfile, SymmetricModel):
         for entity in self.entities:
             entity.fragment_db = fragment_db
 
-    # @SymmetricModel.asu.setter
-    # def asu(self, asu):
-    #     self.pdb = asu  # process incoming structure as normal
-    #     if self.number_of_entities != self.number_of_chains:  # ensure the structure is an asu
-    #         # self.log.debug('self.number_of_entities (%d) self.number_of_chains (%d)'
-    #         #                % (self.number_of_entities, self.number_of_chains))
-    #         self.log.debug('Setting Pose ASU to the ASU with the most contacting interface')
-    #         self.set_contacting_asu()  # find maximally touching ASU and set ._pdb
-
     @property
     def active_entities(self) -> list[Entity]:
         try:
@@ -6506,79 +6497,6 @@ class Pose(SequenceProfile, SymmetricModel):
 
         self.log.debug(f'Found interface secondary structure: {self.split_interface_ss_elements}')
 
-    # def interface_design(self, evolution=True, fragments=True, write_fragments=True, des_dir=None):
-    #     """Compute calculations relevant to interface design.
-    #
-    #     Sets:
-    #         self.pssm_file (AnyStr)
-    #     """
-    #     # self.log.debug('Entities: %s' % ', '.join(entity.name for entity in self.entities))
-    #     # self.log.debug('Active Entities: %s' % ', '.join(entity.name for entity in self.active_entities))
-    #
-    #     # we get interface residues for the designable entities as well as interface_topology at PoseDirectory level
-    #     if fragments:
-    #         # if query_fragments:  # search for new fragment information
-    #         self.generate_interface_fragments(out_path=des_dir.frags, write_fragments=write_fragments)
-    #         # else:  # No fragment query, add existing fragment information to the pose
-    #         #     if fragment_source is None:
-    #         #         raise DesignError(f'Fragments were set for design but there were none found! Try excluding '
-    #         #                           f'--{PUtils.no_term_constraint} in your input flags and rerun this command, or '
-    #         #                           f'generate them separately with "{PUtils.program_command} '
-    #         #                           f'{PUtils.generate_fragments}"')
-    #         #
-    #         #     self.log.debug('Fragment data found from prior query. Solving query index by Pose numbering/Entity '
-    #         #                    'matching')
-    #         #     self.add_fragment_query(query=fragment_source)
-    #
-    #         for query_pair, fragment_info in self.fragment_queries.items():
-    #             self.log.debug('Query Pair: %s, %s\n\tFragment Info:%s' % (query_pair[0].name, query_pair[1].name,
-    #                                                                        fragment_info))
-    #             for query_idx, entity in enumerate(query_pair):
-    #                 entity.map_fragments_to_profile(fragments=fragment_info, alignment_type=alignment_types[query_idx])
-    #     for entity in self.entities:
-    #         # TODO Insert loop identifying comparison of SEQRES and ATOM before SeqProf.calculate_design_profile()
-    #         if entity not in self.active_entities:  # we shouldn't design, add a null profile instead
-    #             entity.add_profile(null=True)
-    #         else:  # add a real profile
-    #             if self.api_db:
-    #                 profiles_path = self.api_db.hhblits_profiles.location
-    #                 entity.sequence_file = self.api_db.sequences.retrieve_file(name=entity.name)
-    #                 entity.evolutionary_profile = self.api_db.hhblits_profiles.retrieve_data(name=entity.name)
-    #                 if not entity.evolutionary_profile:
-    #                     entity.add_evolutionary_profile(out_path=profiles_path)
-    #                 else:  # ensure the file is attached as well
-    #                     entity.pssm_file = self.api_db.hhblits_profiles.retrieve_file(name=entity.name)
-    #
-    #                 if not entity.pssm_file:  # still no file found. this is likely broken
-    #                     raise DesignError(f'{entity.name} has no profile generated. To proceed with this design/'
-    #                                       f'protocol you must generate the profile!')
-    #                 if len(entity.evolutionary_profile) != entity.number_of_residues:
-    #                     # profile was made with reference or the sequence has inserts and deletions of equal length
-    #                     # A more stringent check could move through the evolutionary_profile[idx]['type'] key versus the
-    #                     # entity.sequence[idx]
-    #                     entity.fit_evolutionary_profile_to_structure()
-    #             else:
-    #                 profiles_path = des_dir.profiles
-    #
-    #             if not entity.sequence_file:
-    #                 entity.write_sequence_to_fasta('reference', out_path=des_dir.sequences)
-    #             entity.add_profile(evolution=evolution, fragments=fragments, out_path=profiles_path)
-    #
-    #     # Update PoseDirectory with design information
-    #     if fragments:  # set pose.fragment_profile by combining entity frag profile into single profile
-    #         self.combine_fragment_profile([entity.fragment_profile for entity in self.entities])
-    #         fragment_pssm_file = self.write_pssm_file(self.fragment_profile, PUtils.fssm, out_path=des_dir.data)
-    #
-    #     if evolution:  # set pose.evolutionary_profile by combining entity evo profile into single profile
-    #         self.combine_pssm([entity.evolutionary_profile for entity in self.entities])
-    #         self.pssm_file = self.write_pssm_file(self.evolutionary_profile, PUtils.pssm, out_path=des_dir.data)
-    #
-    #     self.combine_profile([entity.profile for entity in self.entities])
-    #     design_pssm_file = self.write_pssm_file(self.profile, PUtils.dssm, out_path=des_dir.data)
-    #     # -------------------------------------------------------------------------
-    #     # self.solve_consensus()
-    #     # -------------------------------------------------------------------------
-
     def get_fragment_observations(self) -> list[dict[str, str | int | float]] | list:
         """Return the fragment observations identified on the pose regardless of Entity binding
 
@@ -6869,20 +6787,6 @@ class Pose(SequenceProfile, SymmetricModel):
 
         return parsed_design_residues
 
-    # def renumber_fragments_to_pose(self, fragments):
-    #     for idx, fragment in enumerate(fragments):
-    #         # if self.pdb.residue_from_pdb_numbering():
-    #         # only assign the new fragment number info to the fragments if the residue is found
-    #         map_pose_number = self.residue_number_from_pdb(fragment['mapped'])
-    #         fragment['mapped'] = map_pose_number if map_pose_number else fragment['mapped']
-    #         pair_pose_number = self.residue_number_from_pdb(fragment['paired'])
-    #         fragment['paired'] = pair_pose_number if pair_pose_number else fragment['paired']
-    #         # fragment['mapped'] = self.pdb.residue_number_from_pdb(fragment['mapped'])
-    #         # fragment['paired'] = self.pdb.residue_number_from_pdb(fragment['paired'])
-    #         fragments[idx] = fragment
-    #
-    #     return fragments
-
     # def add_fragment_query(self, entity1: Entity = None, entity2: Entity = None, query=None, pdb_numbering: bool = False):
     #     """For a fragment query loaded from disk between two entities, add the fragment information to the Pose"""
     #     # Todo This function has logic pitfalls if residue numbering is in PDB format. How easy would
@@ -6909,16 +6813,6 @@ class Pose(SequenceProfile, SymmetricModel):
     #                               'Pose Numbering? This may be occurring due to fragment queries performed on the PDB '
     #                               'and not explicitly searching using pdb_numbering = True. Retry with the appropriate'
     #                               ' modifications' % self.add_fragment_query.__name__)
-
-    # def connect_fragment_database(self, source: str = PUtils.biological_interfaces, **kwargs):
-    #     """Generate a FragmentDatabase connection
-    #
-    #     Args:
-    #         source: The type of FragmentDatabase to connect
-    #     Sets:
-    #         self.fragment_db (FragmentDatabase)
-    #     """
-    #     self.fragment_db = fragment_factory(source=source, **kwargs)
 
     def generate_interface_fragments(self, write_fragments: bool = False, out_path: AnyStr = None):
         """Generate fragments between the Pose interface(s). Finds interface(s) if not already available
@@ -6965,28 +6859,6 @@ class Pose(SequenceProfile, SymmetricModel):
             write_frag_match_info_file(ghost_frag=ghost_frag, matched_frag=surface_frag,
                                        overlap_error=z_value_from_match_score(match_score),
                                        match_number=match_count, out_path=out_path)
-
-    # def format_seqres(self, **kwargs) -> str:
-    #     """Format the reference sequence present in the SEQRES remark for writing to the output header
-    #
-    #     Keyword Args:
-    #         **kwargs
-    #     Returns:
-    #         The PDB formatted SEQRES record
-    #     """
-    #     # if self.reference_sequence:
-    #     formated_reference_sequence = \
-    #         {chain.chain_id: ' '.join(protein_letters_1to3_extended.get(aa, 'XXX')
-    #                                   for aa in chain.reference_sequence)
-    #          for chain in self.chains}
-    #     chain_lengths = {chain: len(sequence) for chain, sequence in formated_reference_sequence.items()}
-    #     return '%s\n' \
-    #            % '\n'.join('SEQRES{:4d} {:1s}{:5d}  %s         '.format(line_number, chain, chain_lengths[chain])
-    #                        % sequence[seq_res_len * (line_number - 1):seq_res_len * line_number]
-    #                        for chain, sequence in formated_reference_sequence.items()
-    #                        for line_number in range(1, 1 + ceil(len(sequence)/seq_res_len)))
-    #     # else:
-    #     #     return ''
 
     def debug_pdb(self, tag: str = None):
         """Write out all Structure objects for the Pose PDB"""

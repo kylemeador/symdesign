@@ -3161,6 +3161,7 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
                         mask_for_loss = chain_mask_and_mask*residue_mask
                         # S_sample, log_probs, and mask_for_loss should all be the same size
                         batch_scores = score_sequences(S_sample, log_probs, mask_for_loss)
+                        print('batch_scores', batch_scores)
                         # Score the whole structure-sequence
                         # global_scores = score_sequences(S_sample, log_probs, mask)
 
