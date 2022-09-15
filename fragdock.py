@@ -2891,7 +2891,7 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
     interface_metrics = {}
     interface_local_density = {}
     all_sequences = {}
-    all_scores = {}
+    # all_scores = {}
     all_probabilities = {}
     pose_length = pose.number_of_residues
     entity_energies = tuple(0. for ent in pose.entities)
@@ -3187,14 +3187,14 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
                         log_probs = mpnn_model(X, S_sample, mask, chain_residue_mask, residue_idx, chain_encoding,
                                                None,  # This argument is provided but with below args, is not used
                                                use_input_decoding_order=True, decoding_order=decoding_order_out)
-                        log_prob_time = time.time() - log_probs_start_time
-                        log.info(f'Log prob calculation took {log_prob_time:8f}')
+                        log_prob_time = time.time()
                         unbound_log_probs = \
                             mpnn_model(X_unbound[:actual_batch_length], S_sample, mask, chain_residue_mask,
                                        residue_idx, chain_encoding,
                                        None,  # This argument is provided but with below args, is not used
                                        use_input_decoding_order=True, decoding_order=decoding_order_out)
                         log.info(f'Unbound log prob calculation took {time.time() - log_prob_time:8f}')
+                        log.info(f'Log prob calculation took {log_prob_time - log_probs_start_time:8f}')
                         # log_probs is
                         # tensor([[[-2.7691, -3.5265, -2.9001,  ..., -3.3623, -3.0247, -4.2772],
                         #          [-2.7691, -3.5265, -2.9001,  ..., -3.3623, -3.0247, -4.2772],
@@ -3302,18 +3302,19 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
         # Save each pose information
         for idx, pose_id in enumerate(pose_ids):
             all_sequences[pose_id] = sequences[idx]
+            # all_scores[pose_id] = per_residue_sequence_scores[idx]
             _per_residue_complex_scores = per_residue_sequence_scores[idx]
             _per_residue_unbound_scores = per_residue_unbound_scores[idx]
-            residue_info[pose_if] = {residue.number: {'complex': _per_residue_sequence_scores[residue.index],
+            residue_info[pose_if] = {residue.number: {'complex': _per_residue_complex_scores[residue.index],
                                                       'bound': copy(entity_energies),
                                                       'unbound': _per_residue_unbound_scores[residue.index],  # copy(entity_energies),
                                                       'solv_complex': 0., 'solv_bound': copy(entity_energies),
                                                       'solv_unbound': copy(entity_energies), 'fsp': 0., 'cst': 0.,
                                                       'type': protein_letters_3to1.get(residue.type), 'hbond': 0}
                                      for entity in pose.entities for residue in entity.residues}
-            all_scores[pose_id] = per_residue_sequence_scores[idx]
             all_probabilities[pose_id] = probabilities[idx]
 
+        print('all_probabilities', all_probabilities)
         # Separate sequences by entity
         all_sequences_split = []
         for entity in pose.entities:
