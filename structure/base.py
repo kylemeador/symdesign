@@ -13,7 +13,7 @@ from sklearn.neighbors import BallTree  # , KDTree, NearestNeighbors
 
 from structure.coords import Coords, superposition3d
 from structure.fragment import Fragment, MonoFragment, ResidueFragment
-from structure.utils import protein_letters, protein_letters_1to3, protein_letters_3to1_extended
+from structure.utils import protein_letters_alph1, protein_letters_1to3, protein_letters_3to1_extended
 from utils.path import freesasa_exe_path, stride_exe_path, errat_exe_path, freesasa_config_path, \
     reference_residues_pkl, program_name, program_version
 from utils import start_log, null_log, unpickle, digit_translate_table, DesignError, ClashError, startdate
@@ -3515,7 +3515,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
                               'handle residue insertion!')
         # Convert incoming aa to residue index so that AAReference can fetch the correct amino acid
         reference_index = \
-            protein_letters.find(protein_letters_3to1_extended.get(residue_type, residue_type.upper()))
+            protein_letters_alph1.find(protein_letters_3to1_extended.get(residue_type, residue_type.upper()))
         if reference_index == -1:
             raise IndexError(f'{self.insert_residue_type.__name__} of residue_type "{residue_type}" is not allowed')
         if at < 1:

@@ -9,7 +9,8 @@ from utils import start_log
 from utils.path import protein_mpnn_weights_dir
 
 logger = start_log(name=__name__)
-mpnn_alphabet = 'ACDEFGHIKLMNPQRSTVWYX'  # protein_letters_unknown
+mpnn_alphabet = 'ACDEFGHIKLMNPQRSTVWYX'  # protein_letters_alph1_unknown
+mpnn_alphabet_length = len(mpnn_alphabet)
 
 
 class ProteinMPNNFactory:
@@ -18,8 +19,6 @@ class ProteinMPNNFactory:
         Handles creation and allotment to other processes by saving expensive memory load of multiple instances and
         allocating a shared pointer to the named ProteinMPNN model
     """
-    mpnn_alphabet_length = len(mpnn_alphabet)
-
     def __init__(self, **kwargs):
         self._models = {}
         # self._models = None
@@ -47,7 +46,7 @@ class ProteinMPNNFactory:
             logger.info(f'Training noise level: {checkpoint["noise_level"]} Angstroms')
             hidden_dim = 128
             num_layers = 3
-            model = ProteinMPNN(num_letters=self.mpnn_alphabet_length,
+            model = ProteinMPNN(num_letters=mpnn_alphabet_length,
                                 node_features=hidden_dim,
                                 edge_features=hidden_dim,
                                 hidden_dim=hidden_dim,

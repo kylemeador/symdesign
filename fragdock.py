@@ -23,7 +23,7 @@ from resources.EulerLookup import euler_factory
 from resources.fragment import FragmentDatabase, fragment_factory
 from resources.job import job_resources_factory, JobResources
 from resources.ml import proteinmpnn_factory, batch_proteinmpnn_input, score_sequences, \
-    proteinmpnn_to_device
+    proteinmpnn_to_device, mpnn_alphabet_length
 from structure.base import Structure, Residue
 from structure.coords import transform_coordinate_sets
 from structure.fragment import GhostFragment, write_frag_match_info_file
@@ -1866,7 +1866,7 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
     #                     # probabilities = []
     #                     # sequence_scores = []
     #                     generated_sequences = np.empty((size, number_of_residues))
-    #                     probabilities = np.empty((size, number_of_residues, proteinmpnn_factory.mpnn_alphabet_length))
+    #                     probabilities = np.empty((size, number_of_residues, mpnn_alphabet_length))
     #                     sequence_scores = np.empty((size,))
     #                     for batch in range(number_of_batches):
     #                         batch_slice = slice(batch*batch_length, (batch+1) * batch_length)
@@ -3015,7 +3015,7 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
                 # sequence_scores = np.empty((size,))
                 per_residue_sequence_scores = np.empty((size, number_of_residues))
                 per_residue_unbound_scores = np.empty((size, number_of_residues))
-                probabilities = np.empty((size, number_of_residues, proteinmpnn_factory.mpnn_alphabet_length))
+                probabilities = np.empty((size, number_of_residues, mpnn_alphabet_length))
 
                 # Gather the coordinates according to the transformations identified
                 for batch in range(number_of_batches):

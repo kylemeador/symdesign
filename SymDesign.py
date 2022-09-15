@@ -40,7 +40,7 @@ from resources.query.utils import input_string, bool_d, boolean_choice, invalid_
 from setup import set_up_instructions
 from structure.model import Model
 from structure.sequence import generate_mutations, find_orf_offset, read_fasta_file
-from structure.utils import protein_letters
+from structure.utils import protein_letters_alph1
 from utils import path as PUtils
 
 # def rename(des_dir, increment=PUtils.nstruct):
@@ -2449,7 +2449,7 @@ def main():
                                                        f'{idx_range[1] + 1}'
                                                        f'\n\t{design_sequence[idx_range[0]:idx_range[1]]}'
                                                        f'{input_string}').upper()
-                                if new_amino_acid in protein_letters:
+                                if new_amino_acid in protein_letters_alph1:
                                     design_sequence = design_sequence[:idx] + new_amino_acid + design_sequence[idx + 1:]
                                     break
                                 else:

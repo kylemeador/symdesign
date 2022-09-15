@@ -4,7 +4,7 @@ import os
 from glob import glob
 from typing import AnyStr, Iterable
 
-from structure.utils import protein_letters, protein_letters3_literal
+from structure.utils import protein_letters_alph1, protein_letters_alph3_literal
 from utils.path import biological_interfaces, frag_directory
 from utils import start_log, unpickle, get_base_root_paths_recursively, DesignError, parameterize_frag_length
 from utils.sql import Mysql
@@ -68,7 +68,7 @@ class FragmentInfo:
             #         return
 
     @property
-    def aa_frequencies(self) -> dict[protein_letters, float]:
+    def aa_frequencies(self) -> dict[protein_letters_alph1, float]:
         """Retrieve database specific amino acid representation frequencies
 
         Returns:
@@ -77,7 +77,7 @@ class FragmentInfo:
         return self.statistics.get('frequencies', {})
 
     def retrieve_cluster_info(self, cluster: str = None, source: str = None, index: str = None) -> \
-            dict[str, int | float | str | dict[int, dict[protein_letters3_literal | str, float | tuple[int, float]]]]:
+            dict[str, int | float | str | dict[int, dict[protein_letters_alph3_literal | str, float | tuple[int, float]]]]:
         # Todo rework this and below func for Database
         """Return information from the fragment information database by cluster_id, information source, and source index
 

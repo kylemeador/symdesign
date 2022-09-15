@@ -7,7 +7,7 @@ import numpy as np
 import utils
 from utils import path as PUtils
 from structure.sequence import generate_alignment
-from structure.utils import protein_letters
+from structure.utils import protein_letters_alph1
 from DnaChisel.dnachisel import DnaOptimizationProblem, CodonOptimize, reverse_translate, AvoidHairpins, \
     EnforceGCContent, AvoidPattern, AvoidRareCodons, UniquifyAllKmers, EnforceTranslation  # EnforceMeltingTemperature
 from resources.query.pdb import get_entity_reference_sequence, pdb_id_matching_uniprot_id
@@ -524,7 +524,7 @@ def add_expression_tag(tag, sequence):
     final_seq = ''
     for i, (seq1_aa, seq2_aa) in enumerate(zip(tag_seq, seq)):
         if seq2_aa == '-':
-            if seq1_aa in protein_letters:
+            if seq1_aa in protein_letters_alph1:
                 final_seq += seq1_aa
         else:
             final_seq += seq2_aa
