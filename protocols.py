@@ -2325,6 +2325,28 @@ class PoseDirectory:
             # residue_info.update(residue_processing(all_viable_design_scores, simplify_mutation_dict(all_mutations),
             #                                        per_res_columns, hbonds=interface_hbonds))
 
+            # Drop designs where required data isn't present
+            # Format protocol columns
+            missing_group_indices = scores_df[PUtils.groups].isna()
+            # Todo remove not DEV
+            scout_indices = [idx for idx in scores_df[missing_group_indices].index if 'scout' in idx]
+            scores_df.loc[scout_indices, PUtils.groups] = PUtils.scout
+            structure_bkgnd_indices = [idx for idx in scores_df[missing_group_indices].index if 'no_constraint' in idx]
+            scores_df.loc[structure_bkgnd_indices, PUtils.groups] = PUtils.structure_background
+            # Todo Done remove
+            # protocol_s.replace({'combo_profile': PUtils.design_profile}, inplace=True)  # ensure proper profile name
+
+            scores_df.drop(missing_group_indices, axis=0, inplace=True, errors='ignore')
+            # protocol_s.drop(missing_group_indices, inplace=True, errors='ignore')
+
+            viable_designs = scores_df.index.to_list()
+            if not viable_designs:
+                raise DesignError('No viable designs remain after processing!')
+
+            self.log.debug(f'Viable designs remaining after cleaning:\n\t{", ".join(viable_designs)}')
+            pose_sequences = {design: sequence for design, sequence in pose_sequences.items() if
+                              design in viable_designs}
+
             # Todo implement this protocol if sequence data is taken at multiple points along a trajectory and the
             #  sequence data along trajectory is a metric on it's own
             # # Gather mutations for residue specific processing and design sequences
@@ -2344,7 +2366,7 @@ class PoseDirectory:
             #               for design, sequence in pose_sequences.items()} for entity in self.pose.entities}
         else:
             self.log.debug(f'Missing design scores file at {self.scores_file}')
-            design_was_performed = True
+            design_was_performed = False
             # Todo add relevant missing scores such as those specified as 0 below
             # Todo may need to put source_df in scores file alternative
             source_df = DataFrame({pose_source: {PUtils.groups: job_key}}).T
@@ -2383,28 +2405,10 @@ class PoseDirectory:
             # residue_info = self.pose.rosetta_residue_processing(all_design_scores)
             # residue_info = process_residue_info(residue_info, simplify_mutation_dict(all_mutations),
             #                                     hbonds=interface_hbonds)
+            viable_designs = [pose.name for pose in design_poses]
 
-        # Drop designs where required data is present
-        # Format protocol columns
-        missing_group_indices = scores_df[PUtils.groups].isna()
-        # Todo remove not DEV
-        scout_indices = [idx for idx in scores_df[missing_group_indices].index if 'scout' in idx]
-        scores_df.loc[scout_indices, PUtils.groups] = PUtils.scout
-        structure_bkgnd_indices = [idx for idx in scores_df[missing_group_indices].index if 'no_constraint' in idx]
-        scores_df.loc[structure_bkgnd_indices, PUtils.groups] = PUtils.structure_background
-        # Todo Done remove
-        # protocol_s.replace({'combo_profile': PUtils.design_profile}, inplace=True)  # ensure proper profile name
-
-        scores_df.drop(scores_df[PUtils.groups].isna(), axis=0, inplace=True, errors='ignore')
-        # protocol_s.drop(missing_group_indices, inplace=True, errors='ignore')
         scores_df.drop(remove_columns, axis=1, inplace=True, errors='ignore')
-        viable_designs = scores_df.index.to_list()
-        if not viable_designs:
-            raise DesignError('No viable designs remain after processing!')
-
-        self.log.debug(f'Viable designs remaining after cleaning:\n\t{", ".join(viable_designs)}')
         other_pose_metrics['observations'] = len(viable_designs)
-        pose_sequences = {design: sequence for design, sequence in pose_sequences.items() if design in viable_designs}
 
         entity_sequences = []
         for entity in self.pose.entities:
@@ -2422,8 +2426,8 @@ class PoseDirectory:
         protocol_s = scores_df.pop(PUtils.groups).copy()
         designs_by_protocol = protocol_s.groupby(protocol_s).groups
         # remove refine and consensus if present as there was no design done over multiple protocols
-        # Todo change if we did multiple rounds of these protocols
         unique_protocols = list(designs_by_protocol.keys())
+        # Todo change if we did multiple rounds of these protocols
         designs_by_protocol.pop(PUtils.refine, None)
         designs_by_protocol.pop(PUtils.consensus, None)
         # Get unique protocols
@@ -2525,9 +2529,6 @@ class PoseDirectory:
 
         # Compute structural measurements for all designs
         for pose in design_poses:  # Takes 1-2 seconds for Structure -> assembly -> errat
-            if pose.name not in viable_designs:
-                continue
-
             # assembly.local_density()[:pose_length]  To get every residue in the pose.entities
             # per_residue_data['local_density'][structure.name] = \
             #     [density for residue_number, density in enumerate(assembly.local_density(), 1)
@@ -3778,6 +3779,27 @@ def interface_design_analysis(self: Pose, design_poses: Iterable[Pose] = None,
         # residue_info.update(residue_processing(all_viable_design_scores, simplify_mutation_dict(all_mutations),
         #                                        per_res_columns, hbonds=interface_hbonds))
 
+        # Drop designs where required data isn't present
+        # Format protocol columns
+        missing_group_indices = scores_df[PUtils.groups].isna()
+        # Todo remove not DEV
+        scout_indices = [idx for idx in scores_df[missing_group_indices].index if 'scout' in idx]
+        scores_df.loc[scout_indices, PUtils.groups] = PUtils.scout
+        structure_bkgnd_indices = [idx for idx in scores_df[missing_group_indices].index if 'no_constraint' in idx]
+        scores_df.loc[structure_bkgnd_indices, PUtils.groups] = PUtils.structure_background
+        # Todo Done remove
+        # protocol_s.replace({'combo_profile': PUtils.design_profile}, inplace=True)  # ensure proper profile name
+
+        scores_df.drop(missing_group_indices, axis=0, inplace=True, errors='ignore')
+        # protocol_s.drop(missing_group_indices, inplace=True, errors='ignore')
+
+        viable_designs = scores_df.index.to_list()
+        if not viable_designs:
+            raise DesignError('No viable designs remain after processing!')
+
+        self.log.debug(f'Viable designs remaining after cleaning:\n\t{", ".join(viable_designs)}')
+        pose_sequences = {design: sequence for design, sequence in pose_sequences.items() if design in viable_designs}
+
         # Todo implement this protocol if sequence data is taken at multiple points along a trajectory and the
         #  sequence data along trajectory is a metric on it's own
         # # Gather mutations for residue specific processing and design sequences
@@ -3836,28 +3858,10 @@ def interface_design_analysis(self: Pose, design_poses: Iterable[Pose] = None,
         # residue_info = self.rosetta_residue_processing(all_design_scores)
         # residue_info = process_residue_info(residue_info, simplify_mutation_dict(all_mutations),
         #                                     hbonds=interface_hbonds)
+        viable_designs = [pose.name for pose in design_poses]
 
-    # Drop designs where required data is present
-    # Format protocol columns
-    missing_group_indices = scores_df[PUtils.groups].isna()
-    # Todo remove not DEV
-    scout_indices = [idx for idx in scores_df[missing_group_indices].index if 'scout' in idx]
-    scores_df.loc[scout_indices, PUtils.groups] = PUtils.scout
-    structure_bkgnd_indices = [idx for idx in scores_df[missing_group_indices].index if 'no_constraint' in idx]
-    scores_df.loc[structure_bkgnd_indices, PUtils.groups] = PUtils.structure_background
-    # Todo Done remove
-    # protocol_s.replace({'combo_profile': PUtils.design_profile}, inplace=True)  # ensure proper profile name
-
-    scores_df.drop(scores_df[PUtils.groups].isna(), axis=0, inplace=True, errors='ignore')
-    # protocol_s.drop(missing_group_indices, inplace=True, errors='ignore')
     scores_df.drop(remove_columns, axis=1, inplace=True, errors='ignore')
-    viable_designs = scores_df.index.to_list()
-    if not viable_designs:
-        raise DesignError('No viable designs remain after processing!')
-
-    self.log.debug(f'Viable designs remaining after cleaning:\n\t{", ".join(viable_designs)}')
     other_pose_metrics['observations'] = len(viable_designs)
-    pose_sequences = {design: sequence for design, sequence in pose_sequences.items() if design in viable_designs}
 
     entity_sequences = []
     for entity in self.entities:
@@ -3875,8 +3879,8 @@ def interface_design_analysis(self: Pose, design_poses: Iterable[Pose] = None,
     protocol_s = scores_df.pop(PUtils.groups).copy()
     designs_by_protocol = protocol_s.groupby(protocol_s).groups
     # remove refine and consensus if present as there was no design done over multiple protocols
-    # Todo change if we did multiple rounds of these protocols
     unique_protocols = list(designs_by_protocol.keys())
+    # Todo change if we did multiple rounds of these protocols
     designs_by_protocol.pop(PUtils.refine, None)
     designs_by_protocol.pop(PUtils.consensus, None)
     # Get unique protocols
@@ -3978,9 +3982,6 @@ def interface_design_analysis(self: Pose, design_poses: Iterable[Pose] = None,
 
     # Compute structural measurements for all designs
     for pose in design_poses:  # Takes 1-2 seconds for Structure -> assembly -> errat
-        if pose.name not in viable_designs:
-            continue
-
         # assembly.local_density()[:pose_length]  To get every residue in the pose.entities
         # per_residue_data['local_density'][structure.name] = \
         #     [density for residue_number, density in enumerate(assembly.local_density(), 1)
