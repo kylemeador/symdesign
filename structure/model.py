@@ -5181,7 +5181,7 @@ class Pose(SequenceProfile, SymmetricModel):
     interface_residue_numbers: set[int]
     interface_residues_by_entity_pair: dict[tuple[Entity, Entity], tuple[list[Residue], list[Residue]]]
     required_indices: set[int]
-    required_residues: list[Residue] | None
+    required_residues: list[Residue]
     split_interface_residues: dict[int, list[tuple[Residue, Entity]]]
     split_interface_ss_elements: dict[int, list[int]]
     ss_index_array: list[int]
@@ -5207,7 +5207,7 @@ class Pose(SequenceProfile, SymmetricModel):
         self.interface_residue_numbers = set()
         self.interface_residues_by_entity_pair = {}
         self.required_indices = set()
-        self.required_residues = None
+        self.required_residues = []
         self.split_interface_residues = {}  # {1: [(Residue obj, Entity obj), ...], 2: [(Residue obj, Entity obj), ...]}
         self.split_interface_ss_elements = {}  # {1: [0, 0, 1, 2, ...] , 2: [9, 9, 9, 13, ...]]}
         self.ss_index_array = []  # stores secondary structure elements by incrementing index
