@@ -2930,7 +2930,7 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
             num_model_residues = 1
         else:
             coords_type = 'backbone_coords'
-            num_model_residues = 5  # use 5 as ideal CB is added by the model later
+            num_model_residues = 4
 
         # Translate the coordinates along z in increments of 1000 to separate coordinates
         entity_unbound_coords = [getattr(entity, coords_type) for model in models for entity in model.entities]
@@ -2943,6 +2943,7 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
         for idx, coords in enumerate(entity_unbound_coords):
             entity_unbound_coords[idx] = coord_func(coords + unbound_transform*idx)
 
+        # Todo use 5 as ideal CB is added by the model later with ca_only = False
         model_elements += prod((number_of_residues, num_model_residues, 3))  # X,
         model_elements += number_of_residues  # S.shape
         model_elements += number_of_residues  # chain_mask.shape
@@ -2978,7 +2979,7 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
                 parameters.pop('chain_M_pos')
                 parameters.pop('bias_by_res')
                 # Add a parameter for the unbound version of X to X
-                X_unbound = np.concatenate(entity_unbound_coords).reshape((number_of_residues, num_model_residues - 1, 3))
+                X_unbound = np.concatenate(entity_unbound_coords).reshape((number_of_residues, num_model_residues, 3))
                 parameters['X'] = X_unbound
                 # Create batch_length fixed parameter data which are the same across poses
                 parameters.update(**batch_proteinmpnn_input(size=batch_length, **parameters))
@@ -3063,7 +3064,7 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
                     # Use batch_idx to set new numpy arrays, perturb_idx to set coords
                     # new_coords = []
                     # Each residue will have 4 bb_coords, we will reshape to ProteinMPNN later
-                    new_coords = np.zeros((actual_batch_length, pose_length*4, 3),  # 4, 3)
+                    new_coords = np.zeros((actual_batch_length, pose_length * num_model_residues, 3),
                                           dtype=np.float32)
                     for batch_idx, transform_idx in enumerate(range(batch_slice.start, batch_slice.stop)):
                         update_pose_coords(transform_idx)
@@ -3139,7 +3140,7 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
                     #     perturbed_bb_coords = np.concatenate(new_coords, axis=0)
 
                     log.debug(f'perturbed_bb_coords.shape: {perturbed_bb_coords.shape}')
-                    X = perturbed_bb_coords.reshape((actual_batch_length, -1, 4, 3))
+                    X = perturbed_bb_coords.reshape((actual_batch_length, -1, num_model_residues, 3))
                     log.debug(f'X.shape: {X.shape}')
 
                     with torch.no_grad():  # Ensure no gradients are produced
@@ -3162,13 +3163,15 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
                         chain_encoding = chain_encoding[:actual_batch_length]
                         residue_idx = residue_idx[:actual_batch_length]
                         mask = mask[:actual_batch_length]
+                        chain_mask = chain_mask[:actual_batch_length]
+                        residue_mask = residue_mask[:actual_batch_length]
 
                         sample_start_time = time.time()
                         sample_dict = mpnn_sample(X, decoding_order,
-                                                  S[:actual_batch_length], chain_mask[:actual_batch_length],
+                                                  S[:actual_batch_length], chain_mask,
                                                   chain_encoding, residue_idx, mask, temperature=design_temperature,
                                                   omit_AAs_np=omit_AAs_np, bias_AAs_np=bias_AAs_np,
-                                                  chain_M_pos=residue_mask[:actual_batch_length],
+                                                  chain_M_pos=residue_mask,
                                                   omit_AA_mask=omit_AA_mask[:actual_batch_length],
                                                   pssm_coef=pssm_coef[:actual_batch_length],
                                                   pssm_bias=pssm_bias[:actual_batch_length],
@@ -3182,7 +3185,7 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
                         # When batches are sliced for multiple inputs
                         S_sample = sample_dict['S']  # This is the shape of the input X Tensor
                         decoding_order_out = sample_dict['decoding_order']
-                        chain_residue_mask = (chain_mask*residue_mask)[:actual_batch_length]
+                        chain_residue_mask = chain_mask * residue_mask
                         log_probs_start_time = time.time()
                         log_probs = mpnn_model(X, S_sample, mask, chain_residue_mask, residue_idx, chain_encoding,
                                                None,  # This argument is provided but with below args, is not used
@@ -3242,10 +3245,10 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
                 break
             except (RuntimeError, np.core._exceptions._ArrayMemoryError) as error:  # for (gpu, cpu)
                 if once:
-                    if twice:
-                        raise error
-                    else:
-                        twice = True
+                    # if twice:
+                    raise error
+                    # else:
+                    #     twice = True
                 else:
                     once = True
                 # log.critical(f'Calculation failed with {divisor}.\n{error}\n{torch.cuda.memory_stats()}\nTrying again...')
