@@ -3363,7 +3363,7 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
 
     residue_df = pd.merge(residue_df, per_residue_df, left_index=True, right_index=True)
     # Make buried surface area (bsa) columns
-    residue_df = calculate_residue_surface_area(residue_df, index_residues)
+    residue_df = calculate_residue_surface_area(residue_df)  # , index_residues)
 
     source_errat = []
     for idx, entity in enumerate(pose.entities):
@@ -3419,7 +3419,8 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
     interface_metrics_df['entity_thermophilicity'] = sum(is_thermophilic) / idx  # get the average
 
     scores_df = pd.concat([scores_df, pose_collapse_df], axis=1)
-    print(scores_df)
+    print('scores_df', scores_df)
+    print('residue_df', residue_df)
 
     log.info(f'Total {building_blocks} dock trajectory took {time.time() - frag_dock_time_start:.2f}s')
 
