@@ -2894,7 +2894,14 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
     all_scores = {}
     all_probabilities = {}
     pose_length = pose.number_of_residues
-
+    entity_energies = tuple(0. for ent in pose.entities)
+    pose_source_residue_info = \
+        {residue.number: {'complex': 0., 'bound': copy(entity_energies), 'unbound': copy(entity_energies),
+                          'solv_complex': 0., 'solv_bound': copy(entity_energies),
+                          'solv_unbound': copy(entity_energies), 'fsp': 0., 'cst': 0.,
+                          'type': protein_letters_3to1.get(residue.type), 'hbond': 0}
+         for entity in pose.entities for residue in entity.residues}
+    residue_info = {pose_source: pose_source_residue_info}
     if design_output:
         # Extract parameters to run ProteinMPNN design and modulate memory requirements
         log.debug(f'The mpnn_model.device is: {mpnn_model.device}')
@@ -3290,6 +3297,15 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
         # Save each pose information
         for idx, pose_id in enumerate(pose_ids):
             all_sequences[pose_id] = sequences[idx]
+            _per_residue_complex_scores = per_residue_sequence_scores[idx]
+            _per_residue_unbound_scores = per_residue_unbound_scores[idx]
+            residue_info[pose_if] = {residue.number: {'complex': _per_residue_sequence_scores[residue.index],
+                                                      'bound': copy(entity_energies),
+                                                      'unbound': _per_residue_unbound_scores[residue.index],  # copy(entity_energies),
+                                                      'solv_complex': 0., 'solv_bound': copy(entity_energies),
+                                                      'solv_unbound': copy(entity_energies), 'fsp': 0., 'cst': 0.,
+                                                      'type': protein_letters_3to1.get(residue.type), 'hbond': 0}
+                                     for entity in pose.entities for residue in entity.residues}
             all_scores[pose_id] = per_residue_sequence_scores[idx]
             all_probabilities[pose_id] = probabilities[idx]
 
@@ -3374,18 +3390,8 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
     # residue_df = pd.merge(residue_df.loc[:, idx_slice[index_residues, :]],
     #                       per_residue_df.loc[:, idx_slice[index_residues, :]],
     #                       left_index=True, right_index=True)
-    residue_df = pd.DataFrame()
+
     # Process mutational frequencies, H-bond, and Residue energy metrics to dataframe
-    # Todo
-    entity_energies = tuple(0. for ent in pose.entities)
-    pose_source_residue_info = \
-        {residue.number: {'complex': 0., 'bound': copy(entity_energies), 'unbound': copy(entity_energies),
-                          'solv_complex': 0., 'solv_bound': copy(entity_energies),
-                          'solv_unbound': copy(entity_energies), 'fsp': 0., 'cst': 0.,
-                          'type': protein_letters_3to1.get(residue.type), 'hbond': 0}
-         for entity in pose.entities for residue in entity.residues}
-    residue_info = {pose_source: pose_source_residue_info}
-    residue_info.update()  # Todo insert per residue sequence scores
     residue_df = pd.concat({design: pd.DataFrame(info) for design, info in residue_info.items()}).unstack()
 
     residue_df = pd.merge(residue_df, per_residue_df, left_index=True, right_index=True)
@@ -3432,7 +3438,7 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
         for idx, (entity, entity_indices) in enumerate(zip(pose.entities,
                                                            pose.residue_indices_per_entity), idx):
             scores_df[f'entity_{idx}_number_of_mutations'] = \
-                Series({design: len([residue_idx for residue_idx in mutations if residue_idx in entity_indices])
+                pd.Series({design: len([residue_idx for residue_idx in mutations if residue_idx in entity_indices])
                         for design, mutations in all_mutations.items()})
             scores_df[f'entity_{idx}_percent_mutations'] = \
                 scores_df[f'entity_{idx}_number_of_mutations'] \
