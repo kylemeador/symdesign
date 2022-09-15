@@ -2936,7 +2936,9 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
         entity_unbound_coords = [getattr(entity, coords_type) for model in models for entity in model.entities]
         unbound_transform = np.array([0, 0, 1000])
         for idx, coords in enumerate(entity_unbound_coords):
+            print('coords before', coords)
             entity_unbound_coords[idx] = coords + unbound_transform*idx
+            print('coords after', entity_unbound_coords[idx])
 
         model_elements += prod((number_of_residues, num_model_residues, 3))  # X,
         model_elements += number_of_residues  # S.shape
@@ -2973,7 +2975,7 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
                 parameters.pop('chain_M_pos')
                 parameters.pop('bias_by_res')
                 # Add a parameter for the unbound version of X to X
-                X_unbound = np.concatenate(entity_unbound_coords)  # .reshape((1, pose_length, num_model_residues, 3))
+                X_unbound = np.concatenate(entity_unbound_coords).reshape((pose_length, num_model_residues, 3))
                 parameters['X'] = X_unbound
                 # Create batch_length fixed parameter data which are the same across poses
                 parameters.update(**batch_proteinmpnn_input(size=batch_length, **parameters))
