@@ -17,7 +17,7 @@ import torch
 from sklearn.cluster import DBSCAN
 from sklearn.neighbors import BallTree
 
-from metrics import calculate_collapse_metrics, errat_1_sigma, errat_2_sigma
+from metrics import calculate_collapse_metrics, calculate_residue_surface_area, errat_1_sigma, errat_2_sigma
 from resources.EulerLookup import euler_factory
 from resources.fragment import FragmentDatabase, fragment_factory
 from resources.job import job_resources_factory, JobResources
@@ -2985,7 +2985,7 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
 
                 # Set up ProteinMPNN output data structures
                 generated_sequences = np.empty((size, number_of_residues))
-                scores = np.empty((size,))
+                per_residue_sequence_scores = np.empty((size, number_of_residues))
                 probabilities = np.empty((size, number_of_residues, proteinmpnn_factory.mpnn_alphabet_length))
 
                 # Gather the coordinates according to the transformations identified
@@ -3156,18 +3156,27 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
                                                residue_idx[:actual_batch_length], chain_encoding[:actual_batch_length],
                                                None,  # this argument is provided but with below args, is not used
                                                use_input_decoding_order=True, decoding_order=decoding_order_out)
-
+                        # log_probs is
+                        # tensor([[[-2.7691, -3.5265, -2.9001,  ..., -3.3623, -3.0247, -4.2772],
+                        #          [-2.7691, -3.5265, -2.9001,  ..., -3.3623, -3.0247, -4.2772],
+                        #          [-2.7691, -3.5265, -2.9001,  ..., -3.3623, -3.0247, -4.2772],
+                        #          ...,
+                        #          [-2.7691, -3.5265, -2.9001,  ..., -3.3623, -3.0247, -4.2772],
+                        #          [-2.7691, -3.5265, -2.9001,  ..., -3.3623, -3.0247, -4.2772],
+                        #          [-2.7691, -3.5265, -2.9001,  ..., -3.3623, -3.0247, -4.2772]]]
                         # Score the redesigned structure-sequence
-                        mask_for_loss = chain_mask_and_mask*residue_mask
+                        # mask_for_loss = chain_mask_and_mask*residue_mask
                         # S_sample, log_probs, and mask_for_loss should all be the same size
-                        batch_scores = score_sequences(S_sample, log_probs, mask_for_loss)
-                        print('batch_scores', batch_scores)
+                        # batch_scores = score_sequences(S_sample, log_probs, mask_for_loss, per_residue=False)
+                        # batch_scores is
+                        # tensor([2.1039, 2.0618, 2.0802, 2.0538, 2.0114, 2.0002], device='cuda:0')
+                        batch_scores_per_residue = score_sequences(S_sample, log_probs)  # , mask_for_loss)
                         # Score the whole structure-sequence
-                        # global_scores = score_sequences(S_sample, log_probs, mask)
+                        # global_scores = score_sequences(S_sample, log_probs, mask, per_residue=False)
 
                         # Format outputs
                         generated_sequences[batch_slice] = S_sample.cpu().numpy()
-                        scores[batch_slice] = batch_scores.cpu().numpy()  # scores
+                        per_residue_sequence_scores[batch_slice] = batch_scores_per_residue.cpu().numpy()  # scores
                         probabilities[batch_slice] = sample_dict['probs'].cpu().numpy()  # batch_probabilities
 
                         # Delete intermediate variable objects to free memory for next cycle
@@ -3184,7 +3193,7 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
                         del chain_residue_mask
                         del log_probs
                         del mask_for_loss
-                        del batch_scores
+                        del batch_scores_per_residue
 
                 log.critical(f'Successful execution with {divisor} using available memory of '
                              f'{memory_constraint} and batch_length of {batch_length}')
@@ -3235,7 +3244,7 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
                     del chain_residue_mask
                     del log_probs
                     del mask_for_loss
-                    del batch_scores
+                    del batch_scores_per_residue
                 except NameError:
                     pass
                 # divisor = divisor*2
@@ -3252,7 +3261,7 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
         # Save each pose information
         for idx, pose_id in enumerate(pose_ids):
             all_sequences[pose_id] = sequences[idx]
-            all_scores[pose_id] = scores[idx]
+            all_scores[pose_id] = per_residue_sequence_scores[idx]
             all_probabilities[pose_id] = probabilities[idx]
 
         # Separate sequences by entity
