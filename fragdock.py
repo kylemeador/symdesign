@@ -4,6 +4,7 @@ import math
 import os
 import sys
 import time
+from copy import copy
 from collections.abc import Iterable
 from itertools import repeat
 from logging import Logger
@@ -28,6 +29,7 @@ from structure.coords import transform_coordinate_sets
 from structure.fragment import GhostFragment, write_frag_match_info_file
 from structure.model import Pose, Model, get_matching_fragment_pairs_info
 from structure.sequence import generate_mutations_from_reference, numeric_to_sequence
+from structure.utils import protein_letters_3to1
 from utils import dictionary_lookup, start_log, null_log, set_logging_to_level, unpickle, rmsd_z_score, \
     z_value_from_match_score, match_score_from_z_value
 from utils.cluster import cluster_transformation_pairs
@@ -35,7 +37,7 @@ from utils.nanohedra.OptimalTx import OptimalTx
 from utils.nanohedra.WeightedSeqFreq import FragMatchInfo, SeqFreqInfo
 from utils.nanohedra.cmdline import get_docking_parameters
 from utils.nanohedra.general import write_docked_pose_info, get_rotation_step, write_docking_parameters
-from utils.path import frag_text_file, master_log, frag_dir, biological_interfaces, asu_file_name
+from utils.path import frag_text_file, master_log, frag_dir, biological_interfaces, asu_file_name, pose_source
 from utils.SymEntry import SymEntry, get_rot_matrices, make_rotations_degenerate, symmetry_factory
 from utils.symmetry import generate_cryst1_record, get_central_asu
 
@@ -3192,7 +3194,7 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
                         del decoding_order_out
                         del chain_residue_mask
                         del log_probs
-                        del mask_for_loss
+                        # del mask_for_loss
                         del batch_scores_per_residue
 
                 log.critical(f'Successful execution with {divisor} using available memory of '
@@ -3346,6 +3348,19 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
     #                       per_residue_df.loc[:, idx_slice[index_residues, :]],
     #                       left_index=True, right_index=True)
     residue_df = pd.DataFrame()
+    # Process mutational frequencies, H-bond, and Residue energy metrics to dataframe
+    # Todo
+    entity_energies = tuple(0. for ent in pose.entities)
+    pose_source_residue_info = \
+        {residue.number: {'complex': 0., 'bound': copy(entity_energies), 'unbound': copy(entity_energies),
+                          'solv_complex': 0., 'solv_bound': copy(entity_energies),
+                          'solv_unbound': copy(entity_energies), 'fsp': 0., 'cst': 0.,
+                          'type': protein_letters_3to1.get(residue.type), 'hbond': 0}
+         for entity in pose.entities for residue in entity.residues}
+    residue_info = {pose_source: pose_source_residue_info}
+    residue_info.update()  # Todo insert per residue sequence scores
+    residue_df = pd.concat({design: pd.DataFrame(info) for design, info in residue_info.items()}).unstack()
+
     residue_df = pd.merge(residue_df, per_residue_df, left_index=True, right_index=True)
     # Make buried surface area (bsa) columns
     residue_df = calculate_residue_surface_area(residue_df, index_residues)
