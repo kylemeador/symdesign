@@ -7,7 +7,8 @@ from typing import AnyStr, Literal, get_args, Sequence
 
 from structure.utils import protein_letters_alph1, protein_letters_literal
 from utils.path import biological_interfaces, frag_directory, intfrag_cluster_info_dirpath
-from utils import start_log, unpickle, get_base_root_paths_recursively, DesignError, parameterize_frag_length
+from utils import start_log, unpickle, get_base_root_paths_recursively, DesignError, parameterize_frag_length, \
+    get_file_paths_recursively
 from utils.sql import Mysql
 
 logger = start_log(name=__name__)
@@ -18,8 +19,8 @@ aa_weighted_counts_type: dict[weighted_counts_keys, int | tuple[int, int]]
 
 class ClusterInfo:
     def __init__(self, infofile_path: AnyStr = None, name: str = None, size: int = None, rmsd: float = None,
-                 representative_filename: str = None, mapped: aa_weighted_counts_type = None,
-                 paired: aa_weighted_counts_type = None):
+                 # representative_filename: str = None, Todo
+                 rep: str = None, mapped: aa_weighted_counts_type = None, paired: aa_weighted_counts_type = None):
         self.central_residue_pair_freqs = []
         if infofile_path is not None:
             with open(infofile_path, 'r') as f:
@@ -46,7 +47,7 @@ class ClusterInfo:
             self.name = name
             self.size = size
             self.rmsd = rmsd
-            self.representative_filename = representative_filename
+            self.representative_filename = rep  # representative_filename
             self.mapped = mapped
             self.paired = paired
 
@@ -175,7 +176,7 @@ class FragmentInfo:
                     [(ids[idx], os.path.join(self.location, c_id1, f'{c_id1}_{c_id2}', f'{c_id1}_{c_id2}_{c_id3}'))
                      for idx, (c_id1, c_id2, c_id3) in enumerate(map(str.split, ids, repeat('_')))]
 
-            self.info.update({tuple(cluster_id.split('_')):
+            self.info.update({tuple(map(int, cluster_id.split('_'))):
                               ClusterInfo(name=cluster_id, **unpickle(os.path.join(cluster_directory,
                                                                                    f'{cluster_id}.pkl')))
                               for cluster_id, cluster_directory in identified_directories})
@@ -192,24 +193,32 @@ class FragmentInfo:
             raise NotImplementedError("Can't connect to MySQL database yet")
         else:
             if ids is None:  # Load all data
-                for root, dirs, files in os.walk(self.cluster_info_path):
-                    if not dirs:
-                        i_cluster_type, j_cluster_type, k_cluster_type = map(int, os.path.basename(root).split('_'))
-
-                        # if i_cluster_type not in self.info:
-                        #     self.info[i_cluster_type] = {}
-                        # if j_cluster_type not in self.info[i_cluster_type]:
-                        #     self.info[i_cluster_type][j_cluster_type] = {}
-
-                        # for file in files:
-                        # There is only one file
-                        self.info[(i_cluster_type, j_cluster_type, k_cluster_type)] = \
-                            ClusterInfo.from_file(os.path.join(root, files[0]))
+                identified_directories = \
+                    {os.path.basename(cluster_directory): cluster_directory
+                     for cluster_directory in get_file_paths_recursively(self.cluster_info_path)}
+                # for root, dirs, files in os.walk(self.cluster_info_path):
+                #     if not dirs:
+                #         i_cluster_type, j_cluster_type, k_cluster_type = map(int, os.path.basename(root).split('_'))
+                #
+                #         # if i_cluster_type not in self.info:
+                #         #     self.info[i_cluster_type] = {}
+                #         # if j_cluster_type not in self.info[i_cluster_type]:
+                #         #     self.info[i_cluster_type][j_cluster_type] = {}
+                #
+                #         # for file in files:
+                #         # There is only one file
+                #         self.info[(i_cluster_type, j_cluster_type, k_cluster_type)] = \
+                #             ClusterInfo.from_file(os.path.join(root, files[0]))
             else:
-                for _id in ids:
-                    c_id1, c_id2, c_id3 = map(int, _id.split('_'))
-                    self.info[(c_id1, c_id2, c_id3)] = \
-                        ClusterInfo.from_file(os.path.join(self.cluster_info_path, c_id1, f'{c_id1}_{c_id2}', f'{c_id1}_{c_id2}_{c_id3}'))
+                identified_directories = {_id: os.path.join(self.cluster_info_path, c_id1,
+                                                            f'{c_id1}_{c_id2}', _id, f'{_id}.txt')
+                                          for _id, (c_id1, c_id2, c_id3) in zip(ids, map(str.split, ids, repeat('_')))}
+                # for _id, (c_id1, c_id2, c_id3) in zip(ids, map(str.split, ids, repeat('_'))):
+                #     identified_directories[_id] = os.path.join(self.cluster_info_path, c_id1,
+                #                                                f'{c_id1}_{c_id2}', _id, f'{_id}.txt')
+
+            self.info.update({tuple(map(int, cluster_id.split('_'))): ClusterInfo.from_file(cluster_file)
+                              for cluster_id, cluster_file in identified_directories})
 
     @staticmethod
     def get_cluster_id(cluster_id: str, index: int = 3) -> str:
