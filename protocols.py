@@ -11,7 +11,7 @@ from logging import Logger
 from pathlib import Path
 from re import compile as re_compile
 from subprocess import Popen, list2cmdline
-from typing import Callable, Any, Iterable, AnyStr
+from typing import Callable, Any, Iterable, AnyStr, Type
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -62,7 +62,7 @@ variance = 0.8
 symmetry_protocols = {0: 'make_point_group', 2: 'make_layer', 3: 'make_lattice'}  # -1: 'asymmetric',
 
 
-def handle_design_errors(errors: tuple = (Exception,)) -> Callable:
+def handle_design_errors(errors: tuple[Type[Exception], ...] = (Exception,)) -> Callable:
     """Wrap a function/method with try: except errors: and log exceptions to the functions first argument .log attribute
 
     This argument is typically self and is in a class with .log attribute
