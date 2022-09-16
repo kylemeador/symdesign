@@ -1395,8 +1395,10 @@ class SequenceProfile:
             count, frag_weight = data.get('stats', (None, None))
             if not count:  # When data is missing 'stats' or 'stats'[0] is 0
                 continue  # Move on, this isn't a fragment observation, or we have no observed fragments
-            # match score is bounded between 1 and 0.2
-            match_sum = sum(obs['match'] for index_values in data.values() for obs in index_values)
+
+            # Match score 'match' is bounded between [0.2, 1]
+            match_sum = sum(observation['match'] for index_observations in self.fragment_map[entry]
+                            for observation in index_observations)
             # if count == 0:
             #     # ensure that match modifier is 0 so self.alpha[entry] is 0, as there is no fragment information here!
             #     count = match_sum * 5  # makes the match average = 0.5
@@ -1408,24 +1410,15 @@ class SequenceProfile:
             else:  # Set modifier to 1, the maximum bound
                 match_modifier = 1
 
-            # find the total contribution from a typical fragment of this type
-            contribution_total = sum(fragment_stats[self.fragment_db.get_cluster_id(obs['cluster'], index=2)][0]
-                                     [alignment_type_to_idx[obs['chain']]]
-                                     for index_values in data.values() for obs in index_values)
-            # contribution_total = 0.0
-            # for index in self.fragment_map[entry]:
-            #     # for obs in self.fragment_map[entry][index]['cluster']: # WAS
-            #     for obs in self.fragment_map[entry][index]:
-            #         # get first two indices from the cluster_id
-            #         # cluster_id = return_cluster_id_string(self.fragment_map[entry][index][obs]['fragment'], # WAS
-            #         cluster_id = return_cluster_id_string(obs['cluster'], index_number=2)
-            #
-            #         # from the fragment statistics grab the average index weight for the observed chain alignment type
-            #         contribution_total += fragment_stats[cluster_id][0][alignment_type_to_idx[obs['chain']]]
+            # Find the total contribution from a typical fragment of this type
+            contribution_total = sum(fragment_stats[self.fragment_db.get_cluster_id(observation['cluster'], index=2)][0]
+                                     [alignment_type_to_idx[observation['source']]]
+                                     for index_observations in self.fragment_map[entry]
+                                     for observation in index_observations)
 
-            # get the average contribution of each fragment type
+            # Get the average contribution of each fragment type
             stats_average = contribution_total / count
-            # get entry average fragment weight. total weight for issm entry / count
+            # Get entry average fragment weight. total weight for issm entry / count
             frag_weight_average = frag_weight / match_sum
 
             # modify alpha proportionally to cluster average weight and match_modifier
