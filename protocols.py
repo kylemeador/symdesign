@@ -3470,13 +3470,13 @@ class PoseDirectory:
 @handle_design_errors(errors=(DesignError, AssertionError))
 @close_logs
 # @remove_structure_memory
-def interface_design_analysis(self: Pose, design_poses: Iterable[Pose] = None,
+def interface_design_analysis(pose: Pose, design_poses: Iterable[Pose] = None,
                               merge_residue_data: bool = False, save_metrics: bool = True,
                               figures: bool = False, **kwargs) -> Series:
     """Retrieve all score information from a PoseDirectory and write results to .csv file
 
     Args:
-        self: The Pose to perform the analysis on
+        pose: The Pose to perform the analysis on
         design_poses: The subsequent designs to perform analysis on
         merge_residue_data: Whether to incorporate residue data into Pose DataFrame
         save_metrics: Whether to save trajectory and residue DataFrames
@@ -3485,57 +3485,46 @@ def interface_design_analysis(self: Pose, design_poses: Iterable[Pose] = None,
         Series containing summary metrics for all designs in the design directory
     """
     job = job_resources_factory.get(**kwargs)
-    if self.interface_residue_numbers is False or self.interface_design_residue_numbers is False:
-        self.find_and_split_interface()
-    else:  # We only need to load pose as we already calculated interface
-        self = load_pose()
+    if pose.interface_residue_numbers is False or pose.interface_design_residue_numbers is False:
+        pose.find_and_split_interface()
 
-    self.log.debug(f'Found design residues: {", ".join(map(str, sorted(self.interface_design_residue_numbers)))}')
-    # Todo reconcile with the splitting mechanism
-    if (not self.fragment_observations and self.fragment_observations != list()) and job.generate_fragments:
-        make_path(self.frags, condition=job.write_fragments)
-        self.generate_interface_fragments(out_path=self.frags, write_fragments=job.write_fragments)
+    pose.log.debug(f'Found design residues: {", ".join(map(str, sorted(pose.interface_design_residue_numbers)))}')
+    if job.generate_fragments and not pose.fragment_queries:
+        pose.generate_interface_fragments()
 
     # Gather miscellaneous pose specific metrics
-    other_pose_metrics = self.interface_metrics()
+    other_pose_metrics = pose.interface_metrics()
 
     # Find all designs files Todo fold these into Model(s) and attack metrics from Pose objects?
     if design_poses is None:
-        design_poses = []
-        for file in self.get_designs():
-            # pose format should already be the case, but let's make sure
-            #   pass names if available v
-            pose = Pose.from_file(file, entity_names=self.entity_names, log=self.log, pose_format=True,
-                                  sym_entry=self.sym_entry, api_db=job.api_db, fragment_db=self.job.fragment_db,
-                                  design_selector=self.job.design_selector, ignore_clashes=job.ignore_pose_clashes)
-            design_poses.append(pose)
+        design_poses = pose.design_sequence()
 
     # Assumes each structure is the same length
-    pose_length = self.number_of_residues
+    pose_length = pose.number_of_residues
     residue_indices = list(range(1, pose_length+1))
-    pose_sequences = {pose_source: self.sequence}
-    # Todo implement reference sequence from included file(s) or as with self.sequence below
-    pose_sequences.update({PUtils.reference_name: self.sequence})
+    pose_sequences = {pose_source: pose.sequence}
+    # Todo implement reference sequence from included file(s) or as with pose.sequence below
+    pose_sequences.update({PUtils.reference_name: pose.sequence})
     pose_sequences.update({pose.name: pose.sequence for pose in design_poses})
-    all_mutations = generate_mutations_from_reference(self.sequence, pose_sequences)
-    #    generate_mutations_from_reference(''.join(self.atom_sequences.values()), pose_sequences)
+    all_mutations = generate_mutations_from_reference(pose.sequence, pose_sequences)
+    #    generate_mutations_from_reference(''.join(pose.atom_sequences.values()), pose_sequences)
 
-    entity_energies = [0. for ent in self.entities]
+    entity_energies = tuple(0. for ent in pose.entities)
     pose_source_residue_info = \
         {residue.number: {'complex': 0., 'bound': copy(entity_energies), 'unbound': copy(entity_energies),
                           'solv_complex': 0., 'solv_bound': copy(entity_energies),
                           'solv_unbound': copy(entity_energies), 'fsp': 0., 'cst': 0.,
                           'type': protein_letters_3to1.get(residue.type), 'hbond': 0}
-         for entity in self.entities for residue in entity.residues}
+         for entity in pose.entities for residue in entity.residues}
     residue_info = {pose_source: pose_source_residue_info}
     job_key = 'no_energy'
     stat_s, sim_series = Series(dtype=float), []
     if path.exists(self.scores_file):  # Rosetta scores file is present
-        self.log.debug(f'Found design scores in file: {self.scores_file}')
+        pose.log.debug(f'Found design scores in file: {self.scores_file}')
         design_was_performed = True
         # Get the scores from the score file on design trajectory metrics
         source_df = DataFrame({pose_source: {PUtils.groups: job_key}}).T
-        for idx, entity in enumerate(self.entities, 1):
+        for idx, entity in enumerate(pose.entities, 1):
             source_df[f'buns_{idx}_unbound'] = 0
             source_df[f'interface_energy_{idx}_bound'] = 0
             source_df[f'interface_energy_{idx}_unbound'] = 0
@@ -3549,7 +3538,7 @@ def interface_design_analysis(self: Pose, design_poses: Iterable[Pose] = None,
         source_df['interface_energy_complex'] = 0
         source_df['interaction_energy_complex'] = 0
         source_df['interaction_energy_per_residue'] = \
-            source_df['interaction_energy_complex'] / len(self.interface_design_residue_numbers)
+            source_df['interaction_energy_complex'] / len(pose.interface_design_residue_numbers)
         source_df['interface_separation'] = 0
         source_df['number_hbonds'] = 0
         source_df['rmsd_complex'] = 0  # Todo calculate this here instead of Rosetta using superposition3d
@@ -3558,7 +3547,7 @@ def interface_design_analysis(self: Pose, design_poses: Iterable[Pose] = None,
         source_df['solvation_energy'] = 0
         source_df['solvation_energy_complex'] = 0
         all_design_scores = read_scores(self.scores_file)
-        self.log.debug(f'All designs with scores: {", ".join(all_design_scores.keys())}')
+        pose.log.debug(f'All designs with scores: {", ".join(all_design_scores.keys())}')
         # Remove designs with scores but no structures
         all_viable_design_scores = {}
         for pose in design_poses:
@@ -3579,7 +3568,7 @@ def interface_design_analysis(self: Pose, design_poses: Iterable[Pose] = None,
 
         # Check proper input
         metric_set = necessary_metrics.difference(set(scores_df.columns))
-        # self.log.debug('Score columns present before required metric check: %s' % scores_df.columns.to_list())
+        # pose.log.debug('Score columns present before required metric check: %s' % scores_df.columns.to_list())
         if not metric_set:
             raise DesignError(f'Missing required metrics: "{", ".join(metric_set)}"')
 
@@ -3598,7 +3587,7 @@ def interface_design_analysis(self: Pose, design_poses: Iterable[Pose] = None,
         scores_df.loc[number_hbonds_s.index, 'number_hbonds'] = number_hbonds_s
         # scores_df = scores_df.assign(number_hbonds=number_hbonds_s)
         # residue_info = {'energy': {'complex': 0., 'unbound': 0.}, 'type': None, 'hbond': 0}
-        residue_info.update(self.rosetta_residue_processing(all_viable_design_scores))
+        residue_info.update(pose.rosetta_residue_processing(all_viable_design_scores))
         residue_info = process_residue_info(residue_info, simplify_mutation_dict(all_mutations),
                                             hbonds=interface_hbonds)
         # can't use residue_processing (clean) in the case there is a design without metrics... columns not found!
@@ -3623,7 +3612,7 @@ def interface_design_analysis(self: Pose, design_poses: Iterable[Pose] = None,
         if not viable_designs:
             raise DesignError('No viable designs remain after processing!')
 
-        self.log.debug(f'Viable designs remaining after cleaning:\n\t{", ".join(viable_designs)}')
+        pose.log.debug(f'Viable designs remaining after cleaning:\n\t{", ".join(viable_designs)}')
         pose_sequences = {design: sequence for design, sequence in pose_sequences.items() if design in viable_designs}
 
         # Todo implement this protocol if sequence data is taken at multiple points along a trajectory and the
@@ -3637,21 +3626,21 @@ def interface_design_analysis(self: Pose, design_poses: Iterable[Pose] = None,
         #         else:
         #             pose_sequences[design] = sequence
         #     else:
-        #         self.log.warning('Design %s is missing sequence data, removing from design pool' % design)
+        #         pose.log.warning('Design %s is missing sequence data, removing from design pool' % design)
         #         all_viable_design_scores.pop(design)
         # # format {entity: {design_name: sequence, ...}, ...}
         # entity_sequences = \
         #     {entity: {design: sequence[entity.n_terminal_residue.number - 1:entity.c_terminal_residue.number]
-        #               for design, sequence in pose_sequences.items()} for entity in self.entities}
+        #               for design, sequence in pose_sequences.items()} for entity in pose.entities}
     else:
-        self.log.debug(f'Missing design scores file at {self.scores_file}')
+        pose.log.debug(f'Missing design scores file at {self.scores_file}')
         design_was_performed = False
         # Todo add relevant missing scores such as those specified as 0 below
         # Todo may need to put source_df in scores file alternative
         source_df = DataFrame({pose_source: {PUtils.groups: job_key}}).T
         scores_df = DataFrame({pose.name: {PUtils.groups: job_key} for pose in design_poses}).T
         scores_df = concat([source_df, scores_df])
-        for idx, entity in enumerate(self.entities, 1):
+        for idx, entity in enumerate(pose.entities, 1):
             source_df[f'buns_{idx}_unbound'] = 0
             source_df[f'interface_energy_{idx}_bound'] = 0
             source_df[f'interface_energy_{idx}_unbound'] = 0
@@ -3669,7 +3658,7 @@ def interface_design_analysis(self: Pose, design_poses: Iterable[Pose] = None,
         scores_df['interface_energy_complex'] = 0
         scores_df['interaction_energy_complex'] = 0
         scores_df['interaction_energy_per_residue'] = \
-            scores_df['interaction_energy_complex'] / len(self.interface_design_residue_numbers)
+            scores_df['interaction_energy_complex'] / len(pose.interface_design_residue_numbers)
         scores_df['interface_separation'] = 0
         scores_df['number_hbonds'] = 0
         scores_df['rmsd_complex'] = 0  # Todo calculate this here instead of Rosetta using superposition3d
@@ -3681,7 +3670,7 @@ def interface_design_analysis(self: Pose, design_poses: Iterable[Pose] = None,
         residue_info.update({struct_name: pose_source_residue_info for struct_name in scores_df.index.to_list()})
         # Todo generate energy scores internally which matches output from residue_processing
         # interface_hbonds = dirty_hbond_processing(all_design_scores)
-        # residue_info = self.rosetta_residue_processing(all_design_scores)
+        # residue_info = pose.rosetta_residue_processing(all_design_scores)
         # residue_info = process_residue_info(residue_info, simplify_mutation_dict(all_mutations),
         #                                     hbonds=interface_hbonds)
         viable_designs = [pose.name for pose in design_poses]
@@ -3690,14 +3679,14 @@ def interface_design_analysis(self: Pose, design_poses: Iterable[Pose] = None,
     other_pose_metrics['observations'] = len(viable_designs)
 
     entity_sequences = []
-    for entity in self.entities:
+    for entity in pose.entities:
         entity_slice = slice(entity.n_terminal_residue.index, 1+entity.c_terminal_residue.index)
         entity_sequences.append({design: sequence[entity_slice] for design, sequence in pose_sequences.items()})
     # Todo generate_multiple_mutations accounts for offsets from the reference sequence. Not necessary YET
     # sequence_mutations = \
-    #     generate_multiple_mutations(self.atom_sequences, pose_sequences, pose_num=False)
+    #     generate_multiple_mutations(pose.atom_sequences, pose_sequences, pose_num=False)
     # sequence_mutations.pop('reference')
-    # entity_sequences = generate_sequences(self.atom_sequences, sequence_mutations)
+    # entity_sequences = generate_sequences(pose.atom_sequences, sequence_mutations)
     # entity_sequences = {chain: keys_from_trajectory_number(named_sequences)
     #                         for chain, named_sequences in entity_sequences.items()}
 
@@ -3711,7 +3700,7 @@ def interface_design_analysis(self: Pose, design_poses: Iterable[Pose] = None,
     designs_by_protocol.pop(PUtils.consensus, None)
     # Get unique protocols
     unique_design_protocols = set(designs_by_protocol.keys())
-    self.log.info(f'Unique Design Protocols: {", ".join(unique_design_protocols)}')
+    pose.log.info(f'Unique Design Protocols: {", ".join(unique_design_protocols)}')
 
     # Replace empty strings with np.nan and convert remaining to float
     scores_df.replace('', np.nan, inplace=True)
@@ -3722,10 +3711,10 @@ def interface_design_analysis(self: Pose, design_poses: Iterable[Pose] = None,
     # per_residue_data = {'errat_deviation': {}, 'hydrophobic_collapse': {}, 'contact_order': {},
     #                     'sasa_hydrophobic_complex': {}, 'sasa_polar_complex': {}, 'sasa_relative_complex': {},
     #                     'sasa_hydrophobic_bound': {}, 'sasa_polar_bound': {}, 'sasa_relative_bound': {}}
-    interface_local_density = {pose_source: self.local_density_interface()}
+    interface_local_density = {pose_source: pose.local_density_interface()}
     # atomic_deviation = {}
-    per_residue_data = {pose_source: self.get_per_residue_interface_metrics()}
-    # pose_assembly_minimally_contacting = self.assembly_minimally_contacting
+    per_residue_data = {pose_source: pose.get_per_residue_interface_metrics()}
+    # pose_assembly_minimally_contacting = pose.assembly_minimally_contacting
     # perform SASA measurements
     # pose_assembly_minimally_contacting.get_sasa()
     # assembly_asu_residues = pose_assembly_minimally_contacting.residues[:pose_length]
@@ -3735,19 +3724,19 @@ def interface_design_analysis(self: Pose, design_poses: Iterable[Pose] = None,
     # per_residue_data['sasa_relative_complex'][pose_source] = \
     #     [residue.relative_sasa for residue in assembly_asu_residues]
 
-    # Grab metrics for the pose source. Checks if self.pose was designed
+    # Grab metrics for the pose source. Checks if pose was designed
     # Favor pose source errat/collapse on a per-entity basis if design occurred
     # As the pose source assumes no legit interface present while designs have an interface
     # per_residue_sasa_unbound_apolar, per_residue_sasa_unbound_polar, per_residue_sasa_unbound_relative = [], [], []
     # source_errat_accuracy, source_errat, source_contact_order, inverse_residue_contact_order_z = [], [], [], []
     warn = True
     source_errat, source_contact_order, inverse_residue_contact_order_z = [], [], []
-    for idx, entity in enumerate(self.entities):
+    for idx, entity in enumerate(pose.entities):
         try:  # To fetch the multiple sequence alignment for further processing
             entity.msa = job.api_db.alignments.retrieve_data(name=entity.name)
         except ValueError:  # When the Entity reference sequence and alignment are different lengths
             if not warn:
-                self.log.info(f'Metrics relying on a multiple sequence alignment are not being collected as '
+                pose.log.info(f'Metrics relying on a multiple sequence alignment are not being collected as '
                               f'there is no MSA found. These include: '
                               f'{", ".join(multiple_sequence_alignment_dependent_metrics)}')
                 warn = False
@@ -3761,19 +3750,19 @@ def interface_design_analysis(self: Pose, design_poses: Iterable[Pose] = None,
         # inverse_residue_contact_order_z.append(residue_contact_order_z*-1)
         # Get errat from the symmetric Entity
         # entity.oligomer.get_sasa()  # Todo when Entity.oligomer works
-        # entity_oligomer = Model.from_chains(entity.chains, log=self.log, entities=False)
+        # entity_oligomer = Model.from_chains(entity.chains, log=pose.log, entities=False)
         # entity_oligomer.get_sasa()
         # oligomer_asu_residues = entity_oligomer.residues[:entity.number_of_residues]
         # per_residue_sasa_unbound_apolar.extend([residue.sasa_apolar for residue in oligomer_asu_residues])
         # per_residue_sasa_unbound_polar.extend([residue.sasa_polar for residue in oligomer_asu_residues])
         # per_residue_sasa_unbound_relative.extend([residue.relative_sasa for residue in oligomer_asu_residues])
         if design_was_performed:  # we should respect input structure was not meant to be together
-            # oligomer_errat_accuracy, oligomeric_errat = entity_oligomer.errat(out_path=self.data)
+            # oligomer_errat_accuracy, oligomeric_errat = entity_oligomer.errat(out_path=path.devnull)
             # source_errat_accuracy.append(oligomer_errat_accuracy)
             # Todo when Entity.oligomer works
-            #  _, oligomeric_errat = entity.oligomer.errat(out_path=self.data)
-            entity_oligomer = Model.from_chains(entity.chains, log=self.log, entities=False)
-            _, oligomeric_errat = entity_oligomer.errat(out_path=self.data)
+            #  _, oligomeric_errat = entity.oligomer.errat(out_path=path.devnull)
+            entity_oligomer = Model.from_chains(entity.chains, log=pose.log, entities=False)
+            _, oligomeric_errat = entity_oligomer.errat(out_path=path.devnull)
             source_errat.append(oligomeric_errat[:entity.number_of_residues])
     # per_residue_data['sasa_hydrophobic_bound'][pose_source] = per_residue_sasa_unbound_apolar
     # per_residue_data['sasa_polar_bound'][pose_source] = per_residue_sasa_unbound_polar
@@ -3783,25 +3772,25 @@ def interface_design_analysis(self: Pose, design_poses: Iterable[Pose] = None,
         Series(np.concatenate(source_contact_order), index=residue_indices, name='contact_order')
     per_residue_data[pose_source]['contact_order'] = pose_source_contact_order_s
 
-    number_of_entities = self.number_of_entities
+    number_of_entities = pose.number_of_entities
     if design_was_performed:  # The input structure was not meant to be together, treat as such
         source_errat = []
-        for idx, entity in enumerate(self.entities):
+        for idx, entity in enumerate(pose.entities):
             # Replace 'errat_deviation' measurement with uncomplexed entities
-            # oligomer_errat_accuracy, oligomeric_errat = entity_oligomer.errat(out_path=self.data)
+            # oligomer_errat_accuracy, oligomeric_errat = entity_oligomer.errat(out_path=path.devnull)
             # source_errat_accuracy.append(oligomer_errat_accuracy)
             # Todo when Entity.oligomer works
-            #  _, oligomeric_errat = entity.oligomer.errat(out_path=self.data)
-            entity_oligomer = Model.from_chains(entity.chains, log=self.log, entities=False)
-            _, oligomeric_errat = entity_oligomer.errat(out_path=self.data)
+            #  _, oligomeric_errat = entity.oligomer.errat(out_path=path.devnull)
+            entity_oligomer = Model.from_chains(entity.chains, log=pose.log, entities=False)
+            _, oligomeric_errat = entity_oligomer.errat(out_path=path.devnull)
             source_errat.append(oligomeric_errat[:entity.number_of_residues])
         # atomic_deviation[pose_source] = sum(source_errat_accuracy) / float(number_of_entities)
         pose_source_errat_s = Series(np.concatenate(source_errat), index=residue_indices)
     else:
-        pose_assembly_minimally_contacting = self.assembly_minimally_contacting
+        pose_assembly_minimally_contacting = pose.assembly_minimally_contacting
         # atomic_deviation[pose_source], pose_per_residue_errat = \
         _, pose_per_residue_errat = \
-            pose_assembly_minimally_contacting.errat(out_path=self.data)
+            pose_assembly_minimally_contacting.errat(out_path=path.devnull)
         pose_source_errat_s = pose_per_residue_errat[:pose_length]
 
     per_residue_data[pose_source]['errat_deviation'] = pose_source_errat_s
@@ -3811,9 +3800,9 @@ def interface_design_analysis(self: Pose, design_poses: Iterable[Pose] = None,
         # assembly.local_density()[:pose_length]  To get every residue in the pose.entities
         # per_residue_data['local_density'][structure.name] = \
         #     [density for residue_number, density in enumerate(assembly.local_density(), 1)
-        #      if residue_number in self.interface_design_residue_numbers]  # self.interface_residue_numbers <- no interior, mas accurate?
+        #      if residue_number in pose.interface_design_residue_numbers]  # pose.interface_residue_numbers <- no interior, mas accurate?
         # per_residue_data['local_density'][structure.name] = \
-        #     assembly.local_density(residue_numbers=self.interface_residue_numbers)[:pose_length]
+        #     assembly.local_density(residue_numbers=pose.interface_residue_numbers)[:pose_length]
 
         # must find interface residues before measure local_density
         pose.find_and_split_interface()
@@ -3824,7 +3813,7 @@ def interface_design_analysis(self: Pose, design_poses: Iterable[Pose] = None,
         # assembly_minimally_contacting = pose.assembly_minimally_contacting
         # atomic_deviation[pose.name], per_residue_errat = \
         # _, per_residue_errat = \
-        #     assembly_minimally_contacting.errat(out_path=self.data)
+        #     assembly_minimally_contacting.errat(out_path=path.devnull)
         # per_residue_data[pose.name]['errat_deviation'] = per_residue_errat[:pose_length]
         # # perform SASA measurements
         # assembly_minimally_contacting.get_sasa()
@@ -3839,7 +3828,7 @@ def interface_design_analysis(self: Pose, design_poses: Iterable[Pose] = None,
         #     [], [], []
         # for entity in pose.entities:
         #     # entity.oligomer.get_sasa()  # Todo when Entity.oligomer works
-        #     entity_oligomer = Model.from_chains(entity.chains, log=self.log, entities=False)
+        #     entity_oligomer = Model.from_chains(entity.chains, log=pose.log, entities=False)
         #     entity_oligomer.get_sasa()
         #     per_residue_sasa_unbound_apolar.extend(
         #         [residue.sasa_apolar for residue in entity_oligomer.residues[:entity.number_of_residues]])
@@ -3859,7 +3848,7 @@ def interface_design_analysis(self: Pose, design_poses: Iterable[Pose] = None,
     # returns multi-index column with residue number as first (top) column index, metric as second index
     # during residue_df unstack, all residues with missing dicts are copied as nan
     # Merge interface design specific residue metrics with total per residue metrics
-    index_residues = list(self.interface_design_residue_numbers)
+    index_residues = list(pose.interface_design_residue_numbers)
     idx_slice = IndexSlice
     residue_df = merge(residue_df.loc[:, idx_slice[index_residues, :]],
                        per_residue_df.loc[:, idx_slice[index_residues, :]],
@@ -3870,9 +3859,8 @@ def interface_design_analysis(self: Pose, design_poses: Iterable[Pose] = None,
     # Calculate hydrophobic collapse for each design
     # for design in viable_designs:  # includes the pose_source
     # Include the pose_source in the measured designs
-    folding_and_collapse = calculate_collapse_metrics(self,
-                                                      list(zip(*[list(design_sequences.values())
-                                                                 for design_sequences in entity_sequences])))
+    folding_and_collapse = calculate_collapse_metrics(pose, list(zip(*[list(design_sequences.values())
+                                                                       for design_sequences in entity_sequences])))
     pose_collapse_df = DataFrame(folding_and_collapse).T
 
     # include in errat_deviation if errat score is < 2 std devs and isn't 0 to begin with
@@ -3901,10 +3889,10 @@ def interface_design_analysis(self: Pose, design_poses: Iterable[Pose] = None,
     if not profile_background:
         divergence_s = Series(dtype=float)
     else:  # Calculate sequence statistics
-        # first for entire pose
+        # First, for entire pose
         pose_alignment = MultipleSequenceAlignment.from_dictionary(pose_sequences)
-        # mutation_frequencies = pose_alignment.frequencies[[residue-1 for residue in self.interface_design_residue_numbers]]
-        # mutation_frequencies = filter_dictionary_keys(pose_alignment.frequencies, self.interface_design_residue_numbers)
+        # mutation_frequencies = pose_alignment.frequencies[[residue-1 for residue in pose.interface_design_residue_numbers]]
+        # mutation_frequencies = filter_dictionary_keys(pose_alignment.frequencies, pose.interface_design_residue_numbers)
         # mutation_frequencies = filter_dictionary_keys(pose_alignment['frequencies'], interface_residue_numbers)
 
         # Calculate amino acid observation percent from residue_info and background SSM's
@@ -3914,7 +3902,7 @@ def interface_design_analysis(self: Pose, design_poses: Iterable[Pose] = None,
         #                            for design, numerical_sequence in zip(pose_sequences,
         #                                                                  list(pose_alignment.numerical_alignment))}
         #                  for profile, background in profile_background.items()}
-        # Find the observed background for each profile, for each design in the pose
+        # Find the observed background for each profile, for each designed pose
         # pose_observed_bkd = {profile: {design: freq.mean() for design, freq in design_obs_freqs.items()}
         #                      for profile, design_obs_freqs in observation_d.items()}
         # for profile, observed_frequencies in pose_observed_bkd.items():
@@ -3922,7 +3910,6 @@ def interface_design_analysis(self: Pose, design_poses: Iterable[Pose] = None,
         # for profile, design_obs_freqs in observation_d.items():
         #     scores_df[f'observed_{profile}'] = \
         #         Series({design: freq.mean() for design, freq in design_obs_freqs.items()})
-        # Add observation information into the residue_df
         observed_dfs = []
         # for profile, design_obs_freqs in observation_d.items():
         for profile, background in profile_background.items():
@@ -3934,15 +3921,16 @@ def interface_design_analysis(self: Pose, design_poses: Iterable[Pose] = None,
             scores_df[f'observed_{profile}'] = obs_df.mean(axis=1)
             observed_dfs.append(obs_df)
 
+        # Add observation information into the residue_df
         residue_df = concat([residue_df] + observed_dfs, axis=1)
         # Calculate Jensen Shannon Divergence using different SSM occurrence data and design mutations
         #                                              both mut_freq and profile_background[profile] are one-indexed
-        interface_indexer = [residue-1 for residue in self.interface_design_residue_numbers]
+        interface_indexer = [residue - zero_offset for residue in pose.interface_design_residue_numbers]
         divergence = {f'divergence_{profile}':
                       # position_specific_jsd(pose_alignment.frequencies, background)[interface_indexer]
                       position_specific_divergence(pose_alignment.frequencies, background)[interface_indexer]
                       for profile, background in profile_background.items()}
-        interface_bkgd = np.array(list(self.job.fragment_db.aa_frequencies.values()))
+        interface_bkgd = np.array(list(job.fragment_db.aa_frequencies.values()))
         if interface_bkgd is not None:
             tiled_int_background = np.tile(interface_bkgd, (len(interface_indexer), 1))
             # jensen_shannon_divergence(pose_alignment.frequencies, interface_bkgd)[interface_indexer]
@@ -3966,7 +3954,7 @@ def interface_design_analysis(self: Pose, design_poses: Iterable[Pose] = None,
                 protocol_alignment = MultipleSequenceAlignment.from_dictionary({design: pose_sequences[design]
                                                                                 for design in designs})
                 # protocol_mutation_freq = filter_dictionary_keys(protocol_alignment.frequencies,
-                #                                                 self.interface_design_residue_numbers)
+                #                                                 pose.interface_design_residue_numbers)
                 # protocol_mutation_freq = protocol_alignment.frequencies
                 protocol_divergence = {f'divergence_{profile}':
                                        position_specific_divergence(protocol_alignment.frequencies,
@@ -3992,11 +3980,11 @@ def interface_design_analysis(self: Pose, design_poses: Iterable[Pose] = None,
         Series({design: len(mutations) for design, mutations in all_mutations.items()})
     scores_df['percent_mutations'] = \
         scores_df['number_of_mutations'] / other_pose_metrics['entity_residue_length_total']
-    # residue_indices_per_entity = self.residue_indices_per_entity
+    # residue_indices_per_entity = pose.residue_indices_per_entity
     is_thermophilic = []
     idx = 1
-    for idx, (entity, entity_indices) in enumerate(zip(self.entities,
-                                                       self.residue_indices_per_entity), idx):
+    for idx, (entity, entity_indices) in enumerate(zip(pose.entities,
+                                                       pose.residue_indices_per_entity), idx):
         scores_df[f'entity_{idx}_number_of_mutations'] = \
             Series({design: len([residue_idx for residue_idx in mutations if residue_idx in entity_indices])
                     for design, mutations in all_mutations.items()})
@@ -4004,7 +3992,8 @@ def interface_design_analysis(self: Pose, design_poses: Iterable[Pose] = None,
             scores_df[f'entity_{idx}_number_of_mutations'] / other_pose_metrics[f'entity_{idx}_number_of_residues']
         is_thermophilic.append(getattr(other_pose_metrics, f'entity_{idx}_thermophile', 0))
 
-    other_pose_metrics['entity_thermophilicity'] = sum(is_thermophilic) / idx  # get the average
+    # Get the average thermophilicity for all entities
+    other_pose_metrics['entity_thermophilicity'] = sum(is_thermophilic) / idx
 
     # entity_alignment = multi_chain_alignment(entity_sequences)
     # INSTEAD OF USING BELOW, split Pose.MultipleSequenceAlignment at entity.chain_break...
@@ -4018,7 +4007,7 @@ def interface_design_analysis(self: Pose, design_poses: Iterable[Pose] = None,
     dca_succeed = True
     # dca_background_energies, dca_design_energies = [], []
     dca_background_energies, dca_design_energies = {}, {}
-    for idx, entity in enumerate(self.entities):
+    for idx, entity in enumerate(pose.entities):
         try:  # TODO add these to the analysis
             entity.h_fields = job.api_db.bmdca_fields.retrieve_data(name=entity.name)
             entity.j_couplings = job.api_db.bmdca_couplings.retrieve_data(name=entity.name)
@@ -4033,7 +4022,7 @@ def interface_design_analysis(self: Pose, design_poses: Iterable[Pose] = None,
             dca_background_energies[entity] = dca_background_residue_energies.sum(axis=1)  # turns data to 1D
             dca_design_energies[entity] = dca_design_residue_energies.sum(axis=1)
         except AttributeError:
-            self.log.warning(f"For {entity.name}, DCA analysis couldn't be performed. "
+            pose.log.warning(f"For {entity.name}, DCA analysis couldn't be performed. "
                              f"Missing required parameter files")
             dca_succeed = False
 
@@ -4051,7 +4040,7 @@ def interface_design_analysis(self: Pose, design_poses: Iterable[Pose] = None,
     #                       left_index=True, right_index=True)
     # Add local_density information to scores_df
     # scores_df['interface_local_density'] = \
-    #     residue_df.loc[:, idx_slice[self.interface_residue_numbers, 'local_density']].mean(axis=1)
+    #     residue_df.loc[:, idx_slice[pose.interface_residue_numbers, 'local_density']].mean(axis=1)
 
     # Make buried surface area (bsa) columns
     residue_df = calculate_residue_surface_area(residue_df, index_residues)
@@ -4076,10 +4065,10 @@ def interface_design_analysis(self: Pose, design_poses: Iterable[Pose] = None,
     #     interior_residues.loc[:, interior_residues.mean(axis=0) > 0.5].columns.remove_unused_levels().levels[0].
     #     to_list()
     # if interior_residue_numbers:
-    #     self.log.info(f'Design Residues {",".join(map(str, sorted(interior_residue_numbers)))}
+    #     pose.log.info(f'Design Residues {",".join(map(str, sorted(interior_residue_numbers)))}
     #                   'are located in the interior')
 
-    # This shouldn't be much different from the state variable self.interface_residue_numbers
+    # This shouldn't be much different from the state variable pose.interface_residue_numbers
     # perhaps the use of residue neighbor energy metrics adds residues which contribute, but not directly
     # interface_residue_numbers = set(residue_df.columns.levels[0].unique()).difference(interior_residue_numbers)
 
@@ -4089,7 +4078,7 @@ def interface_design_analysis(self: Pose, design_poses: Iterable[Pose] = None,
 
     # Calculate new metrics from combinations of other metrics
     scores_columns = scores_df.columns.to_list()
-    self.log.debug(f'Metrics present: {scores_columns}')
+    pose.log.debug(f'Metrics present: {scores_columns}')
     # sum columns using list[0] + list[1] + list[n]
     complex_df = residue_df.loc[:, idx_slice[:, 'complex']]
     bound_df = residue_df.loc[:, idx_slice[:, 'bound']]
@@ -4203,10 +4192,10 @@ def interface_design_analysis(self: Pose, design_poses: Iterable[Pose] = None,
     scout_protocols = list(filter(re_compile(f'.*{PUtils.scout}').match, protocol_s.unique().tolist()))
     similarity_protocols = unique_design_protocols.difference([PUtils.refine, job_key] + scout_protocols)
     if PUtils.structure_background not in unique_design_protocols:
-        self.log.info(f'Missing background protocol "{PUtils.structure_background}". No protocol significance '
+        pose.log.info(f'Missing background protocol "{PUtils.structure_background}". No protocol significance '
                       f'measurements available for this pose')
     elif len(similarity_protocols) == 1:  # measure significance
-        self.log.info("Can't measure protocol significance, only one protocol of interest")
+        pose.log.info("Can't measure protocol significance, only one protocol of interest")
     else:  # Test significance between all combinations of protocols by grabbing mean entries per protocol
         for prot1, prot2 in combinations(sorted(similarity_protocols), 2):
             select_df = \
@@ -4230,7 +4219,7 @@ def interface_design_analysis(self: Pose, design_poses: Iterable[Pose] = None,
 
         seq_pca = PCA(variance)
         designed_sequence_modifications = [''.join(info['type'] for residue, info in residues_info.items()
-                                                   if residue in self.interface_design_residue_numbers)
+                                                   if residue in pose.interface_design_residue_numbers)
                                            for design, residues_info in residue_info.items()]
         pairwise_sequence_diff_np = scaler.fit_transform(all_vs_all(designed_sequence_modifications, sequence_difference))
         seq_pc = seq_pca.fit_transform(pairwise_sequence_diff_np)
@@ -4332,7 +4321,7 @@ def interface_design_analysis(self: Pose, design_poses: Iterable[Pose] = None,
         # if figures:  # Todo ensure output is as expected then move below
         #     protocols_by_design = {design: protocol for protocol, designs in designs_by_protocol.items()
         #                            for design in designs}
-        #     _path = path.join(self.job.all_scores, str(self))
+        #     _path = path.join(job.all_scores, str(pose))
         #     # Set up Labels & Plot the PC data
         #     protocol_map = {protocol: i for i, protocol in enumerate(designs_by_protocol)}
         #     integer_map = {i: protocol for (protocol, i) in protocol_map.items()}
@@ -4410,7 +4399,7 @@ def interface_design_analysis(self: Pose, design_poses: Iterable[Pose] = None,
         # Plot: Format the collapse data with residues as index and each design as column
         # collapse_graph_df = DataFrame(per_residue_data['hydrophobic_collapse'])
         collapse_graph_df = per_residue_df.loc[:, idx_slice[:, 'hydrophobic_collapse']].droplevel(-1, axis=1)
-        reference_collapse = [entity.hydrophobic_collapse for entity in self.entities]
+        reference_collapse = [entity.hydrophobic_collapse for entity in pose.entities]
         reference_collapse_concatenated_s = \
             Series(np.concatenate(reference_collapse), name=PUtils.reference_name)
         collapse_graph_df[PUtils.reference_name] = reference_collapse_concatenated_s
@@ -4441,7 +4430,7 @@ def interface_design_analysis(self: Pose, design_poses: Iterable[Pose] = None,
         #                         / wt_contact_order_range)  # / wt_contact_order_range)
         # graph_contact_order = sns.relplot(data=errat_graph_df, kind='line')  # x='Residue Number'
         # collapse_ax1.plot(scaled_contact_order)
-        # contact_ax.vlines(self.chain_breaks, 0, 1, transform=contact_ax.get_xaxis_transform(),
+        # contact_ax.vlines(pose.chain_breaks, 0, 1, transform=contact_ax.get_xaxis_transform(),
         #                   label='Entity Breaks', colors='#cccccc')  # , grey)
         # contact_ax.vlines(index_residues, 0, 0.05, transform=contact_ax.get_xaxis_transform(),
         #                   label='Design Residues', colors='#f89938', lw=2)  # , orange)
@@ -4470,7 +4459,7 @@ def interface_design_analysis(self: Pose, design_poses: Iterable[Pose] = None,
         # collapse_ax.legend(loc='lower left', bbox_to_anchor=(0., 1))
         # Plot the chain break(s) and design residues
         # linestyles={'solid', 'dashed', 'dashdot', 'dotted'}
-        collapse_ax.vlines(self.chain_breaks, 0, 1, transform=collapse_ax.get_xaxis_transform(),
+        collapse_ax.vlines(pose.chain_breaks, 0, 1, transform=collapse_ax.get_xaxis_transform(),
                            label='Entity Breaks', colors='#cccccc')  # , grey)
         collapse_ax.vlines(index_residues, 0, 0.05, transform=collapse_ax.get_xaxis_transform(),
                            label='Design Residues', colors='#f89938', lw=2)  # , orange)
@@ -4486,7 +4475,7 @@ def interface_design_analysis(self: Pose, design_poses: Iterable[Pose] = None,
 
         # Plot: Collapse description of total profile against each design
         entity_collapse_mean, entity_collapse_std = [], []
-        for entity in self.entities:
+        for entity in pose.entities:
             if entity.msa:
                 collapse = entity.collapse_profile()
                 entity_collapse_mean.append(collapse.mean())
@@ -4533,7 +4522,7 @@ def interface_design_analysis(self: Pose, design_poses: Iterable[Pose] = None,
         # labels = [fill(column, legend_fill_value) for column in errat_graph_df.columns]
         # errat_ax.legend(labels, loc='lower left', bbox_to_anchor=(0., 1.))
         # errat_ax.legend(loc='lower center', bbox_to_anchor=(0., 1.))
-        errat_ax.vlines(self.chain_breaks, 0, 1, transform=errat_ax.get_xaxis_transform(),
+        errat_ax.vlines(pose.chain_breaks, 0, 1, transform=errat_ax.get_xaxis_transform(),
                         label='Entity Breaks', colors='#cccccc')  # , grey)
         errat_ax.vlines(index_residues, 0, 0.05, transform=errat_ax.get_xaxis_transform(),
                         label='Design Residues', colors='#f89938', lw=2)  # , orange)
@@ -4553,7 +4542,7 @@ def interface_design_analysis(self: Pose, design_poses: Iterable[Pose] = None,
         labels = collapse_labels + contact_labels
         # handles = errat_handles + contact_handles
         # labels = errat_labels + contact_labels
-        labels = [label.replace(f'{self.name}_', '') for label in labels]
+        labels = [label.replace(f'{pose.name}_', '') for label in labels]
         # plt.legend(loc='upper right', bbox_to_anchor=(1, 1))  #, ncol=3, mode='expand')
         # print(labels)
         # plt.legend(handles, labels, loc='upper center', bbox_to_anchor=(0.5, -1.), ncol=3)  # , mode='expand'
@@ -4575,6 +4564,6 @@ def interface_design_analysis(self: Pose, design_poses: Iterable[Pose] = None,
     pose_s.sort_index(level=2, inplace=True, sort_remaining=False)  # ascending=True, sort_remaining=True)
     pose_s.sort_index(level=1, inplace=True, sort_remaining=False)  # ascending=True, sort_remaining=True)
     pose_s.sort_index(level=0, inplace=True, sort_remaining=False)  # ascending=False
-    pose_s.name = str(self)
+    pose_s.name = str(pose)
 
     return pose_s
