@@ -612,9 +612,8 @@ class SequenceProfile:
     #     self.sequence = get_sequence_by_entity_id(entity_id)
     #     self.sequence_source = 'seqres'
 
-    def add_profile(self, evolution: bool = True, fragments: bool = True, null: bool = False, **kwargs):
-        #           fragment_observations=None, entities=None, pdb_numbering=True,
-        #           out_dir: AnyStr = os.getcwd()
+    def add_profile(self, evolution: bool = True, fragments: bool | list[fragment_info_type] = True,
+                    null: bool = False, **kwargs):
         """Add the evolutionary and fragment profiles onto the SequenceProfile
 
         Args:
@@ -622,10 +621,10 @@ class SequenceProfile:
             fragments: Whether to add fragment information to the sequence profile
             null: Whether to use a null profile (non-functional) as the sequence profile
         Keyword Args:
+            alignment_type: (alignment_types_literal) – Either 'mapped' or 'paired' indicating how the fragment
+                observations were generated relative to this Structure.
+                Is it mapped to this Structure or was it paired to it?
             out_dir: (AnyStr) = os.getcwd() - Location where sequence files should be written
-            # fragment_source=None (list):
-            # alignment_type=None (str): Either 'mapped' or 'paired'. Indicates how entity and fragments are aligned
-            # pdb_numbering=True (bool):
         """
         if null or (not evolution and not fragments):
             null, evolution, fragments = True, False, False
@@ -648,22 +647,26 @@ class SequenceProfile:
         else:
             self.null_pssm()
 
-        if fragments:  # add fragment information to the SequenceProfile
-            if self.fragment_map is None:
-                raise AttributeError('Fragments were specified but have not been added to the SequenceProfile! '
-                                     f'Call {self.map_fragments_to_profile.__name__} with fragment information')
-            elif self.fragment_db:  # fragments have already been added, connect DB info
-                retrieve_fragments = [fragment['cluster'] for idx_d in self.fragment_map.values()
-                                      for fragments in idx_d.values() for fragment in fragments
-                                      if fragment['cluster'] not in self.fragment_db.cluster_info]
-                self.fragment_db._load_cluster_info(ids=retrieve_fragments)
-            else:
-                raise AttributeError('Fragments were specified but there is no fragment database attached. Ensure '
-                                     f'{self.fragment_db.__name__} is set before requesting fragment information')
-
-            # process fragment profile from self.fragment_map or self.fragment_query
+        if isinstance(fragments, list):  # Add fragment information to the SequenceProfile
+            self.add_fragments_to_profile(fragments, **kwargs)
+            # Process fragment profile from self.fragment_profile
             self.add_fragment_profile()
-            self.find_alpha()
+        elif fragments:  # If was passed as True
+            if not self.fragment_profile:
+                raise AttributeError('Fragments were specified but have not been added to the SequenceProfile! '
+                                     f'Call {self.add_fragments_to_profile.__name__} with fragment information or pass'
+                                     f'fragments and alignment_type to {self.add_profile.__name__}')
+            # # Fragments have already been added, connect DB info
+            # elif self.fragment_db:
+            #     retrieve_fragments = [fragment['cluster'] for idx_d in self.fragment_map.values()
+            #                           for fragments in idx_d.values() for fragment in fragments]
+            #     self.fragment_db.load_cluster_info(ids=retrieve_fragments)
+            # else:
+            #     raise AttributeError('Fragments were specified but there is no fragment database attached. Ensure '
+            #                          f'{self.fragment_db.__name__} is set before requesting fragment information')
+
+            # Process fragment profile from self.fragment_profile
+            self.add_fragment_profile()
 
         self.calculate_profile(boltzmann=True, favor_fragments=fragments)
 
@@ -1169,31 +1172,17 @@ class SequenceProfile:
 
         return self.sequence_file
 
-    # fragments
-    # [{'mapped': residue_number1, 'paired': residue_number2, 'cluster': cluster_id, 'match': match_score}]
-    def add_fragment_profile(self):  # , fragment_source=None, alignment_type=None):
+    def add_fragment_profile(self, **kwargs):
         """From self.fragment_map, add the fragment profile to the SequenceProfile
 
+        Keyword Args:
+            keep_extras: (bool) = True - Whether to keep values for all that are missing data
         Sets:
             self.fragment_profile (profile_dictionary)
         """
-        # v now done at the pose_level
-        # self.map_fragments_to_profile(fragments=fragment_source, alignment_type=alignment_type)
-        # if self.fragment_map is not None:
-        self.generate_fragment_profile()
-        self.simplify_fragment_profile()
-        # else:  # try to separate any fragment queries to this entity
-        #     if self.fragment_queries:
-        #         for query_pair, fragments in self.fragment_queries.items():
-        #             for query_idx, entity in enumerate(query_pair):
-        #                 if entity.name == self.name:
-        #                     # add to fragment map
-        #                  self.map_fragments_to_profile(fragments=fragments, alignment_type=alignment_types[query_idx])
-        #     else:
-        #         self.log.error('No fragment information associated with the Entity %s yet! You must add to the profile '
-        #                        'otherwise only evolutionary values will be used.\n%s'
-        #                        % (self.name, add_fragment_profile_instructions))
-        #         return
+        # self.generate_fragment_profile()
+        self._simplify_fragment_profile(**kwargs)
+        self.find_alpha()
 
     def add_fragments_to_profile(self, fragments: Iterable[fragment_info_type],
                                  alignment_type: alignment_types_literal):
@@ -1203,7 +1192,8 @@ class SequenceProfile:
             fragments: The fragment list to assign to the sequence profile with format
                 [{'mapped': residue_number1 (int), 'paired': residue_number2 (int), 'cluster': cluster_id (str),
                   'match': match_score (float)}]
-            alignment_type: Either 'mapped' or 'paired'
+            alignment_type: Either 'mapped' or 'paired' indicating how the fragment observation was generated relative
+                to this Structure. Is it mapped to this Structure or was it paired to it?
         Sets:
             # self.fragment_map (dict[int, list[dict[str, str | float]]]):
             #     {1: [{'source': 'mapped', 'cluster': '1_2_123', 'match': 0.61}, ...], ...}
@@ -1214,8 +1204,9 @@ class SequenceProfile:
                 indices for that residue, where each index in the indices (list in list) can have multiple observations
         """
         if alignment_type not in alignment_types:
-            return
+            raise ValueError(f'Argument alignment_type must be either "mapped" or "paired" not {alignment_type}')
 
+        # Create self.fragment_map to store information about each fragment observation in the profile
         if not self.fragment_map:
             self.fragment_map = populate_design_dictionary(self.number_of_residues,
                                                            list(range(*self.fragment_db.fragment_range)),
@@ -1574,7 +1565,7 @@ class SequenceProfile:
         # ^ {78: [14, 67, 87, 109], ...}  green
 
         # solve for consensus residues using the residue graph
-        self.map_fragments_to_profile(fragments=fragment_source, alignment_type=alignment_type)
+        self.add_fragments_to_profile(fragments=fragment_source, alignment_type=alignment_type)
         consensus_residues = {}
         all_pose_fragment_pairs = list(residue_freq_map.keys())
         residue_cluster_map = offset_index(self.cluster_map)  # change so it is one-indexed
