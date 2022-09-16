@@ -415,7 +415,7 @@ def pssm_as_array(pssm: dict[int, dict[str, str | float | int | dict[str, int]]]
         # return np.vectorize(numerical_translation_alph1_bytes.__getitem__)(_array)
 
 
-def combine_profile(profiles: list[dict]) -> dict[int, Any]:  # dict[int, dict[str, float | dict[str, int] | str]]:
+def combine_profile(profiles: list[profile_dictionary]) -> profile_dictionary:
     """Combine a list of profiles (parsed PSSMs) and incrementing the entry index in each additional profile
 
     Args:
@@ -435,14 +435,15 @@ def combine_profile(profiles: list[dict]) -> dict[int, Any]:  # dict[int, dict[s
     return new_profile
 
 
-def write_pssm_file(pssm: dict[int, dict[profile_keys, float | str | tuple | dict[str, int]]],
-                    name: str, out_dir: AnyStr = os.getcwd()) -> str | None:
+def write_pssm_file(pssm: profile_dictionary, file_name: AnyStr = None, name: str = None,
+                    out_dir: AnyStr = os.getcwd()) -> AnyStr | None:
     """Create a PSI-BLAST format PSSM file from a PSSM dictionary. Assumes residue numbering is correct!
 
     Args:
         pssm: A dictionary which has the keys: 'A', 'C', ... (all aa's), 'lod', 'type', 'info', 'weight'
-        name: The name of the file including the extension
-        out_dir: A specific location to write the file to
+        file_name: The explicit name of the file
+        name: The name of the file. Will be used as the default file_name base name if file_name not provided
+        out_dir: The location on disk to output the file. Only used if file_name not explicitly provided
     Returns:
         Disk location of newly created .pssm file
     """
@@ -460,21 +461,26 @@ def write_pssm_file(pssm: dict[int, dict[profile_keys, float | str | tuple | dic
     # if type(pssm[first_key]['A']) == float:
     #     counts_freq = True
 
-    header = f'\n\n{" " * 12}{separation1.join(protein_letters_alph3)}{separation1}{(" " * 3).join(protein_letters_alph3)}\n'
-    # footer = ''
-    out_file = os.path.join(out_dir, name)
-    with open(out_file, 'w') as f:
+    if file_name is None:
+        file_name = os.path.join(out_dir, name)
+
+    if os.path.splitext(file_name)[-1] == '':  # No extension
+        file_name = f'{file_name}.pssm'
+
+    header = f'\n\n{" " * 12}{separation1.join(protein_letters_alph3)}' \
+             f'{separation1}{(" " * 3).join(protein_letters_alph3)}\n'
+    with open(file_name, 'w') as f:
         f.write(header)
         for residue_number, profile in pssm.items():
             # aa_type = profile['type']
             if isinstance(profile['lod']['A'], float):  # lod_freq:  # relevant for favor_fragment
-                lod_string = '%s ' % ' '.join('{:>4.2f}'.format(profile['lod'][aa]) for aa in protein_letters_alph3)
+                lod_string = ' '.join(f'{profile["lod"][aa]:>4.2f}' for aa in protein_letters_alph3) + ' '
             else:
-                lod_string = '%s ' % ' '.join('{:>3d}'.format(profile['lod'][aa]) for aa in protein_letters_alph3)
+                lod_string = ' '.join(f'{profile["lod"][aa]:>3d}' for aa in protein_letters_alph3) + ' '
             if isinstance(profile['A'], float):  # counts_freq: # relevant for freq calculations
-                counts_string = '%s ' % ' '.join('{:>3.0f}'.format(floor(profile[aa] * 100)) for aa in protein_letters_alph3)
+                counts_string = ' '.join(f'{floor(profile[aa] * 100):>3.0f}' for aa in protein_letters_alph3) + ' '
             else:
-                counts_string = '%s ' % ' '.join('{:>3d}'.format(profile[aa]) for aa in protein_letters_alph3)
+                counts_string = ' '.join(f'{profile[aa]:>3d}' for aa in protein_letters_alph3) + ' '
             # info = profile.get('info', 0.)
             # weight = profile.get('weight', 0.)
             # line = '{:>5d} {:1s}   {:80s} {:80s} {:4.2f} {:4.2f}\n'.format(residue_number, aa_type, lod_string,
@@ -483,9 +489,8 @@ def write_pssm_file(pssm: dict[int, dict[profile_keys, float | str | tuple | dic
             f.write('{:>5d} {:1s}   {:80s} {:80s} {:4.2f} {:4.2f}\n'
                     .format(residue_number, profile['type'], lod_string, counts_string,
                             round(profile.get('info', 0.), 4), round(profile.get('weight', 0.), 4)))
-        # f.write(footer)
 
-    return out_file
+    return file_name
 
 
 lod_dictionary: dict[structure.utils.protein_letters_literal, int]
