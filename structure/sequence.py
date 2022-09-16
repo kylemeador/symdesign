@@ -123,6 +123,7 @@ class MultipleSequenceAlignment:
                     np.bincount(numerical_alignment[:, residue_idx], minlength=self.number_of_characters)
 
             # self.observations = find_column_observations(self.counts, **kwargs)
+            self._gap_index = 0
             if count_gaps:
                 self.observations = [self.number_of_sequences for _ in range(self.length)]
             else:
@@ -130,13 +131,12 @@ class MultipleSequenceAlignment:
                 # gap_observations = [aa_counts[0] for aa_counts in self.counts]  # list[list]
                 # self.observations = [counts - gap for counts, gap in zip(self.observations, gap_observations)]
                 # Find where gaps and unknown start. They are always at the end
-                gap_index = 0
                 if 'gapped' in self.alphabet_type:
-                    gap_index -= 1
+                    self._gap_index -= 1
                 if 'unknown' in self.alphabet_type:
-                    gap_index -= 1
+                    self._gap_index -= 1
 
-                self.observations = self.counts[:, :gap_index].sum(axis=1)
+                self.observations = self.counts[:, :self._gap_index].sum(axis=1)
                 if not np.any(self.observations):  # Check if an observation is 0
                     raise ValueError("Can't have a MSA column (sequence index) with 0 observations. Found at ("
                                      f'{",".join(map(str, np.flatnonzero(self.observations)))}')
@@ -164,7 +164,7 @@ class MultipleSequenceAlignment:
                         self._counts[i][numerical_translation_alph1_gapped[aa]] += 1
                         # self.counts[i][aa] += 1
                 print('OLD self._counts', self._counts)
-                self._observations = [sum(aa_counts[:-1]) for aa_counts in self._counts]  # list[list]
+                self._observations = [sum(aa_counts[:self._gap_index]) for aa_counts in self._counts]  # list[list]
 
                 sequence_weights_ = weight_sequences(self._counts, self.alignment, self._observations)
                 print('OLD sequence_weights_', sequence_weights_)
@@ -328,18 +328,18 @@ class MultipleSequenceAlignment:
 
     @property
     def frequencies(self) -> np.ndarray:
-        """Return the per position (axis=0) sequence frequencies (axis=1) bounded between 0 and 1 for the instance"""
-        # self._frequencies = [[count/observation for count in amino_acid_counts[:-1]]  # don't use the gap
+        """Access the per residue (axis=0) amino acid frequencies (axis=1) bounded between 0 and 1"""
+        # self._frequencies = [[count/observation for count in amino_acid_counts[:self._gap_index]]  # don't use the gap
         #                      for amino_acid_counts, observation in zip(self._counts, self._observations)]
         # print('OLD self._frequencies', self._frequencies)
 
         # self.frequencies = np.zeros((self.length, len(protein_letters_alph1)))  # self.counts.shape)
         # for residue_idx in range(self.length):
-        #     self.frequencies[residue_idx, :] = self.counts[:, :-1] / self.observations
+        #     self.frequencies[residue_idx, :] = self.counts[:, :self._gap_index] / self.observations
         try:
             return self._frequencies
-        except AttributeError:
-            self._frequencies = self.counts[:, :-1] / self.observations[:, None]  # :-1 removes gap counts
+        except AttributeError:  # Don't use gapped indices
+            self._frequencies = self.counts[:, :self._gap_index] / self.observations[:, None]
         return self._frequencies
 
     @property
