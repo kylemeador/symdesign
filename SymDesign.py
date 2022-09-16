@@ -516,7 +516,8 @@ def main():
                 if pose_directories:
                     command_file = utils.write_commands([os.path.join(des.scripts, f'{stage}.sh') for des in success],
                                                         out_path=job_paths, name='_'.join(default_output_tuple))
-                    sbatch_file = utils.CommandDistributer.distribute(file=command_file, out_path=job.sbatch_scripts, scale=args.module)
+                    sbatch_file = utils.CommandDistributer.distribute(file=command_file, out_path=job.sbatch_scripts,
+                                                                      scale=args.module)
                     #                                                                        ^ for sbatch template
                 else:  # pose_directories is empty list when nano, use success as the commands holder
                     command_file = utils.write_commands([list2cmdline(cmd) for cmd in success], out_path=job_paths,
@@ -1022,18 +1023,18 @@ def main():
             for entity in all_entities:
                 entity.sequence_file = job.api_db.sequences.retrieve_file(name=entity.name)
                 if not entity.sequence_file:
-                    entity.write_sequence_to_fasta('reference', out_path=job.sequences)
-                    # entity.add_evolutionary_profile(out_path=job.api_db.hhblits_profiles.location)
+                    entity.write_sequence_to_fasta('reference', out_dir=job.sequences)
+                    # entity.add_evolutionary_profile(out_dir=job.api_db.hhblits_profiles.location)
                 else:
                     entity.evolutionary_profile = job.api_db.hhblits_profiles.retrieve_data(name=entity.name)
                     # entity.h_fields = job.api_db.bmdca_fields.retrieve_data(name=entity.name)
                     # TODO reinstate entity.j_couplings = job.api_db.bmdca_couplings.retrieve_data(name=entity.name)
                 if not entity.evolutionary_profile:
                     # to generate in current runtime
-                    # entity.add_evolutionary_profile(out_path=job.api_db.hhblits_profiles.location)
+                    # entity.add_evolutionary_profile(out_dir=job.api_db.hhblits_profiles.location)
                     # to generate in a sbatch script
-                    # profile_cmds.append(entity.hhblits(out_path=job.profiles, return_command=True))
-                    hhblits_cmds.append(entity.hhblits(out_path=job.profiles, return_command=True))
+                    # profile_cmds.append(entity.hhblits(out_dir=job.profiles, return_command=True))
+                    hhblits_cmds.append(entity.hhblits(out_dir=job.profiles, return_command=True))
                 # TODO reinstate
                 #  if not entity.j_couplings:
                 #    bmdca_cmds.append([PUtils.bmdca_exe_path, '-i', os.path.join(job.profiles, f'{entity.name}.fasta'),

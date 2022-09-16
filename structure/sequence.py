@@ -453,13 +453,15 @@ class SequenceProfile:
         self._fragment_db = None
         self.a3m_file = None
         self.alpha = {}
+        # Using .profile as attribute instead
+        # self.design_profile = {}  # design specific scoring matrix
         self.evolutionary_profile = {}  # position specific scoring matrix
-        self.fragment_map = None  # {}
+        self.fragment_map = None  # fragment specific scoring matrix
         self.fragment_profile = {}
         self.h_fields = None
         self.j_couplings = None
         self.msa_file = None
-        self.profile = {}  # design specific scoring matrix
+        self.profile = {}  # structure specific scoring matrix
         self.pssm_file = None
         self.sequence_file = None
 
@@ -525,16 +527,17 @@ class SequenceProfile:
     #     self.sequence = get_sequence_by_entity_id(entity_id)
     #     self.sequence_source = 'seqres'
 
-    def add_profile(self, evolution: bool = True, fragments: bool = True, null: bool = False,
-                    out_path: AnyStr = os.getcwd(), **kwargs):
+    def add_profile(self, evolution: bool = True, fragments: bool = True, null: bool = False, **kwargs):
         #           fragment_observations=None, entities=None, pdb_numbering=True,
+        #           out_dir: AnyStr = os.getcwd()
         """Add the evolutionary and fragment profiles onto the SequenceProfile
 
         Args:
             evolution: Whether to add evolutionary information to the sequence profile
             fragments: Whether to add fragment information to the sequence profile
             null: Whether to use a null profile (non-functional) as the sequence profile
-            out_path: Location where sequence files should be written
+        Keyword Args:
+            out_dir: (AnyStr) = os.getcwd() - Location where sequence files should be written
             # fragment_source=None (list):
             # alignment_type=None (str): Either 'mapped' or 'paired'. Indicates how entity and fragments are aligned
             # pdb_numbering=True (bool):
@@ -545,14 +548,14 @@ class SequenceProfile:
 
         if evolution:  # add evolutionary information to the SequenceProfile
             if not self.evolutionary_profile:
-                self.add_evolutionary_profile(out_path=out_path, **kwargs)
+                self.add_evolutionary_profile(**kwargs)
 
             # Check the profile and try to generate again if it is incorrect
             first = True
             while not self.verify_evolutionary_profile():
                 if first:
                     self.log.info(f'Generating a new profile for {self.name}')
-                    self.add_evolutionary_profile(force=True, out_path=out_path)
+                    self.add_evolutionary_profile(force=True)
                     first = False
                 else:
                     raise DesignError('Profile Generation got stuck, design aborted')
@@ -577,7 +580,7 @@ class SequenceProfile:
             self.add_fragment_profile()
             self.find_alpha()
 
-        self.calculate_design_profile(boltzmann=True, favor_fragments=fragments)
+        self.calculate_profile(boltzmann=True, favor_fragments=fragments)
 
     def verify_evolutionary_profile(self) -> bool:
         """Returns True if evolutionary profile and Structure are equal"""
@@ -622,13 +625,13 @@ class SequenceProfile:
 
         return True
 
-    def add_evolutionary_profile(self, out_path: AnyStr = os.getcwd(), profile_source: str = PUtils.hhblits,
+    def add_evolutionary_profile(self, out_dir: AnyStr = os.getcwd(), profile_source: str = PUtils.hhblits,
                                  file: AnyStr = None, force: bool = False):
         """Add the evolutionary profile to the entity. Profile is generated through a position specific search of
         homologous protein sequences (evolutionary)
 
         Args:
-            out_path: Location where sequence files should be written
+            out_dir: Location where sequence files should be written
             profile_source: One of 'hhblits' or 'psiblast'
             file: Location where profile file should be loaded from
             force: Whether to force generation of a new profile
@@ -643,15 +646,15 @@ class SequenceProfile:
         else:  # Check to see if the files of interest already exist
             # Extract/Format Sequence Information. SEQRES is prioritized if available
             if not self.sequence_file:  # not made/provided before add_evolutionary_profile, make a new one
-                self.write_sequence_to_fasta('reference', out_path=out_path)
+                self.write_sequence_to_fasta('reference', out_dir=out_dir)
             elif not os.path.exists(self.sequence_file) or force:
                 self.log.debug(f'{self.name} Sequence={self.reference_sequence}')
                 self.write_sequence_to_fasta('reference', file_name=self.sequence_file)
                 self.log.debug(f'{self.name} sequence file: {self.sequence_file}')
 
             # temp_file = os.path.join(out_path, f'{self.name}.hold')
-            temp_file = Path(out_path, f'{self.name}.hold')
-            self.pssm_file = os.path.join(out_path, f'{self.name}.hmm')
+            temp_file = Path(out_dir, f'{self.name}.hold')
+            self.pssm_file = os.path.join(out_dir, f'{self.name}.hmm')
             if not os.path.exists(self.pssm_file) or force:
                 if not os.path.exists(temp_file):  # No work on this pssm file has been initiated
                     # Create blocking file to prevent excess work
@@ -660,11 +663,11 @@ class SequenceProfile:
                     self.log.debug(f'{self.name} Evolutionary Profile not yet created')
                     # if profile_source == PUtils.hhblits:
                     #     self.log.info(f'Generating HHM Evolutionary Profile for {self.name}')
-                    #     self.hhblits(out_path=out_path)
+                    #     self.hhblits(out_dir=out_dir)
                     # else:
                     self.log.info(f'Generating Evolutionary Profile for {self.name}')
-                    # self.psiblast(out_path=out_path)
-                    getattr(self, profile_source)(out_path=out_path)
+                    # self.psiblast(out_dir=out_dir)
+                    getattr(self, profile_source)(out_path=out_dir)
                     temp_file.unlink(missing_ok=True)
                     # if os.path.exists(temp_file):
                     #     os.remove(temp_file)
@@ -757,16 +760,16 @@ class SequenceProfile:
     #                       self.secondary_structure, secondary_structure))
     #     self.secondary_structure = secondary_structure
 
-    def psiblast(self, out_path=None, remote=False):
-        """Generate an position specific scoring matrix using PSI-BLAST subprocess
+    def psiblast(self, out_dir: AnyStr = os.getcwd(), remote: bool = False):
+        """Generate a position specific scoring matrix using PSI-BLAST subprocess
 
-        Keyword Args:
-            out_path=None (str): Disk location where generated file should be written
-            remote=False (bool): Whether to perform the search through the web. If False, need blast installed locally!
+        Args:
+            out_dir: Disk location where generated file should be written
+            remote: Whether to perform the search through the web. If False, need blast installed locally
         Sets:
             self.pssm_file (str): Name of the file generated by psiblast
         """
-        self.pssm_file = os.path.join(out_path, '%s.pssm' % str(self.name))
+        self.pssm_file = os.path.join(out_dir, f'{self.name}.pssm')
         cmd = ['psiblast', '-db', PUtils.alignmentdb, '-query', self.sequence_file + '.fasta', '-out_ascii_pssm',
                self.pssm_file, '-save_pssm_after_last_round', '-evalue', '1e-6', '-num_iterations', '0']  # Todo # iters
         if remote:
@@ -780,7 +783,7 @@ class SequenceProfile:
     # @handle_errors(errors=(FileNotFoundError,))
     def parse_psiblast_pssm(self, **kwargs):
         """Take the contents of a pssm file, parse, and input into a sequence dictionary.
-        # Todo it's CURRENTLY IMPOSSIBLE to use in calculate_design_profile, CHANGE psiblast lod score parsing
+        # Todo it's CURRENTLY IMPOSSIBLE to use in calculate_profile, CHANGE psiblast lod score parsing
         Sets:
             self.evolutionary_profile (dict): Dictionary containing residue indexed profile information
             Ex: {1: {'A': 0, 'R': 0, ..., 'lod': {'A': -5, 'R': -5, ...}, 'type': 'W', 'info': 3.20, 'weight': 0.73},
@@ -804,23 +807,23 @@ class SequenceProfile:
                 self.evolutionary_profile[residue_number]['info'] = float(line_data[42])
                 self.evolutionary_profile[residue_number]['weight'] = float(line_data[43])
 
-    def hhblits(self, out_path: AnyStr = os.getcwd(), threads: int = CommandDistributer.hhblits_threads,
+    def hhblits(self, out_dir: AnyStr = os.getcwd(), threads: int = CommandDistributer.hhblits_threads,
                 return_command: bool = False, **kwargs) -> str | None:
-        """Generate an position specific scoring matrix from HHblits using Hidden Markov Models
+        """Generate a position specific scoring matrix from HHblits using Hidden Markov Models
 
         Args:
-            out_path: Disk location where generated file should be written
+            out_dir: Disk location where generated file should be written
             threads: Number of cpu's to use for the process
             return_command: Whether to simply return the hhblits command
         Sets:
             self.pssm_file (str): Name of the file generated by psiblast
         """
-        self.pssm_file = os.path.join(out_path, f'{self.name}.hmm')
-        self.a3m_file = os.path.join(out_path, f'{self.name}.a3m')
+        self.pssm_file = os.path.join(out_dir, f'{self.name}.hmm')
+        self.a3m_file = os.path.join(out_dir, f'{self.name}.a3m')
         # self.msa_file = os.path.join(out_path, f'{self.name}.fasta'
-        self.msa_file = os.path.join(out_path, f'{self.name}.sto')  # preferred
+        self.msa_file = os.path.join(out_dir, f'{self.name}.sto')  # preferred
         # this location breaks with SymDesign norm so we should modify it Todo clean
-        fasta_msa = os.path.join(os.path.dirname(out_path), 'sequences', f'{self.name}.fasta')
+        fasta_msa = os.path.join(os.path.dirname(out_dir), 'sequences', f'{self.name}.fasta')
         # todo for higher performance set up https://www.howtoforge.com/storing-files-directories-in-memory-with-tmpfs
         cmd = [PUtils.hhblits_exe, '-d', PUtils.uniclustdb, '-i', self.sequence_file,
                '-ohhm', self.pssm_file, '-oa3m', self.a3m_file,  # '-Ofas', self.msa_file,
@@ -836,7 +839,7 @@ class SequenceProfile:
         p.communicate()
         if p.returncode != 0:
             # temp_file = os.path.join(out_path, f'{self.name}.hold')
-            temp_file = Path(out_path, f'{self.name}.hold')
+            temp_file = Path(out_dir, f'{self.name}.hold')
             temp_file.unlink(missing_ok=True)
             # if os.path.exists(temp_file):  # remove hold file blocking progress
             #     os.remove(temp_file)
@@ -1096,7 +1099,7 @@ class SequenceProfile:
         return -h_values - j_values
 
     def write_sequence_to_fasta(self, sequence: str | sequence_type_literal, file_name: AnyStr = None,
-                                name: str = None, out_path: AnyStr = os.getcwd()) -> AnyStr:
+                                name: str = None, out_dir: AnyStr = os.getcwd()) -> AnyStr:
         """Write a sequence to a .fasta file with fasta format and save file location as self.sequence_file.
         '.fasta' is appended if not specified in the name argument
 
@@ -1105,7 +1108,7 @@ class SequenceProfile:
             file_name: The explicit name of the file
             name: The name of the sequence record. If not provided, the instance name will be used.
                 Will be used as the default file_name base name if file_name not provided
-            out_path: The location on disk to output the file. Only used if file_name not explicitly provided
+            out_dir: The location on disk to output the file. Only used if file_name not explicitly provided
         Returns:
             The name of the output file
         """
@@ -1114,7 +1117,7 @@ class SequenceProfile:
         if not name:
             name = self.name
         if not file_name:
-            file_name = os.path.join(out_path, name)
+            file_name = os.path.join(out_dir, name)
 
         self.sequence_file = write_sequence_to_fasta(sequence=sequence, name=name, file_name=file_name)
 
@@ -1280,7 +1283,7 @@ class SequenceProfile:
                         self.fragment_profile[residue][index] = {}
 
             if total_fragment_weight > 0:
-                res_aa_dict = copy(aa_counts)
+                res_aa_dict: dict[str, int, dict[str, int], float, list[float]] = copy(aa_counts)
                 for index in self.fragment_profile[residue]:
                     if self.fragment_profile[residue][index]:
                         index_weight = self.fragment_profile[residue][index]['stats'][1]  # total_obs_weight
@@ -1290,7 +1293,7 @@ class SequenceProfile:
                                             index_weight / total_fragment_weight)
                 res_aa_dict['lod'] = self.get_lod(res_aa_dict, database_bkgnd_aa_freq)
                 res_aa_dict['stats'] = [total_fragment_observations, total_fragment_weight]  # over all idx and obs
-                res_aa_dict['type'] = sequence[residue - 1]  # offset to zero index
+                res_aa_dict['type'] = sequence[residue - zero_offset]  # offset to zero index
                 self.fragment_profile[residue] = res_aa_dict
             else:  # Add to list for removal from the profile
                 no_design.append(residue)
@@ -1298,7 +1301,7 @@ class SequenceProfile:
         if keep_extras:
             if self.evolutionary_profile:
                 # Todo currently, if not an empty dictionary, add the corresponding value from evolution because the
-                #  calculation of packer pallette is subtractive so the use of an overlapping evolution and
+                #  calculation of packer palette is subtractive so the use of an overlapping evolution and
                 #  null fragment would result in nothing allowed to design...
                 for residue in no_design:
                     self.fragment_profile[residue] = self.evolutionary_profile.get(residue)  # TODO, aa_weighted_counts)
@@ -1311,7 +1314,7 @@ class SequenceProfile:
 
     def find_alpha(self, alpha: float = .5):
         """Find fragment contribution to design with a maximum contribution of alpha. Used subsequently to integrate
-        fragment profile during combination with evolutionary profile in calculate_design_profile
+        fragment profile during combination with evolutionary profile in calculate_profile
 
         Takes self.fragment_map
             (dict) {1: {-2: [{'chain': 'mapped', 'cluster': '1_2_123', 'match': 0.6}, ...], -1: [], ...},
@@ -1385,33 +1388,34 @@ class SequenceProfile:
             else:
                 self.alpha[entry] = self._alpha * match_modifier
 
-    def calculate_design_profile(self, favor_fragments: bool = True, boltzmann: bool = False):
+    def calculate_profile(self, favor_fragments: bool = True, boltzmann: bool = False):
         """Combine weights for profile PSSM and fragment SSM using fragment significance value to determine overlap
 
-        Takes self.evolutionary_profile
-            (dict): HHblits - {1: {'A': 0.04, 'C': 0.12, ..., 'lod': {'A': -5, 'C': -9, ...}, 'type': 'W', 'info': 0.00,
-                                   'weight': 0.00}, {...}}
-                    PSIBLAST - {1: {'A': 0.13, 'R': 0.12, ..., 'lod': {'A': -5, 'R': 2, ...}, 'type': 'W', 'info': 3.20,
-                                    'weight': 0.73}, {...}}
+        Using self.evolutionary_profile
+            (dict): HHblits - {1: {'A': 0.04, 'C': 0.12, ..., 'lod': {'A': -5, 'C': -9, ...},
+                                   'type': 'W', 'info': 0.00, 'weight': 0.00}, {...}}
+                    PSIBLAST - {1: {'A': 0.13, 'R': 0.12, ..., 'lod': {'A': -5, 'R': 2, ...},
+                                    'type': 'W', 'info': 3.20, 'weight': 0.73}, {...}}
         self.fragment_profile
-            (dict): {48: {'A': 0.167, 'D': 0.028, 'E': 0.056, ..., 'stats': [4, 0.274]}, 50: {...}, ...}
-        and self.alpha
-            (dict): {48: 0.5, 50: 0.321, ...}
+            (dict[int, dict[str, float | list[float]]]):
+                {48: {'A': 0.167, 'D': 0.028, 'E': 0.056, ..., 'stats': [4, 0.274]}, 50: {...}, ...}
+        self.alpha
+            (dict[int, float]): {48: 0.5, 50: 0.321, ...}
         Args:
             favor_fragments: Whether to favor fragment profile in the lod score of the resulting profile
             boltzmann: Whether to weight the fragment profile by the Boltzmann probability.
                 lod = z[i]/Z, Z = sum(exp(score[i]/kT))
                 If False, residues are weighted by the residue local maximum lod score in a linear fashion
                 All lods are scaled to a maximum provided in the Rosetta REF2015 per residue reference weight.
-
-        And outputs self.profile
-            (dict): {1: {'A': 0.04, 'C': 0.12, ..., 'lod': {'A': -5, 'C': -9, ...}, 'type': 'W', 'info': 0.00,
-                         'weight': 0.00}, ...}} - combined PSSM dictionary
+        Sets:
+            self.profile: (dict[int, dict[str, float | dict[str, int] | str]) =
+                {1: {'A': 0.04, 'C': 0.12, ..., 'lod': {'A': -5, 'C': -9, ...},
+                     'type': 'W', 'info': 0.00, 'weight': 0.00}, ...}}
         """
         if self._alpha == 0:  # We get a division error
-            self.log.info(f'{self.calculate_design_profile.__name__}: _alpha set with 1e-5 tolerance due to 0 value')
+            self.log.info(f'{self.calculate_profile.__name__}: _alpha set with 1e-5 tolerance due to 0 value')
             self._alpha = 0.000001
-        # Copy the evolutionary profile to self.profile (design specific scoring matrix)
+        # Copy the evolutionary profile to self.profile (structure specific scoring matrix)
         self.profile = deepcopy(self.evolutionary_profile)
         # Combine fragment and evolutionary probability profile according to alpha parameter
         if self.alpha:
@@ -1422,7 +1426,7 @@ class SequenceProfile:
         for entry, weight in self.alpha.items():  # weight will be 0 if the fragment_profile is empty
             for aa in protein_letters_alph1:
                 self.profile[entry][aa] = \
-                    (weight * self.fragment_profile[entry][aa]) + ((1 - weight) * self.profile[entry][aa])
+                    (weight*self.fragment_profile[entry][aa]) + ((1-weight) * self.profile[entry][aa])
 
         if favor_fragments:
             # Modify final lod scores to fragment profile lods. Otherwise, use evolutionary profile lod scores
@@ -1452,7 +1456,7 @@ class SequenceProfile:
                     if self.profile[entry]['lod'][aa] > max_lod:
                         max_lod = self.profile[entry]['lod'][aa]
                 # takes the percent of max alpha for each entry multiplied by the standard residue scaling factor
-                modified_entry_alpha = (weight / self._alpha) * favor_seqprofile_score_modifier
+                modified_entry_alpha = (weight/self._alpha) * favor_seqprofile_score_modifier
                 if boltzmann:
                     modifier = partition
                     modified_entry_alpha /= (max_lod / partition)
@@ -1670,7 +1674,7 @@ class SequenceProfile:
              N length, one indexed dictionary with entry number keys
                 ex: {1: {alphabet[0]: dtype, alphabet[1]: dtype, ...}, 2: {}, ...}
          """
-        offset = 0 if zero_index else index_offset
+        offset = 0 if zero_index else zero_offset
 
         # Todo add
         #  match dtype:
@@ -2042,9 +2046,9 @@ def populate_design_dict(n, alph, counts=False):
 def offset_index(dictionary, to_zero=False):
     """Modify the index of a sequence dictionary. Default is to one-indexed. to_zero=True gives zero-indexed"""
     if to_zero:
-        return {residue - index_offset: dictionary[residue] for residue in dictionary}
+        return {residue - zero_offset: dictionary[residue] for residue in dictionary}
     else:
-        return {residue + index_offset: dictionary[residue] for residue in dictionary}
+        return {residue + zero_offset: dictionary[residue] for residue in dictionary}
 
 
 def residue_object_to_number(residue_dict):  # TODO DEPRECIATE
@@ -2087,7 +2091,7 @@ def convert_to_residue_cluster_map(residue_cluster_dict, frag_range):
         for pair in range(len(residue_cluster_dict[cluster])):
             for i, residue_atom in enumerate(residue_cluster_dict[cluster][pair]):
                 # for each residue in map add the same cluster to the range of fragment residue numbers
-                residue_num = residue_atom.residue_number - index_offset  # zero index
+                residue_num = residue_atom.residue_number - zero_offset  # zero index
                 for j in range(*frag_range):
                     if residue_num + j not in cluster_map:
                         if i == 0:
@@ -2458,7 +2462,7 @@ def make_pssm_file(pssm_dict, name, outpath=os.getcwd()):
                     counts_string += '{:>3d} '.format(pssm_dict[res][aa])
             info = pssm_dict[res]['info']
             weight = pssm_dict[res]['weight']
-            line = '{:>5d} {:1s}   {:80s} {:80s} {:4.2f} {:4.2f}''\n'.format(res + index_offset, aa_type, lod_string,
+            line = '{:>5d} {:1s}   {:80s} {:80s} {:4.2f} {:4.2f}''\n'.format(res + zero_offset, aa_type, lod_string,
                                                                              counts_string, round(info, 4),
                                                                              round(weight, 4))
             f.write(line)
@@ -2611,7 +2615,7 @@ def consensus_sequence(pssm):
             if pssm[residue]['lod'][aa] > max_lod:
                 max_lod = pssm[residue]['lod'][aa]
                 max_res = aa
-        consensus_identities[residue + index_offset] = max_res
+        consensus_identities[residue + zero_offset] = max_res
 
     return consensus_identities
 
@@ -2869,7 +2873,7 @@ def make_mutations(sequence: Sequence, mutations: dict[int, dict[str, str]], fin
         offset = -find_orf_offset(sequence, mutations)
         logger.info(f'Found ORF. Offset = {-offset}')
     else:
-        offset = index_offset
+        offset = zero_offset
 
     # zero index seq and 1 indexed mutation_dict
     index_errors = []
@@ -2908,7 +2912,7 @@ def find_orf_offset(sequence: Sequence,  mutations: dict[int, dict[str, str]]) -
         for test_orf_index in orf_offsets:
             for mutation_index, mutation in mutations.items():
                 try:
-                    if sequence[test_orf_index + mutation_index - index_offset] == mutation['from']:
+                    if sequence[test_orf_index + mutation_index - zero_offset] == mutation['from']:
                         orf_offsets[test_orf_index] += 1
                 except IndexError:  # we have reached the end of the sequence
                     break
@@ -2999,10 +3003,7 @@ def generate_mutations(reference: Sequence, query: Sequence, offset: bool = True
     else:
         align_seq_1, align_seq_2 = reference, query
 
-    if zero_index:
-        idx_offset = 0
-    else:
-        idx_offset = index_offset
+    idx_offset = 0 if zero_index else zero_offset
 
     # Extract differences from the alignment
     starting_idx_of_seq1 = align_seq_1.find(reference[0])  # get the first matching index of the reference sequence
@@ -3097,7 +3098,7 @@ def weave_mutation_dict(sorted_freq, mut_prob, resi_divergence, int_divergence, 
     """
     weaved_dict = {}
     for residue in sorted_freq:
-        final_resi = residue + index_offset
+        final_resi = residue + zero_offset
         weaved_dict[final_resi] = {}
         for aa in sorted_freq[residue]:
             weaved_dict[final_resi][aa] = round(mut_prob[residue][aa], 3)
@@ -3263,20 +3264,20 @@ def window_score(score_dict, window_len, score_lambda=0.5):  # UNUSED  incorpora
         return score_dict
     else:
         window_scores = {}
-        for i in range(len(score_dict) + index_offset):
+        for i in range(len(score_dict) + zero_offset):
             s, number_terms = 0, 0
             if i <= window_len:
-                for j in range(1, i + window_len + index_offset):
+                for j in range(1, i + window_len + zero_offset):
                     if i != j:
                         number_terms += 1
                         s += score_dict[j]
             elif i + window_len > len(score_dict):
-                for j in range(i - window_len, len(score_dict) + index_offset):
+                for j in range(i - window_len, len(score_dict) + zero_offset):
                     if i != j:
                         number_terms += 1
                         s += score_dict[j]
             else:
-                for j in range(i - window_len, i + window_len + index_offset):
+                for j in range(i - window_len, i + window_len + zero_offset):
                     if i != j:
                         number_terms += 1
                         s += score_dict[j]

@@ -5525,9 +5525,8 @@ class Pose(SequenceProfile, SymmetricModel):
 
     def design_sequence(self, number: int = flags.nstruct,
                         protein_mpnn: bool = True, model_name: str = 'v_48_020',
-                        backbone_noise: float = 0.,
-                        temperature: float = .1,
-                        rosetta: bool = True, **kwargs):
+                        backbone_noise: float = 0., temperature: float = .1,
+                        rosetta: bool = False, **kwargs):
         # pssm_multi: float = 0., pssm_log_odds_flag: bool = False, pssm_bias_flag: bool = False,
         # decode_core_first: bool = False, interface: bool = True,
         """
@@ -5555,8 +5554,6 @@ class Pose(SequenceProfile, SymmetricModel):
         if rosetta:
             raise NotImplementedError(f"Can't design with Rosetta from this method yet...")
         else:  # Design with vanilla version of ProteinMPNN
-            import torch
-
             # Set up the model with the desired weights
             model = proteinmpnn_factory(model_name)
             device = model.device
