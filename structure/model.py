@@ -9,7 +9,7 @@ import math
 from logging import Logger
 from pathlib import Path
 from random import random
-from typing import Iterable, IO, Any, Sequence, AnyStr, Generator
+from typing import Iterable, IO, Any, Sequence, AnyStr, Generator, Literal
 
 import numpy as np
 # from numba import njit, jit
@@ -32,7 +32,7 @@ from structure.base import Structure, Structures, Residue, Residues, StructureBa
 from structure.coords import Coords, superposition3d, transform_coordinate_sets
 from structure.fragment import GhostFragment, Fragment, write_frag_match_info_file
 from structure.sequence import SequenceProfile, alignment_types, generate_alignment, get_equivalent_indices, \
-    pssm_as_array, generate_mutations
+    pssm_as_array, generate_mutations, alignment_types_literal, combine_profile
 from structure.utils import protein_letters_3to1_extended, protein_letters_1to3_extended
 from utils import dictionary_lookup, start_log, null_log, digit_translate_table, DesignError, ClashError, \
     SymmetryError, calculate_match, z_value_from_match_score, remove_duplicates, path as PUtils
@@ -127,8 +127,12 @@ def find_fragment_overlap(entity1_coords: np.ndarray, residues1: list[Residue] |
                     all_fragment_match[passing_overlaps_indices].tolist()))
 
 
+fragment_info_keys = Literal[alignment_types_literal, 'match', 'cluster']
+fragment_info_type: dict[fragment_info_keys, int | str | float]
+
+
 def get_matching_fragment_pairs_info(ghostfrag_frag_pairs: list[tuple[GhostFragment, Fragment, float]]) -> \
-        list[dict[str, float | str]]:
+        list[fragment_info_type]:
     """From a ghost fragment/surface fragment pair and corresponding match score, return the pertinent interface
     information
 
@@ -136,6 +140,7 @@ def get_matching_fragment_pairs_info(ghostfrag_frag_pairs: list[tuple[GhostFragm
         ghostfrag_frag_pairs: Observed ghost and surface fragment overlaps and their match score
     Returns:
         The formatted fragment information for each pair
+            {'mapped': int, 'paired': int, 'match': float, 'cluster': str}
     """
     fragment_matches = []
     for interface_ghost_frag, interface_surf_frag, match_score in ghostfrag_frag_pairs:

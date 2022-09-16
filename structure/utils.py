@@ -15,13 +15,11 @@ protein_letters_3to1: dict[str, str] = dict(zip(protein_letters3, protein_letter
 protein_letters_1to3: dict[str, str] = dict(zip(protein_letters_alph1, protein_letters3))
 protein_letters_3to1_extended: dict[str, str] = dict(zip(protein_letters3_extended, protein_letters_alph1_extended))
 protein_letters_1to3_extended: dict[str, str] = dict(zip(protein_letters_alph1_extended, protein_letters3_extended))
-protein_letters_alph3_literal = \
+protein_letters_literal = \
     Literal['A', 'R', 'N', 'D', 'C', 'Q', 'E', 'G', 'H', 'I', 'L', 'K', 'M', 'F', 'P', 'S', 'T', 'W', 'Y', 'V']
-_alph_3_aa: tuple[protein_letters_alph3_literal, ...] = get_args(protein_letters_alph3_literal)
+profile_keys = Literal[protein_letters_literal, 'lod', 'type', 'info', 'weight']
+_alph_3_aa: tuple[protein_letters_literal, ...] = get_args(protein_letters_literal)
 protein_letters_alph3 = ''.join(_alph_3_aa)
-protein_letters_alph3_plus_literal = \
-    Literal['A', 'R', 'N', 'D', 'C', 'Q', 'E', 'G', 'H', 'I', 'L', 'K', 'M', 'F', 'P', 'S', 'T', 'W', 'Y', 'V',
-            'lod', 'type', 'info', 'weight']
 protein_letters_alph1_literal = Literal[tuple(protein_letters_alph1)]
 protein_letters_alph1_unknown = protein_letters_alph1 + 'X'
 protein_letters_alph3_unknown = protein_letters_alph3 + 'X'
