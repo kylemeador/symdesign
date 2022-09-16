@@ -9,7 +9,7 @@ import math
 from logging import Logger
 from pathlib import Path
 from random import random
-from typing import Iterable, IO, Any, Sequence, AnyStr, Generator, Literal
+from typing import Iterable, IO, Any, Sequence, AnyStr, Generator
 
 import numpy as np
 # from numba import njit, jit
@@ -32,7 +32,7 @@ from structure.base import Structure, Structures, Residue, Residues, StructureBa
 from structure.coords import Coords, superposition3d, transform_coordinate_sets
 from structure.fragment import GhostFragment, Fragment, write_frag_match_info_file
 from structure.sequence import SequenceProfile, alignment_types, generate_alignment, get_equivalent_indices, \
-    pssm_as_array, generate_mutations, alignment_types_literal, combine_profile
+    pssm_as_array, generate_mutations, combine_profile, fragment_info_type
 from structure.utils import protein_letters_3to1_extended, protein_letters_1to3_extended
 from utils import dictionary_lookup, start_log, null_log, digit_translate_table, DesignError, ClashError, \
     SymmetryError, calculate_match, z_value_from_match_score, remove_duplicates, path as PUtils
@@ -125,10 +125,6 @@ def find_fragment_overlap(entity1_coords: np.ndarray, residues1: list[Residue] |
     return list(zip([ghost_frags1[idx] for idx in passing_ghost_indices[passing_overlaps_indices].tolist()],
                     [residues2[idx] for idx in passing_frag_indices[passing_overlaps_indices].tolist()],
                     all_fragment_match[passing_overlaps_indices].tolist()))
-
-
-fragment_info_keys = Literal[alignment_types_literal, 'match', 'cluster']
-fragment_info_type: dict[fragment_info_keys, int | str | float]
 
 
 def get_matching_fragment_pairs_info(ghostfrag_frag_pairs: list[tuple[GhostFragment, Fragment, float]]) -> \
