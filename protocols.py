@@ -38,20 +38,18 @@ from resources.job import JobResources, job_resources_factory
 from structure.base import Structure  # , Structures
 from structure.model import Pose, MultiModel, Models, Model, Entity
 from structure.sequence import parse_pssm, generate_mutations_from_reference, simplify_mutation_dict, \
-    sequence_difference, alignment_types, MultipleSequenceAlignment, pssm_as_array, position_specific_divergence
+    sequence_difference, alignment_types, MultipleSequenceAlignment, pssm_as_array, position_specific_divergence, \
+    combine_profile, write_pssm_file
 from structure.utils import protein_letters_3to1, protein_letters_1to3
 from utils import large_color_array, handle_errors, starttime, start_log, null_log, make_path, unpickle, pickle_object, \
     index_intersection, write_shell_script, DesignError, ClashError, SymmetryError, match_score_from_z_value, z_score, \
     all_vs_all, sym, condensed_to_square, path as PUtils
-from resources.EulerLookup import EulerLookup
 from utils.SymEntry import SymEntry, symmetry_factory
-from resources.fragment import FragmentDatabase, format_fragment_metrics, fragment_metric_template
-from resources.structure_db import StructureDatabase
+from resources.fragment import FragmentDatabase
 from utils.nanohedra.general import get_components_from_nanohedra_docking, \
     retrieve_pose_transformation_from_nanohedra_docking
 from utils.path import pose_source, state_file
-from utils.symmetry import identity_matrix, origin
-from resources.wrapapi import APIDatabase
+from utils.symmetry import identity_matrix
 
 # Globals
 logger = start_log(name=__name__)
@@ -526,8 +524,8 @@ class PoseDirectory:
         try:
             return getattr(self, self._background_profile)
         except AttributeError:
-            self.log.error(f'For the {self.background_profile.__name__}, couldn\'t locate the profile "'
-                           f'{self._background_profile}". By default, using "design_profile" instead')
+            self.log.error(f"For the {self.background_profile.__name__}, couldn't locate the profile "
+                           f'"{self._background_profile}". Using "design_profile" by default')
             return self.design_profile
 
     @background_profile.setter
@@ -2045,17 +2043,18 @@ class PoseDirectory:
 
             # Update PoseDirectory with design information
             if self.job.generate_fragments:  # Set pose.fragment_profile by combining fragment profiles
-                self.pose.combine_fragment_profile([entity.fragment_profile for entity in self.pose.entities])
-                fragment_pssm_file = self.pose.write_pssm_file(self.pose.fragment_profile, PUtils.fssm,
-                                                               out_path=self.data)
+                self.pose.fragment_profile = combine_profile([entity.fragment_profile for entity in self.pose.entities])
+                fragment_pssm_file = write_pssm_file(self.pose.fragment_profile, name=PUtils.fssm,
+                                                     out_dir=self.data)
 
             if not self.job.no_evolution_constraint:  # Set pose.evolutionary_profile by combining evolution profiles
-                self.pose.combine_pssm([entity.evolutionary_profile for entity in self.pose.entities])
-                self.pose.pssm_file = self.pose.write_pssm_file(self.pose.evolutionary_profile, PUtils.pssm,
-                                                                out_path=self.data)
+                self.pose.evolutionary_profile = \
+                    combine_profile([entity.evolutionary_profile for entity in self.pose.entities])
+                self.pose.pssm_file = write_pssm_file(self.pose.evolutionary_profile, name=PUtils.pssm,
+                                                      out_dir=self.data)
 
-            self.pose.combine_profile([entity.profile for entity in self.pose.entities])
-            design_pssm_file = self.pose.write_pssm_file(self.pose.profile, PUtils.dssm, out_path=self.data)
+            self.pose.profile = combine_profile([entity.profile for entity in self.pose.entities])
+            design_pssm_file = write_pssm_file(self.pose.profile, name=PUtils.dssm, out_dir=self.data)
             # -------------------------------------------------------------------------
             # Todo self.solve_consensus()
             # -------------------------------------------------------------------------

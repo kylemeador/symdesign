@@ -414,6 +414,79 @@ def pssm_as_array(pssm: dict[int, dict[str, str | float | int | dict[str, int]]]
         # return np.vectorize(numerical_translation_alph1_bytes.__getitem__)(_array)
 
 
+def combine_profile(profiles: list[dict]) -> dict[int, Any]:  # dict[int, dict[str, float | dict[str, int] | str]]:
+    """Combine a list of profiles (parsed PSSMs) and incrementing the entry index in each additional profile
+
+    Args:
+        profiles: List of DSSMs to concatenate
+    Returns
+        The concatenated input profiles, make a concatenated PSSM
+            {1: {'A': 0.04, 'C': 0.12, ..., 'lod': {'A': -5, 'C': -9, ...}, 'type': 'W', 'info': 0.00,
+                 'weight': 0.00}, ...}}
+    """
+    new_profile = {}
+    new_key = 1
+    for profile in profiles:
+        for position_profile in profile.values():
+            new_profile[new_key] = position_profile
+            new_key += 1
+
+    return new_profile
+
+
+def write_pssm_file(pssm: dict[int, dict[protein_letters_alph3_plus_literal, float | str | tuple | dict[str, int]]],
+                    name: str, out_dir: AnyStr = os.getcwd()) -> str | None:
+    """Create a PSI-BLAST format PSSM file from a PSSM dictionary. Assumes residue numbering is correct!
+
+    Args:
+        pssm: A dictionary which has the keys: 'A', 'C', ... (all aa's), 'lod', 'type', 'info', 'weight'
+        name: The name of the file including the extension
+        out_dir: A specific location to write the file to
+    Returns:
+        Disk location of newly created .pssm file
+    """
+    if not pssm:
+        return None
+
+    # find out if the pssm has values expressed as frequencies (percentages) or as counts and modify accordingly
+    # lod_freq, counts_freq = False, False
+    # first_key = next(iter(pssm.keys()))
+    if isinstance(list(pssm.values())[0]['lod']['A'], float):
+        separation1 = " " * 4
+    else:
+        separation1 = " " * 3
+        # lod_freq = True
+    # if type(pssm[first_key]['A']) == float:
+    #     counts_freq = True
+
+    header = f'\n\n{" " * 12}{separation1.join(protein_letters_alph3)}{separation1}{(" " * 3).join(protein_letters_alph3)}\n'
+    # footer = ''
+    out_file = os.path.join(out_dir, name)
+    with open(out_file, 'w') as f:
+        f.write(header)
+        for residue_number, profile in pssm.items():
+            # aa_type = profile['type']
+            if isinstance(profile['lod']['A'], float):  # lod_freq:  # relevant for favor_fragment
+                lod_string = '%s ' % ' '.join('{:>4.2f}'.format(profile['lod'][aa]) for aa in protein_letters_alph3)
+            else:
+                lod_string = '%s ' % ' '.join('{:>3d}'.format(profile['lod'][aa]) for aa in protein_letters_alph3)
+            if isinstance(profile['A'], float):  # counts_freq: # relevant for freq calculations
+                counts_string = '%s ' % ' '.join('{:>3.0f}'.format(floor(profile[aa] * 100)) for aa in protein_letters_alph3)
+            else:
+                counts_string = '%s ' % ' '.join('{:>3d}'.format(profile[aa]) for aa in protein_letters_alph3)
+            # info = profile.get('info', 0.)
+            # weight = profile.get('weight', 0.)
+            # line = '{:>5d} {:1s}   {:80s} {:80s} {:4.2f} {:4.2f}\n'.format(residue_number, aa_type, lod_string,
+            #                                                                counts_string, round(info, 4),
+            #                                                                round(weight, 4))
+            f.write('{:>5d} {:1s}   {:80s} {:80s} {:4.2f} {:4.2f}\n'
+                    .format(residue_number, profile['type'], lod_string, counts_string,
+                            round(profile.get('info', 0.), 4), round(profile.get('weight', 0.), 4)))
+        # f.write(footer)
+
+    return out_file
+
+
 class SequenceProfile:
     """Contains the sequence information for a Structure. Should always be subclassed by a Structure object.
     Currently, Chain, Entity, Model and Pose contain the necessary .reference_sequence property.
@@ -908,48 +981,6 @@ class SequenceProfile:
                     self.evolutionary_profile[residue_number]['info'] = dummy
                     self.evolutionary_profile[residue_number]['weight'] = dummy
 
-    def combine_pssm(self, pssms):
-        """Combine a list of PSSMs incrementing the residue number in each additional PSSM
-
-        Args:
-            pssms (list(dict)): List of PSSMs to concatenate
-        Sets
-            self.evolutionary_profile (dict): Using the list of input PSSMs, make a concatenated PSSM
-        """
-        new_key = 1
-        for profile in pssms:
-            for position_profile in profile.values():
-                self.evolutionary_profile[new_key] = position_profile
-                new_key += 1
-
-    def combine_fragment_profile(self, fragment_profiles):
-        """Combine a list of fragment profiles incrementing the residue number in each additional fragment profile
-
-        Args:
-            fragment_profiles (list(dict)): List of fragment profiles to concatenate
-        Sets
-            self.fragment_profile (dict): To a concatenated fragment profile from the input fragment profiles
-        """
-        new_key = 1
-        for profile in fragment_profiles:
-            for position_profile in profile.values():
-                self.fragment_profile[new_key] = position_profile
-                new_key += 1
-
-    def combine_profile(self, profiles):
-        """Combine a list of DSSMs incrementing the residue number in each additional DSSM
-
-        Args:
-            profiles (list(dict)): List of DSSMs to concatenate
-        Sets
-            self.profile (dict): Using the list of input DSSMs, make a concatenated DSSM
-        """
-        new_key = 1
-        for profile in profiles:
-            for position_profile in profile.values():
-                self.profile[new_key] = position_profile
-                new_key += 1
-
     def add_msa(self, msa: str | MultipleSequenceAlignment = None):
         """Add a multiple sequence alignment to the profile
 
@@ -1114,10 +1145,13 @@ class SequenceProfile:
         """
         if sequence in sequence_types:  # get the attribute from the instance
             sequence = getattr(self, f'{sequence}_sequence')
-        if not name:
+
+        if name is None:
             name = self.name
-        if not file_name:
+        if file_name is None:
             file_name = os.path.join(out_dir, name)
+            if not file_name.endswith('.fasta'):
+                file_name = f'{file_name}.fasta'
 
         self.sequence_file = write_sequence_to_fasta(sequence=sequence, name=name, file_name=file_name)
 
@@ -1728,59 +1762,6 @@ class SequenceProfile:
             return {aa: (round(value) if value >= -9 else -9) for aa, value in lods.items()}
         else:  # ensure that -9 is the lowest value (formatting issues if 2 digits)
             return {aa: (value if value >= -9 else -9) for aa, value in lods.items()}
-
-    @staticmethod
-    def write_pssm_file(pssm: dict[protein_letters_alph3_plus_literal, float | str | tuple | dict], name: str,
-                        out_path: AnyStr = os.getcwd()) -> str | None:
-        """Create a PSI-BLAST format PSSM file from a PSSM dictionary. Assumes residue numbering is correct!
-
-        Args:
-            pssm: A dictionary which has the keys: 'A', 'C', ... (all aa's), 'lod', 'type', 'info', 'weight'
-            name: The name of the file including the extension
-            out_path: A specific location to write the file to
-        Returns:
-            Disk location of newly created .pssm file
-        """
-        if not pssm:
-            return
-
-        # find out if the pssm has values expressed as frequencies (percentages) or as counts and modify accordingly
-        # lod_freq, counts_freq = False, False
-        # first_key = next(iter(pssm.keys()))
-        if isinstance(list(pssm.values())[0]['lod']['A'], float):
-            separation1 = " " * 4
-        else:
-            separation1 = " " * 3
-            # lod_freq = True
-        # if type(pssm[first_key]['A']) == float:
-        #     counts_freq = True
-
-        header = f'\n\n{" " * 12}{separation1.join(protein_letters_alph3)}{separation1}{(" " * 3).join(protein_letters_alph3)}\n'
-        # footer = ''
-        out_file = os.path.join(out_path, name)
-        with open(out_file, 'w') as f:
-            f.write(header)
-            for residue_number, profile in pssm.items():
-                # aa_type = profile['type']
-                if isinstance(profile['lod']['A'], float):  # lod_freq:  # relevant for favor_fragment
-                    lod_string = '%s ' % ' '.join('{:>4.2f}'.format(profile['lod'][aa]) for aa in protein_letters_alph3)
-                else:
-                    lod_string = '%s ' % ' '.join('{:>3d}'.format(profile['lod'][aa]) for aa in protein_letters_alph3)
-                if isinstance(profile['A'], float):  # counts_freq: # relevant for freq calculations
-                    counts_string = '%s ' % ' '.join('{:>3.0f}'.format(floor(profile[aa] * 100)) for aa in protein_letters_alph3)
-                else:
-                    counts_string = '%s ' % ' '.join('{:>3d}'.format(profile[aa]) for aa in protein_letters_alph3)
-                # info = profile.get('info', 0.)
-                # weight = profile.get('weight', 0.)
-                # line = '{:>5d} {:1s}   {:80s} {:80s} {:4.2f} {:4.2f}\n'.format(residue_number, aa_type, lod_string,
-                #                                                                counts_string, round(info, 4),
-                #                                                                round(weight, 4))
-                f.write('{:>5d} {:1s}   {:80s} {:80s} {:4.2f} {:4.2f}\n'
-                        .format(residue_number, profile['type'], lod_string, counts_string,
-                                round(profile.get('info', 0.), 4), round(profile.get('weight', 0.), 4)))
-            # f.write(footer)
-
-        return out_file
 
     @staticmethod
     def format_frequencies(frequency_list, flip=False):
@@ -2471,26 +2452,6 @@ def make_pssm_file(pssm_dict, name, outpath=os.getcwd()):
     return out_file
 
 
-def combine_pssm(pssms):
-    """To a first pssm, append subsequent pssms incrementing the residue number in each additional pssm
-
-    Args:
-        pssms (list(dict)): List of pssm dictionaries to concatenate
-    Returns:
-        (dict): Concatenated PSSM
-    """
-    combined_pssm = {}
-    new_key = 0
-    for i in range(len(pssms)):
-        # requires python 3.6+ to maintain sorted dictionaries
-        # for old_key in pssms[i]:
-        for old_key in sorted(list(pssms[i].keys())):
-            combined_pssm[new_key] = pssms[i][old_key]
-            new_key += 1
-
-    return combined_pssm
-
-
 # def combine_ssm(pssm, issm, alpha, db=PUtils.biological_interfaces, favor_fragments=True, boltzmann=False, a=0.5):
 #     """Combine weights for profile PSSM and fragment SSM using fragment significance value to determine overlap
 #
@@ -3170,34 +3131,6 @@ msa_supported_types = {'fasta': '.fasta', 'stockholm': '.sto'}
 msa_generation_function = SequenceProfile.hhblits.__name__
 
 
-# def find_column_observations(counts, **kwargs):
-#     """Find total representation for each column in the alignment
-#
-#     Args:
-#         counts (dict): {1: {'A': 13, 'C': 1, 'D': 23, ...}, 2: {}, ...}
-#     Keyword Args:
-#         gaps=False (bool): Whether to count gaps (True) or not in the alignment
-#     Returns:
-#         (dict): {1: 210, 2:211, ...}
-#     """
-#     return {idx: sum_column_observations(aa_counts, **kwargs) for idx, aa_counts in counts.items()}
-
-
-# def sum_column_observations(column: dict[str, int], gaps: bool = False, **kwargs) -> int:
-#     """Sum the column weight for a single alignment dict column
-#
-#     Args:
-#         column: {'A': 13, 'C': 1, 'D': 23, ...}
-#         gaps: Whether to count gaps (True) or not
-#     Returns:
-#         s (int): Total counts in the alignment
-#     """
-#     if not gaps:
-#         column.pop('-')
-#
-#     return sum(column.values())
-
-
 def msa_to_prob_distribution(alignment):
     """Turn Alignment dictionary into a probability distribution
 
@@ -3500,38 +3433,43 @@ def read_alignment(file_name: AnyStr, alignment_type: str = 'fasta', **kwargs) -
     return AlignIO.read(file_name, alignment_type)
 
 
-def write_fasta(sequence_records: Iterable[SeqRecord], name: str = None, out_path: AnyStr = os.getcwd()) -> \
-        AnyStr:
+def write_fasta(sequence_records: Iterable[SeqRecord], file_name: AnyStr = None, name: str = None,
+                out_dir: AnyStr = os.getcwd()) -> AnyStr:
     """Write an iterator of SeqRecords to a .fasta file with fasta format. '.fasta' is appended if not specified in name
 
     Args:
         sequence_records: The sequences to write. Should be Biopython SeqRecord format
+        file_name: The explicit name of the file
         name: The name of the file to output
-        out_path: The location on disk to output file
+        out_dir: The location on disk to output file
     Returns:
         The name of the output file
     """
-    file_name = os.path.join(out_path, name)
-    if not file_name.endswith('.fasta'):
-        file_name = f'{file_name}.fasta'
+    if file_name is None:
+        file_name = os.path.join(out_dir, name)
+        if not file_name.endswith('.fasta'):
+            file_name = f'{file_name}.fasta'
 
     SeqIO.write(sequence_records, file_name, 'fasta')
 
     return file_name
 
 
-def write_sequence_to_fasta(sequence: str, name: str, file_name: AnyStr) -> AnyStr:
+def write_sequence_to_fasta(sequence: str, file_name: AnyStr, name: str, out_dir: AnyStr = os.getcwd()) -> AnyStr:
     """Write an iterator of SeqRecords to a .fasta file with fasta format. '.fasta' is appended if not specified in name
 
     Args:
         sequence: The sequence to write
-        name: The name of the sequence
+        name: The name of the sequence. Will be used as the default file_name base name if file_name not provided
         file_name: The explicit name of the file
+        out_dir: The location on disk to output the file. Only used if file_name not explicitly provided
     Returns:
         The name of the output file
     """
-    if not file_name.endswith('.fasta'):
-        file_name = f'{file_name}.fasta'
+    if file_name is None:
+        file_name = os.path.join(out_dir, name)
+        if not file_name.endswith('.fasta'):
+            file_name = f'{file_name}.fasta'
 
     with open(file_name, 'w') as outfile:
         outfile.write(f'>{name}\n{sequence}\n')
@@ -3539,7 +3477,7 @@ def write_sequence_to_fasta(sequence: str, name: str, file_name: AnyStr) -> AnyS
     return file_name
 
 
-def concatenate_fasta_files(file_names: Iterable[AnyStr], output: str = 'concatenated_fasta') -> AnyStr:
+def concatenate_fasta_files(file_names: Iterable[AnyStr], out_path: str = 'concatenated_fasta') -> AnyStr:
     """Take multiple fasta files and concatenate into a single file
 
     Args:
@@ -3551,4 +3489,4 @@ def concatenate_fasta_files(file_names: Iterable[AnyStr], output: str = 'concate
     seq_records = []
     for file in file_names:
         seq_records.extend(list(read_fasta_file(file)))
-    return write_fasta(seq_records, out_path=output)
+    return write_fasta(seq_records, out_dir=out_path)
