@@ -4,7 +4,7 @@ import os
 import subprocess
 import time
 import warnings
-from collections import namedtuple, defaultdict
+from collections import namedtuple
 from copy import deepcopy, copy
 from itertools import repeat
 from logging import Logger
@@ -22,8 +22,13 @@ from Bio.SeqRecord import SeqRecord
 import structure.utils
 from metrics import hydrophobic_collapse_index
 from resources import info
-from structure.utils import protein_letters_alph1, protein_letters_3to1, protein_letters_alph3, protein_letters_alph3_plus_literal, \
-    protein_letters_alph1_gapped, protein_letters_alph3_gapped, protein_letters_alph1_extended_literal
+from structure.utils import protein_letters_alph1, protein_letters_3to1, protein_letters_alph3, \
+    protein_letters_alph3_plus_literal, protein_letters_alph1_gapped, numerical_translation_alph1_bytes, \
+    numerical_translation_alph3_bytes, sequence_translation_alph1, sequence_translation_alph3, \
+    numerical_translation_alph1_gapped, numerical_translation_alph1_gapped_bytes, \
+    numerical_translation_alph3_gapped_bytes, numerical_translation_alph1_unknown_bytes, \
+    numerical_translation_alph3_unknown_bytes, numerical_translation_alph1_unknown_gapped_bytes, \
+    numerical_translation_alph3_unknown_gapped_bytes
 from utils import handle_errors, start_log, pretty_format_table, unpickle, get_base_root_paths_recursively, \
     DesignError, CommandDistributer, path as PUtils
 # import dependencies.bmdca as bmdca
@@ -43,22 +48,7 @@ subs_matrices = {'BLOSUM62': substitution_matrices.load('BLOSUM62')}
 
 # protein_letters_literal: tuple[str, ...] = get_args(protein_letters_alph1_literal)
 # numerical_translation = dict(zip(protein_letters_alph1, range(len(protein_letters_alph1))))
-numerical_translation_bytes = defaultdict(lambda: 20, zip([item.encode() for item in protein_letters_alph1],
-                                                          range(len(protein_letters_alph1))))
-numerical_translation_bytes3 = defaultdict(lambda: 20, zip([item.encode() for item in protein_letters_alph3],
-                                                           range(len(protein_letters_alph3))))
-numeric_to_sequence_translation = defaultdict(lambda: '-', zip(range(len(protein_letters_alph1)), protein_letters_alph1))
-numeric_to_sequence_translation3 = defaultdict(lambda: '-', zip(range(len(protein_letters_alph3)), protein_letters_alph3))
-gapped_numerical_translation = defaultdict(lambda: 20, zip(protein_letters_alph1_gapped, range(len(protein_letters_alph1_gapped))))
-gapped_numerical_translation3 = defaultdict(lambda: 20, zip(protein_letters_alph3_gapped,
-                                                            range(len(protein_letters_alph3_gapped))))
-gapped_numerical_translation_bytes = defaultdict(lambda: 20, zip([item.encode() for item in protein_letters_alph1_gapped],
-                                                                 range(len(protein_letters_alph1_gapped))))
-gapped_numerical_translation_bytes3 = defaultdict(lambda: 20, zip([item.encode() for item in protein_letters_alph3_gapped],
-                                                                  range(len(protein_letters_alph3_gapped))))
 # protein_letters_alph1_extended: tuple[str, ...] = get_args(protein_letters_alph1_extended_literal)
-extended_protein_letters_and_gap_literal = Literal[get_args(protein_letters_alph1_extended_literal), '-']
-extended_protein_letters_and_gap: tuple[str, ...] = get_args(extended_protein_letters_and_gap_literal)
 
 
 class MultipleSequenceAlignment:
@@ -157,7 +147,7 @@ class MultipleSequenceAlignment:
                 self._counts = [[0 for letter in alphabet] for _ in range(self.length)]  # list[list]
                 for record in self.alignment:
                     for i, aa in enumerate(record.seq):
-                        self._counts[i][gapped_numerical_translation[aa]] += 1
+                        self._counts[i][numerical_translation_alph1_gapped[aa]] += 1
                         # self.counts[i][aa] += 1
                 print('OLD self._counts', self._counts)
                 self._observations = [sum(aa_counts[:-1]) for aa_counts in self._counts]  # list[list]
@@ -171,7 +161,7 @@ class MultipleSequenceAlignment:
                 self._counts = [[0 for letter in alphabet] for _ in range(self.length)]  # list[list]
                 for record in self.alignment:
                     for i, aa in enumerate(record.seq):
-                        self._counts[i][gapped_numerical_translation[aa]] += sequence_weights_[i]
+                        self._counts[i][numerical_translation_alph1_gapped[aa]] += sequence_weights_[i]
                         # self.counts[i][aa] += sequence_weights[i]
                 print('OLD sequence_weight self._counts', self._counts)
 
@@ -314,7 +304,7 @@ def sequence_to_numeric(sequence: Sequence) -> np.ndarray:
             to the 1 letter alphabetical amino acid
     """
     _array = np.array(list(sequence), np.string_)
-    return np.vectorize(numerical_translation_bytes.__getitem__)(_array)
+    return np.vectorize(numerical_translation_alph1_bytes.__getitem__)(_array)
 
 
 def sequences_to_numeric(sequences: list[Sequence]) -> np.ndarray:
@@ -327,7 +317,7 @@ def sequences_to_numeric(sequences: list[Sequence]) -> np.ndarray:
             to the 1 letter alphabetical amino acid
     """
     _array = np.array([list(sequence) for sequence in sequences], np.string_)
-    return np.vectorize(numerical_translation_bytes.__getitem__)(_array)
+    return np.vectorize(numerical_translation_alph1_bytes.__getitem__)(_array)
 
 
 def numeric_to_sequence(numeric_sequence: np.ndarray, alphabet_order: int = 1) -> np.ndarray:
@@ -340,9 +330,9 @@ def numeric_to_sequence(numeric_sequence: np.ndarray, alphabet_order: int = 1) -
         The alphabetic encoded sequence where each entry along axis=-1 is the one letter amino acid
     """
     if alphabet_order == 1:
-        return np.vectorize(numeric_to_sequence_translation.__getitem__)(numeric_sequence)
+        return np.vectorize(sequence_translation_alph1.__getitem__)(numeric_sequence)
     elif alphabet_order == 3:
-        return np.vectorize(numeric_to_sequence_translation3.__getitem__)(numeric_sequence)
+        return np.vectorize(sequence_translation_alph3.__getitem__)(numeric_sequence)
     else:
         raise ValueError(f"The alphabet_order {alphabet_order} isn't valid. Choose from either 1 or 3")
 
@@ -365,7 +355,7 @@ def pssm_as_array(pssm: dict[int, dict[str, str | float | int | dict[str, int]]]
     else:
         return np.array([[residue_info[aa] for aa in protein_letters_alph1]
                          for residue_info in pssm.values()], dtype=np.float32)
-        # return np.vectorize(numerical_translation_bytes.__getitem__)(_array)
+        # return np.vectorize(numerical_translation_alph1_bytes.__getitem__)(_array)
 
 
 class SequenceProfile:
@@ -453,7 +443,7 @@ class SequenceProfile:
         except AttributeError:
             self._sequence_array = np.array(list(self.sequence), np.string_)
             self._sequence_numeric = \
-                np.vectorize(gapped_numerical_translation_bytes.__getitem__)(self._sequence_array)
+                np.vectorize(numerical_translation_alph1_gapped_bytes.__getitem__)(self._sequence_array)
             self._sequence_numeric = self._sequence_numeric.astype(np.int32)
             return self._sequence_numeric
 
