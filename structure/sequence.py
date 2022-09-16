@@ -1376,15 +1376,15 @@ class SequenceProfile:
         match_score_average = 0.5  # when fragment pair rmsd equal to the mean cluster rmsd
         bounded_floor = 0.2
         fragment_stats = self.fragment_db.statistics
-        for entry in self.fragment_profile:
+        for entry, data in self.fragment_profile.items():
             # can't use the match count as the fragment index may have no useful residue information
             # count = len([1 for obs in self.fragment_map[entry][index] for index in self.fragment_map[entry]]) or 1
             # instead use number of fragments with SC interactions count from the frequency map
-            count = self.fragment_profile[entry].get('stats', (None,))[0]
-            if not count:  # if the data is missing 'stats' or the 'stats'[0] is 0
-                continue  # move on, this isn't a fragment observation or we have no observed fragments
+            count, frag_weight = data.get('stats', (None, None))
+            if not count:  # When data is missing 'stats' or 'stats'[0] is 0
+                continue  # Move on, this isn't a fragment observation, or we have no observed fragments
             # match score is bounded between 1 and 0.2
-            match_sum = sum(obs['match'] for index_values in self.fragment_map[entry].values() for obs in index_values)
+            match_sum = sum(obs['match'] for index_values in data.values() for obs in index_values)
             # if count == 0:
             #     # ensure that match modifier is 0 so self.alpha[entry] is 0, as there is no fragment information here!
             #     count = match_sum * 5  # makes the match average = 0.5
@@ -1399,7 +1399,7 @@ class SequenceProfile:
             # find the total contribution from a typical fragment of this type
             contribution_total = sum(fragment_stats[self.fragment_db.get_cluster_id(obs['cluster'], index=2)][0]
                                      [alignment_type_to_idx[obs['chain']]]
-                                     for index_values in self.fragment_map[entry].values() for obs in index_values)
+                                     for index_values in data.values() for obs in index_values)
             # contribution_total = 0.0
             # for index in self.fragment_map[entry]:
             #     # for obs in self.fragment_map[entry][index]['cluster']: # WAS
@@ -1414,7 +1414,7 @@ class SequenceProfile:
             # get the average contribution of each fragment type
             stats_average = contribution_total / count
             # get entry average fragment weight. total weight for issm entry / count
-            frag_weight_average = self.fragment_profile[entry]['stats'][1] / match_sum
+            frag_weight_average = frag_weight / match_sum
 
             # modify alpha proportionally to cluster average weight and match_modifier
             if frag_weight_average < stats_average:  # if design frag weight is less than db cluster average weight
@@ -1442,7 +1442,7 @@ class SequenceProfile:
                 If False, residues are weighted by the residue local maximum lod score in a linear fashion
                 All lods are scaled to a maximum provided in the Rosetta REF2015 per residue reference weight.
         Sets:
-            self.profile: (dict[int, dict[str, float | dict[str, int] | str]) =
+            self.profile: (dict[int, dict[str, float | dict[str, int] | str]]) =
                 {1: {'A': 0.04, 'C': 0.12, ..., 'lod': {'A': -5, 'C': -9, ...},
                      'type': 'W', 'info': 0.00, 'weight': 0.00}, ...}}
         """
