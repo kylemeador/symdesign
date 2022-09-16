@@ -15,7 +15,8 @@ from itertools import repeat
 from logging import Logger, DEBUG, INFO, WARNING, ERROR, CRITICAL, getLogger, StreamHandler, FileHandler, NullHandler, \
     Formatter, root
 from string import digits
-from typing import Any, Callable, Union, Iterable, List, Tuple, AnyStr, Dict, DefaultDict, Sequence, Iterator, Literal
+from typing import Any, Callable, Union, Iterable, List, Tuple, AnyStr, Dict, DefaultDict, Sequence, Iterator, Literal, \
+    Type
 
 import numpy as np
 import psutil
@@ -68,7 +69,7 @@ def set_dictionary_by_path(root, items, value):
 # ERRORS
 ##########
 
-def handle_errors(errors: tuple[Exception, ...] = (Exception,)) -> Any:
+def handle_errors(errors: tuple[Type[Exception], ...] = (Exception,)) -> Any:
     """Decorator to wrap a function with try: ... except errors:
 
     Args:
