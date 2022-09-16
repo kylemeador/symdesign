@@ -3635,7 +3635,7 @@ class SymmetricModel(Models):
          '_symmetric_coords_split_by_entity'}
     uc_volume: float
 
-    def __init__(self, sym_entry: SymEntry | int = None, symmetry: str = None,
+    def __init__(self, sym_entry: SymEntry | int = None, symmetry: str = None, transformations: list[dict] = None,
                  uc_dimensions: list[float] = None, expand_matrices: np.ndarray | list = None,
                  surrounding_uc: bool = True, **kwargs):
         """
@@ -3643,6 +3643,7 @@ class SymmetricModel(Models):
         Args:
             sym_entry: The SymEntry which specifies all symmetry parameters
             symmetry: The name of a symmetry to be searched against the existing compatible symmetries
+            transformations: The entity_transformations operations that reproduce the individual oligomers
             uc_dimensions: Whether the symmetric coords should be generated from the ASU coords
             expand_matrices: A set of custom expansion matrices
             surrounding_uc: Whether the 3x3 layer group, or 3x3x3 space group should be generated
@@ -3676,7 +3677,7 @@ class SymmetricModel(Models):
                 self.generate_symmetric_coords(surrounding_uc=surrounding_uc)  # default has surrounding_uc=True
 
             # Generate oligomers for each entity in the pose
-            self.make_oligomers()
+            self.make_oligomers(transformations=transformations)
             # if generate_symmetry_mates:  # always set to False before. commenting out
             #     self.generate_assembly_symmetry_models(**kwargs)
 
@@ -4715,7 +4716,7 @@ class SymmetricModel(Models):
                 #     #     dummy = True
 
     @property
-    def transformation(self) -> list[dict]:
+    def entity_transformations(self) -> list[dict]:
         """The transformation parameters for each Entity in the SymmetricModel. Each entry has the
         transformation_mapping type
         """
@@ -4730,7 +4731,7 @@ class SymmetricModel(Models):
         individual symmetric components in the global symmetry
 
         Returns:
-            The specific transformation dictionaries which place each Entity with proper symmetry axis in the Pose
+            The specific entity_transformations dictionaries which place each Entity with proper symmetry axis in the Pose
         """
         if not self.is_symmetric():
             raise SymmetryError(f'Must set a global symmetry to {self._assign_pose_transformation.__name__}')
@@ -5049,10 +5050,17 @@ class SymmetricModel(Models):
             # If imperfect symmetry, below may find some use
             # self._process_model(entities=entities, chains=False, **kwargs)
 
-    def make_oligomers(self):
-        """Generate oligomers for each Entity in the SymmetricModel"""
+    def make_oligomers(self, transformations: list[dict] = None):
+        """Generate oligomers for each Entity in the SymmetricModel
+
+        Args:
+            transformations: The entity_transformations operations that reproduce the individual oligomers
+        """
+        if transformations is None:
+            transformations = self.entity_transformations
+
         for entity, subunit_number, symmetry, transformation in zip(self.entities, self.sym_entry.group_subunit_numbers,
-                                                                    self.sym_entry.groups, self.transformation):
+                                                                    self.sym_entry.groups, transformations):
             if entity.number_of_symmetry_mates != subunit_number:
                 entity.make_oligomer(symmetry=symmetry, **transformation)
 
@@ -5635,7 +5643,7 @@ class Pose(SequenceProfile, SymmetricModel):
             if self.dimension > 0:
                 for idx, _entity in enumerate(self.entities):
                     if entity == _entity:
-                        entity_reference = self.transformation[idx].get('translation2', None)
+                        entity_reference = self.entity_transformations[idx].get('translation2', None)
                         self.log.critical("Locating the termini accessibility for lattice symmetries has't been tested")
                         break
                 else:

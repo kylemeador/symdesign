@@ -143,9 +143,11 @@ class PoseDirectory:
         # Symmetry attributes
         # self.cryst_record = None
         # self.expand_matrices = None
+        self.pose_transformation = None
         # Todo monitor if Rosetta energy mechanisms are modified for crystal set ups and adjust parameter accordingly
-        if PUtils.sym_entry in kwargs:
-            self.sym_entry = kwargs[PUtils.sym_entry]
+        # If a new sym_entry is provided it wouldn't be saved to the state
+        if self.job.sym_entry is not None:
+            self.sym_entry = self.job.sym_entry
         self.sym_def_file: str | None = None  # The symmetry definition file for the entire Pose
         self.symmetry_protocol: str | None = None
         # Todo figure out how to handle non-symmetric systems with CRYST1 info. Users might want either mechanism...
@@ -159,10 +161,13 @@ class PoseDirectory:
         # self.uc_dimensions = None
 
         # Design attributes
-        self.background_profile: str = kwargs.get('background_profile', PUtils.design_profile)  # by default, grab design profile
+        self.background_profile: str = kwargs.get('background_profile', PUtils.design_profile)
         self.directives = kwargs.get('directives', [])
-        # Todo refactor to JobResources and save in PoseDirectory state
-        # self.design_selector = kwargs.get('design_selector', None)
+        if self.job.design_selector:
+            # self.info['design_selector'] = self.design_selector = self.job.design_selector
+            self.design_selector = self.job.design_selector
+        else:
+            self.design_selector = {}
         self.fragment_observations = None  # [{'cluster': '1_2_24', 'mapped': 78, 'paired': 87, 'match':0.46843}, ...]
         self.info: dict = {}  # internal state info
         self._info: dict = {}  # internal state info at load time
@@ -224,8 +229,11 @@ class PoseDirectory:
                 self.projects = os.path.dirname(self.project_designs)
         else:
             path_components = os.path.splitext(self.source_path)[0].split(os.sep)
-            # Save the SymEntry initialization key in the state
-            self.info['sym_entry_specification'] = self.sym_entry_number, self.sym_entry_map
+            # Save job variables to the state during initialization
+            if self.sym_entry:
+                self.info['sym_entry_specification'] = self.sym_entry_number, self.sym_entry_map
+            if self.design_selector:
+                self.info['design_selector'] = self.design_selector
 
             if self.job.nanohedra_output:
                 # path_components = self.source_path.split(os.sep)
@@ -472,7 +480,7 @@ class PoseDirectory:
             return None
 
     @property
-    def sym_entry_map(self) -> str | None:
+    def sym_entry_map(self) -> list[str] | None:
         """The symmetry map of the SymEntry"""
         try:
             # return [self.sym_entry.resulting_symmetry] + list(self.sym_entry.sym_map.values())
@@ -626,43 +634,43 @@ class PoseDirectory:
     #     except AttributeError:
     #         pass
 
-    @property
-    def pose_transformation(self) -> list[dict[str, np.ndarray]]:
-        """Provide the transformation parameters for the design in question
-
-        Returns:
-            [{'rotation': np.ndarray, 'translation': np.ndarray, 'rotation2': np.ndarray,
-              'translation2': np.ndarray}, ...]
-            A list with the transformations of each Entity in the Pose according to the symmetry
-        """
-        self.log.critical('PoseDirectory.pose_transformation was accessed!')
-        try:
-            return self._pose_transformation
-        except AttributeError:
-            if self.symmetric:
-                try:  # To retrieve from Nanohedra output
-                    self._pose_transformation = retrieve_pose_transformation_from_nanohedra_docking(self.pose_file)
-                except (FileNotFoundError, NotADirectoryError):
-                    try:
-                        self._pose_transformation = self.pose._assign_pose_transformation()
-                    except DesignError:
-                        # Todo this is something outside of the realm of possibilities of Nanohedra symmetry groups
-                        #  Perhaps we need to get the parameters for oligomer generation from PISA or other source
-                        self.log.critical(f'There was no pose transformation file specified at {self.pose_file} and no'
-                                          ' transformation found from routine search of Nanohedra docking parameters. '
-                                          'Is this pose from the PDB? You may need to utilize PISA to accurately deduce'
-                                          ' the locations of pose transformations to make the correct oligomers. For '
-                                          'now, using null transformation which is likely not what you want...')
-                        self._pose_transformation = \
-                            [dict(rotation=identity_matrix, translation=None) for _ in self.pose.entities]
-            else:
-                # Todo would have to measure the transformation from the standard Database orientation to the pose
-                #  oritentation. This is useful if the design files are not written and the design was loaded from a
-                #  file originally, but accessing after it is loaded from the database and using a ._pose_transformation
-                self._pose_transformation = []
-            # set the transformation to the pose state
-            self.info['pose_transformation'] = self._pose_transformation
-            return self._pose_transformation
+    # @property
+    # def pose_transformation(self) -> list[dict[str, np.ndarray]]:
+    #     """Provide the transformation parameters for the design in question
+    #
+    #     Returns:
+    #         [{'rotation': np.ndarray, 'translation': np.ndarray, 'rotation2': np.ndarray,
+    #           'translation2': np.ndarray}, ...]
+    #         A list with the transformations of each Entity in the Pose according to the symmetry
+    #     """
+    #     self.log.critical('PoseDirectory.pose_transformation was accessed!')
+    #     try:
+    #         return self._pose_transformation
+    #     except AttributeError:
+    #         if self.symmetric:
+    #             try:  # To retrieve from Nanohedra output
+    #                 self._pose_transformation = retrieve_pose_transformation_from_nanohedra_docking(self.pose_file)
+    #             except (FileNotFoundError, NotADirectoryError):
+    #                 try:
+    #                     self._pose_transformation = self.pose._assign_pose_transformation()
+    #                 except DesignError:
+    #                     # Todo this is something outside of the realm of possibilities of Nanohedra symmetry groups
+    #                     #  Perhaps we need to get the parameters for oligomer generation from PISA or other source
+    #                     self.log.critical(f'There was no pose transformation file specified at {self.pose_file} and no'
+    #                                       ' transformation found from routine search of Nanohedra docking parameters. '
+    #                                       'Is this pose from the PDB? You may need to utilize PISA to accurately deduce'
+    #                                       ' the locations of pose transformations to make the correct oligomers. For '
+    #                                       'now, using null transformation which is likely not what you want...')
+    #                     self._pose_transformation = \
+    #                         [dict(rotation=identity_matrix, translation=None) for _ in self.pose.entities]
+    #         else:
+    #             # Todo would have to measure the transformation from the standard Database orientation to the pose
+    #             #  orientation. This is useful if the design files are not written and the design was loaded from a
+    #             #  file originally, but accessing after it is loaded from the database and using a ._pose_transformation
+    #             self._pose_transformation = []
+    #         # set the transformation to the pose state
+    #         self.info['pose_transformation'] = self._pose_transformation
+    #         return self._pose_transformation
 
     # @pose_transformation.setter
     # def pose_transformation(self, transform):
@@ -799,6 +807,8 @@ class PoseDirectory:
             if pre_loop_model is not None:  # either True or False
                 self.info['pre_loop_model'] = pre_loop_model
 
+        self.design_selector = self.info.get('design_selector', self.design_selector)
+        self.pose_transformation = self.info.get('pose_transformation', {})
         self.fragment_observations = self.info.get('fragments', None)  # None signifies query wasn't attempted
         self.interface_design_residues = self.info.get('interface_design_residues', False)  # (set[int])
         self.interface_residue_ids = self.info.get('interface_residue_ids', {})
@@ -1475,28 +1485,28 @@ class PoseDirectory:
             oriented: bool = False - Whether to use oriented models from the StructureDatabase
         """
         self.get_entities(**kwargs)
-        if self.pose.transformation:
+        if self.pose.entity_transformations:
             self.log.debug('Entities were transformed to the found docking parameters')
             self.entities = [entity.get_transformed_copy(**transformation)
-                             for entity, transformation in zip(self.entities, self.pose.transformation)]
+                             for entity, transformation in zip(self.entities, self.pose.entity_transformations)]
         else:  # Todo change below to handle asymmetric cases...
-            raise SymmetryError('The design could not be transformed as it is missing the required transformation '
-                                'parameters. Were they generated properly?')
+            raise SymmetryError('The design could not be transformed as it is missing the required '
+                                'entity_transformations parameter. Were they generated properly?')
 
     def transform_structures_to_pose(self, structures: Iterable[Structure], **kwargs) -> list[Structure]:
         """Take a set of Structure instances and transform them from a standard reference frame to the Pose reference
-        frame using the pose.transformation parameters
+        frame using the pose.entity_transformations parameters
 
         Args:
             structures: The Structure objects you would like to transform
         Returns:
             The transformed Structure objects if a transformation was possible
         """
-        if self.pose.transformation:
+        if self.pose.entity_transformations:
             self.log.debug('Structures were transformed to the found docking parameters')
             # Todo assumes a 1:1 correspondence between structures and transforms (component group numbers) CHANGE
             return [structure.get_transformed_copy(**transformation)
-                    for structure, transformation in zip(structures, self.pose.transformation)]
+                    for structure, transformation in zip(structures, self.pose.entity_transformations)]
         else:
             return list(structures)
 
@@ -1628,8 +1638,9 @@ class PoseDirectory:
 
         # Initialize the Pose with the pdb in PDB numbering so that residue_selectors are respected
         pose_kwargs = dict(name=f'{self}-asu' if self.sym_entry else str(self), sym_entry=self.sym_entry, log=self.log,
-                           design_selector=self.job.design_selector, ignore_clashes=self.job.ignore_pose_clashes,
-                           fragment_db=self.job.fragment_db)  # api_db=self.job.api_db,
+                           transformations=self.pose_transformation, design_selector=self.design_selector,
+                           ignore_clashes=self.job.ignore_pose_clashes, fragment_db=self.job.fragment_db)
+        #                    api_db=self.job.api_db,
 
         if entities:
             self.pose = Pose.from_entities(entities, entity_names=[entity.name for entity in entities], **pose_kwargs)
@@ -1642,7 +1653,7 @@ class PoseDirectory:
         if self.pose.is_symmetric():
             for idx, entity in enumerate(self.pose.entities):
                 # if entity.number_of_symmetry_mates != self.sym_entry.group_subunit_numbers[idx]:
-                #     entity.make_oligomer(symmetry=self.sym_entry.groups[idx], **self.pose.transformation[idx])
+                #     entity.make_oligomer(symmetry=self.sym_entry.groups[idx], **self.pose.entity_transformations[idx])
                 if self.job.write_oligomers:  # Write out new oligomers to the PoseDirectory
                     entity.write_oligomer(out_path=os.path.join(self.path, f'{entity.name}_oligomer.pdb'))
 
@@ -3146,7 +3157,7 @@ class PoseDirectory:
             # g = sns.FacetGrid(tip_sumstats, col="sex", row="smoker")
             # graph_collapse = sns.relplot(data=collapse_graph_df, kind='line')  # x='Residue Number'
 
-            # Set the base figure aspect ration for all sequence designs
+            # Set the base figure aspect ratio for all sequence designs
             figure_aspect_ratio = (pose_length / 25., 20)  # 20 is arbitrary size to fit all information in figure
             color_cycler = cycler(color=large_color_array)
             plt.rc('axes', prop_cycle=color_cycler)
@@ -4414,7 +4425,7 @@ def interface_design_analysis(pose: Pose, design_poses: Iterable[Pose] = None,
         # g = sns.FacetGrid(tip_sumstats, col="sex", row="smoker")
         # graph_collapse = sns.relplot(data=collapse_graph_df, kind='line')  # x='Residue Number'
 
-        # Set the base figure aspect ration for all sequence designs
+        # Set the base figure aspect ratio for all sequence designs
         figure_aspect_ratio = (pose_length / 25., 20)  # 20 is arbitrary size to fit all information in figure
         color_cycler = cycler(color=large_color_array)
         plt.rc('axes', prop_cycle=color_cycler)

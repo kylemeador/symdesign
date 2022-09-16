@@ -487,9 +487,9 @@ def main():
                     f'Found {len(pose_cluster_map)} unique clusters from {len(pose_directories)} pose inputs. All '
                     f'clusters stored in {pose_cluster_file}')
                 logger.info('Each cluster above has one representative which identifies with each of the members. If '
-                            'clustering was performed by transformation or interface_residues, then the representative '
-                            'is the most similar to all members. If clustering was performed by ialign, then the '
-                            'representative is randomly chosen.')
+                            'clustering was performed by entity_transformations or interface_residues, then the '
+                            'representative is the most similar to all members. If clustering was performed by ialign, '
+                            'then the representative is randomly chosen.')
                 logger.info(
                     f'To utilize the above clustering, during {PUtils.select_poses}, using the option --cluster_map'
                     f', will apply clustering to poses to select a cluster representative based on the most '
@@ -1347,7 +1347,7 @@ def main():
         # if args.multi_processing:
         #     results = SDUtils.mp_map(protocols.PoseDirectory.find_transforms, pose_directories, processes=cores)
         # else:
-        stacked_transforms = [pose_directory.pose.transformation for pose_directory in pose_directories]
+        stacked_transforms = [pose_directory.pose.entity_transformations for pose_directory in pose_directories]
         trans1_rot1, trans1_tx1, trans1_rot2, trans1_tx2 = zip(*[transform[0].values()
                                                                  for transform in stacked_transforms])
         trans2_rot1, trans2_tx1, trans2_rot2, trans2_tx2 = zip(*[transform[1].values()
