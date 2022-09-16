@@ -1099,8 +1099,10 @@ class PoseDirectory:
 
         variables = rosetta_variables + [('dist', distance), ('repack', 'yes'),
                                          ('constrained_percent', constraint_percent), ('free_percent', free_percent)]
-        variables.extend([(PUtils.design_profile, self.design_profile_file)] if self.design_profile else [])
-        variables.extend([(PUtils.fragment_profile, self.fragment_profile_file)] if self.fragment_profile else [])
+        variables.extend([(PUtils.design_profile, self.design_profile_file)]
+                         if os.path.exists(self.design_profile_file) else [])
+        variables.extend([(PUtils.fragment_profile, self.fragment_profile_file)]
+                         if os.path.exists(self.fragment_profile_file) else [])
 
         if self.symmetric:
             self.prepare_symmetry_for_rosetta()
@@ -1340,140 +1342,6 @@ class PoseDirectory:
             self.symmetry_protocol = symmetry_protocols[self.design_dimension]
             self.sym_def_file = self.sym_entry.sdf_lookup()
         self.log.info(f'Symmetry Option: {self.symmetry_protocol}')
-
-    def rosetta_interface_design(self):
-        """For the basic process of sequence design between two halves of an interface, write the necessary files for
-        refinement (FastRelax), redesign (FastDesign), and metrics collection (Filters & SimpleMetrics)
-
-        Stores job variables in a [stage]_flags file and the command in a [stage].sh file. Sets up dependencies based
-        on the PoseDirectory
-        """
-        # Set up the command base (rosetta bin and database paths)
-        if self.job.scout:
-            protocol, protocol_xml1 = PUtils.scout, PUtils.scout
-            nstruct_instruct = ['-no_nstruct_label', 'true']
-            generate_files_cmd, metrics_pdb = [], ['-in:file:s', self.scouted_pdb]
-            # metrics_flags = 'repack=no'
-            additional_cmds, out_file = [], []
-        elif self.job.structure_background:
-            protocol, protocol_xml1 = PUtils.structure_background, PUtils.structure_background
-            nstruct_instruct = ['-nstruct', str(self.job.number_of_trajectories)]
-            design_files = os.path.join(self.scripts, f'design_files_{protocol}.txt')
-            generate_files_cmd = \
-                ['python', PUtils.list_pdb_files, '-d', self.designs, '-o', design_files, '-s', '_' + protocol]
-            metrics_pdb = ['-in:file:l', design_files]  # self.pdb_list]
-            # metrics_flags = 'repack=yes'
-            additional_cmds, out_file = [], []
-        elif self.job.no_hbnet:  # run the legacy protocol
-            protocol, protocol_xml1 = PUtils.interface_design, PUtils.interface_design
-            nstruct_instruct = ['-nstruct', str(self.job.number_of_trajectories)]
-            design_files = os.path.join(self.scripts, f'design_files_{protocol}.txt')
-            generate_files_cmd = \
-                ['python', PUtils.list_pdb_files, '-d', self.designs, '-o', design_files, '-s', '_' + protocol]
-            metrics_pdb = ['-in:file:l', design_files]  # self.pdb_list]
-            # metrics_flags = 'repack=yes'
-            additional_cmds, out_file = [], []
-        else:  # run hbnet_design_profile protocol
-            protocol, protocol_xml1 = PUtils.hbnet_design_profile, 'hbnet_scout'
-            nstruct_instruct = ['-no_nstruct_label', 'true']
-            design_files = os.path.join(self.scripts, f'design_files_{protocol}.txt')
-            generate_files_cmd = \
-                ['python', PUtils.list_pdb_files, '-d', self.designs, '-o', design_files, '-s', '_' + protocol]
-            metrics_pdb = ['-in:file:l', design_files]  # self.pdb_list]
-            # metrics_flags = 'repack=yes'
-            out_file = ['-out:file:silent', os.path.join(self.data, 'hbnet_silent.o'),
-                        '-out:file:silent_struct_type', 'binary']
-            additional_cmds = \
-                [[PUtils.hbnet_sort, os.path.join(self.data, 'hbnet_silent.o'), str(self.job.number_of_trajectories)]]
-            # silent_file = os.path.join(self.data, 'hbnet_silent.o')
-            # additional_commands = \
-            #     [
-            #      # ['grep', '^SCORE', silent_file, '>', os.path.join(self.data, 'hbnet_scores.sc')],
-            #      main_cmd + [os.path.join(self.data, 'hbnet_selected.o')]
-            #      [os.path.join(self.data, 'hbnet_selected.tags')]
-            #     ]
-
-        main_cmd = copy(script_cmd)
-        main_cmd += ['-symmetry_definition', 'CRYST1'] if self.design_dimension > 0 else []
-        if not os.path.exists(self.flags) or self.job.force_flags:
-            make_path(self.scripts)
-            self.prepare_rosetta_flags(out_dir=self.scripts)
-            self.log.debug(f'Pose flags written to: {self.flags}')
-
-        if self.job.consensus:  # Todo add consensus sbatch generator to the symdesign main
-            if self.job.generate_fragments:  # design_with_fragments
-                consensus_cmd = main_cmd + relax_flags_cmdline + \
-                    [f'@%{self.flags}', '-in:file:s', self.consensus_pdb,
-                     # '-in:file:native', self.refined_pdb,
-                     '-parser:protocol', os.path.join(PUtils.rosetta_scripts, f'{PUtils.consensus}.xml'),
-                     '-parser:script_vars', f'switch={PUtils.consensus}']
-                self.log.info(f'Consensus command: {list2cmdline(consensus_cmd)}')
-                if not self.run_in_shell:
-                    write_shell_script(list2cmdline(consensus_cmd), name=PUtils.consensus, out_path=self.scripts)
-                else:
-                    consensus_process = Popen(consensus_cmd)
-                    consensus_process.communicate()
-            else:
-                self.log.critical(f'Cannot run consensus design without fragment info and none was found.'
-                                  f' Did you mean include --{PUtils.no_term_constraint}?')  # Todo may not be included
-        # DESIGN: Prepare command and flags file
-        # Todo must set up a blank -in:file:pssm in case the evolutionary matrix is not used. Design will fail!!
-        design_cmd = main_cmd + (['-in:file:pssm', self.evolutionary_profile_file] if self.evolutionary_profile else []) + \
-            [f'@{self.flags}', '-in:file:s', self.scouted_pdb if os.path.exists(self.scouted_pdb) else self.refined_pdb,
-             '-parser:protocol', os.path.join(PUtils.rosetta_scripts, f'{protocol_xml1}.xml'),
-             '-out:suffix', f'_{protocol}'] + (['-overwrite'] if self.job.overwrite else []) \
-            + out_file + nstruct_instruct
-        if additional_cmds:  # this is where hbnet_design_profile.xml is set up, which could be just design_profile.xml
-            additional_cmds.append(
-                main_cmd +
-                (['-in:file:pssm', self.evolutionary_profile_file] if self.evolutionary_profile else []) +
-                ['-in:file:silent', os.path.join(self.data, 'hbnet_selected.o'), f'@{self.flags}',
-                 '-in:file:silent_struct_type', 'binary',
-                 # '-out:suffix', '_%s' % protocol,  adding no_nstruct_label true as only hbnet uses this mechanism
-                 '-parser:protocol', os.path.join(PUtils.rosetta_scripts, f'{protocol}.xml')] + nstruct_instruct)
-
-        # METRICS: Can remove if SimpleMetrics adopts pose metric caching and restoration
-        # Assumes all entity chains are renamed from A to Z for entities (1 to n)
-        entity_cmd = script_cmd + metrics_pdb + \
-            ['@%s' % self.flags, '-out:file:score_only', self.scores_file, '-no_nstruct_label', 'true',
-             '-parser:protocol', os.path.join(PUtils.rosetta_scripts, 'metrics_entity.xml')]
-
-        if self.job.mpi > 0 and not self.job.scout:
-            design_cmd = run_cmds[PUtils.rosetta_extras] + [str(self.job.mpi)] + design_cmd
-            entity_cmd = run_cmds[PUtils.rosetta_extras] + [str(self.job.mpi)] + entity_cmd
-            self.run_in_shell = False
-
-        self.log.info(f'{self.rosetta_interface_design.__name__} command: {list2cmdline(design_cmd)}')
-        metric_cmds = []
-        metric_cmds.extend(self.generate_entity_metrics(entity_cmd))
-
-        # Create executable/Run FastDesign on Refined ASU with RosettaScripts. Then, gather Metrics
-        if self.run_in_shell:
-            design_process = Popen(design_cmd)
-            design_process.communicate()  # wait for command to complete
-            for metric_cmd in metric_cmds:
-                metrics_process = Popen(metric_cmd)
-                metrics_process.communicate()
-        else:
-            analysis_cmd = ['python', PUtils.program_exe, PUtils.analysis, '--single', self.path, '--no-output',
-                            '--output_file', os.path.join(self.job.all_scores,
-                                                          PUtils.analysis_file % (starttime, protocol))]
-            write_shell_script(list2cmdline(design_cmd), name=protocol, out_path=self.scripts,
-                               additional=[list2cmdline(command) for command in additional_cmds] +
-                                          [list2cmdline(generate_files_cmd)] +
-                                          [list2cmdline(command) for command in metric_cmds] +
-                                          [list2cmdline(analysis_cmd)])
-            #                  status_wrap=self.serialized_info,
-
-        # ANALYSIS: each output from the Design process based on score, Analyze Sequence Variation
-        if self.run_in_shell:
-            pose_s = self.interface_design_analysis()
-            out_path = os.path.join(self.job.all_scores, PUtils.analysis_file % (starttime, 'All'))
-            if os.path.exists(out_path):
-                header = False
-            else:
-                header = True
-            pose_s.to_csv(out_path, mode='a', header=header)
 
     def transform_entities_to_pose(self, **kwargs):
         """Take the set of entities involved in a pose composition and transform them from a standard reference frame to
@@ -2056,20 +1924,20 @@ class PoseDirectory:
                                        fragments=self.job.generate_fragments,
                                        out_dir=self.job.api_db.hhblits_profiles.location)
 
+            self.pose.combine_sequence_profiles()
             # Update PoseDirectory with design information
             if self.job.generate_fragments:  # Set pose.fragment_profile by combining fragment profiles
                 self.pose.fragment_profile = combine_profile([entity.fragment_profile for entity in self.pose.entities])
-                fragment_pssm_file = write_pssm_file(self.pose.fragment_profile, name=PUtils.fssm,
-                                                     out_dir=self.data)
+                write_pssm_file(self.pose.fragment_profile, file_name=self.fragment_profile_file)
 
             if not self.job.no_evolution_constraint:  # Set pose.evolutionary_profile by combining evolution profiles
                 self.pose.evolutionary_profile = \
                     combine_profile([entity.evolutionary_profile for entity in self.pose.entities])
-                self.pose.pssm_file = write_pssm_file(self.pose.evolutionary_profile, name=PUtils.pssm,
-                                                      out_dir=self.data)
+                self.pose.pssm_file = \
+                    write_pssm_file(self.pose.evolutionary_profile, file_name=self.evolutionary_profile_file)
 
             self.pose.profile = combine_profile([entity.profile for entity in self.pose.entities])
-            design_pssm_file = write_pssm_file(self.pose.profile, name=PUtils.dssm, out_dir=self.data)
+            write_pssm_file(self.pose.profile, file_name=self.design_profile_file)
             # -------------------------------------------------------------------------
             # Todo self.solve_consensus()
             # -------------------------------------------------------------------------
@@ -2083,6 +1951,141 @@ class PoseDirectory:
         make_path(self.designs)
         self.rosetta_interface_design()
         self.pickle_info()  # Todo remove once PoseDirectory state can be returned to the SymDesign dispatch w/ MP
+
+    def rosetta_interface_design(self):
+        """For the basic process of sequence design between two halves of an interface, write the necessary files for
+        refinement (FastRelax), redesign (FastDesign), and metrics collection (Filters & SimpleMetrics)
+
+        Stores job variables in a [stage]_flags file and the command in a [stage].sh file. Sets up dependencies based
+        on the PoseDirectory
+        """
+        # Set up the command base (rosetta bin and database paths)
+        if self.job.scout:
+            protocol, protocol_xml1 = PUtils.scout, PUtils.scout
+            nstruct_instruct = ['-no_nstruct_label', 'true']
+            generate_files_cmd, metrics_pdb = [], ['-in:file:s', self.scouted_pdb]
+            # metrics_flags = 'repack=no'
+            additional_cmds, out_file = [], []
+        elif self.job.structure_background:
+            protocol, protocol_xml1 = PUtils.structure_background, PUtils.structure_background
+            nstruct_instruct = ['-nstruct', str(self.job.number_of_trajectories)]
+            design_files = os.path.join(self.scripts, f'design_files_{protocol}.txt')
+            generate_files_cmd = \
+                ['python', PUtils.list_pdb_files, '-d', self.designs, '-o', design_files, '-s', '_' + protocol]
+            metrics_pdb = ['-in:file:l', design_files]  # self.pdb_list]
+            # metrics_flags = 'repack=yes'
+            additional_cmds, out_file = [], []
+        elif self.job.no_hbnet:  # run the legacy protocol
+            protocol, protocol_xml1 = PUtils.interface_design, PUtils.interface_design
+            nstruct_instruct = ['-nstruct', str(self.job.number_of_trajectories)]
+            design_files = os.path.join(self.scripts, f'design_files_{protocol}.txt')
+            generate_files_cmd = \
+                ['python', PUtils.list_pdb_files, '-d', self.designs, '-o', design_files, '-s', '_' + protocol]
+            metrics_pdb = ['-in:file:l', design_files]  # self.pdb_list]
+            # metrics_flags = 'repack=yes'
+            additional_cmds, out_file = [], []
+        else:  # run hbnet_design_profile protocol
+            protocol, protocol_xml1 = PUtils.hbnet_design_profile, 'hbnet_scout'
+            nstruct_instruct = ['-no_nstruct_label', 'true']
+            design_files = os.path.join(self.scripts, f'design_files_{protocol}.txt')
+            generate_files_cmd = \
+                ['python', PUtils.list_pdb_files, '-d', self.designs, '-o', design_files, '-s', '_' + protocol]
+            metrics_pdb = ['-in:file:l', design_files]  # self.pdb_list]
+            # metrics_flags = 'repack=yes'
+            out_file = ['-out:file:silent', os.path.join(self.data, 'hbnet_silent.o'),
+                        '-out:file:silent_struct_type', 'binary']
+            additional_cmds = \
+                [[PUtils.hbnet_sort, os.path.join(self.data, 'hbnet_silent.o'), str(self.job.number_of_trajectories)]]
+            # silent_file = os.path.join(self.data, 'hbnet_silent.o')
+            # additional_commands = \
+            #     [
+            #      # ['grep', '^SCORE', silent_file, '>', os.path.join(self.data, 'hbnet_scores.sc')],
+            #      main_cmd + [os.path.join(self.data, 'hbnet_selected.o')]
+            #      [os.path.join(self.data, 'hbnet_selected.tags')]
+            #     ]
+
+        main_cmd = copy(script_cmd)
+        main_cmd += ['-symmetry_definition', 'CRYST1'] if self.design_dimension > 0 else []
+        if not os.path.exists(self.flags) or self.job.force_flags:
+            make_path(self.scripts)
+            self.prepare_rosetta_flags(out_dir=self.scripts)
+            self.log.debug(f'Pose flags written to: {self.flags}')
+
+        if self.job.consensus:  # Todo add consensus sbatch generator to the symdesign main
+            if self.job.generate_fragments:  # design_with_fragments
+                consensus_cmd = main_cmd + relax_flags_cmdline + \
+                    [f'@%{self.flags}', '-in:file:s', self.consensus_pdb,
+                     # '-in:file:native', self.refined_pdb,
+                     '-parser:protocol', os.path.join(PUtils.rosetta_scripts, f'{PUtils.consensus}.xml'),
+                     '-parser:script_vars', f'switch={PUtils.consensus}']
+                self.log.info(f'Consensus command: {list2cmdline(consensus_cmd)}')
+                if not self.run_in_shell:
+                    write_shell_script(list2cmdline(consensus_cmd), name=PUtils.consensus, out_path=self.scripts)
+                else:
+                    consensus_process = Popen(consensus_cmd)
+                    consensus_process.communicate()
+            else:
+                self.log.critical(f'Cannot run consensus design without fragment info and none was found.'
+                                  f' Did you mean include --{PUtils.no_term_constraint}?')  # Todo may not be included
+        # DESIGN: Prepare command and flags file
+        # Todo must set up a blank -in:file:pssm in case the evolutionary matrix is not used. Design will fail!!
+        profile_cmd = ['-in:file:pssm', self.evolutionary_profile_file] \
+            if os.path.exists(self.evolutionary_profile_file) else []
+        design_cmd = main_cmd + profile_cmd + \
+            [f'@{self.flags}', '-in:file:s', self.scouted_pdb if os.path.exists(self.scouted_pdb) else self.refined_pdb,
+             '-parser:protocol', os.path.join(PUtils.rosetta_scripts, f'{protocol_xml1}.xml'),
+             '-out:suffix', f'_{protocol}'] + (['-overwrite'] if self.job.overwrite else []) \
+            + out_file + nstruct_instruct
+        if additional_cmds:  # this is where hbnet_design_profile.xml is set up, which could be just design_profile.xml
+            additional_cmds.append(
+                main_cmd + profile_cmd +
+                ['-in:file:silent', os.path.join(self.data, 'hbnet_selected.o'), f'@{self.flags}',
+                 '-in:file:silent_struct_type', 'binary',
+                 # '-out:suffix', '_%s' % protocol,  adding no_nstruct_label true as only hbnet uses this mechanism
+                 '-parser:protocol', os.path.join(PUtils.rosetta_scripts, f'{protocol}.xml')] + nstruct_instruct)
+
+        # METRICS: Can remove if SimpleMetrics adopts pose metric caching and restoration
+        # Assumes all entity chains are renamed from A to Z for entities (1 to n)
+        entity_cmd = script_cmd + metrics_pdb + \
+            ['@%s' % self.flags, '-out:file:score_only', self.scores_file, '-no_nstruct_label', 'true',
+             '-parser:protocol', os.path.join(PUtils.rosetta_scripts, 'metrics_entity.xml')]
+
+        if self.job.mpi > 0 and not self.job.scout:
+            design_cmd = run_cmds[PUtils.rosetta_extras] + [str(self.job.mpi)] + design_cmd
+            entity_cmd = run_cmds[PUtils.rosetta_extras] + [str(self.job.mpi)] + entity_cmd
+            self.run_in_shell = False
+
+        self.log.info(f'{self.rosetta_interface_design.__name__} command: {list2cmdline(design_cmd)}')
+        metric_cmds = []
+        metric_cmds.extend(self.generate_entity_metrics(entity_cmd))
+
+        # Create executable/Run FastDesign on Refined ASU with RosettaScripts. Then, gather Metrics
+        if self.run_in_shell:
+            design_process = Popen(design_cmd)
+            design_process.communicate()  # wait for command to complete
+            for metric_cmd in metric_cmds:
+                metrics_process = Popen(metric_cmd)
+                metrics_process.communicate()
+        else:
+            analysis_cmd = ['python', PUtils.program_exe, PUtils.analysis, '--single', self.path, '--no-output',
+                            '--output_file', os.path.join(self.job.all_scores,
+                                                          PUtils.analysis_file % (starttime, protocol))]
+            write_shell_script(list2cmdline(design_cmd), name=protocol, out_path=self.scripts,
+                               additional=[list2cmdline(command) for command in additional_cmds] +
+                                          [list2cmdline(generate_files_cmd)] +
+                                          [list2cmdline(command) for command in metric_cmds] +
+                                          [list2cmdline(analysis_cmd)])
+            #                  status_wrap=self.serialized_info,
+
+        # ANALYSIS: each output from the Design process based on score, Analyze Sequence Variation
+        if self.run_in_shell:
+            pose_s = self.interface_design_analysis()
+            out_path = os.path.join(self.job.all_scores, PUtils.analysis_file % (starttime, 'All'))
+            if os.path.exists(out_path):
+                header = False
+            else:
+                header = True
+            pose_s.to_csv(out_path, mode='a', header=header)
 
     @handle_design_errors(errors=(DesignError, AssertionError))
     @close_logs
@@ -2155,8 +2158,9 @@ class PoseDirectory:
 
         # DESIGN: Prepare command and flags file
         # Todo must set up a blank -in:file:pssm in case the evolutionary matrix is not used. Design will fail!!
-        design_cmd = main_cmd + \
-            (['-in:file:pssm', self.evolutionary_profile_file] if self.evolutionary_profile else []) + \
+        profile_cmd = ['-in:file:pssm', self.evolutionary_profile_file] \
+            if os.path.exists(self.evolutionary_profile_file) else []
+        design_cmd = main_cmd + profile_cmd + \
             ['-in:file:s', specific_design if specific_design else self.refined_pdb,
              f'@{self.flags}', '-out:suffix', f'_{protocol}', '-packing:resfile', res_file,
              '-parser:protocol', os.path.join(PUtils.rosetta_scripts, f'{protocol_xml1}.xml')] + nstruct_instruct

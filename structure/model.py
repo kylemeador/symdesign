@@ -5258,6 +5258,7 @@ class Pose(SequenceProfile, SymmetricModel):
 
     @property
     def active_entities(self) -> list[Entity]:
+        """The Entity instances that are available for design calculations given a design selector"""
         try:
             return self._active_entities
         except AttributeError:
@@ -5628,6 +5629,18 @@ class Pose(SequenceProfile, SymmetricModel):
                 # Compute scores
                 S_sample = sample_dict['S']
                 # Todo finish this routine
+
+    def combine_sequence_profiles(self):
+        """Using each Entity in the Pose, combine individual Entity SequenceProfiles into a Pose SequenceProfile
+
+        Sets:
+            self.evolutionary_profile (profile_dictionary)
+            self.fragment_profile (profile_dictionary)
+            self.profile (profile_dictionary)
+        """
+        self.evolutionary_profile = combine_profile([entity.evolutionary_profile for entity in self.entities])
+        self.fragment_profile = combine_profile([entity.fragment_profile for entity in self.entities])
+        self.profile = combine_profile([entity.profile for entity in self.entities])
 
     def get_termini_accessibility(self, entity: Entity = None, report_if_helix: bool = False) -> \
             dict[str, bool]:
@@ -6798,33 +6811,6 @@ class Pose(SequenceProfile, SymmetricModel):
             parsed_design_residues[design] = residue_data
 
         return parsed_design_residues
-
-    # def add_fragment_query(self, entity1: Entity = None, entity2: Entity = None, query=None, pdb_numbering: bool = False):
-    #     """For a fragment query loaded from disk between two entities, add the fragment information to the Pose"""
-    #     # Todo This function has logic pitfalls if residue numbering is in PDB format. How easy would
-    #     #  it be to refactor fragment query to deal with the chain info from the frag match file?
-    #     if pdb_numbering:  # Renumber self.fragment_map and self.fragment_profile to Pose residue numbering
-    #         query = self.renumber_fragments_to_pose(query)
-    #         # for idx, fragment in enumerate(fragment_source):
-    #         #     fragment['mapped'] = self.residue_number_from_pdb(fragment['mapped'])
-    #         #     fragment['paired'] = self.residue_number_from_pdb(fragment['paired'])
-    #         #     fragment_source[idx] = fragment
-    #         if entity1 and entity2 and query:
-    #             self.fragment_queries[(entity1, entity2)] = query
-    #     else:
-    #         entity_pairs = [(self.entity_from_residue(fragment['mapped']),
-    #                          self.entity_from_residue(fragment['paired'])) for fragment in query]
-    #         if all([all(pair) for pair in entity_pairs]):
-    #             for entity_pair, fragment in zip(entity_pairs, query):
-    #                 if entity_pair in self.fragment_queries:
-    #                     self.fragment_queries[entity_pair].append(fragment)
-    #                 else:
-    #                     self.fragment_queries[entity_pair] = [fragment]
-    #         else:
-    #             raise DesignError('%s: Couldn\'t locate Pose Entities passed by residue number. Are the residues in '
-    #                               'Pose Numbering? This may be occurring due to fragment queries performed on the PDB '
-    #                               'and not explicitly searching using pdb_numbering = True. Retry with the appropriate'
-    #                               ' modifications' % self.add_fragment_query.__name__)
 
     def generate_interface_fragments(self, write_fragments: bool = False, out_path: AnyStr = None):
         """Generate fragments between the Pose interface(s). Finds interface(s) if not already available
