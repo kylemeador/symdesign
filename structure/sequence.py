@@ -776,7 +776,7 @@ class SequenceProfile:
             Ex: {1: {'A': 0, 'R': 0, ..., 'lod': {'A': -5, 'R': -5, ...}, 'type': 'W', 'info': 3.20, 'weight': 0.73},
                  2: {}, ...}
         """
-        self.evolutionary_profile = self.populate_design_dictionary(self.number_of_residues, protein_letters_alph3)
+        self.evolutionary_profile = populate_design_dictionary(self.number_of_residues, protein_letters_alph3)
         sequence = self.sequence
         for idx, residue_number in enumerate(self.evolutionary_profile):
             self.evolutionary_profile[residue_number]['lod'] = copy(aa_counts)
@@ -1212,15 +1212,25 @@ class SequenceProfile:
             return
 
         if not self.fragment_map:
-            self.fragment_map = self.populate_design_dictionary(self.number_of_residues,
-                                                                [j for j in range(*self.fragment_db.fragment_range)],
-                                                                dtype='list')
-        if not fragments:
-            return
-        #     print('New fragment_map')
-        # print(fragments)
-        # print(self.name)
-        # print(self.offset)
+            self.fragment_map = populate_design_dictionary(self.number_of_residues,
+                                                           list(range(*self.fragment_db.fragment_range)),
+                                                           dtype='list')
+            for fragment in fragments:
+                residue_number = fragment[alignment_type] - self.offset_index
+                for frag_idx in range(*self.fragment_db.fragment_range):  # lower_bound, upper_bound
+                    self.fragment_map[residue_number + frag_idx][frag_idx].append({'source': alignment_type,
+                                                                                   'cluster': fragment['cluster'],
+                                                                                   'match': fragment['match']})
+
+            # Ensure fragment information is retrieved from the fragment_db for the particular clusters
+            retrieve_fragments = [fragment['cluster'] for residue_indices in self.fragment_map.values()
+                                  for fragments in residue_indices.values() for fragment in fragments]
+            self.fragment_db.load_cluster_info(ids=retrieve_fragments)
+
+        if not self.fragment_profile:
+            self.fragment_profile = {residue_number: [[] for _ in range(self.fragment_db.fragment_length)]
+                                     for residue_number in range(1, 1 + self.number_of_residues)}
+
         for fragment in fragments:
             residue_number = fragment[alignment_type] - self.offset_index
             for j in range(*self.fragment_db.fragment_range):  # lower_bound, upper_bound
@@ -1474,14 +1484,13 @@ class SequenceProfile:
             favor_seqprofile_score_modifier = 0.2 * CommandDistributer.reference_average_residue_weight
             database_bkgnd_aa_freq = self.fragment_db.aa_frequencies
 
-            null_residue = self.get_lod(database_bkgnd_aa_freq, database_bkgnd_aa_freq)
+            null_residue = get_lod(database_bkgnd_aa_freq, database_bkgnd_aa_freq)
             null_residue = {aa: float(frequency) for aa, frequency in null_residue.items()}
 
             for entry in self.profile:
                 self.profile[entry]['lod'] = null_residue  # Caution all reference same object
             for entry, weight in self.alpha.items():  # self.fragment_profile:
-                self.profile[entry]['lod'] = \
-                    self.get_lod(self.fragment_profile[entry], database_bkgnd_aa_freq, round_lod=False)
+                self.profile[entry]['lod'] = get_lod(self.fragment_profile[entry], database_bkgnd_aa_freq, round_lod=False)
                 # get the sum for the partition function
                 partition, max_lod = 0, 0.0
                 for aa in self.profile[entry]['lod']:
@@ -1524,9 +1533,9 @@ class SequenceProfile:
 
         # READY for all to all fragment incorporation once fragment library is of sufficient size # TODO all_frags
         # TODO freqs are now separate
-        cluster_freq_d = {cluster: self.format_frequencies(fragment_source[cluster]['freq'])
+        cluster_freq_d = {cluster: format_frequencies(fragment_source[cluster]['freq'])
                           for cluster in fragment_source}  # orange mapped to cluster tag
-        cluster_freq_twin_d = {cluster: self.format_frequencies(fragment_source[cluster]['freq'], flip=True)
+        cluster_freq_twin_d = {cluster: format_frequencies(fragment_source[cluster]['freq'], flip=True)
                                for cluster in fragment_source}  # orange mapped to cluster tag
         frag_cluster_residue_d = {cluster: fragment_source[cluster]['pair'] for cluster in fragment_source}
 
@@ -1697,103 +1706,102 @@ class SequenceProfile:
     #     # return extract_sequence_from_pdb(pdb_dict, mutation=True, pose_num=pose_num)  # , offset=False)
     dtype_literals = Literal['list', 'set', 'tuple', 'float', 'int']
 
-    @staticmethod
-    def populate_design_dictionary(n: int, alphabet: Sequence, zero_index: bool = False, dtype: dtype_literals = 'int')\
-            -> dict[int, dict[int | str, Any]]:
-        """Return a dictionary with n elements, each integer key containing another dictionary with the items in
-        alphabet as keys. By default, one-indexed, and data inside the alphabet dictionary is a dictionary.
-        dtype can be any viable type [list, set, tuple, int, etc.]. If dtype is int or float, 0 will be initial value
 
-        Args:
-            n: number of entries in the dictionary
-            alphabet: alphabet of interest
-            zero_index: If True, return the dictionary with zero indexing
-            dtype: The type of object present in the interior dictionary
-         Returns:
-             N length, one indexed dictionary with entry number keys
-                ex: {1: {alphabet[0]: dtype, alphabet[1]: dtype, ...}, 2: {}, ...}
-         """
-        offset = 0 if zero_index else zero_offset
+def populate_design_dictionary(n: int, alphabet: Sequence, zero_index: bool = False, dtype: dtype_literals = 'int')\
+        -> dict[int, dict[int | str, Any]]:
+    """Return a dictionary with n elements, each integer key containing another dictionary with the items in
+    alphabet as keys. By default, one-indexed, and data inside the alphabet dictionary is a dictionary.
+    dtype can be any viable type [list, set, tuple, int, etc.]. If dtype is int or float, 0 will be initial value
 
-        # Todo add
-        #  match dtype:
-        #       case 'int':
-        #       ...
-        if dtype == 'int':
-            dtype = int
-        elif dtype == 'dict':
-            dtype = dict
-        elif dtype == 'list':
-            dtype = list
-        elif dtype == 'set':
-            dtype = set
-        elif dtype == 'float':
-            dtype = float
+    Args:
+        n: number of entries in the dictionary
+        alphabet: alphabet of interest
+        zero_index: If True, return the dictionary with zero indexing
+        dtype: The type of object present in the interior dictionary
+     Returns:
+         N length, one indexed dictionary with entry number keys
+            ex: {1: {alphabet[0]: dtype, alphabet[1]: dtype, ...}, 2: {}, ...}
+     """
+    offset = 0 if zero_index else zero_offset
 
-        return {residue: {character: dtype() for character in alphabet} for residue in range(offset, n + offset)}
+    # Todo add
+    #  match dtype:
+    #       case 'int':
+    #       ...
+    if dtype == 'int':
+        dtype = int
+    elif dtype == 'dict':
+        dtype = dict
+    elif dtype == 'list':
+        dtype = list
+    elif dtype == 'set':
+        dtype = set
+    elif dtype == 'float':
+        dtype = float
 
-    @staticmethod
-    def get_lod(aa_freqs: dict[structure.utils.protein_letters_alph3_literal, float],
-                background: dict[structure.utils.protein_letters_alph3_literal, float],
-                round_lod: bool = True) -> dict[str, int]:
-        """Get the log of the odds that an amino acid is in a frequency distribution compared to a background frequency
+    return {residue: {character: dtype() for character in alphabet} for residue in range(offset, n + offset)}
 
-        Args:
-            aa_freqs: {'A': 0.11, 'C': 0.01, 'D': 0.034, ...}
-            background: {'A': 0.10, 'C': 0.02, 'D': 0.04, ...}
-            round_lod: Whether to round the lod values to an integer
-        Returns:
-             The log of odds for each amino acid type {'A': 2, 'C': -9, 'D': -1, ...}
-        """
-        lods = {}
-        for aa, freq in aa_freqs.items():
-            try:
-                lods[aa] = float((2. * log2(freq / background[aa])))  # + 0.0
-            except ValueError:  # math domain error
-                lods[aa] = -9
-            except KeyError:
-                if aa in protein_letters_alph1:
-                    raise KeyError(f'{aa} was not in the background frequencies: {", ".join(background)}')
-                else:  # we shouldn't worry about a missing value if it's not an amino acid
-                    continue
-            except ZeroDivisionError:  # background is 0. We may need a pseudocount...
-                raise ZeroDivisionError(f'{aa} has a background frequency of 0. Consider adding a pseudocount')
-            # if lods[aa] < -9:
-            #     lods[aa] = -9
-            # elif round_lod:
-            #     lods[aa] = round(lods[aa])
 
-        if round_lod:
-            return {aa: (round(value) if value >= -9 else -9) for aa, value in lods.items()}
-        else:  # ensure that -9 is the lowest value (formatting issues if 2 digits)
-            return {aa: (value if value >= -9 else -9) for aa, value in lods.items()}
+def get_lod(aa_freqs: dict[structure.utils.protein_letters_literal, float],
+            background: dict[structure.utils.protein_letters_literal, float],
+            round_lod: bool = True) -> dict[str, int]:
+    """Get the log of the odds that an amino acid is in a frequency distribution compared to a background frequency
 
-    @staticmethod
-    def format_frequencies(frequency_list, flip=False):
-        """Format list of paired frequency data into parsable paired format
+    Args:
+        aa_freqs: {'A': 0.11, 'C': 0.01, 'D': 0.034, ...}
+        background: {'A': 0.10, 'C': 0.02, 'D': 0.04, ...}
+        round_lod: Whether to round the lod values to an integer
+    Returns:
+         The log of odds for each amino acid type {'A': 2, 'C': -9, 'D': -1, ...}
+    """
+    lods = {}
+    for aa, freq in aa_freqs.items():
+        try:
+            lods[aa] = float((2. * log2(freq / background[aa])))  # + 0.0
+        except ValueError:  # math domain error
+            lods[aa] = -9
+        except KeyError:
+            if aa in protein_letters_alph1:
+                raise KeyError(f'{aa} was not in the background frequencies: {", ".join(background)}')
+            else:  # we shouldn't worry about a missing value if it's not an amino acid
+                continue
+        except ZeroDivisionError:  # background is 0. We may need a pseudocount...
+            raise ZeroDivisionError(f'{aa} has a background frequency of 0. Consider adding a pseudocount')
+        # if lods[aa] < -9:
+        #     lods[aa] = -9
+        # elif round_lod:
+        #     lods[aa] = round(lods[aa])
 
-        Args:
-            frequency_list (list): [(('D', 'A'), 0.0822), (('D', 'V'), 0.0685), ...]
-        Keyword Args:
-            flip=False (bool): Whether to invert the mapping of internal tuple
-        Returns:
-            (dict): {'A': {'S': 0.02, 'T': 0.12}, ...}
-        """
-        if flip:
-            i, j = 1, 0
+    if round_lod:
+        return {aa: (round(value) if value >= -9 else -9) for aa, value in lods.items()}
+    else:  # ensure that -9 is the lowest value (formatting issues if 2 digits)
+        return {aa: (value if value >= -9 else -9) for aa, value in lods.items()}
+
+
+def format_frequencies(frequency_list: list, flip: bool = False) -> dict[str, dict[str, float]]:
+    """Format list of paired frequency data into parsable paired format
+
+    Args:
+        frequency_list: [(('D', 'A'), 0.0822), (('D', 'V'), 0.0685), ...]
+        flip: Whether to invert the mapping of internal tuple
+    Returns:
+        {'A': {'S': 0.02, 'T': 0.12}, ...}
+    """
+    if flip:
+        i, j = 1, 0
+    else:
+        i, j = 0, 1
+    freq_d = {}
+    for tup in frequency_list:
+        aa_mapped = tup[0][i]  # 0
+        aa_paired = tup[0][j]  # 1
+        freq = tup[1]
+        if aa_mapped in freq_d:
+            freq_d[aa_mapped][aa_paired] = freq
         else:
-            i, j = 0, 1
-        freq_d = {}
-        for tup in frequency_list:
-            aa_mapped = tup[0][i]  # 0
-            aa_paired = tup[0][j]  # 1
-            freq = tup[1]
-            if aa_mapped in freq_d:
-                freq_d[aa_mapped][aa_paired] = freq
-            else:
-                freq_d[aa_mapped] = {aa_paired: freq}
+            freq_d[aa_mapped] = {aa_paired: freq}
 
-        return freq_d
+    return freq_d
 
 
 def get_equivalent_indices(sequence1: Sequence, sequence2: Sequence) -> tuple[list[int], list[int]]:
@@ -1945,44 +1953,6 @@ def return_cluster_id_string(cluster_rep, index_number=3):
     return '_'.join(info)
 
 
-# def parameterize_frag_length(length):
-#     """Generate fragment length range parameters for use in fragment functions"""
-#     _range = floor(length / 2)
-#     if length % 2 == 1:
-#         return 0 - _range, 0 + _range + zero_offset
-#     else:
-#         logger.critical('%d is an even integer which is not symmetric about a single residue. '
-#                         'Ensure this is what you want and modify %s' % (length, parameterize_frag_length.__name__))
-#         raise DesignError('Function not supported: Even fragment length \'%d\'' % length)
-
-
-def format_frequencies(frequency_list, flip=False):
-    """Format list of paired frequency data into parsable paired format
-
-    Args:
-        frequency_list (list): [(('D', 'A'), 0.0822), (('D', 'V'), 0.0685), ...]
-    Keyword Args:
-        flip=False (bool): Whether to invert the mapping of internal tuple
-    Returns:
-        (dict): {'A': {'S': 0.02, 'T': 0.12}, ...}
-    """
-    if flip:
-        i, j = 1, 0
-    else:
-        i, j = 0, 1
-    freq_d = {}
-    for tup in frequency_list:
-        aa_mapped = tup[0][i]  # 0
-        aa_paired = tup[0][j]  # 1
-        freq = tup[1]
-        if aa_mapped in freq_d:
-            freq_d[aa_mapped][aa_paired] = freq
-        else:
-            freq_d[aa_mapped] = {aa_paired: freq}
-
-    return freq_d
-
-
 def fragment_overlap(residues, interaction_graph, freq_map):
     """Take fragment contact list to find the possible AA types allowed in fragment pairs from the contact list
 
@@ -2123,69 +2093,69 @@ def deconvolve_clusters(cluster_dict, design_dict, cluster_map):
     return design_dict
 
 
-def flatten_for_issm(design_cluster_dict, keep_extras=True):
-    """Take a multi-observation, mulit-fragment index, fragment frequency dictionary and flatten to single frequency
-
-    Args:
-        design_cluster_dict (dict): {0: {-2: {'A': 0.1, 'C': 0.0, ...}, -1: {}, ... }, 1: {}, ...}
-            Dictionary containing fragment frequency and statistics across a design sequence
-    Keyword Args:
-        keep_extras=True (bool): If true, keep values for all design dictionary positions that are missing fragment data
-    Returns:
-        design_cluster_dict (dict): {0: {'A': 0.1, 'C': 0.0, ...}, 13: {...}, ...}
-            Weighted average design dictionary combining all fragment profile information at a single residue
-    """
-    no_design = []
-    for res in design_cluster_dict:
-        total_residue_weight = 0
-        num_frag_weights_observed = 0
-        for index in design_cluster_dict[res]:
-            if design_cluster_dict[res][index] != dict():
-                total_obs_weight = 0
-                for obs in design_cluster_dict[res][index]:
-                    total_obs_weight += design_cluster_dict[res][index][obs]['stats'][1]
-                if total_obs_weight > 0:
-                    total_residue_weight += total_obs_weight
-                    obs_aa_dict = deepcopy(aa_weighted_counts)
-                    obs_aa_dict['stats'][1] = total_obs_weight
-                    for obs in design_cluster_dict[res][index]:
-                        num_frag_weights_observed += 1
-                        obs_weight = design_cluster_dict[res][index][obs]['stats'][1]
-                        for aa in design_cluster_dict[res][index][obs]:
-                            if aa != 'stats':
-                                # Add all occurrences to summed frequencies list
-                                obs_aa_dict[aa] += design_cluster_dict[res][index][obs][aa] * (obs_weight /
-                                                                                               total_obs_weight)
-                    design_cluster_dict[res][index] = obs_aa_dict
-                else:
-                    # Case where no weights associated with observations (side chain not structurally significant)
-                    design_cluster_dict[res][index] = dict()
-
-        if total_residue_weight > 0:
-            res_aa_dict = deepcopy(aa_weighted_counts)
-            res_aa_dict['stats'][1] = total_residue_weight
-            res_aa_dict['stats'][0] = num_frag_weights_observed
-            for index in design_cluster_dict[res]:
-                if design_cluster_dict[res][index] != dict():
-                    index_weight = design_cluster_dict[res][index]['stats'][1]
-                    for aa in design_cluster_dict[res][index]:
-                        if aa != 'stats':
-                            # Add all occurrences to summed frequencies list
-                            res_aa_dict[aa] += design_cluster_dict[res][index][aa] * (index_weight / total_residue_weight)
-            design_cluster_dict[res] = res_aa_dict
-        else:
-            # Add to list for removal from the design dict
-            no_design.append(res)
-
-    # Remove missing residues from dictionary
-    if keep_extras:
-        for res in no_design:
-            design_cluster_dict[res] = aa_weighted_counts
-    else:
-        for res in no_design:
-            design_cluster_dict.pop(res)
-
-    return design_cluster_dict
+# def flatten_for_issm(design_cluster_dict, keep_extras=True):
+#     """Take a multi-observation, mulit-fragment index, fragment frequency dictionary and flatten to single frequency
+#
+#     Args:
+#         design_cluster_dict (dict): {0: {-2: {'A': 0.1, 'C': 0.0, ...}, -1: {}, ... }, 1: {}, ...}
+#             Dictionary containing fragment frequency and statistics across a design sequence
+#     Keyword Args:
+#         keep_extras=True (bool): If true, keep values for all design dictionary positions that are missing fragment data
+#     Returns:
+#         design_cluster_dict (dict): {0: {'A': 0.1, 'C': 0.0, ...}, 13: {...}, ...}
+#             Weighted average design dictionary combining all fragment profile information at a single residue
+#     """
+#     no_design = []
+#     for res in design_cluster_dict:
+#         total_residue_weight = 0
+#         num_frag_weights_observed = 0
+#         for index in design_cluster_dict[res]:
+#             if design_cluster_dict[res][index] != dict():
+#                 total_obs_weight = 0
+#                 for obs in design_cluster_dict[res][index]:
+#                     total_obs_weight += design_cluster_dict[res][index][obs]['stats'][1]
+#                 if total_obs_weight > 0:
+#                     total_residue_weight += total_obs_weight
+#                     obs_aa_dict = deepcopy(aa_weighted_counts)
+#                     obs_aa_dict['stats'][1] = total_obs_weight
+#                     for obs in design_cluster_dict[res][index]:
+#                         num_frag_weights_observed += 1
+#                         obs_weight = design_cluster_dict[res][index][obs]['stats'][1]
+#                         for aa in design_cluster_dict[res][index][obs]:
+#                             if aa != 'stats':
+#                                 # Add all occurrences to summed frequencies list
+#                                 obs_aa_dict[aa] += design_cluster_dict[res][index][obs][aa] * (obs_weight /
+#                                                                                                total_obs_weight)
+#                     design_cluster_dict[res][index] = obs_aa_dict
+#                 else:
+#                     # Case where no weights associated with observations (side chain not structurally significant)
+#                     design_cluster_dict[res][index] = dict()
+#
+#         if total_residue_weight > 0:
+#             res_aa_dict = deepcopy(aa_weighted_counts)
+#             res_aa_dict['stats'][1] = total_residue_weight
+#             res_aa_dict['stats'][0] = num_frag_weights_observed
+#             for index in design_cluster_dict[res]:
+#                 if design_cluster_dict[res][index] != dict():
+#                     index_weight = design_cluster_dict[res][index]['stats'][1]
+#                     for aa in design_cluster_dict[res][index]:
+#                         if aa != 'stats':
+#                             # Add all occurrences to summed frequencies list
+#                             res_aa_dict[aa] += design_cluster_dict[res][index][aa] * (index_weight / total_residue_weight)
+#             design_cluster_dict[res] = res_aa_dict
+#         else:
+#             # Add to list for removal from the design dict
+#             no_design.append(res)
+#
+#     # Remove missing residues from dictionary
+#     if keep_extras:
+#         for res in no_design:
+#             design_cluster_dict[res] = aa_weighted_counts
+#     else:
+#         for res in no_design:
+#             design_cluster_dict.pop(res)
+#
+#     return design_cluster_dict
 
 
 # def psiblast(query, outpath=None, remote=False):  # UNUSED
@@ -2288,30 +2258,30 @@ def parse_pssm(file: AnyStr, **kwargs) -> dict[int, dict[str, str | float | int 
     return pose_dict
 
 
-def get_lod(aa_freq_dict, bg_dict, round_lod=True):
-    """Get the lod scores for an aa frequency distribution compared to a background frequency
-    Args:
-        aa_freq_dict (dict): {'A': 0.10, 'C': 0.0, 'D': 0.04, ...}
-        bg_dict (dict): {'A': 0.10, 'C': 0.0, 'D': 0.04, ...}
-    Keyword Args:
-        round_lod=True (bool): Whether or not to round the lod values to an integer
-    Returns:
-         lods (dict): {'A': 2, 'C': -9, 'D': -1, ...}
-    """
-    lods = {}
-    iteration = 0
-    for a in aa_freq_dict:
-        if aa_freq_dict[a] == 0:
-            lods[a] = -9
-        elif a != 'stats':
-            lods[a] = float((2.0 * log2(aa_freq_dict[a]/bg_dict[a])))  # + 0.0
-            if lods[a] < -9:
-                lods[a] = -9
-            if round_lod:
-                lods[a] = round(lods[a])
-            iteration += 1
-
-    return lods
+# def get_lod(aa_freq_dict, bg_dict, round_lod=True):
+#     """Get the lod scores for an aa frequency distribution compared to a background frequency
+#     Args:
+#         aa_freq_dict (dict): {'A': 0.10, 'C': 0.0, 'D': 0.04, ...}
+#         bg_dict (dict): {'A': 0.10, 'C': 0.0, 'D': 0.04, ...}
+#     Keyword Args:
+#         round_lod=True (bool): Whether or not to round the lod values to an integer
+#     Returns:
+#          lods (dict): {'A': 2, 'C': -9, 'D': -1, ...}
+#     """
+#     lods = {}
+#     iteration = 0
+#     for a in aa_freq_dict:
+#         if aa_freq_dict[a] == 0:
+#             lods[a] = -9
+#         elif a != 'stats':
+#             lods[a] = float((2.0 * log2(aa_freq_dict[a]/bg_dict[a])))  # + 0.0
+#             if lods[a] < -9:
+#                 lods[a] = -9
+#             if round_lod:
+#                 lods[a] = round(lods[a])
+#             iteration += 1
+#
+#     return lods
 
 
 # @handle_errors(errors=(FileNotFoundError,))
