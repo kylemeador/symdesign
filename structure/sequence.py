@@ -22,8 +22,9 @@ from Bio.SeqRecord import SeqRecord
 import structure.utils
 from metrics import hydrophobic_collapse_index
 from resources import info
+from structure.model import fragment_info_type
 from structure.utils import protein_letters_alph1, protein_letters_3to1, protein_letters_alph3, \
-    protein_letters_alph3_plus_literal, protein_letters_alph1_gapped, numerical_translation_alph1_bytes, \
+    profile_keys, protein_letters_alph1_gapped, numerical_translation_alph1_bytes, \
     numerical_translation_alph3_bytes, sequence_translation_alph1, sequence_translation_alph3, \
     numerical_translation_alph1_gapped, numerical_translation_alph1_gapped_bytes, \
     numerical_translation_alph3_gapped_bytes, numerical_translation_alph1_unknown_bytes, \
@@ -37,13 +38,13 @@ from utils import handle_errors, start_log, pretty_format_table, unpickle, get_b
 logger = start_log(name=__name__)
 zero_offset = 1
 alignment_types_literal = Literal['mapped', 'paired']
-alignment_types: tuple[alignment_types_literal, ...] = get_args(alignment_types_literal)
+alignment_types: tuple[alignment_types_literal] = get_args(alignment_types_literal)
 sequence_type_literal = Literal['reference', 'structure']
 sequence_types: tuple[sequence_type_literal, ...] = get_args(sequence_type_literal)
 aa_counts = dict(zip(protein_letters_alph1, repeat(0)))
-aa_weighted_counts = dict(zip(protein_letters_alph1, repeat(0)))
-aa_weighted_counts.update({'stats': [0, 1]})
-# add_fragment_profile_instructions = 'To add fragment information, call Pose.generate_interface_fragments()'
+aa_weighted_counts: info.aa_weighted_counts_type = dict(zip(protein_letters_alph1, repeat(0)))
+"""{protein_letters_alph1, repeat(0)), stats=(0, 1))"""
+aa_weighted_counts.update({'stats': (0, 1)})
 subs_matrices = {'BLOSUM62': substitution_matrices.load('BLOSUM62')}
 
 # protein_letters_literal: tuple[str, ...] = get_args(protein_letters_alph1_literal)
@@ -434,7 +435,7 @@ def combine_profile(profiles: list[dict]) -> dict[int, Any]:  # dict[int, dict[s
     return new_profile
 
 
-def write_pssm_file(pssm: dict[int, dict[protein_letters_alph3_plus_literal, float | str | tuple | dict[str, int]]],
+def write_pssm_file(pssm: dict[int, dict[profile_keys, float | str | tuple | dict[str, int]]],
                     name: str, out_dir: AnyStr = os.getcwd()) -> str | None:
     """Create a PSI-BLAST format PSSM file from a PSSM dictionary. Assumes residue numbering is correct!
 
@@ -487,6 +488,14 @@ def write_pssm_file(pssm: dict[int, dict[protein_letters_alph3_plus_literal, flo
     return out_file
 
 
+lod_dictionary: dict[structure.utils.protein_letters_literal, int]
+profile_values: float | str | lod_dictionary
+profile_dictionary: dict[int, dict[profile_keys, profile_values]]
+"""{1: {'A': 0.04, 'C': 0.12, ..., 'lod': {'A': -5, 'C': -9, ...},
+        'type': 'W', 'info': 0.00, 'weight': 0.00}, {...}}
+"""
+
+
 class SequenceProfile:
     """Contains the sequence information for a Structure. Should always be subclassed by a Structure object.
     Currently, Chain, Entity, Model and Pose contain the necessary .reference_sequence property.
@@ -502,19 +511,22 @@ class SequenceProfile:
     a3m_file: AnyStr | None
     alpha: dict
     disorder: dict[int, dict[str, str]]
-    evolutionary_profile: dict
-    fragment_map: dict | None
-    fragment_profile: dict
+    evolutionary_profile: dict | profile_dictionary
+    fragment_map: dict[int, dict[int, list[fragment_info_type]]]
+    """{1: {-2: [{'source': 'mapped', 'cluster': '1_2_123', 'match': 0.6}, ...], -1: [], ...},
+        2: {}, ...}
+    """
+    fragment_profile: dict | profile_dictionary
     h_fields: np.ndarray | None
     j_couplings: np.ndarray | None
     log: Logger
     msa_file: AnyStr | None
     name: str
     number_of_residues: int
-    profile: dict
+    profile: dict | profile_dictionary
     pssm_file: AnyStr | None
     reference_sequence: str
-    # residues: list[Residue]
+    residues: list['structure.base.Residue']
     sequence_file: AnyStr | None
     sequence: str
 
@@ -656,7 +668,7 @@ class SequenceProfile:
         self.calculate_profile(boltzmann=True, favor_fragments=fragments)
 
     def verify_evolutionary_profile(self) -> bool:
-        """Returns True if evolutionary profile and Structure are equal"""
+        """Returns True if the evolutionary_profile and Structure sequences are equivalent"""
         if self.number_of_residues != len(self.evolutionary_profile):
             self.log.warning(f'{self.name}: Profile and {type(self).__name__} are different lengths! Profile='
                              f'{len(self.evolutionary_profile)}, Pose={self.number_of_residues}')
@@ -709,7 +721,7 @@ class SequenceProfile:
             file: Location where profile file should be loaded from
             force: Whether to force generation of a new profile
         Sets:
-            self.evolutionary_profile
+            self.evolutionary_profile (profile_dictionary)
         """
         if profile_source not in [PUtils.hhblits, 'psiblast']:
             raise DesignError(f'{self.add_evolutionary_profile.__name__}: Profile generation only possible from '
@@ -760,7 +772,7 @@ class SequenceProfile:
         """Take the contents of a pssm file, parse, and input into a sequence dictionary.
 
         Sets:
-            self.evolutionary_profile (dict): Dictionary containing residue indexed profile information
+            self.evolutionary_profile (profile_dictionary): Dictionary containing residue indexed profile information
             Ex: {1: {'A': 0, 'R': 0, ..., 'lod': {'A': -5, 'R': -5, ...}, 'type': 'W', 'info': 3.20, 'weight': 0.73},
                  2: {}, ...}
         """
@@ -777,7 +789,7 @@ class SequenceProfile:
         sequence, removing information for residues not present in the Structure
 
         Sets:
-            (dict) self.evolutionary_profile
+            self.evolutionary_profile (profile_dictionary)
         """
         # generate the disordered indices which are positions in reference that are missing in structure
         disorder = self.disorder
@@ -858,7 +870,7 @@ class SequenceProfile:
         """Take the contents of a pssm file, parse, and input into a sequence dictionary.
         # Todo it's CURRENTLY IMPOSSIBLE to use in calculate_profile, CHANGE psiblast lod score parsing
         Sets:
-            self.evolutionary_profile (dict): Dictionary containing residue indexed profile information
+            self.evolutionary_profile (profile_dictionary): Dictionary containing residue indexed profile information
             Ex: {1: {'A': 0, 'R': 0, ..., 'lod': {'A': -5, 'R': -5, ...}, 'type': 'W', 'info': 3.20, 'weight': 0.73},
                  2: {}, ...}
         """
@@ -932,7 +944,7 @@ class SequenceProfile:
         Keyword Args:
             null_background=True (bool): Whether to use the null background for the specific protein
         Sets:
-            self.evolutionary_profile (dict): Dictionary containing residue indexed profile information
+            self.evolutionary_profile (profile_dictionary): Dictionary containing residue indexed profile information
             Ex: {1: {'A': 0.04, 'C': 0.12, ..., 'lod': {'A': -5, 'C': -9, ...}, 'type': 'W', 'info': 0.00,
                      'weight': 0.00}, {...}}
         """
@@ -1163,7 +1175,7 @@ class SequenceProfile:
         """From self.fragment_map, add the fragment profile to the SequenceProfile
 
         Sets:
-            self.fragment_profile
+            self.fragment_profile (profile_dictionary)
         """
         # v now done at the pose_level
         # self.map_fragments_to_profile(fragments=fragment_source, alignment_type=alignment_type)
@@ -1183,8 +1195,8 @@ class SequenceProfile:
         #                        % (self.name, add_fragment_profile_instructions))
         #         return
 
-    def map_fragments_to_profile(self, fragments: list[dict[str, int | str, float]] = None,
-                                 alignment_type: alignment_types_literal = None):
+    def add_fragments_to_profile(self, fragments: Iterable[fragment_info_type],
+                                 alignment_type: alignment_types_literal):
         """Distribute fragment information to self.fragment_map. One-indexed residue dictionary
 
         Args:
@@ -1426,10 +1438,10 @@ class SequenceProfile:
         """Combine weights for profile PSSM and fragment SSM using fragment significance value to determine overlap
 
         Using self.evolutionary_profile
-            (dict): HHblits - {1: {'A': 0.04, 'C': 0.12, ..., 'lod': {'A': -5, 'C': -9, ...},
-                                   'type': 'W', 'info': 0.00, 'weight': 0.00}, {...}}
-                    PSIBLAST - {1: {'A': 0.13, 'R': 0.12, ..., 'lod': {'A': -5, 'R': 2, ...},
-                                    'type': 'W', 'info': 3.20, 'weight': 0.73}, {...}}
+            (profile_dictionary): HHblits - {1: {'A': 0.04, 'C': 0.12, ..., 'lod': {'A': -5, 'C': -9, ...},
+                                                 'type': 'W', 'info': 0.00, 'weight': 0.00}, {...}}
+                                  PSIBLAST - {1: {'A': 0.13, 'R': 0.12, ..., 'lod': {'A': -5, 'R': 2, ...},
+                                                  'type': 'W', 'info': 3.20, 'weight': 0.73}, {...}}
         self.fragment_profile
             (dict[int, dict[str, float | list[float]]]):
                 {48: {'A': 0.167, 'D': 0.028, 'E': 0.056, ..., 'stats': [4, 0.274]}, 50: {...}, ...}
@@ -1442,7 +1454,7 @@ class SequenceProfile:
                 If False, residues are weighted by the residue local maximum lod score in a linear fashion
                 All lods are scaled to a maximum provided in the Rosetta REF2015 per residue reference weight.
         Sets:
-            self.profile: (dict[int, dict[str, float | dict[str, int] | str]]) =
+            self.profile: (profile_dictionary) =
                 {1: {'A': 0.04, 'C': 0.12, ..., 'lod': {'A': -5, 'C': -9, ...},
                      'type': 'W', 'info': 0.00, 'weight': 0.00}, ...}}
         """

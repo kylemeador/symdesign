@@ -31,13 +31,12 @@ from metrics import read_scores, interface_composition_similarity, unnecessary, 
     df_permutation_test, clean_up_intermediate_columns, protocol_specific_columns, rank_dataframe_by_metric_weights, \
     filter_df_for_index_by_value, multiple_sequence_alignment_dependent_metrics, process_residue_info, \
     collapse_significance_threshold, calculate_collapse_metrics, errat_1_sigma, errat_2_sigma, \
-    calculate_residue_surface_area
+    calculate_residue_surface_area, position_specific_divergence, calculate_sequence_observations_and_divergence
 from resources.job import JobResources, job_resources_factory
 from structure.base import Structure  # , Structures
 from structure.model import Pose, MultiModel, Models, Model, Entity
 from structure.sequence import parse_pssm, generate_mutations_from_reference, simplify_mutation_dict, \
-    sequence_difference, alignment_types, MultipleSequenceAlignment, pssm_as_array, position_specific_divergence, \
-    combine_profile, write_pssm_file
+    sequence_difference, alignment_types, MultipleSequenceAlignment, pssm_as_array, combine_profile, write_pssm_file
 from structure.utils import protein_letters_3to1, protein_letters_1to3
 from utils import large_color_array, handle_errors, starttime, start_log, null_log, make_path, unpickle, pickle_object, \
     index_intersection, write_shell_script, DesignError, ClashError, SymmetryError, match_score_from_z_value, z_score, \
