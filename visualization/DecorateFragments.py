@@ -100,6 +100,6 @@ if __name__ == '__main__':
     # Get complete IJK fragment representatives database dictionaries
     # ijk_monofrag_cluster_rep_pdb_dict = ijk_frag_db.get_monofrag_cluster_rep_dict()
     ijk_intfrag_cluster_rep_dict = ijk_frag_db.get_intfrag_cluster_rep_dict()
-    ijk_intfrag_cluster_info_dict = ijk_frag_db.get_intfrag_cluster_info_dict()
+    ijk_intfrag_cluster_info_dict = ijk_frag_db.load_cluster_info_from_text()
 
     decorate = [decorate_with_fragments(file, out_path=args.out_path) for file in file_paths]

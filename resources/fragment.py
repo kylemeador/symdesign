@@ -6,45 +6,14 @@ from typing import Annotated
 
 import numpy as np
 
-from utils.path import intfrag_cluster_rep_dirpath, intfrag_cluster_info_dirpath, monofrag_cluster_rep_dirpath, \
-    biological_interfaces, biological_fragment_db_pickle
+from utils.path import intfrag_cluster_rep_dirpath, monofrag_cluster_rep_dirpath, biological_interfaces, \
+    biological_fragment_db_pickle
 import structure
-from utils import dictionary_lookup, start_log, unpickle
+from utils import start_log, unpickle
 from resources.info import FragmentInfo
 
 # Globals
 logger = start_log(name=__name__)
-
-
-class ClusterInfoFile:
-    def __init__(self, infofile_path):
-        self.name = os.path.splitext(os.path.basename(infofile_path))[0]
-        self.size = None
-        self.rmsd = None
-        self.representative_filename = None
-        self.central_residue_pair_freqs = []
-
-        with open(infofile_path, 'r') as f:
-            info_lines = f.readlines()
-
-        is_res_freq_line = False
-        for line in info_lines:
-            # if line.startswith("CLUSTER NAME:"):
-            #     self.name = line.split()[2]
-            if line.startswith('CLUSTER SIZE:'):
-                self.size = int(line.split()[2])
-            elif line.startswith('CLUSTER RMSD:'):
-                self.rmsd = float(line.split()[2])
-            elif line.startswith('CLUSTER REPRESENTATIVE NAME:'):
-                self.representative_filename = line.split()[3]
-            elif line.startswith('CENTRAL RESIDUE PAIR COUNT:'):
-                is_res_freq_line = False
-            elif is_res_freq_line:
-                res_pair_type = (line.split()[0][0], line.split()[0][1])
-                res_pair_freq = float(line.split()[1])
-                self.central_residue_pair_freqs.append((res_pair_type, res_pair_freq))
-            elif line.startswith('CENTRAL RESIDUE PAIR FREQUENCY:'):
-                is_res_freq_line = True
 
 
 class FragmentDatabase(FragmentInfo):
@@ -52,7 +21,6 @@ class FragmentDatabase(FragmentInfo):
     cluster_info_path: str
     indexed_ghosts: dict[int, tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]] | dict
     # dict[int, tuple[3x3, 1x3, tuple[int, int, int], float]]
-    info: dict[int, dict[int, dict[int, ClusterInfoFile]]]
     # monofrag_representatives_path: str
     paired_frags: dict[int, dict[int, dict[int, tuple['structure.model.Model', str]]]]
     reps: dict[int, np.ndarray]
@@ -61,7 +29,6 @@ class FragmentDatabase(FragmentInfo):
         super().__init__(**kwargs)
         if self.source == biological_interfaces:
             self.cluster_representatives_path = intfrag_cluster_rep_dirpath
-            self.cluster_info_path = intfrag_cluster_info_dirpath
             self.monofrag_representatives_path = monofrag_cluster_rep_dirpath
 
         if init_db:
@@ -71,13 +38,12 @@ class FragmentDatabase(FragmentInfo):
                          structure.base.Structure.from_file(os.path.join(root, file), entities=False, log=None).ca_coords
                          for root, dirs, files in os.walk(self.monofrag_representatives_path) for file in files}
             self.get_intfrag_cluster_rep_dict()
-            self.get_intfrag_cluster_info_dict()
+            self.load_cluster_info()  # Using my generated data instead of Josh's for future compatibility and size
+            # self.load_cluster_info_from_text()
             self.index_ghosts()
-            # self._load_cluster_info()
         else:
             self.reps = {}
             self.paired_frags = {}
-            self.info = {}
             self.indexed_ghosts = {}
 
     def get_intfrag_cluster_rep_dict(self):
@@ -101,21 +67,6 @@ class FragmentDatabase(FragmentInfo):
                     self.paired_frags[i_cluster_type][j_cluster_type][k_cluster_type] = \
                         (ijk_frag_cluster_rep_pdb, ijk_cluster_rep_partner_chain)  # ijk_cluster_rep_mapped_chain,
 
-    def get_intfrag_cluster_info_dict(self):
-        self.info = {}
-        for root, dirs, files in os.walk(self.cluster_info_path):
-            if not dirs:
-                i_cluster_type, j_cluster_type, k_cluster_type = map(int, root.split(os.sep)[-1].split('_'))
-
-                if i_cluster_type not in self.info:
-                    self.info[i_cluster_type] = {}
-                if j_cluster_type not in self.info[i_cluster_type]:
-                    self.info[i_cluster_type][j_cluster_type] = {}
-
-                for file in files:
-                    self.info[i_cluster_type][j_cluster_type][k_cluster_type] = \
-                        ClusterInfoFile(os.path.join(root, file))
-
     def index_ghosts(self):
         """From the fragment database, precompute all required data into numpy arrays to populate Ghost Fragments
 
@@ -132,13 +83,15 @@ class FragmentDatabase(FragmentInfo):
             stacked_guide_coords = np.array([frag_pdb.chain('9').coords
                                              for j_dict in self.paired_frags[i_type].values()
                                              for frag_pdb, _, in j_dict.values()])
-            ijk_types = np.array([(i_type, j_type, k_type)
-                                  for j_type, j_dict in self.paired_frags[i_type].items()
-                                  for k_type in j_dict])
-            # rmsd_array = np.array([self.info.cluster(type_set).rmsd for type_set in ijk_types])  # Todo
-            rmsd_array = np.array([dictionary_lookup(self.info, type_set).rmsd for type_set in ijk_types])
-            rmsd_array = np.where(rmsd_array == 0, 0.0001, rmsd_array)  # Todo ensure rmsd rounded correct upon creation
-            self.indexed_ghosts[i_type] = stacked_bb_coords, stacked_guide_coords, ijk_types, rmsd_array
+            ijk_types = [(i_type, j_type, k_type)
+                         for j_type, j_dict in self.paired_frags[i_type].items()
+                         for k_type in j_dict]
+            # rmsd_array = np.array([dictionary_lookup(self.info, type_set).rmsd for type_set in ijk_types])
+            # rmsd_array = np.array([self.info[cluster_id]['rmsd'] for cluster_id in ijk_types])
+            rmsd_array = np.array([self.info[cluster_id].rmsd for cluster_id in ijk_types])
+            # Todo ensure rmsd rounded correct upon creation
+            rmsd_array = np.where(rmsd_array == 0, 0.0001, rmsd_array)
+            self.indexed_ghosts[i_type] = stacked_bb_coords, stacked_guide_coords, np.array(ijk_types), rmsd_array
 
     def calculate_match_metrics(self, fragment_matches: list[dict]) -> dict:
         """Return the various metrics calculated by overlapping fragments at the interface of two proteins

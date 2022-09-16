@@ -18,7 +18,7 @@ ijk_frag_db = fragment_factory(source=biological_interfaces)
 # # Get complete IJK fragment representatives database dictionaries
 # ijk_monofrag_cluster_rep_pdb_dict = ijk_frag_db.get_monofrag_cluster_rep_dict()
 # ijk_intfrag_cluster_rep_dict = ijk_frag_db.get_intfrag_cluster_rep_dict()
-# ijk_intfrag_cluster_info_dict = ijk_frag_db.get_intfrag_cluster_info_dict()
+# ijk_intfrag_cluster_info_dict = ijk_frag_db.load_cluster_info_from_text()
 
 # Initialize Euler Lookup Class
 eul_lookup = EulerLookup()
