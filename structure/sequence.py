@@ -52,21 +52,26 @@ subs_matrices = {'BLOSUM62': substitution_matrices.load('BLOSUM62')}
 
 
 class MultipleSequenceAlignment:
+    _alphabet_type: str
     _array: np.ndarray
     _frequencies: np.ndarray
     _gaps_per_position: np.ndarray
     _numerical_alignment: np.ndarray
     _sequence_index: np.ndarray
     alignment: MultipleSeqAlignment
+    # counts: list[dict[extended_protein_letters_and_gap, int]]
+    counts: list[list[int]] | np.ndarray
     frequencies: np.ndarray
     number_of_characters: int
     number_of_sequences: int
+    """The number of sequences in the alignment"""
     length: int
+    """The number of sequence indices in the alignment"""
+    observations: np.ndarray
+    """The number of observations for each sequence index in the alignment"""
     query: str
     query_length: int
     query_with_gaps: str
-    # counts: list[dict[extended_protein_letters_and_gap, int]]
-    counts: list[list[int]] | np.ndarray
 
     def __init__(self, alignment: MultipleSeqAlignment = None, aligned_sequence: str = None,
                  alphabet: str = protein_letters_alph1_gapped,
@@ -101,6 +106,7 @@ class MultipleSequenceAlignment:
                 aligned_sequence = str(alignment[0].seq)
             # Add Info to 'meta' record as needed and populate an amino acid count dict (one-indexed)
             self.alignment = alignment
+            self.alphabet = alphabet
             self.number_of_characters = len(alphabet)
             self.number_of_sequences = len(alignment)
             self.length = alignment.get_alignment_length()
@@ -122,9 +128,16 @@ class MultipleSequenceAlignment:
                 # gap_observations = [aa_counts['-'] for aa_counts in self.counts]  # list[dict]
                 # gap_observations = [aa_counts[0] for aa_counts in self.counts]  # list[list]
                 # self.observations = [counts - gap for counts, gap in zip(self.observations, gap_observations)]
-                self.observations = self.counts[:, :-1].sum(axis=1)  # gaps are the last index
-                if not np.any(self.observations):  # check if an observation is 0
-                    raise ValueError(f'Can\'t have a MSA column with 0 observations. Found at ('
+                # Find where gaps and unknown start. They are always at the end
+                gap_index = 0
+                if 'gapped' in self.alphabet_type:
+                    gap_index -= 1
+                if 'unknown' in self.alphabet_type:
+                    gap_index -= 1
+
+                self.observations = self.counts[:, :gap_index].sum(axis=1)
+                if not np.any(self.observations):  # Check if an observation is 0
+                    raise ValueError("Can't have a MSA column (sequence index) with 0 observations. Found at ("
                                      f'{",".join(map(str, np.flatnonzero(self.observations)))}')
                     #                f'{",".join(str(idx) for idx, pos in enumerate(self.observations) if not pos)}')
 
@@ -178,14 +191,14 @@ class MultipleSequenceAlignment:
         try:
             return cls(alignment=read_alignment(file, alignment_type='stockholm'), **kwargs)
         except FileNotFoundError:
-            raise DesignError(f'The multiple sequence alignment file "{file}" doesn\'t exist')
+            raise DesignError(f"The multiple sequence alignemnt file '{file}' doesn't exist")
 
     @classmethod
     def from_fasta(cls, file):
         try:
             return cls(alignment=read_alignment(file))
         except FileNotFoundError:
-            raise DesignError(f'The multiple sequence alignemnt file "{file}" doesn\'t exist')
+            raise DesignError(f"The multiple sequence alignemnt file '{file}' doesn't exist")
 
     @classmethod
     def from_dictionary(cls, named_sequences: dict[str, str], **kwargs):
@@ -223,6 +236,24 @@ class MultipleSequenceAlignment:
     #         self.frequencies[residue] = {aa: count / total_column_weight for aa, count in amino_acid_counts.items()}
 
     @property
+    def alphabet_type(self) -> str:
+        """The type of alphabet that the alignment is mapped to numerically"""
+        try:
+            return self._alphabet_type
+        except AttributeError:
+            if self.alphabet.startswith('ACD'):  # 1 letter order
+                self._alphabet_type = 'protein_letters_alph1'
+            else:  # 3 letter order
+                self._alphabet_type = 'protein_letters_alph3'
+
+            if 'X' in self.alphabet:  # Unknown
+                self._alphabet_type += '_unknown'
+            if '-' in self.alphabet:  # Gapped
+                self._alphabet_type += '_gapped'
+
+            return self._alphabet_type
+
+    @property
     def query_indices(self) -> np.ndarray:
         """Returns the query as a boolean array (1, length) where gaps ("-") are False"""
         try:
@@ -246,18 +277,43 @@ class MultipleSequenceAlignment:
     def sequence_indices(self, sequence_indices: np.ndarray):
         self._sequence_index = sequence_indices
 
+    def _set_translation_tables(self):
+        match self.alphabet_type:
+            case 'protein_letters_alph1':
+                self._numeric_translation_type = numerical_translation_alph1_bytes
+            case 'protein_letters_alph3':
+                self._numeric_translation_type = numerical_translation_alph3_bytes
+            case 'protein_letters_alph1_gapped':
+                self._numeric_translation_type = numerical_translation_alph1_gapped_bytes
+            case 'protein_letters_alph3_gapped':
+                self._numeric_translation_type = numerical_translation_alph3_gapped_bytes
+            case 'protein_letters_alph1_unknown':
+                self._numeric_translation_type = numerical_translation_alph1_unknown_bytes
+            case 'protein_letters_alph3_unknown':
+                self._numeric_translation_type = numerical_translation_alph3_unknown_bytes
+            case 'protein_letters_alph1_unknown_gapped':
+                self._numeric_translation_type = numerical_translation_alph1_unknown_gapped_bytes
+            case 'protein_letters_alph3_unknown_gapped':
+                self._numeric_translation_type = numerical_translation_alph3_unknown_gapped_bytes
+            case _:
+                raise ValueError(f"alphabet_type {self.alphabet_type} isn't viable")
+
     @property
     def numerical_alignment(self) -> np.ndarray:
         """Return the alignment as an integer array (number_of_sequences, length) of the amino acid characters
 
-        MultipleSequenceAlignment.gapped_numerical_translation maps "ACDEFGHIKLMNPQRSTVWY-" to the resulting index
+        Maps the instance .alphabet characters to their resulting sequence index
         """
         try:
             return self._numerical_alignment
         except AttributeError:
-            self._numerical_alignment = np.vectorize(gapped_numerical_translation_bytes.__getitem__)(self.array)
-            # self._numerical_alignment = \
-            #     np.array([[numerical_translation[aa] for aa in record] for record in self.alignment])
+            try:
+                translation_type = self._numeric_translation_type
+            except AttributeError:
+                self._set_translation_tables()
+                translation_type = self._numeric_translation_type
+
+            self._numerical_alignment = np.vectorize(translation_type.__getitem__)(self.array)
             return self._numerical_alignment
 
     @property
