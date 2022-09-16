@@ -2633,57 +2633,28 @@ class PoseDirectory:
             profile_background['fragment'] = self.fragment_profile
         else:
             self.log.info('No fragment information')
+        interface_bkgd = np.array(list(self.job.fragment_db.aa_frequencies.values()))
+        if interface_bkgd is not None:
+            profile_background['interface'] = np.tile(interface_bkgd, (self.pose.number_of_residues, 1))
 
         if not profile_background:
             divergence_s = pd.Series(dtype=float)
         else:  # Calculate sequence statistics
-            # first for entire pose
+            # First, for entire pose
+            interface_indexer = [residue - zero_offset for residue in self.interface_design_residues]
             pose_alignment = MultipleSequenceAlignment.from_dictionary(pose_sequences)
-            # mutation_frequencies = pose_alignment.frequencies[[residue-1 for residue in self.interface_design_residues]]
-            # mutation_frequencies = filter_dictionary_keys(pose_alignment.frequencies, self.interface_design_residues)
-            # mutation_frequencies = filter_dictionary_keys(pose_alignment['frequencies'], interface_residues)
+            observed, divergence = \
+                calculate_sequence_observations_and_divergence(pose_alignment, profile_background, interface_indexer)
 
-            # Calculate amino acid observation percent from residue_info and background SSM's
-            # observation_d = {profile: {design: mutation_conserved(info, background)
-            #                            for design, numerical_sequence in residue_info.items()}
-            # observation_d = {profile: {design: np.where(background[:, numerical_sequence] > 0, 1, 0)
-            #                            for design, numerical_sequence in zip(pose_sequences,
-            #                                                                  list(pose_alignment.numerical_alignment))}
-            #                  for profile, background in profile_background.items()}
-            # Find the observed background for each profile, for each design in the pose
-            # pose_observed_bkd = {profile: {design: freq.mean() for design, freq in design_obs_freqs.items()}
-            #                      for profile, design_obs_freqs in observation_d.items()}
-            # for profile, observed_frequencies in pose_observed_bkd.items():
-            #     scores_df[f'observed_{profile}'] = pd.Series(observed_frequencies)
-            # for profile, design_obs_freqs in observation_d.items():
-            #     scores_df[f'observed_{profile}'] = \
-            #         pd.Series({design: freq.mean() for design, freq in design_obs_freqs.items()})
-            # Add observation information into the residue_df
             observed_dfs = []
-            # for profile, design_obs_freqs in observation_d.items():
-            for profile, background in profile_background.items():
-                obs_df = pd.DataFrame(data=np.where(np.take_along_axis(background, pose_alignment.numerical_alignment.T,
-                                                                       axis=1) > 0,
-                                                    1, 0).T,  # design_obs_freqs.values()
-                                      index=pose_sequences,  # design_obs_freqs.keys()
-                                      columns=pd.MultiIndex.from_product([residue_indices, [f'observed_{profile}']]))
-                scores_df[f'observed_{profile}'] = obs_df.mean(axis=1)
-                observed_dfs.append(obs_df)
-
+            for profile, observed_values in observed.items():
+                scores_df[f'observed_{profile}'] = observed_values.mean(axis=1)
+                observed_dfs.append(pd.DataFrame(data=observed_values, index=pose_sequences,  # design_obs_freqs.keys()
+                                                 columns=pd.MultiIndex.from_product([residue_indices,
+                                                                                     [f'observed_{profile}']]))
+                                    )
+            # Add observation information into the residue_df
             residue_df = pd.concat([residue_df] + observed_dfs, axis=1)
-            # Calculate Jensen Shannon Divergence using different SSM occurrence data and design mutations
-            #                                              both mut_freq and profile_background[profile] are one-indexed
-            interface_indexer = [residue-1 for residue in self.interface_design_residues]
-            divergence = {f'divergence_{profile}':
-                          # position_specific_jsd(pose_alignment.frequencies, background)[interface_indexer]
-                          position_specific_divergence(pose_alignment.frequencies, background)[interface_indexer]
-                          for profile, background in profile_background.items()}
-            interface_bkgd = np.array(list(self.job.fragment_db.aa_frequencies.values()))
-            if interface_bkgd is not None:
-                tiled_int_background = np.tile(interface_bkgd, (len(interface_indexer), 1))
-                # jensen_shannon_divergence(pose_alignment.frequencies, interface_bkgd)[interface_indexer]
-                divergence['divergence_interface'] = \
-                    position_specific_divergence(pose_alignment.frequencies[interface_indexer], tiled_int_background)
             # Get pose sequence divergence
             pose_divergence_s = pd.concat([pd.Series({f'{divergence_type}_per_residue': _divergence.mean()
                                                       for divergence_type, _divergence in divergence.items()})],
@@ -2708,10 +2679,10 @@ class PoseDirectory:
                                            position_specific_divergence(protocol_alignment.frequencies,
                                                                         bgd)[interface_indexer]
                                            for profile, bgd in profile_background.items()}
-                    if interface_bkgd is not None:
-                        protocol_divergence['divergence_interface'] = \
-                            position_specific_divergence(protocol_alignment.frequencies[interface_indexer],
-                                                         tiled_int_background)
+                    # if interface_bkgd is not None:
+                    #     protocol_divergence['divergence_interface'] = \
+                    #         position_specific_divergence(protocol_alignment.frequencies[interface_indexer],
+                    #                                      tiled_int_background)
                     # Get per residue divergence metric by protocol
                     divergence_by_protocol[protocol] = {f'{divergence_type}_per_residue': divergence.mean()
                                                         for divergence_type, divergence in protocol_divergence.items()}
@@ -3901,57 +3872,28 @@ def interface_design_analysis(pose: Pose, design_poses: Iterable[Pose] = None,
         profile_background['fragment'] = pssm_as_array(pose.fragment_profile)
     else:
         pose.log.info('No fragment information')
+    interface_bkgd = np.array(list(job.fragment_db.aa_frequencies.values()))
+    if interface_bkgd is not None:
+        profile_background['interface'] = np.tile(interface_bkgd, (pose.number_of_residues, 1))
 
     if not profile_background:
         divergence_s = pd.Series(dtype=float)
     else:  # Calculate sequence statistics
         # First, for entire pose
+        interface_indexer = [residue - zero_offset for residue in pose.interface_design_residue_numbers]
         pose_alignment = MultipleSequenceAlignment.from_dictionary(pose_sequences)
-        # mutation_frequencies = pose_alignment.frequencies[[residue-1 for residue in pose.interface_design_residue_numbers]]
-        # mutation_frequencies = filter_dictionary_keys(pose_alignment.frequencies, pose.interface_design_residue_numbers)
-        # mutation_frequencies = filter_dictionary_keys(pose_alignment['frequencies'], interface_residue_numbers)
+        observed, divergence = \
+            calculate_sequence_observations_and_divergence(pose_alignment, profile_background, interface_indexer)
 
-        # Calculate amino acid observation percent from residue_info and background SSM's
-        # observation_d = {profile: {design: mutation_conserved(info, background)
-        #                            for design, numerical_sequence in residue_info.items()}
-        # observation_d = {profile: {design: np.where(background[:, numerical_sequence] > 0, 1, 0)
-        #                            for design, numerical_sequence in zip(pose_sequences,
-        #                                                                  list(pose_alignment.numerical_alignment))}
-        #                  for profile, background in profile_background.items()}
-        # Find the observed background for each profile, for each designed pose
-        # pose_observed_bkd = {profile: {design: freq.mean() for design, freq in design_obs_freqs.items()}
-        #                      for profile, design_obs_freqs in observation_d.items()}
-        # for profile, observed_frequencies in pose_observed_bkd.items():
-        #     scores_df[f'observed_{profile}'] = pd.Series(observed_frequencies)
-        # for profile, design_obs_freqs in observation_d.items():
-        #     scores_df[f'observed_{profile}'] = \
-        #         pd.Series({design: freq.mean() for design, freq in design_obs_freqs.items()})
         observed_dfs = []
-        # for profile, design_obs_freqs in observation_d.items():
-        for profile, background in profile_background.items():
-            obs_df = pd.DataFrame(data=np.where(np.take_along_axis(background, pose_alignment.numerical_alignment.T,
-                                                                   axis=1) > 0,
-                                                1, 0).T,  # design_obs_freqs.values()
-                                  index=pose_sequences,  # design_obs_freqs.keys()
-                                  columns=pd.MultiIndex.from_product([residue_indices, [f'observed_{profile}']]))
-            scores_df[f'observed_{profile}'] = obs_df.mean(axis=1)
-            observed_dfs.append(obs_df)
-
+        for profile, observed_values in observed.items():
+            scores_df[f'observed_{profile}'] = observed_values.mean(axis=1)
+            observed_dfs.append(pd.DataFrame(data=observed_values, index=pose_sequences,  # design_obs_freqs.keys()
+                                             columns=pd.MultiIndex.from_product([residue_indices,
+                                                                                 [f'observed_{profile}']]))
+                                )
         # Add observation information into the residue_df
         residue_df = pd.concat([residue_df] + observed_dfs, axis=1)
-        # Calculate Jensen Shannon Divergence using different SSM occurrence data and design mutations
-        #                                              both mut_freq and profile_background[profile] are one-indexed
-        interface_indexer = [residue - zero_offset for residue in pose.interface_design_residue_numbers]
-        divergence = {f'divergence_{profile}':
-                      # position_specific_jsd(pose_alignment.frequencies, background)[interface_indexer]
-                      position_specific_divergence(pose_alignment.frequencies, background)[interface_indexer]
-                      for profile, background in profile_background.items()}
-        interface_bkgd = np.array(list(job.fragment_db.aa_frequencies.values()))
-        if interface_bkgd is not None:
-            tiled_int_background = np.tile(interface_bkgd, (len(interface_indexer), 1))
-            # jensen_shannon_divergence(pose_alignment.frequencies, interface_bkgd)[interface_indexer]
-            divergence['divergence_interface'] = \
-                position_specific_divergence(pose_alignment.frequencies[interface_indexer], tiled_int_background)
         # Get pose sequence divergence
         pose_divergence_s = pd.concat([pd.Series({f'{divergence_type}_per_residue': _divergence.mean()
                                                   for divergence_type, _divergence in divergence.items()})],
@@ -3976,10 +3918,10 @@ def interface_design_analysis(pose: Pose, design_poses: Iterable[Pose] = None,
                                        position_specific_divergence(protocol_alignment.frequencies,
                                                                     bgd)[interface_indexer]
                                        for profile, bgd in profile_background.items()}
-                if interface_bkgd is not None:
-                    protocol_divergence['divergence_interface'] = \
-                        position_specific_divergence(protocol_alignment.frequencies[interface_indexer],
-                                                     tiled_int_background)
+                # if interface_bkgd is not None:
+                #     protocol_divergence['divergence_interface'] = \
+                #         position_specific_divergence(protocol_alignment.frequencies[interface_indexer],
+                #                                      tiled_int_background)
                 # Get per residue divergence metric by protocol
                 divergence_by_protocol[protocol] = {f'{divergence_type}_per_residue': divergence.mean()
                                                     for divergence_type, divergence in protocol_divergence.items()}

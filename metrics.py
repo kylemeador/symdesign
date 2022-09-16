@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import math
 import operator
+import warnings
 from itertools import repeat
 from json import loads
 from typing import Literal, AnyStr, Any, Sequence, Iterable
@@ -1296,6 +1297,213 @@ def calculate_residue_surface_area(residue_df: pd.DataFrame, index_residues: lis
     residue_df = pd.concat([residue_df, core_residues, interior_residues, support_residues, rim_residues,
                             surface_residues], axis=1)
     return residue_df
+
+
+def calculate_sequence_observations_and_divergence(alignment: 'structure.sequence.MultipleSequenceAlignment',
+                                                   backgrounds: dict[str, np.ndarray],
+                                                   select_indices: list[int] = None) \
+        -> tuple[dict[str, np.ndarray], dict[str, np.ndarray]]:
+    # mutation_frequencies = pose_alignment.frequencies[[residue-1 for residue in pose.interface_design_residue_numbers]]
+    # mutation_frequencies = filter_dictionary_keys(pose_alignment.frequencies, pose.interface_design_residue_numbers)
+    # mutation_frequencies = filter_dictionary_keys(pose_alignment['frequencies'], interface_residue_numbers)
+
+    # Calculate amino acid observation percent from residue_info and background SSM's
+    # observation_d = {profile: {design: mutation_conserved(info, background)
+    #                            for design, numerical_sequence in residue_info.items()}
+    # observation_d = {profile: {design: np.where(background[:, numerical_sequence] > 0, 1, 0)
+    #                            for design, numerical_sequence in zip(pose_sequences,
+    #                                                                  list(pose_alignment.numerical_alignment))}
+    #                  for profile, background in profile_background.items()}
+    # Find the observed background for each profile, for each designed pose
+    # pose_observed_bkd = {profile: {design: freq.mean() for design, freq in design_obs_freqs.items()}
+    #                      for profile, design_obs_freqs in observation_d.items()}
+    # for profile, observed_frequencies in pose_observed_bkd.items():
+    #     scores_df[f'observed_{profile}'] = pd.Series(observed_frequencies)
+    # for profile, design_obs_freqs in observation_d.items():
+    #     scores_df[f'observed_{profile}'] = \
+    #         pd.Series({design: freq.mean() for design, freq in design_obs_freqs.items()})
+    # observed_dfs = []
+    transposed_alignment = alignment.numerical_alignment.T
+    observed = {profile: np.where(np.take_along_axis(background, transposed_alignment, axis=1) > 0, 1, 0).T
+                for profile, background in backgrounds.items()}
+    # for profile, background in profile_background.items():
+    #     observed[profile] = np.where(np.take_along_axis(background, transposed_alignment, axis=1) > 0, 1, 0).T
+    #     # obs_df = pd.DataFrame(data=np.where(np.take_along_axis(background, transposed_alignment, axis=1) > 0,
+    #     #                                     1, 0).T,
+    #     #                       index=pose_sequences,
+    #     #                       columns=pd.MultiIndex.from_product([residue_indices, [f'observed_{profile}']]))
+    #     # observed_dfs.append(obs_df)
+
+    # Calculate Jensen Shannon Divergence using different SSM occurrence data and design mutations
+    #                                              both mut_freq and profile_background[profile] are one-indexed
+    divergence = {f'divergence_{profile}':
+                  # position_specific_jsd(pose_alignment.frequencies, background)[interface_indexer]
+                  position_specific_divergence(alignment.frequencies, background)[select_indices]
+                  for profile, background in backgrounds.items()}
+
+    # return observed_dfs, divergence
+    return observed, divergence
+
+
+# def position_specific_jsd(msa: dict[int, dict[str, float]], background: dict[int, dict[str, float]]) -> \
+#         dict[int, float]:
+#     """Generate the Jensen-Shannon Divergence for a dictionary of residues versus a specific background frequency
+#
+#     Both msa and background must be the same index
+#     Args:
+#         msa: {15: {'A': 0.05, 'C': 0.001, 'D': 0.1, ...}, 16: {}, ...}
+#         background: {0: {'A': 0, 'R': 0, ...}, 1: {}, ...}
+#             Containing residue index with inner dictionary of single amino acid types
+#     Returns:
+#         divergence_dict: {15: 0.732, 16: 0.552, ...}
+#     """
+#     return {idx: distribution_divergence(freq, background[idx]) for idx, freq in msa.items() if idx in background}
+#
+#
+# def distribution_divergence(frequencies: dict[str, float], bgd_frequencies: dict[str, float], lambda_: float = 0.5) -> \
+#         float:
+#     """Calculate residue specific Jensen-Shannon Divergence value
+#
+#     Args:
+#         frequencies: {'A': 0.05, 'C': 0.001, 'D': 0.1, ...}
+#         bgd_frequencies: {'A': 0, 'R': 0, ...}
+#         lambda_: Value bounded between 0 and 1 to calculate the contribution from the observation versus the background
+#     Returns:
+#         Bounded between 0 and 1. 1 is more divergent from background frequencies
+#     """
+#     sum_prob1, sum_prob2 = 0, 0
+#     for item, frequency in frequencies.items():
+#         bgd_frequency = bgd_frequencies.get(item)
+#         try:
+#             r = (lambda_ * frequency) + ((1 - lambda_) * bgd_frequency)
+#         except TypeError:  # bgd_frequency is None, therefore the frequencies can't be compared. Should error be raised?
+#             continue
+#         try:
+#             with warnings.catch_warnings() as w:
+#                 # Cause all warnings to always be ignored
+#                 warnings.simplefilter('ignore')
+#                 try:
+#                     prob2 = (bgd_frequency * log(bgd_frequency / r, 2))
+#                     sum_prob2 += prob2
+#                 except (ValueError, RuntimeWarning):  # math DomainError doesn't raise, instead RunTimeWarn
+#                     pass  # continue
+#                 try:
+#                     prob1 = (frequency * log(frequency / r, 2))
+#                     sum_prob1 += prob1
+#                 except (ValueError, RuntimeWarning):  # math domain error
+#                     continue
+#         except ZeroDivisionError:  # r = 0
+#             continue
+#
+#     return lambda_ * sum_prob1 + (1 - lambda_) * sum_prob2
+
+
+def jensen_shannon_divergence(sequence_frequencies: np.ndarray, background_aa_freq: np.ndarray, **kwargs) -> np.ndarray:
+    """Calculate Jensen-Shannon Divergence value for all residues against a background frequency dict
+
+    Args:
+        sequence_frequencies: [[0.05, 0.001, 0.1, ...], ...]
+        background_aa_freq: [0.11, 0.03, 0.53, ...]
+    Keyword Args:
+        lambda_: float = 0.5 - Bounded between 0 and 1 indicates weight of the observation versus the background
+    Returns:
+        The divergence per residue bounded between 0 and 1. 1 is more divergent from background, i.e. [0.732, ...]
+    """
+    return np.array([distribution_divergence(sequence_frequencies[idx], background_aa_freq, **kwargs)
+                     for idx in range(len(sequence_frequencies))])
+
+
+def position_specific_jsd(msa: np.ndarray, background: np.ndarray, **kwargs) -> np.ndarray:
+    """Generate the Jensen-Shannon Divergence for a dictionary of residues versus a specific background frequency
+
+    Both msa and background must be the same index
+
+    Args:
+        msa: {15: {'A': 0.05, 'C': 0.001, 'D': 0.1, ...}, 16: {}, ...}
+        background: {0: {'A': 0, 'R': 0, ...}, 1: {}, ...}
+            Containing residue index with inner dictionary of single amino acid types
+    Keyword Args:
+        lambda_: float = 0.5 - Bounded between 0 and 1 indicates weight of the observation versus the background
+    Returns:
+        The divergence values per position, i.e [0.732, 0.552, ...]
+    """
+    return np.array([distribution_divergence(msa[idx], background[idx], **kwargs) for idx in range(len(msa))])
+
+
+def distribution_divergence(frequencies: np.ndarray, bgd_frequencies: np.ndarray, lambda_: float = 0.5) -> float:
+    """Calculate Jensen-Shannon Divergence value from observed and background frequencies
+
+    Args:
+        frequencies: [0.05, 0.001, 0.1, ...]
+        bgd_frequencies: [0, 0, ...]
+        lambda_: Bounded between 0 and 1 indicates weight of the observation versus the background
+    Returns:
+        Bounded between 0 and 1. 1 is more divergent from background frequencies
+    """
+    r = (lambda_ * frequencies) + ((1 - lambda_) * bgd_frequencies)
+    probs1 = frequencies * np.log2(frequencies / r)
+    probs2 = bgd_frequencies * np.log2(bgd_frequencies / r)
+    return (lambda_ * np.where(np.isnan(probs1), 0, probs1).sum()) \
+        + ((1 - lambda_) * np.where(np.isnan(probs2), 0, probs2).sum())
+
+
+# This is for a multiaxis ndarray
+def position_specific_divergence(frequencies: np.ndarray, bgd_frequencies: np.ndarray, lambda_: float = 0.5) -> \
+        np.ndarray:
+    """Calculate Jensen-Shannon Divergence value from observed and background frequencies
+
+    Args:
+        frequencies: [0.05, 0.001, 0.1, ...]
+        bgd_frequencies: [0, 0, ...]
+        lambda_: Bounded between 0 and 1 indicates weight of the observation versus the background
+    Returns:
+        An array of divergences bounded between 0 and 1. 1 indicates frequencies are more divergent from background
+    """
+    r = (lambda_ * frequencies) + ((1 - lambda_) * bgd_frequencies)
+    with warnings.catch_warnings() as w:
+        # Ignore all warnings related to np.nan
+        warnings.simplefilter('ignore')
+        probs1 = frequencies * np.log2(frequencies / r)
+        probs2 = bgd_frequencies * np.log2(bgd_frequencies / r)
+    return (lambda_ * np.where(np.isnan(probs1), 0, probs1).sum(axis=1)) \
+        + ((1 - lambda_) * np.where(np.isnan(probs2), 0, probs2).sum(axis=1))
+
+# def distribution_divergence(frequencies: Sequence[float], bgd_frequencies: Sequence[float], lambda_: float = 0.5) -> \
+#         float:
+#     """Calculate Jensen-Shannon Divergence value from observed and background frequencies
+#
+#     Args:
+#         frequencies: [0.05, 0.001, 0.1, ...]
+#         bgd_frequencies: [0, 0, ...]
+#         lambda_: Bounded between 0 and 1 indicates weight of the observation versus the background
+#     Returns:
+#         Bounded between 0 and 1. 1 is more divergent from background frequencies
+#     """
+#     sum_prob1, sum_prob2 = 0, 0
+#     for frequency, bgd_frequency in zip(frequencies, bgd_frequencies):
+#         # bgd_frequency = bgd_frequencies.get(item)
+#         try:
+#             r = (lambda_ * frequency) + ((1 - lambda_) * bgd_frequency)
+#         except TypeError:  # bgd_frequency is None, therefore the frequencies can't be compared. Should error be raised?
+#             continue
+#         try:
+#             with warnings.catch_warnings() as w:
+#                 # Cause all warnings to always be ignored
+#                 warnings.simplefilter('ignore')
+#                 try:
+#                     prob2 = bgd_frequency * log(bgd_frequency / r, 2)
+#                 except (ValueError, RuntimeWarning):  # math DomainError doesn't raise, instead RunTimeWarn
+#                     prob2 = 0
+#                 sum_prob2 += prob2
+#                 try:
+#                     prob1 = frequency * log(frequency / r, 2)
+#                 except (ValueError, RuntimeWarning):  # math domain error
+#                     continue
+#                 sum_prob1 += prob1
+#         except ZeroDivisionError:  # r = 0
+#             continue
+#
+#     return lambda_ * sum_prob1 + (1 - lambda_) * sum_prob2
 
 
 def df_permutation_test(grouped_df: pd.DataFrame, diff_s: pd.Series, group1_size: int = 0, compare: str = 'mean',
