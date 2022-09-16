@@ -91,8 +91,8 @@ class JobResources:
 
         # Program flags
         self.consensus: bool = kwargs.get(consensus, False)  # Whether to run consensus
-        self.design_selector: dict[str, dict[str, dict[str, set[int] | set[str]]]] | dict = kwargs.get('design_selector'
-                                                                                                       , {})
+        self.design_selector: dict[str, dict[str, dict[str, set[int] | set[str]]]] | dict = \
+            kwargs.get('design_selector', {})
         self.debug: bool = kwargs.get('debug', False)
         self.force_flags: bool = kwargs.get(force_flags, False)
         self.fuse_chains: list[tuple[str]] = [tuple(pair.split(':')) for pair in kwargs.get('fuse_chains', [])]
