@@ -382,12 +382,22 @@ def read_pdb_file(file: AnyStr, pdb_lines: list[str] = None, separate_coords: bo
         raise ValueError(f'The file {file} has no ATOM records!')
 
     # Combine entity_info with the reference_sequence info and dbref info
-    reference_sequence = parse_seqres(seq_res_lines)
+    if seq_res_lines:
+        reference_sequence = parse_seqres(seq_res_lines)
+    else:
+        reference_sequence = None
+
     for entity_name, info in entity_info.items():
         # Grab the first chain from the identified chains, and use it to grab the reference sequence
         chain = info['chains'][0]
-        info['reference_sequence'] = reference_sequence[chain]  # Used when parse_seqres returns dict[str, str]
-        info['dbref'] = dbref[chain]
+        try:
+            info['reference_sequence'] = reference_sequence[chain]  # Used when parse_seqres returns dict[str, str]
+        except TypeError:  # This is None
+            pass
+        try:
+            info['dbref'] = dbref[chain]
+        except KeyError:  # Keys are missing
+            pass
 
     # # Convert the incrementing reference sequence to a list of the sequences
     # reference_sequence = list(reference_sequence.values())
