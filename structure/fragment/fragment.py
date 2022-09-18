@@ -5,11 +5,11 @@ from typing import Annotated, Literal, get_args, Type
 
 import numpy as np
 
+import structure
+from structure.fragment.info import FragmentInfo
+from utils import start_log, unpickle
 from utils.path import intfrag_cluster_rep_dirpath, monofrag_cluster_rep_dirpath, biological_interfaces, \
     biological_fragment_db_pickle
-import structure
-from utils import start_log, unpickle
-from resources.info import FragmentInfo
 
 # Globals
 logger = start_log(name=__name__)

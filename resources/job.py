@@ -3,17 +3,17 @@ from __future__ import annotations
 import os
 from typing import Annotated, AnyStr
 
+from flags import nstruct
+from structure.fragment import fragment
+from resources.EulerLookup import EulerLookup
 from resources.structure_db import structure_database_factory
+from resources.wrapapi import api_database_factory
+from utils import start_log, make_path
+from utils.SymEntry import SymEntry
 from utils.path import sym_entry, all_scores, projects, sequence_info, data, output_oligomers, output_fragments, \
     structure_background, scout, generate_fragments, number_of_trajectories, no_hbnet, \
     ignore_symmetric_clashes, ignore_pose_clashes, ignore_clashes, force_flags, no_evolution_constraint, \
     no_term_constraint, consensus
-from flags import nstruct
-from utils import start_log, make_path
-from resources.EulerLookup import EulerLookup
-from utils.SymEntry import SymEntry
-from resources import fragment
-from resources.wrapapi import api_database_factory
 
 logger = start_log(name=__name__)
 

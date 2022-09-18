@@ -21,7 +21,7 @@ from sklearn.neighbors._ball_tree import BinaryTree  # this typing implementatio
 
 import flags
 from resources.EulerLookup import EulerLookup, euler_factory
-from resources.fragment import FragmentDatabase, fragment_factory, alignment_types, fragment_info_type
+from structure.fragment.fragment import FragmentDatabase, fragment_factory, alignment_types, fragment_info_type
 from ProteinMPNN.helper_scripts.other_tools.make_pssm_dict import softmax
 from resources.ml import proteinmpnn_factory, batch_proteinmpnn_input, proteinmpnn_to_device, mpnn_alphabet_length
 from resources.query.pdb import retrieve_entity_id_by_sequence, query_pdb_by, get_entity_reference_sequence, \
