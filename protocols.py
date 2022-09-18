@@ -36,13 +36,13 @@ from resources.job import JobResources, job_resources_factory
 from structure.base import Structure  # , Structures
 from structure.model import Pose, MultiModel, Models, Model, Entity
 from structure.sequence import parse_pssm, generate_mutations_from_reference, simplify_mutation_dict, \
-    sequence_difference, alignment_types, MultipleSequenceAlignment, pssm_as_array, combine_profile, write_pssm_file
+    sequence_difference, MultipleSequenceAlignment, pssm_as_array, combine_profile, write_pssm_file
 from structure.utils import protein_letters_3to1, protein_letters_1to3
 from utils import large_color_array, handle_errors, starttime, start_log, null_log, make_path, unpickle, pickle_object, \
     index_intersection, write_shell_script, DesignError, ClashError, SymmetryError, match_score_from_z_value, z_score, \
     all_vs_all, sym, condensed_to_square, path as PUtils
 from utils.SymEntry import SymEntry, symmetry_factory
-from resources.fragment import FragmentDatabase
+from resources.fragment import FragmentDatabase, alignment_types
 from utils.nanohedra.general import get_components_from_nanohedra_docking, \
     retrieve_pose_transformation_from_nanohedra_docking
 from utils.path import pose_source, state_file

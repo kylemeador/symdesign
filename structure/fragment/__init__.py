@@ -9,7 +9,6 @@ from sklearn.neighbors._ball_tree import BinaryTree
 
 import structure
 from structure.coords import superposition3d, transform_coordinate_sets
-from utils import dictionary_lookup
 from utils.path import frag_text_file
 from utils.symmetry import identity_matrix, origin
 
@@ -111,7 +110,7 @@ class GhostFragment:
         try:
             return self._representative.get_transformed_copy()
         except AttributeError:
-            self._representative, _ = dictionary_lookup(self.fragment_db.paired_frags, self.ijk)
+            self._representative, _ = self.fragment_db.paired_frags[self.ijk]
 
         return self._representative.get_transformed_copy()
 

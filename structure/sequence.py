@@ -22,6 +22,7 @@ from Bio.SeqRecord import SeqRecord
 import structure.utils
 from metrics import hydrophobic_collapse_index
 from resources import info
+from resources.fragment import alignment_types_literal, alignment_types, fragment_info_type
 from structure.utils import protein_letters_alph1, protein_letters_3to1, protein_letters_alph3, \
     profile_keys, protein_letters_alph1_gapped, numerical_translation_alph1_bytes, \
     numerical_translation_alph3_bytes, sequence_translation_alph1, sequence_translation_alph3, \
@@ -36,16 +37,12 @@ from utils import handle_errors, start_log, pretty_format_table, unpickle, get_b
 # Globals
 logger = start_log(name=__name__)
 zero_offset = 1
-alignment_types_literal = Literal['mapped', 'paired']
-alignment_types: tuple[alignment_types_literal] = get_args(alignment_types_literal)
 sequence_type_literal = Literal['reference', 'structure']
 sequence_types: tuple[sequence_type_literal, ...] = get_args(sequence_type_literal)
 aa_counts = dict(zip(protein_letters_alph1, repeat(0)))
 aa_weighted_counts: info.aa_weighted_counts_type = dict(zip(protein_letters_alph1, repeat(0)))
 """{protein_letters_alph1, repeat(0)), stats=(0, 1))"""
 aa_weighted_counts.update({'stats': (0, 1)})
-fragment_info_keys = Literal[alignment_types_literal, 'match', 'cluster']
-fragment_info_type: dict[fragment_info_keys, int | str | float] = None
 subs_matrices = {'BLOSUM62': substitution_matrices.load('BLOSUM62')}
 
 # protein_letters_literal: tuple[str, ...] = get_args(protein_letters_alph1_literal)

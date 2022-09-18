@@ -1,8 +1,7 @@
 from __future__ import annotations
 
-import os
 from copy import copy
-from typing import Annotated
+from typing import Annotated, Literal, get_args, Type
 
 import numpy as np
 
@@ -14,6 +13,10 @@ from resources.info import FragmentInfo
 
 # Globals
 logger = start_log(name=__name__)
+alignment_types_literal = Literal['mapped', 'paired']
+alignment_types: tuple[alignment_types_literal] = get_args(alignment_types_literal)
+fragment_info_keys = Literal[alignment_types_literal, 'match', 'cluster']
+fragment_info_type = Type[dict[fragment_info_keys, int | str | float]]
 
 
 class FragmentDatabase(FragmentInfo):
@@ -22,78 +25,66 @@ class FragmentDatabase(FragmentInfo):
     indexed_ghosts: dict[int, tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]] | dict
     # dict[int, tuple[3x3, 1x3, tuple[int, int, int], float]]
     # monofrag_representatives_path: str
-    paired_frags: dict[int, dict[int, dict[int, tuple['structure.model.Model', str]]]]
+    paired_frags: dict[tuple[int, int, int], tuple['structure.model.Model', str]]
     reps: dict[int, np.ndarray]
 
-    def __init__(self, init_db: bool = True, **kwargs):  # fragment_length: int = 5
+    def __init__(self, **kwargs):  # init_db: bool = True, fragment_length: int = 5
         super().__init__(**kwargs)
-        if self.source == biological_interfaces:
+        if self.source == biological_interfaces:  # Todo parameterize
             self.cluster_representatives_path = intfrag_cluster_rep_dirpath
             self.monofrag_representatives_path = monofrag_cluster_rep_dirpath
 
-        if init_db:
-            logger.info(f'Initializing {self.source} FragmentDatabase from disk. This may take awhile...')
-            # self.get_monofrag_cluster_rep_dict()
-            self.reps = {int(os.path.splitext(file)[0]):
-                         structure.base.Structure.from_file(os.path.join(root, file), entities=False, log=None).ca_coords
-                         for root, dirs, files in os.walk(self.monofrag_representatives_path) for file in files}
-            self.get_intfrag_cluster_rep_dict()
-            self.load_cluster_info()  # Using my generated data instead of Josh's for future compatibility and size
-            # self.load_cluster_info_from_text()
-            self.index_ghosts()
-        else:
-            self.reps = {}
-            self.paired_frags = {}
-            self.indexed_ghosts = {}
-
-    def get_intfrag_cluster_rep_dict(self):
+        self.reps = {}
         self.paired_frags = {}
-        for root, dirs, files in os.walk(self.cluster_representatives_path):
-            if not dirs:
-                i_cluster_type, j_cluster_type, k_cluster_type = map(int, root.split(os.sep)[-1].split('_'))
+        self.indexed_ghosts = {}
 
-                if i_cluster_type not in self.paired_frags:
-                    self.paired_frags[i_cluster_type] = {}
-                if j_cluster_type not in self.paired_frags[i_cluster_type]:
-                    self.paired_frags[i_cluster_type][j_cluster_type] = {}
+        # if init_db:
+        #     logger.info(f'Initializing {self.source} FragmentDatabase from disk. This may take awhile...')
+        #     # self.get_monofrag_cluster_rep_dict()
+        #     self.reps = {int(os.path.splitext(file)[0]):
+        #                  structure.base.Structure.from_file(os.path.join(root, file), entities=False, log=None).ca_coords
+        #                  for root, dirs, files in os.walk(self.monofrag_representatives_path) for file in files}
+        #     self.paired_frags = load_paired_fragment_representatives(self.cluster_representatives_path)
+        #     self.load_cluster_info()  # Using my generated data instead of Josh's for future compatibility and size
+        #     # self.load_cluster_info_from_text()
+        #     self._index_ghosts()
+        # else:
+        #     self.reps = {}
+        #     self.paired_frags = {}
+        #     self.indexed_ghosts = {}
 
-                for file in files:
-                    ijk_frag_cluster_rep_pdb = structure.model.Model.from_file(os.path.join(root, file), entities=False, log=None)
-                    # mapped_chain_idx = file.find('mappedchain')
-                    # ijk_cluster_rep_mapped_chain = file[mapped_chain_idx + 12:mapped_chain_idx + 13]
-                    # must look up the partner coords later by using chain_id stored in file
-                    partner_chain_idx = file.find('partnerchain')
-                    ijk_cluster_rep_partner_chain = file[partner_chain_idx + 13:partner_chain_idx + 14]
-                    self.paired_frags[i_cluster_type][j_cluster_type][k_cluster_type] = \
-                        (ijk_frag_cluster_rep_pdb, ijk_cluster_rep_partner_chain)  # ijk_cluster_rep_mapped_chain,
-
-    def index_ghosts(self):
-        """From the fragment database, precompute all required data into numpy arrays to populate Ghost Fragments
+    def _index_ghosts(self):
+        """From a loaded fragment database, precompute all required data into numpy arrays to populate Ghost Fragments
 
         keeping each data type as numpy array allows facile indexing for allowed ghosts if a clash test is performed
         """
-        self.indexed_ghosts = {}
-        for i_type in self.paired_frags:
-            # Must look up the partner coords by using stored chain_id
-            stacked_bb_coords = np.array([frag_pdb.chain(frag_paired_chain).backbone_coords
-                                          for j_dict in self.paired_frags[i_type].values()
-                                          for frag_pdb, frag_paired_chain in j_dict.values()])
+        ijk_types = list(sorted(self.paired_frags.keys()))
+        stacked_bb_coords, stacked_guide_coords = [], []
+        for ijk in ijk_types:
+            frag_model, frag_paired_chain = self.paired_frags[ijk]
+            # Look up the partner coords by using stored frag_paired_chain
+            stacked_bb_coords.append(frag_model.chain(frag_paired_chain).backbone_coords)
             # Todo store these as a numpy array instead of as a chain
-            # Guide coords are stored with chain_id "9"
-            stacked_guide_coords = np.array([frag_pdb.chain('9').coords
-                                             for j_dict in self.paired_frags[i_type].values()
-                                             for frag_pdb, _, in j_dict.values()])
-            ijk_types = [(i_type, j_type, k_type)
-                         for j_type, j_dict in self.paired_frags[i_type].items()
-                         for k_type in j_dict]
-            # rmsd_array = np.array([dictionary_lookup(self.info, type_set).rmsd for type_set in ijk_types])
-            # rmsd_array = np.array([self.info[cluster_id]['rmsd'] for cluster_id in ijk_types])
-            rmsd_array = np.array([self.info[cluster_id].rmsd for cluster_id in ijk_types])
-            # Todo ensure rmsd rounded correct upon creation
-            rmsd_array = np.where(rmsd_array == 0, 0.0001, rmsd_array)
-            self.indexed_ghosts[i_type] = stacked_bb_coords, stacked_guide_coords, np.array(ijk_types), rmsd_array
+            stacked_guide_coords.append(frag_model.chain('9').coords)
 
-    def calculate_match_metrics(self, fragment_matches: list[dict]) -> dict:
+        stacked_bb_coords = np.array(stacked_bb_coords)
+        stacked_guide_coords = np.array(stacked_guide_coords)
+
+        stacked_rmsds = np.array([self.info[ijk].rmsd for ijk in ijk_types])
+        # Todo ensure rmsd rounded correct upon creation
+        stacked_rmsds = np.where(stacked_rmsds == 0, 0.0001, stacked_rmsds)
+
+        # Split data into separate i_types
+        prior_idx = 0
+        prior_i_type, prior_j_type, prior_k_type = ijk_types[prior_idx]
+        for idx, (i_type, j_type, k_type) in enumerate(ijk_types):
+            if i_type != prior_i_type:
+                self.indexed_ghosts[prior_i_type] = \
+                    (stacked_bb_coords[prior_idx:idx], stacked_guide_coords[prior_idx:idx],
+                     np.array(ijk_types[prior_idx:idx]), stacked_rmsds[prior_idx:idx])
+                prior_idx = idx
+
+    def calculate_match_metrics(self, fragment_matches: list[fragment_info_type]) -> dict:
         """Return the various metrics calculated by overlapping fragments at the interface of two proteins
 
         Args:
@@ -115,7 +106,6 @@ class FragmentDatabase(FragmentInfo):
             return {}
 
         fragment_i_index_count_d = {frag_idx: 0 for frag_idx in range(1, self.fragment_length + 1)}
-        # fragment_i_index_count_d = {1: 0, 2: 0, 3: 0, 4: 0, 5: 0}
         fragment_j_index_count_d = copy(fragment_i_index_count_d)
         total_fragment_content = copy(fragment_i_index_count_d)
 
@@ -179,39 +169,39 @@ class FragmentDatabase(FragmentInfo):
         separated_fragment_metrics['mapped']['index_count'] = fragment_i_index_count_d
         separated_fragment_metrics['paired']['index_count'] = fragment_j_index_count_d
         # -------------------------------------------
-        # score the interface individually
+        # Score the interface individually
         mapped_total_score = nanohedra_fragment_match_score(separated_fragment_metrics['mapped']['match_scores'])
         mapped_center_score = nanohedra_fragment_match_score(separated_fragment_metrics['mapped']['center_match_scores'])
         paired_total_score = nanohedra_fragment_match_score(separated_fragment_metrics['paired']['match_scores'])
         paired_center_score = nanohedra_fragment_match_score(separated_fragment_metrics['paired']['center_match_scores'])
-        # combine
+        # Combine
         all_residue_score = mapped_total_score + paired_total_score
         center_residue_score = mapped_center_score + paired_center_score
         # -------------------------------------------
         # Get individual number of CENTRAL residues with overlapping fragments given z_value criteria
         mapped_central_residues_with_fragment_overlap = len(separated_fragment_metrics['mapped']['center']['residues'])
         paired_central_residues_with_fragment_overlap = len(separated_fragment_metrics['paired']['center']['residues'])
-        # combine
+        # Combine
         central_residues_with_fragment_overlap = \
             mapped_central_residues_with_fragment_overlap + paired_central_residues_with_fragment_overlap
         # -------------------------------------------
         # Get the individual number of TOTAL residues with overlapping fragments given z_value criteria
         mapped_total_residues_with_fragment_overlap = len(separated_fragment_metrics['mapped']['total']['residues'])
         paired_total_residues_with_fragment_overlap = len(separated_fragment_metrics['paired']['total']['residues'])
-        # combine
+        # Combine
         total_residues_with_fragment_overlap = \
             mapped_total_residues_with_fragment_overlap + paired_total_residues_with_fragment_overlap
         # -------------------------------------------
-        # get the individual multiple fragment observation ratio observed for each side of the fragment query
+        # Get the individual multiple fragment observation ratio observed for each side of the fragment query
         mapped_multiple_frag_ratio = \
             separated_fragment_metrics['total']['observations'] / mapped_central_residues_with_fragment_overlap
         paired_multiple_frag_ratio = \
             separated_fragment_metrics['total']['observations'] / paired_central_residues_with_fragment_overlap
-        # combine
+        # Combine
         multiple_frag_ratio = \
             separated_fragment_metrics['total']['observations'] * 2 / central_residues_with_fragment_overlap
         # -------------------------------------------
-        # turn individual index counts into paired counts # and percentages <- not accurate if summing later, need counts
+        # Turn individual index counts into paired counts # and percentages <- not accurate if summing later, need counts
         for index, count in separated_fragment_metrics['mapped']['index_count'].items():
             total_fragment_content[index] += count
             # separated_fragment_metrics['mapped']['index'][index_count] = count / separated_fragment_metrics['number']
@@ -243,6 +233,31 @@ class FragmentDatabase(FragmentInfo):
         separated_fragment_metrics['total']['index_count'] = total_fragment_content
 
         return separated_fragment_metrics
+
+    def format_fragment_metrics(metrics: dict) -> dict:
+        """For a set of fragment metrics, return the formatted total fragment metrics
+
+        Args:
+            metrics:
+        Returns:
+            {center_residues, total_residues,
+             nanohedra_score, nanohedra_score_center, multiple_fragment_ratio, number_fragment_residues_total,
+             number_fragment_residues_center, number_of_fragments, percent_fragment_helix, percent_fragment_strand,
+             percent_fragment_coil}
+        """
+        return {
+            'center_residues': metrics['mapped']['center']['residues'].union(metrics['paired']['center']['residues']),
+            'total_residues': metrics['mapped']['total']['residues'].union(metrics['paired']['total']['residues']),
+            'nanohedra_score': metrics['total']['total']['score'],
+            'nanohedra_score_center': metrics['total']['center']['score'],
+            'multiple_fragment_ratio': metrics['total']['multiple_ratio'],
+            'number_fragment_residues_total': metrics['total']['total']['number'],
+            'number_fragment_residues_center': metrics['total']['center']['number'],
+            'number_of_fragments': metrics['total']['observations'],
+            'percent_fragment_helix': (metrics['total']['index_count'][1] / (metrics['total']['observations'] * 2)),
+            'percent_fragment_strand': (metrics['total']['index_count'][2] / (metrics['total']['observations'] * 2)),
+            'percent_fragment_coil': ((metrics['total']['index_count'][3] + metrics['total']['index_count'][4]
+                                       + metrics['total']['index_count'][5]) / (metrics['total']['observations'] * 2))}
 
 
 class FragmentDatabaseFactory:
@@ -314,35 +329,3 @@ def nanohedra_fragment_match_score(fragment_metrics: dict) -> float:
             n *= 2
 
     return score
-
-
-def format_fragment_metrics(metrics: dict, null: bool = False) -> dict:
-    """For a set of fragment metrics, return the formatted total fragment metrics
-
-    Returns:
-        {center_residues, total_residues,
-         nanohedra_score, nanohedra_score_center, multiple_fragment_ratio, number_fragment_residues_total,
-         number_fragment_residues_center, number_of_fragments, percent_fragment_helix, percent_fragment_strand,
-         percent_fragment_coil}
-    """
-    if null or not metrics:
-        return fragment_metric_template
-    return {'center_residues': metrics['mapped']['center']['residues'].union(metrics['paired']['center']['residues']),
-            'total_residues': metrics['mapped']['total']['residues'].union(metrics['paired']['total']['residues']),
-            'nanohedra_score': metrics['total']['total']['score'],
-            'nanohedra_score_center': metrics['total']['center']['score'],
-            'multiple_fragment_ratio': metrics['total']['multiple_ratio'],
-            'number_fragment_residues_total': metrics['total']['total']['number'],
-            'number_fragment_residues_center': metrics['total']['center']['number'],
-            'number_of_fragments': metrics['total']['observations'],
-            'percent_fragment_helix': (metrics['total']['index_count'][1] / (metrics['total']['observations'] * 2)),
-            'percent_fragment_strand': (metrics['total']['index_count'][2] / (metrics['total']['observations'] * 2)),
-            'percent_fragment_coil': ((metrics['total']['index_count'][3] + metrics['total']['index_count'][4]
-                                       + metrics['total']['index_count'][5]) / (metrics['total']['observations'] * 2))}
-
-
-fragment_metric_template = {'center_residues': set(), 'total_residues': set(),
-                            'nanohedra_score': 0.0, 'nanohedra_score_center': 0.0, 'multiple_fragment_ratio': 0.0,
-                            'number_fragment_residues_total': 0, 'number_fragment_residues_center': 0,
-                            'number_of_fragments': 0, 'percent_fragment_helix': 0.0, 'percent_fragment_strand': 0.0,
-                            'percent_fragment_coil': 0.0}

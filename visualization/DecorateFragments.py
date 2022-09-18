@@ -8,10 +8,16 @@ sys.path.append(parent_dir)
 import numpy as np
 from sklearn.neighbors import BallTree
 
-from utils import start_log, set_logging_to_level, collect_designs
+from resources.fragment import fragment_factory
 from structure.fragment import MonoFragment
-from resources.fragment import FragmentDatabase
 from structure.model import Model
+from utils import start_log, set_logging_to_level, collect_designs
+from utils.path import biological_interfaces
+
+
+# Globals
+logger = start_log(name=__name__)
+fragment_db = fragment_factory(source=biological_interfaces)
 
 
 def decorate_with_fragments(pdb_path, out_path=os.getcwd()):
@@ -33,8 +39,7 @@ def decorate_with_fragments(pdb_path, out_path=os.getcwd()):
     # Get Oligomer 1 Ghost Fragments With Guide Coordinates Using Initial Match Fragment Database
     kdtree_oligomer1_backbone = BallTree(np.array(pdb1.backbone_coords))
     surface_residues = pdb1.surface_residues
-    raise NotImplementedError('This is missing the FragmentDatabase. fragment_factory()')
-    surf_frags_1 = pdb1.get_fragment_residues(residues=pdb1.surface_residues, fragment_db=)
+    surf_frags_1 = pdb1.get_fragment_residues(residues=pdb1.surface_residues, fragment_db=fragment_db)
 
     ghost_frag_list = []
     # ghost_frag_guide_coords_list = []
@@ -96,10 +101,6 @@ if __name__ == '__main__':
         exit('Specify either a file or a directory to locate the files!')
 
     logger.info('Getting Fragment Information')
-    ijk_frag_db = FragmentDatabase()
-    # Get complete IJK fragment representatives database dictionaries
-    # ijk_monofrag_cluster_rep_pdb_dict = ijk_frag_db.get_monofrag_cluster_rep_dict()
-    ijk_intfrag_cluster_rep_dict = ijk_frag_db.get_intfrag_cluster_rep_dict()
-    ijk_intfrag_cluster_info_dict = ijk_frag_db.load_cluster_info_from_text()
+    ijk_frag_db = fragment_factory(source=biological_interfaces)
 
     decorate = [decorate_with_fragments(file, out_path=args.out_path) for file in file_paths]
