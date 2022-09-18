@@ -1163,7 +1163,7 @@ def main():
             if '.pdb' in args.oligomer1:
                 pdb1_filepaths = [args.oligomer1]
             else:
-                pdb1_filepaths = utils.get_directory_file_paths(args.oligomer1)
+                pdb1_filepaths = utils.get_directory_file_paths(args.oligomer1, extension='.pdb')
             structure_names1 = pdb1_filepaths
             by_file1 = True
             # Reformat the file paths to the file_name for structure_names
@@ -1191,7 +1191,7 @@ def main():
                 if '.pdb' in args.oligomer2:
                     pdb2_filepaths = [args.oligomer2]
                 else:
-                    pdb2_filepaths = utils.get_directory_file_paths(args.oligomer2)
+                    pdb2_filepaths = utils.get_directory_file_paths(args.oligomer2, extension='.pdb')
                 structure_names2 = pdb2_filepaths
                 by_file2 = True
                 # Reformat the file paths to the file_name for structure_names
