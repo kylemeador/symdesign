@@ -58,7 +58,8 @@ class ClusterInfo:
 
 class FragmentInfo:
     # info: dict[tuple[int, int, int], dict[source_literal, int | float | str | aa_weighted_counts_type]]
-    info: dict[int, dict[int, dict[int, ClusterInfo]]]
+    # info: dict[int, dict[int, dict[int, ClusterInfo]]]
+    info: dict[tuple[int, int, int], ClusterInfo]
     fragment_length: int
     fragment_range: tuple[int, int]
     source: str
@@ -102,7 +103,7 @@ class FragmentInfo:
         if self.db:
             raise NotImplementedError("Can't connect to MySQL database yet")
         else:
-            stats_file = sorted(glob(os.path.join(self.location, 'statistics.pkl')))
+            stats_file = sorted(glob(os.path.join(os.path.dirname(self.location), f'{self.source}_statistics.pkl')))
             if len(stats_file) == 1:
                 self.statistics = unpickle(stats_file[0])
             else:
@@ -169,17 +170,16 @@ class FragmentInfo:
             raise NotImplementedError("Can't connect to MySQL database yet")
         else:
             if ids is None:  # Load all data
-                identified_directories = {os.path.basename(cluster_directory): cluster_directory
-                                          for cluster_directory in get_base_root_paths_recursively(self.location)}
+                identified_files = [(os.path.splitext(os.path.basename(cluster_file))[0], cluster_file)
+                                    for cluster_file in get_file_paths_recursively(self.location, extension='.pkl')]
             else:
-                identified_directories = \
-                    [(ids[idx], os.path.join(self.location, c_id1, f'{c_id1}_{c_id2}', f'{c_id1}_{c_id2}_{c_id3}'))
-                     for idx, (c_id1, c_id2, c_id3) in enumerate(map(str.split, ids, repeat('_')))]
+                identified_files = \
+                    [(_id, os.path.join(self.location, c_id1, f'{c_id1}_{c_id2}', _id, f'{_id}.pkl'))
+                     for _id, (c_id1, c_id2, c_id3) in zip(ids, map(str.split, ids, repeat('_')))]
 
             self.info.update({tuple(map(int, cluster_id.split('_'))):
-                              ClusterInfo(name=cluster_id, **unpickle(os.path.join(cluster_directory,
-                                                                                   f'{cluster_id}.pkl')))
-                              for cluster_id, cluster_directory in identified_directories})
+                              ClusterInfo(name=cluster_id, **unpickle(cluster_file))
+                              for cluster_id, cluster_file in identified_files})
 
     def load_cluster_info_from_text(self, ids: Sequence[str] = None):
         """Load cluster information from the fragment database source text files into attribute .info
@@ -193,9 +193,9 @@ class FragmentInfo:
             raise NotImplementedError("Can't connect to MySQL database yet")
         else:
             if ids is None:  # Load all data
-                identified_directories = \
-                    {os.path.basename(cluster_directory): cluster_directory
-                     for cluster_directory in get_file_paths_recursively(self.cluster_info_path)}
+                identified_files = \
+                    [(os.path.splitext(os.path.basename(cluster_directory))[0], cluster_directory)
+                     for cluster_directory in get_file_paths_recursively(self.cluster_info_path)]
                 # for root, dirs, files in os.walk(self.cluster_info_path):
                 #     if not dirs:
                 #         i_cluster_type, j_cluster_type, k_cluster_type = map(int, os.path.basename(root).split('_'))
@@ -210,15 +210,15 @@ class FragmentInfo:
                 #         self.info[(i_cluster_type, j_cluster_type, k_cluster_type)] = \
                 #             ClusterInfo.from_file(os.path.join(root, files[0]))
             else:
-                identified_directories = {_id: os.path.join(self.cluster_info_path, c_id1,
-                                                            f'{c_id1}_{c_id2}', _id, f'{_id}.txt')
-                                          for _id, (c_id1, c_id2, c_id3) in zip(ids, map(str.split, ids, repeat('_')))}
+                identified_files = [(_id, os.path.join(self.cluster_info_path, c_id1,
+                                                       f'{c_id1}_{c_id2}', _id, f'{_id}.txt'))
+                                    for _id, (c_id1, c_id2, c_id3) in zip(ids, map(str.split, ids, repeat('_')))]
                 # for _id, (c_id1, c_id2, c_id3) in zip(ids, map(str.split, ids, repeat('_'))):
                 #     identified_directories[_id] = os.path.join(self.cluster_info_path, c_id1,
                 #                                                f'{c_id1}_{c_id2}', _id, f'{_id}.txt')
 
             self.info.update({tuple(map(int, cluster_id.split('_'))): ClusterInfo.from_file(cluster_file)
-                              for cluster_id, cluster_file in identified_directories})
+                              for cluster_id, cluster_file in identified_files})
 
     @staticmethod
     def get_cluster_id(cluster_id: str, index: int = 3) -> str:

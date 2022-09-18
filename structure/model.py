@@ -21,7 +21,7 @@ from sklearn.neighbors._ball_tree import BinaryTree  # this typing implementatio
 
 import flags
 from resources.EulerLookup import EulerLookup, euler_factory
-from resources.fragment import format_fragment_metrics, fragment_metric_template, FragmentDatabase, fragment_factory
+from resources.fragment import FragmentDatabase, fragment_factory, alignment_types, fragment_info_type
 from ProteinMPNN.helper_scripts.other_tools.make_pssm_dict import softmax
 from resources.ml import proteinmpnn_factory, batch_proteinmpnn_input, proteinmpnn_to_device, mpnn_alphabet_length
 from resources.query.pdb import retrieve_entity_id_by_sequence, query_pdb_by, get_entity_reference_sequence, \
@@ -31,10 +31,11 @@ from resources.wrapapi import APIDatabase, api_database_factory
 from structure.base import Structure, Structures, Residue, Residues, StructureBase, ContainsAtomsMixin, atom_or_residue
 from structure.coords import Coords, superposition3d, transform_coordinate_sets
 from structure.fragment import GhostFragment, Fragment, write_frag_match_info_file
-from structure.sequence import SequenceProfile, alignment_types, generate_alignment, get_equivalent_indices, \
-    pssm_as_array, generate_mutations, combine_profile, fragment_info_type
+from structure.fragment.metrics import fragment_metric_template
+from structure.sequence import SequenceProfile, generate_alignment, get_equivalent_indices, \
+    pssm_as_array, generate_mutations, combine_profile
 from structure.utils import protein_letters_3to1_extended, protein_letters_1to3_extended
-from utils import dictionary_lookup, start_log, null_log, digit_translate_table, DesignError, ClashError, \
+from utils import start_log, null_log, digit_translate_table, DesignError, ClashError, \
     SymmetryError, calculate_match, z_value_from_match_score, remove_duplicates, path as PUtils
 from utils.SymEntry import get_rot_matrices, make_rotations_degenerate, SymEntry, point_group_setting_matrix_members,\
     symmetry_combination_format, parse_symmetry_to_sym_entry, symmetry_factory
@@ -5176,6 +5177,7 @@ class Pose(SequenceProfile, SymmetricModel):
     _active_entities: list[Entity]
     _center_residue_numbers: list[int]
     _design_residues: list[Residue]
+    _fragment_db: FragmentDatabase
     _interface_residues: list[Residue]
     design_selector: dict[str, dict[str, dict[str, set[int] | set[str] | None]]] | None
     design_selector_entities: set[Entity]
@@ -6558,7 +6560,7 @@ class Pose(SequenceProfile, SymmetricModel):
         #  'percent_residues_fragment_center': percent_interface_matched,
 
         if fragments is not None:
-            return format_fragment_metrics(self.fragment_db.calculate_match_metrics(fragments))
+            return self.fragment_db.format_fragment_metrics(self.fragment_db.calculate_match_metrics(fragments))
 
         # Populate self.fragment_metrics for repeat calculation efficiency
         if not self.fragment_metrics:
@@ -6573,7 +6575,7 @@ class Pose(SequenceProfile, SymmetricModel):
                         continue
                     # Check either orientation as the function query could vary from self.fragment_metrics
                     if (entity1, entity2) in query_pair or (entity2, entity1) in query_pair:
-                        metric_d = format_fragment_metrics(metrics)
+                        metric_d = self.fragment_db.format_fragment_metrics(metrics)
                         break
                 else:
                     self.log.info(f"Couldn't locate query metrics for Entity pair {entity1.name}, {entity2.name}")
@@ -6615,7 +6617,7 @@ class Pose(SequenceProfile, SymmetricModel):
                     self.log.warning(f'{self.name}: No interface residues were found. Is there an interface in your '
                                      f'design?')
                     metric_d[entity]['nanohedra_score_normalized'], \
-                    metric_d[entity]['nanohedra_score_center_normalized'] = 0., 0.
+                        metric_d[entity]['nanohedra_score_center_normalized'] = 0., 0.
 
         elif total_interface:  # For the entire interface
             metric_d = fragment_metric_template
@@ -6637,6 +6639,7 @@ class Pose(SequenceProfile, SymmetricModel):
                 metric_d['percent_fragment_coil'] += (metrics['total']['index_count'][3] +
                                                       metrics['total']['index_count'][4] +
                                                       metrics['total']['index_count'][5])
+            # Finally
             try:
                 metric_d['percent_fragment_helix'] /= metric_d['number_of_fragments']*2  # Account for 2x observations
                 metric_d['percent_fragment_strand'] /= metric_d['number_of_fragments']*2  # Account for 2x observations
@@ -6654,7 +6657,7 @@ class Pose(SequenceProfile, SymmetricModel):
                 metric_d['nanohedra_score_normalized'], metric_d['nanohedra_score_center_normalized'] = 0., 0.
 
         else:  # For the entire Pose?
-            raise ValueError('There was no mechanism to return fragments specified')
+            raise NotImplementedError('There was no mechanism to return fragments specified')
 
         return metric_d
 
@@ -6846,7 +6849,7 @@ class Pose(SequenceProfile, SymmetricModel):
 
         for match_count, (ghost_frag, surface_frag, match_score) in enumerate(ghost_mono_frag_pairs, 1):
             ijk = ghost_frag.ijk
-            fragment_pdb, _ = dictionary_lookup(self.fragment_db.paired_frags, ijk)
+            fragment_pdb, _ = self.fragment_db.paired_frags[ijk]
             trnsfmd_fragment = fragment_pdb.get_transformed_copy()
             trnsfmd_fragment.write(out_path=os.path.join(out_path,
                                                          '{}_{}_{}_fragment_match_{}.pdb'.format(*ijk, match_count)))
