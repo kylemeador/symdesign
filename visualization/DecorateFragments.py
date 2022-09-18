@@ -8,7 +8,7 @@ sys.path.append(parent_dir)
 import numpy as np
 from sklearn.neighbors import BallTree
 
-from resources.fragment import fragment_factory
+from structure.fragment.fragment import fragment_factory
 from structure.fragment import MonoFragment
 from structure.model import Model
 from utils import start_log, set_logging_to_level, collect_designs

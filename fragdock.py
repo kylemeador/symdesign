@@ -20,7 +20,7 @@ from sklearn.neighbors import BallTree
 
 from metrics import calculate_collapse_metrics, calculate_residue_surface_area, errat_1_sigma, errat_2_sigma
 from resources.EulerLookup import euler_factory
-from resources.fragment import FragmentDatabase, fragment_factory
+from structure.fragment.fragment import FragmentDatabase, fragment_factory, alignment_types
 from resources.job import job_resources_factory, JobResources
 from resources.ml import proteinmpnn_factory, batch_proteinmpnn_input, score_sequences, \
     proteinmpnn_to_device, mpnn_alphabet_length

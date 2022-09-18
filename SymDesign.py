@@ -32,7 +32,7 @@ from guide import interface_design_guide, analysis_guide, interface_metrics_guid
     nanohedra_guide, orient_guide, expand_asu_guide
 from metrics import prioritize_design_indices, query_user_for_metrics
 from resources.EulerLookup import euler_factory
-from resources.fragment import fragment_factory
+from structure.fragment.fragment import fragment_factory
 from resources.job import job_resources_factory
 from resources.query.pdb import retrieve_pdb_entries_by_advanced_query
 from resources.query.utils import input_string, bool_d, boolean_choice, invalid_string, \

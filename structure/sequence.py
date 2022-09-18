@@ -3,7 +3,6 @@ from __future__ import annotations
 import os
 import subprocess
 import time
-import warnings
 from collections import namedtuple
 from copy import deepcopy, copy
 from itertools import repeat
@@ -21,8 +20,8 @@ from Bio.SeqRecord import SeqRecord
 
 import structure.utils
 from metrics import hydrophobic_collapse_index
-from resources import info
-from resources.fragment import alignment_types_literal, alignment_types, fragment_info_type
+from structure.fragment import info
+from structure.fragment.fragment import alignment_types_literal, alignment_types, fragment_info_type
 from structure.utils import protein_letters_alph1, protein_letters_3to1, protein_letters_alph3, \
     profile_keys, protein_letters_alph1_gapped, numerical_translation_alph1_bytes, \
     numerical_translation_alph3_bytes, sequence_translation_alph1, sequence_translation_alph3, \
