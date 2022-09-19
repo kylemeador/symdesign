@@ -7,8 +7,7 @@ from typing import AnyStr, Literal, get_args, Sequence
 
 from structure.utils import protein_letters_alph1, protein_letters_literal
 from utils.path import biological_interfaces, frag_directory, intfrag_cluster_info_dirpath
-from utils import start_log, unpickle, get_base_root_paths_recursively, DesignError, parameterize_frag_length, \
-    get_file_paths_recursively
+from utils import start_log, unpickle, DesignError, parameterize_frag_length, get_file_paths_recursively
 from utils.sql import Mysql
 
 logger = start_log(name=__name__)
