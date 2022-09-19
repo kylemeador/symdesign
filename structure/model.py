@@ -2451,10 +2451,12 @@ class Model(Structure, ContainsChainsMixin):
 
     @property
     def residue_indices_per_chain(self) -> list[list[int]]:  # UNUSED
+        """Return the residue indices for each Chain in the Model"""
         return [structure.residue_indices for structure in self.chains]
 
     @property
     def residue_indices_per_entity(self) -> list[list[int]]:
+        """Return the residue indices for each Entity in the Model"""
         return [structure.residue_indices for structure in self.entities]
 
     @property
