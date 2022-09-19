@@ -2721,7 +2721,7 @@ class PoseDirectory:
         #     residue_df.loc[:, idx_slice[self.interface_residues, 'local_density']].mean(axis=1)
 
         # Make buried surface area (bsa) columns
-        residue_df = calculate_residue_surface_area(residue_df, index_residues)
+        residue_df = calculate_residue_surface_area(residue_df.loc[:, idx_slice[index_residues, :]])
 
         scores_df['interface_area_polar'] = residue_df.loc[:, idx_slice[index_residues, 'bsa_polar']].sum(axis=1)
         scores_df['interface_area_hydrophobic'] = \
@@ -3925,7 +3925,7 @@ def interface_design_analysis(pose: Pose, design_poses: Iterable[Pose] = None, s
     #     residue_df.loc[:, idx_slice[pose.interface_residue_numbers, 'local_density']].mean(axis=1)
 
     # Make buried surface area (bsa) columns
-    residue_df = calculate_residue_surface_area(residue_df, index_residues)
+    residue_df = calculate_residue_surface_area(residue_df.loc[:, idx_slice[index_residues, :]])
 
     scores_df['interface_area_polar'] = residue_df.loc[:, idx_slice[index_residues, 'bsa_polar']].sum(axis=1)
     scores_df['interface_area_hydrophobic'] = \

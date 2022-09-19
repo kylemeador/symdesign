@@ -1272,39 +1272,42 @@ def per_res_metric(sequence_metrics: dict[Any, float] | dict[Any, dict[str, floa
         return s / total
 
 
-def calculate_residue_surface_area(residue_df: pd.DataFrame, index_residues: list[int] = slice(None, None)) \
-        -> pd.DataFrame:
+def calculate_residue_surface_area(residue_df: pd.DataFrame) -> pd.DataFrame:
+    #  index_residues: list[int] = slice(None, None)
+    """From a DataFrame with per residue values, tabulate the values relating to interfacial surface area
+
+    Args:
+        residue_df:
+    Returns:
+        The same dataframe with added columns
+    """
     # Make buried surface area (bsa) columns
-    residue_df = residue_df.join(residue_df.loc[:, idx_slice[index_residues, 'sasa_hydrophobic_bound']]
-                                 .rename(columns={'sasa_hydrophobic_bound': 'bsa_hydrophobic'}) -
-                                 residue_df.loc[:, idx_slice[index_residues, 'sasa_hydrophobic_complex']]
-                                 .rename(columns={'sasa_hydrophobic_complex': 'bsa_hydrophobic'}))
-    residue_df = residue_df.join(residue_df.loc[:, idx_slice[index_residues, 'sasa_polar_bound']]
-                                 .rename(columns={'sasa_polar_bound': 'bsa_polar'}) -
-                                 residue_df.loc[:, idx_slice[index_residues, 'sasa_polar_complex']]
-                                 .rename(columns={'sasa_polar_complex': 'bsa_polar'}))
-    residue_df = residue_df.join(residue_df.loc[:, idx_slice[index_residues, 'bsa_hydrophobic']]
-                                 .rename(columns={'bsa_hydrophobic': 'bsa_total'}) +
-                                 residue_df.loc[:, idx_slice[index_residues, 'bsa_polar']]
-                                 .rename(columns={'bsa_polar': 'bsa_total'}))
+    bound_hydro = residue_df.loc[:, idx_slice[:, 'sasa_hydrophobic_bound']]
+    complex_hydro = residue_df.loc[:, idx_slice[:, 'sasa_hydrophobic_complex']]
+    bsa_hydrophobic = (bound_hydro.rename(columns={'sasa_hydrophobic_bound': 'bsa_hydrophobic'})
+                       - complex_hydro.rename(columns={'sasa_hydrophobic_complex': 'bsa_hydrophobic'}))
+
+    bound_polar = residue_df.loc[:, idx_slice[:, 'sasa_polar_bound']]
+    complex_polar = residue_df.loc[:, idx_slice[:, 'sasa_polar_complex']]
+    bsa_polar = (bound_polar.rename(columns={'sasa_polar_bound': 'bsa_polar'})
+                 - complex_polar.rename(columns={'sasa_polar_complex': 'bsa_polar'}))
 
     # Make sasa_complex_total columns
-    residue_df = residue_df.join(residue_df.loc[:, idx_slice[index_residues, 'sasa_hydrophobic_bound']]
-                                 .rename(columns={'sasa_hydrophobic_bound': 'sasa_total_bound'}) +
-                                 residue_df.loc[:, idx_slice[index_residues, 'sasa_polar_bound']]
-                                 .rename(columns={'sasa_polar_bound': 'sasa_total_bound'}))
-    residue_df = residue_df.join(residue_df.loc[:, idx_slice[index_residues, 'sasa_hydrophobic_complex']]
-                                 .rename(columns={'sasa_hydrophobic_complex': 'sasa_total_complex'}) +
-                                 residue_df.loc[:, idx_slice[index_residues, 'sasa_polar_complex']]
-                                 .rename(columns={'sasa_polar_complex': 'sasa_total_complex'}))
+    bound_total = (bound_hydro.rename(columns={'sasa_hydrophobic_bound': 'sasa_total_bound'})
+                   + bound_polar.rename(columns={'sasa_polar_bound': 'sasa_total_bound'}))
+    complex_total = (complex_hydro.rename(columns={'sasa_hydrophobic_complex': 'sasa_total_complex'})
+                     + complex_polar.rename(columns={'sasa_polar_complex': 'sasa_total_complex'}))
+
+    bsa_total = (bsa_hydrophobic.rename(columns={'bsa_hydrophobic': 'bsa_total'})
+                 + bsa_polar.rename(columns={'bsa_polar': 'bsa_total'}))
 
     # Find the relative sasa of the complex and the unbound fraction
-    buried_interface_residues = (residue_df.loc[:, idx_slice[index_residues, 'bsa_total']] > 0).to_numpy()
+    buried_interface_residues = (bsa_total > 0).to_numpy()
     # ^ support, rim or core
     # surface_or_rim = residue_df.loc[:, idx_slice[index_residues, 'sasa_relative_complex']] > 0.25
-    core_or_interior = residue_df.loc[:, idx_slice[index_residues, 'sasa_relative_complex']] < 0.25
+    core_or_interior = residue_df.loc[:, idx_slice[:, 'sasa_relative_complex']] < 0.25
     surface_or_rim = ~core_or_interior
-    support_not_core = residue_df.loc[:, idx_slice[index_residues, 'sasa_relative_bound']] < 0.25
+    support_not_core = residue_df.loc[:, idx_slice[:, 'sasa_relative_bound']] < 0.25
     # core_sufficient = np.logical_and(core_or_interior, buried_interface_residues).to_numpy()
     core_residues = np.logical_and(~support_not_core,
                                    (np.logical_and(core_or_interior, buried_interface_residues)).to_numpy()).rename(
@@ -1318,8 +1321,11 @@ def calculate_residue_surface_area(residue_df: pd.DataFrame, index_residues: lis
     surface_residues = np.logical_and(surface_or_rim, ~buried_interface_residues).rename(
         columns={'sasa_relative_complex': 'surface'})
 
-    residue_df = pd.concat([residue_df, core_residues, interior_residues, support_residues, rim_residues,
-                            surface_residues], axis=1)
+    residue_df = residue_df.join([bsa_hydrophobic, bsa_polar, bsa_total, bound_total, complex_total,
+                                  core_residues, interior_residues, support_residues, rim_residues, surface_residues
+                                  ])
+    # residue_df = pd.concat([residue_df, core_residues, interior_residues, support_residues, rim_residues,
+    #                         surface_residues], axis=1)
     return residue_df
 
 
