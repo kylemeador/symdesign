@@ -6011,7 +6011,7 @@ class Pose(SequenceProfile, SymmetricModel):
         per_residue_data['sasa_hydrophobic_bound'] = per_residue_sasa_unbound_apolar
         per_residue_data['sasa_polar_bound'] = per_residue_sasa_unbound_polar
         per_residue_data['sasa_relative_bound'] = per_residue_sasa_unbound_relative
-        per_residue_data['hydrophobic_collapse'] = collapse_concatenated
+        per_residue_data['hydrophobic_collapse'] = np.concatenate(collapse_concatenated)
         # per_residue_data['hydrophobic_collapse'] = pd.Series(np.concatenate(collapse_concatenated))  # , name=self.name)
 
         return per_residue_data
