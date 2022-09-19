@@ -3396,7 +3396,7 @@ class PoseDirectory:
 @handle_design_errors(errors=(DesignError, AssertionError))
 @close_logs
 # @remove_structure_memory
-def interface_design_analysis(pose: Pose, design_poses: Iterable[Pose] = None,
+def interface_design_analysis(pose: Pose, design_poses: Iterable[Pose] = None, scores_file: AnyStr = None,
                               merge_residue_data: bool = False, save_metrics: bool = True,
                               figures: bool = False, **kwargs) -> pd.Series:
     """Retrieve all score information from a PoseDirectory and write results to .csv file
@@ -3404,6 +3404,7 @@ def interface_design_analysis(pose: Pose, design_poses: Iterable[Pose] = None,
     Args:
         pose: The Pose to perform the analysis on
         design_poses: The subsequent designs to perform analysis on
+        scores_file: A file that contains a JSON formatting metrics file with key, value paired metrics
         merge_residue_data: Whether to incorporate residue data into Pose DataFrame
         save_metrics: Whether to save trajectory and residue DataFrames
         figures: Whether to make and save pose figures
@@ -3450,8 +3451,8 @@ def interface_design_analysis(pose: Pose, design_poses: Iterable[Pose] = None,
     residue_info = {pose_source: pose_source_residue_info}
     job_key = 'no_energy'
     stat_s, sim_series = pd.Series(dtype=float), []
-    if os.path.exists(self.scores_file):  # Rosetta scores file is present
-        pose.log.debug(f'Found design scores in file: {self.scores_file}')
+    if scores_file is not None and os.path.exists(scores_file):  # Rosetta scores file is present
+        pose.log.debug(f'Found design scores in file: {scores_file}')
         design_was_performed = True
         # Get the scores from the score file on design trajectory metrics
         source_df = pd.DataFrame({pose_source: {PUtils.groups: job_key}}).T
@@ -3477,7 +3478,7 @@ def interface_design_analysis(pose: Pose, design_poses: Iterable[Pose] = None,
         source_df['shape_complementarity'] = 0
         source_df['solvation_energy'] = 0
         source_df['solvation_energy_complex'] = 0
-        all_design_scores = read_scores(self.scores_file)
+        all_design_scores = read_scores(scores_file)
         pose.log.debug(f'All designs with scores: {", ".join(all_design_scores.keys())}')
         # Remove designs with scores but no structures
         all_viable_design_scores = {}
@@ -3564,7 +3565,7 @@ def interface_design_analysis(pose: Pose, design_poses: Iterable[Pose] = None,
         #     {entity: {design: sequence[entity.n_terminal_residue.number - 1:entity.c_terminal_residue.number]
         #               for design, sequence in pose_sequences.items()} for entity in pose.entities}
     else:
-        pose.log.debug(f'Missing design scores file at {self.scores_file}')
+        pose.log.debug(f'Missing scores file')
         design_was_performed = False
         # Todo add relevant missing scores such as those specified as 0 below
         # Todo may need to put source_df in scores file alternative
