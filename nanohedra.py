@@ -5,7 +5,7 @@ from itertools import product, combinations
 
 from fragdock import nanohedra_dock
 from resources.structure_db import orient_structure_files
-from utils import start_log, set_logging_to_level, get_directory_file_paths, path as PUtils
+from utils import start_log, set_logging_to_level, get_directory_file_paths, set_loggers_to_propagate, path as PUtils
 from utils.SymEntry import symmetry_factory
 from utils.nanohedra.cmdline import get_docking_parameters, query_mode, postprocess_mode
 from utils.nanohedra.general import write_docking_parameters
@@ -41,9 +41,12 @@ if __name__ == '__main__':
             master_logger, bb_logger = logger, logger
             logger.debug('Debug mode. Produces verbose output and not written to any .log files')
         else:
-            # Root logger logs all emissions to a single file with level 'info'
+            # Set all modules to propagate logs to write to master log file
+            set_loggers_to_propagate()
+            set_logging_to_level(handler_level=3)
+            # Root logger logs to a single file with level 'info'
             start_log(handler=2, location=master_log_filepath)
-            # FragDock main logs to stream with level info
+            # Nanohedra main logs to stream with level info
             master_logger = start_log(name=os.path.basename(__file__), propagate=True)
 
         master_logger.info('Nanohedra\nMODE: DOCK\n')
