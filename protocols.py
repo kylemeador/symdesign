@@ -2652,11 +2652,12 @@ class PoseDirectory:
         # residue_indices_per_entity = self.pose.residue_indices_per_entity
         is_thermophilic = []
         idx = 1
-        for idx, (entity, entity_indices) in enumerate(zip(self.pose.entities,
-                                                           self.pose.residue_indices_per_entity), idx):
+        for idx, entity in enumerate(self.pose.entities, idx):
+            pose_c_terminal_residue_number = entity.c_terminal_residue.index + 1
             scores_df[f'entity_{idx}_number_of_mutations'] = \
-                pd.Series({design: len([residue_idx for residue_idx in mutations if residue_idx in entity_indices])
-                           for design, mutations in all_mutations.items()})
+                pd.Series(
+                    {design: len([1 for mutation_idx in mutations if mutation_idx < pose_c_terminal_residue_number])
+                     for design, mutations in all_mutations.items()})
             scores_df[f'entity_{idx}_percent_mutations'] = \
                 scores_df[f'entity_{idx}_number_of_mutations'] / other_pose_metrics[f'entity_{idx}_number_of_residues']
             is_thermophilic.append(getattr(other_pose_metrics, f'entity_{idx}_thermophile', 0))
@@ -3838,10 +3839,10 @@ def interface_design_analysis(pose: Pose, design_poses: Iterable[Pose] = None, s
     # residue_indices_per_entity = pose.residue_indices_per_entity
     is_thermophilic = []
     idx = 1
-    for idx, (entity, entity_indices) in enumerate(zip(pose.entities,
-                                                       pose.residue_indices_per_entity), idx):
+    for idx, entity in enumerate(pose.entities, idx):
+        pose_c_terminal_residue_number = entity.c_terminal_residue.index + 1
         scores_df[f'entity_{idx}_number_of_mutations'] = \
-            pd.Series({design: len([residue_idx for residue_idx in mutations if residue_idx in entity_indices])
+            pd.Series({design: len([1 for mutation_idx in mutations if mutation_idx < pose_c_terminal_residue_number])
                        for design, mutations in all_mutations.items()})
         scores_df[f'entity_{idx}_percent_mutations'] = \
             scores_df[f'entity_{idx}_number_of_mutations'] / other_pose_metrics[f'entity_{idx}_number_of_residues']

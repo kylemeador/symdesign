@@ -3289,10 +3289,10 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
             scores_df['number_of_mutations'] / interface_metrics_df.loc[:, 'entity_residue_length_total']
 
         idx = 1
-        for idx, (entity, entity_indices) in enumerate(zip(pose.entities,
-                                                           pose.residue_indices_per_entity), idx):
+        for idx, entity in enumerate(pose.entities, idx):
+            pose_c_terminal_residue_number = entity.c_terminal_residue.index + 1
             scores_df[f'entity_{idx}_number_of_mutations'] = \
-                pd.Series({design: len([residue_idx for residue_idx in mutations if residue_idx in entity_indices])
+                pd.Series({design: len([1 for mutation_idx in mutations if mutation_idx < pose_c_terminal_residue_number])
                            for design, mutations in all_mutations.items()})
             scores_df[f'entity_{idx}_percent_mutations'] = \
                 scores_df[f'entity_{idx}_number_of_mutations'] \
