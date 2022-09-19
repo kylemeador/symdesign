@@ -576,7 +576,7 @@ class SequenceProfile:
             self._msa = copy(msa)
             self.fit_msa_to_structure()
         else:
-            self.log.warning(f"The passed {self.msa.__name__} isn't of the required type "
+            self.log.warning(f"The passed msa (type: {type(msa).__name__}) isn't of the required type "
                              f"{MultipleSequenceAlignment.__name__}")
 
     @property
