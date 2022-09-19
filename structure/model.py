@@ -5970,8 +5970,15 @@ class Pose(SequenceProfile, SymmetricModel):
 
         return interface_asu_structure
 
-    def get_per_residue_interface_metrics(self):
-        """Return the per Residue metrics for every Residue in the Pose"""
+    def get_per_residue_interface_metrics(self) -> dict[str, list[float]]:
+        """Return the per Residue metrics for every Residue in the Pose
+
+        Metrics include sasa_hydrophobic_complex, sasa_polar_complex, sasa_relative_complex, sasa_hydrophobic_bound,
+            sasa_polar_bound, sasa_relative_bound, errat_deviation, hydrophobic_collapse
+
+        Returns:
+            The dictionary of metrics mapped to arrays of values (each the length of the Pose)
+        """
         per_residue_data = {}
         pose_length = self.number_of_residues
         assembly_minimally_contacting = self.assembly_minimally_contacting
@@ -6004,7 +6011,8 @@ class Pose(SequenceProfile, SymmetricModel):
         per_residue_data['sasa_hydrophobic_bound'] = per_residue_sasa_unbound_apolar
         per_residue_data['sasa_polar_bound'] = per_residue_sasa_unbound_polar
         per_residue_data['sasa_relative_bound'] = per_residue_sasa_unbound_relative
-        per_residue_data['hydrophobic_collapse'] = pd.Series(np.concatenate(collapse_concatenated))  # , name=self.name)
+        per_residue_data['hydrophobic_collapse'] = collapse_concatenated
+        # per_residue_data['hydrophobic_collapse'] = pd.Series(np.concatenate(collapse_concatenated))  # , name=self.name)
 
         return per_residue_data
 
