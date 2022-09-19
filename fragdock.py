@@ -18,7 +18,9 @@ import torch
 from sklearn.cluster import DBSCAN
 from sklearn.neighbors import BallTree
 
-from metrics import calculate_collapse_metrics, calculate_residue_surface_area, errat_1_sigma, errat_2_sigma
+from metrics import calculate_collapse_metrics, calculate_residue_surface_area, errat_1_sigma, errat_2_sigma, \
+    multiple_sequence_alignment_dependent_metrics, calculate_sequence_observations_and_divergence, process_residue_info, \
+    incorporate_mutation_info
 from resources.EulerLookup import euler_factory
 from structure.fragment.fragment import FragmentDatabase, fragment_factory, alignment_types
 from resources.job import job_resources_factory, JobResources
@@ -28,7 +30,8 @@ from structure.base import Structure, Residue
 from structure.coords import transform_coordinate_sets
 from structure.fragment import GhostFragment, write_frag_match_info_file
 from structure.model import Pose, Model, get_matching_fragment_pairs_info
-from structure.sequence import generate_mutations_from_reference, numeric_to_sequence
+from structure.sequence import generate_mutations_from_reference, numeric_to_sequence, combine_profile, pssm_as_array, \
+    MultipleSequenceAlignment
 from structure.utils import protein_letters_3to1
 from utils import dictionary_lookup, start_log, null_log, set_logging_to_level, unpickle, rmsd_z_score, \
     z_value_from_match_score, match_score_from_z_value
@@ -644,6 +647,7 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
     outlier = -1
     # Todo set below as parameters?
     design_output = True
+    dock_only = False
     ca_only = False
     design_temperature = 0.1
     mpnn_model = proteinmpnn_factory()  # Todo accept model_name arg. Now just use the default
@@ -1970,7 +1974,7 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
     #
     #         return perturbed_coords.reshape((number_of_perturbations, -1, 3))
 
-    def output_pose(out_path, sampling_id):  # , sequence_design: bool = False):
+    def output_pose(out_path: AnyStr, sampling_id: AnyStr, uc_dimensions: np.ndarray = None):
         # sampling_id = f'{degen_str}-{rot_str}-{tx_str}'
         # pose_id = f'{building_blocks}-{sampling_id}'
         os.makedirs(out_path, exist_ok=True)
@@ -2016,12 +2020,16 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
 
         log.info(f'\tSUCCESSFUL DOCKED POSE: {out_path}')
 
-    def gather_pose_metrics(overlap_ghosts: list[int] = None, overlap_surf: list[int] = None,
-                            sorted_z_scores: np.ndarray = None):
+    def add_fragments_to_pose(overlap_ghosts: list[int] = None, overlap_surf: list[int] = None,
+                              sorted_z_scores: np.ndarray = None):
+        """Add observed fragments to the Pose or generate new observations given the Pose state
+
+        If no arguments are passed, the fragment observations will be generated new
+        """
         # First, force identify interface of the current pose
         pose.find_and_split_interface()
 
-        # Next, set the interface fragment info
+        # Next, set the interface fragment info for gathering of interface metrics
         if overlap_ghosts is None and overlap_surf is None and sorted_z_scores is None:
             # Query fragments
             pose.generate_interface_fragments(write_fragments=job.write_fragments)
@@ -2047,99 +2055,6 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
             # pose.fragment_queries = {(model1, model2): frag_match_info}
             fragment_metrics = fragment_db.calculate_match_metrics(frag_match_info)
             pose.fragment_metrics = {(model1, model2): fragment_metrics}
-
-        # Next, gather interface metrics
-        interface_metrics = pose.interface_metrics()
-        pose_per_residue_data = pose.get_per_residue_interface_metrics()
-        # Todo remove Rosetta
-        #  This is a measurement of interface_connectivity like from Rosetta
-        pose_interface_local_density = pose.local_density_interface()
-        # if job.write_fragments:
-        #     for frag_idx, (int_ghost_frag, int_surf_frag, match) in enumerate(fragment_pairs, 1):
-        #         # surf_frag_chain1, surf_frag_central_res_num1 = int_ghost_frag.aligned_chain_and_residue
-        #         # surf_frag_chain2, surf_frag_central_res_num2 = int_surf_frag.aligned_chain_and_residue
-        #         # Todo
-        #         #  surf_frag_chain1, surf_frag_central_res_num1 = int_ghost_residue.chain, int_ghost_residue.number
-        #         #  surf_frag_chain2, surf_frag_central_res_num2 = int_surf_residue.chain, int_surf_residue.number
-        #
-        #         # covered_residues_model1 = [(surf_frag_chain1, surf_frag_central_res_num1 + j) for j in range(-2, 3)]
-        #         # covered_residues_model2 = [(surf_frag_chain2, surf_frag_central_res_num2 + j) for j in range(-2, 3)]
-        #         # match = sorted_match_scores[frag_idx - 1]
-        #         # for k in range(ijk_frag_db.fragment_length):
-        #         #     chain_resnum1 = covered_residues_model1[k]
-        #         #     chain_resnum2 = covered_residues_model2[k]
-        #         #     if chain_resnum1 not in chid_resnum_scores_dict_model1:
-        #         #         chid_resnum_scores_dict_model1[chain_resnum1] = [match]
-        #         #     else:
-        #         #         chid_resnum_scores_dict_model1[chain_resnum1].append(match)
-        #         #
-        #         #     if chain_resnum2 not in chid_resnum_scores_dict_model2:
-        #         #         chid_resnum_scores_dict_model2[chain_resnum2] = [match]
-        #         #     else:
-        #         #         chid_resnum_scores_dict_model2[chain_resnum2].append(match)
-        #
-        #         # unique_frags_info1.add((surf_frag_chain1, surf_frag_central_res_num1))
-        #         # unique_frags_info2.add((surf_frag_chain2, surf_frag_central_res_num2))
-        #
-        #         if match >= high_quality_match_value:
-        #             matched_fragment_dir = high_quality_matches_dir
-        #         else:
-        #             matched_fragment_dir = low_quality_matches_dir
-        #
-        #         os.makedirs(matched_fragment_dir, exist_ok=True)
-        #
-        #         # if write_fragments:  # write out aligned cluster representative fragment
-        #         ghost_frag_rep = int_ghost_frag.representative.get_transformed_copy(**specific_transformation1)
-        #         ghost_frag_rep.write(out_path=os.path.join(matched_fragment_dir,
-        #                                                    'int_frag_i{}_j{}_k{}_{}.pdb'.format(
-        #                                                        *int_ghost_frag.ijk, frag_idx)))
-        #         z_value = z_value_from_match_score(match)
-        #         # ghost_frag_central_freqs = \
-        #         #     dictionary_lookup(ijk_frag_db.info, int_ghost_frag.ijk).central_residue_pair_freqs
-        #         # write out associated match information to frag_info_file
-        #         write_frag_match_info_file(ghost_frag=int_ghost_frag, matched_frag=int_surf_frag,
-        #                                    overlap_error=z_value, match_number=frag_idx,
-        #                                    out_path=matching_fragments_dir, pose_id=pose_id)
-        #
-        #         # # Keep track of residue pair frequencies and match information
-        #         # res_pair_freq_info_list.append(FragMatchInfo(ghost_frag_central_freqs,
-        #         #                                              surf_frag_chain1, surf_frag_central_res_num1,
-        #         #                                              surf_frag_chain2, surf_frag_central_res_num2, z_value))
-
-        # log.debug('Wrote Fragments to matching_fragments')
-        # calculate weighted frequency for central residues and write weighted frequencies to frag_text_file
-        # weighted_seq_freq_info = SeqFreqInfo(res_pair_freq_info_list)
-        # weighted_seq_freq_info.write(os.path.join(matching_fragments_dir, frag_text_file))
-
-        # unique_matched_monofrag_count = interface_metrics['number_fragment_residues_center']
-        # unique_total_monofrags_count = interface_metrics['total_interface_residues']
-        # # unique_total_monofrags_count = unique_interface_frag_count_model1 + unique_interface_frag_count_model2
-        # percent_of_interface_covered = interface_metrics['percent_residues_fragment_center']
-        #
-        # # # Calculate Nanohedra Residue Level Summation Score
-        # # nanohedra_score = 0
-        # # for res_scores_list1 in chid_resnum_scores_dict_model1.values():
-        # #     n1 = 1
-        # #     res_scores_list_sorted1 = sorted(res_scores_list1, reverse=True)
-        # #     for sc1 in res_scores_list_sorted1:
-        # #         nanohedra_score += sc1 * (1 / float(n1))
-        # #         n1 = n1 * 2
-        # # for res_scores_list2 in chid_resnum_scores_dict_model2.values():
-        # #     n2 = 1
-        # #     res_scores_list_sorted2 = sorted(res_scores_list2, reverse=True)
-        # #     for sc2 in res_scores_list_sorted2:
-        # #         nanohedra_score += sc2 * (1 / float(n2))
-        # #         n2 = n2 * 2
-        #
-        # nanohedra_score = interface_metrics['nanohedra_score']
-        # # Write Out Docked Pose Info to docked_pose_info_file.txt
-        # write_docked_pose_info(tx_dir, nanohedra_score, high_qual_match_count, unique_matched_monofrag_count,
-        #                        unique_total_monofrags_count, percent_of_interface_covered, rot_mat1, internal_tx_param1,
-        #                        sym_entry.setting_matrix1, external_tx_params1, rot_mat2, internal_tx_param2,
-        #                        sym_entry.setting_matrix2, external_tx_params2, cryst_record, model1.file_path,
-        #                        model2.file_path, pose_id)
-
-        return pose_per_residue_data, interface_metrics, pose_interface_local_density
 
     # Use below instead of this until can TODO vectorize asu_interface_residue_processing
     # asu_interface_residues = \
@@ -2499,7 +2414,6 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
             if high_qual_match_count == 0:
                 zero_counts.append(1)
             continue
-        # elif overlap_only:
         else:
             # Find the passing overlaps to limit the output to only those passing the low_quality_match_value
             # passing_overlaps_indices = np.flatnonzero(all_fragment_match >= low_quality_match_value)
@@ -2525,240 +2439,6 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
         #     write_and_quit = False
         #     report_residue_numbers = False
         #     update_pose_coords()
-
-        # Find the passing overlaps to limit the output to only those passing the low_quality_match_value
-        # passing_overlaps_indices = np.flatnonzero(all_fragment_match >= low_quality_match_value)
-        passing_overlaps_indices = np.flatnonzero(all_fragment_z_score <= low_quality_z_value)
-        number_passing_overlaps = len(passing_overlaps_indices)
-        # log.debug(f'low quality overlaps: {all_fragment_match[passing_overlaps_indices]}')
-        # log.debug(f'low quality overlaps: {all_fragment_z_score[passing_overlaps_indices]}')
-        log.info(f'\t{high_qual_match_count} High Quality Fragments Out of {number_passing_overlaps} Matches Found in '
-                 f'Complete Fragment Library (took {all_fragment_match_time:8f}s)')
-        # except ValueError:
-        #     pass
-
-        # Get contacting PDB 1 ASU and PDB 2 ASU
-        copy_model_start = time.time()
-        rot_mat1 = full_rotation1[idx]
-        rot_mat2 = full_rotation2[idx]
-        internal_tx_param1 = full_int_tx1[idx]
-        internal_tx_param2 = full_int_tx2[idx]
-        if sym_entry.unit_cell:
-            external_tx_params1 = full_ext_tx1[idx]
-            external_tx_params2 = full_ext_tx2[idx]
-            # asu.space_group = sym_entry.resulting_symmetry
-            uc_dimensions = full_uc_dimensions[idx]
-        else:
-            external_tx_params1, external_tx_params2 = None, None
-            uc_dimensions = None
-        specific_transformation1 = dict(rotation=rot_mat1, translation=internal_tx_param1,
-                                        rotation2=set_mat1, translation2=external_tx_params1)
-        specific_transformation2 = dict(rotation=rot_mat2, translation=internal_tx_param2,
-                                        rotation2=set_mat2, translation2=external_tx_params2)
-        specific_transformations = [specific_transformation1, specific_transformation2]
-
-        pose = Pose.from_entities([entity.get_transformed_copy(**specific_transformations[idx])
-                                   for idx, model in enumerate(models) for entity in model.entities],
-                                  entity_names=[entity.name for entity in model.entities for model in models],
-                                  name='asu', log=log, sym_entry=sym_entry, uc_dimensions=uc_dimensions,
-                                  ignore_clashes=True, rename_chains=True)  # pose_format=True,
-        # ignore ASU clashes since already checked ^
-
-        # # Transform using the indexing from the models to pull out the entity on the new pose
-        # ent_idx = 0
-        # for model_idx, model in enumerate(models):
-        #     for _ in model.entities:
-        #         pose.entities[ent_idx].transform(**specific_transformations[model_idx])
-        #         ent_idx += 1
-        # pose.set_symmetry(sym_entry=sym_entry, uc_dimensions=uc_dimensions)
-        # pose.generate_symmetric_coords(surrounding_uc=output_surrounding_uc)
-
-        log.info(f'\tCopy and Transform Oligomer1 and Oligomer2 (took {time.time() - copy_model_start:8f}s)')
-
-        # Check if design has any clashes when expanded
-        exp_des_clash_time_start = time.time()
-        if pose.symmetric_assembly_is_clash():
-            log.info(f'\tBackbone Clash when pose is expanded (took '
-                     f'{time.time() - exp_des_clash_time_start:8f}s)')
-            continue
-        log.info(f'\tNO Backbone Clash when pose is expanded (took '
-                 f'{time.time() - exp_des_clash_time_start:8f}s)')
-
-        # Todo replace with PoseDirectory? Path object?
-        # temp indexing on degen and rot counts
-        # degen1_count, degen2_count = degen_counts[idx]
-        # rot1_count, rot2_count = rot_counts[idx]
-        # temp indexing on degen and rot counts
-        degen_str = 'DEGEN_{}'.format('_'.join(map(str, degen_counts[idx])))
-        rot_str = 'ROT_{}'.format('_'.join(map(str, rot_counts[idx])))
-        tx_str = f'TX_{tx_counts[idx]}'  # translation idx
-        # degen_subdir_out_path = os.path.join(outdir, degen_str)
-        # rot_subdir_out_path = os.path.join(degen_subdir_out_path, rot_str)
-        tx_dir = os.path.join(outdir, degen_str, rot_str, tx_str.lower())  # .lower() keeps original publication format
-        os.makedirs(tx_dir, exist_ok=True)
-        sampling_id = f'{degen_str}-{rot_str}-{tx_str}'
-        pose_id = f'{building_blocks}-{sampling_id}'
-        # Make directories to output matched fragment PDB files
-        # high_qual_match for fragments that were matched with z values <= 1, otherwise, low_qual_match
-        matching_fragments_dir = os.path.join(tx_dir, frag_dir)
-        os.makedirs(matching_fragments_dir, exist_ok=True)
-        high_quality_matches_dir = os.path.join(matching_fragments_dir, 'high_qual_match')
-        low_quality_matches_dir = os.path.join(matching_fragments_dir, 'low_qual_match')
-
-        # Write ASU, Model1, Model2, and assembly files
-        pose.set_contacting_asu(distance=cb_distance)
-        if sym_entry.unit_cell:  # 2, 3 dimensions
-            # asu = get_central_asu(asu, uc_dimensions, sym_entry.dimension)
-            cryst_record = generate_cryst1_record(uc_dimensions, sym_entry.resulting_symmetry)
-        else:
-            cryst_record = None
-        pose.write(out_path=os.path.join(tx_dir, asu_file_name), header=cryst_record)
-        # pose.entities[0].write_oligomer(out_path=os.path.join(tx_dir, '%s_oligomer_asu.pdb' % entity2.name))
-        # pose.entities[1].write_oligomer(out_path=os.path.join(tx_dir, '%s_oligomer_asu.pdb' % entity1.name))
-        for entity in pose.entities:
-            entity.write_oligomer(out_path=os.path.join(tx_dir, f'{entity.name}_{sampling_id}.pdb'))
-
-        if job.output_assembly:
-            # pose.generate_assembly_symmetry_models(surrounding_uc=output_surrounding_uc)
-            if sym_entry.unit_cell:  # 2, 3 dimensions
-                if job.output_surrounding_uc:
-                    assembly_path = os.path.join(tx_dir, 'surrounding_unit_cells.pdb')
-                else:
-                    assembly_path = os.path.join(tx_dir, 'central_uc.pdb')
-            else:  # 0 dimension
-                assembly_path = os.path.join(tx_dir, 'expanded_assembly.pdb')
-            pose.write(assembly=True, out_path=assembly_path, header=cryst_record,
-                       surrounding_uc=job.output_surrounding_uc)
-        log.info(f'\tSUCCESSFUL DOCKED POSE: {tx_dir}')
-
-        # Return the indices sorted by match value in descending order, truncated at the number of passing
-        # sorted_fragment_indices = np.argsort(all_fragment_match)[:number_passing_overlaps:-1]
-        # sorted_match_scores = all_fragment_match[sorted_fragment_indices]
-        # Return the indices sorted by z_value in ascending order, truncated at the number of passing
-        sorted_fragment_indices = np.argsort(all_fragment_z_score)[:number_passing_overlaps]
-        sorted_match_scores = match_score_from_z_value(all_fragment_z_score[sorted_fragment_indices])
-        # sorted_match_scores = match_score_from_z_value(sorted_z_values)
-        # log.debug('Overlapping Match Scores: %s' % sorted_match_scores)
-        # sorted_overlap_indices = passing_overlaps_indices[sorted_fragment_indices]
-        # interface_ghost_frags = complete_ghost_frags1[interface_ghost_indices1][passing_ghost_indices[sorted_overlap_indices]]
-        # interface_surf_frags = complete_surf_frags2[surf_indices_in_interface2][passing_surf_indices[sorted_overlap_indices]]
-        overlap_ghosts = passing_ghost_indices[sorted_fragment_indices]
-        # overlap_passing_ghosts = passing_ghost_indices[sorted_fragment_indices]
-        overlap_surf = passing_surf_indices[sorted_fragment_indices]
-        # overlap_passing_surf = passing_surf_indices[sorted_fragment_indices]
-        # interface_ghost_frags = [complete_ghost_frags1[bool_idx] for bool_idx, bool_result in enumerate(interface_ghost_indices1)
-        #                   if bool_result and bool_idx in overlap_passing_ghosts]
-        # interface_surf_frags = [complete_surf_frags2[bool_idx] for bool_idx, bool_result in enumerate(surf_indices_in_interface2)
-        #                   if bool_result and bool_idx in overlap_passing_surf]
-        # interface_ghost_frags = complete_ghost_frags1[interface_ghost_indices1]
-        # interface_surf_frags = complete_surf_frags2[surf_indices_in_interface2]
-        sorted_int_ghostfrags: list[GhostFragment] = [complete_ghost_frags1[idx] for idx in overlap_ghosts]
-        sorted_int_surffrags2: list[Residue] = [complete_surf_frags2[idx] for idx in overlap_surf]
-        # For all matched interface fragments
-        # Keys are (chain_id, res_num) for every residue that is covered by at least 1 fragment
-        # Values are lists containing 1 / (1 + z^2) values for every (chain_id, res_num) residue fragment match
-        chid_resnum_scores_dict_model1, chid_resnum_scores_dict_model2 = {}, {}
-        # Number of unique interface mono fragments matched
-        unique_frags_info1, unique_frags_info2 = set(), set()
-        res_pair_freq_info_list = []
-        for frag_idx, (int_ghost_frag, int_surf_frag, match) in \
-                enumerate(zip(sorted_int_ghostfrags, sorted_int_surffrags2, sorted_match_scores), 1):
-            surf_frag_chain1, surf_frag_central_res_num1 = int_ghost_frag.aligned_chain_and_residue
-            surf_frag_chain2, surf_frag_central_res_num2 = int_surf_frag.aligned_chain_and_residue
-            # Todo
-            #  surf_frag_chain1, surf_frag_central_res_num1 = int_ghost_residue.chain, int_ghost_residue.number
-            #  surf_frag_chain2, surf_frag_central_res_num2 = int_surf_residue.chain, int_surf_residue.number
-
-            covered_residues_model1 = [(surf_frag_chain1, surf_frag_central_res_num1 + j) for j in range(-2, 3)]
-            covered_residues_model2 = [(surf_frag_chain2, surf_frag_central_res_num2 + j) for j in range(-2, 3)]
-            # match = sorted_match_scores[frag_idx - 1]
-            for k in range(fragment_db.fragment_length):
-                chain_resnum1 = covered_residues_model1[k]
-                chain_resnum2 = covered_residues_model2[k]
-                if chain_resnum1 not in chid_resnum_scores_dict_model1:
-                    chid_resnum_scores_dict_model1[chain_resnum1] = [match]
-                else:
-                    chid_resnum_scores_dict_model1[chain_resnum1].append(match)
-
-                if chain_resnum2 not in chid_resnum_scores_dict_model2:
-                    chid_resnum_scores_dict_model2[chain_resnum2] = [match]
-                else:
-                    chid_resnum_scores_dict_model2[chain_resnum2].append(match)
-
-            # if (surf_frag_chain1, surf_frag_central_res_num1) not in unique_frags_info1:
-            unique_frags_info1.add((surf_frag_chain1, surf_frag_central_res_num1))
-            # if (surf_frag_chain2, surf_frag_central_res_num2) not in unique_frags_info2:
-            unique_frags_info2.add((surf_frag_chain2, surf_frag_central_res_num2))
-
-            if match >= high_quality_match_value:
-                matched_fragment_dir = high_quality_matches_dir
-            else:
-                matched_fragment_dir = low_quality_matches_dir
-
-            os.makedirs(matched_fragment_dir, exist_ok=True)
-
-            # if write_fragments:  # write out aligned cluster representative fragment
-            # # Old method
-            # fragment, _ = ijk_frag_db.paired_frags[int_ghost_frag.ijk]
-            # trnsfmd_ghost_fragment = fragment.get_transformed_copy(*int_ghost_frag.transformation)
-            # trnsfmd_ghost_fragment.transform(**specific_transformation1)
-            # trnsfmd_ghost_fragment.write(
-            #     out_path=os.path.join(matched_fragment_dir,
-            #                           'int_frag_i{}_j{}_k{}_{}OLD.pdb'.format(
-            #                               *int_ghost_frag.ijk, frag_idx)))
-            # New Method
-            ghost_frag_rep = int_ghost_frag.representative.get_transformed_copy(**specific_transformation1)
-            ghost_frag_rep.write(out_path=os.path.join(matched_fragment_dir,
-                                                       'int_frag_i{}_j{}_k{}_{}.pdb'.format(
-                                                           *int_ghost_frag.ijk, frag_idx)))
-            # transformed_ghost_fragment = int_ghost_frag.structure.get_transformed_copy(
-            #     rotation=rot_mat1, translation=internal_tx_param1,
-            #     rotation2=sym_entry.setting_matrix1, translation2=external_tx_params1)
-            # transformed_ghost_fragment.write(os.path.join(matched_fragment_dir, 'int_frag_%s_%d.pdb'
-            #                                               % ('i%d_j%d_k%d' % int_ghost_frag.ijk, frag_idx)))
-            z_value = z_value_from_match_score(match)
-            ghost_frag_central_freqs = \
-                dictionary_lookup(fragment_db.info, int_ghost_frag.ijk).central_residue_pair_freqs
-            # write out associated match information to frag_info_file
-            write_frag_match_info_file(ghost_frag=int_ghost_frag, matched_frag=int_surf_frag,
-                                       overlap_error=z_value, match_number=frag_idx,
-                                       out_path=matching_fragments_dir, pose_id=pose_id)
-
-            # Keep track of residue pair frequencies and match information
-            res_pair_freq_info_list.append(FragMatchInfo(ghost_frag_central_freqs,
-                                                         surf_frag_chain1, surf_frag_central_res_num1,
-                                                         surf_frag_chain2, surf_frag_central_res_num2, z_value))
-
-        # log.debug('Wrote Fragments to matching_fragments')
-        # calculate weighted frequency for central residues and write weighted frequencies to frag_text_file
-        weighted_seq_freq_info = SeqFreqInfo(res_pair_freq_info_list)
-        weighted_seq_freq_info.write(os.path.join(matching_fragments_dir, frag_text_file))
-
-        unique_matched_monofrag_count = len(unique_frags_info1) + len(unique_frags_info2)
-        unique_total_monofrags_count = unique_interface_frag_count_model1 + unique_interface_frag_count_model2
-        percent_of_interface_covered = unique_matched_monofrag_count / float(unique_total_monofrags_count)
-
-        # Calculate Nanohedra Residue Level Summation Score
-        res_lev_sum_score = 0
-        for res_scores_list1 in chid_resnum_scores_dict_model1.values():
-            n1 = 1
-            res_scores_list_sorted1 = sorted(res_scores_list1, reverse=True)
-            for sc1 in res_scores_list_sorted1:
-                res_lev_sum_score += sc1 * (1 / float(n1))
-                n1 = n1 * 2
-        for res_scores_list2 in chid_resnum_scores_dict_model2.values():
-            n2 = 1
-            res_scores_list_sorted2 = sorted(res_scores_list2, reverse=True)
-            for sc2 in res_scores_list_sorted2:
-                res_lev_sum_score += sc2 * (1 / float(n2))
-                n2 = n2 * 2
-
-        # Write Out Docked Pose Info to docked_pose_info_file.txt
-        write_docked_pose_info(tx_dir, res_lev_sum_score, high_qual_match_count, unique_matched_monofrag_count,
-                               unique_total_monofrags_count, percent_of_interface_covered, rot_mat1, internal_tx_param1,
-                               sym_entry.setting_matrix1, external_tx_params1, rot_mat2, internal_tx_param2,
-                               sym_entry.setting_matrix2, external_tx_params2, cryst_record, model1.file_path,
-                               model2.file_path, pose_id)
 
     log.info(f'Found {len(zero_counts)} zero counts')
     if not interface_is_viable:  # There were no successful transforms
@@ -2892,7 +2572,7 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
     per_residue_data = {}
     interface_metrics = {}
     interface_local_density = {}
-    all_sequences = {}
+    pose_sequences = {}
     # all_scores = {}
     all_probabilities = {}
     pose_length = pose.number_of_residues
@@ -2904,6 +2584,8 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
                           'type': protein_letters_3to1.get(residue.type), 'hbond': 0}
          for entity in pose.entities for residue in entity.residues}
     residue_info = {pose_source: pose_source_residue_info}
+
+    # Check if interface design should be performed
     if design_output:
         # Extract parameters to run ProteinMPNN design and modulate memory requirements
         log.debug(f'The mpnn_model.device is: {mpnn_model.device}')
@@ -3080,24 +2762,21 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
                         rot_str = 'ROT_{}'.format('_'.join(map(str, rot_counts[fragment_idx])))
                         tx_str = f'TX_{tx_counts[fragment_idx]}'  # translation idx
                         pt_str = f'PT_{int(transform_idx%number_of_perturbations) + 1}'
-                        tx_dir = os.path.join(outdir, degen_str, rot_str, tx_str.lower(), pt_str)
+                        out_dir = os.path.join(outdir, degen_str, rot_str, tx_str.lower(), pt_str)
                         sampling_id = f'{degen_str}-{rot_str}-{tx_str}-{pt_str}'
                         pose_id = f'{building_blocks}-{sampling_id}'
 
-                        # Load the z-scores and fragments for use in gather_pose_metrics()
-                        # pose.find_and_split_interface()  # Now done in gather_pose_metrics()
-                        _per_residue_data, _interface_metrics, _interface_local_density = \
-                            gather_pose_metrics(all_passing_ghost_indices[fragment_idx],
-                                                all_passing_surf_indices[fragment_idx],
-                                                all_passing_z_scores[fragment_idx])
-                        # # Alternatively, calculate these fresh from the new pose
-                        # _per_residue_data, _interface_metrics, _interface_local_density = \
-                        #     gather_pose_metrics()
+                        # add_fragments_to_pose() either loading fragments or generating fresh
+                        # pose.find_and_split_interface()  # Now done in add_fragments_to_pose()
+                        add_fragments_to_pose(all_passing_ghost_indices[fragment_idx],
+                                              all_passing_surf_indices[fragment_idx],
+                                              all_passing_z_scores[fragment_idx])
 
                         pose_ids.append(pose_id)
-                        per_residue_data[pose_id] = _per_residue_data
-                        interface_metrics[pose_id] = _interface_metrics
-                        interface_local_density[pose_id] = _interface_local_density
+                        per_residue_data[pose_id] = pose.get_per_residue_interface_metrics()  # _per_residue_data
+                        interface_metrics[pose_id] = pose.interface_metrics()  # _interface_metrics
+                        interface_local_density[pose_id] = pose.local_density_interface()  # _interface_local_density
+
                         # Todo reinstate?
                         # output_pose(tx_dir, sampling_id)  # , sequence_design=design_output)
 
@@ -3290,7 +2969,7 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
                     del decoding_order_out
                     del chain_residue_mask
                     del log_probs
-                    del mask_for_loss
+                    # del mask_for_loss
                     del batch_scores_per_residue
                 except NameError:
                     pass
@@ -3307,7 +2986,7 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
 
         # Save each pose information
         for idx, pose_id in enumerate(pose_ids):
-            all_sequences[pose_id] = sequences[idx]
+            pose_sequences[pose_id] = ''.join(sequences[idx])
             # all_scores[pose_id] = per_residue_sequence_scores[idx]
             _per_residue_complex_scores = per_residue_sequence_scores[idx]
             _per_residue_unbound_scores = per_residue_unbound_scores[idx]
@@ -3356,8 +3035,30 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
             all_sequences_split.append(sequences[:, entity_slice].tolist())
 
         all_sequences_by_entity = list(zip(*all_sequences_split))
-    else:
-        pose_collapse_df = pd.DataFrame()
+        all_mutations = generate_mutations_from_reference(pose.sequence, pose_sequences)  # , zero_index=True)
+    elif dock_only:  # Only get pose outputs, no sequences or metrics
+        for idx, overlap_ghosts in enumerate(all_passing_ghost_indices):
+            update_pose_coords(idx)
+
+            # Todo index the perturbations with an idx for the DEGEN_ROT_TX format
+            # Todo replace with PoseDirectory? Path object?
+            # temp indexing on degen and rot counts
+            # degen1_count, degen2_count = degen_counts[idx]
+            # rot1_count, rot2_count = rot_counts[idx]
+            # temp indexing on degen and rot counts
+            degen_str = 'DEGEN_{}'.format('_'.join(map(str, degen_counts[idx])))
+            rot_str = 'ROT_{}'.format('_'.join(map(str, rot_counts[idx])))
+            tx_str = f'TX_{tx_counts[idx]}'  # translation idx
+            pt_str = f'PT_{int(idx % number_of_perturbations) + 1}'
+            out_dir = os.path.join(outdir, degen_str, rot_str, tx_str.lower(), pt_str)
+            sampling_id = f'{degen_str}-{rot_str}-{tx_str}-{pt_str}'
+            pose_id = f'{building_blocks}-{sampling_id}'
+
+            output_pose(out_dir, sampling_id)  # , sequence_design=design_output)
+
+        log.info(f'Total {building_blocks} dock trajectory took {time.time() - frag_dock_time_start:.2f}s')
+        return  # End of docking run
+    else:  # Dock and metrics
         # Only get metrics for pose, no sequences
         for idx, overlap_ghosts in enumerate(all_passing_ghost_indices):
             update_pose_coords(idx)
@@ -3371,25 +3072,28 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
             degen_str = 'DEGEN_{}'.format('_'.join(map(str, degen_counts[idx])))
             rot_str = 'ROT_{}'.format('_'.join(map(str, rot_counts[idx])))
             tx_str = f'TX_{tx_counts[idx]}'  # translation idx
-            # degen_subdir_out_path = os.path.join(outdir, degen_str)
-            # rot_subdir_out_path = os.path.join(degen_subdir_out_path, rot_str)
-            tx_dir = os.path.join(outdir, degen_str, rot_str, tx_str.lower())
-            sampling_id = f'{degen_str}-{rot_str}-{tx_str}'
+            pt_str = f'PT_{int(idx % number_of_perturbations) + 1}'
+            out_dir = os.path.join(outdir, degen_str, rot_str, tx_str.lower(), pt_str)
+            sampling_id = f'{degen_str}-{rot_str}-{tx_str}-{pt_str}'
             pose_id = f'{building_blocks}-{sampling_id}'
 
-            # Load the z-scores and fragments for use in output_pose()
-            # overlap_surf = all_passing_surf_indices[idx]
-            # sorted_z_scores = all_passing_z_scores[idx]
-            _per_residue_data, _interface_metrics, _interface_local_density = \
-                gather_pose_metrics(overlap_ghosts, all_passing_surf_indices[idx], all_passing_z_scores[idx])
+            output_pose(out_dir, sampling_id)  # , sequence_design=design_output)
 
-            per_residue_data[pose_id] = _per_residue_data
-            interface_metrics[pose_id] = _interface_metrics
-            interface_local_density[pose_id] = _interface_local_density
-            output_pose(tx_dir, sampling_id)  # , sequence_design=design_output)
+            # add_fragments_to_pose() either loading fragments or generating fresh
+            # pose.find_and_split_interface()  # Now done in add_fragments_to_pose()
+            add_fragments_to_pose(overlap_ghosts,
+                                  all_passing_surf_indices[idx],
+                                  all_passing_z_scores[idx])
 
-    # Save all pose transformations
-    # Format them for output
+            pose_ids.append(pose_id)
+            per_residue_data[pose_id] = pose.get_per_residue_interface_metrics()  # _per_residue_data
+            interface_metrics[pose_id] = pose.interface_metrics()  # _interface_metrics
+            interface_local_density[pose_id] = pose.local_density_interface()  # _interface_local_density
+
+        # Generate placeholder all_mutations which only contains "reference"
+        all_mutations = generate_mutations_from_reference(pose.sequence, pose_sequences)  # , zero_index=True)
+
+    # Save all pose transformations, formatting them for output
     # full_rotation1 = full_rotation1
     full_int_tx1 = full_int_tx1.squeeze()
     # set_mat1 = set_mat1
@@ -3421,39 +3125,33 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
     scores_df = pd.DataFrame(pose_transformations).T
 
     # Calculate full suite of metrics
-    scores_df['interface_local_density'] = pd.Series(interface_local_density)
-
-    residue_indices = list(range(1, pose_length+1))
-    per_residue_df = pd.concat({name: pd.DataFrame(data, index=residue_indices)
-                                for name, data in per_residue_data.items()}).unstack().swaplevel(0, 1, axis=1)
-    print('per_residue_df', per_residue_df)
-    # Can't use this as each pose is different
-    # index_residues = list(pose.interface_design_residue_numbers)
-    # residue_df = pd.merge(residue_df.loc[:, idx_slice[index_residues, :]],
-    #                       per_residue_df.loc[:, idx_slice[index_residues, :]],
-    #                       left_index=True, right_index=True)
-
-    # Process mutational frequencies, H-bond, and Residue energy metrics to dataframe
-    residue_df = pd.concat({design: pd.DataFrame(info) for design, info in residue_info.items()}).unstack()
-
-    residue_df = pd.merge(residue_df, per_residue_df, left_index=True, right_index=True)
-    # Make buried surface area (bsa) columns
-    residue_df = calculate_residue_surface_area(residue_df)  # , index_residues)
-
-    source_errat = []
+    source_errat, source_contact_order = [], []
     for idx, entity in enumerate(pose.entities):
+        # Contact order is the same for every design in the Pose and not dependent on pose
+        source_contact_order.append(entity.contact_order)
         # Replace 'errat_deviation' measurement with uncomplexed entities
         # oligomer_errat_accuracy, oligomeric_errat = entity_oligomer.errat(out_path=self.data)
-        # source_errat_accuracy.append(oligomer_errat_accuracy)
         # Todo when Entity.oligomer works
         #  _, oligomeric_errat = entity.oligomer.errat(out_path=self.data)
         entity_oligomer = Model.from_chains(entity.chains, log=log, entities=False)
         _, oligomeric_errat = entity_oligomer.errat(out_path=os.devnull)
         source_errat.append(oligomeric_errat[:entity.number_of_residues])
-    # atomic_deviation[pose_source] = sum(source_errat_accuracy) / float(number_of_entities)
+
+    residue_indices = list(range(1, pose_length+1))
+    per_residue_data = {}  # pose_source: pose.get_per_residue_interface_metrics()}
+    pose_source_contact_order_s = \
+        pd.Series(np.concatenate(source_contact_order), index=residue_indices, name='contact_order')
     pose_source_errat_s = pd.Series(np.concatenate(source_errat), index=residue_indices)
 
-    # include in errat_deviation if errat score is < 2 std devs and isn't 0 to begin with
+    per_residue_data[pose_source] = {'contact_order': pose_source_contact_order_s,
+                                     'errat_deviation': pose_source_errat_s}
+
+    # Construct per_residue_df
+    per_residue_df = pd.concat({name: pd.DataFrame(data, index=residue_indices)
+                                for name, data in per_residue_data.items()}).unstack().swaplevel(0, 1, axis=1)
+    print('per_residue_df', per_residue_df)
+
+    # Include in errat_deviation if errat score is < 2 std devs and isn't 0 to begin with
     source_errat_inclusion_boolean = np.logical_and(pose_source_errat_s < errat_2_sigma, pose_source_errat_s != 0.)
     errat_df = per_residue_df.loc[:, idx_slice[:, 'errat_deviation']].droplevel(-1, axis=1)
     # find where designs deviate above wild-type errat scores
@@ -3461,16 +3159,130 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
     # then select only those residues which are expressly important by the inclusion boolean
     scores_df['errat_deviation'] = (errat_sig_df.loc[:, source_errat_inclusion_boolean] * 1).sum(axis=1)
 
+    # Can't use below as each pose is different
+    # index_residues = list(pose.interface_design_residue_numbers)
+    # residue_df = pd.merge(residue_df.loc[:, idx_slice[index_residues, :]],
+    #                       per_residue_df.loc[:, idx_slice[index_residues, :]],
+    #                       left_index=True, right_index=True)
+
+    # Process mutational frequencies, H-bond, and Residue energy metrics to dataframe
+    residue_info = process_residue_info(residue_info)
+    residue_info = incorporate_mutation_info(residue_info, all_mutations)
+    residue_df = pd.concat({design: pd.DataFrame(info) for design, info in residue_info.items()}).unstack()
+
+    residue_df = pd.merge(residue_df, per_residue_df, left_index=True, right_index=True)
+    scores_df['interface_local_density'] = pd.Series(interface_local_density)
+
+    # Make buried surface area (bsa) columns
+    residue_df = calculate_residue_surface_area(residue_df)  # , index_residues)
+
     interface_metrics_df = pd.DataFrame(interface_metrics).T
     if design_output:
         # Calculate hydrophobic collapse for each design
+        warn = True
+        # Add Entity information to the Pose
+        for entity in pose.entities:
+            try:  # To fetch the multiple sequence alignment for further processing
+                # entity.sequence_file = job.api_db.sequences.retrieve_file(name=entity.name)
+                # if not entity.sequence_file:
+                #     entity.write_sequence_to_fasta('reference', out_dir=job.sequences)
+                #     # entity.add_evolutionary_profile(out_dir=job.api_db.hhblits_profiles.location)
+                # else:
+                entity.evolutionary_profile = job.api_db.hhblits_profiles.retrieve_data(name=entity.name)
+                entity.msa = job.api_db.alignments.retrieve_data(name=entity.name)
+            except ValueError:  # When the Entity reference sequence and alignment are different lengths
+                if not warn:
+                    log.info(f'Metrics relying on a multiple sequence alignment are not being collected as '
+                             f'there is no MSA found. These include: '
+                             f'{", ".join(multiple_sequence_alignment_dependent_metrics)}')
+                    warn = False
         # Todo, should the reference pose be used? -> + [entity.sequence for entity in pose.entities]
         # Include the pose as the pose_source in the measured designs
         folding_and_collapse = calculate_collapse_metrics(pose, all_sequences_by_entity)
-        pose_collapse_df = pd.DataFrame({pose_ids[idx]: data for idx, data in enumerate(folding_and_collapse)}).T
+        # Todo get the keys right here
+        pose_collapse_df = pd.concat([pd.DataFrame({pose_ids[idx]: data
+                                                    for idx, data in enumerate(folding_and_collapse)}).T],
+                                     keys=[('sequence', 'pose')], axis=1)
         print('pose_collapse_df', pose_collapse_df)
 
-        all_mutations = generate_mutations_from_reference(pose.sequence, all_sequences)
+        # Load profiles of interest into the analysis
+        profile_background = {}
+        pose.evolutionary_profile = combine_profile([entity.evolutionary_profile for entity in pose.entities])
+        if pose.evolutionary_profile:
+            profile_background['evolution'] = pssm_as_array(pose.evolutionary_profile)
+        else:
+            pose.log.info('No evolution information')
+        if job.fragment_db is not None:
+            interface_bkgd = np.array(list(job.fragment_db.aa_frequencies.values()))
+            profile_background['interface'] = np.tile(interface_bkgd, (pose.number_of_residues, 1))
+
+        all_pose_divergence = []
+        # Todo the poses must be iterated over!
+        #  Need to refactor these metrics into the ProteinMPNN design section,
+        #  or regenerate the poses here with update_pose_coords(idx)
+        for pose in pose_ids:
+            # We already have the fragment information for the two Models. We can expand with symmetry related fragments
+            pose.generate_interface_fragments()
+            # OR leave these out
+            # pose.fragment_queries[(entity for entity in pose.entities)] =
+            # (Entity1, Entity2), list[fragment_info_type]
+            for query_pair, fragment_info in pose.fragment_queries.items():
+                # self.log.debug(f'Query Pair: {query_pair[0].name}, {query_pair[1].name}'
+                #                f'\n\tFragment Info:{fragment_info}')
+                for query_idx, entity in enumerate(query_pair):
+                    entity.add_fragments_to_profile(fragments=fragment_info,
+                                                    alignment_type=alignment_types[query_idx])
+            # for entity in pose.entities:
+            #     entity.add_profile(evolution=not job.no_evolution_constraint,
+            #                        fragments=job.generate_fragments)
+            # pose.add_fragments_to_profile(fragments=)
+            pose.fragment_profile = combine_profile([entity.fragment_profile for entity in pose.entities])
+            # if pose.fragment_profile:
+            profile_background['fragment'] = pssm_as_array(pose.fragment_profile)
+            # else:
+            #     pose.log.info('No fragment information')
+
+            pose.add_profile(evolution=not job.no_evolution_constraint,
+                             fragments=job.generate_fragments)
+            if pose.profile:
+                profile_background['design'] = pssm_as_array(pose.profile)
+            # else:
+            #     pose.log.info('Design has no fragment information')
+
+            if not profile_background:
+                divergence_s = pd.Series(dtype=float)
+            else:  # Calculate sequence statistics
+                # First, for entire pose
+                interface_indexer = [residue.index for residue in pose.interface_residues]
+                pose_alignment = MultipleSequenceAlignment.from_dictionary(pose_sequences)
+                # This measurement is performed on a single pose with different design trajectories.
+                # Here, we only have a single trajectory per pose and therefore the divergence doesn't make sense
+                observed, divergence = \
+                    calculate_sequence_observations_and_divergence(pose_alignment,
+                                                                   profile_background,
+                                                                   interface_indexer)
+                # Get pose sequence divergence
+                # Todo remove as not useful!
+                #  divergence_s = pd.concat([pd.Series({f'{divergence_type}_per_residue': _divergence.mean()
+                #                                            for divergence_type, _divergence in divergence.items()})],
+                #                                keys=[('sequence_design', 'pose')])
+                # Todo extract the observed values out of the observed dictionary
+                #  Each Pose only has one trajectory, so measurement of divergence is pointless (no distribution)
+                observed_dfs = []
+                for profile, observed_values in observed.items():
+                    scores_df[f'observed_{profile}'] = observed_values.mean(axis=1)
+                    observed_dfs.append(pd.DataFrame(data=observed_values, index=pose_ids,
+                                                     columns=pd.MultiIndex.from_product([residue_indices,
+                                                                                         [f'observed_{profile}']]))
+                                        )
+                # Add observation information into the residue_df
+                residue_df = pd.concat([residue_df] + observed_dfs, axis=1)
+
+            all_pose_divergence.append(divergence_s)
+
+        # Todo get the keys right here
+        all_pose_divergence_df = pd.concat(all_pose_divergence, index=pose_ids, keys=[('sequence', 'pose')], axis=1)
+
         scores_df['number_of_mutations'] = \
             pd.Series({design: len(mutations) for design, mutations in all_mutations.items()})
         scores_df['percent_mutations'] = \
@@ -3485,6 +3297,9 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
             scores_df[f'entity_{idx}_percent_mutations'] = \
                 scores_df[f'entity_{idx}_number_of_mutations'] \
                 / interface_metrics_df.loc[:, f'entity_{idx}_number_of_residues']
+    else:
+        pose_collapse_df = pd.DataFrame()
+        all_pose_divergence_df = pd.DataFrame()
 
     # is_thermophilic = []
     # idx = 1
@@ -3493,13 +3308,31 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
 
     # Get the average thermophilicity for all entities
     interface_metrics_df['entity_thermophilicity'] = \
-        interface_metrics_df.loc[:, [f'entity_{idx}_thermophile' for idx in range(1, pose.number_of_entities)]] \
-        / pose.number_of_entities
+        interface_metrics_df.loc[:, [f'entity_{idx}_thermophile'
+                                     for idx in range(1, pose.number_of_entities)]
+                                 ].sum(axis=1) / pose.number_of_entities
 
-    scores_df = pd.concat([scores_df, pose_collapse_df], axis=1)
+    # interface_metrics_s = pd.Series(interface_metrics_df)
+    # Concatenate all design information after parsing data sources
+    # interface_metrics_df = pd.concat([interface_metrics_df], keys=[('dock', 'pose')])
+    # scores_df = pd.concat([scores_df], keys=[('dock', 'pose')], axis=1)
+    # Todo incorporate full sequence ProteinMPNN summation into scores_df. Find meaning of probabilities
+    scores_df = pd.concat([scores_df, interface_metrics_df], keys=[('dock', 'pose')], axis=1)
     print('scores_df', scores_df)
+    # Todo incorporate residue_df summation into scores_df
+    #  interface_composition_similarity, observed_*, interface_energy_delta, solvation_energy, etc.
     print('residue_df', residue_df)
 
+    # CONSTRUCT: Create pose series and format index names
+    pose_df = pd.concat([scores_df, interface_metrics_df, all_pose_divergence_df]).swaplevel(0, 1)
+    # Remove pose specific metrics from pose_df and sort
+    pose_df.sort_index(level=2, inplace=True, sort_remaining=False)  # ascending=True, sort_remaining=True)
+    pose_df.sort_index(level=1, inplace=True, sort_remaining=False)  # ascending=True, sort_remaining=True)
+    pose_df.sort_index(level=0, inplace=True, sort_remaining=False)  # ascending=False
+    pose_df.name = str(building_blocks)
+
+    pose_df.to_csv(os.path.join(job.all_scores, f'{building_blocks}_docked_poses.csv'))
+    # return pose_s
     log.info(f'Total {building_blocks} dock trajectory took {time.time() - frag_dock_time_start:.2f}s')
 
 
