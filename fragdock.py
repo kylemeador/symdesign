@@ -3177,7 +3177,7 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
     scores_df['interface_local_density'] = pd.Series(interface_local_density)
 
     # Make buried surface area (bsa) columns
-    residue_df = calculate_residue_surface_area(residue_df)  # , index_residues)
+    residue_df = calculate_residue_surface_area(residue_df)  # .loc[:, idx_slice[index_residues, :]])
 
     interface_metrics_df = pd.DataFrame(interface_metrics).T
     if design_output:
