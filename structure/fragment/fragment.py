@@ -66,13 +66,17 @@ class FragmentDatabase(FragmentInfo):
             stacked_bb_coords.append(frag_model.chain(frag_paired_chain).backbone_coords)
             # Todo store these as a numpy array instead of as a chain
             stacked_guide_coords.append(frag_model.chain('9').coords)
+        logger.debug(f'Last representative file: {frag_model}, Paired chain: {frag_paired_chain}')
 
         stacked_bb_coords = np.array(stacked_bb_coords)
         stacked_guide_coords = np.array(stacked_guide_coords)
+        logger.debug(f'stacked_bb_coords {stacked_bb_coords.shape}')
+        logger.debug(f'stacked_guide_coords {stacked_guide_coords.shape}')
 
         stacked_rmsds = np.array([self.info[ijk].rmsd for ijk in ijk_types])
         # Todo ensure rmsd rounded correct upon creation
         stacked_rmsds = np.where(stacked_rmsds == 0, 0.0001, stacked_rmsds)
+        logger.debug(f'stacked_rmsds {stacked_rmsds.shape}')
 
         # Split data into separate i_types
         prior_idx = 0
@@ -82,7 +86,13 @@ class FragmentDatabase(FragmentInfo):
                 self.indexed_ghosts[prior_i_type] = \
                     (stacked_bb_coords[prior_idx:idx], stacked_guide_coords[prior_idx:idx],
                      np.array(ijk_types[prior_idx:idx]), stacked_rmsds[prior_idx:idx])
+                prior_i_type = i_type
                 prior_idx = idx
+
+        # One more time for the final index
+        self.indexed_ghosts[prior_i_type] = \
+            (stacked_bb_coords[prior_idx:idx], stacked_guide_coords[prior_idx:idx],
+             np.array(ijk_types[prior_idx:idx]), stacked_rmsds[prior_idx:idx])
 
     def calculate_match_metrics(self, fragment_matches: list[fragment_info_type]) -> dict:
         """Return the various metrics calculated by overlapping fragments at the interface of two proteins
