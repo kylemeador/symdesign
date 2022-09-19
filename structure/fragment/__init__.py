@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+from abc import ABC
 from itertools import repeat
 from typing import IO, Sequence, AnyStr
 
@@ -414,7 +415,7 @@ class MonoFragment(Fragment):
     #     return new_structure
 
 
-class ResidueFragment(Fragment):
+class ResidueFragment(Fragment, ABC):
     """Represent Fragment information for a single Residue"""
 
     def __init__(self, **kwargs):
