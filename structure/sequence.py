@@ -9,7 +9,7 @@ from itertools import repeat
 from logging import Logger
 from math import floor, exp, log2
 from pathlib import Path
-from typing import Sequence, Any, Iterable, get_args, Literal, Iterator, AnyStr
+from typing import Sequence, Any, Iterable, get_args, Literal, Iterator, AnyStr, Type
 
 import numpy as np
 import pandas as pd
@@ -2726,9 +2726,13 @@ def generate_alignment(seq1: Sequence[str], seq2: Sequence[str], matrix: str = '
     return align[0] if top_alignment else align
 
 
+mutation_entry = Type[dict[Literal['to', 'from'], structure.utils.protein_letters_alph3_gapped_literal]]
+mutation_dictionary = dict[int, mutation_entry]
+
+
 def generate_mutations(reference: Sequence, query: Sequence, offset: bool = True, blanks: bool = False,
                        remove_termini: bool = True, remove_query_gaps: bool = True, only_gaps: bool = False,
-                       zero_index: bool = False, return_all: bool = False) -> dict[int, dict[str, str]]:
+                       zero_index: bool = False, return_all: bool = False) -> mutation_dictionary:
     """Create mutation data in a typical A5K format. One-indexed dictionary keys with the index matching the reference
      sequence index. Sequence mutations accessed by "from" and "to" keys. By default, all gaped sequences are excluded
      from returned mutation dictionary
@@ -2809,7 +2813,8 @@ def make_mutations_chain_agnostic(mutations):
     return flattened_mutations
 
 
-def simplify_mutation_dict(mutations, to=True):
+def simplify_mutation_dict(mutations: dict[str, mutation_dictionary], to: bool = True) \
+        -> dict[str, mutation_dictionary]:
     """Simplify mutation dictionary to 'to'/'from' AA key
 
     Args:
@@ -3142,8 +3147,8 @@ def generate_multiple_mutations(reference, sequences, pose_num=True):
     return mutations
 
 
-def generate_mutations_from_reference(reference: str, sequences: dict[str, str]) -> \
-        dict[str, dict[int, dict[str, str]]]:
+def generate_mutations_from_reference(reference: Sequence[str], sequences: dict[str, Sequence[str]], **kwargs) -> \
+        dict[str, mutation_dictionary]:
     """Generate mutation data from multiple sequences dictionaries with regard to a single reference
 
     Args:
