@@ -1897,7 +1897,7 @@ class PoseDirectory:
                     self.log.debug(f'Query Pair: {query_pair[0].name}, {query_pair[1].name}'
                                    f'\n\tFragment Info:{fragment_info}')
                     for query_idx, entity in enumerate(query_pair):
-                        entity.map_fragments_to_profile(fragments=fragment_info,
+                        entity.add_fragments_to_profile(fragments=fragment_info,
                                                         alignment_type=alignment_types[query_idx])
             elif self.fragment_observations or self.fragment_observations == list():
                 pass  # fragment generation was run and maybe succeeded. If not ^
@@ -1924,11 +1924,15 @@ class PoseDirectory:
 
                     if not entity.sequence_file:
                         entity.write_sequence_to_fasta('reference', out_dir=self.job.api_db.sequences.location)
-                    entity.add_profile(evolution=not self.job.no_evolution_constraint,
-                                       fragments=self.job.generate_fragments,
-                                       out_dir=self.job.api_db.hhblits_profiles.location)
+                    # entity.add_profile(evolution=not self.job.no_evolution_constraint,
+                    #                    fragments=self.job.generate_fragments,
+                    #                    out_dir=self.job.api_db.hhblits_profiles.location)
 
             self.pose.combine_sequence_profiles()
+            # I could alo add the combined profile here instead of at each Entity
+            self.pose.add_profile(evolution=not self.job.no_evolution_constraint,
+                                  fragments=self.job.generate_fragments,
+                                  out_dir=self.job.api_db.hhblits_profiles.location)
             # Update PoseDirectory with design information
             if self.job.generate_fragments:  # Set pose.fragment_profile by combining fragment profiles
                 self.pose.fragment_profile = combine_profile([entity.fragment_profile for entity in self.pose.entities])
@@ -3760,19 +3764,25 @@ def interface_design_analysis(pose: Pose, design_poses: Iterable[Pose] = None, s
                                                                        for design_sequences in entity_sequences])))
     pose_collapse_df = pd.DataFrame(folding_and_collapse).T
 
-    # include in errat_deviation if errat score is < 2 std devs and isn't 0 to begin with
-    source_errat_inclusion_boolean = np.logical_and(pose_source_errat_s < errat_2_sigma, pose_source_errat_s != 0.)
-    errat_df = per_residue_df.loc[:, idx_slice[:, 'errat_deviation']].droplevel(-1, axis=1)
-    # find where designs deviate above wild-type errat scores
-    errat_sig_df = (errat_df.sub(pose_source_errat_s, axis=1)) > errat_1_sigma  # axis=1 Series is column oriented
-    # then select only those residues which are expressly important by the inclusion boolean
-    scores_df['errat_deviation'] = (errat_sig_df.loc[:, source_errat_inclusion_boolean] * 1).sum(axis=1)
+    pose.evolutionary_profile = combine_profile([entity.evolutionary_profile for entity in pose.entities])
+    # pose.generate_interface_fragments() was already called
+    # (Entity1, Entity2), list[fragment_info_type]
+    for query_pair, fragment_info in pose.fragment_queries.items():
+        # self.log.debug(f'Query Pair: {query_pair[0].name}, {query_pair[1].name}'
+        #                f'\n\tFragment Info:{fragment_info}')
+        for query_idx, entity in enumerate(query_pair):
+            entity.add_fragments_to_profile(fragments=fragment_info,
+                                            alignment_type=alignment_types[query_idx])
+    # for entity in pose.entities:
+    #     entity.add_profile(evolution=not job.no_evolution_constraint,
+    #                        fragments=job.generate_fragments)
+    # pose.add_fragment_profile()
+    pose.fragment_profile = combine_profile([entity.fragment_profile for entity in pose.entities])
+    # pose.profile = combine_profile([entity.profile for entity in pose.entities])
+    pose.add_profile(evolution=not job.no_evolution_constraint,
+                     fragments=job.generate_fragments)
 
-    # Get design information including: interface residues, SSM's, and wild_type/design files
-    pose.add_evolutionary_profile(self.evolutionary_profile)
-    # Todo ensure that fragment observations are added to Pose
-    pose.add_fragment_profile()
-    pose.add_profile()  # pose.design_profile)
+    # Load profiles of interest into the analysis
     profile_background = {}
     if pose.profile:
         profile_background['design'] = pssm_as_array(pose.profile)
