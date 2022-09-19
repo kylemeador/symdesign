@@ -3320,11 +3320,39 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
                                      for entity in pose.entities for residue in entity.residues}
             all_probabilities[pose_id] = probabilities[idx]
 
-        print('all_probabilities', all_probabilities)
+        # all_probabilities is
+        # {'2gtr-3m6n-DEGEN_1_1-ROT_13_10-TX_1-PT_1':
+        #  array([[1.55571969e-02, 6.64833433e-09, 3.03523801e-03, ...,
+        #          2.94689467e-10, 8.92133514e-08, 6.75683381e-12],
+        #         [9.43517406e-03, 2.54900701e-09, 4.43358254e-03, ...,
+        #          2.19431431e-10, 8.18614296e-08, 4.94338381e-12],
+        #         [1.50658926e-02, 1.43449803e-08, 3.27082584e-04, ...,
+        #          1.70684064e-10, 8.77646258e-08, 6.67974660e-12],
+        #         ...,
+        #         [1.23516358e-07, 2.98688293e-13, 3.48888407e-09, ...,
+        #          1.17041141e-14, 4.72279464e-12, 5.79130243e-16],
+        #         [9.99999285e-01, 2.18584519e-19, 3.87702094e-16, ...,
+        #          7.12933229e-07, 5.22657113e-13, 3.19411591e-17],
+        #         [2.11755684e-23, 2.32944583e-23, 3.86148234e-23, ...,
+        #          1.16764793e-22, 1.62743156e-23, 7.65081924e-23]]),
+        #  '2gtr-3m6n-DEGEN_1_1-ROT_13_10-TX_1-PT_2':
+        #  array([[1.72123183e-02, 7.31348226e-09, 3.28084361e-03, ...,
+        #          3.16341731e-10, 9.09206364e-08, 7.41259137e-12],
+        #         [6.17256807e-03, 1.86070248e-09, 2.70802877e-03, ...,
+        #          1.61229460e-10, 5.94660143e-08, 3.73394328e-12],
+        #         [1.28052337e-02, 1.10993081e-08, 3.89973022e-04, ...,
+        #          2.21829027e-10, 1.03226760e-07, 8.43660298e-12],
+        #         ...,
+        #         [1.31807008e-06, 2.47859654e-12, 2.27575967e-08, ...,
+        #          5.34223104e-14, 2.06900348e-11, 3.35126595e-15],
+        #         [9.99999821e-01, 1.26853575e-19, 2.05691231e-16, ...,
+        #          2.02439509e-07, 5.02121131e-13, 1.38719620e-17],
+        #         [2.01858383e-23, 2.29340987e-23, 3.59583879e-23, ...,
+        #          1.13548109e-22, 1.60868618e-23, 7.25537526e-23]])}
         # Separate sequences by entity
         all_sequences_split = []
         for entity in pose.entities:
-            entity_slice = slice(entity.n_terminal_residue.index, 1+entity.c_terminal_residue.index)
+            entity_slice = slice(entity.n_terminal_residue.index, 1 + entity.c_terminal_residue.index)
             all_sequences_split.append(sequences[:, entity_slice].tolist())
 
         all_sequences_by_entity = list(zip(*all_sequences_split))
@@ -3389,7 +3417,9 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
                                              translation2=full_int_tx2[idx],
                                              rotation2_2=set_mat2,  # Replace with setting matrix number
                                              translation2_2=full_ext_tx2[idx])
+    # Initialize the main scoring DataFrame
     scores_df = pd.DataFrame(pose_transformations).T
+
     # Calculate full suite of metrics
     scores_df['interface_local_density'] = pd.Series(interface_local_density)
 
@@ -3451,7 +3481,7 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
                                                            pose.residue_indices_per_entity), idx):
             scores_df[f'entity_{idx}_number_of_mutations'] = \
                 pd.Series({design: len([residue_idx for residue_idx in mutations if residue_idx in entity_indices])
-                        for design, mutations in all_mutations.items()})
+                           for design, mutations in all_mutations.items()})
             scores_df[f'entity_{idx}_percent_mutations'] = \
                 scores_df[f'entity_{idx}_number_of_mutations'] \
                 / interface_metrics_df.loc[:, f'entity_{idx}_number_of_residues']
