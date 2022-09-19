@@ -11,6 +11,11 @@ from utils.path import protein_mpnn_weights_dir
 logger = start_log(name=__name__)
 mpnn_alphabet = 'ACDEFGHIKLMNPQRSTVWYX'  # protein_letters_alph1_unknown
 mpnn_alphabet_length = len(mpnn_alphabet)
+# # Use these options to bring down GPU memory when using Tensor instances with fixed size to a model
+# torch.backends.cudnn.benchmark = True
+# torch.backends.cudnn.enabled = True
+# pip install GPUtil
+# from GPUtil import showUtilization as gpu_usage
 
 
 class ProteinMPNNFactory:
