@@ -52,6 +52,7 @@ from utils.symmetry import identity_matrix
 logger = start_log(name=__name__)
 pose_logger = start_log(name='pose', handler_level=3, propagate=True)
 zero_offset = 1
+idx_slice = pd.IndexSlice
 # design_directory_modes = [PUtils.interface_design, 'dock', 'filter']
 cst_value = round(0.2 * reference_average_residue_weight, 2)
 mean, std = 'mean', 'std'
@@ -359,6 +360,10 @@ class PoseDirectory:
         # These files may be present from Nanohedra outputs
         self.pose_file = os.path.join(self.source_path, PUtils.pose_file)
         self.frag_file = os.path.join(self.source_path, PUtils.frag_dir, PUtils.frag_text_file)
+        # These files are used as output from analysis protocols
+        self.trajectories = os.path.join(self.job.all_scores, f'{self}_Trajectories.csv')
+        self.residues = os.path.join(self.job.all_scores, f'{self}_Residues.csv')
+        self.design_sequences = os.path.join(self.job.all_scores, f'{self}_Sequences.pkl')
 
         if not self.initialized and 'entity_names' not in self.info:
             # None were provided at start up, find them
@@ -511,17 +516,17 @@ class PoseDirectory:
     #     except AttributeError:
     #         return None
 
-    @property
-    def trajectories(self) -> AnyStr:
-        return os.path.join(self.job.all_scores, f'{self}_Trajectories.csv')
-
-    @property
-    def residues(self) -> AnyStr:
-        return os.path.join(self.job.all_scores, f'{self}_Residues.csv')
-
-    @property
-    def design_sequences(self) -> AnyStr:
-        return os.path.join(self.job.all_scores, f'{self}_Sequences.pkl')
+    # @property
+    # def trajectories(self) -> AnyStr:
+    #     return os.path.join(self.job.all_scores, f'{self}_Trajectories.csv')
+    #
+    # @property
+    # def residues(self) -> AnyStr:
+    #     return os.path.join(self.job.all_scores, f'{self}_Residues.csv')
+    #
+    # @property
+    # def design_sequences(self) -> AnyStr:
+    #     return os.path.join(self.job.all_scores, f'{self}_Sequences.pkl')
 
     # SequenceProfile based attributes
     @property
@@ -2255,7 +2260,7 @@ class PoseDirectory:
         # Todo implement reference sequence from included file(s) or as with self.pose.sequence below
         pose_sequences.update({PUtils.reference_name: self.pose.sequence})
         pose_sequences.update({pose.name: pose.sequence for pose in design_poses})
-        all_mutations = generate_mutations_from_reference(self.pose.sequence, pose_sequences)
+        all_mutations = generate_mutations_from_reference(self.pose.sequence, pose_sequences)  # , zero_index=True)
         #    generate_mutations_from_reference(''.join(self.pose.atom_sequences.values()), pose_sequences)
 
         entity_energies = [0. for ent in self.pose.entities]
@@ -2463,7 +2468,6 @@ class PoseDirectory:
         #                     'sasa_hydrophobic_bound': {}, 'sasa_polar_bound': {}, 'sasa_relative_bound': {}}
         interface_local_density = {pose_source: self.pose.local_density_interface()}
         # atomic_deviation = {}
-        per_residue_data = {pose_source: self.pose.get_per_residue_interface_metrics()}
         # pose_assembly_minimally_contacting = self.pose.assembly_minimally_contacting
         # perform SASA measurements
         # pose_assembly_minimally_contacting.get_sasa()
@@ -2481,16 +2485,6 @@ class PoseDirectory:
         # source_errat_accuracy, source_errat, source_contact_order, inverse_residue_contact_order_z = [], [], [], []
         source_errat, source_contact_order = [], []
         for idx, entity in enumerate(self.pose.entities):
-            try:  # To fetch the multiple sequence alignment for further processing
-                entity.msa = self.job.api_db.alignments.retrieve_data(name=entity.name)
-            except ValueError:  # When the Entity reference sequence and alignment are different lengths
-                if not warn:
-                    self.log.info(f'Metrics relying on a multiple sequence alignment are not being collected as '
-                                  f'there is no MSA found. These include: '
-                                  f'{", ".join(multiple_sequence_alignment_dependent_metrics)}')
-                    warn = False
-                # msa_metrics = False
-                # pass
             # Contact order is the same for every design in the Pose and not dependent on pose
             source_contact_order.append(entity.contact_order)
             if design_was_performed:  # we should respect input structure was not meant to be together
@@ -2502,6 +2496,7 @@ class PoseDirectory:
                 _, oligomeric_errat = entity_oligomer.errat(out_path=self.data)
                 source_errat.append(oligomeric_errat[:entity.number_of_residues])
 
+        per_residue_data = {pose_source: self.pose.get_per_residue_interface_metrics()}
         pose_source_contact_order_s = \
             pd.Series(np.concatenate(source_contact_order), index=residue_indices, name='contact_order')
         per_residue_data[pose_source]['contact_order'] = pose_source_contact_order_s
@@ -2555,7 +2550,17 @@ class PoseDirectory:
         scores_df['interface_local_density'] = pd.Series(interface_local_density)
 
         # Calculate hydrophobic collapse for each design
-        # for design in viable_designs:  # includes the pose_source
+        warn = True
+        # Add Entity information to the Pose
+        for idx, entity in enumerate(self.pose.entities):
+            try:  # To fetch the multiple sequence alignment for further processing
+                entity.msa = self.job.api_db.alignments.retrieve_data(name=entity.name)
+            except ValueError:  # When the Entity reference sequence and alignment are different lengths
+                if not warn:
+                    self.log.info(f'Metrics relying on a multiple sequence alignment are not being collected as '
+                                  f'there is no MSA found. These include: '
+                                  f'{", ".join(multiple_sequence_alignment_dependent_metrics)}')
+                    warn = False
         # Include the pose_source in the measured designs
         folding_and_collapse = calculate_collapse_metrics(self.pose,
                                                           list(zip(*[list(design_sequences.values())
@@ -2584,15 +2589,15 @@ class PoseDirectory:
             profile_background['fragment'] = self.fragment_profile
         else:
             self.log.info('No fragment information')
-        interface_bkgd = np.array(list(self.job.fragment_db.aa_frequencies.values()))
-        if interface_bkgd is not None:
+        if self.job.fragment_db is not None:
+            interface_bkgd = np.array(list(self.job.fragment_db.aa_frequencies.values()))
             profile_background['interface'] = np.tile(interface_bkgd, (self.pose.number_of_residues, 1))
 
         if not profile_background:
             divergence_s = pd.Series(dtype=float)
         else:  # Calculate sequence statistics
             # First, for entire pose
-            interface_indexer = [residue - zero_offset for residue in self.interface_design_residues]
+            interface_indexer = [residue.index for residue in self.pose.interface_residues]
             pose_alignment = MultipleSequenceAlignment.from_dictionary(pose_sequences)
             observed, divergence = \
                 calculate_sequence_observations_and_divergence(pose_alignment, profile_background, interface_indexer)
@@ -2851,8 +2856,8 @@ class PoseDirectory:
                                   [pd.to_numeric(s).to_frame().T for s in pose_stats if not all(s.isna())])
         # this concat ^ puts back pose_source, refine, consensus designs since protocol_stats is calculated on scores_df
         # add all docking and pose information to each trajectory, dropping the pose observations
-        other_metrics_s = pd.Series(other_pose_metrics)
-        pose_metrics_df = pd.concat([other_metrics_s] * number_of_trajectories, axis=1).T
+        interface_metrics_s = pd.Series(other_pose_metrics)
+        pose_metrics_df = pd.concat([interface_metrics_s] * number_of_trajectories, axis=1).T
         trajectory_df = pd.concat([pose_metrics_df.rename(index=dict(zip(range(number_of_trajectories),
                                                                          final_trajectory_indices)))
                                   .drop(['observations'], axis=1), trajectory_df], axis=1)
@@ -3226,10 +3231,10 @@ class PoseDirectory:
             fig.savefig(os.path.join(self.data, 'DesignMetricsPerResidues.png'))
 
         # After parsing data sources
-        other_metrics_s = pd.concat([other_metrics_s], keys=[('dock', 'pose')])
+        interface_metrics_s = pd.concat([interface_metrics_s], keys=[('dock', 'pose')])
 
         # CONSTRUCT: Create pose series and format index names
-        pose_s = pd.concat([other_metrics_s, stat_s, divergence_s] + sim_series).swaplevel(0, 1)
+        pose_s = pd.concat([interface_metrics_s, stat_s, divergence_s] + sim_series).swaplevel(0, 1)
         # Remove pose specific metrics from pose_s, sort, and name protocol_mean_df
         pose_s.drop([PUtils.groups], level=2, inplace=True, errors='ignore')
         pose_s.sort_index(level=2, inplace=True, sort_remaining=False)  # ascending=True, sort_remaining=True)
@@ -3440,7 +3445,7 @@ def interface_design_analysis(pose: Pose, design_poses: Iterable[Pose] = None, s
     # Todo implement reference sequence from included file(s) or as with pose.sequence below
     pose_sequences.update({PUtils.reference_name: pose.sequence})
     pose_sequences.update({pose.name: pose.sequence for pose in design_poses})
-    all_mutations = generate_mutations_from_reference(pose.sequence, pose_sequences)
+    all_mutations = generate_mutations_from_reference(pose.sequence, pose_sequences)  # , zero_index=True)
     #    generate_mutations_from_reference(''.join(pose.atom_sequences.values()), pose_sequences)
 
     entity_energies = tuple(0. for ent in pose.entities)
@@ -3647,7 +3652,6 @@ def interface_design_analysis(pose: Pose, design_poses: Iterable[Pose] = None, s
     #                     'sasa_hydrophobic_bound': {}, 'sasa_polar_bound': {}, 'sasa_relative_bound': {}}
     interface_local_density = {pose_source: pose.local_density_interface()}
     # atomic_deviation = {}
-    per_residue_data = {pose_source: pose.get_per_residue_interface_metrics()}
     # pose_assembly_minimally_contacting = pose.assembly_minimally_contacting
     # perform SASA measurements
     # pose_assembly_minimally_contacting.get_sasa()
@@ -3663,8 +3667,7 @@ def interface_design_analysis(pose: Pose, design_poses: Iterable[Pose] = None, s
     # As the pose source assumes no legit interface present while designs have an interface
     # per_residue_sasa_unbound_apolar, per_residue_sasa_unbound_polar, per_residue_sasa_unbound_relative = [], [], []
     # source_errat_accuracy, source_errat, source_contact_order, inverse_residue_contact_order_z = [], [], [], []
-    warn = True
-    source_errat, source_contact_order, inverse_residue_contact_order_z = [], [], []
+    source_errat, source_contact_order = [], []
     for idx, entity in enumerate(pose.entities):
         try:  # To fetch the multiple sequence alignment for further processing
             entity.msa = job.api_db.alignments.retrieve_data(name=entity.name)
@@ -3687,6 +3690,7 @@ def interface_design_analysis(pose: Pose, design_poses: Iterable[Pose] = None, s
             _, oligomeric_errat = entity_oligomer.errat(out_path=os.path.devnull)
             source_errat.append(oligomeric_errat[:entity.number_of_residues])
 
+    per_residue_data = {pose_source: pose.get_per_residue_interface_metrics()}
     pose_source_contact_order_s = \
         pd.Series(np.concatenate(source_contact_order), index=residue_indices, name='contact_order')
     per_residue_data[pose_source]['contact_order'] = pose_source_contact_order_s
@@ -3739,7 +3743,23 @@ def interface_design_analysis(pose: Pose, design_poses: Iterable[Pose] = None, s
     scores_df['interface_local_density'] = pd.Series(interface_local_density)
 
     # Calculate hydrophobic collapse for each design
-    # for design in viable_designs:  # includes the pose_source
+    warn = True
+    # Add Entity information to the Pose
+    for idx, entity in enumerate(pose.entities):
+        try:  # To fetch the multiple sequence alignment for further processing
+            # entity.sequence_file = job.api_db.sequences.retrieve_file(name=entity.name)
+            # if not entity.sequence_file:
+            #     entity.write_sequence_to_fasta('reference', out_dir=job.sequences)
+            #     # entity.add_evolutionary_profile(out_dir=job.api_db.hhblits_profiles.location)
+            # else:
+            entity.evolutionary_profile = job.api_db.hhblits_profiles.retrieve_data(name=entity.name)
+            entity.msa = job.api_db.alignments.retrieve_data(name=entity.name)
+        except ValueError:  # When the Entity reference sequence and alignment are different lengths
+            if not warn:
+                pose.log.info(f'Metrics relying on a multiple sequence alignment are not being collected as '
+                              f'there is no MSA found. These include: '
+                              f'{", ".join(multiple_sequence_alignment_dependent_metrics)}')
+                warn = False
     # Include the pose_source in the measured designs
     folding_and_collapse = calculate_collapse_metrics(pose, list(zip(*[list(design_sequences.values())
                                                                        for design_sequences in entity_sequences])))
@@ -3771,15 +3791,15 @@ def interface_design_analysis(pose: Pose, design_poses: Iterable[Pose] = None, s
         profile_background['fragment'] = pssm_as_array(pose.fragment_profile)
     else:
         pose.log.info('No fragment information')
-    interface_bkgd = np.array(list(job.fragment_db.aa_frequencies.values()))
-    if interface_bkgd is not None:
+    if job.fragment_db is not None:
+        interface_bkgd = np.array(list(job.fragment_db.aa_frequencies.values()))
         profile_background['interface'] = np.tile(interface_bkgd, (pose.number_of_residues, 1))
 
     if not profile_background:
         divergence_s = pd.Series(dtype=float)
     else:  # Calculate sequence statistics
         # First, for entire pose
-        interface_indexer = [residue - zero_offset for residue in pose.interface_design_residue_numbers]
+        interface_indexer = [residue.index for residue in pose.interface_residues]
         pose_alignment = MultipleSequenceAlignment.from_dictionary(pose_sequences)
         observed, divergence = \
             calculate_sequence_observations_and_divergence(pose_alignment, profile_background, interface_indexer)
@@ -4037,8 +4057,8 @@ def interface_design_analysis(pose: Pose, design_poses: Iterable[Pose] = None, s
                               [pd.to_numeric(s).to_frame().T for s in pose_stats if not all(s.isna())])
     # this concat ^ puts back pose_source, refine, consensus designs since protocol_stats is calculated on scores_df
     # add all docking and pose information to each trajectory, dropping the pose observations
-    other_metrics_s = pd.Series(other_pose_metrics)
-    pose_metrics_df = pd.concat([other_metrics_s] * number_of_trajectories, axis=1).T
+    interface_metrics_s = pd.Series(other_pose_metrics)
+    pose_metrics_df = pd.concat([interface_metrics_s] * number_of_trajectories, axis=1).T
     trajectory_df = pd.concat([pose_metrics_df.rename(index=dict(zip(range(number_of_trajectories),
                                                                      final_trajectory_indices)))
                               .drop(['observations'], axis=1), trajectory_df], axis=1)
@@ -4412,10 +4432,10 @@ def interface_design_analysis(pose: Pose, design_poses: Iterable[Pose] = None, s
         fig.savefig(os.path.join(self.data, 'DesignMetricsPerResidues.png'))
 
     # After parsing data sources
-    other_metrics_s = pd.concat([other_metrics_s], keys=[('dock', 'pose')])
+    interface_metrics_s = pd.concat([interface_metrics_s], keys=[('dock', 'pose')])
 
     # CONSTRUCT: Create pose series and format index names
-    pose_s = pd.concat([other_metrics_s, stat_s, divergence_s] + sim_series).swaplevel(0, 1)
+    pose_s = pd.concat([interface_metrics_s, stat_s, divergence_s] + sim_series).swaplevel(0, 1)
     # Remove pose specific metrics from pose_s, sort, and name protocol_mean_df
     pose_s.drop([PUtils.groups], level=2, inplace=True, errors='ignore')
     pose_s.sort_index(level=2, inplace=True, sort_remaining=False)  # ascending=True, sort_remaining=True)
