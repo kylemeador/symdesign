@@ -34,7 +34,7 @@ from structure.sequence import generate_mutations_from_reference, numeric_to_seq
     MultipleSequenceAlignment
 from structure.utils import protein_letters_3to1
 from utils import dictionary_lookup, start_log, null_log, set_logging_to_level, unpickle, rmsd_z_score, \
-    z_value_from_match_score, match_score_from_z_value
+    z_value_from_match_score, match_score_from_z_value, set_loggers_to_propagate
 from utils.cluster import cluster_transformation_pairs
 from utils.nanohedra.OptimalTx import OptimalTx
 from utils.nanohedra.WeightedSeqFreq import FragMatchInfo, SeqFreqInfo
@@ -45,7 +45,7 @@ from utils.SymEntry import SymEntry, get_rot_matrices, make_rotations_degenerate
 from utils.symmetry import generate_cryst1_record, get_central_asu
 
 # Globals
-logger = start_log(name=__name__, format_log=False, propagate=True)
+logger = start_log(name=__name__, format_log=False)
 zero_offset = 1
 
 
@@ -3352,7 +3352,10 @@ if __name__ == '__main__':
             bb_logger = logger
             logger.debug('Debug mode. Generates verbose output. No writing to .log files will occur')
         else:
-            # Root logger logs all emissions to a single file with level 'info'. Stream above still emits at 'warning'
+            # Set all modules to propagate logs to write to master log file
+            set_loggers_to_propagate()
+            set_logging_to_level(handler_level=3)
+            # Root logger logs all emissions to a single file with level 'info'
             start_log(handler=2, location=master_log_filepath)
             # FragDock main logs to stream with level info
             logger = start_log(name=os.path.basename(__file__), propagate=True)
