@@ -39,14 +39,13 @@ from structure.model import Pose, MultiModel, Models, Model, Entity
 from structure.sequence import parse_pssm, generate_mutations_from_reference, simplify_mutation_dict, \
     sequence_difference, MultipleSequenceAlignment, pssm_as_array, combine_profile, write_pssm_file
 from structure.utils import protein_letters_3to1, protein_letters_1to3
-from utils import large_color_array, handle_errors, starttime, start_log, null_log, make_path, unpickle, pickle_object, \
-    index_intersection, write_shell_script, DesignError, ClashError, SymmetryError, match_score_from_z_value, z_score, \
-    all_vs_all, sym, condensed_to_square, path as PUtils
+from utils import large_color_array, handle_errors, starttime, start_log, null_log, make_path, unpickle, \
+    pickle_object, index_intersection, write_shell_script, DesignError, ClashError, SymmetryError, \
+    match_score_from_z_value, all_vs_all, sym, condensed_to_square, path as PUtils
 from utils.SymEntry import SymEntry, symmetry_factory
 from structure.fragment.fragment import FragmentDatabase, alignment_types
 from utils.nanohedra.general import get_components_from_nanohedra_docking
 from utils.path import pose_source, state_file
-from utils.symmetry import identity_matrix
 
 # Globals
 logger = start_log(name=__name__)
@@ -2548,6 +2547,13 @@ class PoseDirectory:
                               left_index=True, right_index=True)
         # scores_df['errat_accuracy'] = pd.Series(atomic_deviation)
         scores_df['interface_local_density'] = pd.Series(interface_local_density)
+        # Include in errat_deviation if errat score is < 2 std devs and isn't 0 to begin with
+        source_errat_inclusion_boolean = np.logical_and(pose_source_errat_s < errat_2_sigma, pose_source_errat_s != 0.)
+        errat_df = per_residue_df.loc[:, idx_slice[:, 'errat_deviation']].droplevel(-1, axis=1)
+        # find where designs deviate above wild-type errat scores
+        errat_sig_df = (errat_df.sub(pose_source_errat_s, axis=1)) > errat_1_sigma  # axis=1 Series is column oriented
+        # then select only those residues which are expressly important by the inclusion boolean
+        scores_df['errat_deviation'] = (errat_sig_df.loc[:, source_errat_inclusion_boolean] * 1).sum(axis=1)
 
         # Calculate hydrophobic collapse for each design
         warn = True
@@ -2567,15 +2573,7 @@ class PoseDirectory:
                                                                      for design_sequences in entity_sequences])))
         pose_collapse_df = pd.DataFrame(folding_and_collapse).T
 
-        # include in errat_deviation if errat score is < 2 std devs and isn't 0 to begin with
-        source_errat_inclusion_boolean = np.logical_and(pose_source_errat_s < errat_2_sigma, pose_source_errat_s != 0.)
-        errat_df = per_residue_df.loc[:, idx_slice[:, 'errat_deviation']].droplevel(-1, axis=1)
-        # find where designs deviate above wild-type errat scores
-        errat_sig_df = (errat_df.sub(pose_source_errat_s, axis=1)) > errat_1_sigma  # axis=1 Series is column oriented
-        # then select only those residues which are expressly important by the inclusion boolean
-        scores_df['errat_deviation'] = (errat_sig_df.loc[:, source_errat_inclusion_boolean] * 1).sum(axis=1)
-
-        # Get design information including: interface residues, SSM's, and wild_type/design files
+        # Load profiles of interest into the analysis
         profile_background = {}
         if self.design_profile is not None:
             profile_background['design'] = self.design_profile
@@ -3669,16 +3667,6 @@ def interface_design_analysis(pose: Pose, design_poses: Iterable[Pose] = None, s
     # source_errat_accuracy, source_errat, source_contact_order, inverse_residue_contact_order_z = [], [], [], []
     source_errat, source_contact_order = [], []
     for idx, entity in enumerate(pose.entities):
-        try:  # To fetch the multiple sequence alignment for further processing
-            entity.msa = job.api_db.alignments.retrieve_data(name=entity.name)
-        except ValueError:  # When the Entity reference sequence and alignment are different lengths
-            if not warn:
-                pose.log.info(f'Metrics relying on a multiple sequence alignment are not being collected as '
-                              f'there is no MSA found. These include: '
-                              f'{", ".join(multiple_sequence_alignment_dependent_metrics)}')
-                warn = False
-            # msa_metrics = False
-            # pass
         # Contact order is the same for every design in the Pose and not dependent on pose
         source_contact_order.append(entity.contact_order)
         if design_was_performed:  # we should respect input structure was not meant to be together
@@ -3741,6 +3729,13 @@ def interface_design_analysis(pose: Pose, design_poses: Iterable[Pose] = None, s
                           left_index=True, right_index=True)
     # scores_df['errat_accuracy'] = pd.Series(atomic_deviation)
     scores_df['interface_local_density'] = pd.Series(interface_local_density)
+    # Include in errat_deviation if errat score is < 2 std devs and isn't 0 to begin with
+    source_errat_inclusion_boolean = np.logical_and(pose_source_errat_s < errat_2_sigma, pose_source_errat_s != 0.)
+    errat_df = per_residue_df.loc[:, idx_slice[:, 'errat_deviation']].droplevel(-1, axis=1)
+    # find where designs deviate above wild-type errat scores
+    errat_sig_df = (errat_df.sub(pose_source_errat_s, axis=1)) > errat_1_sigma  # axis=1 Series is column oriented
+    # then select only those residues which are expressly important by the inclusion boolean
+    scores_df['errat_deviation'] = (errat_sig_df.loc[:, source_errat_inclusion_boolean] * 1).sum(axis=1)
 
     # Calculate hydrophobic collapse for each design
     warn = True
