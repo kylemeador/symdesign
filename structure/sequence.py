@@ -412,7 +412,7 @@ def pssm_as_array(pssm: dict[int, dict[str, str | float | int | dict[str, int]]]
         # return np.vectorize(numerical_translation_alph1_bytes.__getitem__)(_array)
 
 
-def combine_profile(profiles: list[profile_dictionary]) -> profile_dictionary:
+def combine_profile(profiles: list[profile_dictionary]) -> dict | profile_dictionary:
     """Combine a list of profiles (parsed PSSMs) and incrementing the entry index in each additional profile
 
     Args:
@@ -496,6 +496,7 @@ profile_dictionary: dict[int, dict[profile_keys, profile_values]]
 """{1: {'A': 0.04, 'C': 0.12, ..., 'lod': {'A': -5, 'C': -9, ...},
         'type': 'W', 'info': 0.00, 'weight': 0.00}, {...}}
 """
+alignment_programs = Literal['hhblits', 'psiblast']
 
 
 class SequenceProfile:
@@ -716,22 +717,23 @@ class SequenceProfile:
 
         return True
 
-    def add_evolutionary_profile(self, out_dir: AnyStr = os.getcwd(), profile_source: str = PUtils.hhblits,
-                                 file: AnyStr = None, force: bool = False):
-        """Add the evolutionary profile to the entity. Profile is generated through a position specific search of
-        homologous protein sequences (evolutionary)
+    def add_evolutionary_profile(self, file: AnyStr = None, out_dir: AnyStr = os.getcwd(),
+                                 profile_source: alignment_programs = PUtils.hhblits, force: bool = False):
+        """Add the evolutionary profile to the Structure. If the profile isn't provided, it is generated through search
+        of homologous protein sequences using the profile_source argument
 
         Args:
+            file: Location where profile file should be loaded from
             out_dir: Location where sequence files should be written
             profile_source: One of 'hhblits' or 'psiblast'
-            file: Location where profile file should be loaded from
             force: Whether to force generation of a new profile
         Sets:
             self.evolutionary_profile (profile_dictionary)
         """
-        if profile_source not in [PUtils.hhblits, 'psiblast']:
-            raise DesignError(f'{self.add_evolutionary_profile.__name__}: Profile generation only possible from '
-                              f'"{PUtils.hhblits}" or "psiblast", not {profile_source}')
+        if profile_source not in alignment_programs:  # [PUtils.hhblits, 'psiblast']:
+            raise ValueError(f'{self.add_evolutionary_profile.__name__}: Profile generation only possible from '
+                             f'{", ".join(alignment_programs)} not {profile_source}')
+
         if file is not None:
             self.pssm_file = file
         else:  # Check to see if the files of interest already exist
@@ -1175,7 +1177,7 @@ class SequenceProfile:
 
         return self.sequence_file
 
-    def add_fragment_profile(self, **kwargs):
+    def add_fragment_profile(self, **kwargs):  # Todo rename process_fragment_profile
         """From self.fragment_map, add the fragment profile to the SequenceProfile
 
         Keyword Args:
@@ -2740,8 +2742,8 @@ def generate_mutations(reference: Sequence, query: Sequence, offset: bool = True
     For PDB comparison, reference should be expression sequence (SEQRES), query should be atomic sequence (ATOM)
 
     Args:
-        reference: Reference sequence to align mutations against. Character values are returned in the "from" key
-        query: Query sequence. Character values are returned in the "to" key
+        reference: Reference sequence to align mutations against. Character values are returned to the "from" key
+        query: Query sequence. Character values are returned to the "to" key
         offset: Whether sequences are different lengths. Will create an alignment of the two sequences
         blanks: Include all gaped indices, i.e. outside the reference sequence or missing characters in the sequence
         remove_termini: Remove indices that are outside the reference sequence boundaries
@@ -2818,23 +2820,16 @@ def simplify_mutation_dict(mutations: dict[str, mutation_dictionary], to: bool =
     """Simplify mutation dictionary to 'to'/'from' AA key
 
     Args:
-        mutations (dict): {pdb: {mutation_index: {'from': 'A', 'to': 'K'}, ...}, ...}, ...}
-    Keyword Args:
-        to=True (bool): Whether to use 'to' AA (True) or 'from' AA (False)
+        mutations: Ex: {alias: {mutation_index: {'from': 'A', 'to': 'K'}, ...}, ...}, ...}
+        to: Whether to simplify with the 'to' AA key (True) or the 'from' AA key (False)
     Returns:
-        (dict): {pdb: {mutation_index: 'K', ...}, ...}
+        The simplified mutation dictionary. Ex: {alias: {mutation_index: 'K', ...}, ...}
     """
-    if to:
-        simplification = 'to'
-        # simplification = get_mutation_to
-    else:
-        simplification = 'from'
-        # simplification = get_mutation_from
+    simplification = 'to' if to else 'from'
 
-    for pdb in mutations:
-        for index in mutations[pdb]:
-            mutations[pdb][index] = mutations[pdb][index][simplification]
-            # mutations[pdb][index] = simplification(mutations[pdb][index])
+    for alias, indexed_mutations in mutations.items():
+        for index, mutation in indexed_mutations.items():
+            mutations[alias][index] = mutation[simplification]
 
     return mutations
 
@@ -3152,13 +3147,28 @@ def generate_mutations_from_reference(reference: Sequence[str], sequences: dict[
     """Generate mutation data from multiple sequences dictionaries with regard to a single reference
 
     Args:
-        reference: The reference sequence to compare each sequence against
-        sequences: {alias: sequence, ...}
+        reference: The reference sequence to align each sequence against.
+            Character values are returned to the "from" key
+        sequences: The template sequences to align, i.e. {alias: sequence, ...}.
+            Character values are returned to the "to" key
+    Keyword Args:
+        offset: (bool) = True - Whether sequences are different lengths. Will create an alignment of the two sequences
+        blanks: (bool) = False - Include all gaped indices, i.e. outside the reference sequence or missing characters
+            in the sequence
+        remove_termini: (bool) = True - Remove indices that are outside the reference sequence boundaries
+        remove_query_gaps: (bool) = True - Remove indices where there are gaps present in the query sequence
+        only_gaps: (bool) = False - Only include reference indices that are missing query residues.
+            All "to" values will be a gap "-"
+        zero_index: (bool) = False - Whether to return the indices zero-indexed (like python) or one-indexed
+        return_all: (bool) = False - Whether to return all the indices and there corresponding mutational data
     Returns:
         {alias: {mutation_index: {'from': 'A', 'to': 'K'}, ...}, ...}
     """
-    mutations = {alias: generate_mutations(reference, sequence, offset=False) for alias, sequence in sequences.items()}
-    # add reference sequence mutations
+    offset_value = kwargs.get('offset')
+    kwargs['offset'] = (offset_value or False)  # Default to False if there was no argument passed
+    mutations = {alias: generate_mutations(reference, sequence, **kwargs)  # offset=False,
+                 for alias, sequence in sequences.items()}
+    # Add the reference sequence to mutation data
     mutations[PUtils.reference_name] = \
         {sequence_idx: {'from': aa, 'to': aa} for sequence_idx, aa in enumerate(reference, 1)}
 
