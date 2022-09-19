@@ -11,10 +11,10 @@ import numpy as np
 import pandas as pd
 
 import structure
-from utils.path import groups, reference_name, structure_background, design_profile, hbnet_design_profile, pose_source
+from utils.path import groups, reference_name, structure_background, design_profile, hbnet_design_profile
 from resources.query.utils import input_string, validate_type, verify_choice, header_string
-from utils import handle_errors, start_log, pretty_format_table, index_intersection, digit_translate_table, DesignError, \
-    z_score
+from utils import handle_errors, start_log, pretty_format_table, index_intersection, digit_translate_table, \
+    DesignError, z_score
 
 # Globals
 logger = start_log(name=__name__)
@@ -976,8 +976,9 @@ def interface_composition_similarity(series):
     return sum(class_ratio_diff_d.values()) / len(class_ratio_diff_d)
 
 
-def process_residue_info(design_residue_scores: dict, mutations: dict, hbonds: dict = None) -> dict:
-    """Process energy metrics from per residue info and incorporate mutation and hydrogen bond measurements
+def incorporate_mutation_info(design_residue_scores: dict,
+                              mutations: dict[str, 'structure.sequence.mutation_dictionary']) -> dict:
+    """Incorporate mutation measurements into residue info. design_residue_scores and mutations must be the same index
 
     Args:
         design_residue_scores: {'001': {15: {'complex': -2.71, 'bound': [-1.9, 0], 'unbound': [-1.9, 0],
@@ -985,56 +986,79 @@ def process_residue_info(design_residue_scores: dict, mutations: dict, hbonds: d
                                              'fsp': 0., 'cst': 0.}, ...}, ...}
         mutations: {'reference': {mutation_index: {'from': 'A', 'to: 'K'}, ...},
                     '001': {mutation_index: {}, ...}, ...}
+    Returns:
+        {'001': {15: {'type': 'T', 'energy_delta': -2.71, 'coordinate_constraint': 0. 'residue_favored': 0., 'hbond': 0}
+                 ...}, ...}
+    """
+    warn = False
+    reference_data = mutations.get(reference_name)
+    pose_length = len(reference_data)
+    for design, residue_info in design_residue_scores.items():
+        mutation_data = mutations.get(design)
+        if not mutation_data:
+            continue
+
+        remove_residues = []
+        for residue_number, data in residue_info.items():
+            try:  # set residue AA type based on provided mutations
+                data['type'] = mutation_data[residue_number]
+            except KeyError:  # Residue is not in mutations, probably missing as it is not a mutation
+                try:  # Fill in with AA from reference_name seq
+                    data['type'] = reference_data[residue_number]
+                except KeyError:  # Residue is out of bounds on pose length
+                    # Possibly a virtual residue or string that was processed incorrectly from the digit_translate_table
+                    if not warn:
+                        logger.error(f'Encountered residue number "{residue_number}" which is not within the pose size '
+                                     f'"{pose_length}" and will be removed from processing. This is likely an error '
+                                     f'with residue processing or residue selection in the specified rosetta protocol.'
+                                     f' If there were warnings produced indicating a larger residue number than pose '
+                                     f'size, this problem was not addressable heuristically and something else has '
+                                     f'occurred. It is likely that this residue number is not useful if you indeed have'
+                                     f' output_as_pdb_nums="true"')
+                        warn = True
+                    remove_residues.append(residue_number)
+                    continue
+
+        # Clean up any incorrect residues
+        for residue in remove_residues:
+            residue_info.pop(residue)
+
+    return design_residue_scores
+
+
+def process_residue_info(design_residue_scores: dict, hbonds: dict = None) -> dict:
+    """Process energy metrics to Pose formatted dictionary from multiple measurements per residue
+    and incorporate hydrogen bond information. design_residue_scores and hbonds must be the same index
+
+    Args:
+        design_residue_scores: {'001': {15: {'complex': -2.71, 'bound': [-1.9, 0], 'unbound': [-1.9, 0],
+                                             'solv_complex': -2.71, 'solv_bound': [-1.9, 0], 'solv_unbound': [-1.9, 0],
+                                             'fsp': 0., 'cst': 0.}, ...}, ...}
         hbonds: {'001': [34, 54, 67, 68, 106, 178], ...}
     Returns:
         {'001': {15: {'type': 'T', 'energy_delta': -2.71, 'coordinate_constraint': 0. 'residue_favored': 0., 'hbond': 0}
                  ...}, ...}
     """
-    if not hbonds:
+    if hbonds is None:
         hbonds = {}
 
-    warn2 = False
-    pose_length = len(mutations[reference_name])
     for design, residue_info in design_residue_scores.items():
         design_hbonds = hbonds.get(design, [])
-        remove_residues = []
         for residue_number, data in residue_info.items():
-            try:  # set residue AA type based on provided mutations
-                data['type'] = mutations[design][residue_number]
-            except KeyError:  # residue is not a mutation, so missing from mutations
-                try:  # fill with aa from wt seq
-                    data['type'] = mutations[reference_name][residue_number]
-                except KeyError:  # residue is out of bounds on pose length
-                    # Possibly a virtual residue or string that was processed incorrectly from the digit_translate_table
-                    if not warn2:
-                        logger.error('Encountered residue number "%d" which is not within the pose size "%d" and will '
-                                     'be removed from processing. This is likely an error with residue processing or '
-                                     'residue selection in the specified rosetta protocol. If there were warnings '
-                                     'produced indicating a larger residue number than pose size, this problem was not '
-                                     'addressable heuristically and something else has occurred. It is likely that this'
-                                     ' residue number is not useful if you indeed have output_as_pdb_nums="true"'
-                                     % (residue_number, pose_length))
-                        warn2 = True
-                    remove_residues.append(residue_number)
-                    continue
-            # set hbond data if available
+            # Set hbond bool if available
             data['hbond'] = 1 if residue_number in design_hbonds else 0
-            # compute the energy delta of each residue which requires summing the unbound energies
-            data['bound'] = sum(data['bound'])
+            # Compute the energy delta which requires summing the unbound energies
             data['unbound'] = sum(data['unbound'])
+            data['energy_delta'] = data['complex'] - data['unbound']
+            # Compute the "preconfiguration" energy delta which requires summing the bound energies
+            data['bound'] = sum(data['bound'])
+            # data['energy_bound_activation'] = data['bound'] - data['unbound']
             data['solv_bound'] = sum(data['solv_bound'])
             data['solv_unbound'] = sum(data['solv_unbound'])
-            data['energy_delta'] = data['complex'] - data['unbound']
-            # data['energy_bound_activation'] = data['bound'] - data['unbound']
             data['coordinate_constraint'] = data.get('cst', 0.)
             data['residue_favored'] = data.get('fsp', 0.)
-            # data.pop('energy')
             # if residue_data[residue_number]['energy'] <= hot_spot_energy:
             #     residue_data[residue_number]['hot_spot'] = 1
-
-        # clean up any incorrect residues
-        for residue in remove_residues:
-            residue_info.pop(residue)
 
     return design_residue_scores
 

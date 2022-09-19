@@ -31,7 +31,8 @@ from metrics import read_scores, interface_composition_similarity, unnecessary, 
     df_permutation_test, clean_up_intermediate_columns, protocol_specific_columns, rank_dataframe_by_metric_weights, \
     filter_df_for_index_by_value, multiple_sequence_alignment_dependent_metrics, process_residue_info, \
     collapse_significance_threshold, calculate_collapse_metrics, errat_1_sigma, errat_2_sigma, \
-    calculate_residue_surface_area, position_specific_divergence, calculate_sequence_observations_and_divergence
+    calculate_residue_surface_area, position_specific_divergence, calculate_sequence_observations_and_divergence, \
+    incorporate_mutation_info
 from resources.job import JobResources, job_resources_factory
 from structure.base import Structure  # , Structures
 from structure.model import Pose, MultiModel, Models, Model, Entity
@@ -2336,8 +2337,8 @@ class PoseDirectory:
             # scores_df = scores_df.assign(number_hbonds=number_hbonds_s)
             # residue_info = {'energy': {'complex': 0., 'unbound': 0.}, 'type': None, 'hbond': 0}
             residue_info.update(self.pose.rosetta_residue_processing(all_viable_design_scores))
-            residue_info = process_residue_info(residue_info, simplify_mutation_dict(all_mutations),
-                                                hbonds=interface_hbonds)
+            residue_info = process_residue_info(residue_info, hbonds=interface_hbonds)
+            residue_info = incorporate_mutation_info(residue_info, simplify_mutation_dict(all_mutations))
             # can't use residue_processing (clean) in the case there is a design without metrics... columns not found!
             # residue_info.update(residue_processing(all_viable_design_scores, simplify_mutation_dict(all_mutations),
             #                                        per_res_columns, hbonds=interface_hbonds))
@@ -3521,8 +3522,8 @@ def interface_design_analysis(pose: Pose, design_poses: Iterable[Pose] = None, s
         # scores_df = scores_df.assign(number_hbonds=number_hbonds_s)
         # residue_info = {'energy': {'complex': 0., 'unbound': 0.}, 'type': None, 'hbond': 0}
         residue_info.update(pose.rosetta_residue_processing(all_viable_design_scores))
-        residue_info = process_residue_info(residue_info, simplify_mutation_dict(all_mutations),
-                                            hbonds=interface_hbonds)
+        residue_info = process_residue_info(residue_info, hbonds=interface_hbonds)
+        residue_info = incorporate_mutation_info(residue_info, simplify_mutation_dict(all_mutations))
         # can't use residue_processing (clean) in the case there is a design without metrics... columns not found!
         # residue_info.update(residue_processing(all_viable_design_scores, simplify_mutation_dict(all_mutations),
         #                                        per_res_columns, hbonds=interface_hbonds))
