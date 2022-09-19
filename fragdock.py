@@ -3141,7 +3141,7 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
         source_errat.append(oligomeric_errat[:entity.number_of_residues])
 
     residue_indices = list(range(1, pose_length+1))
-    per_residue_data = {}  # pose_source: pose.get_per_residue_interface_metrics()}
+    # per_residue_data = {}  # pose_source: pose.get_per_residue_interface_metrics()}
     pose_source_contact_order_s = \
         pd.Series(np.concatenate(source_contact_order), index=residue_indices, name='contact_order')
     pose_source_errat_s = pd.Series(np.concatenate(source_errat), index=residue_indices)
