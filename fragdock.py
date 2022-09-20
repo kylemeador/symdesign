@@ -2861,8 +2861,12 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
                         # batch_scores = score_sequences(S_sample, log_probs, mask_for_loss, per_residue=False)
                         # batch_scores is
                         # tensor([2.1039, 2.0618, 2.0802, 2.0538, 2.0114, 2.0002], device='cuda:0')
+                        print('log_probs', log_probs[:5])
                         batch_scores_per_residue = score_sequences(S_sample, log_probs)  # , mask_for_loss)
+                        print('batch_scores_per_residue', batch_scores_per_residue[:5])
+                        print('unbound_log_probs', unbound_log_probs[:5])
                         unbound_batch_scores_per_residue = score_sequences(S_sample, unbound_log_probs)  # , mask_for_loss)
+                        print('unbound_batch_scores_per_residue', unbound_batch_scores_per_residue[:5])
                         # Score the whole structure-sequence
                         # global_scores = score_sequences(S_sample, log_probs, mask, per_residue=False)
 
