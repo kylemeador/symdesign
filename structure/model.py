@@ -92,7 +92,7 @@ def find_fragment_overlap(entity1_coords: np.ndarray, residues1: list[Residue] |
     #     ghostfrags = frag1.get_ghost_fragments(clash_tree=oligomer1_bb_tree)
     #     if ghostfrags:
     #         ghost_frags1.extend(ghostfrags)
-    logger.debug('Finished Ghost Frag Lookup')
+    logger.debug(f'Residues 1 has {len(ghost_frags1)} ghost fragments')
 
     # Get fragment guide coordinates
     residue1_ghost_guide_coords = np.array([ghost_frag.guide_coords for ghost_frag in ghost_frags1])
@@ -4459,14 +4459,15 @@ class SymmetricModel(Models):
 
         return [idx + (jump_num * model_num) for model_num in range(self.number_of_symmetry_mates) for idx in indices]
 
-    def return_symmetric_copies(self, structure: ContainsAtomsMixin, return_side_chains: bool = True,
-                                surrounding_uc: bool = True, **kwargs) -> list[ContainsAtomsMixin]:
+    def return_symmetric_copies(self, structure: ContainsAtomsMixin, surrounding_uc: bool = True, **kwargs) \
+            -> list[ContainsAtomsMixin]:
+        #  return_side_chains: bool = True,
         """Expand the provided Structure using self.symmetry for the symmetry specification
 
         Args:
             structure: A ContainsAtomsMixin Structure object with .coords/.backbone_and_cb_coords methods
-            return_side_chains: Whether to make the structural copy with side chains
             surrounding_uc: Whether the 3x3 layer group, or 3x3x3 space group should be generated
+            # return_side_chains: Whether to make the structural copy with side chains
         Returns:
             The symmetric copies of the input structure
         """
@@ -4474,12 +4475,12 @@ class SymmetricModel(Models):
         #                   f'{type(structure).__name__} is being taken which is relying on '
         #                   f'{type(structure).__name__}.__copy__. This may not be adequate and need to be overwritten')
         # Caution, this function will return poor if the number of atoms in the structure is 1!
-        coords = structure.coords if return_side_chains else structure.backbone_and_cb_coords
+        # coords = structure.coords if return_side_chains else structure.backbone_and_cb_coords
         uc_number = 1
         if self.dimension == 0:
             number_of_symmetry_mates = self.number_of_symmetry_mates
             # favoring this as it is more explicit
-            sym_coords = (np.matmul(np.tile(coords, (self.number_of_symmetry_mates, 1, 1)),
+            sym_coords = (np.matmul(np.tile(structure.coords, (self.number_of_symmetry_mates, 1, 1)),
                                     self.expand_matrices) + self.expand_translations).reshape(-1, 3)
         else:
             if surrounding_uc:
@@ -4492,13 +4493,13 @@ class SymmetricModel(Models):
                     raise SymmetryError(f'The specified dimension "{self.dimension}" is not crystalline')
 
                 number_of_symmetry_mates = self.number_of_uc_symmetry_mates * uc_number
-                uc_frac_coords = self.return_unit_cell_coords(coords, fractional=True)
+                uc_frac_coords = self.return_unit_cell_coords(structure.coords, fractional=True)
                 surrounding_frac_coords = \
                     np.concatenate([uc_frac_coords + [x, y, z] for x in shift_3d for y in shift_3d for z in z_shifts])
                 sym_coords = self.frac_to_cart(surrounding_frac_coords)
             else:
                 number_of_symmetry_mates = self.number_of_uc_symmetry_mates
-                sym_coords = self.return_unit_cell_coords(coords)
+                sym_coords = self.return_unit_cell_coords(structure.coords)
 
         sym_mates = []
         for coord_set in np.split(sym_coords, number_of_symmetry_mates):
@@ -6279,24 +6280,26 @@ class Pose(SequenceProfile, SymmetricModel):
             self.fragment_queries[(entity1, entity2)] = []
             return
         else:
-            self.log.debug(f'At Entity {entity1.name} | Entity {entity2.name} interface:\t'
-                           f'{entity1.name} has {len(frag_residues1)} interface fragments at residues {",".join(map(str, [res.number for res in frag_residues1]))}\t'
-                           f'{entity2.name} has {len(frag_residues2)} interface fragments at residues {",".join(map(str, [res.number for res in frag_residues2]))}')
+            self.log.debug(f'At Entity {entity1.name} | Entity {entity2.name} interface:\n\t'
+                           f'{entity1.name} has {len(frag_residues1)} interface fragments at residues: '
+                           f'{",".join(map(str, [res.number for res in frag_residues1]))}\n\t'
+                           f'{entity2.name} has {len(frag_residues2)} interface fragments at residues: '
+                           f'{",".join(map(str, [res.number for res in frag_residues2]))}')
 
         if self.is_symmetric():
-            # even if entity1 == entity2, only need to expand the entity2 fragments due to surface/ghost frag mechanics
-            # asu frag subtraction is unnecessary THIS IS ALL WRONG DEPENDING ON THE CONTEXT
+            # Even if entity1 == entity2, only need to expand the entity2 fragments due to surface/ghost frag mechanics
             if entity1 == entity2:
                 # We don't want interactions with the intra-oligomeric contacts
-                if entity1.is_oligomeric():  # remove oligomeric protomers (contains asu)
+                if entity1.is_oligomeric():  # Remove oligomeric protomers (contains asu)
                     skip_models = self.oligomeric_model_indices.get(entity1)
                     self.log.info(f'Skipping oligomeric models: {", ".join(map(str, skip_models))}')
-                else:  # probably a C1
+                else:  # Probably a C1
                     skip_models = []
             else:
                 skip_models = []
             symmetric_surface_frags2 = [self.return_symmetric_copies(residue) for residue in frag_residues2]
             frag_residues2.clear()
+            frag_residues2: list[ContainsAtomsMixin]
             for frag_mates in symmetric_surface_frags2:
                 frag_residues2.extend([frag for sym_idx, frag in enumerate(frag_mates) if sym_idx not in skip_models])
             self.log.debug(f'Entity {entity2.name} has {len(frag_residues2)} symmetric fragments')
@@ -6307,7 +6310,7 @@ class Pose(SequenceProfile, SymmetricModel):
         self.log.info(f'Found {len(ghostfrag_surfacefrag_pairs)} overlapping fragment pairs at the {entity1.name} | '
                       f'{entity2.name} interface')
         self.fragment_queries[(entity1, entity2)] = get_matching_fragment_pairs_info(ghostfrag_surfacefrag_pairs)
-        # add newly found fragment pairs to the existing fragment observations
+        # Add newly found fragment pairs to the existing fragment observations
         self.fragment_pairs.extend(ghostfrag_surfacefrag_pairs)
 
     @property
