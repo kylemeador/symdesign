@@ -6309,6 +6309,16 @@ class Pose(SequenceProfile, SymmetricModel):
                                                             euler_lookup=self.euler_lookup)
         self.log.info(f'Found {len(ghostfrag_surfacefrag_pairs)} overlapping fragment pairs at the {entity1.name} | '
                       f'{entity2.name} interface')
+        # Debug the fragment process
+        out_dir = os.getcwd()
+        self.debug_pdb(out_dir=out_dir, tag='query_fragments')
+        debug_path = os.path.join(out_dir, 'all_fragments.pdb')
+        with open(debug_path, 'w') as f:
+            for fragment in frag_residues1 + frag_residues2:
+                fragment.write(file_handle=f)
+
+        self.log.critical(f'Wrote debugging Fragments to: {debug_path}')
+
         self.fragment_queries[(entity1, entity2)] = get_matching_fragment_pairs_info(ghostfrag_surfacefrag_pairs)
         # Add newly found fragment pairs to the existing fragment observations
         self.fragment_pairs.extend(ghostfrag_surfacefrag_pairs)
@@ -6881,17 +6891,20 @@ class Pose(SequenceProfile, SymmetricModel):
                                        overlap_error=z_value_from_match_score(match_score),
                                        match_number=match_count, out_path=out_path)
 
-    def debug_pdb(self, tag: str = None):
+    def debug_pdb(self, out_dir: AnyStr = os.getcwd(), tag: str = None):
         """Write out all Structure objects for the Pose PDB"""
-        with open(f'{f"{tag}_" if tag else ""}POSE_DEBUG_{self.name}.pdb', 'w') as f:
+        debug_path = os.path.join(out_dir, f'{f"{tag}_" if tag else ""}POSE_DEBUG_{self.name}.pdb')
+        with open(debug_path, 'w') as f:
             available_chain_ids = self.chain_id_generator()
             for entity_idx, entity in enumerate(self.entities, 1):
-                f.write('REMARK 999   Entity %d - ID %s\n' % (entity_idx, entity.name))
+                f.write(f'REMARK 999   Entity {entity_idx} - ID {entity.name}\n')
                 entity.write(file_handle=f, chain=next(available_chain_ids))
                 for chain_idx, chain in enumerate(entity.chains, 1):
-                    f.write('REMARK 999   Entity %d - ID %s   Chain %d - ID %s\n'
-                            % (entity_idx, entity.name, chain_idx, chain.chain_id))
+                    f.write(f'REMARK 999   Entity {entity_idx} - ID {entity.name}   '
+                            f'Chain {chain_idx} - ID {chain.chain_id}\n')
                     chain.write(file_handle=f, chain=next(available_chain_ids))
+
+        self.log.critical(f'Wrote debugging Pose to: {debug_path}')
 
     # def get_interface_surface_area(self):
     #     # pdb1_interface_sa = entity1.get_surface_area_residues(self.split_residue_numbers[1])
