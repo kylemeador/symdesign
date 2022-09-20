@@ -2991,6 +2991,12 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
 
         log.info(f'Design with ProteinMPNN took {time.time() - proteinmpnn_time_start:8f}')
 
+        # Format the sequences from design
+        sequences = numeric_to_sequence(generated_sequences)
+        # Truncate the sequences to the ASU
+        if pose.is_symmetric():
+            sequences = sequences[:, :pose_length]
+
     # Get metrics for each Pose
     # Set up data structures for metric capture
     idx_slice = pd.IndexSlice
@@ -3000,6 +3006,8 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
     interface_local_density = {}
     pose_transformations = {}
     pose_sequences = {}
+    all_pose_divergence = []
+    all_probabilities = {}
     # Save all pose transformations, formatting them for output
     # full_rotation1 = full_rotation1
     full_int_tx1 = full_int_tx1.squeeze()
@@ -3011,8 +3019,6 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
     full_ext_tx2 = list(repeat(None, number_of_transforms)) if full_ext_tx2 is None else full_ext_tx2.squeeze()
 
     for idx in range(number_of_transforms):
-        update_pose_coords(idx)
-
         # Todo replace with PoseDirectory? Path object?
         #  Use out_dir in output_pose()? or a single file with the pose_id name?
         transform_idx = idx // number_of_perturbations
@@ -3021,28 +3027,15 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
         rot_str = 'ROT_{}'.format('_'.join(map(str, rot_counts[transform_idx])))
         tx_str = f'TX_{tx_counts[transform_idx]}'  # translation idx
         if number_of_perturbations > 1:
-            add_fragments_to_pose()  # <- here generating fresh
             pt_str = f'PT_{perturb_idx + 1}'
             out_dir = os.path.join(outdir, degen_str, rot_str, tx_str.lower(), pt_str)
             sampling_id = f'{degen_str}-{rot_str}-{tx_str}-{pt_str}'
         else:
-            # Here, loading fragments. No self-symmetric interactions found
-            # where transform_idx = idx
-            add_fragments_to_pose(all_passing_ghost_indices[transform_idx],
-                                  all_passing_surf_indices[transform_idx],
-                                  all_passing_z_scores[transform_idx])
             out_dir = os.path.join(outdir, degen_str, rot_str, tx_str.lower())
             sampling_id = f'{degen_str}-{rot_str}-{tx_str}'
         pose_id = f'{building_blocks}-{sampling_id}'
 
         pose_ids.append(pose_id)
-        per_residue_data[pose_id] = pose.get_per_residue_interface_metrics()  # _per_residue_data
-        interface_metrics[pose_id] = pose.interface_metrics()  # _interface_metrics
-        interface_local_density[pose_id] = pose.local_density_interface()  # _interface_local_density
-
-        # Todo reinstate after alphafold integration?
-        # output_pose(out_dir, sampling_id)  # , sequence_design=design_output)
-
         # pose_transformations[pose_id] = dict(transformation1=dict(rotation=full_rotation1[idx],
         #                                                           translation=full_int_tx1[idx],
         #                                                           rotation2=set_mat1,
@@ -3062,9 +3055,9 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
                                              translation2_2=full_ext_tx2[idx])
     # Initialize the main scoring DataFrame
     scores_df = pd.DataFrame(pose_transformations).T
-    scores_df['interface_local_density'] = pd.Series(interface_local_density)
 
     # Calculate metrics on input Pose
+    residue_indices = list(range(1, pose_length + 1))
     # entity_energies = tuple(0. for ent in pose.entities)
     pose_source_residue_info = \
         {residue.number: {'complex': 0., 'bound': 0.,  # copy(entity_energies),
@@ -3089,7 +3082,6 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
         _, oligomeric_errat = entity_oligomer.errat(out_path=os.devnull)
         source_errat.append(oligomeric_errat[:entity.number_of_residues])
 
-    residue_indices = list(range(1, pose_length + 1))
     # per_residue_data = {}  # pose_source: pose.get_per_residue_interface_metrics()}
     pose_source_contact_order_s = \
         pd.Series(np.concatenate(source_contact_order), index=residue_indices, name='contact_order')
@@ -3097,6 +3089,193 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
 
     per_residue_data[pose_source] = {'contact_order': pose_source_contact_order_s,
                                      'errat_deviation': pose_source_errat_s}
+
+    # Add Entity information to the Pose
+    measure_evolution, measure_alignment = True, True
+    warn = False
+    for entity in pose.entities:
+        try:  # To fetch the multiple sequence alignment for further processing
+            # entity.sequence_file = job.api_db.sequences.retrieve_file(name=entity.name)
+            # if not entity.sequence_file:
+            #     entity.write_sequence_to_fasta('reference', out_dir=job.sequences)
+            #     # entity.add_evolutionary_profile(out_dir=job.api_db.hhblits_profiles.location)
+            # else:
+            profile = job.api_db.hhblits_profiles.retrieve_data(name=entity.name)
+            if not profile:
+                measure_evolution = False
+                warn = True
+            else:
+                entity.evolutionary_profile = profile
+
+            msa = job.api_db.alignments.retrieve_data(name=entity.name)
+            if not msa:
+                measure_evolution = False
+                warn = True
+            else:
+                entity.msa = msa
+        except ValueError:  # When the Entity reference sequence and alignment are different lengths
+            warn = True
+
+    if warn:
+        if not measure_evolution and not measure_alignment:
+            log.info(f'Metrics relying on multiple sequence alignment data are not being collected as '
+                     f'there were none found. These include: '
+                     f'{", ".join(multiple_sequence_alignment_dependent_metrics)}')
+        elif not measure_alignment:
+            log.info(f'Metrics relying on a multiple sequence alignment are not being collected as '
+                     f'there was no MSA found. These include: '
+                     f'{", ".join(multiple_sequence_alignment_dependent_metrics)}')
+        else:
+            log.info(f'Metrics relying on an evolutionary profile are not being collected as '
+                     f'there was no profile found. These include: '
+                     f'{", ".join(profile_dependent_metrics)}')
+
+    # Load profiles of interest into the analysis
+    profile_background = {}
+    if measure_evolution:
+        pose.evolutionary_profile = combine_profile([entity.evolutionary_profile for entity in pose.entities])
+
+    if pose.evolutionary_profile:
+        profile_background['evolution'] = pssm_as_array(pose.evolutionary_profile)
+    else:
+        pose.log.info('No evolution information')
+    if job.fragment_db is not None:
+        interface_bkgd = np.array(list(job.fragment_db.aa_frequencies.values()))
+        profile_background['interface'] = np.tile(interface_bkgd, (pose.number_of_residues, 1))
+
+    # Handle pose state transformation and metrics for each identified pose
+    for idx, pose_id in enumerate(pose_ids):
+        update_pose_coords(idx)
+
+        if number_of_perturbations > 1:
+            add_fragments_to_pose()  # <- here generating fresh
+        else:
+            # Here, loading fragments. No self-symmetric interactions found
+            # where idx = transform_idx from above
+            add_fragments_to_pose(all_passing_ghost_indices[idx],
+                                  all_passing_surf_indices[idx],
+                                  all_passing_z_scores[idx])
+
+        per_residue_data[pose_id] = pose.get_per_residue_interface_metrics()  # _per_residue_data
+        interface_metrics[pose_id] = pose.interface_metrics()  # _interface_metrics
+        interface_local_density[pose_id] = pose.local_density_interface()  # _interface_local_density
+
+        # Todo reinstate after alphafold integration?
+        # output_pose(out_dir, sampling_id)  # , sequence_design=design_output)
+
+        if design_output:
+            # Save each Pose sequence design information including sequence, energy, probabilites
+            pose_sequences[pose_id] = ''.join(sequences[idx])
+            # all_scores[pose_id] = per_residue_sequence_scores[idx]
+            _per_residue_complex_scores = per_residue_sequence_scores[idx]
+            _per_residue_unbound_scores = per_residue_unbound_scores[idx]
+            residue_info[pose_id] = {residue.number: {'complex': _per_residue_complex_scores[residue.index],
+                                                      'bound': 0.,  # copy(entity_energies),
+                                                      'unbound': _per_residue_unbound_scores[residue.index],
+                                                      # copy(entity_energies),
+                                                      'solv_complex': 0., 'solv_bound': 0.,
+                                                      # copy(entity_energies),
+                                                      'solv_unbound': 0.,  # copy(entity_energies),
+                                                      # 'fsp': 0., 'cst': 0.,
+                                                      'type': protein_letters_3to1.get(residue.type), 'hbond': 0}
+                                     for entity in pose.entities for residue in entity.residues}
+            all_probabilities[pose_id] = probabilities[idx]
+
+            # Todo process the all_probabilities to a DataFrame
+            # all_probabilities is
+            # {'2gtr-3m6n-DEGEN_1_1-ROT_13_10-TX_1-PT_1':
+            #  array([[1.55571969e-02, 6.64833433e-09, 3.03523801e-03, ...,
+            #          2.94689467e-10, 8.92133514e-08, 6.75683381e-12],
+            #         [9.43517406e-03, 2.54900701e-09, 4.43358254e-03, ...,
+            #          2.19431431e-10, 8.18614296e-08, 4.94338381e-12],
+            #         [1.50658926e-02, 1.43449803e-08, 3.27082584e-04, ...,
+            #          1.70684064e-10, 8.77646258e-08, 6.67974660e-12],
+            #         ...,
+            #         [1.23516358e-07, 2.98688293e-13, 3.48888407e-09, ...,
+            #          1.17041141e-14, 4.72279464e-12, 5.79130243e-16],
+            #         [9.99999285e-01, 2.18584519e-19, 3.87702094e-16, ...,
+            #          7.12933229e-07, 5.22657113e-13, 3.19411591e-17],
+            #         [2.11755684e-23, 2.32944583e-23, 3.86148234e-23, ...,
+            #          1.16764793e-22, 1.62743156e-23, 7.65081924e-23]]),
+            #  '2gtr-3m6n-DEGEN_1_1-ROT_13_10-TX_1-PT_2':
+            #  array([[1.72123183e-02, 7.31348226e-09, 3.28084361e-03, ...,
+            #          3.16341731e-10, 9.09206364e-08, 7.41259137e-12],
+            #         [6.17256807e-03, 1.86070248e-09, 2.70802877e-03, ...,
+            #          1.61229460e-10, 5.94660143e-08, 3.73394328e-12],
+            #         [1.28052337e-02, 1.10993081e-08, 3.89973022e-04, ...,
+            #          2.21829027e-10, 1.03226760e-07, 8.43660298e-12],
+            #         ...,
+            #         [1.31807008e-06, 2.47859654e-12, 2.27575967e-08, ...,
+            #          5.34223104e-14, 2.06900348e-11, 3.35126595e-15],
+            #         [9.99999821e-01, 1.26853575e-19, 2.05691231e-16, ...,
+            #          2.02439509e-07, 5.02121131e-13, 1.38719620e-17],
+            #         [2.01858383e-23, 2.29340987e-23, 3.59583879e-23, ...,
+            #          1.13548109e-22, 1.60868618e-23, 7.25537526e-23]])}
+
+            # Load fragment_profile into the analysis
+            for query_pair, fragment_info in pose.fragment_queries.items():
+                # self.log.debug(f'Query Pair: {query_pair[0].name}, {query_pair[1].name}'
+                #                f'\n\tFragment Info:{fragment_info}')
+                for query_idx, entity in enumerate(query_pair):
+                    entity.add_fragments_to_profile(fragments=fragment_info,
+                                                    alignment_type=alignment_types[query_idx])
+
+            pose.fragment_profile = combine_profile([entity.fragment_profile for entity in pose.entities])
+            # if pose.fragment_profile:
+            profile_background['fragment'] = pssm_as_array(pose.fragment_profile)
+            # else:
+            #     pose.log.info('No fragment information')
+
+            pose.add_profile(evolution=not job.no_evolution_constraint,
+                             fragments=job.generate_fragments)
+            if pose.profile:
+                profile_background['design'] = pssm_as_array(pose.profile)
+            # else:
+            #     pose.log.info('Design has no fragment information')
+
+            # Calculate sequence statistics
+            # First, for entire pose
+            interface_indexer = [residue.index for residue in pose.interface_residues]
+            pose_alignment = MultipleSequenceAlignment.from_dictionary(pose_sequences)
+            # This measurement is performed on a single pose with different design trajectories.
+            # Here, we only have a single trajectory per pose and therefore the divergence doesn't make sense
+            observed, divergence = \
+                calculate_sequence_observations_and_divergence(pose_alignment,
+                                                               profile_background,
+                                                               interface_indexer)
+            # Get pose sequence divergence
+            # Todo remove as not useful!
+            divergence_s = pd.Series({f'{divergence_type}_per_residue': _divergence.mean()
+                                      for divergence_type, _divergence in divergence.items()},
+                                     name=pose_id)
+            all_pose_divergence.append(divergence_s)
+            # Todo extract the observed values out of the observed dictionary
+            #  Each Pose only has one trajectory, so measurement of divergence is pointless (no distribution)
+            observed_dfs = []
+            for profile, observed_values in observed.items():
+                scores_df[f'observed_{profile}'] = observed_values.mean(axis=1)
+                observed_dfs.append(pd.DataFrame(data=observed_values, index=pose_id,
+                                                 columns=pd.MultiIndex.from_product([residue_indices,
+                                                                                     [f'observed_{profile}']]))
+                                    )
+            # Add observation information into the residue_df
+            residue_df = pd.concat([residue_df] + observed_dfs, axis=1)
+
+    # Todo get the keys right here
+    all_pose_divergence_df = pd.concat(all_pose_divergence, keys=[('sequence', 'pose')], axis=1)
+    interface_metrics_df = pd.DataFrame(interface_metrics).T
+    # is_thermophilic = []
+    # idx = 1
+    # for idx, entity in enumerate(pose.entities, idx):
+    #     is_thermophilic.append(interface_metrics_df.loc[:, f'entity_{idx}_thermophile'])
+
+    # Get the average thermophilicity for all entities
+    interface_metrics_df['entity_thermophilicity'] = \
+        interface_metrics_df.loc[:, [f'entity_{idx}_thermophile'
+                                     for idx in range(1, pose.number_of_entities)]
+                                 ].sum(axis=1) / pose.number_of_entities
+
+    scores_df['interface_local_density'] = pd.Series(interface_local_density)
 
     # Construct per_residue_df
     per_residue_df = pd.concat({name: pd.DataFrame(data, index=residue_indices)
@@ -3113,73 +3292,7 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
     # then select only those residues which are expressly important by the inclusion boolean
     scores_df['errat_deviation'] = (errat_sig_df.loc[:, source_errat_inclusion_boolean] * 1).sum(axis=1)
 
-    interface_metrics_df = pd.DataFrame(interface_metrics).T
-    # is_thermophilic = []
-    # idx = 1
-    # for idx, entity in enumerate(pose.entities, idx):
-    #     is_thermophilic.append(interface_metrics_df.loc[:, f'entity_{idx}_thermophile'])
-
-    # Get the average thermophilicity for all entities
-    interface_metrics_df['entity_thermophilicity'] = \
-        interface_metrics_df.loc[:, [f'entity_{idx}_thermophile'
-                                     for idx in range(1, pose.number_of_entities)]
-                                 ].sum(axis=1) / pose.number_of_entities
-
     if design_output:
-        # Format the sequences from design
-        sequences = numeric_to_sequence(generated_sequences)
-        # Truncate the sequences to the ASU
-        if pose.is_symmetric():
-            sequences = sequences[:, :pose_length]
-
-        # Save each Pose sequence design information including sequence, energy, probabilites
-        all_probabilities = {}
-        for idx, pose_id in enumerate(pose_ids):
-            pose_sequences[pose_id] = ''.join(sequences[idx])
-            # all_scores[pose_id] = per_residue_sequence_scores[idx]
-            _per_residue_complex_scores = per_residue_sequence_scores[idx]
-            _per_residue_unbound_scores = per_residue_unbound_scores[idx]
-            residue_info[pose_id] = {residue.number: {'complex': _per_residue_complex_scores[residue.index],
-                                                      'bound': 0.,  # copy(entity_energies),
-                                                      'unbound': _per_residue_unbound_scores[residue.index],
-                                                      # copy(entity_energies),
-                                                      'solv_complex': 0., 'solv_bound': 0.,  # copy(entity_energies),
-                                                      'solv_unbound': 0.,  # copy(entity_energies),
-                                                      # 'fsp': 0., 'cst': 0.,
-                                                      'type': protein_letters_3to1.get(residue.type), 'hbond': 0}
-                                     for entity in pose.entities for residue in entity.residues}
-            all_probabilities[pose_id] = probabilities[idx]
-
-        # Todo process the all_probabilities to a DataFrame
-        # all_probabilities is
-        # {'2gtr-3m6n-DEGEN_1_1-ROT_13_10-TX_1-PT_1':
-        #  array([[1.55571969e-02, 6.64833433e-09, 3.03523801e-03, ...,
-        #          2.94689467e-10, 8.92133514e-08, 6.75683381e-12],
-        #         [9.43517406e-03, 2.54900701e-09, 4.43358254e-03, ...,
-        #          2.19431431e-10, 8.18614296e-08, 4.94338381e-12],
-        #         [1.50658926e-02, 1.43449803e-08, 3.27082584e-04, ...,
-        #          1.70684064e-10, 8.77646258e-08, 6.67974660e-12],
-        #         ...,
-        #         [1.23516358e-07, 2.98688293e-13, 3.48888407e-09, ...,
-        #          1.17041141e-14, 4.72279464e-12, 5.79130243e-16],
-        #         [9.99999285e-01, 2.18584519e-19, 3.87702094e-16, ...,
-        #          7.12933229e-07, 5.22657113e-13, 3.19411591e-17],
-        #         [2.11755684e-23, 2.32944583e-23, 3.86148234e-23, ...,
-        #          1.16764793e-22, 1.62743156e-23, 7.65081924e-23]]),
-        #  '2gtr-3m6n-DEGEN_1_1-ROT_13_10-TX_1-PT_2':
-        #  array([[1.72123183e-02, 7.31348226e-09, 3.28084361e-03, ...,
-        #          3.16341731e-10, 9.09206364e-08, 7.41259137e-12],
-        #         [6.17256807e-03, 1.86070248e-09, 2.70802877e-03, ...,
-        #          1.61229460e-10, 5.94660143e-08, 3.73394328e-12],
-        #         [1.28052337e-02, 1.10993081e-08, 3.89973022e-04, ...,
-        #          2.21829027e-10, 1.03226760e-07, 8.43660298e-12],
-        #         ...,
-        #         [1.31807008e-06, 2.47859654e-12, 2.27575967e-08, ...,
-        #          5.34223104e-14, 2.06900348e-11, 3.35126595e-15],
-        #         [9.99999821e-01, 1.26853575e-19, 2.05691231e-16, ...,
-        #          2.02439509e-07, 5.02121131e-13, 1.38719620e-17],
-        #         [2.01858383e-23, 2.29340987e-23, 3.59583879e-23, ...,
-        #          1.13548109e-22, 1.60868618e-23, 7.25537526e-23]])}
         # Separate sequences by entity
         all_sequences_split = []
         for entity in pose.entities:
@@ -3203,46 +3316,6 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
         residue_df = pd.merge(residue_df, per_residue_df, left_index=True, right_index=True)
 
         # Calculate hydrophobic collapse for each design
-        measure_evolution, measure_alignment = True, True
-        warn = False
-        # Add Entity information to the Pose
-        for entity in pose.entities:
-            try:  # To fetch the multiple sequence alignment for further processing
-                # entity.sequence_file = job.api_db.sequences.retrieve_file(name=entity.name)
-                # if not entity.sequence_file:
-                #     entity.write_sequence_to_fasta('reference', out_dir=job.sequences)
-                #     # entity.add_evolutionary_profile(out_dir=job.api_db.hhblits_profiles.location)
-                # else:
-                profile = job.api_db.hhblits_profiles.retrieve_data(name=entity.name)
-                if not profile:
-                    measure_evolution = False
-                    warn = True
-                else:
-                    entity.evolutionary_profile = profile
-
-                msa = job.api_db.alignments.retrieve_data(name=entity.name)
-                if not msa:
-                    measure_evolution = False
-                    warn = True
-                else:
-                    entity.msa = msa
-            except ValueError:  # When the Entity reference sequence and alignment are different lengths
-                warn = True
-
-        if warn:
-            if not measure_evolution and not measure_alignment:
-                log.info(f'Metrics relying on multiple sequence alignment data are not being collected as '
-                         f'there were none found. These include: '
-                         f'{", ".join(multiple_sequence_alignment_dependent_metrics)}')
-            elif not measure_alignment:
-                log.info(f'Metrics relying on a multiple sequence alignment are not being collected as '
-                         f'there was no MSA found. These include: '
-                         f'{", ".join(multiple_sequence_alignment_dependent_metrics)}')
-            else:
-                log.info(f'Metrics relying on an evolutionary profile are not being collected as '
-                         f'there was no profile found. These include: '
-                         f'{", ".join(profile_dependent_metrics)}')
-
         # Todo, should the reference pose be used? -> + [entity.sequence for entity in pose.entities]
         # Include the pose as the pose_source in the measured designs
         folding_and_collapse = calculate_collapse_metrics(pose, all_sequences_by_entity)
@@ -3251,87 +3324,6 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
                                                     for idx, data in enumerate(folding_and_collapse)}).T],
                                      keys=[('sequence', 'pose')], axis=1)
         print('pose_collapse_df', pose_collapse_df)
-
-        # Load profiles of interest into the analysis
-        profile_background = {}
-        if measure_evolution:
-            pose.evolutionary_profile = combine_profile([entity.evolutionary_profile for entity in pose.entities])
-
-        if pose.evolutionary_profile:
-            profile_background['evolution'] = pssm_as_array(pose.evolutionary_profile)
-        else:
-            pose.log.info('No evolution information')
-        if job.fragment_db is not None:
-            interface_bkgd = np.array(list(job.fragment_db.aa_frequencies.values()))
-            profile_background['interface'] = np.tile(interface_bkgd, (pose.number_of_residues, 1))
-
-        all_pose_divergence = []
-        # Todo the poses must be iterated over!
-        #  Need to refactor these metrics into the ProteinMPNN design section,
-        #  or regenerate the poses here with update_pose_coords(idx)
-        for pose in pose_ids:
-            # We already have the fragment information for the two Models. We can expand with symmetry related fragments
-            pose.generate_interface_fragments()
-            # OR leave these out
-            # pose.fragment_queries[(entity for entity in pose.entities)] =
-            # (Entity1, Entity2), list[fragment_info_type]
-            for query_pair, fragment_info in pose.fragment_queries.items():
-                # self.log.debug(f'Query Pair: {query_pair[0].name}, {query_pair[1].name}'
-                #                f'\n\tFragment Info:{fragment_info}')
-                for query_idx, entity in enumerate(query_pair):
-                    entity.add_fragments_to_profile(fragments=fragment_info,
-                                                    alignment_type=alignment_types[query_idx])
-            # for entity in pose.entities:
-            #     entity.add_profile(evolution=not job.no_evolution_constraint,
-            #                        fragments=job.generate_fragments)
-            # pose.add_fragments_to_profile(fragments=)
-            pose.fragment_profile = combine_profile([entity.fragment_profile for entity in pose.entities])
-            # if pose.fragment_profile:
-            profile_background['fragment'] = pssm_as_array(pose.fragment_profile)
-            # else:
-            #     pose.log.info('No fragment information')
-
-            pose.add_profile(evolution=not job.no_evolution_constraint,
-                             fragments=job.generate_fragments)
-            if pose.profile:
-                profile_background['design'] = pssm_as_array(pose.profile)
-            # else:
-            #     pose.log.info('Design has no fragment information')
-
-            if not profile_background:
-                divergence_s = pd.Series(dtype=float)
-            else:  # Calculate sequence statistics
-                # First, for entire pose
-                interface_indexer = [residue.index for residue in pose.interface_residues]
-                pose_alignment = MultipleSequenceAlignment.from_dictionary(pose_sequences)
-                # This measurement is performed on a single pose with different design trajectories.
-                # Here, we only have a single trajectory per pose and therefore the divergence doesn't make sense
-                observed, divergence = \
-                    calculate_sequence_observations_and_divergence(pose_alignment,
-                                                                   profile_background,
-                                                                   interface_indexer)
-                # Get pose sequence divergence
-                # Todo remove as not useful!
-                #  divergence_s = pd.concat([pd.Series({f'{divergence_type}_per_residue': _divergence.mean()
-                #                                            for divergence_type, _divergence in divergence.items()})],
-                #                                      index=pose_ids,
-                #                                      keys=[('sequence_design', 'pose')])
-                # Todo extract the observed values out of the observed dictionary
-                #  Each Pose only has one trajectory, so measurement of divergence is pointless (no distribution)
-                observed_dfs = []
-                for profile, observed_values in observed.items():
-                    scores_df[f'observed_{profile}'] = observed_values.mean(axis=1)
-                    observed_dfs.append(pd.DataFrame(data=observed_values, index=pose_ids,
-                                                     columns=pd.MultiIndex.from_product([residue_indices,
-                                                                                         [f'observed_{profile}']]))
-                                        )
-                # Add observation information into the residue_df
-                residue_df = pd.concat([residue_df] + observed_dfs, axis=1)
-
-            all_pose_divergence.append(divergence_s)
-
-        # Todo get the keys right here
-        all_pose_divergence_df = pd.concat(all_pose_divergence, keys=[('sequence', 'pose')], axis=1)
 
         scores_df['number_of_mutations'] = \
             pd.Series({design: len(mutations) for design, mutations in all_mutations.items()})
