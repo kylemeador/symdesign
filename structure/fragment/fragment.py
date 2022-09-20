@@ -16,7 +16,7 @@ logger = start_log(name=__name__)
 alignment_types_literal = Literal['mapped', 'paired']
 alignment_types: tuple[alignment_types_literal] = get_args(alignment_types_literal)
 fragment_info_keys = Literal[alignment_types_literal, 'match', 'cluster']
-fragment_info_type = Type[dict[fragment_info_keys, int | str | float]]
+fragment_info_type = Type[dict[fragment_info_keys, int | float | tuple[int, int, int]]]
 
 
 class FragmentDatabase(FragmentInfo):
@@ -168,7 +168,8 @@ class FragmentDatabase(FragmentInfo):
                 else:
                     entity2_match_scores[resnum2].append(match_score)
 
-            i, j, k = list(map(int, fragment['cluster'].split('_')))
+            # i, j, k = list(map(int, fragment['cluster'].split('_')))
+            i, j, k = fragment['cluster']
             fragment_i_index_count_d[i] += 1
             fragment_j_index_count_d[j] += 1
 

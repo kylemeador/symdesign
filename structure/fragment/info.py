@@ -220,11 +220,11 @@ class FragmentInfo:
                               for cluster_id, cluster_file in identified_files})
 
     @staticmethod
-    def get_cluster_id(cluster_id: str, index: int = 3) -> str:
+    def get_cluster_id(cluster_id: str, index: int = 3) -> str:  # Todo Unused, DEPRECIATE
         """Returns the cluster identification string according the specified index
 
         Args:
-            cluster_id: The id of the fragment cluster. Ex: 1_2_123
+            cluster_id: The id of the fragment cluster. Ex: "1_2_123"
             index: The index on which to return. Ex: index_number=2 gives 1_2
         Returns:
             The cluster_id modified by the requested index_number

@@ -523,7 +523,7 @@ class SequenceProfile:
     disorder: dict[int, dict[str, str]]
     evolutionary_profile: dict | profile_dictionary
     fragment_map: dict[int, dict[int, list[fragment_info_type]]]
-    """{1: {-2: [{'source': 'mapped', 'cluster': '1_2_123', 'match': 0.6}, ...], -1: [], ...},
+    """{1: {-2: [{'source': 'mapped', 'cluster': (1, 2, 123), 'match': 0.6}, ...], -1: [], ...},
         2: {}, ...}
     """
     fragment_profile: dict | profile_dictionary
@@ -1195,7 +1195,7 @@ class SequenceProfile:
 
         Args:
             fragments: The fragment list to assign to the sequence profile with format
-                [{'mapped': residue_number1 (int), 'paired': residue_number2 (int), 'cluster': cluster_id (str),
+                [{'mapped': residue_number1 (int), 'paired': residue_number2 (int), 'cluster': tuple(int, int, int),
                   'match': match_score (float)}]
             alignment_type: Either 'mapped' or 'paired' indicating how the fragment observation was generated relative
                 to this Structure. Is it mapped to this Structure or was it paired to it?
@@ -1223,10 +1223,11 @@ class SequenceProfile:
                                                                                    'cluster': fragment['cluster'],
                                                                                    'match': fragment['match']})
 
-            # Ensure fragment information is retrieved from the fragment_db for the particular clusters
-            retrieve_fragments = [fragment['cluster'] for residue_indices in self.fragment_map.values()
-                                  for fragments in residue_indices.values() for fragment in fragments]
-            self.fragment_db.load_cluster_info(ids=retrieve_fragments)
+            # As of 9/18/22 opting to preload this data
+            # # Ensure fragment information is retrieved from the fragment_db for the particular clusters
+            # retrieve_fragments = [fragment['cluster'] for residue_indices in self.fragment_map.values()
+            #                       for fragments in residue_indices.values() for fragment in fragments]
+            # self.fragment_db.load_cluster_info(ids=retrieve_fragments)
 
         if not self.fragment_profile:
             self.fragment_profile = {residue_number: [[] for _ in range(self.fragment_db.fragment_length)]
@@ -1238,11 +1239,11 @@ class SequenceProfile:
         for fragment in fragments:
             residue_number = fragment[alignment_type] - self.offset_index
             # Retrieve the amino acid frequencies for this fragment cluster, for this alignment side
-            aa_freq = self.fragment_db.cluster_info[fragment['cluster']][alignment_type]
-            for frag_idx, frequencies in aa_freq.items():
+            aa_freq = getattr(self.fragment_db.info[fragment['cluster']], alignment_type)
+            for idx, (frag_idx, frequencies) in enumerate(aa_freq.items()):
                 # observation = dict(match=fragment['match'], **frequencies)
-                self.fragment_profile[residue_number + frag_idx][frag_idx].append(dict(match=fragment['match'],
-                                                                                       **frequencies))
+                self.fragment_profile[residue_number + frag_idx][idx].append(dict(match=fragment['match'],
+                                                                                  **frequencies))
 
     def _simplify_fragment_profile(self, keep_extras: bool = True):
         """Take a multi-indexed, a multi-observation fragment_profile and flatten to single frequency for each residue.
@@ -1270,7 +1271,7 @@ class SequenceProfile:
         #  captures disorder specific evolutionary signals that could be important in the calculation of profiles
         sequence = self.sequence
         no_design = []
-        for residue, indexed_observations in self.fragment_profile.items():
+        for residue_number, indexed_observations in self.fragment_profile.items():
             total_fragment_observations, total_fragment_weight = 0, 0
             for index, observations in enumerate(indexed_observations):
                 if observations:  # If not, will be an empty list
@@ -1281,7 +1282,7 @@ class SequenceProfile:
                         observation_weight = observation['stats'][1]
                         total_obs_weight += observation_weight
                         total_obs_x_match_weight += observation_weight * observation['match']
-                        # total_match_weight += self.fragment_profile[residue][index][obs]['match']
+                        # total_match_weight += self.fragment_profile[residue_number][index][obs]['match']
 
                     # Combine all observations at each index
                     # Check if weights are associated with observations. If not, side chain isn't significant
@@ -1292,8 +1293,8 @@ class SequenceProfile:
                         for observation in observations:
                             # Use pop to access and simultaneously remove from observation for the iteration below
                             obs_x_match_weight = observation.pop('stats')[1] * observation.pop('match')
-                            # match_weight = self.fragment_profile[residue][index][obs]['match']
-                            # obs_weight = self.fragment_profile[residue][index][obs]['stats'][1]
+                            # match_weight = self.fragment_profile[residue_number][index][obs]['match']
+                            # obs_weight = self.fragment_profile[residue_number][index][obs]['stats'][1]
                             for aa, frequency in observation.items():
                                 # if aa not in ['stats', 'match']:
                                 # Multiply OBS and MATCH
@@ -1307,13 +1308,13 @@ class SequenceProfile:
                         observed_aas['weight'] = total_obs_weight
 
                     # Add results to intermediate fragment_profile residue position index
-                    self.fragment_profile[residue][index] = observed_aas
+                    self.fragment_profile[residue_number][index] = observed_aas
 
             # Combine all index observations into one residue frequency distribution
             # residue_frequencies: dict[profile_keys, str | lod_dictionary | float | list[float]] = copy(aa_counts)
             residue_frequencies = {}
             if total_fragment_weight > 0:
-                for observation_frequencies in self.fragment_profile[residue]:
+                for observation_frequencies in self.fragment_profile[residue_number]:
                     if observation_frequencies:
                         index_weight = observation_frequencies.pop('weight')  # total_obs_weight from above
                         for aa, frequency in observation_frequencies.items():
@@ -1324,12 +1325,12 @@ class SequenceProfile:
                 # Set stats over all residue indices and observations
                 residue_frequencies['stats'] = (total_fragment_observations, total_fragment_weight)
                 # Offset to zero index
-                residue_frequencies['type'] = sequence[residue - zero_offset]
+                residue_frequencies['type'] = sequence[residue_number - zero_offset]
             else:  # Add to list for removal from the profile
-                no_design.append(residue)
+                no_design.append(residue_number)
 
             # Add results to final fragment_profile residue position
-            self.fragment_profile[residue] = residue_frequencies
+            self.fragment_profile[residue_number] = residue_frequencies
             # Since we either copy from self.evolutionary_profile or remove, an empty dictionary is fine here
             # If this changes, maybe the == 0 condition needs a copy(aa_counts) instead of {}
 
@@ -1338,14 +1339,14 @@ class SequenceProfile:
                 # Todo currently, if not an empty dictionary, add the corresponding value from evolution because the
                 #  calculation of packer palette is subtractive so the use of an overlapping evolution and
                 #  null fragment would result in nothing allowed to design...
-                for residue in no_design:
-                    self.fragment_profile[residue] = self.evolutionary_profile.get(residue)  # TODO, aa_weighted_counts)
+                for residue_number in no_design:
+                    self.fragment_profile[residue_number] = self.evolutionary_profile.get(residue_number)  # TODO, aa_weighted_counts)
             else:  # Add a blank entry
-                for residue in no_design:
-                    self.fragment_profile[residue] = aa_weighted_counts
+                for residue_number in no_design:
+                    self.fragment_profile[residue_number] = aa_weighted_counts
         else:  # Remove missing residues from dictionary
-            for residue in no_design:
-                self.fragment_profile.pop(residue)
+            for residue_number in no_design:
+                self.fragment_profile.pop(residue_number)
 
     def find_alpha(self, alpha: float = .5):
         """Find fragment contribution to design with a maximum contribution of alpha. Used subsequently to integrate
@@ -1398,9 +1399,9 @@ class SequenceProfile:
                 match_modifier = 1
 
             # Find the total contribution from a typical fragment of this type
-            contribution_total = sum(fragment_stats[self.fragment_db.get_cluster_id(observation['cluster'], index=2)][0]
+            contribution_total = sum(fragment_stats['_'.join(map(str, observation['cluster'][:2]))][0]
                                      [alignment_type_to_idx[observation['source']]]
-                                     for index_observations in self.fragment_map[entry]
+                                     for index_observations in self.fragment_map[entry].values()
                                      for observation in index_observations)
 
             # Get the average contribution of each fragment type
