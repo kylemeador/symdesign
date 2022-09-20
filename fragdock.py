@@ -3160,7 +3160,7 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
         residue_df = pd.merge(residue_df, per_residue_df, left_index=True, right_index=True)
 
         # Calculate hydrophobic collapse for each design
-        measure_evolution, measure_alignment = True
+        measure_evolution, measure_alignment = True, True
         warn = False
         # Add Entity information to the Pose
         for entity in pose.entities:
