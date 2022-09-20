@@ -2565,30 +2565,33 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
         number_of_perturbations = 1
 
     number_of_transforms = full_rotation1.shape[0]
-
-    # Set up data structures for metric capture
-    idx_slice = pd.IndexSlice
-    pose_ids = []
-    per_residue_data = {}
-    interface_metrics = {}
-    interface_local_density = {}
-    pose_sequences = {}
-    # all_scores = {}
-    all_probabilities = {}
     pose_length = pose.number_of_residues
-    # entity_energies = tuple(0. for ent in pose.entities)
-    pose_source_residue_info = \
-        {residue.number: {'complex': 0., 'bound': 0.,  # copy(entity_energies),
-                          'unbound': 0.,  # copy(entity_energies),
-                          'solv_complex': 0., 'solv_bound': 0.,  # copy(entity_energies),
-                          'solv_unbound': 0.,  # copy(entity_energies),
-                          # 'fsp': 0., 'cst': 0.,
-                          'type': protein_letters_3to1.get(residue.type), 'hbond': 0}
-         for entity in pose.entities for residue in entity.residues}
-    residue_info = {pose_source: pose_source_residue_info}
 
-    # Check if interface design should be performed
-    if design_output:
+    # Check output setting. Should interface design, metrics be performed?
+    if dock_only:  # Only get pose outputs, no sequences or metrics
+        for idx, overlap_ghosts in enumerate(all_passing_ghost_indices):
+            update_pose_coords(idx)
+
+            # Todo index the perturbations with an idx for the DEGEN_ROT_TX format
+            # Todo replace with PoseDirectory? Path object?
+            # temp indexing on degen and rot counts
+            # degen1_count, degen2_count = degen_counts[idx]
+            # rot1_count, rot2_count = rot_counts[idx]
+            # temp indexing on degen and rot counts
+            degen_str = 'DEGEN_{}'.format('_'.join(map(str, degen_counts[idx])))
+            rot_str = 'ROT_{}'.format('_'.join(map(str, rot_counts[idx])))
+            tx_str = f'TX_{tx_counts[idx]}'  # translation idx
+            pt_str = f'PT_{int(idx%number_of_perturbations) + 1}'
+            out_dir = os.path.join(outdir, degen_str, rot_str, tx_str.lower(), pt_str)
+            sampling_id = f'{degen_str}-{rot_str}-{tx_str}-{pt_str}'
+            pose_id = f'{building_blocks}-{sampling_id}'
+
+            output_pose(out_dir, sampling_id)  # , sequence_design=design_output)
+
+        log.info(f'Total {building_blocks} dock trajectory took {time.time() - frag_dock_time_start:.2f}s')
+        return  # End of docking run
+
+    elif design_output:  # We perform sequence design
         # Extract parameters to run ProteinMPNN design and modulate memory requirements
         log.debug(f'The mpnn_model.device is: {mpnn_model.device}')
         if mpnn_model.device == 'cpu':
@@ -2606,7 +2609,7 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
         if pose.is_symmetric():
             # number_of_symmetry_mates = pose.number_of_symmetry_mates
             mpnn_sample = mpnn_model.tied_sample
-            number_of_residues = pose_length*pose.number_of_symmetry_mates
+            number_of_residues = pose_length * pose.number_of_symmetry_mates
         else:
             mpnn_sample = mpnn_model.sample
             number_of_residues = pose_length
@@ -2742,54 +2745,21 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
 
                     # Initialize pose data structures for interface design
                     residue_mask = np.zeros((actual_batch_length, pose_length),
-                                            dtype=np.int32)
-                    # Utilize bias in design
+                                            dtype=np.int32)# (batch, number_of_residues)
                     bias_by_res = np.zeros((actual_batch_length, pose_length, 21),
-                                           dtype=np.float32)  # (number_of_residues, alphabet_length)
-                    # Use batch_idx to set new numpy arrays, perturb_idx to set coords
-                    # new_coords = []
-                    # Each residue will have 4 bb_coords, we will reshape to ProteinMPNN later
+                                           dtype=np.float32)  # (batch, number_of_residues, alphabet_length)
                     new_coords = np.zeros((actual_batch_length, pose_length * num_model_residues, 3),
-                                          dtype=np.float32)
+                                          dtype=np.float32)  # (batch, number_of_residues, coords_length)
+                    # Use batch_idx to set new numpy arrays, transform_idx (includes perturb_idx) to set coords
                     for batch_idx, transform_idx in enumerate(range(batch_slice.start, batch_slice.stop)):
                         update_pose_coords(transform_idx)
+                        pose.find_and_split_interface()
 
-                        # Todo replace with PoseDirectory? Path object?
-                        fragment_idx = int(transform_idx//number_of_perturbations)
-                        # temp indexing on degen and rot counts
-                        # degen1_count, degen2_count = degen_counts[idx]
-                        # rot1_count, rot2_count = rot_counts[idx]
-                        # temp indexing on degen and rot counts
-                        degen_str = 'DEGEN_{}'.format('_'.join(map(str, degen_counts[fragment_idx])))
-                        rot_str = 'ROT_{}'.format('_'.join(map(str, rot_counts[fragment_idx])))
-                        tx_str = f'TX_{tx_counts[fragment_idx]}'  # translation idx
-                        pt_str = f'PT_{int(transform_idx%number_of_perturbations) + 1}'
-                        out_dir = os.path.join(outdir, degen_str, rot_str, tx_str.lower(), pt_str)
-                        sampling_id = f'{degen_str}-{rot_str}-{tx_str}-{pt_str}'
-                        pose_id = f'{building_blocks}-{sampling_id}'
-
-                        # add_fragments_to_pose() either loading fragments or generating fresh
-                        # pose.find_and_split_interface()  # Now done in add_fragments_to_pose()
-                        add_fragments_to_pose(all_passing_ghost_indices[fragment_idx],
-                                              all_passing_surf_indices[fragment_idx],
-                                              all_passing_z_scores[fragment_idx])
-
-                        pose_ids.append(pose_id)
-                        per_residue_data[pose_id] = pose.get_per_residue_interface_metrics()  # _per_residue_data
-                        interface_metrics[pose_id] = pose.interface_metrics()  # _interface_metrics
-                        interface_local_density[pose_id] = pose.local_density_interface()  # _interface_local_density
-
-                        # Todo reinstate?
-                        # output_pose(tx_dir, sampling_id)  # , sequence_design=design_output)
-
-                        # Format the bb coords for ProteinMPNN with reshape
-                        # new_coords.append(pose.bb_coords.reshape((-1, 4, 3)))  # -1 axis should == pose_length
-                        # new_coords[batch_idx] = pose.bb_coords.reshape((-1, 4, 3))  # -1 axis should == pose_length
                         new_coords[batch_idx] = getattr(pose, coords_type)
 
                         design_residues = []  # Add all interface residues
                         for number, residues_entities in pose.split_interface_residues.items():
-                            design_residues.extend([residue.number-zero_offset for residue, _ in residues_entities])
+                            design_residues.extend([residue.index for residue, _ in residues_entities])
 
                         residue_mask[batch_idx, design_residues] = 1
                         # Todo Should I use this?
@@ -2800,6 +2770,7 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
                     # If entity_bb_coords are individually transformed, then axis=0 works
                     perturbed_bb_coords = np.concatenate(new_coords, axis=0)
 
+                    # Format the bb coords for ProteinMPNN
                     if pose.is_symmetric():
                         # Make each set of coordinates "symmetric"
                         # Todo - This uses starting coords to symmetrize... Crystalline won't be right with external_translation
@@ -2821,6 +2792,7 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
                     #     # If entity_bb_coords are individually transformed, then axis=0 works
                     #     perturbed_bb_coords = np.concatenate(new_coords, axis=0)
 
+                    # Reshape for ProteinMPNN
                     log.debug(f'perturbed_bb_coords.shape: {perturbed_bb_coords.shape}')
                     X = perturbed_bb_coords.reshape((actual_batch_length, -1, num_model_residues, 3))
                     log.debug(f'X.shape: {X.shape}')
@@ -2830,11 +2802,6 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
                         separate_parameters = proteinmpnn_to_device(mpnn_model.device, X=X,
                                                                     chain_M_pos=residue_mask,
                                                                     bias_by_res=bias_by_res)
-                        # separate_parameters = dict(X=X,
-                        #                            chain_M_pos=residue_mask,
-                        #                            bias_by_res=bias_by_res)
-                        # separate_parameters.update(proteinmpnn_to_device(mpnn_model.device, **separate_parameters))
-
                         # Different across poses
                         X = separate_parameters.get('X', None)
                         residue_mask = separate_parameters.get('chain_M_pos', None)
@@ -2936,8 +2903,7 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
                 # log.critical(f'Calculation failed with {divisor}.\n{error}\n{torch.cuda.memory_stats()}\nTrying again...')
                 log.critical(f'Calculation failed with {batch_length}.\n{error}\n{torch.cuda.memory_stats()}\nTrying again...')
                 # log.critical(f'{error}\nTrying again...')
-                # Remove data that has been set
-                pose_ids.clear()
+
                 # Remove all tensors from memory
                 try:
                     # constant parameters
@@ -2981,12 +2947,146 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
 
         log.info(f'Design with ProteinMPNN took {time.time() - proteinmpnn_time_start:8f}')
 
+    # Get metrics for each Pose
+    # Set up data structures for metric capture
+    idx_slice = pd.IndexSlice
+    pose_ids = []
+    per_residue_data = {}
+    interface_metrics = {}
+    interface_local_density = {}
+    pose_transformations = {}
+    pose_sequences = {}
+    # Save all pose transformations, formatting them for output
+    # full_rotation1 = full_rotation1
+    full_int_tx1 = full_int_tx1.squeeze()
+    # set_mat1 = set_mat1
+    full_ext_tx1 = list(repeat(None, number_of_transforms)) if full_ext_tx1 is None else full_ext_tx1.squeeze()
+    # full_rotation2 = full_rotation2
+    full_int_tx2 = full_int_tx2.squeeze()
+    # set_mat2 = set_mat2
+    full_ext_tx2 = list(repeat(None, number_of_transforms)) if full_ext_tx2 is None else full_ext_tx2.squeeze()
+
+    for idx, overlap_ghosts in enumerate(all_passing_ghost_indices):
+        update_pose_coords(idx)
+
+        # Todo index the perturbations with an idx for the DEGEN_ROT_TX format
+        # Todo replace with PoseDirectory? Path object?
+        # temp indexing on degen and rot counts
+        # degen1_count, degen2_count = degen_counts[idx]
+        # rot1_count, rot2_count = rot_counts[idx]
+        # temp indexing on degen and rot counts
+        degen_str = 'DEGEN_{}'.format('_'.join(map(str, degen_counts[idx])))
+        rot_str = 'ROT_{}'.format('_'.join(map(str, rot_counts[idx])))
+        tx_str = f'TX_{tx_counts[idx]}'  # translation idx
+        pt_str = f'PT_{int(idx % number_of_perturbations) + 1}'
+        out_dir = os.path.join(outdir, degen_str, rot_str, tx_str.lower(), pt_str)
+        sampling_id = f'{degen_str}-{rot_str}-{tx_str}-{pt_str}'
+        pose_id = f'{building_blocks}-{sampling_id}'
+
+        # Todo reinstate after alphafold integration?
+        # output_pose(out_dir, sampling_id)  # , sequence_design=design_output)
+
+        # add_fragments_to_pose() either loading fragments or generating fresh
+        # pose.find_and_split_interface()  # Now done in add_fragments_to_pose()
+        add_fragments_to_pose()
+        # add_fragments_to_pose(overlap_ghosts,
+        #                       all_passing_surf_indices[idx],
+        #                       all_passing_z_scores[idx])
+
+        pose_ids.append(pose_id)
+        per_residue_data[pose_id] = pose.get_per_residue_interface_metrics()  # _per_residue_data
+        interface_metrics[pose_id] = pose.interface_metrics()  # _interface_metrics
+        interface_local_density[pose_id] = pose.local_density_interface()  # _interface_local_density
+
+        # pose_transformations[pose_id] = dict(transformation1=dict(rotation=full_rotation1[idx],
+        #                                                           translation=full_int_tx1[idx],
+        #                                                           rotation2=set_mat1,
+        #                                                           translation2=full_ext_tx1[idx]),
+        #                                      transformation2=dict(rotation=full_rotation2[idx],
+        #                                                           translation=full_int_tx2[idx],
+        #                                                           rotation2=set_mat2,
+        #                                                           translation2=full_ext_tx2[idx]))
+        pose_transformations[pose_id] = dict(rotation1=full_rotation1[idx],  # Replace with deg
+                                             translation1=full_int_tx1[idx],
+                                             rotation1_2=set_mat1,  # Replace with setting matrix number
+                                             translation1_2=full_ext_tx1[idx],
+                                             rotation2=full_rotation2[idx],  # Replace with deg
+                                             translation2=full_int_tx2[idx],
+                                             rotation2_2=set_mat2,  # Replace with setting matrix number
+                                             translation2_2=full_ext_tx2[idx])
+    # Initialize the main scoring DataFrame
+    scores_df = pd.DataFrame(pose_transformations).T
+    scores_df['interface_local_density'] = pd.Series(interface_local_density)
+
+    # Calculate metrics on input Pose
+    # entity_energies = tuple(0. for ent in pose.entities)
+    pose_source_residue_info = \
+        {residue.number: {'complex': 0., 'bound': 0.,  # copy(entity_energies),
+                          'unbound': 0.,  # copy(entity_energies),
+                          'solv_complex': 0., 'solv_bound': 0.,  # copy(entity_energies),
+                          'solv_unbound': 0.,  # copy(entity_energies),
+                          # 'fsp': 0., 'cst': 0.,
+                          'type': protein_letters_3to1.get(residue.type), 'hbond': 0}
+         for entity in pose.entities for residue in entity.residues}
+    residue_info = {pose_source: pose_source_residue_info}
+
+    source_errat, source_contact_order = [], []
+    for idx, entity in enumerate(pose.entities):
+        # Contact order is the same for every design in the Pose and not dependent on pose
+        source_contact_order.append(entity.contact_order)
+        # Replace 'errat_deviation' measurement with uncomplexed entities
+        # oligomer_errat_accuracy, oligomeric_errat = entity_oligomer.errat(out_path=self.data)
+        # Todo when Entity.oligomer works
+        #  _, oligomeric_errat = entity.oligomer.errat(out_path=self.data)
+        entity_oligomer = Model.from_chains(entity.chains, log=log, entities=False)
+        _, oligomeric_errat = entity_oligomer.errat(out_path=os.devnull)
+        source_errat.append(oligomeric_errat[:entity.number_of_residues])
+
+    residue_indices = list(range(1, pose_length + 1))
+    # per_residue_data = {}  # pose_source: pose.get_per_residue_interface_metrics()}
+    pose_source_contact_order_s = \
+        pd.Series(np.concatenate(source_contact_order), index=residue_indices, name='contact_order')
+    pose_source_errat_s = pd.Series(np.concatenate(source_errat), index=residue_indices)
+
+    per_residue_data[pose_source] = {'contact_order': pose_source_contact_order_s,
+                                     'errat_deviation': pose_source_errat_s}
+
+    # Construct per_residue_df
+    per_residue_df = pd.concat({name: pd.DataFrame(data, index=residue_indices)
+                                for name, data in per_residue_data.items()}).unstack().swaplevel(0, 1, axis=1)
+    # Make buried surface area (bsa) columns
+    per_residue_df = calculate_residue_surface_area(per_residue_df)  # .loc[:, idx_slice[index_residues, :]])
+    print('per_residue_df', per_residue_df)
+
+    # Include in errat_deviation if errat score is < 2 std devs and isn't 0 to begin with
+    source_errat_inclusion_boolean = np.logical_and(pose_source_errat_s < errat_2_sigma, pose_source_errat_s != 0.)
+    errat_df = per_residue_df.loc[:, idx_slice[:, 'errat_deviation']].droplevel(-1, axis=1)
+    # find where designs deviate above wild-type errat scores
+    errat_sig_df = (errat_df.sub(pose_source_errat_s, axis=1)) > errat_1_sigma  # axis=1 Series is column oriented
+    # then select only those residues which are expressly important by the inclusion boolean
+    scores_df['errat_deviation'] = (errat_sig_df.loc[:, source_errat_inclusion_boolean] * 1).sum(axis=1)
+
+    interface_metrics_df = pd.DataFrame(interface_metrics).T
+    # is_thermophilic = []
+    # idx = 1
+    # for idx, entity in enumerate(pose.entities, idx):
+    #     is_thermophilic.append(interface_metrics_df.loc[:, f'entity_{idx}_thermophile'])
+
+    # Get the average thermophilicity for all entities
+    interface_metrics_df['entity_thermophilicity'] = \
+        interface_metrics_df.loc[:, [f'entity_{idx}_thermophile'
+                                     for idx in range(1, pose.number_of_entities)]
+                                 ].sum(axis=1) / pose.number_of_entities
+
+    if design_output:
+        # Format the sequences from design
         sequences = numeric_to_sequence(generated_sequences)
         # Truncate the sequences to the ASU
         if pose.is_symmetric():
             sequences = sequences[:, :pose_length]
 
-        # Save each pose information
+        # Save each Pose sequence design information including sequence, energy, probabilites
+        all_probabilities = {}
         for idx, pose_id in enumerate(pose_ids):
             pose_sequences[pose_id] = ''.join(sequences[idx])
             # all_scores[pose_id] = per_residue_sequence_scores[idx]
@@ -2994,7 +3094,8 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
             _per_residue_unbound_scores = per_residue_unbound_scores[idx]
             residue_info[pose_id] = {residue.number: {'complex': _per_residue_complex_scores[residue.index],
                                                       'bound': 0.,  # copy(entity_energies),
-                                                      'unbound': _per_residue_unbound_scores[residue.index],  # copy(entity_energies),
+                                                      'unbound': _per_residue_unbound_scores[residue.index],
+                                                      # copy(entity_energies),
                                                       'solv_complex': 0., 'solv_bound': 0.,  # copy(entity_energies),
                                                       'solv_unbound': 0.,  # copy(entity_energies),
                                                       # 'fsp': 0., 'cst': 0.,
@@ -3002,6 +3103,7 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
                                      for entity in pose.entities for residue in entity.residues}
             all_probabilities[pose_id] = probabilities[idx]
 
+        # Todo process the all_probabilities to a DataFrame
         # all_probabilities is
         # {'2gtr-3m6n-DEGEN_1_1-ROT_13_10-TX_1-PT_1':
         #  array([[1.55571969e-02, 6.64833433e-09, 3.03523801e-03, ...,
@@ -3039,148 +3141,20 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
 
         all_sequences_by_entity = list(zip(*all_sequences_split))
         all_mutations = generate_mutations_from_reference(pose.sequence, pose_sequences)  # , zero_index=True)
-    elif dock_only:  # Only get pose outputs, no sequences or metrics
-        for idx, overlap_ghosts in enumerate(all_passing_ghost_indices):
-            update_pose_coords(idx)
 
-            # Todo index the perturbations with an idx for the DEGEN_ROT_TX format
-            # Todo replace with PoseDirectory? Path object?
-            # temp indexing on degen and rot counts
-            # degen1_count, degen2_count = degen_counts[idx]
-            # rot1_count, rot2_count = rot_counts[idx]
-            # temp indexing on degen and rot counts
-            degen_str = 'DEGEN_{}'.format('_'.join(map(str, degen_counts[idx])))
-            rot_str = 'ROT_{}'.format('_'.join(map(str, rot_counts[idx])))
-            tx_str = f'TX_{tx_counts[idx]}'  # translation idx
-            pt_str = f'PT_{int(idx % number_of_perturbations) + 1}'
-            out_dir = os.path.join(outdir, degen_str, rot_str, tx_str.lower(), pt_str)
-            sampling_id = f'{degen_str}-{rot_str}-{tx_str}-{pt_str}'
-            pose_id = f'{building_blocks}-{sampling_id}'
+        # Can't use below as each pose is different
+        # index_residues = list(pose.interface_design_residue_numbers)
+        # residue_df = pd.merge(residue_df.loc[:, idx_slice[index_residues, :]],
+        #                       per_residue_df.loc[:, idx_slice[index_residues, :]],
+        #                       left_index=True, right_index=True)
 
-            output_pose(out_dir, sampling_id)  # , sequence_design=design_output)
+        # Process mutational frequencies, H-bond, and Residue energy metrics to dataframe
+        # residue_info = process_residue_info(residue_info)  # Only useful in Rosetta
+        residue_info = incorporate_mutation_info(residue_info, all_mutations)
+        residue_df = pd.concat({design: pd.DataFrame(info) for design, info in residue_info.items()}).unstack()
 
-        log.info(f'Total {building_blocks} dock trajectory took {time.time() - frag_dock_time_start:.2f}s')
-        return  # End of docking run
-    else:  # Dock and metrics
-        # Only get metrics for pose, no sequences
-        for idx, overlap_ghosts in enumerate(all_passing_ghost_indices):
-            update_pose_coords(idx)
+        residue_df = pd.merge(residue_df, per_residue_df, left_index=True, right_index=True)
 
-            # Todo index the perturbations with an idx for the DEGEN_ROT_TX format
-            # Todo replace with PoseDirectory? Path object?
-            # temp indexing on degen and rot counts
-            # degen1_count, degen2_count = degen_counts[idx]
-            # rot1_count, rot2_count = rot_counts[idx]
-            # temp indexing on degen and rot counts
-            degen_str = 'DEGEN_{}'.format('_'.join(map(str, degen_counts[idx])))
-            rot_str = 'ROT_{}'.format('_'.join(map(str, rot_counts[idx])))
-            tx_str = f'TX_{tx_counts[idx]}'  # translation idx
-            pt_str = f'PT_{int(idx % number_of_perturbations) + 1}'
-            out_dir = os.path.join(outdir, degen_str, rot_str, tx_str.lower(), pt_str)
-            sampling_id = f'{degen_str}-{rot_str}-{tx_str}-{pt_str}'
-            pose_id = f'{building_blocks}-{sampling_id}'
-
-            output_pose(out_dir, sampling_id)  # , sequence_design=design_output)
-
-            # add_fragments_to_pose() either loading fragments or generating fresh
-            # pose.find_and_split_interface()  # Now done in add_fragments_to_pose()
-            add_fragments_to_pose(overlap_ghosts,
-                                  all_passing_surf_indices[idx],
-                                  all_passing_z_scores[idx])
-
-            pose_ids.append(pose_id)
-            per_residue_data[pose_id] = pose.get_per_residue_interface_metrics()  # _per_residue_data
-            interface_metrics[pose_id] = pose.interface_metrics()  # _interface_metrics
-            interface_local_density[pose_id] = pose.local_density_interface()  # _interface_local_density
-
-        # Generate placeholder all_mutations which only contains "reference"
-        all_mutations = generate_mutations_from_reference(pose.sequence, pose_sequences)  # , zero_index=True)
-
-    # Save all pose transformations, formatting them for output
-    # full_rotation1 = full_rotation1
-    full_int_tx1 = full_int_tx1.squeeze()
-    # set_mat1 = set_mat1
-    full_ext_tx1 = list(repeat(None, number_of_transforms)) if full_ext_tx1 is None else full_ext_tx1.squeeze()
-    # full_rotation2 = full_rotation2
-    full_int_tx2 = full_int_tx2.squeeze()
-    # set_mat2 = set_mat2
-    full_ext_tx2 = list(repeat(None, number_of_transforms)) if full_ext_tx2 is None else full_ext_tx2.squeeze()
-
-    pose_transformations = {}
-    for idx, pose_id in enumerate(pose_ids):  # full_rotation1.shape[0]:
-        # pose_transformations[pose_id] = dict(transformation1=dict(rotation=full_rotation1[idx],
-        #                                                           translation=full_int_tx1[idx],
-        #                                                           rotation2=set_mat1,
-        #                                                           translation2=full_ext_tx1[idx]),
-        #                                      transformation2=dict(rotation=full_rotation2[idx],
-        #                                                           translation=full_int_tx2[idx],
-        #                                                           rotation2=set_mat2,
-        #                                                           translation2=full_ext_tx2[idx]))
-        pose_transformations[pose_id] = dict(rotation1=full_rotation1[idx],  # Replace with deg
-                                             translation1=full_int_tx1[idx],
-                                             rotation1_2=set_mat1,  # Replace with setting matrix number
-                                             translation1_2=full_ext_tx1[idx],
-                                             rotation2=full_rotation2[idx],  # Replace with deg
-                                             translation2=full_int_tx2[idx],
-                                             rotation2_2=set_mat2,  # Replace with setting matrix number
-                                             translation2_2=full_ext_tx2[idx])
-    # Initialize the main scoring DataFrame
-    scores_df = pd.DataFrame(pose_transformations).T
-
-    # Calculate full suite of metrics
-    source_errat, source_contact_order = [], []
-    for idx, entity in enumerate(pose.entities):
-        # Contact order is the same for every design in the Pose and not dependent on pose
-        source_contact_order.append(entity.contact_order)
-        # Replace 'errat_deviation' measurement with uncomplexed entities
-        # oligomer_errat_accuracy, oligomeric_errat = entity_oligomer.errat(out_path=self.data)
-        # Todo when Entity.oligomer works
-        #  _, oligomeric_errat = entity.oligomer.errat(out_path=self.data)
-        entity_oligomer = Model.from_chains(entity.chains, log=log, entities=False)
-        _, oligomeric_errat = entity_oligomer.errat(out_path=os.devnull)
-        source_errat.append(oligomeric_errat[:entity.number_of_residues])
-
-    residue_indices = list(range(1, pose_length+1))
-    # per_residue_data = {}  # pose_source: pose.get_per_residue_interface_metrics()}
-    pose_source_contact_order_s = \
-        pd.Series(np.concatenate(source_contact_order), index=residue_indices, name='contact_order')
-    pose_source_errat_s = pd.Series(np.concatenate(source_errat), index=residue_indices)
-
-    per_residue_data[pose_source] = {'contact_order': pose_source_contact_order_s,
-                                     'errat_deviation': pose_source_errat_s}
-
-    # Construct per_residue_df
-    per_residue_df = pd.concat({name: pd.DataFrame(data, index=residue_indices)
-                                for name, data in per_residue_data.items()}).unstack().swaplevel(0, 1, axis=1)
-    print('per_residue_df', per_residue_df)
-
-    # Include in errat_deviation if errat score is < 2 std devs and isn't 0 to begin with
-    source_errat_inclusion_boolean = np.logical_and(pose_source_errat_s < errat_2_sigma, pose_source_errat_s != 0.)
-    errat_df = per_residue_df.loc[:, idx_slice[:, 'errat_deviation']].droplevel(-1, axis=1)
-    # find where designs deviate above wild-type errat scores
-    errat_sig_df = (errat_df.sub(pose_source_errat_s, axis=1)) > errat_1_sigma  # axis=1 Series is column oriented
-    # then select only those residues which are expressly important by the inclusion boolean
-    scores_df['errat_deviation'] = (errat_sig_df.loc[:, source_errat_inclusion_boolean] * 1).sum(axis=1)
-
-    # Can't use below as each pose is different
-    # index_residues = list(pose.interface_design_residue_numbers)
-    # residue_df = pd.merge(residue_df.loc[:, idx_slice[index_residues, :]],
-    #                       per_residue_df.loc[:, idx_slice[index_residues, :]],
-    #                       left_index=True, right_index=True)
-
-    # Process mutational frequencies, H-bond, and Residue energy metrics to dataframe
-    # residue_info = process_residue_info(residue_info)  # Only useful in Rosetta
-    residue_info = incorporate_mutation_info(residue_info, all_mutations)
-    residue_df = pd.concat({design: pd.DataFrame(info) for design, info in residue_info.items()}).unstack()
-
-    residue_df = pd.merge(residue_df, per_residue_df, left_index=True, right_index=True)
-    scores_df['interface_local_density'] = pd.Series(interface_local_density)
-
-    # Make buried surface area (bsa) columns
-    residue_df = calculate_residue_surface_area(residue_df)  # .loc[:, idx_slice[index_residues, :]])
-
-    interface_metrics_df = pd.DataFrame(interface_metrics).T
-    if design_output:
         # Calculate hydrophobic collapse for each design
         measure_evolution, measure_alignment = True
         warn = False
@@ -3293,7 +3267,8 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
                 # Todo remove as not useful!
                 #  divergence_s = pd.concat([pd.Series({f'{divergence_type}_per_residue': _divergence.mean()
                 #                                            for divergence_type, _divergence in divergence.items()})],
-                #                                keys=[('sequence_design', 'pose')])
+                #                                      index=pose_ids,
+                #                                      keys=[('sequence_design', 'pose')])
                 # Todo extract the observed values out of the observed dictionary
                 #  Each Pose only has one trajectory, so measurement of divergence is pointless (no distribution)
                 observed_dfs = []
@@ -3309,7 +3284,7 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
             all_pose_divergence.append(divergence_s)
 
         # Todo get the keys right here
-        all_pose_divergence_df = pd.concat(all_pose_divergence, index=pose_ids, keys=[('sequence', 'pose')], axis=1)
+        all_pose_divergence_df = pd.concat(all_pose_divergence, keys=[('sequence', 'pose')], axis=1)
 
         scores_df['number_of_mutations'] = \
             pd.Series({design: len(mutations) for design, mutations in all_mutations.items()})
@@ -3325,20 +3300,12 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
             scores_df[f'entity_{idx}_percent_mutations'] = \
                 scores_df[f'entity_{idx}_number_of_mutations'] \
                 / interface_metrics_df.loc[:, f'entity_{idx}_number_of_residues']
-    else:
+    else:  # Get metrics and output
+        # Generate placeholder all_mutations which only contains "reference"
+        all_mutations = generate_mutations_from_reference(pose.sequence, pose_sequences)  # , zero_index=True)
+
         pose_collapse_df = pd.DataFrame()
         all_pose_divergence_df = pd.DataFrame()
-
-    # is_thermophilic = []
-    # idx = 1
-    # for idx, entity in enumerate(pose.entities, idx):
-    #     is_thermophilic.append(interface_metrics_df.loc[:, f'entity_{idx}_thermophile'])
-
-    # Get the average thermophilicity for all entities
-    interface_metrics_df['entity_thermophilicity'] = \
-        interface_metrics_df.loc[:, [f'entity_{idx}_thermophile'
-                                     for idx in range(1, pose.number_of_entities)]
-                                 ].sum(axis=1) / pose.number_of_entities
 
     # interface_metrics_s = pd.Series(interface_metrics_df)
     # Concatenate all design information after parsing data sources
