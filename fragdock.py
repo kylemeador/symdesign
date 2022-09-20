@@ -2545,7 +2545,7 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
         full_ext_tx2 = transformation2['translation2']
 
         post_perturb_number_transformations = full_rotation1.shape[0]
-        number_of_perturbations = post_perturb_number_transformations/pre_perturb_number_transformations
+        number_of_perturbations = int(post_perturb_number_transformations/pre_perturb_number_transformations)
 
         # V1 below was working with commit 808eedcf
         # # This will utilize a single input from each pose and create a sequence design batch over each transformation.
@@ -2574,7 +2574,7 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
             # Todo replace with PoseDirectory? Path object?
             #  Use out_dir in output_pose()? or a single file with the pose_id name?
             transform_idx = idx // number_of_perturbations
-            perturb_idx = int(idx % number_of_perturbations)
+            perturb_idx = idx % number_of_perturbations
             degen_str = 'DEGEN_{}'.format('_'.join(map(str, degen_counts[transform_idx])))
             rot_str = 'ROT_{}'.format('_'.join(map(str, rot_counts[transform_idx])))
             tx_str = f'TX_{tx_counts[transform_idx]}'  # translation idx
@@ -3016,7 +3016,7 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
         # Todo replace with PoseDirectory? Path object?
         #  Use out_dir in output_pose()? or a single file with the pose_id name?
         transform_idx = idx // number_of_perturbations
-        perturb_idx = int(idx % number_of_perturbations)
+        perturb_idx = idx % number_of_perturbations
         degen_str = 'DEGEN_{}'.format('_'.join(map(str, degen_counts[transform_idx])))
         rot_str = 'ROT_{}'.format('_'.join(map(str, rot_counts[transform_idx])))
         tx_str = f'TX_{tx_counts[transform_idx]}'  # translation idx
