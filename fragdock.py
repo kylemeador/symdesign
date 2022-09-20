@@ -4,7 +4,6 @@ import math
 import os
 import sys
 import time
-from copy import copy
 from collections.abc import Iterable
 from itertools import repeat
 from logging import Logger
@@ -2572,16 +2571,20 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
         for idx in range(number_of_transforms):
             update_pose_coords(idx)
 
-            # Todo index the perturbations with an idx for the DEGEN_ROT_TX format
             # Todo replace with PoseDirectory? Path object?
-            # temp indexing on degen and rot counts
-            # degen1_count, degen2_count = degen_counts[idx]
-            # rot1_count, rot2_count = rot_counts[idx]
-            # temp indexing on degen and rot counts
-            degen_str = 'DEGEN_{}'.format('_'.join(map(str, degen_counts[idx])))
-            rot_str = 'ROT_{}'.format('_'.join(map(str, rot_counts[idx])))
-            tx_str = f'TX_{tx_counts[idx]}'  # translation idx
-            sampling_id = f'{degen_str}-{rot_str}-{tx_str}-{pt_str}'
+            #  Use out_dir in output_pose()? or a single file with the pose_id name?
+            transform_idx = idx // number_of_perturbations
+            perturb_idx = int(idx % number_of_perturbations)
+            degen_str = 'DEGEN_{}'.format('_'.join(map(str, degen_counts[transform_idx])))
+            rot_str = 'ROT_{}'.format('_'.join(map(str, rot_counts[transform_idx])))
+            tx_str = f'TX_{tx_counts[transform_idx]}'  # translation idx
+            if number_of_perturbations > 1:
+                pt_str = f'PT_{perturb_idx + 1}'
+                out_dir = os.path.join(outdir, degen_str, rot_str, tx_str.lower(), pt_str)
+                sampling_id = f'{degen_str}-{rot_str}-{tx_str}-{pt_str}'
+            else:
+                out_dir = os.path.join(outdir, degen_str, rot_str, tx_str.lower())
+                sampling_id = f'{degen_str}-{rot_str}-{tx_str}'
             pose_id = f'{building_blocks}-{sampling_id}'
 
             if job.write_fragments:
@@ -2592,12 +2595,6 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
                     add_fragments_to_pose(all_passing_ghost_indices[idx],
                                           all_passing_surf_indices[idx],
                                           all_passing_z_scores[idx])
-
-            if number_of_perturbations > 1:
-                pt_str = f'PT_{int(idx % number_of_perturbations) + 1}'
-                out_dir = os.path.join(outdir, degen_str, rot_str, tx_str.lower(), pt_str)
-            else:
-                out_dir = os.path.join(outdir, degen_str, rot_str, tx_str.lower())
 
             output_pose(out_dir, sampling_id)  # , sequence_design=design_output)
 
@@ -3016,35 +3013,35 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
     for idx in range(number_of_transforms):
         update_pose_coords(idx)
 
-        # Todo index the perturbations with an idx for the DEGEN_ROT_TX format
         # Todo replace with PoseDirectory? Path object?
-        # temp indexing on degen and rot counts
-        # degen1_count, degen2_count = degen_counts[idx]
-        # rot1_count, rot2_count = rot_counts[idx]
-        # temp indexing on degen and rot counts
-        degen_str = 'DEGEN_{}'.format('_'.join(map(str, degen_counts[idx])))
-        rot_str = 'ROT_{}'.format('_'.join(map(str, rot_counts[idx])))
-        tx_str = f'TX_{tx_counts[idx]}'  # translation idx
-        pt_str = f'PT_{int(idx%number_of_perturbations) + 1}'
-        out_dir = os.path.join(outdir, degen_str, rot_str, tx_str.lower(), pt_str)
-        sampling_id = f'{degen_str}-{rot_str}-{tx_str}-{pt_str}'
-        pose_id = f'{building_blocks}-{sampling_id}'
-
-        # if job.write_fragments: # Todo reinstate after alphafold integration? Need these for metrics anyway
+        #  Use out_dir in output_pose()? or a single file with the pose_id name?
+        transform_idx = idx // number_of_perturbations
+        perturb_idx = int(idx % number_of_perturbations)
+        degen_str = 'DEGEN_{}'.format('_'.join(map(str, degen_counts[transform_idx])))
+        rot_str = 'ROT_{}'.format('_'.join(map(str, rot_counts[transform_idx])))
+        tx_str = f'TX_{tx_counts[transform_idx]}'  # translation idx
         if number_of_perturbations > 1:
             add_fragments_to_pose()  # <- here generating fresh
+            pt_str = f'PT_{perturb_idx + 1}'
+            out_dir = os.path.join(outdir, degen_str, rot_str, tx_str.lower(), pt_str)
+            sampling_id = f'{degen_str}-{rot_str}-{tx_str}-{pt_str}'
         else:
             # Here, loading fragments. No self-symmetric interactions found
-            add_fragments_to_pose(all_passing_ghost_indices[idx],
-                                  all_passing_surf_indices[idx],
-                                  all_passing_z_scores[idx])
-        # Todo reinstate after alphafold integration?
-        # output_pose(out_dir, sampling_id)  # , sequence_design=design_output)
+            # where transform_idx = idx
+            add_fragments_to_pose(all_passing_ghost_indices[transform_idx],
+                                  all_passing_surf_indices[transform_idx],
+                                  all_passing_z_scores[transform_idx])
+            out_dir = os.path.join(outdir, degen_str, rot_str, tx_str.lower())
+            sampling_id = f'{degen_str}-{rot_str}-{tx_str}'
+        pose_id = f'{building_blocks}-{sampling_id}'
 
         pose_ids.append(pose_id)
         per_residue_data[pose_id] = pose.get_per_residue_interface_metrics()  # _per_residue_data
         interface_metrics[pose_id] = pose.interface_metrics()  # _interface_metrics
         interface_local_density[pose_id] = pose.local_density_interface()  # _interface_local_density
+
+        # Todo reinstate after alphafold integration?
+        # output_pose(out_dir, sampling_id)  # , sequence_design=design_output)
 
         # pose_transformations[pose_id] = dict(transformation1=dict(rotation=full_rotation1[idx],
         #                                                           translation=full_int_tx1[idx],
@@ -3054,6 +3051,7 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
         #                                                           translation=full_int_tx2[idx],
         #                                                           rotation2=set_mat2,
         #                                                           translation2=full_ext_tx2[idx]))
+        # Todo is this format desired?
         pose_transformations[pose_id] = dict(rotation1=full_rotation1[idx],  # Replace with deg
                                              translation1=full_int_tx1[idx],
                                              rotation1_2=set_mat1,  # Replace with setting matrix number
@@ -3084,6 +3082,7 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
         source_contact_order.append(entity.contact_order)
         # Replace 'errat_deviation' measurement with uncomplexed entities
         # oligomer_errat_accuracy, oligomeric_errat = entity_oligomer.errat(out_path=self.data)
+        # Todo translate
         # Todo when Entity.oligomer works
         #  _, oligomeric_errat = entity.oligomer.errat(out_path=self.data)
         entity_oligomer = Model.from_chains(entity.chains, log=log, entities=False)
@@ -3397,7 +3396,7 @@ if __name__ == '__main__':
         else:
             # Set all modules to propagate logs to write to master log file
             set_loggers_to_propagate()
-            set_logging_to_level(handler_level=3)
+            set_logging_to_level(handler_level=2)  # 3) Todo add back after testing
             # Root logger logs all emissions to a single file with level 'info'
             start_log(handler=2, location=master_log_filepath)
             # FragDock main logs to stream with level info
