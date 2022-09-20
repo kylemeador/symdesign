@@ -2569,7 +2569,7 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
 
     # Check output setting. Should interface design, metrics be performed?
     if dock_only:  # Only get pose outputs, no sequences or metrics
-        for idx, overlap_ghosts in enumerate(all_passing_ghost_indices):
+        for idx in range(number_of_transforms):
             update_pose_coords(idx)
 
             # Todo index the perturbations with an idx for the DEGEN_ROT_TX format
@@ -2581,10 +2581,23 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
             degen_str = 'DEGEN_{}'.format('_'.join(map(str, degen_counts[idx])))
             rot_str = 'ROT_{}'.format('_'.join(map(str, rot_counts[idx])))
             tx_str = f'TX_{tx_counts[idx]}'  # translation idx
-            pt_str = f'PT_{int(idx%number_of_perturbations) + 1}'
-            out_dir = os.path.join(outdir, degen_str, rot_str, tx_str.lower(), pt_str)
             sampling_id = f'{degen_str}-{rot_str}-{tx_str}-{pt_str}'
             pose_id = f'{building_blocks}-{sampling_id}'
+
+            if job.write_fragments:
+                if number_of_perturbations > 1:
+                    add_fragments_to_pose()  # <- here generating fresh
+                else:
+                    # Here, loading fragments. No self-symmetric interactions found
+                    add_fragments_to_pose(all_passing_ghost_indices[idx],
+                                          all_passing_surf_indices[idx],
+                                          all_passing_z_scores[idx])
+
+            if number_of_perturbations > 1:
+                pt_str = f'PT_{int(idx % number_of_perturbations) + 1}'
+                out_dir = os.path.join(outdir, degen_str, rot_str, tx_str.lower(), pt_str)
+            else:
+                out_dir = os.path.join(outdir, degen_str, rot_str, tx_str.lower())
 
             output_pose(out_dir, sampling_id)  # , sequence_design=design_output)
 
@@ -3000,7 +3013,7 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
     # set_mat2 = set_mat2
     full_ext_tx2 = list(repeat(None, number_of_transforms)) if full_ext_tx2 is None else full_ext_tx2.squeeze()
 
-    for idx, overlap_ghosts in enumerate(all_passing_ghost_indices):
+    for idx in range(number_of_transforms):
         update_pose_coords(idx)
 
         # Todo index the perturbations with an idx for the DEGEN_ROT_TX format
@@ -3012,20 +3025,21 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
         degen_str = 'DEGEN_{}'.format('_'.join(map(str, degen_counts[idx])))
         rot_str = 'ROT_{}'.format('_'.join(map(str, rot_counts[idx])))
         tx_str = f'TX_{tx_counts[idx]}'  # translation idx
-        pt_str = f'PT_{int(idx % number_of_perturbations) + 1}'
+        pt_str = f'PT_{int(idx%number_of_perturbations) + 1}'
         out_dir = os.path.join(outdir, degen_str, rot_str, tx_str.lower(), pt_str)
         sampling_id = f'{degen_str}-{rot_str}-{tx_str}-{pt_str}'
         pose_id = f'{building_blocks}-{sampling_id}'
 
+        # if job.write_fragments: # Todo reinstate after alphafold integration? Need these for metrics anyway
+        if number_of_perturbations > 1:
+            add_fragments_to_pose()  # <- here generating fresh
+        else:
+            # Here, loading fragments. No self-symmetric interactions found
+            add_fragments_to_pose(all_passing_ghost_indices[idx],
+                                  all_passing_surf_indices[idx],
+                                  all_passing_z_scores[idx])
         # Todo reinstate after alphafold integration?
         # output_pose(out_dir, sampling_id)  # , sequence_design=design_output)
-
-        # add_fragments_to_pose() either loading fragments or generating fresh
-        # pose.find_and_split_interface()  # Now done in add_fragments_to_pose()
-        add_fragments_to_pose()
-        # add_fragments_to_pose(overlap_ghosts,
-        #                       all_passing_surf_indices[idx],
-        #                       all_passing_z_scores[idx])
 
         pose_ids.append(pose_id)
         per_residue_data[pose_id] = pose.get_per_residue_interface_metrics()  # _per_residue_data
