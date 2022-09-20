@@ -245,6 +245,7 @@ class FragmentDatabase(FragmentInfo):
 
         return separated_fragment_metrics
 
+    @staticmethod
     def format_fragment_metrics(metrics: dict) -> dict:
         """For a set of fragment metrics, return the formatted total fragment metrics
 
@@ -265,6 +266,7 @@ class FragmentDatabase(FragmentInfo):
             'number_fragment_residues_total': metrics['total']['total']['number'],
             'number_fragment_residues_center': metrics['total']['center']['number'],
             'number_of_fragments': metrics['total']['observations'],
+            # Todo ensure these metrics are accounted for if using a different cluster index
             'percent_fragment_helix': (metrics['total']['index_count'][1] / (metrics['total']['observations'] * 2)),
             'percent_fragment_strand': (metrics['total']['index_count'][2] / (metrics['total']['observations'] * 2)),
             'percent_fragment_coil': ((metrics['total']['index_count'][3] + metrics['total']['index_count'][4]
