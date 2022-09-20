@@ -1271,8 +1271,10 @@ class SequenceProfile:
         #  captures disorder specific evolutionary signals that could be important in the calculation of profiles
         sequence = self.sequence
         no_design = []
+        print('fragment_map', self.fragment_map)
         for residue_index, indexed_observations in self.fragment_profile.items():
             total_fragment_observations, total_fragment_weight = 0, 0
+            print('indexed_observations', indexed_observations)
             for index, observations in enumerate(indexed_observations):
                 if observations:  # If not, will be an empty list
                     # Sum the weight for each fragment observation
