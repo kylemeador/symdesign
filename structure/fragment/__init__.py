@@ -20,7 +20,7 @@ class GhostFragment:
     _representative: 'structure.base.Structure'
     aligned_fragment: Fragment
     """Must support .chain, .number, and .transformation attributes"""
-    fragment_db: object  # Todo typing with FragmentDatabase
+    fragment_db: structure.fragment.db.FragmentDatabase
     # index: int
     i_type: int
     j_type: int
@@ -154,7 +154,7 @@ class Fragment:
     chain: str
     frag_lower_range: int
     frag_upper_range: int
-    fragment_db: object  # Todo typing with FragmentDatabase
+    fragment_db: structure.fragment.db.FragmentDatabase
     ghost_fragments: list | list[GhostFragment] | None
     # guide_coords: np.ndarray | None
     i_type: int | None
@@ -168,8 +168,7 @@ class Fragment:
     def __init__(self, fragment_type: int = None,
                  # guide_coords: np.ndarray = None,
                  # fragment_length: int = 5,
-                 fragment_db: object = None,
-                 # fragment_db: FragmentDatabase = None,  # Todo typing with FragmentDatabase
+                 fragment_db: structure.fragment.db.FragmentDatabase = None,
                  **kwargs):
         self.ghost_fragments = None
         self.i_type = fragment_type
@@ -189,7 +188,7 @@ class Fragment:
         return self._fragment_db
 
     @fragment_db.setter
-    def fragment_db(self, fragment_db: object):  # Todo typing with FragmentDatabase
+    def fragment_db(self, fragment_db: structure.fragment.db.FragmentDatabase):
         """Set the secondary structure of the Fragment"""
         self._fragment_db = fragment_db
         if fragment_db is not None:
@@ -332,8 +331,7 @@ class MonoFragment(Fragment):
     central_residue: 'structure.base.Residue'
 
     def __init__(self, residues: Sequence['structure.base.Residue'],
-                 fragment_db: object = None,
-                 # fragment_db: FragmentDatabase = None,  # Todo typing with FragmentDatabase
+                 fragment_db: structure.fragment.db.FragmentDatabase = None,
                  **kwargs):
         super().__init__(**kwargs)
         self.central_residue = residues[int(self.fragment_length/2)]
