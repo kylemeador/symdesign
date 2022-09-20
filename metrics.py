@@ -754,6 +754,8 @@ significance_columns = ['buried_unsatisfied_hbonds',
 multiple_sequence_alignment_dependent_metrics = \
     ['global_collapse_z_sum', 'hydrophobicity_deviation_magnitude', 'new_collapse_island_significance',
      'new_collapse_islands', 'sequential_collapse_peaks_z_sum', 'sequential_collapse_z_sum']
+profile_dependent_metrics = ['divergence_evolution_per_residue', 'observed_evolution']
+frag_profile_dependent_metrics = ['divergence_fragment_per_residue', 'observed_fragment']
 # per_res_keys = ['jsd', 'des_jsd', 'int_jsd', 'frag_jsd']
 
 

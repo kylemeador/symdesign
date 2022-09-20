@@ -20,7 +20,7 @@ from sklearn.neighbors import BallTree
 
 from metrics import calculate_collapse_metrics, calculate_residue_surface_area, errat_1_sigma, errat_2_sigma, \
     multiple_sequence_alignment_dependent_metrics, calculate_sequence_observations_and_divergence, process_residue_info, \
-    incorporate_mutation_info
+    incorporate_mutation_info, profile_dependent_metrics
 from resources.EulerLookup import euler_factory
 from structure.fragment.fragment import FragmentDatabase, fragment_factory, alignment_types
 from resources.job import job_resources_factory, JobResources
@@ -3182,7 +3182,8 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
     interface_metrics_df = pd.DataFrame(interface_metrics).T
     if design_output:
         # Calculate hydrophobic collapse for each design
-        warn = True
+        measure_evolution, measure_alignment = True
+        warn = False
         # Add Entity information to the Pose
         for entity in pose.entities:
             try:  # To fetch the multiple sequence alignment for further processing
@@ -3191,14 +3192,36 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
                 #     entity.write_sequence_to_fasta('reference', out_dir=job.sequences)
                 #     # entity.add_evolutionary_profile(out_dir=job.api_db.hhblits_profiles.location)
                 # else:
-                entity.evolutionary_profile = job.api_db.hhblits_profiles.retrieve_data(name=entity.name)
-                entity.msa = job.api_db.alignments.retrieve_data(name=entity.name)
+                profile = job.api_db.hhblits_profiles.retrieve_data(name=entity.name)
+                if not profile:
+                    measure_evolution = False
+                    warn = True
+                else:
+                    entity.evolutionary_profile = profile
+
+                msa = job.api_db.alignments.retrieve_data(name=entity.name)
+                if not msa:
+                    measure_evolution = False
+                    warn = True
+                else:
+                    entity.msa = msa
             except ValueError:  # When the Entity reference sequence and alignment are different lengths
-                if not warn:
-                    log.info(f'Metrics relying on a multiple sequence alignment are not being collected as '
-                             f'there is no MSA found. These include: '
-                             f'{", ".join(multiple_sequence_alignment_dependent_metrics)}')
-                    warn = False
+                warn = True
+
+        if warn:
+            if not measure_evolution and not measure_alignment:
+                log.info(f'Metrics relying on multiple sequence alignment data are not being collected as '
+                         f'there were none found. These include: '
+                         f'{", ".join(multiple_sequence_alignment_dependent_metrics)}')
+            elif not measure_alignment:
+                log.info(f'Metrics relying on a multiple sequence alignment are not being collected as '
+                         f'there was no MSA found. These include: '
+                         f'{", ".join(multiple_sequence_alignment_dependent_metrics)}')
+            else:
+                log.info(f'Metrics relying on an evolutionary profile are not being collected as '
+                         f'there was no profile found. These include: '
+                         f'{", ".join(profile_dependent_metrics)}')
+
         # Todo, should the reference pose be used? -> + [entity.sequence for entity in pose.entities]
         # Include the pose as the pose_source in the measured designs
         folding_and_collapse = calculate_collapse_metrics(pose, all_sequences_by_entity)
@@ -3210,7 +3233,9 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
 
         # Load profiles of interest into the analysis
         profile_background = {}
-        pose.evolutionary_profile = combine_profile([entity.evolutionary_profile for entity in pose.entities])
+        if measure_evolution:
+            pose.evolutionary_profile = combine_profile([entity.evolutionary_profile for entity in pose.entities])
+
         if pose.evolutionary_profile:
             profile_background['evolution'] = pssm_as_array(pose.evolutionary_profile)
         else:

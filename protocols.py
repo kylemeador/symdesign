@@ -29,8 +29,8 @@ from utils.CommandDistributer import reference_average_residue_weight, run_cmds,
 from metrics import read_scores, interface_composition_similarity, unnecessary, necessary_metrics, rosetta_terms, \
     columns_to_new_column, division_pairs, delta_pairs, dirty_hbond_processing, significance_columns, \
     df_permutation_test, clean_up_intermediate_columns, protocol_specific_columns, rank_dataframe_by_metric_weights, \
-    filter_df_for_index_by_value, multiple_sequence_alignment_dependent_metrics, process_residue_info, \
-    collapse_significance_threshold, calculate_collapse_metrics, errat_1_sigma, errat_2_sigma, \
+    filter_df_for_index_by_value, multiple_sequence_alignment_dependent_metrics, profile_dependent_metrics, \
+    process_residue_info, collapse_significance_threshold, calculate_collapse_metrics, errat_1_sigma, errat_2_sigma, \
     calculate_residue_surface_area, position_specific_divergence, calculate_sequence_observations_and_divergence, \
     incorporate_mutation_info
 from resources.job import JobResources, job_resources_factory
@@ -3742,7 +3742,8 @@ def interface_design_analysis(pose: Pose, design_poses: Iterable[Pose] = None, s
     scores_df['errat_deviation'] = (errat_sig_df.loc[:, source_errat_inclusion_boolean] * 1).sum(axis=1)
 
     # Calculate hydrophobic collapse for each design
-    warn = True
+    measure_evolution, measure_alignment = True
+    warn = False
     # Add Entity information to the Pose
     for idx, entity in enumerate(pose.entities):
         try:  # To fetch the multiple sequence alignment for further processing
@@ -3751,20 +3752,44 @@ def interface_design_analysis(pose: Pose, design_poses: Iterable[Pose] = None, s
             #     entity.write_sequence_to_fasta('reference', out_dir=job.sequences)
             #     # entity.add_evolutionary_profile(out_dir=job.api_db.hhblits_profiles.location)
             # else:
-            entity.evolutionary_profile = job.api_db.hhblits_profiles.retrieve_data(name=entity.name)
-            entity.msa = job.api_db.alignments.retrieve_data(name=entity.name)
+            profile = job.api_db.hhblits_profiles.retrieve_data(name=entity.name)
+            if not profile:
+                measure_evolution = False
+                warn = True
+            else:
+                entity.evolutionary_profile = profile
+
+            msa = job.api_db.alignments.retrieve_data(name=entity.name)
+            if not msa:
+                measure_evolution = False
+                warn = True
+            else:
+                entity.msa = msa
         except ValueError:  # When the Entity reference sequence and alignment are different lengths
-            if not warn:
-                pose.log.info(f'Metrics relying on a multiple sequence alignment are not being collected as '
-                              f'there is no MSA found. These include: '
+            warn = True
+
+        if warn:
+            if not measure_evolution and not measure_alignment:
+                pose.log.info(f'Metrics relying on multiple sequence alignment data are not being collected as '
+                              f'there were none found. These include: '
                               f'{", ".join(multiple_sequence_alignment_dependent_metrics)}')
-                warn = False
+            elif not measure_alignment:
+                pose.log.info(f'Metrics relying on a multiple sequence alignment are not being collected as '
+                              f'there was no MSA found. These include: '
+                              f'{", ".join(multiple_sequence_alignment_dependent_metrics)}')
+            else:
+                pose.log.info(f'Metrics relying on an evolutionary profile are not being collected as '
+                              f'there was no profile found. These include: '
+                              f'{", ".join(profile_dependent_metrics)}')
+
     # Include the pose_source in the measured designs
     folding_and_collapse = calculate_collapse_metrics(pose, list(zip(*[list(design_sequences.values())
                                                                        for design_sequences in entity_sequences])))
     pose_collapse_df = pd.DataFrame(folding_and_collapse).T
 
-    pose.evolutionary_profile = combine_profile([entity.evolutionary_profile for entity in pose.entities])
+    if measure_evolution:
+        pose.evolutionary_profile = combine_profile([entity.evolutionary_profile for entity in pose.entities])
+
     # pose.generate_interface_fragments() was already called
     # (Entity1, Entity2), list[fragment_info_type]
     for query_pair, fragment_info in pose.fragment_queries.items():
