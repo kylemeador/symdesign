@@ -104,5 +104,5 @@ from structure import base
 base.protein_backbone_atom_types = {'N', 'CA', 'O'}  # 'C', Removing 'C' for fragment library guide atoms...
 ijk_frag_db = create_fragment_db_from_raw_files(source=biological_interfaces)
 
-copy(biological_fragment_db_pickle, f'{biological_fragment_db_pickle}.bak-{timestamp}')
+copy(biological_fragment_db_pickle, f'{biological_fragment_db_pickle}.bak-{timestamp()}')
 pickle_object(ijk_frag_db, name=biological_fragment_db_pickle, out_path='')
