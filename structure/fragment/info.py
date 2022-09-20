@@ -103,7 +103,11 @@ class FragmentInfo:
             raise NotImplementedError("Can't connect to MySQL database yet")
         else:
             stats_file = sorted(glob(os.path.join(os.path.dirname(self.location), f'{self.source}_statistics.pkl')))
-            if len(stats_file) == 1:
+            if not stats_file:
+                raise FileNotFoundError(f"Couldn't locate the file "
+                                        f"{os.path.join(os.path.dirname(self.location), f'{self.source}_statistics.pkl')}"
+                                        f" which is required for {self._load_db_statistics.__name__}")
+            elif len(stats_file) == 1:
                 self.statistics = unpickle(stats_file[0])
             else:
                 raise DesignError('There were too many statistics.pkl files found from the fragment database source!')
