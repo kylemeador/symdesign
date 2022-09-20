@@ -3742,7 +3742,7 @@ def interface_design_analysis(pose: Pose, design_poses: Iterable[Pose] = None, s
     scores_df['errat_deviation'] = (errat_sig_df.loc[:, source_errat_inclusion_boolean] * 1).sum(axis=1)
 
     # Calculate hydrophobic collapse for each design
-    measure_evolution, measure_alignment = True
+    measure_evolution, measure_alignment = True, True
     warn = False
     # Add Entity information to the Pose
     for idx, entity in enumerate(pose.entities):
