@@ -6046,16 +6046,16 @@ class Pose(SequenceProfile, SymmetricModel):
         if not entity1_indices or not entity2_indices:
             return
 
-        if self.is_symmetric():  # get the symmetric indices of interest
+        if self.is_symmetric():  # Get the symmetric indices of interest
             entity2_indices = self.get_symmetric_indices(entity2_indices)
-            # solve for entity2_indices to query
+            # Solve for entity2_indices to query
             if entity1 == entity2:  # We don't want symmetry interactions with the asu model or intra-oligomeric models
-                if entity1.is_oligomeric():  # remove oligomeric protomers (contains asu)
+                if entity1.is_oligomeric():  # Remove oligomeric protomers (contains asu)
                     remove_indices = self.get_oligomeric_atom_indices(entity1)
                     self.log.info('Removing indices from models %s due to detected oligomer'
                                   % ', '.join(map(str, self.oligomeric_model_indices.get(entity1))))
                     self.log.debug(f'Removing {len(remove_indices)} indices from symmetric query due to oligomer')
-                else:  # remove asu
+                else:  # Just remove asu
                     remove_indices = self.get_asu_atom_indices()
                 self.log.debug(f'Number of indices before removal of "self" indices: {len(entity2_indices)}')
                 entity2_indices = list(set(entity2_indices).difference(remove_indices))
@@ -6063,10 +6063,10 @@ class Pose(SequenceProfile, SymmetricModel):
             entity2_coords = self.symmetric_coords[entity2_indices]  # get the symmetric indices from Entity 2
             sym_string = 'symmetric '
         elif entity1 == entity2:
-            # without symmetry, we can't measure this, unless intra-oligomeric contacts are desired
+            # Without symmetry, we can't measure this, unless intra-oligomeric contacts are desired
             self.log.warning('Entities are the same, but no symmetry is present. The interface between them will not be'
                              ' detected!')
-            raise NotImplementedError('These entities shouldn\'t necessarily be equal. This issue needs to be addressed'
+            raise NotImplementedError("These entities shouldn't necessarily be equal. This issue needs to be addressed"
                                       'by expanding the __eq__ method of Entity to more accurately reflect what a '
                                       'Structure object represents programmatically')
             # return
@@ -6075,9 +6075,9 @@ class Pose(SequenceProfile, SymmetricModel):
             entity2_coords = self.coords[entity2_indices]  # only get the coordinate indices we want
 
         # Construct CB tree for entity1 and query entity2 CBs for a distance less than a threshold
-        entity1_coords = self.coords[entity1_indices]  # only get the coordinate indices we want
+        entity1_coords = self.coords[entity1_indices]  # Only get the coordinates we specified
         entity1_tree = BallTree(entity1_coords)
-        if len(entity2_coords) == 0:  # ensure the array is not empty
+        if len(entity2_coords) == 0:  # Ensure the array is not empty
             return
         entity2_query = entity1_tree.query_radius(entity2_coords, distance)
 
@@ -6092,13 +6092,13 @@ class Pose(SequenceProfile, SymmetricModel):
                              coords_indexed_residues[entity2_indices[entity2_idx] % number_of_atoms])
                             for entity2_idx, entity1_contacts in enumerate(entity2_query)
                             for entity1_idx in entity1_contacts]
-        if entity1 == entity2:  # solve symmetric results for asymmetric contacts
+        if entity1 == entity2:  # Solve symmetric results for asymmetric contacts
             asymmetric_contacting_pairs, found_pairs = [], set()
             for pair1, pair2 in contacting_pairs:
-                # only add to contacting pair if we have never observed either
+                # Only add to contacting pair if we have never observed either
                 if (pair1, pair2) not in found_pairs:  # or (pair2, pair1) not in found_pairs:
                     asymmetric_contacting_pairs.append((pair1, pair2))
-                # add both pair orientations (1, 2) and (2, 1) regardless
+                # Add both pair orientations (1, 2) and (2, 1) regardless
                 found_pairs.update([(pair1, pair2), (pair2, pair1)])
 
             return asymmetric_contacting_pairs
@@ -6129,11 +6129,11 @@ class Pose(SequenceProfile, SymmetricModel):
             self.interface_residues_by_entity_pair[(entity1, entity2)] = ([], [])
             return
 
-        if entity1 == entity2:  # if symmetric query
-            # is the interface is across a dimeric interface?
+        if entity1 == entity2:  # If symmetric query
+            # Is the interface is across a dimeric interface?
             for residue in entity2_residues:  # entity2 usually has fewer residues, this might be quickest
-                if residue in entity1_residues:  # the interface is dimeric
-                    # include all residues found to only one side and move on
+                if residue in entity1_residues:  # The interface is dimeric
+                    # Include all residues found to only one side and move on
                     entity1_residues = sorted(set(entity1_residues).union(entity2_residues), key=lambda res: res.number)
                     entity2_residues = []
                     break
@@ -6142,10 +6142,6 @@ class Pose(SequenceProfile, SymmetricModel):
                       f'\n\t{entity2.name} found residue numbers: {", ".join(str(r.number) for r in entity2_residues)}')
 
         self.interface_residues_by_entity_pair[(entity1, entity2)] = (entity1_residues, entity2_residues)
-        # entities = [entity1, entity2]
-        # self.log.debug(f'Added interface_residues: {", ".join(f"{residue.number}{entities[idx].chain_id}")}'
-        #                for idx, entity_residues in enumerate(self.interface_residues_by_entity_pair[(entity1, entity2)])
-        #                for residue in entity_residues)
 
     def find_interface_atoms(self, entity1: Entity = None, entity2: Entity = None, distance: float = 4.68) -> \
             list[tuple[int, int]] | None:
@@ -6361,9 +6357,10 @@ class Pose(SequenceProfile, SymmetricModel):
             # Todo v clean as it is redundant with analysis and falls out of scope
             entity_oligomer = Model.from_chains(entity.chains, log=self.log, entities=False)
             # entity.oligomer.get_sasa()
-            # Must check by number as the Residue instance will be different in entity_oligomer
+            # Must get_residues by number as the Residue instance will be different in entity_oligomer
             for residue in entity_oligomer.get_residues(self.interface_design_residue_numbers):
-                if residue.sasa > 0:  # we will have repeats as the Entity is symmetric
+                if residue.sasa > 0:
+                    # Using set ensures that if we have repeats they won't be unique if Entity is symmetric
                     self.interface_residue_numbers.add(residue.number)
 
     def check_interface_topology(self):
