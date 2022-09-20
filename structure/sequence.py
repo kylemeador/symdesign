@@ -1431,38 +1431,41 @@ class SequenceProfile:
             favor_seqprofile_score_modifier = 0.2 * CommandDistributer.reference_average_residue_weight
             database_bkgnd_aa_freq = self.fragment_db.aa_frequencies
 
-            null_residue = get_lod(database_bkgnd_aa_freq, database_bkgnd_aa_freq)
-            null_residue = {aa: float(frequency) for aa, frequency in null_residue.items()}
+            null_residue = get_lod(database_bkgnd_aa_freq, database_bkgnd_aa_freq, as_int=False)
+            # This was needed in the case of domain errors with lod
+            # null_residue = {aa: float(frequency) for aa, frequency in null_residue.items()}
 
-            for entry in self.profile:
-                self.profile[entry]['lod'] = null_residue  # Caution all reference same object
-            for entry, weight in self.alpha.items():  # self.fragment_profile:
-                self.profile[entry]['lod'] = get_lod(self.fragment_profile[entry], database_bkgnd_aa_freq, round_lod=False)
-                # get the sum for the partition function
-                partition, max_lod = 0, 0.0
-                for aa in self.profile[entry]['lod']:
-                    if boltzmann:  # boltzmann probability distribution scaling, lod = z[i]/Z, Z = sum(exp(score[i]/kT))
-                        self.profile[entry]['lod'][aa] = exp(self.profile[entry]['lod'][aa] / boltzman_energy)
-                        partition += self.profile[entry]['lod'][aa]
-                    # linear scaling, remove any lod penalty
-                    elif self.profile[entry]['lod'][aa] < 0:
-                        self.profile[entry]['lod'][aa] = 0
-                    # find the maximum/residue (local) lod score
-                    if self.profile[entry]['lod'][aa] > max_lod:
-                        max_lod = self.profile[entry]['lod'][aa]
-                # takes the percent of max alpha for each entry multiplied by the standard residue scaling factor
-                modified_entry_alpha = (weight/self._alpha) * favor_seqprofile_score_modifier
+            # Set all profile entries to a null entry first
+            for entry, data in self.profile.items():
+                data['lod'] = null_residue  # Caution, all reference same object
+            for entry, data in self.profile.items():
+                data['lod'] = get_lod(self.fragment_profile[entry], database_bkgnd_aa_freq, as_int=False)
+                # Adjust scores with particular weighting scheme
+                partition = 0.
+                for aa, value in data['lod'].items():
+                    if boltzmann:  # Boltzmann scaling, sum for the partition function
+                        value = exp(value / boltzman_energy)
+                        partition += value
+                    else:  # if value < 0:
+                        # With linear scaling, remove any lod penalty
+                        value = max(0, value)
+
+                    data['lod'][aa] = value
+
+                # Find the maximum/residue (local) lod score
+                max_lod = max(data['lod'].values())
+                # Takes the percent of max alpha for each entry multiplied by the standard residue scaling factor
+                modified_entry_alpha = (self.alpha[entry - zero_offset]/self._alpha) * favor_seqprofile_score_modifier
                 if boltzmann:
+                    # lods = e ** odds[i]/Z, Z = sum(exp(odds[i]/kT))
                     modifier = partition
                     modified_entry_alpha /= (max_lod / partition)
                 else:
                     modifier = max_lod
 
-                # weight the final lod score by the modifier and the scaling factor for the chosen method
-                for aa in self.evolutionary_profile[entry]['lod']:
-                    self.profile[entry]['lod'][aa] /= modifier  # get percent total (boltzman) or percent max (linear)
-                    self.profile[entry]['lod'][aa] *= modified_entry_alpha  # scale by score modifier
-                # self.log.debug('Residue %4d Fragment lod ratio generated with alpha=%f' % (entry, weight / alpha))
+                # Weight the final lod score by the modifier and the scaling factor for the chosen method
+                data['lod'] = {aa: value / modifier * modified_entry_alpha for aa, value in data['lod'].items()}
+                # Get percent total (boltzman) or percent max (linear) and scale by alpha score modifier
 
     def solve_consensus(self, fragment_source=None, alignment_type=None):
         raise NotImplementedError('This function needs work')
@@ -1689,22 +1692,21 @@ def populate_design_dictionary(n: int, alphabet: Sequence, zero_index: bool = Fa
     return {residue: {character: dtype() for character in alphabet} for residue in range(offset, n + offset)}
 
 
-def get_lod(aa_freqs: dict[structure.utils.protein_letters_literal, float],
-            background: dict[structure.utils.protein_letters_literal, float],
-            round_lod: bool = True) -> dict[str, int]:
+def get_lod(frequencies: dict[structure.utils.protein_letters_literal, float],
+            background: dict[structure.utils.protein_letters_literal, float], as_int: bool = True) -> dict[str, int | float]:
     """Get the log of the odds that an amino acid is in a frequency distribution compared to a background frequency
 
     Args:
-        aa_freqs: {'A': 0.11, 'C': 0.01, 'D': 0.034, ...}
+        frequencies: {'A': 0.11, 'C': 0.01, 'D': 0.034, ...}
         background: {'A': 0.10, 'C': 0.02, 'D': 0.04, ...}
-        round_lod: Whether to round the lod values to an integer
+        as_int: Whether to round the lod values to an integer
     Returns:
          The log of odds for each amino acid type {'A': 2, 'C': -9, 'D': -1, ...}
     """
     lods = {}
-    for aa, freq in aa_freqs.items():
-        try:
-            lods[aa] = float((2. * log2(freq / background[aa])))  # + 0.0
+    for aa, freq in frequencies.items():
+        try:  # Todo why is this 2. * the log2?
+            lods[aa] = float(2. * log2(freq / background[aa]))  # + 0.0
         except ValueError:  # math domain error
             lods[aa] = -9
         except KeyError:
@@ -1719,8 +1721,8 @@ def get_lod(aa_freqs: dict[structure.utils.protein_letters_literal, float],
         # elif round_lod:
         #     lods[aa] = round(lods[aa])
 
-    if round_lod:
-        return {aa: (round(value) if value >= -9 else -9) for aa, value in lods.items()}
+    if as_int:
+        return {aa: (as_int(value) if value >= -9 else -9) for aa, value in lods.items()}
     else:  # ensure that -9 is the lowest value (formatting issues if 2 digits)
         return {aa: (value if value >= -9 else -9) for aa, value in lods.items()}
 
