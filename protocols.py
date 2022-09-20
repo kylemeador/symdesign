@@ -3799,6 +3799,7 @@ def interface_design_analysis(pose: Pose, design_poses: Iterable[Pose] = None, s
         for query_idx, entity in enumerate(query_pair):
             entity.add_fragments_to_profile(fragments=fragment_info,
                                             alignment_type=alignment_types[query_idx])
+            entity.add_fragment_profile()
     # for entity in pose.entities:
     #     entity.add_profile(evolution=not job.no_evolution_constraint,
     #                        fragments=job.generate_fragments)
