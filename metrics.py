@@ -1070,8 +1070,8 @@ def calculate_collapse_metrics(reference_model: 'structure.model.Model',
                                sequences_of_interest: Iterable[Iterable[Sequence[str]]]) -> list[dict[str, float]]:
     # Measure the wild type (reference) entity versus modified entity(ies) to find the hci delta
     # Calculate Reference sequence statistics
-    entity_collapse_mean, entity_collapse_std, reference_collapse_bool, reference_collapse_z_score = [], [], [], []
-    source_contact_order, inverse_residue_contact_order_z = [], []
+    source_contact_order, inverse_residue_contact_order_z, reference_collapse_bool = [], [], []
+    entity_collapse_mean, entity_collapse_std, reference_collapse_z_score = [], [], []
     msa_metrics = True
     for idx, chain in enumerate(reference_model.chains):
         # print(chain.name, chain.sequence)  # Todo remove Debug
@@ -1156,7 +1156,7 @@ def calculate_collapse_metrics(reference_model: 'structure.model.Model',
             collapse_bool = np.where(collapse_propensity_z_positive, 1, 0)  # [0, 0, 0, 0, 1, 1, 0, 0, 1, 1, ...]
             # collapse_bool = np.nonzero(collapse_propensity_z_positive)[0]  # [0, 0, 0, 0, 1, 1, 0, 0, 1, 1, ...]
             reference_collapse = reference_collapse_bool[entity_idx]
-            increased_collapse = np.where(collapse_bool-reference_collapse == 1, 1, 0)
+            increased_collapse = np.where(collapse_bool - reference_collapse == 1, 1, 0)
             # check if the increased collapse has made new collapse
             new_collapse = np.zeros_like(collapse_bool)  # [0, 0, 1, 1, 0, 0, 0, 0, 0, 0, ...]
             for idx, _bool in enumerate(increased_collapse.tolist()[1:-1], 1):

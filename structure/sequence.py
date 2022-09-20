@@ -5,7 +5,7 @@ import subprocess
 import time
 from collections import namedtuple
 from copy import deepcopy, copy
-from itertools import repeat
+from itertools import repeat, count
 from logging import Logger
 from math import floor, exp, log2
 from pathlib import Path
@@ -43,6 +43,11 @@ aa_weighted_counts: info.aa_weighted_counts_type = dict(zip(protein_letters_alph
 """{protein_letters_alph1, repeat(0)), stats=(0, 1))"""
 aa_weighted_counts.update({'stats': (0, 1)})
 subs_matrices = {'BLOSUM62': substitution_matrices.load('BLOSUM62')}
+# 'uniclust30_2018_08'
+latest_uniclust_background_frequencies = \
+    {'A': 0.0835, 'C': 0.0157, 'D': 0.0542, 'E': 0.0611, 'F': 0.0385, 'G': 0.0669, 'H': 0.0228, 'I': 0.0534,
+     'K': 0.0521, 'L': 0.0926, 'M': 0.0219, 'N': 0.0429, 'P': 0.0523, 'Q': 0.0401, 'R': 0.0599, 'S': 0.0791,
+     'T': 0.0584, 'V': 0.0632, 'W': 0.0127, 'Y': 0.0287}
 
 # protein_letters_literal: tuple[str, ...] = get_args(protein_letters_alph1_literal)
 # numerical_translation = dict(zip(protein_letters_alph1, range(len(protein_letters_alph1))))
@@ -391,45 +396,47 @@ def numeric_to_sequence(numeric_sequence: np.ndarray, alphabet_order: int = 1) -
         raise ValueError(f"The alphabet_order {alphabet_order} isn't valid. Choose from either 1 or 3")
 
 
-def pssm_as_array(pssm: dict[int, dict[str, str | float | int | dict[str, int]]], lod: bool = False) -> np.ndarray:
+def pssm_as_array(pssm: profile_dictionary, alphabet: str = protein_letters_alph1, lod: bool = False) -> np.ndarray:
     """Convert a position specific profile matrix into a numeric array
 
     Args:
         pssm: {1: {'A': 0, 'R': 0, ..., 'lod': {'A': -5, 'R': -5, ...}, 'type': 'W', 'info': 3.20, 'weight': 0.73},
                   2: {}, ...}
+        alphabet: The amino acid alphabet to use. Array values will be returned in this order
         lod: Whether to return the array for the log of odds values
     Returns:
         The numerically encoded pssm where each entry along axis 0 is the position, and the entries on axis 1 are the
-            frequency data at every indexed amino acid. Indices are according to the 1 letter alphabetical amino acid,
+            frequency data at every indexed amino acid. Indices are according to the specified amino acid alphabet,
             i.e array([[0.1, 0.01, 0.12, ...], ...])
     """
     if lod:
-        return np.array([[residue_info['lod'][aa] for aa in protein_letters_alph1]
-                         for residue_info in pssm.values()], dtype=np.float32)
+        return np.array([[position_info['lod'][aa] for aa in alphabet]
+                         for position_info in pssm.values()], dtype=np.float32)
     else:
-        return np.array([[residue_info[aa] for aa in protein_letters_alph1]
-                         for residue_info in pssm.values()], dtype=np.float32)
+        return np.array([[position_info[aa] for aa in alphabet]
+                         for position_info in pssm.values()], dtype=np.float32)
         # return np.vectorize(numerical_translation_alph1_bytes.__getitem__)(_array)
 
 
-def combine_profile(profiles: list[profile_dictionary]) -> dict | profile_dictionary:
-    """Combine a list of profiles (parsed PSSMs) and incrementing the entry index in each additional profile
+def combine_profile(profiles: Iterable[profile_dictionary]) -> dict | profile_dictionary:
+    """Combine a list of profiles (parsed PSSMs) by incrementing the entry index for each additional profile
 
     Args:
-        profiles: List of DSSMs to concatenate
+        profiles: The profiles to concatenate
     Returns
         The concatenated input profiles, make a concatenated PSSM
             {1: {'A': 0.04, 'C': 0.12, ..., 'lod': {'A': -5, 'C': -9, ...}, 'type': 'W', 'info': 0.00,
                  'weight': 0.00}, ...}}
     """
-    new_profile = {}
-    new_key = 1
-    for profile in profiles:
-        for position_profile in profile.values():
-            new_profile[new_key] = position_profile
-            new_key += 1
-
-    return new_profile
+    _count = count(1)
+    return {next(_count): position_profile for profile in profiles for position_profile in profile.values()}
+    # new_key = 1
+    # for profile in profiles:
+    #     for position_profile in profile.values():
+    #         new_profile[new_key] = position_profile
+    #         new_key += 1
+    #
+    # return new_profile
 
 
 def write_pssm_file(pssm: profile_dictionary, file_name: AnyStr = None, name: str = None,
@@ -672,7 +679,7 @@ class SequenceProfile:
             # Process fragment profile from self.fragment_profile
             self.add_fragment_profile()
 
-        self.calculate_profile(boltzmann=True, favor_fragments=fragments)
+        self.calculate_profile(favor_fragments=fragments)
 
     def verify_evolutionary_profile(self) -> bool:
         """Returns True if the evolutionary_profile and Structure sequences are equivalent"""
@@ -946,35 +953,28 @@ class SequenceProfile:
         # os.system('rm %s' % self.a3m_file)
 
     # @handle_errors(errors=(FileNotFoundError,))
-    def parse_hhblits_pssm(self, null_background=True, **kwargs):
+    def parse_hhblits_pssm(self, null_background: bool = True, **kwargs):
         """Take contents of protein.hmm, parse file and input into pose_dict. File is Single AA code alphabetical order
 
-        Keyword Args:
-            null_background=True (bool): Whether to use the null background for the specific protein
+        Args:
+            null_background: Whether to use the profile specific null background
         Sets:
             self.evolutionary_profile (profile_dictionary): Dictionary containing residue indexed profile information
             Ex: {1: {'A': 0.04, 'C': 0.12, ..., 'lod': {'A': -5, 'C': -9, ...}, 'type': 'W', 'info': 0.00,
                      'weight': 0.00}, {...}}
         """
-        dummy = 0.
-        # 'uniclust30_2018_08'
-        null_bg = {'A': 0.0835, 'C': 0.0157, 'D': 0.0542, 'E': 0.0611, 'F': 0.0385, 'G': 0.0669, 'H': 0.0228,
-                   'I': 0.0534, 'K': 0.0521, 'L': 0.0926, 'M': 0.0219, 'N': 0.0429, 'P': 0.0523, 'Q': 0.0401,
-                   'R': 0.0599, 'S': 0.0791, 'T': 0.0584, 'V': 0.0632, 'W': 0.0127, 'Y': 0.0287}
-
-        def to_freq(value):
-            if value == '*':
-                # When frequency is zero
+        def to_freq(value: str) -> float:
+            if value == '*':  # When frequency is zero
                 return 0.0001
             else:
                 # Equation: value = -1000 * log_2(frequency)
-                freq = 2 ** (-int(value) / 1000)
-                return freq
+                return 2 ** (-int(value) / 1000)
 
         with open(self.pssm_file, 'r') as f:
             lines = f.readlines()
 
         self.evolutionary_profile = {}
+        dummy = 0.
         read = False
         for line in lines:
             if not read:
@@ -1414,7 +1414,7 @@ class SequenceProfile:
             else:
                 self.alpha[entry] = self._alpha * match_modifier
 
-    def calculate_profile(self, favor_fragments: bool = True, boltzmann: bool = False):
+    def calculate_profile(self, favor_fragments: bool = True, boltzmann: bool = True):
         """Combine weights for profile PSSM and fragment SSM using fragment significance value to determine overlap
 
         Using self.evolutionary_profile
@@ -1429,8 +1429,10 @@ class SequenceProfile:
             (dict[int, float]): {48: 0.5, 50: 0.321, ...}
         Args:
             favor_fragments: Whether to favor fragment profile in the lod score of the resulting profile
-            boltzmann: Whether to weight the fragment profile by the Boltzmann probability.
-                lod = z[i]/Z, Z = sum(exp(score[i]/kT))
+                Currently this routine is only used for Rosetta designs where the fragments should be favored by a
+                particular weighting scheme. By default, the boltzmann weighting scheme is applied
+            boltzmann: Whether to weight the fragment profile by a Boltzmann probability scaling using the formula
+                lods = exp(lods[i]/kT)/Z, where Z = sum(exp(lods[i]/kT)), and kT is 1 by default.
                 If False, residues are weighted by the residue local maximum lod score in a linear fashion
                 All lods are scaled to a maximum provided in the Rosetta REF2015 per residue reference weight.
         Sets:
@@ -1455,8 +1457,6 @@ class SequenceProfile:
                     (weight*self.fragment_profile[entry][aa]) + ((1-weight) * self.profile[entry][aa])
 
         if favor_fragments:
-            # Modify final lod scores to fragment profile lods. Otherwise, use evolutionary profile lod scores
-            # Used to weight fragments higher in design
             boltzman_energy = 1
             favor_seqprofile_score_modifier = 0.2 * CommandDistributer.reference_average_residue_weight
             database_bkgnd_aa_freq = self.fragment_db.aa_frequencies

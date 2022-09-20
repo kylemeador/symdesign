@@ -22,7 +22,6 @@ from sklearn.neighbors._ball_tree import BinaryTree  # this typing implementatio
 import flags
 from resources.EulerLookup import EulerLookup, euler_factory
 from structure.fragment.fragment import FragmentDatabase, fragment_factory, alignment_types, fragment_info_type
-from ProteinMPNN.helper_scripts.other_tools.make_pssm_dict import softmax
 from resources.ml import proteinmpnn_factory, batch_proteinmpnn_input, proteinmpnn_to_device, mpnn_alphabet_length
 from resources.query.pdb import retrieve_entity_id_by_sequence, query_pdb_by, get_entity_reference_sequence, \
     is_entity_thermophilic
@@ -49,6 +48,18 @@ logger = start_log(name=__name__)
 zero_offset = 1
 seq_res_len = 52
 transformation_mapping: dict[str, list[float] | list[list[float]] | np.ndarray]
+
+
+def softmax(x: np.ndarray) -> np.ndarray:
+    """Take the softmax operation from an input array
+
+    Args:
+        x: The array to calculate softmax on. Uses the axis=-1
+    Returns:
+        The array with a softmax performed
+    """
+    input_exp = np.exp(x)
+    return input_exp / input_exp.sum(axis=-1, keepdims=True)
 
 
 def subdirectory(name):
@@ -5358,7 +5369,8 @@ class Pose(SequenceProfile, SymmetricModel):
             entity_required, self.required_indices = set(), set()
 
     def get_proteinmpnn_params(self, pssm_multi: float = 0., pssm_log_odds_flag: bool = False,
-                               pssm_bias_flag: bool = False, interface: bool = True, decode_core_first: bool = False,
+                               pssm_bias_flag: bool = False, bias_profile_by_probabilities: bool = False,
+                               interface: bool = True, decode_core_first: bool = False,
                                **kwargs):
         """
 
@@ -5367,7 +5379,8 @@ class Pose(SequenceProfile, SymmetricModel):
                 Bounded between [1, 0] where 0 is no sequence profile probability.
                 Only used with pssm_bias_flag
             pssm_log_odds_flag: Whether to use log_odds mask to limit the residues designed
-            pssm_bias_flag: Whether to use bias to modulate the residue probabilites designed
+            pssm_bias_flag: Whether to use bias to modulate the residue probabilities designed
+            bias_profile_by_probabilities: Whether to produce bias by profile probabilities as opposed to profile lods
             interface: Whether to design the interface only
             decode_core_first: Whether to decode the interface core first
 
@@ -5394,25 +5407,27 @@ class Pose(SequenceProfile, SymmetricModel):
         omit_AA_mask = np.zeros((self.number_of_residues, mpnn_alphabet_length),
                                 dtype=np.int32)  # (number_of_residues, alphabet_length)
         # Todo what is enough bias?
+        #  This needs to be on a scale with the magnitude of a typical logit for a decoded position
+        #  From ProteinMPNN/examples/submit_example_8.sh
+        #  #Adding global polar amino acid bias (Doug Tischer)
+        #  AA_list="D E H K N Q R S T W Y"
+        #  bias_list="1.39 1.39 1.39 1.39 1.39 1.39 1.39 1.39 1.39 1.39 1.39"
         bias_by_res = np.zeros(omit_AA_mask.shape, dtype=np.float32)  # (number_of_residues, alphabet_length)
 
         # Get sequence profile to include for design bias
         # Todo parameterize _threshold, _coef
         pssm_threshold = 0.  # Must be a greater probability than wild-type
+        # Todo I think these need a gap value, so 21 along axis=1
         pssm_log_odds = pssm_as_array(self.profile, lod=True)  # (number_of_residues, 20)
         pssm_log_odds_mask = np.where(pssm_log_odds >= pssm_threshold, 1., 0.)  # (number_of_residues, 20)
         pssm_coef = np.ones(residue_mask.shape, dtype=np.float32)  # (number_of_residues,)
         # shape (1, 21) where last index (20) is 1
         # Make the pssm_bias between 1 and 0 specifying how important position is
-        pssm_bias = softmax(pssm_log_odds, 1.)  # (number_of_residues, 20)
-        # X_mask = np.concatenate([np.zeros([1, 20]), np.ones([1, 1])], -1)
-        # pssm_bias = softmax(pssm_log_odds-X_mask*1e8, 1.)  # This subtraction is wrong from ProteinMPNN helpers...
-        # Todo how similar is this to pssm_probability
-        pssm_probability = pssm_as_array(self.profile)
-        self.log.info(f'Testing equality of pssm bias and probability. Is softmax reverse of logodds? '
-                      f'prob not... more like boltzman distribution')
-        self.log.info(f'pssm_probability {pssm_probability[:5]}')
-        self.log.info(f'pssm_bias {pssm_bias[:5]}')
+        if bias_profile_by_probabilities:
+            pssm_probability = pssm_as_array(self.profile)
+            pssm_bias = softmax(pssm_probability)  # (number_of_residues, 20)
+        else:
+            pssm_bias = softmax(pssm_log_odds)  # (number_of_residues, 20)
 
         if self.is_symmetric():
             number_of_symmetry_mates = self.number_of_symmetry_mates
