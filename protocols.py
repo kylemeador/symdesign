@@ -167,7 +167,7 @@ class PoseDirectory:
             self.design_selector = self.job.design_selector
         else:
             self.design_selector = {}
-        self.fragment_observations = None  # [{'cluster': '1_2_24', 'mapped': 78, 'paired': 87, 'match':0.46843}, ...]
+        self.fragment_observations = None  # [{'cluster': (1, 2, 24), 'mapped': 78, 'paired': 87, 'match':0.46843}, ...]
         self.info: dict = {}  # internal state info
         self._info: dict = {}  # internal state info at load time
         entity_names = kwargs.get('entity_names', [])
@@ -1054,7 +1054,8 @@ class PoseDirectory:
                 elif line[:3] == 'id:':
                     cluster_id = [index.strip('ijk') for index in line[3:].strip().split('_')]
                     # use with self.entity_names to get mapped and paired oligomer id
-                    fragment_observations.add((residue_number1, residue_number2, '_'.join(cluster_id), match_score))
+                    # fragment_observations.add((residue_number1, residue_number2, '_'.join(cluster_id), match_score))
+                    fragment_observations.add((residue_number1, residue_number2, tuple(map(int, cluster_id)), match_score))
         self.fragment_observations = [dict(zip(('mapped', 'paired', 'cluster', 'match'), frag_obs))
                                       for frag_obs in fragment_observations]
 

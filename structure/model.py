@@ -148,7 +148,7 @@ def get_matching_fragment_pairs_info(ghostfrag_frag_pairs: list[tuple[GhostFragm
         ghostfrag_frag_pairs: Observed ghost and surface fragment overlaps and their match score
     Returns:
         The formatted fragment information for each pair
-            {'mapped': int, 'paired': int, 'match': float, 'cluster': str}
+            {'mapped': int, 'paired': int, 'match': float, 'cluster': tuple(int, int, int)}
     """
     fragment_matches = []
     for interface_ghost_frag, interface_surf_frag, match_score in ghostfrag_frag_pairs:
@@ -158,8 +158,7 @@ def get_matching_fragment_pairs_info(ghostfrag_frag_pairs: list[tuple[GhostFragm
         #  surf_frag_central_res_num1 = interface_ghost_residue.number
         #  surf_frag_central_res_num2 = interface_surf_residue.number
         fragment_matches.append(dict(zip(('mapped', 'paired', 'match', 'cluster'),
-                                     (surffrag_resnum1, surffrag_resnum2, match_score,
-                                      '{}_{}_{}'.format(*interface_ghost_frag.ijk)))))
+                                     (surffrag_resnum1, surffrag_resnum2, match_score, interface_ghost_frag.ijk))))
     logger.debug('Fragments for Entity1 found at residues: %s' % [fragment['mapped'] for fragment in fragment_matches])
     logger.debug('Fragments for Entity2 found at residues: %s' % [fragment['paired'] for fragment in fragment_matches])
 
@@ -6546,10 +6545,11 @@ class Pose(SequenceProfile, SymmetricModel):
         """Return the fragment observations identified on the pose regardless of Entity binding
 
         Returns:
-            The fragment observations formatted as [{'mapped': int, 'paired': int, 'cluster': str, 'match': float}, ...]
+            The fragment observations formatted as [{'mapped': int, 'paired': int,
+                                                     'cluster': tuple(int, int, int), 'match': float}, ...]
         """
         observations = []
-        # {(ent1, ent2): [{mapped: res_num1, paired: res_num2, cluster: id, match: score}, ...], ...}
+        # {(ent1, ent2): [{mapped: res_num1, paired: res_num2, cluster: (int, int, int), match: score}, ...], ...}
         for query_pair, fragment_matches in self.fragment_queries.items():
             observations.extend(fragment_matches)
 
