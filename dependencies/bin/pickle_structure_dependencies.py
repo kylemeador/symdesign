@@ -3,7 +3,7 @@ from shutil import copy, move
 from typing import AnyStr
 
 import structure.model
-from structure.fragment.fragment import FragmentDatabase
+from structure.fragment.db import FragmentDatabase
 from utils.path import biological_fragment_db_pickle, reference_aa_file, reference_residues_pkl, biological_interfaces
 from utils import timestamp, pickle_object, start_log, get_file_paths_recursively
 

@@ -21,7 +21,7 @@ from metrics import calculate_collapse_metrics, calculate_residue_surface_area, 
     multiple_sequence_alignment_dependent_metrics, calculate_sequence_observations_and_divergence, process_residue_info, \
     incorporate_mutation_info, profile_dependent_metrics
 from resources.EulerLookup import euler_factory
-from structure.fragment.fragment import FragmentDatabase, fragment_factory, alignment_types
+from structure.fragment.db import FragmentDatabase, fragment_factory, alignment_types
 from resources.job import job_resources_factory, JobResources
 from resources.ml import proteinmpnn_factory, batch_proteinmpnn_input, score_sequences, \
     proteinmpnn_to_device, mpnn_alphabet_length

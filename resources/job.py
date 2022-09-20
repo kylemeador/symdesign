@@ -4,7 +4,7 @@ import os
 from typing import Annotated, AnyStr
 
 from flags import nstruct
-from structure.fragment import fragment
+from structure.fragment import db
 from resources.EulerLookup import EulerLookup
 from resources.structure_db import structure_database_factory
 from resources.wrapapi import api_database_factory
@@ -86,7 +86,7 @@ class JobResources:
         self.api_db = api_database_factory.get(source=self.data)
         self.structure_db = structure_database_factory.get(source=self.data)
         # self.symmetry_factory = symmetry_factory
-        self.fragment_db: 'fragment.FragmentDatabase' | None = None
+        self.fragment_db: 'db.FragmentDatabase' | None = None
         self.euler_lookup: EulerLookup | None = None
 
         # Program flags
