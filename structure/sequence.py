@@ -963,43 +963,7 @@ class SequenceProfile:
             Ex: {1: {'A': 0.04, 'C': 0.12, ..., 'lod': {'A': -5, 'C': -9, ...}, 'type': 'W', 'info': 0.00,
                      'weight': 0.00}, {...}}
         """
-        def to_freq(value: str) -> float:
-            if value == '*':  # When frequency is zero
-                return 0.0001
-            else:
-                # Equation: value = -1000 * log_2(frequency)
-                return 2 ** (-int(value) / 1000)
-
-        with open(self.pssm_file, 'r') as f:
-            lines = f.readlines()
-
-        self.evolutionary_profile = {}
-        dummy = 0.
-        read = False
-        for line in lines:
-            if not read:
-                if line[0:1] == '#':
-                    read = True
-            else:
-                if line[0:4] == 'NULL':
-                    if null_background:
-                        # use the provided null background from the profile search
-                        background = line.strip().split()
-                        null_bg = {i: {} for i in protein_letters_alph3}
-                        for i, aa in enumerate(protein_letters_alph3, 1):
-                            null_bg[aa] = to_freq(background[i])
-
-                if len(line.split()) == 23:
-                    items = line.strip().split()
-                    residue_number = int(items[1])
-                    self.evolutionary_profile[residue_number] = {}
-                    for i, aa in enumerate(protein_letters_alph1, 2):
-                        self.evolutionary_profile[residue_number][aa] = to_freq(items[i])
-                    self.evolutionary_profile[residue_number]['lod'] = \
-                        get_lod(self.evolutionary_profile[residue_number], null_bg)
-                    self.evolutionary_profile[residue_number]['type'] = items[0]
-                    self.evolutionary_profile[residue_number]['info'] = dummy
-                    self.evolutionary_profile[residue_number]['weight'] = dummy
+        self.evolutionary_profile = parse_hhblits_pssm(self.pssm_file, null_background=null_background)
 
     def add_msa(self, msa: str | MultipleSequenceAlignment = None):
         """Add a multiple sequence alignment to the profile
@@ -2300,36 +2264,31 @@ def parse_pssm(file: AnyStr, **kwargs) -> dict[int, dict[str, str | float | int 
 
 
 # @handle_errors(errors=(FileNotFoundError,))
-def parse_hhblits_pssm(file, null_background=True, **kwargs):
+def parse_hhblits_pssm(file: AnyStr, null_background: bool = True, **kwargs) -> profile_dictionary:
     """Take contents of protein.hmm, parse file and input into pose_dict. File is Single AA code alphabetical order
 
     Args:
-        file (str): The file to parse, typically with the extension '.hmm'
-    Keyword Args:
-        null_background=True (bool): Whether to use the null background for the specific protein
+        file: The file to parse, typically with the extension '.hmm'
+        null_background: Whether to use the null background for the specific protein
     Returns:
-        (dict): Dictionary containing residue indexed profile information
-        Ex: {1: {'A': 0.04, 'C': 0.12, ..., 'lod': {'A': -5, 'C': -9, ...}, 'type': 'W', 'info': 0.00,
-                 'weight': 0.00}, {...}}
+        Dictionary containing residue indexed profile information
+            Ex: {1: {'A': 0.04, 'C': 0.12, ..., 'lod': {'A': -5, 'C': -9, ...}, 'type': 'W', 'info': 0.00,
+                     'weight': 0.00}, {...}}
     """
-    dummy = 0.00
-    null_bg = {'A': 0.0835, 'C': 0.0157, 'D': 0.0542, 'E': 0.0611, 'F': 0.0385, 'G': 0.0669, 'H': 0.0228, 'I': 0.0534,
-               'K': 0.0521, 'L': 0.0926, 'M': 0.0219, 'N': 0.0429, 'P': 0.0523, 'Q': 0.0401, 'R': 0.0599, 'S': 0.0791,
-               'T': 0.0584, 'V': 0.0632, 'W': 0.0127, 'Y': 0.0287}  # 'uniclust30_2018_08'
+    null_bg = latest_uniclust_background_frequencies
 
-    def to_freq(value):
-        if value == '*':
-            # When frequency is zero
+    def to_freq(value: str) -> float:
+        if value == '*':  # When frequency is zero
             return 0.0001
         else:
             # Equation: value = -1000 * log_2(frequency)
-            freq = 2 ** (-int(value)/1000)
-            return freq
+            return 2 ** (-int(value) / 1000)
 
     with open(file, 'r') as f:
         lines = f.readlines()
 
-    pose_dict = {}
+    evolutionary_profile = {}
+    dummy = 0.
     read = False
     for line in lines:
         if not read:
@@ -2337,25 +2296,49 @@ def parse_hhblits_pssm(file, null_background=True, **kwargs):
                 read = True
         else:
             if line[0:4] == 'NULL':
-                if null_background:
-                    # use the provided null background from the profile search
-                    background = line.strip().split()
-                    null_bg = {i: {} for i in protein_letters_alph3}
-                    for i, aa in enumerate(protein_letters_alph3, 1):
-                        null_bg[aa] = to_freq(background[i])
+                if null_background:  # Use the provided null background from the profile search
+                    _, background_values = line.strip().split()
+                    null_bg = {aa: to_freq(value) for value, aa in zip(background_values, protein_letters_alph3)}
 
             if len(line.split()) == 23:
-                items = line.strip().split()
-                residue_number = int(items[1])
-                pose_dict[residue_number] = {}
-                for i, aa in enumerate(protein_letters_alph1, 2):
-                    pose_dict[residue_number][aa] = to_freq(items[i])
-                pose_dict[residue_number]['lod'] = get_lod(pose_dict[residue_number], null_bg)
-                pose_dict[residue_number]['type'] = items[0]
-                pose_dict[residue_number]['info'] = dummy
-                pose_dict[residue_number]['weight'] = dummy
+                residue_type, residue_number, *position_values = line.strip().split()
+                aa_freqs = {aa: to_freq(value) for value, aa in zip(position_values, protein_letters_alph1)}
 
-    return pose_dict
+                evolutionary_profile[int(residue_number)] = \
+                    dict(lod=get_lod(aa_freqs, null_bg), type=residue_type, info=dummy, weight=dummy, **aa_freqs)
+
+    return evolutionary_profile
+
+    # with open(file, 'r') as f:
+    #     lines = f.readlines()
+    #
+    # pose_dict = {}
+    # read = False
+    # for line in lines:
+    #     if not read:
+    #         if line[0:1] == '#':
+    #             read = True
+    #     else:
+    #         if line[0:4] == 'NULL':
+    #             if null_background:
+    #                 # use the provided null background from the profile search
+    #                 background = line.strip().split()
+    #                 null_bg = {i: {} for i in protein_letters_alph3}
+    #                 for i, aa in enumerate(protein_letters_alph3, 1):
+    #                     null_bg[aa] = to_freq(background[i])
+    #
+    #         if len(line.split()) == 23:
+    #             items = line.strip().split()
+    #             residue_number = int(items[1])
+    #             pose_dict[residue_number] = {}
+    #             for i, aa in enumerate(protein_letters_alph1, 2):
+    #                 pose_dict[residue_number][aa] = to_freq(items[i])
+    #             pose_dict[residue_number]['lod'] = get_lod(pose_dict[residue_number], null_bg)
+    #             pose_dict[residue_number]['type'] = items[0]
+    #             pose_dict[residue_number]['info'] = dummy
+    #             pose_dict[residue_number]['weight'] = dummy
+    #
+    # return pose_dict
 
 
 def make_pssm_file(pssm_dict, name, outpath=os.getcwd()):
