@@ -98,8 +98,8 @@ class FragmentDatabase(FragmentInfo):
         """Return the various metrics calculated by overlapping fragments at the interface of two proteins
 
         Args:
-            fragment_matches: [{'mapped': entity1_resnum, 'match': score_term, 'paired': entity2_resnum,
-                                'culster': cluster_id}, ...]
+            fragment_matches: [{'mapped': entity1_resnum, 'paired': entity2_resnum,
+                                'cluster': tuple(int, int, int), 'match': score_term}, ...]
         Returns:
             {'mapped': {'center': {'residues': (set[int]), 'score': (float), 'number': (int)},
                         'total': {'residues': (set[int]), 'score': (float), 'number': (int)},

@@ -152,15 +152,14 @@ def get_matching_fragment_pairs_info(ghostfrag_frag_pairs: list[tuple[GhostFragm
     """
     fragment_matches = []
     for interface_ghost_frag, interface_surf_frag, match_score in ghostfrag_frag_pairs:
-        _, surffrag_resnum1 = interface_ghost_frag.aligned_chain_and_residue  # surffrag_ch1,
-        _, surffrag_resnum2 = interface_surf_frag.aligned_chain_and_residue  # surffrag_ch2,
-        # Todo
-        #  surf_frag_central_res_num1 = interface_ghost_residue.number
-        #  surf_frag_central_res_num2 = interface_surf_residue.number
+        # _, surffrag_resnum1 = interface_ghost_frag.aligned_chain_and_residue  # surffrag_ch1,
+        # _, surffrag_resnum2 = interface_surf_frag.aligned_chain_and_residue  # surffrag_ch2,
+        frag_index1 = interface_ghost_frag.index
+        frag_index2 = interface_surf_frag.index
         fragment_matches.append(dict(zip(('mapped', 'paired', 'match', 'cluster'),
-                                     (surffrag_resnum1, surffrag_resnum2, match_score, interface_ghost_frag.ijk))))
-    logger.debug('Fragments for Entity1 found at residues: %s' % [fragment['mapped'] for fragment in fragment_matches])
-    logger.debug('Fragments for Entity2 found at residues: %s' % [fragment['paired'] for fragment in fragment_matches])
+                                     (frag_index1, frag_index2, match_score, interface_ghost_frag.ijk))))
+    logger.debug(f'Fragments for Entity1 found at residues: {[fragment["mapped"] + 1 for fragment in fragment_matches]}')
+    logger.debug(f'Fragments for Entity2 found at residues: {[fragment["paired"] + 1 for fragment in fragment_matches]}')
 
     return fragment_matches
 
@@ -5197,7 +5196,7 @@ class Pose(SequenceProfile, SymmetricModel):
     euler_lookup: EulerLookup | None
     fragment_metrics: dict
     fragment_pairs: list[tuple[GhostFragment, Fragment, float]] | list
-    fragment_queries: dict[tuple[Entity, Entity], list[dict[str, Any]]]
+    fragment_queries: dict[tuple[Entity, Entity], list[fragment_info_type]]
     ignore_clashes: bool
     interface_design_residue_numbers: set[int]  # set[Residue]
     interface_residue_numbers: set[int]
@@ -6241,7 +6240,7 @@ class Pose(SequenceProfile, SymmetricModel):
             entity1: The first Entity to measure for interface fragments
             entity2: The second Entity to measure for interface fragments
         Sets:
-            self.fragment_queries (dict[tuple[Entity, Entity], list[dict[str, Any]]])
+            self.fragment_queries (dict[tuple[Entity, Entity], list[fragment_info_type]])
         """
         if (entity1, entity2) in self.fragment_queries:  # Due to asymmetry in fragment generation, (2, 1) isn't checked
             return
