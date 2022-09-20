@@ -3219,6 +3219,7 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
                 for query_idx, entity in enumerate(query_pair):
                     entity.add_fragments_to_profile(fragments=fragment_info,
                                                     alignment_type=alignment_types[query_idx])
+                    entity.add_fragment_profile()
 
             pose.fragment_profile = combine_profile([entity.fragment_profile for entity in pose.entities])
             # if pose.fragment_profile:
