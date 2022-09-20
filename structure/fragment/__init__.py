@@ -21,6 +21,7 @@ class GhostFragment:
     aligned_fragment: Fragment
     """Must support .chain, .number, and .transformation attributes"""
     fragment_db: object  # Todo typing with FragmentDatabase
+    # index: int
     i_type: int
     j_type: int
     k_type: int
@@ -79,6 +80,11 @@ class GhostFragment:
     def number(self) -> int:
         """The Residue number of the aligned Fragment"""
         return self.aligned_fragment.number
+
+    @property
+    def index(self) -> int:
+        """The Residue index of the aligned Fragment"""
+        return self.aligned_fragment.index
 
     @property
     def guide_coords(self) -> np.ndarray:
@@ -152,6 +158,7 @@ class Fragment:
     ghost_fragments: list | list[GhostFragment] | None
     # guide_coords: np.ndarray | None
     i_type: int | None
+    index: int
     number: int
     rmsd_thresh: float = 0.75
     rotation: np.ndarray
@@ -201,12 +208,21 @@ class Fragment:
 
     @property
     def aligned_chain_and_residue(self) -> tuple[str, int]:
-        """Return the Fragment identifiers that the MonoFragment was mapped to
+        """Return the Fragment identifiers that the Fragment was mapped to
 
         Returns:
             aligned chain, aligned residue_number
         """
         return self.chain, self.number
+
+    @property
+    def index(self) -> int:
+        """Return the Fragment identifiers that the Fragment was mapped to
+
+        Returns:
+            The aligned Residue.index attribute
+        """
+        return self.index
 
     @property
     def _representative_coords(self) -> np.ndarray:
