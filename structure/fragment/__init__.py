@@ -36,7 +36,8 @@ class GhostFragment:
         self.k_type = k_type
         self.rmsd = ijk_rmsd
         self.aligned_fragment = aligned_fragment
-        self.fragment_db = aligned_fragment.fragment_db
+        # Assign both for API compatibility with Fragment
+        self.fragment_db = self._fragment_db = aligned_fragment.fragment_db
 
     @property
     def type(self) -> int:
@@ -117,7 +118,7 @@ class GhostFragment:
         try:
             return self._representative.get_transformed_copy()
         except AttributeError:
-            self._representative, _ = self.fragment_db.paired_frags[self.ijk]
+            self._representative, _ = self._fragment_db.paired_frags[self.ijk]
 
         return self._representative.get_transformed_copy()
 
@@ -150,11 +151,11 @@ class GhostFragment:
 
 class Fragment:
     _fragment_ca_coords: np.ndarray
+    _fragment_db: structure.fragment.db.FragmentDatabase | None
     _representative_ca_coords: np.ndarray
     chain: str
     frag_lower_range: int
     frag_upper_range: int
-    fragment_db: structure.fragment.db.FragmentDatabase
     ghost_fragments: list | list[GhostFragment] | None
     # guide_coords: np.ndarray | None
     i_type: int | None
@@ -173,17 +174,22 @@ class Fragment:
         self.ghost_fragments = None
         self.i_type = fragment_type
         # self.guide_coords = guide_coords
-        # self.fragment_length = fragment_length
         self.rotation = identity_matrix
         self.translation = origin
-        # if fragment_db is not None:
-        self.fragment_db = fragment_db
-        # self.frag_lower_range, self.frag_upper_range = fragment_db.fragment_range
+        if fragment_db is None:  # Skip fragment_db.setter
+            self._fragment_db = None
+        else:
+            self._fragment_db = fragment_db
+            self.frag_lower_range, self.frag_upper_range = fragment_db.fragment_range
+            self.fragment_length = fragment_db.fragment_length
+
         super().__init__(**kwargs)
         # may need FragmentBase to clean extras for proper method resolution order (MRO)
 
+    # These property getter and setter exist so that Residue instances can be initialized w/o FragmentDatabase
+    # and then provided this argument upon fragment assignment
     @property
-    def fragment_db(self) -> object | None:
+    def fragment_db(self) -> structure.fragment.db.FragmentDatabase:
         """The secondary structure of the Fragment"""
         return self._fragment_db
 
@@ -229,7 +235,7 @@ class Fragment:
         try:
             return self._representative_ca_coords
         except AttributeError:
-            self._representative_ca_coords = self.fragment_db.reps[self.i_type]
+            self._representative_ca_coords = self._fragment_db.reps[self.i_type]
             return self._representative_ca_coords
 
     @_representative_coords.setter
@@ -272,21 +278,19 @@ class Fragment:
         Returns:
             The ghost fragments associated with the fragment
         """
-        #             indexed_ghost_fragments: The paired fragment database to match to the Fragment instance
-        # ghost_i_type = indexed_ghost_fragments.get(self.i_type, None)
-
-        # self.fragment_db.indexed_ghosts : dict[int,
-        #                                        tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]]
-        ghost_i_type_arrays = self.fragment_db.indexed_ghosts.get(self.i_type, None)
+        ghost_i_type_arrays: dict[int, tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]] = \
+            self._fragment_db.indexed_ghosts.get(self.i_type, None)
         if ghost_i_type_arrays is None:
             self.ghost_fragments = []
             return
 
         stacked_bb_coords, stacked_guide_coords, ijk_types, rmsd_array = ghost_i_type_arrays
+        # No need to transform stacked_guide_coords as these will be transformed upon .guide_coords access
         # transformed_guide_coords = transform_coordinate_sets(stacked_guide_coords, *self.transformation)
         if clash_tree is None:
             viable_indices = None
         else:
+            # Ensure that the backbone coords are transformed to the Fragment reference frame
             transformed_bb_coords = transform_coordinate_sets(stacked_bb_coords, *self.transformation)
             # with .reshape(), we query on a np.view saving memory
             neighbors = clash_tree.query_radius(transformed_bb_coords.reshape(-1, 3), clash_dist)
@@ -467,14 +471,14 @@ class ResidueFragment(Fragment, ABC):
         return self.rotation, self.translation
         # return dict(rotation=self.rotation, translation=self.translation)
 
-    @property
-    def aligned_chain_and_residue(self) -> tuple[str, int]:
-        """Return the Fragment identifiers that the ResidueFragment was mapped to
-
-        Returns:
-            aligned chain, aligned residue_number
-        """
-        return self.chain, self.number
+    # @property
+    # def aligned_chain_and_residue(self) -> tuple[str, int]:
+    #     """Return the Fragment identifiers that the ResidueFragment was mapped to
+    #
+    #     Returns:
+    #         aligned chain, aligned residue_number
+    #     """
+    #     return self.chain, self.number
 
 
 def write_frag_match_info_file(ghost_frag: GhostFragment = None, matched_frag: Fragment = None,
