@@ -2030,6 +2030,8 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
 
         # Next, set the interface fragment info for gathering of interface metrics
         if overlap_ghosts is None and overlap_surf is None and sorted_z_scores is None:
+            # Remove old fragments
+            pose.fragment_queries = {}
             # Query fragments
             pose.generate_interface_fragments(write_fragments=job.write_fragments)
         else:  # Process with provided data
@@ -3222,6 +3224,11 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
                     entity.add_fragment_profile()
 
             pose.fragment_profile = combine_profile([entity.fragment_profile for entity in pose.entities])
+            # Reset the fragment_profile and fragment_map for each Entity
+            for entity in pose.entities:
+                entity.fragment_profile = {}
+                entity.fragment_map = {}
+
             # if pose.fragment_profile:
             profile_background['fragment'] = pssm_as_array(pose.fragment_profile)
             # else:
