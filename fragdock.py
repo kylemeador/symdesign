@@ -2933,14 +2933,14 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
                                   all_passing_surf_indices[idx],
                                   all_passing_z_scores[idx])
 
-        # Remove saved pose attributes
-        del pose._assembly_minimally_contacting
-        pose.ss_index_array.clear(), pose.ss_type_array.clear()
 
         per_residue_data[pose_id] = pose.get_per_residue_interface_metrics()  # _per_residue_data
         interface_metrics[pose_id] = pose.interface_metrics()  # _interface_metrics
         interface_local_density[pose_id] = pose.local_density_interface()  # _interface_local_density
 
+        # Remove saved pose attributes
+        del pose._assembly_minimally_contacting
+        pose.ss_index_array.clear(), pose.ss_type_array.clear()
         # Todo reinstate after alphafold integration?
         # output_pose(out_dir, sampling_id)  # , sequence_design=design_output)
 
