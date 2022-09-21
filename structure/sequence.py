@@ -1372,7 +1372,7 @@ class SequenceProfile:
                 continue  # Move on, this isn't a fragment observation, or we have no observed fragments
 
             # Match score 'match' is bounded between [0.2, 1]
-            match_sum = sum(observation['match'] for index_observations in self.fragment_map[entry]
+            match_sum = sum(observation['match'] for index_observations in self.fragment_map[entry].values()
                             for observation in index_observations)
             # if count == 0:
             #     # ensure that match modifier is 0 so self.alpha[entry] is 0, as there is no fragment information here!
