@@ -1802,7 +1802,7 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
         pose.find_and_split_interface()
 
         # Next, set the interface fragment info for gathering of interface metrics
-        if overlap_ghosts is None and overlap_surf is None and sorted_z_scores is None:
+        if overlap_ghosts is None or overlap_surf is None or sorted_z_scores is None:
             # Remove old fragments
             pose.fragment_queries = {}
             # Query fragments
@@ -2850,7 +2850,7 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
         source_contact_order.append(entity.contact_order)
         # Replace 'errat_deviation' measurement with uncomplexed entities
         # oligomer_errat_accuracy, oligomeric_errat = entity_oligomer.errat(out_path=self.data)
-        # Todo translate
+        # Todo translate the source pose
         # Todo when Entity.oligomer works
         #  _, oligomeric_errat = entity.oligomer.errat(out_path=self.data)
         entity_oligomer = Model.from_chains(entity.chains, log=log, entities=False)
@@ -2922,6 +2922,8 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
     for idx, pose_id in enumerate(pose_ids):
         update_pose_coords(idx)
 
+        # Todo are the fragments properly translated when the coords are set from above??
+        #  The interface has a ton of residues, (and already identified fragments), but there are no fragments found...
         if number_of_perturbations > 1:
             add_fragments_to_pose()  # <- here generating fresh
         else:
@@ -2930,6 +2932,10 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
             add_fragments_to_pose(all_passing_ghost_indices[idx],
                                   all_passing_surf_indices[idx],
                                   all_passing_z_scores[idx])
+
+        # Remove saved pose attributes
+        del pose._assembly_minimally_contacting
+        pose.ss_index_array.clear(), pose.ss_type_array.clear()
 
         per_residue_data[pose_id] = pose.get_per_residue_interface_metrics()  # _per_residue_data
         interface_metrics[pose_id] = pose.interface_metrics()  # _interface_metrics
