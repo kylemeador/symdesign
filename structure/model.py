@@ -4459,8 +4459,8 @@ class SymmetricModel(Models):
 
         return [idx + (jump_num * model_num) for model_num in range(self.number_of_symmetry_mates) for idx in indices]
 
-    def return_symmetric_copies(self, structure: ContainsAtomsMixin, surrounding_uc: bool = True, **kwargs) \
-            -> list[ContainsAtomsMixin]:
+    def return_symmetric_copies(self, structure: StructureBase, surrounding_uc: bool = True, **kwargs) \
+            -> list[StructureBase]:
         #  return_side_chains: bool = True,
         """Expand the provided Structure using self.symmetry for the symmetry specification
 
@@ -6300,7 +6300,7 @@ class Pose(SequenceProfile, SymmetricModel):
                 skip_models = []
             symmetric_surface_frags2 = [self.return_symmetric_copies(residue) for residue in frag_residues2]
             frag_residues2.clear()
-            frag_residues2: list[ContainsAtomsMixin]
+            # frag_residues2: list[ContainsAtomsMixin]
             for frag_mates in symmetric_surface_frags2:
                 frag_residues2.extend([frag for sym_idx, frag in enumerate(frag_mates) if sym_idx not in skip_models])
             self.log.debug(f'Entity {entity2.name} has {len(frag_residues2)} symmetric fragments')
@@ -6310,15 +6310,15 @@ class Pose(SequenceProfile, SymmetricModel):
                                                             euler_lookup=self.euler_lookup)
         self.log.info(f'Found {len(ghostfrag_surfacefrag_pairs)} overlapping fragment pairs at the {entity1.name} | '
                       f'{entity2.name} interface')
-        # Debug the fragment process
-        out_dir = os.getcwd()
-        self.debug_pdb(out_dir=out_dir, tag='query_fragments')
-        debug_path = os.path.join(out_dir, 'all_fragments.pdb')
-        with open(debug_path, 'w') as f:
-            for fragment in frag_residues1 + frag_residues2:
-                fragment.write(file_handle=f)
-
-        self.log.critical(f'Wrote debugging Fragments to: {debug_path}')
+        # # Debug the fragment process
+        # out_dir = os.getcwd()
+        # self.debug_pdb(out_dir=out_dir, tag='query_fragments')
+        # debug_path = os.path.join(out_dir, 'all_fragments.pdb')
+        # with open(debug_path, 'w') as f:
+        #     for fragment in frag_residues1 + frag_residues2:
+        #         fragment.write(file_handle=f)
+        #
+        # self.log.critical(f'Wrote debugging Fragments to: {debug_path}')
 
         self.fragment_queries[(entity1, entity2)] = get_matching_fragment_pairs_info(ghostfrag_surfacefrag_pairs)
         # Add newly found fragment pairs to the existing fragment observations
