@@ -1297,12 +1297,14 @@ class SequenceProfile:
             # residue_frequencies: dict[profile_keys, str | lod_dictionary | float | list[float]] = copy(aa_counts)
             residue_frequencies = {}
             if total_fragment_weight > 0:
+                residue_frequencies.update(**aa_counts)  # {'A': 0, 'C': 0, ...}  # NO -> 'stats': [0, 1]}
                 for observation_frequencies in self.fragment_profile[residue_index]:
                     if observation_frequencies:
-                        index_weight = observation_frequencies.pop('weight')  # total_obs_weight from above
+                        # index_weight = observation_frequencies.pop('weight')  # total_obs_weight from above
+                        scaled_frag_weight = observation_frequencies.pop('weight') / total_fragment_weight
                         for aa, frequency in observation_frequencies.items():
                             # if aa not in ['stats', 'match']:  # Add all occurrences to summed frequencies list
-                            residue_frequencies[aa] += frequency * index_weight / total_fragment_weight
+                            residue_frequencies[aa] += frequency * scaled_frag_weight
 
                 residue_frequencies['lod'] = get_lod(residue_frequencies, database_bkgnd_aa_freq)
                 # Set stats over all residue indices and observations
