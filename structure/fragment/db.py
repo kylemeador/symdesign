@@ -34,22 +34,23 @@ class FragmentDatabase(FragmentInfo):
             self.cluster_representatives_path = intfrag_cluster_rep_dirpath
             self.monofrag_representatives_path = monofrag_cluster_rep_dirpath
 
-        self.reps = {}
+        self.representatives = {}
         self.paired_frags = {}
         self.indexed_ghosts = {}
 
         # if init_db:
         #     logger.info(f'Initializing {self.source} FragmentDatabase from disk. This may take awhile...')
         #     # self.get_monofrag_cluster_rep_dict()
-        #     self.reps = {int(os.path.splitext(file)[0]):
-        #                  structure.base.Structure.from_file(os.path.join(root, file), entities=False, log=None).ca_coords
-        #                  for root, dirs, files in os.walk(self.monofrag_representatives_path) for file in files}
+        #     self.representatives = {int(os.path.splitext(file)[0]):
+        #                             structure.base.Structure.from_file(
+        #                                 os.path.join(root, file), entities=False, log=None).ca_coords
+        #                             for root, dirs, files in os.walk(self.monofrag_representatives_path) for file in files}
         #     self.paired_frags = load_paired_fragment_representatives(self.cluster_representatives_path)
         #     self.load_cluster_info()  # Using my generated data instead of Josh's for future compatibility and size
         #     # self.load_cluster_info_from_text()
         #     self._index_ghosts()
         # else:
-        #     self.reps = {}
+        #     self.representatives = {}
         #     self.paired_frags = {}
         #     self.indexed_ghosts = {}
 

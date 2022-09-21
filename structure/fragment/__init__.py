@@ -152,7 +152,7 @@ class GhostFragment:
 class Fragment:
     _fragment_ca_coords: np.ndarray
     _fragment_db: structure.fragment.db.FragmentDatabase | None
-    _representative_ca_coords: np.ndarray
+    _fragment_coords: np.ndarray | None
     chain: str
     frag_lower_range: int
     frag_upper_range: int
@@ -163,7 +163,7 @@ class Fragment:
     number: int
     rmsd_thresh: float = 0.75
     rotation: np.ndarray
-    template_coords = np.array([[0., 0., 0.], [3., 0., 0.], [0., 3., 0.]])
+    _guide_coords = np.array([[0., 0., 0.], [3., 0., 0.], [0., 3., 0.]])
     translation: np.ndarray
 
     def __init__(self, fragment_type: int = None,
@@ -171,6 +171,7 @@ class Fragment:
                  # fragment_length: int = 5,
                  fragment_db: structure.fragment.db.FragmentDatabase = None,
                  **kwargs):
+        self._fragment_coords = None
         self.ghost_fragments = None
         self.i_type = fragment_type
         # self.guide_coords = guide_coords
@@ -229,24 +230,28 @@ class Fragment:
         """
         return self.index
 
-    @property
-    def _representative_coords(self) -> np.ndarray:
-        """Return the CA coordinates of the mapped fragment"""
-        try:
-            return self._representative_ca_coords
-        except AttributeError:
-            self._representative_ca_coords = self._fragment_db.reps[self.i_type]
-            return self._representative_ca_coords
+    # @property
+    # def _fragment_coords(self) -> np.ndarray:
+    #     """Return the coordinates of the representative Residue of the mapped fragment"""
+    #     try:
+    #         # return self._representative_ca_coords
+    #         return self._representative_bb_coords
+    #     except AttributeError:
+    #         # self._representative_ca_coords = self._fragment_db.representatives[self.i_type].ca_coords
+    #         self._representative_bb_coords = self._fragment_db.representatives[self.i_type].backbone_coords
+    #         # return self._representative_ca_coords
+    #         return self._representative_bb_coords
 
-    @_representative_coords.setter
-    def _representative_coords(self, coords: np.ndarray):
-        self._representative_ca_coords = coords
+    # @_fragment_coords.setter
+    # def _fragment_coords(self, coords: np.ndarray):
+    #     # self._representative_ca_coords = coords
+    #     self._representative_bb_coords = coords
 
     @property
     def guide_coords(self) -> np.ndarray:
         """Return the guide coordinates of the mapped Fragment"""
         rotation, translation = self.transformation  # This updates the transformation on the fly if possible
-        return np.matmul(self.template_coords, np.transpose(rotation)) + translation
+        return np.matmul(self._guide_coords, np.transpose(rotation)) + translation
         # return np.matmul(self.template_coords, np.transpose(self.rotation)) + self.translation
 
     # @guide_coords.setter
@@ -331,7 +336,6 @@ class Fragment:
 class MonoFragment(Fragment):
     """Used to represent Fragment information when treated as a continuous Structure Fragment of length fragment_length
     """
-    _fragment_coords: np.ndarray  # This is a property in ResidueFragment
     central_residue: 'structure.base.Residue'
 
     def __init__(self, residues: Sequence['structure.base.Residue'],
@@ -347,22 +351,23 @@ class MonoFragment(Fragment):
             raise ValueError(f"Can't find {type(self).__name__} without passing fragment_db")
         else:
             try:
-                representatives: dict[int, np.ndarray] = fragment_db.reps
+                fragment_db.representatives
             except AttributeError:
                 raise TypeError(f'The passed fragment_db is not of the required type "FragmentDatabase"')
 
-        self._fragment_coords = np.array([residue.ca_coords for residue in residues])
+        fragment_ca_coords = np.array([residue.ca_coords for residue in residues])
         min_rmsd = float('inf')
-        for cluster_type, cluster_coords in representatives.items():
-            rmsd, rot, tx = superposition3d(self._fragment_coords, cluster_coords)
+
+        for fragment_type, representative in fragment_db.representatives.items():
+            rmsd, rot, tx = superposition3d(fragment_ca_coords, representative.ca_coords)
             if rmsd <= self.rmsd_thresh and rmsd <= min_rmsd:
-                self.i_type = cluster_type
+                self.i_type = fragment_type
                 min_rmsd, self.rotation, self.translation = rmsd, rot, tx
 
         if self.i_type:
             # self.guide_coords = \
             #     np.matmul(self.template_coords, np.transpose(self.rotation)) + self.translation
-            self._representative_ca_coords = representatives[self.i_type]
+            self._fragment_coords = fragment_db.representatives[self.i_type].backbone_coords
 
     @property
     def aligned_chain_and_residue(self) -> tuple[str, int]:
@@ -449,15 +454,15 @@ class ResidueFragment(Fragment, ABC):
     #     """Set the secondary structure of the Fragment"""
     #     self.i_type = frag_type
 
-    @property
-    def _fragment_coords(self) -> np.ndarray:
-        """Return the CA coordinates of the neighboring Residues which specify the ResidueFragment"""
-        # try:
-        #     return self._fragment_ca_coords
-        # except AttributeError:
-        return np.array([res.ca_coords for res in self.get_upstream(self.frag_lower_range)
-                         + [self] + self.get_downstream(self.frag_upper_range-1)])
-        #     return self._fragment_ca_coords
+    # @property
+    # def _fragment_coords(self) -> np.ndarray:
+    #     """Return the CA coordinates of the neighboring Residues which specify the ResidueFragment"""
+    #     # try:
+    #     #     return self._fragment_ca_coords
+    #     # except AttributeError:
+    #     return np.array([res.ca_coords for res in self.get_upstream(self.frag_lower_range)
+    #                      + [self] + self.get_downstream(self.frag_upper_range-1)])
+    #     #     return self._fragment_ca_coords
 
     # @_fragment_coords.setter
     # def _fragment_coords(self, coords: np.ndarray):
@@ -465,9 +470,10 @@ class ResidueFragment(Fragment, ABC):
 
     @property
     def transformation(self) -> tuple[np.ndarray, np.ndarray]:  # dict[str, np.ndarray]:
-        """The transformation of the Fragment from the FragmentDatabase to its current position"""
+        """The transformation of the ResidueFragment from the FragmentDatabase to its current position"""
         # return dict(rotation=self.rotation, translation=self.translation)
-        _, self.rotation, self.translation = superposition3d(self._fragment_coords, self._representative_coords)
+        # _, self.rotation, self.translation = superposition3d(self._fragment_coords, self._fragment_coords)
+        _, self.rotation, self.translation = superposition3d(self.backbone_coords, self._fragment_coords)
         return self.rotation, self.translation
         # return dict(rotation=self.rotation, translation=self.translation)
 
