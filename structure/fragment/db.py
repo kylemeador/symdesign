@@ -25,9 +25,18 @@ class Representative:
     ca_coords: np.ndarray
     register: tuple[str, ...] = ('backbone_coords', 'ca_coords')
 
-    def __init__(self, struct: structure.base.Structure):
+    def __init__(self, struct: structure.base.Structure, fragment_db: FragmentDatabase):
         for item in self.register:
             setattr(self, item, getattr(struct, item))
+
+        for idx, index in enumerate(range(*fragment_db.fragment_range)):
+            if index == 0:
+                representative_residue_idx = list(range(fragment_db.fragment_length))[idx]
+                logger.critical(f'Found the representative residue index {representative_residue_idx}')
+                self.backbone_coords = struct.residues[representative_residue_idx].backbone_coords
+                break
+        else:
+            raise ValueError(f"Couldn't get the representative residue index upon initialization")
 
 
 class FragmentDatabase(FragmentInfo):
