@@ -1255,10 +1255,8 @@ class SequenceProfile:
         #  captures disorder specific evolutionary signals that could be important in the calculation of profiles
         sequence = self.sequence
         no_design = []
-        print('fragment_map', self.fragment_map)
         for residue_index, indexed_observations in self.fragment_profile.items():
             total_fragment_observations, total_fragment_weight = 0, 0
-            print('indexed_observations', indexed_observations)
             for index, observations in enumerate(indexed_observations):
                 if observations:  # If not, will be an empty list
                     # Sum the weight for each fragment observation
@@ -1272,15 +1270,17 @@ class SequenceProfile:
 
                     # Combine all observations at each index
                     # Check if weights are associated with observations. If not, side chain isn't significant
-                    # observed_aas = deepcopy(aa_weighted_counts)  # {'A': 0, 'C': 0, ..., 'stats': [0, 1]}
                     observed_aas = {}
                     if total_obs_weight > 0:
+                        observed_aas.update(**aa_counts)  # {'A': 0, 'C': 0, ...}  # NO -> 'stats': [0, 1]}
+                        observed_aas['weight'] = total_obs_weight
                         total_fragment_weight += total_obs_weight
                         for observation in observations:
                             # Use pop to access and simultaneously remove from observation for the iteration below
                             obs_x_match_weight = observation.pop('stats')[1] * observation.pop('match')
                             # match_weight = self.fragment_profile[residue_index][index][obs]['match']
                             # obs_weight = self.fragment_profile[residue_index][index][obs]['stats'][1]
+                            scaled_obs_weight = obs_x_match_weight / total_obs_x_match_weight
                             for aa, frequency in observation.items():
                                 # if aa not in ['stats', 'match']:
                                 # Multiply OBS and MATCH
@@ -1289,9 +1289,7 @@ class SequenceProfile:
                                 #                        (total_obs_weight + total_match_weight))
                                 # modification_weight = (obs_weight / total_obs_weight)
                                 # Add all occurrences to summed frequencies list
-                                observed_aas[aa] += frequency * obs_x_match_weight / total_obs_x_match_weight
-
-                        observed_aas['weight'] = total_obs_weight
+                                observed_aas[aa] += frequency * scaled_obs_weight
 
                     # Add results to intermediate fragment_profile residue position index
                     self.fragment_profile[residue_index][index] = observed_aas
