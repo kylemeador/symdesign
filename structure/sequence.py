@@ -438,7 +438,7 @@ def pssm_as_array(pssm: profile_dictionary, alphabet: str = protein_letters_alph
         # return np.vectorize(numerical_translation_alph1_bytes.__getitem__)(_array)
 
 
-def combine_profile(profiles: Iterable[profile_dictionary]) -> dict | profile_dictionary:
+def concatenate_profile(profiles: Iterable[Any]) -> dict[int, Any]:  # Todo rename to concatenate_to_ordered_dictionary?
     """Combine a list of profiles (parsed PSSMs) by incrementing the entry index for each additional profile
 
     Args:
@@ -674,14 +674,13 @@ class SequenceProfile:
                     first = False
                 else:
                     raise DesignError('Profile Generation got stuck, design aborted')
-
         else:
             self.null_pssm()
 
         if isinstance(fragments, list):  # Add fragment information to the SequenceProfile
             self.add_fragments_to_profile(fragments, **kwargs)
             # Process fragment profile from self.fragment_profile
-            self.add_fragment_profile()
+            self.process_fragment_profile()
         elif fragments:  # If was passed as True
             if not self.fragment_profile:
                 raise AttributeError('Fragments were specified but have not been added to the SequenceProfile! '
@@ -697,7 +696,7 @@ class SequenceProfile:
             #                          f'{self.fragment_db.__name__} is set before requesting fragment information')
 
             # Process fragment profile from self.fragment_profile
-            self.add_fragment_profile()
+            self.process_fragment_profile()
 
         self.calculate_profile(favor_fragments=fragments)
 
@@ -1161,7 +1160,7 @@ class SequenceProfile:
 
         return self.sequence_file
 
-    def add_fragment_profile(self, **kwargs):  # Todo rename process_fragment_profile
+    def process_fragment_profile(self, **kwargs):
         """From self.fragment_map, add the fragment profile to the SequenceProfile
 
         Keyword Args:
@@ -1171,7 +1170,7 @@ class SequenceProfile:
         """
         # self.generate_fragment_profile()
         self._simplify_fragment_profile(**kwargs)
-        self.find_alpha()
+        self._calculate_alpha()
 
     def add_fragments_to_profile(self, fragments: Iterable[fragment_info_type],
                                  alignment_type: alignment_types_literal):
@@ -1333,7 +1332,7 @@ class SequenceProfile:
             for residue_index in no_design:
                 self.fragment_profile.pop(residue_index)
 
-    def find_alpha(self, alpha: float = .5):
+    def _calculate_alpha(self, alpha: float = .5):
         """Find fragment contribution to design with a maximum contribution of alpha. Used subsequently to integrate
         fragment profile during combination with evolutionary profile in calculate_profile
 
@@ -1352,10 +1351,10 @@ class SequenceProfile:
             alpha: The maximum contribution of the fragment profile to use, bounded between (0, 1]. 0 means
         """
         if not self.fragment_db:
-            raise AttributeError(f'{self.find_alpha.__name__}: No fragment database connected! Cannot calculate optimal'
+            raise AttributeError(f'{self._calculate_alpha.__name__}: No fragment database connected! Cannot calculate optimal'
                                  f' fragment contribution without one')
         if alpha <= 0 or 1 <= alpha:
-            raise ValueError(f'{self.find_alpha.__name__}: Alpha parameter must be bounded between 0 and 1')
+            raise ValueError(f'{self._calculate_alpha.__name__}: Alpha parameter must be bounded between 0 and 1')
         else:
             self._alpha = alpha
 
@@ -1378,7 +1377,7 @@ class SequenceProfile:
             #     count = match_sum * 5  # makes the match average = 0.5
 
             match_average = match_sum / float(count)
-            # find the match modifier which spans from 0 to 1
+            # Find the match modifier which spans from 0 to 1
             if match_average < match_score_average:
                 match_modifier = (match_average-bounded_floor) / (match_score_average-bounded_floor)
             else:  # Set modifier to 1, the maximum bound
@@ -1395,13 +1394,14 @@ class SequenceProfile:
             # Get entry average fragment weight. total weight for issm entry / count
             frag_weight_average = frag_weight / match_sum
 
-            # modify alpha proportionally to cluster average weight and match_modifier
-            if frag_weight_average < stats_average:  # if design frag weight is less than db cluster average weight
+            # Modify alpha proportionally to cluster average weight and match_modifier
+            # If design frag weight is less than db cluster average weight
+            if frag_weight_average < stats_average:
                 self.alpha[entry] = self._alpha * match_modifier * (frag_weight_average/stats_average)
             else:
                 self.alpha[entry] = self._alpha * match_modifier
 
-    def calculate_profile(self, favor_fragments: bool = True, boltzmann: bool = True):
+    def calculate_profile(self, favor_fragments: bool = False, boltzmann: bool = True):
         """Combine weights for profile PSSM and fragment SSM using fragment significance value to determine overlap
 
         Using self.evolutionary_profile
@@ -1672,7 +1672,9 @@ class SequenceProfile:
     #     #     pdb_dict[pdb.name] = pdb
     #     #
     #     # return extract_sequence_from_pdb(pdb_dict, mutation=True, pose_num=pose_num)  # , offset=False)
-    dtype_literals = Literal['list', 'set', 'tuple', 'float', 'int']
+
+
+dtype_literals = Literal['list', 'set', 'tuple', 'float', 'int']
 
 
 def populate_design_dictionary(n: int, alphabet: Sequence, zero_index: bool = False, dtype: dtype_literals = 'int')\

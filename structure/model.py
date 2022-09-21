@@ -32,7 +32,7 @@ from structure.coords import Coords, superposition3d, transform_coordinate_sets
 from structure.fragment import GhostFragment, Fragment, write_frag_match_info_file
 from structure.fragment.metrics import fragment_metric_template
 from structure.sequence import SequenceProfile, generate_alignment, get_equivalent_indices, \
-    pssm_as_array, generate_mutations, combine_profile
+    pssm_as_array, generate_mutations, concatenate_profile
 from structure.utils import protein_letters_3to1_extended, protein_letters_1to3_extended
 from utils import start_log, null_log, digit_translate_table, DesignError, ClashError, \
     SymmetryError, calculate_match, z_value_from_match_score, remove_duplicates, path as PUtils
@@ -5652,9 +5652,9 @@ class Pose(SequenceProfile, SymmetricModel):
             self.fragment_profile (profile_dictionary)
             self.profile (profile_dictionary)
         """
-        self.evolutionary_profile = combine_profile([entity.evolutionary_profile for entity in self.entities])
-        self.fragment_profile = combine_profile([entity.fragment_profile for entity in self.entities])
-        self.profile = combine_profile([entity.profile for entity in self.entities])
+        self.evolutionary_profile = concatenate_profile([entity.evolutionary_profile for entity in self.entities])
+        self.fragment_profile = concatenate_profile([entity.fragment_profile for entity in self.entities])
+        self.profile = concatenate_profile([entity.profile for entity in self.entities])
 
     def get_termini_accessibility(self, entity: Entity = None, report_if_helix: bool = False) -> \
             dict[str, bool]:

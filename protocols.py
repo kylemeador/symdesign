@@ -37,7 +37,7 @@ from resources.job import JobResources, job_resources_factory
 from structure.base import Structure  # , Structures
 from structure.model import Pose, MultiModel, Models, Model, Entity
 from structure.sequence import parse_pssm, generate_mutations_from_reference, simplify_mutation_dict, \
-    sequence_difference, MultipleSequenceAlignment, pssm_as_array, combine_profile, write_pssm_file
+    sequence_difference, MultipleSequenceAlignment, pssm_as_array, concatenate_profile, write_pssm_file
 from structure.utils import protein_letters_3to1, protein_letters_1to3
 from utils import large_color_array, handle_errors, starttime, start_log, null_log, make_path, unpickle, \
     pickle_object, index_intersection, write_shell_script, DesignError, ClashError, SymmetryError, \
@@ -1931,6 +1931,7 @@ class PoseDirectory:
 
             self.pose.combine_sequence_profiles()
             # I could alo add the combined profile here instead of at each Entity
+            # self.pose.calculate_profile()
             self.pose.add_profile(evolution=not self.job.no_evolution_constraint,
                                   fragments=self.job.generate_fragments,
                                   out_dir=self.job.api_db.hhblits_profiles.location)
