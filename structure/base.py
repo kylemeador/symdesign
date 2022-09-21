@@ -1247,26 +1247,26 @@ class ContainsAtomsMixin(StructureBase):
 
             self._atoms (Atoms)
         """
-        # set proper atoms attributes
+        # Set proper atoms attributes
         self._atom_indices = list(range(len(atoms)))
-        if not isinstance(atoms, Atoms):  # must create the Atoms object
+        if not isinstance(atoms, Atoms):  # Must create the Atoms object
             atoms = Atoms(atoms)
 
-        if atoms.are_dependents():  # copy Atoms object to set new attributes on each member Atom
+        if atoms.are_dependents():  # Copy Atoms object to set new attributes on each member Atom
             atoms = copy(atoms)
-            atoms.reset_state()  # clear runtime attributes
+            atoms.reset_state()  # Clear runtime attributes
         self._atoms = atoms
         self.renumber_atoms()
 
         if atoms_only:
-            self._populate_coords(**kwargs)  # coords may be passed
+            self._populate_coords(**kwargs)  # Coords may be passed
             # self._create_residues()
-            # ensure that coordinate lengths match atoms
+            # Ensure that coordinate lengths match atoms
             self._validate_coords()
-            # update Atom instance attributes to ensure they are dependants of this instance
-            # must do this after _populate_coords to ensure that coordinate info isn't overwritten
+            # Update Atom instance attributes to ensure they are dependants of this instance
+            # Must do this after _populate_coords to ensure that coordinate info isn't overwritten
             self._atoms.set_attributes(_parent=self)
-            # if not self.file_path:  # assume this instance wasn't parsed and Atom indices are incorrect
+            # if not self.file_path:  # Assume this instance wasn't parsed and Atom indices are incorrect
             self._atoms.reindex()
             # self._set_coords_indexed()
 
@@ -1278,15 +1278,15 @@ class ContainsAtomsMixin(StructureBase):
             from_source: The source to set the coordinates from if they are missing
             coords: The coordinates to assign to the Structure. Optional, will use from_source.coords if not specified
         """
-        if coords:  # try to set the provided coords. This will handle issue where empty Coords class should be set
+        if coords:  # Try to set the provided coords. This will handle issue where empty Coords class should be set
             # Setting .coords through normal mechanism preserves subclasses requirement to handle symmetric coordinates
             self.coords = np.concatenate(coords)
-        if self._coords.coords.shape[0] == 0:  # check if Coords (_coords) hasn't been populated
-            # if it hasn't, then coords weren't passed. try to set from self.from_source. catch missing from_source
+        if self._coords.coords.shape[0] == 0:  # Check if Coords (_coords) hasn't been populated
+            # If it hasn't, then coords weren't passed. Try to set from self.from_source. catch missing from_source
             try:
                 self._coords.set(np.concatenate([s.coords for s in getattr(self, from_source)]))
             except AttributeError:
-                try:  # probably missing from_source. .coords is available in all structure_container_types...
+                try:  # Probably missing from_source. .coords is available in all structure_container_types...
                     getattr(self, from_source)
                 except AttributeError:
                     raise AttributeError(f'{from_source} is not set on the current {type(self).__name__} instance!')
@@ -1296,11 +1296,11 @@ class ContainsAtomsMixin(StructureBase):
 
     def _validate_coords(self):
         """Ensure that the StructureBase coordinates are formatted correctly"""
-        # this is the functionality we are testing most of the time
-        if self.number_of_atoms != len(self.coords):  # number_of_atoms was just set by self._atom_indices
+        # This is the functionality we car about most of the time when making a new Structure
+        if self.number_of_atoms != len(self.coords):  # .number_of_atoms typically just set by self._atom_indices
             raise ValueError(f'The number of Atoms ({self.number_of_atoms}) != number of Coords ({len(self.coords)}). '
                              f'Consider initializing {type(self).__name__} without explicitly passing coords if this '
-                             f'isn\'t expected')
+                             f"isn't expected")
 
     def renumber_atoms(self, at: int = 1):
         """Renumber all Atom objects sequentially starting with 1
@@ -1975,7 +1975,7 @@ class Residue(ResidueFragment, ContainsAtomsMixin):
             The Residue instances in n- to c-terminal order
         """
         if number == 0:
-            raise ValueError('Can\'t get 0 upstream residues. 1 or more must be specified')
+            raise ValueError("Can't get 0 upstream residues. 1 or more must be specified")
 
         prior_residues = [self.prev_residue]
         for idx in range(abs(number) - 1):
@@ -1995,7 +1995,7 @@ class Residue(ResidueFragment, ContainsAtomsMixin):
             The Residue instances in n- to c-terminal order
         """
         if number == 0:
-            raise ValueError('Can\'t get 0 downstream residues. 1 or more must be specified')
+            raise ValueError("Can't get 0 downstream residues. 1 or more must be specified")
 
         next_residues = [self.next_residue]
         for idx in range(abs(number) - 1):
@@ -4456,7 +4456,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
 
     @property
     def contact_order(self) -> np.ndarray:
-        """Return the contact order on a per Residue basis
+        """Return the contact order on a per-Residue basis
 
         Returns:
             The array of floats representing the contact order for each Residue in the Structure
