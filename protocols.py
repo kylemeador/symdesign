@@ -1893,13 +1893,14 @@ class PoseDirectory:
             if self.job.generate_fragments:
                 make_path(self.frags, condition=self.job.write_fragments)
                 self.pose.generate_interface_fragments(out_path=self.frags, write_fragments=self.job.write_fragments)
-
-                for query_pair, fragment_info in self.pose.fragment_queries.items():
-                    self.log.debug(f'Query Pair: {query_pair[0].name}, {query_pair[1].name}'
-                                   f'\n\tFragment Info:{fragment_info}')
-                    for query_idx, entity in enumerate(query_pair):
-                        entity.add_fragments_to_profile(fragments=fragment_info,
-                                                        alignment_type=alignment_types[query_idx])
+                self.pose.process_fragment_profile()
+                # for query_pair, fragment_info in self.pose.fragment_queries.items():
+                #     self.log.debug(f'Query Pair: {query_pair[0].name}, {query_pair[1].name}'
+                #                    f'\n\tFragment Info:{fragment_info}')
+                #     for query_idx, entity in enumerate(query_pair):
+                #         entity.add_fragments_to_profile(fragments=fragment_info,
+                #                                         alignment_type=alignment_types[query_idx])
+                write_pssm_file(self.pose.fragment_profile, file_name=self.fragment_profile_file)
             elif self.fragment_observations or self.fragment_observations == list():
                 pass  # fragment generation was run and maybe succeeded. If not ^
             elif os.path.exists(self.frag_file):
@@ -3793,20 +3794,23 @@ def interface_design_analysis(pose: Pose, design_poses: Iterable[Pose] = None, s
         pose.evolutionary_profile = combine_profile([entity.evolutionary_profile for entity in pose.entities])
 
     # pose.generate_interface_fragments() was already called
-    # (Entity1, Entity2), list[fragment_info_type]
-    for query_pair, fragment_info in pose.fragment_queries.items():
-        # self.log.debug(f'Query Pair: {query_pair[0].name}, {query_pair[1].name}'
-        #                f'\n\tFragment Info:{fragment_info}')
-        for query_idx, entity in enumerate(query_pair):
-            entity.add_fragments_to_profile(fragments=fragment_info,
-                                            alignment_type=alignment_types[query_idx])
-            entity.add_fragment_profile()
+    pose.process_fragment_profile()
+    # # (Entity1, Entity2), list[fragment_info_type]
+    # for query_pair, fragment_info in pose.fragment_queries.items():
+    #     # self.log.debug(f'Query Pair: {query_pair[0].name}, {query_pair[1].name}'
+    #     #                f'\n\tFragment Info:{fragment_info}')
+    #     for query_idx, entity in enumerate(query_pair):
+    #         entity.add_fragments_to_profile(fragments=fragment_info,
+    #                                         alignment_type=alignment_types[query_idx])
+    #         entity.process_fragment_profile()
     # for entity in pose.entities:
     #     entity.add_profile(evolution=not job.no_evolution_constraint,
     #                        fragments=job.generate_fragments)
-    # pose.add_fragment_profile()
-    pose.fragment_profile = combine_profile([entity.fragment_profile for entity in pose.entities])
-    # pose.profile = combine_profile([entity.profile for entity in pose.entities])
+
+    # pose.fragment_profile = concatenate_profile([entity.fragment_profile for entity in pose.entities])
+    # pose.profile = concatenate_profile([entity.profile for entity in pose.entities])
+    # Todo this needs to be worked out
+    pose.calculate_profile()
     pose.add_profile(evolution=not job.no_evolution_constraint,
                      fragments=job.generate_fragments)
 
