@@ -6546,9 +6546,9 @@ class Pose(SequenceProfile, SymmetricModel):
             interface_number_elements = []  # Todo list comprehension
             for residue, entity in residues_entities:
                 try:
-                    interface_number_elements.append(self.ss_index_array[residue.number-1])
+                    interface_number_elements.append(self.ss_index_array[residue.index])
                 except IndexError:
-                    raise IndexError(f'The index {residue.number-1}, from Entity {entity.name}, residue '
+                    raise IndexError(f'The index {residue.index}, from Entity {entity.name}, residue '
                                      f'{residue.number} is not found in ss_index_array size {len(self.ss_index_array)}')
             self.split_interface_ss_elements[number] = interface_number_elements
 
