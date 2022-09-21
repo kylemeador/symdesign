@@ -29,7 +29,7 @@ from structure.base import Structure, Residue
 from structure.coords import transform_coordinate_sets
 from structure.fragment import GhostFragment, write_frag_match_info_file
 from structure.model import Pose, Model, get_matching_fragment_pairs_info
-from structure.sequence import generate_mutations_from_reference, numeric_to_sequence, combine_profile, pssm_as_array, \
+from structure.sequence import generate_mutations_from_reference, numeric_to_sequence, concatenate_profile, pssm_as_array, \
     MultipleSequenceAlignment
 from structure.utils import protein_letters_3to1
 from utils import dictionary_lookup, start_log, null_log, set_logging_to_level, unpickle, rmsd_z_score, \
@@ -2908,7 +2908,7 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
     # Load profiles of interest into the analysis
     profile_background = {}
     if measure_evolution:
-        pose.evolutionary_profile = combine_profile([entity.evolutionary_profile for entity in pose.entities])
+        pose.evolutionary_profile = concatenate_profile([entity.evolutionary_profile for entity in pose.entities])
 
     if pose.evolutionary_profile:
         profile_background['evolution'] = pssm_as_array(pose.evolutionary_profile)
@@ -3014,8 +3014,10 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
             # else:
             #     pose.log.info('No fragment information')
 
-            pose.add_profile(evolution=not job.no_evolution_constraint,
-                             fragments=job.generate_fragments)
+            # Todo ensure that the job doesn't call for different profile integration
+            pose.calculate_profile()
+            # pose.add_profile(evolution=not job.no_evolution_constraint,
+            #                  fragments=job.generate_fragments)
             if pose.profile:
                 profile_background['design'] = pssm_as_array(pose.profile)
             # else:
