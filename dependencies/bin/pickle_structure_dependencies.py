@@ -2,24 +2,12 @@ import os
 from shutil import copy, move
 from typing import AnyStr
 
-import numpy as np
-
 import structure.model
-from structure.fragment.db import FragmentDatabase
+from structure.fragment.db import FragmentDatabase, Representative
 from utils.path import biological_fragment_db_pickle, reference_aa_file, reference_residues_pkl, biological_interfaces
 from utils import timestamp, pickle_object, start_log, get_file_paths_recursively
 
 logger = start_log(name=__name__)
-
-
-class Representative:
-    backbone_coords: np.ndarray
-    ca_coords: np.ndarray
-    register: tuple[str, ...] = ('backbone_coords', 'ca_coords')
-
-    def __init__(self, struct: structure.base.Structure):
-        for item in self.register:
-            setattr(self, item, getattr(struct, item))
 
 
 def create_fragment_db_from_raw_files(source: AnyStr) -> FragmentDatabase:
