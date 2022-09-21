@@ -5726,16 +5726,16 @@ class Pose(SequenceProfile, SymmetricModel):
         self.center_residue_numbers = frag_metrics.get('center_residues', [])
         total_interface_residues = len(self.interface_residues)
         total_non_fragment_interface_residues = \
-            max(total_interface_residues-frag_metrics['number_fragment_residues_center'], 0)
+            max(total_interface_residues - frag_metrics['number_fragment_residues_center'], 0)
 
         metrics = frag_metrics
         # Interface B Factor
         int_b_factor = sum(residue.b_factor for residue in self.interface_residues)
         try:  # If interface_distance is different from interface query and fragment generation these can be < 0 or > 1
             percent_residues_fragment_center = \
-                min(frag_metrics['number_fragment_residues_center']/total_interface_residues, 1)
+                min(frag_metrics['number_fragment_residues_center'] / total_interface_residues, 1)
             percent_residues_fragment_total = \
-                min(frag_metrics['number_fragment_residues_total']/total_interface_residues, 1)
+                min(frag_metrics['number_fragment_residues_total'] / total_interface_residues, 1)
             percent_fragment = frag_metrics['number_fragment_residues_total'] / total_interface_residues
             ave_b_factor = int_b_factor / total_interface_residues
         except ZeroDivisionError:
@@ -6022,6 +6022,7 @@ class Pose(SequenceProfile, SymmetricModel):
             per_residue_sasa_unbound_polar.extend([residue.sasa_polar for residue in oligomer_asu_residues])
             per_residue_sasa_unbound_relative.extend([residue.relative_sasa for residue in oligomer_asu_residues])
             collapse_concatenated.append(entity.hydrophobic_collapse)
+
         per_residue_data['sasa_hydrophobic_bound'] = per_residue_sasa_unbound_apolar
         per_residue_data['sasa_polar_bound'] = per_residue_sasa_unbound_polar
         per_residue_data['sasa_relative_bound'] = per_residue_sasa_unbound_relative
