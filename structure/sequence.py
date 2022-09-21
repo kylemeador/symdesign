@@ -1744,7 +1744,7 @@ def get_lod(frequencies: dict[structure.utils.protein_letters_literal, float],
         #     lods[aa] = round(lods[aa])
 
     if as_int:
-        return {aa: (as_int(value) if value >= -9 else -9) for aa, value in lods.items()}
+        return {aa: (int(value) if value >= -9 else -9) for aa, value in lods.items()}
     else:  # ensure that -9 is the lowest value (formatting issues if 2 digits)
         return {aa: (value if value >= -9 else -9) for aa, value in lods.items()}
 
