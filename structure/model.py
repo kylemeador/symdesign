@@ -67,8 +67,8 @@ def subdirectory(name):
 
 
 # @njit
-def find_fragment_overlap(entity1_coords: np.ndarray, residues1: list[Residue] | Residues,
-                          residues2: list[Residue] | Residues, euler_lookup: EulerLookup = None,
+def find_fragment_overlap(entity1_coords: np.ndarray, residues1: Iterable[Fragment],
+                          residues2: Iterable[Fragment], euler_lookup: EulerLookup = None,
                           min_match_value: float = 0.2) -> list[tuple[GhostFragment, Fragment, float]]:
     #           entity1, entity2, entity1_interface_residue_numbers, entity2_interface_residue_numbers, max_z_value=2):
     """From two sets of Residues, score the fragment overlap according to Nanohedra's fragment matching
@@ -6687,7 +6687,7 @@ class Pose(SequenceProfile, SymmetricModel):
                 metric_d['nanohedra_score_center_normalized'] = \
                     metric_d['nanohedra_score_center']/metric_d['number_fragment_residues_center']
             except ZeroDivisionError:
-                self.log.warning(f'{self.name}: No interface residues were found. Is there an interface in your design?')
+                self.log.warning(f'{self.name}: No fragment residues were found. Is there an interface in your design?')
                 metric_d['nanohedra_score_normalized'], metric_d['nanohedra_score_center_normalized'] = 0., 0.
 
         else:  # For the entire Pose?

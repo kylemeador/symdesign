@@ -4363,7 +4363,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
             raise ValueError(f"Can't assign fragments without passing fragment_db")
         else:
             try:
-                representatives: dict[int, np.ndarray] = fragment_db.reps
+                fragment_db.representatives
             except AttributeError:
                 raise TypeError(f'The passed fragment_db is not of the required type "FragmentDatabase"')
 
@@ -4374,7 +4374,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
             frag_residues = self.get_residues(numbers=[residue_number + i for i in fragment_range])
 
             if len(frag_residues) == fragment_length:
-                fragment = MonoFragment(residues=frag_residues, **kwargs)
+                fragment = MonoFragment(residues=frag_residues, fragment_db=fragment_db, **kwargs)
                 if fragment.i_type:
                     fragments.append(fragment)
 
@@ -4403,7 +4403,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
             raise ValueError(f"Can't assign fragments without passing fragment_db")
         else:
             try:
-                representatives: dict[int, np.ndarray] = fragment_db.reps
+                fragment_db.representatives
             except AttributeError:
                 raise TypeError(f'The passed fragment_db is not of the required type "FragmentDatabase"')
 
@@ -4437,8 +4437,8 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         for idx, residue in enumerate(viable_residues):
             min_rmsd = float('inf')
             residue_ca_coord_set = residue_ca_coords[idx]
-            for fragment_type, cluster_coords in representatives.items():
-                rmsd, rot, tx = superposition3d(residue_ca_coord_set, cluster_coords)
+            for fragment_type, representative in fragment_db.representatives.items():
+                rmsd, rot, tx = superposition3d(residue_ca_coord_set, representative.ca_coords)
                 if rmsd <= rmsd_thresh and rmsd <= min_rmsd:
                     residue.frag_type = fragment_type
                     min_rmsd = rmsd
@@ -4449,7 +4449,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
                 #     np.matmul(Fragment.template_coords, np.transpose(residue.rotation)) + residue.translation
                 residue.fragment_db = fragment_db
                 # residue._fragment_coords = residue_ca_coord_set
-                residue._representative_coords = representatives[residue.frag_type]
+                residue._fragment_coords = fragment_db.representatives[residue.frag_type].backbone_coords
                 found_fragments.append(residue)
 
         return found_fragments

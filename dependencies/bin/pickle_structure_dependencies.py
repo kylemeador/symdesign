@@ -2,12 +2,24 @@ import os
 from shutil import copy, move
 from typing import AnyStr
 
+import numpy as np
+
 import structure.model
 from structure.fragment.db import FragmentDatabase
 from utils.path import biological_fragment_db_pickle, reference_aa_file, reference_residues_pkl, biological_interfaces
 from utils import timestamp, pickle_object, start_log, get_file_paths_recursively
 
 logger = start_log(name=__name__)
+
+
+class Representative:
+    backbone_coords: np.ndarray
+    ca_coords: np.ndarray
+    register: tuple[str, ...] = ('backbone_coords', 'ca_coords')
+
+    def __init__(self, struct: structure.base.Structure):
+        for item in self.register:
+            setattr(self, item, getattr(struct, item))
 
 
 def create_fragment_db_from_raw_files(source: AnyStr) -> FragmentDatabase:
@@ -21,9 +33,10 @@ def create_fragment_db_from_raw_files(source: AnyStr) -> FragmentDatabase:
     fragment_db = FragmentDatabase(source=source)
     logger.info(f'Initializing {source} FragmentDatabase from disk. This may take awhile...')
     # self.get_monofrag_cluster_rep_dict()
-    fragment_db.reps = {int(os.path.splitext(os.path.basename(file))[0]):
-                        structure.base.Structure.from_file(file, entities=False, log=None).ca_coords
-                        for file in get_file_paths_recursively(fragment_db.monofrag_representatives_path)}
+    fragment_db.representatives = \
+        {int(os.path.splitext(os.path.basename(file))[0]):
+         Representative(structure.base.Structure.from_file(file, entities=False, log=None))
+         for file in get_file_paths_recursively(fragment_db.monofrag_representatives_path)}
     fragment_db.paired_frags = load_paired_fragment_representatives(fragment_db.cluster_representatives_path)
     fragment_db.load_cluster_info()  # Using my generated data instead of Josh's for future compatibility and size
     # fragment_db.load_cluster_info_from_text()
