@@ -954,7 +954,7 @@ class SequenceProfile:
         if return_command:
             return subprocess.list2cmdline(cmd)  # , subprocess.list2cmdline(reformat_msa_cmd)
 
-        self.log.info('%s Profile Command: %s' % (self.name, subprocess.list2cmdline(cmd)))
+        self.log.info(f'{self.name} Profile Command: {subprocess.list2cmdline(cmd)}')
         p = subprocess.Popen(cmd)
         p.communicate()
         if p.returncode != 0:
@@ -1092,7 +1092,7 @@ class SequenceProfile:
             msa = self.msa
         if not self.h_fields or not self.j_couplings:
             raise AttributeError('The required data .h_fields and .j_couplings are not availble. Add them to the Entity'
-                                 ' before %s' % self.direct_coupling_analysis.__name__)
+                                 f' before {self.direct_coupling_analysis.__name__}')
             # return np.array([])
         analysis_length = msa.query_length
         idx_range = np.arange(analysis_length)
@@ -1200,12 +1200,12 @@ class SequenceProfile:
             self.fragment_map = populate_design_dictionary(self.number_of_residues,
                                                            list(range(*self.fragment_db.fragment_range)),
                                                            zero_index=True, dtype='list')
-            for fragment in fragments:
-                residue_index = fragment[alignment_type] - self.offset_index
-                for frag_idx in range(*self.fragment_db.fragment_range):  # lower_bound, upper_bound
-                    self.fragment_map[residue_index + frag_idx][frag_idx].append({'source': alignment_type,
-                                                                                  'cluster': fragment['cluster'],
-                                                                                  'match': fragment['match']})
+        for fragment in fragments:
+            residue_index = fragment[alignment_type] - self.offset_index
+            for frag_idx in range(*self.fragment_db.fragment_range):  # lower_bound, upper_bound
+                self.fragment_map[residue_index + frag_idx][frag_idx].append({'source': alignment_type,
+                                                                              'cluster': fragment['cluster'],
+                                                                              'match': fragment['match']})
 
             # As of 9/18/22 opting to preload this data
             # # Ensure fragment information is retrieved from the fragment_db for the particular clusters
