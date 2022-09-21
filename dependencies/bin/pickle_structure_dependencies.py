@@ -18,12 +18,12 @@ def create_fragment_db_from_raw_files(source: AnyStr) -> FragmentDatabase:
     Returns:
         The loaded FragmentDatabase
     """
-    fragment_db = FragmentDatabase(source=source)
+    fragment_db = FragmentDatabase(source=source, fragment_length=5)  # Todo dynamic...
     logger.info(f'Initializing {source} FragmentDatabase from disk. This may take awhile...')
     # self.get_monofrag_cluster_rep_dict()
     fragment_db.representatives = \
         {int(os.path.splitext(os.path.basename(file))[0]):
-         Representative(structure.base.Structure.from_file(file, entities=False, log=None))
+         Representative(structure.base.Structure.from_file(file, entities=False, log=None), fragment_db=fragment_db)
          for file in get_file_paths_recursively(fragment_db.monofrag_representatives_path)}
     fragment_db.paired_frags = load_paired_fragment_representatives(fragment_db.cluster_representatives_path)
     fragment_db.load_cluster_info()  # Using my generated data instead of Josh's for future compatibility and size
