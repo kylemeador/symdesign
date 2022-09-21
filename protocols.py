@@ -1906,48 +1906,54 @@ class PoseDirectory:
             elif os.path.exists(self.frag_file):
                 self.retrieve_fragment_info_from_file()
 
-            for entity in self.pose.entities:
-                if entity not in self.pose.active_entities:  # we shouldn't design, add a null profile instead
-                    entity.add_profile(null=True)
-                else:  # add a real profile
-                    entity.sequence_file = self.job.api_db.sequences.retrieve_file(name=entity.name)
-                    entity.evolutionary_profile = self.job.api_db.hhblits_profiles.retrieve_data(name=entity.name)
-                    if not entity.evolutionary_profile:
-                        entity.add_evolutionary_profile(out_dir=self.job.api_db.hhblits_profiles.location)
-                    else:  # ensure the file is attached as well
-                        entity.pssm_file = self.job.api_db.hhblits_profiles.retrieve_file(name=entity.name)
+            if not self.job.no_evolution_constraint:
+                for entity in self.pose.entities:
+                    if entity not in self.pose.active_entities:  # we shouldn't design, add a null profile instead
+                        entity.add_profile(null=True)
+                    else:  # add a real profile
+                        entity.sequence_file = self.job.api_db.sequences.retrieve_file(name=entity.name)
+                        entity.evolutionary_profile = self.job.api_db.hhblits_profiles.retrieve_data(name=entity.name)
+                        if not entity.evolutionary_profile:
+                            entity.add_evolutionary_profile(out_dir=self.job.api_db.hhblits_profiles.location)
+                        else:  # ensure the file is attached as well
+                            entity.pssm_file = self.job.api_db.hhblits_profiles.retrieve_file(name=entity.name)
 
-                    if not entity.pssm_file:  # still no file found. this is likely broken
-                        raise DesignError(f'{entity.name} has no profile generated. To proceed with this design/'
-                                          f'protocol you must generate the profile!')
+                        if not entity.pssm_file:  # still no file found. this is likely broken
+                            raise DesignError(f'{entity.name} has no profile generated. To proceed with this design/'
+                                              f'protocol you must generate the profile!')
 
-                    if not entity.verify_evolutionary_profile():
-                        entity.fit_evolutionary_profile_to_structure()
+                        if not entity.verify_evolutionary_profile():
+                            entity.fit_evolutionary_profile_to_structure()
 
-                    if not entity.sequence_file:
-                        entity.write_sequence_to_fasta('reference', out_dir=self.job.api_db.sequences.location)
-                    # entity.add_profile(evolution=not self.job.no_evolution_constraint,
-                    #                    fragments=self.job.generate_fragments,
-                    #                    out_dir=self.job.api_db.hhblits_profiles.location)
+                        if not entity.sequence_file:
+                            entity.write_sequence_to_fasta('reference', out_dir=self.job.api_db.sequences.location)
+                        # entity.add_profile(evolution=not self.job.no_evolution_constraint,
+                        #                    fragments=self.job.generate_fragments,
+                        #                    out_dir=self.job.api_db.hhblits_profiles.location)
+                self.pose.evolutionary_profile = \
+                    concatenate_profile([entity.evolutionary_profile for entity in self.pose.entities])
+                self.pose.pssm_file = \
+                    write_pssm_file(self.pose.evolutionary_profile, file_name=self.evolutionary_profile_file)
 
-            self.pose.combine_sequence_profiles()
+            # self.pose.combine_sequence_profiles()
             # I could alo add the combined profile here instead of at each Entity
             # self.pose.calculate_profile()
             self.pose.add_profile(evolution=not self.job.no_evolution_constraint,
                                   fragments=self.job.generate_fragments,
                                   out_dir=self.job.api_db.hhblits_profiles.location)
+            write_pssm_file(self.pose.profile, file_name=self.design_profile_file)
             # Update PoseDirectory with design information
-            if self.job.generate_fragments:  # Set pose.fragment_profile by combining fragment profiles
-                self.pose.fragment_profile = combine_profile([entity.fragment_profile for entity in self.pose.entities])
-                write_pssm_file(self.pose.fragment_profile, file_name=self.fragment_profile_file)
+            # if self.job.generate_fragments:  # Set pose.fragment_profile by combining fragment profiles
+            #     self.pose.fragment_profile = concatenate_profile([entity.fragment_profile for entity in self.pose.entities])
+            #     write_pssm_file(self.pose.fragment_profile, file_name=self.fragment_profile_file)
 
-            if not self.job.no_evolution_constraint:  # Set pose.evolutionary_profile by combining evolution profiles
-                self.pose.evolutionary_profile = \
-                    combine_profile([entity.evolutionary_profile for entity in self.pose.entities])
-                self.pose.pssm_file = \
-                    write_pssm_file(self.pose.evolutionary_profile, file_name=self.evolutionary_profile_file)
+            # if not self.job.no_evolution_constraint:  # Set pose.evolutionary_profile by combining evolution profiles
+            #     self.pose.evolutionary_profile = \
+            #         concatenate_profile([entity.evolutionary_profile for entity in self.pose.entities])
+            #     self.pose.pssm_file = \
+            #         write_pssm_file(self.pose.evolutionary_profile, file_name=self.evolutionary_profile_file)
 
-            self.pose.profile = combine_profile([entity.profile for entity in self.pose.entities])
+            # self.pose.profile = concatenate_profile([entity.profile for entity in self.pose.entities])
             write_pssm_file(self.pose.profile, file_name=self.design_profile_file)
             # -------------------------------------------------------------------------
             # Todo self.solve_consensus()
@@ -3791,7 +3797,7 @@ def interface_design_analysis(pose: Pose, design_poses: Iterable[Pose] = None, s
     pose_collapse_df = pd.DataFrame(folding_and_collapse).T
 
     if measure_evolution:
-        pose.evolutionary_profile = combine_profile([entity.evolutionary_profile for entity in pose.entities])
+        pose.evolutionary_profile = concatenate_profile([entity.evolutionary_profile for entity in pose.entities])
 
     # pose.generate_interface_fragments() was already called
     pose.process_fragment_profile()
