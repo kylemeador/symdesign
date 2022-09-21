@@ -2997,10 +2997,11 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
             for query_pair, fragment_info in pose.fragment_queries.items():
                 log.debug(f'Query Pair: {query_pair[0].name}, {query_pair[1].name}'
                           f'\n\tFragment Info:{fragment_info}')
-                for query_idx, entity in enumerate(query_pair):
-                    entity.add_fragments_to_profile(fragments=fragment_info,
-                                                    alignment_type=alignment_types[query_idx])
-                    entity.add_fragment_profile()
+                if fragment_info:
+                    for query_idx, entity in enumerate(query_pair):
+                        entity.add_fragments_to_profile(fragments=fragment_info,
+                                                        alignment_type=alignment_types[query_idx])
+                        entity.add_fragment_profile()
 
             pose.fragment_profile = combine_profile([entity.fragment_profile for entity in pose.entities])
             # Reset the fragment_profile and fragment_map for each Entity
