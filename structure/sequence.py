@@ -390,26 +390,27 @@ class MultipleSequenceAlignment:
         # observed = {profile: np.where(np.take_along_axis(background, transposed_alignment, axis=1) > 0, 1, 0).T
         #             for profile, background in backgrounds.items()}
 
-def sequence_to_numeric(sequence: Sequence) -> np.ndarray:
+
+def sequence_to_numeric(sequence: Sequence) -> numerical_profile:  # np.ndarray:
     """Convert a position specific profile matrix into a numeric array
 
     Args:
         sequence: The sequence to encode
     Returns:
-        The numerically encoded sequence where each entry along axis 0 is the indexed amino acid. Indices are according
+        The numerically encoded sequence where each entry along axis=0 is the indexed amino acid. Indices are according
             to the 1 letter alphabetical amino acid
     """
     _array = np.array(list(sequence), np.string_)
     return np.vectorize(numerical_translation_alph1_bytes.__getitem__)(_array)
 
 
-def sequences_to_numeric(sequences: list[Sequence]) -> np.ndarray:
+def sequences_to_numeric(sequences: list[Sequence]) -> numerical_profile:  # np.ndarray[numerical_profile]:
     """Convert a position specific profile matrix into a numeric array
 
     Args:
         sequences: The sequences to encode
     Returns:
-        The numerically encoded sequence where each entry along axis 0 is the indexed amino acid. Indices are according
+        The numerically encoded sequence where each entry along axis=0 is the indexed amino acid. Indices are according
             to the 1 letter alphabetical amino acid
     """
     _array = np.array([list(sequence) for sequence in sequences], np.string_)
@@ -423,7 +424,7 @@ def numeric_to_sequence(numeric_sequence: np.ndarray, alphabet_order: int = 1) -
         numeric_sequence: The sequence to convert
         alphabet_order: The alphabetical order of the amino acid alphabet. Can be either 1 or 3
     Returns:
-        The alphabetic encoded sequence where each entry along axis=-1 is the one letter amino acid
+        The alphabetically encoded sequence where each entry along axis=-1 is the one letter amino acid
     """
     if alphabet_order == 1:
         return np.vectorize(sequence_translation_alph1.__getitem__)(numeric_sequence)
