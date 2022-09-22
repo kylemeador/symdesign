@@ -5653,7 +5653,7 @@ class Pose(SequenceProfile, SymmetricModel):
             self.profile (profile_dictionary)
         """
         self.evolutionary_profile = concatenate_profile([entity.evolutionary_profile for entity in self.entities])
-        self.fragment_profile = concatenate_profile([entity.fragment_profile for entity in self.entities])
+        self.fragment_profile = concatenate_profile([entity.fragment_profile for entity in self.entities], start_at=0)
         self.profile = concatenate_profile([entity.profile for entity in self.entities])
 
     def get_termini_accessibility(self, entity: Entity = None, report_if_helix: bool = False) -> \
@@ -6574,7 +6574,8 @@ class Pose(SequenceProfile, SymmetricModel):
         for entity in self.entities:
             entity.process_fragment_profile(**kwargs)
 
-        self.fragment_profile = concatenate_profile([entity.fragment_profile for entity in self.entities])
+        self.fragment_profile = concatenate_profile([entity.fragment_profile for entity in self.entities],
+                                                    start_at=0)
         # self.alpha = concatenate_profile([entity.alpha for entity in self.entities])
         self.alpha = []
         for entity in self.entities:

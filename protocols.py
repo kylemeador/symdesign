@@ -1944,7 +1944,8 @@ class PoseDirectory:
             write_pssm_file(self.pose.profile, file_name=self.design_profile_file)
             # Update PoseDirectory with design information
             # if self.job.generate_fragments:  # Set pose.fragment_profile by combining fragment profiles
-            #     self.pose.fragment_profile = concatenate_profile([entity.fragment_profile for entity in self.pose.entities])
+            #     self.pose.fragment_profile = \
+            #         concatenate_profile([entity.fragment_profile for entity in self.pose.entities], start_at=0)
             #     write_pssm_file(self.pose.fragment_profile, file_name=self.fragment_profile_file)
 
             # if not self.job.no_evolution_constraint:  # Set pose.evolutionary_profile by combining evolution profiles
@@ -3813,7 +3814,7 @@ def interface_design_analysis(pose: Pose, design_poses: Iterable[Pose] = None, s
     #     entity.add_profile(evolution=not job.no_evolution_constraint,
     #                        fragments=job.generate_fragments)
 
-    # pose.fragment_profile = concatenate_profile([entity.fragment_profile for entity in pose.entities])
+    # pose.fragment_profile = concatenate_profile([entity.fragment_profile for entity in pose.entities], start_at=0)
     # pose.profile = concatenate_profile([entity.profile for entity in pose.entities])
     # Todo this needs to be worked out
     pose.calculate_profile()

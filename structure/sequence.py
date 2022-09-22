@@ -456,17 +456,19 @@ def pssm_as_array(pssm: profile_dictionary, alphabet: str = protein_letters_alph
         # return np.vectorize(numerical_translation_alph1_bytes.__getitem__)(_array)
 
 
-def concatenate_profile(profiles: Iterable[Any]) -> dict[int, Any]:  # Todo rename to concatenate_to_ordered_dictionary?
+# Todo rename to concatenate_to_ordered_dictionary?
+def concatenate_profile(profiles: Iterable[Any], start_at: int = 1) -> dict[int, Any]:
     """Combine a list of profiles (parsed PSSMs) by incrementing the entry index for each additional profile
 
     Args:
         profiles: The profiles to concatenate
+        start_at: The integer to start the resulting dictionary at
     Returns
         The concatenated input profiles, make a concatenated PSSM
             {1: {'A': 0.04, 'C': 0.12, ..., 'lod': {'A': -5, 'C': -9, ...}, 'type': 'W', 'info': 0.00,
                  'weight': 0.00}, ...}}
     """
-    _count = count(1)
+    _count = count(start_at)
     return {next(_count): position_profile for profile in profiles for position_profile in profile.values()}
     # new_key = 1
     # for profile in profiles:
@@ -1375,7 +1377,6 @@ class SequenceProfile:
         else:  # Remove missing residues from dictionary
             for residue_index in no_design:
                 self.fragment_profile.pop(residue_index)
-        print(self.fragment_profile)
 
     def _calculate_alpha(self, alpha: float = .5):
         """Find fragment contribution to design with a maximum contribution of alpha. Used subsequently to integrate
@@ -1499,16 +1500,9 @@ class SequenceProfile:
             inverse_weight = 1 - weight
             frag_profile_entry = self.fragment_profile[entry]
             profile_entry = self.profile[entry + zero_offset]
-            # print({aa: weight*frag_profile_entry[aa]
-            #                                           + inverse_weight*profile_entry[aa]
-            #                                           for aa in protein_letters_alph1})
-            # self.profile[entry + zero_offset].update({aa: weight*frag_profile_entry[aa]
             profile_entry.update({aa: weight*frag_profile_entry[aa]
                                   + inverse_weight*profile_entry[aa]
                                   for aa in protein_letters_alph1})
-            # for aa in protein_letters_alph1:
-            #     profile_entry[aa] = weight*frag_profile_entry[aa] + inverse_weight*profile_entry[aa]
-        print('after', self.profile)
 
         if favor_fragments:
             boltzman_energy = 1
@@ -1523,7 +1517,7 @@ class SequenceProfile:
             for entry, data in self.profile.items():
                 data['lod'] = null_residue  # Caution, all reference same object
             for entry, data in self.profile.items():
-                data['lod'] = get_lod(self.fragment_profile[entry], database_bkgnd_aa_freq, as_int=False)
+                data['lod'] = get_lod(self.fragment_profile[entry - zero_offset], database_bkgnd_aa_freq, as_int=False)
                 # Adjust scores with particular weighting scheme
                 partition = 0.
                 for aa, value in data['lod'].items():
