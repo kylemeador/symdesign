@@ -812,7 +812,7 @@ class SequenceProfile:
         """
         self.evolutionary_profile = populate_design_dictionary(self.number_of_residues, protein_letters_alph3)
         for residue_type, residue_data in zip(self.sequence, self.evolutionary_profile.values()):
-            residue_data.update({'lod': copy(aa_counts), 'type': residue_type, 'info': 0., 'weight': 0.}
+            residue_data.update({'lod': copy(aa_counts), 'type': residue_type, 'info': 0., 'weight': 0.})
 
     def fit_evolutionary_profile_to_structure(self):
         """From an evolutionary profile generated according to a reference sequence, align the profile to the Structure
