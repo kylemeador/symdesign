@@ -1412,6 +1412,7 @@ class SequenceProfile:
         match_score_average = 0.5  # when fragment pair rmsd equal to the mean cluster rmsd
         bounded_floor = 0.2
         fragment_stats = self.fragment_db.statistics
+        self.alpha.clear()  # Reset the data
         for entry, data in self.fragment_profile.items():
             # Can't use the match count as the fragment index may have no useful residue information
             # Instead use number of fragments with SC interactions count from the frequency map
