@@ -558,7 +558,8 @@ class SequenceProfile:
     _msa: MultipleSequenceAlignment | None
     _sequence_numeric: np.ndarray
     a3m_file: AnyStr | None
-    alpha: dict[int, float]
+    alpha: list[float]
+    # alpha: dict[int, float]
     disorder: dict[int, dict[str, str]]
     evolutionary_profile: dict | profile_dictionary
     fragment_map: dict[int, dict[int, Iterable[fragment_info_type]]]
@@ -586,7 +587,7 @@ class SequenceProfile:
         # {(ent1, ent2): [{mapped: res_num1, paired: res_num2, cluster: id, match: score}, ...], ...}
         self._fragment_db = None
         self.a3m_file = None
-        self.alpha = {}
+        self.alpha = []  # {}
         # Using .profile as attribute instead
         # self.design_profile = {}  # design specific scoring matrix
         self.evolutionary_profile = {}  # position specific scoring matrix
@@ -1412,6 +1413,7 @@ class SequenceProfile:
             # Instead use number of fragments with SC interactions count from the frequency map
             count, frag_weight = data.get('stats', (None, None))
             if not count:  # When data is missing 'stats', or 'stats'[0] is 0
+                self.alpha.append(0.)
                 continue  # Move on, this isn't a fragment observation, or we have no observed fragments
 
             # Match score 'match' is bounded between [0.2, 1]
@@ -1442,9 +1444,11 @@ class SequenceProfile:
             # Modify alpha proportionally to cluster average weight and match_modifier
             # If design frag weight is less than db cluster average weight
             if frag_weight_average < stats_average:
-                self.alpha[entry] = self._alpha * match_modifier * (frag_weight_average/stats_average)
+                self.alpha.append(self._alpha * match_modifier * (frag_weight_average/stats_average))
+                # self.alpha[entry] = self._alpha * match_modifier * (frag_weight_average/stats_average)
             else:
-                self.alpha[entry] = self._alpha * match_modifier
+                self.alpha.append(self._alpha * match_modifier)
+                # self.alpha[entry] = self._alpha * match_modifier
 
     def calculate_profile(self, favor_fragments: bool = False, boltzmann: bool = True):
         """Combine weights for profile PSSM and fragment SSM using fragment significance value to determine overlap
@@ -1458,7 +1462,8 @@ class SequenceProfile:
             (dict[int, dict[str, float | list[float]]]):
                 {48: {'A': 0.167, 'D': 0.028, 'E': 0.056, ..., 'stats': [4, 0.274]}, 50: {...}, ...}
         self.alpha
-            (dict[int, float]): {48: 0.5, 50: 0.321, ...}
+            (list[float]): [0., 0., 0., 0.5, 0.321, ...]
+            # (dict[int, float]): {48: 0.5, 50: 0.321, ...}
         Args:
             favor_fragments: Whether to favor fragment profile in the lod score of the resulting profile
                 Currently this routine is only used for Rosetta designs where the fragments should be favored by a
@@ -1486,9 +1491,11 @@ class SequenceProfile:
             self.log.info(f'At {self.name}, combined evolutionary and fragment profiles into Design Profile with:'
                           f'\n\t%s'
                           % '\n\t'.join(f'Residue {entry + 1:5d}: {weight * 100:.0f}% fragment weight'
-                                        for entry, weight in self.alpha.items()))
+                                        for entry, weight in enumerate(self.alpha)))
+                                        # for entry, weight in self.alpha.items()))
         # print('before', self.profile)
-        for entry, weight in self.alpha.items():  # Weight will be 0 if the fragment_profile is empty
+        # for entry, weight in self.alpha.items():  # Weight will be 0 if the fragment_profile is empty
+        for entry, weight in enumerate(self.alpha):  # Weight will be 0 if the fragment_profile is empty
             inverse_weight = 1 - weight
             frag_profile_entry = self.fragment_profile[entry]
             profile_entry = self.profile[entry + zero_offset]
