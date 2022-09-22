@@ -661,7 +661,6 @@ class SequenceProfile:
         Returns:
             The array with shape (number_of_sequences, length) with the value for each amino acid index in profile
         """
-        transposed_alignment = self.numerical_alignment.T
         if precomputed is not None:
             profile_of_interest = precomputed
         else:
@@ -1486,11 +1485,14 @@ class SequenceProfile:
                           f'\n\t%s'
                           % '\n\t'.join(f'Residue {entry + 1:5d}: {weight * 100:.0f}% fragment weight'
                                         for entry, weight in self.alpha.items()))
-        print('before', self.profile)
+        # print('before', self.profile)
         for entry, weight in self.alpha.items():  # Weight will be 0 if the fragment_profile is empty
             inverse_weight = 1 - weight
             frag_profile_entry = self.fragment_profile[entry]
             profile_entry = self.profile[entry + zero_offset]
+            print({aa: weight*frag_profile_entry[aa]
+                                                      + inverse_weight*profile_entry[aa]
+                                                      for aa in protein_letters_alph1})
             self.profile[entry + zero_offset].update({aa: weight*frag_profile_entry[aa]
                                                       + inverse_weight*profile_entry[aa]
                                                       for aa in protein_letters_alph1})
