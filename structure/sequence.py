@@ -803,7 +803,7 @@ class SequenceProfile:
         getattr(self, f'parse_{profile_source}_pssm')()
 
     def null_pssm(self):
-        """Take the contents of a pssm file, parse, and input into a sequence dictionary.
+        """Make a blank evolutionary_profile
 
         Sets:
             self.evolutionary_profile (profile_dictionary): Dictionary containing residue indexed profile information
@@ -811,12 +811,8 @@ class SequenceProfile:
                  2: {}, ...}
         """
         self.evolutionary_profile = populate_design_dictionary(self.number_of_residues, protein_letters_alph3)
-        sequence = self.sequence
-        for idx, residue_number in enumerate(self.evolutionary_profile):
-            self.evolutionary_profile[residue_number]['lod'] = copy(aa_counts)
-            self.evolutionary_profile[residue_number]['type'] = sequence[idx]
-            self.evolutionary_profile[residue_number]['info'] = 0.0
-            self.evolutionary_profile[residue_number]['weight'] = 0.0
+        for residue_type, residue_data in zip(self.sequence, self.evolutionary_profile.values()):
+            residue_data.update({'lod': copy(aa_counts), 'type': residue_type, 'info': 0., 'weight': 0.}
 
     def fit_evolutionary_profile_to_structure(self):
         """From an evolutionary profile generated according to a reference sequence, align the profile to the Structure
@@ -1435,6 +1431,10 @@ class SequenceProfile:
         if self._alpha == 0:  # We get a division error
             self.log.info(f'{self.calculate_profile.__name__}: _alpha set with 1e-5 tolerance due to 0 value')
             self._alpha = 0.000001
+
+        if not self.evolutionary_profile:
+            self.null_pssm()
+
         # Copy the evolutionary profile to self.profile (structure specific scoring matrix)
         self.profile = deepcopy(self.evolutionary_profile)
         # Combine fragment and evolutionary probability profile according to alpha parameter
