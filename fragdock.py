@@ -2909,7 +2909,11 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
                                      for entity in pose.entities for residue in entity.residues}
             all_probabilities[pose_id] = probabilities[idx]
 
-            # Todo process the all_probabilities to a DataFrame
+            # Todo process the all_probabilities to a DataFrame?
+            #  The probabilities are the actual probabilities at each residue for each AA
+            #  These differ from the log_probabilities in that those are scaled by the log()
+            #  and therefore are negative. The use of probabilities is how I have calculated divergence.
+            #  Perhaps I should transition to take the log of probabilities and calculate the loss.
             # all_probabilities is
             # {'2gtr-3m6n-DEGEN_1_1-ROT_13_10-TX_1-PT_1':
             #  array([[1.55571969e-02, 6.64833433e-09, 3.03523801e-03, ...,
@@ -2971,10 +2975,11 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
                 pose.get_sequence_probabilities_from_profile(precomputed=fragment_profile_array)
             print('fragment_profile_frequencies.shape:', fragment_profile_frequencies.shape,
                   '\nvalues:', fragment_profile_frequencies)
+            # Todo save this data
             # Find the non-zero sites in the profile
             observed_from_fragment_profile = fragment_profile_frequencies[np.nonzero(fragment_profile_frequencies)]
-            observed_from_fragment_profile[interface_indexer].sum()
-
+            sum_observed_from_fragment_profile = observed_from_fragment_profile[interface_indexer].sum()
+            print('sum_observed_from_fragment_profile', sum_observed_from_fragment_profile)
             # observed, divergence = \
             #     calculate_sequence_observations_and_divergence(pose_alignment,
             #                                                    profile_background,
@@ -2987,16 +2992,16 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
             # all_pose_divergence.append(divergence_s)
             # Todo extract the observed values out of the observed dictionary
             #  Each Pose only has one trajectory, so measurement of divergence is pointless (no distribution)
-            observed_dfs = []
-            # Todo must ensure the observed_values is the length of the pose_ids
-            # for profile, observed_values in observed.items():
-            #     scores_df[f'observed_{profile}'] = observed_values.mean(axis=1)
-            #     observed_dfs.append(pd.DataFrame(data=observed_values, index=pose_id,
-            #                                      columns=pd.MultiIndex.from_product([residue_indices,
-            #                                                                          [f'observed_{profile}']]))
-            #                         )
-            # Add observation information into the residue_df
-            residue_df = pd.concat([residue_df] + observed_dfs, axis=1)
+            # observed_dfs = []
+            # # Todo must ensure the observed_values is the length of the pose_ids
+            # # for profile, observed_values in observed.items():
+            # #     scores_df[f'observed_{profile}'] = observed_values.mean(axis=1)
+            # #     observed_dfs.append(pd.DataFrame(data=observed_values, index=pose_id,
+            # #                                      columns=pd.MultiIndex.from_product([residue_indices,
+            # #                                                                          [f'observed_{profile}']]))
+            # #                         )
+            # # Add observation information into the residue_df
+            # residue_df = pd.concat([residue_df] + observed_dfs, axis=1)
 
     # Todo get the keys right here
     # all_pose_divergence_df = pd.concat(all_pose_divergence, keys=[('sequence', 'pose')], axis=1)
