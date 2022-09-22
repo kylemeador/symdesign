@@ -2973,12 +2973,14 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
             # fragment_profile_frequencies = pose.get_sequence_probabilities_from_profile(dtype='fragment')  # fragment_profile_array
             fragment_profile_frequencies = \
                 pose.get_sequence_probabilities_from_profile(precomputed=fragment_profile_array)
-            print('fragment_profile_frequencies.shape:', fragment_profile_frequencies.shape,
-                  '\nvalues:', fragment_profile_frequencies)
+            # print('fragment_profile_frequencies.shape:', fragment_profile_frequencies.shape,
+            #       '\nvalues:', fragment_profile_frequencies)
             # Todo save this data
             # Find the non-zero sites in the profile
-            observed_from_fragment_profile = fragment_profile_frequencies[np.nonzero(fragment_profile_frequencies)]
-            sum_observed_from_fragment_profile = observed_from_fragment_profile[interface_indexer].sum()
+            interface_observed_from_fragment_profile = fragment_profile_frequencies[interface_indexer]
+            sum_observed_from_fragment_profile = \
+                interface_observed_from_fragment_profile[np.nonzero(interface_observed_from_fragment_profile)].sum()
+            # sum_observed_from_fragment_profile = observed_from_fragment_profile.sum()
             print('sum_observed_from_fragment_profile', sum_observed_from_fragment_profile)
             # observed, divergence = \
             #     calculate_sequence_observations_and_divergence(pose_alignment,
