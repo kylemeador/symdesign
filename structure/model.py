@@ -6575,6 +6575,7 @@ class Pose(SequenceProfile, SymmetricModel):
             entity.process_fragment_profile(**kwargs)
 
         self.fragment_profile = concatenate_profile([entity.fragment_profile for entity in self.entities])
+        print('pose', self.fragment_profile)
         self.alpha = concatenate_profile([entity.alpha for entity in self.entities])
         self._alpha = self.entities[0]._alpha
 

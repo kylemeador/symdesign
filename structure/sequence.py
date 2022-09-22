@@ -671,7 +671,8 @@ class SequenceProfile:
 
             profile_of_interest = pssm_as_array(profile_of_interest)
 
-        return np.take_along_axis(profile_of_interest, self.sequence_numeric, axis=0)
+        return profile_of_interest[:, self.sequence_numeric]
+        # return np.take_along_axis(profile_of_interest, self.sequence_numeric, axis=0)
     # def disorder(self):
     #     try:
     #         return self._disorder
@@ -1369,10 +1370,11 @@ class SequenceProfile:
                     self.fragment_profile[residue_index] = self.evolutionary_profile.get(residue_index + zero_offset)
             else:  # Add a blank entry
                 for residue_index in no_design:
-                    self.fragment_profile[residue_index] = aa_weighted_counts
+                    self.fragment_profile[residue_index] = deepcopy(aa_weighted_counts)
         else:  # Remove missing residues from dictionary
             for residue_index in no_design:
                 self.fragment_profile.pop(residue_index)
+        print(self.fragment_profile)
 
     def _calculate_alpha(self, alpha: float = .5):
         """Find fragment contribution to design with a maximum contribution of alpha. Used subsequently to integrate
@@ -1490,12 +1492,13 @@ class SequenceProfile:
             inverse_weight = 1 - weight
             frag_profile_entry = self.fragment_profile[entry]
             profile_entry = self.profile[entry + zero_offset]
-            print({aa: weight*frag_profile_entry[aa]
-                                                      + inverse_weight*profile_entry[aa]
-                                                      for aa in protein_letters_alph1})
-            self.profile[entry + zero_offset].update({aa: weight*frag_profile_entry[aa]
-                                                      + inverse_weight*profile_entry[aa]
-                                                      for aa in protein_letters_alph1})
+            # print({aa: weight*frag_profile_entry[aa]
+            #                                           + inverse_weight*profile_entry[aa]
+            #                                           for aa in protein_letters_alph1})
+            # self.profile[entry + zero_offset].update({aa: weight*frag_profile_entry[aa]
+            profile_entry.update({aa: weight*frag_profile_entry[aa]
+                                  + inverse_weight*profile_entry[aa]
+                                  for aa in protein_letters_alph1})
             # for aa in protein_letters_alph1:
             #     profile_entry[aa] = weight*frag_profile_entry[aa] + inverse_weight*profile_entry[aa]
         print('after', self.profile)
