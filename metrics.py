@@ -1389,10 +1389,10 @@ def calculate_sequence_observations_and_divergence(alignment: 'structure.sequenc
 #     Returns:
 #         divergence_dict: {15: 0.732, 16: 0.552, ...}
 #     """
-#     return {idx: distribution_divergence(freq, background[idx]) for idx, freq in msa.items() if idx in background}
+#     return {idx: js_divergence(freq, background[idx]) for idx, freq in msa.items() if idx in background}
 #
 #
-# def distribution_divergence(frequencies: dict[str, float], bgd_frequencies: dict[str, float], lambda_: float = 0.5) -> \
+# def js_divergence(frequencies: dict[str, float], bgd_frequencies: dict[str, float], lambda_: float = 0.5) -> \
 #         float:
 #     """Calculate residue specific Jensen-Shannon Divergence value
 #
@@ -1441,7 +1441,7 @@ def jensen_shannon_divergence(sequence_frequencies: np.ndarray, background_aa_fr
     Returns:
         The divergence per residue bounded between 0 and 1. 1 is more divergent from background, i.e. [0.732, ...]
     """
-    return np.array([distribution_divergence(sequence_frequencies[idx], background_aa_freq, **kwargs)
+    return np.array([js_divergence(sequence_frequencies[idx], background_aa_freq, **kwargs)
                      for idx in range(len(sequence_frequencies))])
 
 
@@ -1459,10 +1459,28 @@ def position_specific_jsd(msa: np.ndarray, background: np.ndarray, **kwargs) -> 
     Returns:
         The divergence values per position, i.e [0.732, 0.552, ...]
     """
-    return np.array([distribution_divergence(msa[idx], background[idx], **kwargs) for idx in range(len(msa))])
+    return np.array([js_divergence(msa[idx], background[idx], **kwargs) for idx in range(len(msa))])
 
 
-def distribution_divergence(frequencies: np.ndarray, bgd_frequencies: np.ndarray, lambda_: float = 0.5) -> float:
+# KL divergence is similar to cross entropy loss or the "log loss"
+# divergence of p from q
+# Dkl = SUMi->N(probability(pi) * log(probability(qi))
+
+
+def kl_divergence(frequencies: np.ndarray, bgd_frequencies: np.ndarray) -> float:
+    """Calculate Kullback–Leibler Divergence value from observed and background frequencies
+
+    Args:
+        frequencies: [0.05, 0.001, 0.1, ...]
+        bgd_frequencies: [0, 0, ...]
+    Returns:
+        Bounded between 0 and 1. 1 is more divergent from background frequencies
+    """
+    probs1 = bgd_frequencies * np.log2(frequencies)
+    return np.where(np.isnan(probs1), 0, probs1).sum()
+
+
+def js_divergence(frequencies: np.ndarray, bgd_frequencies: np.ndarray, lambda_: float = 0.5) -> float:
     """Calculate Jensen-Shannon Divergence value from observed and background frequencies
 
     Args:
@@ -1500,7 +1518,7 @@ def position_specific_divergence(frequencies: np.ndarray, bgd_frequencies: np.nd
     return (lambda_ * np.where(np.isnan(probs1), 0, probs1).sum(axis=1)) \
         + ((1 - lambda_) * np.where(np.isnan(probs2), 0, probs2).sum(axis=1))
 
-# def distribution_divergence(frequencies: Sequence[float], bgd_frequencies: Sequence[float], lambda_: float = 0.5) -> \
+# def js_divergence(frequencies: Sequence[float], bgd_frequencies: Sequence[float], lambda_: float = 0.5) -> \
 #         float:
 #     """Calculate Jensen-Shannon Divergence value from observed and background frequencies
 #
