@@ -42,6 +42,8 @@ aa_counts = dict(zip(protein_letters_alph1, repeat(0)))
 aa_weighted_counts: info.aa_weighted_counts_type = dict(zip(protein_letters_alph1, repeat(0)))
 """{protein_letters_alph1, repeat(0)), stats=(0, 1))"""
 aa_weighted_counts.update({'stats': (0, 1)})
+numerical_profile = Type[np.ndarray]
+"""The shape should be (number of residues, number of characters in the alphabet"""
 subs_matrices = {'BLOSUM62': substitution_matrices.load('BLOSUM62')}
 # 'uniclust30_2018_08'
 latest_uniclust_background_frequencies = \
@@ -372,6 +374,21 @@ class MultipleSequenceAlignment:
             self._gaps_per_position = self.number_of_sequences - self.observations
         return self._gaps_per_position
 
+    def get_probabilities_from_profile(self, profile: numerical_profile) -> np.ndarry:
+        """For each sequence in the alignment, extract the values from a profile corresponding to the amino acid type
+        of each residue in each sequence
+
+        Args:
+            profile: A profile of values with shape (length, alphabet_length) where length is the number_of_residues
+        Returns:
+            The array with shape (number_of_sequences, length) with the value for each amino acid index in profile
+        """
+        # transposed_alignment = self.numerical_alignment.T
+        return np.take_along_axis(profile, self.numerical_alignment.T, axis=1).T
+        # observed = {profile: np.take_along_axis(background, transposed_alignment, axis=1).T
+        #             for profile, background in backgrounds.items()}
+        # observed = {profile: np.where(np.take_along_axis(background, transposed_alignment, axis=1) > 0, 1, 0).T
+        #             for profile, background in backgrounds.items()}
 
 def sequence_to_numeric(sequence: Sequence) -> np.ndarray:
     """Convert a position specific profile matrix into a numeric array
@@ -524,6 +541,7 @@ profile_dictionary: dict[int, dict[profile_keys, profile_values]]
         'type': 'W', 'info': 0.00, 'weight': 0.00}, {...}}
 """
 alignment_programs = Literal['hhblits', 'psiblast']
+profile_types = Literal['evolutionary', 'fragment', '']
 
 
 class SequenceProfile:
@@ -617,8 +635,10 @@ class SequenceProfile:
         except AttributeError:
             self._sequence_array = np.array(list(self.sequence), np.string_)
             self._sequence_numeric = \
-                np.vectorize(numerical_translation_alph1_gapped_bytes.__getitem__)(self._sequence_array)
-            self._sequence_numeric = self._sequence_numeric.astype(np.int32)
+                np.vectorize(numerical_translation_alph1_gapped_bytes.__getitem__, otypes='i')(self._sequence_array)
+            # using otypes='i' as the datatype. 'f' would be for float32
+            self.log.critical(f'The sequence_numeric dtype is {type(self._sequence_numeric)}. It should be int32')
+            # self._sequence_numeric = self._sequence_numeric.astype(np.int32)
             return self._sequence_numeric
 
     @property
@@ -630,6 +650,28 @@ class SequenceProfile:
             self._hydrophobic_collapse = hydrophobic_collapse_index(self.sequence)
             return self._hydrophobic_collapse
 
+    def get_sequence_probabilities_from_profile(self, dtype: profile_types = '', precomputed: numerical_profile = None)\
+            -> numerical_profile:
+        """Extract the values from a profile corresponding to the amino acid type of each residue in the sequence
+
+        Args:
+            dtype: The profile type to sample from
+            precomputed: If the profile is precomputed, pass as precomputed=profile_variable
+        Returns:
+            The array with shape (number_of_sequences, length) with the value for each amino acid index in profile
+        """
+        transposed_alignment = self.numerical_alignment.T
+        if precomputed is not None:
+            profile_of_interest = precomputed
+        else:
+            if dtype == '':
+                profile_of_interest = self.profile
+            else:
+                profile_of_interest = getattr(self, f'{dtype}_profile')
+
+            profile_of_interest = pssm_as_array(profile_of_interest)
+
+        return np.take_along_axis(profile_of_interest, self.sequence_numeric, axis=0)
     # def disorder(self):
     #     try:
     #         return self._disorder
