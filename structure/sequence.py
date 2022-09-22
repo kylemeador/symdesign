@@ -1487,22 +1487,28 @@ class SequenceProfile:
 
         # Copy the evolutionary profile to self.profile (structure specific scoring matrix)
         self.profile = deepcopy(self.evolutionary_profile)
+        # if self.alpha:
+        #     self.log.info(f'At {self.name}, combined evolutionary and fragment profiles into Design Profile with:'
+        #                   f'\n\t%s'
+        #                   % '\n\t'.join(f'Residue {entry + 1:5d}: {weight * 100:.0f}% fragment weight'
+        #                                 for entry, weight in enumerate(self.alpha) if weight > 0))
+        #                                 # for entry, weight in self.alpha.items()))
+
         # Combine fragment and evolutionary probability profile according to alpha parameter
-        if self.alpha:
-            self.log.info(f'At {self.name}, combined evolutionary and fragment profiles into Design Profile with:'
-                          f'\n\t%s'
-                          % '\n\t'.join(f'Residue {entry + 1:5d}: {weight * 100:.0f}% fragment weight'
-                                        for entry, weight in enumerate(self.alpha)))
-                                        # for entry, weight in self.alpha.items()))
-        # print('before', self.profile)
+        log_string = []
         # for entry, weight in self.alpha.items():  # Weight will be 0 if the fragment_profile is empty
-        for entry, weight in enumerate(self.alpha):  # Weight will be 0 if the fragment_profile is empty
-            inverse_weight = 1 - weight
-            frag_profile_entry = self.fragment_profile[entry]
-            profile_entry = self.profile[entry + zero_offset]
-            profile_entry.update({aa: weight*frag_profile_entry[aa]
-                                  + inverse_weight*profile_entry[aa]
-                                  for aa in protein_letters_alph1})
+        for entry, weight in enumerate(self.alpha, 1):  # Weight will be 0 if the fragment_profile is empty
+            if weight > 0:
+                log_string.append(f'Residue {entry:5d}: {weight * 100:.0f}% fragment weight')
+                inverse_weight = 1 - weight
+                frag_profile_entry = self.fragment_profile[entry - zero_offset]
+                profile_entry = self.profile[entry]
+                profile_entry.update({aa: weight*frag_profile_entry[aa]
+                                      + inverse_weight*profile_entry[aa]
+                                      for aa in protein_letters_alph1})
+        if log_string:
+            self.log.info(f'At {self.name}, combined evolutionary and fragment profiles into Design Profile with:'
+                          f'\n\t%s' % '\n\t'.join(log_string))
 
         if favor_fragments:
             boltzman_energy = 1
