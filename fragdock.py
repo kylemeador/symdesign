@@ -2951,6 +2951,7 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
             for entity in pose.entities:
                 entity.fragment_profile = {}
                 entity.fragment_map = {}
+                # entity.alpha.clear()
 
             # if pose.fragment_profile:
             fragment_profile_array = pssm_as_array(pose.fragment_profile)
@@ -2978,10 +2979,10 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
             # Todo save this data
             # Find the non-zero sites in the profile
             interface_observed_from_fragment_profile = fragment_profile_frequencies[interface_indexer]
-            sum_observed_from_fragment_profile = \
-                interface_observed_from_fragment_profile[np.nonzero(interface_observed_from_fragment_profile)].sum()
+            mean_observed_from_fragment_profile = \
+                interface_observed_from_fragment_profile[np.nonzero(interface_observed_from_fragment_profile)].mean()
             # sum_observed_from_fragment_profile = observed_from_fragment_profile.sum()
-            print('sum_observed_from_fragment_profile', sum_observed_from_fragment_profile)
+            print('mean_observed_from_fragment_profile', mean_observed_from_fragment_profile)
             # observed, divergence = \
             #     calculate_sequence_observations_and_divergence(pose_alignment,
             #                                                    profile_background,
