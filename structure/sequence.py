@@ -1386,8 +1386,8 @@ class SequenceProfile:
                 match_modifier = 1
 
             # Find the total contribution from a typical fragment of this type
-            contribution_total = sum(fragment_stats['_'.join(map(str, observation['cluster'][:2]))][0]
-                                     [alignment_type_to_idx[observation['source']]]
+            contribution_total = sum(fragment_stats[f'{observation["cluster"][1]}_{observation["cluster"][1]}_0']
+                                     [0][alignment_type_to_idx[observation['source']]]
                                      for index_observations in self.fragment_map[entry].values()
                                      for observation in index_observations)
 
