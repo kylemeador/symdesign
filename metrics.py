@@ -1335,6 +1335,7 @@ def calculate_sequence_observations_and_divergence(alignment: 'structure.sequenc
                                                    backgrounds: dict[str, np.ndarray],
                                                    select_indices: list[int] = None) \
         -> tuple[dict[str, np.ndarray], dict[str, np.ndarray]]:
+    """Gather the observed frequencies from each sequence in a MultipleSequenceAlignment"""
     # mutation_frequencies = pose_alignment.frequencies[[residue-1 for residue in pose.interface_design_residue_numbers]]
     # mutation_frequencies = filter_dictionary_keys(pose_alignment.frequencies, pose.interface_design_residue_numbers)
     # mutation_frequencies = filter_dictionary_keys(pose_alignment['frequencies'], interface_residue_numbers)
@@ -1356,6 +1357,7 @@ def calculate_sequence_observations_and_divergence(alignment: 'structure.sequenc
     #         pd.Series({design: freq.mean() for design, freq in design_obs_freqs.items()})
     # observed_dfs = []
     transposed_alignment = alignment.numerical_alignment.T
+    # observed = {profile: np.take_along_axis(background, transposed_alignment, axis=1).T
     observed = {profile: np.where(np.take_along_axis(background, transposed_alignment, axis=1) > 0, 1, 0).T
                 for profile, background in backgrounds.items()}
     # for profile, background in profile_background.items():
@@ -1373,7 +1375,6 @@ def calculate_sequence_observations_and_divergence(alignment: 'structure.sequenc
                   position_specific_divergence(alignment.frequencies, background)[select_indices]
                   for profile, background in backgrounds.items()}
 
-    # return observed_dfs, divergence
     return observed, divergence
 
 
