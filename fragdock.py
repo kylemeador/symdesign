@@ -2866,6 +2866,7 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
                                      'errat_deviation': pose_source_errat_s}
 
     # Handle pose state transformation and metrics for each identified pose
+    all_pose_divergence_df = pd.DataFrame()
     for idx, pose_id in enumerate(pose_ids):
         update_pose_coords(idx)
 
@@ -2976,7 +2977,7 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
                 pose.get_sequence_probabilities_from_profile(precomputed=fragment_profile_array)
             # print('fragment_profile_frequencies.shape:', fragment_profile_frequencies.shape,
             #       '\nvalues:', fragment_profile_frequencies)
-            # Todo save this data
+            # Todo save this data, get divergence, negative log likelihood
             # Find the non-zero sites in the profile
             interface_observed_from_fragment_profile = fragment_profile_frequencies[interface_indexer]
             mean_observed_from_fragment_profile = \
