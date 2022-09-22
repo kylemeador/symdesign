@@ -2979,12 +2979,12 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
             #     calculate_sequence_observations_and_divergence(pose_alignment,
             #                                                    profile_background,
             #                                                    interface_indexer)
-            # Get pose sequence divergence
-            # Todo remove as not useful!
-            divergence_s = pd.Series({f'{divergence_type}_per_residue': _divergence.mean()
-                                      for divergence_type, _divergence in divergence.items()},
-                                     name=pose_id)
-            all_pose_divergence.append(divergence_s)
+            # # Get pose sequence divergence
+            # # Todo remove as not useful!
+            # divergence_s = pd.Series({f'{divergence_type}_per_residue': _divergence.mean()
+            #                           for divergence_type, _divergence in divergence.items()},
+            #                          name=pose_id)
+            # all_pose_divergence.append(divergence_s)
             # Todo extract the observed values out of the observed dictionary
             #  Each Pose only has one trajectory, so measurement of divergence is pointless (no distribution)
             observed_dfs = []
@@ -2999,7 +2999,7 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
             residue_df = pd.concat([residue_df] + observed_dfs, axis=1)
 
     # Todo get the keys right here
-    all_pose_divergence_df = pd.concat(all_pose_divergence, keys=[('sequence', 'pose')], axis=1)
+    # all_pose_divergence_df = pd.concat(all_pose_divergence, keys=[('sequence', 'pose')], axis=1)
     interface_metrics_df = pd.DataFrame(interface_metrics).T
     # is_thermophilic = []
     # idx = 1
