@@ -6554,8 +6554,13 @@ class Pose(SequenceProfile, SymmetricModel):
 
         self.log.debug(f'Found interface secondary structure: {self.split_interface_ss_elements}')
 
-    def process_fragment_profile(self):
-        """Overwrites the SequenceProfile method for Pose specific profiles"""
+    def process_fragment_profile(self, **kwargs):
+        """Overwrites the SequenceProfile method for Pose specific profiles
+
+        Keyword Args:
+            alpha: (float) = 0.5 - The maximum contribution of the fragment profile to use, bounded between (0, 1].
+                0 means no use of fragments in the .profile, while 1 means only use fragments
+        """
         for query_pair, fragment_info in self.fragment_queries.items():
             self.log.debug(f'Query Pair: {query_pair[0].name}, {query_pair[1].name}'
                            f'\n\tFragment Info:{fragment_info}')
@@ -6567,10 +6572,11 @@ class Pose(SequenceProfile, SymmetricModel):
         # The order of this and below could be switched by combining self.fragment_map too
         # Also, need to extract the entity.fragment_map to Pose to SequenceProfile.process_fragment_profile() ...
         for entity in self.entities:
-            entity.process_fragment_profile()
+            entity.process_fragment_profile(**kwargs)
 
         self.fragment_profile = concatenate_profile([entity.fragment_profile for entity in self.entities])
         self.alpha = concatenate_profile([entity.alpha for entity in self.entities])
+        self._alpha = self.entities[0]._alpha
 
     def get_fragment_observations(self) -> list[dict[str, str | int | float]] | list:
         """Return the fragment observations identified on the pose regardless of Entity binding
