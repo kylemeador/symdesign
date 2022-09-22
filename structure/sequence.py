@@ -672,8 +672,8 @@ class SequenceProfile:
 
             profile_of_interest = pssm_as_array(profile_of_interest)
 
-        return profile_of_interest[:, self.sequence_numeric]
-        # return np.take_along_axis(profile_of_interest, self.sequence_numeric, axis=0)
+        # return profile_of_interest[:, self.sequence_numeric]
+        return np.take_along_axis(profile_of_interest, self.sequence_numeric[None, :], axis=1)
     # def disorder(self):
     #     try:
     #         return self._disorder
