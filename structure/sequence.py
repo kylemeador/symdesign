@@ -675,7 +675,10 @@ class SequenceProfile:
             profile_of_interest = pssm_as_array(profile_of_interest)
 
         # return profile_of_interest[:, self.sequence_numeric]
-        return np.take_along_axis(profile_of_interest, self.sequence_numeric[None, :], axis=1)
+        try:
+            return np.take_along_axis(profile_of_interest, self.sequence_numeric[:, None], axis=1).squeeze()
+        except IndexError:  # The profile_of_interest and sequence are different sizes
+            raise IndexError(f'The profile has a length {profile_of_interest.shape[0]} != {self.number_of_residues}')
     # def disorder(self):
     #     try:
     #         return self._disorder
