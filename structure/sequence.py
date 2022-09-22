@@ -1580,101 +1580,6 @@ class SequenceProfile:
         # mutated_pdb.write(consensus_pdb)
         # mutated_pdb.write(consensus_pdb, cryst1=cryst)
 
-    # @staticmethod
-    # def generate_mutations(query, reference, offset=True, blanks=False, termini=False, reference_gaps=False,
-    #                        only_gaps=False):
-    #     """Create mutation data in a typical A5K format. One-indexed dictionary keys, mutation data accessed by 'from'
-    #     and 'to' keywords. By default all gaped sequences are excluded from returned mutations
-    #
-    #     For PDB file comparison, query should be crystal sequence (ATOM), reference should be expression sequence
-    #     (SEQRES). only_gaps=True will return only the gaped area while blanks=True will return all differences between
-    #     the alignment sequences. termini=True returns missing alignments at the termini
-    #
-    #     Args:
-    #         query (str): Mutant sequence. Will be in the 'to' key
-    #         reference (str): Wild-type sequence or sequence to reference mutations against. Will be in the 'from' key
-    #     Keyword Args:
-    #         offset=True (bool): Whether sequences are different lengths. Creates a new alignment
-    #         blanks=False (bool): Whether to include indices that are outside the reference sequence or missing residues
-    #         termini=False (bool): Whether to include indices that are outside the reference sequence boundaries
-    #         reference_gaps=False (bool): Whether to include indices with missing residues inside the reference sequence
-    #         only_gaps=False (bool): Whether to only include indices that are missing residues
-    #     Returns:
-    #         (dict): {index: {'from': 'A', 'to': 'K'}, ...}
-    #     """
-    #     if offset:
-    #         alignment = generate_alignment(query, reference)
-    #         align_seq_1 = alignment[0]
-    #         align_seq_2 = alignment[1]
-    #     else:
-    #         align_seq_1 = query
-    #         align_seq_2 = reference
-    #
-    #     # Extract differences from the alignment
-    #     starting_index_of_seq2 = align_seq_2.find(reference[0])
-    #     ending_index_of_seq2 = starting_index_of_seq2 + align_seq_2.rfind(reference[-1])  # find offset end_index
-    #     mutations = {}
-    #     for i, (seq1_aa, seq2_aa) in enumerate(zip(align_seq_1, align_seq_2), -starting_index_of_seq2 + zero_offset):
-    #         if seq1_aa != seq2_aa:
-    #             mutations[i] = {'from': seq2_aa, 'to': seq1_aa}
-    #             # mutation_list.append(str(seq2_aa) + str(i) + str(seq1_aa))
-    #
-    #     remove_mutation_list = []
-    #     if only_gaps:  # remove the actual mutations
-    #         for entry in mutations:
-    #             if entry > 0 or entry <= ending_index_of_seq2:
-    #                 if mutations[entry]['to'] != '-':
-    #                     remove_mutation_list.append(entry)
-    #         blanks = True
-    #     if blanks:  # if blanks is True, leave all types of blanks, if blanks is False check for requested types
-    #         termini, reference_gaps = True, True
-    #     if not termini:  # Remove indices outside of sequence 2
-    #         for entry in mutations:
-    #             if entry < 0 or entry > ending_index_of_seq2:
-    #                 remove_mutation_list.append(entry)
-    #     if not reference_gaps:  # Remove indices inside sequence 2 where sequence 1 is gapped
-    #         for entry in mutations:
-    #             if entry > 0 or entry <= ending_index_of_seq2:
-    #                 if mutations[entry]['to'] == '-':
-    #                     remove_mutation_list.append(entry)
-    #
-    #     for entry in remove_mutation_list:
-    #         mutations.pop(entry, None)
-    #
-    #     return mutations
-
-    # @staticmethod
-    # def generate_alignment(seq1, seq2, matrix='BLOSUM62'):
-    #     """Use Biopython's pairwise2 to generate a local alignment. *Only use for generally similar sequences*
-    #
-    #     Returns:
-    #     """
-    #     _matrix = subs_matrices.get(matrix, substitution_matrices.load(matrix))
-    #     gap_penalty = -10
-    #     gap_ext_penalty = -1
-    #     logger.debug('Generating sequence alignment between:\n%s\nAND:\n%s' % (seq1, seq2))
-    #     # Create sequence alignment
-    #     return pairwise2.align.globalds(seq1, seq2, _matrix, gap_penalty, gap_ext_penalty)
-    #     # return pairwise2.align.localds(seq1, seq2, _matrix, gap_penalty, gap_ext_penalty)
-
-    # def generate_design_mutations(self, all_design_files, wild_type_file, pose_num=False):
-    #     """From a wild-type sequence (original PDB structure), and a collection of structure sequences that have
-    #     undergone design (Atom sequences), generate 'A5K' style mutation data
-    #
-    #     Args:
-    #         all_design_files (list): PDB files on disk to extract sequence info and compare
-    #         wild_type_file (str): PDB file on disk which contains a reference sequence
-    #     Returns:
-    #         mutations (dict): {'file_name': {chain_id: {mutation_index: {'from': 'A', 'to': 'K'}, ...}, ...}, ...}
-    #     """
-    #     # pdb_dict = {'ref': PDB(file=wild_type_file)}
-    #     # for file_name in all_design_files:
-    #     #     pdb = PDB(file=file_name)
-    #     #     pdb.name = os.path.splitext(os.path.basename(file_name))[0])
-    #     #     pdb_dict[pdb.name] = pdb
-    #     #
-    #     # return extract_sequence_from_pdb(pdb_dict, mutation=True, pose_num=pose_num)  # , offset=False)
-
 
 dtype_literals = Literal['list', 'set', 'tuple', 'float', 'int']
 
@@ -1847,33 +1752,6 @@ def overlap_consensus(issm, aa_set):
                 consensus[res] = aa
 
     return consensus
-
-
-# def get_db_statistics(database: AnyStr) -> dict:
-#     """Retrieve summary statistics for a specific fragment database
-#
-#     Args:
-#         database: Disk location of a fragment database
-#     Returns:
-#         {cluster_id: [[mapped, paired, {max_weight_counts}, ...], ..., frequencies: {'A': 0.11, ...}}
-#             ex: {'1_0_0': [[0.540, 0.486, {-2: 67, -1: 326, ...}, {-2: 166, ...}], 2749]
-#     """
-#     for file in os.listdir(database):
-#         if file.endswith('statistics.pkl'):
-#             return unpickle(os.path.join(database, file))
-#
-#     return {}
-#
-#
-# def get_db_aa_frequencies(database: AnyStr) -> dict[protein_letters_alph1, float]:
-#     """Retrieve database specific interface background AA frequencies
-#
-#     Args:
-#         database: Location of database on disk
-#     Returns:
-#         {'A': 0.11, 'C': 0.03, 'D': 0.53, ...}
-#     """
-#     return get_db_statistics(database).get('frequencies', {})
 
 
 def get_cluster_dicts(db=PUtils.biological_interfaces, id_list=None):  # TODO Rename
@@ -2064,71 +1942,6 @@ def deconvolve_clusters(cluster_dict, design_dict, cluster_map):
     return design_dict
 
 
-# def flatten_for_issm(design_cluster_dict, keep_extras=True):
-#     """Take a multi-observation, mulit-fragment index, fragment frequency dictionary and flatten to single frequency
-#
-#     Args:
-#         design_cluster_dict (dict): {0: {-2: {'A': 0.1, 'C': 0.0, ...}, -1: {}, ... }, 1: {}, ...}
-#             Dictionary containing fragment frequency and statistics across a design sequence
-#     Keyword Args:
-#         keep_extras=True (bool): If true, keep values for all design dictionary positions that are missing fragment data
-#     Returns:
-#         design_cluster_dict (dict): {0: {'A': 0.1, 'C': 0.0, ...}, 13: {...}, ...}
-#             Weighted average design dictionary combining all fragment profile information at a single residue
-#     """
-#     no_design = []
-#     for res in design_cluster_dict:
-#         total_residue_weight = 0
-#         num_frag_weights_observed = 0
-#         for index in design_cluster_dict[res]:
-#             if design_cluster_dict[res][index] != dict():
-#                 total_obs_weight = 0
-#                 for obs in design_cluster_dict[res][index]:
-#                     total_obs_weight += design_cluster_dict[res][index][obs]['stats'][1]
-#                 if total_obs_weight > 0:
-#                     total_residue_weight += total_obs_weight
-#                     obs_aa_dict = deepcopy(aa_weighted_counts)
-#                     obs_aa_dict['stats'][1] = total_obs_weight
-#                     for obs in design_cluster_dict[res][index]:
-#                         num_frag_weights_observed += 1
-#                         obs_weight = design_cluster_dict[res][index][obs]['stats'][1]
-#                         for aa in design_cluster_dict[res][index][obs]:
-#                             if aa != 'stats':
-#                                 # Add all occurrences to summed frequencies list
-#                                 obs_aa_dict[aa] += design_cluster_dict[res][index][obs][aa] * (obs_weight /
-#                                                                                                total_obs_weight)
-#                     design_cluster_dict[res][index] = obs_aa_dict
-#                 else:
-#                     # Case where no weights associated with observations (side chain not structurally significant)
-#                     design_cluster_dict[res][index] = dict()
-#
-#         if total_residue_weight > 0:
-#             res_aa_dict = deepcopy(aa_weighted_counts)
-#             res_aa_dict['stats'][1] = total_residue_weight
-#             res_aa_dict['stats'][0] = num_frag_weights_observed
-#             for index in design_cluster_dict[res]:
-#                 if design_cluster_dict[res][index] != dict():
-#                     index_weight = design_cluster_dict[res][index]['stats'][1]
-#                     for aa in design_cluster_dict[res][index]:
-#                         if aa != 'stats':
-#                             # Add all occurrences to summed frequencies list
-#                             res_aa_dict[aa] += design_cluster_dict[res][index][aa] * (index_weight / total_residue_weight)
-#             design_cluster_dict[res] = res_aa_dict
-#         else:
-#             # Add to list for removal from the design dict
-#             no_design.append(res)
-#
-#     # Remove missing residues from dictionary
-#     if keep_extras:
-#         for res in no_design:
-#             design_cluster_dict[res] = aa_weighted_counts
-#     else:
-#         for res in no_design:
-#             design_cluster_dict.pop(res)
-#
-#     return design_cluster_dict
-
-
 # def psiblast(query, outpath=None, remote=False):  # UNUSED
 #     """Generate an position specific scoring matrix using PSI-BLAST subprocess
 #
@@ -2227,32 +2040,6 @@ def parse_pssm(file: AnyStr, **kwargs) -> dict[int, dict[str, str | float | int 
             pose_dict[residue_number]['weight'] = float(line_data[43])
 
     return pose_dict
-
-
-# def get_lod(aa_freq_dict, bg_dict, round_lod=True):
-#     """Get the lod scores for an aa frequency distribution compared to a background frequency
-#     Args:
-#         aa_freq_dict (dict): {'A': 0.10, 'C': 0.0, 'D': 0.04, ...}
-#         bg_dict (dict): {'A': 0.10, 'C': 0.0, 'D': 0.04, ...}
-#     Keyword Args:
-#         round_lod=True (bool): Whether or not to round the lod values to an integer
-#     Returns:
-#          lods (dict): {'A': 2, 'C': -9, 'D': -1, ...}
-#     """
-#     lods = {}
-#     iteration = 0
-#     for a in aa_freq_dict:
-#         if aa_freq_dict[a] == 0:
-#             lods[a] = -9
-#         elif a != 'stats':
-#             lods[a] = float((2.0 * log2(aa_freq_dict[a]/bg_dict[a])))  # + 0.0
-#             if lods[a] < -9:
-#                 lods[a] = -9
-#             if round_lod:
-#                 lods[a] = round(lods[a])
-#             iteration += 1
-#
-#     return lods
 
 
 # @handle_errors(errors=(FileNotFoundError,))
@@ -2365,164 +2152,55 @@ def parse_hhblits_pssm(file: AnyStr, null_background: bool = True, **kwargs) -> 
     # return pose_dict
 
 
-def make_pssm_file(pssm_dict, name, outpath=os.getcwd()):
-    """Create a PSI-BLAST format PSSM file from a PSSM dictionary
-
-    Args:
-        pssm_dict (dict): A pssm dictionary which has the fields 'A', 'C', (all aa's), 'lod', 'type', 'info', 'weight'
-        name (str): The name of the file
-    Keyword Args:
-        outpath=cwd (str): A specific location to write the .pssm file to
-    Returns:
-        out_file (str): Disk location of newly created .pssm file
-    """
-    lod_freq, counts_freq = False, False
-    separation_string1, separation_string2 = 3, 3
-    if type(pssm_dict[0]['lod']['A']) == float:
-        lod_freq = True
-        separation_string1 = 4
-    if type(pssm_dict[0]['A']) == float:
-        counts_freq = True
-
-    header = '\n\n            ' + (' ' * separation_string1).join(aa for aa in protein_letters_alph3) \
-             + ' ' * separation_string1 + (' ' * separation_string2).join(aa for aa in protein_letters_alph3) + '\n'
-    footer = ''
-    out_file = os.path.join(outpath, name)  # + '.pssm'
-    with open(out_file, 'w') as f:
-        f.write(header)
-        for res in pssm_dict:
-            aa_type = pssm_dict[res]['type']
-            lod_string = ''
-            if lod_freq:
-                for aa in protein_letters_alph3:  # ensure alpha_3_aa_list for PSSM format
-                    lod_string += '{:>4.2f} '.format(pssm_dict[res]['lod'][aa])
-            else:
-                for aa in protein_letters_alph3:  # ensure alpha_3_aa_list for PSSM format
-                    lod_string += '{:>3d} '.format(pssm_dict[res]['lod'][aa])
-            counts_string = ''
-            if counts_freq:
-                for aa in protein_letters_alph3:  # ensure alpha_3_aa_list for PSSM format
-                    counts_string += '{:>3.0f} '.format(floor(pssm_dict[res][aa] * 100))
-            else:
-                for aa in protein_letters_alph3:  # ensure alpha_3_aa_list for PSSM format
-                    counts_string += '{:>3d} '.format(pssm_dict[res][aa])
-            info = pssm_dict[res]['info']
-            weight = pssm_dict[res]['weight']
-            line = '{:>5d} {:1s}   {:80s} {:80s} {:4.2f} {:4.2f}''\n'.format(res + zero_offset, aa_type, lod_string,
-                                                                             counts_string, round(info, 4),
-                                                                             round(weight, 4))
-            f.write(line)
-        f.write(footer)
-
-    return out_file
-
-
-# def combine_ssm(pssm, issm, alpha, db=PUtils.biological_interfaces, favor_fragments=True, boltzmann=False, a=0.5):
-#     """Combine weights for profile PSSM and fragment SSM using fragment significance value to determine overlap
+# def make_pssm_file(pssm_dict: profile_dictionary, name: str, out_dir: AnyStr = os.getcwd()):
+#     """Create a PSI-BLAST format PSSM file from a PSSM dictionary
 #
-#     All input must be zero indexed
 #     Args:
-#         pssm (dict): HHblits - {0: {'A': 0.04, 'C': 0.12, ..., 'lod': {'A': -5, 'C': -9, ...}, 'type': 'W',
-#             'info': 0.00, 'weight': 0.00}, {...}}
-#               PSIBLAST -  {0: {'A': 0.13, 'R': 0.12, ..., 'lod': {'A': -5, 'R': 2, ...}, 'type': 'W', 'info': 3.20,
-#                           'weight': 0.73}, {...}} CURRENTLY IMPOSSIBLE, NEED TO CHANGE THE LOD SCORE IN PARSING
-#         issm (dict): {48: {'A': 0.167, 'D': 0.028, 'E': 0.056, ..., 'stats': [4, 0.274]}, 50: {...}, ...}
-#         alpha (dict): {48: 0.5, 50: 0.321, ...}
-#     Keyword Args:
-#         db: Disk location of fragment database
-#         favor_fragments=True (bool): Whether to favor fragment profile in the lod score of the resulting profile
-#         boltzmann=True (bool): Whether to weight the fragment profile by the Boltzmann probability. If false, residues
-#             are weighted by a local maximum over the residue scaled to a maximum provided in the standard Rosetta per
-#             residue reference weight.
-#         a=0.5 (float): The maximum alpha value to use, should be bounded between 0 and 1
+#         pssm_dict: A pssm dictionary which has the fields 'A', 'C', (all aa's), 'lod', 'type', 'info', 'weight'
+#         name: The name of the file
+#         out_dir: A specific location to write the .pssm file to
 #     Returns:
-#         pssm (dict): {0: {'A': 0.04, 'C': 0.12, ..., 'lod': {'A': -5, 'C': -9, ...}, 'type': 'W', 'info': 0.00,
-#             'weight': 0.00}, ...}} - combined PSSM dictionary
+#         The disk location of newly created .pssm file
 #     """
+#     lod_freq, counts_freq = False, False
+#     separation_string1, separation_string2 = 3, 3
+#     if type(pssm_dict[0]['lod']['A']) == float:
+#         lod_freq = True
+#         separation_string1 = 4
+#     if type(pssm_dict[0]['A']) == float:
+#         counts_freq = True
 #
-#     # Combine fragment and evolutionary probability profile according to alpha parameter
-#     for entry in alpha:
-#         for aa in protein_letters_alph1:
-#             pssm[entry][aa] = (alpha[entry] * issm[entry][aa]) + ((1 - alpha[entry]) * pssm[entry][aa])
-#         logger.info('Residue %d Combined evolutionary and fragment profile: %.0f%% fragment'
-#                     % (entry + zero_offset, alpha[entry] * 100))
-#
-#     if favor_fragments:
-#         # Modify final lod scores to fragment profile lods. Otherwise use evolutionary profile lod scores
-#         # Used to weight fragments higher in design
-#         boltzman_energy = 1
-#         favor_seqprofile_score_modifier = 0.2 * CommandDistributer.reference_average_residue_weight
-#         db = PUtils.frag_directory[db]
-#         stat_dict_bkg = get_db_aa_frequencies(db)
-#         null_residue = get_lod(stat_dict_bkg, stat_dict_bkg)
-#         null_residue = {aa: float(null_residue[aa]) for aa in null_residue}
-#
-#         for entry in pssm:
-#             pssm[entry]['lod'] = null_residue
-#         for entry in issm:
-#             pssm[entry]['lod'] = get_lod(issm[entry], stat_dict_bkg, round_lod=False)
-#             partition, max_lod = 0, 0.0
-#             for aa in pssm[entry]['lod']:
-#                 # for use with a boltzman probability weighting, Z = sum(exp(score / kT))
-#                 if boltzmann:
-#                     pssm[entry]['lod'][aa] = exp(pssm[entry]['lod'][aa] / boltzman_energy)
-#                     partition += pssm[entry]['lod'][aa]
-#                 # remove any lod penalty
-#                 elif pssm[entry]['lod'][aa] < 0:
-#                     pssm[entry]['lod'][aa] = 0
-#                 # find the maximum/residue (local) lod score
-#                 if pssm[entry]['lod'][aa] > max_lod:
-#                     max_lod = pssm[entry]['lod'][aa]
-#             modified_entry_alpha = (alpha[entry] / a) * favor_seqprofile_score_modifier
-#             if boltzmann:
-#                 modifier = partition
-#                 modified_entry_alpha /= (max_lod / partition)
+#     header = '\n\n            ' + (' ' * separation_string1).join(aa for aa in protein_letters_alph3) \
+#              + ' ' * separation_string1 + (' ' * separation_string2).join(aa for aa in protein_letters_alph3) + '\n'
+#     footer = ''
+#     out_file = os.path.join(out_dir, name)  # + '.pssm'
+#     with open(out_file, 'w') as f:
+#         f.write(header)
+#         for res in pssm_dict:
+#             aa_type = pssm_dict[res]['type']
+#             lod_string = ''
+#             if lod_freq:
+#                 for aa in protein_letters_alph3:  # ensure alpha_3_aa_list for PSSM format
+#                     lod_string += '{:>4.2f} '.format(pssm_dict[res]['lod'][aa])
 #             else:
-#                 modifier = max_lod
-#             for aa in pssm[entry]['lod']:
-#                 pssm[entry]['lod'][aa] /= modifier
-#                 pssm[entry]['lod'][aa] *= modified_entry_alpha
-#             logger.info('Residue %d Fragment lod ratio generated with alpha=%f'
-#                         % (entry + zero_offset, alpha[entry] / a))
+#                 for aa in protein_letters_alph3:  # ensure alpha_3_aa_list for PSSM format
+#                     lod_string += '{:>3d} '.format(pssm_dict[res]['lod'][aa])
+#             counts_string = ''
+#             if counts_freq:
+#                 for aa in protein_letters_alph3:  # ensure alpha_3_aa_list for PSSM format
+#                     counts_string += '{:>3.0f} '.format(floor(pssm_dict[res][aa] * 100))
+#             else:
+#                 for aa in protein_letters_alph3:  # ensure alpha_3_aa_list for PSSM format
+#                     counts_string += '{:>3d} '.format(pssm_dict[res][aa])
+#             info = pssm_dict[res]['info']
+#             weight = pssm_dict[res]['weight']
+#             line = '{:>5d} {:1s}   {:80s} {:80s} {:4.2f} {:4.2f}''\n'.format(res + zero_offset, aa_type, lod_string,
+#                                                                              counts_string, round(info, 4),
+#                                                                              round(weight, 4))
+#             f.write(line)
+#         f.write(footer)
 #
-#     return pssm
-#
-#
-# def find_alpha(issm, cluster_map, db=PUtils.biological_interfaces, a=0.5):
-#     """Find fragment contribution to design with cap at alpha
-#
-#     Args:
-#         issm (dict): {48: {'A': 0.167, 'D': 0.028, 'E': 0.056, ..., 'stats': [4, 0.274]}, 50: {...}, ...}
-#         cluster_map (dict): {48: {'source': 'mapped', 'cluster': [(-2, 1_1_54), ...]}, ...}
-#     Keyword Args:
-#         db: Disk location of fragment database
-#         a=0.5 (float): The maximum alpha value to use, should be bounded between 0 and 1
-#     Returns:
-#         alpha (dict): {48: 0.5, 50: 0.321, ...}
-#     """
-#     db = PUtils.frag_directory[db]
-#     stat_dict = get_db_statistics(db)
-#     alpha = {}
-#     for entry in issm:  # cluster_map
-#         if cluster_map[entry]['source'] == 'mapped':
-#             i = 0
-#         else:
-#             i = 1
-#
-#         contribution_total, count = 0.0, 1
-#         # count = len([1 for obs in cluster_map[entry][index] for index in cluster_map[entry]]) or 1
-#         for count, residue_cluster_pair in enumerate(cluster_map[entry]['cluster'], 1):
-#             cluster_id = return_cluster_id_string(residue_cluster_pair[1], index_number=2)  # get first two indices
-#             contribution_total += stat_dict[cluster_id][0][i]  # get the average contribution of each fragment type
-#         stats_average = contribution_total / count
-#         entry_ave_frag_weight = issm[entry]['stats'][1] / count  # total weight for issm entry / number of fragments
-#         if entry_ave_frag_weight < stats_average:  # if design frag weight is less than db cluster average weight
-#             # modify alpha proportionally to cluster average weight
-#             alpha[entry] = a * (entry_ave_frag_weight / stats_average)
-#         else:
-#             alpha[entry] = a
-#
-#     return alpha
+#     return out_file
 
 
 def consensus_sequence(pssm):
@@ -2872,36 +2550,6 @@ def weave_mutation_dict(sorted_freq, mut_prob, resi_divergence, int_divergence, 
     return weaved_dict
 
 
-# def weave_sequence_dict(base: dict = None, **kwargs) -> dict:
-#     """Weave together a single dictionary with residue numbers as keys, from separate residue keyed, dictionaries
-#     All supplied dictionaries must be same integer index for accurate function
-#
-#     Args:
-#         base: If a dictionary already exists, pass the dictionary to add residue data to
-#     Keyword Args:
-#         **kwargs (dict): keyword=dictionary pairs. Ex: sorted_freq={16: ['S', 'A', ...], ... },
-#             mut_prob={16: {'A': 0.05, 'C': 0.01, ...}, ...}, jsd={16: 0.732, 17: 0.552, ...}
-#     Returns:
-#         {16: {'mut_prob': {'A': 0.05, 'C': 0.01, ...}, 'jsd': 0.732, 'sorted_freq': ['S', 'A', ...]}, ...}
-#     """
-#     if base is None:
-#         return {}
-#
-#     for observation_type, sequence_data in kwargs.items():
-#         for residue, value in sequence_data.items():
-#             if residue not in base:
-#                 base[residue] = {}
-#             # else:
-#             #     weaved_dict[residue][observation_type] = {}
-#             # if isinstance(value, dict):  # TODO make endlessly recursive?
-#                 # base_dict[residue][observation_type] = dict(sub_item for sub_item in value.items())
-#                 # base_dict[residue][observation_type] = value
-#             # else:
-#             base[residue][observation_type] = value
-#
-#     return base
-
-
 def clean_gapped_columns(alignment_dict, correct_index):  # UNUSED
     """Cleans an alignment dictionary by revising key list with correctly indexed positions. 0 indexed"""
     return {i: alignment_dict[index] for i, index in enumerate(correct_index)}
@@ -2959,20 +2607,6 @@ def msa_to_prob_distribution(alignment):
         alignment['frequencies'][residue] = {aa: count / total_column_weight for aa, count in amino_acid_counts.items()}
 
     return alignment
-
-
-# def jensen_shannon_divergence(multiple_sequence_alignment, background_aa_probabilities, lambda_: float = 0.5):
-#     """Calculate Jensen-Shannon Divergence value for all residues against a background frequency dict
-#
-#     Args:
-#         multiple_sequence_alignment (dict): {15: {'A': 0.05, 'C': 0.001, 'D': 0.1, ...}
-#         background_aa_probabilities (dict): {'A': 0.11, 'C': 0.03, 'D': 0.53, ...}
-#         lambda_: Value bounded between 0 and 1 to calculate the contribution from the observation versus the background
-#     Returns:
-#         (dict): {15: 0.732, ...} Divergence per residue bounded between 0 and 1. 1 is more divergent from background
-#     """
-#     return {residue_number: distribution_divergence(aa_probabilities, background_aa_probabilities, lambda_=lambda_)
-#             for residue_number, aa_probabilities in multiple_sequence_alignment.items()}
 
 
 def weight_gaps(divergence, representation, alignment_length):  # UNUSED
@@ -3070,24 +2704,6 @@ def multi_chain_alignment(mutated_sequences, **kwargs):
         return MultipleSequenceAlignment(alignment=total_alignment, **kwargs)
     else:
         raise DesignError(f'{multi_chain_alignment.__name__} - No sequences were found!')
-
-
-# def generate_all_design_mutations(all_design_files, wild_type_file, pose_num=False):
-#     """From a list of PDB's and a wild-type PDB, generate a list of 'A5K' style mutations
-#
-#     Args:
-#         all_design_files (list): PDB files on disk to extract sequence info and compare
-#         wild_type_file (str): PDB file on disk which contains a reference sequence
-#     Returns:
-#         mutations (dict): {'file_name': {chain_id: {mutation_index: {'from': 'A', 'to': 'K'}, ...}, ...}, ...}
-#     """
-#     wild_type_pdb = Model.from_file(wild_type_file, log=None, entities=False)
-#     pdb_sequences = {}
-#     for file_name in all_design_files:
-#         pdb = Model.from_file(file_name, log=None, entities=False)
-#         pdb_sequences[pdb.name] = pdb.atom_sequences
-#
-#     return generate_multiple_mutations(wild_type_pdb.atom_sequences, pdb_sequences, pose_num=pose_num)
 
 
 def pdb_to_pose_offset(reference_sequence: dict[Any, Sequence]) -> dict[Any, int]:
