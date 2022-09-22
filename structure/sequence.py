@@ -1165,12 +1165,14 @@ class SequenceProfile:
 
         Keyword Args:
             keep_extras: (bool) = True - Whether to keep values for all that are missing data
+            Keyword Args:
+            alpha: (float) = 0.5 - The maximum contribution of the fragment profile to use, bounded between (0, 1].
+                0 means no use of fragments in the .profile, while 1 means only use fragments
         Sets:
             self.fragment_profile (profile_dictionary)
         """
-        # self.generate_fragment_profile()
         self._simplify_fragment_profile(**kwargs)
-        self._calculate_alpha()
+        self._calculate_alpha(**kwargs)
 
     def add_fragments_to_profile(self, fragments: Iterable[fragment_info_type],
                                  alignment_type: alignment_types_literal):
@@ -1350,11 +1352,12 @@ class SequenceProfile:
             self.alpha: (dict[int, float]) - {0: 0.5, 0: 0.321, ...}
 
         Args:
-            alpha: The maximum contribution of the fragment profile to use, bounded between (0, 1]. 0 means
+            alpha: The maximum contribution of the fragment profile to use, bounded between (0, 1].
+                0 means no use of fragments in the .profile, while 1 means only use fragments
         """
         if not self.fragment_db:
-            raise AttributeError(f'{self._calculate_alpha.__name__}: No fragment database connected! Cannot calculate optimal'
-                                 f' fragment contribution without one')
+            raise AttributeError(f'{self._calculate_alpha.__name__}: No fragment database connected! Cannot calculate '
+                                 f'optimal fragment contribution without one')
         if alpha <= 0 or 1 <= alpha:
             raise ValueError(f'{self._calculate_alpha.__name__}: Alpha parameter must be bounded between 0 and 1')
         else:
