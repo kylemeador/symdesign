@@ -2865,59 +2865,6 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
     per_residue_data[pose_source] = {'contact_order': pose_source_contact_order_s,
                                      'errat_deviation': pose_source_errat_s}
 
-    # Add Entity information to the Pose
-    measure_evolution, measure_alignment = True, True
-    warn = False
-    for entity in pose.entities:
-        try:  # To fetch the multiple sequence alignment for further processing
-            # entity.sequence_file = job.api_db.sequences.retrieve_file(name=entity.name)
-            # if not entity.sequence_file:
-            #     entity.write_sequence_to_fasta('reference', out_dir=job.sequences)
-            #     # entity.add_evolutionary_profile(out_dir=job.api_db.hhblits_profiles.location)
-            # else:
-            profile = job.api_db.hhblits_profiles.retrieve_data(name=entity.name)
-            if not profile:
-                measure_evolution = False
-                warn = True
-            else:
-                entity.evolutionary_profile = profile
-
-            msa = job.api_db.alignments.retrieve_data(name=entity.name)
-            if not msa:
-                measure_evolution = False
-                warn = True
-            else:
-                entity.msa = msa
-        except ValueError:  # When the Entity reference sequence and alignment are different lengths
-            warn = True
-
-    if warn:
-        if not measure_evolution and not measure_alignment:
-            log.info(f'Metrics relying on multiple sequence alignment data are not being collected as '
-                     f'there were none found. These include: '
-                     f'{", ".join(multiple_sequence_alignment_dependent_metrics)}')
-        elif not measure_alignment:
-            log.info(f'Metrics relying on a multiple sequence alignment are not being collected as '
-                     f'there was no MSA found. These include: '
-                     f'{", ".join(multiple_sequence_alignment_dependent_metrics)}')
-        else:
-            log.info(f'Metrics relying on an evolutionary profile are not being collected as '
-                     f'there was no profile found. These include: '
-                     f'{", ".join(profile_dependent_metrics)}')
-
-    # Load profiles of interest into the analysis
-    profile_background = {}
-    if measure_evolution:
-        pose.evolutionary_profile = concatenate_profile([entity.evolutionary_profile for entity in pose.entities])
-
-    if pose.evolutionary_profile:
-        profile_background['evolution'] = pssm_as_array(pose.evolutionary_profile)
-    else:
-        pose.log.info('No evolution information')
-    if job.fragment_db is not None:
-        interface_bkgd = np.array(list(job.fragment_db.aa_frequencies.values()))
-        profile_background['interface'] = np.tile(interface_bkgd, (pose.number_of_residues, 1))
-
     # Handle pose state transformation and metrics for each identified pose
     for idx, pose_id in enumerate(pose_ids):
         update_pose_coords(idx)
@@ -3002,7 +2949,7 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
                 entity.fragment_map = {}
 
             # if pose.fragment_profile:
-            profile_background['fragment'] = pssm_as_array(pose.fragment_profile)
+            fragment_profile_array = pssm_as_array(pose.fragment_profile)
             # else:
             #     pose.log.info('No fragment information')
 
@@ -3011,20 +2958,27 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
             # pose.add_profile(evolution=not job.no_evolution_constraint,
             #                  fragments=job.generate_fragments)
             if pose.profile:
-                profile_background['design'] = pssm_as_array(pose.profile)
+                design_profile_array = pssm_as_array(pose.profile)
             # else:
             #     pose.log.info('Design has no fragment information')
 
             # Calculate sequence statistics
             # First, for entire pose
             interface_indexer = [residue.index for residue in pose.interface_residues]
-            pose_alignment = MultipleSequenceAlignment.from_dictionary(pose_sequences)
-            # This measurement is performed on a single pose with different design trajectories.
-            # Here, we only have a single trajectory per pose and therefore the divergence doesn't make sense
-            observed, divergence = \
-                calculate_sequence_observations_and_divergence(pose_alignment,
-                                                               profile_background,
-                                                               interface_indexer)
+
+            # fragment_profile_frequencies = pose.get_sequence_probabilities_from_profile(dtype='fragment')  # fragment_profile_array
+            fragment_profile_frequencies = \
+                pose.get_sequence_probabilities_from_profile(precomputed=fragment_profile_array)
+            print('fragment_profile_frequencies.shape:', fragment_profile_frequencies.shape,
+                  '\nvalues:', fragment_profile_frequencies)
+            # Find the non-zero sites in the profile
+            observed_from_fragment_profile = fragment_profile_frequencies[np.nonzero(fragment_profile_frequencies)]
+            observed_from_fragment_profile[interface_indexer].sum()
+
+            # observed, divergence = \
+            #     calculate_sequence_observations_and_divergence(pose_alignment,
+            #                                                    profile_background,
+            #                                                    interface_indexer)
             # Get pose sequence divergence
             # Todo remove as not useful!
             divergence_s = pd.Series({f'{divergence_type}_per_residue': _divergence.mean()
@@ -3034,12 +2988,13 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
             # Todo extract the observed values out of the observed dictionary
             #  Each Pose only has one trajectory, so measurement of divergence is pointless (no distribution)
             observed_dfs = []
-            for profile, observed_values in observed.items():
-                scores_df[f'observed_{profile}'] = observed_values.mean(axis=1)
-                observed_dfs.append(pd.DataFrame(data=observed_values, index=pose_id,
-                                                 columns=pd.MultiIndex.from_product([residue_indices,
-                                                                                     [f'observed_{profile}']]))
-                                    )
+            # Todo must ensure the observed_values is the length of the pose_ids
+            # for profile, observed_values in observed.items():
+            #     scores_df[f'observed_{profile}'] = observed_values.mean(axis=1)
+            #     observed_dfs.append(pd.DataFrame(data=observed_values, index=pose_id,
+            #                                      columns=pd.MultiIndex.from_product([residue_indices,
+            #                                                                          [f'observed_{profile}']]))
+            #                         )
             # Add observation information into the residue_df
             residue_df = pd.concat([residue_df] + observed_dfs, axis=1)
 
@@ -3075,13 +3030,65 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
     scores_df['errat_deviation'] = (errat_sig_df.loc[:, source_errat_inclusion_boolean] * 1).sum(axis=1)
 
     if design_output:
-        # Separate sequences by entity
-        all_sequences_split = []
+        # Add Entity information to the Pose
+        measure_evolution, measure_alignment = True, True
+        warn = False
         for entity in pose.entities:
-            entity_slice = slice(entity.n_terminal_residue.index, 1 + entity.c_terminal_residue.index)
-            all_sequences_split.append(sequences[:, entity_slice].tolist())
+            try:  # To fetch the multiple sequence alignment for further processing
+                # entity.sequence_file = job.api_db.sequences.retrieve_file(name=entity.name)
+                # if not entity.sequence_file:
+                #     entity.write_sequence_to_fasta('reference', out_dir=job.sequences)
+                #     # entity.add_evolutionary_profile(out_dir=job.api_db.hhblits_profiles.location)
+                # else:
+                profile = job.api_db.hhblits_profiles.retrieve_data(name=entity.name)
+                if not profile:
+                    measure_evolution = False
+                    warn = True
+                else:
+                    entity.evolutionary_profile = profile
 
-        all_sequences_by_entity = list(zip(*all_sequences_split))
+                msa = job.api_db.alignments.retrieve_data(name=entity.name)
+                if not msa:
+                    measure_evolution = False
+                    warn = True
+                else:
+                    entity.msa = msa
+            except ValueError:  # When the Entity reference sequence and alignment are different lengths
+                warn = True
+
+        if warn:
+            if not measure_evolution and not measure_alignment:
+                log.info(f'Metrics relying on multiple sequence alignment data are not being collected as '
+                         f'there were none found. These include: '
+                         f'{", ".join(multiple_sequence_alignment_dependent_metrics)}')
+            elif not measure_alignment:
+                log.info(f'Metrics relying on a multiple sequence alignment are not being collected as '
+                         f'there was no MSA found. These include: '
+                         f'{", ".join(multiple_sequence_alignment_dependent_metrics)}')
+            else:
+                log.info(f'Metrics relying on an evolutionary profile are not being collected as '
+                         f'there was no profile found. These include: '
+                         f'{", ".join(profile_dependent_metrics)}')
+
+        # Todo check job.no_evolution_constraint flag
+        # Load profiles of interest into the analysis
+        profile_background = {}
+        if measure_evolution:
+            pose.evolutionary_profile = concatenate_profile([entity.evolutionary_profile for entity in pose.entities])
+
+        if pose.evolutionary_profile:
+            profile_background['evolution'] = pssm_as_array(pose.evolutionary_profile)
+        else:
+            pose.log.info('No evolution information')
+        if job.fragment_db is not None:
+            interface_bkgd = np.array(list(job.fragment_db.aa_frequencies.values()))
+            profile_background['interface'] = np.tile(interface_bkgd, (pose.number_of_residues, 1))
+
+        pose_alignment = MultipleSequenceAlignment.from_dictionary(pose_sequences)
+        # Perform a frequency extraction for each background profile
+        background_frequencies = {profile: pose_alignment.get_probabilities_from_profile(background)
+                                  for profile, background in profile_background.items()}
+
         all_mutations = generate_mutations_from_reference(pose.sequence, pose_sequences)  # , zero_index=True)
 
         # Can't use below as each pose is different
@@ -3098,6 +3105,13 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
         residue_df = pd.merge(residue_df, per_residue_df, left_index=True, right_index=True)
 
         # Calculate hydrophobic collapse for each design
+        # Separate sequences by entity
+        all_sequences_split = []
+        for entity in pose.entities:
+            entity_slice = slice(entity.n_terminal_residue.index, 1 + entity.c_terminal_residue.index)
+            all_sequences_split.append(sequences[:, entity_slice].tolist())
+
+        all_sequences_by_entity = list(zip(*all_sequences_split))
         # Todo, should the reference pose be used? -> + [entity.sequence for entity in pose.entities]
         # Include the pose as the pose_source in the measured designs
         folding_and_collapse = calculate_collapse_metrics(pose, all_sequences_by_entity)
