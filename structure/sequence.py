@@ -675,7 +675,7 @@ class SequenceProfile:
                 else:
                     raise DesignError('Profile Generation got stuck, design aborted')
         else:
-            self.null_pssm()
+            self.set_null_evolutionary_profile()
 
         if isinstance(fragments, list):  # Add fragment information to the SequenceProfile
             self.add_fragments_to_profile(fragments, **kwargs)
@@ -802,7 +802,7 @@ class SequenceProfile:
 
         getattr(self, f'parse_{profile_source}_pssm')()
 
-    def null_pssm(self):
+    def set_null_evolutionary_profile(self):
         """Make a blank evolutionary_profile
 
         Sets:
@@ -1433,7 +1433,7 @@ class SequenceProfile:
             self._alpha = 0.000001
 
         if not self.evolutionary_profile:
-            self.null_pssm()
+            self.set_null_evolutionary_profile()
 
         # Copy the evolutionary profile to self.profile (structure specific scoring matrix)
         self.profile = deepcopy(self.evolutionary_profile)
@@ -1448,8 +1448,9 @@ class SequenceProfile:
             inverse_weight = 1 - weight
             frag_profile_entry = self.fragment_profile[entry]
             profile_entry = self.profile[entry + zero_offset]
-            profile_entry.update({aa: weight*frag_profile_entry[aa] + inverse_weight*profile_entry[aa]
-                                  for aa in protein_letters_alph1})
+            self.profile[entry + zero_offset].update({aa: weight*frag_profile_entry[aa]
+                                                      + inverse_weight*profile_entry[aa]
+                                                      for aa in protein_letters_alph1})
             # for aa in protein_letters_alph1:
             #     profile_entry[aa] = weight*frag_profile_entry[aa] + inverse_weight*profile_entry[aa]
         print('after', self.profile)
