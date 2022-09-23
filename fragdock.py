@@ -3031,7 +3031,21 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
                                 for name, data in per_residue_data.items()}).unstack().swaplevel(0, 1, axis=1)
     # Make buried surface area (bsa) columns
     per_residue_df = calculate_residue_surface_area(per_residue_df)  # .loc[:, idx_slice[index_residues, :]])
-    print('per_residue_df', per_residue_df)
+
+    scores_df['interface_area_polar'] = per_residue_df.loc[:, idx_slice[:, 'bsa_polar']].sum(axis=1)
+    scores_df['interface_area_hydrophobic'] = per_residue_df.loc[:, idx_slice[:, 'bsa_hydrophobic']].sum(axis=1)
+    # scores_df['interface_area_total'] = \
+    #     residue_df.loc[not_pose_source_indices, idx_slice[index_residues, 'bsa_total']].sum(axis=1)
+    scores_df['interface_area_total'] = scores_df['interface_area_polar'] + scores_df['interface_area_hydrophobic']
+
+    # Find the proportion of the residue surface area that is solvent accessible versus buried in the interface
+    sasa_assembly_df = per_residue_df.loc[:, idx_slice[:, 'sasa_total_complex']].droplevel(-1, axis=1)
+    bsa_assembly_df = per_residue_df.loc[:, idx_slice[:, 'bsa_total']].droplevel(-1, axis=1)
+    total_surface_area_df = sasa_assembly_df + bsa_assembly_df
+    print('bsa_assembly_df', bsa_assembly_df)
+    print('total_surface_area_df', total_surface_area_df)
+    # ratio_df = bsa_assembly_df / total_surface_area_df
+    scores_df['interface_area_to_residue_surface_ratio'] = (bsa_assembly_df / total_surface_area_df).mean(axis=1)
 
     # Include in errat_deviation if errat score is < 2 std devs and isn't 0 to begin with
     source_errat_inclusion_boolean = np.logical_and(pose_source_errat_s < errat_2_sigma, pose_source_errat_s != 0.)
@@ -3048,6 +3062,7 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
 
     scores_df = scores_df.join(summed_energetics_df)
     print('summed_scores_df', scores_df)
+    # Drop unused particular per_residue_df columns that have been summed
     per_residue_df = per_residue_df.drop(
         [column for column in per_residue_df.loc[:,
          idx_slice[:, per_residue_energy_states
