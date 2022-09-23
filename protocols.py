@@ -173,10 +173,10 @@ class PoseDirectory:
         if entity_names:
             self.info['entity_names'] = entity_names
         self.initial_model = None  # used if the pose structure has never been initialized previously
-        self.interface_design_residues: set[int] | bool = False  # the residue numbers in the pose interface
+        self.interface_design_residue_numbers: set[int] | bool = False  # The residue numbers in the pose interface
         self.interface_residue_ids: dict[str, str] = {}
         # {'interface1': '23A,45A,46A,...' , 'interface2': '234B,236B,239B,...'}
-        self.interface_residues: set[int] | bool = False  # the interface residue numbers which are surface accessable
+        self.interface_residue_numbers: set[int] | bool = False  # The interface residues which are surface accessable
         # self.oligomer_names: list[str] = self.info.get('oligomer_names', [])
         self.entities = []
         self.pose = None  # contains the design's Pose object
@@ -812,9 +812,9 @@ class PoseDirectory:
         self.design_selector = self.info.get('design_selector', self.design_selector)
         self.pose_transformation = self.info.get('pose_transformation', {})
         self.fragment_observations = self.info.get('fragments', None)  # None signifies query wasn't attempted
-        self.interface_design_residues = self.info.get('interface_design_residues', False)  # (set[int])
+        self.interface_design_residue_numbers = self.info.get('interface_design_residues', False)  # (set[int])
         self.interface_residue_ids = self.info.get('interface_residue_ids', {})
-        self.interface_residues = self.info.get('interface_residues', False)  # (set[int])
+        self.interface_residue_numbers = self.info.get('interface_residues', False)  # (set[int])
         self.entity_names = self.info.get('entity_names', [])
         self.pre_refine = self.info.get('pre_refine', True)
         self.pre_loop_model = self.info.get('pre_loop_model', True)
@@ -966,7 +966,7 @@ class PoseDirectory:
     #         frag_metrics = format_fragment_metrics(self.job.fragment_db.calculate_match_metrics(self.fragment_observations))
     #         # frag_metrics = self.pose.get_fragment_metrics(fragments=self.fragment_observations)
     #     else:
-    #         if self.interface_residues is False or self.interface_design_residues is False:  # No interface search yet
+    #         if self.interface_residue_numbers is False or self.interface_design_residue_numbers is False:  # No interface search yet
     #             self.identify_interface()
     #         else:  # We haven't got the fragments yet, so we will get them by the same means
     #             self.load_pose()
@@ -1004,7 +1004,7 @@ class PoseDirectory:
     #     # # self.strand_fragment_content = frag_metrics['percent_fragment_strand']
     #     # # self.coil_fragment_content = frag_metrics['percent_fragment_coil']
     #     #
-    #     # self.total_interface_residues = len(self.interface_residues)
+    #     # self.total_interface_residues = len(self.interface_residue_numbers)
     #     # self.total_non_fragment_interface_residues = \
     #     #     max(self.total_interface_residues - self.central_residues_with_fragment_overlap, 0)
     #     # try:
@@ -1194,7 +1194,7 @@ class PoseDirectory:
         # metrics_flags = 'repack=yes'
         protocol = PUtils.interface_metrics
         main_cmd = copy(script_cmd)
-        if self.interface_residues is False or self.interface_design_residues is False:
+        if self.interface_residue_numbers is False or self.interface_design_residue_numbers is False:
             self.identify_interface()
         else:  # We only need to load pose as we already calculated interface
             self.load_pose()
@@ -1253,7 +1253,7 @@ class PoseDirectory:
         raise DesignError('This module is outdated, please update it to use')  # Todo reflect modern metrics collection
         cmd = copy(script_cmd)
         script_name = os.path.splitext(os.path.basename(script))[0]
-        if self.interface_residues is False or self.interface_design_residues is False:
+        if self.interface_residue_numbers is False or self.interface_design_residue_numbers is False:
             self.identify_interface()
         else:  # We only need to load pose as we already calculated interface
             self.load_pose()
@@ -1536,14 +1536,14 @@ class PoseDirectory:
             self.info['entity_names'] = self.entity_names
 
         # Add previously identified state information to the pose
-        if self.interface_residues is False:  # or self.interface_design_residues is False:
+        if self.interface_residue_numbers:  # or self.interface_design_residue_numbers is False:
             # Add interface_residues to the pose
-            self.pose.interface_residue_numbers = self.interface_residues
-        if self.fragment_observations is not None:  # or self.interface_design_residues is False:
+            self.pose.interface_residue_numbers = self.interface_residue_numbers
+        if self.fragment_observations is not None:  # or self.interface_design_residue_numbers is False:
             # Todo distinguish between entities that are involved
             self.pose.fragment_metrics = self.fragment_observations
             # These are not used...
-            # self.pose.interface_design_residue_numbers = self.interface_design_residues
+            # self.pose.interface_design_residue_numbers = self.interface_design_residue_numbers
 
         # Save renumbered PDB to clean_asu.pdb
         if not self.asu_path or not os.path.exists(self.asu_path):
@@ -1666,7 +1666,7 @@ class PoseDirectory:
         """Refine the source PDB using self.symmetry to specify any symmetry"""
         main_cmd = copy(script_cmd)
         protocol = PUtils.refine
-        if self.interface_residues is False or self.interface_design_residues is False:
+        if self.interface_residue_numbers is False or self.interface_design_residue_numbers is False:
             self.identify_interface()
         else:  # We only need to load pose as we already calculated interface
             self.load_pose()
@@ -1821,7 +1821,7 @@ class PoseDirectory:
         """For the design info given by a PoseDirectory source, initialize the Pose then generate interfacial fragment
         information between Entities. Aware of symmetry and design_selectors in fragment generation file
         """
-        if self.interface_residues is False or self.interface_design_residues is False:
+        if self.interface_residue_numbers is False or self.interface_design_residue_numbers is False:
             self.identify_interface()
         else:  # We only need to load pose as we already calculated interface
             self.load_pose()
@@ -1838,9 +1838,9 @@ class PoseDirectory:
         Sets:
             self.interface_residue_ids (dict[str, str]):
                 Map each interface to the corresponding residue/chain pairs
-            self.interface_design_residues (set[int]):
+            self.interface_design_residue_numbers (set[int]):
                 The residues in proximity of the interface, including buried residues
-            self.interface_residues (set[int]):
+            self.interface_residue_numbers (set[int]):
                 The residues in contact across the interface
         """
         self.load_pose()
@@ -1851,14 +1851,29 @@ class PoseDirectory:
                 self.log.info(f'Symmetric assembly written to: "{self.assembly_path}"')
 
         self.pose.find_and_split_interface()
-        self.interface_design_residues = self.pose.interface_design_residue_numbers
-        self.interface_residues = self.pose.interface_residue_numbers
+        # self.interface_design_residue_numbers = self.pose.interface_design_residue_numbers
+        # self.interface_residue_numbers = self.pose.interface_residue_numbers
+        self.interface_design_residue_numbers = set()  # Replace set(). Add new residues
+        for number, residues_entities in self.pose.split_interface_residues.items():
+            self.interface_design_residue_numbers.update([residue.number for residue, _ in residues_entities])
+
+        self.interface_residue_numbers = set()  # Replace set(). Add new residues
+        for entity in self.pose.entities:
+            # Todo v clean as it is redundant with analysis and falls out of scope
+            entity_oligomer = Model.from_chains(entity.chains, log=entity.log, entities=False)
+            # entity.oligomer.get_sasa()
+            # Must get_residues by number as the Residue instance will be different in entity_oligomer
+            for residue in entity_oligomer.get_residues(self.interface_design_residue_numbers):
+                if residue.sasa > 0:
+                    # Using set ensures that if we have repeats they won't be unique if Entity is symmetric
+                    self.interface_residue_numbers.add(residue.number)
+
         for number, residues_entities in self.pose.split_interface_residues.items():
             self.interface_residue_ids[f'interface{number}'] = \
                 ','.join(f'{residue.number}{entity.chain_id}' for residue, entity in residues_entities)
 
-        self.info['interface_design_residues'] = self.interface_design_residues
-        self.info['interface_residues'] = self.interface_residues
+        self.info['interface_design_residues'] = self.interface_design_residue_numbers
+        self.info['interface_residues'] = self.interface_residue_numbers
         self.info['interface_residue_ids'] = self.interface_residue_ids
 
     @handle_design_errors(errors=(DesignError, AssertionError))
@@ -1872,7 +1887,7 @@ class PoseDirectory:
         if self.job.command_only and self.run_in_shell:  # just reissue the commands
             pass
         else:
-            if self.interface_residues is False or self.interface_design_residues is False:
+            if self.interface_residue_numbers is False or self.interface_design_residue_numbers is False:
                 self.identify_interface()
             else:  # We only need to load pose as we already calculated interface
                 self.load_pose()
@@ -2138,15 +2153,15 @@ class PoseDirectory:
         # for design_path in self.specific_designs_file_paths
         #     self.load_pose(source=design_path)
 
-        # format all amino acids in self.interface_design_residues with frequencies above the threshold to a set
+        # format all amino acids in self.interface_design_residue_numbers with frequencies above the threshold to a set
         # Todo, make threshold and return set of strings a property of a profile object
         # background = \
         #     {self.pose.residue(residue_number):
         #      {protein_letters_1to3.get(aa) for aa in protein_letters_1to3 if fields.get(aa, -1) > threshold}
-        #      for residue_number, fields in self.background_profile.items() if residue_number in self.interface_design_residues}
+        #      for residue_number, fields in self.background_profile.items() if residue_number in self.interface_design_residue_numbers}
         background = {residue: {protein_letters_1to3.get(aa) for aa in protein_letters_1to3
                                 if self.background_profile[residue.number].get(aa, -1) > threshold}
-                      for residue in self.pose.get_residues(self.interface_design_residues)}
+                      for residue in self.pose.get_residues(self.interface_design_residue_numbers)}
         # include the wild-type residue from PoseDirectory Pose source and the residue identity of the selected design
         wt = {residue: {self.background_profile[residue.number].get('type'), protein_letters_3to1[residue.type]}
               for residue in background}
@@ -2239,12 +2254,12 @@ class PoseDirectory:
         Returns:
             Series containing summary metrics for all designs in the design directory
         """
-        if self.interface_residues is False or self.interface_design_residues is False:
+        if self.interface_residue_numbers is False or self.interface_design_residue_numbers is False:
             self.identify_interface()
         else:  # We only need to load pose as we already calculated interface
             self.load_pose()
 
-        self.log.debug(f'Found design residues: {", ".join(map(str, sorted(self.interface_design_residues)))}')
+        self.log.debug(f'Found design residues: {", ".join(map(str, sorted(self.interface_design_residue_numbers)))}')
         if self.job.generate_fragments and not self.pose.fragment_queries:
             make_path(self.frags, condition=self.job.write_fragments)
             self.pose.generate_interface_fragments(write_fragments=self.job.write_fragments, out_path=self.frags)
@@ -2304,7 +2319,7 @@ class PoseDirectory:
             source_df['interface_energy_complex'] = 0
             source_df['interaction_energy_complex'] = 0
             source_df['interaction_energy_per_residue'] = \
-                source_df['interaction_energy_complex'] / len(self.interface_design_residues)
+                source_df['interaction_energy_complex'] / len(self.interface_design_residue_numbers)
             source_df['interface_separation'] = 0
             source_df['number_hbonds'] = 0
             source_df['rmsd_complex'] = 0  # Todo calculate this here instead of Rosetta using superposition3d
@@ -2425,7 +2440,7 @@ class PoseDirectory:
             scores_df['interface_energy_complex'] = 0
             scores_df['interaction_energy_complex'] = 0
             scores_df['interaction_energy_per_residue'] = \
-                scores_df['interaction_energy_complex'] / len(self.interface_design_residues)
+                scores_df['interaction_energy_complex'] / len(self.interface_design_residue_numbers)
             scores_df['interface_separation'] = 0
             scores_df['number_hbonds'] = 0
             scores_df['rmsd_complex'] = 0  # Todo calculate this here instead of Rosetta using superposition3d
@@ -2553,7 +2568,7 @@ class PoseDirectory:
         # returns multi-index column with residue number as first (top) column index, metric as second index
         # during residue_df unstack, all residues with missing dicts are copied as nan
         # Merge interface design specific residue metrics with total per residue metrics
-        index_residues = list(self.interface_design_residues)
+        index_residues = list(self.interface_design_residue_numbers)
         idx_slice = pd.IndexSlice
         residue_df = pd.merge(residue_df.loc[:, idx_slice[index_residues, :]],
                               per_residue_df.loc[:, idx_slice[index_residues, :]],
@@ -2640,7 +2655,7 @@ class PoseDirectory:
                     protocol_alignment = MultipleSequenceAlignment.from_dictionary({design: pose_sequences[design]
                                                                                     for design in designs})
                     # protocol_mutation_freq = filter_dictionary_keys(protocol_alignment.frequencies,
-                    #                                                 self.interface_design_residues)
+                    #                                                 self.interface_design_residue_numbers)
                     # protocol_mutation_freq = protocol_alignment.frequencies
                     protocol_divergence = {f'divergence_{profile}':
                                            position_specific_divergence(protocol_alignment.frequencies,
@@ -2727,7 +2742,7 @@ class PoseDirectory:
         #                       left_index=True, right_index=True)
         # Add local_density information to scores_df
         # scores_df['interface_local_density'] = \
-        #     residue_df.loc[:, idx_slice[self.interface_residues, 'local_density']].mean(axis=1)
+        #     residue_df.loc[:, idx_slice[self.interface_residue_numbers, 'local_density']].mean(axis=1)
 
         # Make buried surface area (bsa) columns
         residue_df = calculate_residue_surface_area(residue_df.loc[:, idx_slice[index_residues, :]])
@@ -2755,7 +2770,7 @@ class PoseDirectory:
         #     self.log.info(f'Design Residues {",".join(map(str, sorted(interior_residue_numbers)))}
         #                   'are located in the interior')
 
-        # This shouldn't be much different from the state variable self.interface_residues
+        # This shouldn't be much different from the state variable self.interface_residue_numbers
         # perhaps the use of residue neighbor energy metrics adds residues which contribute, but not directly
         # interface_residues = set(residue_df.columns.levels[0].unique()).difference(interior_residue_numbers)
 
@@ -2906,7 +2921,7 @@ class PoseDirectory:
 
             seq_pca = skl.decomposition.PCA(variance)
             designed_sequence_modifications = [''.join(info['type'] for residue, info in residues_info.items()
-                                                       if residue in self.interface_design_residues)
+                                                       if residue in self.interface_design_residue_numbers)
                                                for design, residues_info in residue_info.items()]
             pairwise_sequence_diff_np = scaler.fit_transform(all_vs_all(designed_sequence_modifications, sequence_difference))
             seq_pc = seq_pca.fit_transform(pairwise_sequence_diff_np)

@@ -6375,20 +6375,20 @@ class Pose(SequenceProfile, SymmetricModel):
 
         self.check_interface_topology()
 
-        self.interface_design_residue_numbers = set()  # Replace set(). Add new residues
-        for number, residues_entities in self.split_interface_residues.items():
-            self.interface_design_residue_numbers.update([residue.number for residue, _ in residues_entities])
-
-        self.interface_residue_numbers = set()  # Replace set(). Add new residues
-        for entity in self.entities:
-            # Todo v clean as it is redundant with analysis and falls out of scope
-            entity_oligomer = Model.from_chains(entity.chains, log=self.log, entities=False)
-            # entity.oligomer.get_sasa()
-            # Must get_residues by number as the Residue instance will be different in entity_oligomer
-            for residue in entity_oligomer.get_residues(self.interface_design_residue_numbers):
-                if residue.sasa > 0:
-                    # Using set ensures that if we have repeats they won't be unique if Entity is symmetric
-                    self.interface_residue_numbers.add(residue.number)
+        # self.interface_design_residue_numbers = set()  # Replace set(). Add new residues
+        # for number, residues_entities in self.split_interface_residues.items():
+        #     self.interface_design_residue_numbers.update([residue.number for residue, _ in residues_entities])
+        #
+        # self.interface_residue_numbers = set()  # Replace set(). Add new residues
+        # for entity in self.entities:
+        #     # Todo v clean as it is redundant with analysis and falls out of scope
+        #     entity_oligomer = Model.from_chains(entity.chains, log=entity.log, entities=False)
+        #     # entity.oligomer.get_sasa()
+        #     # Must get_residues by number as the Residue instance will be different in entity_oligomer
+        #     for residue in entity_oligomer.get_residues(self.interface_design_residue_numbers):
+        #         if residue.sasa > 0:
+        #             # Using set ensures that if we have repeats they won't be unique if Entity is symmetric
+        #             self.interface_residue_numbers.add(residue.number)
 
     def check_interface_topology(self):
         """From each pair of entities that share an interface, split the identified residues into two distinct groups.
