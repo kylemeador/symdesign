@@ -2537,19 +2537,9 @@ def generate_mutations(reference: Sequence, query: Sequence, offset: bool = True
     sequence_iterator = enumerate(zip(align_seq_1, align_seq_2), -starting_idx_of_seq1 + idx_offset)
     # Extract differences from the alignment
     if return_all:
-        if return_to:
-            mutations = {idx: seq2 for idx, (seq1, seq2) in sequence_iterator}
-        elif return_from:
-            mutations = {idx: seq1 for idx, (seq1, seq2) in sequence_iterator}
-        else:
-            mutations = {idx: {'from': seq1, 'to': seq2} for idx, (seq1, seq2) in sequence_iterator}
+        mutations = {idx: {'from': seq1, 'to': seq2} for idx, (seq1, seq2) in sequence_iterator}
     else:
-        if return_to:
-            mutations = {idx: seq2 for idx, (seq1, seq2) in sequence_iterator if seq1 != seq2}
-        elif return_from:
-            mutations = {idx: seq1 for idx, (seq1, seq2) in sequence_iterator if seq1 != seq2}
-        else:
-            mutations = {idx: {'from': seq1, 'to': seq2} for idx, (seq1, seq2) in sequence_iterator if seq1 != seq2}
+        mutations = {idx: {'from': seq1, 'to': seq2} for idx, (seq1, seq2) in sequence_iterator if seq1 != seq2}
 
     # Find last index of reference
     ending_index_of_seq1 = starting_idx_of_seq1 + align_seq_1.rfind(reference[-1])
@@ -2557,18 +2547,24 @@ def generate_mutations(reference: Sequence, query: Sequence, offset: bool = True
     if only_gaps:  # remove the actual mutations, keep internal and external gap indices and the reference sequence
         blanks = True
         remove_mutation_list.extend([entry for entry, mutation in mutations.items()
-                                     if 0 < entry <= ending_index_of_seq1 and mutation['to'] != '-'])
+                                     if idx_offset < entry <= ending_index_of_seq1 and mutation['to'] != '-'])
     if blanks:  # leave all types of blanks, otherwise check for each requested type
         remove_termini, remove_query_gaps = False, False
 
     if remove_termini:  # remove indices outside of sequence 1
-        remove_mutation_list.extend([entry for entry in mutations if entry < 0 or ending_index_of_seq1 < entry])
+        remove_mutation_list.extend([entry for entry in mutations
+                                     if entry < idx_offset or ending_index_of_seq1 < entry])
 
     if remove_query_gaps:  # remove indices where sequence 2 is gaped
         remove_mutation_list.extend([entry for entry, mutation in mutations.items()
                                      if 0 < entry <= ending_index_of_seq1 and mutation['to'] == '-'])
     for entry in remove_mutation_list:
         mutations.pop(entry, None)
+
+    if return_to:
+        mutations = {idx: _mutation_dictionary['to'] for idx, _mutation_dictionary in mutations.items()}
+    elif return_from:
+        mutations = {idx: _mutation_dictionary['from'] for idx, _mutation_dictionary in mutations.items()}
 
     return mutations
 
@@ -2889,8 +2885,11 @@ def generate_mutations_from_reference(reference: Sequence[str], sequences: dict[
     mutations = {alias: generate_mutations(reference, sequence, **kwargs)  # offset=False,
                  for alias, sequence in sequences.items()}
     # Add the reference sequence to mutation data
-    mutations[PUtils.reference_name] = \
-        {sequence_idx: {'from': aa, 'to': aa} for sequence_idx, aa in enumerate(reference, 1)}
+    if kwargs.get('return_to') or kwargs.get('return_from'):
+        mutations[PUtils.reference_name] = dict(enumerate(reference, 1))
+    else:
+        mutations[PUtils.reference_name] = \
+            {sequence_idx: {'from': aa, 'to': aa} for sequence_idx, aa in enumerate(reference, 1)}
 
     return mutations
 
