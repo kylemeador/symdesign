@@ -3013,90 +3013,8 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
     # Todo get the keys right here
     # all_pose_divergence_df = pd.concat(all_pose_divergence, keys=[('sequence', 'pose')], axis=1)
     interface_metrics_df = pd.DataFrame(interface_metrics).T
-    # is_thermophilic = []
-    # idx = 1
-    # for idx, entity in enumerate(pose.entities, idx):
-    #     is_thermophilic.append(interface_metrics_df.loc[:, f'entity_{idx}_thermophile'])
 
-    # Get the average thermophilicity for all entities
-    interface_metrics_df['entity_thermophilicity'] = \
-        interface_metrics_df.loc[:, [f'entity_{idx}_thermophile'
-                                     for idx in range(1, pose.number_of_entities)]
-                                 ].sum(axis=1) / pose.number_of_entities
-
-    scores_df['interface_local_density'] = pd.Series(interface_local_density)
-
-    # Construct per_residue_df
-    per_residue_df = pd.concat({name: pd.DataFrame(data, index=residue_indices)
-                                for name, data in per_residue_data.items()}).unstack().swaplevel(0, 1, axis=1)
-    # Make buried surface area (bsa) columns
-    per_residue_df = calculate_residue_surface_area(per_residue_df)  # .loc[:, idx_slice[index_residues, :]])
-
-    scores_df['interface_area_polar'] = per_residue_df.loc[:, idx_slice[:, 'bsa_polar']].sum(axis=1)
-    scores_df['interface_area_hydrophobic'] = per_residue_df.loc[:, idx_slice[:, 'bsa_hydrophobic']].sum(axis=1)
-    # scores_df['interface_area_total'] = \
-    #     residue_df.loc[not_pose_source_indices, idx_slice[index_residues, 'bsa_total']].sum(axis=1)
-    scores_df['interface_area_total'] = scores_df['interface_area_polar'] + scores_df['interface_area_hydrophobic']
-
-    # Find the proportion of the residue surface area that is solvent accessible versus buried in the interface
-    sasa_assembly_df = per_residue_df.loc[:, idx_slice[:, 'sasa_total_complex']].droplevel(-1, axis=1)
-    bsa_assembly_df = per_residue_df.loc[:, idx_slice[:, 'bsa_total']].droplevel(-1, axis=1)
-    total_surface_area_df = sasa_assembly_df + bsa_assembly_df
-    print('bsa_assembly_df', bsa_assembly_df)
-    print('total_surface_area_df', total_surface_area_df)
-    # ratio_df = bsa_assembly_df / total_surface_area_df
-    scores_df['interface_area_to_residue_surface_ratio'] = (bsa_assembly_df / total_surface_area_df).mean(axis=1)
-
-    # Include in errat_deviation if errat score is < 2 std devs and isn't 0 to begin with
-    source_errat_inclusion_boolean = np.logical_and(pose_source_errat_s < errat_2_sigma, pose_source_errat_s != 0.)
-    errat_df = per_residue_df.loc[:, idx_slice[:, 'errat_deviation']].droplevel(-1, axis=1)
-    # find where designs deviate above wild-type errat scores
-    errat_sig_df = (errat_df.sub(pose_source_errat_s, axis=1)) > errat_1_sigma  # axis=1 Series is column oriented
-    # then select only those residues which are expressly important by the inclusion boolean
-    scores_df['errat_deviation'] = (errat_sig_df.loc[:, source_errat_inclusion_boolean] * 1).sum(axis=1)
-
-    # Calculate new metrics from combinations of other metrics
-    print('per_residue_df', per_residue_df)
-    # Add design residue information to scores_df such as how many core, rim, and support residues were measured
-    summed_energetics_df = sum_per_residue_metrics(per_residue_df)  # .loc[:, idx_slice[index_residues, :]])
-
-    scores_df = scores_df.join(summed_energetics_df)
-    print('summed_scores_df', scores_df)
-    # Drop unused particular per_residue_df columns that have been summed
-    per_residue_df = per_residue_df.drop(
-        [column for column in per_residue_df.loc[:,
-         idx_slice[:, per_residue_energy_states
-                      + residue_classificiation]].columns], axis=1)
-
-    scores_columns = scores_df.columns.to_list()
-    log.debug(f'Metrics present: {scores_columns}')
-    # sum columns using list[0] + list[1] + list[n]
-    summation_pairs = \
-        {'buns_unbound': list(filter(re.compile('buns_[0-9]+_unbound$').match, scores_columns)),  # Rosetta
-         # 'interface_energy_bound':
-         #     list(filter(re_compile('interface_energy_[0-9]+_bound').match, scores_columns)),  # Rosetta
-         # 'interface_energy_unbound':
-         #     list(filter(re_compile('interface_energy_[0-9]+_unbound').match, scores_columns)),  # Rosetta
-         # 'interface_solvation_energy_bound':
-         #     list(filter(re_compile('solvation_energy_[0-9]+_bound').match, scores_columns)),  # Rosetta
-         # 'interface_solvation_energy_unbound':
-         #     list(filter(re_compile('solvation_energy_[0-9]+_unbound').match, scores_columns)),  # Rosetta
-         'interface_connectivity':
-             list(filter(re.compile('interface_connectivity_[0-9]+').match, scores_columns)),  # Rosetta
-         }
-    # 'sasa_hydrophobic_bound':
-    #     list(filter(re_compile('sasa_hydrophobic_[0-9]+_bound').match, scores_columns)),
-    # 'sasa_polar_bound': list(filter(re_compile('sasa_polar_[0-9]+_bound').match, scores_columns)),
-    # 'sasa_total_bound': list(filter(re_compile('sasa_total_[0-9]+_bound').match, scores_columns))}
-    scores_df = columns_to_new_column(scores_df, summation_pairs)
-    scores_df = columns_to_new_column(scores_df, delta_pairs, mode='sub')
-    # add total_interface_residues for div_pairs and int_comp_similarity
-    scores_df['total_interface_residues'] = interface_metrics_df['total_interface_residues']  # other_pose_metrics.pop('total_interface_residues')
-    scores_df = columns_to_new_column(scores_df, division_pairs, mode='truediv')
-    scores_df['interface_composition_similarity'] = scores_df.apply(interface_composition_similarity, axis=1)
-    # dropping 'total_interface_residues' after calculation as it is in other_pose_metrics
-    scores_df.drop(clean_up_intermediate_columns, axis=1, inplace=True, errors='ignore')
-
+    # Collect sequence metrics on every designed Pose
     if design_output:
         # Add Entity information to the Pose
         measure_evolution, measure_alignment = True, True
@@ -3170,8 +3088,6 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
         residue_info = incorporate_mutation_info(residue_info, all_mutations)
         residue_df = pd.concat({design: pd.DataFrame(info) for design, info in residue_info.items()}).unstack()
 
-        residue_df = pd.merge(residue_df, per_residue_df, left_index=True, right_index=True)
-
         # Calculate hydrophobic collapse for each design
         # Separate sequences by entity
         all_sequences_split = []
@@ -3209,6 +3125,91 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
 
         pose_collapse_df = pd.DataFrame()
         all_pose_divergence_df = pd.DataFrame()
+
+    # is_thermophilic = []
+    # idx = 1
+    # for idx, entity in enumerate(pose.entities, idx):
+    #     is_thermophilic.append(interface_metrics_df.loc[:, f'entity_{idx}_thermophile'])
+
+    # Get the average thermophilicity for all entities
+    interface_metrics_df['entity_thermophilicity'] = \
+        interface_metrics_df.loc[:, [f'entity_{idx}_thermophile'
+                                     for idx in range(1, pose.number_of_entities)]
+                                 ].sum(axis=1) / pose.number_of_entities
+
+    scores_df['interface_local_density'] = pd.Series(interface_local_density)
+
+    # Construct per_residue_df
+    per_residue_df = pd.concat({name: pd.DataFrame(data, index=residue_indices)
+                                for name, data in per_residue_data.items()}).unstack().swaplevel(0, 1, axis=1)
+    per_residue_df = pd.merge(residue_df, per_residue_df, left_index=True, right_index=True)
+    # Make buried surface area (bsa) columns
+    per_residue_df = calculate_residue_surface_area(per_residue_df)  # .loc[:, idx_slice[index_residues, :]])
+
+    scores_df['interface_area_polar'] = per_residue_df.loc[:, idx_slice[:, 'bsa_polar']].sum(axis=1)
+    scores_df['interface_area_hydrophobic'] = per_residue_df.loc[:, idx_slice[:, 'bsa_hydrophobic']].sum(axis=1)
+    # scores_df['interface_area_total'] = \
+    #     residue_df.loc[not_pose_source_indices, idx_slice[index_residues, 'bsa_total']].sum(axis=1)
+    scores_df['interface_area_total'] = scores_df['interface_area_polar'] + scores_df['interface_area_hydrophobic']
+
+    # Find the proportion of the residue surface area that is solvent accessible versus buried in the interface
+    sasa_assembly_df = per_residue_df.loc[:, idx_slice[:, 'sasa_total_complex']].droplevel(-1, axis=1)
+    bsa_assembly_df = per_residue_df.loc[:, idx_slice[:, 'bsa_total']].droplevel(-1, axis=1)
+    total_surface_area_df = sasa_assembly_df + bsa_assembly_df
+    print('bsa_assembly_df', bsa_assembly_df)
+    print('total_surface_area_df', total_surface_area_df)
+    # ratio_df = bsa_assembly_df / total_surface_area_df
+    scores_df['interface_area_to_residue_surface_ratio'] = (bsa_assembly_df / total_surface_area_df).mean(axis=1)
+
+    # Include in errat_deviation if errat score is < 2 std devs and isn't 0 to begin with
+    source_errat_inclusion_boolean = np.logical_and(pose_source_errat_s < errat_2_sigma, pose_source_errat_s != 0.)
+    errat_df = per_residue_df.loc[:, idx_slice[:, 'errat_deviation']].droplevel(-1, axis=1)
+    # find where designs deviate above wild-type errat scores
+    errat_sig_df = (errat_df.sub(pose_source_errat_s, axis=1)) > errat_1_sigma  # axis=1 Series is column oriented
+    # then select only those residues which are expressly important by the inclusion boolean
+    scores_df['errat_deviation'] = (errat_sig_df.loc[:, source_errat_inclusion_boolean] * 1).sum(axis=1)
+
+    # Calculate new metrics from combinations of other metrics
+    print('per_residue_df', per_residue_df)
+    # Add design residue information to scores_df such as how many core, rim, and support residues were measured
+    summed_energetics_df = sum_per_residue_metrics(per_residue_df)  # .loc[:, idx_slice[index_residues, :]])
+
+    scores_df = scores_df.join(summed_energetics_df)
+    print('summed_scores_df', scores_df)
+    # Drop unused particular per_residue_df columns that have been summed
+    per_residue_df = per_residue_df.drop(
+        [column for column in per_residue_df.loc[:,
+         idx_slice[:, per_residue_energy_states
+                      + residue_classificiation]].columns], axis=1)
+
+    scores_columns = scores_df.columns.to_list()
+    log.debug(f'Metrics present: {scores_columns}')
+    # sum columns using list[0] + list[1] + list[n]
+    summation_pairs = \
+        {'buns_unbound': list(filter(re.compile('buns_[0-9]+_unbound$').match, scores_columns)),  # Rosetta
+         # 'interface_energy_bound':
+         #     list(filter(re_compile('interface_energy_[0-9]+_bound').match, scores_columns)),  # Rosetta
+         # 'interface_energy_unbound':
+         #     list(filter(re_compile('interface_energy_[0-9]+_unbound').match, scores_columns)),  # Rosetta
+         # 'interface_solvation_energy_bound':
+         #     list(filter(re_compile('solvation_energy_[0-9]+_bound').match, scores_columns)),  # Rosetta
+         # 'interface_solvation_energy_unbound':
+         #     list(filter(re_compile('solvation_energy_[0-9]+_unbound').match, scores_columns)),  # Rosetta
+         'interface_connectivity':
+             list(filter(re.compile('interface_connectivity_[0-9]+').match, scores_columns)),  # Rosetta
+         }
+    # 'sasa_hydrophobic_bound':
+    #     list(filter(re_compile('sasa_hydrophobic_[0-9]+_bound').match, scores_columns)),
+    # 'sasa_polar_bound': list(filter(re_compile('sasa_polar_[0-9]+_bound').match, scores_columns)),
+    # 'sasa_total_bound': list(filter(re_compile('sasa_total_[0-9]+_bound').match, scores_columns))}
+    scores_df = columns_to_new_column(scores_df, summation_pairs)
+    scores_df = columns_to_new_column(scores_df, delta_pairs, mode='sub')
+    # add total_interface_residues for div_pairs and int_comp_similarity
+    scores_df['total_interface_residues'] = interface_metrics_df['total_interface_residues']  # other_pose_metrics.pop('total_interface_residues')
+    scores_df = columns_to_new_column(scores_df, division_pairs, mode='truediv')
+    scores_df['interface_composition_similarity'] = scores_df.apply(interface_composition_similarity, axis=1)
+    # dropping 'total_interface_residues' after calculation as it is in other_pose_metrics
+    scores_df.drop(clean_up_intermediate_columns, axis=1, inplace=True, errors='ignore')
 
     # interface_metrics_s = pd.Series(interface_metrics_df)
     # Concatenate all design information after parsing data sources
