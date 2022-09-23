@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import math
 import os
+import re
 import sys
 import time
 from collections.abc import Iterable
@@ -19,7 +20,9 @@ from sklearn.neighbors import BallTree
 
 from metrics import calculate_collapse_metrics, calculate_residue_surface_area, errat_1_sigma, errat_2_sigma, \
     multiple_sequence_alignment_dependent_metrics, calculate_sequence_observations_and_divergence, process_residue_info, \
-    incorporate_mutation_info, profile_dependent_metrics
+    incorporate_mutation_info, profile_dependent_metrics, columns_to_new_column, residue_classificiation, delta_pairs, \
+    division_pairs, interface_composition_similarity, clean_up_intermediate_columns, sum_per_residue_metrics, \
+    per_residue_energy_states
 from resources.EulerLookup import euler_factory
 from structure.fragment.db import FragmentDatabase, fragment_factory, alignment_types
 from resources.job import job_resources_factory, JobResources
@@ -3037,6 +3040,47 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
     errat_sig_df = (errat_df.sub(pose_source_errat_s, axis=1)) > errat_1_sigma  # axis=1 Series is column oriented
     # then select only those residues which are expressly important by the inclusion boolean
     scores_df['errat_deviation'] = (errat_sig_df.loc[:, source_errat_inclusion_boolean] * 1).sum(axis=1)
+
+    # Calculate new metrics from combinations of other metrics
+    print('per_residue_df', per_residue_df)
+    # Add design residue information to scores_df such as how many core, rim, and support residues were measured
+    summed_energetics_df = sum_per_residue_metrics(per_residue_df)  # .loc[:, idx_slice[index_residues, :]])
+
+    scores_df = scores_df.join(summed_energetics_df)
+    print('summed_scores_df', scores_df)
+    per_residue_df = per_residue_df.drop(
+        [column for column in per_residue_df.loc[:,
+         idx_slice[:, per_residue_energy_states
+                      + residue_classificiation]].columns], axis=1)
+
+    scores_columns = scores_df.columns.to_list()
+    log.debug(f'Metrics present: {scores_columns}')
+    # sum columns using list[0] + list[1] + list[n]
+    summation_pairs = \
+        {'buns_unbound': list(filter(re.compile('buns_[0-9]+_unbound$').match, scores_columns)),  # Rosetta
+         # 'interface_energy_bound':
+         #     list(filter(re_compile('interface_energy_[0-9]+_bound').match, scores_columns)),  # Rosetta
+         # 'interface_energy_unbound':
+         #     list(filter(re_compile('interface_energy_[0-9]+_unbound').match, scores_columns)),  # Rosetta
+         # 'interface_solvation_energy_bound':
+         #     list(filter(re_compile('solvation_energy_[0-9]+_bound').match, scores_columns)),  # Rosetta
+         # 'interface_solvation_energy_unbound':
+         #     list(filter(re_compile('solvation_energy_[0-9]+_unbound').match, scores_columns)),  # Rosetta
+         'interface_connectivity':
+             list(filter(re.compile('interface_connectivity_[0-9]+').match, scores_columns)),  # Rosetta
+         }
+    # 'sasa_hydrophobic_bound':
+    #     list(filter(re_compile('sasa_hydrophobic_[0-9]+_bound').match, scores_columns)),
+    # 'sasa_polar_bound': list(filter(re_compile('sasa_polar_[0-9]+_bound').match, scores_columns)),
+    # 'sasa_total_bound': list(filter(re_compile('sasa_total_[0-9]+_bound').match, scores_columns))}
+    scores_df = columns_to_new_column(scores_df, summation_pairs)
+    scores_df = columns_to_new_column(scores_df, delta_pairs, mode='sub')
+    # add total_interface_residues for div_pairs and int_comp_similarity
+    scores_df['total_interface_residues'] = interface_metrics_df['total_interface_residues']  # other_pose_metrics.pop('total_interface_residues')
+    scores_df = columns_to_new_column(scores_df, division_pairs, mode='truediv')
+    scores_df['interface_composition_similarity'] = scores_df.apply(interface_composition_similarity, axis=1)
+    # dropping 'total_interface_residues' after calculation as it is in other_pose_metrics
+    scores_df.drop(clean_up_intermediate_columns, axis=1, inplace=True, errors='ignore')
 
     if design_output:
         # Add Entity information to the Pose

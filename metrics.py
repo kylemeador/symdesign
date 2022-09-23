@@ -21,7 +21,13 @@ logger = start_log(name=__name__)
 _min, _max = 'min', 'max'
 rank, normalize, boolean = 'rank', 'normalize', 'boolean'
 metric_weight_functions = [rank, normalize]
-errat_1_sigma, errat_2_sigma, errat_3_sigma = 5.76, 11.52, 17.28  # these are approximate magnitude of deviation
+residue_classificiation = ['core', 'rim', 'support']  # 'hot_spot'
+per_residue_energy_states = ['complex', 'bound', 'unbound', 'solv_complex', 'solv_bound', 'solv_unbound']
+energy_metric_names = ['interface_energy_complex', 'interface_energy_bound', 'interface_energy_unbound',
+                       'interface_solvation_energy_complex', 'interface_solvation_energy_bound',
+                       'interface_solvation_energy_unbound']
+energy_metrics_rename_mapping = dict(zip(energy_metric_names, per_residue_energy_states))
+errat_1_sigma, errat_2_sigma, errat_3_sigma = 5.76, 11.52, 17.28  # These are approximate magnitude of deviation
 collapse_significance_threshold = 0.43
 collapse_deviation = 0.05
 idx_slice = pd.IndexSlice
@@ -1274,23 +1280,23 @@ def per_res_metric(sequence_metrics: dict[Any, float] | dict[Any, dict[str, floa
         return s / total
 
 
-def calculate_residue_surface_area(residue_df: pd.DataFrame) -> pd.DataFrame:
+def calculate_residue_surface_area(per_residue_df: pd.DataFrame) -> pd.DataFrame:
     #  index_residues: list[int] = slice(None, None)
     """From a DataFrame with per residue values, tabulate the values relating to interfacial surface area
 
     Args:
-        residue_df:
+        per_residue_df: The DataFrame with MultiIndex columns where level1=residue_numbers, level0=residue_metric
     Returns:
         The same dataframe with added columns
     """
     # Make buried surface area (bsa) columns
-    bound_hydro = residue_df.loc[:, idx_slice[:, 'sasa_hydrophobic_bound']]
-    complex_hydro = residue_df.loc[:, idx_slice[:, 'sasa_hydrophobic_complex']]
+    bound_hydro = per_residue_df.loc[:, idx_slice[:, 'sasa_hydrophobic_bound']]
+    complex_hydro = per_residue_df.loc[:, idx_slice[:, 'sasa_hydrophobic_complex']]
     bsa_hydrophobic = (bound_hydro.rename(columns={'sasa_hydrophobic_bound': 'bsa_hydrophobic'})
                        - complex_hydro.rename(columns={'sasa_hydrophobic_complex': 'bsa_hydrophobic'}))
 
-    bound_polar = residue_df.loc[:, idx_slice[:, 'sasa_polar_bound']]
-    complex_polar = residue_df.loc[:, idx_slice[:, 'sasa_polar_complex']]
+    bound_polar = per_residue_df.loc[:, idx_slice[:, 'sasa_polar_bound']]
+    complex_polar = per_residue_df.loc[:, idx_slice[:, 'sasa_polar_complex']]
     bsa_polar = (bound_polar.rename(columns={'sasa_polar_bound': 'bsa_polar'})
                  - complex_polar.rename(columns={'sasa_polar_complex': 'bsa_polar'}))
 
@@ -1306,10 +1312,10 @@ def calculate_residue_surface_area(residue_df: pd.DataFrame) -> pd.DataFrame:
     # Find the relative sasa of the complex and the unbound fraction
     buried_interface_residues = (bsa_total > 0).to_numpy()
     # ^ support, rim or core
-    # surface_or_rim = residue_df.loc[:, idx_slice[index_residues, 'sasa_relative_complex']] > 0.25
-    core_or_interior = residue_df.loc[:, idx_slice[:, 'sasa_relative_complex']] < 0.25
+    # surface_or_rim = per_residue_df.loc[:, idx_slice[index_residues, 'sasa_relative_complex']] > 0.25
+    core_or_interior = per_residue_df.loc[:, idx_slice[:, 'sasa_relative_complex']] < 0.25
     surface_or_rim = ~core_or_interior
-    support_not_core = residue_df.loc[:, idx_slice[:, 'sasa_relative_bound']] < 0.25
+    support_not_core = per_residue_df.loc[:, idx_slice[:, 'sasa_relative_bound']] < 0.25
     # core_sufficient = np.logical_and(core_or_interior, buried_interface_residues).to_numpy()
     core_residues = np.logical_and(~support_not_core,
                                    (np.logical_and(core_or_interior, buried_interface_residues)).to_numpy()).rename(
@@ -1323,12 +1329,32 @@ def calculate_residue_surface_area(residue_df: pd.DataFrame) -> pd.DataFrame:
     surface_residues = np.logical_and(surface_or_rim, ~buried_interface_residues).rename(
         columns={'sasa_relative_complex': 'surface'})
 
-    residue_df = residue_df.join([bsa_hydrophobic, bsa_polar, bsa_total, bound_total, complex_total,
-                                  core_residues, interior_residues, support_residues, rim_residues, surface_residues
-                                  ])
-    # residue_df = pd.concat([residue_df, core_residues, interior_residues, support_residues, rim_residues,
-    #                         surface_residues], axis=1)
-    return residue_df
+    per_residue_df = per_residue_df.join([bsa_hydrophobic, bsa_polar, bsa_total, bound_total, complex_total,
+                                          core_residues, interior_residues, support_residues, rim_residues,
+                                          surface_residues
+                                          ])
+    # per_residue_df = pd.concat([per_residue_df, core_residues, interior_residues, support_residues, rim_residues,
+    #                             surface_residues], axis=1)
+    return per_residue_df
+
+
+def sum_per_residue_metrics(per_residue_df: pd.DataFrame) -> pd.DataFrame:
+    """From a DataFrame with per residue values, tabulate the values relating to interfacial energy and solvation energy
+
+    Args:
+        per_residue_df: The DataFrame with MultiIndex columns where level1=residue_numbers, level0=residue_metric
+    Returns:
+        A new DataFrame with the summation of all residue_numbers in the per_residue columns
+    """
+    summed_energies = {energy_state: per_residue_df.loc[:, idx_slice[:, energy_state]].sum(axis=1)
+                       for energy_state in per_residue_energy_states}
+    summed_residue_classification = {per_residue_df.loc[:, idx_slice[:, residue_class]].sum(axis=1)
+                                     for residue_class in residue_classificiation}
+
+    summed_scores_df = pd.DataFrame({**summed_energies, **summed_residue_classification})
+    print('summed_scores_df', summed_scores_df)
+
+    return summed_scores_df.rename(columns=energy_metrics_rename_mapping)
 
 
 def calculate_sequence_observations_and_divergence(alignment: 'structure.sequence.MultipleSequenceAlignment',
