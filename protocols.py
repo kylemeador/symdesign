@@ -32,7 +32,7 @@ from metrics import read_scores, interface_composition_similarity, unnecessary, 
     filter_df_for_index_by_value, multiple_sequence_alignment_dependent_metrics, profile_dependent_metrics, \
     process_residue_info, collapse_significance_threshold, calculate_collapse_metrics, errat_1_sigma, errat_2_sigma, \
     calculate_residue_surface_area, position_specific_divergence, calculate_sequence_observations_and_divergence, \
-    incorporate_mutation_info
+    incorporate_mutation_info, residue_classificiation
 from resources.job import JobResources, job_resources_factory
 from structure.base import Structure  # , Structures
 from structure.model import Pose, MultiModel, Models, Model, Entity
@@ -43,7 +43,7 @@ from utils import large_color_array, handle_errors, starttime, start_log, null_l
     pickle_object, index_intersection, write_shell_script, DesignError, ClashError, SymmetryError, \
     match_score_from_z_value, all_vs_all, sym, condensed_to_square, path as PUtils
 from utils.SymEntry import SymEntry, symmetry_factory
-from structure.fragment.db import FragmentDatabase, alignment_types
+from structure.fragment.db import FragmentDatabase
 from utils.nanohedra.general import get_components_from_nanohedra_docking
 from utils.path import pose_source, state_file
 
@@ -56,7 +56,6 @@ idx_slice = pd.IndexSlice
 cst_value = round(0.2 * reference_average_residue_weight, 2)
 mean, std = 'mean', 'std'
 stats_metrics = [mean, std]
-residue_classificiation = ['core', 'rim', 'support']  # 'hot_spot'
 variance = 0.8
 symmetry_protocols = {0: 'make_point_group', 2: 'make_layer', 3: 'make_lattice'}  # -1: 'asymmetric',
 
