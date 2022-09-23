@@ -3,13 +3,13 @@ from __future__ import annotations
 import functools
 import os
 import pickle
+import re
 import shutil
 from copy import copy
 from glob import glob
 from itertools import combinations, repeat
 from logging import Logger
 from pathlib import Path
-from re import compile as re_compile
 from subprocess import Popen, list2cmdline
 from typing import Callable, Any, Iterable, AnyStr, Type
 
@@ -2784,22 +2784,22 @@ class PoseDirectory:
                                                              solvation_unbound_df.columns]
                                       for column in columns], axis=1)
         summation_pairs = \
-            {'buns_unbound': list(filter(re_compile('buns_[0-9]+_unbound$').match, scores_columns)),  # Rosetta
+            {'buns_unbound': list(filter(re.compile('buns_[0-9]+_unbound$').match, scores_columns)),  # Rosetta
              # 'interface_energy_bound':
-             #     list(filter(re_compile('interface_energy_[0-9]+_bound').match, scores_columns)),  # Rosetta
+             #     list(filter(re.compile('interface_energy_[0-9]+_bound').match, scores_columns)),  # Rosetta
              # 'interface_energy_unbound':
-             #     list(filter(re_compile('interface_energy_[0-9]+_unbound').match, scores_columns)),  # Rosetta
+             #     list(filter(re.compile('interface_energy_[0-9]+_unbound').match, scores_columns)),  # Rosetta
              # 'interface_solvation_energy_bound':
-             #     list(filter(re_compile('solvation_energy_[0-9]+_bound').match, scores_columns)),  # Rosetta
+             #     list(filter(re.compile('solvation_energy_[0-9]+_bound').match, scores_columns)),  # Rosetta
              # 'interface_solvation_energy_unbound':
-             #     list(filter(re_compile('solvation_energy_[0-9]+_unbound').match, scores_columns)),  # Rosetta
+             #     list(filter(re.compile('solvation_energy_[0-9]+_unbound').match, scores_columns)),  # Rosetta
              'interface_connectivity':
-                 list(filter(re_compile('interface_connectivity_[0-9]+').match, scores_columns)),  # Rosetta
+                 list(filter(re.compile('interface_connectivity_[0-9]+').match, scores_columns)),  # Rosetta
              }
         # 'sasa_hydrophobic_bound':
-        #     list(filter(re_compile('sasa_hydrophobic_[0-9]+_bound').match, scores_columns)),
-        # 'sasa_polar_bound': list(filter(re_compile('sasa_polar_[0-9]+_bound').match, scores_columns)),
-        # 'sasa_total_bound': list(filter(re_compile('sasa_total_[0-9]+_bound').match, scores_columns))}
+        #     list(filter(re.compile('sasa_hydrophobic_[0-9]+_bound').match, scores_columns)),
+        # 'sasa_polar_bound': list(filter(re.compile('sasa_polar_[0-9]+_bound').match, scores_columns)),
+        # 'sasa_total_bound': list(filter(re.compile('sasa_total_[0-9]+_bound').match, scores_columns))}
         scores_df = columns_to_new_column(scores_df, summation_pairs)
         scores_df = columns_to_new_column(scores_df, delta_pairs, mode='sub')
         # add total_interface_residues for div_pairs and int_comp_similarity
@@ -2876,7 +2876,7 @@ class PoseDirectory:
 
         # Calculate protocol significance
         pvalue_df = pd.DataFrame()
-        scout_protocols = list(filter(re_compile(f'.*{PUtils.scout}').match, protocol_s.unique().tolist()))
+        scout_protocols = list(filter(re.compile(f'.*{PUtils.scout}').match, protocol_s.unique().tolist()))
         similarity_protocols = unique_design_protocols.difference([PUtils.refine, job_key] + scout_protocols)
         if PUtils.structure_background not in unique_design_protocols:
             self.log.info(f'Missing background protocol "{PUtils.structure_background}". No protocol significance '
@@ -4017,22 +4017,22 @@ def interface_design_analysis(pose: Pose, design_poses: Iterable[Pose] = None, s
                                                          solvation_unbound_df.columns]
                                   for column in columns], axis=1)
     summation_pairs = \
-        {'buns_unbound': list(filter(re_compile('buns_[0-9]+_unbound$').match, scores_columns)),  # Rosetta
+        {'buns_unbound': list(filter(re.compile('buns_[0-9]+_unbound$').match, scores_columns)),  # Rosetta
          # 'interface_energy_bound':
-         #     list(filter(re_compile('interface_energy_[0-9]+_bound').match, scores_columns)),  # Rosetta
+         #     list(filter(re.compile('interface_energy_[0-9]+_bound').match, scores_columns)),  # Rosetta
          # 'interface_energy_unbound':
-         #     list(filter(re_compile('interface_energy_[0-9]+_unbound').match, scores_columns)),  # Rosetta
+         #     list(filter(re.compile('interface_energy_[0-9]+_unbound').match, scores_columns)),  # Rosetta
          # 'interface_solvation_energy_bound':
-         #     list(filter(re_compile('solvation_energy_[0-9]+_bound').match, scores_columns)),  # Rosetta
+         #     list(filter(re.compile('solvation_energy_[0-9]+_bound').match, scores_columns)),  # Rosetta
          # 'interface_solvation_energy_unbound':
-         #     list(filter(re_compile('solvation_energy_[0-9]+_unbound').match, scores_columns)),  # Rosetta
+         #     list(filter(re.compile('solvation_energy_[0-9]+_unbound').match, scores_columns)),  # Rosetta
          'interface_connectivity':
-             list(filter(re_compile('interface_connectivity_[0-9]+').match, scores_columns)),  # Rosetta
+             list(filter(re.compile('interface_connectivity_[0-9]+').match, scores_columns)),  # Rosetta
          }
     # 'sasa_hydrophobic_bound':
-    #     list(filter(re_compile('sasa_hydrophobic_[0-9]+_bound').match, scores_columns)),
-    # 'sasa_polar_bound': list(filter(re_compile('sasa_polar_[0-9]+_bound').match, scores_columns)),
-    # 'sasa_total_bound': list(filter(re_compile('sasa_total_[0-9]+_bound').match, scores_columns))}
+    #     list(filter(re.compile('sasa_hydrophobic_[0-9]+_bound').match, scores_columns)),
+    # 'sasa_polar_bound': list(filter(re.compile('sasa_polar_[0-9]+_bound').match, scores_columns)),
+    # 'sasa_total_bound': list(filter(re.compile('sasa_total_[0-9]+_bound').match, scores_columns))}
     scores_df = columns_to_new_column(scores_df, summation_pairs)
     scores_df = columns_to_new_column(scores_df, delta_pairs, mode='sub')
     # add total_interface_residues for div_pairs and int_comp_similarity
@@ -4109,7 +4109,7 @@ def interface_design_analysis(pose: Pose, design_poses: Iterable[Pose] = None, s
 
     # Calculate protocol significance
     pvalue_df = pd.DataFrame()
-    scout_protocols = list(filter(re_compile(f'.*{PUtils.scout}').match, protocol_s.unique().tolist()))
+    scout_protocols = list(filter(re.compile(f'.*{PUtils.scout}').match, protocol_s.unique().tolist()))
     similarity_protocols = unique_design_protocols.difference([PUtils.refine, job_key] + scout_protocols)
     if PUtils.structure_background not in unique_design_protocols:
         pose.log.info(f'Missing background protocol "{PUtils.structure_background}". No protocol significance '
