@@ -26,7 +26,7 @@ per_residue_energy_states = ['complex', 'bound', 'unbound', 'solv_complex', 'sol
 energy_metric_names = ['interface_energy_complex', 'interface_energy_bound', 'interface_energy_unbound',
                        'interface_solvation_energy_complex', 'interface_solvation_energy_bound',
                        'interface_solvation_energy_unbound']
-energy_metrics_rename_mapping = dict(zip(energy_metric_names, per_residue_energy_states))
+energy_metrics_rename_mapping = dict(zip(per_residue_energy_states, energy_metric_names))
 errat_1_sigma, errat_2_sigma, errat_3_sigma = 5.76, 11.52, 17.28  # These are approximate magnitude of deviation
 collapse_significance_threshold = 0.43
 collapse_deviation = 0.05
@@ -1008,7 +1008,7 @@ def incorporate_mutation_info(design_residue_scores: dict,
 
         remove_residues = []
         for residue_number, data in residue_info.items():
-            try:  # set residue AA type based on provided mutations
+            try:  # Set residue AA type based on provided mutations
                 data['type'] = mutation_data[residue_number]
             except KeyError:  # Residue is not in mutations, probably missing as it is not a mutation
                 try:  # Fill in with AA from reference_name seq
@@ -1346,13 +1346,14 @@ def sum_per_residue_metrics(per_residue_df: pd.DataFrame) -> pd.DataFrame:
     Returns:
         A new DataFrame with the summation of all residue_numbers in the per_residue columns
     """
-    summed_energies = {energy_state: per_residue_df.loc[:, idx_slice[:, energy_state]].sum(axis=1)
-                       for energy_state in per_residue_energy_states}
-    summed_residue_classification = {per_residue_df.loc[:, idx_slice[:, residue_class]].sum(axis=1)
-                                     for residue_class in residue_classificiation}
+    summed_energies = \
+        {energy_state: per_residue_df.loc[:, idx_slice[:, energy_state]].sum(axis=1)
+         for energy_state in per_residue_energy_states}
+    summed_residue_classification = \
+        {residue_class: per_residue_df.loc[:, idx_slice[:, residue_class]].sum(axis=1)
+         for residue_class in residue_classificiation}
 
     summed_scores_df = pd.DataFrame({**summed_energies, **summed_residue_classification})
-    print('summed_scores_df', summed_scores_df)
 
     return summed_scores_df.rename(columns=energy_metrics_rename_mapping)
 
