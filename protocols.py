@@ -2287,7 +2287,7 @@ class PoseDirectory:
         # Todo implement reference sequence from included file(s) or as with self.pose.sequence below
         pose_sequences.update({PUtils.reference_name: self.pose.sequence})
         pose_sequences.update({pose.name: pose.sequence for pose in design_poses})
-        all_mutations = generate_mutations_from_reference(self.pose.sequence, pose_sequences)  # , zero_index=True)
+        all_mutations = generate_mutations_from_reference(self.pose.sequence, pose_sequences, return_to=True)  # , zero_index=True)
         #    generate_mutations_from_reference(''.join(self.pose.atom_sequences.values()), pose_sequences)
 
         entity_energies = [0. for ent in self.pose.entities]
@@ -2370,7 +2370,7 @@ class PoseDirectory:
             # residue_info = {'energy': {'complex': 0., 'unbound': 0.}, 'type': None, 'hbond': 0}
             residue_info.update(self.pose.rosetta_residue_processing(all_viable_design_scores))
             residue_info = process_residue_info(residue_info, hbonds=interface_hbonds)
-            residue_info = incorporate_mutation_info(residue_info, simplify_mutation_dict(all_mutations))
+            residue_info = incorporate_mutation_info(residue_info, all_mutations)
             # can't use residue_processing (clean) in the case there is a design without metrics... columns not found!
             # residue_info.update(residue_processing(all_viable_design_scores, simplify_mutation_dict(all_mutations),
             #                                        per_res_columns, hbonds=interface_hbonds))
@@ -3471,7 +3471,7 @@ def interface_design_analysis(pose: Pose, design_poses: Iterable[Pose] = None, s
     # Todo implement reference sequence from included file(s) or as with pose.sequence below
     pose_sequences.update({PUtils.reference_name: pose.sequence})
     pose_sequences.update({pose.name: pose.sequence for pose in design_poses})
-    all_mutations = generate_mutations_from_reference(pose.sequence, pose_sequences)  # , zero_index=True)
+    all_mutations = generate_mutations_from_reference(pose.sequence, pose_sequences, return_to=True)  # , zero_index=True)
     #    generate_mutations_from_reference(''.join(pose.atom_sequences.values()), pose_sequences)
 
     entity_energies = tuple(0. for ent in pose.entities)
@@ -3554,7 +3554,7 @@ def interface_design_analysis(pose: Pose, design_poses: Iterable[Pose] = None, s
         # residue_info = {'energy': {'complex': 0., 'unbound': 0.}, 'type': None, 'hbond': 0}
         residue_info.update(pose.rosetta_residue_processing(all_viable_design_scores))
         residue_info = process_residue_info(residue_info, hbonds=interface_hbonds)
-        residue_info = incorporate_mutation_info(residue_info, simplify_mutation_dict(all_mutations))
+        residue_info = incorporate_mutation_info(residue_info, all_mutations)
         # can't use residue_processing (clean) in the case there is a design without metrics... columns not found!
         # residue_info.update(residue_processing(all_viable_design_scores, simplify_mutation_dict(all_mutations),
         #                                        per_res_columns, hbonds=interface_hbonds))

@@ -2488,12 +2488,20 @@ def generate_alignment(seq1: Sequence[str], seq2: Sequence[str], matrix: str = '
 
 
 mutation_entry = Type[dict[Literal['to', 'from'], structure.utils.protein_letters_alph3_gapped_literal]]
+"""Mapping of a reference sequence amino acid type, 'to', and the resulting sequence amino acid type, 'from'"""
 mutation_dictionary = dict[int, mutation_entry]
+"""The mapping of a residue number to a mutation entry containing the reference, 'to', and sequence, 'from', amino acid 
+type
+"""
+sequence_dictionary = dict[int, structure.utils.protein_letters_alph3_gapped_literal]
+"""The mapping of a residue number to the corresponding amino acid type"""
 
 
 def generate_mutations(reference: Sequence, query: Sequence, offset: bool = True, blanks: bool = False,
                        remove_termini: bool = True, remove_query_gaps: bool = True, only_gaps: bool = False,
-                       zero_index: bool = False, return_all: bool = False) -> mutation_dictionary:
+                       zero_index: bool = False,
+                       return_all: bool = False, return_to: bool = False, return_from: bool = False) \
+        -> mutation_dictionary | sequence_dictionary:
     """Create mutation data in a typical A5K format. One-indexed dictionary keys with the index matching the reference
      sequence index. Sequence mutations accessed by "from" and "to" keys. By default, all gaped sequences are excluded
      from returned mutation dictionary
@@ -2510,8 +2518,11 @@ def generate_mutations(reference: Sequence, query: Sequence, offset: bool = True
         only_gaps: Only include reference indices that are missing query residues. All "to" values will be a gap "-"
         zero_index: Whether to return the indices zero-indexed (like python) or one-indexed
         return_all: Whether to return all the indices and there corresponding mutational data
+        return_to: Whether to return only the 'to' amino acid type
+        return_from: Whether to return only the 'from' amino acid type
     Returns:
         Mutation index to mutations in the format of {1: {'from': 'A', 'to': 'K'}, ...}
+            unless return_to or return_from is True, then {1: 'K', ...}
     """
     if offset:
         align_seq_1, align_seq_2, *_ = generate_alignment(reference, query)
@@ -2520,19 +2531,28 @@ def generate_mutations(reference: Sequence, query: Sequence, offset: bool = True
 
     idx_offset = 0 if zero_index else zero_offset
 
+    # Get the first matching index of the reference sequence
+    starting_idx_of_seq1 = align_seq_1.find(reference[0])
+    # Ensure iteration sequence1/reference starts at idx 1       v
+    sequence_iterator = enumerate(zip(align_seq_1, align_seq_2), -starting_idx_of_seq1 + idx_offset)
     # Extract differences from the alignment
-    starting_idx_of_seq1 = align_seq_1.find(reference[0])  # get the first matching index of the reference sequence
-    ending_index_of_seq1 = starting_idx_of_seq1 + align_seq_1.rfind(reference[-1])  # find last index of reference
     if return_all:
-        mutations = \
-            {idx: {'from': seq1, 'to': seq2}  # always ensure sequence1/reference starts at idx 1    v
-             for idx, (seq1, seq2) in enumerate(zip(align_seq_1, align_seq_2), -starting_idx_of_seq1 + idx_offset)}
+        if return_to:
+            mutations = {idx: seq2 for idx, (seq1, seq2) in sequence_iterator}
+        elif return_from:
+            mutations = {idx: seq1 for idx, (seq1, seq2) in sequence_iterator}
+        else:
+            mutations = {idx: {'from': seq1, 'to': seq2} for idx, (seq1, seq2) in sequence_iterator}
     else:
-        mutations = \
-            {idx: {'from': seq1, 'to': seq2}  # always ensure sequence1/reference starts at idx 1    v
-             for idx, (seq1, seq2) in enumerate(zip(align_seq_1, align_seq_2), -starting_idx_of_seq1 + idx_offset)
-             if seq1 != seq2}
+        if return_to:
+            mutations = {idx: seq2 for idx, (seq1, seq2) in sequence_iterator if seq1 != seq2}
+        elif return_from:
+            mutations = {idx: seq1 for idx, (seq1, seq2) in sequence_iterator if seq1 != seq2}
+        else:
+            mutations = {idx: {'from': seq1, 'to': seq2} for idx, (seq1, seq2) in sequence_iterator if seq1 != seq2}
 
+    # Find last index of reference
+    ending_index_of_seq1 = starting_idx_of_seq1 + align_seq_1.rfind(reference[-1])
     remove_mutation_list = []
     if only_gaps:  # remove the actual mutations, keep internal and external gap indices and the reference sequence
         blanks = True
@@ -2840,8 +2860,8 @@ def generate_multiple_mutations(reference, sequences, pose_num=True):
 
 
 def generate_mutations_from_reference(reference: Sequence[str], sequences: dict[str, Sequence[str]], **kwargs) -> \
-        dict[str, mutation_dictionary]:
-    """Generate mutation data from multiple sequences dictionaries with regard to a single reference
+        dict[str, mutation_dictionary | sequence_dictionary]:
+    """Generate mutation data from multiple alias mapped sequence dictionaries with regard to a single reference
 
     Args:
         reference: The reference sequence to align each sequence against.
@@ -2858,8 +2878,11 @@ def generate_mutations_from_reference(reference: Sequence[str], sequences: dict[
             All "to" values will be a gap "-"
         zero_index: (bool) = False - Whether to return the indices zero-indexed (like python) or one-indexed
         return_all: (bool) = False - Whether to return all the indices and there corresponding mutational data
+        return_to: (bool) = False - Whether to return only the "to" amino acid type
+        return_from: (bool) = False - Whether to return only the "from" amino acid type
     Returns:
-        {alias: {mutation_index: {'from': 'A', 'to': 'K'}, ...}, ...}
+        {alias: {mutation_index: {'from': 'A', 'to': 'K'}, ...}, ...} unless return_to or return_from is True, then
+            {alias: {mutation_index: 'K', ...}, ...}
     """
     offset_value = kwargs.get('offset')
     kwargs['offset'] = (offset_value or False)  # Default to False if there was no argument passed
