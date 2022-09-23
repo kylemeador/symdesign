@@ -3075,7 +3075,7 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
         background_frequencies = {profile: pose_alignment.get_probabilities_from_profile(background)
                                   for profile, background in profile_background.items()}
 
-        all_mutations = generate_mutations_from_reference(pose.sequence, pose_sequences)  # , zero_index=True)
+        all_mutations = generate_mutations_from_reference(pose.sequence, pose_sequences, return_to=True)  # , zero_index=True)
 
         # Can't use below as each pose is different
         # index_residues = list(pose.interface_design_residue_numbers)
@@ -3121,7 +3121,7 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
                 / interface_metrics_df.loc[:, f'entity_{idx}_number_of_residues']
     else:  # Get metrics and output
         # Generate placeholder all_mutations which only contains "reference"
-        all_mutations = generate_mutations_from_reference(pose.sequence, pose_sequences)  # , zero_index=True)
+        all_mutations = generate_mutations_from_reference(pose.sequence, pose_sequences, return_to=True)  # , zero_index=True)
 
         pose_collapse_df = pd.DataFrame()
         all_pose_divergence_df = pd.DataFrame()
