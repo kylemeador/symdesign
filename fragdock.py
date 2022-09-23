@@ -1802,7 +1802,7 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
         If no arguments are passed, the fragment observations will be generated new
         """
         # First, force identify interface of the current pose
-        pose.find_and_split_interface()
+        pose.find_and_split_interface(distance=cb_distance)
 
         # Next, set the interface fragment info for gathering of interface metrics
         if overlap_ghosts is None or overlap_surf is None or sorted_z_scores is None:
@@ -2541,7 +2541,7 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
                     # Use batch_idx to set new numpy arrays, transform_idx (includes perturb_idx) to set coords
                     for batch_idx, transform_idx in enumerate(range(batch_slice.start, batch_slice.stop)):
                         update_pose_coords(transform_idx)
-                        pose.find_and_split_interface()
+                        pose.find_and_split_interface(distance=cb_distance)
 
                         new_coords[batch_idx] = getattr(pose, coords_type)
 

@@ -69,7 +69,7 @@ def subdirectory(name):
 # @njit
 def find_fragment_overlap(entity1_coords: np.ndarray, residues1: Iterable[Fragment],
                           residues2: Iterable[Fragment], euler_lookup: EulerLookup = None,
-                          min_match_value: float = 0.2) -> list[tuple[GhostFragment, Fragment, float]]:
+                          min_match_value: float = .2) -> list[tuple[GhostFragment, Fragment, float]]:
     #           entity1, entity2, entity1_interface_residue_numbers, entity2_interface_residue_numbers, max_z_value=2):
     """From two sets of Residues, score the fragment overlap according to Nanohedra's fragment matching
 
@@ -80,6 +80,9 @@ def find_fragment_overlap(entity1_coords: np.ndarray, residues1: Iterable[Fragme
         euler_lookup:
         min_match_value: The minimum value which constitutes an acceptable fragment match
     """
+    # Todo memoize this variable into a function default... The load time is kinda significant and shouldn't be used
+    #  until needed. Getting the factory everytime is a small overhead that is really unnecessary. Perhaps this function
+    #  should be refactored to structure.fragment.db or something and imported upon usage...
     if euler_lookup is None:
         euler_lookup = euler_factory()
 
@@ -5382,13 +5385,14 @@ class Pose(SequenceProfile, SymmetricModel):
             bias_profile_by_probabilities: Whether to produce bias by profile probabilities as opposed to profile lods
             interface: Whether to design the interface only
             decode_core_first: Whether to decode the interface core first
-
+        Keyword Args:
+            distance: (float) = 8. - The distance to measure Residues across an interface
         Returns:
 
         """
         # Initialize pose data structures for design
         if interface:
-            self.find_and_split_interface()
+            self.find_and_split_interface(**kwargs)
 
             # Add all interface + required residues
             design_residues = [residue.number-zero_offset for residue in self.design_residues]
@@ -6131,7 +6135,7 @@ class Pose(SequenceProfile, SymmetricModel):
             entity1: First Entity to measure interface between
             entity2: Second Entity to measure interface between
         Keyword Args:
-            distance=8. (float): The distance to measure Residues across an interface
+            distance: (float) = 8. - The distance to measure Residues across an interface
         Sets:
             self.interface_residues_by_entity_pair (dict[tuple[Entity, Entity], tuple[list[Residue], list[Residue]]]):
                 The Entity1/Entity2 interface mapped to the interface Residues
@@ -6361,9 +6365,11 @@ class Pose(SequenceProfile, SymmetricModel):
 
         return self.get_fragment_metrics(by_entity=True, entity1=entity1, entity2=entity2)
 
-    def find_and_split_interface(self):
+    def find_and_split_interface(self, **kwargs):
         """Locate the interface residues for the designable entities and split into two interfaces
 
+        Keyword Args:
+            distance: (float) = 8. - The distance to measure Residues across an interface
         Sets:
             self.split_interface_residues (dict[int, list[tuple[Residue, Entity]]]): Residue/Entity id of each residue
                 at the interface identified by interface id as split by topology
@@ -6371,7 +6377,7 @@ class Pose(SequenceProfile, SymmetricModel):
         self.log.debug('Find and split interface using active_entities: '
                        f'{", ".join(entity.name for entity in self.active_entities)}')
         for entity_pair in combinations_with_replacement(self.active_entities, 2):
-            self.find_interface_residues(*entity_pair)
+            self.find_interface_residues(*entity_pair, **kwargs)
 
         self.check_interface_topology()
 
@@ -6874,15 +6880,17 @@ class Pose(SequenceProfile, SymmetricModel):
 
         return parsed_design_residues
 
-    def generate_interface_fragments(self, write_fragments: bool = False, out_path: AnyStr = None):
+    def generate_interface_fragments(self, write_fragments: bool = False, out_path: AnyStr = None, **kwargs):
         """Generate fragments between the Pose interface(s). Finds interface(s) if not already available
 
         Args:
             write_fragments: Whether to write the located fragments
             out_path: The location to write each fragment file
+        Keyword Args:
+            distance: (float) = 8. - The distance to measure Residues across an interface
         """
         if not self.interface_residues_by_entity_pair:
-            self.find_and_split_interface()
+            self.find_and_split_interface(**kwargs)
 
         entity_pair: Iterable[Entity]
         for entity_pair in combinations_with_replacement(self.active_entities, 2):
