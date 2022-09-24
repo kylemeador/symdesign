@@ -655,7 +655,8 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
     design_temperature = 0.1
     mpnn_model = proteinmpnn_factory()  # Todo accept model_name arg. Now just use the default
     # set the environment to use memory efficient cuda management
-    pytorch_conf = 'max_split_size_mb:-1,roundup_power2_divisions:4,garbage_collection_threshold:0.7'
+    max_split = 1000
+    pytorch_conf = f'max_split_size_mb:{max_split},roundup_power2_divisions:4,garbage_collection_threshold:0.7'
     os.environ['PYTORCH_CUDA_ALLOC_CONF'] = pytorch_conf
     # pytorch_conf = 'PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:-1,roundup_power2_divisions:4,garbage_collection_threshold:0.7'
     # set_conf = f'export {pytorch_conf}'
