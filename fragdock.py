@@ -37,7 +37,7 @@ from structure.sequence import generate_mutations_from_reference, numeric_to_seq
     MultipleSequenceAlignment
 from structure.utils import protein_letters_3to1
 from utils import dictionary_lookup, start_log, null_log, set_logging_to_level, unpickle, rmsd_z_score, \
-    z_value_from_match_score, match_score_from_z_value, set_loggers_to_propagate
+    z_value_from_match_score, match_score_from_z_value, set_loggers_to_propagate, make_path
 from utils.cluster import cluster_transformation_pairs
 from utils.nanohedra.OptimalTx import OptimalTx
 from utils.nanohedra.WeightedSeqFreq import FragMatchInfo, SeqFreqInfo
@@ -697,8 +697,8 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
     # Set up output mechanism
     if isinstance(master_output, str) and not write_frags_only:  # we just want to write, so don't make a directory
         building_blocks = '-'.join(model.name for model in models)
-        outdir = os.path.join(master_output, building_blocks)
-        os.makedirs(outdir, exist_ok=True)
+        out_dir = os.path.join(master_output, building_blocks)
+        os.makedirs(out_dir, exist_ok=True)
     else:
         raise NotImplementedError('Must provide a master_outdir!')
     # elif isinstance(master_output, DockingDirectory):
@@ -707,7 +707,7 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
 
     # Setup log
     if log is None:
-        log_file_path = os.path.join(outdir, f'{building_blocks}_log.txt')
+        log_file_path = os.path.join(out_dir, f'{building_blocks}_log.txt')
     else:
         log_file_path = getattr(log.handlers[0], 'baseFilename', None)
     if log_file_path:
@@ -2162,7 +2162,7 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
         #     degen1_count, degen2_count = degen_counts[idx]
         #     rot1_count, rot2_count = rot_counts[idx]
         #     # temp indexing on degen and rot counts
-        #     degen_subdir_out_path = os.path.join(outdir, 'DEGEN_%d_%d' % (degen1_count, degen2_count))
+        #     degen_subdir_out_path = os.path.join(out_dir, 'DEGEN_%d_%d' % (degen1_count, degen2_count))
         #     rot_subdir_out_path = os.path.join(degen_subdir_out_path, 'ROT_%d_%d' % (rot1_count, rot2_count))
         #     tx_dir = os.path.join(rot_subdir_out_path, 'tx_%d' % tx_idx)  # idx)
         #     oligomers_dir = rot_subdir_out_path.split(os.sep)[-3]
@@ -2362,10 +2362,10 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
             tx_str = f'TX_{tx_counts[transform_idx]}'  # translation idx
             if number_of_perturbations > 1:
                 pt_str = f'PT_{perturb_idx + 1}'
-                out_dir = os.path.join(outdir, degen_str, rot_str, tx_str.lower(), pt_str)
+                out_dir = os.path.join(out_dir, degen_str, rot_str, tx_str.lower(), pt_str)
                 sampling_id = f'{degen_str}-{rot_str}-{tx_str}-{pt_str}'
             else:
-                out_dir = os.path.join(outdir, degen_str, rot_str, tx_str.lower())
+                out_dir = os.path.join(out_dir, degen_str, rot_str, tx_str.lower())
                 sampling_id = f'{degen_str}-{rot_str}-{tx_str}'
             pose_id = f'{building_blocks}-{sampling_id}'
 
@@ -2810,10 +2810,10 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
         tx_str = f'TX_{tx_counts[transform_idx]}'  # translation idx
         if number_of_perturbations > 1:
             pt_str = f'PT_{perturb_idx + 1}'
-            out_dir = os.path.join(outdir, degen_str, rot_str, tx_str.lower(), pt_str)
+            out_dir = os.path.join(out_dir, degen_str, rot_str, tx_str.lower(), pt_str)
             sampling_id = f'{degen_str}-{rot_str}-{tx_str}-{pt_str}'
         else:
-            out_dir = os.path.join(outdir, degen_str, rot_str, tx_str.lower())
+            out_dir = os.path.join(out_dir, degen_str, rot_str, tx_str.lower())
             sampling_id = f'{degen_str}-{rot_str}-{tx_str}'
         pose_id = f'{building_blocks}-{sampling_id}'
 
@@ -3160,8 +3160,6 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
     sasa_assembly_df = per_residue_df.loc[:, idx_slice[:, 'sasa_total_complex']].droplevel(-1, axis=1)
     bsa_assembly_df = per_residue_df.loc[:, idx_slice[:, 'bsa_total']].droplevel(-1, axis=1)
     total_surface_area_df = sasa_assembly_df + bsa_assembly_df
-    print('bsa_assembly_df', bsa_assembly_df)
-    print('total_surface_area_df', total_surface_area_df)
     # ratio_df = bsa_assembly_df / total_surface_area_df
     scores_df['interface_area_to_residue_surface_ratio'] = (bsa_assembly_df / total_surface_area_df).mean(axis=1)
 
@@ -3174,39 +3172,41 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
     scores_df['errat_deviation'] = (errat_sig_df.loc[:, source_errat_inclusion_boolean] * 1).sum(axis=1)
 
     # Calculate new metrics from combinations of other metrics
-    print('per_residue_df', per_residue_df)
     # Add design residue information to scores_df such as how many core, rim, and support residues were measured
-    summed_energetics_df = sum_per_residue_metrics(per_residue_df)  # .loc[:, idx_slice[index_residues, :]])
+    summed_scores_df = sum_per_residue_metrics(per_residue_df)  # .loc[:, idx_slice[index_residues, :]])
 
-    scores_df = scores_df.join(summed_energetics_df)
-    print('summed_scores_df', scores_df)
+    print('summed_scores_df', summed_scores_df)
+    scores_df = scores_df.join(summed_scores_df)
     # Drop unused particular per_residue_df columns that have been summed
     per_residue_df = per_residue_df.drop(
         [column for column in per_residue_df.loc[:,
          idx_slice[:, per_residue_energy_states
                       + residue_classificiation]].columns], axis=1)
 
+    print('per_residue_df', per_residue_df)
+
     scores_columns = scores_df.columns.to_list()
     log.debug(f'Metrics present: {scores_columns}')
     # sum columns using list[0] + list[1] + list[n]
-    summation_pairs = \
-        {'buns_unbound': list(filter(re.compile('buns_[0-9]+_unbound$').match, scores_columns)),  # Rosetta
-         # 'interface_energy_bound':
-         #     list(filter(re_compile('interface_energy_[0-9]+_bound').match, scores_columns)),  # Rosetta
-         # 'interface_energy_unbound':
-         #     list(filter(re_compile('interface_energy_[0-9]+_unbound').match, scores_columns)),  # Rosetta
-         # 'interface_solvation_energy_bound':
-         #     list(filter(re_compile('solvation_energy_[0-9]+_bound').match, scores_columns)),  # Rosetta
-         # 'interface_solvation_energy_unbound':
-         #     list(filter(re_compile('solvation_energy_[0-9]+_unbound').match, scores_columns)),  # Rosetta
-         'interface_connectivity':
-             list(filter(re.compile('interface_connectivity_[0-9]+').match, scores_columns)),  # Rosetta
-         }
+    # Todo We are not taking these measurements w/o Rosetta...
+    # summation_pairs = \
+    #     {'buns_unbound': list(filter(re.compile('buns_[0-9]+_unbound$').match, scores_columns)),  # Rosetta
+    #      # 'interface_energy_bound':
+    #      #     list(filter(re_compile('interface_energy_[0-9]+_bound').match, scores_columns)),  # Rosetta
+    #      # 'interface_energy_unbound':
+    #      #     list(filter(re_compile('interface_energy_[0-9]+_unbound').match, scores_columns)),  # Rosetta
+    #      # 'interface_solvation_energy_bound':
+    #      #     list(filter(re_compile('solvation_energy_[0-9]+_bound').match, scores_columns)),  # Rosetta
+    #      # 'interface_solvation_energy_unbound':
+    #      #     list(filter(re_compile('solvation_energy_[0-9]+_unbound').match, scores_columns)),  # Rosetta
+    #      'interface_connectivity':
+    #          list(filter(re.compile('interface_connectivity_[0-9]+').match, scores_columns)),  # Rosetta
+    #      }
     # 'sasa_hydrophobic_bound':
     #     list(filter(re_compile('sasa_hydrophobic_[0-9]+_bound').match, scores_columns)),
     # 'sasa_polar_bound': list(filter(re_compile('sasa_polar_[0-9]+_bound').match, scores_columns)),
     # 'sasa_total_bound': list(filter(re_compile('sasa_total_[0-9]+_bound').match, scores_columns))}
-    scores_df = columns_to_new_column(scores_df, summation_pairs)
+    # scores_df = columns_to_new_column(scores_df, summation_pairs)
     scores_df = columns_to_new_column(scores_df, delta_pairs, mode='sub')
     # add total_interface_residues for div_pairs and int_comp_similarity
     scores_df['total_interface_residues'] = interface_metrics_df['total_interface_residues']  # other_pose_metrics.pop('total_interface_residues')
@@ -3220,21 +3220,23 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
     # interface_metrics_df = pd.concat([interface_metrics_df], keys=[('dock', 'pose')])
     # scores_df = pd.concat([scores_df], keys=[('dock', 'pose')], axis=1)
     # Todo incorporate full sequence ProteinMPNN summation into scores_df. Find meaning of probabilities
+    # Todo incorporate residue_df summation into scores_df
+    #  observed_*, solvation_energy, etc.
     scores_df = pd.concat([scores_df, interface_metrics_df], keys=[('dock', 'pose')], axis=1)
     print('scores_df', scores_df)
-    # Todo incorporate residue_df summation into scores_df
-    #  interface_composition_similarity, observed_*, interface_energy_delta, solvation_energy, etc.
-    print('residue_df', residue_df)
 
     # CONSTRUCT: Create pose series and format index names
-    pose_df = pd.concat([scores_df, interface_metrics_df, all_pose_divergence_df]).swaplevel(0, 1)
+    pose_df = scores_df.swaplevel(0, 1, axis=1)
+    # pose_df = pd.concat([scores_df, interface_metrics_df, all_pose_divergence_df]).swaplevel(0, 1)
     # Remove pose specific metrics from pose_df and sort
-    pose_df.sort_index(level=2, inplace=True, sort_remaining=False)  # ascending=True, sort_remaining=True)
-    pose_df.sort_index(level=1, inplace=True, sort_remaining=False)  # ascending=True, sort_remaining=True)
-    pose_df.sort_index(level=0, inplace=True, sort_remaining=False)  # ascending=False
+    pose_df.sort_index(level=2, axis=1, inplace=True, sort_remaining=False)  # ascending=True, sort_remaining=True)
+    pose_df.sort_index(level=1, axis=1, inplace=True, sort_remaining=False)  # ascending=True, sort_remaining=True)
+    pose_df.sort_index(level=0, axis=1, inplace=True, sort_remaining=False)  # ascending=False
     pose_df.name = str(building_blocks)
 
-    pose_df.to_csv(os.path.join(job.all_scores, f'{building_blocks}_docked_poses.csv'))
+    make_path(job.all_scores)
+    pose_df.to_csv(os.path.join(job.all_scores, f'{building_blocks}_docked_poses_Trajectories.csv'))
+    per_residue_df.to_csv(os.path.join(job.all_scores, f'{building_blocks}_docked_poses_Residues.csv'))
     # return pose_s
     log.info(f'Total {building_blocks} dock trajectory took {time.time() - frag_dock_time_start:.2f}s')
 
