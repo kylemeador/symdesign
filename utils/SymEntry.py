@@ -267,7 +267,6 @@ class SymEntry:
     _int_dof_groups: list[str]
     _ref_frame_tx_dof: list[str]
     _setting_matrices: list[np.ndarray]
-    _setting_matrices_numbers: list[int]
     cycle_size: int
     dimension: int
     entry_number: int
@@ -325,13 +324,12 @@ class SymEntry:
                                             f'{", ".join(group for group in entry_groups if group is not None)}.')
                 self.groups.append(sub_symmetry)
 
-        self._int_dof_groups, self._setting_matrices, self._setting_matrices_numbers, self._ref_frame_tx_dof, self.__external_dof = [], [], [], [], []
+        self._int_dof_groups, self._setting_matrices, self._ref_frame_tx_dof, self.__external_dof = [], [], [], []
         for group_idx, group_symmetry in enumerate(self.groups, 1):
-            for entry_group_symmetry, (int_dof, set_mat_number, ext_dof) in group_info:
+            for entry_group_symmetry, (int_dof, set_mat, ext_dof) in group_info:
                 if group_symmetry == entry_group_symmetry:
                     self._int_dof_groups.append(int_dof)
-                    self._setting_matrices.append(setting_matrices[set_mat_number])
-                    self._setting_matrices_numbers.append(set_mat_number)
+                    self._setting_matrices.append(setting_matrices[set_mat])
                     ref_frame_tx_dof = list(map(str.strip, ext_dof.strip('<>').split(',')))
                     self._ref_frame_tx_dof.append(ref_frame_tx_dof)
                     if group_idx <= 2:
@@ -454,10 +452,6 @@ class SymEntry:
     @property
     def setting_matrices(self) -> list[np.ndarray]:
         return self._setting_matrices
-
-    @property
-    def setting_matrices_numbers(self) -> list[int]:
-        return self._setting_matrices_numbers
 
     @property
     def setting_matrix1(self) -> np.ndarray:
