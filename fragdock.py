@@ -2794,11 +2794,27 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
     # full_rotation1 = full_rotation1
     full_int_tx1 = full_int_tx1.squeeze()
     # set_mat1 = set_mat1
-    full_ext_tx1 = list(repeat(None, number_of_transforms)) if full_ext_tx1 is None else full_ext_tx1.squeeze()
+    full_ext_tx1 = list(repeat([None, None, None], number_of_transforms)) \
+        if full_ext_tx1 is None else full_ext_tx1.squeeze()
     # full_rotation2 = full_rotation2
     full_int_tx2 = full_int_tx2.squeeze()
     # set_mat2 = set_mat2
-    full_ext_tx2 = list(repeat(None, number_of_transforms)) if full_ext_tx2 is None else full_ext_tx2.squeeze()
+    full_ext_tx2 = list(repeat([None, None, None], number_of_transforms)) \
+        if full_ext_tx2 is None else full_ext_tx2.squeeze()
+
+    set_mat1_number, set_mat2_number, *_extra = sym_entry.setting_matrices_numbers
+    rotations1 = scipy.spatial.transform.Rotation.from_matrix(full_rotation1)
+    rotations2 = scipy.spatial.transform.Rotation.from_matrix(full_rotation2)
+    # Get all rotations in terms of the degree of rotation along the z-axis
+    rotation_degrees1 = rotations1.as_rotvec(degrees=True)[:, -1]
+    rotation_degrees2 = rotations2.as_rotvec(degrees=True)[:, -1]
+    z_heights1 = full_int_tx1[:, -1]
+    z_heights2 = full_int_tx2[:, -1]
+    # if sym_entry.unit_cell:
+    #     full_uc_dimensions = full_uc_dimensions[passing_symmetric_clashes]
+    #     full_ext_tx1 = full_ext_tx1[:]
+    #     full_ext_tx2 = full_ext_tx2[:]
+    #     full_ext_tx_sum = full_ext_tx2 - full_ext_tx1
 
     for idx in range(number_of_transforms):
         # Todo replace with PoseDirectory? Path object?
@@ -2826,15 +2842,18 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
         #                                                           translation=full_int_tx2[idx],
         #                                                           rotation2=set_mat2,
         #                                                           translation2=full_ext_tx2[idx]))
-        # Todo is this format desired?
-        pose_transformations[pose_id] = dict(rotation1=full_rotation1[idx],  # Replace with deg
-                                             translation1=full_int_tx1[idx],
-                                             rotation1_2=set_mat1,  # Replace with setting matrix number
-                                             translation1_2=full_ext_tx1[idx],
-                                             rotation2=full_rotation2[idx],  # Replace with deg
-                                             translation2=full_int_tx2[idx],
-                                             rotation2_2=set_mat2,  # Replace with setting matrix number
-                                             translation2_2=full_ext_tx2[idx])
+        pose_transformations[pose_id] = dict(rotation1=rotation_degrees1[idx],
+                                             internal_translation1=z_heights1[idx],
+                                             setting_matrix1=set_mat1_number,
+                                             external_translation1_x=full_ext_tx1[idx][0],
+                                             external_translation1_y=full_ext_tx1[idx][1],
+                                             external_translation1_z=full_ext_tx1[idx][2],
+                                             rotation2=rotation_degrees2[idx],
+                                             internal_translation2=z_heights2[idx],
+                                             setting_matrix2=set_mat2_number,
+                                             external_translation2_x=full_ext_tx2[idx][0],
+                                             external_translation2_y=full_ext_tx2[idx][1],
+                                             external_translation2_z=full_ext_tx2[idx][2])
     # Initialize the main scoring DataFrame
     scores_df = pd.DataFrame(pose_transformations).T
 
