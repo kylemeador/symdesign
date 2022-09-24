@@ -329,6 +329,8 @@ class SymEntry:
         for group_idx, group_symmetry in enumerate(self.groups, 1):
             for entry_group_symmetry, (int_dof, set_mat_number, ext_dof) in group_info:
                 if group_symmetry == entry_group_symmetry:
+                    # Todo Can we guarantee the accuracy of this creation method with the usage of the same symmetry operator
+                    #  and different orientations? Think T33
                     self._int_dof_groups.append(int_dof)
                     self._setting_matrices.append(setting_matrices[set_mat_number])
                     self._setting_matrices_numbers.append(set_mat_number)
