@@ -14,6 +14,7 @@ from typing import AnyStr
 import numpy as np
 import pandas as pd
 import psutil
+import scipy
 import torch
 from sklearn.cluster import DBSCAN
 from sklearn.neighbors import BallTree
@@ -978,9 +979,11 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
                 log.warning(f'Specified rotation_step{idx} was ignored. Oligomer {idx} doesn\'t have rotational DOF')
 
         degeneracy_matrices = getattr(sym_entry, f'degeneracy_matrices{idx}')
-        rot_degen_matrices = make_rotations_degenerate(get_rot_matrices(rotation_step, 'z',
-                                                                        getattr(sym_entry, f'rotation_range{idx}')),
-                                                       degeneracy_matrices)
+        # Todo make reliant on scipy...Rotation
+        # rotation_matrix = scipy.spatial.transform.Rotation.from_euler('Z', [step * rotation_step for step in range(number_of_steps)], degrees=True).as_matrix()
+        # rotation_matrix = scipy.spatial.transform.Rotation.from_euler('Z', np.linspace(0, getattr(sym_entry, f'rotation_range{idx}'), number_of_steps), degrees=True).as_matrix()
+        rotation_matrix = get_rot_matrices(rotation_step, 'z', getattr(sym_entry, f'rotation_range{idx}'))
+        rot_degen_matrices = make_rotations_degenerate(rotation_matrix, degeneracy_matrices)
         log.debug(f'Degeneracy shape for component {idx}: {degeneracy_matrices.shape}')
         log.debug(f'Combined rotation shape for component {idx}: {rot_degen_matrices.shape}')
         number_of_degens.append(degeneracy_matrices.shape[0])
