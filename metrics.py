@@ -11,6 +11,7 @@ import numpy as np
 import pandas as pd
 
 import structure
+from structure.sequence import create_translation_tables, alphabet_types
 from utils.path import groups, reference_name, structure_background, design_profile, hbnet_design_profile
 from resources.query.utils import input_string, validate_type, verify_choice, header_string
 from utils import handle_errors, start_log, pretty_format_table, index_intersection, digit_translate_table, \
@@ -2026,13 +2027,15 @@ hydrophobicity_scale = \
                   'X': 0, 'Z': 0}}
 
 
-def hydrophobic_collapse_index(sequence: Sequence[str], hydrophobicity: str = 'standard', lower_window: int = 3,
-                               upper_window: int = 9) -> np.ndarray:
+def hydrophobic_collapse_index(sequence: Sequence[str] | np.ndarry, hydrophobicity: str = 'standard',
+                               alphabet_type: alphabet_types = None, lower_window: int = 3, upper_window: int = 9) \
+        -> np.ndarray:
     """Calculate hydrophobic collapse index for a particular sequence of an iterable object and return an HCI array
 
     Args:
         sequence: The sequence to measure
         hydrophobicity: The degree of hydrophobicity to consider. Either 'standard' (FILV) or 'expanded' (FMILYVW)
+        alphabet_type: The amino acid alphabet used if the sequence is an integer array
         lower_window: The smallest window used to measure
         upper_window: The largest window used to measure
     Returns:
@@ -2041,10 +2044,35 @@ def hydrophobic_collapse_index(sequence: Sequence[str], hydrophobicity: str = 's
     hydrophobicity_values = hydrophobicity_scale.get(hydrophobicity)
     # hydrophobicity == 'background':  # Todo
     if not hydrophobicity_values:
-        raise ValueError(f'The hydrophobicity "{hydrophobicity}" table is not available. Add it if you think it should '
-                         f'be')
-    # sequence_array = np.array([hydrophobicity_values.get(aa, 0) for aa in sequence])
-    sequence_array = [hydrophobicity_values.get(aa, 0) for aa in sequence]
+        raise ValueError(f'The hydrophobicity "{hydrophobicity}" table is not available. Add it if you think it '
+                         f'should be')
+
+    if isinstance(sequence[0], int):  # This is an integer sequence. An alphabet is required
+        if alphabet_type is None:
+            alphabet_error = f'Must pass an alphabet type when calculating {hydrophobic_collapse_index.__name__} using integer values!'
+            raise ValueError(alphabet_error)
+        else:
+            alphabet = create_translation_tables(alphabet_type)
+
+        values = [hydrophobicity_values[aa] for aa in alphabet]
+        if isinstance(sequence, Sequence):
+            sequence_array = [values[aa_int] for aa_int in sequence]
+        elif isinstance(sequence, np.ndarry):
+            # The array must have shape (number_of_residues, alphabet_length)
+            sequence_array = sequence * values
+        else:
+            raise ValueError(f"sequence argument with type {type(sequence).__name__} isn't supported")
+    elif isinstance(sequence[0], str):  # This is a string array # if isinstance(sequence[0], str):
+        if isinstance(sequence, Sequence):
+            sequence_array = [hydrophobicity_values.get(aa, 0) for aa in sequence]
+        elif isinstance(sequence, np.ndarry):  # (np.ndarry, list)):
+            sequence_array = sequence * np.vectorize(hydrophobicity_values.__getitem__)(sequence)
+        else:
+            raise ValueError(f"sequence argument with type {type(sequence).__name__} isn't supported")
+    else:
+        raise ValueError(f'The provided sequence must comprise the canonical amino acid string characters or '
+                         f'integer values corresponding to numerical amino acid conversions. '
+                         f'Got type={type(sequence[0]).__name__} instead')
 
     window_array = window_function(sequence_array, lower=lower_window, upper=upper_window)
 
