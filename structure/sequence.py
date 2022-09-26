@@ -282,47 +282,6 @@ class MultipleSequenceAlignment:
     def sequence_indices(self, sequence_indices: np.ndarray):
         self._sequence_index = sequence_indices
 
-    def _set_translation_tables(self):
-        try:
-            match self.alphabet_type:
-                case 'protein_letters_alph1':
-                    self._numeric_translation_type = numerical_translation_alph1_bytes
-                case 'protein_letters_alph3':
-                    self._numeric_translation_type = numerical_translation_alph3_bytes
-                case 'protein_letters_alph1_gapped':
-                    self._numeric_translation_type = numerical_translation_alph1_gapped_bytes
-                case 'protein_letters_alph3_gapped':
-                    self._numeric_translation_type = numerical_translation_alph3_gapped_bytes
-                case 'protein_letters_alph1_unknown':
-                    self._numeric_translation_type = numerical_translation_alph1_unknown_bytes
-                case 'protein_letters_alph3_unknown':
-                    self._numeric_translation_type = numerical_translation_alph3_unknown_bytes
-                case 'protein_letters_alph1_unknown_gapped':
-                    self._numeric_translation_type = numerical_translation_alph1_unknown_gapped_bytes
-                case 'protein_letters_alph3_unknown_gapped':
-                    self._numeric_translation_type = numerical_translation_alph3_unknown_gapped_bytes
-                case _:
-                    raise ValueError(f"alphabet_type {self.alphabet_type} isn't viable")
-        except SyntaxError:  # python version not 3.10
-            if self.alphabet_type == 'protein_letters_alph1':
-                self._numeric_translation_type = numerical_translation_alph1_bytes
-            elif self.alphabet_type == 'protein_letters_alph3':
-                self._numeric_translation_type = numerical_translation_alph3_bytes
-            elif self.alphabet_type == 'protein_letters_alph1_gapped':
-                self._numeric_translation_type = numerical_translation_alph1_gapped_bytes
-            elif self.alphabet_type == 'protein_letters_alph3_gapped':
-                self._numeric_translation_type = numerical_translation_alph3_gapped_bytes
-            elif self.alphabet_type == 'protein_letters_alph1_unknown':
-                self._numeric_translation_type = numerical_translation_alph1_unknown_bytes
-            elif self.alphabet_type == 'protein_letters_alph3_unknown':
-                self._numeric_translation_type = numerical_translation_alph3_unknown_bytes
-            elif self.alphabet_type == 'protein_letters_alph1_unknown_gapped':
-                self._numeric_translation_type = numerical_translation_alph1_unknown_gapped_bytes
-            elif self.alphabet_type == 'protein_letters_alph3_unknown_gapped':
-                self._numeric_translation_type = numerical_translation_alph3_unknown_gapped_bytes
-            else:
-                raise ValueError(f"alphabet_type {self.alphabet_type} isn't viable")
-
     @property
     def numerical_alignment(self) -> np.ndarray:
         """Return the alignment as an integer array (number_of_sequences, length) of the amino acid characters
