@@ -2069,26 +2069,33 @@ def hydrophobic_collapse_index(sequence: Sequence[str] | np.ndarry, hydrophobici
 
     if isinstance(sequence[0], int):  # This is an integer sequence. An alphabet is required
         if alphabet_type is None:
-            alphabet_error = f'Must pass an alphabet type when calculating {hydrophobic_collapse_index.__name__} using integer values!'
-            raise ValueError(alphabet_error)
+            raise ValueError(f'Must pass an alphabet type when calculating {hydrophobic_collapse_index.__name__} using'
+                             f' integer sequence values')
         else:
             alphabet = create_translation_tables(alphabet_type)
 
         values = [hydrophobicity_values[aa] for aa in alphabet]
-        if isinstance(sequence, Sequence):
-            sequence_array = [values[aa_int] for aa_int in sequence]
-        elif isinstance(sequence, np.ndarry):
+        if isinstance(sequence, np.ndarry) and sequence.ndim == 2:
             # The array must have shape (number_of_residues, alphabet_length)
             sequence_array = sequence * values
+            # Ensure each position is a combination of the values for each amino acid
+            sequence_array = sequence_array.sum(axis=-1)
+        # elif isinstance(sequence, Sequence):
+        #     sequence_array = [values[aa_int] for aa_int in sequence]
         else:
-            raise ValueError(f"sequence argument with type {type(sequence).__name__} isn't supported")
+            sequence_array = [values[aa_int] for aa_int in sequence]
+            # raise ValueError(f"sequence argument with type {type(sequence).__name__} isn't supported")
     elif isinstance(sequence[0], str):  # This is a string array # if isinstance(sequence[0], str):
-        if isinstance(sequence, Sequence):
-            sequence_array = [hydrophobicity_values.get(aa, 0) for aa in sequence]
-        elif isinstance(sequence, np.ndarry):  # (np.ndarry, list)):
+        if isinstance(sequence, np.ndarry) and sequence.ndim == 2:  # (np.ndarry, list)):
+            # The array must have shape (number_of_residues, alphabet_length)
             sequence_array = sequence * np.vectorize(hydrophobicity_values.__getitem__)(sequence)
+            # Ensure each position is a combination of the values for each amino acid
+            sequence_array = sequence_array.sum(axis=-1)
+        # elif isinstance(sequence, Sequence):
+        #     sequence_array = [hydrophobicity_values.get(aa, 0) for aa in sequence]
         else:
-            raise ValueError(f"sequence argument with type {type(sequence).__name__} isn't supported")
+            sequence_array = [hydrophobicity_values.get(aa, 0) for aa in sequence]
+            # raise ValueError(f"sequence argument with type {type(sequence).__name__} isn't supported")
     else:
         raise ValueError(f'The provided sequence must comprise the canonical amino acid string characters or '
                          f'integer values corresponding to numerical amino acid conversions. '
