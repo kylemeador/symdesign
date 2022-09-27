@@ -1494,7 +1494,7 @@ def position_specific_jsd(msa: np.ndarray, background: np.ndarray, **kwargs) -> 
 # KL divergence is similar to cross entropy loss or the "log loss"
 # divergence of p from q
 # Dkl = SUMi->N(probability(pi) * log(probability(qi))
-
+# This is also the Shannon Entropy...
 
 def kl_divergence(frequencies: np.ndarray, bgd_frequencies: np.ndarray) -> float:
     """Calculate Kullback–Leibler Divergence value from observed and background frequencies
@@ -1505,7 +1505,7 @@ def kl_divergence(frequencies: np.ndarray, bgd_frequencies: np.ndarray) -> float
     Returns:
         Bounded between 0 and 1. 1 is more divergent from background frequencies
     """
-    probs1 = bgd_frequencies * np.log2(frequencies)
+    probs1 = bgd_frequencies * np.log(frequencies)
     return np.where(np.isnan(probs1), 0, probs1).sum()
 
 
