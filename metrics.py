@@ -1953,67 +1953,87 @@ def window_function(data: Sequence[int | float], windows: Iterable[int] = None, 
     array_length = len(data)
     if windows is None:
         if lower is not None and upper is not None:
-            upper = upper + 1
-            windows = list(range(lower, upper))  # +1 makes inclusive in range
+            windows = list(range(lower, upper + 1))  # +1 makes inclusive in range
         else:
             raise ValueError(f'{window_function.__name__}:'
-                             f' Must provide either window or lower and upper')
+                             f' Must provide either window, or lower and upper')
 
     # Make an array with axis=0 equal to number of windows used, axis=1 equal to length of values
-    range_size = len(windows)
-    window_array = np.zeros((range_size, array_length))
-    for array_idx, window_size in enumerate(map(float, windows)):  # Make the divisor a float
-        half_window = math.floor(window_size/2)  # how far on each side should the window extend
+    # range_size = len(windows)
+    # data_template = [0 for _ in range(array_length)]
+    window_array = np.zeros((len(windows), array_length))
+    for array_idx, window_size in enumerate(windows):  # Make the divisor a float
+        half_window = math.floor(window_size / 2)  # how far on each side should the window extend
         # # Calculate score accordingly, with cases for N- and C-terminal windows
         # for data_idx in range(half_window):  # N-terminus windows
         #     # add 1 as high slice not inclusive
-        #     window_array[array_idx, data_idx] = sequence_array[:data_idx+half_window+1].sum() / window_size
+        #     window_array[array_idx, data_idx] = sequence_array[:data_idx + half_window + 1].sum() / window_size
         # for data_idx in range(half_window, array_length-half_window):  # continuous length windows
         #     # add 1 as high slice not inclusive
         #     window_array[array_idx, data_idx] = \
-        #         sequence_array[data_idx - half_window: data_idx+half_window+1].sum() / window_size
+        #         sequence_array[data_idx - half_window: data_idx + half_window+1].sum() / window_size
         # for data_idx in range(array_length-half_window, array_length):  # C-terminus windows
         #     # No add 1 as low slice inclusive
-        #     window_array[array_idx, data_idx] = sequence_array[data_idx-half_window:].sum() / window_size
+        #     window_array[array_idx, data_idx] = sequence_array[data_idx - half_window:].sum() / window_size
         #
         # # check if the range is even, then subtract 1/2 of the value of trailing and leading window values
         # if window_size % 2 == 0.:
         #     # subtract_half_leading_residue = sequence_array[half_window:] * 0.5 / window_size
-        #     window_array[array_idx, :array_length-half_window] -= \
+        #     window_array[array_idx, :array_length - half_window] -= \
         #         sequence_array[half_window:] * 0.5 / window_size
-        #     # subtract_half_trailing_residue = sequence_array[:array_length-half_window] * 0.5 / window_size
+        #     # subtract_half_trailing_residue = sequence_array[:array_length - half_window] * 0.5 / window_size
         #     window_array[array_idx, half_window:] -= \
-        #         sequence_array[:array_length-half_window] * 0.5 / window_size
+        #         sequence_array[:array_length - half_window] * 0.5 / window_size
 
         # Calculate score accordingly, with cases for N- and C-terminal windows
-        array_length_range = range(array_length)
-        # Make a "zeros" list
-        data_window = [0 for _ in array_length_range]
-        for data_idx in array_length_range:
-            idx_sum = 0
-            if data_idx < half_window:  # N-terminus
-                for window_position in range(data_idx+half_window+1):
-                    idx_sum += data[window_position]
-            elif data_idx+half_window >= array_length:  # C-terminus
-                for window_position in range(data_idx-half_window, array_length):
-                    idx_sum += data[window_position]
-            else:
-                for window_position in range(data_idx-half_window, data_idx+half_window+1):
-                    idx_sum += data[window_position]
+        # array_length_range = range(array_length)
+        # # Make a "zeros" list
+        # data_window = [0 for _ in range(array_length)]
+        # window_data = copy(data_template)
+        # This would be the method if the slices need to be taken with respect to the c-term
+        # for end_idx, start_idx in enumerate(range(array_length - window_size), window_size):
+        # There is no off by one error if we slice lower or higher than list so include both termini
+        # for end_idx, start_idx in enumerate(range(array_length), window_size):
+        #     idx_sum = sum(data[start_idx:end_idx])
+        #     # for window_position in range(start_idx, end_idx + 1):
+        #     # # for window_position in range(data_idx - half_window, data_idx + half_window + 1):
+        #     #     idx_sum += sum(data[start_idx:end_idx])
+        #     window_data[data_idx] = idx_sum
 
-            # Set each idx_sum to the idx in data_window
-            data_window[data_idx] = idx_sum
+        # Calculate each score given the window. Accounts for window cases with N- and C-termini
+        # There is no off by one error if we slice lower or higher than list so include both termini
+        window_data = [sum(data[start_idx:end_idx])
+                       for end_idx, start_idx in enumerate(range(-array_length - half_window, -half_window),
+                                                           half_window + 1)]
+
+        # # Old python list method
+        # for data_idx in array_length_range:
+        #     idx_sum = 0
+        #     if data_idx < half_window:  # N-terminus
+        #         for window_position in range(data_idx + half_window + 1):
+        #             idx_sum += data[window_position]
+        #     elif data_idx + half_window >= array_length:  # C-terminus
+        #         for window_position in range(data_idx - half_window, array_length):
+        #             idx_sum += data[window_position]
+        #     else:
+        #         for window_position in range(data_idx - half_window, data_idx + half_window + 1):
+        #             idx_sum += data[window_position]
+        #
+        #     # Set each idx_sum to the idx in data_window
+        #     data_window[data_idx] = idx_sum
         # Handle data_window incorporation into numpy array
-        window_array[array_idx] = data_window
-        window_array[array_idx] /= window_size
+        window_array[array_idx] = window_data
+        window_array[array_idx] /= float(window_size)
 
-        if window_size%2 == 0.:  # range is even
-            even_modifier = 0.5/window_size
-            even_modified_data = [value*even_modifier for value in data]
+        # Account for windows that have even ranges
+        if window_size % 2 == 0.:  # The range is even
+            # Calculate a modifier to subtract from each of the data values given the original value and the window size
+            even_modifier = .5 / window_size
+            even_modified_data = [value * even_modifier for value in data]
             # subtract_half_leading_residue = sequence_array[half_window:] * 0.5 / window_size
-            window_array[array_idx, :array_length-half_window] -= even_modified_data[half_window:]
+            window_array[array_idx, :-half_window] -= even_modified_data[half_window:]
             # subtract_half_trailing_residue = sequence_array[:array_length - half_window] * 0.5 / window_size
-            window_array[array_idx, half_window:] -= even_modified_data[:array_length-half_window]
+            window_array[array_idx, half_window:] -= even_modified_data[:-half_window]
 
     return window_array
 
