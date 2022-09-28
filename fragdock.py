@@ -20,15 +20,15 @@ from sklearn.cluster import DBSCAN
 from sklearn.neighbors import BallTree
 
 from metrics import calculate_collapse_metrics, calculate_residue_surface_area, errat_1_sigma, errat_2_sigma, \
-    multiple_sequence_alignment_dependent_metrics, calculate_sequence_observations_and_divergence, process_residue_info, \
+    multiple_sequence_alignment_dependent_metrics, \
     incorporate_mutation_info, profile_dependent_metrics, columns_to_new_column, residue_classificiation, delta_pairs, \
     division_pairs, interface_composition_similarity, clean_up_intermediate_columns, sum_per_residue_metrics, \
-    per_residue_energy_states
+    per_residue_energy_states, hydrophobic_collapse_index
 from resources.EulerLookup import euler_factory
 from structure.fragment.db import FragmentDatabase, fragment_factory, alignment_types
 from resources.job import job_resources_factory, JobResources
 from resources.ml import proteinmpnn_factory, batch_proteinmpnn_input, score_sequences, \
-    proteinmpnn_to_device, mpnn_alphabet_length
+    proteinmpnn_to_device, mpnn_alphabet_length, mpnn_alphabet
 from structure.base import Structure, Residue
 from structure.coords import transform_coordinate_sets
 from structure.fragment import GhostFragment, write_frag_match_info_file
@@ -2623,14 +2623,22 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
                                                   tied_pos=tied_pos, tied_beta=tied_beta,
                                                   bias_by_res=bias_by_res[:actual_batch_length])
                         log.info(f'Sample calculation took {time.time() - sample_start_time:8f}')
-                        # When batches are sliced for multiple inputs
-                        S_sample = sample_dict['S']  # This is the shape of the input X Tensor
+                        S_sample = sample_dict['S']
                         decoding_order_out = sample_dict['decoding_order']
                         chain_residue_mask = chain_mask * residue_mask
                         log_probs_start_time = time.time()
                         log_probs = mpnn_model(X, S_sample, mask, chain_residue_mask, residue_idx, chain_encoding,
                                                None,  # This argument is provided but with below args, is not used
                                                use_input_decoding_order=True, decoding_order=decoding_order_out)
+                        # Measure the unconditional (no sequence) amino acid probabilities at each residue to see how
+                        # they compare to the hydrophobic collapse index from the multiple sequence alignment
+                        unconditional_log_probs = mpnn_model.unconditional_probs(X, mask, residue_idx, chain_encoding)
+                        for pose_idx in range(actual_batch_length):
+                            standardized_collapse = hydrophobic_collapse_index(unconditional_log_probs[pose_idx],
+                                                                               alphabet_type=mpnn_alphabet)
+                            # Todo get the functionality from metrics for below
+                            calculate_collapse_metrics(reference, standardized_collapse)
+
                         log_prob_time = time.time()
                         unbound_log_probs = \
                             mpnn_model(X_unbound[:actual_batch_length], S_sample, mask, chain_residue_mask,
@@ -2907,12 +2915,11 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
                                   all_passing_surf_indices[idx],
                                   all_passing_z_scores[idx])
 
-
         per_residue_data[pose_id] = pose.get_per_residue_interface_metrics()  # _per_residue_data
         interface_metrics[pose_id] = pose.interface_metrics()  # _interface_metrics
         interface_local_density[pose_id] = pose.local_density_interface()  # _interface_local_density
 
-        # Remove saved pose attributes
+        # Remove saved pose attributes for next iteration calculations
         del pose._assembly_minimally_contacting
         pose.ss_index_array.clear(), pose.ss_type_array.clear()
         # Todo reinstate after alphafold integration?
