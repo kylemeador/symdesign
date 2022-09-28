@@ -2050,27 +2050,35 @@ hydrophobicity_scale = \
                   'X': 0, 'Z': 0}}
 
 
-def hydrophobic_collapse_index(sequence: Sequence[str] | np.ndarry, hydrophobicity: str = 'standard',
-                               alphabet_type: alphabet_types = None, lower_window: int = 3, upper_window: int = 9) \
-        -> np.ndarray:
-    """Calculate hydrophobic collapse index for a particular sequence of an iterable object and return an HCI array
+def hydrophobic_collapse_index(sequence: Sequence[str | int] | np.ndarry, hydrophobicity: str = 'standard',
+                               custom: dict[protein_letters_literal, int] = None, alphabet_type: alphabet_types = None,
+                               lower_window: int = 3, upper_window: int = 9) -> np.ndarray:
+    """Calculate hydrophobic collapse index for sequence(s) of interest and return an HCI array
 
     Args:
-        sequence: The sequence to measure
-        hydrophobicity: The degree of hydrophobicity to consider. Either 'standard' (FILV) or 'expanded' (FMILYVW)
-        alphabet_type: The amino acid alphabet used if the sequence is an integer array
+        sequence: The sequence to measure. Can be a character based sequence (or array of sequences with shape
+            (sequences, residues)), an integer based sequence, or a sequence profile like array (residues, alphabet)
+            where each character in the alphabet contains a typical distribution of amino acid observations
+        hydrophobicity: The hydrophobicity scale to consider. Either 'standard' (FILV), 'expanded' (FMILYVW),
+            or provide one with 'custom' keyword argument
+        custom: A user defined dictionary of hydrophobicity key, value (float/int) pairs
+        alphabet_type: The amino acid alphabet used if the sequence consists of integer characters
         lower_window: The smallest window used to measure
         upper_window: The largest window used to measure
     Returns:
-        1D array with the mean collapse score for every position on the input sequence
+        1D array with the hydrophobic collapse index at every position on the input sequence(s)
     """
-    hydrophobicity_values = hydrophobicity_scale.get(hydrophobicity)
-    # hydrophobicity == 'background':  # Todo
-    if not hydrophobicity_values:
-        raise ValueError(f'The hydrophobicity "{hydrophobicity}" table is not available. Add it if you think it '
-                         f'should be')
+    if custom is None:
+        hydrophobicity_values = hydrophobicity_scale.get(hydrophobicity)
+        # hydrophobicity == 'background':  # Todo
+        if not hydrophobicity_values:
+            raise ValueError(f'The hydrophobicity "{hydrophobicity}" table is not available. Add it if you think it '
+                             f'should be')
+    else:
+        hydrophobicity_values = custom
 
     if isinstance(sequence[0], int):  # This is an integer sequence. An alphabet is required
+        print('integer')
         if alphabet_type is None:
             raise ValueError(f'Must pass an alphabet type when calculating {hydrophobic_collapse_index.__name__} using'
                              f' integer sequence values')
@@ -2079,6 +2087,7 @@ def hydrophobic_collapse_index(sequence: Sequence[str] | np.ndarry, hydrophobici
 
         values = [hydrophobicity_values[aa] for aa in alphabet]
         if isinstance(sequence, np.ndarry) and sequence.ndim == 2:
+            print('array.shape', sequence.shape, 'values.shape', len(values))
             # The array must have shape (number_of_residues, alphabet_length)
             sequence_array = sequence * values
             # Ensure each position is a combination of the values for each amino acid
@@ -2092,8 +2101,8 @@ def hydrophobic_collapse_index(sequence: Sequence[str] | np.ndarry, hydrophobici
         if isinstance(sequence, np.ndarry) and sequence.ndim == 2:  # (np.ndarry, list)):
             # The array must have shape (number_of_residues, alphabet_length)
             sequence_array = sequence * np.vectorize(hydrophobicity_values.__getitem__)(sequence)
-            # Ensure each position is a combination of the values for each amino acid
-            sequence_array = sequence_array.sum(axis=-1)
+            # Ensure each position is a combination of the values for each amino acid in the array
+            sequence_array = sequence_array.mean(axis=-2)
         # elif isinstance(sequence, Sequence):
         #     sequence_array = [hydrophobicity_values.get(aa, 0) for aa in sequence]
         else:
