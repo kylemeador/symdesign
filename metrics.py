@@ -12,6 +12,7 @@ import pandas as pd
 
 import structure
 from structure.sequence import create_translation_tables, alphabet_types
+from structure.utils import protein_letters_literal
 from utils.path import groups, reference_name, structure_background, design_profile, hbnet_design_profile
 from resources.query.utils import input_string, validate_type, verify_choice, header_string
 from utils import handle_errors, start_log, pretty_format_table, index_intersection, digit_translate_table, \
@@ -1077,14 +1078,14 @@ def calculate_collapse_metrics(reference_model: 'structure.model.Model',
                                sequences_of_interest: Iterable[Iterable[Sequence[str]]]) -> list[dict[str, float]]:
     # Measure the wild type (reference) entity versus modified entity(ies) to find the hci delta
     # Calculate Reference sequence statistics
-    source_contact_order, inverse_residue_contact_order_z, reference_collapse_bool = [], [], []
+    inverse_residue_contact_order_z, reference_collapse_bool = [], []
     entity_collapse_mean, entity_collapse_std, reference_collapse_z_score = [], [], []
     msa_metrics = True
     for idx, chain in enumerate(reference_model.chains):
         # print(chain.name, chain.sequence)  # Todo remove Debug
         contact_order = chain.contact_order
         # contact_order = entity_oligomer.contact_order[:entity.number_of_residues]
-        source_contact_order.append(contact_order)  # save the contact order for plotting
+        # source_contact_order.append(contact_order)  # save the contact order for plotting
         residue_contact_order_z = z_score(contact_order, contact_order.mean(), contact_order.std())
         inverse_residue_contact_order_z.append(residue_contact_order_z * -1)
 
@@ -1206,6 +1207,8 @@ def calculate_collapse_metrics(reference_model: 'structure.model.Model',
             new_collapse_island_significance.append(sum(new_collapse_peak_start * abs(collapse_significance)))
 
             if msa_metrics:
+                # Todo make the z_array only a function by calculating the reference mean and std and using a new
+                #  collapse profile to calculate the z_score
                 z_array = z_score(standardized_collapse,  # observed_collapse,
                                   entity_collapse_mean[entity_idx], entity_collapse_std[entity_idx])
                 # Todo test for magnitude of the wt versus profile, remove subtraction?

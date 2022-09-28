@@ -6561,7 +6561,7 @@ class Pose(SequenceProfile, SymmetricModel):
         self.log.debug(f'Found interface secondary structure: {self.split_interface_ss_elements}')
 
     def process_fragment_profile(self, **kwargs):
-        """Overwrites the SequenceProfile method for Pose specific profiles
+        """Take the fragment_profile from each member Entity. Overwrites SequenceProfile method for Pose profiles
 
         Keyword Args:
             alpha: (float) = 0.5 - The maximum contribution of the fragment profile to use, bounded between (0, 1].
