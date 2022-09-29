@@ -68,15 +68,19 @@ class MultipleSequenceAlignment:
     counts: list[list[int]] | np.ndarray
     frequencies: np.ndarray
     number_of_characters: int
+    """The number of sequence characters in the character alphabet"""
     number_of_sequences: int
     """The number of sequences in the alignment"""
     length: int
-    """The number of sequence indices in the alignment"""
+    """The number of individual characters found in each sequence in the alignment"""
     observations: np.ndarray
     """The number of observations for each sequence index in the alignment"""
     query: str
+    """The sequence used to perform the MultipleSequenceAlignment search"""
     query_length: int
+    """The length of the query sequence. No gaps"""
     query_with_gaps: str
+    """The sequence used to perform the MultipleSequenceAlignment search. May contain gaps from alignment"""
 
     def __init__(self, alignment: MultipleSeqAlignment = None, aligned_sequence: str = None,
                  alphabet: str = protein_letters_alph1_gapped,
@@ -100,21 +104,21 @@ class MultipleSequenceAlignment:
         Sets:
             alignment - (Bio.Align.MultipleSeqAlignment)
             number_of_sequences - 214
-            query - 'MGSTHLVLK...'
+            query - 'MGSTHLVLK...' from aligned_sequence argument OR alignment argument, index 0
             query_with_gaps - 'MGS--THLVLK...'
             counts - {1: {'A': 13, 'C': 1, 'D': 23, ...}, 2: {}, ...},
             frequencies - {1: {'A': 0.05, 'C': 0.001, 'D': 0.1, ...}, 2: {}, ...},
             observations - {1: 210, 2:211, ...}}
         """
         if alignment is not None:
-            if not aligned_sequence:
-                aligned_sequence = str(alignment[0].seq)
-            # Add Info to 'meta' record as needed and populate an amino acid count dict (one-indexed)
             self.alignment = alignment
-            self.alphabet = alphabet
-            self.number_of_characters = len(alphabet)
             self.number_of_sequences = len(alignment)
             self.length = alignment.get_alignment_length()
+            self.alphabet = alphabet
+            self.number_of_characters = len(alphabet)
+            if aligned_sequence is None:
+                aligned_sequence = str(alignment[0].seq)
+            # Add Info to 'meta' record as needed and populate an amino acid count dict (one-indexed)
             self.query = aligned_sequence.replace('-', '')
             self.query_length = len(self.query)
             self.query_with_gaps = aligned_sequence
@@ -1100,7 +1104,7 @@ class SequenceProfile:
                 Will use the instance .msa if not provided
         Returns:
             Array (number_of_sequences, length) containing the hydrophobic collapse values for each residue/sequence
-                in the profile
+                in the profile. The "query" sequence from the MultipleSequenceAlignment.query is located on axis=0, index 0
         """
         try:  # Todo ensure that the file hasn't changed...
             return self._collapse_profile
