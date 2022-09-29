@@ -2085,7 +2085,7 @@ def hydrophobic_collapse_index(sequence: Sequence[str | int] | np.ndarry, hydrop
             alphabet = create_translation_tables(alphabet_type)
 
         values = [hydrophobicity_values[aa] for aa in alphabet]
-        if isinstance(sequence, np.ndarry) and sequence.ndim == 2:
+        if isinstance(sequence, np.ndarray) and sequence.ndim == 2:
             print('array.shape', sequence.shape, 'values.shape', len(values))
             # The array must have shape (number_of_residues, alphabet_length)
             sequence_array = sequence * values
@@ -2097,7 +2097,7 @@ def hydrophobic_collapse_index(sequence: Sequence[str | int] | np.ndarry, hydrop
             sequence_array = [values[aa_int] for aa_int in sequence]
             # raise ValueError(f"sequence argument with type {type(sequence).__name__} isn't supported")
     elif isinstance(sequence[0], str):  # This is a string array # if isinstance(sequence[0], str):
-        if isinstance(sequence, np.ndarry) and sequence.ndim == 2:  # (np.ndarry, list)):
+        if isinstance(sequence, np.ndarray) and sequence.ndim == 2:  # (np.ndarray, list)):
             # The array must have shape (number_of_residues, alphabet_length)
             sequence_array = sequence * np.vectorize(hydrophobicity_values.__getitem__)(sequence)
             # Ensure each position is a combination of the values for each amino acid in the array
