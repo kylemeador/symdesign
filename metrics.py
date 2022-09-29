@@ -1104,8 +1104,8 @@ def calculate_collapse_metrics(reference_model: 'structure.model.Model',
             continue
         collapse = chain.collapse_profile()
         # TODO must update the collapse profile (Prob SEQRES) to be the same size as the sequence (ATOM)
-        entity_collapse_mean.append(collapse.mean())
-        entity_collapse_std.append(collapse.std())
+        entity_collapse_mean.append(collapse.mean(axis=-2))
+        entity_collapse_std.append(collapse.std(axis=-2))
         reference_collapse_z_score.append(z_score(reference_collapse, entity_collapse_mean[idx],
                                                   entity_collapse_std[idx]))
 

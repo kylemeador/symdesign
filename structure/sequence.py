@@ -563,7 +563,7 @@ class SequenceProfile:
     Any Structure object with a .reference_sequence attribute could be used however
     """
     _alpha: float
-    _collapse_profile: pd.DataFrame
+    _collapse_profile: np.ndarray  # pd.DataFrame
     _fragment_db: info.FragmentInfo | None
     fragment_db: info.FragmentInfo | None
     _hydrophobic_collapse: np.ndarray
@@ -1045,7 +1045,7 @@ class SequenceProfile:
         Args:
             msa: The multiple sequence alignment object or file to use for collapse
         """
-        if msa:
+        if msa is not None:
             if isinstance(msa, MultipleSequenceAlignment):
                 self.msa = msa
                 return
@@ -1066,7 +1066,7 @@ class SequenceProfile:
             except FileNotFoundError:
                 raise FileNotFoundError(f'No multiple sequence alignment exists at {self.msa_file}')
 
-    def collapse_profile(self, msa: str | MultipleSequenceAlignment = None) -> pd.DataFrame:
+    def collapse_profile(self, msa: AnyStr | MultipleSequenceAlignment = None) -> np.ndarray:
         """Make a profile out of the hydrophobic collapse index (HCI) for each sequence in a multiple sequence alignment
 
         Takes ~5-10 seconds depending on the size of the msa
@@ -1096,54 +1096,63 @@ class SequenceProfile:
         profile in the native context, however adjusted to the specific context of the protein/design sequence at hand
 
         Args:
-            msa: The multiple sequence alignment to use for collapse
+            msa: The multiple sequence alignment (file or object) to use for collapse.
+                Will use the instance .msa if not provided
         Returns:
-            DataFrame containing each sequences hydrophobic collapse values for the profile
+            Array (number_of_sequences, length) containing the hydrophobic collapse values for each residue/sequence
+                in the profile
         """
         try:  # Todo ensure that the file hasn't changed...
             return self._collapse_profile
         except AttributeError:
             if not self.msa:
-                try:
-                    self.add_msa(msa)
-                except FileNotFoundError:
-                    raise DesignError(f'Ensure that you have set up the .msa for this {type(self).__name__}. To do this'
-                                      f', either link to the Master Database, call {msa_generation_function}, or pass '
-                                      f'the location of a multiple sequence alignment. '
-                                      f'Supported formats:\n{pretty_format_table(msa_supported_types.items())}')
+                # try:
+                self.add_msa(msa)
+                # except FileNotFoundError:
+                #     raise DesignError(f'Ensure that you have set up the .msa for this {type(self).__name__}. To do this'
+                #                       f', either link to the Master Database, call {msa_generation_function}, or pass '
+                #                       f'the location of a multiple sequence alignment. '
+                #                       f'Supported formats:\n{pretty_format_table(msa_supported_types.items())}')
 
             # Make the output array. Use one additional length to add np.nan value at the 0 index for gaps
-            evolutionary_collapse_np = np.zeros((self.msa.number_of_sequences, self.msa.length+1))
+            evolutionary_collapse_np = np.zeros((self.msa.number_of_sequences, self.msa.length + 1))
             evolutionary_collapse_np[:, 0] = np.nan  # np.nan for all missing indices
             for idx, record in enumerate(self.msa.alignment):
                 non_gapped_sequence = str(record.seq).replace('-', '')
-                evolutionary_collapse_np[idx, 1:len(non_gapped_sequence)+1] = \
+                evolutionary_collapse_np[idx, 1:len(non_gapped_sequence) + 1] = \
                     hydrophobic_collapse_index(non_gapped_sequence)
+            # Todo this should be possible now hydrophobic_collapse_index(self.msa.array)
 
             iterator_np = np.cumsum(self.msa.sequence_indices, axis=1) * self.msa.sequence_indices
             aligned_hci_np = np.take_along_axis(evolutionary_collapse_np, iterator_np, axis=1)
             # Select only the query sequence indices
             # sequence_hci_np = aligned_hci_np[:, self.msa.query_indices]
-            self._collapse_profile = pd.DataFrame(aligned_hci_np[:, self.msa.query_indices],
-                                                  columns=list(range(1, self.msa.query_length+1)))  # One-indexed
+            self._collapse_profile = aligned_hci_np[:, self.msa.query_indices]
+            # self._collapse_profile = pd.DataFrame(aligned_hci_np[:, self.msa.query_indices],
+            #                                       columns=list(range(1, self.msa.query_length + 1)))  # One-indexed
             # summary = pd.concat([sequence_hci_df, pd.concat([sequence_hci_df.mean(), sequence_hci_df.std()], axis=1,
             #                                                 keys=['mean', 'std']).T])
 
             return self._collapse_profile
 
-    def direct_coupling_analysis(self, msa: MultipleSequenceAlignment = None) -> np.ndarray:  # , data_dir=None):
+    def direct_coupling_analysis(self, msa: AnyStr | MultipleSequenceAlignment = None) -> np.ndarray:
         """Using boltzmann machine direct coupling analysis (bmDCA), score each sequence in an alignment based on the
          statistical energy compared to the learned DCA model
 
         Args:
-            msa: A MSA object to score. By default, will use self.msa attribute
+            msa: The multiple sequence alignment (file or object) to use for collapse.
+                Will use the instance .msa if not provided
         Returns:
-            The energy for each residue in each sequence of the alignment based on direct coupling
-                analysis parameters. Sequences exist on axis 0, residues along axis 1
-            # (numpy.ndarray): The energy for each sequence in the alignment based on direct coupling analysis parameters
+            Array with shape (number_of_sequences, length) where the values are the energy for each residue/sequence
+                based on direct coupling analysis parameters
         """
-        if not msa:
+        if msa is None:
             msa = self.msa
+        else:
+            if not self.msa:
+                # try:
+                self.add_msa(msa)
+
         if not self.h_fields or not self.j_couplings:
             raise AttributeError('The required data .h_fields and .j_couplings are not availble. Add them to the Entity'
                                  f' before {self.direct_coupling_analysis.__name__}')
