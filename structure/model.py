@@ -5730,9 +5730,12 @@ class Pose(SequenceProfile, SymmetricModel):
         # Todo change from the self.pose if reference is provided!
         for idx, chain in enumerate(self.chains):
             contact_order = chain.contact_order
+            # This calculation shouldn't depend on oligomers... Only assumes unfolded -> folded
             # contact_order = entity_oligomer.contact_order[:entity.number_of_residues]
-            # source_contact_order.append(contact_order)  # save the contact order for plotting
             entity_residue_contact_order_z = z_score(contact_order, contact_order.mean(), contact_order.std())
+            # Todo
+            #  Using the median may be a better measure of the contact order due to highly skewed data...
+            #  entity_residue_contact_order_z = z_score(contact_order, np.median(contact_order), contact_order.std())
             contact_order_z.append(entity_residue_contact_order_z)
             # inverse_residue_contact_order_z.append(entity_residue_contact_order_z * -1)
             hydrophobic_collapse.append(chain.hydrophobic_collapse)
