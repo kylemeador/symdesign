@@ -3,6 +3,7 @@ from __future__ import annotations
 import math
 import operator
 import warnings
+from copy import copy
 from itertools import repeat
 from json import loads
 from typing import Literal, AnyStr, Any, Sequence, Iterable
@@ -1073,41 +1074,19 @@ def process_residue_info(design_residue_scores: dict, hbonds: dict = None) -> di
     return design_residue_scores
 
 
-def calculate_collapse_metrics(reference_model: 'structure.model.Model',
+def calculate_collapse_metrics(sequences_of_interest: Iterable[Iterable[Sequence[str]]],
                                # poses_of_interest: list['structure.model.Pose'],
-                               sequences_of_interest: Iterable[Iterable[Sequence[str]]]) -> list[dict[str, float]]:
-    # Measure the wild type (reference) entity versus modified entity(ies) to find the hci delta
-    # Calculate Reference sequence statistics
-    inverse_residue_contact_order_z, reference_collapse_bool = [], []
-    entity_collapse_mean, entity_collapse_std, reference_collapse_z_score = [], [], []
-    msa_metrics = True
-    for idx, chain in enumerate(reference_model.chains):
-        # print(chain.name, chain.sequence)  # Todo remove Debug
-        contact_order = chain.contact_order
-        # contact_order = entity_oligomer.contact_order[:entity.number_of_residues]
-        # source_contact_order.append(contact_order)  # save the contact order for plotting
-        residue_contact_order_z = z_score(contact_order, contact_order.mean(), contact_order.std())
-        inverse_residue_contact_order_z.append(residue_contact_order_z * -1)
+                               residue_contact_order_z: np.ndarray, reference_collapse: np.ndarray,
+                               collapse_profile: np.ndarray = None) -> list[dict[str, float]]:
+    inverse_residue_contact_order_z = residue_contact_order_z * -1
+    # reference_collapse = hydrophobic_collapse_index(self.api_db.sequences.retrieve_data(name=entity.name))
+    reference_collapse_bool = np.where(reference_collapse > collapse_significance_threshold, 1, 0)
+    # [0, 0, 0, 0, 1, 1, 0, 0, 1, 1, ...]
 
-        reference_collapse = chain.hydrophobic_collapse
-        # reference_collapse = hydrophobic_collapse_index(self.api_db.sequences.retrieve_data(name=entity.name))
-        # Todo change from the self.pose if reference is provided!
-        reference_collapse_bool.append(np.where(reference_collapse > collapse_significance_threshold, 1, 0))
-        # [0, 0, 0, 0, 1, 1, 0, 0, 1, 1, ...]
-        # entity = self.structure_db.refined.retrieve_data(name=entity.name))  # Todo always use wild-type?
-        # set the entity.msa which makes a copy and adjusts for any disordered residues
-
-        if not chain.msa:
-            # set anything found to null values
-            entity_collapse_mean, entity_collapse_std, reference_collapse_z_score = [], [], []
-            msa_metrics = False
-            continue
-        collapse = chain.collapse_profile()
-        # TODO must update the collapse profile (Prob SEQRES) to be the same size as the sequence (ATOM)
-        entity_collapse_mean.append(collapse.mean(axis=-2))
-        entity_collapse_std.append(collapse.std(axis=-2))
-        reference_collapse_z_score.append(z_score(reference_collapse, entity_collapse_mean[idx],
-                                                  entity_collapse_std[idx]))
+    if collapse_profile is not None:
+        entity_collapse_mean = collapse_profile.mean(axis=-2)
+        entity_collapse_std = collapse_profile.std(axis=-2)
+        reference_collapse_z_score = z_score(collapse_profile, entity_collapse_mean, entity_collapse_std)
 
     # A measure of the sequential, the local, the global, and the significance all constitute interesting
     # parameters which contribute to the outcome. I can use the measure of each to do a post-hoc solubility
@@ -1135,111 +1114,101 @@ def calculate_collapse_metrics(reference_model: 'structure.model.Model',
 
     # linearly weight residue by sequence position (early > late) with the halfway position (midpoint)
     # weighted at 1
-    midpoint = 0.5
-    scale = 1/midpoint
+    midpoint = .5
+    scale = 1 / midpoint
     folding_and_collapse = []
     # for pose_idx, pose in enumerate(poses_of_interest):
     for pose_idx, sequences in enumerate(sequences_of_interest):
-        new_collapse_islands, new_collapse_island_significance = [], []
-        hydrophobicity_deviation_magnitude, contact_order_collapse_z_sum, sequential_collapse_peaks_z_sum, \
-            sequential_collapse_z_sum, global_collapse_z_sum, = [], [], [], [], []
+        # Gather all the collapse info for the particular sequence group
+        standardized_collapse = []
         # for entity_idx, entity in enumerate(pose.entities):
         for entity_idx, sequence in enumerate(sequences):
-            # print(reference_model.chains[entity_idx].name, sequence)  # Todo remove Debug
             # sequence = design_sequences[design]
             sequence_length = len(sequence)
             # Todo -> observed_collapse, standardized_collapse = hydrophobic_collapse_index(sequence)
-            standardized_collapse = hydrophobic_collapse_index(sequence)
-            # sequence_length = entity.number_of_residues
-            # standardized_collapse = entity.hydrophobic_collapse
-            # collapse_concatenated.append(standardized_collapse)
-            # normalized_collapse = standardized_collapse - wt_collapse[entity]
-            # find collapse where: delta above standard collapse, collapsable boolean, and successive number
-            # collapse_propensity = np.where(standardized_collapse > 0.43, standardized_collapse - 0.43, 0)
-            # scale the collapse propensity by the standard collapse threshold and make z score
-            collapse_propensity_z = z_score(standardized_collapse, collapse_significance_threshold, 0.05)
-            collapse_propensity_z_positive = np.where(collapse_propensity_z > 0, collapse_propensity_z, 0)
-            # ^ [0, 0, 0, 0, 0.04, 0.06, 0, 0, 0.1, 0.07, ...]
-            # collapse_bool = np.where(standardized_collapse > 0.43, 1, 0)  # [0, 0, 0, 0, 1, 1, 0, 0, 1, 1, ...]
-            collapse_bool = np.where(collapse_propensity_z_positive, 1, 0)  # [0, 0, 0, 0, 1, 1, 0, 0, 1, 1, ...]
-            # collapse_bool = np.nonzero(collapse_propensity_z_positive)[0]  # [0, 0, 0, 0, 1, 1, 0, 0, 1, 1, ...]
-            reference_collapse = reference_collapse_bool[entity_idx]
-            increased_collapse = np.where(collapse_bool - reference_collapse == 1, 1, 0)
-            # check if the increased collapse has made new collapse
-            new_collapse = np.zeros_like(collapse_bool)  # [0, 0, 1, 1, 0, 0, 0, 0, 0, 0, ...]
-            for idx, _bool in enumerate(increased_collapse.tolist()[1:-1], 1):
-                if _bool and (not reference_collapse[idx - 1] or not reference_collapse[idx + 1]):
-                    new_collapse[idx] = _bool
-            # new_collapse are sites where a new collapse is formed compared to wild-type
+            standardized_collapse.append(hydrophobic_collapse_index(sequence))
 
-            # use contact order and hci to understand designability of an area and its folding modification
-            # Indicate the degree to which low contact order segments (+) are reliant on collapse for folding, while
-            # high contact order (-) use collapse
-            collapse_significance = inverse_residue_contact_order_z[entity_idx] * collapse_propensity_z_positive
+        standardized_collapse = np.concatenate(standardized_collapse)
+        # sequence_length = entity.number_of_residues
+        # standardized_collapse = entity.hydrophobic_collapse
+        # collapse_concatenated.append(standardized_collapse)
+        # normalized_collapse = standardized_collapse - wt_collapse[entity]
+        # find collapse where: delta above standard collapse, collapsable boolean, and successive number
+        # collapse_propensity = np.where(standardized_collapse > 0.43, standardized_collapse - 0.43, 0)
+        # scale the collapse propensity by the standard collapse threshold and make z score
+        collapse_propensity_z = z_score(standardized_collapse, collapse_significance_threshold, 0.05)
+        collapse_propensity_z_positive = np.maximum(collapse_propensity_z, 0)
+        # ^ [0, 0, 0, 0, 0.04, 0.06, 0, 0, 0.1, 0.07, ...]
 
-            collapse_peak_start = np.zeros_like(collapse_bool)  # [0, 0, 0, 0, 1, 0, 0, 0, 1, 0, ...]
-            sequential_collapse_points = np.zeros_like(collapse_bool)  # [0, 0, 0, 0, 1, 1, 0, 0, 2, 2, ..]
-            new_collapse_peak_start = np.zeros_like(collapse_bool)  # [0, 0, 0, 1, 0, 0, 0, 0, 0, 0, ...]
-            collapse_iterator = 0
-            for idx in range(1, collapse_propensity_z.shape[0]):
-                # check for the new_collapse islands and collapse peak start position by neighbor res similarity
-                if new_collapse[idx] > new_collapse[idx - 1]:  # only true when 0 -> 1 transition
-                    new_collapse_peak_start[idx] = 1
-                if collapse_bool[idx] > collapse_bool[idx - 1]:  # only true when 0 -> 1 transition
-                    collapse_peak_start[idx] = 1
-                    collapse_iterator += 1
-                sequential_collapse_points[idx] = collapse_iterator
-            sequential_collapse_points *= collapse_bool  # reduce sequential collapse iter to collapse points
+        collapse_bool = collapse_propensity_z_positive != 0  # [0, 0, 0, 0, 1, 1, 0, 0, 1, 1, ...]
+        # collapse_bool = np.where(collapse_propensity_z_positive, 1, 0)
+        increased_collapse = np.where(collapse_bool - reference_collapse_bool == 1, 1, 0)
+        # Check if increased collapse positions resulted in a location of new collapse.
+        # i.e. sites where a new collapse is formed compared to wild-type
+        # Ex, [0, 0, 1, 1, 0, 0, 0, 0, 0, 0, ...]
+        # new_collapse = np.zeros_like(collapse_bool)
+        # list is faster to index than np.ndarray so we use here
+        new_collapse = [True if _bool and (not reference_collapse[idx - 1] or not reference_collapse[idx + 1])
+                        else False
+                        for idx, _bool in enumerate(increased_collapse[1:-1].tolist(), 1)]
 
-            # for idx, _ in enumerate(collapse_bool):  # peak_value
-            #     total_collapse_points * collapse_bool
-            # sequential_collapse_weights = \
-            #     scale * (1 - (total_collapse_points * sequential_collapse_points / total_collapse_points))
-            total_collapse_points = collapse_peak_start.sum()
-            step = 1 / total_collapse_points
+        new_collapse_peak_start = [0 for _ in range(collapse_bool.shape[0])]  # [0, 0, 0, 1, 0, 0, 0, 0, 0, 0, ...]
+        collapse_peak_start = copy(new_collapse_peak_start)  # [0, 0, 0, 0, 1, 0, 0, 0, 1, 0, ...]
+        sequential_collapse_points = np.zeros_like(collapse_bool)  # [0, 0, 0, 0, 1, 1, 0, 0, 2, 2, ..]
+        collapse_iterator = 0
+        for prior_idx, idx in enumerate(range(1, collapse_propensity_z.shape[0])):
+            # check for the new_collapse islands and collapse peak start position by neighbor res similarity
+            if new_collapse[idx] > new_collapse[prior_idx]:  # only true when 0 -> 1 transition
+                new_collapse_peak_start[idx] = 1
+            if collapse_bool[idx] > collapse_bool[prior_idx]:  # only true when 0 -> 1 transition
+                collapse_peak_start[idx] = 1
+                collapse_iterator += 1
+            sequential_collapse_points[idx] = collapse_iterator
+
+        if collapse_profile is not None:
+            # Todo make the z_array only a function by calculating the reference mean and std and using a new
+            #  collapse profile to calculate the z_score
+            z_array = z_score(standardized_collapse, entity_collapse_mean, entity_collapse_std)
+            # Todo test for magnitude of the wt versus profile, remove subtraction?
+            normalized_collapse_z = z_array - reference_collapse_z_score
+            global_collapse_z = np.maximum(normalized_collapse_z, 0)
+            # Todo deal with negatives
+            #  Offset inverse_residue_contact_order_z to center at 1 instead of 0
+            contact_order_collapse_z_sum = np.sum((inverse_residue_contact_order_z + 1) * global_collapse_z)
+            global_collapse_z_sum = global_collapse_z.sum()
+            hydrophobicity_deviation_magnitude = np.abs(normalized_collapse_z).sum()
+
+            # Reduce sequential_collapse_points iter to only points where collapse_bool is True (1)
+            sequential_collapse_points *= collapse_bool
+            step = 1 / sum(collapse_peak_start)  # This is 1 over the "total_collapse_points"
             add_step_array = collapse_bool * step
             # v [0, 0, 0, 0, 2, 2, 0, 0, 1.8, 1.8, ...]
-            sequential_collapse_weights = scale * ((1 - (step * sequential_collapse_points)) + add_step_array)
+            sequential_collapse_weights = scale * ((1 - step * sequential_collapse_points) + add_step_array)
+            sequential_collapse_peaks_z_sum = np.sum(sequential_collapse_weights * global_collapse_z)
             # v [2, 1.98, 1.96, 1.94, 1.92, ...]
-            sequential_weights = scale * (1 - (np.arange(sequence_length) / sequence_length))
+            sequential_weights = scale * (1 - np.arange(sequence_length) / sequence_length)
+            sequential_collapse_z_sum = np.sum(sequential_weights * global_collapse_z)
+        else:
+            hydrophobicity_deviation_magnitude, contact_order_collapse_z_sum, sequential_collapse_peaks_z_sum, \
+                sequential_collapse_z_sum, global_collapse_z_sum = 0., 0., 0., 0., 0.
 
-            new_collapse_islands.append(new_collapse_peak_start.sum())
-            new_collapse_island_significance.append(sum(new_collapse_peak_start * abs(collapse_significance)))
+        # With 'new_collapse_island_significance'
+        #  Use contact order and hci to understand designability of an area and its folding modification
+        #  Indicate the degree to which low contact order segments (+) are reliant on collapse for folding, while
+        #  high contact order (-) use collapse
+        #  Takes into account new collapse positions contact order and measures deviation
+        #  of collapse and contact order to indicate the potential effect to folding
+        collapse_significance = inverse_residue_contact_order_z * collapse_propensity_z_positive
 
-            if msa_metrics:
-                # Todo make the z_array only a function by calculating the reference mean and std and using a new
-                #  collapse profile to calculate the z_score
-                z_array = z_score(standardized_collapse,  # observed_collapse,
-                                  entity_collapse_mean[entity_idx], entity_collapse_std[entity_idx])
-                # Todo test for magnitude of the wt versus profile, remove subtraction?
-                normalized_collapse_z = z_array - reference_collapse_z_score[entity_idx]
-                hydrophobicity_deviation_magnitude.append(sum(abs(normalized_collapse_z)))
-                global_collapse_z = np.where(normalized_collapse_z > 0, normalized_collapse_z, 0)
-                # offset inverse_residue_contact_order_z to center at 1 instead of 0. Todo deal with negatives
-                contact_order_collapse_z_sum.append(
-                    sum((inverse_residue_contact_order_z[entity_idx]+1) * global_collapse_z))
-                sequential_collapse_peaks_z_sum.append(sum(sequential_collapse_weights * global_collapse_z))
-                sequential_collapse_z_sum.append(sum(sequential_weights * global_collapse_z))
-                global_collapse_z_sum.append(global_collapse_z.sum())
-
-        # add the total and concatenated metrics to analysis structures
-        # collapse_concatenated = Series(np.concatenate(collapse_concatenated), name=design)
-        # per_residue_data[design]['hydrophobic_collapse'] = Series(np.concatenate(collapse_concatenated),
-        #                                                           name=design)
-        # if pose_idx == 0:  # Name the design according to pose_source
-        #     design = pose_source
-        # else:
-        #     design = reference_model.name
-        # folding_and_collapse[design] = {}
-        folding_and_collapse.append({'new_collapse_islands': sum(new_collapse_islands),
-                                     # Takes into account new collapse positions contact order and measures deviation
-                                     # of collapse and contact order to indicate the potential effect to folding
-                                     'new_collapse_island_significance': sum(new_collapse_island_significance),
-                                     'hydrophobicity_deviation_magnitude': sum(hydrophobicity_deviation_magnitude),
-                                     'contact_order_collapse_z_sum': sum(contact_order_collapse_z_sum),
-                                     'sequential_collapse_peaks_z_sum': sum(sequential_collapse_peaks_z_sum),
-                                     'sequential_collapse_z_sum': sum(sequential_collapse_z_sum),
-                                     'global_collapse_z_sum': sum(global_collapse_z_sum)})
+        # Add the concatenated collapse metrics to total
+        folding_and_collapse.append({'new_collapse_islands': sum(new_collapse_peak_start),
+                                     'new_collapse_island_significance': np.sum(new_collapse_peak_start
+                                                                                * np.abs(collapse_significance)),
+                                     'contact_order_collapse_z_sum': contact_order_collapse_z_sum,
+                                     'global_collapse_z_sum': global_collapse_z_sum,
+                                     'hydrophobicity_deviation_magnitude': hydrophobicity_deviation_magnitude,
+                                     'sequential_collapse_peaks_z_sum': sequential_collapse_peaks_z_sum,
+                                     'sequential_collapse_z_sum': sequential_collapse_z_sum})
 
     return folding_and_collapse
 
