@@ -37,7 +37,7 @@ from structure.sequence import generate_mutations_from_reference, numeric_to_seq
     MultipleSequenceAlignment
 from structure.utils import protein_letters_3to1
 from utils import dictionary_lookup, start_log, null_log, set_logging_to_level, unpickle, rmsd_z_score, \
-    z_value_from_match_score, match_score_from_z_value, set_loggers_to_propagate, make_path
+    z_value_from_match_score, match_score_from_z_value, set_loggers_to_propagate, make_path, z_score
 from utils.cluster import cluster_transformation_pairs
 from utils.nanohedra.OptimalTx import OptimalTx
 from utils.nanohedra.WeightedSeqFreq import FragMatchInfo, SeqFreqInfo
@@ -2384,6 +2384,11 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
         return  # End of docking run
 
     elif design_output:  # We perform sequence design
+        # Gather folding metrics for the pose for comparison to the designed sequences
+        # Todo ensure the collapse_profile is made above
+        contact_order_per_res_z, reference_collapse, collapse_profile = pose.get_folding_metrics()
+        if collapse_profile.size:  # Not equal to zero
+            collapse_profile_mean, collapse_profile_std = collapse_profile.mean(axis=-2), collapse_profile.std(axis=-2)
         # Extract parameters to run ProteinMPNN design and modulate memory requirements
         log.debug(f'The mpnn_model.device is: {mpnn_model.device}')
         if mpnn_model.device == 'cpu':
@@ -2607,6 +2612,30 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
                         chain_mask = chain_mask[:actual_batch_length]
                         residue_mask = residue_mask[:actual_batch_length]
 
+                        # See if the pose is useful to design based on constraints of collapse
+                        if collapse_profile.size:  # Not equal to zero
+                            # Measure the unconditional (no sequence) amino acid probabilities at each residue to see
+                            # how they compare to the hydrophobic collapse index from the multiple sequence alignment
+                            unconditional_log_probs = \
+                                mpnn_model.unconditional_probs(X, mask, residue_idx, chain_encoding)
+                            skip = []
+                            for pose_idx in range(actual_batch_length):
+                                # Take the hydrophobic collapse of the log probs to understand the profiles "folding"
+                                design_probs_collapse = hydrophobic_collapse_index(unconditional_log_probs[pose_idx],
+                                                                                   alphabet_type=mpnn_alphabet)
+                                # Compare the sequence collapse to the pose collapse
+                                # USE:
+                                #  contact_order_per_res_z, reference_collapse, collapse_profile
+                                collapse_z = z_score(design_probs_collapse,
+                                                     collapse_profile_mean, collapse_profile_std)
+                                # folding_loss = score_sequences(S_sample, log_probs)  # , mask_for_loss)
+                                designed_indices_collapse = collapse_z[residue_mask[pose_idx]]
+                                if any(designed_indices_collapse > 1):  # Deviation larger than one standard deviation
+                                    log.warning(f'Collapse is larger than one standard deviation.'
+                                                f' Pose is *** being considered')
+                                    skip.append(pose_idx)
+
+                        # Todo add skip to the selection mechanism
                         sample_start_time = time.time()
                         sample_dict = mpnn_sample(X, decoding_order,
                                                   S[:actual_batch_length], chain_mask,
@@ -2630,14 +2659,6 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
                         log_probs = mpnn_model(X, S_sample, mask, chain_residue_mask, residue_idx, chain_encoding,
                                                None,  # This argument is provided but with below args, is not used
                                                use_input_decoding_order=True, decoding_order=decoding_order_out)
-                        # Measure the unconditional (no sequence) amino acid probabilities at each residue to see how
-                        # they compare to the hydrophobic collapse index from the multiple sequence alignment
-                        unconditional_log_probs = mpnn_model.unconditional_probs(X, mask, residue_idx, chain_encoding)
-                        for pose_idx in range(actual_batch_length):
-                            standardized_collapse = hydrophobic_collapse_index(unconditional_log_probs[pose_idx],
-                                                                               alphabet_type=mpnn_alphabet)
-                            # Todo get the functionality from metrics for below
-                            calculate_collapse_metrics(reference, standardized_collapse)
 
                         log_prob_time = time.time()
                         unbound_log_probs = \

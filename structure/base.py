@@ -4476,7 +4476,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         """
         residues = self.residues
         if len(residues) != len(contact_order):
-            raise ValueError(f"Can't set {self.contact_order.__name__} with a Sequence of length, {len(contact_order)}"
+            raise ValueError(f"Can't set {self.contact_order.__name__} with a sequence length ({len(contact_order)})"
                              f'!= to the number of residues, {self.number_of_residues}')
         for residue, contact_order in zip(residues, contact_order):
             residue.contact_order = contact_order
@@ -4496,12 +4496,12 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         """
         # Get heavy Atom coordinates
         coords = self.heavy_coords
-        # make and query a tree
+        # Make and query a tree
         tree = BallTree(coords)
         query = tree.query_radius(coords, distance)
 
         residues = self.residues
-        # in case this was already called, we should set all to 0.
+        # In case this was already called, we should set all to 0.
         for residue in residues:
             residue.contact_order = 0.
 
