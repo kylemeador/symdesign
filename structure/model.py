@@ -34,9 +34,9 @@ from structure.fragment.metrics import fragment_metric_template
 from structure.sequence import SequenceProfile, generate_alignment, get_equivalent_indices, \
     pssm_as_array, generate_mutations, concatenate_profile
 from structure.utils import protein_letters_3to1_extended, protein_letters_1to3_extended
-from utils import start_log, null_log, digit_translate_table, DesignError, ClashError, \
-    SymmetryError, calculate_match, z_value_from_match_score, remove_duplicates, path as PUtils
-from utils.SymEntry import get_rot_matrices, make_rotations_degenerate, SymEntry, point_group_setting_matrix_members,\
+from utils import start_log, null_log, DesignError, ClashError, SymmetryError, digit_translate_table, calculate_match, \
+    z_value_from_match_score, remove_duplicates, z_score, path as PUtils
+from utils.SymEntry import get_rot_matrices, make_rotations_degenerate, SymEntry, point_group_setting_matrix_members, \
     symmetry_combination_format, parse_symmetry_to_sym_entry, symmetry_factory
 from utils.symmetry import valid_subunit_number, layer_group_cryst1_fmt_dict, \
     generate_cryst1_record, space_group_number_operations, point_group_symmetry_operators, \
@@ -5712,6 +5712,58 @@ class Pose(SequenceProfile, SymmetricModel):
             c_term = True if c_term and entity.is_termini_helical(termini='c') else False
 
         return dict(n=n_term, c=c_term)
+
+    def get_folding_metrics(self) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+        """Calculate metrics relating to the Pose folding, separating calculation for chain breaks. These include
+        contact_order, hydrophobic_collapse, and hydrophobic_collapse_profile
+
+        Returns:
+            A tuple of arrays. A per residue contact_order_z_score (number_of_residues),
+                a per residue hydrophobic_collapse (number_of_residues),
+                and a hydrophobic_collapse profile (msa.number_of_sequences, msa.length) based on Entity.msa instances
+        """
+        # Measure the wild type (reference) entity versus modified entity(ies) to find the hci delta
+        # Calculate Reference sequence statistics
+        contact_order_z, hydrophobic_collapse, hydrophobic_collapse_profile = [], [], []
+        missing = []
+        msa_metrics = True
+        # Todo change from the self.pose if reference is provided!
+        for idx, chain in enumerate(self.chains):
+            contact_order = chain.contact_order
+            # contact_order = entity_oligomer.contact_order[:entity.number_of_residues]
+            # source_contact_order.append(contact_order)  # save the contact order for plotting
+            entity_residue_contact_order_z = z_score(contact_order, contact_order.mean(), contact_order.std())
+            contact_order_z.append(entity_residue_contact_order_z)
+            # inverse_residue_contact_order_z.append(entity_residue_contact_order_z * -1)
+            hydrophobic_collapse.append(chain.hydrophobic_collapse)
+            # entity = self.structure_db.refined.retrieve_data(name=entity.name))  # Todo always use wild-type?
+            # Set the entity.msa which makes a copy and adjusts for any disordered residues
+            if chain.msa and msa_metrics:
+                # TODO must update the collapse profile (Prob SEQRES) to be the same size as the sequence (ATOM)
+                # collapse = chain.collapse_profile()
+                hydrophobic_collapse_profile.append(chain.collapse_profile())
+                # entity_collapse_mean.append(collapse.mean(axis=-2))
+                # entity_collapse_std.append(collapse.std(axis=-2))
+                # reference_collapse_z_score.append(z_score(reference_collapse, entity_collapse_mean[idx],
+                #                                           entity_collapse_std[idx]))
+            else:
+                missing.append(1)
+                msa_metrics = False
+            #     # set anything found to null values
+            #     # entity_collapse_mean, entity_collapse_std, reference_collapse_z_score = [], [], []
+            #     continue
+
+        contact_order_z = np.concatenate(contact_order_z)
+        hydrophobic_collapse = np.concatenate(hydrophobic_collapse)
+        if missing:
+            self.log.warning(f'There were missing MultipleSequenceAlignment objects on {missing} Entity '
+                             f'instances. The collapse_profile will not be captured for the entire '
+                             f'{type(self).__name__}.')
+            hydrophobic_collapse_profile = np.ndarray([])
+        else:
+            hydrophobic_collapse_profile = np.concatenate(hydrophobic_collapse_profile)
+
+        return contact_order_z, hydrophobic_collapse, hydrophobic_collapse_profile
 
     def interface_metrics(self) -> dict:
         """Gather all metrics relating to the Pose and the interfaces within the Pose

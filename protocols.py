@@ -2596,9 +2596,10 @@ class PoseDirectory:
                                   f'{", ".join(multiple_sequence_alignment_dependent_metrics)}')
                     warn = False
         # Include the pose_source in the measured designs
-        folding_and_collapse = calculate_collapse_metrics(self.pose,
-                                                          list(zip(*[list(design_sequences.values())
-                                                                     for design_sequences in entity_sequences])))
+        contact_order_per_res_z, reference_collapse, collapse_profile = self.get_folding_metrics()
+        folding_and_collapse = calculate_collapse_metrics(list(zip(*[list(design_sequences.values())
+                                                                     for design_sequences in entity_sequences])),
+                                                          contact_order_per_res_z, reference_collapse, collapse_profile)
         pose_collapse_df = pd.DataFrame(folding_and_collapse).T
 
         # Load profiles of interest into the analysis
@@ -3807,8 +3808,10 @@ def interface_design_analysis(pose: Pose, design_poses: Iterable[Pose] = None, s
                               f'{", ".join(profile_dependent_metrics)}')
 
     # Include the pose_source in the measured designs
-    folding_and_collapse = calculate_collapse_metrics(pose, list(zip(*[list(design_sequences.values())
-                                                                       for design_sequences in entity_sequences])))
+    contact_order_per_res_z, reference_collapse, collapse_profile = pose.get_folding_metrics()
+    folding_and_collapse = calculate_collapse_metrics(list(zip(*[list(design_sequences.values())
+                                                                 for design_sequences in entity_sequences])),
+                                                      contact_order_per_res_z, reference_collapse, collapse_profile)
     pose_collapse_df = pd.DataFrame(folding_and_collapse).T
 
     if measure_evolution:
