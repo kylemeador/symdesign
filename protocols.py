@@ -3180,8 +3180,8 @@ class PoseDirectory:
             for entity in self.pose.entities:
                 if entity.msa:
                     collapse = entity.collapse_profile()
-                    entity_collapse_mean.append(collapse.mean())
-                    entity_collapse_std.append(collapse.std())
+                    entity_collapse_mean.append(collapse.mean(axis=-2))
+                    entity_collapse_std.append(collapse.std(axis=-2))
                 else:
                     break
             else:  # Only execute if we successfully looped
@@ -4413,8 +4413,8 @@ def interface_design_analysis(pose: Pose, design_poses: Iterable[Pose] = None, s
         for entity in pose.entities:
             if entity.msa:
                 collapse = entity.collapse_profile()
-                entity_collapse_mean.append(collapse.mean())
-                entity_collapse_std.append(collapse.std())
+                entity_collapse_mean.append(collapse.mean(axis=-2))
+                entity_collapse_std.append(collapse.std(axis=-2))
             else:
                 break
         else:  # Only execute if we successfully looped
