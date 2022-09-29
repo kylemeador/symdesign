@@ -5759,10 +5759,11 @@ class Pose(SequenceProfile, SymmetricModel):
         contact_order_z = np.concatenate(contact_order_z)
         hydrophobic_collapse = np.concatenate(hydrophobic_collapse)
         if missing:
-            self.log.warning(f'There were missing MultipleSequenceAlignment objects on {missing} Entity '
+            self.log.warning(f'There were missing MultipleSequenceAlignment objects on {sum(missing)} Entity '
                              f'instances. The collapse_profile will not be captured for the entire '
                              f'{type(self).__name__}.')
             hydrophobic_collapse_profile = np.ndarray([])
+            print('inside function', hydrophobic_collapse_profile)
         else:
             hydrophobic_collapse_profile = np.concatenate(hydrophobic_collapse_profile)
 

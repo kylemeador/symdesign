@@ -2388,7 +2388,11 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
         # Todo ensure the collapse_profile is made above
         contact_order_per_res_z, reference_collapse, collapse_profile = pose.get_folding_metrics()
         if collapse_profile.size:  # Not equal to zero
+            print(collapse_profile)
+            log.critical('****Found evolutionary profile!')
             collapse_profile_mean, collapse_profile_std = collapse_profile.mean(axis=-2), collapse_profile.std(axis=-2)
+        else:
+            log.critical('****MISSING evolutionary profile!')
         # Extract parameters to run ProteinMPNN design and modulate memory requirements
         log.debug(f'The mpnn_model.device is: {mpnn_model.device}')
         if mpnn_model.device == 'cpu':
