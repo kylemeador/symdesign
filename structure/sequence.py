@@ -3,7 +3,7 @@ from __future__ import annotations
 import os
 import subprocess
 import time
-from collections import namedtuple, defaultdict
+from collections import namedtuple
 from copy import deepcopy, copy
 from itertools import repeat, count
 from logging import Logger
@@ -12,7 +12,6 @@ from pathlib import Path
 from typing import Sequence, Any, Iterable, get_args, Literal, Iterator, AnyStr, Type
 
 import numpy as np
-import pandas as pd
 from Bio import pairwise2, SeqIO, AlignIO
 from Bio.Align import MultipleSeqAlignment, substitution_matrices
 from Bio.Seq import Seq
@@ -24,12 +23,10 @@ from structure.fragment import info
 from structure.fragment.db import alignment_types_literal, alignment_types, fragment_info_type
 from structure.utils import protein_letters_alph1, protein_letters_3to1, protein_letters_alph3, \
     profile_keys, protein_letters_alph1_gapped, numerical_translation_alph1_bytes, \
-    numerical_translation_alph3_bytes, sequence_translation_alph1, sequence_translation_alph3, \
+    sequence_translation_alph1, sequence_translation_alph3, \
     numerical_translation_alph1_gapped, numerical_translation_alph1_gapped_bytes, \
-    numerical_translation_alph3_gapped_bytes, numerical_translation_alph1_unknown_bytes, \
-    numerical_translation_alph3_unknown_bytes, numerical_translation_alph1_unknown_gapped_bytes, \
-    numerical_translation_alph3_unknown_gapped_bytes
-from utils import handle_errors, start_log, pretty_format_table, unpickle, get_base_root_paths_recursively, \
+    create_translation_tables
+from utils import handle_errors, start_log, unpickle, get_base_root_paths_recursively, \
     DesignError, CommandDistributer, path as PUtils
 # import dependencies.bmdca as bmdca
 
@@ -352,57 +349,6 @@ class MultipleSequenceAlignment:
         #             for profile, background in backgrounds.items()}
         # observed = {profile: np.where(np.take_along_axis(background, transposed_alignment, axis=1) > 0, 1, 0).T
         #             for profile, background in backgrounds.items()}
-
-
-alphabet_types = Literal['protein_letters_alph1', 'protein_letters_alph3', 'protein_letters_alph1_gapped',
-                         'protein_letters_alph3_gapped', 'protein_letters_alph1_unknown',
-                         'protein_letters_alph3_unknown', 'protein_letters_alph1_unknown_gapped',
-                         'protein_letters_alph3_unknown_gapped']
-
-
-def create_translation_tables(alphabet_type: alphabet_types) -> defaultdict:
-    """Given an amino acid alphabet type, return the corresponding numerical translation table"""
-    try:
-        match alphabet_type:
-            case 'protein_letters_alph1':
-                numeric_translation_type = numerical_translation_alph1_bytes
-            case 'protein_letters_alph3':
-                numeric_translation_type = numerical_translation_alph3_bytes
-            case 'protein_letters_alph1_gapped':
-                numeric_translation_type = numerical_translation_alph1_gapped_bytes
-            case 'protein_letters_alph3_gapped':
-                numeric_translation_type = numerical_translation_alph3_gapped_bytes
-            case 'protein_letters_alph1_unknown':
-                numeric_translation_type = numerical_translation_alph1_unknown_bytes
-            case 'protein_letters_alph3_unknown':
-                numeric_translation_type = numerical_translation_alph3_unknown_bytes
-            case 'protein_letters_alph1_unknown_gapped':
-                numeric_translation_type = numerical_translation_alph1_unknown_gapped_bytes
-            case 'protein_letters_alph3_unknown_gapped':
-                numeric_translation_type = numerical_translation_alph3_unknown_gapped_bytes
-            case _:
-                raise ValueError(f"alphabet_type {alphabet_type} isn't viable")
-    except SyntaxError:  # python version not 3.10
-        if alphabet_type == 'protein_letters_alph1':
-            numeric_translation_type = numerical_translation_alph1_bytes
-        elif alphabet_type == 'protein_letters_alph3':
-            numeric_translation_type = numerical_translation_alph3_bytes
-        elif alphabet_type == 'protein_letters_alph1_gapped':
-            numeric_translation_type = numerical_translation_alph1_gapped_bytes
-        elif alphabet_type == 'protein_letters_alph3_gapped':
-            numeric_translation_type = numerical_translation_alph3_gapped_bytes
-        elif alphabet_type == 'protein_letters_alph1_unknown':
-            numeric_translation_type = numerical_translation_alph1_unknown_bytes
-        elif alphabet_type == 'protein_letters_alph3_unknown':
-            numeric_translation_type = numerical_translation_alph3_unknown_bytes
-        elif alphabet_type == 'protein_letters_alph1_unknown_gapped':
-            numeric_translation_type = numerical_translation_alph1_unknown_gapped_bytes
-        elif alphabet_type == 'protein_letters_alph3_unknown_gapped':
-            numeric_translation_type = numerical_translation_alph3_unknown_gapped_bytes
-        else:
-            raise ValueError(f"alphabet_type {alphabet_type} isn't viable")
-
-    return numeric_translation_type
 
 
 def sequence_to_numeric(sequence: Sequence) -> numerical_profile:  # np.ndarray:
