@@ -3141,10 +3141,13 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
         # Load profiles of interest into the analysis
         profile_background = {}
         if measure_evolution:
+            print('entity.evolutionary_profile', [entity.evolutionary_profile for entity in pose.entities])
             pose.evolutionary_profile = concatenate_profile([entity.evolutionary_profile for entity in pose.entities])
 
         if pose.evolutionary_profile:
+            print('pose.evolutionary_profile', pose.evolutionary_profile)
             profile_background['evolution'] = pssm_as_array(pose.evolutionary_profile)
+            print('evolution_bkgd.shape', profile_background['evolution'].shape)
             print('evolution_bkgd', profile_background['evolution'])
         else:
             pose.log.info('No evolution information')
