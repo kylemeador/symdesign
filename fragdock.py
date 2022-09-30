@@ -477,8 +477,7 @@ def is_frag_type_same(frags1, frags2, dtype='ii'):
         len(frag1_indices), -1)
 
 
-def compute_ij_type_lookup(indices1: np.ndarray | Iterable | int | float,
-                           indices2: np.ndarray | Iterable | int | float) -> np.ndarray | int | float:
+def compute_ij_type_lookup(indices1: np.ndarray | Iterable, indices2: np.ndarray | Iterable) -> np.ndarray:
     """Compute a lookup table where the array elements are indexed to boolean values if the indices match.
     Axis 0 is indices1, Axis 1 is indices2
 
@@ -490,9 +489,11 @@ def compute_ij_type_lookup(indices1: np.ndarray | Iterable | int | float,
     """
     # TODO use broadcasting to compute true/false instead of tiling (memory saving)
     indices1_repeated = np.repeat(indices1, len(indices2))
-    indices2_tiled = np.tile(indices2, len(indices1))
+    len_indices1 = len(indices1)
+    indices2_tiled = np.tile(indices2, len_indices1)
     # TODO keep as table or flatten? Can use one or the other as memory and take a view of the other as needed...
-    return np.where(indices1_repeated == indices2_tiled, True, False).reshape(len(indices1), -1)
+    # return np.where(indices1_repeated == indices2_tiled, True, False).reshape(len_indices1, -1)
+    return (indices1_repeated == indices2_tiled).reshape(len_indices1, -1)
 
 
 def perturb_transformations(sym_entry: SymEntry,
@@ -2677,6 +2678,8 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
                                 # Compare the sequence collapse to the pose collapse
                                 # USE:
                                 #  contact_order_per_res_z, reference_collapse, collapse_profile
+                                print('HCI profile mean', collapse_profile_mean)
+                                print('HCI profile std', collapse_profile_std)
                                 collapse_z = z_score(design_probs_collapse,
                                                      collapse_profile_mean, collapse_profile_std)
                                 # folding_loss = score_sequences(S_sample, log_probs)  # , mask_for_loss)

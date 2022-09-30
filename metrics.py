@@ -2108,11 +2108,13 @@ def hydrophobic_collapse_index(sequence: Sequence[str | int] | np.ndarry, hydrop
             # torch.Tensor and np.ndarray can multiply by np.ndarray
             values = np.array([hydrophobicity_values[aa] for aa in alphabet])
             if sequence.ndim == 2:
-                # print('array.shape', sequence.shape, 'values.shape', values.shape)
+                print('HCI debug')
+                print('array.shape', sequence.shape, 'values.shape', values.shape)
                 # The array must have shape (number_of_residues, alphabet_length)
                 sequence_array = sequence * values
                 # Ensure each position is a combination of the values for each amino acid
                 sequence_array = sequence_array.sum(axis=-1)
+                print('sequence_array', sequence_array)
             else:
                 raise ValueError(f"Can't process a {sequence.ndim}-dimensional array yet")
         else:  # We assume it is a sequence array with bytes?
