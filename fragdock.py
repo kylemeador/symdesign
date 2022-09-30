@@ -2674,6 +2674,7 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
                                 # Only include the residues in the ASU
                                 asu_conditional_softmax = np.exp(unconditional_log_probs[pose_idx, :pose_length])
                                 print('asu_conditional_softmax', asu_conditional_softmax)
+                                print('sum asu_conditional_softmax', asu_conditional_softmax.sum(axis=-1))
                                 design_probs_collapse = \
                                     hydrophobic_collapse_index(asu_conditional_softmax,
                                                                alphabet_type=mpnn_alphabet)
@@ -2688,7 +2689,7 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
                                 designed_indices_collapse_z = \
                                     collapse_z[np.flatnonzero(residue_mask_cpu[pose_idx, :pose_length])]
                                 magnitude_of_collapse_z_deviation = np.abs(designed_indices_collapse_z)
-                                if any(magnitude_of_collapse_z_deviation > 1):  # Deviation larger than one std
+                                if any(designed_indices_collapse_z > 1):  # Deviation larger than one positive std
                                     print('designed_indices_collapse_z', designed_indices_collapse_z)
                                     # print('magnitude greater than 1', magnitude_of_collapse_z_deviation > 1)
                                     log.warning(f'***Collapse is larger than one standard deviation.'
