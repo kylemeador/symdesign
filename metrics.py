@@ -10,6 +10,7 @@ from typing import Literal, AnyStr, Any, Sequence, Iterable
 
 import numpy as np
 import pandas as pd
+import torch
 
 import structure
 from structure.utils import protein_letters_literal, alphabet_types, create_translation_tables
@@ -2076,37 +2077,45 @@ def hydrophobic_collapse_index(sequence: Sequence[str | int] | np.ndarry, hydrop
     else:
         hydrophobicity_values = custom
 
+    missing_alphabet = f'Must pass an alphabet type when calculating {hydrophobic_collapse_index.__name__} using ' \
+                       f'integer sequence values'
     if isinstance(sequence[0], int):  # This is an integer sequence. An alphabet is required
         print('integer')
         if alphabet_type is None:
-            raise ValueError(f'Must pass an alphabet type when calculating {hydrophobic_collapse_index.__name__} using'
-                             f' integer sequence values')
+            raise ValueError(missing_alphabet)
         else:
             alphabet = create_translation_tables(alphabet_type)
 
         values = [hydrophobicity_values[aa] for aa in alphabet]
-        if isinstance(sequence, np.ndarray) and sequence.ndim == 2:
-            print('array.shape', sequence.shape, 'values.shape', len(values))
-            # The array must have shape (number_of_residues, alphabet_length)
-            sequence_array = sequence * values
-            # Ensure each position is a combination of the values for each amino acid
-            sequence_array = sequence_array.sum(axis=-1)
-        # elif isinstance(sequence, Sequence):
-        #     sequence_array = [values[aa_int] for aa_int in sequence]
-        else:
-            sequence_array = [values[aa_int] for aa_int in sequence]
-            # raise ValueError(f"sequence argument with type {type(sequence).__name__} isn't supported")
+        sequence_array = [values[aa_int] for aa_int in sequence]
+        # raise ValueError(f"sequence argument with type {type(sequence).__name__} isn't supported")
     elif isinstance(sequence[0], str):  # This is a string array # if isinstance(sequence[0], str):
-        if isinstance(sequence, np.ndarray) and sequence.ndim == 2:  # (np.ndarray, list)):
+        sequence_array = [hydrophobicity_values.get(aa, 0) for aa in sequence]
+        # raise ValueError(f"sequence argument with type {type(sequence).__name__} isn't supported")
+    elif isinstance(sequence, (torch.Tensor, np.ndarray)):  # This is an integer sequence. An alphabet is required
+        # if sequence.ndim == 2:
+        np_torch_int_types = (np.int, np.int8, np.int16, np.int32, np.int64,
+                              torch.int, torch.int8, torch.int16, torch.int32, torch.int64)
+        if sequence.dtype in np_torch_int_types:
+            if alphabet_type is None:
+                raise ValueError(missing_alphabet)
+            else:
+                alphabet = create_translation_tables(alphabet_type)
+
+            values = [hydrophobicity_values[aa] for aa in alphabet]
+            if sequence.ndim == 2:
+                print('array.shape', sequence.shape, 'values.shape', len(values))
+                # The array must have shape (number_of_residues, alphabet_length)
+                sequence_array = sequence * values
+                # Ensure each position is a combination of the values for each amino acid
+                sequence_array = sequence_array.sum(axis=-1)
+        else:  # We assume it is a sequence array with bytes?
             # The array must have shape (number_of_residues, alphabet_length)
             sequence_array = sequence * np.vectorize(hydrophobicity_values.__getitem__)(sequence)
             # Ensure each position is a combination of the values for each amino acid in the array
             sequence_array = sequence_array.mean(axis=-2)
         # elif isinstance(sequence, Sequence):
         #     sequence_array = [hydrophobicity_values.get(aa, 0) for aa in sequence]
-        else:
-            sequence_array = [hydrophobicity_values.get(aa, 0) for aa in sequence]
-            # raise ValueError(f"sequence argument with type {type(sequence).__name__} isn't supported")
     else:
         raise ValueError(f'The provided sequence must comprise the canonical amino acid string characters or '
                          f'integer values corresponding to numerical amino acid conversions. '
