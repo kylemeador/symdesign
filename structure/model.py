@@ -5765,9 +5765,9 @@ class Pose(SequenceProfile, SymmetricModel):
                              f'instances. The collapse_profile will not be captured for the entire '
                              f'{type(self).__name__}.')
             hydrophobic_collapse_profile = np.ndarray([])
-            print('inside function', hydrophobic_collapse_profile)
+            # print('inside function', hydrophobic_collapse_profile)  # This was printing 7.0 . wtf??
         else:
-            hydrophobic_collapse_profile = np.concatenate(hydrophobic_collapse_profile)
+            hydrophobic_collapse_profile = np.concatenate(hydrophobic_collapse_profile, axis=1)
 
         return contact_order_z, hydrophobic_collapse, hydrophobic_collapse_profile
 

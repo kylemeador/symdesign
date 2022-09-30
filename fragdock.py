@@ -2390,19 +2390,19 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
         measure_evolution, measure_alignment = True, True
         warn = False
         for entity in pose.entities:
-            try:  # To fetch the multiple sequence alignment for further processing
-                # entity.sequence_file = job.api_db.sequences.retrieve_file(name=entity.name)
-                # if not entity.sequence_file:
-                #     entity.write_sequence_to_fasta('reference', out_dir=job.sequences)
-                #     # entity.add_evolutionary_profile(out_dir=job.api_db.hhblits_profiles.location)
-                # else:
-                profile = job.api_db.hhblits_profiles.retrieve_data(name=entity.name)
-                if not profile:
-                    measure_evolution = False
-                    warn = True
-                else:
-                    entity.evolutionary_profile = profile
+            # entity.sequence_file = job.api_db.sequences.retrieve_file(name=entity.name)
+            # if not entity.sequence_file:
+            #     entity.write_sequence_to_fasta('reference', out_dir=job.sequences)
+            #     # entity.add_evolutionary_profile(out_dir=job.api_db.hhblits_profiles.location)
+            # else:
+            profile = job.api_db.hhblits_profiles.retrieve_data(name=entity.name)
+            if not profile:
+                measure_evolution = False
+                warn = True
+            else:
+                entity.evolutionary_profile = profile
 
+            try:  # To fetch the multiple sequence alignment for further processing
                 msa = job.api_db.alignments.retrieve_data(name=entity.name)
                 if not msa:
                     measure_evolution = False
