@@ -2003,8 +2003,8 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
         #     transform_coordinate_sets(int_surf_frag_guide_coords, rotation=rot_mat2, translation=internal_tx_param2,
         #                               rotation2=sym_entry.setting_matrix2, translation2=external_tx_params2)
 
-        unique_interface_frag_count_model1, unique_interface_frag_count_model2 = \
-            ghost_indices_in_interface1.shape[0], surf_indices_in_interface2.shape[0]
+        # unique_interface_frag_count_model1, unique_interface_frag_count_model2 = \
+        #     ghost_indices_in_interface1.shape[0], surf_indices_in_interface2.shape[0]
         # get_int_frags_time = time.time() - int_frags_time_start
         # Todo reinstate this logging?
         # log.info(f'\tNewly formed interface contains {unique_interface_frag_count_model1} unique Fragments on Oligomer '
@@ -2022,16 +2022,16 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
         # log.debug(f'Surf coords trans versus original equality: {np.all(int_trans_surf_guide_coords2 == surf_guide_coords2_)}')
         # int_euler_matching_ghost_indices1, int_euler_matching_surf_indices2 = \
         #     euler_lookup.check_lookup_table(int_trans_ghost_guide_coords, int_trans_surf_guide_coords2)
-        int_ghost_shape = surf_indices_in_interface2.shape[0]
-        int_surf_shape = ghost_indices_in_interface1.shape[0]
-        maximum_number_of_pairs = int_surf_shape*int_ghost_shape
+        int_surf_shape = surf_indices_in_interface2.shape[0]
+        int_ghost_shape = ghost_indices_in_interface1.shape[0]
+        # maximum_number_of_pairs = int_ghost_shape*int_surf_shape
         # if maximum_number_of_pairs < euler_lookup_size_threshold:
         # Todo there may be memory leak by Pose objects sharing memory with persistent objects
         #  that prevent garbage collection and stay attached to the run
         # Skipping EulerLookup as it has issues with precision
         index_ij_pairs_start_time = time.time()
-        ghost_indices_repeated = np.repeat(ghost_indices_in_interface1, int_ghost_shape)
-        surf_indices_tiled = np.tile(surf_indices_in_interface2, int_surf_shape)
+        ghost_indices_repeated = np.repeat(ghost_indices_in_interface1, int_surf_shape)
+        surf_indices_tiled = np.tile(surf_indices_in_interface2, int_ghost_shape)
         ij_type_match = ij_type_match_lookup_table[ghost_indices_repeated, surf_indices_tiled]
         # DEBUG: If ij_type_match needs to be removed for testing
         # ij_type_match = np.array([True for _ in range(len(ij_type_match))])
@@ -2684,7 +2684,8 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
                                     collapse_z[np.flatnonzero(residue_mask_cpu[pose_idx, :pose_length])]
                                 magnitude_of_collapse_z_deviation = np.abs(designed_indices_collapse_z)
                                 if any(magnitude_of_collapse_z_deviation > 1):  # Deviation larger than one std
-                                    print('magnitude greater than 1', magnitude_of_collapse_z_deviation > 1)
+                                    print('designed_indices_collapse_z', designed_indices_collapse_z)
+                                    # print('magnitude greater than 1', magnitude_of_collapse_z_deviation > 1)
                                     log.warning(f'***Collapse is larger than one standard deviation.'
                                                 f' Pose is *** being considered')
                                     skip.append(pose_idx)
@@ -3143,6 +3144,7 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
 
         pose_alignment = MultipleSequenceAlignment.from_dictionary(pose_sequences)
         # Perform a frequency extraction for each background profile
+        # Todo integrate these into the per_residue_df...
         background_frequencies = {profile: pose_alignment.get_probabilities_from_profile(background)
                                   for profile, background in profile_background.items()}
 

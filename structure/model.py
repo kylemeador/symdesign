@@ -123,17 +123,30 @@ def find_fragment_overlap(entity1_coords: np.ndarray, residues1: Iterable[Fragme
     # Todo keep without euler_lookup?
     ghost_type_array = np.array([ghost_frag.frag_type for ghost_frag in ghost_frags1])
     mono_type_array = np.array([residue.frag_type for residue in residues2])
-    ij_type_match = np.where(mono_type_array == ghost_type_array, True, False)
     # Using only ij_type_match, no euler_lookup
-    passing_ghost_coords = residue1_ghost_guide_coords[ij_type_match]
-    passing_frag_coords = residue2_guide_coords[ij_type_match]
+    int_surf_shape = len(residues2)
+    int_ghost_shape = len(ghost_frags1)
+    # maximum_number_of_pairs = int_ghost_shape*int_surf_shape
+    ghost_indices_repeated = np.repeat(ghost_type_array, int_surf_shape)
+    surf_indices_tiled = np.tile(mono_type_array, int_ghost_shape)
+    # ij_type_match = ij_type_match_lookup_table[ghost_indices_repeated, surf_indices_tiled]
+    ij_type_match = np.where(ghost_indices_repeated == surf_indices_tiled, True, False)
+    possible_fragments_pairs = ghost_indices_repeated.shape[0]
+    passing_ghost_indices = ghost_indices_repeated[ij_type_match]
+    passing_surf_indices = surf_indices_tiled[ij_type_match]
+    # passing_ghost_coords = residue1_ghost_guide_coords[ij_type_match]
+    # passing_frag_coords = residue2_guide_coords[ij_type_match]
+    passing_ghost_coords = residue1_ghost_guide_coords[passing_ghost_indices]
+    passing_frag_coords = residue2_guide_coords[passing_surf_indices]
     # Precalculate the reference_rmsds for each ghost fragment
     # reference_rmsds = np.array([ghost_frags1[ghost_idx].rmsd for ghost_idx in passing_ghost_indices.tolist()])
     # Todo keep without euler_lookup?
-    reference_rmsds = np.array([ghost_frag.rmsd for ghost_frag in ghost_frags1])
+    reference_rmsds = np.array([ghost_frag.rmsd for ghost_frag in ghost_frags1])[passing_ghost_indices]
 
     # logger.debug('Calculating passing fragment overlaps by RMSD')
-    all_fragment_match = calculate_match(passing_ghost_coords, passing_frag_coords, reference_rmsds)
+    all_fragment_match = calculate_match(passing_ghost_coords,
+                                         passing_frag_coords,
+                                         reference_rmsds)
     passing_overlaps_indices = np.flatnonzero(all_fragment_match > min_match_value)
     # all_fragment_overlap = \
     #     rmsd_z_score(passing_ghost_coords, passing_frag_coords, reference_rmsds, max_z_value=max_z_value)
