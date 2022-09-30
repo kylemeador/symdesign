@@ -2669,16 +2669,19 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
                             skip = []
                             for pose_idx in range(actual_batch_length):
                                 # Take the hydrophobic collapse of the log probs to understand the profiles "folding"
-                                design_probs_collapse = hydrophobic_collapse_index(unconditional_log_probs[pose_idx],
-                                                                                   alphabet_type=mpnn_alphabet)
+                                # Only include the residues in the ASU
+                                design_probs_collapse = \
+                                    hydrophobic_collapse_index(unconditional_log_probs[pose_idx, pose_length],
+                                                               alphabet_type=mpnn_alphabet)
                                 # Compare the sequence collapse to the pose collapse
                                 # USE:
                                 #  contact_order_per_res_z, reference_collapse, collapse_profile
                                 collapse_z = z_score(design_probs_collapse,
                                                      collapse_profile_mean, collapse_profile_std)
                                 # folding_loss = score_sequences(S_sample, log_probs)  # , mask_for_loss)
-                                designed_indices_collapse = collapse_z[residue_mask[pose_idx]]
+                                designed_indices_collapse = collapse_z[residue_mask[pose_idx, pose_length]]
                                 if any(designed_indices_collapse > 1):  # Deviation larger than one standard deviation
+                                    print('greater than 1', designed_indices_collapse > 1)
                                     log.warning(f'Collapse is larger than one standard deviation.'
                                                 f' Pose is *** being considered')
                                     skip.append(pose_idx)
