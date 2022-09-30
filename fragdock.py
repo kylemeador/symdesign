@@ -2672,8 +2672,10 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
                             for pose_idx in range(actual_batch_length):
                                 # Take the hydrophobic collapse of the log probs to understand the profiles "folding"
                                 # Only include the residues in the ASU
+                                asu_conditional_softmax = np.exp(unconditional_log_probs[pose_idx, :pose_length])
+                                print('asu_conditional_softmax', asu_conditional_softmax)
                                 design_probs_collapse = \
-                                    hydrophobic_collapse_index(np.exp(unconditional_log_probs[pose_idx, :pose_length]),
+                                    hydrophobic_collapse_index(asu_conditional_softmax,
                                                                alphabet_type=mpnn_alphabet)
                                 # Compare the sequence collapse to the pose collapse
                                 # USE:
