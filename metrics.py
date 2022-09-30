@@ -2113,6 +2113,8 @@ def hydrophobic_collapse_index(sequence: Sequence[str | int] | np.ndarry, hydrop
                 sequence_array = sequence * values
                 # Ensure each position is a combination of the values for each amino acid
                 sequence_array = sequence_array.sum(axis=-1)
+            else:
+                raise ValueError(f"Can't process a {sequence.ndim}-dimensional array yet")
         else:  # We assume it is a sequence array with bytes?
             # The array must have shape (number_of_residues, alphabet_length)
             sequence_array = sequence * np.vectorize(hydrophobicity_values.__getitem__)(sequence)
