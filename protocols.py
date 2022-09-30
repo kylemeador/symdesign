@@ -2596,7 +2596,7 @@ class PoseDirectory:
                                   f'{", ".join(multiple_sequence_alignment_dependent_metrics)}')
                     warn = False
         # Include the pose_source in the measured designs
-        contact_order_per_res_z, reference_collapse, collapse_profile = self.get_folding_metrics()
+        contact_order_per_res_z, reference_collapse, collapse_profile = self.pose.get_folding_metrics()
         folding_and_collapse = calculate_collapse_metrics(list(zip(*[list(design_sequences.values())
                                                                      for design_sequences in entity_sequences])),
                                                           contact_order_per_res_z, reference_collapse, collapse_profile)
