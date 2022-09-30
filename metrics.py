@@ -1107,8 +1107,8 @@ def calculate_collapse_metrics(sequences_of_interest: Iterable[Iterable[Sequence
     # [0, 0, 0, 0, 1, 1, 0, 0, 1, 1, ...]
 
     if collapse_profile is not None:
-        collapse_profile_mean = collapse_profile.mean(axis=-2)
-        collapse_profile_std = collapse_profile.std(axis=-2)
+        collapse_profile_mean = np.nanmean(collapse_profile, axis=-2)
+        collapse_profile_std = np.nanstd(collapse_profile, axis=-2)
         # Use only the reference (index=0) hydrophobic_collapse_index to calculate a reference
         reference_collapse_z_score = z_score(collapse_profile[0], collapse_profile_mean, collapse_profile_std)
 

@@ -2410,7 +2410,7 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
                 else:
                     entity.msa = msa
             except ValueError as error:  # When the Entity reference sequence and alignment are different lengths
-                raise error
+                # raise error
                 log.info(f'Entity reference sequence and provided alignment are different lengths: {error}')
                 warn = True
 
@@ -2434,7 +2434,8 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
             print(collapse_profile)
             print(collapse_profile.size)
             log.critical('****Found evolutionary profile!')
-            collapse_profile_mean, collapse_profile_std = collapse_profile.mean(axis=-2), collapse_profile.std(axis=-2)
+            collapse_profile_mean, collapse_profile_std = \
+                np.nanmean(collapse_profile, axis=-2), np.nanstd(collapse_profile, axis=-2)
         else:
             log.critical('****MISSING evolutionary profile!')
         # Extract parameters to run ProteinMPNN design and modulate memory requirements
