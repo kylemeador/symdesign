@@ -5259,13 +5259,13 @@ class Pose(SequenceProfile, SymmetricModel):
 
     @fragment_db.setter
     def fragment_db(self, fragment_db: FragmentDatabase):
-        self.log.critical(f'Found fragment_db {type(fragment_db)}. '
-                          f'isinstance(fragment_db, FragmentDatabase) = {isinstance(fragment_db, FragmentDatabase)}')
+        # self.log.critical(f'Found fragment_db {type(fragment_db)}. '
+        #                   f'isinstance(fragment_db, FragmentDatabase) = {isinstance(fragment_db, FragmentDatabase)}')
         if not isinstance(fragment_db, FragmentDatabase):
             # Todo add fragment_length, sql kwargs
-            fragment_db = fragment_factory(source=PUtils.biological_interfaces)
             self.log.debug(f'fragment_db was set to the default since a {type(fragment_db).__name__} was passed which '
                            f'is not of the required type {FragmentDatabase.__name__}')
+            fragment_db = fragment_factory(source=PUtils.biological_interfaces)
 
         self._fragment_db = fragment_db
         for entity in self.entities:
