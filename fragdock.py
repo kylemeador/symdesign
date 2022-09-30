@@ -2431,8 +2431,7 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
         # Gather folding metrics for the pose for comparison to the designed sequences
         contact_order_per_res_z, reference_collapse, collapse_profile = pose.get_folding_metrics()
         if collapse_profile.size:  # Not equal to zero
-            print(collapse_profile)
-            print(collapse_profile.size)
+            print(collapse_profile.shape)
             log.critical('****Found evolutionary profile!')
             collapse_profile_mean, collapse_profile_std = \
                 np.nanmean(collapse_profile, axis=-2), np.nanstd(collapse_profile, axis=-2)
@@ -2666,7 +2665,7 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
                             # Measure the unconditional (no sequence) amino acid probabilities at each residue to see
                             # how they compare to the hydrophobic collapse index from the multiple sequence alignment
                             unconditional_log_probs = \
-                                mpnn_model.unconditional_probs(X, mask, residue_idx, chain_encoding)
+                                mpnn_model.unconditional_probs(X, mask, residue_idx, chain_encoding).cpu()
                             skip = []
                             for pose_idx in range(actual_batch_length):
                                 # Take the hydrophobic collapse of the log probs to understand the profiles "folding"
