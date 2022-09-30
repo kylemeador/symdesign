@@ -193,7 +193,9 @@ class DataStore:
             data = self._load_data(name, log=None)  # attempt to retrieve the new data
             if data:
                 setattr(self, name, data)  # attempt to store the new data as an attribute
-                self.log.debug(f'Database file {name}{self.extension} was loaded into the {type(self).__name__}')
+                self.log.debug(f'The file {name}{self.extension} was loaded into the {type(self).__name__}')
+            else:
+                self.log.debug(f'Failed to load file {name}{self.extension} into the {type(self).__name__}')
 
         return data
 
