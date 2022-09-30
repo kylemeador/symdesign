@@ -2409,8 +2409,8 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
                     warn = True
                 else:
                     entity.msa = msa
-            except ValueError:  # When the Entity reference sequence and alignment are different lengths
-                log.info(f'Entity reference sequence and provided alignment are different lengths')
+            except ValueError as error:  # When the Entity reference sequence and alignment are different lengths
+                log.info(f'Entity reference sequence and provided alignment are different lengths: {error}')
                 warn = True
 
         if warn:
