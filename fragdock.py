@@ -2678,8 +2678,8 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
                                 # Compare the sequence collapse to the pose collapse
                                 # USE:
                                 #  contact_order_per_res_z, reference_collapse, collapse_profile
-                                print('HCI profile mean', collapse_profile_mean)
-                                print('HCI profile std', collapse_profile_std)
+                                # print('HCI profile mean', collapse_profile_mean)
+                                # print('HCI profile std', collapse_profile_std)
                                 collapse_z = z_score(design_probs_collapse,
                                                      collapse_profile_mean, collapse_profile_std)
                                 # folding_loss = score_sequences(S_sample, log_probs)  # , mask_for_loss)
