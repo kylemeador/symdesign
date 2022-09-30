@@ -2431,12 +2431,12 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
         # Gather folding metrics for the pose for comparison to the designed sequences
         contact_order_per_res_z, reference_collapse, collapse_profile = pose.get_folding_metrics()
         if collapse_profile.size:  # Not equal to zero
-            print(collapse_profile.shape)
-            log.critical('****Found evolutionary profile!')
+            # print(collapse_profile.shape)
+            # log.critical('****Found evolutionary profile!')
             collapse_profile_mean, collapse_profile_std = \
                 np.nanmean(collapse_profile, axis=-2), np.nanstd(collapse_profile, axis=-2)
-        else:
-            log.critical('****MISSING evolutionary profile!')
+        # else:
+        #     log.critical('****MISSING evolutionary profile!')
         # Extract parameters to run ProteinMPNN design and modulate memory requirements
         log.debug(f'The mpnn_model.device is: {mpnn_model.device}')
         if mpnn_model.device == 'cpu':
@@ -2606,6 +2606,7 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
                         for number, residues_entities in pose.split_interface_residues.items():
                             design_residues.extend([residue.index for residue, _ in residues_entities])
 
+                        # Residues to design are 1, others are 0
                         residue_mask_cpu[batch_idx, design_residues] = 1
                         # Todo Should I use this?
                         #  bias_by_res[batch_idx] = pose.fragment_profile
@@ -2685,6 +2686,9 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
                                     log.warning(f'Collapse is larger than one standard deviation.'
                                                 f' Pose is *** being considered')
                                     skip.append(pose_idx)
+                                else:
+                                    log.critical(f'Total deviation={magnitude_of_collapse_z_deviation.sum()}. '
+                                                 f'Standard Deviation={designed_indices_collapse_z.std()}')
 
                         # Todo add skip to the selection mechanism
                         sample_start_time = time.time()
@@ -3127,10 +3131,12 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
 
         if pose.evolutionary_profile:
             profile_background['evolution'] = pssm_as_array(pose.evolutionary_profile)
+            print('evolution_bkgd', profile_background['evolution'])
         else:
             pose.log.info('No evolution information')
         if job.fragment_db is not None:
             interface_bkgd = np.array(list(job.fragment_db.aa_frequencies.values()))
+            print('interface_bkgd', interface_bkgd)
             profile_background['interface'] = np.tile(interface_bkgd, (pose.number_of_residues, 1))
 
         pose_alignment = MultipleSequenceAlignment.from_dictionary(pose_sequences)
