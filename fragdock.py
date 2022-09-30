@@ -2670,7 +2670,7 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
                         if collapse_profile.size:  # Not equal to zero
                             # Measure the unconditional (no sequence) amino acid probabilities at each residue to see
                             # how they compare to the hydrophobic collapse index from the multiple sequence alignment
-                            batched_decoding_order = decoding_order.repeat(actual_batch_length)
+                            batched_decoding_order = decoding_order.repeat(actual_batch_length, 1)
                             conditional_log_probs = \
                                 mpnn_model.conditional_probs(X, S[:actual_batch_length], mask, chain_mask, residue_idx,
                                                              chain_encoding, batched_decoding_order, backbone_only=True).cpu()
