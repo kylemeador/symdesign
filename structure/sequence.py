@@ -59,7 +59,7 @@ class MultipleSequenceAlignment:
     _frequencies: np.ndarray
     _gaps_per_position: np.ndarray
     _numerical_alignment: np.ndarray
-    _sequence_index: np.ndarray
+    _sequence_indices: np.ndarray
     alignment: MultipleSeqAlignment
     # counts: list[dict[extended_protein_letters_and_gap, int]]
     counts: list[list[int]] | np.ndarray
@@ -263,25 +263,25 @@ class MultipleSequenceAlignment:
     def query_indices(self) -> np.ndarray:
         """Returns the query as a boolean array (1, length) where gaps ("-") are False"""
         try:
-            return self._sequence_index[0]
+            return self._sequence_indices[0]
         except AttributeError:
-            self._sequence_index = self.array != b'-'
-            # self._sequence_index = np.isin(self.array, b'-', invert=True)
-            return self._sequence_index[0]
+            self._sequence_indices = self.array != b'-'
+            # self._sequence_indices = np.isin(self.array, b'-', invert=True)
+            return self._sequence_indices[0]
 
     @property
     def sequence_indices(self) -> np.ndarray:
         """Returns the alignment as a boolean array (number_of_sequences, length) where gaps ("-") are False"""
         try:
-            return self._sequence_index
+            return self._sequence_indices
         except AttributeError:
-            self._sequence_index = self.array != b'-'
-            # self._sequence_index = np.isin(self.array, b'-', invert=True)
-            return self._sequence_index
+            self._sequence_indices = self.array != b'-'
+            # self._sequence_indices = np.isin(self.array, b'-', invert=True)
+            return self._sequence_indices
 
     @sequence_indices.setter
     def sequence_indices(self, sequence_indices: np.ndarray):
-        self._sequence_index = sequence_indices
+        self._sequence_indices = sequence_indices
 
     @property
     def numerical_alignment(self) -> np.ndarray:
@@ -639,18 +639,6 @@ class SequenceProfile:
             return np.take_along_axis(profile_of_interest, self.sequence_numeric[:, None], axis=1).squeeze()
         except IndexError:  # The profile_of_interest and sequence are different sizes
             raise IndexError(f'The profile has a length {profile_of_interest.shape[0]} != {self.number_of_residues}')
-    # def disorder(self):
-    #     try:
-    #         return self._disorder
-    #     except AttributeError:
-    #         if not self.reference_sequence:
-    #             self._retrieve_sequence_from_api(entity_id=self.name)
-    #         self._disorder = generate_mutations(self.structure_sequence, self.reference_sequence, only_gaps=True)
-    #         return self._disorder
-
-    # def _retrieve_sequence_from_api(self, entity_id=None):  # Unused
-    #     self.sequence = get_sequence_by_entity_id(entity_id)
-    #     self.sequence_source = 'seqres'
 
     def add_profile(self, evolution: bool = True, fragments: bool | list[fragment_info_type] = True,
                     null: bool = False, **kwargs):
@@ -850,7 +838,7 @@ class SequenceProfile:
         Removes the view of all data not present in the structure
 
         Sets:
-            (np.ndarray) self.msa.sequence_indices
+            self.msa.sequence_indices (np.ndarray)
         """
         # generate the disordered indices which are positions in reference that are missing in structure
         # disorder_indices = [index - 1 for index in self.disorder]
@@ -858,7 +846,13 @@ class SequenceProfile:
             raise ValueError(f'The {self.name} reference_sequence ({len(self.reference_sequence)}) and '
                              f'MultipleSequenceAlignment query ({self.msa.query_length}) should be the same length!')
         sequence_indices = self.msa.sequence_indices
-        sequence_indices[:, [index - 1 for index in self.disorder]] = False
+        disordered_indices = [index - zero_offset for index in self.disorder]
+        self.log.debug(f'Removing disordered indices (reference_sequence indices) from the MultipleSequenceAlignment: '
+                       f'{disordered_indices}')  # f'{",".join(map(str, disordered_indices))}')
+        # Get all non-zero indices. Then, remove the disordered indices from these indices
+        msa_disordered_indices = np.flatnonzero(self.msa.query_indices)[disordered_indices]
+        # These selected indices are where the msa is populated, but the structure sequence is missing
+        sequence_indices[:, msa_disordered_indices] = False
         self.msa.sequence_indices = sequence_indices
 
     # def fit_secondary_structure_profile_to_structure(self):
@@ -990,7 +984,7 @@ class SequenceProfile:
         self.evolutionary_profile = parse_hhblits_pssm(self.pssm_file, null_background=null_background)
 
     def add_msa(self, msa: str | MultipleSequenceAlignment = None):
-        """Add a multiple sequence alignment to the profile
+        """Add a multiple sequence alignment to the profile. Handles correct sizing of the MSA
 
         Args:
             msa: The multiple sequence alignment object or file to use for collapse
@@ -1106,8 +1100,8 @@ class SequenceProfile:
                 self.add_msa(msa)
 
         if not self.h_fields or not self.j_couplings:
-            raise AttributeError('The required data .h_fields and .j_couplings are not availble. Add them to the Entity'
-                                 f' before {self.direct_coupling_analysis.__name__}')
+            raise AttributeError('The required data .h_fields and .j_couplings are not available. Add them to the '
+                                 f'Entity before {self.direct_coupling_analysis.__name__}')
             # return np.array([])
         analysis_length = msa.query_length
         idx_range = np.arange(analysis_length)
