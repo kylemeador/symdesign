@@ -68,7 +68,7 @@ def subdirectory(name):
 
 # @njit
 def find_fragment_overlap(entity1_coords: np.ndarray, residues1: Iterable[Fragment],
-                          residues2: Iterable[Fragment], euler_lookup: EulerLookup = None,
+                          residues2: Sequence[Fragment], euler_lookup: EulerLookup = None,
                           min_match_value: float = .2) -> list[tuple[GhostFragment, Fragment, float]]:
     #           entity1, entity2, entity1_interface_residue_numbers, entity2_interface_residue_numbers, max_z_value=2):
     """From two sets of Residues, score the fragment overlap according to Nanohedra's fragment matching
@@ -5927,6 +5927,53 @@ class Pose(SequenceProfile, SymmetricModel):
                         'entity_number_of_residues_average_deviation': residue_ratio_sum/counter})
         return metrics
 
+    def get_per_residue_interface_metrics(self) -> dict[str, list[float]]:
+        """Return the per Residue metrics for every Residue in the Pose
+
+        Metrics include sasa_hydrophobic_complex, sasa_polar_complex, sasa_relative_complex, sasa_hydrophobic_bound,
+            sasa_polar_bound, sasa_relative_bound, errat_deviation, hydrophobic_collapse
+
+        Returns:
+            The dictionary of metrics mapped to arrays of values (each the length of the Pose)
+        """
+        per_residue_data = {}
+        pose_length = self.number_of_residues
+        assembly_minimally_contacting = self.assembly_minimally_contacting
+        self.log.debug(f'Starting Pose {self.name} Errat')
+        errat_start = time.time()
+        _, per_residue_errat = assembly_minimally_contacting.errat(out_path=os.devnull)
+        self.log.debug(f'Finished Errat, time = {time.time() - errat_start:6f}')
+        per_residue_data['errat_deviation'] = per_residue_errat[:pose_length]
+        # perform SASA measurements
+        assembly_minimally_contacting.get_sasa()
+        assembly_asu_residues = assembly_minimally_contacting.residues[:pose_length]
+        per_residue_data['sasa_hydrophobic_complex'] = \
+            [residue.sasa_apolar for residue in assembly_asu_residues]
+        per_residue_data['sasa_polar_complex'] = \
+            [residue.sasa_polar for residue in assembly_asu_residues]
+        per_residue_data['sasa_relative_complex'] = \
+            [residue.relative_sasa for residue in assembly_asu_residues]
+        per_residue_sasa_unbound_apolar, per_residue_sasa_unbound_polar, per_residue_sasa_unbound_relative = \
+            [], [], []
+        collapse_concatenated = []
+        for entity in self.entities:
+            # entity.oligomer.get_sasa()  # Todo when Entity.oligomer works
+            entity_oligomer = Model.from_chains(entity.chains, log=self.log, entities=False)
+            entity_oligomer.get_sasa()
+            oligomer_asu_residues = entity_oligomer.residues[:entity.number_of_residues]
+            per_residue_sasa_unbound_apolar.extend([residue.sasa_apolar for residue in oligomer_asu_residues])
+            per_residue_sasa_unbound_polar.extend([residue.sasa_polar for residue in oligomer_asu_residues])
+            per_residue_sasa_unbound_relative.extend([residue.relative_sasa for residue in oligomer_asu_residues])
+            collapse_concatenated.append(entity.hydrophobic_collapse)
+
+        per_residue_data['sasa_hydrophobic_bound'] = per_residue_sasa_unbound_apolar
+        per_residue_data['sasa_polar_bound'] = per_residue_sasa_unbound_polar
+        per_residue_data['sasa_relative_bound'] = per_residue_sasa_unbound_relative
+        per_residue_data['hydrophobic_collapse'] = np.concatenate(collapse_concatenated)
+        # per_residue_data['hydrophobic_collapse'] = pd.Series(np.concatenate(collapse_concatenated))  # , name=self.name)
+
+        return per_residue_data
+
     def get_interface(self, distance: float = 8.) -> Structure:
         """Provide a view of the Pose interface by generating a Structure containing only interface Residues
 
@@ -6043,53 +6090,6 @@ class Pose(SequenceProfile, SymmetricModel):
         interface_asu_structure.coords = closest_interface_coords
 
         return interface_asu_structure
-
-    def get_per_residue_interface_metrics(self) -> dict[str, list[float]]:
-        """Return the per Residue metrics for every Residue in the Pose
-
-        Metrics include sasa_hydrophobic_complex, sasa_polar_complex, sasa_relative_complex, sasa_hydrophobic_bound,
-            sasa_polar_bound, sasa_relative_bound, errat_deviation, hydrophobic_collapse
-
-        Returns:
-            The dictionary of metrics mapped to arrays of values (each the length of the Pose)
-        """
-        per_residue_data = {}
-        pose_length = self.number_of_residues
-        assembly_minimally_contacting = self.assembly_minimally_contacting
-        self.log.debug(f'Starting Pose {self.name} Errat')
-        errat_start = time.time()
-        _, per_residue_errat = assembly_minimally_contacting.errat(out_path=os.devnull)
-        self.log.debug(f'Finished Errat, time = {time.time() - errat_start:6f}')
-        per_residue_data['errat_deviation'] = per_residue_errat[:pose_length]
-        # perform SASA measurements
-        assembly_minimally_contacting.get_sasa()
-        assembly_asu_residues = assembly_minimally_contacting.residues[:pose_length]
-        per_residue_data['sasa_hydrophobic_complex'] = \
-            [residue.sasa_apolar for residue in assembly_asu_residues]
-        per_residue_data['sasa_polar_complex'] = \
-            [residue.sasa_polar for residue in assembly_asu_residues]
-        per_residue_data['sasa_relative_complex'] = \
-            [residue.relative_sasa for residue in assembly_asu_residues]
-        per_residue_sasa_unbound_apolar, per_residue_sasa_unbound_polar, per_residue_sasa_unbound_relative = \
-            [], [], []
-        collapse_concatenated = []
-        for entity in self.entities:
-            # entity.oligomer.get_sasa()  # Todo when Entity.oligomer works
-            entity_oligomer = Model.from_chains(entity.chains, log=self.log, entities=False)
-            entity_oligomer.get_sasa()
-            oligomer_asu_residues = entity_oligomer.residues[:entity.number_of_residues]
-            per_residue_sasa_unbound_apolar.extend([residue.sasa_apolar for residue in oligomer_asu_residues])
-            per_residue_sasa_unbound_polar.extend([residue.sasa_polar for residue in oligomer_asu_residues])
-            per_residue_sasa_unbound_relative.extend([residue.relative_sasa for residue in oligomer_asu_residues])
-            collapse_concatenated.append(entity.hydrophobic_collapse)
-
-        per_residue_data['sasa_hydrophobic_bound'] = per_residue_sasa_unbound_apolar
-        per_residue_data['sasa_polar_bound'] = per_residue_sasa_unbound_polar
-        per_residue_data['sasa_relative_bound'] = per_residue_sasa_unbound_relative
-        per_residue_data['hydrophobic_collapse'] = np.concatenate(collapse_concatenated)
-        # per_residue_data['hydrophobic_collapse'] = pd.Series(np.concatenate(collapse_concatenated))  # , name=self.name)
-
-        return per_residue_data
 
     def find_interface_pairs(self, entity1: Entity = None, entity2: Entity = None, distance: float = 8.) -> \
             list[tuple[Residue, Residue]] | None:
@@ -6366,10 +6366,12 @@ class Pose(SequenceProfile, SymmetricModel):
             self.log.debug(f'Entity {entity2.name} has {len(frag_residues2)} symmetric fragments')
 
         entity1_coords = entity1.backbone_and_cb_coords  # for clash check, we only want the backbone and CB
+        fragment_time_start = time.time()
         ghostfrag_surfacefrag_pairs = find_fragment_overlap(entity1_coords, frag_residues1, frag_residues2,
                                                             euler_lookup=self.euler_lookup)
         self.log.info(f'Found {len(ghostfrag_surfacefrag_pairs)} overlapping fragment pairs at the {entity1.name} | '
                       f'{entity2.name} interface')
+        self.log.info(f'Took {time.time() - fragment_time_start:.8f}s')
         # # Debug the fragment process
         # out_dir = os.getcwd()
         # self.debug_pdb(out_dir=out_dir, tag='query_fragments')
