@@ -13,7 +13,7 @@ from utils.SymEntry import SymEntry
 from utils.path import sym_entry, all_scores, projects, sequence_info, data, output_oligomers, output_fragments, \
     structure_background, scout, generate_fragments, number_of_trajectories, no_hbnet, \
     ignore_symmetric_clashes, ignore_pose_clashes, ignore_clashes, force_flags, no_evolution_constraint, \
-    no_term_constraint, consensus
+    no_term_constraint, consensus, structure_info
 
 logger = start_log(name=__name__)
 
@@ -42,7 +42,8 @@ class JobResources:
 
         # data subdirectories
         self.clustered_poses = os.path.join(self.data, 'ClusteredPoses')
-        self.pdbs = os.path.join(self.data, 'PDBs')  # Used to store downloaded PDB's
+        self.structure_info = os.path.join(self.data, structure_info)
+        self.pdbs = os.path.join(self.structure_info, 'PDBs')  # Used to store downloaded PDB's
         self.sequence_info = os.path.join(self.data, sequence_info)
         self.external_db = os.path.join(self.data, 'ExternalDatabases')
         # pdbs subdirectories
@@ -50,7 +51,7 @@ class JobResources:
         self.orient_asu_dir = os.path.join(self.pdbs, 'oriented_asu')
         self.refine_dir = os.path.join(self.pdbs, 'refined')
         self.full_model_dir = os.path.join(self.pdbs, 'full_models')
-        self.stride_dir = os.path.join(self.pdbs, 'stride')
+        self.stride_dir = os.path.join(self.structure_info, 'stride')
         # sequence_info subdirectories
         self.sequences = os.path.join(self.sequence_info, 'sequences')
         self.profiles = os.path.join(self.sequence_info, 'profiles')
