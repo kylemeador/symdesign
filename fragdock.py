@@ -2589,8 +2589,8 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
                     # perturbed_bb_coords = np.concatenate(new_coords, axis=1)
 
                     # Initialize pose data structures for interface design
-                    residue_mask = np.zeros((actual_batch_length, pose_length),
-                                            dtype=np.int32)# (batch, number_of_residues)
+                    residue_mask_cpu = np.zeros((actual_batch_length, pose_length),
+                                                dtype=np.int32)# (batch, number_of_residues)
                     bias_by_res = np.zeros((actual_batch_length, pose_length, 21),
                                            dtype=np.float32)  # (batch, number_of_residues, alphabet_length)
                     new_coords = np.zeros((actual_batch_length, pose_length * num_model_residues, 3),
@@ -2606,7 +2606,7 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
                         for number, residues_entities in pose.split_interface_residues.items():
                             design_residues.extend([residue.index for residue, _ in residues_entities])
 
-                        residue_mask[batch_idx, design_residues] = 1
+                        residue_mask_cpu[batch_idx, design_residues] = 1
                         # Todo Should I use this?
                         #  bias_by_res[batch_idx] = pose.fragment_profile
                         #  OR
@@ -2631,7 +2631,7 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
                         # Symmetrize other arrays
                         number_of_symmetry_mates = pose.number_of_symmetry_mates
                         # (batch, number_of_sym_residues, ...)
-                        residue_mask = np.tile(residue_mask, (1, number_of_symmetry_mates))
+                        residue_mask_cpu = np.tile(residue_mask_cpu, (1, number_of_symmetry_mates))
                         bias_by_res = np.tile(bias_by_res, (1, number_of_symmetry_mates, 1))
                     # else:
                     #     # If entity_bb_coords are individually transformed, then axis=0 works
@@ -2645,7 +2645,7 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
                     with torch.no_grad():  # Ensure no gradients are produced
                         # Update parameters as some are not transfered to the identified device
                         separate_parameters = proteinmpnn_to_device(mpnn_model.device, X=X,
-                                                                    chain_M_pos=residue_mask,
+                                                                    chain_M_pos=residue_mask_cpu,
                                                                     bias_by_res=bias_by_res)
                         # Different across poses
                         X = separate_parameters.get('X', None)
@@ -2679,7 +2679,7 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
                                 collapse_z = z_score(design_probs_collapse,
                                                      collapse_profile_mean, collapse_profile_std)
                                 # folding_loss = score_sequences(S_sample, log_probs)  # , mask_for_loss)
-                                designed_indices_collapse = collapse_z[residue_mask[pose_idx, :pose_length]]
+                                designed_indices_collapse = collapse_z[residue_mask_cpu[pose_idx, :pose_length]]
                                 if any(designed_indices_collapse > 1):  # Deviation larger than one standard deviation
                                     print('greater than 1', designed_indices_collapse > 1)
                                     log.warning(f'Collapse is larger than one standard deviation.'
