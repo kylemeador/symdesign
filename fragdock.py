@@ -2389,6 +2389,7 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
         contact_order_per_res_z, reference_collapse, collapse_profile = pose.get_folding_metrics()
         if collapse_profile.size:  # Not equal to zero
             print(collapse_profile)
+            print(collapse_profile.size)
             log.critical('****Found evolutionary profile!')
             collapse_profile_mean, collapse_profile_std = collapse_profile.mean(axis=-2), collapse_profile.std(axis=-2)
         else:
