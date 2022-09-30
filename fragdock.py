@@ -2680,10 +2680,12 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
                                 collapse_z = z_score(design_probs_collapse,
                                                      collapse_profile_mean, collapse_profile_std)
                                 # folding_loss = score_sequences(S_sample, log_probs)  # , mask_for_loss)
-                                designed_indices_collapse = collapse_z[residue_mask_cpu[pose_idx, :pose_length]]
-                                if any(designed_indices_collapse > 1):  # Deviation larger than one standard deviation
-                                    print('greater than 1', designed_indices_collapse > 1)
-                                    log.warning(f'Collapse is larger than one standard deviation.'
+                                designed_indices_collapse_z = \
+                                    collapse_z[np.flatnonzero(residue_mask_cpu[pose_idx, :pose_length])]
+                                magnitude_of_collapse_z_deviation = np.abs(designed_indices_collapse_z)
+                                if any(magnitude_of_collapse_z_deviation > 1):  # Deviation larger than one std
+                                    print('magnitude greater than 1', magnitude_of_collapse_z_deviation > 1)
+                                    log.warning(f'***Collapse is larger than one standard deviation.'
                                                 f' Pose is *** being considered')
                                     skip.append(pose_idx)
                                 else:
