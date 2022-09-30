@@ -2547,7 +2547,7 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
                     chain_mask_and_mask = chain_mask*mask
 
                 # Set up ProteinMPNN output data structures
-                generated_sequences = np.empty((size, number_of_residues))
+                generated_sequences = np.empty((size, number_of_residues), dtype=np.int32)
                 # sequence_scores = np.empty((size,))
                 per_residue_sequence_scores = np.empty((size, number_of_residues))
                 per_residue_unbound_scores = np.empty((size, number_of_residues))
@@ -3116,6 +3116,7 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
             # Todo get the below mechanism clean
             # Before calculation, we must set this (v) to get the correct values from the profile
             pose._sequence_numeric = generated_sequences[idx, :pose_length]
+            # pose._sequence_numeric = generated_sequences[idx, :pose_length].astype(np.int32)
             fragment_profile_frequencies = \
                 pose.get_sequence_probabilities_from_profile(precomputed=fragment_profile_array)
             # print('fragment_profile_frequencies.shape:', fragment_profile_frequencies.shape,
