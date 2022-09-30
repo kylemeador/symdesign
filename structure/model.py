@@ -5246,7 +5246,7 @@ class Pose(SequenceProfile, SymmetricModel):
             else:
                 raise error
 
-        # need to set up after load Entities so that they can have this added to their SequenceProfile
+        # Need to set up after load Entities so that they can have this added to their SequenceProfile
         self.fragment_db = fragment_db  # kwargs.get('fragment_db', None)
         self.create_design_selector()  # **self.design_selector)
         self.log.debug(f'Entities: {", ".join(entity.name for entity in self.entities)}')
@@ -5259,6 +5259,8 @@ class Pose(SequenceProfile, SymmetricModel):
 
     @fragment_db.setter
     def fragment_db(self, fragment_db: FragmentDatabase):
+        self.log.critical(f'Found fragment_db {type(fragment_db)}. '
+                          f'isinstance(fragment_db, FragmentDatabase) = {isinstance(fragment_db, FragmentDatabase)}')
         if not isinstance(fragment_db, FragmentDatabase):
             # Todo add fragment_length, sql kwargs
             fragment_db = fragment_factory(source=PUtils.biological_interfaces)
