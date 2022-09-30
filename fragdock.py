@@ -2671,9 +2671,19 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
                             # Measure the unconditional (no sequence) amino acid probabilities at each residue to see
                             # how they compare to the hydrophobic collapse index from the multiple sequence alignment
                             batched_decoding_order = decoding_order.repeat(actual_batch_length, 1)
+                            conditional_start_time = time.time()
                             conditional_log_probs = \
                                 mpnn_model.conditional_probs(X, S[:actual_batch_length], mask, chain_mask, residue_idx,
-                                                             chain_encoding, batched_decoding_order, backbone_only=True).cpu()
+                                                             chain_encoding, batched_decoding_order,
+                                                             backbone_only=True).cpu()
+                            conditional_bb_time = time.time()
+                            conditional_log_probs_seq = \
+                                mpnn_model.conditional_probs(X, S[:actual_batch_length], mask, chain_mask, residue_idx,
+                                                             chain_encoding, batched_decoding_order).cpu()
+                            # conditional_seq_time = time.time()
+                            _input = input(f'Calculation finished. Backbone took {conditional_bb_time - conditional_start_time}'
+                                           f' Sequence took {time.time() - conditional_bb_time}. '
+                                           f'Press enter to continue')
                             unconditional_log_probs = \
                                 mpnn_model.unconditional_probs(X, mask, residue_idx, chain_encoding).cpu()
                             skip = []
@@ -2682,8 +2692,10 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
                                 # Only include the residues in the ASU
                                 asu_conditional_softmax = np.exp(conditional_log_probs[pose_idx, :pose_length])
                                 asu_unconditional_softmax = np.exp(unconditional_log_probs[pose_idx, :pose_length])
+                                asu_unconditional_softmax_seq = np.exp(conditional_log_probs_seq[pose_idx, :pose_length])
                                 print('asu_conditional_softmax', asu_conditional_softmax[0])
                                 print('asu_unconditional_softmax', asu_unconditional_softmax[0])
+                                print('asu_unconditional_softmax', asu_unconditional_softmax_seq[0])
                                 # asu_conditional_softmax tensor([[0.0273, 0.0125, 0.0200,  ..., 0.0073, 0.0102, 0.0052],
                                 #         [0.0273, 0.0125, 0.0200,  ..., 0.0073, 0.0102, 0.0052],
                                 #         [0.0273, 0.0125, 0.0200,  ..., 0.0073, 0.0102, 0.0052],
@@ -2691,8 +2703,8 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
                                 #         [0.0091, 0.0078, 0.0101,  ..., 0.0038, 0.0029, 0.0059],
                                 #         [0.0091, 0.0078, 0.0101,  ..., 0.0038, 0.0029, 0.0059],
                                 #         [0.0091, 0.0078, 0.0101,  ..., 0.0038, 0.0029, 0.0059]])
-                                print('sum asu_conditional_softmax', asu_conditional_softmax.sum(axis=-1))
-                                print('sum asu_unconditional_softmax', asu_unconditional_softmax.sum(axis=-1))
+                                # print('sum asu_conditional_softmax', asu_conditional_softmax.sum(axis=-1))
+                                # print('sum asu_unconditional_softmax', asu_unconditional_softmax.sum(axis=-1))
                                 # sum asu_conditional_softmax tensor([1.0000, 1.0000, 1.0000, 1.0000, 1.0000, 1.0000, 1.0000, 1.0000, 1.0000,
                                 design_probs_collapse = \
                                     hydrophobic_collapse_index(asu_conditional_softmax,
