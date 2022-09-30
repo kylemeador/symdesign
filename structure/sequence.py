@@ -2145,7 +2145,9 @@ def parse_hhblits_pssm(file: AnyStr, null_background: bool = True, **kwargs) -> 
         else:
             if line[0:4] == 'NULL':
                 if null_background:  # Use the provided null background from the profile search
-                    _, background_values = line.strip().split()
+                    _, *background_values = line.strip().split()
+                    print('missing value is', _)
+                    print('background_values are', background_values)
                     null_bg = {aa: to_freq(value) for value, aa in zip(background_values, protein_letters_alph3)}
 
             if len(line.split()) == 23:
