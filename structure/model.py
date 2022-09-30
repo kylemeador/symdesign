@@ -162,14 +162,14 @@ def find_fragment_overlap(entity1_coords: np.ndarray, residues1: Iterable[Fragme
     # passing_z_values = all_fragment_overlap[passing_overlap_indices]
     # match_scores = match_score_from_z_value(all_fragment_overlap[passing_overlap_indices])
 
-    # return list(zip([ghost_frags1[idx] for idx in passing_ghost_indices[passing_overlaps_indices].tolist()],
-    #                 [residues2[idx] for idx in passing_frag_indices[passing_overlaps_indices].tolist()],
-    #                 all_fragment_match[passing_overlaps_indices].tolist()))
-
-    # Todo keep without euler_lookup?
-    return list(zip([ghost_frags1[idx] for idx in passing_overlaps_indices.tolist()],
-                    [residues2[idx] for idx in passing_overlaps_indices.tolist()],
+    return list(zip([ghost_frags1[idx] for idx in passing_ghost_indices[passing_overlaps_indices].tolist()],
+                    [residues2[idx] for idx in passing_frag_indices[passing_overlaps_indices].tolist()],
                     all_fragment_match[passing_overlaps_indices].tolist()))
+    #
+    # # Todo keep without euler_lookup?
+    # return list(zip([ghost_frags1[idx] for idx in passing_overlaps_indices.tolist()],
+    #                 [residues2[idx] for idx in passing_overlaps_indices.tolist()],
+    #                 all_fragment_match[passing_overlaps_indices].tolist()))
 
 
 def get_matching_fragment_pairs_info(ghostfrag_frag_pairs: list[tuple[GhostFragment, Fragment, float]]) -> \
