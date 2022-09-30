@@ -2556,8 +2556,8 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
                 # Gather the coordinates according to the transformations identified
                 for batch in range(number_of_batches):
                     # For the final batch which may have fewer inputs
-                    batch_slice = slice(batch*batch_length, min((batch+1) * batch_length, size))
-                    actual_batch_length = batch_slice.stop-batch_slice.start
+                    batch_slice = slice(batch * batch_length, min((batch+1) * batch_length, size))
+                    actual_batch_length = batch_slice.stop - batch_slice.start
                     # # Get the transformations based on slices of batch_length
                     # # Stack each local perturbation up and multiply individual entity coords
                     # transformation1 = dict(rotation=full_rotation1[batch_slice],
@@ -2670,9 +2670,10 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
                         if collapse_profile.size:  # Not equal to zero
                             # Measure the unconditional (no sequence) amino acid probabilities at each residue to see
                             # how they compare to the hydrophobic collapse index from the multiple sequence alignment
+                            batched_decoding_order = decoding_order.repeat(actual_batch_length)
                             conditional_log_probs = \
                                 mpnn_model.conditional_probs(X, S[:actual_batch_length], mask, chain_mask, residue_idx,
-                                                             chain_encoding, decoding_order, backbone_only=True).cpu()
+                                                             chain_encoding, batched_decoding_order, backbone_only=True).cpu()
                             unconditional_log_probs = \
                                 mpnn_model.unconditional_probs(X, mask, residue_idx, chain_encoding).cpu()
                             skip = []
