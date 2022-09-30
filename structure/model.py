@@ -5767,6 +5767,18 @@ class Pose(SequenceProfile, SymmetricModel):
             hydrophobic_collapse_profile = np.ndarray([])
             # print('inside function', hydrophobic_collapse_profile)  # This was printing 7.0 . wtf??
         else:
+            # We have to concatenate where the values will be different
+            # axis=1 is along the residues, so the result should be the length of the pose
+            # axis=0 will be different for each individual entity, so we pad to the maximum for lesser ones
+            array_sizes = [array.shape[0] for array in hydrophobic_collapse_profile]
+            axis0_max_length = max(array_sizes)
+            # full_hydrophobic_collapse_profile = \
+            #     np.full((axis0_max_length, self.number_of_residues), np.nan)  # , dtype=np.float32)
+            for idx, array in enumerate(hydrophobic_collapse_profile):
+                # full_hydrophobic_collapse_profile[:, ] = \
+                hydrophobic_collapse_profile[idx] = \
+                    np.pad(array, ((0, axis0_max_length - array_sizes[idx]), (0, 0)), constant_values=np.nan)
+
             hydrophobic_collapse_profile = np.concatenate(hydrophobic_collapse_profile, axis=1)
 
         return contact_order_z, hydrophobic_collapse, hydrophobic_collapse_profile
