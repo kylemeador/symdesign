@@ -2094,9 +2094,12 @@ def hydrophobic_collapse_index(sequence: Sequence[str | int] | np.ndarry, hydrop
         # raise ValueError(f"sequence argument with type {type(sequence).__name__} isn't supported")
     elif isinstance(sequence, (torch.Tensor, np.ndarray)):  # This is an integer sequence. An alphabet is required
         # if sequence.ndim == 2:
-        np_torch_int_types = (np.int, np.int8, np.int16, np.int32, np.int64,
+        np_torch_int_types = (np.int8, np.int16, np.int32, np.int64,
                               torch.int, torch.int8, torch.int16, torch.int32, torch.int64)
-        if sequence.dtype in np_torch_int_types:
+        np_torch_float_types = (np.float16, np.float32, np.float64,
+                                torch.float, torch.float16, torch.float32, torch.float64)
+        np_torch_int_float_types = np_torch_int_types + np_torch_float_types
+        if sequence.dtype in np_torch_int_float_types:
             if alphabet_type is None:
                 raise ValueError(missing_alphabet)
             else:
