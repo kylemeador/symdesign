@@ -601,7 +601,7 @@ class SequenceProfile:
             self._sequence_numeric = \
                 np.vectorize(numerical_translation_alph1_gapped_bytes.__getitem__, otypes='i')(self._sequence_array)
             # using otypes='i' as the datatype. 'f' would be for float32
-            self.log.critical(f'The sequence_numeric dtype is {type(self._sequence_numeric)}. It should be int32')
+            self.log.critical(f'The sequence_numeric dtype is {self._sequence_numeric.dtype}. It should be int32')
             # self._sequence_numeric = self._sequence_numeric.astype(np.int32)
             return self._sequence_numeric
 
@@ -1071,8 +1071,8 @@ class SequenceProfile:
             aligned_hci_np = np.take_along_axis(evolutionary_collapse_np, iterator_np, axis=1)
             # Select only the query sequence indices
             # sequence_hci_np = aligned_hci_np[:, self.msa.query_indices]
-            print('aligned_hci_np', aligned_hci_np.shape, aligned_hci_np)
-            print('self.msa.query_indices', self.msa.query_indices.shape, self.msa.query_indices)
+            # print('aligned_hci_np', aligned_hci_np.shape, aligned_hci_np)
+            # print('self.msa.query_indices', self.msa.query_indices.shape, self.msa.query_indices)
             self._collapse_profile = aligned_hci_np[:, self.msa.query_indices]
             # self._collapse_profile = pd.DataFrame(aligned_hci_np[:, self.msa.query_indices],
             #                                       columns=list(range(1, self.msa.query_length + 1)))  # One-indexed
