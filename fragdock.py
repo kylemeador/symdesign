@@ -2671,7 +2671,7 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
                                 # Take the hydrophobic collapse of the log probs to understand the profiles "folding"
                                 # Only include the residues in the ASU
                                 design_probs_collapse = \
-                                    hydrophobic_collapse_index(unconditional_log_probs[pose_idx, pose_length],
+                                    hydrophobic_collapse_index(unconditional_log_probs[pose_idx, :pose_length],
                                                                alphabet_type=mpnn_alphabet)
                                 # Compare the sequence collapse to the pose collapse
                                 # USE:
@@ -2679,7 +2679,7 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
                                 collapse_z = z_score(design_probs_collapse,
                                                      collapse_profile_mean, collapse_profile_std)
                                 # folding_loss = score_sequences(S_sample, log_probs)  # , mask_for_loss)
-                                designed_indices_collapse = collapse_z[residue_mask[pose_idx, pose_length]]
+                                designed_indices_collapse = collapse_z[residue_mask[pose_idx, :pose_length]]
                                 if any(designed_indices_collapse > 1):  # Deviation larger than one standard deviation
                                     print('greater than 1', designed_indices_collapse > 1)
                                     log.warning(f'Collapse is larger than one standard deviation.'
