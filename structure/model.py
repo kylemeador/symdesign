@@ -112,7 +112,7 @@ def find_fragment_overlap(entity1_coords: np.ndarray, residues1: Iterable[Fragme
     # # filter array by matching type for surface (i) and ghost (j) frags
     # ghost_type_array = np.array([ghost_frags1[idx].frag_type for idx in overlapping_ghost_indices.tolist()])
     # mono_type_array = np.array([residues2[idx].frag_type for idx in overlapping_frag_indices.tolist()])
-    # ij_type_match = np.where(mono_type_array == ghost_type_array, True, False)
+    # ij_type_match = mono_type_array == ghost_type_array
     #
     # passing_ghost_indices = overlapping_ghost_indices[ij_type_match]
     # passing_frag_indices = overlapping_frag_indices[ij_type_match]
@@ -124,14 +124,17 @@ def find_fragment_overlap(entity1_coords: np.ndarray, residues1: Iterable[Fragme
     ghost_type_array = np.array([ghost_frag.frag_type for ghost_frag in ghost_frags1])
     mono_type_array = np.array([residue.frag_type for residue in residues2])
     # Using only ij_type_match, no euler_lookup
-    int_surf_shape = len(residues2)
     int_ghost_shape = len(ghost_frags1)
+    int_surf_shape = len(residues2)
     # maximum_number_of_pairs = int_ghost_shape*int_surf_shape
     ghost_indices_repeated = np.repeat(ghost_type_array, int_surf_shape)
     surf_indices_tiled = np.tile(mono_type_array, int_ghost_shape)
     # ij_type_match = ij_type_match_lookup_table[ghost_indices_repeated, surf_indices_tiled]
-    ij_type_match = np.where(ghost_indices_repeated == surf_indices_tiled, True, False)
-    possible_fragments_pairs = ghost_indices_repeated.shape[0]
+    # ij_type_match = np.where(ghost_indices_repeated == surf_indices_tiled, True, False)
+    # ij_type_match = ghost_indices_repeated == surf_indices_tiled
+    ij_type_match_lookup_table = (ghost_indices_repeated == surf_indices_tiled).reshape(int_ghost_shape, -1)
+    ij_type_match = ij_type_match_lookup_table[ghost_indices_repeated, surf_indices_tiled]
+    # possible_fragments_pairs = ghost_indices_repeated.shape[0]
     passing_ghost_indices = ghost_indices_repeated[ij_type_match]
     passing_surf_indices = surf_indices_tiled[ij_type_match]
     # passing_ghost_coords = residue1_ghost_guide_coords[ij_type_match]
