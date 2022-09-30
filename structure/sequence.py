@@ -1077,6 +1077,8 @@ class SequenceProfile:
             aligned_hci_np = np.take_along_axis(evolutionary_collapse_np, iterator_np, axis=1)
             # Select only the query sequence indices
             # sequence_hci_np = aligned_hci_np[:, self.msa.query_indices]
+            print('aligned_hci_np', aligned_hci_np.shape, aligned_hci_np)
+            print('self.msa.query_indices', self.msa.query_indices.shape, self.msa.query_indices)
             self._collapse_profile = aligned_hci_np[:, self.msa.query_indices]
             # self._collapse_profile = pd.DataFrame(aligned_hci_np[:, self.msa.query_indices],
             #                                       columns=list(range(1, self.msa.query_length + 1)))  # One-indexed
