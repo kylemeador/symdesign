@@ -2673,7 +2673,7 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
                                 # Take the hydrophobic collapse of the log probs to understand the profiles "folding"
                                 # Only include the residues in the ASU
                                 design_probs_collapse = \
-                                    hydrophobic_collapse_index(unconditional_log_probs[pose_idx, :pose_length],
+                                    hydrophobic_collapse_index(np.exp(unconditional_log_probs[pose_idx, :pose_length]),
                                                                alphabet_type=mpnn_alphabet)
                                 # Compare the sequence collapse to the pose collapse
                                 # USE:
