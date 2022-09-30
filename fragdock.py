@@ -3093,6 +3093,9 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
             interface_indexer = [residue.index for residue in pose.interface_residues]
 
             # fragment_profile_frequencies = pose.get_sequence_probabilities_from_profile(dtype='fragment')  # fragment_profile_array
+            # Todo get the below mechanism clean
+            # Before calculation, we must set this (v) to get the correct values from the profile
+            pose._sequence_numeric = generated_sequences[idx, :pose_length]
             fragment_profile_frequencies = \
                 pose.get_sequence_probabilities_from_profile(precomputed=fragment_profile_array)
             # print('fragment_profile_frequencies.shape:', fragment_profile_frequencies.shape,
