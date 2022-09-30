@@ -2656,30 +2656,50 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
                         residue_mask = separate_parameters.get('chain_M_pos', None)
                         # Potentially different across poses
                         bias_by_res = separate_parameters.get('bias_by_res', None)
+                        # Todo
+                        #  Must calculate below individually if using some feature to describe order
                         decoding_order = pose.generate_proteinmpnn_decode_order(to_device=mpnn_model.device)
                         # Slice reused parameters only once
-                        chain_encoding = chain_encoding[:actual_batch_length]
-                        residue_idx = residue_idx[:actual_batch_length]
                         mask = mask[:actual_batch_length]
                         chain_mask = chain_mask[:actual_batch_length]
+                        residue_idx = residue_idx[:actual_batch_length]
+                        chain_encoding = chain_encoding[:actual_batch_length]
                         residue_mask = residue_mask[:actual_batch_length]
 
                         # See if the pose is useful to design based on constraints of collapse
                         if collapse_profile.size:  # Not equal to zero
                             # Measure the unconditional (no sequence) amino acid probabilities at each residue to see
                             # how they compare to the hydrophobic collapse index from the multiple sequence alignment
+                            conditional_log_probs = \
+                                mpnn_model.conditional_probs(X, S[:actual_batch_length], mask, chain_mask, residue_idx,
+                                                             chain_encoding, decoding_order, backbone_only=True).cpu()
                             unconditional_log_probs = \
                                 mpnn_model.unconditional_probs(X, mask, residue_idx, chain_encoding).cpu()
                             skip = []
                             for pose_idx in range(actual_batch_length):
                                 # Take the hydrophobic collapse of the log probs to understand the profiles "folding"
                                 # Only include the residues in the ASU
-                                asu_conditional_softmax = np.exp(unconditional_log_probs[pose_idx, :pose_length])
-                                print('asu_conditional_softmax', asu_conditional_softmax)
+                                asu_conditional_softmax = np.exp(conditional_log_probs[pose_idx, :pose_length])
+                                asu_unconditional_softmax = np.exp(unconditional_log_probs[pose_idx, :pose_length])
+                                print('asu_conditional_softmax', asu_conditional_softmax[0])
+                                print('asu_unconditional_softmax', asu_unconditional_softmax[0])
+                                # asu_conditional_softmax tensor([[0.0273, 0.0125, 0.0200,  ..., 0.0073, 0.0102, 0.0052],
+                                #         [0.0273, 0.0125, 0.0200,  ..., 0.0073, 0.0102, 0.0052],
+                                #         [0.0273, 0.0125, 0.0200,  ..., 0.0073, 0.0102, 0.0052],
+                                #         ...,
+                                #         [0.0091, 0.0078, 0.0101,  ..., 0.0038, 0.0029, 0.0059],
+                                #         [0.0091, 0.0078, 0.0101,  ..., 0.0038, 0.0029, 0.0059],
+                                #         [0.0091, 0.0078, 0.0101,  ..., 0.0038, 0.0029, 0.0059]])
                                 print('sum asu_conditional_softmax', asu_conditional_softmax.sum(axis=-1))
+                                print('sum asu_unconditional_softmax', asu_unconditional_softmax.sum(axis=-1))
+                                # sum asu_conditional_softmax tensor([1.0000, 1.0000, 1.0000, 1.0000, 1.0000, 1.0000, 1.0000, 1.0000, 1.0000,
                                 design_probs_collapse = \
                                     hydrophobic_collapse_index(asu_conditional_softmax,
                                                                alphabet_type=mpnn_alphabet)
+                                # Todo?
+                                #  design_probs_un_collapse = \
+                                #      hydrophobic_collapse_index(asu_unconditional_softmax,
+                                #                                 alphabet_type=mpnn_alphabet)
                                 # Compare the sequence collapse to the pose collapse
                                 # USE:
                                 #  contact_order_per_res_z, reference_collapse, collapse_profile
