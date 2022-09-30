@@ -2384,8 +2384,49 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
         return  # End of docking run
 
     elif design_output:  # We perform sequence design
+        # Todo
+        #  Move this outside if we want to measure docking solutions with ProteinMPNN
+        # Add Entity information to the Pose
+        measure_evolution, measure_alignment = True, True
+        warn = False
+        for entity in pose.entities:
+            try:  # To fetch the multiple sequence alignment for further processing
+                # entity.sequence_file = job.api_db.sequences.retrieve_file(name=entity.name)
+                # if not entity.sequence_file:
+                #     entity.write_sequence_to_fasta('reference', out_dir=job.sequences)
+                #     # entity.add_evolutionary_profile(out_dir=job.api_db.hhblits_profiles.location)
+                # else:
+                profile = job.api_db.hhblits_profiles.retrieve_data(name=entity.name)
+                if not profile:
+                    measure_evolution = False
+                    warn = True
+                else:
+                    entity.evolutionary_profile = profile
+
+                msa = job.api_db.alignments.retrieve_data(name=entity.name)
+                if not msa:
+                    measure_evolution = False
+                    warn = True
+                else:
+                    entity.msa = msa
+            except ValueError:  # When the Entity reference sequence and alignment are different lengths
+                warn = True
+
+        if warn:
+            if not measure_evolution and not measure_alignment:
+                log.info(f'Metrics relying on multiple sequence alignment data are not being collected as '
+                         f'there were none found. These include: '
+                         f'{", ".join(multiple_sequence_alignment_dependent_metrics)}')
+            elif not measure_alignment:
+                log.info(f'Metrics relying on a multiple sequence alignment are not being collected as '
+                         f'there was no MSA found. These include: '
+                         f'{", ".join(multiple_sequence_alignment_dependent_metrics)}')
+            else:
+                log.info(f'Metrics relying on an evolutionary profile are not being collected as '
+                         f'there was no profile found. These include: '
+                         f'{", ".join(profile_dependent_metrics)}')
+
         # Gather folding metrics for the pose for comparison to the designed sequences
-        # Todo ensure the collapse_profile is made above
         contact_order_per_res_z, reference_collapse, collapse_profile = pose.get_folding_metrics()
         if collapse_profile.size:  # Not equal to zero
             print(collapse_profile)
@@ -3072,46 +3113,7 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
 
     # Collect sequence metrics on every designed Pose
     if design_output:
-        # Add Entity information to the Pose
-        measure_evolution, measure_alignment = True, True
-        warn = False
-        for entity in pose.entities:
-            try:  # To fetch the multiple sequence alignment for further processing
-                # entity.sequence_file = job.api_db.sequences.retrieve_file(name=entity.name)
-                # if not entity.sequence_file:
-                #     entity.write_sequence_to_fasta('reference', out_dir=job.sequences)
-                #     # entity.add_evolutionary_profile(out_dir=job.api_db.hhblits_profiles.location)
-                # else:
-                profile = job.api_db.hhblits_profiles.retrieve_data(name=entity.name)
-                if not profile:
-                    measure_evolution = False
-                    warn = True
-                else:
-                    entity.evolutionary_profile = profile
-
-                msa = job.api_db.alignments.retrieve_data(name=entity.name)
-                if not msa:
-                    measure_evolution = False
-                    warn = True
-                else:
-                    entity.msa = msa
-            except ValueError:  # When the Entity reference sequence and alignment are different lengths
-                warn = True
-
-        if warn:
-            if not measure_evolution and not measure_alignment:
-                log.info(f'Metrics relying on multiple sequence alignment data are not being collected as '
-                         f'there were none found. These include: '
-                         f'{", ".join(multiple_sequence_alignment_dependent_metrics)}')
-            elif not measure_alignment:
-                log.info(f'Metrics relying on a multiple sequence alignment are not being collected as '
-                         f'there was no MSA found. These include: '
-                         f'{", ".join(multiple_sequence_alignment_dependent_metrics)}')
-            else:
-                log.info(f'Metrics relying on an evolutionary profile are not being collected as '
-                         f'there was no profile found. These include: '
-                         f'{", ".join(profile_dependent_metrics)}')
-
+        # MultipleSequenceAlignments were already loaded
         # Todo check job.no_evolution_constraint flag
         # Load profiles of interest into the analysis
         profile_background = {}
