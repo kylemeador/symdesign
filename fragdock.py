@@ -2723,38 +2723,40 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
                                 mpnn_model(X, S_design_null, mask, chain_residue_mask, residue_idx, chain_encoding,
                                            None,  # This argument is provided but with below args, is not used
                                            use_input_decoding_order=True, decoding_order=decoding_order).cpu()
-                            # conditional_log_probs_seq = \
-                            #     mpnn_model.conditional_probs(X, S[:actual_batch_length], mask, chain_residue_mask,
-                            #                                  residue_idx, chain_encoding, decoding_order).cpu()
-                            # conditional_seq_time = time.time()
-                            # _input = input(f'Calculation finished. Backbone took {conditional_bb_time - conditional_start_time}'
-                            #                f' Sequence took {time.time() - conditional_bb_time}. '
-                            #                f'Press enter to continue')
-                            unconditional_log_probs = \
-                                mpnn_model.unconditional_probs(X, mask, residue_idx, chain_encoding).cpu()
+                            # # conditional_log_probs_seq = \
+                            # #     mpnn_model.conditional_probs(X, S[:actual_batch_length], mask, chain_residue_mask,
+                            # #                                  residue_idx, chain_encoding, decoding_order).cpu()
+                            # # conditional_seq_time = time.time()
+                            # # _input = input(f'Calculation finished. Backbone took {conditional_bb_time - conditional_start_time}'
+                            # #                f' Sequence took {time.time() - conditional_bb_time}. '
+                            # #                f'Press enter to continue')
+                            # unconditional_log_probs = \
+                            #     mpnn_model.unconditional_probs(X, mask, residue_idx, chain_encoding).cpu()
                             skip = []
                             for pose_idx in range(actual_batch_length):
                                 residue_indices_of_interest = np.flatnonzero(residue_mask_cpu[pose_idx, :pose_length])
                                 # Take the hydrophobic collapse of the log probs to understand the profiles "folding"
                                 # Only include the residues in the ASU
-                                # asu_conditional_softmax = np.exp(conditional_log_probs[pose_idx, :pose_length])
+                                # # asu_conditional_softmax = np.exp(conditional_log_probs[pose_idx, :pose_length])
                                 asu_conditional_softmax_null_seq = np.exp(conditional_log_probs_null_seq[pose_idx, :pose_length])
-                                # asu_conditional_softmax_seq = np.exp(conditional_log_probs_seq[pose_idx, :pose_length])
-                                asu_unconditional_softmax = np.exp(unconditional_log_probs[pose_idx, :pose_length])
-                                # print('asu_conditional_softmax', asu_conditional_softmax[residue_indices_of_interest])
-                                print('asu_conditional_softmax_null_seq', asu_conditional_softmax_null_seq[residue_indices_of_interest[:5]])
-                                # print('asu_conditional_softmax_seq', asu_conditional_softmax_seq[residue_indices_of_interest[:5]])
-                                print('asu_unconditional_softmax', asu_unconditional_softmax[residue_indices_of_interest[:5]])
-                                # asu_conditional_softmax tensor([[0.0273, 0.0125, 0.0200,  ..., 0.0073, 0.0102, 0.0052],
-                                #         [0.0273, 0.0125, 0.0200,  ..., 0.0073, 0.0102, 0.0052],
-                                #         [0.0273, 0.0125, 0.0200,  ..., 0.0073, 0.0102, 0.0052],
-                                #         ...,
-                                #         [0.0091, 0.0078, 0.0101,  ..., 0.0038, 0.0029, 0.0059],
-                                #         [0.0091, 0.0078, 0.0101,  ..., 0.0038, 0.0029, 0.0059],
-                                #         [0.0091, 0.0078, 0.0101,  ..., 0.0038, 0.0029, 0.0059]])
-                                # print('sum asu_conditional_softmax', asu_conditional_softmax.sum(axis=-1))
-                                # print('sum asu_unconditional_softmax', asu_unconditional_softmax.sum(axis=-1))
-                                # sum asu_conditional_softmax tensor([1.0000, 1.0000, 1.0000, 1.0000, 1.0000, 1.0000, 1.0000, 1.0000, 1.0000,
+                                # # asu_conditional_softmax_seq = np.exp(conditional_log_probs_seq[pose_idx, :pose_length])
+                                # asu_unconditional_softmax = np.exp(unconditional_log_probs[pose_idx, :pose_length])
+                                # # print('asu_conditional_softmax', asu_conditional_softmax[residue_indices_of_interest])
+                                # print('asu_conditional_softmax_null_seq', asu_conditional_softmax_null_seq[residue_indices_of_interest[:5]])
+                                # # print('asu_conditional_softmax_seq', asu_conditional_softmax_seq[residue_indices_of_interest[:5]])
+                                # print('asu_unconditional_softmax', asu_unconditional_softmax[residue_indices_of_interest[:5]])
+                                # # asu_conditional_softmax
+                                # # tensor([[0.0273, 0.0125, 0.0200,  ..., 0.0073, 0.0102, 0.0052],
+                                # #         [0.0273, 0.0125, 0.0200,  ..., 0.0073, 0.0102, 0.0052],
+                                # #         [0.0273, 0.0125, 0.0200,  ..., 0.0073, 0.0102, 0.0052],
+                                # #         ...,
+                                # #         [0.0091, 0.0078, 0.0101,  ..., 0.0038, 0.0029, 0.0059],
+                                # #         [0.0091, 0.0078, 0.0101,  ..., 0.0038, 0.0029, 0.0059],
+                                # #         [0.0091, 0.0078, 0.0101,  ..., 0.0038, 0.0029, 0.0059]])
+                                # # print('sum asu_conditional_softmax', asu_conditional_softmax.sum(axis=-1))
+                                # # print('sum asu_unconditional_softmax', asu_unconditional_softmax.sum(axis=-1))
+                                # # sum asu_conditional_softmax
+                                # # tensor([1.0000, 1.0000, 1.0000, 1.0000, 1.0000, 1.0000, 1.0000, 1.0000, 1.0000,
                                 design_probs_collapse = \
                                     hydrophobic_collapse_index(asu_conditional_softmax_null_seq,
                                                                # asu_unconditional_softmax,
@@ -2774,6 +2776,7 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
                                 designed_indices_collapse_z = collapse_z[residue_indices_of_interest]
                                 magnitude_of_collapse_z_deviation = np.abs(designed_indices_collapse_z)
                                 if any(designed_indices_collapse_z > 1):  # Deviation larger than one positive std
+                                    print('design_probs_collapse', design_probs_collapse)
                                     print('designed_indices_collapse_z', designed_indices_collapse_z)
                                     # print('magnitude greater than 1', magnitude_of_collapse_z_deviation > 1)
                                     log.warning(f'***Collapse is larger than one standard deviation.'
@@ -2829,7 +2832,7 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
                         # Unbound log prob calculation took 0.079298
                         # It appears that the time increases considerably when the batch size is near maximum GPU memory
                         # Perhaps there is performance difference when allocating near the max
-                        # This doesn't make sense becuase the log prob calculation (bound) doesn't change and is much
+                        # This doesn't make sense because the log prob calculation (bound) doesn't change and is much
                         # quicker
                         # Additionally the sampling time is consistent regardless of the batch
                         log.info(f'Log prob calculation took {time.time() - log_probs_start_time:8f}')
