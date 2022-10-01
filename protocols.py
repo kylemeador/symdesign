@@ -3771,26 +3771,30 @@ def interface_design_analysis(pose: Pose, design_poses: Iterable[Pose] = None, s
     warn = False
     # Add Entity information to the Pose
     for idx, entity in enumerate(pose.entities):
-        try:  # To fetch the multiple sequence alignment for further processing
-            # entity.sequence_file = job.api_db.sequences.retrieve_file(name=entity.name)
-            # if not entity.sequence_file:
-            #     entity.write_sequence_to_fasta('reference', out_dir=job.sequences)
-            #     # entity.add_evolutionary_profile(out_dir=job.api_db.hhblits_profiles.location)
-            # else:
-            profile = job.api_db.hhblits_profiles.retrieve_data(name=entity.name)
-            if not profile:
-                measure_evolution = False
-                warn = True
-            else:
-                entity.evolutionary_profile = profile
+        # entity.sequence_file = job.api_db.sequences.retrieve_file(name=entity.name)
+        # if not entity.sequence_file:
+        #     entity.write_sequence_to_fasta('reference', out_dir=job.sequences)
+        #     # entity.add_evolutionary_profile(out_dir=job.api_db.hhblits_profiles.location)
+        # else:
+        profile = job.api_db.hhblits_profiles.retrieve_data(name=entity.name)
+        if not profile:
+            measure_evolution = False
+            warn = True
+        else:
+            entity.evolutionary_profile = profile
 
+        if not entity.verify_evolutionary_profile():
+            entity.fit_evolutionary_profile_to_structure()
+
+        try:  # To fetch the multiple sequence alignment for further processing
             msa = job.api_db.alignments.retrieve_data(name=entity.name)
             if not msa:
                 measure_evolution = False
                 warn = True
             else:
                 entity.msa = msa
-        except ValueError:  # When the Entity reference sequence and alignment are different lengths
+        except ValueError as error:  # When the Entity reference sequence and alignment are different lengths
+            pose.log.info(f'Entity reference sequence and provided alignment are different lengths: {error}')
             warn = True
 
         if warn:

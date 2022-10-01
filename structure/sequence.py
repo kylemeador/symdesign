@@ -797,6 +797,7 @@ class SequenceProfile:
                                               f' {self.name} took longer than the time limit. Job killed!')
                         time.sleep(20)
 
+        # These functions set self.evolutionary_profile
         getattr(self, f'parse_{profile_source}_pssm')()
 
     def set_null_evolutionary_profile(self):
@@ -818,15 +819,17 @@ class SequenceProfile:
         Sets:
             self.evolutionary_profile (profile_dictionary)
         """
-        # generate the disordered indices which are positions in reference that are missing in structure
+        # Generate the disordered indices which are positions in reference that are missing in structure
         disorder = self.disorder
-        # removal of these positions from .evolutionary_profile will produce a properly indexed profile
-        new_residue_number = 1
-        structure_evolutionary_profile = {}
-        for residue_number, residue_data in self.evolutionary_profile.items():
-            if residue_number not in disorder:
-                structure_evolutionary_profile[new_residue_number] = residue_data
-                new_residue_number += 1
+        # Removal of these positions from self.evolutionary_profile will produce a properly indexed profile
+        new_residue_number = count(1)
+        structure_evolutionary_profile = {next(new_residue_number): residue_data
+                                          for residue_number, residue_data in self.evolutionary_profile.items()
+                                          if residue_number not in disorder}
+        # for residue_number, residue_data in self.evolutionary_profile.items():
+        #     if residue_number not in disorder:
+        #         structure_evolutionary_profile[next(new_residue_number)] = residue_data
+        #         # new_residue_number += 1
 
         self.log.debug(f'{self.fit_evolutionary_profile_to_structure.__name__}:\n\tOld:\n'
                        f'{"".join(res["type"] for res in self.evolutionary_profile.values())}\n\tNew:\n'

@@ -958,7 +958,7 @@ def main():
 
         # Todo logic error when initialization occurs with module that doesn't call this, subsequent runs are missing
         #  directories/resources that haven't been made
-        # check to see that proper files have been created including orient, refinement, loop modeling, hhblits, bmdca?
+        # Check to see that proper files have been created including orient, refinement, loop modeling, hhblits, bmdca?
         initialized = representative_pose_directory.initialized
         initialize_modules = \
             [PUtils.interface_design, PUtils.interface_metrics, PUtils.optimize_designs, 'custom_script']
@@ -1011,13 +1011,11 @@ def main():
                     # else:
                     #     logger.info(f'Files are being processed with {symmetry} symmetry: {", ".join(entities)}')
                     all_structures.extend(job.structure_db.orient_structures(entities, symmetry=symmetry))
-                # create entities iterator to set up sequence dependent resources
+                # Create entities iterator to set up sequence dependent resources
                 all_entities = [entity for structure in all_structures for entity in structure.entities]
 
             info_messages = []
-            # set up the hhblits and profile bmdca for each input entity
-            # profile_dir = job.profiles
-            # sequences_dir = job.sequences
+            # Set up sequence data using hhblits and profile bmDCA for each input entity
             utils.make_path(job.sequences)
             hhblits_cmds, bmdca_cmds = [], []
             for entity in all_entities:
@@ -1030,9 +1028,9 @@ def main():
                     # entity.h_fields = job.api_db.bmdca_fields.retrieve_data(name=entity.name)
                     # TODO reinstate entity.j_couplings = job.api_db.bmdca_couplings.retrieve_data(name=entity.name)
                 if not entity.evolutionary_profile:
-                    # to generate in current runtime
+                    # To generate in current runtime
                     # entity.add_evolutionary_profile(out_dir=job.api_db.hhblits_profiles.location)
-                    # to generate in a sbatch script
+                    # To generate in a sbatch script
                     # profile_cmds.append(entity.hhblits(out_dir=job.profiles, return_command=True))
                     hhblits_cmds.append(entity.hhblits(out_dir=job.profiles, return_command=True))
                 # TODO reinstate
@@ -1046,7 +1044,7 @@ def main():
                     exit()
                 utils.make_path(job.profiles)
                 utils.make_path(job.sbatch_scripts)
-                # prepare files for running hhblits commands
+                # Prepare files for running hhblits commands
                 instructions = 'Please follow the instructions below to generate sequence profiles for input proteins'
                 info_messages.append(instructions)
                 # hhblits_cmds, reformat_msa_cmds = zip(*profile_cmds)
@@ -1124,7 +1122,8 @@ def main():
                 else:
                     raise utils.DesignError("This shouldn't have happened!")
 
-            if args.preprocessed:  # ensure we report to PoseDirectory the results after skiping set up
+            # Ensure we report to PoseDirectory the results after skipping set up
+            if args.preprocessed:
                 pre_refine = True
                 pre_loop_model = True
 
@@ -1136,7 +1135,7 @@ def main():
             # Todo tweak behavior of these two parameters. Need Queue based PoseDirectory
             # SDUtils.mp_map(protocols.PoseDirectory.set_up_pose_directory, pose_directories, processes=cores)
             # SDUtils.mp_map(protocols.PoseDirectory.link_master_database, pose_directories, processes=cores)
-        # set up in series
+        # Set up in series
         for pose in pose_directories:
             pose.set_up_pose_directory(pre_refine=pre_refine, pre_loop_model=pre_loop_model)
 
@@ -1149,7 +1148,7 @@ def main():
     elif args.module == PUtils.nano:
         logger.critical(f'Setting up inputs for {PUtils.nano.title()} docking')
         # Todo make current with sql ambitions
-        # make master output directory. sym_entry is required, so this won't fail v
+        # Make master output directory. sym_entry is required, so this won't fail v
         job.docking_master_dir = os.path.join(job.projects, f'NanohedraEntry{sym_entry.entry_number}DockedPoses')
         os.makedirs(job.docking_master_dir, exist_ok=True)
         # Transform input entities to canonical orientation and return their ASU
