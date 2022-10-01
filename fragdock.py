@@ -2388,6 +2388,7 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
 
     elif design_output:  # We perform sequence design
         # Todo
+        #  Check job.no_evolution_constraint flag
         #  Move this outside if we want to measure docking solutions with ProteinMPNN
         # Add Entity information to the Pose
         measure_evolution, measure_alignment = True, True
@@ -2433,6 +2434,24 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
                 log.info(f'Metrics relying on an evolutionary profile are not being collected as '
                          f'there was no profile found. These include: '
                          f'{", ".join(profile_dependent_metrics)}')
+
+        # Load profiles of interest into the analysis
+        profile_background = {}
+        if measure_evolution:
+            pose.evolutionary_profile = concatenate_profile([entity.evolutionary_profile for entity in pose.entities])
+
+        if pose.evolutionary_profile:
+            profile_background['evolution'] = evolutionary_profile_array = pssm_as_array(pose.evolutionary_profile)
+            # This HAD length of (566, 20)
+            # Now length of (522, 20)
+        else:
+            pose.log.info('No evolution information')
+        if job.fragment_db is not None:
+            # Todo ensure the AA order is the same as MultipleSequenceAlignment.from_dictionary(pose_sequences) below
+            interface_bkgd = np.array(list(job.fragment_db.aa_frequencies.values()))
+            # print('interface_bkgd.shape', interface_bkgd.shape)
+            # shape is (522, 20)
+            profile_background['interface'] = np.tile(interface_bkgd, (pose.number_of_residues, 1))
 
         # Gather folding metrics for the pose for comparison to the designed sequences
         contact_order_per_res_z, reference_collapse, collapse_profile = pose.get_folding_metrics()
@@ -3070,6 +3089,7 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
 
     # Handle pose state transformation and metrics for each identified pose
     all_pose_divergence_df = pd.DataFrame()
+    fragment_profile_frequencies = []
     for idx, pose_id in enumerate(pose_ids):
         update_pose_coords(idx)
 
@@ -3148,8 +3168,8 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
             # else:
             #     pose.log.info('No fragment information')
 
-            # Todo ensure that the job doesn't call for different profile integration
             pose.calculate_profile()
+            # Todo use below if the job calls for different profile integration
             # pose.add_profile(evolution=not job.no_evolution_constraint,
             #                  fragments=job.generate_fragments)
             if pose.profile:
@@ -3166,23 +3186,14 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
             # Before calculation, we must set this (v) to get the correct values from the profile
             pose._sequence_numeric = generated_sequences[idx, :pose_length]
             # pose._sequence_numeric = generated_sequences[idx, :pose_length].astype(np.int32)
-            # Todo these are not Softmax probabilites
-            fragment_profile_frequencies = \
-                pose.get_sequence_probabilities_from_profile(precomputed=fragment_profile_array)
-            # print('fragment_profile_frequencies.shape:', fragment_profile_frequencies.shape,
-            #       '\nvalues:', fragment_profile_frequencies)
+            # Todo these are not Softmax probabilities
+            fragment_profile_frequencies.append(
+                pose.get_sequence_probabilities_from_profile(precomputed=fragment_profile_array))
+
             # Find the non-zero sites in the profile
-            interface_observed_from_fragment_profile = fragment_profile_frequencies[interface_indexer]
+            interface_observed_from_fragment_profile = fragment_profile_frequencies[idx][interface_indexer]
             mean_observed_from_fragment_profile = \
                 interface_observed_from_fragment_profile[np.nonzero(interface_observed_from_fragment_profile)].mean()
-            # Todo get divergence?
-            # Get the negative log likelihood of the .evolutionary_ and .fragment_profile
-            torch_numeric = torch.from_numpy(pose.sequence_numeric)
-            per_residue_evolutionary_profile_scores = score_sequences(torch_numeric,
-                                                                      torch.from_numpy(np.log(fragment_profile_array)))
-            per_residue_fragment_profile_scores = score_sequences(torch_numeric,
-                                                                  torch.from_numpy(np.log(evolutionary_profile_array)))
-
             # sum_observed_from_fragment_profile = observed_from_fragment_profile.sum()
             print('mean_observed_from_fragment_profile', mean_observed_from_fragment_profile)
             # observed, divergence = \
@@ -3207,6 +3218,14 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
             # #                         )
             # # Add observation information into the residue_df
             # residue_df = pd.concat([residue_df] + observed_dfs, axis=1)
+            # Todo get divergence?
+            # Get the negative log likelihood of the .evolutionary_ and .fragment_profile
+            torch_numeric = torch.from_numpy(pose.sequence_numeric)
+            per_residue_evolutionary_profile_scores = score_sequences(torch_numeric,
+                                                                      torch.from_numpy(np.log(fragment_profile_array)))
+            per_residue_fragment_profile_scores = score_sequences(torch_numeric,
+                                                                  torch.from_numpy(np.log(evolutionary_profile_array)))
+
             # all_scores[pose_id] = per_residue_sequence_scores[idx]
             _per_residue_complex_scores = per_residue_sequence_scores[idx].tolist()
             _per_residue_unbound_scores = per_residue_unbound_scores[idx].tolist()
@@ -3231,37 +3250,12 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
 
     # Collect sequence metrics on every designed Pose
     if design_output:
-        # MultipleSequenceAlignments were already loaded
-        # Todo check job.no_evolution_constraint flag
-        # Load profiles of interest into the analysis
-        profile_background = {}
-        if measure_evolution:
-            print(f'entity.evolutionary_profile.shape: '
-                  f'{[len(entity.evolutionary_profile) for entity in pose.entities]}')
-            pose.evolutionary_profile = concatenate_profile([entity.evolutionary_profile for entity in pose.entities])
-
-        if pose.evolutionary_profile:
-            # print('pose.evolutionary_profile', pose.evolutionary_profile)
-            profile_background['evolution'] = evolutionary_profile_array = pssm_as_array(pose.evolutionary_profile)
-            print('evolution_bkgd.shape', profile_background['evolution'].shape)
-            # This HAD length of (566, 20)
-            # print('evolution_bkgd', profile_background['evolution'])
-        else:
-            pose.log.info('No evolution information')
-        if job.fragment_db is not None:
-            interface_bkgd = np.array(list(job.fragment_db.aa_frequencies.values()))
-            # This has length of 20
-            # print('interface_bkgd', interface_bkgd)
-            # print('interface_bkgd.shape', interface_bkgd.shape)
-            # shape is (522, 20)
-            profile_background['interface'] = np.tile(interface_bkgd, (pose.number_of_residues, 1))
-            print('profile_background["interface"]', profile_background['interface'].shape)
-
         pose_alignment = MultipleSequenceAlignment.from_dictionary(pose_sequences)
         # Perform a frequency extraction for each background profile
-        # Todo integrate these into the per_residue_df...
         background_frequencies = {profile: pose_alignment.get_probabilities_from_profile(background)
                                   for profile, background in profile_background.items()}
+        background_frequencies.update({'fragment': fragment_profile_frequencies})
+        # Todo integrate background_frequencies into the per_residue_df...
 
         all_mutations = generate_mutations_from_reference(pose.sequence, pose_sequences, return_to=True)  # , zero_index=True)
 
