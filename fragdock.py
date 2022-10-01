@@ -25,7 +25,7 @@ from metrics import calculate_collapse_metrics, calculate_residue_surface_area, 
     division_pairs, interface_composition_similarity, clean_up_intermediate_columns, sum_per_residue_metrics, \
     per_residue_energy_states, hydrophobic_collapse_index
 from resources.EulerLookup import euler_factory
-from structure.fragment.db import FragmentDatabase, fragment_factory, alignment_types
+from structure.fragment.db import FragmentDatabase, fragment_factory
 from resources.job import job_resources_factory, JobResources
 from resources.ml import proteinmpnn_factory, batch_proteinmpnn_input, score_sequences, \
     proteinmpnn_to_device, mpnn_alphabet_length, mpnn_alphabet, create_decoding_order
@@ -2666,6 +2666,7 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
                         bias_by_res = separate_parameters.get('bias_by_res', None)
                         # Todo
                         #  calculate individually if using some feature to describe order
+                        #  MUST reinstate the removal from scope after finished with this batch
                         # decoding_order = pose.generate_proteinmpnn_decode_order(to_device=mpnn_model.device)
                         # decoding_order.repeat(actual_batch_length, 1)
                         # Slice reused parameters only once
@@ -2859,7 +2860,7 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
                         del X
                         del residue_mask
                         del bias_by_res
-                        del decoding_order
+                        # del decoding_order
                         # outputs
                         del sample_dict
                         del S_sample
