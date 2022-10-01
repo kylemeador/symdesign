@@ -2758,11 +2758,12 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
                                     skip.append(pose_idx)
                                 else:
                                     log.critical(f'Total deviation={magnitude_of_collapse_z_deviation.sum()}. '
+                                                 f'Mean={designed_indices_collapse_z.mean()}'
                                                  f'Standard Deviation={designed_indices_collapse_z.std()}')
 
                         # Todo add skip to the selection mechanism
                         sample_start_time = time.time()
-                        sample_dict = mpnn_sample(X, randn,  # decoding_order,
+                        sample_dict = mpnn_sample(X, randn[:actual_batch_length],  # decoding_order,
                                                   # S[:actual_batch_length], chain_mask,
                                                   S_design_null, chain_mask,
                                                   chain_encoding, residue_idx, mask, temperature=design_temperature,
