@@ -2700,9 +2700,9 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
                                 mpnn_model(X, S_design_null, mask, chain_residue_mask, residue_idx, chain_encoding,
                                            None,  # This argument is provided but with below args, is not used
                                            use_input_decoding_order=True, decoding_order=decoding_order).cpu()
-                            conditional_log_probs_seq = \
-                                mpnn_model.conditional_probs(X, S[:actual_batch_length], mask, chain_residue_mask,
-                                                             residue_idx, chain_encoding, decoding_order).cpu()
+                            # conditional_log_probs_seq = \
+                            #     mpnn_model.conditional_probs(X, S[:actual_batch_length], mask, chain_residue_mask,
+                            #                                  residue_idx, chain_encoding, decoding_order).cpu()
                             # conditional_seq_time = time.time()
                             # _input = input(f'Calculation finished. Backbone took {conditional_bb_time - conditional_start_time}'
                             #                f' Sequence took {time.time() - conditional_bb_time}. '
@@ -2716,11 +2716,11 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
                                 # Only include the residues in the ASU
                                 # asu_conditional_softmax = np.exp(conditional_log_probs[pose_idx, :pose_length])
                                 asu_conditional_softmax_null_seq = np.exp(conditional_log_probs_null_seq[pose_idx, :pose_length])
-                                asu_conditional_softmax_seq = np.exp(conditional_log_probs_seq[pose_idx, :pose_length])
+                                # asu_conditional_softmax_seq = np.exp(conditional_log_probs_seq[pose_idx, :pose_length])
                                 asu_unconditional_softmax = np.exp(unconditional_log_probs[pose_idx, :pose_length])
                                 # print('asu_conditional_softmax', asu_conditional_softmax[residue_indices_of_interest])
                                 print('asu_conditional_softmax_null_seq', asu_conditional_softmax_null_seq[residue_indices_of_interest[:5]])
-                                print('asu_conditional_softmax_seq', asu_conditional_softmax_seq[residue_indices_of_interest[:5]])
+                                # print('asu_conditional_softmax_seq', asu_conditional_softmax_seq[residue_indices_of_interest[:5]])
                                 print('asu_unconditional_softmax', asu_unconditional_softmax[residue_indices_of_interest[:5]])
                                 # asu_conditional_softmax tensor([[0.0273, 0.0125, 0.0200,  ..., 0.0073, 0.0102, 0.0052],
                                 #         [0.0273, 0.0125, 0.0200,  ..., 0.0073, 0.0102, 0.0052],
@@ -2733,7 +2733,8 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
                                 # print('sum asu_unconditional_softmax', asu_unconditional_softmax.sum(axis=-1))
                                 # sum asu_conditional_softmax tensor([1.0000, 1.0000, 1.0000, 1.0000, 1.0000, 1.0000, 1.0000, 1.0000, 1.0000,
                                 design_probs_collapse = \
-                                    hydrophobic_collapse_index(asu_unconditional_softmax,
+                                    hydrophobic_collapse_index(asu_conditional_softmax_null_seq,
+                                                               # asu_unconditional_softmax,
                                                                alphabet_type=mpnn_alphabet)
                                 # Todo?
                                 #  design_probs_collapse = \
