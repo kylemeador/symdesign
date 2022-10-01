@@ -5762,7 +5762,8 @@ class Pose(SequenceProfile, SymmetricModel):
 
     def get_folding_metrics(self) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
         """Calculate metrics relating to the Pose folding, separating calculation for chain breaks. These include
-        contact_order, hydrophobic_collapse, and hydrophobic_collapse_profile
+        contact_order, hydrophobic_collapse, and hydrophobic_collapse_profile (each Entity MUST have a .msa attribute
+        to return the _profile!)
 
         Returns:
             A tuple of arrays. A per residue contact_order_z_score (number_of_residues),
