@@ -1,5 +1,5 @@
 import os
-from typing import Annotated
+from typing import Annotated, Iterable, Container
 
 import numpy as np
 import torch
@@ -16,6 +16,48 @@ mpnn_alphabet_length = len(mpnn_alphabet)
 # torch.backends.cudnn.enabled = True
 # pip install GPUtil
 # from GPUtil import showUtilization as gpu_usage
+
+
+def create_decoding_order(randn: torch.Tensor, chain_mask: torch.Tensor, tied_pos: Iterable[Container] = None,
+                          to_device: str = None) \
+        -> torch.Tensor:
+    """
+
+    Args:
+        randn:
+        chain_mask:
+        tied_pos:
+        to_device:
+
+    Returns:
+
+    """
+    if to_device is None:
+        to_device = randn.device
+    # numbers are smaller for places where chain_mask = 0.0 and higher for places where chain_mask = 1.0
+    decoding_order = torch.argsort((chain_mask+0.0001) * (torch.abs(randn)))
+
+    if tied_pos is not None:
+        # Calculate the tied decoding order according to ProteinMPNN.tied_sample()
+        # return decoding_order
+    # else:
+        new_decoding_order: list[list[int]] = []
+        found_decoding_indices = []
+        for t_dec in list(decoding_order[0].cpu().numpy()):
+            if t_dec not in found_decoding_indices:
+                for item in tied_pos:
+                    if t_dec in item:
+                        break
+                else:
+                    item = [t_dec]
+                # Keep list of lists format
+                new_decoding_order.append(item)
+                # Add all found decoding_indices
+                found_decoding_indices.extend(item)
+
+        decoding_order = torch.tensor(found_decoding_indices, device=to_device)[None].repeat(randn.shape[0], 1)
+
+    return decoding_order
 
 
 class ProteinMPNNFactory:

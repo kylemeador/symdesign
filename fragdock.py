@@ -28,7 +28,7 @@ from resources.EulerLookup import euler_factory
 from structure.fragment.db import FragmentDatabase, fragment_factory, alignment_types
 from resources.job import job_resources_factory, JobResources
 from resources.ml import proteinmpnn_factory, batch_proteinmpnn_input, score_sequences, \
-    proteinmpnn_to_device, mpnn_alphabet_length, mpnn_alphabet
+    proteinmpnn_to_device, mpnn_alphabet_length, mpnn_alphabet, create_decoding_order
 from structure.base import Structure, Residue
 from structure.coords import transform_coordinate_sets
 from structure.fragment import GhostFragment, write_frag_match_info_file
@@ -2543,8 +2543,16 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
                     pssm_bias_flag = parameters.get('pssm_bias_flag', None)
                     tied_pos = parameters.get('tied_pos', None)
                     tied_beta = parameters.get('tied_beta', None)
+                    # Todo
+                    #  Must calculate below individually if using some feature to describe order
+                    randn = pose.generate_proteinmpnn_decode_order(to_device=mpnn_model.device)
+                    # if not pose.is_symmetric():
+                    # Must make a decoding_order batched for mpnn_model.sample()
+                    randn = randn.repeat(batch_length, 1)
+                    decoding_order = create_decoding_order(randn, chain_mask,
+                                                           tied_pos=tied_pos, to_device=mpnn_model.device)
 
-                    chain_mask_and_mask = chain_mask*mask
+                    # chain_mask_and_mask = chain_mask * mask
 
                 # Set up ProteinMPNN output data structures
                 generated_sequences = np.empty((size, number_of_residues), dtype=np.int32)
@@ -2657,8 +2665,9 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
                         # Potentially different across poses
                         bias_by_res = separate_parameters.get('bias_by_res', None)
                         # Todo
-                        #  Must calculate below individually if using some feature to describe order
-                        decoding_order = pose.generate_proteinmpnn_decode_order(to_device=mpnn_model.device)
+                        #  calculate individually if using some feature to describe order
+                        # decoding_order = pose.generate_proteinmpnn_decode_order(to_device=mpnn_model.device)
+                        # decoding_order.repeat(actual_batch_length, 1)
                         # Slice reused parameters only once
                         mask = mask[:actual_batch_length]
                         chain_mask = chain_mask[:actual_batch_length]
@@ -2740,7 +2749,7 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
 
                         # Todo add skip to the selection mechanism
                         sample_start_time = time.time()
-                        sample_dict = mpnn_sample(X, decoding_order,
+                        sample_dict = mpnn_sample(X, randn,  # decoding_order,
                                                   S[:actual_batch_length], chain_mask,
                                                   chain_encoding, residue_idx, mask, temperature=design_temperature,
                                                   omit_AAs_np=omit_AAs_np, bias_AAs_np=bias_AAs_np,
@@ -2756,7 +2765,8 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
                                                   bias_by_res=bias_by_res[:actual_batch_length])
                         log.info(f'Sample calculation took {time.time() - sample_start_time:8f}')
                         S_sample = sample_dict['S']
-                        decoding_order_out = sample_dict['decoding_order']
+                        # decoding_order_out = sample_dict['decoding_order']
+                        decoding_order_out = decoding_order  # When using the same decoding order for all
                         log_probs_start_time = time.time()
                         log_probs = mpnn_model(X, S_sample, mask, chain_residue_mask, residue_idx, chain_encoding,
                                                None,  # This argument is provided but with below args, is not used
