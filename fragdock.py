@@ -3225,7 +3225,7 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
         profile_background = {}
         if measure_evolution:
             print(f'entity.evolutionary_profile.shape: '
-                  f'{[entity.evolutionary_profile.shape for entity in pose.entities]}')
+                  f'{[len(entity.evolutionary_profile) for entity in pose.entities]}')
             pose.evolutionary_profile = concatenate_profile([entity.evolutionary_profile for entity in pose.entities])
 
         if pose.evolutionary_profile:
