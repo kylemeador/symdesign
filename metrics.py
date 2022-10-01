@@ -1166,14 +1166,18 @@ def calculate_collapse_metrics(sequences_of_interest: Iterable[Iterable[Sequence
         # collapse_bool = np.where(positive_collapse_propensity_z, 1, 0)
         increased_collapse = np.where(collapse_bool - reference_collapse_bool == 1, 1, 0)
         # Check if increased collapse positions resulted in a location of new collapse.
-        # i.e. sites where a new collapse is formed compared to wild-type
+        # i.e. sites where a new collapse is formed compared to wild-type and there are no neighboring collapse residues
         # Ex, [0, 0, 1, 1, 0, 0, 0, 0, 0, 0, ...]
         # new_collapse = np.zeros_like(collapse_bool)
         # list is faster to index than np.ndarray so we use here
-        new_collapse = [True if _bool and (not reference_collapse[idx - 1] or not reference_collapse[idx + 1])
-                        else False
-                        for idx, _bool in enumerate(increased_collapse[1:-1].tolist(), 1)]
-
+        new_collapse = [True if collapse and not (ref_collapse_prior or ref_collapse_next) else False
+                        for collapse, ref_collapse_prior, ref_collapse_next in zip(increased_collapse[1:-1].tolist(),
+                                                                                   reference_collapse[:-2].tolist(),
+                                                                                   reference_collapse[2:].tolist())]
+        # Ensure the first and last are calculated as well
+        new_collapse = [True if increased_collapse[0] and not reference_collapse[1] else False] \
+            + new_collapse \
+            + [True if increased_collapse[-1] and not reference_collapse[-2] else False]
         new_collapse_peak_start = [0 for _ in range(collapse_bool.shape[0])]  # [0, 0, 0, 1, 0, 0, 0, 0, 0, 0, ...]
         collapse_peak_start = copy(new_collapse_peak_start)  # [0, 0, 0, 0, 1, 0, 0, 0, 1, 0, ...]
         sequential_collapse_points = np.zeros_like(collapse_bool)  # [0, 0, 0, 0, 1, 1, 0, 0, 2, 2, ..]
