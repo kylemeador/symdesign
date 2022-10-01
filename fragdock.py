@@ -2665,6 +2665,7 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
                         residue_idx = residue_idx[:actual_batch_length]
                         chain_encoding = chain_encoding[:actual_batch_length]
                         residue_mask = residue_mask[:actual_batch_length]
+                        chain_residue_mask = chain_mask * residue_mask
 
                         # See if the pose is useful to design based on constraints of collapse
                         if collapse_profile.size:  # Not equal to zero
@@ -2673,12 +2674,12 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
                             batched_decoding_order = decoding_order.repeat(actual_batch_length, 1)
                             conditional_start_time = time.time()
                             conditional_log_probs = \
-                                mpnn_model.conditional_probs(X, S[:actual_batch_length], mask, chain_mask, residue_idx,
+                                mpnn_model.conditional_probs(X, S[:actual_batch_length], mask, chain_residue_mask, residue_idx,
                                                              chain_encoding, batched_decoding_order,
                                                              backbone_only=True).cpu()
                             conditional_bb_time = time.time()
                             conditional_log_probs_seq = \
-                                mpnn_model.conditional_probs(X, S[:actual_batch_length], mask, chain_mask, residue_idx,
+                                mpnn_model.conditional_probs(X, S[:actual_batch_length], mask, chain_residue_mask, residue_idx,
                                                              chain_encoding, batched_decoding_order).cpu()
                             # conditional_seq_time = time.time()
                             _input = input(f'Calculation finished. Backbone took {conditional_bb_time - conditional_start_time}'
