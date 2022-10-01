@@ -13,7 +13,6 @@ from typing import Iterable, IO, Any, Sequence, AnyStr, Generator
 
 import numpy as np
 # from numba import njit, jit
-import pandas as pd
 import torch
 from sklearn.cluster import KMeans
 from sklearn.neighbors import BallTree
@@ -27,7 +26,7 @@ from resources.query.pdb import retrieve_entity_id_by_sequence, query_pdb_by, ge
     is_entity_thermophilic
 from resources.query.uniprot import is_uniprot_thermophilic
 from resources.wrapapi import APIDatabase, api_database_factory
-from structure.base import Structure, Structures, Residue, Residues, StructureBase, ContainsAtomsMixin, atom_or_residue
+from structure.base import Structure, Structures, Residue, StructureBase, atom_or_residue
 from structure.coords import Coords, superposition3d, transform_coordinate_sets
 from structure.fragment import GhostFragment, Fragment, write_frag_match_info_file
 from structure.fragment.metrics import fragment_metric_template
@@ -1011,7 +1010,8 @@ class Chain(SequenceProfile, Structure):
         as_mate: Whether the Chain instances should be controlled by a captain (True), or dependents of their parent
     """
     _chain_id: str
-    _reference_sequence: str
+    _disorder: dict[int, dict[str, str]]
+    _reference_sequence: str | None
 
     def __init__(self, chain_id: str = None, name: str = None, as_mate: bool = False, **kwargs):
         super().__init__(name=name if name else chain_id, **kwargs)
@@ -1053,6 +1053,19 @@ class Chain(SequenceProfile, Structure):
     # @reference_sequence.setter
     # def reference_sequence(self, sequence):
     #     self._reference_sequence = sequence
+    @property
+    def disorder(self) -> dict[int, dict[str, str]]:
+        """Return the Residue number keys where disordered residues are found by comparison of the genomic (construct)
+        sequence with that of the structure sequence
+
+        Returns:
+            Mutation index to mutations in the format of {1: {'from': 'A', 'to': 'K'}, ...}
+        """
+        try:
+            return self._disorder
+        except AttributeError:
+            self._disorder = generate_mutations(self.reference_sequence, self.sequence, only_gaps=True)
+            return self._disorder
 
 
 class Entity(Chain, ContainsChainsMixin):
@@ -1069,7 +1082,6 @@ class Entity(Chain, ContainsChainsMixin):
     """The specific transformation operators to generate all mate chains of the Oligomer"""
     _captain: Entity | None
     _chains: list | list[Entity]
-    _disorder: dict[int, dict[str, str]]
     _oligomer: Structures  # list[Entity]
     _is_captain: bool
     _is_oligomeric: bool
@@ -1408,20 +1420,6 @@ class Entity(Chain, ContainsChainsMixin):
     # @reference_sequence.setter
     # def reference_sequence(self, sequence):
     #     self._reference_sequence = sequence
-
-    @property
-    def disorder(self) -> dict[int, dict[str, str]]:
-        """Return the Residue number keys where disordered residues are found by comparison of the genomic (construct)
-        sequence with that of the structure sequence
-
-        Returns:
-            Mutation index to mutations in the format of {1: {'from': 'A', 'to': 'K'}, ...}
-        """
-        try:
-            return self._disorder
-        except AttributeError:
-            self._disorder = generate_mutations(self.reference_sequence, self.sequence, only_gaps=True)
-            return self._disorder
 
     # def chain(self, chain_name: str) -> Entity | None:
     #     """Fetch and return an Entity by chain name"""
@@ -5481,7 +5479,6 @@ class Pose(SequenceProfile, SymmetricModel):
             X = X.reshape((number_of_sym_residues, 4, 3))  # (number_of_sym_residues, 4, 3)
 
             S = np.tile(self.sequence_numeric, number_of_symmetry_mates)  # (number_of_sym_residues,)
-            # Todo ensure tile works
             # self.log.info(f'self.sequence_numeric: {self.sequence_numeric}')
             # self.log.info(f'Tiled sequence_numeric.shape: {S.shape}')
             # self.log.info(f'Tiled sequence_numeric start: {S[:5]}')
