@@ -2681,22 +2681,30 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
                             # Measure the unconditional (no sequence) amino acid probabilities at each residue to see
                             # how they compare to the hydrophobic collapse index from the multiple sequence alignment
                             # If conditional_probs() are measured, then we need a batched_decoding order
-                            # Todo
-                            #  Implement batched decode for mpnn_model.sample() as well
-                            batched_decoding_order = decoding_order.repeat(actual_batch_length, 1)
-                            conditional_start_time = time.time()
-                            conditional_log_probs = \
-                                mpnn_model.conditional_probs(X, S[:actual_batch_length], mask, chain_residue_mask, residue_idx,
-                                                             chain_encoding, batched_decoding_order,
-                                                             backbone_only=True).cpu()
-                            conditional_bb_time = time.time()
+                            # conditional_start_time = time.time()
+                            # conditional_log_probs = \
+                            #     mpnn_model.conditional_probs(X, S[:actual_batch_length], mask, chain_residue_mask, residue_idx,
+                            #                                  chain_encoding, decoding_order,
+                            #                                  backbone_only=True).cpu()
+                            # conditional_bb_time = time.time()
+                            # conditional_log_probs_seq = \
+                            #     mpnn_model.conditional_probs(X, S[:actual_batch_length], mask, chain_residue_mask, residue_idx,
+                            #                                  chain_encoding, decoding_order).cpu()
+                            mpnn_null_idx = 20
+                            # Make a copy of S for null sequence usage
+                            S_design_null = S.detach().clone()
+                            S_design_null[:actual_batch_length, residue_mask] = mpnn_null_idx
+                            conditional_log_probs_null_seq = \
+                                mpnn_model(X, S_design_null, mask, chain_residue_mask, residue_idx, chain_encoding,
+                                           None,  # This argument is provided but with below args, is not used
+                                           use_input_decoding_order=True, decoding_order=decoding_order).cpu()
                             conditional_log_probs_seq = \
-                                mpnn_model.conditional_probs(X, S[:actual_batch_length], mask, chain_residue_mask, residue_idx,
-                                                             chain_encoding, batched_decoding_order).cpu()
+                                mpnn_model.conditional_probs(X, S[:actual_batch_length], mask, chain_residue_mask,
+                                                             residue_idx, chain_encoding, decoding_order).cpu()
                             # conditional_seq_time = time.time()
-                            _input = input(f'Calculation finished. Backbone took {conditional_bb_time - conditional_start_time}'
-                                           f' Sequence took {time.time() - conditional_bb_time}. '
-                                           f'Press enter to continue')
+                            # _input = input(f'Calculation finished. Backbone took {conditional_bb_time - conditional_start_time}'
+                            #                f' Sequence took {time.time() - conditional_bb_time}. '
+                            #                f'Press enter to continue')
                             unconditional_log_probs = \
                                 mpnn_model.unconditional_probs(X, mask, residue_idx, chain_encoding).cpu()
                             skip = []
@@ -2704,12 +2712,14 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
                                 residue_indices_of_interest = np.flatnonzero(residue_mask_cpu[pose_idx, :pose_length])
                                 # Take the hydrophobic collapse of the log probs to understand the profiles "folding"
                                 # Only include the residues in the ASU
-                                asu_conditional_softmax = np.exp(conditional_log_probs[pose_idx, :pose_length])
+                                # asu_conditional_softmax = np.exp(conditional_log_probs[pose_idx, :pose_length])
+                                asu_conditional_softmax_null_seq = np.exp(conditional_log_probs_null_seq[pose_idx, :pose_length])
                                 asu_conditional_softmax_seq = np.exp(conditional_log_probs_seq[pose_idx, :pose_length])
                                 asu_unconditional_softmax = np.exp(unconditional_log_probs[pose_idx, :pose_length])
-                                print('asu_conditional_softmax', asu_conditional_softmax[residue_indices_of_interest])
-                                print('asu_conditional_softmax_seq', asu_conditional_softmax_seq[residue_indices_of_interest])
-                                print('asu_unconditional_softmax', asu_unconditional_softmax[residue_indices_of_interest])
+                                # print('asu_conditional_softmax', asu_conditional_softmax[residue_indices_of_interest])
+                                print('asu_conditional_softmax_null_seq', asu_conditional_softmax_null_seq[residue_indices_of_interest[:5]])
+                                print('asu_conditional_softmax_seq', asu_conditional_softmax_seq[residue_indices_of_interest[:5]])
+                                print('asu_unconditional_softmax', asu_unconditional_softmax[residue_indices_of_interest[:5]])
                                 # asu_conditional_softmax tensor([[0.0273, 0.0125, 0.0200,  ..., 0.0073, 0.0102, 0.0052],
                                 #         [0.0273, 0.0125, 0.0200,  ..., 0.0073, 0.0102, 0.0052],
                                 #         [0.0273, 0.0125, 0.0200,  ..., 0.0073, 0.0102, 0.0052],
