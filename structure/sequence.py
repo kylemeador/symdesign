@@ -599,8 +599,9 @@ class SequenceProfile:
         except AttributeError:
             self._sequence_array = np.array(list(self.sequence), np.string_)
             self._sequence_numeric = \
-                np.vectorize(numerical_translation_alph1_gapped_bytes.__getitem__, otypes='i')(self._sequence_array)
-            # using otypes='i' as the datatype. 'f' would be for float32
+                np.vectorize(numerical_translation_alph1_gapped_bytes.__getitem__, otypes='l')(self._sequence_array)
+            # using otypes='i' as the datatype for int32. 'f' would be for float32
+            # using otypes='l' as the datatype for int64. 'd' would be for float64
             self.log.critical(f'The sequence_numeric dtype is {self._sequence_numeric.dtype}. It should be int32')
             # self._sequence_numeric = self._sequence_numeric.astype(np.int32)
             return self._sequence_numeric
