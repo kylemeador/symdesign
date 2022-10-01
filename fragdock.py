@@ -2671,6 +2671,9 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
                         if collapse_profile.size:  # Not equal to zero
                             # Measure the unconditional (no sequence) amino acid probabilities at each residue to see
                             # how they compare to the hydrophobic collapse index from the multiple sequence alignment
+                            # If conditional_probs() are measured, then we need a batched_decoding order
+                            # Todo
+                            #  Implement batched decode for mpnn_model.sample() as well
                             batched_decoding_order = decoding_order.repeat(actual_batch_length, 1)
                             conditional_start_time = time.time()
                             conditional_log_probs = \
@@ -2689,14 +2692,15 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
                                 mpnn_model.unconditional_probs(X, mask, residue_idx, chain_encoding).cpu()
                             skip = []
                             for pose_idx in range(actual_batch_length):
+                                residue_indices_of_interest = np.flatnonzero(residue_mask_cpu[pose_idx, :pose_length])
                                 # Take the hydrophobic collapse of the log probs to understand the profiles "folding"
                                 # Only include the residues in the ASU
                                 asu_conditional_softmax = np.exp(conditional_log_probs[pose_idx, :pose_length])
+                                asu_conditional_softmax_seq = np.exp(conditional_log_probs_seq[pose_idx, :pose_length])
                                 asu_unconditional_softmax = np.exp(unconditional_log_probs[pose_idx, :pose_length])
-                                asu_unconditional_softmax_seq = np.exp(conditional_log_probs_seq[pose_idx, :pose_length])
-                                print('asu_conditional_softmax', asu_conditional_softmax[0])
-                                print('asu_unconditional_softmax', asu_unconditional_softmax[0])
-                                print('asu_unconditional_softmax', asu_unconditional_softmax_seq[0])
+                                print('asu_conditional_softmax', asu_conditional_softmax[residue_indices_of_interest])
+                                print('asu_conditional_softmax_seq', asu_conditional_softmax_seq[residue_indices_of_interest])
+                                print('asu_unconditional_softmax', asu_unconditional_softmax[residue_indices_of_interest])
                                 # asu_conditional_softmax tensor([[0.0273, 0.0125, 0.0200,  ..., 0.0073, 0.0102, 0.0052],
                                 #         [0.0273, 0.0125, 0.0200,  ..., 0.0073, 0.0102, 0.0052],
                                 #         [0.0273, 0.0125, 0.0200,  ..., 0.0073, 0.0102, 0.0052],
@@ -2708,11 +2712,11 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
                                 # print('sum asu_unconditional_softmax', asu_unconditional_softmax.sum(axis=-1))
                                 # sum asu_conditional_softmax tensor([1.0000, 1.0000, 1.0000, 1.0000, 1.0000, 1.0000, 1.0000, 1.0000, 1.0000,
                                 design_probs_collapse = \
-                                    hydrophobic_collapse_index(asu_conditional_softmax,
+                                    hydrophobic_collapse_index(asu_unconditional_softmax,
                                                                alphabet_type=mpnn_alphabet)
                                 # Todo?
-                                #  design_probs_un_collapse = \
-                                #      hydrophobic_collapse_index(asu_unconditional_softmax,
+                                #  design_probs_collapse = \
+                                #      hydrophobic_collapse_index(asu_conditional_softmax,
                                 #                                 alphabet_type=mpnn_alphabet)
                                 # Compare the sequence collapse to the pose collapse
                                 # USE:
@@ -2722,8 +2726,7 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
                                 collapse_z = z_score(design_probs_collapse,
                                                      collapse_profile_mean, collapse_profile_std)
                                 # folding_loss = score_sequences(S_sample, log_probs)  # , mask_for_loss)
-                                designed_indices_collapse_z = \
-                                    collapse_z[np.flatnonzero(residue_mask_cpu[pose_idx, :pose_length])]
+                                designed_indices_collapse_z = collapse_z[residue_indices_of_interest]
                                 magnitude_of_collapse_z_deviation = np.abs(designed_indices_collapse_z)
                                 if any(designed_indices_collapse_z > 1):  # Deviation larger than one positive std
                                     print('designed_indices_collapse_z', designed_indices_collapse_z)
@@ -2754,7 +2757,6 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
                         log.info(f'Sample calculation took {time.time() - sample_start_time:8f}')
                         S_sample = sample_dict['S']
                         decoding_order_out = sample_dict['decoding_order']
-                        chain_residue_mask = chain_mask * residue_mask
                         log_probs_start_time = time.time()
                         log_probs = mpnn_model(X, S_sample, mask, chain_residue_mask, residue_idx, chain_encoding,
                                                None,  # This argument is provided but with below args, is not used
