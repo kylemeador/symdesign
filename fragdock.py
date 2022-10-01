@@ -2674,6 +2674,8 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
                         chain_mask = chain_mask[:actual_batch_length]
                         residue_idx = residue_idx[:actual_batch_length]
                         chain_encoding = chain_encoding[:actual_batch_length]
+                        # Make a fresh copy of original S for null sequence usage
+                        S_design_null = S[:actual_batch_length].detach().clone()
                         residue_mask = residue_mask[:actual_batch_length]
                         chain_residue_mask = chain_mask * residue_mask
 
@@ -2692,8 +2694,6 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
                             #     mpnn_model.conditional_probs(X, S[:actual_batch_length], mask, chain_residue_mask, residue_idx,
                             #                                  chain_encoding, decoding_order).cpu()
                             mpnn_null_idx = 20
-                            # Make a copy of S for null sequence usage
-                            S_design_null = S.detach().clone()
                             # S_design_null[:actual_batch_length, residue_mask.type(torch.uint8)] = mpnn_null_idx
                             S_design_null[residue_mask.type(torch.bool)] = mpnn_null_idx
                             conditional_log_probs_null_seq = \
@@ -2763,7 +2763,8 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
                         # Todo add skip to the selection mechanism
                         sample_start_time = time.time()
                         sample_dict = mpnn_sample(X, randn,  # decoding_order,
-                                                  S[:actual_batch_length], chain_mask,
+                                                  # S[:actual_batch_length], chain_mask,
+                                                  S_design_null, chain_mask,
                                                   chain_encoding, residue_idx, mask, temperature=design_temperature,
                                                   omit_AAs_np=omit_AAs_np, bias_AAs_np=bias_AAs_np,
                                                   chain_M_pos=residue_mask,
@@ -2859,6 +2860,7 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
                         # inputs
                         del separate_parameters
                         del X
+                        del S_design_null
                         del residue_mask
                         del bias_by_res
                         # del decoding_order
@@ -2911,6 +2913,7 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
                     # inputs
                     del separate_parameters
                     del X
+                    del S_design_null
                     del residue_mask
                     del bias_by_res
                     del decoding_order
