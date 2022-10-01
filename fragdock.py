@@ -2691,9 +2691,9 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
                             #     mpnn_model.conditional_probs(X, S[:actual_batch_length], mask, chain_residue_mask, residue_idx,
                             #                                  chain_encoding, decoding_order).cpu()
                             mpnn_null_idx = 20
-                            # Make a copy of S for null sequence usage with type long
-                            S_design_null = S.long()  # detach().clone()
-                            S_design_null[:actual_batch_length, residue_mask] = mpnn_null_idx
+                            # Make a copy of S for null sequence usage
+                            S_design_null = S.detach().clone()
+                            S_design_null[:actual_batch_length, residue_mask.type(torch.uint8)] = mpnn_null_idx
                             conditional_log_probs_null_seq = \
                                 mpnn_model(X, S_design_null, mask, chain_residue_mask, residue_idx, chain_encoding,
                                            None,  # This argument is provided but with below args, is not used
@@ -2904,7 +2904,7 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
                     del pssm_bias_flag
                     del tied_pos
                     del tied_beta
-                    del chain_mask_and_mask
+                    # del chain_mask_and_mask
                     # inputs
                     del separate_parameters
                     del X
@@ -3205,16 +3205,20 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
             pose.evolutionary_profile = concatenate_profile([entity.evolutionary_profile for entity in pose.entities])
 
         if pose.evolutionary_profile:
-            print('pose.evolutionary_profile', pose.evolutionary_profile)
+            # print('pose.evolutionary_profile', pose.evolutionary_profile)
             profile_background['evolution'] = pssm_as_array(pose.evolutionary_profile)
-            print('evolution_bkgd.shape', profile_background['evolution'].shape)
-            print('evolution_bkgd', profile_background['evolution'])
+            # print('evolution_bkgd.shape', profile_background['evolution'].shape)
+            # This has length of (566, 20)
+            # print('evolution_bkgd', profile_background['evolution'])
         else:
             pose.log.info('No evolution information')
         if job.fragment_db is not None:
             interface_bkgd = np.array(list(job.fragment_db.aa_frequencies.values()))
+            # This has length of 20
             print('interface_bkgd', interface_bkgd)
+            print('interface_bkgd.shape', interface_bkgd.shape)
             profile_background['interface'] = np.tile(interface_bkgd, (pose.number_of_residues, 1))
+            print('profile_background["interface"]', profile_background['interface'].shape)
 
         pose_alignment = MultipleSequenceAlignment.from_dictionary(pose_sequences)
         # Perform a frequency extraction for each background profile
