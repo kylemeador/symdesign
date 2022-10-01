@@ -2783,12 +2783,15 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
                                                use_input_decoding_order=True, decoding_order=decoding_order_out)
 
                         log_prob_time = time.time()
+                        # Test to see if indexing takes the additional ~ .2 seconds
+                        _X_unbound = X_unbound[:actual_batch_length]
+                        unbound_log_prob_time = time.time()
                         unbound_log_probs = \
-                            mpnn_model(X_unbound[:actual_batch_length], S_sample, mask, chain_residue_mask,
+                            mpnn_model(_X_unbound, S_sample, mask, chain_residue_mask,
                                        residue_idx, chain_encoding,
                                        None,  # This argument is provided but with below args, is not used
                                        use_input_decoding_order=True, decoding_order=decoding_order_out)
-                        log.info(f'Unbound log prob calculation took {time.time() - log_prob_time:8f}')
+                        log.info(f'Unbound log prob calculation took {time.time() - unbound_log_prob_time:8f}')
                         log.info(f'Log prob calculation took {log_prob_time - log_probs_start_time:8f}')
                         # log_probs is
                         # tensor([[[-2.7691, -3.5265, -2.9001,  ..., -3.3623, -3.0247, -4.2772],
