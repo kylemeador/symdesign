@@ -2792,8 +2792,8 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
 
                         log_prob_time = time.time()
                         # Test to see if indexing takes the additional ~ .2 seconds
+                        unbound_log_prob_time = time.time()  # Todo move up and get times
                         _X_unbound = X_unbound[:actual_batch_length]
-                        unbound_log_prob_time = time.time()
                         unbound_log_probs = \
                             mpnn_model(_X_unbound, S_sample, mask, chain_residue_mask,
                                        residue_idx, chain_encoding,
@@ -3211,22 +3211,24 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
         # Load profiles of interest into the analysis
         profile_background = {}
         if measure_evolution:
-            print('entity.evolutionary_profile', [entity.evolutionary_profile for entity in pose.entities])
+            print(f'entity.evolutionary_profile.shape: '
+                  f'{[entity.evolutionary_profile.shape for entity in pose.entities]}')
             pose.evolutionary_profile = concatenate_profile([entity.evolutionary_profile for entity in pose.entities])
 
         if pose.evolutionary_profile:
             # print('pose.evolutionary_profile', pose.evolutionary_profile)
             profile_background['evolution'] = pssm_as_array(pose.evolutionary_profile)
-            # print('evolution_bkgd.shape', profile_background['evolution'].shape)
-            # This has length of (566, 20)
+            print('evolution_bkgd.shape', profile_background['evolution'].shape)
+            # This HAD length of (566, 20)
             # print('evolution_bkgd', profile_background['evolution'])
         else:
             pose.log.info('No evolution information')
         if job.fragment_db is not None:
             interface_bkgd = np.array(list(job.fragment_db.aa_frequencies.values()))
             # This has length of 20
-            print('interface_bkgd', interface_bkgd)
-            print('interface_bkgd.shape', interface_bkgd.shape)
+            # print('interface_bkgd', interface_bkgd)
+            # print('interface_bkgd.shape', interface_bkgd.shape)
+            # shape is (522, 20)
             profile_background['interface'] = np.tile(interface_bkgd, (pose.number_of_residues, 1))
             print('profile_background["interface"]', profile_background['interface'].shape)
 
