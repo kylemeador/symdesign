@@ -5686,7 +5686,9 @@ class Pose(SequenceProfile, SymmetricModel):
                                                bias_by_res=bias_by_res)
                 # Compute scores
                 S_sample = sample_dict['S']
-                # Todo finish this routine
+                # Todo finish this routine modelling off fragdock.py
+                raise NotImplementedError(f'finish this routine ({self.design_sequence.__name__}) '
+                                          f'modelling function based on fragdock.py, design_output')
 
     def combine_sequence_profiles(self):
         """Using each Entity in the Pose, combine individual Entity SequenceProfiles into a Pose SequenceProfile
@@ -5696,6 +5698,11 @@ class Pose(SequenceProfile, SymmetricModel):
             self.fragment_profile (profile_dictionary)
             self.profile (profile_dictionary)
         """
+        # Ensure each Entity has the evolutionary_profile fit to the structure sequence before concatenation
+        for entity in self.entities:
+            if not entity.verify_evolutionary_profile():
+                entity.fit_evolutionary_profile_to_structure()
+
         self.evolutionary_profile = concatenate_profile([entity.evolutionary_profile for entity in self.entities])
         self.fragment_profile = concatenate_profile([entity.fragment_profile for entity in self.entities], start_at=0)
         self.profile = concatenate_profile([entity.profile for entity in self.entities])

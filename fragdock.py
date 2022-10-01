@@ -2405,6 +2405,9 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
             else:
                 entity.evolutionary_profile = profile
 
+            if not entity.verify_evolutionary_profile():
+                entity.fit_evolutionary_profile_to_structure()
+
             try:  # To fetch the multiple sequence alignment for further processing
                 msa = job.api_db.alignments.retrieve_data(name=entity.name)
                 if not msa:
