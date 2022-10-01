@@ -3097,19 +3097,6 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
         if design_output:
             # Save each Pose sequence design information including sequence, energy, probabilites
             pose_sequences[pose_id] = ''.join(sequences[idx])
-            # all_scores[pose_id] = per_residue_sequence_scores[idx]
-            _per_residue_complex_scores = per_residue_sequence_scores[idx]
-            _per_residue_unbound_scores = per_residue_unbound_scores[idx]
-            residue_info[pose_id] = {residue.number: {'complex': _per_residue_complex_scores[residue.index],
-                                                      'bound': 0.,  # copy(entity_energies),
-                                                      'unbound': _per_residue_unbound_scores[residue.index],
-                                                      # copy(entity_energies),
-                                                      'solv_complex': 0., 'solv_bound': 0.,
-                                                      # copy(entity_energies),
-                                                      'solv_unbound': 0.,  # copy(entity_energies),
-                                                      # 'fsp': 0., 'cst': 0.,
-                                                      'type': protein_letters_3to1.get(residue.type), 'hbond': 0}
-                                     for entity in pose.entities for residue in entity.residues}
             all_probabilities[pose_id] = probabilities[idx]
 
             # Todo process the all_probabilities to a DataFrame?
@@ -3179,15 +3166,23 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
             # Before calculation, we must set this (v) to get the correct values from the profile
             pose._sequence_numeric = generated_sequences[idx, :pose_length]
             # pose._sequence_numeric = generated_sequences[idx, :pose_length].astype(np.int32)
+            # Todo these are not Softmax probabilites
             fragment_profile_frequencies = \
                 pose.get_sequence_probabilities_from_profile(precomputed=fragment_profile_array)
             # print('fragment_profile_frequencies.shape:', fragment_profile_frequencies.shape,
             #       '\nvalues:', fragment_profile_frequencies)
-            # Todo save this data, get divergence, negative log likelihood
             # Find the non-zero sites in the profile
             interface_observed_from_fragment_profile = fragment_profile_frequencies[interface_indexer]
             mean_observed_from_fragment_profile = \
                 interface_observed_from_fragment_profile[np.nonzero(interface_observed_from_fragment_profile)].mean()
+            # Todo get divergence?
+            # Get the negative log likelihood of the .evolutionary_ and .fragment_profile
+            torch_numeric = torch.from_numpy(pose.sequence_numeric)
+            per_residue_evolutionary_profile_scores = score_sequences(torch_numeric,
+                                                                      torch.from_numpy(np.log(fragment_profile_array)))
+            per_residue_fragment_profile_scores = score_sequences(torch_numeric,
+                                                                  torch.from_numpy(np.log(evolutionary_profile_array)))
+
             # sum_observed_from_fragment_profile = observed_from_fragment_profile.sum()
             print('mean_observed_from_fragment_profile', mean_observed_from_fragment_profile)
             # observed, divergence = \
@@ -3212,6 +3207,23 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
             # #                         )
             # # Add observation information into the residue_df
             # residue_df = pd.concat([residue_df] + observed_dfs, axis=1)
+            # all_scores[pose_id] = per_residue_sequence_scores[idx]
+            _per_residue_complex_scores = per_residue_sequence_scores[idx].tolist()
+            _per_residue_unbound_scores = per_residue_unbound_scores[idx].tolist()
+            _per_residue_evolutionary_profile_scores = per_residue_evolutionary_profile_scores.tolist()
+            _per_residue_fragment_profile_scores = per_residue_fragment_profile_scores.tolist()
+            residue_info[pose_id] = {residue.number: {'complex': _per_residue_complex_scores[residue.index],
+                                                      'bound': 0.,  # copy(entity_energies),
+                                                      'unbound': _per_residue_unbound_scores[residue.index],
+                                                      'evolution': _per_residue_evolutionary_profile_scores[residue.index],
+                                                      'fragment': _per_residue_fragment_profile_scores[residue.index],
+                                                      # copy(entity_energies),
+                                                      'solv_complex': 0., 'solv_bound': 0.,
+                                                      # copy(entity_energies),
+                                                      'solv_unbound': 0.,  # copy(entity_energies),
+                                                      # 'fsp': 0., 'cst': 0.,
+                                                      'type': protein_letters_3to1.get(residue.type), 'hbond': 0}
+                                     for entity in pose.entities for residue in entity.residues}
 
     # Todo get the keys right here
     # all_pose_divergence_df = pd.concat(all_pose_divergence, keys=[('sequence', 'pose')], axis=1)
@@ -3230,7 +3242,7 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
 
         if pose.evolutionary_profile:
             # print('pose.evolutionary_profile', pose.evolutionary_profile)
-            profile_background['evolution'] = pssm_as_array(pose.evolutionary_profile)
+            profile_background['evolution'] = evolutionary_profile_array = pssm_as_array(pose.evolutionary_profile)
             print('evolution_bkgd.shape', profile_background['evolution'].shape)
             # This HAD length of (566, 20)
             # print('evolution_bkgd', profile_background['evolution'])
