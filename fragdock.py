@@ -2691,8 +2691,8 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
                             #     mpnn_model.conditional_probs(X, S[:actual_batch_length], mask, chain_residue_mask, residue_idx,
                             #                                  chain_encoding, decoding_order).cpu()
                             mpnn_null_idx = 20
-                            # Make a copy of S for null sequence usage
-                            S_design_null = S.detach().clone()
+                            # Make a copy of S for null sequence usage with type long
+                            S_design_null = S.long()  # detach().clone()
                             S_design_null[:actual_batch_length, residue_mask] = mpnn_null_idx
                             conditional_log_probs_null_seq = \
                                 mpnn_model(X, S_design_null, mask, chain_residue_mask, residue_idx, chain_encoding,
