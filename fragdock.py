@@ -2693,7 +2693,8 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
                             mpnn_null_idx = 20
                             # Make a copy of S for null sequence usage
                             S_design_null = S.detach().clone()
-                            S_design_null[:actual_batch_length, residue_mask.type(torch.uint8)] = mpnn_null_idx
+                            # S_design_null[:actual_batch_length, residue_mask.type(torch.uint8)] = mpnn_null_idx
+                            S_design_null[residue_mask.type(torch.uint8)] = mpnn_null_idx
                             conditional_log_probs_null_seq = \
                                 mpnn_model(X, S_design_null, mask, chain_residue_mask, residue_idx, chain_encoding,
                                            None,  # This argument is provided but with below args, is not used
