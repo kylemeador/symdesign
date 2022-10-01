@@ -2577,7 +2577,8 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
                     # chain_mask_and_mask = chain_mask * mask
 
                 # Set up ProteinMPNN output data structures
-                generated_sequences = np.empty((size, number_of_residues), dtype=np.int32)
+                # To use torch.nn.NLLL() must use dtype Long -> np.int64, not Int -> np.int32
+                generated_sequences = np.empty((size, number_of_residues), dtype=np.int64)
                 # sequence_scores = np.empty((size,))
                 per_residue_sequence_scores = np.empty((size, number_of_residues))
                 per_residue_unbound_scores = np.empty((size, number_of_residues))
@@ -3222,9 +3223,9 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
             # Get the negative log likelihood of the .evolutionary_ and .fragment_profile
             torch_numeric = torch.from_numpy(pose.sequence_numeric)
             per_residue_evolutionary_profile_scores = score_sequences(torch_numeric,
-                                                                      torch.from_numpy(np.log(fragment_profile_array)))
+                                                                      torch.from_numpy(np.log(evolutionary_profile_array)))
             per_residue_fragment_profile_scores = score_sequences(torch_numeric,
-                                                                  torch.from_numpy(np.log(evolutionary_profile_array)))
+                                                                  torch.from_numpy(np.log(fragment_profile_array)))
 
             # all_scores[pose_id] = per_residue_sequence_scores[idx]
             _per_residue_complex_scores = per_residue_sequence_scores[idx].tolist()
