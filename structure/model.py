@@ -5563,8 +5563,10 @@ class Pose(SequenceProfile, SymmetricModel):
 
     def generate_proteinmpnn_decode_order(self, to_device: str = None, core_first: bool = False) -> \
             torch.Tensor | np.ndarray:
-        """For original ProteinMPNN GitHub release, the decoding order is only dependent on first entry order for
-        model.tied_sample() while it is dependent on each individual sequence for model.sample()
+        """Return the decoding order for ProteinMPNN. Currently just returns an array of random floats
+
+        For original ProteinMPNN GitHub release, the decoding order is only dependent on first entry in batch for
+        model.tied_sample() while it is dependent on the entire batch for model.sample()
 
         Args:
             to_device: Whether the decoding order should be transferred to the device that a ProteinMPNN model is on
