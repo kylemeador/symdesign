@@ -1499,9 +1499,17 @@ def position_specific_jsd(msa: np.ndarray, background: np.ndarray, **kwargs) -> 
 
 
 # KL divergence is similar to cross entropy loss or the "log loss"
-# divergence of p from q
-# Dkl = SUMi->N(probability(pi) * log(probability(qi))
-# This is also the Shannon Entropy...
+# divergence of p from q where p is the true distribution and q is the model
+# Cross-Entropy = -SUMi->N(probability(pi) * log(probability(qi)))
+# Kullback–Leibler-Divergence = -SUMi->N(probability(pi) * log(probability(qi)/probability(pi)))
+# Shannon-Entropy = -SUMi->N(probability(pi) * log(probability(pi)))
+# Cross entropy can be rearranged where:
+# Cross-Entropy = Shannon-Entropy + Kullback-Leibler-Divergence
+# CE = -SUMi->N(probability(pi) * log(probability(pi))) + -SUMi->N(probability(pi) * log(probability(qi)/probability(pi)))
+# CE = -SUMi->N(probability(pi) * log(probability(pi))) + -SUMi->N(probability(pi) * log(probability(qi)) - (probability(pi) * log(probability(pi)))
+# CE = ----------------------------------------------- + -SUMi->N(probability(pi) * log(probability(qi)) - ----------------------------------------
+# CE = -SUMi->N(probability(pi) * log(probability(qi))
+
 
 def kl_divergence(frequencies: np.ndarray, bgd_frequencies: np.ndarray) -> float:
     """Calculate Kullback–Leibler Divergence value from observed and background frequencies
@@ -1510,10 +1518,25 @@ def kl_divergence(frequencies: np.ndarray, bgd_frequencies: np.ndarray) -> float
         frequencies: [0.05, 0.001, 0.1, ...]
         bgd_frequencies: [0, 0, ...]
     Returns:
-        Bounded between 0 and 1. 1 is more divergent from background frequencies
+        The additional entropy needed to represent the frequencies as the background frequencies.
+            The minimum divergence is 0 when both distributions are identical
+    """
+    probs1 = bgd_frequencies * np.log(frequencies/bgd_frequencies)
+    return -np.where(np.isnan(probs1), 0, probs1).sum()
+
+
+def cross_entropy(frequencies: np.ndarray, bgd_frequencies: np.ndarray) -> float:
+    """Calculate the cross entropy between an observed and a background frequency distribution
+
+    Args:
+        frequencies: [0.05, 0.001, 0.1, ...]
+        bgd_frequencies: [0, 0, ...]
+    Returns:
+        The total entropy to represent the frequencies as the background frequencies.
+            The minimum entropy is 0 where both distributions are identical
     """
     probs1 = bgd_frequencies * np.log(frequencies)
-    return np.where(np.isnan(probs1), 0, probs1).sum()
+    return -np.where(np.isnan(probs1), 0, probs1).sum()
 
 
 def js_divergence(frequencies: np.ndarray, bgd_frequencies: np.ndarray, lambda_: float = 0.5) -> float:
