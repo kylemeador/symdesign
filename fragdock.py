@@ -23,7 +23,7 @@ from metrics import calculate_collapse_metrics, calculate_residue_surface_area, 
     multiple_sequence_alignment_dependent_metrics, \
     incorporate_mutation_info, profile_dependent_metrics, columns_to_new_column, residue_classificiation, delta_pairs, \
     division_pairs, interface_composition_similarity, clean_up_intermediate_columns, sum_per_residue_metrics, \
-    per_residue_energy_states, hydrophobic_collapse_index
+    per_residue_energy_states, hydrophobic_collapse_index, cross_entropy
 from resources.EulerLookup import euler_factory
 from structure.fragment.db import FragmentDatabase, fragment_factory
 from resources.job import job_resources_factory, JobResources
@@ -2442,15 +2442,14 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
 
         if pose.evolutionary_profile:
             profile_background['evolution'] = evolutionary_profile_array = pssm_as_array(pose.evolutionary_profile)
-            # This HAD length of (566, 20)
-            # Now length of (522, 20)
+            batch_evolutionary_profile = np.tile(evolutionary_profile_array, (batch_length, 1))
+            # log_evolutionary_profile = np.log(evolutionary_profile_array)
+            torch_log_evolutionary_profile = torch.from_numpy(np.log(evolutionary_profile_array))
         else:
             pose.log.info('No evolution information')
         if job.fragment_db is not None:
             # Todo ensure the AA order is the same as MultipleSequenceAlignment.from_dictionary(pose_sequences) below
             interface_bkgd = np.array(list(job.fragment_db.aa_frequencies.values()))
-            # print('interface_bkgd.shape', interface_bkgd.shape)
-            # shape is (522, 20)
             profile_background['interface'] = np.tile(interface_bkgd, (pose.number_of_residues, 1))
 
         # Gather folding metrics for the pose for comparison to the designed sequences
@@ -2703,42 +2702,52 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
                         chain_residue_mask = chain_mask * residue_mask
 
                         # See if the pose is useful to design based on constraints of collapse
+
+                        # Measure the unconditional (no sequence) amino acid probabilities at each residue to see
+                        # how they compare to the hydrophobic collapse index from the multiple sequence alignment
+                        # If conditional_probs() are measured, then we need a batched_decoding order
+                        # conditional_start_time = time.time()
+                        # conditional_log_probs = \
+                        #     mpnn_model.conditional_probs(X, S[:actual_batch_length], mask, chain_residue_mask, residue_idx,
+                        #                                  chain_encoding, decoding_order,
+                        #                                  backbone_only=True).cpu()
+                        # conditional_bb_time = time.time()
+                        # conditional_log_probs_seq = \
+                        #     mpnn_model.conditional_probs(X, S[:actual_batch_length], mask, chain_residue_mask, residue_idx,
+                        #                                  chain_encoding, decoding_order).cpu()
+                        mpnn_null_idx = 20
+                        # S_design_null[:actual_batch_length, residue_mask.type(torch.uint8)] = mpnn_null_idx
+                        S_design_null[residue_mask.type(torch.bool)] = mpnn_null_idx
+                        conditional_log_probs_null_seq = \
+                            mpnn_model(X, S_design_null, mask, chain_residue_mask, residue_idx, chain_encoding,
+                                       None,  # This argument is provided but with below args, is not used
+                                       use_input_decoding_order=True, decoding_order=decoding_order).cpu()
+                        # # conditional_log_probs_seq = \
+                        # #     mpnn_model.conditional_probs(X, S[:actual_batch_length], mask, chain_residue_mask,
+                        # #                                  residue_idx, chain_encoding, decoding_order).cpu()
+                        # # conditional_seq_time = time.time()
+                        # # _input = input(f'Calculation finished. Backbone took {conditional_bb_time - conditional_start_time}'
+                        # #                f' Sequence took {time.time() - conditional_bb_time}. '
+                        # #                f'Press enter to continue')
+                        # unconditional_log_probs = \
+                        #     mpnn_model.unconditional_probs(X, mask, residue_idx, chain_encoding).cpu()
+                        residue_indices_of_interest = np.flatnonzero(residue_mask_cpu[:, :pose_length])
+
+                        if pose.evolutionary_profile:
+                            asu_conditional_softmax_null_seq = \
+                                np.exp(conditional_log_probs_null_seq[:, :pose_length])
+                            evolutionary_ce = cross_entropy(asu_conditional_softmax_null_seq,
+                                                            batch_evolutionary_profile[:actual_batch_length])
+                            print('evolutionary_ce', evolutionary_ce)
+                        # fragment_ce = cross_entropy(asu_conditional_softmax_null_seq,
+                        #                             batch_fragment_profile[:actual_batch_length])
                         if collapse_profile.size:  # Not equal to zero
-                            # Measure the unconditional (no sequence) amino acid probabilities at each residue to see
-                            # how they compare to the hydrophobic collapse index from the multiple sequence alignment
-                            # If conditional_probs() are measured, then we need a batched_decoding order
-                            # conditional_start_time = time.time()
-                            # conditional_log_probs = \
-                            #     mpnn_model.conditional_probs(X, S[:actual_batch_length], mask, chain_residue_mask, residue_idx,
-                            #                                  chain_encoding, decoding_order,
-                            #                                  backbone_only=True).cpu()
-                            # conditional_bb_time = time.time()
-                            # conditional_log_probs_seq = \
-                            #     mpnn_model.conditional_probs(X, S[:actual_batch_length], mask, chain_residue_mask, residue_idx,
-                            #                                  chain_encoding, decoding_order).cpu()
-                            mpnn_null_idx = 20
-                            # S_design_null[:actual_batch_length, residue_mask.type(torch.uint8)] = mpnn_null_idx
-                            S_design_null[residue_mask.type(torch.bool)] = mpnn_null_idx
-                            conditional_log_probs_null_seq = \
-                                mpnn_model(X, S_design_null, mask, chain_residue_mask, residue_idx, chain_encoding,
-                                           None,  # This argument is provided but with below args, is not used
-                                           use_input_decoding_order=True, decoding_order=decoding_order).cpu()
-                            # # conditional_log_probs_seq = \
-                            # #     mpnn_model.conditional_probs(X, S[:actual_batch_length], mask, chain_residue_mask,
-                            # #                                  residue_idx, chain_encoding, decoding_order).cpu()
-                            # # conditional_seq_time = time.time()
-                            # # _input = input(f'Calculation finished. Backbone took {conditional_bb_time - conditional_start_time}'
-                            # #                f' Sequence took {time.time() - conditional_bb_time}. '
-                            # #                f'Press enter to continue')
-                            # unconditional_log_probs = \
-                            #     mpnn_model.unconditional_probs(X, mask, residue_idx, chain_encoding).cpu()
+                            # Take the hydrophobic collapse of the log probs to understand the profiles "folding"
                             skip = []
                             for pose_idx in range(actual_batch_length):
-                                residue_indices_of_interest = np.flatnonzero(residue_mask_cpu[pose_idx, :pose_length])
-                                # Take the hydrophobic collapse of the log probs to understand the profiles "folding"
                                 # Only include the residues in the ASU
                                 # # asu_conditional_softmax = np.exp(conditional_log_probs[pose_idx, :pose_length])
-                                asu_conditional_softmax_null_seq = np.exp(conditional_log_probs_null_seq[pose_idx, :pose_length])
+                                asu_conditional_softmax_null_seq = asu_conditional_softmax_null_seq[pose_idx]
                                 # # asu_conditional_softmax_seq = np.exp(conditional_log_probs_seq[pose_idx, :pose_length])
                                 # asu_unconditional_softmax = np.exp(unconditional_log_probs[pose_idx, :pose_length])
                                 # # print('asu_conditional_softmax', asu_conditional_softmax[residue_indices_of_interest])
@@ -2835,6 +2844,16 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
                         # This doesn't make sense because the log prob calculation (bound) doesn't change and is much
                         # quicker
                         # Additionally the sampling time is consistent regardless of the batch
+                        # SWAPPING THE ORDER of unbound and normal log probability calculation
+                        # Log prob calculation took 0.372056
+                        # Unbound log prob calculation took 0.006074
+                        # Log prob calculation took 0.371593
+                        # ...
+                        # Last iteration where the shape of the batch is 3 instead of 5 (not constraining memory)
+                        # Log prob calculation took 0.079803
+                        # This seems to indicate that operating close to max memory can significantly increase overhead
+                        # from memory allocation
+
                         log.info(f'Log prob calculation took {time.time() - log_probs_start_time:8f}')
                         log.info(f'Unbound log prob calculation took {log_prob_time - unbound_log_prob_start_time:8f}')
                         # log_probs is
