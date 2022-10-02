@@ -5824,7 +5824,7 @@ class Pose(SequenceProfile, SymmetricModel):
                 # full_hydrophobic_collapse_profile[:, ] = \
                 hydrophobic_collapse_profile[idx] = \
                     np.pad(array, ((0, axis0_max_length - array_sizes[idx]), (0, 0)), constant_values=np.nan)
-                print('hydrophobic_collapse_profile', hydrophobic_collapse_profile[idx].shape, hydrophobic_collapse_profile[idx])
+                # print('hydrophobic_collapse_profile', hydrophobic_collapse_profile[idx].shape, hydrophobic_collapse_profile[idx])
 
             hydrophobic_collapse_profile = np.concatenate(hydrophobic_collapse_profile, axis=1)
 
