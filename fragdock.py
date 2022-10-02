@@ -2443,7 +2443,7 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
         if pose.evolutionary_profile:
             profile_background['evolution'] = evolutionary_profile_array = pssm_as_array(pose.evolutionary_profile)
             batch_evolutionary_profile = torch.from_numpy(np.tile(evolutionary_profile_array,
-                                                                  (batch_length, pose_length, 1)))
+                                                                  (batch_length, 1, 1)))
             print('batch_evolutionary_profile.shape', batch_evolutionary_profile.shape)
 
             # log_evolutionary_profile = np.log(evolutionary_profile_array)
