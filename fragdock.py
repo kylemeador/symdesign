@@ -2732,7 +2732,8 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
                         # #                f'Press enter to continue')
                         # unconditional_log_probs = \
                         #     mpnn_model.unconditional_probs(X, mask, residue_idx, chain_encoding).cpu()
-                        residue_indices_of_interest = np.flatnonzero(residue_mask_cpu[:, :pose_length])
+                        # residue_indices_of_interest = np.flatnonzero(residue_mask_cpu[:, :pose_length])
+                        residue_indices_of_interest = residue_mask_cpu[:, :pose_length].astype(bool)
                         print('residue_indices_of_interest', residue_indices_of_interest)
                         if pose.evolutionary_profile:
                             asu_conditional_softmax_null_seq = \
