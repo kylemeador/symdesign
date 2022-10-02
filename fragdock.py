@@ -2743,7 +2743,7 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
                                 cross_entropy(asu_conditional_softmax_null_seq[:, :, :mpnn_null_idx],
                                               batch_evolutionary_profile[:actual_batch_length],
                                               mask=residue_indices_of_interest,
-                                              axis=(-2, -1))
+                                              axis=1)
                             print('evolutionary_ce', evolutionary_ce)
                         # fragment_ce = cross_entropy(asu_conditional_softmax_null_seq,
                         #                             batch_fragment_profile[:actual_batch_length])
