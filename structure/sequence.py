@@ -1250,12 +1250,13 @@ class SequenceProfile:
         Weight the frequency of each observation by the fragment indexed, average observation weight, proportionally
         scaled by the match score between the fragment database and the observed fragment overlap
 
+        Todo This is wrong
         Takes the fragment_map with format:
             (dict): {1: {-2: {0: 'A': 0.23, 'C': 0.01, ..., 'stats': [12, 0.37], 'match': 0.6}}, 1: {}}, -1: {}, ... },
                      2: {}, ...}
                 Dictionary containing fragment frequency and statistics across a design
         And makes into
-            (dict): {1: {'A': 0.23, 'C': 0.01, ..., stats': [1, 0.37]}, 13: {...}, ...}
+            (dict): {0: {'A': 0.23, 'C': 0.01, ..., stats': [1, 0.37]}, 1: {...}, ...}
                 Weighted average design dictionary combining all fragment profile information at a single residue where
                 stats[0] is number of fragment observations at each residue, and stats[1] is the total fragment weight
                 over the entire residue
