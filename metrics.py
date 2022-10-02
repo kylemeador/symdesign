@@ -1511,36 +1511,52 @@ def position_specific_jsd(msa: np.ndarray, background: np.ndarray, **kwargs) -> 
 # CE = -SUMi->N(probability(pi) * log(probability(qi))
 
 
-def kl_divergence(frequencies: np.ndarray, bgd_frequencies: np.ndarray, axis: int | tuple[int, ...] = None) \
+def kl_divergence(frequencies: np.ndarray, bgd_frequencies: np.ndarray,
+                  mask: np.array = None, axis: int | tuple[int, ...] = None) \
         -> np.ndarray | float:
     """Calculate Kullback–Leibler Divergence value from observed and background frequencies
 
     Args:
         frequencies: [0.05, 0.001, 0.1, ...]
         bgd_frequencies: [0, 0, ...]
+        mask: A mask to restrict calculations to certain entries
         axis: The axis to perform the summation across
     Returns:
         The additional entropy needed to represent the frequencies as the background frequencies.
             The minimum divergence is 0 when both distributions are identical
     """
     probs1 = bgd_frequencies * np.log(frequencies/bgd_frequencies)
-    return -np.where(np.isnan(probs1), 0, probs1).sum(axis=axis)
+    # if per_residue:
+    kl_per_entry = np.where(np.isnan(probs1), 0, probs1)
+    #     return loss
+    if mask is None:
+        return -np.sum(kl_per_entry, axis=axis)
+    else:
+        return -np.sum(kl_per_entry * mask, axis=axis) / np.sum(mask, axis=axis)
 
 
-def cross_entropy(frequencies: np.ndarray, bgd_frequencies: np.ndarray, axis: int | tuple[int, ...] = None) \
+def cross_entropy(frequencies: np.ndarray, bgd_frequencies: np.ndarray,
+                  mask: np.array = None, axis: int | tuple[int, ...] = None) \
         -> np.ndarray | float:
     """Calculate the cross entropy between an observed and a background frequency distribution
 
     Args:
         frequencies: [0.05, 0.001, 0.1, ...]
         bgd_frequencies: [0, 0, ...]
+        mask: A mask to restrict calculations to certain entries
         axis: The axis to perform the summation across
     Returns:
         The total entropy to represent the frequencies as the background frequencies.
             The minimum entropy is 0 where both distributions are identical
     """
     probs1 = bgd_frequencies * np.log(frequencies)
-    return -np.where(np.isnan(probs1), 0, probs1).sum(axis=axis)
+    # if per_residue:
+    ce_per_entry = np.where(np.isnan(probs1), 0, probs1)
+    #     return loss
+    if mask is None:
+        return -np.sum(ce_per_entry, axis=axis)
+    else:
+        return -np.sum(ce_per_entry * mask, axis=axis) / np.sum(mask, axis=axis)
 
 
 def js_divergence(frequencies: np.ndarray, bgd_frequencies: np.ndarray, lambda_: float = 0.5) -> float:
