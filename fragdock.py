@@ -2444,8 +2444,6 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
             profile_background['evolution'] = evolutionary_profile_array = pssm_as_array(pose.evolutionary_profile)
             batch_evolutionary_profile = torch.from_numpy(np.tile(evolutionary_profile_array,
                                                                   (batch_length, 1, 1)))
-            print('batch_evolutionary_profile.shape', batch_evolutionary_profile.shape)
-
             # log_evolutionary_profile = np.log(evolutionary_profile_array)
             torch_log_evolutionary_profile = torch.from_numpy(np.log(evolutionary_profile_array))
         else:
@@ -2738,9 +2736,11 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
 
                         if pose.evolutionary_profile:
                             asu_conditional_softmax_null_seq = \
-                                np.exp(conditional_log_probs_null_seq[:, :pose_length, :mpnn_null_idx])
-                            evolutionary_ce = cross_entropy(asu_conditional_softmax_null_seq,
-                                                            batch_evolutionary_profile[:actual_batch_length])
+                                np.exp(conditional_log_probs_null_seq[:, :pose_length])
+                            # Remove the gaps index from the softmax input
+                            evolutionary_ce = cross_entropy(asu_conditional_softmax_null_seq[:, :, :mpnn_null_idx],
+                                                            batch_evolutionary_profile[:actual_batch_length],
+                                                            axis=(-2, -1))
                             print('evolutionary_ce', evolutionary_ce)
                         # fragment_ce = cross_entropy(asu_conditional_softmax_null_seq,
                         #                             batch_fragment_profile[:actual_batch_length])
