@@ -328,9 +328,9 @@ def proteinmpnn_to_device(device: str = None,
     #             )
 
 
-def score_sequences(sequence: torch.Tensor, log_probs: torch.Tensor,
-                    mask: torch.Tensor = None, per_residue: bool = True) -> torch.Tensor:
-    """Score ProteinMPNN sequences using Negative log likelihood probabilities
+def sequence_nllloss(sequence: torch.Tensor, log_probs: torch.Tensor,
+                     mask: torch.Tensor = None, per_residue: bool = True) -> torch.Tensor:
+    """Score ProteinMPNN sequences using the Negative log likelihood loss function
 
     Args:
         sequence: The sequence tensor

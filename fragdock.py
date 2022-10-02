@@ -27,7 +27,7 @@ from metrics import calculate_collapse_metrics, calculate_residue_surface_area, 
 from resources.EulerLookup import euler_factory
 from structure.fragment.db import FragmentDatabase, fragment_factory
 from resources.job import job_resources_factory, JobResources
-from resources.ml import proteinmpnn_factory, batch_proteinmpnn_input, score_sequences, \
+from resources.ml import proteinmpnn_factory, batch_proteinmpnn_input, sequence_nllloss, \
     proteinmpnn_to_device, mpnn_alphabet_length, mpnn_alphabet, create_decoding_order
 from structure.base import Structure, Residue
 from structure.coords import transform_coordinate_sets
@@ -2781,8 +2781,8 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
                                 # print('HCI profile std', collapse_profile_std)
                                 collapse_z = z_score(design_probs_collapse,
                                                      collapse_profile_mean, collapse_profile_std)
-                                # folding_loss = score_sequences(S_sample, log_probs)  # , mask_for_loss)
-                                designed_indices_collapse_z = collapse_z[residue_indices_of_interest]
+                                # folding_loss = sequence_nllloss(S_sample, log_probs)  # , mask_for_loss)
+                                designed_indices_collapse_z = collapse_z[residue_indices_of_interest[pose_idx]]
                                 magnitude_of_collapse_z_deviation = np.abs(designed_indices_collapse_z)
                                 if any(designed_indices_collapse_z > 1):  # Deviation larger than one positive std
                                     print('design_probs_collapse', design_probs_collapse)
@@ -2867,11 +2867,11 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
                         # Score the redesigned structure-sequence
                         # mask_for_loss = chain_mask_and_mask*residue_mask
                         # S_sample, log_probs, and mask_for_loss should all be the same size
-                        # batch_scores = score_sequences(S_sample, log_probs, mask_for_loss, per_residue=False)
+                        # batch_scores = sequence_nllloss(S_sample, log_probs, mask_for_loss, per_residue=False)
                         # batch_scores is
                         # tensor([2.1039, 2.0618, 2.0802, 2.0538, 2.0114, 2.0002], device='cuda:0')
-                        batch_scores_per_residue = score_sequences(S_sample, log_probs)  # , mask_for_loss)
-                        unbound_batch_scores_per_residue = score_sequences(S_sample, unbound_log_probs)  # , mask_for_loss)
+                        batch_scores_per_residue = sequence_nllloss(S_sample, log_probs)  # , mask_for_loss)
+                        unbound_batch_scores_per_residue = sequence_nllloss(S_sample, unbound_log_probs)  # , mask_for_loss)
                         # log_probs tensor([[[-2.6925, -4.0590, -2.6488,  ..., -4.2480, -3.4569, -4.8654],
                         #          [-2.8767, -4.3965, -2.4073,  ..., -4.4929, -3.5968, -5.1402],
                         #          [-2.5122, -4.0334, -2.7984,  ..., -4.2716, -3.4859, -4.8255],
@@ -2907,7 +2907,7 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
                         # unbound_batch_scores_per_residue tensor([[2.5189, 2.6957, 2.5164,  ..., 2.5407, 3.4855, 1.5007],
                         #         [2.8567, 2.7632, 2.5662,  ..., 2.5407, 3.4855, 1.5007]])
                         # Score the whole structure-sequence
-                        # global_scores = score_sequences(S_sample, log_probs, mask, per_residue=False)
+                        # global_scores = sequence_nllloss(S_sample, log_probs, mask, per_residue=False)
 
                         # Format outputs
                         generated_sequences[batch_slice] = S_sample.cpu().numpy()
@@ -3244,10 +3244,11 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
             # Todo get divergence?
             # Get the negative log likelihood of the .evolutionary_ and .fragment_profile
             torch_numeric = torch.from_numpy(pose.sequence_numeric)
-            per_residue_evolutionary_profile_scores = score_sequences(torch_numeric,
-                                                                      torch.from_numpy(np.log(evolutionary_profile_array)))
-            per_residue_fragment_profile_scores = score_sequences(torch_numeric,
-                                                                  torch.from_numpy(np.log(fragment_profile_array)))
+            per_residue_evolutionary_profile_scores = sequence_nllloss(torch_numeric,
+                                                                       torch_log_evolutionary_profile)
+            # RuntimeWarning: divide by zero encountered in log
+            per_residue_fragment_profile_scores = sequence_nllloss(torch_numeric,
+                                                                   torch.from_numpy(np.log(fragment_profile_array)))
 
             # all_scores[pose_id] = per_residue_sequence_scores[idx]
             _per_residue_complex_scores = per_residue_sequence_scores[idx].tolist()
