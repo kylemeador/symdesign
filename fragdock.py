@@ -2733,14 +2733,16 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
                         # unconditional_log_probs = \
                         #     mpnn_model.unconditional_probs(X, mask, residue_idx, chain_encoding).cpu()
                         residue_indices_of_interest = np.flatnonzero(residue_mask_cpu[:, :pose_length])
-
+                        print('residue_indices_of_interest', residue_indices_of_interest)
                         if pose.evolutionary_profile:
                             asu_conditional_softmax_null_seq = \
                                 np.exp(conditional_log_probs_null_seq[:, :pose_length])
                             # Remove the gaps index from the softmax input
-                            evolutionary_ce = cross_entropy(asu_conditional_softmax_null_seq[:, :, :mpnn_null_idx],
-                                                            batch_evolutionary_profile[:actual_batch_length],
-                                                            axis=(-2, -1))
+                            evolutionary_ce = \
+                                cross_entropy(asu_conditional_softmax_null_seq[:, :, :mpnn_null_idx],
+                                              batch_evolutionary_profile[:actual_batch_length],
+                                              mask=residue_indices_of_interest,
+                                              axis=(-2, -1))
                             print('evolutionary_ce', evolutionary_ce)
                         # fragment_ce = cross_entropy(asu_conditional_softmax_null_seq,
                         #                             batch_fragment_profile[:actual_batch_length])
