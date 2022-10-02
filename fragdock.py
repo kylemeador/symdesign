@@ -2735,7 +2735,7 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
 
                         if pose.evolutionary_profile:
                             asu_conditional_softmax_null_seq = \
-                                np.exp(conditional_log_probs_null_seq[:, :pose_length])
+                                np.exp(conditional_log_probs_null_seq[:, :pose_length, :mpnn_null_idx])
                             evolutionary_ce = cross_entropy(asu_conditional_softmax_null_seq,
                                                             batch_evolutionary_profile[:actual_batch_length])
                             print('evolutionary_ce', evolutionary_ce)
