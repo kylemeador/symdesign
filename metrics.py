@@ -1511,16 +1511,17 @@ def position_specific_jsd(msa: np.ndarray, background: np.ndarray, **kwargs) -> 
 # CE = -SUMi->N(probability(pi) * log(probability(qi))
 
 
-def kl_divergence(frequencies: np.ndarray, bgd_frequencies: np.ndarray,
+def kl_divergence(frequencies: np.ndarray, bgd_frequencies: np.ndarray, per_entry: bool = False,
                   mask: np.array = None, axis: int | tuple[int, ...] = None) \
         -> np.ndarray | float:
-    """Calculate Kullback–Leibler Divergence entropy between an observed and a background frequency distribution
+    """Calculate Kullback–Leibler Divergence entropy between observed and background frequency distribution(s)
 
     The divergence will be summed across the last axis/dimension of the input array
 
     Args:
         frequencies: [0.05, 0.001, 0.1, ...] The true distribution
         bgd_frequencies: [0, 0, ...] The model distribution
+        per_entry: Whether the result should be returned after summation over the last axis
         mask: A mask to restrict calculations to certain entries
         axis: If the input should be summed over additional axis, which one(s)?
     Returns:
@@ -1531,22 +1532,26 @@ def kl_divergence(frequencies: np.ndarray, bgd_frequencies: np.ndarray,
     # if per_residue:
     kl_per_entry = np.sum(np.where(np.isnan(probs1), 0, probs1), axis=-1)
     #     return loss
-    if mask is None:
+    if per_entry:
+        return kl_per_entry
+    elif mask is None:
         return -np.sum(kl_per_entry, axis=axis)
     else:
+        # return -(kl_per_entry * mask) / mask
         return -np.sum(kl_per_entry * mask, axis=axis) / np.sum(mask, axis=axis)
 
 
-def cross_entropy(frequencies: np.ndarray, bgd_frequencies: np.ndarray,
+def cross_entropy(frequencies: np.ndarray, bgd_frequencies: np.ndarray, per_entry: bool = False,
                   mask: np.array = None, axis: int | tuple[int, ...] = None) \
         -> np.ndarray | float:
-    """Calculate the cross entropy between an observed and a background frequency distributions
+    """Calculate the cross entropy between observed and background frequency distribution(s)
 
     The entropy will be summed across the last axis/dimension of the input array
 
     Args:
         frequencies: [0.05, 0.001, 0.1, ...] The true distribution
         bgd_frequencies: [0, 0, ...] The model distribution
+        per_entry: Whether the result should be returned after summation over the last axis
         mask: A mask to restrict calculations to certain entries
         axis: If the input should be summed over additional axis, which one(s)?
     Returns:
@@ -1557,9 +1562,12 @@ def cross_entropy(frequencies: np.ndarray, bgd_frequencies: np.ndarray,
     # if per_residue:
     ce_per_entry = np.sum(np.where(np.isnan(probs1), 0, probs1), axis=-1)
     #     return loss
-    if mask is None:
+    if per_entry:
+        return ce_per_entry
+    elif mask is None:
         return -np.sum(ce_per_entry, axis=axis)
     else:
+        # return -(ce_per_entry * mask) / mask
         return -np.sum(ce_per_entry * mask, axis=axis) / np.sum(mask, axis=axis)
 
 

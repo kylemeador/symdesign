@@ -2743,7 +2743,8 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
                                 cross_entropy(asu_conditional_softmax_null_seq[:, :, :mpnn_null_idx],
                                               batch_evolutionary_profile[:actual_batch_length],
                                               mask=residue_indices_of_interest,
-                                              axis=1)
+                                              per_entry=True)
+                                              # axis=1)
                             print('evolutionary_ce', evolutionary_ce)
                         # fragment_ce = cross_entropy(asu_conditional_softmax_null_seq,
                         #                             batch_fragment_profile[:actual_batch_length])
@@ -2753,7 +2754,7 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
                             for pose_idx in range(actual_batch_length):
                                 # Only include the residues in the ASU
                                 # # asu_conditional_softmax = np.exp(conditional_log_probs[pose_idx, :pose_length])
-                                asu_conditional_softmax_null_seq = asu_conditional_softmax_null_seq[pose_idx]
+                                # asu_conditional_softmax_null_seq = asu_conditional_softmax_null_seq[pose_idx]
                                 # # asu_conditional_softmax_seq = np.exp(conditional_log_probs_seq[pose_idx, :pose_length])
                                 # asu_unconditional_softmax = np.exp(unconditional_log_probs[pose_idx, :pose_length])
                                 # # print('asu_conditional_softmax', asu_conditional_softmax[residue_indices_of_interest])
@@ -2773,7 +2774,7 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
                                 # # sum asu_conditional_softmax
                                 # # tensor([1.0000, 1.0000, 1.0000, 1.0000, 1.0000, 1.0000, 1.0000, 1.0000, 1.0000,
                                 design_probs_collapse = \
-                                    hydrophobic_collapse_index(asu_conditional_softmax_null_seq,
+                                    hydrophobic_collapse_index(asu_conditional_softmax_null_seq[pose_idx],
                                                                # asu_unconditional_softmax,
                                                                alphabet_type=mpnn_alphabet)
                                 # Todo?
@@ -2791,7 +2792,7 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
                                 designed_indices_collapse_z = collapse_z[residue_indices_of_interest[pose_idx]]
                                 magnitude_of_collapse_z_deviation = np.abs(designed_indices_collapse_z)
                                 if any(designed_indices_collapse_z > 1):  # Deviation larger than one positive std
-                                    print('design_probs_collapse', design_probs_collapse)
+                                    print('design_probs_collapse', design_probs_collapse[residue_indices_of_interest[pose_idx]])
                                     print('designed_indices_collapse_z', designed_indices_collapse_z)
                                     # print('magnitude greater than 1', magnitude_of_collapse_z_deviation > 1)
                                     log.warning(f'***Collapse is larger than one standard deviation.'
