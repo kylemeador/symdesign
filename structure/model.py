@@ -2506,7 +2506,7 @@ class Model(Structure, ContainsChainsMixin):
         # Add lists together, only one is populated from class construction
         structures = (chains if isinstance(chains, (list, Structures)) else []) + \
                      (entities if isinstance(entities, (list, Structures)) else [])
-        if structures:  # create from existing
+        if structures:  # Create from existing
             atoms, residues, coords = [], [], []
             for structure in structures:
                 atoms.extend(structure.atoms)
@@ -2572,15 +2572,62 @@ class Model(Structure, ContainsChainsMixin):
                         #     next(available_chain_ids)
                         self.log.debug(f'Entity {entity.name} new chain identifier {entity.chain_id}')
 
-    @classmethod
-    def from_entities(cls, entities: list[Entity] | Structures, **kwargs):
-        """Create a new Model from a container of Entity objects"""
-        return cls(entities=entities, chains=False, **kwargs)
+                # Update chains to entities after everything is set
+                self.chains = self.entities
+                # self.chain_ids = [chain.name for chain in self.chains]
+            else:  # Create Entities from Chain.Residues
+                self._create_entities(**kwargs)
 
-    @classmethod
-    def from_model(cls, model, **kwargs):
-        """Initialize from an existing Model"""
-        return cls(model=model, **kwargs)
+            self._symmetric_dependents = self.entities  # Todo ensure these never change
+
+            if not self.chain_ids:  # set according to self.entities
+                self.chain_ids.extend([entity.chain_id for entity in self.entities])
+
+        if pose_format:
+            self.pose_numbering()
+
+    # def copy_metadata(self, other):  # Todo, rework for all Structure
+    #     temp_metadata = \
+    #         {'api_entry': other.__dict__['api_entry'],
+    #          'cryst_record': other.__dict__['cryst_record'],
+    #          # 'cryst': other.__dict__['cryst'],
+    #          'design': other.__dict__['design'],
+    #          'entity_info': other.__dict__['entity_info'],
+    #          '_name': other.__dict__['_name'],
+    #          # 'space_group': other.__dict__['space_group'],
+    #          # '_uc_dimensions': other.__dict__['_uc_dimensions'],
+    #          'header': other.__dict__['header'],
+    #          # 'reference_aa': other.__dict__['reference_aa'],
+    #          'resolution': other.__dict__['resolution'],
+    #          'rotation_d': other.__dict__['rotation_d'],
+    #          'max_symmetry_chain': other.__dict__['max_symmetry_chain'],
+    #          'dihedral_chain': other.__dict__['dihedral_chain'],
+    #          }
+    #     # temp_metadata = copy(other.__dict__)
+    #     # temp_metadata.pop('atoms')
+    #     # temp_metadata.pop('residues')
+    #     # temp_metadata.pop('secondary_structure')
+    #     # temp_metadata.pop('number_of_atoms')
+    #     # temp_metadata.pop('number_of_residues')
+    #     self.__dict__.update(temp_metadata)
+
+    # def update_attributes_from_pdb(self, pdb):  # Todo copy full attribute dict without selected elements
+    #     # self.atoms = pdb.atoms
+    #     self.resolution = pdb.resolution
+    #     self.cryst_record = pdb.cryst_record
+    #     # self.cryst = pdb.cryst
+    #     self.dbref = pdb.dbref
+    #     self.design = pdb.design
+    #     self.header = pdb.header
+    #     self.reference_sequence = pdb._reference_sequence
+    #     # self.atom_sequences = pdb.atom_sequences
+    #     self.file_path = pdb.file_path
+    #     # self.chain_ids = pdb.chain_ids
+    #     self.entity_info = pdb.entity_info
+    #     self.name = pdb.name
+    #     self.secondary_structure = pdb.secondary_structure
+    #     # self.cb_coords = pdb.cb_coords
+    #     # self.bb_coords = pdb.bb_coords
 
     @property
     def chain_breaks(self) -> list[int]:
