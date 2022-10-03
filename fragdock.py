@@ -3129,7 +3129,8 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
     for idx in range(number_of_transforms):
         pose_id = create_pose_id(idx)
         pose_ids.append(pose_id)
-        output_pose(os.path.join(root_out_dir, pose_id), pose_id)
+        # Todo reinstate after alphafold integration?
+        # output_pose(os.path.join(root_out_dir, pose_id), pose_id)
 
         pose_transformations[pose_id] = dict(rotation1=rotation_degrees1[idx],
                                              internal_translation1=z_heights1[idx],
@@ -3153,8 +3154,6 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
             add_fragments_to_pose(all_passing_ghost_indices[idx],
                                   all_passing_surf_indices[idx],
                                   all_passing_z_scores[idx])
-        # Todo reinstate after alphafold integration?
-        # output_pose(os.path.join(root_out_dir, pose_id), pose_id)
 
         per_residue_data[pose_id] = pose.get_per_residue_interface_metrics()  # _per_residue_data
         interface_metrics[pose_id] = pose.interface_metrics()  # _interface_metrics
