@@ -159,10 +159,9 @@ def find_fragment_overlap(fragments1: Iterable[Fragment], fragments2: Sequence[F
                                         passing_frag_coords,
                                         reference_rmsds)
     passing_overlaps_indices = np.flatnonzero(all_fragment_z_score < min_match_value)
-    # all_fragment_overlap = \
-    #     rmsd_z_score(passing_ghost_coords, passing_frag_coords, reference_rmsds, max_z_value=max_z_value)
     # logger.debug('Finished calculating fragment overlaps')
-    logger.debug(f'Found {len(passing_overlaps_indices)} overlapping fragments over the {min_match_value} threshold')
+    # logger.debug(f'Found {len(passing_overlaps_indices)} overlapping fragments over the {min_match_value} threshold')
+    logger.debug(f'Found {len(passing_overlaps_indices)} overlapping fragments under the {min_match_value} threshold')
 
     # interface_ghostfrags = [ghost_frags1[idx] for idx in passing_ghost_indices[passing_overlap_indices].tolist()]
     # interface_monofrags2 = [fragments2[idx] for idx in passing_surf_indices[passing_overlap_indices].tolist()]
