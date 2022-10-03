@@ -3085,10 +3085,8 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
     # Format pose transformations for output
     # full_rotation1 = full_rotation1
     blank_parameter = list(repeat([None, None, None], number_of_transforms))
-    full_int_tx1 = full_int_tx1.squeeze()
     full_ext_tx1 = blank_parameter if full_ext_tx1 is None else full_ext_tx1.squeeze()
     # full_rotation2 = full_rotation2
-    full_int_tx2 = full_int_tx2.squeeze()
     full_ext_tx2 = blank_parameter if full_ext_tx2 is None else full_ext_tx2.squeeze()
 
     set_mat1_number, set_mat2_number, *_extra = sym_entry.setting_matrices_numbers
@@ -3101,10 +3099,12 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
     # degeneracy_degrees1 = rotations1.as_rotvec(degrees=True)[:, :-1]
     # degeneracy_degrees2 = rotations2.as_rotvec(degrees=True)[:, :-1]
     if sym_entry.is_internal_tx1:
+        full_int_tx1 = full_int_tx1.squeeze()
         z_heights1 = full_int_tx1[:, -1]
     else:
         z_heights1 = blank_parameter
     if sym_entry.is_internal_tx2:
+        full_int_tx2 = full_int_tx2.squeeze()
         z_heights2 = full_int_tx2[:, -1]
     else:
         z_heights2 = blank_parameter
