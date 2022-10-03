@@ -970,11 +970,13 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
     for idx, rotation_step in enumerate(rotation_steps, 1):
         if getattr(sym_entry, f'is_internal_rot{idx}'):  # if rotation step required
             if rotation_step is None:
-                rotation_steps[idx] = 3  # set rotation step to default
+                rotation_step = 3  # Set rotation_step to default
+            # Set sym_entry.rotation_step
+            setattr(sym_entry, f'rotation_step{idx}', rotation_step)
         else:
-            rotation_steps[idx] = 1
             if rotation_step:
-                log.warning(f'Specified rotation_step{idx} was ignored. Oligomer {idx} doesn\'t have rotational DOF')
+                log.warning(f"Specified rotation_step{idx} was ignored. Oligomer {idx} doesn't have rotational DOF")
+            rotation_step = 1  # Set rotation step to 1
 
         degeneracy_matrices = getattr(sym_entry, f'degeneracy_matrices{idx}')
         # Todo make reliant on scipy...Rotation
@@ -2314,6 +2316,7 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
         full_ext_tx2 = full_ext_tx2[interface_is_viable]
         # full_ext_tx_sum = full_ext_tx2 - full_ext_tx1
 
+    # Generate the Pose for output handling
     entity_names = [entity.name for model in models for entity in model.entities]
     # entity_bb_coords = [entity.backbone_coords for model in models for entity in model.entities]
     entity_start_coords = [entity.coords for model in models for entity in model.entities]
@@ -2350,11 +2353,15 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
     # Update the transformation array and counts with the passing_symmetric_clashes indices
     passing_symmetric_clashes = np.flatnonzero(passing_symmetric_clashes)
     number_passing_symmetric_clashes = passing_symmetric_clashes.shape[0]
+    log.info(f'After symmetric clash testing, found {number_passing_symmetric_clashes} viable poses')
+
     if number_passing_symmetric_clashes == 0:  # There were no successful transforms
         log.warning(f'No viable poses without symmetric clashes. Terminating {building_blocks} docking')
         return
-    log.info(f'After symmetric clash testing, found {number_passing_symmetric_clashes} viable poses')
-
+    # ------------------ TERM ------------------------
+    # Remove non-viable transforms due to clashing
+    # Todo
+    #  remove_non_viable_indices(passing_symmetric_clashes.tolist())
     degen_counts, rot_counts, tx_counts = zip(*[(degen_counts[idx], rot_counts[idx], tx_counts[idx])
                                                 for idx in passing_symmetric_clashes.tolist()])
     all_passing_ghost_indices = [all_passing_ghost_indices[idx] for idx in passing_symmetric_clashes.tolist()]
@@ -3335,16 +3342,18 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
             _per_residue_complex_scores = per_residue_sequence_scores[idx].tolist()
             _per_residue_unbound_scores = per_residue_unbound_scores[idx].tolist()
             residue_info[pose_id] = {residue.number: {'complex': _per_residue_complex_scores[residue.index],
-                                                      'bound': 0.,  # copy(entity_energies),
+                                                      # 'bound': 0.,  # copy(entity_energies),
                                                       'unbound': _per_residue_unbound_scores[residue.index],
                                                       'evolution': _per_residue_evolutionary_profile_scores[residue.index],
                                                       'fragment': _per_residue_fragment_profile_scores[residue.index],
                                                       # copy(entity_energies),
-                                                      'solv_complex': 0., 'solv_bound': 0.,
+                                                      # 'solv_complex': 0., 'solv_bound': 0.,
                                                       # copy(entity_energies),
-                                                      'solv_unbound': 0.,  # copy(entity_energies),
+                                                      # 'solv_unbound': 0.,  # copy(entity_energies),
                                                       # 'fsp': 0., 'cst': 0.,
-                                                      'type': protein_letters_3to1.get(residue.type), 'hbond': 0}
+                                                      'type': protein_letters_3to1.get(residue.type),
+                                                      # 'hbond': 0
+                                                      }
                                      for entity in pose.entities for residue in entity.residues}
 
     # Todo get the keys right here
@@ -3505,10 +3514,11 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
     scores_df = scores_df.join(summed_scores_df)
     # Drop unused particular per_residue_df columns that have been summed
     # # Drop unused particular per_residue_df columns that have been summed
-    # per_residue_df = per_residue_df.drop(
-    #     [column for column in per_residue_df.loc[:,
-    #      idx_slice[:, per_residue_energy_states
-    #                   + residue_classificiation]].columns], axis=1)
+    per_residue_df = per_residue_df.drop(
+        [column for column in per_residue_df.loc[:,
+         idx_slice[:, per_residue_energy_states
+                      # + residue_classificiation
+         ]].columns], axis=1)
 
     print('per_residue_df', per_residue_df)
 
