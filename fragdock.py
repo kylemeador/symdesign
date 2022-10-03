@@ -2434,9 +2434,9 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
                 Ex: '****_#-****_#-d_#_#-r_#_#-t_#-p_#' OR '****_#-****_#-d_#_#-r_#_#-t_#' (no perturbation)
         """
         transform_idx = _idx // number_of_perturbations
-        _pose_id = f'd_{"_".join(map(str, degen_counts[transform_idx]))}-' \
-                   f'r_{"_".join(map(str, rot_counts[transform_idx]))}' \
-                   f't_{tx_counts[transform_idx]}'  # translation idx
+        _pose_id = f'd_{"_".join(map(str, degen_counts[transform_idx]))}' \
+                   f'-r_{"_".join(map(str, rot_counts[transform_idx]))}' \
+                   f'-t_{tx_counts[transform_idx]}'  # translation idx
         if number_of_perturbations > 1:
             # perturb_idx = idx % number_of_perturbations
             _pose_id = f'{_pose_id}-p_{_idx%number_of_perturbations + 1}'
