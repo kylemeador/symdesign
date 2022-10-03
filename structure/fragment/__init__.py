@@ -149,10 +149,12 @@ class GhostFragment:
     #     return np.matmul(np.array([0.33333, 0.33333, 0.33333]), self.guide_coords)
 
 
-class Fragment:
+class Fragment(ABC):
     _fragment_ca_coords: np.ndarray
-    _fragment_db: structure.fragment.db.FragmentDatabase | None
     _fragment_coords: np.ndarray | None
+    """Holds coordinates (currently backbone) that represent the fragment during spatial transformation"""
+    _fragment_db: structure.fragment.db.FragmentDatabase | None
+    _guide_coords = np.array([[0., 0., 0.], [3., 0., 0.], [0., 3., 0.]])
     chain: str
     frag_lower_range: int
     frag_upper_range: int
@@ -163,7 +165,6 @@ class Fragment:
     number: int
     rmsd_thresh: float = 0.75
     rotation: np.ndarray
-    _guide_coords = np.array([[0., 0., 0.], [3., 0., 0.], [0., 3., 0.]])
     translation: np.ndarray
 
     def __init__(self, fragment_type: int = None,
@@ -312,8 +313,10 @@ class Fragment:
     def get_ghost_fragments(self,
                             # indexed_ghost_fragments: dict,
                             **kwargs) -> list | list[GhostFragment]:
-        """Find and return all the GhostFragments associated with the Fragment. Optionally check clashing with the
-        original structure backbone
+        """Retrieve the GhostFragments associated with the Fragment. Will generate if none are available, otherwise,
+        will return the already generated instances.
+
+        Optionally, check clashing with the original structure backbone by passing clash_tree
 
         Keyword Args:
             clash_tree: sklearn.neighbors._ball_tree.BinaryTree = None - Allows clash prevention during search.
@@ -324,7 +327,9 @@ class Fragment:
         """
         #         Args:
         #             indexed_ghost_fragments: The paired fragment database to match to the Fragment instance
-        self.find_ghost_fragments(**kwargs)
+        if self.ghost_fragments is None:
+            self.find_ghost_fragments(**kwargs)
+
         return self.ghost_fragments
 
     # def __copy__(self):  # -> Self # Todo python3.11
