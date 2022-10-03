@@ -3164,6 +3164,7 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
     pose_ids = []
     fragment_profile_frequencies = []
     per_residue_data, residue_info = {}, {}
+    nan_blank_data = list(repeat(np.nan, pose_length))
     for idx in range(number_of_transforms):
         pose_id = create_pose_id(idx)
         pose_ids.append(pose_id)
@@ -3265,8 +3266,6 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
             #     pose.log.info('Design has no fragment information')
 
             # Calculate sequence statistics
-            # First, for entire pose
-            interface_indexer = [residue.index for residue in pose.interface_residues]
 
             # fragment_profile_frequencies = pose.get_sequence_probabilities_from_profile(dtype='fragment')  # fragment_profile_array
             # Todo get the below mechanism clean
@@ -3274,15 +3273,15 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
             pose._sequence_numeric = generated_sequences[idx, :pose_length]
             # pose._sequence_numeric = generated_sequences[idx, :pose_length].astype(np.int32)
             # Todo these are not Softmax probabilities
-            fragment_profile_frequencies.append(
-                pose.get_sequence_probabilities_from_profile(precomputed=fragment_profile_array))
+            try:
+                fragment_profile_frequencies.append(
+                    pose.get_sequence_probabilities_from_profile(precomputed=fragment_profile_array))
+            except IndexError as error:  # We are missing fragments for this Pose!
+                # raise NotImplementedError(f"We currently don't have a solution for this...{error}")
+                log.warning(f"We didn't find any fragment information... due to: {error}"
+                            f"\nSetting the pose.fragment_profile = {'{}'}")
+                pose.fragment_profile = {}
 
-            # Find the non-zero sites in the profile
-            interface_observed_from_fragment_profile = fragment_profile_frequencies[idx][interface_indexer]
-            mean_observed_from_fragment_profile = \
-                interface_observed_from_fragment_profile[np.nonzero(interface_observed_from_fragment_profile)].mean()
-            # sum_observed_from_fragment_profile = observed_from_fragment_profile.sum()
-            print('mean_observed_from_fragment_profile', mean_observed_from_fragment_profile)
             # observed, divergence = \
             #     calculate_sequence_observations_and_divergence(pose_alignment,
             #                                                    profile_background,
@@ -3311,15 +3310,30 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
             if pose.evolutionary_profile:
                 per_residue_evolutionary_profile_scores = sequence_nllloss(torch_numeric,
                                                                            torch_log_evolutionary_profile)
-            # RuntimeWarning: divide by zero encountered in log
-            per_residue_fragment_profile_scores = sequence_nllloss(torch_numeric,
-                                                                   torch.from_numpy(np.log(fragment_profile_array)))
+                _per_residue_evolutionary_profile_scores = per_residue_evolutionary_profile_scores.tolist()
+            else:
+                _per_residue_evolutionary_profile_scores = nan_blank_data
+
+            if pose.fragment_profile:
+                # RuntimeWarning: divide by zero encountered in log
+                per_residue_fragment_profile_scores = sequence_nllloss(torch_numeric,
+                                                                       torch.from_numpy(np.log(fragment_profile_array)))
+                _per_residue_fragment_profile_scores = per_residue_fragment_profile_scores.tolist()
+
+                # Find the non-zero sites in the profile
+                interface_indexer = [residue.index for residue in pose.interface_residues]
+                interface_observed_from_fragment_profile = fragment_profile_frequencies[idx][interface_indexer]
+                mean_observed_from_fragment_profile = \
+                    interface_observed_from_fragment_profile[
+                        np.nonzero(interface_observed_from_fragment_profile)].mean()
+                # sum_observed_from_fragment_profile = observed_from_fragment_profile.sum()
+                print('mean_observed_from_fragment_profile', mean_observed_from_fragment_profile)
+            else:
+                _per_residue_fragment_profile_scores = nan_blank_data
 
             # all_scores[pose_id] = per_residue_sequence_scores[idx]
             _per_residue_complex_scores = per_residue_sequence_scores[idx].tolist()
             _per_residue_unbound_scores = per_residue_unbound_scores[idx].tolist()
-            _per_residue_evolutionary_profile_scores = per_residue_evolutionary_profile_scores.tolist()
-            _per_residue_fragment_profile_scores = per_residue_fragment_profile_scores.tolist()
             residue_info[pose_id] = {residue.number: {'complex': _per_residue_complex_scores[residue.index],
                                                       'bound': 0.,  # copy(entity_energies),
                                                       'unbound': _per_residue_unbound_scores[residue.index],
@@ -3439,6 +3453,7 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
 
         pose_collapse_df = pd.DataFrame()
         # all_pose_divergence_df = pd.DataFrame()
+        residue_df = pd.DataFrame()
 
     # is_thermophilic = []
     # idx = 1
@@ -3456,8 +3471,9 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
     # Construct per_residue_df
     per_residue_df = pd.concat({name: pd.DataFrame(data, index=residue_indices)
                                 for name, data in per_residue_data.items()}).unstack().swaplevel(0, 1, axis=1)
-    per_residue_df = pd.merge(residue_df, per_residue_df, left_index=True, right_index=True)
-    # Make buried surface area (bsa) columns
+    per_residue_df = per_residue_df.join(residue_df)
+    # per_residue_df = pd.merge(residue_df, per_residue_df, left_index=True, right_index=True)
+    # Make buried surface area (bsa) columns, and residue classification
     per_residue_df = calculate_residue_surface_area(per_residue_df)  # .loc[:, idx_slice[index_residues, :]])
 
     scores_df['interface_area_polar'] = per_residue_df.loc[:, idx_slice[:, 'bsa_polar']].sum(axis=1)
@@ -3488,10 +3504,11 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
     print('summed_scores_df', summed_scores_df)
     scores_df = scores_df.join(summed_scores_df)
     # Drop unused particular per_residue_df columns that have been summed
-    per_residue_df = per_residue_df.drop(
-        [column for column in per_residue_df.loc[:,
-         idx_slice[:, per_residue_energy_states
-                      + residue_classificiation]].columns], axis=1)
+    # # Drop unused particular per_residue_df columns that have been summed
+    # per_residue_df = per_residue_df.drop(
+    #     [column for column in per_residue_df.loc[:,
+    #      idx_slice[:, per_residue_energy_states
+    #                   + residue_classificiation]].columns], axis=1)
 
     print('per_residue_df', per_residue_df)
 
