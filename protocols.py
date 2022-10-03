@@ -1907,7 +1907,7 @@ class PoseDirectory:
             if self.job.generate_fragments:
                 make_path(self.frags, condition=self.job.write_fragments)
                 self.pose.generate_interface_fragments(out_path=self.frags, write_fragments=self.job.write_fragments)
-                self.pose.process_fragment_profile()
+                self.pose.process_fragment_profile(evo_fill=True)  # Todo this is used with RosettaDesign
                 # for query_pair, fragment_info in self.pose.fragment_queries.items():
                 #     self.log.debug(f'Query Pair: {query_pair[0].name}, {query_pair[1].name}'
                 #                    f'\n\tFragment Info:{fragment_info}')
