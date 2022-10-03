@@ -1124,22 +1124,18 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
     #     tx_counts = list(range(1, len(full_rotation1) + 1))
     # else:
 
-    log.debug(f'zshift1 = {zshift1}, zshift2 = {zshift2}, max_z_value={initial_z_value:2f}')
-    optimal_tx = \
-        OptimalTx.from_dof(sym_entry.external_dof, zshift1=zshift1, zshift2=zshift2, max_z_value=initial_z_value)
+    # Set up internal translation parameters
+    # zshift1/2 must be 2d array, thus the , 2:3].T instead of , 2].T
+    # Also, [:, None, 2] would work
+    if sym_entry.is_internal_tx1:  # add the translation to Z (axis=1)
+        full_int_tx1 = []
+        zshift1 = set_mat1[:, None, 2].T
+    else:
+        full_int_tx1 = zshift1 = None
 
-    # Get rotated Oligomer1 Ghost Fragment, Oligomer2 Surface Fragment guide coodinate pairs
-    # in the same Euler rotational space bucket
-    skip_transformation = kwargs.get('skip_transformation')
-    if skip_transformation:
-        transformation1 = unpickle(kwargs.get('transformation_file1'))
-        full_rotation1, full_int_tx1, full_setting1, full_ext_tx1 = transformation1.values()
-        transformation2 = unpickle(kwargs.get('transformation_file2'))
-        full_rotation2, full_int_tx2, full_setting2, full_ext_tx2 = transformation2.values()
-        # make arbitrary degen, rot, and tx counts
-        degen_counts = [(idx, idx) for idx in range(1, len(full_rotation1) + 1)]
-        rot_counts = [(idx, idx) for idx in range(1, len(full_rotation1) + 1)]
-        tx_counts = list(range(1, len(full_rotation1) + 1))
+    if sym_entry.is_internal_tx2:
+        full_int_tx2 = []
+        zshift2 = set_mat2[:, None, 2].T
     else:
         full_int_tx2 = zshift2 = None
 
@@ -1357,78 +1353,73 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
                 optimal_tx.solve_optimal_shifts(passing_ghost_coords, passing_surf_coords, reference_rmsds)
             optimal_shifts_time = time.time() - optimal_shifts_start
 
-                pre_cluster_passing_shifts = transform_passing_shifts.shape[0]
-                if pre_cluster_passing_shifts == 0:
-                    # log.debug('Length %d' % len(optimal_shifts))
-                    # log.debug('Shape %d' % transform_passing_shifts.shape[0])
-                    log.info(f'\tNo transforms were found passing optimal shift criteria '
-                             f'(took {optimal_shifts_time:8f}s)')
-                    continue
-                # elif cluster_translations:
-                else:
-                    # log.info(f'\tFound {pre_cluster_passing_shifts} before clustering')
-                    # tx_params = np.vstack()
-                    # tx_params = transform_passing_shifts
-                    cluster_time_start = time.time()
-                    translation_cluster = DBSCAN(eps=translation_epsilon, min_samples=min_matched).fit(transform_passing_shifts)
-                    transform_passing_shifts = transform_passing_shifts[translation_cluster.labels_ != outlier]
-                    number_passing_shifts = transform_passing_shifts.shape[0]
-                    if pre_cluster_passing_shifts == 0:
-                        # log.debug('Length %d' % len(optimal_shifts))
-                        # log.debug('Shape %d' % transform_passing_shifts.shape[0])
-                        log.info(f'\tNo transforms were found after clustering optimal shifts '
-                                 f'(took {time.time() - cluster_time_start:8f}s)')
-                        continue
-                    else:
-                        log.info(f'\tFound {number_passing_shifts} transforms after clustering from '
-                                 f'{pre_cluster_passing_shifts} possible transforms (took '
-                                 f'{time.time() - cluster_time_start:8f}s)')
+            pre_cluster_passing_shifts = transform_passing_shifts.shape[0]
+            if pre_cluster_passing_shifts == 0:
+                # log.debug('Length %d' % len(optimal_shifts))
+                # log.debug('Shape %d' % transform_passing_shifts.shape[0])
+                log.info(f'\tNo transforms were found passing optimal shift criteria '
+                         f'(took {optimal_shifts_time:8f}s)')
+                continue
+            # elif cluster_translations:
+            else:
+                cluster_time_start = time.time()
+                translation_cluster = \
+                    DBSCAN(eps=translation_epsilon, min_samples=min_matched).fit(transform_passing_shifts)
+                transform_passing_shifts = transform_passing_shifts[translation_cluster.labels_ != outlier]
+            # else:  # Use all translations
+            #     pass
 
-                # else:  # Use all translations
-                #     pass
+            # blank_vector = np.zeros((number_passing_shifts, 1), dtype=float)
+            if sym_entry.unit_cell:
+                # Must take the optimal_ext_dof_shifts and multiply the column number by the corresponding row
+                # in the sym_entry.external_dof#
+                # optimal_ext_dof_shifts[0] scalar * sym_entry.group_external_dof[0] (1 row, 3 columns)
+                # Repeat for additional DOFs, then add all up within each row.
+                # For a single DOF, multiplication won't matter as only one matrix element will be available
+                #
+                # Must find positive indices before external_dof1 multiplication in case negatives there
+                positive_indices = np.flatnonzero(np.all(transform_passing_shifts[:, :sym_entry.n_dof_external] >= 0,
+                                                         axis=1))
+                number_passing_shifts = positive_indices.shape[0]
+                optimal_ext_dof_shifts = np.zeros((number_passing_shifts, 3), dtype=float)
+                optimal_ext_dof_shifts[:, :sym_entry.n_dof_external] = \
+                    transform_passing_shifts[positive_indices, :sym_entry.n_dof_external]
+                # optimal_ext_dof_shifts = np.hstack((optimal_ext_dof_shifts,) +
+                #                                    (blank_vector,) * (3-sym_entry.n_dof_external))
+                # ^ I think for the sake of cleanliness, I need to make this matrix
 
-                blank_vector = np.zeros((number_passing_shifts, 1), dtype=float)  # length is by column
-                if sym_entry.unit_cell:
-                    # must take the optimal_ext_dof_shifts and multiply the column number by the corresponding row
-                    # in the sym_entry.group_external_dof
-                    # optimal_ext_dof_shifts[0] scalar * sym_entry.group_external_dof[0] (1 row, 3 columns)
-                    # repeat for additional DOFs
-                    # then add all up within each row
-                    # for a single DOF, multiplication won't matter as only one matrix element will be available
-                    #
-                    optimal_ext_dof_shifts = transform_passing_shifts[:, :sym_entry.n_dof_external]
-                    optimal_ext_dof_shifts = np.hstack((optimal_ext_dof_shifts,
-                                                        np.hstack((blank_vector,) * (3-sym_entry.n_dof_external))))
-                    # ^ I think for the sake of cleanliness, I need to make this matrix
-                    # must find positive indices before external_dof1 multiplication in case negatives there
-                    positive_indices = \
-                        np.flatnonzero(np.all(np.where(optimal_ext_dof_shifts < 0, False, True), axis=1) is True)
-                    number_passing_shifts = positive_indices.shape[0]
-                    # optimal_ext_dof_shifts[:, :, None] <- None expands the axis to make multiplication accurate
-                    stacked_external_tx1 = \
-                        (optimal_ext_dof_shifts[:, :, None] * sym_entry.external_dof1).sum(axis=-2)
-                    stacked_external_tx2 = \
-                        (optimal_ext_dof_shifts[:, :, None] * sym_entry.external_dof2).sum(axis=-2)
-                    full_ext_tx1.append(stacked_external_tx1[positive_indices])
-                    full_ext_tx2.append(stacked_external_tx2[positive_indices])
-                    full_optimal_ext_dof_shifts.append(optimal_ext_dof_shifts[positive_indices])
+                full_optimal_ext_dof_shifts.append(optimal_ext_dof_shifts)
+            else:
+                number_passing_shifts = transform_passing_shifts.shape[0]
+                log.info(f'\tFound {number_passing_shifts} transforms after clustering from '
+                         f'{pre_cluster_passing_shifts} possible transforms (took '
+                         f'{time.time() - cluster_time_start:8f}s)')
 
-                # Prepare the transformation parameters for storage in full transformation arrays
-                # Use of [:, None] transforms the array into an array with each internal dof sored as a scalar in
-                # axis 1 and each successive index along axis 0 as each passing shift
-                internal_tx_params1 = transform_passing_shifts[:, None, sym_entry.n_dof_external] \
-                    if sym_entry.is_internal_tx1 else blank_vector
-                internal_tx_params2 = transform_passing_shifts[:, None, sym_entry.n_dof_external+1] \
-                    if sym_entry.is_internal_tx2 else blank_vector
-                # Stack each internal parameter along with a blank vector, this isolates the tx vector along z axis
-                stacked_internal_tx_vectors1 = np.hstack((blank_vector, blank_vector, internal_tx_params1))
-                stacked_internal_tx_vectors2 = np.hstack((blank_vector, blank_vector, internal_tx_params2))
+            # Prepare the transformation parameters for storage in full transformation arrays
+            # Use of [:, None] transforms the array into an array with each internal dof sored as a scalar in
+            # axis 1 and each successive index along axis 0 as each passing shift
 
+            # Stack each internal parameter along with a blank vector, this isolates the tx vector along z axis
+            if full_int_tx1:
+                # stacked_internal_tx_vectors1 = np.zeros((number_passing_shifts, 3), dtype=float)
+                # stacked_internal_tx_vectors1[:, -1] = transform_passing_shifts[:, sym_entry.n_dof_external]
+                # internal_tx_params1 = transform_passing_shifts[:, None, sym_entry.n_dof_external]
+                # stacked_internal_tx_vectors1 = np.hstack((blank_vector, blank_vector, internal_tx_params1))
                 # Store transformation parameters, indexing only those that are positive in the case of lattice syms
-                full_int_tx1.append(stacked_internal_tx_vectors1[positive_indices])
-                full_int_tx2.append(stacked_internal_tx_vectors2[positive_indices])
-                full_rotation1.append(np.tile(rot_mat1, (number_passing_shifts, 1, 1)))
-                full_rotation2.append(np.tile(rot_mat2, (number_passing_shifts, 1, 1)))
+                full_int_tx1.extend(transform_passing_shifts[positive_indices, sym_entry.n_dof_external].tolist())
+
+            if full_int_tx2:
+                # stacked_internal_tx_vectors2 = np.zeros((number_passing_shifts, 3), dtype=float)
+                # stacked_internal_tx_vectors2[:, -1] = transform_passing_shifts[:, sym_entry.n_dof_external + 1]
+                # internal_tx_params2 = transform_passing_shifts[:, None, sym_entry.n_dof_external + 1]
+                # stacked_internal_tx_vectors2 = np.hstack((blank_vector, blank_vector, internal_tx_params2))
+                # Store transformation parameters, indexing only those that are positive in the case of lattice syms
+                full_int_tx2.extend(transform_passing_shifts[positive_indices, sym_entry.n_dof_external + 1].tolist())
+
+            # full_int_tx1.append(stacked_internal_tx_vectors1[positive_indices])
+            # full_int_tx2.append(stacked_internal_tx_vectors2[positive_indices])
+            full_rotation1.append(np.tile(rot_mat1, (number_passing_shifts, 1, 1)))
+            full_rotation2.append(np.tile(rot_mat2, (number_passing_shifts, 1, 1)))
 
             degen_counts.extend([(degen1_count, degen2_count) for _ in range(number_passing_shifts)])
             rot_counts.extend([(rot1_count, rot2_count) for _ in range(number_passing_shifts)])
@@ -1474,33 +1465,51 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
     # Here represents an important break in the execution of this code. Vectorized scoring and clash testing!
     ##############
     if sym_entry.unit_cell:
-        # Calculate the vectorized uc_dimensions
-        full_uc_dimensions = sym_entry.get_uc_dimensions(np.concatenate(full_optimal_ext_dof_shifts, axis=0))
-        full_ext_tx1 = np.concatenate(full_ext_tx1, axis=0)  # .sum(axis=-2)
-        full_ext_tx2 = np.concatenate(full_ext_tx2, axis=0)  # .sum(axis=-2)
-    # Todo uncomment below lines if use tile_transform in the reverse orientation
-    #     full_ext_tx_sum = full_ext_tx2 - full_ext_tx1
+        # optimal_ext_dof_shifts[:, :, None] <- None expands the axis to make multiplication accurate
+        full_optimal_ext_dof_shifts = np.concatenate(full_optimal_ext_dof_shifts, axis=0)
+        unsqueezed_optimal_ext_dof_shifts = full_optimal_ext_dof_shifts[:, :, None]
+        full_ext_tx1 = np.sum(unsqueezed_optimal_ext_dof_shifts * sym_entry.external_dof1, axis=-2)
+        full_ext_tx2 = np.sum(unsqueezed_optimal_ext_dof_shifts * sym_entry.external_dof2, axis=-2)
+        # full_ext_tx1 = np.concatenate(full_ext_tx1, axis=0)  # .sum(axis=-2)
+        # full_ext_tx2 = np.concatenate(full_ext_tx2, axis=0)  # .sum(axis=-2)
+        # Todo uncomment below if use tile_transform in the reverse orientation
+        # full_ext_tx_sum = full_ext_tx2 - full_ext_tx1
     else:
-        full_uc_dimensions = None
-    #     full_ext_tx_sum = None
+        # stacked_external_tx1, stacked_external_tx2 = None, None
+        full_ext_tx1 = full_ext_tx2 = full_optimal_ext_dof_shifts = None
+        # full_optimal_ext_dof_shifts = list(repeat(None, number_passing_shifts))
+
     # fragment_pairs = np.array(fragment_pairs)
     # Make full, numpy vectorized transformations overwriting individual variables for memory management
     full_rotation1 = np.concatenate(full_rotation1, axis=0)
     full_rotation2 = np.concatenate(full_rotation2, axis=0)
-    full_int_tx1 = np.concatenate(full_int_tx1, axis=0)
-    full_int_tx2 = np.concatenate(full_int_tx2, axis=0)
-    starting_transforms = len(full_int_tx1)
+    starting_transforms = full_rotation1.shape[0]
+    if sym_entry.is_internal_tx1:
+        stacked_internal_tx_vectors1 = np.zeros((starting_transforms, 3), dtype=float)
+        # Add the translation to Z (axis=1)
+        stacked_internal_tx_vectors1[:, -1] = full_int_tx1
+        full_int_tx1 = stacked_internal_tx_vectors1
+
+    if sym_entry.is_internal_tx2:
+        stacked_internal_tx_vectors2 = np.zeros((starting_transforms, 3), dtype=float)
+        # Add the translation to Z (axis=1)
+        stacked_internal_tx_vectors2[:, -1] = full_int_tx2
+        full_int_tx2 = stacked_internal_tx_vectors2
+
+    # full_int_tx1 = np.concatenate(full_int_tx1, axis=0)
+    # full_int_tx2 = np.concatenate(full_int_tx2, axis=0)
+    # starting_transforms = len(full_int_tx1)
     # log.debug(f'shape of full_rotation1 {full_rotation1.shape}')
     # log.debug(f'shape of full_rotation2 {full_rotation2.shape}')
     # log.debug(f'shape of full_int_tx1 {full_int_tx1.shape}')
     # log.debug(f'shape of full_int_tx2 {full_int_tx2.shape}')
 
     # tile_transform1 = {'rotation': full_rotation2,
-    #                    'translation': full_int_tx2[:, None, :],
+    #                    'translation': None if full_int_tx2 is None else full_int_tx2[:, None, :],
     #                    'rotation2': set_mat2,
     #                    'translation2': full_ext_tx_sum[:, None, :] if full_ext_tx_sum is not None else None}  # invert translation
     # tile_transform2 = {'rotation': inv_setting1,
-    #                    'translation': full_int_tx1[:, None, :] * -1,
+    #                    'translation': None if full_int_tx1 is None else full_int_tx1[:, None, :] * -1,
     #                    'rotation2': full_inv_rotation1,
     #                    'translation2': None}
     # Find the clustered transformations to expedite search of ASU clashing
@@ -1529,11 +1538,11 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
     # Must add a new axis to translations so the operations are broadcast together in transform_coordinate_sets()
     transform_neighbor_tree, cluster = \
         cluster_transformation_pairs(dict(rotation=full_rotation1,
-                                          translation=full_int_tx1[:, None, :],
+                                          translation=None if full_int_tx1 is None else full_int_tx1[:, None, :],
                                           rotation2=set_mat1,
                                           translation2=None if full_ext_tx1 is None else full_ext_tx1[:, None, :]),
                                      dict(rotation=full_rotation2,
-                                          translation=full_int_tx2[:, None, :],
+                                          translation=None if full_int_tx2 is None else full_int_tx2[:, None, :],
                                           rotation2=set_mat2,
                                           translation2=None if full_ext_tx2 is None else full_ext_tx2[:, None, :]),
                                      minimum_members=min_matched)
@@ -1561,14 +1570,17 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
     # fragment_pairs = fragment_pairs[sufficiently_dense_indices]
     full_rotation1 = full_rotation1[sufficiently_dense_indices]
     full_rotation2 = full_rotation2[sufficiently_dense_indices]
-    full_int_tx1 = full_int_tx1[sufficiently_dense_indices]
-    full_int_tx2 = full_int_tx2[sufficiently_dense_indices]
+    if sym_entry.is_internal_tx1:
+        full_int_tx1 = full_int_tx1[sufficiently_dense_indices]
+    if sym_entry.is_internal_tx2:
+        full_int_tx2 = full_int_tx2[sufficiently_dense_indices]
     if sym_entry.unit_cell:
-        full_uc_dimensions = full_uc_dimensions[sufficiently_dense_indices]
+        full_optimal_ext_dof_shifts = full_optimal_ext_dof_shifts[sufficiently_dense_indices]
         full_ext_tx1 = full_ext_tx1[sufficiently_dense_indices]
         full_ext_tx2 = full_ext_tx2[sufficiently_dense_indices]
         full_ext_tx_sum = full_ext_tx2 - full_ext_tx1
     else:
+        # Set this for the first time
         full_ext_tx_sum = None
     full_inv_rotation1 = np.linalg.inv(full_rotation1)
     inv_setting1 = np.linalg.inv(set_mat1)
@@ -1618,12 +1630,12 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
                     transform_coordinate_sets(
                         transform_coordinate_sets(tiled_coords2[:number_of_transforms],  # Slice ensures same size
                                                   rotation=_full_rotation2,
-                                                  translation=full_int_tx2[batch_slice, None, :],
+                                                  translation=None if full_int_tx2 is None else full_int_tx2[batch_slice, None, :],
                                                   rotation2=set_mat2,
                                                   translation2=None if full_ext_tx_sum is None
                                                   else full_ext_tx_sum[batch_slice, None, :]),
                         rotation=inv_setting1,
-                        translation=full_int_tx1[batch_slice, None, :] * -1,
+                        translation=None if full_int_tx1 is None else full_int_tx1[batch_slice, None, :] * -1,
                         rotation2=full_inv_rotation1[batch_slice],
                         translation2=None)
                 # Check each transformed oligomer 2 coordinate set for clashing against oligomer 1
@@ -1665,10 +1677,12 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
     # fragment_pairs = fragment_pairs[asu_is_viable]
     full_rotation1 = full_rotation1[asu_is_viable]
     full_rotation2 = full_rotation2[asu_is_viable]
-    full_int_tx1 = full_int_tx1[asu_is_viable]
-    full_int_tx2 = full_int_tx2[asu_is_viable]
+    if sym_entry.is_internal_tx1:
+        full_int_tx1 = full_int_tx1[asu_is_viable]
+    if sym_entry.is_internal_tx2:
+        full_int_tx2 = full_int_tx2[asu_is_viable]
     if sym_entry.unit_cell:
-        full_uc_dimensions = full_uc_dimensions[asu_is_viable]
+        full_optimal_ext_dof_shifts = full_optimal_ext_dof_shifts[asu_is_viable]
         full_ext_tx1 = full_ext_tx1[asu_is_viable]
         full_ext_tx2 = full_ext_tx2[asu_is_viable]
         full_ext_tx_sum = full_ext_tx2 - full_ext_tx1
@@ -1692,12 +1706,13 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
         transform_coordinate_sets(transform_coordinate_sets(np.tile(model2.cb_coords,
                                                                     (number_non_clashing_transforms, 1, 1)),
                                                             rotation=full_rotation2,
-                                                            translation=full_int_tx2[:, None, :],
+                                                            translation=None if full_int_tx2 is None
+                                                            else full_int_tx2[:, None, :],
                                                             rotation2=set_mat2,
                                                             translation2=None if full_ext_tx_sum is None
                                                             else full_ext_tx_sum[:, None, :]),
                                   rotation=inv_setting1,
-                                  translation=full_int_tx1[:, None, :] * -1,
+                                  translation=None if full_int_tx1 is None else full_int_tx1[:, None, :] * -1,
                                   rotation2=full_inv_rotation1,
                                   translation2=None)
 
@@ -1706,12 +1721,13 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
     inverse_transformed_surf_frags2_guide_coords = \
         transform_coordinate_sets(transform_coordinate_sets(surf_guide_coords2[None, :, :, :],
                                                             rotation=full_rotation2[:, None, :, :],
-                                                            translation=full_int_tx2[:, None, None, :],
+                                                            translation=None if full_int_tx2 is None
+                                                            else full_int_tx2[:, None, None, :],
                                                             rotation2=set_mat2[None, None, :, :],
                                                             translation2=None if full_ext_tx_sum is None
                                                             else full_ext_tx_sum[:, None, None, :]),
                                   rotation=inv_setting1[None, None, :, :],
-                                  translation=full_int_tx1[:, None, None, :] * -1,
+                                  translation=None if full_int_tx1 is None else full_int_tx1[:, None, None, :] * -1,
                                   rotation2=full_inv_rotation1[:, None, :, :],
                                   translation2=None)
 
@@ -1723,8 +1739,14 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
         copy_model_start = time.time()
         rot_mat1 = full_rotation1[idx]
         rot_mat2 = full_rotation2[idx]
-        internal_tx_param1 = full_int_tx1[idx]
-        internal_tx_param2 = full_int_tx2[idx]
+        if sym_entry.is_internal_tx1:
+            internal_tx_param1 = full_int_tx1[idx]
+        else:
+            internal_tx_param1 = None
+        if sym_entry.is_internal_tx2:
+            internal_tx_param2 = full_int_tx2[idx]
+        else:
+            internal_tx_param2 = None
         if sym_entry.unit_cell:
             external_tx_params1 = full_ext_tx1[idx]
             external_tx_params2 = full_ext_tx2[idx]
@@ -1902,9 +1924,9 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
         # Overlap Score Calculation - 0.000209 s for 887 fragment pairs
         # Total Match time          - 0.006250 s
         # model1_tnsfmd = model1.get_transformed_copy(rotation=full_rotation1[idx],
-        #                                                translation=full_int_tx1[idx],
-        #                                                rotation2=set_mat1,
-        #                                                translation2=None)
+        #                                             translation=full_int_tx1[idx],
+        #                                             rotation2=set_mat1,
+        #                                             translation2=None)
         # model1_cb_balltree_tnsfmd = BallTree(model1_tnsfmd.cb_coords)
         # model2_query_tnsfmd = model1_cb_balltree_tnsfmd.query_radius(transformed_model2_tiled_cb_coords[idx], cb_distance)
         # contacting_pairs_tnsfmd = [(model1_coords_indexed_residues[model1_cb_indices[model1_idx]].number,
@@ -1989,12 +2011,13 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
         # inverse_transformed_surf_interface_residues_guide_coords_ = \
         #     transform_coordinate_sets(transform_coordinate_sets(surf_interface_residues_guide_coords,
         #                                                         rotation=full_rotation2[idx],
-        #                                                         translation=full_int_tx2[idx],
+        #                                                         translation=None if full_int_tx2 is None
+        #                                                         else full_int_tx2[idx],
         #                                                         rotation2=set_mat2,
         #                                                         translation2=None if full_ext_tx_sum is None
         #                                                         else full_ext_tx_sum[idx]),
         #                               rotation=inv_setting1,
-        #                               translation=full_int_tx1[idx] * -1,
+        #                               translation=None if full_int_tx1 is None else full_int_tx1[idx] * -1,
         #                               rotation2=full_inv_rotation1[idx],
         #                               translation2=None)
 
@@ -2247,13 +2270,17 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
                                                 for idx in interface_is_viable])
     full_rotation1 = full_rotation1[interface_is_viable]
     full_rotation2 = full_rotation2[interface_is_viable]
-    full_int_tx1 = full_int_tx1[interface_is_viable]
-    full_int_tx2 = full_int_tx2[interface_is_viable]
+    if sym_entry.is_internal_tx1:
+        full_int_tx1 = full_int_tx1[interface_is_viable]
+    if sym_entry.is_internal_tx2:
+        full_int_tx2 = full_int_tx2[interface_is_viable]
     if sym_entry.unit_cell:
-        full_uc_dimensions = full_uc_dimensions[interface_is_viable]
+        full_optimal_ext_dof_shifts = full_optimal_ext_dof_shifts[interface_is_viable]
+        # Calculate the vectorized uc_dimensions
+        full_uc_dimensions = sym_entry.get_uc_dimensions(full_optimal_ext_dof_shifts)
         full_ext_tx1 = full_ext_tx1[interface_is_viable]
         full_ext_tx2 = full_ext_tx2[interface_is_viable]
-        full_ext_tx_sum = full_ext_tx2 - full_ext_tx1
+        # full_ext_tx_sum = full_ext_tx2 - full_ext_tx1
 
     entity_names = [entity.name for model in models for entity in model.entities]
     # entity_bb_coords = [entity.backbone_coords for model in models for entity in model.entities]
@@ -2306,13 +2333,16 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
 
     full_rotation1 = full_rotation1[passing_symmetric_clashes]
     full_rotation2 = full_rotation2[passing_symmetric_clashes]
-    full_int_tx1 = full_int_tx1[passing_symmetric_clashes]
-    full_int_tx2 = full_int_tx2[passing_symmetric_clashes]
+    if sym_entry.is_internal_tx1:
+        full_int_tx1 = full_int_tx1[passing_symmetric_clashes]
+    if sym_entry.is_internal_tx2:
+        full_int_tx2 = full_int_tx2[passing_symmetric_clashes]
     if sym_entry.unit_cell:
+        full_optimal_ext_dof_shifts = full_optimal_ext_dof_shifts[passing_symmetric_clashes]
         full_uc_dimensions = full_uc_dimensions[passing_symmetric_clashes]
         full_ext_tx1 = full_ext_tx1[passing_symmetric_clashes]
         full_ext_tx2 = full_ext_tx2[passing_symmetric_clashes]
-        full_ext_tx_sum = full_ext_tx2 - full_ext_tx1
+        # full_ext_tx_sum = full_ext_tx2 - full_ext_tx1
 
     # Next, expand successful poses from coarse search of transformational space to randomly perturbed offset
     # This occurs by perturbing the transformation by a random small amount to generate transformational diversity from
@@ -2609,12 +2639,12 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
                     # # Get the transformations based on slices of batch_length
                     # # Stack each local perturbation up and multiply individual entity coords
                     # transformation1 = dict(rotation=full_rotation1[batch_slice],
-                    #                        translation=full_int_tx1[batch_slice],
+                    #                        translation=None if full_int_tx1 is None else full_int_tx1[batch_slice],
                     #                        rotation2=set_mat1,
                     #                        translation2=None if full_ext_tx1 is None
                     #                        else full_ext_tx1[batch_slice])
                     # transformation2 = dict(rotation=full_rotation2[batch_slice],
-                    #                        translation=full_int_tx2[batch_slice],
+                    #                        translation=None if full_int_tx2 is None else full_int_tx2[batch_slice],
                     #                        rotation2=set_mat2,
                     #                        translation2=None if full_ext_tx2 is None
                     #                        else full_ext_tx2[batch_slice])
@@ -3024,15 +3054,12 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
 
     # Format pose transformations for output
     # full_rotation1 = full_rotation1
+    blank_parameter = list(repeat([None, None, None], number_of_transforms))
     full_int_tx1 = full_int_tx1.squeeze()
-    # set_mat1 = set_mat1
-    full_ext_tx1 = list(repeat([None, None, None], number_of_transforms)) \
-        if full_ext_tx1 is None else full_ext_tx1.squeeze()
+    full_ext_tx1 = blank_parameter if full_ext_tx1 is None else full_ext_tx1.squeeze()
     # full_rotation2 = full_rotation2
     full_int_tx2 = full_int_tx2.squeeze()
-    # set_mat2 = set_mat2
-    full_ext_tx2 = list(repeat([None, None, None], number_of_transforms)) \
-        if full_ext_tx2 is None else full_ext_tx2.squeeze()
+    full_ext_tx2 = blank_parameter if full_ext_tx2 is None else full_ext_tx2.squeeze()
 
     set_mat1_number, set_mat2_number, *_extra = sym_entry.setting_matrices_numbers
     rotations1 = scipy.spatial.transform.Rotation.from_matrix(full_rotation1)
@@ -3040,8 +3067,17 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
     # Get all rotations in terms of the degree of rotation along the z-axis
     rotation_degrees1 = rotations1.as_rotvec(degrees=True)[:, -1]
     rotation_degrees2 = rotations2.as_rotvec(degrees=True)[:, -1]
-    z_heights1 = full_int_tx1[:, -1]
-    z_heights2 = full_int_tx2[:, -1]
+    # Todo get the degenercy_degrees
+    # degeneracy_degrees1 = rotations1.as_rotvec(degrees=True)[:, :-1]
+    # degeneracy_degrees2 = rotations2.as_rotvec(degrees=True)[:, :-1]
+    if sym_entry.is_internal_tx1:
+        z_heights1 = full_int_tx1[:, -1]
+    else:
+        z_heights1 = blank_parameter
+    if sym_entry.is_internal_tx2:
+        z_heights2 = full_int_tx2[:, -1]
+    else:
+        z_heights2 = blank_parameter
     # if sym_entry.unit_cell:
     #     full_uc_dimensions = full_uc_dimensions[passing_symmetric_clashes]
     #     full_ext_tx1 = full_ext_tx1[:]
