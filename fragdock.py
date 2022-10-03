@@ -604,7 +604,7 @@ def perturb_transformations(sym_entry: SymEntry,
     return specific_transformation1, specific_transformation2  # specific_transformations
 
 
-def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure | AnyStr, model2: Structure | AnyStr,
+def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure | AnyStr, model2: Structure | AnyStr,
                    rotation_step1: float = 3., rotation_step2: float = 3., min_matched: int = 3,
                    high_quality_match_value: float = .5, initial_z_value: float = 1., log: Logger = logger,
                    job: JobResources = None, fragment_db: FragmentDatabase | str = biological_interfaces,
@@ -615,7 +615,7 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
 
     Args:
         sym_entry: The SymmetryEntry object describing the material
-        master_output: The object to issue outputs to
+        root_out_dir: The object to issue outputs to
         model1: The first Structure to be used in docking
         model2: The second Structure to be used in docking
         fragment_db: The FragmentDatabase object used for finding fragment pairs
@@ -636,7 +636,7 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
     # Todo ensure that msa is loaded upon docking initialization
     # Create JobResources for all flags
     if job is None:
-        job = job_resources_factory.get(program_root=master_output, **kwargs)
+        job = job_resources_factory.get(program_root=root_out_dir, **kwargs)
 
     # Create FragmenDatabase for all ijk cluster representatives
     if isinstance(fragment_db, FragmentDatabase):
@@ -686,7 +686,7 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
                 continue
             else:
                 entity.make_oligomer(symmetry=symmetry)
-                # entity.write_oligomer(out_path=os.path.join(master_output, f'{entity.name}_make_oligomer.pdb'))
+                # entity.write_oligomer(out_path=os.path.join(root_out_dir, f'{entity.name}_make_oligomer.pdb'))
 
         # Make, then save a new model based on the symmetric version of each Entity in the Model
         models[idx] = Model.from_chains([chain for entity in model.entities for chain in entity.chains],
@@ -694,19 +694,19 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
         models[idx].file_path = model.file_path
 
     # Set up output mechanism
-    if isinstance(master_output, str) and not write_frags_only:  # we just want to write, so don't make a directory
+    if isinstance(root_out_dir, str) and not write_frags_only:  # we just want to write, so don't make a directory
         building_blocks = '-'.join(model.name for model in models)
-        out_dir = os.path.join(master_output, building_blocks)
-        os.makedirs(out_dir, exist_ok=True)
+        root_out_dir = os.path.join(root_out_dir, building_blocks)
+        os.makedirs(root_out_dir, exist_ok=True)
     else:
-        raise NotImplementedError('Must provide a master_outdir!')
-    # elif isinstance(master_output, DockingDirectory):
+        raise NotImplementedError('Must provide a root_out_dir!')
+    # elif isinstance(root_out_dir, DockingDirectory):
     #     pass
     #     Todo make a docking directory object compatible with this and implement sql handle
 
     # Setup log
     if log is None:
-        log_file_path = os.path.join(out_dir, f'{building_blocks}_log.txt')
+        log_file_path = os.path.join(root_out_dir, f'{building_blocks}_log.txt')
     else:
         log_file_path = getattr(log.handlers[0], 'baseFilename', None)
     if log_file_path:
@@ -2161,7 +2161,7 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
         #     degen1_count, degen2_count = degen_counts[idx]
         #     rot1_count, rot2_count = rot_counts[idx]
         #     # temp indexing on degen and rot counts
-        #     degen_subdir_out_path = os.path.join(out_dir, 'DEGEN_%d_%d' % (degen1_count, degen2_count))
+        #     degen_subdir_out_path = os.path.join(root_out_dir, 'DEGEN_%d_%d' % (degen1_count, degen2_count))
         #     rot_subdir_out_path = os.path.join(degen_subdir_out_path, 'ROT_%d_%d' % (rot1_count, rot2_count))
         #     tx_dir = os.path.join(rot_subdir_out_path, 'tx_%d' % tx_idx)  # idx)
         #     oligomers_dir = rot_subdir_out_path.split(os.sep)[-3]
