@@ -639,7 +639,8 @@ class SequenceProfile:
         try:
             return np.take_along_axis(profile_of_interest, self.sequence_numeric[:, None], axis=1).squeeze()
         except IndexError:  # The profile_of_interest and sequence are different sizes
-            raise IndexError(f'The profile has a length {profile_of_interest.shape[0]} != {self.number_of_residues}')
+            raise IndexError(f'The profile length {profile_of_interest.shape[0]} != '
+                             f'the number_of_residues {self.number_of_residues}')
 
     def add_profile(self, evolution: bool = True, fragments: bool | list[fragment_info_type] = True,
                     null: bool = False, **kwargs):
