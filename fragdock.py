@@ -6,7 +6,7 @@ import re
 import sys
 import time
 from collections.abc import Iterable
-from itertools import repeat
+from itertools import repeat, count
 from logging import Logger
 from math import prod, ceil
 from typing import AnyStr
@@ -594,11 +594,9 @@ def perturb_transformations(sym_entry: SymEntry,
     # Stack perturbation operations (might be perturbed) up for individual multiplication
     specific_transformation1 = dict(rotation=full_rotation1,
                                     translation=full_int_tx1,
-                                    # rotation2=set_mat1,
                                     translation2=full_ext_tx1)
     specific_transformation2 = dict(rotation=full_rotation2,
                                     translation=full_int_tx2,
-                                    # rotation2=set_mat2,
                                     translation2=full_ext_tx2)
 
     return specific_transformation1, specific_transformation2  # specific_transformations
@@ -1560,10 +1558,32 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
     if not number_of_dense_transforms:  # There were no successful transforms
         log.warning(f'No viable transformations found. Terminating {building_blocks} docking')
         return
+    # ------------------ TERM ------------------------
     # representative_labels = cluster_labels[cluster_representative_indices]
 
+    # Todo?
+    # def remove_non_viable_indices(passing_indices: list[int]):
+    #     degen_counts, rot_counts, tx_counts = zip(*[(degen_counts[idx], rot_counts[idx], tx_counts[idx])
+    #                                                 for idx in passing_indices])
+    #     all_passing_ghost_indices = [all_passing_ghost_indices[idx] for idx in passing_indices]
+    #     all_passing_surf_indices = [all_passing_surf_indices[idx] for idx in passing_indices]
+    #     all_passing_z_scores = [all_passing_z_scores[idx] for idx in passing_indices]
+    #
+    #     full_rotation1 = full_rotation1[passing_indices]
+    #     full_rotation2 = full_rotation2[passing_indices]
+    #     full_int_tx1 = full_int_tx1[passing_indices]
+    #     full_int_tx2 = full_int_tx2[passing_indices]
+    #     if sym_entry.unit_cell:
+    #         full_optimal_ext_dof_shifts = full_optimal_ext_dof_shifts[passing_indices]
+    #         full_uc_dimensions = full_uc_dimensions[passing_indices]
+    #         full_ext_tx1 = full_ext_tx1[passing_indices]
+    #         full_ext_tx2 = full_ext_tx2[passing_indices]
+    #         # full_ext_tx_sum = full_ext_tx2 - full_ext_tx1
+
     ####################
-    # Transform the oligomeric coords to query for clashes
+    # Remove non-viable transforms by indexing sufficiently_dense_indices
+    # Todo
+    #  remove_non_viable_indices(sufficiently_dense_indices.tolist())
     degen_counts, rot_counts, tx_counts = zip(*[(degen_counts[idx], rot_counts[idx], tx_counts[idx])
                                                 for idx in sufficiently_dense_indices.tolist()])
     # Update the transformation array and counts with the sufficiently_dense_indices
@@ -1585,6 +1605,7 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
     full_inv_rotation1 = np.linalg.inv(full_rotation1)
     inv_setting1 = np.linalg.inv(set_mat1)
 
+    # Transform coords to query for clashes
     # Set up chunks of coordinate transforms for clash testing
     # Todo make a function to wrap memory errors into chunks
     check_clash_coords_start = time.time()
@@ -1662,7 +1683,7 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
     # asu_is_viable = np.where(np.array(asu_clash_counts) == 0)
     # Find those indices where the asu_clash_counts is not zero (inverse of nonzero by using the array == 0)
     asu_is_viable = np.flatnonzero(asu_clash_counts == 0)
-    number_non_clashing_transforms = len(asu_is_viable)
+    number_non_clashing_transforms = asu_is_viable.shape[0]
     log.info(f'Clash testing for All Oligomer1 and Oligomer2 (took {time.time() - check_clash_coords_start:8f}s) '
              f'found {number_non_clashing_transforms} viable ASU\'s out of {number_of_dense_transforms}')
     # input_ = input('Please confirm to continue protocol')
@@ -1670,8 +1691,10 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
     if not number_non_clashing_transforms:  # There were no successful asus that don't clash
         log.warning(f'No viable asymmetric units. Terminating {building_blocks} docking')
         return
-
+    # ------------------ TERM ------------------------
     # Update the transformation array and counts with the asu_is_viable indices
+    # Todo
+    #  remove_non_viable_indices(asu_is_viable.tolist())
     degen_counts, rot_counts, tx_counts = zip(*[(degen_counts[idx], rot_counts[idx], tx_counts[idx])
                                                 for idx in asu_is_viable.tolist()])
     # fragment_pairs = fragment_pairs[asu_is_viable]
@@ -1791,13 +1814,19 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
         # # Check if design has any clashes when expanded
         # return pose.symmetric_assembly_is_clash()
 
-    def output_pose(out_path: AnyStr, sampling_id: AnyStr, uc_dimensions: np.ndarray = None):
-        # sampling_id = f'{degen_str}-{rot_str}-{tx_str}'
-        # pose_id = f'{building_blocks}-{sampling_id}'
+    def output_pose(out_path: AnyStr, _pose_id: AnyStr, uc_dimensions: np.ndarray = None):
+        """
+
+        Args:
+            out_path:
+            _pose_id:
+            uc_dimensions:
+
+        Returns:
+
+        """
         os.makedirs(out_path, exist_ok=True)
 
-        # if sequence_design:
-        #     pose.design_sequence()
         # Set the ASU, then write to a file
         pose.set_contacting_asu(distance=cb_distance)
         if sym_entry.unit_cell:  # 2, 3 dimensions
@@ -1805,13 +1834,15 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
             cryst_record = generate_cryst1_record(uc_dimensions, sym_entry.resulting_symmetry)
         else:
             cryst_record = None
-        pose.write(out_path=os.path.join(out_path, asu_file_name), header=cryst_record)
+
+        if job.write_structure:
+            pose.write(out_path=os.path.join(out_path, asu_file_name), header=cryst_record)
 
         # Todo group by input model... not entities
         # Write Model1, Model2
         if job.write_oligomers:
             for entity in pose.entities:
-                entity.write_oligomer(out_path=os.path.join(out_path, f'{entity.name}_{sampling_id}.pdb'))
+                entity.write_oligomer(out_path=os.path.join(out_path, f'{entity.name}_{_pose_id}.pdb'))
 
         # Write assembly files
         if job.output_assembly:
@@ -1967,7 +1998,7 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
         # log.debug(f'\n++++++++++++++++\n')
         int_frags_time_start = time.time()
         model2_query = model1_cb_balltree.query_radius(inverse_transformed_model2_tiled_cb_coords[idx], cb_distance)
-        model1_cb_balltree_time = time.time() - int_frags_time_start
+        # model1_cb_balltree_time = time.time() - int_frags_time_start
 
         contacting_pairs = [(model1_coords_indexed_residues[model1_cb_indices[model1_idx]].number,
                              model2_coords_indexed_residues[model2_cb_indices[model2_idx]].number)
@@ -1975,7 +2006,7 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
                             for model1_idx in model1_contacts]
         try:
             interface_residue_numbers1, interface_residue_numbers2 = map(list, map(set, zip(*contacting_pairs)))
-        except ValueError:  # not enough values to unpack from interface containing no residues
+        except ValueError:  # Interface contains no residues, so not enough values to unpack
             log.warning('Interface contains no residues')
             continue
         # These were interface_surf_frags and interface_ghost_frags
@@ -1985,7 +2016,7 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
         #     np.concatenate([np.where(surf_residue_numbers2 == residue) for residue in interface_residue_numbers2])
 
         # Find the indices where the fragment residue numbers are found the interface residue numbers
-        is_in_index_start = time.time()
+        # is_in_index_start = time.time()
         # Since *_residue_numbers1/2 are the same index as the complete fragment arrays, these interface indices are the
         # same index as the complete guide coords and rmsds as well
         # Both residue numbers are one-indexed vv
@@ -2028,7 +2059,7 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
         #                           [full_rotation2[idx]], [full_int_tx2[idx]],
         #                           ghost_rmsds1[ghost_indices_in_interface1])
 
-        is_in_index_time = time.time() - is_in_index_start
+        # is_in_index_time = time.time() - is_in_index_start
         all_fragment_match_time_start = time.time()
         # if idx % 2 == 0:
         # interface_ghost_frags = complete_ghost_frags1[interface_ghost_indices1]
@@ -2150,7 +2181,6 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
         # log.debug(f'And Data: {ij_type_match[:3]}')
         # log.debug(f'Found all_fragment_match with shape {all_fragment_match.shape}')
         # log.debug(f'And Data: {all_fragment_match[:3]}')
-        # Todo KM thoroughly examined variable typing up to here 7/20/22
         # else:  # this doesn't seem to be as fast from initial tests
         #     # below bypasses euler lookup
         #     # 1
@@ -2238,7 +2268,7 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
             # Find the passing overlaps to limit the output to only those passing the low_quality_match_value
             # passing_overlaps_indices = np.flatnonzero(all_fragment_match >= low_quality_match_value)
             passing_overlaps_indices = np.flatnonzero(all_fragment_z_score <= low_quality_z_value)
-            number_passing_overlaps = len(passing_overlaps_indices)
+            number_passing_overlaps = passing_overlaps_indices.shape[0]
             log.info(f'\t{high_qual_match_count} High Quality Fragments Out of {number_passing_overlaps} Matches Found'
                      f' in Complete Fragment Library (took {all_fragment_match_time:8f}s)')
             # Return the indices sorted by z_value in ascending order, truncated at the number of passing
@@ -2264,8 +2294,10 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
     if not interface_is_viable:  # There were no successful transforms
         log.warning(f'No interfaces have enough fragment matches. Terminating {building_blocks} docking')
         return
-
+    # ------------------ TERM ------------------------
     # Update the transformation array and counts with the interface_is_viable indices
+    # Todo
+    #  remove_non_viable_indices(interface_is_viable)
     degen_counts, rot_counts, tx_counts = zip(*[(degen_counts[idx], rot_counts[idx], tx_counts[idx])
                                                 for idx in interface_is_viable])
     full_rotation1 = full_rotation1[interface_is_viable]
@@ -2285,12 +2317,10 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
     entity_names = [entity.name for model in models for entity in model.entities]
     # entity_bb_coords = [entity.backbone_coords for model in models for entity in model.entities]
     entity_start_coords = [entity.coords for model in models for entity in model.entities]
-    transform_indices = {}
-    entity_idx = 0
-    for transform_idx, model in enumerate(models):
-        for entity in model.entities:
-            transform_indices[entity_idx] = transform_idx
-            entity_idx += 1
+    entity_idx = count(0)
+    transform_indices = {next(entity_idx): transform_idx
+                         for transform_idx, model in enumerate(models)
+                         for entity in model.entities}
 
     pose = Pose.from_entities([entity for idx, model in enumerate(models) for entity in model.entities],
                               entity_names=entity_names, name='asu', log=log, sym_entry=sym_entry,
@@ -2432,7 +2462,7 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
 
         log.info(f'Total {building_blocks} dock trajectory took {time.time() - frag_dock_time_start:.2f}s')
         return  # End of docking run
-
+    # ------------------ TERM ------------------------
     elif design_output:  # We perform sequence design
         # Todo
         #  Check job.no_evolution_constraint flag
