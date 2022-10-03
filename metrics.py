@@ -30,7 +30,8 @@ energy_metric_names = ['interface_energy_complex', 'interface_energy_bound', 'in
                        'interface_solvation_energy_complex', 'interface_solvation_energy_bound',
                        'interface_solvation_energy_unbound']
 sasa_metric_names = ['sasa_hydrophobic_bound', 'sasa_polar_bound', 'sasa_hydrophobic_complex',
-                     'sasa_polar_complex', 'sasa_relative_complex', 'sasa_relative_bound']
+                     'sasa_polar_complex', 'sasa_relative_complex', 'sasa_relative_bound',
+                     'bsa_hydrophobic', 'bsa_polar', 'bsa_total', 'sasa_total_bound', 'sasa_total_complex']
 energy_metrics_rename_mapping = dict(zip(per_residue_energy_states, energy_metric_names))
 errat_1_sigma, errat_2_sigma, errat_3_sigma = 5.76, 11.52, 17.28  # These are approximate magnitude of deviation
 collapse_significance_threshold = 0.43
