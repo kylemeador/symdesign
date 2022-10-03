@@ -1428,7 +1428,9 @@ class Residue(ResidueFragment, ContainsAtomsMixin):
     number: int
     number_pdb: int
     state_attributes: set[str] = ContainsAtomsMixin.state_attributes | \
-        {'_secondary_structure', '_sasa', '_sasa_aploar', '_sasa_polar', '_contact_order', '_local_density'}
+        {'_contact_order', '_local_density',
+         '_next_residue', '_prev_residue',
+         '_sasa', '_sasa_apolar', '_sasa_polar', '_secondary_structure'}
     type: str
 
     def __init__(self, atoms: list[Atoms] | Atoms = None, atom_indices: list[int] = None, **kwargs):
@@ -2472,7 +2474,7 @@ class Residues:
             other.residues[idx] = copy(residue)
             residue._copier = False
 
-        other.find_prev_and_next()
+        # other.find_prev_and_next()  # Todo, this should most likely be removed
         # other.set_index()
 
         return other
