@@ -20,7 +20,9 @@ class GhostFragment:
     """The guide coordinates according to the representative ghost fragment"""
     _representative: 'structure.base.Structure'
     aligned_fragment: Fragment
-    """Must support .chain, .number, and .transformation attributes"""
+    """The Fragment instance that this GhostFragment is aligned too. 
+    Must support .chain, .number, .index, .rotation, .translation, and .transformation attributes
+    """
     fragment_db: structure.fragment.db.FragmentDatabase
     # index: int
     i_type: int
@@ -91,7 +93,7 @@ class GhostFragment:
     @property
     def guide_coords(self) -> np.ndarray:
         """Return the guide coordinates of the GhostFragment"""
-        rotation, translation = self.aligned_fragment.transformation  # self.transformation
+        rotation, translation = self.aligned_fragment.transformation  # Updates the transformation on the fly
         return np.matmul(self._guide_coords, np.transpose(rotation)) + translation
 
     @property
@@ -253,7 +255,7 @@ class Fragment(ABC):
     @property
     def guide_coords(self) -> np.ndarray:
         """Return the guide coordinates of the mapped Fragment"""
-        rotation, translation = self.transformation  # This updates the transformation on the fly if possible
+        rotation, translation = self.transformation  # Updates the transformation on the fly
         return np.matmul(self._guide_coords, np.transpose(rotation)) + translation
         # return np.matmul(self.template_coords, np.transpose(self.rotation)) + self.translation
 
@@ -329,10 +331,13 @@ class Fragment(ABC):
         """
         #         Args:
         #             indexed_ghost_fragments: The paired fragment database to match to the Fragment instance
+        # self.find_ghost_fragments(**kwargs)
         if self.ghost_fragments is None:
             self.find_ghost_fragments(**kwargs)
         else:
-            self.log.debug('Using previously generated ghost fragments')
+            self.log.debug('Using previously generated ghost fragments. Updating their .aligned_fragment attribute')
+            for ghost in self.ghost_fragments:
+                ghost.aligned_fragment = self
 
         return self.ghost_fragments
 
