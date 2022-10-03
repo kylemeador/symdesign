@@ -2461,11 +2461,11 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
         # Remove non-viable transforms due to clashing
         # Todo
         #  remove_non_viable_indices(passing_symmetric_clashes.tolist())
-        degen_counts, rot_counts, tx_counts = zip(*[(degen_counts[idx], rot_counts[idx], tx_counts[idx])
-                                                    for idx in passing_symmetric_clashes.tolist()])
-        all_passing_ghost_indices = [all_passing_ghost_indices[idx] for idx in passing_symmetric_clashes.tolist()]
-        all_passing_surf_indices = [all_passing_surf_indices[idx] for idx in passing_symmetric_clashes.tolist()]
-        all_passing_z_scores = [all_passing_z_scores[idx] for idx in passing_symmetric_clashes.tolist()]
+        # degen_counts, rot_counts, tx_counts = zip(*[(degen_counts[idx], rot_counts[idx], tx_counts[idx])
+        #                                             for idx in passing_symmetric_clashes.tolist()])
+        # all_passing_ghost_indices = [all_passing_ghost_indices[idx] for idx in passing_symmetric_clashes.tolist()]
+        # all_passing_surf_indices = [all_passing_surf_indices[idx] for idx in passing_symmetric_clashes.tolist()]
+        # all_passing_z_scores = [all_passing_z_scores[idx] for idx in passing_symmetric_clashes.tolist()]
 
         full_rotation1 = full_rotation1[passing_symmetric_clashes]
         full_rotation2 = full_rotation2[passing_symmetric_clashes]
@@ -3221,7 +3221,7 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
     all_probabilities = {}
     pose_ids = []
     fragment_profile_frequencies = []
-    per_residue_data, residue_info = {}, {}
+    # per_residue_data, residue_info = {}, {}
     nan_blank_data = list(repeat(np.nan, pose_length))
     for idx in range(number_of_transforms):
         pose_id = create_pose_id(idx)
