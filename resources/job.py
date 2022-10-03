@@ -13,7 +13,7 @@ from utils.SymEntry import SymEntry
 from utils.path import sym_entry, all_scores, projects, sequence_info, data, output_oligomers, output_fragments, \
     structure_background, scout, generate_fragments, number_of_trajectories, no_hbnet, \
     ignore_symmetric_clashes, ignore_pose_clashes, ignore_clashes, force_flags, no_evolution_constraint, \
-    no_term_constraint, consensus, structure_info
+    no_term_constraint, consensus, structure_info, output_structure
 
 logger = start_log(name=__name__)
 
@@ -122,6 +122,7 @@ class JobResources:
         self.specific_protocol: str = kwargs.get('specific_protocol', False)
         self.structure_background: bool = kwargs.get(structure_background, False)
         self.sym_entry: SymEntry | None = kwargs.get(sym_entry, None)
+        self.write_structure: bool = kwargs.get(output_structure, True)
         self.write_fragments: bool = kwargs.get(output_fragments, False)
         self.write_oligomers: bool = kwargs.get(output_oligomers, False)
         self.skip_logging: bool = kwargs.get('skip_logging', False)
