@@ -2738,7 +2738,7 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
                         if pose.evolutionary_profile:
                             asu_conditional_softmax_null_seq = \
                                 np.exp(conditional_log_probs_null_seq[:, :pose_length])
-                            # Remove the gaps index from the softmax input
+                            # Remove the gaps index from the softmax input -> ... :, :mpnn_null_idx]
                             evolutionary_ce = \
                                 cross_entropy(asu_conditional_softmax_null_seq[:, :, :mpnn_null_idx],
                                               batch_evolutionary_profile[:actual_batch_length],
@@ -3005,18 +3005,7 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
         if pose.is_symmetric():
             sequences = sequences[:, :pose_length]
 
-    # Get metrics for each Pose
-    # Set up data structures for metric capture
-    idx_slice = pd.IndexSlice
-    pose_ids = []
-    per_residue_data = {}
-    interface_metrics = {}
-    interface_local_density = {}
-    pose_transformations = {}
-    pose_sequences = {}
-    all_pose_divergence = []
-    all_probabilities = {}
-    # Save all pose transformations, formatting them for output
+    # Format pose transformations for output
     # full_rotation1 = full_rotation1
     full_int_tx1 = full_int_tx1.squeeze()
     # set_mat1 = set_mat1
@@ -3042,17 +3031,23 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
     #     full_ext_tx2 = full_ext_tx2[:]
     #     full_ext_tx_sum = full_ext_tx2 - full_ext_tx1
 
+    # Get metrics for each Pose
+    # Set up data structures
+    idx_slice = pd.IndexSlice
+    interface_metrics = {}
+    interface_local_density = {}
+    pose_transformations = {}
+    pose_sequences = {}
+    all_pose_divergence = []
+    all_probabilities = {}
+    pose_ids = []
+    fragment_profile_frequencies = []
+    per_residue_data, residue_info = {}, {}
     for idx in range(number_of_transforms):
         pose_id = create_pose_id(idx)
         pose_ids.append(pose_id)
-        # pose_transformations[pose_id] = dict(transformation1=dict(rotation=full_rotation1[idx],
-        #                                                           translation=full_int_tx1[idx],
-        #                                                           rotation2=set_mat1,
-        #                                                           translation2=full_ext_tx1[idx]),
-        #                                      transformation2=dict(rotation=full_rotation2[idx],
-        #                                                           translation=full_int_tx2[idx],
-        #                                                           rotation2=set_mat2,
-        #                                                           translation2=full_ext_tx2[idx]))
+        output_pose(os.path.join(root_out_dir, pose_id), pose_id)
+
         pose_transformations[pose_id] = dict(rotation1=rotation_degrees1[idx],
                                              internal_translation1=z_heights1[idx],
                                              setting_matrix1=set_mat1_number,
@@ -3065,59 +3060,18 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
                                              external_translation2_x=full_ext_tx2[idx][0],
                                              external_translation2_y=full_ext_tx2[idx][1],
                                              external_translation2_z=full_ext_tx2[idx][2])
-    # Initialize the main scoring DataFrame
-    scores_df = pd.DataFrame(pose_transformations).T
-
-    # Calculate metrics on input Pose
-    residue_indices = list(range(1, pose_length + 1))
-    # entity_energies = tuple(0. for ent in pose.entities)
-    pose_source_residue_info = \
-        {residue.number: {'complex': 0., 'bound': 0.,  # copy(entity_energies),
-                          'unbound': 0.,  # copy(entity_energies),
-                          'solv_complex': 0., 'solv_bound': 0.,  # copy(entity_energies),
-                          'solv_unbound': 0.,  # copy(entity_energies),
-                          # 'fsp': 0., 'cst': 0.,
-                          'type': protein_letters_3to1.get(residue.type), 'hbond': 0}
-         for entity in pose.entities for residue in entity.residues}
-    residue_info = {pose_source: pose_source_residue_info}
-
-    source_errat, source_contact_order = [], []
-    for idx, entity in enumerate(pose.entities):
-        # Contact order is the same for every design in the Pose and not dependent on pose
-        source_contact_order.append(entity.contact_order)
-        # Replace 'errat_deviation' measurement with uncomplexed entities
-        # oligomer_errat_accuracy, oligomeric_errat = entity_oligomer.errat(out_path=self.data)
-        # Todo translate the source pose
-        # Todo when Entity.oligomer works
-        #  _, oligomeric_errat = entity.oligomer.errat(out_path=self.data)
-        entity_oligomer = Model.from_chains(entity.chains, log=log, entities=False)
-        _, oligomeric_errat = entity_oligomer.errat(out_path=os.devnull)
-        source_errat.append(oligomeric_errat[:entity.number_of_residues])
-
-    # per_residue_data = {}  # pose_source: pose.get_per_residue_interface_metrics()}
-    pose_source_contact_order_s = \
-        pd.Series(np.concatenate(source_contact_order), index=residue_indices, name='contact_order')
-    pose_source_errat_s = pd.Series(np.concatenate(source_errat), index=residue_indices)
-
-    per_residue_data[pose_source] = {'contact_order': pose_source_contact_order_s,
-                                     'errat_deviation': pose_source_errat_s}
-
-    # Handle pose state transformation and metrics for each identified pose
-    all_pose_divergence_df = pd.DataFrame()
-    fragment_profile_frequencies = []
-    for idx, pose_id in enumerate(pose_ids):
         update_pose_coords(idx)
 
-        # Todo are the fragments properly translated when the coords are set from above??
-        #  The interface has a ton of residues, (and already identified fragments), but there are no fragments found...
         if number_of_perturbations > 1:
             add_fragments_to_pose()  # <- here generating fresh
         else:
-            # Here, loading fragments. No self-symmetric interactions found
-            # where idx = transform_idx from above
+            # Here, loading fragments. No self-symmetric interactions will be generated!
+            # where idx is the actual transform idx
             add_fragments_to_pose(all_passing_ghost_indices[idx],
                                   all_passing_surf_indices[idx],
                                   all_passing_z_scores[idx])
+        # Todo reinstate after alphafold integration?
+        # output_pose(os.path.join(root_out_dir, pose_id), pose_id)
 
         per_residue_data[pose_id] = pose.get_per_residue_interface_metrics()  # _per_residue_data
         interface_metrics[pose_id] = pose.interface_metrics()  # _interface_metrics
@@ -3126,8 +3080,6 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
         # Remove saved pose attributes for next iteration calculations
         del pose._assembly_minimally_contacting
         pose.ss_index_array.clear(), pose.ss_type_array.clear()
-        # Todo reinstate after alphafold integration?
-        # output_pose(out_dir, sampling_id)  # , sequence_design=design_output)
 
         if design_output:
             # Save each Pose sequence design information including sequence, energy, probabilites
@@ -3236,8 +3188,9 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
             # Todo get divergence?
             # Get the negative log likelihood of the .evolutionary_ and .fragment_profile
             torch_numeric = torch.from_numpy(pose.sequence_numeric)
-            per_residue_evolutionary_profile_scores = sequence_nllloss(torch_numeric,
-                                                                       torch_log_evolutionary_profile)
+            if pose.evolutionary_profile:
+                per_residue_evolutionary_profile_scores = sequence_nllloss(torch_numeric,
+                                                                           torch_log_evolutionary_profile)
             # RuntimeWarning: divide by zero encountered in log
             per_residue_fragment_profile_scores = sequence_nllloss(torch_numeric,
                                                                    torch.from_numpy(np.log(fragment_profile_array)))
@@ -3261,8 +3214,49 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
                                      for entity in pose.entities for residue in entity.residues}
 
     # Todo get the keys right here
+    # all_pose_divergence_df = pd.DataFrame()
     # all_pose_divergence_df = pd.concat(all_pose_divergence, keys=[('sequence', 'pose')], axis=1)
     interface_metrics_df = pd.DataFrame(interface_metrics).T
+
+    # Initialize the main scoring DataFrame
+    scores_df = pd.DataFrame(pose_transformations).T
+
+    # Calculate metrics on input Pose
+    residue_indices = list(range(1, pose_length + 1))
+    # entity_energies = tuple(0. for ent in pose.entities)
+    pose_source_residue_info = \
+        {residue.number: {'complex': 0., 'bound': 0.,  # copy(entity_energies),
+                          'unbound': 0.,  # copy(entity_energies),
+                          'solv_complex': 0., 'solv_bound': 0.,  # copy(entity_energies),
+                          'solv_unbound': 0.,  # copy(entity_energies),
+                          # 'fsp': 0., 'cst': 0.,
+                          'type': protein_letters_3to1.get(residue.type), 'hbond': 0}
+         for entity in pose.entities for residue in entity.residues}
+    # This needs to be calculated before iterating over each pose
+    # residue_info = {pose_source: pose_source_residue_info}
+    residue_info[pose_source] = pose_source_residue_info
+
+    source_contact_order, source_errat = [], []
+    for idx, entity in enumerate(pose.entities):
+        # Contact order is the same for every design in the Pose and not dependent on pose
+        source_contact_order.append(entity.contact_order)
+        # Replace 'errat_deviation' measurement with uncomplexed entities
+        # oligomer_errat_accuracy, oligomeric_errat = entity_oligomer.errat(out_path=self.data)
+        # Todo translate the source pose
+        # Todo when Entity.oligomer works
+        #  _, oligomeric_errat = entity.oligomer.errat(out_path=self.data)
+        entity_oligomer = Model.from_chains(entity.chains, log=log, entities=False)
+        _, oligomeric_errat = entity_oligomer.errat(out_path=os.devnull)
+        source_errat.append(oligomeric_errat[:entity.number_of_residues])
+
+    pose_source_contact_order_s = pd.Series(np.concatenate(source_contact_order), index=residue_indices)
+    pose_source_errat_s = pd.Series(np.concatenate(source_errat), index=residue_indices)
+
+    # per_residue_data = {}  # pose_source: pose.get_per_residue_interface_metrics()}
+    # per_residue_data = {pose_source: {'contact_order': pose_source_contact_order_s,
+    #                                   'errat_deviation': pose_source_errat_s}}
+    per_residue_data[pose_source] = {'contact_order': pose_source_contact_order_s,
+                                     'errat_deviation': pose_source_errat_s}
 
     # Collect sequence metrics on every designed Pose
     if design_output:
@@ -3324,7 +3318,7 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
         all_mutations = generate_mutations_from_reference(pose.sequence, pose_sequences, return_to=True)  # , zero_index=True)
 
         pose_collapse_df = pd.DataFrame()
-        all_pose_divergence_df = pd.DataFrame()
+        # all_pose_divergence_df = pd.DataFrame()
 
     # is_thermophilic = []
     # idx = 1
