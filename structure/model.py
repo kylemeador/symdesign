@@ -162,7 +162,6 @@ def find_fragment_overlap(fragments1: Iterable[Fragment], fragments2: Sequence[F
     # all_fragment_overlap = \
     #     rmsd_z_score(passing_ghost_coords, passing_frag_coords, reference_rmsds, max_z_value=max_z_value)
     # logger.debug('Finished calculating fragment overlaps')
-    # passing_overlap_indices = np.flatnonzero(all_fragment_overlap)
     logger.debug(f'Found {len(passing_overlaps_indices)} overlapping fragments over the {min_match_value} threshold')
 
     # interface_ghostfrags = [ghost_frags1[idx] for idx in passing_ghost_indices[passing_overlap_indices].tolist()]
@@ -6019,14 +6018,10 @@ class Pose(SequenceProfile, SymmetricModel):
         # perform SASA measurements
         assembly_minimally_contacting.get_sasa()
         assembly_asu_residues = assembly_minimally_contacting.residues[:pose_length]
-        per_residue_data['sasa_hydrophobic_complex'] = \
-            [residue.sasa_apolar for residue in assembly_asu_residues]
-        per_residue_data['sasa_polar_complex'] = \
-            [residue.sasa_polar for residue in assembly_asu_residues]
-        per_residue_data['sasa_relative_complex'] = \
-            [residue.relative_sasa for residue in assembly_asu_residues]
-        per_residue_sasa_unbound_apolar, per_residue_sasa_unbound_polar, per_residue_sasa_unbound_relative = \
-            [], [], []
+        per_residue_data['sasa_hydrophobic_complex'] = [residue.sasa_apolar for residue in assembly_asu_residues]
+        per_residue_data['sasa_polar_complex'] = [residue.sasa_polar for residue in assembly_asu_residues]
+        per_residue_data['sasa_relative_complex'] = [residue.relative_sasa for residue in assembly_asu_residues]
+        per_residue_sasa_unbound_apolar, per_residue_sasa_unbound_polar, per_residue_sasa_unbound_relative = [], [], []
         collapse_concatenated = []
         for entity in self.entities:
             # entity.oligomer.get_sasa()  # Todo when Entity.oligomer works

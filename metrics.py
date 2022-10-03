@@ -1299,23 +1299,22 @@ def calculate_residue_surface_area(per_residue_df: pd.DataFrame) -> pd.DataFrame
     """
     # Make buried surface area (bsa) columns
     bound_hydro = per_residue_df.loc[:, idx_slice[:, 'sasa_hydrophobic_bound']]
+    bound_polar = per_residue_df.loc[:, idx_slice[:, 'sasa_polar_bound']]
     complex_hydro = per_residue_df.loc[:, idx_slice[:, 'sasa_hydrophobic_complex']]
+    complex_polar = per_residue_df.loc[:, idx_slice[:, 'sasa_polar_complex']]
+
     bsa_hydrophobic = (bound_hydro.rename(columns={'sasa_hydrophobic_bound': 'bsa_hydrophobic'})
                        - complex_hydro.rename(columns={'sasa_hydrophobic_complex': 'bsa_hydrophobic'}))
-
-    bound_polar = per_residue_df.loc[:, idx_slice[:, 'sasa_polar_bound']]
-    complex_polar = per_residue_df.loc[:, idx_slice[:, 'sasa_polar_complex']]
     bsa_polar = (bound_polar.rename(columns={'sasa_polar_bound': 'bsa_polar'})
                  - complex_polar.rename(columns={'sasa_polar_complex': 'bsa_polar'}))
+    bsa_total = (bsa_hydrophobic.rename(columns={'bsa_hydrophobic': 'bsa_total'})
+                 + bsa_polar.rename(columns={'bsa_polar': 'bsa_total'}))
 
     # Make sasa_complex_total columns
     bound_total = (bound_hydro.rename(columns={'sasa_hydrophobic_bound': 'sasa_total_bound'})
                    + bound_polar.rename(columns={'sasa_polar_bound': 'sasa_total_bound'}))
     complex_total = (complex_hydro.rename(columns={'sasa_hydrophobic_complex': 'sasa_total_complex'})
                      + complex_polar.rename(columns={'sasa_polar_complex': 'sasa_total_complex'}))
-
-    bsa_total = (bsa_hydrophobic.rename(columns={'bsa_hydrophobic': 'bsa_total'})
-                 + bsa_polar.rename(columns={'bsa_polar': 'bsa_total'}))
 
     # Find the relative sasa of the complex and the unbound fraction
     buried_interface_residues = (bsa_total > 0).to_numpy()
