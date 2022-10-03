@@ -45,7 +45,7 @@ from utils.nanohedra.cmdline import get_docking_parameters
 from utils.nanohedra.general import write_docked_pose_info, get_rotation_step, write_docking_parameters
 from utils.path import frag_text_file, master_log, frag_dir, biological_interfaces, asu_file_name, pose_source
 from utils.SymEntry import SymEntry, get_rot_matrices, make_rotations_degenerate, symmetry_factory
-from utils.symmetry import generate_cryst1_record, get_central_asu
+from utils.symmetry import generate_cryst1_record, get_central_asu, identity_matrix
 
 # Globals
 logger = start_log(name=__name__, format_log=False)
@@ -590,6 +590,141 @@ def perturb_transformations(sym_entry: SymEntry,
     else:
         full_ext_tx1, full_ext_tx2 = None, None
         uc_dimensions = None
+
+    # Stack perturbation operations (might be perturbed) up for individual multiplication
+    specific_transformation1 = dict(rotation=full_rotation1,
+                                    translation=full_int_tx1,
+                                    translation2=full_ext_tx1)
+    specific_transformation2 = dict(rotation=full_rotation2,
+                                    translation=full_int_tx2,
+                                    translation2=full_ext_tx2)
+
+    return specific_transformation1, specific_transformation2  # specific_transformations
+
+
+def perturb_transformations_new(sym_entry: SymEntry,
+                                transformation1: dict[str, np.ndarray],
+                                transformation2: dict[str, np.ndarray],
+                                ext_dof_shifts: np.ndarray = None, number: int = 10
+                                ) -> \
+        tuple[dict[str, np.ndarray], dict[str, np.ndarray]]:
+    # Extract the transformations
+    full_rotation1 = transformation1['rotation']
+    full_int_tx1 = transformation1['translation']
+    # Todo add full_ext_tx1 with above 3 dof search
+    full_ext_tx1 = transformation1['translation2']
+    full_rotation2 = transformation2['rotation']
+    full_int_tx2 = transformation2['translation']
+    full_ext_tx2 = transformation2['translation2']
+
+    def get_perturb_matrices(internal_rot_perturb):
+        half_grid_range = int(number / 2)
+        step_degrees = internal_rot_perturb / number
+        perturb_matrices = []
+        for step in range(-half_grid_range, half_grid_range):  # Range from -5 to 4(5) for example. 0 is identity matrix
+            rad = math.radians(step * step_degrees)
+            rad_s = math.sin(rad)
+            rad_c = math.cos(rad)
+            # Perform rotational perturbation on z-axis
+            perturb_matrices.append([[rad_c, -rad_s, 0.], [rad_s, rad_c, 0.], [0., 0., 1.]])
+
+        return np.array(perturb_matrices)
+
+    # Get the perturbation parameters
+    # Total number of perturbations using the desired number and the total_dof possible in the symmetry
+    starting_dof = remaining_dof = sym_entry.total_dof
+    grid_size = number**sym_entry.total_dof
+    # array_expand_size is equal to: number ** sym_entry.total_dof-1
+    array_expand_size = grid_size / number
+
+    # Generate the full perturbation landscape using sym_entry.total_dof
+    # These operations add an axis to the transformation operators
+    # Each transformation is along axis=0 and the perturbations are along axis=1
+    if sym_entry.is_internal_rot1:
+        remaining_dof -= 1
+        internal_rot_perturb1 = sym_entry.rotation_step1  # Degrees
+        perturb_matrices1 = get_perturb_matrices(internal_rot_perturb1)
+        perturb_matrix_grid1 = np.tile(perturb_matrices1, (array_expand_size, 1, 1))
+        # Ensure that the second matrix is transposed to dot multiply row s(mat1) by columns (mat2)
+        full_rotation_perturb1 = np.matmul(full_rotation1[:, None, :, :],
+                                           perturb_matrix_grid1[None, :, :, :].swapaxes(-1, -2))
+    else:  # Todo ensure that identity matrix is the length of internal_translation_grid
+        full_rotation_perturb1 = np.matmul(full_rotation1[:, None, :, :], identity_matrix[None, None, :, :])
+
+    if sym_entry.is_internal_rot2:
+        remaining_dof -= 1
+        internal_rot_perturb2 = sym_entry.rotation_step2  # Degrees
+        perturb_matrices2 = get_perturb_matrices(internal_rot_perturb2)
+        # Configure the transformation grid
+        if starting_dof - remaining_dof == 2:  # Two rotations
+            perturb_matrix_grid2 = np.repeat(perturb_matrices2, (array_expand_size, 1, 1))
+        else:  # One rotation
+            perturb_matrix_grid2 = np.tile(perturb_matrices2, (array_expand_size, 1, 1))
+
+        full_rotation_perturb2 = np.matmul(full_rotation2[:, None, :, :],
+                                           perturb_matrix_grid2[None, :, :, :].swapaxes(-1, -2))
+    else:  # Todo ensure that identity matrix is the length of internal_translation_grid
+        full_rotation_perturb2 = np.matmul(full_rotation2[:, None, :, :], identity_matrix[None, None, :, :])
+
+    trans_perturb = 0.5  # Angstroms
+    internal_translations = external_translations = np.linspace(-trans_perturb, trans_perturb, number)
+
+    if sym_entry.unit_cell:
+        # Todo modify to search over 3 dof grid...
+        # external_translation_grid = np.repeat(external_translations, grid_size)
+        # This specifies a 3x3 search. So grid_size**3
+        external_translation_grid = np.zeros((number * number, 3), dtype=float)
+        external_translation_grid[:] = external_translation_grid
+        external_translation_grid[:] = np.repeat(external_translations, number)
+        internal_translation_grid = np.zeros((number, 3))
+        # internal_z_translation_grid = np.repeat(internal_translations, perturb_matrices.shape[0])
+        internal_translation_grid[:, 2] = np.repeat(internal_translations, number)
+        perturb_matrix_grid = np.tile(perturb_matrices, (internal_translations.shape[0], 1, 1))
+        # Todo
+        #  If the ext_tx are all 0 or not possible even if lattice, must not modify them. Need analogous check for
+        #  is_ext_dof()
+        perturbed_optimal_ext_dof_shifts = ext_dof_shifts[:, None, :] + external_translation_grid[None, :, :]
+        # full_ext_tx_perturb1 = full_ext_tx1[:, None, :] + external_translation_grid[None, :, :]
+        full_ext_tx_perturb1 = (perturbed_optimal_ext_dof_shifts[:, :, None] * sym_entry.external_dof1).sum(axis=-2)
+        # full_ext_tx_perturb2 = full_ext_tx2[:, None, :] + external_translation_grid[None, :, :]
+        full_ext_tx_perturb2 = (perturbed_optimal_ext_dof_shifts[:, :, None] * sym_entry.external_dof2).sum(axis=-2)
+    else:
+        internal_translation_grid = np.zeros((number, 3))
+        # internal_z_translation_grid = np.repeat(internal_translations, grid_size)
+        internal_translation_grid[:, 2] = np.repeat(internal_translations, number)
+        perturb_matrix_grid = np.tile(perturb_matrices, (number, 1, 1))
+        full_ext_tx_perturb1 = full_ext_tx_perturb2 = [None for _ in range(perturb_matrix_grid.shape[0])]
+
+    # origin = np.array([0., 0., 0.])
+    if sym_entry.is_internal_tx1:  # Add the translation to Z (axis=2)
+        full_int_tx_perturb1 = full_int_tx1[:, None, :] + internal_translation_grid[None, :, :]
+        full_int_tx1 = full_int_tx_perturb1.reshape((-1, 1, 3))
+
+    # else:
+    #     # full_int_tx1 is the origin repeated
+    #     full_int_tx_perturb1 = full_int_tx1[:, None, :]  # + origin[None, None, :]
+
+    if sym_entry.is_internal_tx2:  # Add the translation to Z (axis=2)
+        full_int_tx_perturb2 = full_int_tx2[:, None, :] + internal_translation_grid[None, :, :]
+        full_int_tx2 = full_int_tx_perturb2.reshape((-1, 1, 3))
+
+    # else:
+    #     full_int_tx_perturb2 = full_int_tx2[:, None, :]  # + origin[None, None, :]
+
+    logger.debug(f'internal_tx 1 shape: {full_int_tx_perturb1.shape}')
+    logger.debug(f'internal_tx 2 shape: {full_int_tx_perturb2.shape}')
+
+    # Reduce the expanded axis 0 and 1 to a single axis, axis=0 for all perturbations
+    full_rotation1 = full_rotation_perturb1.reshape((-1, 3, 3))
+    full_rotation2 = full_rotation_perturb2.reshape((-1, 3, 3))
+    if sym_entry.unit_cell:
+        full_ext_tx1 = full_ext_tx_perturb1.reshape((-1, 1, 3))
+        full_ext_tx2 = full_ext_tx_perturb2.reshape((-1, 1, 3))
+        # asu.space_group = sym_entry.resulting_symmetry
+        # uc_dimensions = full_uc_dimensions[idx]
+    # else:
+    #     full_ext_tx1, full_ext_tx2 = None, None
+    #     uc_dimensions = None
 
     # Stack perturbation operations (might be perturbed) up for individual multiplication
     specific_transformation1 = dict(rotation=full_rotation1,
@@ -2449,6 +2584,9 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
                                         translation2=full_ext_tx2)
         transformation1, transformation2 = \
             perturb_transformations(sym_entry, specific_transformation1, specific_transformation2)
+        # transformation1, transformation2 = \
+        #     perturb_transformations_new(sym_entry, specific_transformation1, specific_transformation2,
+        #                                 ext_dof_shifts=full_optimal_ext_dof_shifts, number=number_of_perturbations)
         # Extract transformation operations
         full_rotation1 = transformation1['rotation']
         full_int_tx1 = transformation1['translation']
