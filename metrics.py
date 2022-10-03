@@ -32,7 +32,7 @@ energy_metric_names = ['interface_energy_complex', 'interface_energy_bound', 'in
 sasa_metric_names = ['sasa_hydrophobic_bound', 'sasa_polar_bound', 'sasa_hydrophobic_complex',
                      'sasa_polar_complex', 'sasa_relative_complex', 'sasa_relative_bound',
                      'bsa_hydrophobic', 'bsa_polar', 'bsa_total', 'sasa_total_bound', 'sasa_total_complex']
-# Based on bsa_total values for highest deviating surface residue in multiple measurements \
+# Based on bsa_total values for highest deviating surface residue of one design from multiple measurements
 # Ex: 0.45, 0.22, 0.04, 0.19, 0.01, 0.2, 0.04, 0.19, 0.01, 0.19, 0.01, 0.21, 0.06, 0.17, 0.01, 0.21, -0.04, 0.22
 bsa_tolerance = 0.25
 energy_metrics_rename_mapping = dict(zip(per_residue_energy_states, energy_metric_names))
@@ -1359,19 +1359,21 @@ def sum_per_residue_metrics(per_residue_df: pd.DataFrame) -> pd.DataFrame:
     Returns:
         A new DataFrame with the summation of all residue_numbers in the per_residue columns
     """
-    per_residue_df_columns = per_residue_df.columns
-    present_per_residue_energies = \
-        [state for state in per_residue_energy_states if state in per_residue_df_columns]
-    summed_energies = \
-        {energy_state: per_residue_df.loc[:, idx_slice[:, energy_state]].sum(axis=1)
-         for energy_state in present_per_residue_energies}
-    present_per_residue_classification = \
-        [classifier for classifier in residue_classificiation if classifier in residue_classificiation]
-    summed_residue_classification = \
-        {residue_class: per_residue_df.loc[:, idx_slice[:, residue_class]].sum(axis=1)
-         for residue_class in present_per_residue_classification}
-
-    summed_scores_df = pd.DataFrame({**summed_energies, **summed_residue_classification})
+    summed_scores_df = per_residue_df.groupby(axis=1, level=-1).sum()
+    # print('after grouby sum', summed_scores_df)
+    # per_residue_df_columns = per_residue_df.columns
+    # present_per_residue_energies = \
+    #     [state for state in per_residue_energy_states if state in per_residue_df_columns]
+    # summed_energies = \
+    #     {energy_state: per_residue_df.loc[:, idx_slice[:, energy_state]].sum(axis=1)
+    #      for energy_state in present_per_residue_energies}
+    # present_per_residue_classification = \
+    #     [classifier for classifier in residue_classificiation if classifier in residue_classificiation]
+    # summed_residue_classification = \
+    #     {residue_class: per_residue_df.loc[:, idx_slice[:, residue_class]].sum(axis=1)
+    #      for residue_class in present_per_residue_classification}
+    #
+    # summed_scores_df = pd.DataFrame({**summed_energies, **summed_residue_classification})
 
     return summed_scores_df.rename(columns=energy_metrics_rename_mapping)
 
