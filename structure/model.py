@@ -2379,6 +2379,21 @@ class Model(Structure, ContainsChainsMixin):
     # space_group: str | None
     # uc_dimensions: list[float] | None
 
+    @classmethod
+    def from_chains(cls, chains: list[Chain] | Structures, **kwargs):
+        """Create a new Model from a container of Chain objects. Automatically renames all chains"""
+        return cls(chains=chains, rename_chains=True, **kwargs)
+
+    @classmethod
+    def from_entities(cls, entities: list[Entity] | Structures, **kwargs):
+        """Create a new Model from a container of Entity objects"""
+        return cls(entities=entities, chains=False, **kwargs)
+
+    @classmethod
+    def from_model(cls, model, **kwargs):
+        """Initialize from an existing Model"""
+        return cls(model=model, **kwargs)
+
     def __init__(self, model: Structure = None,
                  biological_assembly: str | int = None,
                  chains: list[Chain] | Structures | bool = None, entities: list[Entity] | Structures | bool = None,
@@ -2465,10 +2480,87 @@ class Model(Structure, ContainsChainsMixin):
         # if metadata and isinstance(metadata, PDB):
         #     self.copy_metadata(metadata)
 
-    @classmethod
-    def from_chains(cls, chains: list[Chain] | Structures, **kwargs):
-        """Create a new Model from a container of Chain objects. Automatically renames all chains"""
-        return cls(chains=chains, rename_chains=True, **kwargs)
+    def _process_model(self, pose_format: bool = False, chains: bool | list[Chain] | Structures = True,
+                       rename_chains: bool = False, entities: bool | list[Entity] | Structures = True,
+                       **kwargs):
+        #               atoms: Union[Atoms, List[Atom]] = None, residues: Union[Residues, List[Residue]] = None,
+        #               coords: Union[List[List], np.ndarray, Coords] = None,
+        """Process various types of Structure containers to update the Model with the corresponding information
+
+        Args:
+            pose_format: Whether to initialize Structure with residue numbering from 1 until the end
+            chains:
+            rename_chains: Whether to name each chain an incrementally new Alphabetical character
+            entities:
+        """
+        # Add lists together, only one is populated from class construction
+        structures = (chains if isinstance(chains, (list, Structures)) else []) + \
+                     (entities if isinstance(entities, (list, Structures)) else [])
+        if structures:  # create from existing
+            atoms, residues, coords = [], [], []
+            for structure in structures:
+                atoms.extend(structure.atoms)
+                residues.extend(structure.residues)
+                coords.append(structure.coords)
+            self._assign_residues(residues, atoms=atoms, coords=coords)
+
+        if chains:  # Create the instance from existing chains
+            if isinstance(chains, (list, Structures)):
+                self.chains = copy(chains)  # copy the passed chains
+                self._copy_structure_containers()  # copy each Chain in chains
+                # Reindex all residue and atom indices
+                self.chains[0].reset_state()
+                self.chains[0]._start_indices(at=0, dtype='atom')
+                self.chains[0]._start_indices(at=0, dtype='residue')
+                for prior_idx, chain in enumerate(self.chains[1:]):
+                    chain.reset_state()
+                    chain._start_indices(at=self.chains[prior_idx].atom_indices[-1] + 1, dtype='atom')
+                    chain._start_indices(at=self.chains[prior_idx].residue_indices[-1] + 1, dtype='residue')
+
+                # Set the parent attribute for all containers
+                self._update_structure_container_attributes(_parent=self)
+                # By using extend, we set self.original_chain_ids too
+                self.chain_ids.extend([chain.chain_id for chain in self.chains])
+            else:  # Create Chain instances from Residues
+                self._create_chains()
+                # # this isn't super accurate
+                # # Ideally we get correct solution from PDB or UniProt API.
+                # # If no _reference_sequence passed then this will be nothing, so that isn't great.
+                # # It should be at least the structure sequence
+                # self._reference_sequence = dict(zip(self.chain_ids, self._reference_sequence.values()))
+
+            if rename_chains:
+                self.rename_chains()
+            self.log.debug(f'Original chain_ids: {",".join(self.original_chain_ids)} | '
+                           f'Loaded chain_ids: {",".join(self.chain_ids)}')
+
+        if entities:  # Create the instance from existing entities
+            if isinstance(entities, (list, Structures)):
+                self.entities = copy(entities)  # copy the passed entities
+                self._copy_structure_containers()  # copy each Entity in entities
+                # Reindex all residue and atom indices
+                self.entities[0].reset_state()
+                self.entities[0]._start_indices(at=0, dtype='atom')
+                self.entities[0]._start_indices(at=0, dtype='residue')
+                for prior_idx, entity in enumerate(self.entities[1:]):
+                    entity.reset_state()
+                    entity._start_indices(at=self.entities[prior_idx].atom_indices[-1] + 1, dtype='atom')
+                    entity._start_indices(at=self.entities[prior_idx].residue_indices[-1] + 1, dtype='residue')
+
+                # Set the parent attribute for all containers
+                self._update_structure_container_attributes(_parent=self)
+                if rename_chains:  # set each successive Entity to have an incrementally higher chain id
+                    self.chain_ids = []
+                    available_chain_ids = self.chain_id_generator()
+                    for idx, entity in enumerate(self.entities):
+                        chain_id = next(available_chain_ids)
+                        entity.chain_id = chain_id
+                        self.chain_ids.append(chain_id)
+                        # If the full structure wanted contiguous chain_ids, this should be used
+                        # for _ in range(entity.number_of_symmetry_mates):
+                        #     # Discard ids
+                        #     next(available_chain_ids)
+                        self.log.debug(f'Entity {entity.name} new chain identifier {entity.chain_id}')
 
     @classmethod
     def from_entities(cls, entities: list[Entity] | Structures, **kwargs):
@@ -2560,145 +2652,6 @@ class Model(Structure, ContainsChainsMixin):
             The sequence according to each of the Chain reference sequences
         """
         return ''.join(chain.reference_sequence for chain in self.chains)
-
-    def _process_model(self, pose_format: bool = False, chains: bool | list[Chain] | Structures = True,
-                       rename_chains: bool = False, entities: bool | list[Entity] | Structures = True,
-                       **kwargs):
-        #               atoms: Union[Atoms, List[Atom]] = None, residues: Union[Residues, List[Residue]] = None,
-        #               coords: Union[List[List], np.ndarray, Coords] = None,
-        """Process various types of Structure containers to update the Model with the corresponding information
-
-        Args:
-            pose_format: Whether to initialize Structure with residue numbering from 1 until the end
-            chains:
-            rename_chains: Whether to name each chain an incrementally new Alphabetical character
-            entities:
-        """
-        # Add lists together, only one is populated from class construction
-        structures = (chains if isinstance(chains, (list, Structures)) else []) + \
-                     (entities if isinstance(entities, (list, Structures)) else [])
-        if structures:  # create from existing
-            atoms, residues, coords = [], [], []
-            for structure in structures:
-                atoms.extend(structure.atoms)
-                residues.extend(structure.residues)
-                coords.append(structure.coords)
-            self._assign_residues(residues, atoms=atoms, coords=coords)
-
-        if chains:  # Create the instance from existing chains
-            if isinstance(chains, (list, Structures)):
-                self.chains = copy(chains)  # copy the passed chains
-                self._copy_structure_containers()  # copy each Chain in chains
-                # Reindex all residue and atom indices
-                self.chains[0].reset_state()
-                self.chains[0]._start_indices(at=0, dtype='atom')
-                self.chains[0]._start_indices(at=0, dtype='residue')
-                for prior_idx, chain in enumerate(self.chains[1:]):
-                    chain.reset_state()
-                    chain._start_indices(at=self.chains[prior_idx].atom_indices[-1] + 1, dtype='atom')
-                    chain._start_indices(at=self.chains[prior_idx].residue_indices[-1] + 1, dtype='residue')
-
-                # Set the parent attribute for all containers
-                self._update_structure_container_attributes(_parent=self)
-                # By using extend, we set self.original_chain_ids too
-                self.chain_ids.extend([chain.chain_id for chain in self.chains])
-            else:  # Create Chain instances from Residues
-                self._create_chains()
-                # # this isn't super accurate
-                # # Ideally we get correct solution from PDB or UniProt API.
-                # # If no _reference_sequence passed then this will be nothing, so that isn't great.
-                # # It should be at least the structure sequence
-                # self._reference_sequence = dict(zip(self.chain_ids, self._reference_sequence.values()))
-
-            if rename_chains:
-                self.rename_chains()
-            self.log.debug(f'Original chain_ids: {",".join(self.original_chain_ids)} | '
-                           f'Loaded chain_ids: {",".join(self.chain_ids)}')
-
-        if entities:  # Create the instance from existing entities
-            if isinstance(entities, (list, Structures)):
-                self.entities = copy(entities)  # copy the passed entities
-                self._copy_structure_containers()  # copy each Entity in entities
-                # Reindex all residue and atom indices
-                self.entities[0].reset_state()
-                self.entities[0]._start_indices(at=0, dtype='atom')
-                self.entities[0]._start_indices(at=0, dtype='residue')
-                for prior_idx, entity in enumerate(self.entities[1:]):
-                    entity.reset_state()
-                    entity._start_indices(at=self.entities[prior_idx].atom_indices[-1] + 1, dtype='atom')
-                    entity._start_indices(at=self.entities[prior_idx].residue_indices[-1] + 1, dtype='residue')
-
-                # Set the parent attribute for all containers
-                self._update_structure_container_attributes(_parent=self)
-                if rename_chains:  # set each successive Entity to have an incrementally higher chain id
-                    self.chain_ids = []
-                    available_chain_ids = self.chain_id_generator()
-                    for idx, entity in enumerate(self.entities):
-                        chain_id = next(available_chain_ids)
-                        entity.chain_id = chain_id
-                        self.chain_ids.append(chain_id)
-                        # If the full structure wanted contiguous chain_ids, this should be used
-                        # for _ in range(entity.number_of_symmetry_mates):
-                        #     # Discard ids
-                        #     next(available_chain_ids)
-                        self.log.debug(f'Entity {entity.name} new chain identifier {entity.chain_id}')
-
-                # Update chains to entities after everything is set
-                self.chains = self.entities
-                # self.chain_ids = [chain.name for chain in self.chains]
-            else:  # Create Entities from Chain.Residues
-                self._create_entities(**kwargs)
-
-            self._symmetric_dependents = self.entities  # Todo ensure these never change
-
-            if not self.chain_ids:  # set according to self.entities
-                self.chain_ids.extend([entity.chain_id for entity in self.entities])
-
-        if pose_format:
-            self.pose_numbering()
-
-    # def copy_metadata(self, other):  # Todo, rework for all Structure
-    #     temp_metadata = \
-    #         {'api_entry': other.__dict__['api_entry'],
-    #          'cryst_record': other.__dict__['cryst_record'],
-    #          # 'cryst': other.__dict__['cryst'],
-    #          'design': other.__dict__['design'],
-    #          'entity_info': other.__dict__['entity_info'],
-    #          '_name': other.__dict__['_name'],
-    #          # 'space_group': other.__dict__['space_group'],
-    #          # '_uc_dimensions': other.__dict__['_uc_dimensions'],
-    #          'header': other.__dict__['header'],
-    #          # 'reference_aa': other.__dict__['reference_aa'],
-    #          'resolution': other.__dict__['resolution'],
-    #          'rotation_d': other.__dict__['rotation_d'],
-    #          'max_symmetry_chain': other.__dict__['max_symmetry_chain'],
-    #          'dihedral_chain': other.__dict__['dihedral_chain'],
-    #          }
-    #     # temp_metadata = copy(other.__dict__)
-    #     # temp_metadata.pop('atoms')
-    #     # temp_metadata.pop('residues')
-    #     # temp_metadata.pop('secondary_structure')
-    #     # temp_metadata.pop('number_of_atoms')
-    #     # temp_metadata.pop('number_of_residues')
-    #     self.__dict__.update(temp_metadata)
-
-    # def update_attributes_from_pdb(self, pdb):  # Todo copy full attribute dict without selected elements
-    #     # self.atoms = pdb.atoms
-    #     self.resolution = pdb.resolution
-    #     self.cryst_record = pdb.cryst_record
-    #     # self.cryst = pdb.cryst
-    #     self.dbref = pdb.dbref
-    #     self.design = pdb.design
-    #     self.header = pdb.header
-    #     self.reference_sequence = pdb._reference_sequence
-    #     # self.atom_sequences = pdb.atom_sequences
-    #     self.file_path = pdb.file_path
-    #     # self.chain_ids = pdb.chain_ids
-    #     self.entity_info = pdb.entity_info
-    #     self.name = pdb.name
-    #     self.secondary_structure = pdb.secondary_structure
-    #     # self.cb_coords = pdb.cb_coords
-    #     # self.bb_coords = pdb.bb_coords
 
     def format_seqres(self, **kwargs) -> str:
         """Format the reference sequence present in the SEQRES remark for writing to the output header
@@ -5077,7 +5030,8 @@ class SymmetricModel(Models):
         # Check to see if the parsed Model is already represented symmetrically
         number_of_symmetry_mates = self.number_of_symmetry_mates
         if self.number_of_entities * number_of_symmetry_mates == self.number_of_chains:
-            self.log.debug(f'Setting the {type(self).__name__} to an ASU from a symmetric representation')
+            self.log.critical(f'Setting the {type(self).__name__} to an ASU from a symmetric representation. '
+                              f'This method has not been thoroughly debugged')
             # Remove extra chains. Both from self and from entities
             self.chains = self.chains[:number_of_symmetry_mates]
             for entity in self.entities:
@@ -6707,7 +6661,7 @@ class Pose(SequenceProfile, SymmetricModel):
         self.alpha = []
         for entity in self.entities:
             self.alpha.extend(entity.alpha)
-        self._alpha = self.entities[0]._alpha
+        self._alpha = entity._alpha
 
     def get_fragment_observations(self) -> list[dict[str, str | int | float]] | list:
         """Return the fragment observations identified on the pose regardless of Entity binding
