@@ -23,7 +23,7 @@ from metrics import calculate_collapse_metrics, calculate_residue_surface_area, 
     multiple_sequence_alignment_dependent_metrics, \
     incorporate_mutation_info, profile_dependent_metrics, columns_to_new_column, residue_classificiation, delta_pairs, \
     division_pairs, interface_composition_similarity, clean_up_intermediate_columns, sum_per_residue_metrics, \
-    per_residue_energy_states, hydrophobic_collapse_index, cross_entropy
+    per_residue_energy_states, hydrophobic_collapse_index, cross_entropy, energy_metric_names
 from resources.EulerLookup import euler_factory
 from structure.fragment.db import FragmentDatabase, fragment_factory
 from resources.job import job_resources_factory, JobResources
