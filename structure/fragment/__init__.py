@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 from abc import ABC
 from itertools import repeat
+from logging import Logger
 from typing import IO, Sequence, AnyStr
 
 import numpy as np
@@ -162,6 +163,7 @@ class Fragment(ABC):
     # guide_coords: np.ndarray | None
     i_type: int | None
     index: int
+    log: Logger
     number: int
     rmsd_thresh: float = 0.75
     rotation: np.ndarray
@@ -329,6 +331,8 @@ class Fragment(ABC):
         #             indexed_ghost_fragments: The paired fragment database to match to the Fragment instance
         if self.ghost_fragments is None:
             self.find_ghost_fragments(**kwargs)
+        else:
+            self.log.debug('Using previously generated ghost fragments')
 
         return self.ghost_fragments
 
@@ -348,9 +352,10 @@ class MonoFragment(Fragment):
                  **kwargs):
         super().__init__(**kwargs)
         self.central_residue = residues[int(self.fragment_length/2)]
+        self.log = self.central_residue._log.log
 
         if not residues:
-            raise ValueError(f'Can\'t find {type(self).__name__} without passing residues with length '
+            raise ValueError(f"Can't find {type(self).__name__} without passing residues with length "
                              f'{self.fragment_length}')
         elif fragment_db is None:
             raise ValueError(f"Can't find {type(self).__name__} without passing fragment_db")
