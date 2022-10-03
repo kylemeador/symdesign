@@ -3516,9 +3516,9 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
     # # Drop unused particular per_residue_df columns that have been summed
     per_residue_df = per_residue_df.drop(
         [column for column in per_residue_df.loc[:,
-         idx_slice[:, per_residue_energy_states
+         idx_slice[:, per_residue_energy_states + energy_metric_names
                       # + residue_classificiation
-         ]].columns], axis=1)
+         ]].columns], errors='ignore', axis=1)
 
     print('per_residue_df', per_residue_df)
 
