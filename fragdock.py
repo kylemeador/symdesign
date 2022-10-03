@@ -665,7 +665,14 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
     cb_distance = 9.  # change to 8.?
     # cluster_translations = True
     perturb_dofs = True
-    translation_epsilon = 1  # 0.75
+    if perturb_dofs:
+        number_of_perturbations = 9  # Todo replace with 100
+        if sym_entry.unit_cell:
+            raise NotImplementedError(f"{perturb_transformations.__name__} isn't working for lattice symmetries")
+    else:
+        number_of_perturbations = 1
+
+    translation_epsilon = 1  # 1 seems to work well at recapitulating the results without it. More stringent -> 0.75
     high_quality_z_value = z_value_from_match_score(high_quality_match_value)
     low_quality_z_value = z_value_from_match_score(low_quality_match_value)
     # Get Building Blocks in pose format to remove need for fragments to use chain info
@@ -2431,9 +2438,7 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
     # This occurs by perturbing the transformation by a random small amount to generate transformational diversity from
     # the already identified solutions.
     if perturb_dofs:
-        # # Stack transformation operations up for individual multiplication
         # Pack transformation operations up that are available to perturb and pass to function
-        pre_perturb_number_transformations = full_rotation1.shape[0]
         specific_transformation1 = dict(rotation=full_rotation1,
                                         translation=full_int_tx1,
                                         # rotation2=set_mat1,
@@ -2442,7 +2447,6 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
                                         translation=full_int_tx2,
                                         # rotation2=set_mat2,
                                         translation2=full_ext_tx2)
-        # specific_transformations = \
         transformation1, transformation2 = \
             perturb_transformations(sym_entry, specific_transformation1, specific_transformation2)
         # Extract transformation operations
