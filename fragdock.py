@@ -23,7 +23,7 @@ from metrics import calculate_collapse_metrics, calculate_residue_surface_area, 
     multiple_sequence_alignment_dependent_metrics, \
     incorporate_mutation_info, profile_dependent_metrics, columns_to_new_column, residue_classificiation, delta_pairs, \
     division_pairs, interface_composition_similarity, clean_up_intermediate_columns, sum_per_residue_metrics, \
-    per_residue_energy_states, hydrophobic_collapse_index, cross_entropy, energy_metric_names
+    per_residue_energy_states, hydrophobic_collapse_index, cross_entropy, energy_metric_names, sasa_metric_names
 from resources.EulerLookup import euler_factory
 from structure.fragment.db import FragmentDatabase, fragment_factory
 from resources.job import job_resources_factory, JobResources
@@ -3516,7 +3516,7 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
     # # Drop unused particular per_residue_df columns that have been summed
     per_residue_df = per_residue_df.drop(
         [column for column in per_residue_df.loc[:,
-         idx_slice[:, per_residue_energy_states + energy_metric_names
+         idx_slice[:, per_residue_energy_states + energy_metric_names + sasa_metric_names + ['errat_deviation']
                       # + residue_classificiation
          ]].columns], errors='ignore', axis=1)
 
