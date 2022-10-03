@@ -3116,24 +3116,24 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
 
     # Todo REMOVE DUPLICATION FOR TESTING
     # Calculate metrics on input Pose
-    residue_indices = list(range(1, pose_length + 1))
-    # entity_energies = tuple(0. for ent in pose.entities)
-    pose_source_residue_info = \
-        {residue.number: {'complex': 0., 'bound': 0.,  # copy(entity_energies),
-                          'unbound': 0.,  # copy(entity_energies),
-                          'solv_complex': 0., 'solv_bound': 0.,  # copy(entity_energies),
-                          'solv_unbound': 0.,  # copy(entity_energies),
-                          # 'fsp': 0., 'cst': 0.,
-                          'type': protein_letters_3to1.get(residue.type), 'hbond': 0}
-         for entity in pose.entities for residue in entity.residues}
-    # This needs to be calculated before iterating over each pose
-    residue_info = {pose_source: pose_source_residue_info}
+    # residue_indices = list(range(1, pose_length + 1))
+    # # entity_energies = tuple(0. for ent in pose.entities)
+    # pose_source_residue_info = \
+    #     {residue.number: {'complex': 0., 'bound': 0.,  # copy(entity_energies),
+    #                       'unbound': 0.,  # copy(entity_energies),
+    #                       'solv_complex': 0., 'solv_bound': 0.,  # copy(entity_energies),
+    #                       'solv_unbound': 0.,  # copy(entity_energies),
+    #                       # 'fsp': 0., 'cst': 0.,
+    #                       'type': protein_letters_3to1.get(residue.type), 'hbond': 0}
+    #      for entity in pose.entities for residue in entity.residues}
+    # # This needs to be calculated before iterating over each pose
+    # residue_info = {pose_source: pose_source_residue_info}
     # residue_info[pose_source] = pose_source_residue_info
 
     source_contact_order, source_errat = [], []
     for idx, entity in enumerate(pose.entities):
         # Contact order is the same for every design in the Pose and not dependent on pose
-        source_contact_order.append(entity.contact_order)
+        # source_contact_order.append(entity.contact_order)
         # Replace 'errat_deviation' measurement with uncomplexed entities
         # oligomer_errat_accuracy, oligomeric_errat = entity_oligomer.errat(out_path=self.data)
         # Todo translate the source pose
@@ -3143,12 +3143,12 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
         _, oligomeric_errat = entity_oligomer.errat(out_path=os.devnull)
         source_errat.append(oligomeric_errat[:entity.number_of_residues])
 
-    pose_source_contact_order_s = pd.Series(np.concatenate(source_contact_order), index=residue_indices)
-    pose_source_errat_s = pd.Series(np.concatenate(source_errat), index=residue_indices)
+    # pose_source_contact_order_s = pd.Series(np.concatenate(source_contact_order), index=residue_indices)
+    # pose_source_errat_s = pd.Series(np.concatenate(source_errat), index=residue_indices)
 
     # per_residue_data = {}  # pose_source: pose.get_per_residue_interface_metrics()}
-    per_residue_data = {pose_source: {'contact_order': pose_source_contact_order_s,
-                                      'errat_deviation': pose_source_errat_s}}
+    # per_residue_data = {pose_source: {'contact_order': pose_source_contact_order_s,
+    #                                   'errat_deviation': pose_source_errat_s}}
     # per_residue_data[pose_source] = {'contact_order': pose_source_contact_order_s,
     #                                  'errat_deviation': pose_source_errat_s}
     # Todo REMOVE DUPLICATION FOR TESTING
