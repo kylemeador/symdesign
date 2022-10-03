@@ -1398,7 +1398,7 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
             # axis 1 and each successive index along axis 0 as each passing shift
 
             # Stack each internal parameter along with a blank vector, this isolates the tx vector along z axis
-            if full_int_tx1:
+            if full_int_tx1 is not None:
                 # stacked_internal_tx_vectors1 = np.zeros((number_passing_shifts, 3), dtype=float)
                 # stacked_internal_tx_vectors1[:, -1] = transform_passing_shifts[:, sym_entry.n_dof_external]
                 # internal_tx_params1 = transform_passing_shifts[:, None, sym_entry.n_dof_external]
@@ -1406,7 +1406,7 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
                 # Store transformation parameters, indexing only those that are positive in the case of lattice syms
                 full_int_tx1.extend(transform_passing_shifts[positive_indices, sym_entry.n_dof_external].tolist())
 
-            if full_int_tx2:
+            if full_int_tx2 is not None:
                 # stacked_internal_tx_vectors2 = np.zeros((number_passing_shifts, 3), dtype=float)
                 # stacked_internal_tx_vectors2[:, -1] = transform_passing_shifts[:, sym_entry.n_dof_external + 1]
                 # internal_tx_params2 = transform_passing_shifts[:, None, sym_entry.n_dof_external + 1]
