@@ -602,7 +602,7 @@ class SequenceProfile:
                 np.vectorize(numerical_translation_alph1_gapped_bytes.__getitem__, otypes='l')(self._sequence_array)
             # using otypes='i' as the datatype for int32. 'f' would be for float32
             # using otypes='l' as the datatype for int64. 'd' would be for float64
-            self.log.critical(f'The sequence_numeric dtype is {self._sequence_numeric.dtype}. It should be int32')
+            # self.log.critical(f'The sequence_numeric dtype is {self._sequence_numeric.dtype}. It should be int64')
             # self._sequence_numeric = self._sequence_numeric.astype(np.int32)
             return self._sequence_numeric
 
@@ -1180,7 +1180,7 @@ class SequenceProfile:
 
         Keyword Args:
             keep_extras: (bool) = True - Whether to keep values for all that are missing data
-            Keyword Args:
+            evo_fill: (bool) = False - Whether to fill missing positions with evolutionary profile values
             alpha: (float) = 0.5 - The maximum contribution of the fragment profile to use, bounded between (0, 1].
                 0 means no use of fragments in the .profile, while 1 means only use fragments
         Sets:
@@ -1245,7 +1245,7 @@ class SequenceProfile:
                 self.fragment_profile[residue_index + frag_idx][idx].append(dict(match=fragment['match'],
                                                                                  **frequencies))
 
-    def _simplify_fragment_profile(self, keep_extras: bool = True):
+    def _simplify_fragment_profile(self, keep_extras: bool = True, evo_fill: bool = False):
         """Take a multi-indexed, a multi-observation fragment_profile and flatten to single frequency for each residue.
 
         Weight the frequency of each observation by the fragment indexed, average observation weight, proportionally
@@ -1263,6 +1263,7 @@ class SequenceProfile:
                 over the entire residue
         Args:
             keep_extras: Whether to keep values for all positions that are missing data
+            evo_fill: Whether to fill missing positions with evolutionary profile values
         """
         database_bkgnd_aa_freq = self.fragment_db.aa_frequencies
         # Fragment profile is correct size for indexing all STRUCTURAL residues
@@ -1338,10 +1339,10 @@ class SequenceProfile:
             # If this changes, maybe the == 0 condition needs a copy(aa_counts) instead of {}
 
         if keep_extras:
-            if self.evolutionary_profile:
-                # Todo currently, if not an empty dictionary, add the corresponding value from evolution because the
-                #  calculation of packer palette is subtractive so the use of an overlapping evolution and
-                #  null fragment would result in nothing allowed to design...
+            if evo_fill and self.evolutionary_profile:
+                # If not an empty dictionary, add the corresponding value from evolution
+                # For Rosetta, the packer palette is subtractive so the use of an overlapping evolution and
+                # null fragment would result in nothing allowed during design...
                 for residue_index in no_design:
                     # TODO, aa_weighted_counts)
                     self.fragment_profile[residue_index] = self.evolutionary_profile.get(residue_index + zero_offset)

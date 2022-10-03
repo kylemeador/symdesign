@@ -6683,6 +6683,8 @@ class Pose(SequenceProfile, SymmetricModel):
         """Take the fragment_profile from each member Entity. Overwrites SequenceProfile method for Pose profiles
 
         Keyword Args:
+            keep_extras: (bool) = True - Whether to keep values for all that are missing data
+            evo_fill: (bool) = False - Whether to fill missing positions with evolutionary profile values
             alpha: (float) = 0.5 - The maximum contribution of the fragment profile to use, bounded between (0, 1].
                 0 means no use of fragments in the .profile, while 1 means only use fragments
         """
