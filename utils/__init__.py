@@ -1111,7 +1111,7 @@ def calculate_match(coords1: float | np.ndarray = None, coords2: float | np.ndar
     Args:
         coords1: The first set of coordinates
         coords2: The second set of coordinates
-        coords_rmsd_reference: The reference RMSD to compared each pair of coordinates against
+        coords_rmsd_reference: The reference RMSD to compare each pair of coordinates against
     Returns:
         The match score(s)
     """
@@ -1132,7 +1132,7 @@ def rmsd_z_score(coords1: float | np.ndarray = None, coords2: float | np.ndarray
         coords2: The second set of coordinates
         coords_rmsd_reference: The reference RMSD to compare each pair of coordinates against
     Returns:
-        The overlap z-value where the RMSD between coords1 and coords2 is < max_z_value, otherwise False
+        The overlap z-value
     """
     #         max_z_value: The z-score deviation threshold of the overlap to be considered a match
     # Calculate Guide Atom Overlap Z-Value

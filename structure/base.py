@@ -1270,15 +1270,17 @@ class ContainsAtomsMixin(StructureBase):
             self._atoms.reindex()
             # self._set_coords_indexed()
 
-    def _populate_coords(self, from_source: structure_container_types = 'atoms', coords: np.ndarray = None):
+    def _populate_coords(self, coords: np.ndarray = None, from_source: structure_container_types = 'atoms'):
         """Set up the coordinates, initializing them from_source coords if none are set
 
         Only useful if the calling Structure is a parent, and coordinate initialization has yet to occur
+
         Args:
+            coords: The coordinates to assign to the Structure. Will use from_source.coords if not specified
             from_source: The source to set the coordinates from if they are missing
-            coords: The coordinates to assign to the Structure. Optional, will use from_source.coords if not specified
         """
-        if coords:  # Try to set the provided coords. This will handle issue where empty Coords class should be set
+        if coords is not None:
+            # Try to set the provided coords. This will handle issue where empty Coords class should be set
             # Setting .coords through normal mechanism preserves subclasses requirement to handle symmetric coordinates
             self.coords = np.concatenate(coords)
         if self._coords.coords.shape[0] == 0:  # Check if Coords (_coords) hasn't been populated
@@ -2311,8 +2313,8 @@ class Residue(ResidueFragment, ContainsAtomsMixin):
         #  _sc_indices
         other.__dict__ = copy(self.__dict__)
 
-        if self.is_parent():  # this Structure is the parent, it's copy should be too
-            # set the copying Structure attribute ".spawn" to indicate to dependents the "other" of this copy
+        if self.is_parent():  # This Structure is the parent, it's copy should be too
+            # Set the copying Structure attribute ".spawn" to indicate to dependents the "other" of this copy
             self.spawn = other
             try:
                 for attr in parent_attributes:
@@ -2320,18 +2322,18 @@ class Residue(ResidueFragment, ContainsAtomsMixin):
             except KeyError:  # '_residues' is not present and will be last
                 pass
             other._atoms.set_attributes(_parent=other)  # Todo comment out when Atom.__copy__ needed somewhere
-            # remove the attribute spawn after other Structure containers are copied
+            # Remove the attribute spawn after other Structure containers are copied
             del self.spawn
-        else:  # this Structure is a dependent, it's copy should be too
+        else:  # This Structure is a dependent, it's copy should be too
             try:
                 other._parent = self.parent.spawn
-            except AttributeError:  # this copy was initiated by a Structure that is not the parent
-                # self.log.debug(f'The copied {type(self).__name__} is being set as a parent. It was a dependent '
-                #                f'previously')
+            except AttributeError:  # This copy was initiated by a Structure that is not the parent
                 if self._copier:  # Copy initiated by Residues container
                     pass
                 else:
                     other.detach_from_parent()
+                    # self.log.debug(f'The copied {type(self).__name__} is being set as a parent. It was a dependent '
+                    #                f'previously')
 
         return other
 
@@ -2791,31 +2793,32 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
             atoms = []
             for residue in residues:
                 atoms.extend(residue.atoms)
-        self._assign_atoms(atoms, atoms_only=False)  # no passing of kwargs as below _populate_coords() handles
-        # done below with _residues.reindex_atoms(), not necessary here
+        self._assign_atoms(atoms, atoms_only=False)  # No passing of kwargs as below _populate_coords() handles
+        # Done below with _residues.reindex_atoms(), not necessary here
         # if not self.file_path:  # assume this instance wasn't parsed and Atom indices are incorrect
         #     self._atoms.reindex()
 
-        # set proper residues attributes
+        # Set proper residues attributes
         self._residue_indices = list(range(len(residues)))
-        if not isinstance(residues, Residues):  # must create the residues object
+        if not isinstance(residues, Residues):  # Must create the residues object
             residues = Residues(residues)
 
-        if residues.are_dependents():  # copy Residues object to set new attributes on each member Residue
+        if residues.are_dependents():  # Copy Residues object to set new attributes on each member Residue
+            # This may be an additional copy with the Residues(residues) construction above
             residues = copy(residues)
-            residues.reset_state()  # clear runtime attributes
+            residues.reset_state()  # Clear runtime attributes
         self._residues = residues
 
-        self._populate_coords(from_source='residues', **kwargs)  # coords may be passed
-        # ensure that coordinates lengths match
+        self._populate_coords(from_source='residues', **kwargs)  # coords may be passed in kwargs
+        # Ensure that coordinates lengths match
         self._validate_coords()
-        # update Atom instance attributes to ensure they are dependants of this instance
+        # Update Atom instance attributes to ensure they are dependants of this instance
         self._atoms.set_attributes(_parent=self)
-        # update Residue instance attributes to ensure they are dependants of this instance
-        # perform after populate_coords due to possible coords setting to ensure that 'residues' .coords not overwritten
+        # Update Residue instance attributes to ensure they are dependants of this instance
+        # Perform after _populate_coords as .coords may be set and then 'residues' .coords are overwritten
         self._residues.set_attributes(_parent=self)
-        self._residues.find_prev_and_next()
-        self._residues.reindex()  # reindex_atoms()
+        self._residues.find_prev_and_next()  # Duplicate call with "residues = copy(residues)"
+        self._residues.reindex()  # Duplicates call .set_index with "residues = copy(residues)"
         self._set_coords_indexed()
 
     # def store_coordinate_index_residue_map(self):
