@@ -1356,12 +1356,17 @@ def sum_per_residue_metrics(per_residue_df: pd.DataFrame) -> pd.DataFrame:
     Returns:
         A new DataFrame with the summation of all residue_numbers in the per_residue columns
     """
+    per_residue_df_columns = per_residue_df.columns
+    present_per_residue_energies = \
+        [state for state in per_residue_energy_states if state in per_residue_df_columns]
     summed_energies = \
         {energy_state: per_residue_df.loc[:, idx_slice[:, energy_state]].sum(axis=1)
-         for energy_state in per_residue_energy_states}
+         for energy_state in present_per_residue_energies}
+    present_per_residue_classification = \
+        [classifier for classifier in residue_classificiation if classifier in residue_classificiation]
     summed_residue_classification = \
         {residue_class: per_residue_df.loc[:, idx_slice[:, residue_class]].sum(axis=1)
-         for residue_class in residue_classificiation}
+         for residue_class in present_per_residue_classification}
 
     summed_scores_df = pd.DataFrame({**summed_energies, **summed_residue_classification})
 
