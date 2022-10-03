@@ -312,11 +312,7 @@ def find_docked_poses(sym_entry, ijk_frag_db, pdb1, pdb2, optimal_tx_params, com
         # oligomers_dir = rot_subdir_out_path.split(os.sep)[-3]
         degen_str = rot_subdir_out_path.split(os.sep)[-2]
         rot_str = rot_subdir_out_path.split(os.sep)[-1]
-        # degen_str = 'DEGEN_{}'.format('_'.join(map(str, degen_counts[idx])))
-        # rot_str = 'ROT_{}'.format('_'.join(map(str, rot_counts[idx])))
         tx_str = f'TX_{tx_idx}'  # translation idx
-        # degen_subdir_out_path = os.path.join(outdir, degen_str)
-        # rot_subdir_out_path = os.path.join(degen_subdir_out_path, rot_str)
         tx_dir = os.path.join(rot_subdir_out_path, tx_str.lower())  # .lower() keeps original publication format
         os.makedirs(tx_dir, exist_ok=True)
         sampling_id = f'{degen_str}-{rot_str}-{tx_str}'
@@ -2351,26 +2347,29 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
     number_of_transforms = full_rotation1.shape[0]
     pose_length = pose.number_of_residues
 
+    def create_pose_id(_idx: int) -> str:
+        """Create a PoseID from the sampling conditions
+
+        Args:
+            _idx: The current sampling index
+        Returns:
+            The PoseID with format building_blocks-degeneracy-rotation-transform-perturb if perturbation used
+                Ex: '****_#-****_#-d_#_#-r_#_#-t_#-p_#' OR '****_#-****_#-d_#_#-r_#_#-t_#' (no perturbation)
+        """
+        transform_idx = _idx // number_of_perturbations
+        _pose_id = f'd_{"_".join(map(str, degen_counts[transform_idx]))}-' \
+                   f'r_{"_".join(map(str, rot_counts[transform_idx]))}' \
+                   f't_{tx_counts[transform_idx]}'  # translation idx
+        if number_of_perturbations > 1:
+            # perturb_idx = idx % number_of_perturbations
+            _pose_id = f'{_pose_id}-p_{_idx%number_of_perturbations + 1}'
+
+        return f'{building_blocks}-{_pose_id}'
+
     # Check output setting. Should interface design, metrics be performed?
     if dock_only:  # Only get pose outputs, no sequences or metrics
         for idx in range(number_of_transforms):
             update_pose_coords(idx)
-
-            # Todo replace with PoseDirectory? Path object?
-            #  Use out_dir in output_pose()? or a single file with the pose_id name?
-            transform_idx = idx // number_of_perturbations
-            perturb_idx = idx % number_of_perturbations
-            degen_str = 'DEGEN_{}'.format('_'.join(map(str, degen_counts[transform_idx])))
-            rot_str = 'ROT_{}'.format('_'.join(map(str, rot_counts[transform_idx])))
-            tx_str = f'TX_{tx_counts[transform_idx]}'  # translation idx
-            if number_of_perturbations > 1:
-                pt_str = f'PT_{perturb_idx + 1}'
-                out_dir = os.path.join(out_dir, degen_str, rot_str, tx_str.lower(), pt_str)
-                sampling_id = f'{degen_str}-{rot_str}-{tx_str}-{pt_str}'
-            else:
-                out_dir = os.path.join(out_dir, degen_str, rot_str, tx_str.lower())
-                sampling_id = f'{degen_str}-{rot_str}-{tx_str}'
-            pose_id = f'{building_blocks}-{sampling_id}'
 
             if job.write_fragments:
                 if number_of_perturbations > 1:
@@ -2380,8 +2379,9 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
                     add_fragments_to_pose(all_passing_ghost_indices[idx],
                                           all_passing_surf_indices[idx],
                                           all_passing_z_scores[idx])
-
-            output_pose(out_dir, sampling_id)  # , sequence_design=design_output)
+            pose_id = create_pose_id(idx)
+            # Todo replace with PoseDirectory? Path object?
+            output_pose(os.path.join(root_out_dir, pose_id), pose_id)
 
         log.info(f'Total {building_blocks} dock trajectory took {time.time() - frag_dock_time_start:.2f}s')
         return  # End of docking run
@@ -3043,22 +3043,7 @@ def nanohedra_dock(sym_entry: SymEntry, master_output: AnyStr, model1: Structure
     #     full_ext_tx_sum = full_ext_tx2 - full_ext_tx1
 
     for idx in range(number_of_transforms):
-        # Todo replace with PoseDirectory? Path object?
-        #  Use out_dir in output_pose()? or a single file with the pose_id name?
-        transform_idx = idx // number_of_perturbations
-        perturb_idx = idx % number_of_perturbations
-        degen_str = 'DEGEN_{}'.format('_'.join(map(str, degen_counts[transform_idx])))
-        rot_str = 'ROT_{}'.format('_'.join(map(str, rot_counts[transform_idx])))
-        tx_str = f'TX_{tx_counts[transform_idx]}'  # translation idx
-        if number_of_perturbations > 1:
-            pt_str = f'PT_{perturb_idx + 1}'
-            out_dir = os.path.join(out_dir, degen_str, rot_str, tx_str.lower(), pt_str)
-            sampling_id = f'{degen_str}-{rot_str}-{tx_str}-{pt_str}'
-        else:
-            out_dir = os.path.join(out_dir, degen_str, rot_str, tx_str.lower())
-            sampling_id = f'{degen_str}-{rot_str}-{tx_str}'
-        pose_id = f'{building_blocks}-{sampling_id}'
-
+        pose_id = create_pose_id(idx)
         pose_ids.append(pose_id)
         # pose_transformations[pose_id] = dict(transformation1=dict(rotation=full_rotation1[idx],
         #                                                           translation=full_int_tx1[idx],
