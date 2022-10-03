@@ -2315,6 +2315,7 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
         full_ext_tx1 = full_ext_tx1[interface_is_viable]
         full_ext_tx2 = full_ext_tx2[interface_is_viable]
         # full_ext_tx_sum = full_ext_tx2 - full_ext_tx1
+    number_viable_pose_interfaces = len(interface_is_viable)
 
     # Generate the Pose for output handling
     entity_names = [entity.name for model in models for entity in model.entities]
@@ -2332,26 +2333,71 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
                               pose_format=True,
                               ignore_clashes=True, rename_chains=True)
 
-    passing_symmetric_clashes = np.ones(len(interface_is_viable), dtype=bool)
-    for idx, overlap_ghosts in enumerate(all_passing_ghost_indices):
-        # log.info(f'Available memory: {psutil.virtual_memory().available}')
-        # Load the z-scores and fragments
-        # overlap_ghosts = all_passing_ghost_indices[idx]
-        overlap_surf = all_passing_surf_indices[idx]
-        sorted_z_scores = all_passing_z_scores[idx]
-        # Find the pose
-        exp_des_clash_time_start = time.time()
-        update_pose_coords(idx)
-        if pose.symmetric_assembly_is_clash():
-            log.info(f'\tBackbone Clash when pose is expanded (took '
-                     f'{time.time() - exp_des_clash_time_start:8f}s)')
-            passing_symmetric_clashes[idx] = 0
-        else:
-            log.info(f'\tNO Backbone Clash when pose is expanded (took '
-                     f'{time.time() - exp_des_clash_time_start:8f}s)')
+    # Calculate metrics on input Pose before any manipulation
+    pose_length = pose.number_of_residues
+    residue_indices = list(range(1, pose_length + 1))
+    # entity_energies = tuple(0. for ent in pose.entities)
+    pose_source_residue_info = \
+        {residue.number: {'complex': 0.,
+                          # 'bound': 0.,  # copy(entity_energies),
+                          'unbound': 0.,  # copy(entity_energies),
+                          # 'solv_complex': 0., 'solv_bound': 0.,  # copy(entity_energies),
+                          # 'solv_unbound': 0.,  # copy(entity_energies),
+                          # 'fsp': 0., 'cst': 0.,
+                          'type': protein_letters_3to1.get(residue.type),
+                          # 'hbond': 0
+                          }
+         for entity in pose.entities for residue in entity.residues}
+    # This needs to be calculated before iterating over each pose
+    residue_info = {pose_source: pose_source_residue_info}
+    # residue_info[pose_source] = pose_source_residue_info
 
-    # Update the transformation array and counts with the passing_symmetric_clashes indices
-    passing_symmetric_clashes = np.flatnonzero(passing_symmetric_clashes)
+    source_contact_order, source_errat = [], []
+    for idx, entity in enumerate(pose.entities):
+        # Contact order is the same for every design in the Pose and not dependent on pose
+        source_contact_order.append(entity.contact_order)
+        # Replace 'errat_deviation' measurement with uncomplexed entities
+        # oligomer_errat_accuracy, oligomeric_errat = entity_oligomer.errat(out_path=self.data)
+        # Todo translate the source pose
+        # Todo when Entity.oligomer works
+        #  _, oligomeric_errat = entity.oligomer.errat(out_path=self.data)
+        entity_oligomer = Model.from_chains(entity.chains, log=log, entities=False)
+        _, oligomeric_errat = entity_oligomer.errat(out_path=os.devnull)
+        source_errat.append(oligomeric_errat[:entity.number_of_residues])
+
+    pose_source_contact_order_s = pd.Series(np.concatenate(source_contact_order), index=residue_indices)
+    pose_source_errat_s = pd.Series(np.concatenate(source_errat), index=residue_indices)
+
+    # per_residue_data = {}  # pose_source: pose.get_per_residue_interface_metrics()}
+    per_residue_data = {pose_source: {'contact_order': pose_source_contact_order_s,
+                                      'errat_deviation': pose_source_errat_s}}
+    # per_residue_data[pose_source] = {'contact_order': pose_source_contact_order_s,
+    #                                  'errat_deviation': pose_source_errat_s}
+
+    def remove_symmetric_clashes(viable_pose_length: int) -> np.ndarray:
+        # Assume the pose will fail the clash test (0), otherwise, (1) for passing
+        number_viable_pose_interfaces_range = range(viable_pose_length)
+        _passing_symmetric_clashes = [0 for _ in number_viable_pose_interfaces_range]
+        # _passing_symmetric_clashes = np.ones(number_viable_pose_interfaces, dtype=bool)
+        for idx in number_viable_pose_interfaces_range:
+            # This was checking for memory leak in pose operations
+            # log.info(f'Available memory: {psutil.virtual_memory().available}')
+            # exp_des_clash_time_start = time.time()
+            # Find the pose
+            update_pose_coords(idx)
+            if not pose.symmetric_assembly_is_clash():
+                _passing_symmetric_clashes[idx] = 1
+            #     log.info(f'\tNO Backbone Clash when pose is expanded (took '
+            #              f'{time.time() - exp_des_clash_time_start:8f}s)')
+            # else:
+            #     log.info(f'\tBackbone Clash when pose is expanded (took '
+            #              f'{time.time() - exp_des_clash_time_start:8f}s)')
+            #     _passing_symmetric_clashes[idx] = 0
+
+        # Update the transformation array and counts with the passing_symmetric_clashes indices
+        return np.flatnonzero(_passing_symmetric_clashes)
+
+    passing_symmetric_clashes = remove_symmetric_clashes(number_viable_pose_interfaces)
     number_passing_symmetric_clashes = passing_symmetric_clashes.shape[0]
     log.info(f'After symmetric clash testing, found {number_passing_symmetric_clashes} viable poses')
 
@@ -2409,27 +2455,32 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
         # set_mat2 = transformation2['rotation2']
         full_ext_tx2 = transformation2['translation2']
 
-        post_perturb_number_transformations = full_rotation1.shape[0]
-        number_of_perturbations = int(post_perturb_number_transformations/pre_perturb_number_transformations)
+        # Check for symmetric clashes again
+        length_all_perturbations = full_rotation1.shape[0]
+        passing_symmetric_clashes = remove_symmetric_clashes(length_all_perturbations)
+        # Remove non-viable transforms due to clashing
+        # Todo
+        #  remove_non_viable_indices(passing_symmetric_clashes.tolist())
+        degen_counts, rot_counts, tx_counts = zip(*[(degen_counts[idx], rot_counts[idx], tx_counts[idx])
+                                                    for idx in passing_symmetric_clashes.tolist()])
+        all_passing_ghost_indices = [all_passing_ghost_indices[idx] for idx in passing_symmetric_clashes.tolist()]
+        all_passing_surf_indices = [all_passing_surf_indices[idx] for idx in passing_symmetric_clashes.tolist()]
+        all_passing_z_scores = [all_passing_z_scores[idx] for idx in passing_symmetric_clashes.tolist()]
 
-        # V1 below was working with commit 808eedcf
-        # # This will utilize a single input from each pose and create a sequence design batch over each transformation.
-        # for idx in range(full_rotation1.shape[0]):
-        #     update_pose_coords(idx)
-        #     batch_time_start = time.time()
-        #     sequences, scores, probabilities = perturb_transformation(idx)  # Todo , sequence_design=design_output)
-        #     print(sequences[:5])
-        #     print(scores[:5])
-        #     print(np.format_float_positional(np.float32(probabilities[0, 0, 0]), unique=False, precision=4))
-        #     print(probabilities[:5])
-        #     log.info(f'Batch design took {time.time() - batch_time_start:8f}s')
-        #     # Todo
-        #     #  coords = perturb_transformation(idx)  # Todo , sequence_design=design_output)
-    else:
-        number_of_perturbations = 1
+        full_rotation1 = full_rotation1[passing_symmetric_clashes]
+        full_rotation2 = full_rotation2[passing_symmetric_clashes]
+        if sym_entry.is_internal_tx1:
+            full_int_tx1 = full_int_tx1[passing_symmetric_clashes]
+        if sym_entry.is_internal_tx2:
+            full_int_tx2 = full_int_tx2[passing_symmetric_clashes]
+        if sym_entry.unit_cell:
+            # full_optimal_ext_dof_shifts = full_optimal_ext_dof_shifts[passing_symmetric_clashes]
+            full_uc_dimensions = full_uc_dimensions[passing_symmetric_clashes]
+            full_ext_tx1 = full_ext_tx1[passing_symmetric_clashes]
+            full_ext_tx2 = full_ext_tx2[passing_symmetric_clashes]
+            # full_ext_tx_sum = full_ext_tx2 - full_ext_tx1
 
     number_of_transforms = full_rotation1.shape[0]
-    pose_length = pose.number_of_residues
 
     def create_pose_id(_idx: int) -> str:
         """Create a PoseID from the sampling conditions
@@ -3363,43 +3414,6 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
 
     # Initialize the main scoring DataFrame
     scores_df = pd.DataFrame(pose_transformations).T
-
-    # Calculate metrics on input Pose
-    residue_indices = list(range(1, pose_length + 1))
-    # entity_energies = tuple(0. for ent in pose.entities)
-    pose_source_residue_info = \
-        {residue.number: {'complex': 0., 'bound': 0.,  # copy(entity_energies),
-                          'unbound': 0.,  # copy(entity_energies),
-                          'solv_complex': 0., 'solv_bound': 0.,  # copy(entity_energies),
-                          'solv_unbound': 0.,  # copy(entity_energies),
-                          # 'fsp': 0., 'cst': 0.,
-                          'type': protein_letters_3to1.get(residue.type), 'hbond': 0}
-         for entity in pose.entities for residue in entity.residues}
-    # This needs to be calculated before iterating over each pose
-    # residue_info = {pose_source: pose_source_residue_info}
-    residue_info[pose_source] = pose_source_residue_info
-
-    source_contact_order, source_errat = [], []
-    for idx, entity in enumerate(pose.entities):
-        # Contact order is the same for every design in the Pose and not dependent on pose
-        source_contact_order.append(entity.contact_order)
-        # Replace 'errat_deviation' measurement with uncomplexed entities
-        # oligomer_errat_accuracy, oligomeric_errat = entity_oligomer.errat(out_path=self.data)
-        # Todo translate the source pose
-        # Todo when Entity.oligomer works
-        #  _, oligomeric_errat = entity.oligomer.errat(out_path=self.data)
-        entity_oligomer = Model.from_chains(entity.chains, log=log, entities=False)
-        _, oligomeric_errat = entity_oligomer.errat(out_path=os.devnull)
-        source_errat.append(oligomeric_errat[:entity.number_of_residues])
-
-    pose_source_contact_order_s = pd.Series(np.concatenate(source_contact_order), index=residue_indices)
-    pose_source_errat_s = pd.Series(np.concatenate(source_errat), index=residue_indices)
-
-    # per_residue_data = {}  # pose_source: pose.get_per_residue_interface_metrics()}
-    # per_residue_data = {pose_source: {'contact_order': pose_source_contact_order_s,
-    #                                   'errat_deviation': pose_source_errat_s}}
-    per_residue_data[pose_source] = {'contact_order': pose_source_contact_order_s,
-                                     'errat_deviation': pose_source_errat_s}
 
     # Collect sequence metrics on every designed Pose
     if design_output:
