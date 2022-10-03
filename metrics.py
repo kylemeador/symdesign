@@ -32,6 +32,9 @@ energy_metric_names = ['interface_energy_complex', 'interface_energy_bound', 'in
 sasa_metric_names = ['sasa_hydrophobic_bound', 'sasa_polar_bound', 'sasa_hydrophobic_complex',
                      'sasa_polar_complex', 'sasa_relative_complex', 'sasa_relative_bound',
                      'bsa_hydrophobic', 'bsa_polar', 'bsa_total', 'sasa_total_bound', 'sasa_total_complex']
+# Based on bsa_total values for highest deviating surface residue in multiple measurements \
+# Ex: 0.45, 0.22, 0.04, 0.19, 0.01, 0.2, 0.04, 0.19, 0.01, 0.19, 0.01, 0.21, 0.06, 0.17, 0.01, 0.21, -0.04, 0.22
+bsa_tolerance = 0.25
 energy_metrics_rename_mapping = dict(zip(per_residue_energy_states, energy_metric_names))
 errat_1_sigma, errat_2_sigma, errat_3_sigma = 5.76, 11.52, 17.28  # These are approximate magnitude of deviation
 collapse_significance_threshold = 0.43
@@ -1320,7 +1323,7 @@ def calculate_residue_surface_area(per_residue_df: pd.DataFrame) -> pd.DataFrame
                      + complex_polar.rename(columns={'sasa_polar_complex': 'sasa_total_complex'}))
 
     # Find the relative sasa of the complex and the unbound fraction
-    buried_interface_residues = (bsa_total > 0).to_numpy()
+    buried_interface_residues = (bsa_total > bsa_tolerance).to_numpy()
     # ^ support, rim or core
     # surface_or_rim = per_residue_df.loc[:, idx_slice[index_residues, 'sasa_relative_complex']] > 0.25
     core_or_interior = per_residue_df.loc[:, idx_slice[:, 'sasa_relative_complex']] < 0.25
