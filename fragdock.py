@@ -3677,6 +3677,7 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
                       + ['hbond', 'evolution', 'fragment', 'type']
                       # + residue_classificiation
          ]].columns], errors='ignore', axis=1)
+    per_residue_df.sort_index(level=0, axis=1, inplace=True, sort_remaining=False)  # ascending=False
 
     print('per_residue_df', per_residue_df)
 
