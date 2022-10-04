@@ -3550,7 +3550,8 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
         #  pose_alignment = MultipleSequenceAlignment.from_array(pose_sequences)
         per_residue_sequence_df = pd.DataFrame(sequences, index=pose_ids,
                                                columns=pd.MultiIndex.from_product([residue_numbers, ['type']]))
-        per_residue_sequence_df.append(pd.DataFrame(list(pose.sequence), index=pose_source))
+        per_residue_sequence_df.loc[pose_source, :] = list(pose.sequence)
+        # per_residue_sequence_df.append(pd.DataFrame(list(pose.sequence), columns=[pose_source]).T)
         pose_sequences = dict(zip(pose_ids, [''.join(sequence) for sequence in sequences.tolist()]))
         pose_alignment = MultipleSequenceAlignment.from_dictionary(pose_sequences)
         # Perform a frequency extraction for each background profile
@@ -3640,33 +3641,38 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
     # Make buried surface area (bsa) columns, and residue classification
     per_residue_df = calculate_residue_surface_area(per_residue_df)  # .loc[:, idx_slice[index_residues, :]])
 
-    scores_df['interface_area_polar'] = per_residue_df.loc[:, idx_slice[:, 'bsa_polar']].sum(axis=1)
-    scores_df['interface_area_hydrophobic'] = per_residue_df.loc[:, idx_slice[:, 'bsa_hydrophobic']].sum(axis=1)
+    # Calculate new metrics from combinations of other metrics
+    # Add design residue information to scores_df such as how many core, rim, and support residues were measured
+    summed_scores_df = sum_per_residue_metrics(per_residue_df)  # .loc[:, idx_slice[index_residues, :]])
+    scores_df = scores_df.join(summed_scores_df)
+
+    # scores_df['interface_area_polar'] = per_residue_df.loc[:, idx_slice[:, 'bsa_polar']].sum(axis=1)
+    # scores_df['interface_area_hydrophobic'] = per_residue_df.loc[:, idx_slice[:, 'bsa_hydrophobic']].sum(axis=1)
     # scores_df['interface_area_total'] = \
     #     residue_df.loc[not_pose_source_indices, idx_slice[index_residues, 'bsa_total']].sum(axis=1)
-    scores_df['interface_area_total'] = scores_df['interface_area_polar'] + scores_df['interface_area_hydrophobic']
+    scores_df['interface_area_total'] = bsa_assembly_df = \
+        scores_df['interface_area_polar'] + scores_df['interface_area_hydrophobic']
 
     # Find the proportion of the residue surface area that is solvent accessible versus buried in the interface
-    sasa_assembly_df = per_residue_df.loc[:, idx_slice[:, 'sasa_total_complex']].droplevel(-1, axis=1)
-    bsa_assembly_df = per_residue_df.loc[:, idx_slice[:, 'bsa_total']].droplevel(-1, axis=1)
-    total_surface_area_df = sasa_assembly_df + bsa_assembly_df
+    # sasa_assembly_df = per_residue_df.loc[:, idx_slice[:, 'sasa_total_complex']].droplevel(-1, axis=1)
+    # bsa_assembly_df = per_residue_df.loc[:, idx_slice[:, 'bsa_total']].droplevel(-1, axis=1)
+    # bsa_assembly_df = scores_df.loc['interface_area_total']
+    # total_surface_area_df = sasa_assembly_df + bsa_assembly_df
     # ratio_df = bsa_assembly_df / total_surface_area_df
-    scores_df['interface_area_to_residue_surface_ratio'] = (bsa_assembly_df / total_surface_area_df).mean(axis=1)
+    # scores_df['interface_area_to_residue_surface_ratio'] = (bsa_assembly_df / total_surface_area_df).mean(axis=1)
+    scores_df['interface_area_to_residue_surface_ratio'] = \
+        (bsa_assembly_df / (bsa_assembly_df+scores_df['sasa_total_complex']))  # / scores_df['total_interface_residues']
 
+    # Make scores_df errat_deviation that takes into account the pose_source sequence errat_deviation
+    # This overwrites the sum_per_residue_metrics() value
     # Include in errat_deviation if errat score is < 2 std devs and isn't 0 to begin with
     source_errat_inclusion_boolean = np.logical_and(pose_source_errat_s < errat_2_sigma, pose_source_errat_s != 0.)
     errat_df = per_residue_df.loc[:, idx_slice[:, 'errat_deviation']].droplevel(-1, axis=1)
     # find where designs deviate above wild-type errat scores
-    errat_sig_df = (errat_df.sub(pose_source_errat_s, axis=1)) > errat_1_sigma  # axis=1 Series is column oriented
+    errat_sig_df = errat_df.sub(pose_source_errat_s, axis=1) > errat_1_sigma  # axis=1 Series is column oriented
     # then select only those residues which are expressly important by the inclusion boolean
     scores_df['errat_deviation'] = (errat_sig_df.loc[:, source_errat_inclusion_boolean] * 1).sum(axis=1)
 
-    # Calculate new metrics from combinations of other metrics
-    # Add design residue information to scores_df such as how many core, rim, and support residues were measured
-    summed_scores_df = sum_per_residue_metrics(per_residue_df)  # .loc[:, idx_slice[index_residues, :]])
-
-    print('summed_scores_df', summed_scores_df)
-    scores_df = scores_df.join(summed_scores_df)
     # Drop unused particular per_residue_df columns that have been summed
     drop_columns = per_residue_energy_states + energy_metric_names + per_residue_sasa_states + collapse_metrics \
                    + residue_classification \
