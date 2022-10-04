@@ -24,7 +24,7 @@ logger = start_log(name=__name__)
 _min, _max = 'min', 'max'
 rank, normalize, boolean = 'rank', 'normalize', 'boolean'
 metric_weight_functions = [rank, normalize]
-residue_classificiation = ['core', 'rim', 'support']  # 'hot_spot'
+residue_classification = ['core', 'rim', 'support']  # 'hot_spot'
 per_residue_energy_states = ['complex', 'bound', 'unbound', 'solv_complex', 'solv_bound', 'solv_unbound']
 energy_metric_names = ['interface_energy_complex', 'interface_energy_bound', 'interface_energy_unbound',
                        'interface_solvation_energy_complex', 'interface_solvation_energy_bound',
@@ -1368,7 +1368,7 @@ def sum_per_residue_metrics(per_residue_df: pd.DataFrame) -> pd.DataFrame:
     #     {energy_state: per_residue_df.loc[:, idx_slice[:, energy_state]].sum(axis=1)
     #      for energy_state in present_per_residue_energies}
     # present_per_residue_classification = \
-    #     [classifier for classifier in residue_classificiation if classifier in residue_classificiation]
+    #     [classifier for classifier in residue_classification if classifier in residue_classification]
     # summed_residue_classification = \
     #     {residue_class: per_residue_df.loc[:, idx_slice[:, residue_class]].sum(axis=1)
     #      for residue_class in present_per_residue_classification}

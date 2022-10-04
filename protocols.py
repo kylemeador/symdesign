@@ -32,7 +32,7 @@ from metrics import read_scores, interface_composition_similarity, unnecessary, 
     filter_df_for_index_by_value, multiple_sequence_alignment_dependent_metrics, profile_dependent_metrics, \
     process_residue_info, collapse_significance_threshold, calculate_collapse_metrics, errat_1_sigma, errat_2_sigma, \
     calculate_residue_surface_area, position_specific_divergence, calculate_sequence_observations_and_divergence, \
-    incorporate_mutation_info, residue_classificiation
+    incorporate_mutation_info, residue_classification
 from resources.job import JobResources, job_resources_factory
 from structure.base import Structure  # , Structures
 from structure.model import Pose, MultiModel, Models, Model, Entity
@@ -2776,7 +2776,7 @@ class PoseDirectory:
         # interface_residues = set(residue_df.columns.levels[0].unique()).difference(interior_residue_numbers)
 
         # Add design residue information to scores_df such as how many core, rim, and support residues were measured
-        for residue_class in residue_classificiation:
+        for residue_class in residue_classification:
             scores_df[residue_class] = residue_df.loc[:, idx_slice[:, residue_class]].sum(axis=1)
 
         # Calculate new metrics from combinations of other metrics
@@ -4015,7 +4015,7 @@ def interface_design_analysis(pose: Pose, design_poses: Iterable[Pose] = None, s
     # interface_residue_numbers = set(residue_df.columns.levels[0].unique()).difference(interior_residue_numbers)
 
     # Add design residue information to scores_df such as how many core, rim, and support residues were measured
-    for residue_class in residue_classificiation:
+    for residue_class in residue_classification:
         scores_df[residue_class] = residue_df.loc[:, idx_slice[:, residue_class]].sum(axis=1)
 
     # Calculate new metrics from combinations of other metrics
