@@ -37,8 +37,11 @@ zero_offset = 1
 sequence_type_literal = Literal['reference', 'structure']
 sequence_types: tuple[sequence_type_literal, ...] = get_args(sequence_type_literal)
 aa_counts = dict(zip(protein_letters_alph1, repeat(0)))
+aa_nan_counts = dict(zip(protein_letters_alph1, repeat(np.nan)))
+"""{protein_letters_alph1, repeat(numpy.nan))}"""  # , 'stats'=(0, 1))
+# aa_nan_counts.update({'stats': (0, 1)})
 aa_weighted_counts: info.aa_weighted_counts_type = dict(zip(protein_letters_alph1, repeat(0)))
-"""{protein_letters_alph1, repeat(0)), stats=(0, 1))"""
+"""{protein_letters_alph1, repeat(0), 'stats'=(0, 1)}"""
 aa_weighted_counts.update({'stats': (0, 1)})
 numerical_profile = Type[np.ndarray]
 """The shape should be (number of residues, number of characters in the alphabet"""
@@ -1345,11 +1348,10 @@ class SequenceProfile(ABC):
                 # For Rosetta, the packer palette is subtractive so the use of an overlapping evolution and
                 # null fragment would result in nothing allowed during design...
                 for residue_index in no_design:
-                    # TODO, aa_weighted_counts)
                     self.fragment_profile[residue_index] = self.evolutionary_profile.get(residue_index + zero_offset)
             else:  # Add a blank entry
                 for residue_index in no_design:
-                    self.fragment_profile[residue_index] = deepcopy(aa_weighted_counts)
+                    self.fragment_profile[residue_index] = copy(aa_nan_counts)
         else:  # Remove missing residues from dictionary
             for residue_index in no_design:
                 self.fragment_profile.pop(residue_index)

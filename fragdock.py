@@ -3506,21 +3506,25 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
             if pose.evolutionary_profile:
                 per_residue_evolutionary_profile_scores = sequence_nllloss(torch_numeric,
                                                                            torch_log_evolutionary_profile)
-                _per_residue_evolutionary_profile_scores = per_residue_evolutionary_profile_scores.tolist()
+                # per_residue_evolutionary_profile_scores = per_residue_evolutionary_profile_scores.tolist()
             else:
-                _per_residue_evolutionary_profile_scores = nan_blank_data
+                per_residue_evolutionary_profile_scores = nan_blank_data
 
             if pose.fragment_profile:
                 # RuntimeWarning: divide by zero encountered in log
+                # print('fragment_profile_array', fragment_profile_array[20:30])
+                # np.log causes -inf at 0, thus we need to correct these to a very large number
+                corrected_frag_array = np.nan_to_num(np.log(fragment_profile_array), copy=False, nan=np.nan)
+                # print('corrected_frag_array', corrected_frag_array[20:30])
                 per_residue_fragment_profile_scores = sequence_nllloss(torch_numeric,
-                                                                       torch.from_numpy(np.log(fragment_profile_array)))
-                _per_residue_fragment_profile_scores = per_residue_fragment_profile_scores.tolist()
+                                                                       torch.from_numpy(corrected_frag_array))
+                # _per_residue_fragment_profile_scores = per_residue_fragment_profile_scores.tolist()
 
                 # Find the non-zero sites in the profile
                 # interface_indexer = [residue.index for residue in pose.interface_residues]
                 # interface_observed_from_fragment_profile = fragment_profile_frequencies[idx][interface_indexer]
             else:
-                _per_residue_fragment_profile_scores = nan_blank_data
+                per_residue_fragment_profile_scores = nan_blank_data
 
             # all_scores[pose_id] = per_residue_complex_scores[idx]
             # _per_residue_complex_scores = per_residue_complex_scores[idx].tolist()
@@ -3542,8 +3546,8 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
             per_residue_data[pose_id].update({'complex': per_residue_complex_scores[idx],
                                               # 'bound': 0.,  # copy(entity_energies),
                                               'unbound': per_residue_unbound_scores[idx],
-                                              'evolution': _per_residue_evolutionary_profile_scores,
-                                              'fragment': _per_residue_fragment_profile_scores,
+                                              'evolution': per_residue_evolutionary_profile_scores,
+                                              'fragment': per_residue_fragment_profile_scores,
                                               # copy(entity_energies),
                                               # 'solv_complex': 0., 'solv_bound': 0.,
                                               # copy(entity_energies),
