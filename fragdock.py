@@ -817,6 +817,7 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
         model2 = Model.from_file(model2)  # , pose_format=True)
 
     # Get model with entity oligomers via make_oligomer
+    entity_count = count(1)
     models = [model1, model2]
     for idx, (model, symmetry) in enumerate(zip(models, sym_entry.groups)):
         for entity in model.entities:
@@ -827,7 +828,9 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
             else:
                 entity.make_oligomer(symmetry=symmetry)
                 # entity.write_oligomer(out_path=os.path.join(root_out_dir, f'{entity.name}_make_oligomer.pdb'))
-
+            if next(entity_count) > 2:
+                # Todo remove able to take more than 2 Entity
+                raise NotImplementedError(f"Can't dock 2 Models with > 2 total Entity instances")
         # Make, then save a new model based on the symmetric version of each Entity in the Model
         models[idx] = Model.from_chains([chain for entity in model.entities for chain in entity.chains],
                                         name=model.name, pose_format=True)
@@ -2012,46 +2015,6 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
 
         log.info(f'\tSUCCESSFUL DOCKED POSE: {out_path}')
 
-    def add_fragments_to_pose(overlap_ghosts: list[int] = None, overlap_surf: list[int] = None,
-                              sorted_z_scores: np.ndarray = None):
-        """Add observed fragments to the Pose or generate new observations given the Pose state
-
-        If no arguments are passed, the fragment observations will be generated new
-        """
-        # First, force identify interface of the current pose
-        pose.find_and_split_interface(distance=cb_distance)
-
-        # Next, set the interface fragment info for gathering of interface metrics
-        if overlap_ghosts is None or overlap_surf is None or sorted_z_scores is None:
-            # Remove old fragments
-            pose.fragment_queries = {}
-            # Query fragments
-            pose.generate_interface_fragments(write_fragments=job.write_fragments)
-        else:  # Process with provided data
-            # Return the indices sorted by z_value in ascending order, truncated at the number of passing
-            sorted_match_scores = match_score_from_z_value(sorted_z_scores)
-
-            # These are indexed outside this function
-            # overlap_ghosts = passing_ghost_indices[sorted_fragment_indices]
-            # overlap_surf = passing_surf_indices[sorted_fragment_indices]
-
-            sorted_int_ghostfrags: list[GhostFragment] = [complete_ghost_frags1[idx] for idx in overlap_ghosts]
-            sorted_int_surffrags2: list[Residue] = [complete_surf_frags2[idx] for idx in overlap_surf]
-            # For all matched interface fragments
-            # Keys are (chain_id, res_num) for every residue that is covered by at least 1 fragment
-            # Values are lists containing 1 / (1 + z^2) values for every (chain_id, res_num) residue fragment match
-            # chid_resnum_scores_dict_model1, chid_resnum_scores_dict_model2 = {}, {}
-            # Number of unique interface mono fragments matched
-            # unique_frags_info1, unique_frags_info2 = set(), set()
-            # res_pair_freq_info_list = []
-            fragment_pairs = list(zip(sorted_int_ghostfrags, sorted_int_surffrags2, sorted_match_scores))
-            frag_match_info = get_matching_fragment_pairs_info(fragment_pairs)
-            # pose.fragment_queries = {(model1, model2): frag_match_info}
-            fragment_metrics = job.fragment_db.calculate_match_metrics(frag_match_info)
-            # These two pose attributes must be set
-            pose.fragment_queries = {(model1, model2): frag_match_info}
-            pose.fragment_metrics = {(model1, model2): fragment_metrics}
-
     # Use below instead of this until can TODO vectorize asu_interface_residue_processing
     # asu_interface_residues = \
     #     np.array([oligomer1_backbone_cb_tree.query_radius(inverse_transformed_model2_tiled_cb_coords[idx],
@@ -2480,6 +2443,50 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
     # Calculate metrics on input Pose before any manipulation
     pose_length = pose.number_of_residues
     residue_numbers = list(range(1, pose_length + 1))
+    entity_tuple = tuple(pose.entities)
+    # model_tuple = tuple(models)
+
+    def add_fragments_to_pose(overlap_ghosts: list[int] = None, overlap_surf: list[int] = None,
+                              sorted_z_scores: np.ndarray = None):
+        """Add observed fragments to the Pose or generate new observations given the Pose state
+
+        If no arguments are passed, the fragment observations will be generated new
+        """
+        # First, force identify interface of the current pose
+        pose.find_and_split_interface(distance=cb_distance)
+
+        # Next, set the interface fragment info for gathering of interface metrics
+        if overlap_ghosts is None or overlap_surf is None or sorted_z_scores is None:
+            # Remove old fragments
+            pose.fragment_queries = {}
+            # Query fragments
+            pose.generate_interface_fragments(write_fragments=job.write_fragments)
+        else:  # Process with provided data
+            # Return the indices sorted by z_value in ascending order, truncated at the number of passing
+            sorted_match_scores = match_score_from_z_value(sorted_z_scores)
+
+            # These are indexed outside this function
+            # overlap_ghosts = passing_ghost_indices[sorted_fragment_indices]
+            # overlap_surf = passing_surf_indices[sorted_fragment_indices]
+
+            sorted_int_ghostfrags: list[GhostFragment] = [complete_ghost_frags1[idx] for idx in overlap_ghosts]
+            sorted_int_surffrags2: list[Residue] = [complete_surf_frags2[idx] for idx in overlap_surf]
+            # For all matched interface fragments
+            # Keys are (chain_id, res_num) for every residue that is covered by at least 1 fragment
+            # Values are lists containing 1 / (1 + z^2) values for every (chain_id, res_num) residue fragment match
+            # chid_resnum_scores_dict_model1, chid_resnum_scores_dict_model2 = {}, {}
+            # Number of unique interface mono fragments matched
+            # unique_frags_info1, unique_frags_info2 = set(), set()
+            # res_pair_freq_info_list = []
+            fragment_pairs = list(zip(sorted_int_ghostfrags, sorted_int_surffrags2, sorted_match_scores))
+            frag_match_info = get_matching_fragment_pairs_info(fragment_pairs)
+            # pose.fragment_queries = {(model1, model2): frag_match_info}
+            fragment_metrics = job.fragment_db.calculate_match_metrics(frag_match_info)
+            # These two pose attributes must be set
+            # entity_tuple = models_tuple  # Todo when able to take more than 2 Entity
+            pose.fragment_queries = {entity_tuple: frag_match_info}
+            pose.fragment_metrics = {entity_tuple: fragment_metrics}
+
     # residue_numbers = [residue.number for residue in pose.residues]
     # entity_energies = tuple(0. for ent in pose.entities)
     # pose_source_residue_info = \
