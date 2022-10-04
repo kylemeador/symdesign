@@ -3559,15 +3559,20 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
                                   for profile, background in profile_background.items()}
 
         interface_observed_from_fragment_profile = np.array(fragment_profile_frequencies)
-        mean_observed_from_fragment_profile = \
-            interface_observed_from_fragment_profile[
-                np.nonzero(interface_observed_from_fragment_profile)].mean(axis=1)
-        # sum_observed_from_fragment_profile = observed_from_fragment_profile.sum()
-        print('mean_observed_from_fragment_profile', mean_observed_from_fragment_profile)
         background_frequencies.update({'fragment': interface_observed_from_fragment_profile})
-        # Todo integrate background_frequencies into the per_residue_df...
 
-        all_mutations = generate_mutations_from_reference(pose.sequence, pose_sequences, return_to=True)  # , zero_index=True)
+        # Get profile mean observed
+        # Todo
+        #  Ensure that the interface residues are selected, not only by those that are 0 as interface can be 0!
+        #  This could be transitioned to during design to ease the selection of thes
+        interface_observed_from_fragment_profile[interface_observed_from_fragment_profile == 0] = np.nan
+        scores_df['observed_fragment_interface_mean'] = np.nanmean(interface_observed_from_fragment_profile, axis=1)
+        scores_df['observed_evolution_mean'] = background_frequencies['evolution'].mean(axis=1)
+
+        per_residue_background_frequencies = \
+            pd.concat([pd.DataFrame(background, index=pose_ids,
+                                    columns=pd.MultiIndex.from_product([residue_numbers, [f'observed_{profile}']]))
+                       for profile, background in background_frequencies.items()], axis=1)
 
         # Can't use below as each pose is different
         # index_residues = list(pose.interface_design_residue_numbers)
@@ -3617,7 +3622,7 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
         # Generate placeholder all_mutations which only contains "reference"
         # all_mutations = generate_mutations_from_reference(pose.sequence, pose_sequences, return_to=True)  # , zero_index=True)
 
-        per_residue_sequence_df = per_residue_collapse_df = pd.DataFrame()
+        per_residue_background_frequencies = per_residue_sequence_df = per_residue_collapse_df = pd.DataFrame()
         # all_pose_divergence_df = pd.DataFrame()
         # residue_df = pd.DataFrame()
 
@@ -3636,7 +3641,8 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
     # Construct per_residue_df
     per_residue_df = pd.concat({pose_id: pd.DataFrame(data, index=residue_numbers)
                                 for pose_id, data in per_residue_data.items()}).unstack().swaplevel(0, 1, axis=1)
-    per_residue_df = per_residue_df.join([per_residue_collapse_df, per_residue_sequence_df])  # residue_df
+    per_residue_df = \
+        per_residue_df.join([per_residue_collapse_df, per_residue_sequence_df, per_residue_background_frequencies])  # residue_df
     # per_residue_df = pd.merge(residue_df, per_residue_df, left_index=True, right_index=True)
     # Make buried surface area (bsa) columns, and residue classification
     per_residue_df = calculate_residue_surface_area(per_residue_df)  # .loc[:, idx_slice[index_residues, :]])
