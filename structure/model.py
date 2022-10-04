@@ -2351,7 +2351,9 @@ class Entity(Chain, ContainsChainsMixin):
         return hash(self.__key())
 
 
-class Model(Structure, ContainsChainsMixin):
+# class Model(Structure, ContainsChainsMixin):
+class Model(SequenceProfile, Structure, ContainsChainsMixin):
+
     """The base object for Structure file (.pdb/.cif) parsing and manipulation, particularly containing multiple Chain
     or Entity instances
 
@@ -5231,6 +5233,7 @@ class SymmetricModel(Models):
 
 
 class Pose(SequenceProfile, SymmetricModel):
+# class Pose(SymmetricModel):
     """A Pose is made of single or multiple Structure objects such as Entities, Chains, or other structures.
     All objects share a common feature such as the same symmetric system or the same general atom configuration in
     separate models across the Structure or sequence.
