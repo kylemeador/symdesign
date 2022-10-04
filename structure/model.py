@@ -2369,7 +2369,6 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
         log
         name
     """
-    _fragment_db: FragmentDatabase
     api_entry: dict[str, dict[Any] | float] | None
     biological_assembly: str | int | None
     chain_ids: list[str]
@@ -2634,22 +2633,23 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
     #     # self.cb_coords = pdb.cb_coords
     #     # self.bb_coords = pdb.bb_coords
 
-    @property
-    def fragment_db(self) -> FragmentDatabase:
-        """The FragmentDatabase with which information about fragment usage will be extracted"""
-        return self._fragment_db
+    # @property
+    # def fragment_db(self) -> FragmentDatabase:
+    #     """The FragmentDatabase with which information about fragment usage will be extracted"""
+    #     return self._fragment_db
 
-    @fragment_db.setter
+    @Structure.fragment_db.setter
     def fragment_db(self, fragment_db: FragmentDatabase):
-        # self.log.critical(f'Found fragment_db {type(fragment_db)}. '
-        #                   f'isinstance(fragment_db, FragmentDatabase) = {isinstance(fragment_db, FragmentDatabase)}')
-        if not isinstance(fragment_db, FragmentDatabase):
-            # Todo add fragment_length, sql kwargs
-            self.log.debug(f'fragment_db was set to the default since a {type(fragment_db).__name__} was passed which '
-                           f'is not of the required type {FragmentDatabase.__name__}')
-            fragment_db = fragment_factory(source=PUtils.biological_interfaces)
+        super(Structure, Structure).fragment_db.fset(self, fragment_db)
+        # # self.log.critical(f'Found fragment_db {type(fragment_db)}. '
+        # #                   f'isinstance(fragment_db, FragmentDatabase) = {isinstance(fragment_db, FragmentDatabase)}')
+        # if not isinstance(fragment_db, FragmentDatabase):
+        #     # Todo add fragment_length, sql kwargs
+        #     self.log.debug(f'fragment_db was set to the default since a {type(fragment_db).__name__} was passed which '
+        #                    f'is not of the required type {FragmentDatabase.__name__}')
+        #     fragment_db = fragment_factory(source=PUtils.biological_interfaces)
 
-        self._fragment_db = fragment_db
+        # self._fragment_db = fragment_db
         for chain in self.entities:
             chain.fragment_db = fragment_db
         for chain in self.chains:
