@@ -2048,6 +2048,8 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
             frag_match_info = get_matching_fragment_pairs_info(fragment_pairs)
             # pose.fragment_queries = {(model1, model2): frag_match_info}
             fragment_metrics = job.fragment_db.calculate_match_metrics(frag_match_info)
+            # These two pose attributes must be set
+            pose.fragment_queries = {(model1, model2): frag_match_info}
             pose.fragment_metrics = {(model1, model2): fragment_metrics}
 
     # Use below instead of this until can TODO vectorize asu_interface_residue_processing
@@ -3325,13 +3327,13 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
     #     full_ext_tx_sum = full_ext_tx2 - full_ext_tx1
 
     # Todo REMOVE DUPLICATION FOR TESTING
-    # Calculate metrics on input Pose
+    # This is required to run correctly with perturb_dofs = True
+    # Otherwise, the Pose finds no residues upon search...
     source_errat = []
     for idx, entity in enumerate(pose.entities):
         entity_oligomer = Model.from_chains(entity.chains, log=log, entities=False)
         _, oligomeric_errat = entity_oligomer.errat(out_path=os.devnull)
         source_errat.append(oligomeric_errat[:entity.number_of_residues])
-
     # Todo REMOVE DUPLICATION FOR TESTING
     # Get metrics for each Pose
     # Set up data structures
