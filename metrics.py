@@ -203,9 +203,6 @@ master_metrics = {
     'entity_max_radius_ratio_1v2':  # TODO make a single metric
         dict(description='The ratio of the maximum radius from a reference of component 1 versus 2',
              direction=None, function=None, filter=None),
-    'entity_maximum_radius':
-        dict(description='The maximum radius any entity extends from the assembly core',
-             direction=_min, function=rank, filter=True),
     'entity_min_radius_average_deviation':
         dict(description='In a multi entity assembly, the total deviation of the min radii of each entity from'
                          ' one another',
@@ -213,9 +210,6 @@ master_metrics = {
     'entity_min_radius_ratio_1v2':  # TODO make a single metric
         dict(description='The ratio of the minimum radius from a reference of component 1 versus 2',
              direction=None, function=None, filter=None),
-    'entity_minimum_radius':
-        dict(description='The minimum radius any entity approaches the assembly core',
-             direction=_max, function=rank, filter=True),
     'entity_number_of_residues_average_deviation':
         dict(description='In a multi entity assembly, the total deviation of the number of residues of each '
                          'entity from one another',
@@ -228,9 +222,6 @@ master_metrics = {
              direction=_min, function=rank, filter=True),
     'entity_radius_ratio_1v2':  # TODO make a single metric
         dict(description='', direction=None, function=None, filter=None),
-    'entity_residue_length_total':
-        dict(description='The total number of residues in the design',
-             direction=_min, function=rank, filter=True),
     'entity_thermophilicity':
         dict(description='The extent to which the entities in the pose are thermophilic',
              direction=_max, function=rank, filter=True),
@@ -348,6 +339,12 @@ master_metrics = {
     'interface_local_density':
         dict(description='A measure of the average number of atom neighbors for each atom in the interface',
              direction=_max, function=rank, filter=True),
+    'maximum_radius':
+        dict(description='The maximum radius any entity extends from the assembly core',
+             direction=_min, function=rank, filter=True),
+    'minimum_radius':
+        dict(description='The minimum radius any entity approaches the assembly core',
+             direction=_max, function=rank, filter=True),
     'multiple_fragment_ratio':
         dict(description='The extent to which fragment observations are connected in the interface. Higher '
                          'ratio means multiple fragment observations per residue',
@@ -438,6 +435,9 @@ master_metrics = {
     'percent_support':
         dict(description='The percentage of residues which are "support" according to Levy, E. 2010',
              direction=_max, function=normalize, filter=True),
+    'pose_length':
+        dict(description='The total number of residues in the design',
+             direction=_min, function=rank, filter=True),
     groups:
         dict(description='Protocols utilized to search sequence space given fragment and/or evolutionary '
                          'constraint information',

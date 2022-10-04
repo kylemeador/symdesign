@@ -3624,7 +3624,7 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
         scores_df['number_of_mutations'] = \
             pd.Series({design: len(mutations) for design, mutations in all_mutations.items()})
         scores_df['percent_mutations'] = \
-            scores_df['number_of_mutations'] / scores_df['entity_residue_length_total']
+            scores_df['number_of_mutations'] / scores_df['pose_length']
 
         idx = 1
         for idx, entity in enumerate(pose.entities, idx):
