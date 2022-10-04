@@ -2825,7 +2825,7 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
         if multicomponent:
             self.entities[0].write_oligomer(out_path=str(orient_input), pdb_number=True)
         else:
-            self.write(out_path=orient_input, pdb_number=True)
+            self.write(out_path=str(orient_input), pdb_number=True)
 
         # Todo superposition3d -> quaternion
         p = subprocess.Popen([PUtils.orient_exe_path], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
@@ -3066,6 +3066,7 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
         for entity in self.entities:
             if entity_id == entity.name:
                 return entity
+        return None
 
     def _create_entities(self, entity_names: Sequence = None, query_by_sequence: bool = True, **kwargs):
         """Create all Entities in the PDB object searching for the required information if it was not found during
