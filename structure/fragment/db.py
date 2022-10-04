@@ -6,7 +6,7 @@ from typing import Annotated, Literal, get_args, Type
 import numpy as np
 
 import structure
-import structure.base
+# import structure.base
 from structure.fragment.info import FragmentInfo
 from utils import start_log, unpickle
 from utils.path import intfrag_cluster_rep_dirpath, monofrag_cluster_rep_dirpath, biological_interfaces, \
@@ -25,7 +25,7 @@ class Representative:
     ca_coords: np.ndarray
     register: tuple[str, ...] = ('backbone_coords', 'ca_coords')
 
-    def __init__(self, struct: structure.base.Structure, fragment_db: FragmentDatabase):
+    def __init__(self, struct: 'structure.base.Structure', fragment_db: FragmentDatabase):
         for item in self.register:
             setattr(self, item, getattr(struct, item))
 
