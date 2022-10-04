@@ -2640,7 +2640,7 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
 
     @Structure.fragment_db.setter
     def fragment_db(self, fragment_db: FragmentDatabase):
-        super(self, Model).fragment_db.fset(self, fragment_db)
+        super(Model, Model).fragment_db.fset(self, fragment_db)
         # # self.log.critical(f'Found fragment_db {type(fragment_db)}. '
         # #                   f'isinstance(fragment_db, FragmentDatabase) = {isinstance(fragment_db, FragmentDatabase)}')
         # if not isinstance(fragment_db, FragmentDatabase):
