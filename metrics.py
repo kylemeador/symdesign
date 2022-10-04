@@ -1330,24 +1330,27 @@ def calculate_residue_surface_area(per_residue_df: pd.DataFrame) -> pd.DataFrame
                      + complex_polar.rename(columns={'sasa_polar_complex': 'sasa_total_complex'}))
 
     # Find the relative sasa of the complex and the unbound fraction
-    buried_interface_residues = (bsa_total > bsa_tolerance).to_numpy()
-    # ^ support, rim or core
+    rim_core_support = (bsa_total > bsa_tolerance).to_numpy()
+    interior_surface = ~rim_core_support
     # surface_or_rim = per_residue_df.loc[:, idx_slice[index_residues, 'sasa_relative_complex']] > 0.25
-    core_or_interior = per_residue_df.loc[:, idx_slice[:, 'sasa_relative_complex']] < 0.25
-    surface_or_rim = ~core_or_interior
-    support_not_core = per_residue_df.loc[:, idx_slice[:, 'sasa_relative_bound']] < 0.25
-    # core_sufficient = np.logical_and(core_or_interior, buried_interface_residues).to_numpy()
-    core_residues = np.logical_and(~support_not_core,
-                                   (np.logical_and(core_or_interior, buried_interface_residues)).to_numpy()).rename(
-        columns={'sasa_relative_bound': 'core'})
-    interior_residues = np.logical_and(core_or_interior, ~buried_interface_residues).rename(
+    # v These could also be support
+    core_or_support_or_interior = per_residue_df.loc[:, idx_slice[:, 'sasa_relative_complex']] < 0.25
+    surface_or_rim = ~core_or_support_or_interior
+    support_or_interior_not_core_or_rim = per_residue_df.loc[:, idx_slice[:, 'sasa_relative_bound']] < 0.25
+    # ^ These could be interior too
+    # core_sufficient = np.logical_and(core_or_support_or_interior, rim_core_support).to_numpy()
+    interior_residues = np.logical_and(core_or_support_or_interior, interior_surface).rename(
         columns={'sasa_relative_complex': 'interior'})
-    support_residues = np.logical_and(support_not_core, buried_interface_residues).rename(
-        columns={'sasa_relative_bound': 'support'})
-    rim_residues = np.logical_and(surface_or_rim, buried_interface_residues).rename(
-        columns={'sasa_relative_complex': 'rim'})
-    surface_residues = np.logical_and(surface_or_rim, ~buried_interface_residues).rename(
+    surface_residues = np.logical_and(surface_or_rim, interior_surface).rename(
         columns={'sasa_relative_complex': 'surface'})
+
+    support_residues = np.logical_and(support_or_interior_not_core_or_rim, rim_core_support).rename(
+        columns={'sasa_relative_bound': 'support'})
+    rim_residues = np.logical_and(surface_or_rim, rim_core_support).rename(
+        columns={'sasa_relative_complex': 'rim'})
+    core_residues = np.logical_and(~support_residues,
+                                   np.logical_and(core_or_support_or_interior, rim_core_support).to_numpy()).rename(
+        columns={'support': 'core'})
 
     per_residue_df = per_residue_df.join([bsa_hydrophobic, bsa_polar, bsa_total, bound_total, complex_total,
                                           core_residues, interior_residues, support_residues, rim_residues,
