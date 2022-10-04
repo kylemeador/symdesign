@@ -3498,13 +3498,8 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
                 _per_residue_fragment_profile_scores = per_residue_fragment_profile_scores.tolist()
 
                 # Find the non-zero sites in the profile
-                interface_indexer = [residue.index for residue in pose.interface_residues]
-                interface_observed_from_fragment_profile = fragment_profile_frequencies[idx][interface_indexer]
-                mean_observed_from_fragment_profile = \
-                    interface_observed_from_fragment_profile[
-                        np.nonzero(interface_observed_from_fragment_profile)].mean()
-                # sum_observed_from_fragment_profile = observed_from_fragment_profile.sum()
-                print('mean_observed_from_fragment_profile', mean_observed_from_fragment_profile)
+                # interface_indexer = [residue.index for residue in pose.interface_residues]
+                # interface_observed_from_fragment_profile = fragment_profile_frequencies[idx][interface_indexer]
             else:
                 _per_residue_fragment_profile_scores = nan_blank_data
 
@@ -3549,11 +3544,23 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
 
     # Collect sequence metrics on every designed Pose
     if design_output:
+        # Todo This is pretty much already done!
+        #  pose_alignment = MultipleSequenceAlignment.from_array(pose_sequences)
+        per_residue_sequence_df = pd.DataFrame(sequences, index=pose_ids,
+                                               columns=pd.MultiIndex.from_product([residue_numbers, ['type']]))
+        pose_sequences = dict(zip(pose_ids, [''.join(sequence) for sequence in sequences.tolist()]))
         pose_alignment = MultipleSequenceAlignment.from_dictionary(pose_sequences)
         # Perform a frequency extraction for each background profile
         background_frequencies = {profile: pose_alignment.get_probabilities_from_profile(background)
                                   for profile, background in profile_background.items()}
-        background_frequencies.update({'fragment': fragment_profile_frequencies})
+
+        interface_observed_from_fragment_profile = np.array(fragment_profile_frequencies)
+        mean_observed_from_fragment_profile = \
+            interface_observed_from_fragment_profile[
+                np.nonzero(interface_observed_from_fragment_profile)].mean(axis=1)
+        # sum_observed_from_fragment_profile = observed_from_fragment_profile.sum()
+        print('mean_observed_from_fragment_profile', mean_observed_from_fragment_profile)
+        background_frequencies.update({'fragment': interface_observed_from_fragment_profile})
         # Todo integrate background_frequencies into the per_residue_df...
 
         all_mutations = generate_mutations_from_reference(pose.sequence, pose_sequences, return_to=True)  # , zero_index=True)
