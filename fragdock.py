@@ -799,7 +799,7 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
     low_quality_match_value = .2  # sets the lower bounds on an acceptable match, was upper bound of 2 using z-score
     cb_distance = 9.  # change to 8.?
     # cluster_translations = True
-    perturb_dofs = True
+    perturb_dofs = False  # True
     if perturb_dofs:
         number_of_perturbations = 9  # Todo replace with 100
         if sym_entry.unit_cell:
