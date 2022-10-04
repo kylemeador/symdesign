@@ -2681,7 +2681,7 @@ class PoseDirectory:
         scores_df['number_of_mutations'] = \
             pd.Series({design: len(mutations) for design, mutations in all_mutations.items()})
         scores_df['percent_mutations'] = \
-            scores_df['number_of_mutations'] / other_pose_metrics['entity_residue_length_total']
+            scores_df['number_of_mutations'] / other_pose_metrics['pose_length']
         # residue_indices_per_entity = self.pose.residue_indices_per_entity
         is_thermophilic = []
         idx = 1
@@ -3921,7 +3921,7 @@ def interface_design_analysis(pose: Pose, design_poses: Iterable[Pose] = None, s
     scores_df['number_of_mutations'] = \
         pd.Series({design: len(mutations) for design, mutations in all_mutations.items()})
     scores_df['percent_mutations'] = \
-        scores_df['number_of_mutations'] / other_pose_metrics['entity_residue_length_total']
+        scores_df['number_of_mutations'] / other_pose_metrics['pose_length']
     # residue_indices_per_entity = pose.residue_indices_per_entity
     is_thermophilic = []
     idx = 1

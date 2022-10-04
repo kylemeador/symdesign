@@ -5978,9 +5978,9 @@ class Pose(SymmetricModel):
                 f'entity_{idx}_c_terminal_orientation': entity.termini_proximity_from_reference(termini='c'),
                 f'entity_{idx}_thermophile': thermophile})
 
-        metrics['entity_minimum_radius'] = minimum_radius
-        metrics['entity_maximum_radius'] = maximum_radius
-        metrics['entity_residue_length_total'] = \
+        metrics['minimum_radius'] = minimum_radius
+        metrics['maximum_radius'] = maximum_radius
+        metrics['pose_length'] = \
             sum(metrics[f'entity_{idx + 1}_number_of_residues'] for idx in range(self.number_of_entities))
 
         radius_ratio_sum, min_ratio_sum, max_ratio_sum, residue_ratio_sum = 0, 0, 0, 0
