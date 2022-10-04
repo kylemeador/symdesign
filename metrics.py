@@ -29,9 +29,13 @@ per_residue_energy_states = ['complex', 'bound', 'unbound', 'solv_complex', 'sol
 energy_metric_names = ['interface_energy_complex', 'interface_energy_bound', 'interface_energy_unbound',
                        'interface_solvation_energy_complex', 'interface_solvation_energy_bound',
                        'interface_solvation_energy_unbound']
-sasa_metric_names = ['sasa_hydrophobic_bound', 'sasa_polar_bound', 'sasa_hydrophobic_complex',
-                     'sasa_polar_complex', 'sasa_relative_complex', 'sasa_relative_bound',
-                     'bsa_hydrophobic', 'bsa_polar', 'bsa_total', 'sasa_total_bound', 'sasa_total_complex']
+per_residue_sasa_states = ['sasa_hydrophobic_bound', 'sasa_polar_bound', 'sasa_hydrophobic_complex',
+                           'sasa_polar_complex', 'sasa_relative_complex', 'sasa_relative_bound',
+                           'sasa_total_bound', 'sasa_total_complex']
+per_residue_intermediate_states = ['bsa_polar', 'bsa_hydrophobic', 'bsa_total']
+sasa_metric_names = ['interface_area_polar', 'interface_area_hydrophobic', 'interface_area_total', ]
+# Only slice the final 3 values
+sasa_metrics_rename_mapping = dict(zip(per_residue_intermediate_states, sasa_metric_names))
 # Based on bsa_total values for highest deviating surface residue of one design from multiple measurements
 # Ex: 0.45, 0.22, 0.04, 0.19, 0.01, 0.2, 0.04, 0.19, 0.01, 0.19, 0.01, 0.21, 0.06, 0.17, 0.01, 0.21, -0.04, 0.22
 bsa_tolerance = 0.25
@@ -1375,7 +1379,7 @@ def sum_per_residue_metrics(per_residue_df: pd.DataFrame) -> pd.DataFrame:
     #
     # summed_scores_df = pd.DataFrame({**summed_energies, **summed_residue_classification})
 
-    return summed_scores_df.rename(columns=energy_metrics_rename_mapping)
+    return summed_scores_df.rename(columns={**energy_metrics_rename_mapping, **sasa_metrics_rename_mapping})
 
 
 def calculate_sequence_observations_and_divergence(alignment: 'structure.sequence.MultipleSequenceAlignment',
