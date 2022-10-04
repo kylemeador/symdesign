@@ -2476,8 +2476,8 @@ def generate_mutations(reference: Sequence, query: Sequence, offset: bool = True
                        return_all: bool = False, return_to: bool = False, return_from: bool = False) \
         -> mutation_dictionary | sequence_dictionary:
     """Create mutation data in a typical A5K format. One-indexed dictionary keys with the index matching the reference
-     sequence index. Sequence mutations accessed by "from" and "to" keys. By default, all gaped sequences are excluded
-     from returned mutation dictionary
+     sequence index. Sequence mutations accessed by "from" and "to" keys. By default, only mutated positions are
+     returned and all gaped sequences are excluded
 
     For PDB comparison, reference should be expression sequence (SEQRES), query should be atomic sequence (ATOM)
 
@@ -2830,7 +2830,9 @@ def generate_multiple_mutations(reference, sequences, pose_num=True):
 
 def generate_mutations_from_reference(reference: Sequence[str], sequences: dict[str, Sequence[str]], **kwargs) -> \
         dict[str, mutation_dictionary | sequence_dictionary]:
-    """Generate mutation data from multiple alias mapped sequence dictionaries with regard to a single reference
+    """Generate mutation data from multiple alias mapped sequence dictionaries with regard to a single reference.
+
+    Defaults to returning only mutations (return_all=False) and forgoes any sequence alignment (offset=False)
 
     Args:
         reference: The reference sequence to align each sequence against.
@@ -2845,7 +2847,7 @@ def generate_mutations_from_reference(reference: Sequence[str], sequences: dict[
         remove_query_gaps: (bool) = True - Remove indices where there are gaps present in the query sequence
         only_gaps: (bool) = False - Only include reference indices that are missing query residues.
             All "to" values will be a gap "-"
-        zero_index: (bool) = False - Whether to return the indices zero-indexed (like python) or one-indexed
+        zero_index: (bool) = False - Whether to return the indices zero-indexed (like python Sequence) or one-indexed
         return_all: (bool) = False - Whether to return all the indices and there corresponding mutational data
         return_to: (bool) = False - Whether to return only the "to" amino acid type
         return_from: (bool) = False - Whether to return only the "from" amino acid type
@@ -2853,16 +2855,18 @@ def generate_mutations_from_reference(reference: Sequence[str], sequences: dict[
         {alias: {mutation_index: {'from': 'A', 'to': 'K'}, ...}, ...} unless return_to or return_from is True, then
             {alias: {mutation_index: 'K', ...}, ...}
     """
-    offset_value = kwargs.get('offset')
-    kwargs['offset'] = (offset_value or False)  # Default to False if there was no argument passed
+    # offset_value = kwargs.get('offset')
+    kwargs['offset'] = (kwargs.get('offset') or False)  # Default to False if there was no argument passed
     mutations = {alias: generate_mutations(reference, sequence, **kwargs)  # offset=False,
                  for alias, sequence in sequences.items()}
+
     # Add the reference sequence to mutation data
     if kwargs.get('return_to') or kwargs.get('return_from'):
-        mutations[PUtils.reference_name] = dict(enumerate(reference, 1))
+        mutations[PUtils.reference_name] = dict(enumerate(reference, 0 if kwargs.get('zero_index') else 1))
     else:
         mutations[PUtils.reference_name] = \
-            {sequence_idx: {'from': aa, 'to': aa} for sequence_idx, aa in enumerate(reference, 1)}
+            {sequence_idx: {'from': aa, 'to': aa}
+             for sequence_idx, aa in enumerate(reference, 0 if kwargs.get('zero_index') else 1)}
 
     return mutations
 
