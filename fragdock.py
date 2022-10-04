@@ -2478,20 +2478,21 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
     # Calculate metrics on input Pose before any manipulation
     pose_length = pose.number_of_residues
     residue_numbers = list(range(1, pose_length + 1))
+    # residue_numbers = [residue.number for residue in pose.residues]
     # entity_energies = tuple(0. for ent in pose.entities)
-    pose_source_residue_info = \
-        {residue.number: {'complex': 0.,
-                          # 'bound': 0.,  # copy(entity_energies),
-                          'unbound': 0.,  # copy(entity_energies),
-                          # 'solv_complex': 0., 'solv_bound': 0.,  # copy(entity_energies),
-                          # 'solv_unbound': 0.,  # copy(entity_energies),
-                          # 'fsp': 0., 'cst': 0.,
-                          'type': protein_letters_3to1.get(residue.type),
-                          # 'hbond': 0
-                          }
-         for entity in pose.entities for residue in entity.residues}
+    # pose_source_residue_info = \
+    #     {residue.number: {'complex': 0.,
+    #                       # 'bound': 0.,  # copy(entity_energies),
+    #                       'unbound': 0.,  # copy(entity_energies),
+    #                       # 'solv_complex': 0., 'solv_bound': 0.,  # copy(entity_energies),
+    #                       # 'solv_unbound': 0.,  # copy(entity_energies),
+    #                       # 'fsp': 0., 'cst': 0.,
+    #                       'type': protein_letters_3to1.get(residue.type),
+    #                       # 'hbond': 0
+    #                       }
+    #      for residue in pose.residues}
     # This needs to be calculated before iterating over each pose
-    residue_info = {pose_source: pose_source_residue_info}
+    # residue_info = {pose_source: pose_source_residue_info}
     # residue_info[pose_source] = pose_source_residue_info
 
     source_contact_order, source_errat = [], []
@@ -2511,7 +2512,8 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
     pose_source_errat_s = pd.Series(np.concatenate(source_errat), index=residue_numbers)
 
     # per_residue_data = {}  # pose_source: pose.get_per_residue_interface_metrics()}
-    per_residue_data = {pose_source: {'contact_order': pose_source_contact_order_s,
+    per_residue_data = {pose_source: {'type': list(pose.sequence),
+                                      'contact_order': pose_source_contact_order_s,
                                       'errat_deviation': pose_source_errat_s}}
     # per_residue_data[pose_source] = {'contact_order': pose_source_contact_order_s,
     #                                  'errat_deviation': pose_source_errat_s}
@@ -3197,7 +3199,7 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
 
                         # Format outputs
                         generated_sequences[batch_slice] = S_sample.cpu().numpy()
-                        per_residue_sequence_scores[batch_slice] = complexed_batch_scores_per_residue.cpu().numpy()  # scores
+                        per_residue_complex_scores[batch_slice] = complexed_batch_scores_per_residue.cpu().numpy()  # scores
                         per_residue_unbound_scores[batch_slice] = unbound_batch_scores_per_residue.cpu().numpy()  # scores
                         probabilities[batch_slice] = sample_dict['probs'].cpu().numpy()  # batch_probabilities
 
@@ -3504,23 +3506,36 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
             else:
                 _per_residue_fragment_profile_scores = nan_blank_data
 
-            # all_scores[pose_id] = per_residue_sequence_scores[idx]
-            _per_residue_complex_scores = per_residue_sequence_scores[idx].tolist()
-            _per_residue_unbound_scores = per_residue_unbound_scores[idx].tolist()
-            residue_info[pose_id] = {residue.number: {'complex': _per_residue_complex_scores[residue.index],
-                                                      # 'bound': 0.,  # copy(entity_energies),
-                                                      'unbound': _per_residue_unbound_scores[residue.index],
-                                                      'evolution': _per_residue_evolutionary_profile_scores[residue.index],
-                                                      'fragment': _per_residue_fragment_profile_scores[residue.index],
-                                                      # copy(entity_energies),
-                                                      # 'solv_complex': 0., 'solv_bound': 0.,
-                                                      # copy(entity_energies),
-                                                      # 'solv_unbound': 0.,  # copy(entity_energies),
-                                                      # 'fsp': 0., 'cst': 0.,
-                                                      'type': protein_letters_3to1.get(residue.type),
-                                                      # 'hbond': 0
-                                                      }
-                                     for entity in pose.entities for residue in entity.residues}
+            # all_scores[pose_id] = per_residue_complex_scores[idx]
+            # _per_residue_complex_scores = per_residue_complex_scores[idx].tolist()
+            # _per_residue_unbound_scores = per_residue_unbound_scores[idx].tolist()
+            # residue_info[pose_id] = {residue.number: {'complex': _per_residue_complex_scores[residue.index],
+            #                                           # 'bound': 0.,  # copy(entity_energies),
+            #                                           'unbound': _per_residue_unbound_scores[residue.index],
+            #                                           'evolution': _per_residue_evolutionary_profile_scores[residue.index],
+            #                                           'fragment': _per_residue_fragment_profile_scores[residue.index],
+            #                                           # copy(entity_energies),
+            #                                           # 'solv_complex': 0., 'solv_bound': 0.,
+            #                                           # copy(entity_energies),
+            #                                           # 'solv_unbound': 0.,  # copy(entity_energies),
+            #                                           # 'fsp': 0., 'cst': 0.,
+            #                                           'type': protein_letters_3to1.get(residue.type),
+            #                                           # 'hbond': 0
+            #                                           }
+            #                          for entity in pose.entities for residue in entity.residues}
+            per_residue_data[pose_id].update({'complex': per_residue_complex_scores[idx],
+                                              # 'bound': 0.,  # copy(entity_energies),
+                                              'unbound': per_residue_unbound_scores[idx],
+                                              'evolution': _per_residue_evolutionary_profile_scores,
+                                              'fragment': _per_residue_fragment_profile_scores,
+                                              # copy(entity_energies),
+                                              # 'solv_complex': 0., 'solv_bound': 0.,
+                                              # copy(entity_energies),
+                                              # 'solv_unbound': 0.,  # copy(entity_energies),
+                                              # 'fsp': 0., 'cst': 0.,
+                                              # 'type': protein_letters_3to1.get(residue.type),
+                                              # 'hbond': 0
+                                              })
 
     # Todo get the keys right here
     # all_pose_divergence_df = pd.DataFrame()
@@ -3549,8 +3564,8 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
 
         # Process mutational frequencies, H-bond, and Residue energy metrics to dataframe
         # residue_info = process_residue_info(residue_info)  # Only useful in Rosetta
-        residue_info = incorporate_mutation_info(residue_info, all_mutations)
-        residue_df = pd.concat({design: pd.DataFrame(info) for design, info in residue_info.items()}).unstack()
+        # residue_info = incorporate_mutation_info(residue_info, all_mutations)
+        # residue_df = pd.concat({design: pd.DataFrame(info) for design, info in residue_info.items()}).unstack()
 
         # Calculate hydrophobic collapse for each design
         # Separate sequences by entity
@@ -3565,12 +3580,11 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
         contact_order_per_res_z, reference_collapse, collapse_profile = pose.get_folding_metrics()
         folding_and_collapse = calculate_collapse_metrics(all_sequences_by_entity,
                                                           contact_order_per_res_z, reference_collapse, collapse_profile)
-        # Todo get the keys right here
-        pose_collapse_df = pd.concat([pd.DataFrame({pose_ids[idx]: data
-                                                    for idx, data in enumerate(folding_and_collapse)}).T],
-                                     keys=[('sequence', 'pose')], axis=1)
-        print('pose_collapse_df', pose_collapse_df)
-
+        per_residue_collapse_df = pd.concat({pose_id: pd.DataFrame(data, index=residue_numbers)
+                                             for pose_id, data in zip(pose_ids, folding_and_collapse)},
+                                            ).unstack().swaplevel(0, 1, axis=1)
+        all_mutations = \
+            generate_mutations_from_reference(pose.sequence, pose_sequences, zero_index=True, return_to=True)
         scores_df['number_of_mutations'] = \
             pd.Series({design: len(mutations) for design, mutations in all_mutations.items()})
         scores_df['percent_mutations'] = \
@@ -3587,11 +3601,11 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
                 / interface_metrics_df.loc[:, f'entity_{idx}_number_of_residues']
     else:  # Get metrics and output
         # Generate placeholder all_mutations which only contains "reference"
-        all_mutations = generate_mutations_from_reference(pose.sequence, pose_sequences, return_to=True)  # , zero_index=True)
+        # all_mutations = generate_mutations_from_reference(pose.sequence, pose_sequences, return_to=True)  # , zero_index=True)
 
-        pose_collapse_df = pd.DataFrame()
+        per_residue_sequence_df = per_residue_collapse_df = pd.DataFrame()
         # all_pose_divergence_df = pd.DataFrame()
-        residue_df = pd.DataFrame()
+        # residue_df = pd.DataFrame()
 
     # is_thermophilic = []
     # idx = 1
@@ -3609,7 +3623,7 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
     # Construct per_residue_df
     per_residue_df = pd.concat({pose_id: pd.DataFrame(data, index=residue_numbers)
                                 for pose_id, data in per_residue_data.items()}).unstack().swaplevel(0, 1, axis=1)
-    per_residue_df = per_residue_df.join(residue_df)
+    per_residue_df = per_residue_df.join([per_residue_collapse_df, per_residue_sequence_df])  # residue_df
     # per_residue_df = pd.merge(residue_df, per_residue_df, left_index=True, right_index=True)
     # Make buried surface area (bsa) columns, and residue classification
     per_residue_df = calculate_residue_surface_area(per_residue_df)  # .loc[:, idx_slice[index_residues, :]])
