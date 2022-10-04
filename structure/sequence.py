@@ -1214,11 +1214,11 @@ class SequenceProfile:
         # Create self.fragment_map to store information about each fragment observation in the profile
         if not self.fragment_map:
             self.fragment_map = populate_design_dictionary(self.number_of_residues,
-                                                           list(range(*self.fragment_db.fragment_range)),
+                                                           list(range(*self._fragment_db.fragment_range)),
                                                            zero_index=True, dtype='list')
         for fragment in fragments:
             residue_index = fragment[alignment_type] - self.offset_index
-            for frag_idx in range(*self.fragment_db.fragment_range):  # lower_bound, upper_bound
+            for frag_idx in range(*self._fragment_db.fragment_range):  # lower_bound, upper_bound
                 self.fragment_map[residue_index + frag_idx][frag_idx].append({'source': alignment_type,
                                                                               'cluster': fragment['cluster'],
                                                                               'match': fragment['match']})
@@ -1230,7 +1230,7 @@ class SequenceProfile:
             # self.fragment_db.load_cluster_info(ids=retrieve_fragments)
 
         if not self.fragment_profile:
-            self.fragment_profile = {residue_index: [[] for _ in range(self.fragment_db.fragment_length)]
+            self.fragment_profile = {residue_index: [[] for _ in range(self._fragment_db.fragment_length)]
                                      for residue_index in range(self.number_of_residues)}
 
         # Add frequency information to the fragment profile using parsed cluster information. Frequency information is
@@ -1239,7 +1239,7 @@ class SequenceProfile:
         for fragment in fragments:
             residue_index = fragment[alignment_type] - self.offset_index
             # Retrieve the amino acid frequencies for this fragment cluster, for this alignment side
-            aa_freq = getattr(self.fragment_db.info[fragment['cluster']], alignment_type)
+            aa_freq = getattr(self._fragment_db.info[fragment['cluster']], alignment_type)
             for idx, (frag_idx, frequencies) in enumerate(aa_freq.items()):
                 # observation = dict(match=fragment['match'], **frequencies)
                 self.fragment_profile[residue_index + frag_idx][idx].append(dict(match=fragment['match'],
@@ -1265,7 +1265,7 @@ class SequenceProfile:
             keep_extras: Whether to keep values for all positions that are missing data
             evo_fill: Whether to fill missing positions with evolutionary profile values
         """
-        database_bkgnd_aa_freq = self.fragment_db.aa_frequencies
+        database_bkgnd_aa_freq = self._fragment_db.aa_frequencies
         # Fragment profile is correct size for indexing all STRUCTURAL residues
         #  self.reference_sequence is not used for this. Instead, self.sequence is used in place since the use
         #  of a disorder indicator that removes any disordered residues from input evolutionary profiles is calculated
@@ -1372,7 +1372,7 @@ class SequenceProfile:
             alpha: The maximum contribution of the fragment profile to use, bounded between (0, 1].
                 0 means no use of fragments in the .profile, while 1 means only use fragments
         """
-        if not self.fragment_db:
+        if not self._fragment_db:
             raise AttributeError(f'{self._calculate_alpha.__name__}: No fragment database connected! Cannot calculate '
                                  f'optimal fragment contribution without one')
         if alpha <= 0 or 1 <= alpha:
@@ -1383,7 +1383,7 @@ class SequenceProfile:
         alignment_type_to_idx = {'mapped': 0, 'paired': 1}  # could move to class, but not used elsewhere
         match_score_average = 0.5  # when fragment pair rmsd equal to the mean cluster rmsd
         bounded_floor = 0.2
-        fragment_stats = self.fragment_db.statistics
+        fragment_stats = self._fragment_db.statistics
         self.alpha.clear()  # Reset the data
         for entry, data in self.fragment_profile.items():
             # Can't use the match count as the fragment index may have no useful residue information
@@ -1489,7 +1489,7 @@ class SequenceProfile:
         if favor_fragments:
             boltzman_energy = 1
             favor_seqprofile_score_modifier = 0.2 * CommandDistributer.reference_average_residue_weight
-            database_bkgnd_aa_freq = self.fragment_db.aa_frequencies
+            database_bkgnd_aa_freq = self._fragment_db.aa_frequencies
 
             null_residue = get_lod(database_bkgnd_aa_freq, database_bkgnd_aa_freq, as_int=False)
             # This was needed in the case of domain errors with lod
