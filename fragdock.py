@@ -2512,9 +2512,10 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
     pose_source_errat_s = pd.Series(np.concatenate(source_errat), index=residue_numbers)
 
     # per_residue_data = {}  # pose_source: pose.get_per_residue_interface_metrics()}
-    per_residue_data = {pose_source: {'type': list(pose.sequence),
-                                      'contact_order': pose_source_contact_order_s,
-                                      'errat_deviation': pose_source_errat_s}}
+    per_residue_data = {pose_source: {
+        # 'type': list(pose.sequence),
+        'contact_order': pose_source_contact_order_s,
+        'errat_deviation': pose_source_errat_s}}
     # per_residue_data[pose_source] = {'contact_order': pose_source_contact_order_s,
     #                                  'errat_deviation': pose_source_errat_s}
 
@@ -3549,6 +3550,7 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
         #  pose_alignment = MultipleSequenceAlignment.from_array(pose_sequences)
         per_residue_sequence_df = pd.DataFrame(sequences, index=pose_ids,
                                                columns=pd.MultiIndex.from_product([residue_numbers, ['type']]))
+        per_residue_sequence_df.append(pd.DataFrame(list(pose.sequence), index=pose_source))
         pose_sequences = dict(zip(pose_ids, [''.join(sequence) for sequence in sequences.tolist()]))
         pose_alignment = MultipleSequenceAlignment.from_dictionary(pose_sequences)
         # Perform a frequency extraction for each background profile
