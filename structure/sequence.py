@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import subprocess
 import time
+from abc import ABC
 from collections import namedtuple
 from copy import deepcopy, copy
 from itertools import repeat, count
@@ -507,7 +508,7 @@ alignment_programs = Literal['hhblits', 'psiblast']
 profile_types = Literal['evolutionary', 'fragment', '']
 
 
-class SequenceProfile:
+class SequenceProfile(ABC):
     """Contains the sequence information for a Structure. Should always be subclassed by a Structure object.
     Currently, Chain, Entity, Model and Pose contain the necessary .reference_sequence property.
     Any Structure object with a .reference_sequence attribute could be used however
