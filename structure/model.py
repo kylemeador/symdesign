@@ -2369,6 +2369,7 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
         log
         name
     """
+    _fragment_db: FragmentDatabase
     api_entry: dict[str, dict[Any] | float] | None
     biological_assembly: str | int | None
     chain_ids: list[str]
@@ -5266,7 +5267,6 @@ class Pose(SymmetricModel):
     _active_entities: list[Entity]
     _center_residue_numbers: list[int]
     _design_residues: list[Residue]
-    _fragment_db: FragmentDatabase
     _interface_residues: list[Residue]
     design_selector: dict[str, dict[str, dict[str, set[int] | set[str] | None]]] | None
     design_selector_entities: set[Entity]

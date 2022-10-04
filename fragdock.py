@@ -812,9 +812,9 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
     low_quality_z_value = z_value_from_match_score(low_quality_match_value)
     # Get Building Blocks in pose format to remove need for fragments to use chain info
     if not isinstance(model1, Structure):
-        model1 = Model.from_file(model1)  # , pose_format=True)
+        model1 = Model.from_file(model1, fragment_db=job.fragment_db)  # , pose_format=True)
     if not isinstance(model2, Structure):
-        model2 = Model.from_file(model2)  # , pose_format=True)
+        model2 = Model.from_file(model2, fragment_db=job.fragment_db)  # , pose_format=True)
 
     # Get model with entity oligomers via make_oligomer
     entity_count = count(1)
@@ -2483,7 +2483,7 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
             fragment_pairs = list(zip(sorted_int_ghostfrags, sorted_int_surffrags2, sorted_match_scores))
             frag_match_info = get_matching_fragment_pairs_info(fragment_pairs)
             # pose.fragment_queries = {(model1, model2): frag_match_info}
-            fragment_metrics = job.fragment_db.calculate_match_metrics(frag_match_info)
+            fragment_metrics = pose.fragment_db.calculate_match_metrics(frag_match_info)
             # Todo when able to take more than 2 Entity
             #  The entity_tuple must contain the same Entity instances as in the Pose!
             # entity_tuple = models_tuple
