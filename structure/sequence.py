@@ -547,7 +547,7 @@ class SequenceProfile:
         super().__init__(**kwargs)
         # self.design_pssm_file = None
         # {(ent1, ent2): [{mapped: res_num1, paired: res_num2, cluster: id, match: score}, ...], ...}
-        self._fragment_db = None
+        # self._fragment_db = None
         self.a3m_file = None
         self.alpha = []  # {}
         # Using .profile as attribute instead
