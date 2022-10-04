@@ -13,9 +13,10 @@ from sklearn.neighbors import BallTree  # , KDTree, NearestNeighbors
 
 from structure.coords import Coords, superposition3d
 from structure.fragment import Fragment, MonoFragment, ResidueFragment
+from structure.fragment.db import FragmentDatabase, fragment_factory
 from structure.utils import protein_letters_alph1, protein_letters_1to3, protein_letters_3to1_extended
 from utils.path import freesasa_exe_path, stride_exe_path, errat_exe_path, freesasa_config_path, \
-    reference_residues_pkl, program_name, program_version
+    reference_residues_pkl, program_name, program_version, biological_interfaces
 from utils import start_log, null_log, unpickle, digit_translate_table, DesignError, ClashError, startdate
 from utils.symmetry import origin
 
@@ -2505,6 +2506,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
     _backbone_indices: list[int]
     _ca_indices: list[int]
     _cb_indices: list[int]
+    _fragment_db: FragmentDatabase
     _heavy_indices: list[int]
     _helix_cb_indices: list[int]
     _side_chain_indices: list[int]
@@ -2627,6 +2629,23 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
     def get_structure_containers(self) -> dict[str, Any]:
         """Return the instance structural containers as a dictionary with attribute as key and container as value"""
         return dict(coords=self._coords, atoms=self._atoms, residues=self._residues)  # log=self._log,
+
+    @property
+    def fragment_db(self) -> FragmentDatabase:
+        """The FragmentDatabase with which information about fragment usage will be extracted"""
+        return self._fragment_db
+
+    @fragment_db.setter
+    def fragment_db(self, fragment_db: FragmentDatabase):
+        # self.log.critical(f'Found fragment_db {type(fragment_db)}. '
+        #                   f'isinstance(fragment_db, FragmentDatabase) = {isinstance(fragment_db, FragmentDatabase)}')
+        if not isinstance(fragment_db, FragmentDatabase):
+            # Todo add fragment_length, sql kwargs
+            self.log.debug(f'fragment_db was set to the default since a {type(fragment_db).__name__} was passed which '
+                           f'is not of the required type {FragmentDatabase.__name__}')
+            fragment_db = fragment_factory(source=biological_interfaces)
+
+        self._fragment_db = fragment_db
 
     # @property
     # def log(self) -> Logger:
