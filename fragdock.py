@@ -2477,7 +2477,7 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
 
     # Calculate metrics on input Pose before any manipulation
     pose_length = pose.number_of_residues
-    residue_indices = list(range(1, pose_length + 1))
+    residue_numbers = list(range(1, pose_length + 1))
     # entity_energies = tuple(0. for ent in pose.entities)
     pose_source_residue_info = \
         {residue.number: {'complex': 0.,
@@ -2507,8 +2507,8 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
         _, oligomeric_errat = entity_oligomer.errat(out_path=os.devnull)
         source_errat.append(oligomeric_errat[:entity.number_of_residues])
 
-    pose_source_contact_order_s = pd.Series(np.concatenate(source_contact_order), index=residue_indices)
-    pose_source_errat_s = pd.Series(np.concatenate(source_errat), index=residue_indices)
+    pose_source_contact_order_s = pd.Series(np.concatenate(source_contact_order), index=residue_numbers)
+    pose_source_errat_s = pd.Series(np.concatenate(source_errat), index=residue_numbers)
 
     # per_residue_data = {}  # pose_source: pose.get_per_residue_interface_metrics()}
     per_residue_data = {pose_source: {'contact_order': pose_source_contact_order_s,
@@ -3065,7 +3065,7 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
                                 # print('HCI profile std', collapse_profile_std)
                                 collapse_z = z_score(design_probs_collapse,
                                                      collapse_profile_mean, collapse_profile_std)
-                                # folding_loss = sequence_nllloss(S_sample, log_probs)  # , mask_for_loss)
+                                # folding_loss = sequence_nllloss(S_sample, design_probs_collapse)  # , mask_for_loss)
                                 designed_indices_collapse_z = collapse_z[residue_indices_of_interest[pose_idx]]
                                 magnitude_of_collapse_z_deviation = np.abs(designed_indices_collapse_z)
                                 if any(designed_indices_collapse_z > 1):  # Deviation larger than one positive std
@@ -3110,7 +3110,7 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
 
                         log_prob_time = time.time()
                         log_probs_start_time = time.time()
-                        log_probs = \
+                        complex_log_probs = \
                             mpnn_model(X, S_sample, mask, chain_residue_mask, residue_idx, chain_encoding,
                                        None,  # This argument is provided but with below args, is not used
                                        use_input_decoding_order=True, decoding_order=decoding_order_out)
@@ -3140,7 +3140,7 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
 
                         log.info(f'Log prob calculation took {time.time() - log_probs_start_time:8f}')
                         log.info(f'Unbound log prob calculation took {log_prob_time - unbound_log_prob_start_time:8f}')
-                        # log_probs is
+                        # complex_log_probs is
                         # tensor([[[-2.7691, -3.5265, -2.9001,  ..., -3.3623, -3.0247, -4.2772],
                         #          [-2.7691, -3.5265, -2.9001,  ..., -3.3623, -3.0247, -4.2772],
                         #          [-2.7691, -3.5265, -2.9001,  ..., -3.3623, -3.0247, -4.2772],
@@ -3150,13 +3150,14 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
                         #          [-2.7691, -3.5265, -2.9001,  ..., -3.3623, -3.0247, -4.2772]]]
                         # Score the redesigned structure-sequence
                         # mask_for_loss = chain_mask_and_mask*residue_mask
-                        # S_sample, log_probs, and mask_for_loss should all be the same size
-                        # batch_scores = sequence_nllloss(S_sample, log_probs, mask_for_loss, per_residue=False)
+                        # S_sample, complex_log_probs, and mask_for_loss should all be the same size
+                        # batch_scores = sequence_nllloss(S_sample, complex_log_probs, mask_for_loss, per_residue=False)
                         # batch_scores is
                         # tensor([2.1039, 2.0618, 2.0802, 2.0538, 2.0114, 2.0002], device='cuda:0')
-                        batch_scores_per_residue = sequence_nllloss(S_sample, log_probs)  # , mask_for_loss)
+                        complexed_batch_scores_per_residue = sequence_nllloss(S_sample, complex_log_probs)  # , mask_for_loss)
                         unbound_batch_scores_per_residue = sequence_nllloss(S_sample, unbound_log_probs)  # , mask_for_loss)
-                        # log_probs tensor([[[-2.6925, -4.0590, -2.6488,  ..., -4.2480, -3.4569, -4.8654],
+                        # complex_log_probs
+                        # tensor([[[-2.6925, -4.0590, -2.6488,  ..., -4.2480, -3.4569, -4.8654],
                         #          [-2.8767, -4.3965, -2.4073,  ..., -4.4929, -3.5968, -5.1402],
                         #          [-2.5122, -4.0334, -2.7984,  ..., -4.2716, -3.4859, -4.8255],
                         #          ...,
@@ -3171,7 +3172,8 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
                         #          [-3.4500, -4.4373, -3.7814,  ..., -5.1637, -4.6107, -5.2295],
                         #          [-0.9690, -4.9492, -3.9373,  ..., -2.0154, -2.2262, -4.3334],
                         #          [-3.1118, -4.3809, -3.8763,  ..., -4.7145, -4.1524, -5.3076]]])
-                        # batch_scores_per_residue tensor([[2.6774, 2.8040, 2.6776,  ..., 0.5250, 4.3917, 3.3005],
+                        # complexed_batch_scores_per_residue
+                        # tensor([[2.6774, 2.8040, 2.6776,  ..., 0.5250, 4.3917, 3.3005],
                         #         [2.5753, 3.0423, 2.6879,  ..., 0.5574, 4.3880, 3.3008]])
                         # unbound_log_probs tensor([[[-2.4807, -4.0730, -2.7958,  ..., -3.9997, -3.5745, -4.8288],
                         #          [-2.4487, -4.0353, -2.6968,  ..., -3.9901, -3.5318, -4.8019],
@@ -3191,11 +3193,11 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
                         # unbound_batch_scores_per_residue tensor([[2.5189, 2.6957, 2.5164,  ..., 2.5407, 3.4855, 1.5007],
                         #         [2.8567, 2.7632, 2.5662,  ..., 2.5407, 3.4855, 1.5007]])
                         # Score the whole structure-sequence
-                        # global_scores = sequence_nllloss(S_sample, log_probs, mask, per_residue=False)
+                        # global_scores = sequence_nllloss(S_sample, complex_log_probs, mask, per_residue=False)
 
                         # Format outputs
                         generated_sequences[batch_slice] = S_sample.cpu().numpy()
-                        per_residue_sequence_scores[batch_slice] = batch_scores_per_residue.cpu().numpy()  # scores
+                        per_residue_sequence_scores[batch_slice] = complexed_batch_scores_per_residue.cpu().numpy()  # scores
                         per_residue_unbound_scores[batch_slice] = unbound_batch_scores_per_residue.cpu().numpy()  # scores
                         probabilities[batch_slice] = sample_dict['probs'].cpu().numpy()  # batch_probabilities
 
@@ -3212,9 +3214,9 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
                         del S_sample
                         del decoding_order_out
                         del chain_residue_mask
-                        del log_probs
+                        del complex_log_probs
                         # del mask_for_loss
-                        del batch_scores_per_residue
+                        del complexed_batch_scores_per_residue
 
                 log.critical(f'Successful execution with {divisor} using available memory of '
                              f'{memory_constraint} and batch_length of {batch_length}')
@@ -3265,9 +3267,9 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
                     del S_sample
                     del decoding_order_out
                     del chain_residue_mask
-                    del log_probs
+                    del complex_log_probs
                     # del mask_for_loss
-                    del batch_scores_per_residue
+                    del complexed_batch_scores_per_residue
                 except NameError:
                     pass
                 # divisor = divisor*2
@@ -3316,41 +3318,12 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
 
     # Todo REMOVE DUPLICATION FOR TESTING
     # Calculate metrics on input Pose
-    # residue_indices = list(range(1, pose_length + 1))
-    # # entity_energies = tuple(0. for ent in pose.entities)
-    # pose_source_residue_info = \
-    #     {residue.number: {'complex': 0., 'bound': 0.,  # copy(entity_energies),
-    #                       'unbound': 0.,  # copy(entity_energies),
-    #                       'solv_complex': 0., 'solv_bound': 0.,  # copy(entity_energies),
-    #                       'solv_unbound': 0.,  # copy(entity_energies),
-    #                       # 'fsp': 0., 'cst': 0.,
-    #                       'type': protein_letters_3to1.get(residue.type), 'hbond': 0}
-    #      for entity in pose.entities for residue in entity.residues}
-    # # This needs to be calculated before iterating over each pose
-    # residue_info = {pose_source: pose_source_residue_info}
-    # residue_info[pose_source] = pose_source_residue_info
-
-    source_contact_order, source_errat = [], []
+    source_errat = []
     for idx, entity in enumerate(pose.entities):
-        # Contact order is the same for every design in the Pose and not dependent on pose
-        # source_contact_order.append(entity.contact_order)
-        # Replace 'errat_deviation' measurement with uncomplexed entities
-        # oligomer_errat_accuracy, oligomeric_errat = entity_oligomer.errat(out_path=self.data)
-        # Todo translate the source pose
-        # Todo when Entity.oligomer works
-        #  _, oligomeric_errat = entity.oligomer.errat(out_path=self.data)
         entity_oligomer = Model.from_chains(entity.chains, log=log, entities=False)
         _, oligomeric_errat = entity_oligomer.errat(out_path=os.devnull)
         source_errat.append(oligomeric_errat[:entity.number_of_residues])
 
-    # pose_source_contact_order_s = pd.Series(np.concatenate(source_contact_order), index=residue_indices)
-    # pose_source_errat_s = pd.Series(np.concatenate(source_errat), index=residue_indices)
-
-    # per_residue_data = {}  # pose_source: pose.get_per_residue_interface_metrics()}
-    # per_residue_data = {pose_source: {'contact_order': pose_source_contact_order_s,
-    #                                   'errat_deviation': pose_source_errat_s}}
-    # per_residue_data[pose_source] = {'contact_order': pose_source_contact_order_s,
-    #                                  'errat_deviation': pose_source_errat_s}
     # Todo REMOVE DUPLICATION FOR TESTING
     # Get metrics for each Pose
     # Set up data structures
@@ -3359,7 +3332,7 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
     interface_local_density = {}
     pose_transformations = {}
     pose_sequences = {}
-    all_pose_divergence = []
+    # all_pose_divergence = []
     all_probabilities = {}
     pose_ids = []
     fragment_profile_frequencies = []
@@ -3499,7 +3472,7 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
             # # for profile, observed_values in observed.items():
             # #     scores_df[f'observed_{profile}'] = observed_values.mean(axis=1)
             # #     observed_dfs.append(pd.DataFrame(data=observed_values, index=pose_id,
-            # #                                      columns=pd.MultiIndex.from_product([residue_indices,
+            # #                                      columns=pd.MultiIndex.from_product([residue_numbers,
             # #                                                                          [f'observed_{profile}']]))
             # #                         )
             # # Add observation information into the residue_df
@@ -3634,8 +3607,8 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
     scores_df['interface_local_density'] = pd.Series(interface_local_density)
 
     # Construct per_residue_df
-    per_residue_df = pd.concat({name: pd.DataFrame(data, index=residue_indices)
-                                for name, data in per_residue_data.items()}).unstack().swaplevel(0, 1, axis=1)
+    per_residue_df = pd.concat({pose_id: pd.DataFrame(data, index=residue_numbers)
+                                for pose_id, data in per_residue_data.items()}).unstack().swaplevel(0, 1, axis=1)
     per_residue_df = per_residue_df.join(residue_df)
     # per_residue_df = pd.merge(residue_df, per_residue_df, left_index=True, right_index=True)
     # Make buried surface area (bsa) columns, and residue classification
