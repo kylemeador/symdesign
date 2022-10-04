@@ -2859,7 +2859,7 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
                 # To use torch.nn.NLLL() must use dtype Long -> np.int64, not Int -> np.int32
                 generated_sequences = np.empty((size, number_of_residues), dtype=np.int64)
                 # sequence_scores = np.empty((size,))
-                per_residue_sequence_scores = np.empty((size, number_of_residues))
+                per_residue_complex_scores = np.empty((size, number_of_residues))
                 per_residue_unbound_scores = np.empty((size, number_of_residues))
                 probabilities = np.empty((size, number_of_residues, mpnn_alphabet_length))
 
@@ -3177,7 +3177,8 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
                         # complexed_batch_scores_per_residue
                         # tensor([[2.6774, 2.8040, 2.6776,  ..., 0.5250, 4.3917, 3.3005],
                         #         [2.5753, 3.0423, 2.6879,  ..., 0.5574, 4.3880, 3.3008]])
-                        # unbound_log_probs tensor([[[-2.4807, -4.0730, -2.7958,  ..., -3.9997, -3.5745, -4.8288],
+                        # unbound_log_probs
+                        # tensor([[[-2.4807, -4.0730, -2.7958,  ..., -3.9997, -3.5745, -4.8288],
                         #          [-2.4487, -4.0353, -2.6968,  ..., -3.9901, -3.5318, -4.8019],
                         #          [-2.5175, -4.0416, -2.8882,  ..., -3.9594, -3.6045, -4.7788],
                         #          ...,
@@ -3280,11 +3281,15 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
 
         log.info(f'Design with ProteinMPNN took {time.time() - proteinmpnn_time_start:8f}')
 
-        # Format the sequences from design
-        sequences = numeric_to_sequence(generated_sequences)
         # Truncate the sequences to the ASU
         if pose.is_symmetric():
-            sequences = sequences[:, :pose_length]
+            generated_sequences = generated_sequences[:, :pose_length]
+            per_residue_complex_scores = per_residue_complex_scores[:, :pose_length]
+            per_residue_unbound_scores = per_residue_unbound_scores[:, :pose_length]
+            probabilities = probabilities[:, :pose_length]
+            # sequences = sequences[:, :pose_length]
+        # Format the sequences from design
+        sequences = numeric_to_sequence(generated_sequences)
 
     # Format pose transformations for output
     # full_rotation1 = full_rotation1
@@ -3333,9 +3338,8 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
     interface_metrics = {}
     interface_local_density = {}
     pose_transformations = {}
-    pose_sequences = {}
     # all_pose_divergence = []
-    all_probabilities = {}
+    # all_probabilities = {}
     pose_ids = []
     fragment_profile_frequencies = []
     # per_residue_data, residue_info = {}, {}
@@ -3379,9 +3383,8 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
 
         if design_output:
             # Save each Pose sequence design information including sequence, energy, probabilites
-            pose_sequences[pose_id] = ''.join(sequences[idx])
-            all_probabilities[pose_id] = probabilities[idx]
-
+            # pose_sequences[pose_id] = ''.join(sequences[idx])
+            # all_probabilities[pose_id] = probabilities[idx]
             # Todo process the all_probabilities to a DataFrame?
             #  The probabilities are the actual probabilities at each residue for each AA
             #  These differ from the log_probabilities in that those are scaled by the log()
@@ -3445,8 +3448,7 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
             # fragment_profile_frequencies = pose.get_sequence_probabilities_from_profile(dtype='fragment')  # fragment_profile_array
             # Todo get the below mechanism clean
             # Before calculation, we must set this (v) to get the correct values from the profile
-            pose._sequence_numeric = generated_sequences[idx, :pose_length]
-            # pose._sequence_numeric = generated_sequences[idx, :pose_length].astype(np.int32)
+            pose._sequence_numeric = generated_sequences[idx]  # , :pose_length]
             # Todo these are not Softmax probabilities
             try:
                 fragment_profile_frequencies.append(
