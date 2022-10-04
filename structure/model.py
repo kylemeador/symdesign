@@ -2410,6 +2410,7 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
                  cryst_record: str = None, design: bool = False,
                  # dbref: dict[str, dict[str, str]] = None,
                  entity_info: dict[str, dict[dict | list | str]] = None,
+                 fragment_db: FragmentDatabase = None,
                  # multimodel: bool = False,
                  resolution: float = None,
                  # api_db: APIDatabase = None,
@@ -2489,6 +2490,9 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
 
         # if metadata and isinstance(metadata, PDB):
         #     self.copy_metadata(metadata)
+
+        # Need to set up after load Entities so that they can have this added to their SequenceProfile
+        self.fragment_db = fragment_db  # kwargs.get('fragment_db', None)
 
     def _process_model(self, pose_format: bool = False, chains: bool | list[Chain] | Structures = True,
                        rename_chains: bool = False, entities: bool | list[Entity] | Structures = True,
@@ -2628,6 +2632,26 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
     #     self.secondary_structure = pdb.secondary_structure
     #     # self.cb_coords = pdb.cb_coords
     #     # self.bb_coords = pdb.bb_coords
+
+    @property
+    def fragment_db(self) -> FragmentDatabase:
+        """The FragmentDatabase with which information about fragment usage will be extracted"""
+        return self._fragment_db
+
+    @fragment_db.setter
+    def fragment_db(self, fragment_db: FragmentDatabase):
+        # self.log.critical(f'Found fragment_db {type(fragment_db)}. '
+        #                   f'isinstance(fragment_db, FragmentDatabase) = {isinstance(fragment_db, FragmentDatabase)}')
+        if not isinstance(fragment_db, FragmentDatabase):
+            # Todo add fragment_length, sql kwargs
+            self.log.debug(f'fragment_db was set to the default since a {type(fragment_db).__name__} was passed which '
+                           f'is not of the required type {FragmentDatabase.__name__}')
+            fragment_db = fragment_factory(source=PUtils.biological_interfaces)
+
+        self._fragment_db = fragment_db
+        # for chain in self.entities:  # Was this in the Pose
+        for chain in self.chains:
+            chain.fragment_db = fragment_db
 
     @property
     def chain_breaks(self) -> list[int]:
@@ -3287,6 +3311,7 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
                 return max_score_entity
 
         return None
+
 
 # All methods below come with no intention of working with Model, but contain useful code to generate axes and display
 # them for symmetric systems. Adaptation to an Axis class could be helpful for visualization
@@ -5261,7 +5286,7 @@ class Pose(SymmetricModel):
     ss_index_array: list[int]
     ss_type_array: list[str]
 
-    def __init__(self, fragment_db: FragmentDatabase = None, ignore_clashes: bool = False,
+    def __init__(self, ignore_clashes: bool = False,
                  design_selector: dict[str, dict[str, dict[str, set[int] | set[str] | None]]] = None, **kwargs):
         # unused args
         #           euler_lookup: EulerLookup = None,
@@ -5295,30 +5320,9 @@ class Pose(SymmetricModel):
             else:
                 raise error
 
-        # Need to set up after load Entities so that they can have this added to their SequenceProfile
-        self.fragment_db = fragment_db  # kwargs.get('fragment_db', None)
         self.create_design_selector()  # **self.design_selector)
         self.log.debug(f'Entities: {", ".join(entity.name for entity in self.entities)}')
         self.log.debug(f'Active Entities: {", ".join(entity.name for entity in self.active_entities)}')
-
-    @property
-    def fragment_db(self) -> FragmentDatabase:
-        """The FragmentDatabase with which information about fragment usage will be extracted"""
-        return self._fragment_db
-
-    @fragment_db.setter
-    def fragment_db(self, fragment_db: FragmentDatabase):
-        # self.log.critical(f'Found fragment_db {type(fragment_db)}. '
-        #                   f'isinstance(fragment_db, FragmentDatabase) = {isinstance(fragment_db, FragmentDatabase)}')
-        if not isinstance(fragment_db, FragmentDatabase):
-            # Todo add fragment_length, sql kwargs
-            self.log.debug(f'fragment_db was set to the default since a {type(fragment_db).__name__} was passed which '
-                           f'is not of the required type {FragmentDatabase.__name__}')
-            fragment_db = fragment_factory(source=PUtils.biological_interfaces)
-
-        self._fragment_db = fragment_db
-        for entity in self.entities:
-            entity.fragment_db = fragment_db
 
     @property
     def active_entities(self) -> list[Entity]:
