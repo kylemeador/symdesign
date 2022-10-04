@@ -20,10 +20,10 @@ from sklearn.cluster import DBSCAN
 from sklearn.neighbors import BallTree
 
 from metrics import calculate_collapse_metrics, calculate_residue_surface_area, errat_1_sigma, errat_2_sigma, \
-    multiple_sequence_alignment_dependent_metrics, \
-    incorporate_mutation_info, profile_dependent_metrics, columns_to_new_column, residue_classification, delta_pairs, \
-    division_pairs, interface_composition_similarity, clean_up_intermediate_columns, sum_per_residue_metrics, \
-    per_residue_energy_states, hydrophobic_collapse_index, cross_entropy, energy_metric_names, sasa_metric_names
+    multiple_sequence_alignment_dependent_metrics, profile_dependent_metrics, columns_to_new_column, \
+    residue_classification, delta_pairs, division_pairs, interface_composition_similarity, \
+    clean_up_intermediate_columns, sum_per_residue_metrics, per_residue_energy_states, hydrophobic_collapse_index, \
+    cross_entropy, energy_metric_names, per_residue_sasa_states, collapse_metrics
 from resources.EulerLookup import euler_factory
 from structure.fragment.db import FragmentDatabase, fragment_factory
 from resources.job import job_resources_factory, JobResources
@@ -3665,10 +3665,10 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
     print('summed_scores_df', summed_scores_df)
     scores_df = scores_df.join(summed_scores_df)
     # Drop unused particular per_residue_df columns that have been summed
-    drop_columns = per_residue_energy_states + energy_metric_names + per_residue_sasa_states \
+    drop_columns = per_residue_energy_states + energy_metric_names + per_residue_sasa_states + collapse_metrics \
+                   + residue_classification \
                    + ['errat_deviation', 'hydrophobic_collapse', 'contact_order'] \
-                   + ['hbond', 'evolution', 'fragment', 'type'] \
-                   + residue_classification + ['surface', 'interior']
+                   + ['hbond', 'evolution', 'fragment', 'type'] + ['surface', 'interior']
     per_residue_df = per_residue_df.drop(
         [column for column in per_residue_df.loc[:,
          idx_slice[:, drop_columns]].columns], errors='ignore', axis=1)
