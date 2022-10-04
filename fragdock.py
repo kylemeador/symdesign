@@ -2407,6 +2407,8 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
     # Update the transformation array and counts with the interface_is_viable indices
     # Todo
     #  remove_non_viable_indices(interface_is_viable)
+    # Todo
+    #  Turn the degen_counts into indices... These will be used for rotation slicing?
     degen_counts, rot_counts, tx_counts = zip(*[(degen_counts[idx], rot_counts[idx], tx_counts[idx])
                                                 for idx in interface_is_viable])
     full_rotation1 = full_rotation1[interface_is_viable]
@@ -2482,8 +2484,10 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
             frag_match_info = get_matching_fragment_pairs_info(fragment_pairs)
             # pose.fragment_queries = {(model1, model2): frag_match_info}
             fragment_metrics = job.fragment_db.calculate_match_metrics(frag_match_info)
+            # Todo when able to take more than 2 Entity
+            #  The entity_tuple must contain the same Entity instances as in the Pose!
+            # entity_tuple = models_tuple
             # These two pose attributes must be set
-            # entity_tuple = models_tuple  # Todo when able to take more than 2 Entity
             pose.fragment_queries = {entity_tuple: frag_match_info}
             pose.fragment_metrics = {entity_tuple: fragment_metrics}
 
@@ -3035,6 +3039,11 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
                                               per_entry=True)
                                               # axis=1)
                             print('evolutionary_ce', evolutionary_ce)
+                            # Todo
+                            #  Taking the KL divergence would indicate how divergent the interfaces are from the
+                            #  surface. This should be simultaneously minimized (i.e. lowest evolutionary divergence)
+                            #  while the aa frequency distribution cross_entropy compared to the fragment profile is
+                            #  minimized
                         # fragment_ce = cross_entropy(asu_conditional_softmax_null_seq,
                         #                             batch_fragment_profile[:actual_batch_length])
                         if collapse_profile.size:  # Not equal to zero
