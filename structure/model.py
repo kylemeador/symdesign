@@ -2650,7 +2650,8 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
             fragment_db = fragment_factory(source=PUtils.biological_interfaces)
 
         self._fragment_db = fragment_db
-        # for chain in self.entities:  # Was this in the Pose
+        for chain in self.entities:
+            chain.fragment_db = fragment_db
         for chain in self.chains:
             chain.fragment_db = fragment_db
 
