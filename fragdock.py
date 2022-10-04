@@ -3540,7 +3540,8 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
     interface_metrics_df = pd.DataFrame(interface_metrics).T
 
     # Initialize the main scoring DataFrame
-    scores_df = pd.DataFrame(pose_transformations).T
+    # scores_df = pd.DataFrame(pose_transformations).T
+    scores_df = pd.concat([pd.DataFrame(pose_transformations).T, interface_metrics_df], axis=1)
 
     # Collect sequence metrics on every designed Pose
     if design_output:
@@ -3597,7 +3598,7 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
         scores_df['number_of_mutations'] = \
             pd.Series({design: len(mutations) for design, mutations in all_mutations.items()})
         scores_df['percent_mutations'] = \
-            scores_df['number_of_mutations'] / interface_metrics_df.loc[:, 'entity_residue_length_total']
+            scores_df['number_of_mutations'] / scores_df['entity_residue_length_total']
 
         idx = 1
         for idx, entity in enumerate(pose.entities, idx):
@@ -3607,7 +3608,7 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
                            for design, mutations in all_mutations.items()})
             scores_df[f'entity_{idx}_percent_mutations'] = \
                 scores_df[f'entity_{idx}_number_of_mutations'] \
-                / interface_metrics_df.loc[:, f'entity_{idx}_number_of_residues']
+                / scores_df[f'entity_{idx}_number_of_residues']
     else:  # Get metrics and output
         # Generate placeholder all_mutations which only contains "reference"
         # all_mutations = generate_mutations_from_reference(pose.sequence, pose_sequences, return_to=True)  # , zero_index=True)
@@ -3619,13 +3620,12 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
     # is_thermophilic = []
     # idx = 1
     # for idx, entity in enumerate(pose.entities, idx):
-    #     is_thermophilic.append(interface_metrics_df.loc[:, f'entity_{idx}_thermophile'])
+    #     is_thermophilic.append(scores_df[f'entity_{idx}_thermophile'])
 
     # Get the average thermophilicity for all entities
-    interface_metrics_df['entity_thermophilicity'] = \
-        interface_metrics_df.loc[:, [f'entity_{idx}_thermophile'
-                                     for idx in range(1, pose.number_of_entities)]
-                                 ].sum(axis=1) / pose.number_of_entities
+    scores_df['entity_thermophilicity'] = \
+        scores_df.loc[:, [f'entity_{idx}_thermophile' for idx in range(1, pose.number_of_entities)]
+                      ].sum(axis=1) / pose.number_of_entities
 
     scores_df['interface_local_density'] = pd.Series(interface_local_density)
 
@@ -3698,7 +3698,7 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
     # scores_df = columns_to_new_column(scores_df, summation_pairs)
     scores_df = columns_to_new_column(scores_df, delta_pairs, mode='sub')
     # add total_interface_residues for div_pairs and int_comp_similarity
-    scores_df['total_interface_residues'] = interface_metrics_df['total_interface_residues']  # other_pose_metrics.pop('total_interface_residues')
+    # scores_df['total_interface_residues'] = interface_metrics_df['total_interface_residues']  # other_pose_metrics.pop('total_interface_residues')
     scores_df = columns_to_new_column(scores_df, division_pairs, mode='truediv')
     scores_df['interface_composition_similarity'] = scores_df.apply(interface_composition_similarity, axis=1)
     # dropping 'total_interface_residues' after calculation as it is in other_pose_metrics
@@ -3711,8 +3711,7 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
     # Todo incorporate full sequence ProteinMPNN summation into scores_df. Find meaning of probabilities
     # Todo incorporate residue_df summation into scores_df
     #  observed_*, solvation_energy, etc.
-    scores_df = pd.concat([scores_df, interface_metrics_df], keys=[('dock', 'pose')], axis=1)
-    print('scores_df', scores_df)
+    scores_df = pd.concat([scores_df], keys=[('dock', 'pose')], axis=1)
 
     # CONSTRUCT: Create pose series and format index names
     pose_df = scores_df.swaplevel(0, 1, axis=1)
