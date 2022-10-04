@@ -33,7 +33,10 @@ per_residue_sasa_states = ['sasa_hydrophobic_bound', 'sasa_polar_bound', 'sasa_h
                            'sasa_polar_complex', 'sasa_relative_complex', 'sasa_relative_bound',
                            'sasa_total_bound', 'sasa_total_complex']
 per_residue_intermediate_states = ['bsa_polar', 'bsa_hydrophobic', 'bsa_total']
-sasa_metric_names = ['interface_area_polar', 'interface_area_hydrophobic', 'interface_area_total', ]
+sasa_metric_names = ['interface_area_polar', 'interface_area_hydrophobic', 'interface_area_total']
+collapse_metrics = ['new_collapse_islands', 'new_collapse_island_significance', 'contact_order_collapse_significance',
+                    'contact_order_collapse_z_sum', 'global_collapse_z_sum', 'hydrophobicity_deviation_magnitude',
+                    'sequential_collapse_peaks_z_sum', 'sequential_collapse_z_sum']
 # Only slice the final 3 values
 sasa_metrics_rename_mapping = dict(zip(per_residue_intermediate_states, sasa_metric_names))
 # Based on bsa_total values for highest deviating surface residue of one design from multiple measurements
