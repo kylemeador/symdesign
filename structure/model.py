@@ -2651,9 +2651,9 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
 
         # self._fragment_db = fragment_db
         for chain in self.entities:
-            chain.fragment_db = fragment_db
+            chain.fragment_db = self._fragment_db
         for chain in self.chains:
-            chain.fragment_db = fragment_db
+            chain.fragment_db = self._fragment_db
 
     @property
     def chain_breaks(self) -> list[int]:
