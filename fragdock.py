@@ -2878,8 +2878,8 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
                 per_residue_evolution_cross_entropy = np.empty((size, pose_length), dtype=np.float32)
                 #                                                       number_of_residues, dtype=np.float))
                 per_residue_fragment_cross_entropy = np.empty_like(per_residue_evolution_cross_entropy)
-                per_residue_complex_sequence_loss = np.empty(per_residue_evolution_cross_entropy)
-                per_residue_unbound_sequence_loss = np.empty(per_residue_evolution_cross_entropy)
+                per_residue_complex_sequence_loss = np.empty_like(per_residue_evolution_cross_entropy)
+                per_residue_unbound_sequence_loss = np.empty_like(per_residue_evolution_cross_entropy)
                 # probabilities = np.empty((size, number_of_residues, mpnn_alphabet_length, dtype=np.float32))
 
                 # Gather the coordinates according to the transformations identified
