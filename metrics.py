@@ -1558,7 +1558,7 @@ def kl_divergence(frequencies: np.ndarray, bgd_frequencies: np.ndarray, per_entr
     kl_per_entry = np.sum(np.where(np.isnan(probs1), 0, probs1), axis=-1)
     #     return loss
     if per_entry:
-        return kl_per_entry
+        return -kl_per_entry
     elif mask is None:
         return -np.sum(kl_per_entry, axis=axis)
     else:
@@ -1588,7 +1588,7 @@ def cross_entropy(frequencies: np.ndarray, bgd_frequencies: np.ndarray, per_entr
     ce_per_entry = np.sum(np.where(np.isnan(probs1), 0, probs1), axis=-1)
     #     return loss
     if per_entry:
-        return ce_per_entry
+        return -ce_per_entry
     elif mask is None:
         return -np.sum(ce_per_entry, axis=axis)
     else:
