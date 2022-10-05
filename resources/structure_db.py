@@ -470,6 +470,10 @@ class StructureDatabase(Database):
             if structure.name not in full_model_names:  # assumes oriented_asu structure name is the same
                 structures_to_loop_model.append(structure)
 
+        # For now remove this portion of the protocol
+        # Todo remove if need to model. Maybe using Alphafold
+        structures_to_loop_model = []
+
         # query user and set up commands to perform refinement on missing entities
         info_messages = []
         # Assume pre_refine is True until we find it isn't
