@@ -2965,7 +2965,7 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
                     # np.log causes -inf at 0, thus we need to correct these to a very large number
                     batch_fragment_profile = torch.from_numpy(np.nan_to_num(fragment_profile_array,
                                                                             copy=False, nan=np.nan))
-                    print('batch_fragment_profile', batch_fragment_profile[:, 20:23])
+                    # print('batch_fragment_profile', batch_fragment_profile[:, 20:23])
 
                     # If entity_bb_coords are individually transformed, then axis=0 works
                     perturbed_bb_coords = np.concatenate(new_coords, axis=0)
@@ -3071,8 +3071,8 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
                                               per_entry=True)
                             #                 mask=residue_indices_of_interest,
                             #                 axis=1)
-                            print('per_residue_evolution_cross_entropy',
-                                  per_residue_evolution_cross_entropy[batch_slice])
+                            # print('per_residue_evolution_cross_entropy',
+                            #       per_residue_evolution_cross_entropy[batch_slice])
                             # per_residue_evolution_cross_entropy[batch_slice]
                             # [[-3.0685883 -3.575249  -2.967545  ... -3.3111317 -3.1204746 -3.1201541]
                             #  [-3.0685873 -3.5752504 -2.9675443 ... -3.3111336 -3.1204753 -3.1201541]
@@ -3087,7 +3087,7 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
                             #                 mask=residue_indices_of_interest,
                             #                 axis=1)
                             print('per_residue_fragment_cross_entropy',
-                                  per_residue_fragment_cross_entropy[batch_slice])
+                                  per_residue_fragment_cross_entropy[batch_slice, 20:25])
 
                         # fragment_ce = cross_entropy(asu_conditional_softmax_null_seq,
                         #                             batch_fragment_profile[:actual_batch_length])
@@ -3233,7 +3233,7 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
                         # batch_scores is
                         # tensor([2.1039, 2.0618, 2.0802, 2.0538, 2.0114, 2.0002], device='cuda:0')
                         # Format outputs
-                        generated_sequences[batch_slice] = batch_sequences = S_sample.cpu().numpy()[:, :pose_length]
+                        generated_sequences[batch_slice] = batch_sequences = S_sample.cpu()[:, :pose_length]
                         per_residue_complex_sequence_loss[batch_slice] = \
                             sequence_nllloss(batch_sequences, complex_log_probs[:, :pose_length]).numpy()
                         per_residue_unbound_sequence_loss[batch_slice] = \
