@@ -2880,6 +2880,7 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
                 per_residue_fragment_cross_entropy = np.empty_like(per_residue_evolution_cross_entropy)
                 per_residue_complex_sequence_loss = np.empty_like(per_residue_evolution_cross_entropy)
                 per_residue_unbound_sequence_loss = np.empty_like(per_residue_evolution_cross_entropy)
+                per_residue_batch_collapse_z = np.zeros_like(per_residue_evolution_cross_entropy)
                 # probabilities = np.empty((size, number_of_residues, mpnn_alphabet_length, dtype=np.float32))
 
                 # Gather the coordinates according to the transformations identified
@@ -3086,14 +3087,16 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
                                               per_entry=True)
                             #                 mask=residue_indices_of_interest,
                             #                 axis=1)
-                            print('per_residue_fragment_cross_entropy',
-                                  per_residue_fragment_cross_entropy[batch_slice, 20:25])
+                            # print('per_residue_fragment_cross_entropy',
+                            #       per_residue_fragment_cross_entropy[batch_slice, 20:25])
 
                         # fragment_ce = cross_entropy(asu_conditional_softmax_null_seq,
                         #                             batch_fragment_profile[:actual_batch_length])
                         if collapse_profile.size:  # Not equal to zero
                             # Take the hydrophobic collapse of the log probs to understand the profiles "folding"
                             skip = []
+                            per_residue_mini_batch_collapse_z = \
+                                np.empty((actual_batch_length, pose_length), dtype=np.float32)
                             for pose_idx in range(actual_batch_length):
                                 # Only include the residues in the ASU
                                 # # asu_conditional_softmax = np.exp(conditional_log_probs[pose_idx, :pose_length])
@@ -3129,8 +3132,8 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
                                 #  contact_order_per_res_z, reference_collapse, collapse_profile
                                 # print('HCI profile mean', collapse_profile_mean)
                                 # print('HCI profile std', collapse_profile_std)
-                                collapse_z = z_score(design_probs_collapse,
-                                                     collapse_profile_mean, collapse_profile_std)
+                                per_residue_mini_batch_collapse_z[pose_idx] = collapse_z = \
+                                    z_score(design_probs_collapse, collapse_profile_mean, collapse_profile_std)
                                 # folding_loss = sequence_nllloss(S_sample, design_probs_collapse)  # , mask_for_loss)
                                 designed_indices_collapse_z = collapse_z[residue_indices_of_interest[pose_idx]]
                                 # magnitude_of_collapse_z_deviation = np.abs(designed_indices_collapse_z)
@@ -3150,6 +3153,8 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
                                         # f'Total deviation={magnitude_of_collapse_z_deviation.sum()}. '
                                                  f'Mean={designed_indices_collapse_z.mean()}'
                                                  f'Standard Deviation={designed_indices_collapse_z.std()}')
+
+                            per_residue_batch_collapse_z[batch_slice] = per_residue_mini_batch_collapse_z
 
                         # Todo add skip to the selection mechanism
                         sample_start_time = time.time()
@@ -3579,7 +3584,10 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
                                               # 'bound': 0.,  # copy(entity_energies),
                                               'unbound': per_residue_unbound_sequence_loss[idx],
                                               'evolution': per_residue_evolutionary_profile_scores,
+                                              'evolution_proteinmpnn_cross_entropy': per_residue_evolution_cross_entropy[idx],
                                               'fragment': per_residue_fragment_profile_scores,
+                                              'fragment_proteinmpnn_cross_entropy': per_residue_fragment_cross_entropy[idx],
+                                              'collapse_profile_z': per_residue_batch_collapse_z,
                                               # copy(entity_energies),
                                               # 'solv_complex': 0., 'solv_bound': 0.,
                                               # copy(entity_energies),
