@@ -2711,7 +2711,6 @@ class PoseDirectory:
         scores_df['total_interface_residues'] = other_pose_metrics.pop('total_interface_residues')
         scores_df = columns_to_new_column(scores_df, division_pairs, mode='truediv')
         scores_df['interface_composition_similarity'] = scores_df.apply(interface_composition_similarity, axis=1)
-        # dropping 'total_interface_residues' after calculation as it is in other_pose_metrics
         scores_df.drop(clean_up_intermediate_columns, axis=1, inplace=True, errors='ignore')
         if scores_df.get('repacking') is not None:
             # set interface_bound_activation_energy = NaN where repacking is 0
@@ -3950,7 +3949,6 @@ def interface_design_analysis(pose: Pose, design_poses: Iterable[Pose] = None, s
     scores_df['total_interface_residues'] = other_pose_metrics.pop('total_interface_residues')
     scores_df = columns_to_new_column(scores_df, division_pairs, mode='truediv')
     scores_df['interface_composition_similarity'] = scores_df.apply(interface_composition_similarity, axis=1)
-    # dropping 'total_interface_residues' after calculation as it is in other_pose_metrics
     scores_df.drop(clean_up_intermediate_columns, axis=1, inplace=True, errors='ignore')
     if scores_df.get('repacking') is not None:
         # set interface_bound_activation_energy = NaN where repacking is 0

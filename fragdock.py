@@ -3740,11 +3740,22 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
     errat_sig_df = errat_df.sub(pose_source_errat_s, axis=1) > errat_1_sigma  # axis=1 Series is column oriented
     # then select only those residues which are expressly important by the inclusion boolean
     scores_df['errat_deviation'] = (errat_sig_df.loc[:, source_errat_inclusion_boolean] * 1).sum(axis=1)
+    scores_df['proteinmpnn_score_complex'] = \
+        scores_df['interface_energy_complex'] / scores_df['pose_length']
+    scores_df['proteinmpnn_score_unbound'] = \
+        scores_df['interface_energy_unbound'] / scores_df['pose_length']
+    # Todo need to subtract only the interface residues and perform the average on this...
+    # scores_df['proteinmpnn_score_interface_complex'] = \
+    #     scores_df['interface_energy_complex'] / scores_df['total_interface_residues']
+    # scores_df['proteinmpnn_score_interface_unbound'] = \
+    #     scores_df['interface_energy_unbound'] / scores_df['total_interface_residues']
 
     # Drop unused particular scores_df columns that have been summed
     scores_drop_columns = ['hydrophobic_collapse']
     scores_df = scores_df.drop(scores_drop_columns, errors='ignore', axis=1)
-    scores_df = scores_df.rename(columns={'evolution': 'evolution_sequence_loss', 'fragment': 'fragment_sequence_loss'})
+    scores_df = scores_df.rename(columns={'evolution': 'evolution_sequence_loss',
+                                          'fragment': 'fragment_sequence_loss',
+                                          'type': 'sequence'})
     # Drop unused particular per_residue_df columns that have been summed
     per_residue_drop_columns = per_residue_energy_states + energy_metric_names + per_residue_sasa_states \
                                + collapse_metrics + residue_classification \
@@ -3779,11 +3790,8 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
     # 'sasa_total_bound': list(filter(re_compile('sasa_total_[0-9]+_bound').match, scores_columns))}
     # scores_df = columns_to_new_column(scores_df, summation_pairs)
     scores_df = columns_to_new_column(scores_df, delta_pairs, mode='sub')
-    # add total_interface_residues for div_pairs and int_comp_similarity
-    # scores_df['total_interface_residues'] = interface_metrics_df['total_interface_residues']  # other_pose_metrics.pop('total_interface_residues')
     scores_df = columns_to_new_column(scores_df, division_pairs, mode='truediv')
     scores_df['interface_composition_similarity'] = scores_df.apply(interface_composition_similarity, axis=1)
-    # dropping 'total_interface_residues' after calculation as it is in other_pose_metrics
     scores_df.drop(clean_up_intermediate_columns, axis=1, inplace=True, errors='ignore')
 
     # interface_metrics_s = pd.Series(interface_metrics_df)
