@@ -823,8 +823,10 @@ def main():
             # change default number to a single sequence/pose when not doing a total selection
             args.select_number = 1
     else:  # [PUtils.nano, 'multicistronic']
-        if args.module == PUtils.nano and not sym_entry:
-            raise RuntimeError(f'When running {PUtils.nano}, the argument -e/--entry/--{PUtils.sym_entry} is required')
+        if args.module == PUtils.nano:
+            if not sym_entry:
+                raise RuntimeError(f'When running {PUtils.nano}, the argument -e/--entry/--{PUtils.sym_entry} is '
+                                   f'required')
         else:  # We have no module passed. Print the guide
             print_guide()
         initialize = False
@@ -1155,17 +1157,18 @@ def main():
         all_structures = []
         load_resources = False
         # Set up variables for the correct parsing of provided file paths
-        by_file1, by_file2 = False, False
+        by_file1 = by_file2 = False
         eventual_structure_names1, eventual_structure_names2 = None, None
         if args.oligomer1:
+            by_file1 = True
             logger.critical(f'Ensuring provided file(s) at {args.oligomer1} are oriented for Nanohedra Docking')
             if '.pdb' in args.oligomer1:
                 pdb1_filepaths = [args.oligomer1]
             else:
                 pdb1_filepaths = utils.get_directory_file_paths(args.oligomer1, extension='.pdb')
+
+            # Set filepaths to structure_names, reformat the file paths to the file_name for structure_names
             structure_names1 = pdb1_filepaths
-            by_file1 = True
-            # Reformat the file paths to the file_name for structure_names
             eventual_structure_names1 = \
                 list(map(os.path.basename, [os.path.splitext(file)[0] for file in pdb1_filepaths]))
         elif args.pdb_codes1:
@@ -1185,18 +1188,19 @@ def main():
                                                                  by_file=by_file1))
         single_component_design = False
         if args.oligomer2:
-            if args.oligomer1 != args.oligomer2:  # see if they are the same input
-                logger.critical(f'Ensuring provided file(s) at {args.oligomer1} are oriented for Nanohedra Docking')
+            if args.oligomer1 != args.oligomer2:  # See if they are the same input
+                by_file2 = True
+                logger.critical(f'Ensuring provided file(s) at {args.oligomer2} are oriented for Nanohedra Docking')
                 if '.pdb' in args.oligomer2:
                     pdb2_filepaths = [args.oligomer2]
                 else:
                     pdb2_filepaths = utils.get_directory_file_paths(args.oligomer2, extension='.pdb')
+
+                # Set filepaths to structure_names, reformat the file paths to the file_name for structure_names
                 structure_names2 = pdb2_filepaths
-                by_file2 = True
-                # Reformat the file paths to the file_name for structure_names
                 eventual_structure_names2 = \
                     list(map(os.path.basename, [os.path.splitext(file)[0] for file in pdb2_filepaths]))
-            else:  # the entities are the same symmetry, or we have single component and bad input
+            else:  # The entities are the same symmetry, or we have single component and bad input
                 structure_names2 = []
                 logger.info('No additional entities requested for docking, treating as single component')
                 single_component_design = True

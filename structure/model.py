@@ -270,8 +270,8 @@ def get_matching_fragment_pairs_info(ghostfrag_frag_pairs: list[tuple[GhostFragm
 #                          'number_fragment_residues_all': total_residues_with_fragment_overlap,
 #                          'total_interface_residues': total_residues,
 #                          'number_of_fragments': len(fragment_matches),
-#                          'percent_residues_fragment_total': percent_interface_covered,
-#                          'percent_residues_fragment_center': percent_interface_matched,
+#                          'percent_residues_fragment_interface_total': percent_interface_covered,
+#                          'percent_residues_fragment_interface_center': percent_interface_matched,
 #                          'percent_fragment_helix': fragment_content_d['1'],
 #                          'percent_fragment_strand': fragment_content_d['2'],
 #                          'percent_fragment_coil': fragment_content_d['3'] + fragment_content_d['4']
@@ -3890,7 +3890,7 @@ class SymmetricModel(Models):
     #     return [[idx + (number_of_atoms * model_number) for model_number in range(self.number_of_models)
     #              for idx in entity_indices] for entity_indices in self.atom_indices_per_entity]
     #  Todo this is used in atom_indices_per_entity_symmetric
-    #     return [self.get_symmetric_indices(entity_indices) for entity_indices in self.atom_indices_per_entity]
+    #     return [self.make_indices_symmetric(entity_indices) for entity_indices in self.atom_indices_per_entity]
 
     @property
     def sym_entry(self) -> SymEntry | None:
@@ -4073,7 +4073,7 @@ class SymmetricModel(Models):
         # v
         # number_of_atoms = self.number_of_atoms
         # number_of_atoms = len(self.coords)
-        return [self.get_symmetric_indices(entity_indices) for entity_indices in self.atom_indices_per_entity]
+        return [self.make_indices_symmetric(entity_indices) for entity_indices in self.atom_indices_per_entity]
         # return [[idx + (number_of_atoms * model_number) for model_number in range(self.number_of_symmetry_mates)
         #          for idx in entity_indices] for entity_indices in self.atom_indices_per_entity]
 
@@ -4117,7 +4117,7 @@ class SymmetricModel(Models):
     #     # Todo make below like StructureBase
     #     #  once symmetric_coords are handled as a settable property
     #     #  this requires setting the asu if these are set
-    #     self._models_coords.replace(self.get_symmetric_indices(self._atom_indices), coords)
+    #     self._models_coords.replace(self.make_indices_symmetric(self._atom_indices), coords)
 
     @property
     def symmetric_coords_split(self) -> list[np.ndarray]:
@@ -4305,11 +4305,11 @@ class SymmetricModel(Models):
         Returns:
             All symmetry mates where Chain names match the ASU
         """
-        if self.number_of_symmetry_mates != self.number_of_models:  # we haven't generated symmetry models
-            self.generate_assembly_symmetry_models(**kwargs)
-            if self.number_of_symmetry_mates != self.number_of_models:
-                raise SymmetryError(f'{self.get_assembly_symmetry_models.__name__}: The assembly couldn\'t be '
-                                    f'returned')
+        # if self.number_of_symmetry_mates != self.number_of_models:  # we haven't generated symmetry models
+        self.generate_assembly_symmetry_models(**kwargs)
+        if self.number_of_symmetry_mates != self.number_of_models:
+            raise SymmetryError(f"{self.get_assembly_symmetry_models.__name__}: The assembly couldn't be "
+                                f'returned')
 
         return self.models
 
@@ -4325,8 +4325,8 @@ class SymmetricModel(Models):
         if not self.is_symmetric():
             # self.log.critical('%s: No symmetry set for %s! Cannot get symmetry mates'  # Todo
             #                   % (self.generate_assembly_symmetry_models.__name__, self.name))
-            raise SymmetryError(f'{self.generate_assembly_symmetry_models.__name__}: No symmetry set for {self.name}! '
-                                f'Cannot get symmetry mates')
+            raise SymmetryError(f'{self.generate_assembly_symmetry_models.__name__}: No symmetry set for {self.name}.'
+                                f' Cannot get symmetry mates')
         # if return_side_chains:  # get different function calls depending on the return type
         #     extract_pdb_atoms = getattr(PDB, 'atoms')
         # else:
@@ -4349,8 +4349,11 @@ class SymmetricModel(Models):
                 self.models.append(symmetry_mate)
 
         number_of_atoms = self.number_of_atoms
+        symmetric_coords = self.symmetric_coords
         for model_idx, model in enumerate(self.models):
-            model.coords = self.symmetric_coords[model_idx*number_of_atoms: (model_idx+1) * number_of_atoms]
+            model.coords = symmetric_coords[model_idx * number_of_atoms: (model_idx+1) * number_of_atoms]
+        # print('id of self._models_coords.coords, self.models[-1]._models_coords.coords is:',
+        #       id(self._models_coords.coords), id(model._models_coords.coords))
 
     @property
     def asu_model_index(self) -> int:
@@ -4369,10 +4372,11 @@ class SymmetricModel(Models):
             # entity2_ca_idx = entity2_n_term_residue.ca_atom_index
             number_of_atoms = self.number_of_atoms
             # number_of_atoms = len(self.coords)
+            symmetric_coords = self.symmetric_coords
             for model_idx in range(self.number_of_symmetry_mates):
-                if np.allclose(atom_ca_coord, self.symmetric_coords[(model_idx * number_of_atoms) + atom_idx]):
+                if np.allclose(atom_ca_coord, symmetric_coords[model_idx*number_of_atoms + atom_idx]):
                     # if (atom_ca_coord ==
-                    #         self.symmetric_coords[(model_idx * number_of_atoms) + atom_idx]).all():
+                    #         symmetric_coords[model_idx*number_of_atoms + atom_idx]).all():
                     self._asu_model_idx = model_idx
                     return self._asu_model_idx
 
@@ -4413,8 +4417,8 @@ class SymmetricModel(Models):
                 for model_idx, sym_model_center_of_mass in enumerate(entity_symmetric_centers_of_mass):
                     # sym_model_center_of_mass = \
                     #     np.matmul(entity_center_of_mass_divisor,
-                    #               self.symmetric_coords[(model_idx * number_of_atoms) + entity_start:
-                    #                                     (model_idx * number_of_atoms) + entity_end + 1])
+                    #               self.symmetric_coords[model_idx*number_of_atoms + entity_start:
+                    #                                     model_idx*number_of_atoms + entity_end + 1])
                     # #                                             have to add 1 for slice ^
                     # print('Sym Model', sym_model_center_of_mass)
                     # if np.allclose(chain_center_of_mass.astype(int), sym_model_center_of_mass.astype(int)):
@@ -4451,9 +4455,9 @@ class SymmetricModel(Models):
             #                             for asu_idx, assembly_contacts in enumerate(asu_query)
             #                             for assembly_idx in assembly_contacts]
             # interacting_models = sorted(set(contacting_model_indices))
-            # combine each subarray of the asu_query and divide by the assembly_tree interval length len(asu_query)
+            # combine each subarray of the asu_query and divide by the assembly_tree interval length -> len(asu_query)
             interacting_models = (np.unique(np.concatenate(asu_query) // len(asu_query)) + 1).tolist()
-            # asu is missing from assembly_tree so add 1 model to total symmetric index  ^
+            # asu is missing from assembly_tree so add 1 to get correct model index ^
         else:
             # distance = self.asu.radius * 2  # value too large self.radius * 2
             # The furthest point from the ASU COM + the max individual Entity radius
@@ -4520,7 +4524,7 @@ class SymmetricModel(Models):
 
         return interacting_indices
 
-    def get_symmetric_indices(self, indices: list[int], dtype: atom_or_residue = 'atom') -> list[int]:
+    def make_indices_symmetric(self, indices: list[int], dtype: atom_or_residue = 'atom') -> list[int]:
         """Extend asymmetric indices using the symmetry state across atom or residue indices
 
         Args:
@@ -4530,12 +4534,16 @@ class SymmetricModel(Models):
             The symmetric indices of the asymmetric input
         """
         try:
-            jump_num = getattr(self, f'number_of_{dtype}s')
+            jump_size = getattr(self, f'number_of_{dtype}s')
         except AttributeError:
             raise AttributeError(f'The dtype number_of_{dtype} was not found in the {type(self).__name__} object. '
                                  f'Possible values of dtype are "atom" or "residue"')
 
-        return [idx + (jump_num * model_num) for model_num in range(self.number_of_symmetry_mates) for idx in indices]
+        return [idx + (jump_size*model_num) for model_num in range(self.number_of_symmetry_mates) for idx in indices]
+        # symmetric_indice = [] + indices
+        # for model_num in range(1, self.number_of_symmetry_mates):
+        #     jump_length = jump_size * model_num
+        #     symmetric_indice.extend([idx + jump_length for idx in indices])
 
     def return_symmetric_copies(self, structure: StructureBase, surrounding_uc: bool = True, **kwargs) \
             -> list[StructureBase]:
@@ -5184,9 +5192,10 @@ class SymmetricModel(Models):
         except AttributeError:
             # We have all the BB/CB indices from ASU, must multiply these int's in self.number_of_symmetry_mates
             # to get every BB/CB coord in the model
-            asu_indices = self.backbone_and_cb_indices
+            asu_bb_cb_indices = self.backbone_and_cb_indices
             self._assembly_tree = \
-                BallTree(self.symmetric_coords[self.get_symmetric_indices(asu_indices)[len(asu_indices):]])
+                BallTree(self.symmetric_coords[
+                             self.make_indices_symmetric(asu_bb_cb_indices, dtype='atom')[len(asu_bb_cb_indices):]])
             # Last, we take out those indices that are inclusive of the model_asu_indices like below
             return self._assembly_tree
 
@@ -5287,6 +5296,12 @@ class Pose(SymmetricModel):
     split_interface_ss_elements: dict[int, list[int]]
     ss_index_array: list[int]
     ss_type_array: list[str]
+    # state_attributes: set[str] = SymmetricModel.state_attributes | \
+    #     {'ss_index_array', 'ss_type_array',  # These should be .clear()
+    #      'fragment_metrics', 'fragment_pairs', 'fragment_queries',
+    #      'interface_design_residue_numbers', 'interface_residue_numbers', 'interface_residues_by_entity_pair',
+    #      'split_interface_residues', 'split_interface_ss_elements'
+    #      }
 
     def __init__(self, ignore_clashes: bool = False,
                  design_selector: dict[str, dict[str, dict[str, set[int] | set[str] | None]]] = None, **kwargs):
@@ -5547,7 +5562,7 @@ class Pose(SymmetricModel):
             self.log.info(f'Tiled bias_by_res: '
                           f'{bias_by_res[number_of_residues-5: number_of_residues+5]}')
             tied_beta = np.ones_like(residue_mask)  # (number_of_sym_residues,)
-            tied_pos = [self.get_symmetric_indices([idx], dtype='residue') for idx in design_residues]
+            tied_pos = [self.make_indices_symmetric([idx], dtype='residue') for idx in design_residues]
             # (design_residues, number_of_symmetry_mates)
         else:
             X = self.backbone_coords.reshape((self.number_of_residues, 4, 3))  # (number_of_residues, 4, 3)
@@ -5857,29 +5872,34 @@ class Pose(SymmetricModel):
             {'nanohedra_score_normalized': , 'nanohedra_score_center_normalized':,
              'nanohedra_score': , 'nanohedra_score_center': , 'number_fragment_residues_total': ,
              'number_fragment_residues_center': , 'multiple_fragment_ratio': ,
-             'percent_fragment_helix': , 'percent_fragment_strand': ,
-             'percent_fragment_coil': , 'number_of_fragments': , 'total_interface_residues': ,
-             'percent_residues_fragment_total': , 'percent_residues_fragment_center': }
+             'percent_fragment_interface': ,
+             'percent_fragment_helix': , 'percent_fragment_strand': , 'percent_fragment_coil': ,
+             'number_of_fragments': , 'total_interface_residues': ,
+             'percent_residues_fragment_interface_total': , 'percent_residues_fragment_interface_center': }
         """
         frag_metrics = self.get_fragment_metrics(total_interface=True)
         self.center_residue_numbers = frag_metrics.get('center_residues', [])
         total_interface_residues = len(self.interface_residues)
         total_non_fragment_interface_residues = \
             max(total_interface_residues - frag_metrics['number_fragment_residues_center'], 0)
-
+        # Remove these two from further analysis
+        frag_metrics.pop('total_residues')
+        frag_metrics.pop('center_residues')
         metrics = frag_metrics
         # Interface B Factor
         int_b_factor = sum(residue.b_factor for residue in self.interface_residues)
         try:  # If interface_distance is different from interface query and fragment generation these can be < 0 or > 1
-            percent_residues_fragment_center = \
+            percent_residues_fragment_interface_center = \
                 min(frag_metrics['number_fragment_residues_center'] / total_interface_residues, 1)
-            percent_residues_fragment_total = \
+            percent_residues_fragment_interface_total = \
                 min(frag_metrics['number_fragment_residues_total'] / total_interface_residues, 1)
-            percent_fragment = frag_metrics['number_fragment_residues_total'] / total_interface_residues
+            percent_fragment_interface = frag_metrics['number_fragment_residues_total'] / total_interface_residues
             ave_b_factor = int_b_factor / total_interface_residues
         except ZeroDivisionError:
             self.log.warning(f'{self.name}: No interface residues were found. Is there an interface in your design?')
-            percent_fragment = ave_b_factor = percent_residues_fragment_center = percent_residues_fragment_total = 0.
+            percent_fragment_interface = ave_b_factor = \
+                percent_residues_fragment_interface_center = \
+                percent_residues_fragment_interface_total = 0.
 
         metrics.update({
             'interface_b_factor_per_residue': ave_b_factor,
@@ -5890,15 +5910,15 @@ class Pose(SymmetricModel):
             # 'number_fragment_residues_total': fragment_residues_total,
             # 'number_fragment_residues_center': central_residues_with_fragment_overlap,
             # 'multiple_fragment_ratio': multiple_frag_ratio,
-            'percent_fragment': percent_fragment,
+            'percent_fragment_interface': percent_fragment_interface,
             # 'percent_fragment_helix': helical_fragment_content,
             # 'percent_fragment_strand': strand_fragment_content,
             # 'percent_fragment_coil': coil_fragment_content,
             # 'number_of_fragments': number_of_fragments,
             'total_interface_residues': total_interface_residues,
             'total_non_fragment_interface_residues': total_non_fragment_interface_residues,
-            'percent_residues_fragment_total': percent_residues_fragment_total,
-            'percent_residues_fragment_center': percent_residues_fragment_center})
+            'percent_residues_fragment_interface_total': percent_residues_fragment_interface_total,
+            'percent_residues_fragment_interface_center': percent_residues_fragment_interface_center})
 
         if not self.ss_index_array or not self.ss_type_array:
             self.interface_secondary_structure()  # api_db=self.api_db, source_dir=self.job_resource.stride_dir)
@@ -5991,11 +6011,11 @@ class Pose(SymmetricModel):
             min_ratio = metrics[f'entity_{entity_idx1}_min_radius'] / metrics[f'entity_{entity_idx2}_min_radius']
             max_ratio = metrics[f'entity_{entity_idx1}_max_radius'] / metrics[f'entity_{entity_idx2}_max_radius']
             residue_ratio = metrics[f'entity_{entity_idx1}_number_of_residues'] \
-                / metrics[f'entity_{entity_idx1}_number_of_residues']
-            radius_ratio_sum += abs(1-radius_ratio)
-            min_ratio_sum += abs(1-min_ratio)
-            max_ratio_sum += abs(1-max_ratio)
-            residue_ratio_sum += abs(1-residue_ratio)
+                / metrics[f'entity_{entity_idx2}_number_of_residues']
+            radius_ratio_sum += abs(1 - radius_ratio)
+            min_ratio_sum += abs(1 - min_ratio)
+            max_ratio_sum += abs(1 - max_ratio)
+            residue_ratio_sum += abs(1 - residue_ratio)
             metrics.update({f'entity_radius_ratio_{entity_idx1}v{entity_idx2}': radius_ratio,
                             f'entity_min_radius_ratio_{entity_idx1}v{entity_idx2}': min_ratio,
                             f'entity_max_radius_ratio_{entity_idx1}v{entity_idx2}': max_ratio,
@@ -6166,7 +6186,7 @@ class Pose(SymmetricModel):
 
         return interface_asu_structure
 
-    def find_interface_pairs(self, entity1: Entity = None, entity2: Entity = None, distance: float = 8.) -> \
+    def _find_interface_residue_pairs(self, entity1: Entity = None, entity2: Entity = None, distance: float = 8.) -> \
             list[tuple[Residue, Residue]] | None:
         """Get pairs of Residues that have CB Atoms within a distance between two Entities
 
@@ -6197,7 +6217,7 @@ class Pose(SymmetricModel):
             return
 
         if self.is_symmetric():  # Get the symmetric indices of interest
-            entity2_indices = self.get_symmetric_indices(entity2_indices)
+            entity2_indices = self.make_indices_symmetric(entity2_indices)
             # Solve for entity2_indices to query
             if entity1 == entity2:  # We don't want symmetry interactions with the asu model or intra-oligomeric models
                 if entity1.is_oligomeric():  # Remove oligomeric protomers (contains asu)
@@ -6272,7 +6292,7 @@ class Pose(SymmetricModel):
                 The Entity1/Entity2 interface mapped to the interface Residues
         """
         entity1_residues, entity2_residues = \
-            split_residue_pairs(self.find_interface_pairs(entity1=entity1, entity2=entity2, **kwargs))
+            split_residue_pairs(self._find_interface_residue_pairs(entity1=entity1, entity2=entity2, **kwargs))
 
         if not entity1_residues or not entity2_residues:
             self.log.info(f'Interface search at {entity1.name} | {entity2.name} found no interface residues')
@@ -6293,7 +6313,7 @@ class Pose(SymmetricModel):
 
         self.interface_residues_by_entity_pair[(entity1, entity2)] = (entity1_residues, entity2_residues)
 
-    def find_interface_atoms(self, entity1: Entity = None, entity2: Entity = None, distance: float = 4.68) -> \
+    def _find_interface_atom_pairs(self, entity1: Entity = None, entity2: Entity = None, distance: float = 4.68) -> \
             list[tuple[int, int]] | None:
         """Get pairs of heavy atom indices that are within a distance at the interface between two Entities
 
@@ -6310,12 +6330,12 @@ class Pose(SymmetricModel):
         """
         try:
             residues1, residues2 = self.interface_residues_by_entity_pair[(entity1, entity2)]
-        except KeyError:  # when interface_residues haven't been set
+        except KeyError:  # When interface_residues haven't been set
             self.find_interface_residues(entity1=entity1, entity2=entity2)
             try:
                 residues1, residues2 = self.interface_residues_by_entity_pair[(entity1, entity2)]
             except KeyError:
-                raise DesignError(f"{self.find_interface_atoms.__name__} can't access interface_residues as the Entity"
+                raise DesignError(f"{self._find_interface_atom_pairs.__name__} can't access interface_residues as the Entity"
                                   f" pair {entity1.name}, {entity2.name} hasn't located interface_residues")
 
         if not residues1:
@@ -6333,7 +6353,7 @@ class Pose(SymmetricModel):
                 entity2_indices.extend(residue.heavy_indices)
 
         if self.is_symmetric():  # get all symmetric indices for entity2
-            entity2_indices = self.get_symmetric_indices(entity2_indices)
+            entity2_indices = self.make_indices_symmetric(entity2_indices)
             # No need to remove oligomeric indices as this procedure was done for residues
             query_coords = self.symmetric_coords[entity2_indices]
         else:
@@ -6357,7 +6377,7 @@ class Pose(SymmetricModel):
         interface_indices1, interface_indices2 = [], []
         for entity1, entity2 in self.interface_residues_by_entity_pair:
             atoms_indices1, atoms_indices2 = \
-                split_number_pairs_and_sort(self.find_interface_atoms(entity1=entity1, entity2=entity2))
+                split_number_pairs_and_sort(self._find_interface_atom_pairs(entity1=entity1, entity2=entity2))
             interface_indices1.extend(atoms_indices1), interface_indices2.extend(atoms_indices2)
 
         if self.is_symmetric():
@@ -6632,7 +6652,7 @@ class Pose(SymmetricModel):
 
         for key, entity_residues in interface.items():
             all_residues = [(residue, entity) for entity, residues in entity_residues.items() for residue in residues]
-            self.split_interface_residues[key+1] = sorted(all_residues, key=lambda res_ent: res_ent[0].number)
+            self.split_interface_residues[key + 1] = sorted(all_residues, key=lambda res_ent: res_ent[0].number)
 
         if not self.split_interface_residues[1]:
             # raise DesignError('Interface was unable to be split because no residues were found on one side of the'
@@ -6760,8 +6780,8 @@ class Pose(SymmetricModel):
         # Todo incorporate these
         #  'fragment_cluster_ids': ','.join(clusters),
         #  'total_interface_residues': total_residues,
-        #  'percent_residues_fragment_total': percent_interface_covered,
-        #  'percent_residues_fragment_center': percent_interface_matched,
+        #  'percent_residues_fragment_interface_total': percent_interface_covered,
+        #  'percent_residues_fragment_interface_center': percent_interface_matched,
 
         if fragments is not None:
             return self.fragment_db.format_fragment_metrics(self.fragment_db.calculate_match_metrics(fragments))
@@ -6820,8 +6840,8 @@ class Pose(SymmetricModel):
                 except ZeroDivisionError:
                     self.log.warning(f'{self.name}: No interface residues were found. Is there an interface in your '
                                      f'design?')
-                    metric_d[entity]['nanohedra_score_normalized'], \
-                        metric_d[entity]['nanohedra_score_center_normalized'] = 0., 0.
+                    metric_d[entity]['nanohedra_score_normalized'] = \
+                        metric_d[entity]['nanohedra_score_center_normalized'] = 0.
 
         elif total_interface:  # For the entire interface
             metric_d = fragment_metric_template
@@ -6840,17 +6860,19 @@ class Pose(SymmetricModel):
                 metric_d['number_of_fragments'] += metrics['total']['observations']
                 metric_d['percent_fragment_helix'] += metrics['total']['index_count'][1]
                 metric_d['percent_fragment_strand'] += metrics['total']['index_count'][2]
-                metric_d['percent_fragment_coil'] += (metrics['total']['index_count'][3] +
-                                                      metrics['total']['index_count'][4] +
-                                                      metrics['total']['index_count'][5])
+                metric_d['percent_fragment_coil'] += metrics['total']['index_count'][3] \
+                                                     + metrics['total']['index_count'][4] \
+                                                     + metrics['total']['index_count'][5]
             # Finally
             try:
-                metric_d['percent_fragment_helix'] /= metric_d['number_of_fragments']*2  # Account for 2x observations
-                metric_d['percent_fragment_strand'] /= metric_d['number_of_fragments']*2  # Account for 2x observations
-                metric_d['percent_fragment_coil'] /= metric_d['number_of_fragments']*2  # Account for 2x observations
+                total_observations = metric_d['number_of_fragments'] * 2  # 2x observations in ['total']['index_count']
+                metric_d['percent_fragment_helix'] /= total_observations
+                metric_d['percent_fragment_strand'] /= total_observations
+                metric_d['percent_fragment_coil'] /= total_observations
             except ZeroDivisionError:
-                metric_d['percent_fragment_helix'], metric_d['percent_fragment_strand'], \
-                    metric_d['percent_fragment_coil'] = 0., 0., 0.
+                metric_d['percent_fragment_helix'] = \
+                    metric_d['percent_fragment_strand'] = \
+                    metric_d['percent_fragment_coil'] = 0.
             try:
                 metric_d['nanohedra_score_normalized'] = \
                     metric_d['nanohedra_score'] / metric_d['number_fragment_residues_total']
@@ -6858,7 +6880,7 @@ class Pose(SymmetricModel):
                     metric_d['nanohedra_score_center']/metric_d['number_fragment_residues_center']
             except ZeroDivisionError:
                 self.log.warning(f'{self.name}: No fragment residues were found. Is there an interface in your design?')
-                metric_d['nanohedra_score_normalized'], metric_d['nanohedra_score_center_normalized'] = 0., 0.
+                metric_d['nanohedra_score_normalized'] = metric_d['nanohedra_score_center_normalized'] = 0.
 
         else:  # For the entire Pose?
             raise NotImplementedError('There was no mechanism to return fragments specified')

@@ -1008,14 +1008,14 @@ def parse_symmetry_to_sym_entry(sym_entry: int = None, symmetry: str = None, sym
     Returns:
         An instance of the SymEntry
     """
-    if sym_map is None:  # find sym_map from symmetry
+    if sym_map is None:  # Find sym_map from symmetry
         if symmetry:
             symmetry = symmetry.strip()
-            if symmetry in space_group_symmetry_operators:  # ops keywords are Hermann-Mauguin notation
-                # we only have the resulting symmetry, set it and then solve by lookup_sym_entry_by_symmetry_combination
+            if symmetry in space_group_symmetry_operators:  # space_group_symmetry_operators in Hermann-Mauguin notation
+                # We only have the resulting symmetry, set it and then solve by lookup_sym_entry_by_symmetry_combination
                 sym_map = [symmetry]
             elif len(symmetry) > 3:
-                if ':{' in symmetry:  # we have a symmetry specification of typical type result:{subsymmetry}{}...
+                if ':{' in symmetry:  # We have a symmetry specification of typical type result:{subsymmetry}{}...
                     sym_map = [split.strip('}:') for split in symmetry.split('{')]
                 elif 'cryst' in symmetry.lower():  # this is crystal specification
                     return  # we will have to set this up after parsing cryst records
@@ -1161,18 +1161,18 @@ def lookup_sym_entry_by_symmetry_combination(result: str, *symmetry_operators: s
         if resulting_symmetry == result:
             result_entries.append(entry_number)
 
-            if symmetry_operators and symmetry_groups_are_allowed_in_entry(symmetry_operators, entry_number):
+            if symmetry_operators and \
+                    symmetry_groups_are_allowed_in_entry(symmetry_operators, entry_number=entry_number):
                 matching_entries.append(entry_number)  # TODO include the groups?
 
     if matching_entries:
-        if len(matching_entries) == 1:
-            return matching_entries[0]
-        else:
+        if len(matching_entries) != 1:
             print(f'\033[1mFound multiple specified symmetries matching including '
                   f'{", ".join(map(str, matching_entries))}\033[0m')
             print_matching_entries(matching_entries)
             print(repeat_with_sym_entry)
             exit()
+        logger.debug(f'Found matching SymEntry number {matching_entries[0]}')
     elif symmetry_operators:
         raise ValueError('The specified symmetries "%s" could not be coerced to make the resulting symmetry "%s". '
                          'Try to reformat your symmetry specification if this is the result of a typo to include only '
@@ -1192,6 +1192,8 @@ def lookup_sym_entry_by_symmetry_combination(result: str, *symmetry_operators: s
                              f'If this is a chiral plane/space group, modify the function '
                              f'{lookup_sym_entry_by_symmetry_combination.__name__} to use the non Nanohedra compatible '
                              f'chiral space_group_symmetry_operators. {highest_point_group_msg}')
+
+    return matching_entries[0]
 
 
 def query_combination(combination_list):

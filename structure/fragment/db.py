@@ -149,7 +149,10 @@ class FragmentDatabase(FragmentInfo):
             center_resnum1, center_resnum2, match_score = fragment['mapped'], fragment['paired'], fragment['match']
             separated_fragment_metrics['mapped']['center']['residues'].add(center_resnum1)
             separated_fragment_metrics['paired']['center']['residues'].add(center_resnum2)
-
+            # i, j, k = list(map(int, fragment['cluster'].split('_')))
+            i, j, k = fragment['cluster']
+            fragment_i_index_count_d[i] += 1
+            fragment_j_index_count_d[j] += 1
             # TODO an ideal measure of the central importance would weight central fragment observations to new center
             #  fragments higher than repeated observations. Say mapped residue 45 to paired 201. If there are two
             #  observations of this pair, just different ijk indices, then these would take the SUMi->n 1/i*2 additive form.
@@ -174,8 +177,7 @@ class FragmentDatabase(FragmentInfo):
             else:
                 entity2_center_match_scores[center_resnum2].append(match_score)
 
-            # for resnum1, resnum2 in [(fragment['mapped'] + j, fragment['paired'] + j) for j in range(-2, 3)]:
-            for resnum1, resnum2 in [(center_resnum1+j, center_resnum2+j) for j in self.fragment_range]:
+            for resnum1, resnum2 in [(center_resnum1 + j, center_resnum2 + j) for j in self.fragment_range]:
                 separated_fragment_metrics['mapped']['total']['residues'].add(resnum1)
                 separated_fragment_metrics['paired']['total']['residues'].add(resnum2)
 
@@ -188,11 +190,6 @@ class FragmentDatabase(FragmentInfo):
                     entity2_match_scores[resnum2] = [match_score]
                 else:
                     entity2_match_scores[resnum2].append(match_score)
-
-            # i, j, k = list(map(int, fragment['cluster'].split('_')))
-            i, j, k = fragment['cluster']
-            fragment_i_index_count_d[i] += 1
-            fragment_j_index_count_d[j] += 1
 
         separated_fragment_metrics['mapped']['center_match_scores'] = entity1_center_match_scores
         separated_fragment_metrics['paired']['center_match_scores'] = entity2_center_match_scores
@@ -234,10 +231,10 @@ class FragmentDatabase(FragmentInfo):
             separated_fragment_metrics['total']['observations'] * 2 / central_residues_with_fragment_overlap
         # -------------------------------------------
         # Turn individual index counts into paired counts # and percentages <- not accurate if summing later, need counts
-        for index, count in separated_fragment_metrics['mapped']['index_count'].items():
+        for index, count in fragment_i_index_count_d.items():
             total_fragment_content[index] += count
             # separated_fragment_metrics['mapped']['index'][index_count] = count / separated_fragment_metrics['number']
-        for index, count in separated_fragment_metrics['paired']['index_count'].items():
+        for index, count in fragment_j_index_count_d.items():
             total_fragment_content[index] += count
             # separated_fragment_metrics['paired']['index'][index_count] = count / separated_fragment_metrics['number']
         # combined
@@ -275,8 +272,8 @@ class FragmentDatabase(FragmentInfo):
         Returns:
             {center_residues, total_residues,
              nanohedra_score, nanohedra_score_center, multiple_fragment_ratio, number_fragment_residues_total,
-             number_fragment_residues_center, number_of_fragments, percent_fragment_helix, percent_fragment_strand,
-             percent_fragment_coil}
+             number_fragment_residues_center, number_of_fragments,
+             percent_fragment_helix, percent_fragment_strand, percent_fragment_coil}
         """
         return {
             'center_residues': metrics['mapped']['center']['residues'].union(metrics['paired']['center']['residues']),
@@ -290,8 +287,8 @@ class FragmentDatabase(FragmentInfo):
             # Todo ensure these metrics are accounted for if using a different cluster index
             'percent_fragment_helix': (metrics['total']['index_count'][1] / (metrics['total']['observations'] * 2)),
             'percent_fragment_strand': (metrics['total']['index_count'][2] / (metrics['total']['observations'] * 2)),
-            'percent_fragment_coil': ((metrics['total']['index_count'][3] + metrics['total']['index_count'][4]
-                                       + metrics['total']['index_count'][5]) / (metrics['total']['observations'] * 2))}
+            'percent_fragment_coil': (metrics['total']['index_count'][3] + metrics['total']['index_count'][4]
+                                      + metrics['total']['index_count'][5]) / (metrics['total']['observations'] * 2)}
 
 
 class FragmentDatabaseFactory:

@@ -1536,9 +1536,9 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
                 full_optimal_ext_dof_shifts.append(optimal_ext_dof_shifts)
             else:
                 number_passing_shifts = transform_passing_shifts.shape[0]
-                log.info(f'\tFound {number_passing_shifts} transforms after clustering from '
-                         f'{pre_cluster_passing_shifts} possible transforms (took '
-                         f'{time.time() - cluster_time_start:8f}s)')
+                log.debug(f'\tFound {number_passing_shifts} transforms after clustering from '
+                          f'{pre_cluster_passing_shifts} possible transforms (took '
+                          f'{time.time() - cluster_time_start:8f}s)')
 
             # Prepare the transformation parameters for storage in full transformation arrays
             # Use of [:, None] transforms the array into an array with each internal dof sored as a scalar in
@@ -1571,8 +1571,8 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
             tx_counts.extend(list(range(1, number_passing_shifts + 1)))
             log.debug(f'\tOptimal Shift Search Took: {optimal_shifts_time:8f}s for '
                       f'{euler_matched_ghost_indices1.shape[0]} guide coordinate pairs')
-            log.debug(f'\t{number_passing_shifts if number_passing_shifts else "No"} Initial Interface Fragment '
-                      f'Match{"es" if number_passing_shifts != 1 else ""} Found')
+            log.info(f'\t{number_passing_shifts if number_passing_shifts else "No"} initial interface '
+                     f'match{"es" if number_passing_shifts != 1 else ""} found (took {time.time() - euler_start:8f}s)')
 
             # # Todo remove debug
             # # tx_param_list = []
@@ -3343,8 +3343,8 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
     #     full_ext_tx_sum = full_ext_tx2 - full_ext_tx1
 
     # Todo REMOVE DUPLICATION FOR TESTING
-    # This is required to run correctly with perturb_dofs = True
-    # Otherwise, the Pose finds no residues upon search...
+    # This is required to run correctly with perturb_dofs = True, probably also without it
+    # Otherwise, the Pose finds no fragment residues upon search...
     source_errat = []
     for idx, entity in enumerate(pose.entities):
         entity_oligomer = Model.from_chains(entity.chains, log=log, entities=False)
@@ -3366,9 +3366,6 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
     for idx in range(number_of_transforms):
         pose_id = create_pose_id(idx)
         pose_ids.append(pose_id)
-        # Todo reinstate after alphafold integration?
-        # output_pose(os.path.join(root_out_dir, pose_id), pose_id)
-
         pose_transformations[pose_id] = dict(rotation1=rotation_degrees1[idx],
                                              internal_translation1=z_heights1[idx],
                                              setting_matrix1=set_mat1_number,
@@ -3381,7 +3378,11 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
                                              external_translation2_x=full_ext_tx2[idx][0],
                                              external_translation2_y=full_ext_tx2[idx][1],
                                              external_translation2_z=full_ext_tx2[idx][2])
+
+        # Add the next set of coordinates
         update_pose_coords(idx)
+        # Todo reinstate after alphafold integration?
+        # output_pose(os.path.join(root_out_dir, pose_id), pose_id)
 
         if number_of_perturbations > 1:
             add_fragments_to_pose()  # <- here generating fresh
@@ -3392,13 +3393,30 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
                                   all_passing_surf_indices[idx],
                                   all_passing_z_scores[idx])
 
+        # Reset the fragment_profile and fragment_map for each Entity before process_fragment_profile
+        for entity in pose.entities:
+            entity.fragment_profile = {}
+            entity.fragment_map = {}
+            # entity.alpha.clear()
+
+        # Load fragment_profile into the analysis
+        pose.process_fragment_profile()
+        # if pose.fragment_profile:
+        fragment_profile_array = pssm_as_array(pose.fragment_profile)
+        # else:
+        #     pose.log.info('No fragment information')
+
+        # Remove saved pose attributes from the prior iteration calculations
+        pose.ss_index_array.clear(), pose.ss_type_array.clear()
+        # try:
+        #     del pose._assembly_minimally_contacting
+        # except AttributeError:  # This doesn't exist yet
+        #     pass
+
+        # Calculate pose metrics
         per_residue_data[pose_id] = pose.get_per_residue_interface_metrics()  # _per_residue_data
         interface_metrics[pose_id] = pose.interface_metrics()  # _interface_metrics
         interface_local_density[pose_id] = pose.local_density_interface()  # _interface_local_density
-
-        # Remove saved pose attributes for next iteration calculations
-        del pose._assembly_minimally_contacting
-        pose.ss_index_array.clear(), pose.ss_type_array.clear()
 
         if design_output:
             # Save each Pose sequence design information including sequence, energy, probabilites
@@ -3438,20 +3456,6 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
             #          2.02439509e-07, 5.02121131e-13, 1.38719620e-17],
             #         [2.01858383e-23, 2.29340987e-23, 3.59583879e-23, ...,
             #          1.13548109e-22, 1.60868618e-23, 7.25537526e-23]])}
-
-            # Load fragment_profile into the analysis
-            pose.process_fragment_profile()
-
-            # Reset the fragment_profile and fragment_map for each Entity
-            for entity in pose.entities:
-                entity.fragment_profile = {}
-                entity.fragment_map = {}
-                # entity.alpha.clear()
-
-            # if pose.fragment_profile:
-            fragment_profile_array = pssm_as_array(pose.fragment_profile)
-            # else:
-            #     pose.log.info('No fragment information')
 
             pose.calculate_profile()
             # Todo use below if the job calls for different profile integration
@@ -3654,7 +3658,7 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
     #     is_thermophilic.append(scores_df[f'entity_{idx}_thermophile'])
 
     # Get the average thermophilicity for all entities
-    scores_df['entity_thermophilicity'] = \
+    scores_df['pose_thermophilicity'] = \
         scores_df.loc[:, [f'entity_{idx}_thermophile' for idx in range(1, pose.number_of_entities)]
                       ].sum(axis=1) / pose.number_of_entities
 
@@ -3702,13 +3706,14 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
     scores_df['errat_deviation'] = (errat_sig_df.loc[:, source_errat_inclusion_boolean] * 1).sum(axis=1)
 
     # Drop unused particular per_residue_df columns that have been summed
-    drop_columns = per_residue_energy_states + energy_metric_names + per_residue_sasa_states + collapse_metrics \
-                   + residue_classification \
-                   + ['errat_deviation', 'hydrophobic_collapse', 'contact_order'] \
-                   + ['hbond', 'evolution', 'fragment', 'type'] + ['surface', 'interior']
+    per_residue_drop_columns = per_residue_energy_states + energy_metric_names + per_residue_sasa_states \
+                               + collapse_metrics + residue_classification \
+                               + ['errat_deviation', 'hydrophobic_collapse', 'contact_order'] \
+                               + ['hbond', 'evolution', 'fragment', 'type'] + ['surface', 'interior']
+    # Slice each of these columns as the first level residue number needs to be accounted for in MultiIndex
     per_residue_df = per_residue_df.drop(
-        [column for column in per_residue_df.loc[:,
-         idx_slice[:, drop_columns]].columns], errors='ignore', axis=1)
+        list(per_residue_df.loc[:, idx_slice[:, per_residue_drop_columns]].columns),
+        errors='ignore', axis=1)
     per_residue_df.sort_index(level=0, axis=1, inplace=True, sort_remaining=False)  # ascending=False
 
     scores_columns = scores_df.columns.to_list()
