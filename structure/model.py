@@ -4088,7 +4088,10 @@ class SymmetricModel(Models):
             self.generate_symmetric_coords()
 
         # Delete any saved attributes from the SymmetricModel (or Model)
-        self.reset_state()
+        try:  # To see if the coords setting doesn't require updating attributes in the case we are doing ourselves
+            self._no_reset  # This is only set in Pose now
+        except AttributeError:
+            self.reset_state()
 
     @property
     def asu_indices(self) -> slice:  # list[int]
@@ -5150,7 +5153,9 @@ class SymmetricModel(Models):
             entities = self.find_contacting_asu(**kwargs)
 
             # With perfect symmetry, v this is sufficient
+            self._no_reset = True
             self.coords = np.concatenate([entity.coords for entity in entities])
+            del self._no_reset
             # If imperfect symmetry, below may find some use
             # self._process_model(entities=entities, chains=False, **kwargs)
 
@@ -5282,6 +5287,7 @@ class Pose(SymmetricModel):
     _center_residue_numbers: list[int]
     _design_residues: list[Residue]
     _interface_residues: list[Residue]
+    _no_reset: bool
     design_selector: dict[str, dict[str, dict[str, set[int] | set[str] | None]]] | None
     design_selector_entities: set[Entity]
     design_selector_indices: set[int]
