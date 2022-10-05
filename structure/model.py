@@ -6846,7 +6846,7 @@ class Pose(SymmetricModel):
                         metric_d[entity]['nanohedra_score_center_normalized'] = 0.
 
         elif total_interface:  # For the entire interface
-            metric_d = fragment_metric_template
+            metric_d = deepcopy(fragment_metric_template)
             for query_pair, metrics in self.fragment_metrics.items():
                 if not metrics:
                     continue
