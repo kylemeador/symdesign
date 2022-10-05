@@ -4203,13 +4203,14 @@ class SymmetricModel(Models):
             if self.dimension > 0:
                 self._assembly = self.assembly_minimally_contacting
             else:
-                if not self.models:
-                    self.generate_assembly_symmetry_models()
+                # if not self.models:
+                self.generate_assembly_symmetry_models()
                 chains = []
                 for model in self.models:
                     chains.extend(model.chains)
-                self._assembly = Model.from_chains(chains, name=f'{self.name}-assembly', log=self.log, entities=False,
-                                                   biomt_header=self.format_biomt(), cryst_record=self.cryst_record)
+                self._assembly = Model.from_chains(chains, name=f'{self.name}-assembly', log=self.log,
+                                                   biomt_header=self.format_biomt(), cryst_record=self.cryst_record,
+                                                   entity_info=self.entity_info)  # entities=False,
             return self._assembly
 
     @property
@@ -4218,10 +4219,11 @@ class SymmetricModel(Models):
         try:
             return self._assembly_minimally_contacting
         except AttributeError:
-            if not self.models:
-                self.generate_assembly_symmetry_models()  # defaults to surrounding_uc generation
+            # if not self.models:
+            self.generate_assembly_symmetry_models()  # defaults to surrounding_uc generation
             # only return contacting
             interacting_model_indices = self.get_asu_interaction_model_indices()
+            # interacting_model_indices = self.get_asu_interaction_model_indices(calculate_contacts=False)
             self.log.debug(f'Found selected models {interacting_model_indices} for assembly')
 
             chains = []
@@ -4344,7 +4346,7 @@ class SymmetricModel(Models):
         #                f'{type(self).__name__} is being taken which is relying on Structure.__copy__. This may '
         #                f'not be adequate and need to be overwritten')
 
-        if not self.models:
+        if len(self.models) != self.number_of_symmetry_mates:
             for coord_idx in range(self.number_of_symmetry_mates):
                 symmetry_mate = copy(self)
                 self.models.append(symmetry_mate)
@@ -4353,8 +4355,6 @@ class SymmetricModel(Models):
         symmetric_coords = self.symmetric_coords
         for model_idx, model in enumerate(self.models):
             model.coords = symmetric_coords[model_idx * number_of_atoms: (model_idx+1) * number_of_atoms]
-        # print('id of self._models_coords.coords, self.models[-1]._models_coords.coords is:',
-        #       id(self._models_coords.coords), id(model._models_coords.coords))
 
     @property
     def asu_model_index(self) -> int:
@@ -4467,7 +4467,8 @@ class SymmetricModel(Models):
             center_of_mass = self.center_of_mass
             interacting_models = [idx for idx, sym_model_com in enumerate(self.center_of_mass_symmetric_models)
                                   if np.linalg.norm(center_of_mass - sym_model_com) <= distance]
-            # print('interacting_models com', self.center_of_mass_symmetric_models[interacting_models])
+            # Remove the first index from the interacting_models due to convention above
+            interacting_models.pop(0)
 
         return interacting_models
 
