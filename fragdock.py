@@ -3587,7 +3587,7 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
                                               'evolution_proteinmpnn_cross_entropy': per_residue_evolution_cross_entropy[idx],
                                               'fragment': per_residue_fragment_profile_scores,
                                               'fragment_proteinmpnn_cross_entropy': per_residue_fragment_cross_entropy[idx],
-                                              'collapse_profile_z': per_residue_batch_collapse_z,
+                                              'collapse_profile_z': per_residue_batch_collapse_z[idx],
                                               # copy(entity_energies),
                                               # 'solv_complex': 0., 'solv_bound': 0.,
                                               # copy(entity_energies),
