@@ -2963,7 +2963,8 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
                     fragment_profile_array = np.concatenate(fragment_profiles)
                     # RuntimeWarning: divide by zero encountered in log
                     # np.log causes -inf at 0, thus we need to correct these to a very large number
-                    batch_fragment_profile = np.nan_to_num(np.log(fragment_profile_array), copy=False, nan=np.nan)
+                    batch_fragment_profile = torch.from_numpy(np.nan_to_num(fragment_profile_array,
+                                                                            copy=False, nan=np.nan))
                     # print('batch_fragment_profile', batch_fragment_profile[:, 20:30])
 
                     # If entity_bb_coords are individually transformed, then axis=0 works
