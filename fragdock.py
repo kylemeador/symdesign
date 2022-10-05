@@ -3067,7 +3067,7 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
                             per_residue_evolution_cross_entropy[batch_slice] = \
                                 cross_entropy(asu_conditional_softmax_null_seq[:, :, :mpnn_null_idx],
                                               batch_evolutionary_profile[:actual_batch_length],
-                                              per_entry=True).numpy()
+                                              per_entry=True)
                             #                 mask=residue_indices_of_interest,
                             #                 axis=1)
                             print('per_residue_evolution_cross_entropy',
@@ -3082,7 +3082,7 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
                             per_residue_fragment_cross_entropy[batch_slice] = \
                                 cross_entropy(asu_conditional_softmax_null_seq[:, :, :mpnn_null_idx],
                                               batch_fragment_profile,
-                                              per_entry=True).numpy()
+                                              per_entry=True)
                             #                 mask=residue_indices_of_interest,
                             #                 axis=1)
                             print('per_residue_fragment_cross_entropy',
