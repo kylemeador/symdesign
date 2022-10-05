@@ -299,31 +299,32 @@ class SymEntry:
                              f'{1}-{len(nanohedra_symmetry_combinations)} and custom entries: '
                              f'{", ".join(map(str, custom_entries))}')
         self.entry_number = entry
-        entry_groups = [group_name for group_name, group_params in group_info]
-        group1, group2, *extra = entry_groups
-        if not sym_map:  # assume standard SymEntry
-            # assumes 2 component symmetry. index with only 2 options
+        entry_groups = [group_name for group_name, group_params in group_info if group_name]  # Ensure not None
+        # group1, group2, *extra = entry_groups
+        if not sym_map:  # Assume standard SymEntry
+            # Assumes 2 component symmetry. index with only 2 options
             self.groups = entry_groups
             self.sym_map = [self.resulting_symmetry] + self.groups
-        else:  # requires full specification of all symmetry groups
+        else:  # Requires full specification of all symmetry groups
             self.groups = []
-            self.sym_map = sym_map
-            result, *sym_map = self.sym_map  # remove the result and pass the groups
+            result, *sym_map = sym_map  # Remove the result and pass the groups
             for idx, sub_symmetry in enumerate(sym_map, 1):
                 if sub_symmetry not in valid_symmetries:
                     if sub_symmetry is None:
-                        pass  # Todo ignore for now. Need to refactor symmetry_combinations for any number of elements
+                        continue  # Todo ignore for now. Need to refactor symmetry_combinations for any number of elements
                     else:
                         raise ValueError(f'The symmetry "{sub_symmetry}" specified at index "{idx}" is not a valid '
                                          f'sub-symmetry')
                 if sub_symmetry not in entry_groups:
                     # This is probably a sub-symmetry of one of the groups. Is it allowed?
-                    if not symmetry_groups_are_allowed_in_entry(sym_map, result=self.resulting_symmetry,
-                                                                group1=group1, group2=group2):
+                    if not symmetry_groups_are_allowed_in_entry(sym_map, *entry_groups, result=self.resulting_symmetry):
+                                                                # group1=group1, group2=group2):
                         raise SymmetryError(f"The sub-symmetry {sub_symmetry} isn't an allowed sub-symmetry of the "
                                             f'result {self.resulting_symmetry}, or the group(s) '
                                             f'{", ".join(group for group in entry_groups if group is not None)}.')
                 self.groups.append(sub_symmetry)
+
+            self.sym_map = sym_map
 
         self._int_dof_groups, self._setting_matrices, self._setting_matrices_numbers, self._ref_frame_tx_dof, self.__external_dof = [], [], [], [], []
         for group_idx, group_symmetry in enumerate(self.groups, 1):
@@ -510,7 +511,10 @@ class SymEntry:
         try:
             return self._external_dof
         except AttributeError:
-            if not self.is_ref_frame_tx_dof1 and not self.is_ref_frame_tx_dof2:
+            ref_frame_tx_dof = \
+                [getattr(self, f'is_ref_frame_tx_dof{idx}') for idx in range(1, 1 + self.number_of_groups)]
+            # if not self.is_ref_frame_tx_dof1 and not self.is_ref_frame_tx_dof2:
+            if not all(ref_frame_tx_dof):
                 self._external_dof = np.empty((0, 3), float)  # <- np.array([[0.], [0.], [0.]])
             else:
                 difference_matrix = self.__external_dof[1] - self.__external_dof[0]
@@ -1080,21 +1084,24 @@ def print_query_header():
                                       "IntDofRot2", "IntDofTx2", "ReferenceFrameDof2", "RESULT"))
 
 
-def symmetry_groups_are_allowed_in_entry(symmetry_operators: Iterable[str], result: str = None, group1: str = None,
-                                         group2: str = None, entry_number: int = None) -> bool:
+def symmetry_groups_are_allowed_in_entry(symmetry_operators: Iterable[str], *groups: Iterable[str], result: str = None,
+                                         # group1: str = None, group2: str = None,
+                                         entry_number: int = None) -> bool:
     """Check if the provided symmetry operators are allowed in a SymEntry
 
     Args:
         symmetry_operators: The symmetry operators of interest
+        groups: The groups provided in the symmetry
         result: The resulting symmetry
-        group1: The first group allowed in the symmetry
-        group2: The second group allowed in the symmetry
+        # group1: The first group allowed in the symmetry
+        # group2: The second group allowed in the symmetry
         entry_number: The SymEntry number of interest
     Returns:
         True if the symmetry operators are valid, False otherwise
     """
     if result is not None:
-        if group1 is None and group2 is None:
+        # if group1 is None and group2 is None:
+        if not groups:
             raise ValueError(f'When using the argument result, must provide at least group1, and optionally group2')
     elif entry_number is not None:
         entry = symmetry_combinations.get(entry_number)
@@ -1102,22 +1109,26 @@ def symmetry_groups_are_allowed_in_entry(symmetry_operators: Iterable[str], resu
             raise SymmetryError(f"The entry number {entry_number} is not an available SymEntry")
 
         group1, _, _, _, group2, _, _, _, _, result, *_ = entry
+        groups = (group1, group2)  # Todo modify for more than 2
     else:
         raise ValueError(f'Must provide entry_number, or the result, group1, and group2 arguments. None were provided')
-    # find all sub_symmetries that are viable in the component group members
-    group1_members = sub_symmetries.get(group1, [None])
-    # group1_members.extend('C2') if 'D' in group1 else None
-    # group1_dihedral = True if 'D' in group1 else False
-    group2_members = sub_symmetries.get(group2, [None])
-    # group2_members.extend('C2') if 'D' in group2 else None
-    # group2_dihedral = True if 'D' in group2 else False
-    for sym_operator in symmetry_operators:
-        if sym_operator in [result, group1, group2]:
-            continue
-        elif sym_operator in group1_members + group2_members:
-            continue
-        else:
-            return False
+
+    # Find all sub_symmetries that are viable in the component group members
+    for group in groups:
+        group_members = sub_symmetries.get(group, [None])
+        # group1_members = sub_symmetries.get(group1, [None])
+        # # group1_members.extend('C2') if 'D' in group1 else None
+        # # group1_dihedral = True if 'D' in group1 else False
+        # group2_members = sub_symmetries.get(group2, [None])
+        # # group2_members.extend('C2') if 'D' in group2 else None
+        # # group2_dihedral = True if 'D' in group2 else False
+        for sym_operator in symmetry_operators:
+            if sym_operator in [result, *groups]:
+                continue
+            elif sym_operator in group_members:
+                continue
+            else:
+                return False
 
     return True  # Assume correct unless proven incorrect
 
