@@ -781,21 +781,9 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
     frag_dock_time_start = time.time()
     outlier = -1
     # Todo set below as parameters?
-    design_output = True
     dock_only = False
     ca_only = False
     design_temperature = 0.1
-    mpnn_model = proteinmpnn_factory()  # Todo accept model_name arg. Now just use the default
-    # set the environment to use memory efficient cuda management
-    max_split = 1000
-    pytorch_conf = f'max_split_size_mb:{max_split},roundup_power2_divisions:4,garbage_collection_threshold:0.7'
-    os.environ['PYTORCH_CUDA_ALLOC_CONF'] = pytorch_conf
-    # pytorch_conf = 'PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:-1,roundup_power2_divisions:4,garbage_collection_threshold:0.7'
-    # set_conf = f'export {pytorch_conf}'
-    # os.system(set_conf)
-    log.critical(f'Setting pytorch configuration:\n{pytorch_conf}\nResult:{os.getenv("PYTORCH_CUDA_ALLOC_CONF")}')
-    number_of_mpnn_model_parameters = sum([prod(param.size()) for param in mpnn_model.parameters()])
-    log.critical(f'The number of proteinmpnn model parameters is: {number_of_mpnn_model_parameters}')
     low_quality_match_value = .2  # sets the lower bounds on an acceptable match, was upper bound of 2 using z-score
     cb_distance = 9.  # change to 8.?
     # cluster_translations = True
@@ -860,6 +848,20 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
 
     for model in models:
         model.log = log
+
+    design_output = True
+    if design_output:
+        mpnn_model = proteinmpnn_factory()  # Todo accept model_name arg. Now just use the default
+        # set the environment to use memory efficient cuda management
+        max_split = 1000
+        pytorch_conf = f'max_split_size_mb:{max_split},roundup_power2_divisions:4,garbage_collection_threshold:0.7'
+        os.environ['PYTORCH_CUDA_ALLOC_CONF'] = pytorch_conf
+        # pytorch_conf = 'PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:-1,roundup_power2_divisions:4,garbage_collection_threshold:0.7'
+        # set_conf = f'export {pytorch_conf}'
+        # os.system(set_conf)
+        log.critical(f'Setting pytorch configuration:\n{pytorch_conf}\nResult:{os.getenv("PYTORCH_CUDA_ALLOC_CONF")}')
+        number_of_mpnn_model_parameters = sum([prod(param.size()) for param in mpnn_model.parameters()])
+        log.critical(f'The number of proteinmpnn model parameters is: {number_of_mpnn_model_parameters}')
 
     # Todo figure out for single component
     model1: Model
