@@ -4278,11 +4278,11 @@ class SymmetricModel(Models):
         # Set the self.symmetric_coords property
         self._models_coords = Coords(symmetric_coords)
         # Todo remove
-        print('IN GENERATE SYMMETRIC COORDS')
         # equal = self.coords == self.symmetric_coords[:self.number_of_atoms]
         # self.log.critical(f'The self.coords and the self.symmetric_coords asu are equal? {equal}')
-        self.log.critical(f'self.coords {self.coords[:2]} '
-                          f'and self.symmetric_coords {self.symmetric_coords[:2]}')
+        # print('IN GENERATE SYMMETRIC COORDS')
+        # self.log.critical(f'self.coords {self.coords[:2]} '
+        #                   f'and\nself.symmetric_coords {self.symmetric_coords[:2]}')
 
     def cart_to_frac(self, cart_coords: np.ndarray | Iterable | int | float) -> np.ndarray:
         """Return fractional coordinates from cartesian coordinates
@@ -4463,11 +4463,11 @@ class SymmetricModel(Models):
             # asu_bb_cb_indices = self.backbone_and_cb_indices
             # self.generate_assembly_tree()
             # Todo remove
-            print('***IN GET_ASU', len(self.coords), '=', self.number_of_atoms)
             # equal = self.coords == self.symmetric_coords[:self.number_of_atoms]
             # self.log.critical(f'The self.coords and the self.symmetric_coords asu are equal? {equal}')
-            self.log.critical(f'self.coords {self.coords[:2]} '
-                              f'and self.symmetric_coords {self.symmetric_coords[:2]}')
+            # print('***IN GET_ASU', len(self.coords), '=', self.number_of_atoms)
+            # self.log.critical(f'self.coords {self.coords[:2]} '
+            #                   f'and self.symmetric_coords {self.symmetric_coords[:2]}')
             # asu_query = self.assembly_tree.query_radius(self.coords[self.backbone_and_cb_indices], distance)
             # Temporary fix...
             asu_query = self.assembly_tree.query_radius(self.symmetric_coords[self.backbone_and_cb_indices], distance)
