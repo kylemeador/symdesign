@@ -2960,12 +2960,12 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
                         #  bias_by_res[batch_idx, fragment_residues] = pose.fragment_profile[fragment_residues]
 
                     # Process the fragment_profiles into an array and take the log of the frequencies for cross entropy
-                    fragment_profile_array = np.concatenate(fragment_profiles)
+                    fragment_profile_array = np.array(fragment_profiles)
                     # RuntimeWarning: divide by zero encountered in log
                     # np.log causes -inf at 0, thus we need to correct these to a very large number
                     batch_fragment_profile = torch.from_numpy(np.nan_to_num(fragment_profile_array,
                                                                             copy=False, nan=np.nan))
-                    # print('batch_fragment_profile', batch_fragment_profile[:, 20:30])
+                    print('batch_fragment_profile', batch_fragment_profile[:, 20:23])
 
                     # If entity_bb_coords are individually transformed, then axis=0 works
                     perturbed_bb_coords = np.concatenate(new_coords, axis=0)
