@@ -23,7 +23,7 @@ from metrics import calculate_collapse_metrics, calculate_residue_surface_area, 
     multiple_sequence_alignment_dependent_metrics, profile_dependent_metrics, columns_to_new_column, \
     residue_classification, delta_pairs, division_pairs, interface_composition_similarity, \
     clean_up_intermediate_columns, sum_per_residue_metrics, per_residue_energy_states, hydrophobic_collapse_index, \
-    cross_entropy, energy_metric_names, per_residue_sasa_states, collapse_metrics
+    cross_entropy, energy_metric_names, per_residue_sasa_states, collapse_metrics, collapse_significance_threshold
 from resources.EulerLookup import euler_factory
 from structure.fragment.db import FragmentDatabase, fragment_factory
 from resources.job import job_resources_factory, JobResources
@@ -3132,8 +3132,12 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
                                                      collapse_profile_mean, collapse_profile_std)
                                 # folding_loss = sequence_nllloss(S_sample, design_probs_collapse)  # , mask_for_loss)
                                 designed_indices_collapse_z = collapse_z[residue_indices_of_interest[pose_idx]]
-                                magnitude_of_collapse_z_deviation = np.abs(designed_indices_collapse_z)
-                                if any(designed_indices_collapse_z > 1):  # Deviation larger than one positive std
+                                # magnitude_of_collapse_z_deviation = np.abs(designed_indices_collapse_z)
+                                if np.any(np.logical_and(design_probs_collapse[residue_indices_of_interest[pose_idx]]
+                                                         > collapse_significance_threshold,
+                                                         designed_indices_collapse_z > 0)):
+                                    # Todo save this
+                                    # Deviation larger than one positive std. This didn't work so well
                                     print('design_probs_collapse', design_probs_collapse[residue_indices_of_interest[pose_idx]])
                                     print('designed_indices_collapse_z', designed_indices_collapse_z)
                                     # print('magnitude greater than 1', magnitude_of_collapse_z_deviation > 1)
@@ -3141,7 +3145,8 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
                                                 f' Pose is *** being considered')
                                     skip.append(pose_idx)
                                 else:
-                                    log.critical(f'Total deviation={magnitude_of_collapse_z_deviation.sum()}. '
+                                    log.critical(
+                                        # f'Total deviation={magnitude_of_collapse_z_deviation.sum()}. '
                                                  f'Mean={designed_indices_collapse_z.mean()}'
                                                  f'Standard Deviation={designed_indices_collapse_z.std()}')
 
