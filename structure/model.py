@@ -4234,7 +4234,10 @@ class SymmetricModel(Models):
                 chains.extend(self.models[idx].chains)
             self._assembly_minimally_contacting = \
                 Model.from_chains(chains, name='assembly', log=self.log, biomt_header=self.format_biomt(),
-                                  cryst_record=self.cryst_record, entities=False)
+                                  cryst_record=self.cryst_record, entity_info=self.entity_info)  #  entities=False)
+            # self._assembly_minimally_contacting.write(out_path=os.path.join(os.getcwd(), 'debug_assembly_minimally_contacting.pdb'))
+            # self.assembly.write(out_path=os.path.join(os.getcwd(), 'debug_assembly.pdb'))
+
             return self._assembly_minimally_contacting
 
     def generate_symmetric_coords(self, surrounding_uc: bool = True):
@@ -4274,6 +4277,12 @@ class SymmetricModel(Models):
 
         # Set the self.symmetric_coords property
         self._models_coords = Coords(symmetric_coords)
+        # Todo remove
+        print('IN GENERATE SYMMETRIC COORDS')
+        # equal = self.coords == self.symmetric_coords[:self.number_of_atoms]
+        # self.log.critical(f'The self.coords and the self.symmetric_coords asu are equal? {equal}')
+        self.log.critical(f'self.coords {self.coords[:2]} '
+                          f'and self.symmetric_coords {self.symmetric_coords[:2]}')
 
     def cart_to_frac(self, cart_coords: np.ndarray | Iterable | int | float) -> np.ndarray:
         """Return fractional coordinates from cartesian coordinates
@@ -4451,9 +4460,17 @@ class SymmetricModel(Models):
         if calculate_contacts:
             # Select only coords that are BB or CB from the model coords
             # bb_cb_indices = None if self.coords_type == 'bb_cb' else self.backbone_and_cb_indices
-            bb_cb_indices = self.backbone_and_cb_indices
+            # asu_bb_cb_indices = self.backbone_and_cb_indices
             # self.generate_assembly_tree()
-            asu_query = self.assembly_tree.query_radius(self.coords[bb_cb_indices], distance)
+            # Todo remove
+            print('***IN GET_ASU', len(self.coords), '=', self.number_of_atoms)
+            # equal = self.coords == self.symmetric_coords[:self.number_of_atoms]
+            # self.log.critical(f'The self.coords and the self.symmetric_coords asu are equal? {equal}')
+            self.log.critical(f'self.coords {self.coords[:2]} '
+                              f'and self.symmetric_coords {self.symmetric_coords[:2]}')
+            # asu_query = self.assembly_tree.query_radius(self.coords[self.backbone_and_cb_indices], distance)
+            # Temporary fix...
+            asu_query = self.assembly_tree.query_radius(self.symmetric_coords[self.backbone_and_cb_indices], distance)
             # coords_length = len(bb_cb_indices)
             # contacting_model_indices = [assembly_idx // coords_length
             #                             for asu_idx, assembly_contacts in enumerate(asu_query)
