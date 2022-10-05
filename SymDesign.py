@@ -1184,7 +1184,7 @@ def main():
             raise RuntimeError('This should be impossible with mutually exclusive argparser group')
 
         all_structures.extend(job.structure_db.orient_structures(structure_names1,
-                                                                 symmetry=sym_entry.group2,
+                                                                 symmetry=sym_entry.group1,
                                                                  by_file=by_file1))
         single_component_design = False
         if args.oligomer2:

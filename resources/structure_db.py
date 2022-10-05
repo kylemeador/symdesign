@@ -17,6 +17,7 @@ from query.utils import boolean_choice
 from utils import starttime, start_log, make_path, unpickle, to_iterable, write_shell_script, write_commands
 from utils.SymEntry import parse_symmetry_to_sym_entry, sdf_lookup
 
+# Todo adjust the logging level for this module?
 logger = start_log(name=__name__)
 qsbio_confirmed = unpickle(qs_bio)
 
@@ -131,7 +132,8 @@ def orient_structure_files(files: Iterable[AnyStr], log: Logger = logger, symmet
         model_name = os.path.splitext(os.path.basename(file))[0]
         oriented_file_path = os.path.join(out_dir, f'{model_name}.pdb')
         if not os.path.exists(oriented_file_path):
-            model = model.Model.from_file(file, log=log)  # must load entities to solve multi-component orient problem
+            # Must load entities to solve multi-component orient problem
+            model = structure.model.Model.from_file(file, log=log)
             try:
                 model.orient(symmetry=symmetry)
             except (ValueError, RuntimeError) as error:

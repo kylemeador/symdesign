@@ -4080,11 +4080,11 @@ class SymmetricModel(Models):
     @StructureBase.coords.setter
     def coords(self, coords: np.ndarray | list[list[float]]):
         # self.coords = coords
-        # self.log.debug(f'Setting {type(self).__name__} coords')
+        self.log.debug(f'Setting {type(self).__name__} coords')
         super(Structure, Structure).coords.fset(self, coords)  # prefer this over below, as this mechanism could change
         # self._coords.replace(self._atom_indices, coords)
-        if self.is_symmetric():  # set the symmetric coords according to the ASU
-            # self.log.debug(f'Updating symmetric coords')
+        if self.is_symmetric():  # Set the symmetric coords according to the ASU
+            self.log.debug(f'Updating symmetric coords')
             self.generate_symmetric_coords()
 
         # Delete any saved attributes from the SymmetricModel (or Model)
