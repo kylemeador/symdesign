@@ -610,6 +610,7 @@ class StructureBase(Symmetry, ABC):
 
     @coords.setter
     def coords(self, coords: np.ndarray | list[list[float]]):
+        # self.log.critical(f'Setting {self.name} coords')
         if self.is_parent() and self.is_symmetric() and self._symmetric_dependents:
             # This Structure is a symmetric parent, update dependent coords to update the parent
             # self.log.debug(f'self._symmetric_dependents: {self._symmetric_dependents}')

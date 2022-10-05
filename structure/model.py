@@ -4267,6 +4267,7 @@ class SymmetricModel(Models):
                 # uc_number = 1
                 symmetric_coords = self.return_unit_cell_coords(self.coords)
 
+        # Set the self.symmetric_coords property
         self._models_coords = Coords(symmetric_coords)
 
     def cart_to_frac(self, cart_coords: np.ndarray | Iterable | int | float) -> np.ndarray:
@@ -4297,21 +4298,21 @@ class SymmetricModel(Models):
 
         return np.matmul(frac_coords, np.transpose(self.orthogonalization_matrix))
 
-    def get_assembly_symmetry_models(self, **kwargs) -> list[Structure]:
-        """Return symmetry mates as a collection of Structures with symmetric coordinates
-
-        Keyword Args:
-            surrounding_uc=True (bool): Whether the 3x3 layer group, or 3x3x3 space group should be generated
-        Returns:
-            All symmetry mates where Chain names match the ASU
-        """
-        # if self.number_of_symmetry_mates != self.number_of_models:  # we haven't generated symmetry models
-        self.generate_assembly_symmetry_models(**kwargs)
-        if self.number_of_symmetry_mates != self.number_of_models:
-            raise SymmetryError(f"{self.get_assembly_symmetry_models.__name__}: The assembly couldn't be "
-                                f'returned')
-
-        return self.models
+    # def get_assembly_symmetry_models(self, **kwargs) -> list[Structure]:  # Comment out
+    #     """Return symmetry mates as a collection of Structures with symmetric coordinates
+    #
+    #     Keyword Args:
+    #         surrounding_uc=True (bool): Whether the 3x3 layer group, or 3x3x3 space group should be generated
+    #     Returns:
+    #         All symmetry mates where Chain names match the ASU
+    #     """
+    #     # if self.number_of_symmetry_mates != self.number_of_models:  # we haven't generated symmetry models
+    #     self.generate_assembly_symmetry_models(**kwargs)
+    #     if self.number_of_symmetry_mates != self.number_of_models:
+    #         raise SymmetryError(f"{self.get_assembly_symmetry_models.__name__}: The assembly couldn't be "
+    #                             f'returned')
+    #
+    #     return self.models
 
     def generate_assembly_symmetry_models(self, surrounding_uc: bool = True, **kwargs):
         # , return_side_chains=True):
@@ -4462,6 +4463,7 @@ class SymmetricModel(Models):
             # distance = self.asu.radius * 2  # value too large self.radius * 2
             # The furthest point from the ASU COM + the max individual Entity radius
             distance = self.radius + max([entity.radius for entity in self.entities])  # all the radii
+            self.log.debug(f'Using the distance {distance} for ASU neighbor query')
             center_of_mass = self.center_of_mass
             interacting_models = [idx for idx, sym_model_com in enumerate(self.center_of_mass_symmetric_models)
                                   if np.linalg.norm(center_of_mass - sym_model_com) <= distance]
