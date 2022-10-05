@@ -3705,6 +3705,10 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
     # then select only those residues which are expressly important by the inclusion boolean
     scores_df['errat_deviation'] = (errat_sig_df.loc[:, source_errat_inclusion_boolean] * 1).sum(axis=1)
 
+    # Drop unused particular scores_df columns that have been summed
+    scores_drop_columns = ['hydrophobic_collapse']
+    scores_df = scores_df.drop(scores_drop_columns, errors='ignore', axis=1)
+    scores_df = scores_df.rename(columns={'evolution': 'evolution_sequence_loss', 'fragment': 'fragment_sequence_loss'})
     # Drop unused particular per_residue_df columns that have been summed
     per_residue_drop_columns = per_residue_energy_states + energy_metric_names + per_residue_sasa_states \
                                + collapse_metrics + residue_classification \
