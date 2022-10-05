@@ -204,8 +204,8 @@ class PoseDirectory:
         # self.ave_z = None
         # self.total_interface_residues = None
         # self.total_non_fragment_interface_residues = None
-        # self.percent_residues_fragment_total = None
-        # self.percent_residues_fragment_center = None
+        # self.percent_residues_fragment_interface_total = None
+        # self.percent_residues_fragment_interface_center = None
 
         # Todo if I use output_identifier for design, it opens up a can of worms.
         #  Maybe it is better to include only for specific modules
@@ -917,117 +917,6 @@ class PoseDirectory:
     #     self.all_residue_score, self.center_residue_score, self.fragment_residues_total, \
     #         self.central_residues_with_fragment_overlap, self.multiple_frag_ratio, self.fragment_content_d
 
-    # def get_fragment_metrics(self):  # DEPRECIATED
-    #     """Calculate fragment metrics for all fragment observations in the design
-    #
-    #     Sets:
-    #         self.center_residue_numbers (int):
-    #
-    #         self.total_residue_numbers (int):
-    #
-    #         self.fragment_residues_total (int):
-    #
-    #         self.central_residues_with_fragment_overlap (int):
-    #
-    #         self.total_interface_residues (int):
-    #
-    #         self.all_residue_score (float):
-    #
-    #         self.center_residue_score (float):
-    #
-    #         self.multiple_frag_ratio (float):
-    #
-    #         self.helical_fragment_content (float):
-    #
-    #         self.strand_fragment_content (float):
-    #
-    #         self.coil_fragment_content (float):
-    #
-    #         self.total_non_fragment_interface_residues (int):
-    #
-    #         self.percent_residues_fragment_center (int):
-    #
-    #         self.percent_residues_fragment_total (int):
-    #
-    #         self.interface_ss_fragment_topology (dict[int, str]):
-    #
-    #     """
-    #     if self.pose.center_residue_numbers:
-    #         self.center_residue_numbers = self.pose.center_residue_numbers
-    #         return
-    #
-    #     self.log.debug('Starting fragment metric collection')
-    #     if self.fragment_observations:  # check if fragment generation has been populated somewhere
-    #         frag_metrics = format_fragment_metrics(self.job.fragment_db.calculate_match_metrics(self.fragment_observations))
-    #         # frag_metrics = self.pose.get_fragment_metrics(fragments=self.fragment_observations)
-    #     elif os.path.exists(self.frag_file):  # try to pull them from disk
-    #         self.log.debug('Fragment observations found on disk. Adding to the Design state')
-    #         self.retrieve_fragment_info_from_file()
-    #         frag_metrics = format_fragment_metrics(self.job.fragment_db.calculate_match_metrics(self.fragment_observations))
-    #         # frag_metrics = self.pose.get_fragment_metrics(fragments=self.fragment_observations)
-    #     else:
-    #         if self.interface_residue_numbers is False or self.interface_design_residue_numbers is False:  # No interface search yet
-    #             self.identify_interface()
-    #         else:  # We haven't got the fragments yet, so we will get them by the same means
-    #             self.load_pose()
-    #
-    #         make_path(self.frags, condition=self.job.write_fragments)
-    #         self.pose.generate_interface_fragments(out_path=self.frags, write_fragments=self.job.write_fragments)
-    #         if self.pose.fragment_queries:
-    #             self.log.debug('Fragment observations found in Pose. Adding to the Design state')
-    #             self.fragment_observations = self.pose.get_fragment_observations()
-    #             frag_metrics = self.pose.get_fragment_metrics()
-    #             self.info['fragments'] = self.fragment_observations
-    #             self.pickle_info()  # Todo remove once PoseDirectory state can be returned to SymDesign dispatch w/ MP
-    #
-    #         self.center_residue_numbers = self.pose.center_residue_numbers
-    #         return
-    #
-    #     # fragments were attempted, but returned nothing, set frag_metrics to the template (empty)
-    #     if self.fragment_observations == list():
-    #         frag_metrics = fragment_metric_template
-    #     # fragments haven't been attempted on this pose
-    #     elif self.fragment_observations is None:  # should this ever happen?
-    #         self.log.warning(f'There were no fragments generated for this Design! If this isn\'t what you expected, '
-    #                          f'ensure that you haven\'t disabled it with "--{PUtils.no_term_constraint}"')
-    #         frag_metrics = fragment_metric_template
-    #
-    #     self.center_residue_numbers = frag_metrics.get('center_residues', [])
-    #     # self.total_residue_numbers = frag_metrics['total_residues']
-    #     # self.all_residue_score = frag_metrics['nanohedra_score']
-    #     # self.center_residue_score = frag_metrics['nanohedra_score_center']
-    #     # self.fragment_residues_total = frag_metrics['number_fragment_residues_total']
-    #     # # ^ can be more than self.total_interface_residues because each fragment may have members not in the interface
-    #     # self.central_residues_with_fragment_overlap = frag_metrics['number_fragment_residues_center']
-    #     # # self.multiple_frag_ratio = frag_metrics['multiple_fragment_ratio']
-    #     # # self.helical_fragment_content = frag_metrics['percent_fragment_helix']
-    #     # # self.strand_fragment_content = frag_metrics['percent_fragment_strand']
-    #     # # self.coil_fragment_content = frag_metrics['percent_fragment_coil']
-    #     #
-    #     # self.total_interface_residues = len(self.interface_residue_numbers)
-    #     # self.total_non_fragment_interface_residues = \
-    #     #     max(self.total_interface_residues - self.central_residues_with_fragment_overlap, 0)
-    #     # try:
-    #     #     # if interface_distance is different between interface query and fragment generation these can be < 0 or > 1
-    #     #     self.percent_residues_fragment_center = \
-    #     #         min(self.central_residues_with_fragment_overlap / self.total_interface_residues, 1)
-    #     #     self.percent_residues_fragment_total = min(self.fragment_residues_total / self.total_interface_residues, 1)
-    #     # except ZeroDivisionError:
-    #     #     self.log.warning('%s: No interface residues were found. Is there an interface in your design?'
-    #     #                      % self.source)
-    #     #     self.percent_residues_fragment_center, self.percent_residues_fragment_total = 0.0, 0.0
-    #     #
-    #     # if not self.pose.ss_index_array or not self.pose.ss_type_array:
-    #     #     self.pose.interface_secondary_structure()  # api_db=self.job.api_db, source_dir=self.job_resource.stride_dir)
-    #     # for number, elements in self.pose.split_interface_ss_elements.items():
-    #     #     fragment_elements = set()
-    #     #     # residues, entities = self.pose.split_interface_residues[number]
-    #     #     for residue, _, element in zip(*zip(*self.pose.split_interface_residues[number]), elements):
-    #     #         if residue.number in self.center_residue_numbers:
-    #     #             fragment_elements.add(element)
-    #     #     self.interface_ss_fragment_topology[number] = \
-    #     #         ''.join(self.pose.ss_type_array[element] for element in fragment_elements)
-
     @handle_errors(errors=(FileNotFoundError, NotADirectoryError))
     def retrieve_fragment_info_from_file(self):
         """Gather observed fragment metrics from fragment matching output
@@ -1522,10 +1411,10 @@ class PoseDirectory:
             self.pose = Pose.from_file(source if source else self.source, entity_names=self.entity_names, **pose_kwargs)
             #                                     pass names if available ^
         if self.pose.is_symmetric():
-            for idx, entity in enumerate(self.pose.entities):
-                # if entity.number_of_symmetry_mates != self.sym_entry.group_subunit_numbers[idx]:
-                #     entity.make_oligomer(symmetry=self.sym_entry.groups[idx], **self.pose.entity_transformations[idx])
-                if self.job.write_oligomers:  # Write out new oligomers to the PoseDirectory
+            if self.job.write_oligomers:  # Write out new oligomers to the PoseDirectory
+                for idx, entity in enumerate(self.pose.entities):
+                    # if entity.number_of_symmetry_mates != self.sym_entry.group_subunit_numbers[idx]:
+                    #     entity.make_oligomer(symmetry=self.sym_entry.groups[idx], **self.pose.entity_transformations[idx])
                     entity.write_oligomer(out_path=os.path.join(self.path, f'{entity.name}_oligomer.pdb'))
 
         # Then modify numbering to ensure standard and accurate use during protocols
@@ -2696,7 +2585,7 @@ class PoseDirectory:
             is_thermophilic.append(getattr(other_pose_metrics, f'entity_{idx}_thermophile', 0))
 
         # Get the average thermophilicity for all entities
-        other_pose_metrics['entity_thermophilicity'] = sum(is_thermophilic) / idx
+        other_pose_metrics['pose_thermophilicity'] = sum(is_thermophilic) / idx
 
         # entity_alignment = multi_chain_alignment(entity_sequences)
         # INSTEAD OF USING BELOW, split Pose.MultipleSequenceAlignment at entity.chain_break...
@@ -3935,7 +3824,7 @@ def interface_design_analysis(pose: Pose, design_poses: Iterable[Pose] = None, s
         is_thermophilic.append(getattr(other_pose_metrics, f'entity_{idx}_thermophile', 0))
 
     # Get the average thermophilicity for all entities
-    other_pose_metrics['entity_thermophilicity'] = sum(is_thermophilic) / idx
+    other_pose_metrics['pose_thermophilicity'] = sum(is_thermophilic) / idx
 
     # entity_alignment = multi_chain_alignment(entity_sequences)
     # INSTEAD OF USING BELOW, split Pose.MultipleSequenceAlignment at entity.chain_break...

@@ -222,9 +222,6 @@ master_metrics = {
              direction=_min, function=rank, filter=True),
     'entity_radius_ratio_1v2':  # TODO make a single metric
         dict(description='', direction=None, function=None, filter=None),
-    'entity_thermophilicity':
-        dict(description='The extent to which the entities in the pose are thermophilic',
-             direction=_max, function=rank, filter=True),
     'errat_accuracy':
         dict(description='The overall Errat score of the design',
              direction=_max, function=rank, filter=True),
@@ -402,7 +399,7 @@ master_metrics = {
     'percent_core':
         dict(description='The percentage of residues which are "core" according to Levy, E. 2010',
              direction=_max, function=normalize, filter=True),
-    'percent_fragment':
+    'percent_fragment_interface':
         dict(description='Percent of residues with fragment data out of total residues',
              direction=_max, function=normalize, filter=True),
     'percent_fragment_coil':
@@ -423,10 +420,10 @@ master_metrics = {
     'percent_mutations':
         dict(description='The percent of the design which has been mutated',
              direction=_max, function=normalize, filter=True),
-    'percent_residues_fragment_center':
+    'percent_residues_fragment_interface_center':
         dict(description='The percentage of residues which are central fragment observations',
              direction=_max, function=normalize, filter=True),
-    'percent_residues_fragment_total':
+    'percent_residues_fragment_interface_total':
         dict(description='The percentage of residues which are represented by fragment observations',
              direction=_max, function=normalize, filter=True),
     'percent_rim':
@@ -438,6 +435,9 @@ master_metrics = {
     'pose_length':
         dict(description='The total number of residues in the design',
              direction=_min, function=rank, filter=True),
+    'pose_thermophilicity':
+        dict(description='The extent to which the entities in the pose are thermophilic',
+             direction=_max, function=rank, filter=True),
     groups:
         dict(description='Protocols utilized to search sequence space given fragment and/or evolutionary '
                          'constraint information',
@@ -602,10 +602,11 @@ master_metrics = {
 filter_df = pd.DataFrame(master_metrics)
 nanohedra_metrics = ['nanohedra_score_normalized', 'nanohedra_score_center_normalized', 'nanohedra_score',
                      'nanohedra_score_center', 'number_fragment_residues_total', 'number_fragment_residues_center',
-                     'multiple_fragment_ratio', 'percent_fragment_helix', 'percent_fragment_strand',
-                     'percent_fragment_coil', 'number_of_fragments', 'total_interface_residues',
-                     'total_non_fragment_interface_residues', 'percent_residues_fragment_total',
-                     'percent_residues_fragment_center']
+                     'multiple_fragment_ratio', 'percent_fragment_interface', 'percent_fragment_helix',
+                     'percent_fragment_strand', 'percent_fragment_coil', 'number_of_fragments',
+                     'total_interface_residues',
+                     'total_non_fragment_interface_residues', 'percent_residues_fragment_interface_total',
+                     'percent_residues_fragment_interface_center']
 # These metrics are necessary for all calculations performed during the analysis script. If missing, something will fail
 necessary_metrics = {'buns_complex', 'buns_1_unbound', 'contact_count', 'coordinate_constraint',
                      'favor_residue_energy', 'hbonds_res_selection_complex', 'hbonds_res_selection_1_bound',
@@ -632,7 +633,7 @@ rosetta_required_metrics = []
 # unused, just a placeholder for the metrics in population
 final_metrics = {'buried_unsatisfied_hbonds', 'contact_count', 'core', 'coordinate_constraint',
                  'divergence_design_per_residue', 'divergence_evolution_per_residue', 'divergence_fragment_per_residue',
-                 'divergence_interface_per_residue', 'entity_thermophilicity', 'favor_residue_energy',
+                 'divergence_interface_per_residue', 'pose_thermophilicity', 'favor_residue_energy',
                  'interface_area_hydrophobic', 'interface_area_polar', 'interface_area_total',
                  'interface_composition_similarity', 'interface_connectivity_1', 'interface_connectivity_2',
                  'interface_energy_1_unbound', 'interface_energy_2_unbound',
@@ -644,10 +645,11 @@ final_metrics = {'buried_unsatisfied_hbonds', 'contact_count', 'core', 'coordina
                  'number_fragment_residues_total', 'number_fragment_residues_central', 'number_of_fragments',
                  'observations',
                  'observed_design', 'observed_evolution', 'observed_fragment', 'observed_interface', 'percent_core',
-                 'percent_fragment', 'percent_fragment_coil', 'percent_fragment_helix', 'percent_fragment_strand',
+                 'percent_fragment_interface',
+                 'percent_fragment_coil', 'percent_fragment_helix', 'percent_fragment_strand',
                  'percent_interface_area_hydrophobic', 'percent_interface_area_polar', 'percent_mutations',
-                 'percent_residues_fragment_center',
-                 'percent_residues_fragment_total', 'percent_rim', 'percent_support',
+                 'percent_residues_fragment_interface_center',
+                 'percent_residues_fragment_interface_total', 'percent_rim', 'percent_support',
                  'protocol_energy_distance_sum', 'protocol_similarity_sum', 'protocol_seq_distance_sum',
                  'rosetta_reference_energy', 'rim', 'rmsd', 'shape_complementarity', 'interface_solvation_energy',
                  'interface_solvation_energy_activation', 'support',
@@ -1369,6 +1371,7 @@ def sum_per_residue_metrics(per_residue_df: pd.DataFrame) -> pd.DataFrame:
     Returns:
         A new DataFrame with the summation of all residue_numbers in the per_residue columns
     """
+    # Group by the columns according to the metrics (level=-1). Upper level(s) are residue identifiers
     summed_scores_df = per_residue_df.groupby(axis=1, level=-1).sum()
     # print('after grouby sum', summed_scores_df)
     # per_residue_df_columns = per_residue_df.columns

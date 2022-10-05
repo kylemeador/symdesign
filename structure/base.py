@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import subprocess
+from abc import ABC
 from collections import UserList, defaultdict
 from copy import copy
 from logging import Logger
@@ -462,7 +463,7 @@ class Symmetry:
 
     # @property
     def is_symmetric(self) -> bool:
-        """Query whether the Structure is symmetric"""
+        """Query whether the Structure is symmetric. Returns True if self.symmetry is not None"""
         try:
             return self.symmetry is not None
         except AttributeError:
@@ -473,10 +474,12 @@ class Symmetry:
 parent_variable = '_StructureBase__parent'
 new_parent_attributes = ('_coords', '_log', '_atoms', '_residues')
 parent_attributes = (parent_variable,) + new_parent_attributes
-"""Holds all the attributes which the parent StructureBase controls"""
+"""Holds all the attributes which the parent StructureBase controls including _parent, _coords, _log, _atoms, 
+and _residues
+"""
 
 
-class StructureBase(Symmetry):
+class StructureBase(Symmetry, ABC):
     """Structure object sets up and handles Coords and Log objects as well as maintaining atom_indices and the history
     of Structure subclass creation and subdivision from parent Structure to dependent Structure's. Collects known
     keyword arguments for all derived class construction calls to protect base object. Should always be the last class
@@ -581,7 +584,7 @@ class StructureBase(Symmetry):
         elif isinstance(log, Log):
             self._log.log = log.log
         else:
-            raise TypeError(f'Can\'t set Log to {type(log).__name__}. Must be type logging.Logger')
+            raise TypeError(f"Can't set Log to {type(log).__name__}. Must be type logging.Logger")
 
     @property
     def atom_indices(self) -> list[int] | None:
@@ -4688,7 +4691,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
             if attr in parent_attributes:
                 # Perform shallow copy on these attributes. They will be handled correctly below
                 other.__dict__[attr] = obj
-            else:  # Perform a deep copy
+            else:  # Perform a deeper copy
                 other.__dict__[attr] = copy(obj)
 
         if self.is_parent():  # This Structure is the parent, it's copy should be too

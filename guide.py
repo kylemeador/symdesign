@@ -26,7 +26,7 @@ select_poses_guide = \
     f' metrics, say "interface_area_total > 1000, shape_complementarity > 0.65, ' \
     f'percent_residues_fragment_center > 0.3, and interface_composition_similarity > 0.6", those poses which contain' \
     f' metrics that satify each of these filters will be chosen. Additionally, by using three weights, ' \
-    f'say "interface_secondary_structure_fragment_count = 0.33, entity_thermophilicity = 0.33, and ' \
+    f'say "interface_secondary_structure_fragment_count = 0.33, pose_thermophilicity = 0.33, and ' \
     f'shape_complementarity 0.33" those passing designs can then be sorted according to their cumulative weight' \
     f' allowing you to prioritize poses and only push the best ones forward. In this way, you can take a large number' \
     f' of starting conformations and cull them to those that are more favorable given some set of design constraints.' \
