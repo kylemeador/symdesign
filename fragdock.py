@@ -2873,11 +2873,14 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
 
                 # Set up ProteinMPNN output data structures
                 # To use torch.nn.NLLL() must use dtype Long -> np.int64, not Int -> np.int32
-                generated_sequences = np.empty((size, number_of_residues), dtype=np.int64)
-                # sequence_scores = np.empty((size,))
-                per_residue_complex_scores = np.empty((size, number_of_residues))
-                per_residue_unbound_scores = np.empty((size, number_of_residues))
-                probabilities = np.empty((size, number_of_residues, mpnn_alphabet_length))
+                generated_sequences = np.empty((size, pose_length), dtype=np.int64)
+                #                                       number_of_residues), dtype=np.int64)
+                per_residue_evolution_cross_entropy = np.empty((size, pose_length), dtype=np.float32)
+                #                                                       number_of_residues, dtype=np.float))
+                per_residue_fragment_cross_entropy = np.empty_like(per_residue_evolution_cross_entropy)
+                per_residue_complex_sequence_loss = np.empty(per_residue_evolution_cross_entropy)
+                per_residue_unbound_sequence_loss = np.empty(per_residue_evolution_cross_entropy)
+                # probabilities = np.empty((size, number_of_residues, mpnn_alphabet_length, dtype=np.float32))
 
                 # Gather the coordinates according to the transformations identified
                 for batch in range(number_of_batches):
@@ -2924,14 +2927,28 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
                                            dtype=np.float32)  # (batch, number_of_residues, alphabet_length)
                     new_coords = np.zeros((actual_batch_length, pose_length * num_model_residues, 3),
                                           dtype=np.float32)  # (batch, number_of_residues, coords_length)
+
+                    fragment_profiles = []
                     # Use batch_idx to set new numpy arrays, transform_idx (includes perturb_idx) to set coords
                     for batch_idx, transform_idx in enumerate(range(batch_slice.start, batch_slice.stop)):
                         update_pose_coords(transform_idx)
-                        pose.find_and_split_interface(distance=cb_distance)
-
                         new_coords[batch_idx] = getattr(pose, coords_type)
 
-                        design_residues = []  # Add all interface residues
+                        # pose.find_and_split_interface(distance=cb_distance)
+                        # This is done in the below call
+                        add_fragments_to_pose()  # <- here generating fresh
+                        # Reset the fragment_profile and fragment_map for each Entity before process_fragment_profile
+                        for entity in pose.entities:
+                            entity.fragment_profile = {}
+                            entity.fragment_map = {}
+                            # entity.alpha.clear()
+                        # Load fragment_profile into the analysis
+                        pose.process_fragment_profile()
+                        if pose.fragment_profile:
+                            fragment_profiles.append(pssm_as_array(pose.fragment_profile))
+
+                        # Add all interface residues
+                        design_residues = []
                         for number, residues_entities in pose.split_interface_residues.items():
                             design_residues.extend([residue.index for residue, _ in residues_entities])
 
@@ -2941,6 +2958,13 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
                         #  bias_by_res[batch_idx] = pose.fragment_profile
                         #  OR
                         #  bias_by_res[batch_idx, fragment_residues] = pose.fragment_profile[fragment_residues]
+
+                    # Process the fragment_profiles into an array and take the log of the frequencies for cross entropy
+                    fragment_profile_array = np.concatenate(fragment_profiles)
+                    # RuntimeWarning: divide by zero encountered in log
+                    # np.log causes -inf at 0, thus we need to correct these to a very large number
+                    batch_fragment_profile = np.nan_to_num(np.log(fragment_profile_array), copy=False, nan=np.nan)
+                    # print('batch_fragment_profile', batch_fragment_profile[:, 20:30])
 
                     # If entity_bb_coords are individually transformed, then axis=0 works
                     perturbed_bb_coords = np.concatenate(new_coords, axis=0)
@@ -3011,9 +3035,12 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
                         # conditional_log_probs_seq = \
                         #     mpnn_model.conditional_probs(X, S[:actual_batch_length], mask, chain_residue_mask, residue_idx,
                         #                                  chain_encoding, decoding_order).cpu()
+                        # Use the sequence as an unknown token then guess the probabilities given the remaining
+                        # information, i.e. the sequence and the backbone
                         mpnn_null_idx = 20
                         # S_design_null[:actual_batch_length, residue_mask.type(torch.uint8)] = mpnn_null_idx
                         S_design_null[residue_mask.type(torch.bool)] = mpnn_null_idx
+                        # Calculations with this are done using cpu memory and numpy
                         conditional_log_probs_null_seq = \
                             mpnn_model(X, S_design_null, mask, chain_residue_mask, residue_idx, chain_encoding,
                                        None,  # This argument is provided but with below args, is not used
@@ -3029,23 +3056,38 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
                         #     mpnn_model.unconditional_probs(X, mask, residue_idx, chain_encoding).cpu()
                         # residue_indices_of_interest = np.flatnonzero(residue_mask_cpu[:, :pose_length])
                         residue_indices_of_interest = residue_mask_cpu[:, :pose_length].astype(bool)
-                        print('residue_indices_of_interest', residue_indices_of_interest)
+                        #  Taking the KL divergence would indicate how divergent the interfaces are from the
+                        #  surface. This should be simultaneously minimized (i.e. lowest evolutionary divergence)
+                        #  while the aa frequency distribution cross_entropy compared to the fragment profile is
+                        #  minimized
+                        asu_conditional_softmax_null_seq = \
+                            np.exp(conditional_log_probs_null_seq[:, :pose_length])
                         if pose.evolutionary_profile:
-                            asu_conditional_softmax_null_seq = \
-                                np.exp(conditional_log_probs_null_seq[:, :pose_length])
                             # Remove the gaps index from the softmax input -> ... :, :mpnn_null_idx]
-                            evolutionary_ce = \
+                            per_residue_evolution_cross_entropy[batch_slice] = \
                                 cross_entropy(asu_conditional_softmax_null_seq[:, :, :mpnn_null_idx],
                                               batch_evolutionary_profile[:actual_batch_length],
-                                              mask=residue_indices_of_interest,
-                                              per_entry=True)
-                                              # axis=1)
-                            print('evolutionary_ce', evolutionary_ce)
-                            # Todo
-                            #  Taking the KL divergence would indicate how divergent the interfaces are from the
-                            #  surface. This should be simultaneously minimized (i.e. lowest evolutionary divergence)
-                            #  while the aa frequency distribution cross_entropy compared to the fragment profile is
-                            #  minimized
+                                              per_entry=True).numpy()
+                            #                 mask=residue_indices_of_interest,
+                            #                 axis=1)
+                            print('per_residue_evolution_cross_entropy',
+                                  per_residue_evolution_cross_entropy[batch_slice])
+                            # per_residue_evolution_cross_entropy[batch_slice]
+                            # [[-3.0685883 -3.575249  -2.967545  ... -3.3111317 -3.1204746 -3.1201541]
+                            #  [-3.0685873 -3.5752504 -2.9675443 ... -3.3111336 -3.1204753 -3.1201541]
+                            #  [-3.0685952 -3.575687  -2.9675474 ... -3.3111277 -3.1428783 -3.1201544]]
+
+                        if pose.fragment_profile:
+                            # Remove the gaps index from the softmax input -> ... :, :mpnn_null_idx]
+                            per_residue_fragment_cross_entropy[batch_slice] = \
+                                cross_entropy(asu_conditional_softmax_null_seq[:, :, :mpnn_null_idx],
+                                              batch_fragment_profile,
+                                              per_entry=True).numpy()
+                            #                 mask=residue_indices_of_interest,
+                            #                 axis=1)
+                            print('per_residue_fragment_cross_entropy',
+                                  per_residue_fragment_cross_entropy[batch_slice])
+
                         # fragment_ce = cross_entropy(asu_conditional_softmax_null_seq,
                         #                             batch_fragment_profile[:actual_batch_length])
                         if collapse_profile.size:  # Not equal to zero
@@ -3129,14 +3171,14 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
                         unbound_log_probs = \
                             mpnn_model(_X_unbound, S_sample, mask, chain_residue_mask, residue_idx, chain_encoding,
                                        None,  # This argument is provided but with below args, is not used
-                                       use_input_decoding_order=True, decoding_order=decoding_order_out)
+                                       use_input_decoding_order=True, decoding_order=decoding_order_out).cpu()
 
                         log_prob_time = time.time()
                         log_probs_start_time = time.time()
                         complex_log_probs = \
                             mpnn_model(X, S_sample, mask, chain_residue_mask, residue_idx, chain_encoding,
                                        None,  # This argument is provided but with below args, is not used
-                                       use_input_decoding_order=True, decoding_order=decoding_order_out)
+                                       use_input_decoding_order=True, decoding_order=decoding_order_out).cpu()
                         # IS SLICING A CONSIDERABLE TIME COST?
                         # With slicing:
                         # Unbound log prob calculation took 0.370461
@@ -3170,60 +3212,38 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
                         #          ...,
                         #          [-2.7691, -3.5265, -2.9001,  ..., -3.3623, -3.0247, -4.2772],
                         #          [-2.7691, -3.5265, -2.9001,  ..., -3.3623, -3.0247, -4.2772],
-                        #          [-2.7691, -3.5265, -2.9001,  ..., -3.3623, -3.0247, -4.2772]]]
-                        # Score the redesigned structure-sequence
-                        # mask_for_loss = chain_mask_and_mask*residue_mask
-                        # S_sample, complex_log_probs, and mask_for_loss should all be the same size
-                        # batch_scores = sequence_nllloss(S_sample, complex_log_probs, mask_for_loss, per_residue=False)
-                        # batch_scores is
-                        # tensor([2.1039, 2.0618, 2.0802, 2.0538, 2.0114, 2.0002], device='cuda:0')
-                        complexed_batch_scores_per_residue = sequence_nllloss(S_sample, complex_log_probs)  # , mask_for_loss)
-                        unbound_batch_scores_per_residue = sequence_nllloss(S_sample, unbound_log_probs)  # , mask_for_loss)
-                        # complex_log_probs
-                        # tensor([[[-2.6925, -4.0590, -2.6488,  ..., -4.2480, -3.4569, -4.8654],
-                        #          [-2.8767, -4.3965, -2.4073,  ..., -4.4929, -3.5968, -5.1402],
-                        #          [-2.5122, -4.0334, -2.7984,  ..., -4.2716, -3.4859, -4.8255],
-                        #          ...,
-                        #          [-3.5055, -4.4716, -3.8277,  ..., -5.1975, -4.6581, -5.2471],
-                        #          [-0.9695, -4.9510, -3.9416,  ..., -2.0195, -2.2073, -4.3303],
-                        #          [-3.1085, -4.3879, -3.8753,  ..., -4.7151, -4.1530, -5.3085]],
-                        #
-                        #         [[-2.6934, -4.0610, -2.6506,  ..., -4.2404, -3.4620, -4.8641],
+                        #          [-2.7691, -3.5265, -2.9001,  ..., -3.3623, -3.0247, -4.2772]],
+                        #         [[-2.6934, -4.0610, -2.6506, ..., -4.2404, -3.4620, -4.8641],
                         #          [-2.8753, -4.3959, -2.4042,  ..., -4.4922, -3.5962, -5.1403],
                         #          [-2.5235, -4.0181, -2.7738,  ..., -4.2454, -3.4768, -4.8088],
                         #          ...,
                         #          [-3.4500, -4.4373, -3.7814,  ..., -5.1637, -4.6107, -5.2295],
                         #          [-0.9690, -4.9492, -3.9373,  ..., -2.0154, -2.2262, -4.3334],
                         #          [-3.1118, -4.3809, -3.8763,  ..., -4.7145, -4.1524, -5.3076]]])
-                        # complexed_batch_scores_per_residue
+                        # Score the redesigned structure-sequence
+                        # mask_for_loss = chain_mask_and_mask*residue_mask
+                        # S_sample, complex_log_probs, and mask_for_loss should all be the same size
+                        # batch_scores = sequence_nllloss(S_sample, complex_log_probs, mask_for_loss, per_residue=False)
+                        # batch_scores is
+                        # tensor([2.1039, 2.0618, 2.0802, 2.0538, 2.0114, 2.0002], device='cuda:0')
+                        # Format outputs
+                        generated_sequences[batch_slice] = batch_sequences = S_sample.cpu().numpy()[:, :pose_length]
+                        per_residue_complex_sequence_loss[batch_slice] = \
+                            sequence_nllloss(batch_sequences, complex_log_probs[:, :pose_length]).numpy()
+                        per_residue_unbound_sequence_loss[batch_slice] = \
+                            sequence_nllloss(batch_sequences, unbound_log_probs[:, :pose_length]).numpy()
+                        # per_residue_complex_sequence_loss[batch_slice]
                         # tensor([[2.6774, 2.8040, 2.6776,  ..., 0.5250, 4.3917, 3.3005],
                         #         [2.5753, 3.0423, 2.6879,  ..., 0.5574, 4.3880, 3.3008]])
-                        # unbound_log_probs
-                        # tensor([[[-2.4807, -4.0730, -2.7958,  ..., -3.9997, -3.5745, -4.8288],
-                        #          [-2.4487, -4.0353, -2.6968,  ..., -3.9901, -3.5318, -4.8019],
-                        #          [-2.5175, -4.0416, -2.8882,  ..., -3.9594, -3.6045, -4.7788],
-                        #          ...,
-                        #          [-1.7008, -5.0939, -3.3878,  ..., -4.6112, -4.3510, -5.4719],
-                        #          [-1.6378, -3.6540, -4.9203,  ..., -2.5446, -2.9743, -5.4978],
-                        #          [-1.5330, -4.9169, -3.9089,  ..., -5.3741, -5.3022, -5.4803]],
-                        #
-                        #         [[-2.4700, -4.0545, -2.8007,  ..., -4.0116, -3.5876, -4.8099],
-                        #          [-2.4487, -4.0353, -2.6968,  ..., -3.9901, -3.5318, -4.8019],
-                        #          [-2.4900, -4.0142, -2.8583,  ..., -3.9954, -3.6273, -4.7567],
-                        #          ...,
-                        #          [-1.7008, -5.0939, -3.3878,  ..., -4.6112, -4.3510, -5.4719],
-                        #          [-1.6378, -3.6540, -4.9203,  ..., -2.5446, -2.9743, -5.4978],
-                        #          [-1.5330, -4.9169, -3.9089,  ..., -5.3741, -5.3022, -5.4803]]])
-                        # unbound_batch_scores_per_residue tensor([[2.5189, 2.6957, 2.5164,  ..., 2.5407, 3.4855, 1.5007],
+                        # per_residue_unbound_sequence_loss[batch_slice]
+                        # tensor([[2.5189, 2.6957, 2.5164,  ..., 2.5407, 3.4855, 1.5007],
                         #         [2.8567, 2.7632, 2.5662,  ..., 2.5407, 3.4855, 1.5007]])
                         # Score the whole structure-sequence
                         # global_scores = sequence_nllloss(S_sample, complex_log_probs, mask, per_residue=False)
 
-                        # Format outputs
-                        generated_sequences[batch_slice] = S_sample.cpu().numpy()
-                        per_residue_complex_scores[batch_slice] = complexed_batch_scores_per_residue.cpu().numpy()  # scores
-                        per_residue_unbound_scores[batch_slice] = unbound_batch_scores_per_residue.cpu().numpy()  # scores
-                        probabilities[batch_slice] = sample_dict['probs'].cpu().numpy()  # batch_probabilities
+                        # per_residue_complex_sequence_loss[batch_slice] = complexed_batch_scores_per_residue.cpu().numpy()  # scores
+                        # per_residue_unbound_sequence_loss[batch_slice] = unbound_batch_scores_per_residue.cpu().numpy()  # scores
+                        # probabilities[batch_slice] = sample_dict['probs'].cpu().numpy()  # batch_probabilities
 
                         # Delete intermediate variable objects to free memory for next cycle
                         # inputs
@@ -3240,7 +3260,7 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
                         del chain_residue_mask
                         del complex_log_probs
                         # del mask_for_loss
-                        del complexed_batch_scores_per_residue
+                        # del complexed_batch_scores_per_residue
 
                 log.critical(f'Successful execution with {divisor} using available memory of '
                              f'{memory_constraint} and batch_length of {batch_length}')
@@ -3293,7 +3313,7 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
                     del chain_residue_mask
                     del complex_log_probs
                     # del mask_for_loss
-                    del complexed_batch_scores_per_residue
+                    # del complexed_batch_scores_per_residue
                 except NameError:
                     pass
                 # divisor = divisor*2
@@ -3302,13 +3322,13 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
 
         log.info(f'Design with ProteinMPNN took {time.time() - proteinmpnn_time_start:8f}')
 
-        # Truncate the sequences to the ASU
-        if pose.is_symmetric():
-            generated_sequences = generated_sequences[:, :pose_length]
-            per_residue_complex_scores = per_residue_complex_scores[:, :pose_length]
-            per_residue_unbound_scores = per_residue_unbound_scores[:, :pose_length]
-            probabilities = probabilities[:, :pose_length]
-            # sequences = sequences[:, :pose_length]
+        # # Truncate the sequences to the ASU
+        # if pose.is_symmetric():
+        #     generated_sequences = generated_sequences[:, :pose_length]
+        #     per_residue_complex_sequence_loss = per_residue_complex_sequence_loss[:, :pose_length]
+        #     per_residue_unbound_sequence_loss = per_residue_unbound_sequence_loss[:, :pose_length]
+        #     # probabilities = probabilities[:, :pose_length]
+        #     # sequences = sequences[:, :pose_length]
         # Format the sequences from design
         sequences = numeric_to_sequence(generated_sequences)
 
@@ -3532,9 +3552,9 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
             else:
                 per_residue_fragment_profile_scores = nan_blank_data
 
-            # all_scores[pose_id] = per_residue_complex_scores[idx]
-            # _per_residue_complex_scores = per_residue_complex_scores[idx].tolist()
-            # _per_residue_unbound_scores = per_residue_unbound_scores[idx].tolist()
+            # all_scores[pose_id] = per_residue_complex_sequence_loss[idx]
+            # _per_residue_complex_scores = per_residue_complex_sequence_loss[idx].tolist()
+            # _per_residue_unbound_scores = per_residue_unbound_sequence_loss[idx].tolist()
             # residue_info[pose_id] = {residue.number: {'complex': _per_residue_complex_scores[residue.index],
             #                                           # 'bound': 0.,  # copy(entity_energies),
             #                                           'unbound': _per_residue_unbound_scores[residue.index],
@@ -3549,9 +3569,9 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
             #                                           # 'hbond': 0
             #                                           }
             #                          for entity in pose.entities for residue in entity.residues}
-            per_residue_data[pose_id].update({'complex': per_residue_complex_scores[idx],
+            per_residue_data[pose_id].update({'complex': per_residue_complex_sequence_loss[idx],
                                               # 'bound': 0.,  # copy(entity_energies),
-                                              'unbound': per_residue_unbound_scores[idx],
+                                              'unbound': per_residue_unbound_sequence_loss[idx],
                                               'evolution': per_residue_evolutionary_profile_scores,
                                               'fragment': per_residue_fragment_profile_scores,
                                               # copy(entity_energies),
