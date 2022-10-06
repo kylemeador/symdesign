@@ -2909,6 +2909,8 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
                 per_residue_complex_sequence_loss = np.empty_like(per_residue_evolution_cross_entropy)
                 per_residue_unbound_sequence_loss = np.empty_like(per_residue_evolution_cross_entropy)
                 per_residue_batch_collapse_z = np.zeros_like(per_residue_evolution_cross_entropy)
+                per_residue_design_indices = np.zeros(per_residue_evolution_cross_entropy, dtype=bool)
+                total_collapse_favorability = []
                 # probabilities = np.empty((size, number_of_residues, mpnn_alphabet_length, dtype=np.float32))
 
                 # Gather the coordinates according to the transformations identified
@@ -3122,7 +3124,7 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
                         #                             batch_fragment_profile[:actual_batch_length])
                         if collapse_profile.size:  # Not equal to zero
                             # Take the hydrophobic collapse of the log probs to understand the profiles "folding"
-                            skip = []
+                            poor_collapse = []
                             per_residue_mini_batch_collapse_z = \
                                 np.empty((actual_batch_length, pose_length), dtype=np.float32)
                             for pose_idx in range(actual_batch_length):
@@ -3163,9 +3165,10 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
                                 per_residue_mini_batch_collapse_z[pose_idx] = collapse_z = \
                                     z_score(design_probs_collapse, collapse_profile_mean, collapse_profile_std)
                                 # folding_loss = sequence_nllloss(S_sample, design_probs_collapse)  # , mask_for_loss)
-                                designed_indices_collapse_z = collapse_z[residue_indices_of_interest[pose_idx]]
+                                pose_idx_residues_of_interest = residue_indices_of_interest[pose_idx]
+                                designed_indices_collapse_z = collapse_z[pose_idx_residues_of_interest]
                                 # magnitude_of_collapse_z_deviation = np.abs(designed_indices_collapse_z)
-                                if np.any(np.logical_and(design_probs_collapse[residue_indices_of_interest[pose_idx]]
+                                if np.any(np.logical_and(design_probs_collapse[pose_idx_residues_of_interest]
                                                          > collapse_significance_threshold,
                                                          designed_indices_collapse_z > 0)):
                                     # Todo save this
@@ -3175,13 +3178,15 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
                                     # print('magnitude greater than 1', magnitude_of_collapse_z_deviation > 1)
                                     log.warning(f'***Collapse is larger than one standard deviation.'
                                                 f' Pose is *** being considered')
-                                    skip.append(pose_idx)
+                                    poor_collapse.append(1)
                                 else:
-                                    log.critical(
-                                        # f'Total deviation={magnitude_of_collapse_z_deviation.sum()}. '
-                                                 f'Mean={designed_indices_collapse_z.mean()}'
-                                                 f'Standard Deviation={designed_indices_collapse_z.std()}')
-
+                                    poor_collapse.append(0)
+                                #     log.critical(
+                                #         # f'Total deviation={magnitude_of_collapse_z_deviation.sum()}. '
+                                #                  f'Mean={designed_indices_collapse_z.mean()}'
+                                #                  f'Standard Deviation={designed_indices_collapse_z.std()}')
+                            total_collapse_favorability.extend(poor_collapse)
+                            per_residue_design_indices[batch_slice] = residue_indices_of_interest
                             per_residue_batch_collapse_z[batch_slice] = per_residue_mini_batch_collapse_z
 
                         # Todo add skip to the selection mechanism
@@ -3613,9 +3618,10 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
                                               # 'bound': 0.,  # copy(entity_energies),
                                               'unbound': per_residue_unbound_sequence_loss[idx],
                                               'evolution': per_residue_evolutionary_profile_scores,
-                                              'evolution_proteinmpnn_cross_entropy': per_residue_evolution_cross_entropy[idx],
+                                              'proteinmpnn_v_evolution_cross_entropy': per_residue_evolution_cross_entropy[idx],
                                               'fragment': per_residue_fragment_profile_scores,
-                                              'fragment_proteinmpnn_cross_entropy': per_residue_fragment_cross_entropy[idx],
+                                              'proteinmpnn_v_fragment_cross_entropy': per_residue_fragment_cross_entropy[idx],
+                                              'designed': per_residue_design_indices[idx],
                                               'collapse_profile_z': per_residue_batch_collapse_z[idx],
                                               # copy(entity_energies),
                                               # 'solv_complex': 0., 'solv_bound': 0.,
@@ -3659,6 +3665,8 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
         interface_observed_from_fragment_profile[interface_observed_from_fragment_profile == 0] = np.nan
         scores_df['observed_fragment_interface_mean'] = np.nanmean(interface_observed_from_fragment_profile, axis=1)
         scores_df['observed_evolution_mean'] = background_frequencies['evolution'].mean(axis=1)
+        if collapse_profile.size:  # Not equal to zero
+            scores_df['collapse_violation_design_residues'] = total_collapse_favorability
 
         per_residue_background_frequencies = \
             pd.concat([pd.DataFrame(background, index=pose_ids,
@@ -3769,22 +3777,29 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
     errat_sig_df = errat_df.sub(pose_source_errat_s, axis=1) > errat_1_sigma  # axis=1 Series is column oriented
     # then select only those residues which are expressly important by the inclusion boolean
     scores_df['errat_deviation'] = (errat_sig_df.loc[:, source_errat_inclusion_boolean] * 1).sum(axis=1)
-    scores_df['proteinmpnn_score_complex'] = \
-        scores_df['interface_energy_complex'] / scores_df['pose_length']
-    scores_df['proteinmpnn_score_unbound'] = \
-        scores_df['interface_energy_unbound'] / scores_df['pose_length']
-    # Todo need to subtract only the interface residues and perform the average on this...
-    # scores_df['proteinmpnn_score_interface_complex'] = \
-    #     scores_df['interface_energy_complex'] / scores_df['total_interface_residues']
-    # scores_df['proteinmpnn_score_interface_unbound'] = \
-    #     scores_df['interface_energy_unbound'] / scores_df['total_interface_residues']
 
     # Drop unused particular scores_df columns that have been summed
     scores_drop_columns = ['hydrophobic_collapse']
     scores_df = scores_df.drop(scores_drop_columns, errors='ignore', axis=1)
     scores_df = scores_df.rename(columns={'evolution': 'evolution_sequence_loss',
                                           'fragment': 'fragment_sequence_loss',
+                                          'designed': 'designed_residues_total',
                                           'type': 'sequence'})
+    if design_output:
+        scores_df['proteinmpnn_v_evolution_cross_entropy_designed_mean'] = \
+            scores_df['proteinmpnn_v_evolution_cross_entropy'] / scores_df['designed_residues_total']
+        scores_df['proteinmpnn_v_fragment_cross_entropy_designed_mean'] = \
+            scores_df['proteinmpnn_v_fragment_cross_entropy'] / scores_df['number_fragment_residues_total']
+        scores_df['proteinmpnn_score_complex'] = \
+            scores_df['interface_energy_complex'] / scores_df['pose_length']
+        scores_df['proteinmpnn_score_unbound'] = \
+            scores_df['interface_energy_unbound'] / scores_df['pose_length']
+        scores_df['proteinmpnn_score_designed_complex'] = \
+            per_residue_df.loc[:, idx_slice[:, 'interface_energy_complex']] \
+            / per_residue_df.loc[:, idx_slice[:, 'designed']]
+        scores_df['proteinmpnn_score_designed_unbound'] = \
+            per_residue_df.loc[:, idx_slice[:, 'interface_energy_unbound']] \
+            / per_residue_df.loc[:, idx_slice[:, 'designed']]
     # Drop unused particular per_residue_df columns that have been summed
     per_residue_drop_columns = per_residue_energy_states + energy_metric_names + per_residue_sasa_states \
                                + collapse_metrics + residue_classification \
