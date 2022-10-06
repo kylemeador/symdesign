@@ -2637,7 +2637,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
 
     @property
     def fragment_db(self) -> FragmentDatabase:
-        """The FragmentDatabase with which information about fragment usage will be extracted"""
+        """The FragmentDatabase that the Fragment was created from"""
         return self._fragment_db
 
     @fragment_db.setter
@@ -2648,7 +2648,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
             # Todo add fragment_length, sql kwargs
             self.log.debug(f'fragment_db was set to the default since a {type(fragment_db).__name__} was passed which '
                            f'is not of the required type {FragmentDatabase.__name__}')
-            fragment_db = fragment_factory(source=biological_interfaces)
+            fragment_db = fragment_factory.get(source=biological_interfaces, token=fragment_db)
 
         self._fragment_db = fragment_db
 

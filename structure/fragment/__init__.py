@@ -196,12 +196,11 @@ class Fragment(ABC):
     # and then provided this argument upon fragment assignment
     @property
     def fragment_db(self) -> structure.fragment.db.FragmentDatabase:
-        """The secondary structure of the Fragment"""
+        """The FragmentDatabase that the Fragment was created from"""
         return self._fragment_db
 
     @fragment_db.setter
     def fragment_db(self, fragment_db: structure.fragment.db.FragmentDatabase):
-        """Set the secondary structure of the Fragment"""
         self._fragment_db = fragment_db
         if fragment_db is not None:
             self.frag_lower_range, self.frag_upper_range = fragment_db.fragment_range

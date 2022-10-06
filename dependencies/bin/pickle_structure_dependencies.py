@@ -3,7 +3,7 @@ from shutil import copy, move
 from typing import AnyStr
 
 import structure.model
-from structure.fragment.db import FragmentDatabase, Representative
+from structure.fragment.db import FragmentDatabase, Representative, RELOAD_DB
 from utils.path import biological_fragment_db_pickle, reference_aa_file, reference_residues_pkl, biological_interfaces
 from utils import timestamp, pickle_object, start_log, get_file_paths_recursively
 
@@ -50,7 +50,9 @@ def load_paired_fragment_representatives(cluster_representatives_path) \
     for cluster_name, file_path in identified_files.items():
         i_type, j_type, k_type = map(int, cluster_name.split('_'))
 
-        ijk_frag_cluster_rep_pdb = structure.model.Model.from_file(file_path, entities=False, log=None)
+        # We pass the token RELOAD_DB to ensure loading happens without default loading
+        ijk_frag_cluster_rep_pdb = \
+            structure.model.Model.from_file(file_path, entities=False, log=None, fragment_db=RELOAD_DB)
         # Load as Model as we must look up the partner coords later by using chain_id stored in file_name
         partner_chain_idx = file_path.find('partnerchain')
         ijk_cluster_rep_partner_chain = file_path[partner_chain_idx + 13:partner_chain_idx + 14]
