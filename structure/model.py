@@ -190,14 +190,10 @@ def get_matching_fragment_pairs_info(ghostfrag_frag_pairs: list[tuple[GhostFragm
         The formatted fragment information for each pair
             {'mapped': int, 'paired': int, 'match': float, 'cluster': tuple(int, int, int)}
     """
-    fragment_matches = []
-    for interface_ghost_frag, interface_surf_frag, match_score in ghostfrag_frag_pairs:
-        # _, surffrag_resnum1 = interface_ghost_frag.aligned_chain_and_residue  # surffrag_ch1,
-        # _, surffrag_resnum2 = interface_surf_frag.aligned_chain_and_residue  # surffrag_ch2,
-        frag_index1 = interface_ghost_frag.index
-        frag_index2 = interface_surf_frag.index
-        fragment_matches.append(dict(zip(('mapped', 'paired', 'match', 'cluster'),
-                                     (frag_index1, frag_index2, match_score, interface_ghost_frag.ijk))))
+    info_tuple = ('mapped', 'paired', 'match', 'cluster')
+    fragment_matches = [dict(zip(info_tuple, (ghost_frag.index, surf_frag.index, match_score, ghost_frag.ijk)))
+                        for ghost_frag, surf_frag, match_score in ghostfrag_frag_pairs]
+
     logger.debug(f'Fragments for Entity1 found at residues: {[fragment["mapped"] + 1 for fragment in fragment_matches]}')
     logger.debug(f'Fragments for Entity2 found at residues: {[fragment["paired"] + 1 for fragment in fragment_matches]}')
 
