@@ -1,8 +1,14 @@
 import os
+from collections.abc import Sequence
 from typing import AnyStr
 
+import pandas as pd
+import seaborn as sns
+
 import structure.base
-from structure.fragment import GhostFragment, Fragment
+from structure.fragment import GhostFragment
+
+idx_slice = pd.IndexSlice
 
 
 def write_fragment_pairs_as_accumulating_states(ghost_frags: list[GhostFragment], filename: AnyStr = os.getcwd()):
@@ -64,3 +70,36 @@ def write_fragment_pairs_as_accumulating_states(ghost_frags: list[GhostFragment]
             #                            overlap_error=z_value_from_match_score(match_score),
             #                            match_number=match_count, out_path=out_path)
             f.write('ENDMDL\n')
+
+
+metrics_of_interest = [
+    'proteinmpnn_score_designed_delta',
+    'proteinmpnn_score_designed_complex',
+    'proteinmpnn_score_designed_unbound',
+    'proteinmpnn_v_fragment_cross_entropy_designed_mean',
+    'proteinmpnn_v_evolution_cross_entropy_designed_mean',
+    'evolution_sequence_loss',
+    'fragment_sequence_loss',
+    'designed_residues_total',
+    'collapse_violation_design_residues',
+    'nanohedra_score_normalized',
+    'interface_b_factor_per_residue',
+    'percent_residues_fragment_center',
+    'interface_energy',
+    'multiple_fragment_ratio',
+    'number_of_fragments',
+    'percent_mutations',  # 'number_of_mutations',
+]
+
+
+def plot_df_correlation(df: pd.DataFrame, metrics_of_interest: Sequence[str]):
+    """From a DataFrame, plot the correlation between all points in the DataFrame for selected metrics
+
+    Args:
+        df: This is assumed to be a three column dataframe with 'pose' and 'dock' present in levels 0 and 1
+        metrics_of_interest: The metrics one is interested in correlating
+    Returns:
+        None
+    """
+    _ = sns.pairplot(df.loc[:, idx_slice['pose', 'dock', metrics_of_interest]]
+                     .droplevel(0, axis=1).droplevel(0, axis=1), kind='reg', diag_kind='kde')
