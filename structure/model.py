@@ -32,7 +32,7 @@ from structure.fragment.db import FragmentDatabase, alignment_types, fragment_in
 from structure.fragment.metrics import fragment_metric_template
 from structure.sequence import SequenceProfile, generate_alignment, get_equivalent_indices, \
     pssm_as_array, generate_mutations, concatenate_profile
-from structure.utils import protein_letters_3to1_extended, protein_letters_1to3_extended
+from structure.utils import protein_letters_3to1_extended, protein_letters_1to3_extended, chain_id_generator
 from utils import start_log, null_log, DesignError, ClashError, SymmetryError, digit_translate_table, calculate_match, \
     z_value_from_match_score, remove_duplicates, z_score, rmsd_z_score, match_score_from_z_value, path as PUtils
 from utils.SymEntry import get_rot_matrices, make_rotations_degenerate, SymEntry, point_group_setting_matrix_members, \
@@ -198,83 +198,6 @@ def get_matching_fragment_pairs_info(ghostfrag_frag_pairs: list[tuple[GhostFragm
     logger.debug(f'Fragments for Entity2 found at residues: {[fragment["paired"] + 1 for fragment in fragment_matches]}')
 
     return fragment_matches
-
-
-# def calculate_interface_score(interface_pdb, write=False, out_path=os.getcwd()):
-#     """Takes as input a single PDB with two chains and scores the interface using fragment decoration"""
-#     interface_name = interface_pdb.name
-#
-#     entity1 = Model.from_atoms(interface_pdb.chain(interface_pdb.chain_ids[0]).atoms)
-#     entity1.update_attributes_from_pdb(interface_pdb)
-#     entity2 = Model.from_atoms(interface_pdb.chain(interface_pdb.chain_ids[-1]).atoms)
-#     entity2.update_attributes_from_pdb(interface_pdb)
-#
-#     interacting_residue_pairs = find_interface_pairs(entity1, entity2)
-#
-#     entity1_interface_residue_numbers, entity2_interface_residue_numbers = \
-#         get_interface_fragment_residue_numbers(entity1, entity2, interacting_residue_pairs)
-#     # entity1_ch_interface_residue_numbers, entity2_ch_interface_residue_numbers = \
-#     #     get_interface_fragment_chain_residue_numbers(entity1, entity2)
-#
-#     entity1_interface_sa = entity1.get_surface_area_residues(entity1_interface_residue_numbers)
-#     entity2_interface_sa = entity2.get_surface_area_residues(entity2_interface_residue_numbers)
-#     interface_buried_sa = entity1_interface_sa + entity2_interface_sa
-#
-#     interface_frags1 = entity1.get_fragments(residue_numbers=entity1_interface_residue_numbers)
-#     interface_frags2 = entity2.get_fragments(residue_numbers=entity2_interface_residue_numbers)
-#     entity1_coords = entity1.coords
-#
-#     ghostfrag_surfacefrag_pairs = find_fragment_overlap(entity1_coords, interface_frags1, interface_frags2)
-#     # fragment_matches = find_fragment_overlap(entity1, entity2, entity1_interface_residue_numbers,
-#     #                                          entity2_interface_residue_numbers)
-#     fragment_matches = get_matching_fragment_pairs_info(ghostfrag_surfacefrag_pairs)
-#     if write:
-#         write_fragment_pairs(ghostfrag_surfacefrag_pairs, out_path=out_path)
-#
-#     # all_residue_score, center_residue_score, total_residues_with_fragment_overlap, \
-#     #     central_residues_with_fragment_overlap, multiple_frag_ratio, fragment_content_d = \
-#     #     calculate_match_metrics(fragment_matches)
-#
-#     match_metrics = calculate_match_metrics(fragment_matches)
-#     # Todo
-#     #   'mapped': {'center': {'residues' (int): (set), 'score': (float), 'number': (int)},
-#     #                         'total': {'residues' (int): (set), 'score': (float), 'number': (int)},
-#     #                         'match_scores': {residue number(int): (list[score (float)]), ...},
-#     #                         'index_count': {index (int): count (int), ...},
-#     #                         'multiple_ratio': (float)}
-#     #              'paired': {'center': , 'total': , 'match_scores': , 'index_count': , 'multiple_ratio': },
-#     #              'total': {'center': {'score': , 'number': },
-#     #                        'total': {'score': , 'number': },
-#     #                        'index_count': , 'multiple_ratio': , 'observations': (int)}
-#     #              }
-#
-#     total_residues = {'A': set(), 'B': set()}
-#     for pair in interacting_residue_pairs:
-#         total_residues['A'].add(pair[0])
-#         total_residues['B'].add(pair[1])
-#
-#     total_residues = len(total_residues['A']) + len(total_residues['B'])
-#
-#     percent_interface_matched = central_residues_with_fragment_overlap / total_residues
-#     percent_interface_covered = total_residues_with_fragment_overlap / total_residues
-#
-#     interface_metrics = {'nanohedra_score': all_residue_score,
-#                          'nanohedra_score_central': center_residue_score,
-#                          'fragments': fragment_matches,
-#                          'multiple_fragment_ratio': multiple_frag_ratio,
-#                          'number_fragment_residues_central': central_residues_with_fragment_overlap,
-#                          'number_fragment_residues_all': total_residues_with_fragment_overlap,
-#                          'total_interface_residues': total_residues,
-#                          'number_of_fragments': len(fragment_matches),
-#                          'percent_residues_fragment_interface_total': percent_interface_covered,
-#                          'percent_residues_fragment_interface_center': percent_interface_matched,
-#                          'percent_fragment_helix': fragment_content_d['1'],
-#                          'percent_fragment_strand': fragment_content_d['2'],
-#                          'percent_fragment_coil': fragment_content_d['3'] + fragment_content_d['4']
-#                          + fragment_content_d['5'],
-#                          'interface_area': interface_buried_sa}
-#
-#     return interface_name, interface_metrics
 
 
 def get_interface_fragment_residue_numbers(pdb1, pdb2, interacting_pairs):
@@ -855,7 +778,7 @@ class State(Structures):
         #         # if isinstance(header, Iterable):
         #
         #     if increment_chains:
-        #         available_chain_ids = self.chain_id_generator()
+        #         available_chain_ids = chain_id_generator()
         #         for structure in self.structures:
         #             # for entity in structure.entities:  # Todo handle with multiple Structure containers
         #             chain = next(available_chain_ids)
@@ -926,7 +849,7 @@ class ContainsChainsMixin:
 
         number_of_chain_ids = len(self.chain_ids)
         if len(chain_residues) != number_of_chain_ids:  # would be different if a multimodel or some weird naming
-            available_chain_ids = self.chain_id_generator()
+            available_chain_ids = chain_id_generator()
             new_chain_ids = []
             for chain_idx in range(len(chain_residues)):
                 if chain_idx < number_of_chain_ids:  # use the chain_ids version
@@ -956,7 +879,7 @@ class ContainsChainsMixin:
         Sets:
             self.chain_ids (list[str])
         """
-        available_chain_ids = self.chain_id_generator()
+        available_chain_ids = chain_id_generator()
         if exclude_chains is None:
             exclude_chains = []
 
@@ -1001,10 +924,7 @@ class ContainsChainsMixin:
             The generator producing a maximum 2 character string where single characters are exhausted,
                 first in uppercase, then in lowercase
         """
-        return (first + second for modification in ['upper', 'lower']
-                for first in [''] + list(getattr(Structure.available_letters, modification)())
-                for second in list(getattr(Structure.available_letters, 'upper')()) +
-                list(getattr(Structure.available_letters, 'lower')()))
+        return chain_id_generator()
 
 
 class Chain(SequenceProfile, Structure):
@@ -1280,7 +1200,7 @@ class Entity(Chain, ContainsChainsMixin):
         """
         first_chain_id = self.chain_id
         self.chain_ids = [first_chain_id]  # use the existing chain_id
-        chain_gen = self.chain_id_generator()
+        chain_gen = chain_id_generator()
         # Iterate over the generator until the current chain_id is found
         discard = next(chain_gen)
         while discard != first_chain_id:
@@ -1304,7 +1224,7 @@ class Entity(Chain, ContainsChainsMixin):
     #     try:
     #         return self._chain_ids
     #     except AttributeError:  # This shouldn't be possible with the constructor available
-    #         available_chain_ids = self.chain_id_generator()
+    #         available_chain_ids = chain_id_generator()
     #         self._chain_ids = [self.chain_id]
     #         for _ in range(self.number_of_symmetry_mates - 1):
     #             next_chain = next(available_chain_ids)
@@ -2561,7 +2481,7 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
                 self._update_structure_container_attributes(_parent=self)
                 if rename_chains:  # set each successive Entity to have an incrementally higher chain id
                     self.chain_ids = []
-                    available_chain_ids = self.chain_id_generator()
+                    available_chain_ids = chain_id_generator()
                     for idx, entity in enumerate(self.entities):
                         chain_id = next(available_chain_ids)
                         entity.chain_id = chain_id
@@ -2939,7 +2859,7 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
         # self.delete_atoms(residue.atoms)  # deletes Atoms from PDB
         # chain._residues.remove(residue)  # deletes Residue from Chain
         # self._residues.remove(residue)  # deletes Residue from PDB
-        self.renumber_structure()
+        self.renumber()
         self._residues.delete([residue.index])
         self._residues.reindex(start_at=residue.index)  # .set_index()
         # remove these indices from all Structure atom_indices including structure_containers
@@ -3656,7 +3576,7 @@ class Models(Model):
         def models_write(handle):
             # self.models is populated
             if increment_chains:
-                available_chain_ids = self.chain_id_generator()
+                available_chain_ids = chain_id_generator()
                 for structure in self.models:
                     for chain in structure.chains:
                         chain_id = next(available_chain_ids)
@@ -7111,7 +7031,7 @@ class Pose(SymmetricModel):
         """Write out all Structure objects for the Pose PDB"""
         debug_path = os.path.join(out_dir, f'{f"{tag}_" if tag else ""}POSE_DEBUG_{self.name}.pdb')
         with open(debug_path, 'w') as f:
-            available_chain_ids = self.chain_id_generator()
+            available_chain_ids = chain_id_generator()
             for entity_idx, entity in enumerate(self.entities, 1):
                 f.write(f'REMARK 999   Entity {entity_idx} - ID {entity.name}\n')
                 entity.write(file_handle=f, chain=next(available_chain_ids))
