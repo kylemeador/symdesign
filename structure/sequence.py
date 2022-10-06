@@ -1486,8 +1486,9 @@ class SequenceProfile(ABC):
                                       + inverse_weight*profile_entry[aa]
                                       for aa in protein_letters_alph1})
         if log_string:
-            self.log.info(f'At {self.name}, combined evolutionary and fragment profiles into Design Profile with:'
-                          f'\n\t%s' % '\n\t'.join(log_string))
+            # self.log.info(f'At {self.name}, combined evolutionary and fragment profiles into Design Profile with:'
+            #               f'\n\t%s' % '\n\t'.join(log_string))
+            pass
 
         if favor_fragments:
             boltzman_energy = 1
