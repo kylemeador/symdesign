@@ -1220,18 +1220,18 @@ class SequenceProfile(ABC):
             self.fragment_map = populate_design_dictionary(self.number_of_residues,
                                                            list(range(*self._fragment_db.fragment_range)),
                                                            zero_index=True, dtype='list')
-        for fragment in fragments:
-            residue_index = fragment[alignment_type] - self.offset_index
-            for frag_idx in range(*self._fragment_db.fragment_range):  # lower_bound, upper_bound
-                self.fragment_map[residue_index + frag_idx][frag_idx].append({'source': alignment_type,
-                                                                              'cluster': fragment['cluster'],
-                                                                              'match': fragment['match']})
-
-            # As of 9/18/22 opting to preload this data
-            # # Ensure fragment information is retrieved from the fragment_db for the particular clusters
-            # retrieve_fragments = [fragment['cluster'] for residue_indices in self.fragment_map.values()
-            #                       for fragments in residue_indices.values() for fragment in fragments]
-            # self.fragment_db.load_cluster_info(ids=retrieve_fragments)
+        # for fragment in fragments:
+        #     residue_index = fragment[alignment_type] - self.offset_index
+        #     for frag_idx in range(*self._fragment_db.fragment_range):  # lower_bound, upper_bound
+        #         self.fragment_map[residue_index + frag_idx][frag_idx].append({'source': alignment_type,
+        #                                                                       'cluster': fragment['cluster'],
+        #                                                                       'match': fragment['match']})
+        #
+        #     # As of 9/18/22 opting to preload this data
+        #     # # Ensure fragment information is retrieved from the fragment_db for the particular clusters
+        #     # retrieve_fragments = [fragment['cluster'] for residue_indices in self.fragment_map.values()
+        #     #                       for fragments in residue_indices.values() for fragment in fragments]
+        #     # self.fragment_db.load_cluster_info(ids=retrieve_fragments)
 
         if not self.fragment_profile:
             self.fragment_profile = {residue_index: [[] for _ in range(self._fragment_db.fragment_length)]
@@ -1240,14 +1240,24 @@ class SequenceProfile(ABC):
         # Add frequency information to the fragment profile using parsed cluster information. Frequency information is
         # added in a fragment index dependent manner. If multiple fragment indices are present in a single residue, a new
         # observation is created for that fragment index.
+        # try:
         for fragment in fragments:
             residue_index = fragment[alignment_type] - self.offset_index
             # Retrieve the amino acid frequencies for this fragment cluster, for this alignment side
             aa_freq = getattr(self._fragment_db.info[fragment['cluster']], alignment_type)
-            for idx, (frag_idx, frequencies) in enumerate(aa_freq.items()):
+            for idx, (frag_idx, frequencies) in enumerate(aa_freq.items()):  # 0, (lower_bound - upper_bound), [freqs]
                 # observation = dict(match=fragment['match'], **frequencies)
+                self.fragment_map[residue_index + frag_idx][frag_idx].append({'source': alignment_type,
+                                                                              'cluster': fragment['cluster'],
+                                                                              'match': fragment['match']})
                 self.fragment_profile[residue_index + frag_idx][idx].append(dict(match=fragment['match'],
                                                                                  **frequencies))
+        # except KeyError:
+        #     self.log.critical(f'KeyError at {residue_index + frag_idx} with {frag_idx}. Fragment info is {fragment}.'
+        #                       f'len(fragment_map)={len(self.fragment_map)} which are mapped to the index. '
+        #                       f'len(self.fragment_profile)={len(self.fragment_profile)}'
+        #                       f'offset_index={self.offset_index}')
+        #     raise RuntimeError('Need to fix this')
 
     def _simplify_fragment_profile(self, keep_extras: bool = True, evo_fill: bool = False):
         """Take a multi-indexed, a multi-observation fragment_profile and flatten to single frequency for each residue.
