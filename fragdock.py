@@ -2909,7 +2909,7 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
                 per_residue_complex_sequence_loss = np.empty_like(per_residue_evolution_cross_entropy)
                 per_residue_unbound_sequence_loss = np.empty_like(per_residue_evolution_cross_entropy)
                 per_residue_batch_collapse_z = np.zeros_like(per_residue_evolution_cross_entropy)
-                per_residue_design_indices = np.zeros(per_residue_evolution_cross_entropy, dtype=bool)
+                per_residue_design_indices = np.zeros((size, pose_length), dtype=bool)
                 total_collapse_favorability = []
                 # probabilities = np.empty((size, number_of_residues, mpnn_alphabet_length, dtype=np.float32))
 
