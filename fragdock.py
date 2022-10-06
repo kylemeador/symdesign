@@ -44,7 +44,7 @@ from utils.nanohedra.OptimalTx import OptimalTx
 from utils.nanohedra.WeightedSeqFreq import FragMatchInfo, SeqFreqInfo
 from utils.nanohedra.cmdline import get_docking_parameters
 from utils.nanohedra.general import write_docked_pose_info, get_rotation_step, write_docking_parameters
-from utils.path import frag_text_file, master_log, frag_dir, biological_interfaces, asu_file_name, pose_source
+from utils.path import frag_text_file, master_log, frag_dir, biological_interfaces, asu_file_name, pose_source, groups
 from utils.SymEntry import SymEntry, get_rot_matrices, make_rotations_degenerate, symmetry_factory
 from utils.symmetry import generate_cryst1_record, get_central_asu, identity_matrix
 
@@ -3786,6 +3786,7 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
                                           'designed': 'designed_residues_total',
                                           'type': 'sequence'})
     if design_output:
+        scores_df[groups] = 'proteinmpnn'
         scores_df['proteinmpnn_v_evolution_cross_entropy_designed_mean'] = \
             scores_df['proteinmpnn_v_evolution_cross_entropy'] / scores_df['designed_residues_total']
         scores_df['proteinmpnn_v_fragment_cross_entropy_designed_mean'] = \
