@@ -186,27 +186,6 @@ class PoseDirectory:
         self.specific_designs = kwargs.get('specific_designs', [])
         self.specific_designs_file_paths = []
 
-        # Metric attributes
-        # self.interface_ss_topology = {}  # {1: 'HHLH', 2: 'HSH'}
-        # self.interface_ss_fragment_topology = {}  # {1: 'HHH', 2: 'HH'}
-        # self.center_residue_numbers = []
-        # self.total_residue_numbers = []
-        # self.all_residue_score = None
-        # self.center_residue_score = None
-        # self.high_quality_int_residues_matched = None
-        # self.central_residues_with_fragment_overlap = None
-        # self.fragment_residues_total = None
-        # self.percent_overlapping_fragment = None
-        # self.multiple_frag_ratio = None
-        # self.helical_fragment_content = None
-        # self.strand_fragment_content = None
-        # self.coil_fragment_content = None
-        # self.ave_z = None
-        # self.total_interface_residues = None
-        # self.total_non_fragment_interface_residues = None
-        # self.percent_residues_fragment_interface_total = None
-        # self.percent_residues_fragment_interface_center = None
-
         # Todo if I use output_identifier for design, it opens up a can of worms.
         #  Maybe it is better to include only for specific modules
         # Set name initially to the basename. This may change later, but we need to check for serialized info
@@ -1020,9 +999,9 @@ class PoseDirectory:
             variables.extend([('required_residues', out_of_bounds_residue)])
 
         # Allocate any "core" residues based on central fragment information
-        center_residue_numbers = self.pose.center_residue_numbers
-        if center_residue_numbers:
-            variables.extend([('core_residues', ','.join(map(str, center_residue_numbers)))])
+        center_residue_indices = self.pose.center_residue_indices
+        if center_residue_indices:
+            variables.extend([('core_residues', ','.join([f'{index + 1}' for index in center_residue_indices]))])
         else:  # Get an out-of-bounds index
             variables.extend([('core_residues', out_of_bounds_residue)])
 
