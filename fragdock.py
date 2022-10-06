@@ -1346,6 +1346,14 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
     # stacked_ghost_euler_int1_2 = eulerint_ghost_component1_2.reshape((rotation_matrices_len1, -1))
     # stacked_ghost_euler_int1_3 = eulerint_ghost_component1_3.reshape((rotation_matrices_len1, -1))
 
+    # The fragments being added to the pose are different than the fragments generated on the pose. This function
+    # helped me elucidate that this was occurring
+    # def check_offset_index(title):
+    #     if pose.entities[-1].offset_index == 0:
+    #         raise RuntimeError('The offset_index has changed to 0')
+    #     else:
+    #         print(f'{title} offset_index: {pose.entities[-1].offset_index}')
+
     # Todo resolve. Below uses eulerints
     # Get rotated Oligomer1 Ghost Fragment, Oligomer2 Surface Fragment guide coodinate pairs
     # in the same Euler rotational space bucket
@@ -3375,15 +3383,15 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
     #     full_ext_tx2 = full_ext_tx2[:]
     #     full_ext_tx_sum = full_ext_tx2 - full_ext_tx1
 
-    # Todo REMOVE DUPLICATION FOR TESTING
-    # This is required to run correctly with perturb_dofs = True, probably also without it
-    # Otherwise, the Pose finds no fragment residues upon search...
-    source_errat = []
-    for idx, entity in enumerate(pose.entities):
-        entity_oligomer = Model.from_chains(entity.chains, log=log, entities=False)
-        _, oligomeric_errat = entity_oligomer.errat(out_path=os.devnull)
-        source_errat.append(oligomeric_errat[:entity.number_of_residues])
-    # Todo REMOVE DUPLICATION FOR TESTING
+    # # Todo REMOVE DUPLICATION FOR TESTING
+    # # This is required to run correctly with perturb_dofs = True, probably also without it
+    # # Otherwise, the Pose finds no fragment residues upon search...
+    # source_errat = []
+    # for idx, entity in enumerate(pose.entities):
+    #     entity_oligomer = Model.from_chains(entity.chains, log=log, entities=False)
+    #     _, oligomeric_errat = entity_oligomer.errat(out_path=os.devnull)
+    #     source_errat.append(oligomeric_errat[:entity.number_of_residues])
+    # # Todo REMOVE DUPLICATION FOR TESTING
     # Get metrics for each Pose
     # Set up data structures
     idx_slice = pd.IndexSlice
