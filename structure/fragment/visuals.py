@@ -103,3 +103,27 @@ def plot_df_correlation(df: pd.DataFrame, metrics_of_interest: Sequence[str]):
     """
     _ = sns.pairplot(df.loc[:, idx_slice['pose', 'dock', metrics_of_interest]]
                      .droplevel(0, axis=1).droplevel(0, axis=1), kind='reg', diag_kind='kde')
+
+
+if __name__ == '__main__':
+    current_file = '/home/kylemeador/T33-Good-2gtr-3m6n_docked_poses_Trajectories.csv'
+    nano_df = pd.read_csv(current_file, header=[0, 1, 2])
+    metrics_of_interest = [
+        # 'proteinmpnn_score_designed_delta',
+        'proteinmpnn_score_designed_complex',
+        # 'proteinmpnn_score_designed_unbound',
+        'proteinmpnn_v_fragment_cross_entropy_designed_mean',
+        'proteinmpnn_v_evolution_cross_entropy_designed_mean',
+        'evolution_sequence_loss',
+        'fragment_sequence_loss',
+        'designed_residues_total',
+        # 'collapse_violation_design_residues',
+        'nanohedra_score_normalized',
+        # 'interface_b_factor_per_residue',
+        'percent_residues_fragment_center',
+        # 'interface_energy',
+        'multiple_fragment_ratio',
+        'number_of_fragments',
+        # 'percent_mutations',  # 'number_of_mutations',
+    ]
+    plot_df_correlation(nano_df, metrics_of_interest)
