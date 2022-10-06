@@ -135,7 +135,7 @@ multimer_features = {
 import alphafold
 
 all_chain_features = {}
-available_chain_ids = pose.chain_id_generator()  # structure.model
+available_chain_ids = structure.utils.chain_id_generator()  # structure.model
 for entity in pose.entities:
     entity_features = entity.process_alphafold_features()
     # The above function creates most of the work for the adaptation

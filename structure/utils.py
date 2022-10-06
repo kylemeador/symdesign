@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections import defaultdict
+from collections.abc import Generator
 from typing import get_args, Literal
 
 protein_letters3: tuple[str, ...] = \
@@ -130,3 +131,19 @@ def create_translation_tables(alphabet_type: alphabet_types) -> defaultdict:
                 raise wrong_alphabet_type
 
     return numeric_translation_type
+
+
+available_letters: str = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'  # '0123456789~!@#$%^&*()-+={}[]|:;<>?'
+
+
+def chain_id_generator() -> Generator[str, None, None]:
+    """Provide a generator which produces all combinations of chain ID strings
+
+    Returns
+        The generator producing a maximum 2 character string where single characters are exhausted,
+            first in uppercase, then in lowercase
+    """
+    return (first + second for modification in ['upper', 'lower']
+            for first in [''] + list(getattr(available_letters, modification)())
+            for second in list(getattr(available_letters, 'upper')()) +
+            list(getattr(available_letters, 'lower')()))

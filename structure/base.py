@@ -2529,7 +2529,6 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
     sasa: float | None
     structure_containers: list | list[str]
     state_attributes: set[str] = ContainsAtomsMixin.state_attributes | {'_sequence', '_helix_cb_indices'}
-    available_letters: str = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'  # '0123456789~!@#$%^&*()-+={}[]|:;<>?'
 
     def __init__(self, atoms: list[Atom] | Atoms = None, residues: list[Residue] | Residues = None,
                  residue_indices: list[int] = None, name: str = None,
@@ -3214,7 +3213,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
             self._helix_cb_indices = h_cb_indices
             return self._helix_cb_indices
 
-    def renumber_structure(self):
+    def renumber(self):
         """Change the Atom and Residue numbering. Access the readtime Residue number in .pdb_number attribute"""
         self.renumber_atoms()
         self.pose_numbering()
@@ -3582,7 +3581,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         self._insert_indices(at=residue_index, new_indices=[residue_index], dtype='residue')
         self._insert_indices(at=new_residue.start_index, new_indices=new_residue.atom_indices, dtype='atom')
         # self._atom_indices = self._atom_indices.insert(new_residue.start_index, idx + new_residue.start_index)
-        self.renumber_structure()
+        self.renumber()
 
         # find the prior and next residues and add attributes
         if residue_index:  # not 0
@@ -5081,7 +5080,7 @@ class Structures(Structure, UserList):
     #             # if isinstance(header, Iterable):
     #
     #         if increment_chains:
-    #             available_chain_ids = self.chain_id_generator()
+    #             available_chain_ids = chain_id_generator()
     #             for structure in self.structures:
     #                 chain = next(available_chain_ids)
     #                 structure.write(file_handle=f, chain=chain)
