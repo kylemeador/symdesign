@@ -2675,13 +2675,13 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
             update_pose_coords(idx)
 
             if job.write_fragments:
-                if number_of_perturbations > 1:
-                    add_fragments_to_pose()  # <- here generating fresh
-                else:
-                    # Here, loading fragments. No self-symmetric interactions found
-                    add_fragments_to_pose(all_passing_ghost_indices[idx],
-                                          all_passing_surf_indices[idx],
-                                          all_passing_z_scores[idx])
+                # if number_of_perturbations > 1:
+                add_fragments_to_pose()  # <- here generating fresh
+                # else:
+                #     # Here, loading fragments. No self-symmetric interactions found
+                #     add_fragments_to_pose(all_passing_ghost_indices[idx],
+                #                           all_passing_surf_indices[idx],
+                #                           all_passing_z_scores[idx])
             pose_id = create_pose_id(idx)
             # Todo replace with PoseDirectory? Path object?
             output_pose(os.path.join(root_out_dir, pose_id), pose_id)
@@ -3425,14 +3425,14 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
         # Todo reinstate after alphafold integration?
         # output_pose(os.path.join(root_out_dir, pose_id), pose_id)
 
-        if number_of_perturbations > 1:
-            add_fragments_to_pose()  # <- here generating fresh
-        else:
-            # Here, loading fragments. No self-symmetric interactions will be generated!
-            # where idx is the actual transform idx
-            add_fragments_to_pose(all_passing_ghost_indices[idx],
-                                  all_passing_surf_indices[idx],
-                                  all_passing_z_scores[idx])
+        # if number_of_perturbations > 1:
+        add_fragments_to_pose()  # <- here generating fresh
+        # else:
+        #     # Here, loading fragments. No self-symmetric interactions will be generated!
+        #     # where idx is the actual transform idx
+        #     add_fragments_to_pose(all_passing_ghost_indices[idx],
+        #                           all_passing_surf_indices[idx],
+        #                           all_passing_z_scores[idx])
 
         # Reset the fragment_profile and fragment_map for each Entity before process_fragment_profile
         for entity in pose.entities:
