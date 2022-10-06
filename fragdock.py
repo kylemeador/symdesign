@@ -32,6 +32,7 @@ from resources.ml import proteinmpnn_factory, batch_proteinmpnn_input, sequence_
 from structure.base import Structure, Residue
 from structure.coords import transform_coordinate_sets
 from structure.fragment import GhostFragment, write_frag_match_info_file
+from structure.fragment.visuals import write_fragment_pairs_as_accumulating_states
 from structure.model import Pose, Model, get_matching_fragment_pairs_info
 from structure.sequence import generate_mutations_from_reference, numeric_to_sequence, concatenate_profile, pssm_as_array, \
     MultipleSequenceAlignment
@@ -825,7 +826,7 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
         models[idx].file_path = model.file_path
 
     # Set up output mechanism
-    if isinstance(root_out_dir, str) and not write_frags_only:  # we just want to write, so don't make a directory
+    if isinstance(root_out_dir, str):
         building_blocks = '-'.join(model.name for model in models)
         root_out_dir = os.path.join(root_out_dir, building_blocks)
         os.makedirs(root_out_dir, exist_ok=True)
@@ -1030,28 +1031,47 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
 
     #################################
     if write_frags_only:  # implemented for Todd to work on C1 instances
-        guide_file_ghost = os.path.join(os.getcwd(), f'{model1.name}_ghost_coords.txt')
+        guide_file_ghost = os.path.join(root_out_dir, f'{model1.name}_ghost_coords.txt')
         with open(guide_file_ghost, 'w') as f:
             for coord_group in ghost_guide_coords1.tolist():
                 f.write('%s\n' % ' '.join('%f,%f,%f' % tuple(coords) for coords in coord_group))
-        guide_file_ghost_idx = os.path.join(os.getcwd(), f'{model1.name}_ghost_coords_index.txt')
+        guide_file_ghost_idx = os.path.join(root_out_dir, f'{model1.name}_ghost_coords_index.txt')
         with open(guide_file_ghost_idx, 'w') as f:
             f.write('%s\n' % '\n'.join(map(str, ghost_j_indices1.tolist())))
-        guide_file_ghost_res_num = os.path.join(os.getcwd(), f'{model1.name}_ghost_coords_residue_number.txt')
+        guide_file_ghost_res_num = os.path.join(root_out_dir, f'{model1.name}_ghost_coords_residue_number.txt')
         with open(guide_file_ghost_res_num, 'w') as f:
             f.write('%s\n' % '\n'.join(map(str, ghost_residue_numbers1.tolist())))
 
-        guide_file_surf = os.path.join(os.getcwd(), f'{model2.name}_surf_coords.txt')
+        guide_file_surf = os.path.join(root_out_dir, f'{model2.name}_surf_coords.txt')
         with open(guide_file_surf, 'w') as f:
             for coord_group in surf_guide_coords2.tolist():
                 f.write('%s\n' % ' '.join('%f,%f,%f' % tuple(coords) for coords in coord_group))
-        guide_file_surf_idx = os.path.join(os.getcwd(), f'{model2.name}_surf_coords_index.txt')
+        guide_file_surf_idx = os.path.join(root_out_dir, f'{model2.name}_surf_coords_index.txt')
         with open(guide_file_surf_idx, 'w') as f:
             f.write('%s\n' % '\n'.join(map(str, surf_i_indices2.tolist())))
-        guide_file_surf_res_num = os.path.join(os.getcwd(), f'{model2.name}_surf_coords_residue_number.txt')
+        guide_file_surf_res_num = os.path.join(root_out_dir, f'{model2.name}_surf_coords_residue_number.txt')
         with open(guide_file_surf_res_num, 'w') as f:
             f.write('%s\n' % '\n'.join(map(str, surf_residue_numbers2.tolist())))
 
+        # write_fragment_pairs_as_accumulating_states(complete_ghost_frags1[:50],
+        # input([len(frags) for frags in ghost_frags_by_residue1])
+        start_slice = 0
+        visualize_number = 15
+        indices_of_interest = [0, 3, 5, 10]
+        for idx, frags in enumerate(ghost_frags_by_residue1):
+            if idx in indices_of_interest:
+                number_of_fragments = len(frags)
+                step_size = number_of_fragments // visualize_number
+                # end_slice = start_slice * step_size
+                residue_number = frags[0].number
+                write_fragment_pairs_as_accumulating_states(
+                    ghost_frags_by_residue1[idx][start_slice:number_of_fragments:step_size],
+                    os.path.join(root_out_dir, f'{model1.name}_{residue_number}_paired_frags_'
+                                               f'{start_slice}:{number_of_fragments}:{visualize_number}.pdb'))
+        # write_fragment_pairs_as_accumulating_states(ghost_frags_by_residue1[3][20:40],
+        #                                             os.path.join(root_out_dir, f'{model1.name}_frags4_{20}:{40}.pdb'))
+        # write_fragment_pairs_as_accumulating_states(ghost_frags_by_residue1[5][20:40],
+        #                                             os.path.join(root_out_dir, f'{model1.name}_frags6_{20}:{40}.pdb'))
         raise RuntimeError(f'Suspending operation of {model1.name}/{model2.name} after write')
 
     ij_type_match_lookup_table = compute_ij_type_lookup(ghost_j_indices1, surf_i_indices2)

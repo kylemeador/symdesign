@@ -10,12 +10,12 @@ from utils.SymEntry import symmetry_factory
 
 
 print('USAGE:\nNavigate to a directory with the ".pdb" files of interest to generate fragment indices for and execute:'
-      f'\npython {os.path.abspath(__file__)} file_name_for_ghost_fragments.pdb')
+      f'\npython {os.path.abspath(__file__)} file_name_for_ghost_fragments.pdb directory_for_output')
 
-sym_entry = symmetry_factory.get(261)
-master_outdir = os.getcwd()
+sym_entry = symmetry_factory.get(161)
+root_out_dir = sys.argv[2]  # os.getcwd()
 entities1, entities2 = [], []
-for file in os.listdir(master_outdir):
+for file in os.listdir(root_out_dir):
     if '.pdb' not in file:
         continue
     # if file.startswith('1nu4'):  # U1a
@@ -29,7 +29,7 @@ if not entities1:
 
 for pdb1, pdb2 in list(product(entities1, entities2)):
     try:
-        nanohedra_dock(sym_entry, master_outdir, pdb1, pdb2, write_frags_only=True)
+        nanohedra_dock(sym_entry, root_out_dir, pdb1, pdb2, write_frags_only=True)
     except RuntimeError as error:
         print(error)
         continue
