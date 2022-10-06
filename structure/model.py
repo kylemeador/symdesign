@@ -2944,7 +2944,7 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
         # self._residues.remove(residue)  # deletes Residue from PDB
         self.renumber_structure()
         self._residues.delete([residue.index])
-        self._residues.reindex(start_at=residue.index)
+        self._residues.reindex(start_at=residue.index)  # .set_index()
         # remove these indices from all Structure atom_indices including structure_containers
         # Todo, turn this loop into Structure routine and implement for self, and structure_containers
         atom_delete_index = self._atom_indices.index(delete_indices[0])

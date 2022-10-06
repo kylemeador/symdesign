@@ -2479,7 +2479,8 @@ class Residues:
             other.residues[idx] = copy(residue)
             residue._copier = False
 
-        # other.find_prev_and_next()  # Todo, this should most likely be removed
+        # Todo, these were removed as current caller of Residues.__copy__ typically calls both of them
+        # other.find_prev_and_next()
         # other.set_index()
 
         return other
@@ -2832,6 +2833,11 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
             # This may be an additional copy with the Residues(residues) construction above
             residues = copy(residues)
             residues.reset_state()  # Clear runtime attributes
+        else:
+            raise RuntimeError(f'{type(self).__name__} {self.name} '
+                               f'received Residue instances that are not dependents of a parent.'
+                               f'This check was put in place to inspect program runtime. '
+                               f'How did this situation occur that residues are not dependets?')
         self._residues = residues
 
         self._populate_coords(from_source='residues', **kwargs)  # coords may be passed in kwargs
@@ -3411,7 +3417,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
             # Add residues then renumber
             self._residues.insert(0, alpha_helix_15_struct.get_residues(
                 list(range(helix_start, helix_align_start))))  # helix_end+1
-            self._residues.reindex()
+            self._residues.reindex()  # .set_index()
             # Rename new residues to self.chain
             self.set_residues_attributes(chain=first_residue.chain)
 
@@ -3433,7 +3439,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
             # Add residues then renumber
             self._residues.append(
                 alpha_helix_15_struct.get_residues(list(range(helix_align_end, helix_end+1))))  # helix_start
-            self._residues.reindex()
+            self._residues.reindex()  # .set_index()
             # Rename new residues to self.chain
             self.set_residues_attributes(chain=last_residue.chain)
         else:
@@ -3569,7 +3575,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         self._atoms.reindex(start_at=new_residue.start_index)
         # insert the new_residue into the Structure Residues
         self._residues.insert(residue_index, [new_residue])
-        self._residues.reindex(start_at=residue_index)
+        self._residues.reindex(start_at=residue_index)  # .set_index()
         # after coords, atoms, residues insertion into "_" containers, set parent to self
         new_residue.parent = self
         # set new residue_indices and atom_indices
