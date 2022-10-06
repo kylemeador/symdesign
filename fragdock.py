@@ -3469,10 +3469,11 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
 
         # Remove saved pose attributes from the prior iteration calculations
         pose.ss_index_array.clear(), pose.ss_type_array.clear()
-        # try:
-        #     del pose._assembly_minimally_contacting
-        # except AttributeError:  # This doesn't exist yet
-        #     pass
+        for attribute in ['_design_residues', '_interface_residues', 'fragment_metrics']:  # _assembly_minimally_contacting
+            try:
+                delattr(pose, attribute)
+            except AttributeError:
+                pass
 
         # Calculate pose metrics
         per_residue_data[pose_id] = pose.get_per_residue_interface_metrics()  # _per_residue_data
