@@ -20,7 +20,6 @@ from sklearn.neighbors._ball_tree import BinaryTree  # this typing implementatio
 
 import flags
 from resources.EulerLookup import EulerLookup, euler_factory
-from structure.fragment.db import FragmentDatabase, fragment_factory, alignment_types, fragment_info_type
 from resources.ml import proteinmpnn_factory, batch_proteinmpnn_input, proteinmpnn_to_device, mpnn_alphabet_length
 from resources.query.pdb import retrieve_entity_id_by_sequence, query_pdb_by, get_entity_reference_sequence, \
     is_entity_thermophilic
@@ -29,6 +28,7 @@ from resources.wrapapi import APIDatabase, api_database_factory
 from structure.base import Structure, Structures, Residue, StructureBase, atom_or_residue
 from structure.coords import Coords, superposition3d, transform_coordinate_sets
 from structure.fragment import GhostFragment, Fragment, write_frag_match_info_file
+from structure.fragment.db import FragmentDatabase, alignment_types, fragment_info_type
 from structure.fragment.metrics import fragment_metric_template
 from structure.sequence import SequenceProfile, generate_alignment, get_equivalent_indices, \
     pssm_as_array, generate_mutations, concatenate_profile
@@ -2631,7 +2631,7 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
 
     # @property
     # def fragment_db(self) -> FragmentDatabase:
-    #     """The FragmentDatabase with which information about fragment usage will be extracted"""
+    #     """The FragmentDatabase that the Fragment was created from"""
     #     return self._fragment_db
 
     @Structure.fragment_db.setter
@@ -2646,10 +2646,11 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
         #     fragment_db = fragment_factory(source=PUtils.biological_interfaces)
 
         # self._fragment_db = fragment_db
-        for chain in self.entities:
-            chain.fragment_db = self._fragment_db
-        for chain in self.chains:
-            chain.fragment_db = self._fragment_db
+        if self._fragment_db:
+            for chain in self.entities:
+                chain.fragment_db = self._fragment_db
+            for chain in self.chains:
+                chain.fragment_db = self._fragment_db
 
     @property
     def chain_breaks(self) -> list[int]:
@@ -5900,13 +5901,13 @@ class Pose(SymmetricModel):
              'percent_residues_fragment_interface_total': , 'percent_residues_fragment_interface_center': }
         """
         frag_metrics = self.get_fragment_metrics(total_interface=True)
-        self.center_residue_numbers = frag_metrics.get('center_residues', [])
+        self.center_residue_numbers = frag_metrics.get('center_indices', [])
         total_interface_residues = len(self.interface_residues)
         total_non_fragment_interface_residues = \
             max(total_interface_residues - frag_metrics['number_fragment_residues_center'], 0)
         # Remove these two from further analysis
-        frag_metrics.pop('total_residues')
-        frag_metrics.pop('center_residues')
+        frag_metrics.pop('total_indices')
+        frag_metrics.pop('center_indices')
         metrics = frag_metrics
         # Interface B Factor
         int_b_factor = sum(residue.b_factor for residue in self.interface_residues)
@@ -6795,8 +6796,8 @@ class Pose(SymmetricModel):
             entity1: The first Entity object to identify the interface if per_interface=True
             entity2: The second Entity object to identify the interface if per_interface=True
         Returns:
-            {query1: {all_residue_score (Nanohedra), center_residue_score, total_residues_with_fragment_overlap,
-                      central_residues_with_fragment_overlap, multiple_frag_ratio, fragment_content_d}, ... }
+            {query1: {nanohedra_score, nanohedra_score_center, number_fragment_residues_total,
+                      number_fragment_residues_center, multiple_frag_ratio}, ... }
         """
         # Todo consolidate return to (dict[(dict)]) like by_entity
         # Todo incorporate these
@@ -6837,8 +6838,8 @@ class Pose(SymmetricModel):
                         metric_d[entity] = fragment_metric_template
 
                     align_type = alignment_types[idx]
-                    metric_d[entity]['center_residues'].update(metrics[align_type]['center']['residues'])
-                    metric_d[entity]['total_residues'].update(metrics[align_type]['total']['residues'])
+                    metric_d[entity]['center_indices'].update(metrics[align_type]['center']['indices'])
+                    metric_d[entity]['total_indices'].update(metrics[align_type]['total']['indices'])
                     metric_d[entity]['nanohedra_score'] += metrics[align_type]['total']['score']
                     metric_d[entity]['nanohedra_score_center'] += metrics[align_type]['center']['score']
                     metric_d[entity]['multiple_fragment_ratio'] += metrics[align_type]['multiple_ratio']
@@ -6870,10 +6871,10 @@ class Pose(SymmetricModel):
             for query_pair, metrics in self.fragment_metrics.items():
                 if not metrics:
                     continue
-                metric_d['center_residues'].update(
-                    metrics['mapped']['center']['residues'].union(metrics['paired']['center']['residues']))
-                metric_d['total_residues'].update(
-                    metrics['mapped']['total']['residues'].union(metrics['paired']['total']['residues']))
+                metric_d['center_indices'].update(
+                    metrics['mapped']['center']['indices'].union(metrics['paired']['center']['indices']))
+                metric_d['total_indices'].update(
+                    metrics['mapped']['total']['indices'].union(metrics['paired']['total']['indices']))
                 metric_d['nanohedra_score'] += metrics['total']['total']['score']
                 metric_d['nanohedra_score_center'] += metrics['total']['center']['score']
                 metric_d['multiple_fragment_ratio'] += metrics['total']['multiple_ratio']
@@ -7098,11 +7099,10 @@ class Pose(SymmetricModel):
             ghost_mono_frag_pairs = self.fragment_pairs
 
         for match_count, (ghost_frag, surface_frag, match_score) in enumerate(ghost_mono_frag_pairs, 1):
-            ijk = ghost_frag.ijk
-            fragment_pdb, _ = self.fragment_db.paired_frags[ijk]
+            i, j, k = ijk = ghost_frag.ijk
+            fragment_pdb, _ = ghost_frag.fragment_db.paired_frags[ijk]
             trnsfmd_fragment = fragment_pdb.get_transformed_copy()
-            trnsfmd_fragment.write(out_path=os.path.join(out_path,
-                                                         '{}_{}_{}_fragment_match_{}.pdb'.format(*ijk, match_count)))
+            trnsfmd_fragment.write(out_path=os.path.join(out_path, f'{i}_{j}_{k}_fragment_match_{match_count}.pdb'))
             write_frag_match_info_file(ghost_frag=ghost_frag, matched_frag=surface_frag,
                                        overlap_error=z_value_from_match_score(match_score),
                                        match_number=match_count, out_path=out_path)

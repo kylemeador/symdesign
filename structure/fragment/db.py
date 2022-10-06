@@ -18,6 +18,7 @@ alignment_types_literal = Literal['mapped', 'paired']
 alignment_types: tuple[alignment_types_literal] = get_args(alignment_types_literal)
 fragment_info_keys = Literal[alignment_types_literal, 'match', 'cluster']
 fragment_info_type = Type[dict[fragment_info_keys, int | float | tuple[int, int, int]]]
+RELOAD_DB = 123
 
 
 class Representative:
@@ -142,13 +143,13 @@ class FragmentDatabase(FragmentInfo):
 
         entity1_center_match_scores, entity2_center_match_scores = {}, {}
         entity1_match_scores, entity2_match_scores = {}, {}
-        separated_fragment_metrics = {'mapped': {'center': {'residues': set()}, 'total': {'residues': set()}},
-                                      'paired': {'center': {'residues': set()}, 'total': {'residues': set()}},
+        separated_fragment_metrics = {'mapped': {'center': {'indices': set()}, 'total': {'indices': set()}},
+                                      'paired': {'center': {'indices': set()}, 'total': {'indices': set()}},
                                       'total': {'observations': len(fragment_matches), 'center': {}, 'total': {}}}
         for fragment in fragment_matches:
-            center_resnum1, center_resnum2, match_score = fragment['mapped'], fragment['paired'], fragment['match']
-            separated_fragment_metrics['mapped']['center']['residues'].add(center_resnum1)
-            separated_fragment_metrics['paired']['center']['residues'].add(center_resnum2)
+            center_residx1, center_residx2, match_score = fragment['mapped'], fragment['paired'], fragment['match']
+            separated_fragment_metrics['mapped']['center']['indices'].add(center_residx1)
+            separated_fragment_metrics['paired']['center']['indices'].add(center_residx2)
             # i, j, k = list(map(int, fragment['cluster'].split('_')))
             i, j, k = fragment['cluster']
             fragment_i_index_count_d[i] += 1
@@ -167,19 +168,19 @@ class FragmentDatabase(FragmentInfo):
             #  of these two ideas where the graph theory could take hold and a more useful scoring metric could emerge,
             #  also possibly with a differentiable equation I could relate pose transformations to favorable fragments found
             #  in the interface.
-            if center_resnum1 not in entity1_center_match_scores:
-                entity1_center_match_scores[center_resnum1] = [match_score]
+            if center_residx1 not in entity1_center_match_scores:
+                entity1_center_match_scores[center_residx1] = [match_score]
             else:
-                entity1_center_match_scores[center_resnum1].append(match_score)
+                entity1_center_match_scores[center_residx1].append(match_score)
 
-            if center_resnum2 not in entity2_center_match_scores:
-                entity2_center_match_scores[center_resnum2] = [match_score]
+            if center_residx2 not in entity2_center_match_scores:
+                entity2_center_match_scores[center_residx2] = [match_score]
             else:
-                entity2_center_match_scores[center_resnum2].append(match_score)
+                entity2_center_match_scores[center_residx2].append(match_score)
 
-            for resnum1, resnum2 in [(center_resnum1 + j, center_resnum2 + j) for j in self.fragment_range]:
-                separated_fragment_metrics['mapped']['total']['residues'].add(resnum1)
-                separated_fragment_metrics['paired']['total']['residues'].add(resnum2)
+            for resnum1, resnum2 in [(center_residx1 + j, center_residx2 + j) for j in self.fragment_range]:
+                separated_fragment_metrics['mapped']['total']['indices'].add(resnum1)
+                separated_fragment_metrics['paired']['total']['indices'].add(resnum2)
 
                 if resnum1 not in entity1_match_scores:
                     entity1_match_scores[resnum1] = [match_score]
@@ -208,18 +209,18 @@ class FragmentDatabase(FragmentInfo):
         center_residue_score = mapped_center_score + paired_center_score
         # -------------------------------------------
         # Get individual number of CENTRAL residues with overlapping fragments given z_value criteria
-        mapped_central_residues_with_fragment_overlap = len(separated_fragment_metrics['mapped']['center']['residues'])
-        paired_central_residues_with_fragment_overlap = len(separated_fragment_metrics['paired']['center']['residues'])
+        mapped_central_residues_with_fragment_overlap = len(separated_fragment_metrics['mapped']['center']['indices'])
+        paired_central_residues_with_fragment_overlap = len(separated_fragment_metrics['paired']['center']['indices'])
         # Combine
         central_residues_with_fragment_overlap = \
             mapped_central_residues_with_fragment_overlap + paired_central_residues_with_fragment_overlap
         # -------------------------------------------
         # Get the individual number of TOTAL residues with overlapping fragments given z_value criteria
-        mapped_total_residues_with_fragment_overlap = len(separated_fragment_metrics['mapped']['total']['residues'])
-        paired_total_residues_with_fragment_overlap = len(separated_fragment_metrics['paired']['total']['residues'])
+        mapped_total_indices_with_fragment_overlap = len(separated_fragment_metrics['mapped']['total']['indices'])
+        paired_total_indices_with_fragment_overlap = len(separated_fragment_metrics['paired']['total']['indices'])
         # Combine
-        total_residues_with_fragment_overlap = \
-            mapped_total_residues_with_fragment_overlap + paired_total_residues_with_fragment_overlap
+        total_indices_with_fragment_overlap = \
+            mapped_total_indices_with_fragment_overlap + paired_total_indices_with_fragment_overlap
         # -------------------------------------------
         # Get the individual multiple fragment observation ratio observed for each side of the fragment query
         mapped_multiple_frag_ratio = \
@@ -248,8 +249,8 @@ class FragmentDatabase(FragmentInfo):
         separated_fragment_metrics['paired']['center']['number'] = paired_central_residues_with_fragment_overlap
         separated_fragment_metrics['mapped']['total']['score'] = mapped_total_score
         separated_fragment_metrics['paired']['total']['score'] = paired_total_score
-        separated_fragment_metrics['mapped']['total']['number'] = mapped_total_residues_with_fragment_overlap
-        separated_fragment_metrics['paired']['total']['number'] = paired_total_residues_with_fragment_overlap
+        separated_fragment_metrics['mapped']['total']['number'] = mapped_total_indices_with_fragment_overlap
+        separated_fragment_metrics['paired']['total']['number'] = paired_total_indices_with_fragment_overlap
         separated_fragment_metrics['mapped']['multiple_ratio'] = mapped_multiple_frag_ratio
         separated_fragment_metrics['paired']['multiple_ratio'] = paired_multiple_frag_ratio
         #     return separated_fragment_metrics
@@ -257,7 +258,7 @@ class FragmentDatabase(FragmentInfo):
         separated_fragment_metrics['total']['center']['score'] = center_residue_score
         separated_fragment_metrics['total']['center']['number'] = central_residues_with_fragment_overlap
         separated_fragment_metrics['total']['total']['score'] = all_residue_score
-        separated_fragment_metrics['total']['total']['number'] = total_residues_with_fragment_overlap
+        separated_fragment_metrics['total']['total']['number'] = total_indices_with_fragment_overlap
         separated_fragment_metrics['total']['multiple_ratio'] = multiple_frag_ratio
         separated_fragment_metrics['total']['index_count'] = total_fragment_content
 
@@ -270,14 +271,14 @@ class FragmentDatabase(FragmentInfo):
         Args:
             metrics:
         Returns:
-            {center_residues, total_residues,
+            {center_indices, total_indices,
              nanohedra_score, nanohedra_score_center, multiple_fragment_ratio, number_fragment_residues_total,
              number_fragment_residues_center, number_of_fragments,
              percent_fragment_helix, percent_fragment_strand, percent_fragment_coil}
         """
         return {
-            'center_residues': metrics['mapped']['center']['residues'].union(metrics['paired']['center']['residues']),
-            'total_residues': metrics['mapped']['total']['residues'].union(metrics['paired']['total']['residues']),
+            'center_indices': metrics['mapped']['center']['indices'].union(metrics['paired']['center']['indices']),
+            'total_indices': metrics['mapped']['total']['indices'].union(metrics['paired']['total']['indices']),
             'nanohedra_score': metrics['total']['total']['score'],
             'nanohedra_score_center': metrics['total']['center']['score'],
             'multiple_fragment_ratio': metrics['total']['multiple_ratio'],
@@ -300,7 +301,7 @@ class FragmentDatabaseFactory:
     def __init__(self, **kwargs):
         self._databases = {}
 
-    def __call__(self, source: str = biological_interfaces, **kwargs) -> FragmentDatabase:
+    def __call__(self, source: str = biological_interfaces, token: int = None, **kwargs) -> FragmentDatabase:
         """Return the specified FragmentDatabase object singleton
 
         Args:
@@ -312,6 +313,8 @@ class FragmentDatabaseFactory:
         if fragment_db:
             return fragment_db
         elif source == biological_interfaces:
+            if token == RELOAD_DB:
+                return None
             logger.info(f'Initializing {source} {FragmentDatabase.__name__}')
             self._databases[source] = unpickle(biological_fragment_db_pickle)
         else:
