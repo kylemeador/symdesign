@@ -3795,10 +3795,10 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
         scores_df['proteinmpnn_score_unbound'] = \
             scores_df['interface_energy_unbound'] / scores_df['pose_length']
         scores_df['proteinmpnn_score_designed_complex'] = \
-            per_residue_df.loc[:, idx_slice[:, 'interface_energy_complex']] \
+            per_residue_df.loc[:, idx_slice[:, 'complex']] \
             / per_residue_df.loc[:, idx_slice[:, 'designed']]
         scores_df['proteinmpnn_score_designed_unbound'] = \
-            per_residue_df.loc[:, idx_slice[:, 'interface_energy_unbound']] \
+            per_residue_df.loc[:, idx_slice[:, 'unbound']] \
             / per_residue_df.loc[:, idx_slice[:, 'designed']]
     # Drop unused particular per_residue_df columns that have been summed
     per_residue_drop_columns = per_residue_energy_states + energy_metric_names + per_residue_sasa_states \
