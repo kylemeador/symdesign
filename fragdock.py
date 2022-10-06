@@ -1377,12 +1377,12 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
     # Todo resolve. Below uses eulerints
     # Get rotated Oligomer1 Ghost Fragment, Oligomer2 Surface Fragment guide coodinate pairs
     # in the same Euler rotational space bucket
-    for idx1 in range(min(rotation_matrices1.shape[0], 13)):  # rotation_matrices1.shape[0]):  # Todo remove min
+    for idx1 in range(rotation_matrices1.shape[0]):  # min(rotation_matrices1.shape[0], 13)):  # Todo remove min
         rot1_count = idx1%number_of_rotations1 + 1
         degen1_count = idx1//number_of_rotations1 + 1
         rot_mat1 = rotation_matrices1[idx1]
         rotation_ghost_euler_ints1 = stacked_ghost_euler_int1[idx1]
-        for idx2 in range(min(rotation_matrices2.shape[0], 12)):  # rotation_matrices2.shape[0]):  # Todo remove min
+        for idx2 in range(rotation_matrices2.shape[0]):  # min(rotation_matrices2.shape[0], 12)):  # Todo remove min
             # Rotate Oligomer2 Surface and Ghost Fragment Guide Coordinates using rot_mat2 and set_mat2
             rot2_count = idx2%number_of_rotations2 + 1
             degen2_count = idx2//number_of_rotations2 + 1
@@ -3795,20 +3795,22 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
         scores_df['proteinmpnn_score_unbound'] = \
             scores_df['interface_energy_unbound'] / scores_df['pose_length']
         designed_df = per_residue_df.loc[:, idx_slice[:, 'designed']].droplevel(1, axis=1)
-        print(designed_df)
         scores_df['proteinmpnn_score_designed_complex'] = \
             (per_residue_df.loc[:, idx_slice[:, 'complex']].droplevel(1, axis=1) * designed_df).mean(axis=1)
         scores_df['proteinmpnn_score_designed_unbound'] = \
             (per_residue_df.loc[:, idx_slice[:, 'unbound']].droplevel(1, axis=1) * designed_df).mean(axis=1)
-    # Drop unused particular per_residue_df columns that have been summed
-    per_residue_drop_columns = per_residue_energy_states + energy_metric_names + per_residue_sasa_states \
-                               + collapse_metrics + residue_classification \
-                               + ['errat_deviation', 'hydrophobic_collapse', 'contact_order'] \
-                               + ['hbond', 'evolution', 'fragment', 'type'] + ['surface', 'interior']
-    # Slice each of these columns as the first level residue number needs to be accounted for in MultiIndex
-    per_residue_df = per_residue_df.drop(
-        list(per_residue_df.loc[:, idx_slice[:, per_residue_drop_columns]].columns),
-        errors='ignore', axis=1)
+        scores_df['proteinmpnn_score_designed_delta'] = \
+            scores_df['proteinmpnn_score_designed_complex'] - scores_df['proteinmpnn_score_designed_unbound']
+
+    # # Drop unused particular per_residue_df columns that have been summed
+    # per_residue_drop_columns = per_residue_energy_states + energy_metric_names + per_residue_sasa_states \
+    #                            + collapse_metrics + residue_classification \
+    #                            + ['errat_deviation', 'hydrophobic_collapse', 'contact_order'] \
+    #                            + ['hbond', 'evolution', 'fragment', 'type'] + ['surface', 'interior']
+    # # Slice each of these columns as the first level residue number needs to be accounted for in MultiIndex
+    # per_residue_df = per_residue_df.drop(
+    #     list(per_residue_df.loc[:, idx_slice[:, per_residue_drop_columns]].columns),
+    #     errors='ignore', axis=1)
     per_residue_df.sort_index(level=0, axis=1, inplace=True, sort_remaining=False)  # ascending=False
 
     scores_columns = scores_df.columns.to_list()
