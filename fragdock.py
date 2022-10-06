@@ -3473,8 +3473,8 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
         #     pose.log.info('No fragment information')
 
         # Remove saved pose attributes from the prior iteration calculations
-        pose.ss_index_array.clear(), pose.ss_type_array.clear()
-        for attribute in ['_design_residues', '_interface_residues', 'fragment_metrics']:  # _assembly_minimally_contacting
+        pose.ss_index_array.clear(), pose.ss_type_array.clear(), pose.fragment_metrics.clear()
+        for attribute in ['_design_residues', '_interface_residues']:  # _assembly_minimally_contacting
             try:
                 delattr(pose, attribute)
             except AttributeError:
