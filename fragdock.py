@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 import math
 import os
 import sys
@@ -1920,6 +1921,19 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
 
     log.info(f'\tTransformation of all viable Oligomer 2 CB atoms and surface fragments took '
              f'{time.time() - int_cb_and_frags_start:8f}s')
+
+    def clone_pose(idx) -> Pose:
+        # Create a copy of the base Pose
+        new_pose = copy.copy(pose)
+
+        if sym_entry.unit_cell:
+            # Set the next unit cell dimensions
+            new_pose.uc_dimensions = full_uc_dimensions[idx]
+
+        # Update the Pose coords
+        new_pose.coords = np.concatenate(new_coords)
+
+        return new_pose
 
     def update_pose_coords(idx):
         # Get contacting PDB 1 ASU and PDB 2 ASU
