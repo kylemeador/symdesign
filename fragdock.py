@@ -1136,7 +1136,12 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
         degeneracy_matrices = getattr(sym_entry, f'degeneracy_matrices{idx}')
         # Todo make reliant on scipy...Rotation
         # rotation_matrix = scipy.spatial.transform.Rotation.from_euler('Z', [step * rotation_step for step in range(number_of_steps)], degrees=True).as_matrix()
-        # rotation_matrix = scipy.spatial.transform.Rotation.from_euler('Z', np.linspace(0, getattr(sym_entry, f'rotation_range{idx}'), number_of_steps), degrees=True).as_matrix()
+        # rotations = scipy.spatial.transform.Rotation.from_euler('Z', np.linspace(0, getattr(sym_entry, f'rotation_range{idx}'), number_of_steps), degrees=True).as_matrix()
+        # rot_degen_matrices = []
+        # for idx in range(degeneracy_matrices):
+        #    rot_degen_matrices = rotations * degeneracy_matrices[idx]
+        # rot_degen_matrices = rotations * degeneracy_matrices
+        # rotation_matrix = rotations.as_matrix()
         rotation_matrix = get_rot_matrices(rotation_step, 'z', getattr(sym_entry, f'rotation_range{idx}'))
         rot_degen_matrices = make_rotations_degenerate(rotation_matrix, degeneracy_matrices)
         log.debug(f'Degeneracy shape for component {idx}: {degeneracy_matrices.shape}')
