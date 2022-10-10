@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import math
 import os
-import re
 import sys
 import time
 from collections.abc import Iterable
@@ -657,9 +656,9 @@ def perturb_transformations_new(sym_entry: SymEntry,
         internal_rot_perturb2 = sym_entry.rotation_step2  # Degrees
         perturb_matrices2 = get_perturb_matrices(internal_rot_perturb2)
         # Configure the transformation grid
-        if starting_dof - remaining_dof == 2:  # Two rotations
+        if starting_dof - remaining_dof == 2:  # Two rotations, repeat the perturbation grid
             perturb_matrix_grid2 = np.repeat(perturb_matrices2, (array_expand_size, 1, 1))
-        else:  # One rotation
+        else:  # One rotation, tile the perturbation grid
             perturb_matrix_grid2 = np.tile(perturb_matrices2, (array_expand_size, 1, 1))
 
         full_rotation_perturb2 = np.matmul(full_rotation2[:, None, :, :],
@@ -851,18 +850,6 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
         model.log = log
 
     design_output = True
-    if design_output:
-        mpnn_model = proteinmpnn_factory()  # Todo accept model_name arg. Now just use the default
-        # set the environment to use memory efficient cuda management
-        max_split = 1000
-        pytorch_conf = f'max_split_size_mb:{max_split},roundup_power2_divisions:4,garbage_collection_threshold:0.7'
-        os.environ['PYTORCH_CUDA_ALLOC_CONF'] = pytorch_conf
-        # pytorch_conf = 'PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:-1,roundup_power2_divisions:4,garbage_collection_threshold:0.7'
-        # set_conf = f'export {pytorch_conf}'
-        # os.system(set_conf)
-        log.critical(f'Setting pytorch configuration:\n{pytorch_conf}\nResult:{os.getenv("PYTORCH_CUDA_ALLOC_CONF")}')
-        number_of_mpnn_model_parameters = sum([prod(param.size()) for param in mpnn_model.parameters()])
-        log.critical(f'The number of proteinmpnn model parameters is: {number_of_mpnn_model_parameters}')
 
     # Todo figure out for single component
     model1: Model
@@ -1152,7 +1139,7 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
         rotation_matrix = get_rot_matrices(rotation_step, 'z', getattr(sym_entry, f'rotation_range{idx}'))
         rot_degen_matrices = make_rotations_degenerate(rotation_matrix, degeneracy_matrices)
         log.debug(f'Degeneracy shape for component {idx}: {degeneracy_matrices.shape}')
-        log.debug(f'Combined rotation shape for component {idx}: {rot_degen_matrices.shape}')
+        log.debug(f'Combined rotation/degeneracy shape for component {idx}: {rot_degen_matrices.shape}')
         number_of_degens.append(degeneracy_matrices.shape[0])
         # log.debug(f'Rotation shape for component {idx}: {rot_degen_matrices.shape}')
         number_of_rotations.append(rot_degen_matrices.shape[0] // degeneracy_matrices.shape[0])
@@ -1964,13 +1951,6 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
 
         # Set the next unit cell dimensions
         pose.uc_dimensions = uc_dimensions
-        # pose = Pose.from_entities([entity.get_transformed_copy(**specific_transformations[idx])
-        #                            for idx, model in enumerate(models) for entity in model.entities],
-        #                           entity_names=entity_names, name='asu', log=log, sym_entry=sym_entry,
-        #                           surrounding_uc=job.output_surrounding_uc, uc_dimensions=uc_dimensions,
-        #                           ignore_clashes=True, rename_chains=True)  # pose_format=True,
-        # ignore ASU clashes since already checked ^
-
         # Transform each starting coords to the candidate pose coords then update the Pose coords
         # log.debug(f'Transforming pose coordinates to the current docked configuration')
         new_coords = []
@@ -1987,9 +1967,6 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
         pose.coords = np.concatenate(new_coords)
 
         log.debug(f'\tCopy and Transform Oligomer1 and Oligomer2 (took {time.time() - copy_model_start:8f}s)')
-
-        # # Check if design has any clashes when expanded
-        # return pose.symmetric_assembly_is_clash()
 
     def output_pose(out_path: AnyStr, _pose_id: AnyStr, uc_dimensions: np.ndarray = None):
         """
@@ -2710,6 +2687,18 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
         return  # End of docking run
     # ------------------ TERM ------------------------
     elif design_output:  # We perform sequence design
+        mpnn_model = proteinmpnn_factory()  # Todo accept model_name arg. Now just use the default
+        # set the environment to use memory efficient cuda management
+        max_split = 1000
+        pytorch_conf = f'max_split_size_mb:{max_split},roundup_power2_divisions:4,garbage_collection_threshold:0.7'
+        os.environ['PYTORCH_CUDA_ALLOC_CONF'] = pytorch_conf
+        # pytorch_conf = 'PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:-1,roundup_power2_divisions:4,garbage_collection_threshold:0.7'
+        # set_conf = f'export {pytorch_conf}'
+        # os.system(set_conf)
+        log.critical(f'Setting pytorch configuration:\n{pytorch_conf}\nResult:{os.getenv("PYTORCH_CUDA_ALLOC_CONF")}')
+        number_of_mpnn_model_parameters = sum([prod(param.size()) for param in mpnn_model.parameters()])
+        log.critical(f'The number of proteinmpnn model parameters is: {number_of_mpnn_model_parameters}')
+
         # Todo
         #  Check job.no_evolution_constraint flag
         #  Move this outside if we want to measure docking solutions with ProteinMPNN
@@ -2918,61 +2907,33 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
                     # For the final batch which may have fewer inputs
                     batch_slice = slice(batch * batch_length, min((batch+1) * batch_length, size))
                     actual_batch_length = batch_slice.stop - batch_slice.start
-                    # # Get the transformations based on slices of batch_length
-                    # # Stack each local perturbation up and multiply individual entity coords
-                    # transformation1 = dict(rotation=full_rotation1[batch_slice],
-                    #                        translation=None if full_int_tx1 is None else full_int_tx1[batch_slice],
-                    #                        rotation2=set_mat1,
-                    #                        translation2=None if full_ext_tx1 is None
-                    #                        else full_ext_tx1[batch_slice])
-                    # transformation2 = dict(rotation=full_rotation2[batch_slice],
-                    #                        translation=None if full_int_tx2 is None else full_int_tx2[batch_slice],
-                    #                        rotation2=set_mat2,
-                    #                        translation2=None if full_ext_tx2 is None
-                    #                        else full_ext_tx2[batch_slice])
-                    # transformations = [transformation1, transformation2]
-                    #
-                    # # Use this in the case that coordinates being used are a longer length than multiplying matrices
-                    # # _full_rotation1 = full_rotation1[batch_slice]
-                    # # # Transform the coordinates
-                    # # number_of_transforms = _full_rotation1.shape[0]
-
-                    # Get variable data structures for each Pose
-                    # new_coords = []
-                    # for transform_idx, entity_bb_coord in zip(transform_indices, entity_bb_coords):
-                    #     # Todo Need to tile the entity_bb_coords if operating like this
-                    #     # perturbed_bb_coords = transform_coordinate_sets(entity_bb_coords[entity_idx],
-                    #     #                                              **specific_transformations[transform_indices[entity_idx]])
-                    #     new_coords.append(transform_coordinate_sets(entity_bb_coord,
-                    #                                                 **transformations[transform_idx]))
-                    #
-                    # # Stack the entity coordinates to make up a contiguous block for each pose
-                    # # If entity_bb_coords are stacked, then must concatenate along axis=1 to get full pose
-                    # log.debug(f'new_coords.shape: {tuple([coords.shape for coords in new_coords])}')
-                    # perturbed_bb_coords = np.concatenate(new_coords, axis=1)
 
                     # Initialize pose data structures for interface design
                     residue_mask_cpu = np.zeros((actual_batch_length, pose_length),
                                                 dtype=np.int32)# (batch, number_of_residues)
                     bias_by_res = np.zeros((actual_batch_length, pose_length, 21),
                                            dtype=np.float32)  # (batch, number_of_residues, alphabet_length)
+                    # Stack the entity coordinates to make up a contiguous block for each pose
+                    # If entity_bb_coords are stacked, then must concatenate along axis=1 to get full pose
                     new_coords = np.zeros((actual_batch_length, pose_length * num_model_residues, 3),
                                           dtype=np.float32)  # (batch, number_of_residues, coords_length)
 
                     fragment_profiles = []
                     # Use batch_idx to set new numpy arrays, transform_idx (includes perturb_idx) to set coords
                     for batch_idx, transform_idx in enumerate(range(batch_slice.start, batch_slice.stop)):
+                        # Get the transformations based on the global index from batch_length
                         update_pose_coords(transform_idx)
                         new_coords[batch_idx] = getattr(pose, coords_type)
 
                         # pose.find_and_split_interface(distance=cb_distance)
                         # This is done in the below call
-                        add_fragments_to_pose()  # <- here generating fresh
+                        add_fragments_to_pose()  # <- here generating fragments fresh
                         # Reset the fragment_profile and fragment_map for each Entity before process_fragment_profile
                         for entity in pose.entities:
                             entity.fragment_profile = {}
                             entity.fragment_map = {}
                             # entity.alpha.clear()
+
                         # Load fragment_profile into the analysis
                         pose.process_fragment_profile()
                         if pose.fragment_profile:
@@ -3308,7 +3269,6 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
 
                 log.critical(f'Successful execution with {divisor} using available memory of '
                              f'{memory_constraint} and batch_length of {batch_length}')
-                # _input = input(f'Press enter to continue')
                 break
             except (RuntimeError, np.core._exceptions._ArrayMemoryError) as error:  # for (gpu, cpu)
                 if once:
@@ -3323,7 +3283,7 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
                 # log.critical(f'{error}\nTrying again...')
 
                 # Remove all tensors from memory
-                try:
+                try:  # These are in order of creation, so once one fails, the others haven't been allocated
                     # constant parameters
                     del parameters
                     del S
