@@ -100,7 +100,7 @@ def get_rotation_step(sym_entry: SymEntry, rot_step_deg1: float | int = None, ro
             rot_step_deg1 = 3  # set rotation step to default
     else:
         if rot_step_deg1 and initial:
-            log.warning('Specified Rotation Step 1 Was Ignored. Oligomer 1 Doesn\'t Have Internal Rotational DOF\n')
+            log.warning("Specified Rotation Step 1 Was Ignored. Oligomer 1 Doesn't Have Internal Rotational DOF\n")
         rot_step_deg1 = 1
 
     if sym_entry.is_internal_rot2:  # if rotation step required
@@ -108,7 +108,7 @@ def get_rotation_step(sym_entry: SymEntry, rot_step_deg1: float | int = None, ro
             rot_step_deg2 = 3  # set rotation step to default
     else:
         if rot_step_deg2 and initial:
-            log.warning('Specified Rotation Step 2 Was Ignored. Oligomer 2 Doesn\'t Have Internal Rotational DOF\n')
+            log.warning("Specified Rotation Step 2 Was Ignored. Oligomer 2 Doesn't Have Internal Rotational DOF\n")
         rot_step_deg2 = 1
 
     return rot_step_deg1, rot_step_deg2
