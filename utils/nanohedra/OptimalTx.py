@@ -12,40 +12,41 @@ class OptimalTx:
                  max_z_value: float = 1., number_of_coordinates: int = 3):
         self.max_z_value = max_z_value
         self.number_of_coordinates = number_of_coordinates
-        if dof_ext is None:
+        if dof_ext is None:  # Todo include np.zeros((1, 3)) like in SymEntry
             raise ValueError(f"Can't initialize {type(self.__name__)} without passing dof_ext")
         else:
-            self.dof_ext = dof_ext  # External translational DOF (number DOF external x 3)
+            self.dof_ext = dof_ext  # External translational DOF with shape (number DOF external, 3)
         self.dof = self.dof_ext.copy()
-        # print('self.dof', self.dof)
+        # logger.debug('self.dof', self.dof)
         self.zshift1 = zshift1  # internal translational DOF1
         self.zshift2 = zshift2  # internal translational DOF2
         self.dof9 = None
         self.dof9_t = None
         self.dof9t_dof9 = None
 
-        # add internal z-shift degrees of freedom to 9-dim arrays if they exist
+        # Add internal z-shift degrees of freedom to 9-dim arrays if they exist
         self.n_dof_internal = 0
         if self.zshift1 is not None:
-            # print('self.zshift1', self.zshift1)
+            # logger.debug('self.zshift1', self.zshift1)
             self.dof = np.append(self.dof, -self.zshift1, axis=0)
             self.n_dof_internal += 1
         if self.zshift2 is not None:
             self.dof = np.append(self.dof, self.zshift2, axis=0)
             self.n_dof_internal += 1
-        # print('self.dof', self.dof)
+        # logger.debug('self.dof', self.dof)
 
-        self.n_dof_external = self.dof_ext.shape[0]  # get the length of the numpy array
+        self.n_dof_external = self.dof_ext.shape[0]  # Get the length of the array
         self.n_dof = self.dof.shape[0]
         if self.n_dof > 0:
             self.dof_convert9()
         else:
-            raise ValueError('n_dof is not set! Can\'t get the OptimalTx without passing dof_ext, zshift1, or zshift2')
+            raise ValueError(f"n_dof is not set! Can't get the {type(self).__name__}"
+                             f" without passing dof_ext, zshift1, or zshift2")
 
     @classmethod
-    def from_dof(cls, dof_ext=None, zshift1=None, zshift2=None, max_z_value=1.):  # setting1, setting2,
+    def from_dof(cls, dof_ext: np.ndarray, zshift1: np.ndarray = None, zshift2: np.ndarray = None,
+                 max_z_value: float = 1.):
         return cls(dof_ext=dof_ext, zshift1=zshift1, zshift2=zshift2, max_z_value=max_z_value)
-        # setting1=setting1 setting2=setting2
 
     # @classmethod
     # def from_tx_params(cls, optimal_tx_params, error_zvalue):
@@ -54,13 +55,13 @@ class OptimalTx:
     def dof_convert9(self):
         """Convert input degrees of freedom to 9-dim arrays. Repeat DOF ext for each set of 3 coordinates (3 sets)"""
         self.dof9_t = np.zeros((self.n_dof, 9))
-        for i in range(self.n_dof):
-            # self.dof9_t[i] = np.array(self.number_of_coordinates * [self.dof[i]]).flatten()
-            self.dof9_t[i] = np.tile(self.dof[i], self.number_of_coordinates)
-            # dof[i] = (np.array(3 * [self.dof_ext[i]])).flatten()
-        # print('self.dof9_t', self.dof9_t)
+        for dof_idx in range(self.n_dof):
+            # self.dof9_t[dof_idx] = np.array(self.number_of_coordinates * [self.dof[dof_idx]]).flatten()
+            self.dof9_t[dof_idx] = np.tile(self.dof[dof_idx], self.number_of_coordinates)
+            # dof[dof_idx] = (np.array(3 * [self.dof_ext[dof_idx]])).flatten()
+        # logger.debug('self.dof9_t', self.dof9_t)
         self.dof9 = np.transpose(self.dof9_t)
-        # print('self.dof9', self.dof9)
+        # logger.debug('self.dof9', self.dof9)
         self.dof9t_dof9 = np.matmul(self.dof9_t, self.dof9)
 
     def solve_optimal_shift(self, coords1: np.ndarray, coords2: np.ndarray, coords_rmsd_reference: float) -> \
