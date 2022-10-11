@@ -618,9 +618,18 @@ def perturb_transformations_new(sym_entry: SymEntry,
     full_int_tx2 = transformation2['translation']
     full_ext_tx2 = transformation2['translation2']
 
-    def get_perturb_matrices(internal_rot_perturb):
+    def get_perturb_matrices(rotation_degrees: float) -> np.ndarray:
+        """Using a sampled degree of rotation, create z-axis rotation matrices in equal increments between +/- rotation_degrees/2
+
+        Args:
+            rotation_degrees: The number of degrees to slice
+
+        Returns:
+            A 3D numpy array where each subsequent rotation is along axis=0,
+                and each 3x3 rotation matrix is along axis=1/2
+        """
         half_grid_range = int(number / 2)
-        step_degrees = internal_rot_perturb / number
+        step_degrees = rotation_degrees / number
         perturb_matrices = []
         for step in range(-half_grid_range, half_grid_range):  # Range from -5 to 4(5) for example. 0 is identity matrix
             rad = math.radians(step * step_degrees)
@@ -726,6 +735,64 @@ def perturb_transformations_new(sym_entry: SymEntry,
     # else:
     #     full_ext_tx1, full_ext_tx2 = None, None
     #     uc_dimensions = None
+
+    # Get the perturbation parameters
+    # Total number of perturbations using the desired number and the total_dof possible in the symmetry
+    starting_dof = sym_entry.total_dof
+    # Begin with total dof minus 1
+    remaining_dof = starting_dof - 1
+    # Begin with 0
+    seen_dof = 0
+
+    translation_grid = np.zeros((number**starting_dof, 3), dtype=float)
+    for group_idx, rotation_step in enumerate(sym_entry.rotation_steps, 1):
+        if getattr(sym_entry, f'is_internal_rot{group_idx}'):
+            perturb_matrices = get_perturb_matrices(rotation_step)
+            # Repeat the matrices according to the number of perturbations raised to the power of the
+            # remaining dof (remaining_dof), then tile that by how many dof have been seen (seen_dof)
+            perturb_matrices = np.tile(np.repeat(perturb_matrices,
+                                                 (number**remaining_dof, 1, 1)),
+                                       (number**seen_dof, 1, 1))
+            remaining_dof -= 1
+            seen_dof += 1
+            # Todo add the perturb_matrices to something
+            #  viable_dof[f'rotation{group_idx}'] = perturb_matrices
+
+        if getattr(sym_entry, f'is_internal_tx{group_idx}'):
+            # Repeat the translation according to the number of perturbations raised to the power of the
+            # remaining dof (remaining_dof), then tile that by how many dof have been seen (seen_dof)
+            internal_translation_grid = copy.copy(translation_grid)
+            internal_translation_grid[:, 2] = np.tile(np.repeat(internal_translations,
+                                                                (number**remaining_dof, 1, 1)),
+                                                      (number**seen_dof, 1, 1))
+            remaining_dof -= 1
+            seen_dof += 1
+            # Todo add the internal_translation_grid to something
+            #  viable_dof[f'translation{group_idx}'] = internal_translation_grid
+
+    if sym_entry.unit_cell:
+        # Todo
+        #  If the ext_tx are all 0 or not possible even if lattice, must not modify them. Need analogous check for
+        #  is_ext_dof()
+        # Need to perturb this many dofs. Each additional ext DOF increments e, f, g.
+        # So 2 n_dof_external gives e, f. 3 gives e, f, g. This way the correct number of axis can be perturbed...
+        # Todo is n_dof_external involved in the sym_entry.total_dof calculation?
+        n_dof_external = sym_entry.n_dof_external
+        ext_dof_perturbs = np.zeros((ext_dof_shifts.shape[0], 3), dtype=float)
+        ext_dof_perturbs[:, :n_dof_external] = np.tile(translation_grid, (n_dof_external, 1)).T
+        # Todo add the internal_translation_grid to something
+        #  viable_dof[f'translation{group_idx}'] = internal_translation_grid
+
+    # Todo make the below used in the return to add to the shifts...
+    # Rotate the unique rotation be the perturb_matrix_grid
+    rotation_perturb1 = np.matmul(rotation1, perturb_matrix_grid1.swapaxes(-1, -2))
+    # Translate the unique translation according to the perturb_translation_grid
+
+    perturbed_optimal_ext_dof_shifts = ext_dof_shifts[None] + translation_grid
+    # full_ext_tx_perturb1 = full_ext_tx1[:, None, :] + external_translation_grid[None, :, :]
+    full_ext_tx_perturb1 = (perturbed_optimal_ext_dof_shifts[:, :, None] * sym_entry.external_dof1).sum(axis=-2)
+    # full_ext_tx_perturb2 = full_ext_tx2[:, None, :] + external_translation_grid[None, :, :]
+    full_ext_tx_perturb2 = (perturbed_optimal_ext_dof_shifts[:, :, None] * sym_entry.external_dof2).sum(axis=-2)
 
     # Stack perturbation operations (might be perturbed) up for individual multiplication
     specific_transformation1 = dict(rotation=full_rotation1,
