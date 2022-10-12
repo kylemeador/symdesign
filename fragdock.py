@@ -2715,6 +2715,37 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
     # This occurs by perturbing the transformation by a random small amount to generate transformational diversity from
     # the already identified solutions.
     if perturb_dofs:
+        # THIS IS NEW
+        raise NotImplementedError('fix the integration of perturbation stacks brah')
+        perturbations = create_perturbation_transformations(sym_entry, number=number_of_perturbations,
+                                                            rotation_range=rotation_steps)
+        if sym_entry.is_internal_rot1:
+            rotation_perturbations1 = perturbations['rotation1']
+            # Rotate the unique rotation be the perturb_matrix_grid
+            rotation_perturb1 = np.matmul(rotation1, rotation_perturbations1.swapaxes(-1, -2))
+        if sym_entry.is_internal_rot2:
+            rotation_perturbations2 = perturbations['rotation2']
+            rotation_perturb2 = np.matmul(rotation2, rotation_perturbations2.swapaxes(-1, -2))
+        if sym_entry.is_internal_tx1:
+            translation_perturbations1 = perturbations['translation1']
+            # Translate the unique translation according to the perturb_translation_grid
+            translation_perturb1 = translation1 + translation_perturbations1
+        if sym_entry.is_internal_tx2:
+            translation_perturbations2 = perturbations['translation2']
+            translation_perturb1 = translation2 + translation_perturbations2
+        if sym_entry.unit_cell:
+            ext_dof_perturbations = perturbations['external_translations']
+            # perturbed_optimal_ext_dof_shifts = full_optimal_ext_dof_shifts[None] + ext_dof_perturbations
+            # full_ext_tx_perturb1 = (perturbed_optimal_ext_dof_shifts[:, :, None] * sym_entry.external_dof1).sum(axis=-2)
+            # full_ext_tx_perturb2 = (perturbed_optimal_ext_dof_shifts[:, :, None] * sym_entry.external_dof2).sum(axis=-2)
+            # Below is for the individual perturbation
+            optimal_ext_dof_shift = full_optimal_ext_dof_shifts[idx]
+            # perturbed_ext_dof_shift = optimal_ext_dof_shift + ext_dof_perturbations
+            unsqueezed_perturbed_ext_dof_shifts = (optimal_ext_dof_shift + ext_dof_perturbations)[:, :, None]
+            # unsqueezed_perturbed_ext_dof_shifts = perturbed_ext_dof_shift[:, :, None]
+            ext_tx_perturb1 = np.sum(unsqueezed_perturbed_ext_dof_shifts * sym_entry.external_dof1, axis=-2)
+            ext_tx_perturb2 = np.sum(unsqueezed_perturbed_ext_dof_shifts * sym_entry.external_dof2, axis=-2)
+
         # Pack transformation operations up that are available to perturb and pass to function
         specific_transformation1 = dict(rotation=full_rotation1,
                                         translation=full_int_tx1,
