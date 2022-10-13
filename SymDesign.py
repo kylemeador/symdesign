@@ -23,6 +23,7 @@ from Bio.SeqRecord import SeqRecord
 
 import protocols
 import utils
+import utils.path as PUtils
 from DnaChisel.dnachisel.DnaOptimizationProblem.NoSolutionError import NoSolutionError
 from flags import argparsers, parser_entire, parser_options, parser_module, parser_input, parser_guide, \
     process_design_selector_flags, parser_residue_selector, parser_output
@@ -41,7 +42,6 @@ from setup import set_up_instructions
 from structure.model import Model
 from structure.sequence import generate_mutations, find_orf_offset, read_fasta_file
 from structure.utils import protein_letters_alph1
-from utils import path as PUtils
 
 # def rename(des_dir, increment=PUtils.nstruct):
 #     """Rename the decoy numbers in a PoseDirectory by a specified increment
@@ -803,7 +803,7 @@ def main():
     if not isinstance(sym_entry, utils.SymEntry.SymEntry):  # remove if not an actual SymEntry
         queried_flags.pop(PUtils.sym_entry)
 
-    # set up module specific arguments
+    # Set up module specific arguments
     if args.module in [PUtils.interface_design, PUtils.generate_fragments, 'orient', 'expand_asu',
                        PUtils.interface_metrics, PUtils.refine, PUtils.optimize_designs, 'rename_chains',
                        'check_clashes']:  # , 'custom_script', 'find_asu', 'status', 'visualize'
@@ -822,17 +822,21 @@ def main():
         if args.module == PUtils.select_sequences and args.select_number == sys.maxsize and not args.total:
             # change default number to a single sequence/pose when not doing a total selection
             args.select_number = 1
-    else:  # [PUtils.nano, 'multicistronic']
+    else:  # [PUtils.nano, 'multicistronic', 'input', 'output', 'options', 'residue_selector']
+        decoy_modules = {'input', 'output', 'options', 'residue_selector'}
         if args.module == PUtils.nano:
             if not sym_entry:
                 raise RuntimeError(f'When running {PUtils.nano}, the argument -e/--entry/--{PUtils.sym_entry} is '
                                    f'required')
+        elif args.module in ['multicistronic']:
+            pass
+        elif args.module in decoy_modules:
+            exit()
         else:  # We have no module passed. Print the guide
             print_guide()
         initialize = False
 
     # create JobResources which holds shared program objects and options
-    # job = JobResources(symdesign_directory, **queried_flags)
     job = job_resources_factory.get(program_root=symdesign_directory, **queried_flags)
     # -----------------------------------------------------------------------------------------------------------------
     #  report options

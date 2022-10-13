@@ -252,12 +252,14 @@ guide_args = ('--guide',)
 guide_kwargs = dict(action='store_true', help=f'Display the {program_name} or {program_name} Module specific guide\nEx:'
                                               f' "{program_command} --guide"\nor "{submodule_guide}"')
 setup_args = ('--set_up',)
-setup_kwargs = dict(action='store_true', help='Show the %(prog)s set up instructions\nDefault=%(default)s')
-
+setup_kwargs = dict(action='store_true', help='Show the %(prog)s set up instructions')
+# ---------------------------------------------------
+options_description = 'Additional options control symmetry, the extent of file output, various ' \
+                      f'{program_name} runtime considerations, and programmatic options for ' \
+                      'determining design outcomes'
+parser_options = dict(options=dict(description=options_description))
 parser_options_group = dict(title=f'{"_" * len(optional_title)}\n{optional_title}',
-                            description=f'\nAdditional options control symmetry, the extent of file output, various '
-                                        f'{program_name} runtime considerations, and programmatic options for '
-                                        f'determining design outcomes')
+                            description=f'\n{options_description}')
 options_arguments = {
     ('-C', '--cores'): dict(type=int, default=cpu_count(logical=False) - 1,
                             help='Number of cores to use during --multi_processing\nIf run on a cluster, the number of '
@@ -308,9 +310,12 @@ options_arguments = {
     ('-U', '--update_database'): dict(action='store_true',
                                       help='Whether to update resources for each Structure in the database'),
 }
+# ---------------------------------------------------
+residue_selector_description = 'Residue selectors control which parts of the Pose are included during protocols'
+parser_residue_selector = dict(residue_selector=dict(description=residue_selector_description))
 parser_residue_selector_group = \
     dict(title=f'{"_" * len(design_selector_title)}\n{design_selector_title}',
-         description='\nResidue selectors control which parts of the Pose are included in calculations')
+         description=f'\n{residue_selector_description}')
 residue_selector_arguments = {
     ('--require_design_at_residues',):
         dict(type=str, default=None,
@@ -825,6 +830,11 @@ module_parsers = dict(orient=parser_orient,
                       expand_asu=parser_expand_asu,
                       generate_fragments=parser_generate_fragments,
                       rename_chains=parser_rename_chains,
+                      input=parser_input,
+                      input_mutual=parser_input_mutual_group,
+                      output=parser_output,
+                      options=parser_options,
+                      residue_selector=parser_residue_selector,
                       # residue_selector=parser_residue_selector
                       )
 input_parsers = dict(input=parser_input_group,
