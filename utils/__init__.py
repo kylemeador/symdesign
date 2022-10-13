@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import math
 import multiprocessing as mp
 import os
@@ -15,8 +16,8 @@ from itertools import repeat
 from logging import Logger, DEBUG, INFO, WARNING, ERROR, CRITICAL, getLogger, StreamHandler, FileHandler, NullHandler, \
     Formatter, root
 from string import digits
-from typing import Any, Callable, Union, Iterable, List, Tuple, AnyStr, Dict, DefaultDict, Sequence, Iterator, Literal, \
-    Type
+from typing import Any, Callable, Union, Iterable, List, Tuple, AnyStr, Dict, DefaultDict, Sequence, Iterator, \
+    Literal, Type
 
 import numpy as np
 import psutil
@@ -280,6 +281,35 @@ def make_path(path: AnyStr, condition: bool = True):
         os.makedirs(path, exist_ok=True)
 
 
+def read_json(file_name, **kwargs) -> dict | None:
+    """Use json.load to read an object from a file
+
+    Args:
+        file_name: The location of the file to write
+    Returns:
+        The json data in the file
+    """
+    with open(file_name, 'r') as f_save:
+        data = json.load(f_save)
+
+    return data
+
+
+def write_json(data, file_name, **kwargs) -> AnyStr:
+    """Use json.dump to write an object to a file
+
+    Args:
+        data: The object to write
+        file_name: The location of the file to write
+    Returns:
+        The name of the written file
+    """
+    with open(file_name, 'w') as f_save:
+        json.dump(data, f_save, **kwargs)
+
+    return file_name
+
+
 # @handle_errors(errors=(FileNotFoundError,))
 def unpickle(file_name: Union[str, bytes]) -> Any:  # , protocol=pickle.HIGHEST_PROTOCOL):
     """Unpickle (deserialize) and return a python object located at filename"""
@@ -512,7 +542,7 @@ def remove_duplicates(_iter: Iterable) -> List:
 
 def write_shell_script(command: str, name: str = 'script', out_path: Union[str, bytes] = os.getcwd(),
                        additional: List = None, shell: str = 'bash', status_wrap: str = None) -> Union[str, bytes]:
-    """Take a command and write to a name.sh script. By default bash is used as the shell interpreter
+    """Take a command and write to a name.sh script. By default, bash is used as the shell interpreter
 
     Args:
         command: The command formatted using subprocess.list2cmdline(list())
@@ -526,10 +556,9 @@ def write_shell_script(command: str, name: str = 'script', out_path: Union[str, 
     """
     if status_wrap:
         modifier = '&&'
-        check = subprocess.list2cmdline(['python', os.path.join(PUtils.utils_dir, 'CommandDistributer.py'),
-                                         '--stage', name, 'status', '--info', status_wrap, '--check', modifier, '\n'])
-        _set = subprocess.list2cmdline(['python', os.path.join(PUtils.utils_dir, 'CommandDistributer.py'),
-                                        '--stage', name, 'status', '--info', status_wrap, '--set'])
+        _base_cmd = ['python', PUtils.command_distributer, '--stage', name, 'status', '--info', status_wrap]
+        check = subprocess.list2cmdline(_base_cmd + ['--check', modifier, '\n'])
+        _set = subprocess.list2cmdline(_base_cmd + ['--set'])
     else:
         check, _set, modifier = '', '', ''
 
