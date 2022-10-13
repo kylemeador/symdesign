@@ -178,7 +178,7 @@ null_log = start_log(name='null', handler=3)
 
 
 def set_logging_to_level(level: logging_levels = None, handler_level: logging_levels = None):
-    """For each Logger in current run time, set the Logger or  the Logger.handlers level to level
+    """For each Logger in current run time, set the Logger or the Logger.handlers level to level
 
     level is debug by default if no arguments are specified
 
@@ -189,7 +189,7 @@ def set_logging_to_level(level: logging_levels = None, handler_level: logging_le
     if level is not None:
         _level = log_level[level]
         set_level_func = Logger.setLevel
-    elif handler_level is not None:
+    elif handler_level is not None:  # Todo possibly rework this to accept both arguments
         _level = log_level[handler_level]
 
         def set_level_func(logger_: Logger, level_: int):

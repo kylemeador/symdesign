@@ -253,6 +253,7 @@ guide_kwargs = dict(action='store_true', help=f'Display the {program_name} or {p
                                               f' "{program_command} --guide"\nor "{submodule_guide}"')
 setup_args = ('--set_up',)
 setup_kwargs = dict(action='store_true', help='Show the %(prog)s set up instructions')
+default_logging_level = 3
 # ---------------------------------------------------
 options_description = 'Additional options control symmetry, the extent of file output, various ' \
                       f'{program_name} runtime considerations, and programmatic options for ' \
@@ -265,8 +266,6 @@ options_arguments = {
                             help='Number of cores to use during --multi_processing\nIf run on a cluster, the number of '
                                  'cores will reflect the cluster allocation,\notherwise, will use #physical_cores-1'
                                  '\nDefault=%(default)s'),
-    ('--debug',): dict(action='store_true',
-                       help='Whether to log debugging messages to stdout\nDefault=%(default)s'),
     ('-F', f'--{force_flags}'): dict(action='store_true',
                                      help='Force generation of a new flags file to update script parameters'),
     # ('-gf', f'--{generate_fragments}'): dict(action='store_true',
@@ -276,15 +275,15 @@ options_arguments = {
     ('-i', '--fragment_database'): dict(type=str.lower, choices=fragment_dbs, default=biological_interfaces, metavar='',
                                         help='Database to match fragments for interface specific scoring matrices'
                                              '\nChoices=%(choices)s\nDefault=%(default)s'),
-    ('-ic', f'--{ignore_clashes}'): dict(action='store_true',
-                                         help='Whether ANY identified backbone/Cb clash should be ignored and '
-                                              'allowed to process'),
-    ('-ipc', f'--{ignore_pose_clashes}'): dict(action='store_true',
-                                               help='Whether asu/pose clashes should be '
-                                                    'ignored and allowed to process'),
-    ('-isc', f'--{ignore_symmetric_clashes}'): dict(action='store_true',
-                                                    help='Whether symmetric clashes should be ignored and allowed'
-                                                         ' to process'),
+    ('-ic', f'--{ignore_clashes}'): dict(action='store_true', help='Whether ANY identified backbone/Cb clash should be '
+                                                                   'ignored and allowed to process'),
+    ('-ipc', f'--{ignore_pose_clashes}'): dict(action='store_true', help='Whether asu/pose clashes should be '
+                                                                         'ignored and allowed to process'),
+    ('-isc', f'--{ignore_symmetric_clashes}'): dict(action='store_true', help='Whether symmetric clashes should be '
+                                                                              'ignored and allowed to process'),
+    ('--log_level',): dict(type=int, default=default_logging_level, choices=set(range(1, 6)),
+                           help='What level of log messages should be displayed to stdout?'
+                                '\n1-debug, 2-info, 3-warning, 4-error, 5-critical\nDefault=%(default)s'),
     ('--mpi',): dict(type=int, default=0, help='If commands should be run as MPI parallel processes, how many '
                                                'processes\nshould be invoked for each job?\nDefault=%(default)s'),
     ('-M', '--multi_processing'): dict(action='store_true',
