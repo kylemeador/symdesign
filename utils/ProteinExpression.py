@@ -607,7 +607,12 @@ def optimize_protein_sequence(sequence: str, species: str = 'e_coli') -> str:
     """
     seq_length = len(sequence)
     species = species.lower()
-    problem = DnaOptimizationProblem(sequence=reverse_translate(sequence),  # max_random_iters=20000,
+    try:
+        dna_sequence = reverse_translate(sequence)
+    except KeyError as error:
+        raise KeyError(f'Warning an invalid character was found in your protein sequence: {error}')
+
+    problem = DnaOptimizationProblem(sequence=dna_sequence,  # max_random_iters=20000,
                                      objectives=[CodonOptimize(species=species)], logger=None,
                                      constraints=[EnforceGCContent(mini=0.25, maxi=0.65),  # twist required
                                                   EnforceGCContent(mini=0.35, maxi=0.65, window=50),  # twist required
@@ -624,7 +629,7 @@ def optimize_protein_sequence(sequence: str, species: str = 'e_coli') -> str:
     #                                             EnforceMeltingTemperature(mini=10, maxi=62, location=(1, seq_length)),
                                                   ])
 
-    # Solve constraints and solve with regards to the objective
+    # Solve constraints and solve in regard to the objective
     problem.max_random_iters = 20000
     problem.resolve_constraints()
     problem.optimize()
