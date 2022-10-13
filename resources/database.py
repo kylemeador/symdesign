@@ -1,12 +1,11 @@
 from __future__ import annotations
 
-import json
 import os
 from glob import glob
 from logging import Logger
 from typing import Any, Callable, AnyStr
 
-from utils import start_log
+from utils import start_log, read_json, write_json
 
 logger = start_log(name=__name__)
 # for checking out the options to read and write Rosetta runs to a relational DB such as MySQL
@@ -46,35 +45,6 @@ def write_list_to_file(_list, file_name, **kwargs) -> AnyStr:
     with open(file_name, 'w') as f_save:
         lines = '\n'.join(map(str, _list))
         f_save.write(f'{lines}\n')
-
-    return file_name
-
-
-def read_json(file_name, **kwargs) -> dict | None:
-    """Use json.load to read an object from a file
-
-    Args:
-        file_name: The location of the file to write
-    Returns:
-        The json data in the file
-    """
-    with open(file_name, 'r') as f_save:
-        data = json.load(f_save)
-
-    return data
-
-
-def write_json(data, file_name, **kwargs) -> AnyStr:
-    """Use json.dump to write an object to a file
-
-    Args:
-        data: The object to write
-        file_name: The location of the file to write
-    Returns:
-        The name of the written file
-    """
-    with open(file_name, 'w') as f_save:
-        json.dump(data, f_save, **kwargs)
 
     return file_name
 
