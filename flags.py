@@ -229,14 +229,18 @@ class Formatter(argparse.RawTextHelpFormatter, argparse.RawDescriptionHelpFormat
                 parts[-1] += f' {args_string.upper()}'
             return ', '.join(parts)
 
+
 # The help strings can include various format specifiers to avoid repetition of things like the program name or the
 # argument default. The available specifiers include the program name, %(prog)s and most keyword arguments to
 # add_argument(), e.g. %(default)s, %(type)s, etc.:
-
 # Todo Found the following for formatting the prog use case in subparsers
 #  {'refine': ArgumentParser(prog='python SymDesign.py module [module_arguments] [input_arguments]'
 #                                 '[optional_arguments] refine'
-# TODO add action=argparse.BooleanOptionalAction to all action='store_true'/'store_false'
+
+boolean_positional_prevent_msg = ' Use --no-{} to prevent'.format
+"""Use this message in all help keyword arguments using argparse.BooleanOptionalAction with default=True to specify the
+ --no- prefix when the argument should be False
+"""
 optional_title = 'Optional Arguments'
 design_selector_title = 'Design Selector Arguments'
 input_title = 'Input Arguments'
@@ -247,7 +251,6 @@ usage_string = f'\n      python %s.py %%s [{module_title.lower()}] [{input_title
 guide_args = ('--guide',)
 guide_kwargs = dict(action='store_true', help=f'Display the {program_name} or {program_name} Module specific guide\nEx:'
                                               f' "{program_command} --guide"\nor "{submodule_guide}"')
-# Todo allow setup.py main
 setup_args = ('--set_up',)
 setup_kwargs = dict(action='store_true', help='Show the %(prog)s set up instructions\nDefault=%(default)s')
 
@@ -263,47 +266,39 @@ options_arguments = {
     ('--debug',): dict(action='store_true',
                        help='Whether to log debugging messages to stdout\nDefault=%(default)s'),
     ('-F', f'--{force_flags}'): dict(action='store_true',
-                                     help='Force generation of a new flags file to update script parameters'
-                                          '\nDefault=%(default)s'),
+                                     help='Force generation of a new flags file to update script parameters'),
     # ('-gf', f'--{generate_fragments}'): dict(action='store_true',
     #                                          help='Generate interface fragment observations for poses of interest'
     #                                               '\nDefault=%(default)s'),
     guide_args: guide_kwargs,
-    # ('--guide',): dict(action='store_true',
-    #                    help='Access the %s guide! Display the program or module specific guide\nEx: "%s --guide" '
-    #                         'or "%s"' % (program_name, program_command, submodule_guide)),
-    ('-i', '--fragment_database'): dict(type=str, choices=fragment_dbs, default=biological_interfaces,
-                                        help='Database to match fragments for interface specific scoring matrices\n'
-                                             'Default=%(default)s'),
+    ('-i', '--fragment_database'): dict(type=str.lower, choices=fragment_dbs, default=biological_interfaces, metavar='',
+                                        help='Database to match fragments for interface specific scoring matrices'
+                                             '\nChoices=%(choices)s\nDefault=%(default)s'),
     ('-ic', f'--{ignore_clashes}'): dict(action='store_true',
                                          help='Whether ANY identified backbone/Cb clash should be ignored and '
-                                              'allowed to process\nDefault=%(default)s'),
+                                              'allowed to process'),
     ('-ipc', f'--{ignore_pose_clashes}'): dict(action='store_true',
                                                help='Whether asu/pose clashes should be '
-                                                    'ignored and allowed to process\nDefault=%(default)s'),
+                                                    'ignored and allowed to process'),
     ('-isc', f'--{ignore_symmetric_clashes}'): dict(action='store_true',
                                                     help='Whether symmetric clashes should be ignored and allowed'
-                                                         ' to process\nDefault=%(default)s'),
+                                                         ' to process'),
     ('--mpi',): dict(type=int, default=0, help='If commands should be run as MPI parallel processes, how many '
                                                'processes\nshould be invoked for each job?\nDefault=%(default)s'),
     ('-M', '--multi_processing'): dict(action='store_true',
-                                       help='Should job be run with multiple processors?\nDefault=%(default)s'),
+                                       help='Should job be run with multiple processors?'),
     ('--overwrite',): dict(action='store_true',
-                           help='Whether to overwrite existing structures upon job fulfillment\nDefault=%(default)s'),
+                           help='Whether to overwrite existing structures upon job fulfillment'),
     ('-P', '--preprocessed'): dict(action='store_true',
                                    help=f'Whether the designs of interest have been preprocessed for the '
-                                        f'{current_energy_function}\nenergy function and/or missing loops\n'
-                                        f'Default=%(default)s'),
+                                        f'{current_energy_function}\nenergy function and/or missing loops\n'),
     ('-R', '--run_in_shell'): dict(action='store_true',
-                                   help='Should commands be executed at %(prog)s runtime?\nIn most cases, it won\'t '
-                                        'maximize cassini\'s computational resources.\nAll computation may'
+                                   help="'Should commands be executed at %(prog)s runtime?\nIn most cases, it won't "
+                                        "maximize cassini's computational resources.\nAll computation may"
                                         'fail on a single trajectory mistake.\nDefault=%(default)s'),
     setup_args: setup_kwargs,
-    # ('--set_up',): dict(action='store_true',
-    #                     help='Show the %(prog)s set up instructions\nDefault=%(default)s'),  # Todo allow setup.py main
     ('--skip_logging',): dict(action='store_true',
-                              help='Skip logging output to files and direct all logging to stream?'
-                                   '\nDefault=%(default)s'),
+                              help='Skip logging output to files and direct all logging to stream?'),
     ('-E', '--entry', f'--{sym_entry}'): dict(type=int, default=None, dest=sym_entry,
                                               help=f'The entry number of {nano.title()} docking combinations to use'),
     ('-S', '--symmetry'): dict(type=str, default=None,
@@ -311,8 +306,7 @@ options_arguments = {
                                     'formula such as T:{C3}{C3}...\nCan also provide the keyword "cryst" to use crystal'
                                     ' symmetry'),
     ('-U', '--update_database'): dict(action='store_true',
-                                      help='Whether to update resources for each Structure in the database'
-                                           '\nDefault=%(default)s'),
+                                      help='Whether to update resources for each Structure in the database'),
 }
 parser_residue_selector_group = \
     dict(title=f'{"_" * len(design_selector_title)}\n{design_selector_title}',
@@ -369,22 +363,22 @@ residue_selector_arguments = {
 # module_parser = argparse.ArgumentParser(add_help=False)  # usage=usage_string,
 # subparsers = module_parser.add_subparsers(title='module arguments', dest='module', required=True, description='These are the different modes that designs can be processed. They are\npresented in an order which might be utilized along a design workflow,\nwith utility modules listed at the bottom starting with check_clashes.\nTo see example commands or algorithmic specifics of each Module enter:\n%s\n\nTo get help with Module arguments enter:\n%s' % (submodule_guide, submodule_help))  # metavar='', # description='',
 # ---------------------------------------------------
-parser_orient = dict(orient=dict(help='Orient a symmetric assembly in a canonical orientation at the origin'))
-# parser_orient = subparsers.add_parser('orient', help='Orient a symmetric assembly in a canonical orientation at the origin')
+parser_orient = dict(orient=dict(description='Orient a symmetric assembly in a canonical orientation at the origin'))
+# parser_orient = subparsers.add_parser('orient', description='Orient a symmetric assembly in a canonical orientation at the origin')
 # ---------------------------------------------------
-parser_refine = dict(refine=dict(help='Process Structures into an energy function'))
-# parser_refine = subparsers.add_parser(refine, help='Process Structures into an energy function')
+parser_refine = dict(refine=dict(description='Process Structures into an energy function'))
+# parser_refine = subparsers.add_parser(refine, description='Process Structures into an energy function')
 refine_arguments = {
-    ('-ala', '--interface_to_alanine'): dict(action='store_true',
+    ('-ala', '--interface_to_alanine'): dict(action=argparse.BooleanOptionalAction, default=False,
                                              help='Whether to mutate all interface residues to alanine before '
                                                   'refinement'),
-    ('-met', '--gather_metrics'): dict(action='store_true',
+    ('-met', '--gather_metrics'): dict(action=argparse.BooleanOptionalAction, default=False,
                                        help='Whether to gather interface metrics for contained interfaces after '
                                             'refinement')
 }
 # ---------------------------------------------------
-parser_nanohedra = dict(nanohedra=dict(help=f'Run or submit jobs to {nano.title()}.py'))
-# parser_dock = subparsers.add_parser(nano, help='Run or submit jobs to %s.py.\nUse the Module arguments -c1/-c2, -o1/-o2, or -q to specify PDB Entity codes, building block directories, or query the PDB for building blocks to dock' % nano.title())
+parser_nanohedra = dict(nanohedra=dict(description=f'Run or submit jobs to {nano.title()}.py'))
+# parser_dock = subparsers.add_parser(nano, description='Run or submit jobs to %s.py.\nUse the Module arguments -c1/-c2, -o1/-o2, or -q to specify PDB Entity codes, building block directories, or query the PDB for building blocks to dock' % nano.title())
 nanohedra_arguments = {
     # ('-e', '--entry', f'--{sym_entry}'): dict(type=int, default=None, dest=sym_entry,  # required=True,
     #                                           help=f'The entry number of {nano.title()} docking combinations to use'),
@@ -407,18 +401,17 @@ nanohedra_arguments = {
     ('-r2', '--rotation_step2'): dict(type=float, default=3.,
                                       help='The number of degrees to increment the rotational degrees of freedom '
                                            'search\nDefault=%(default)s'),
-    ('-Os', '--output_surrounding_uc'): dict(action='store_true',
+    ('-Os', '--output_surrounding_uc'): dict(action=argparse.BooleanOptionalAction, default=False,
                                              help='Whether the surrounding unit cells should be output? Only for '
-                                                  'infinite materials\nDefault=%(default)s')
+                                                  'infinite materials')
 }
 parser_nanohedra_run_type_mutual_group = dict()  # required=True <- adding below to different parsers depending on need
 nanohedra_run_type_mutual_arguments = {
     ('-e', '-entry', '--entry', f'--{sym_entry}'):
         dict(type=int, default=None, dest=sym_entry, help='The symmetry to use. See --query for possible symmetries'),
-    ('-query', '--query',): dict(action='store_true', help='Run in query mode\nDefault=%(default)s'),
+    ('-query', '--query',): dict(action='store_true', help='Run in query mode'),
     # Todo alias analysis -metric
-    ('-postprocess', '--postprocess',): dict(action='store_true',
-                                             help='Run in post processing mode\nDefault=%(default)s')
+    ('-postprocess', '--postprocess',): dict(action='store_true', help='Run in post processing mode')
 }
 # parser_dock_mutual1 = parser_dock.add_mutually_exclusive_group(required=True)
 parser_nanohedra_mutual1_group = dict()  # required=True <- adding kwarg below to different parsers depending on need
@@ -427,7 +420,6 @@ nanohedra_mutual1_arguments = {
                                   help=f'File with list of PDB_entity codes for {nano} component 1'),
     ('-o1', f'-{nano_entity_flag1}'): dict(type=os.path.abspath, default=None,
                                            help=f'Disk location where {nano} component 1 file(s) are located'),
-    # ('--query',): dict(action='store_true', help='Run Nanohedra in query mode\nDefault=%(default)s'),
     ('-Q', '--query_codes'): dict(action='store_true', help='Query the PDB API for corresponding codes')
 }
 # parser_dock_mutual2 = parser_dock.add_mutually_exclusive_group()
@@ -439,11 +431,14 @@ nanohedra_mutual2_arguments = {
                                            help=f'Disk location where {nano} component 2 file(s) are located'),
 }
 # ---------------------------------------------------
-parser_cluster = dict(cluster_poses=dict(help='Cluster all poses by their spatial or interfacial similarity.\nThis is'
-                                              ' useful to identify conformationally flexible docked configurations'))
-# parser_cluster = subparsers.add_parser(cluster_poses, help='Cluster all poses by their spatial similarity. This can remove redundancy or be useful in identifying conformationally flexible docked configurations')
+parser_cluster = dict(cluster_poses=dict(description='Cluster all poses by their spatial or interfacial similarity. '
+                                                     'This is\nuseful to identify conformationally flexible docked '
+                                                     'configurations'))
+# parser_cluster = subparsers.add_parser(cluster_poses, description='Cluster all poses by their spatial similarity. This can remove redundancy or be useful in identifying conformationally flexible docked configurations')
 cluster_poses_arguments = {
-    ('-m', '--mode'): dict(type=str, choices=['transform', 'ialign'], default='transform'),
+    ('-m', '--mode'): dict(type=str.lower, choices=['transform', 'ialign'], metavar='', default='transform',
+                           help='Which type of clustering should be performed?'
+                                '\nChoices=%(choices)s\nDefault=%(default)s'),
     ('--as_objects',): dict(action='store_true', help='Whether to store the resulting pose cluster file as '
                                                       'PoseDirectory objects\nDefault stores as pose IDs'),
     ('-Of', '--output_file'): dict(type=str, default=clustered_poses,
@@ -452,11 +447,11 @@ cluster_poses_arguments = {
                                         % (data.title(), clustered_poses % ('LOCATION', 'TIMESTAMP')))
 }
 # ---------------------------------------------------
-parser_design = dict(interface_design=dict(help='Gather poses of interest and format for design using sequence '
-                                                'constraints in Rosetta.\nConstrain using evolutionary profiles of '
-                                                'homologous sequences and/or fragment profiles\nextracted from the PDB '
-                                                'or neither'))
-# parser_design = subparsers.add_parser(interface_design, help='Gather poses of interest and format for design using sequence constraints in Rosetta. Constrain using evolutionary profiles of homologous sequences and/or fragment profiles extracted from the PDB or neither.')
+parser_design = dict(interface_design=dict(description='Gather poses of interest and format for design using sequence '
+                                                       'constraints in Rosetta.\nConstrain using evolutionary profiles '
+                                                       'of homologous sequences and/or fragment profiles\nextracted '
+                                                       'from the PDB or neither'))
+# parser_design = subparsers.add_parser(interface_design, description='Gather poses of interest and format for design using sequence constraints in Rosetta. Constrain using evolutionary profiles of homologous sequences and/or fragment profiles extracted from the PDB or neither.')
 nstruct = 20
 interface_design_arguments = {
     ('-nec', f'--{no_evolution_constraint}'): dict(action='store_true',
@@ -478,29 +473,32 @@ interface_design_arguments = {
                                      '\nDefault=%(default)s')
 }
 # ---------------------------------------------------
-parser_metrics = dict(interface_metrics=dict(help='Set up RosettaScript to analyze interface metrics from a pose'))
-# parser_metrics = subparsers.add_parser(interface_metrics, help='Set up RosettaScript to analyze interface metrics from a pose')
+parser_metrics = dict(interface_metrics=
+                      dict(description='Set up RosettaScript to analyze interface metrics from a pose'))
+# parser_metrics = subparsers.add_parser(interface_metrics, description='Set up RosettaScript to analyze interface metrics from a pose')
 interface_metrics_arguments = {
     ('-sp', '--specific_protocol'): dict(type=str, help='The specific protocol type to perform metrics on')
 }
 # ---------------------------------------------------
 parser_optimize_designs = \
-    dict(optimize_designs=dict(help='Optimize and touch up designs after running %s. Useful for '
-                                    'reverting\nunnecessary mutations to wild-type, directing exploration of '
-                                    'troublesome areas,\nstabilizing an entire design based on evolution, increasing '
-                                    'solubility, or modifying\nsurface charge. Optimization is based on amino acid '
-                                    'frequency profiles' % interface_design))
+    dict(optimize_designs=
+         dict(description=f'Optimize and touch up designs after running {interface_design}. Useful for '
+                          'reverting\nunnecessary mutations to wild-type, directing exploration of '
+                          'troublesome areas,\nstabilizing an entire design based on evolution, increasing '
+                          'solubility, or modifying\nsurface charge. Optimization is based on amino acid '
+                          'frequency profiles. Use with a --specification_file is suggested'))
 # parser_optimize_designs = subparsers.add_parser(optimize_designs, help='Optimize and touch up designs after running interface design. Useful for reverting excess mutations to wild-type, or directing targeted exploration of specific troublesome areas')
 optimize_designs_arguments = {
-    ('-bg', '--background_profile'): dict(type=str, default=design_profile,
-                                          choices=[design_profile, evolutionary_profile, fragment_profile],
+    ('-bg', '--background_profile'): dict(type=str.lower, default=design_profile, metavar='',
+                                          choices={design_profile, evolutionary_profile, fragment_profile},
                                           help='Which profile should be used as the background profile during '
-                                               'optimization\nDefault=%(default)s')
+                                               'optimization\nChoices=%(choices)s\nDefault=%(default)s')
 }
 # ---------------------------------------------------
-# parser_custom = dict(custom_script=dict(help='Set up a custom RosettaScripts.xml for poses.\nThe custom script will '
-#                                              'be run in every pose specified using specified options'))
-# # parser_custom = subparsers.add_parser('custom_script', help='Set up a custom RosettaScripts.xml for poses. The custom script will be run in every pose specified using specified options')
+# parser_custom = dict(custom_script=
+#                      dict(description='Set up a custom RosettaScripts.xml for poses.\nThe custom script will '
+#                                       'be run in every pose specified using specified options'))
+# # parser_custom = subparsers.add_parser('custom_script', description='Set up a custom RosettaScripts.xml for poses. The custom script will be run in every pose specified using specified options')
 # parser_custom_script_arguments = {
 #     ('-l', '--file_list'): dict(action='store_true',
 #                                 help='Whether to use already produced designs in the "designs/" directory'
@@ -523,29 +521,29 @@ optimize_designs_arguments = {
 #     # Todo ' either a known value or an attribute available to the Pose object'
 # }
 # ---------------------------------------------------
-parser_analysis = dict(analysis=dict(help='Analyze all poses specified generating a suite of metrics'))
-# parser_analysis = subparsers.add_parser(analysis, help='Analyze all poses specified. %s --guide %s will inform you about the various metrics available to analyze.' % (program_command, analysis))
+parser_analysis = dict(analysis=dict(description='Analyze all poses specified generating a suite of metrics'))
+# parser_analysis = subparsers.add_parser(analysis, description='Analyze all poses specified. %s --guide %s will inform you about the various metrics available to analyze.' % (program_command, analysis))
 analysis_arguments = {
     ('--output',): dict(action=argparse.BooleanOptionalAction, default=True,
-                        help='Whether to output the --output_file? Use --no-output to prevent'),
+                        help=f'Whether to output the --output_file?{boolean_positional_prevent_msg("output")}'),
     #                          '\nDefault=%(default)s'),
     ('-Of', '--output_file'): dict(type=str, default=analysis_file,
                                    help='Name of the output .csv file containing pose metrics.\nWill be saved to the '
                                         '%s folder of the output\nDefault=%s'
                                         % (all_scores, analysis_file % ('TIMESTAMP', 'LOCATION'))),
     ('--save',): dict(action=argparse.BooleanOptionalAction, default=True,
-                      help='Save trajectory information? Use --no-save if False'),  # \nDefault=%(default)s'),
+                      help=f'Save trajectory information?{boolean_positional_prevent_msg("save")}'),
     ('--figures',): dict(action=argparse.BooleanOptionalAction, default=False,
-                         help='Create figures for all poses?'),  # \nDefault=%(default)s'),
-    ('-j', '--join'): dict(action='store_true', help='Join Trajectory and Residue Dataframes?\nDefault=%(default)s')
+                         help='Create figures for all poses?'),
+    ('-j', '--join'): dict(action='store_true', help='Join Trajectory and Residue Dataframes?')
 }
 # ---------------------------------------------------
 parser_select_poses = \
     dict(select_poses=dict(help='Select poses based on specific metrics',
                            description='Selection will be the result of a handful of metrics combined using --filter '
-                                       'and/or --weights.\nFor metric options see %s --guide. If a pose input option '
-                                       'from -d, -f, -p, or -s form isn\'t\nprovided, the flags -sf or -df are possible'
-                                       ' where -sf takes priority' % analysis))
+                                       f'and/or --weights.\nFor metric options see {analysis} --guide. If a pose input '
+                                       "option from -d, -f, -p, or -s form isn't\nprovided, the flags -sf or -df are "
+                                       'possible where -sf takes priority'))
 # parser_select_poses = subparsers.add_parser(select_poses, help='Select poses based on specific metrics. Selection will be the result of a handful of metrics combined using --filter and/or --weights. For metric options see %s --guide. If a pose specification in the typical d, -f, -p, or -s form isn\'t provided, the arguments -df or -pf are required with -pf taking priority if both provided' % analysis)
 select_poses_arguments = {
     ('--filter',): dict(action='store_true', help='Whether to filter pose selection using metrics'),
@@ -559,61 +557,88 @@ select_poses_arguments = {
                        help='Should poses be selected based on their ranking in the total pose pool?\nThis will select '
                             'the top poses based on the average of all designs in\nthat pose for the metrics specified '
                             'unless --protocol is invoked,\nthen the protocol average will be used instead'),
-    ('--weight',): dict(action='store_true', help='Whether to weight pose selection results using metrics'
-                                                  '\nDefault=%(default)s'),
-    ('-wf', '--weight_function'): dict(choices=metric_weight_functions, default='normalize',
+    ('--weight',): dict(action='store_true', help='Whether to weight pose selection results using metrics'),
+    ('-wf', '--weight_function'): dict(type=str.lower, choices=metric_weight_functions, default='normalize', metavar='',
                                        help='How to standardize metrics during selection weighting'
-                                            '\nDefault=%(default)s'),
+                                            '\nChoices=%(choices)s\nDefault=%(default)s'),
 # }
 # # parser_filter_mutual = parser_select_poses.add_mutually_exclusive_group(required=True)
 # parser_select_poses_mutual_group = dict(required=True)
 # parser_select_poses_mutual_arguments = {
-    ('-m', '--metric'): dict(type=str, choices=['score', 'fragments_matched'],
-                             help='If a single metric is sufficient, which metric to sort by?'),
+    ('-m', '--metric'): dict(type=str.lower, choices=['score', 'fragments_matched'], metavar='', default='score',
+                             help='If a single metric is sufficient, which metric to sort by?'
+                                  '\nChoices=%(choices)s\nDefault=%(default)s'),
     # ('-pf', '--pose_design_file'): dict(type=str, metavar=ex_path('pose_design.csv'),
     #                                     help='Name of .csv file with (pose, design pairs to serve as sequence selector')
 }
 # ---------------------------------------------------
-parser_select_sequences = dict(select_sequences=dict(help='From the provided poses, generate nucleotide/protein '
-                                                          'sequences based on specified selection\ncriteria and '
-                                                          'prioritized metrics. Generation of output sequences can take'
-                                                          ' multiple forms\ndepending on downstream needs. By default, '
-                                                          'disordered region insertion,\ntagging for expression, and '
-                                                          'codon optimization (if --nucleotide) are performed'))
+# Common selection arguments
+allow_multiple_poses_args = ('-amp', '--allow_multiple_poses')
+allow_multiple_poses_kwargs = dict(action='store_true',
+                                   help='Allow multiple sequences to be selected from the same Pose when using --total'
+                                        '\nBy default, --total filters the selected sequences by a single Pose')
+csv_args = ('--csv',)
+csv_kwargs = dict(action='store_true', help='Write the sequences file as a .csv instead of the default .fasta')
+
+filter_args = ('--filter',)
+filter_kwargs = dict(action='store_true', help='Whether to filter sequence selection using metrics')
+optimize_species_args = ('-opt', '--optimize_species')
+# Todo choices=DNAChisel. optimization species options
+optimize_species_kwargs = dict(type=str, default='e_coli',
+                               help='The organism where expression will occur and nucleotide usage should be '
+                                    'optimized\nDefault=%(default)s')
+protocol_args = (f'--{protocol}',)
+protocol_kwargs = dict(type=str, help='Use specific protocol(s) to filter designs?', default=None, nargs='*')
+
+save_total_args = ('--save_total',)
+save_total_kwargs = dict(action='store_false', help='If --total is used, should the total dataframe be saved?')
+select_number_args = ('-s', '--select_number')
+select_number_kwargs = dict(type=int, default=sys.maxsize, metavar='int',
+                            help='Number of sequences to return\nIf total is True, returns the '
+                                 'specified number of sequences (Where Default=No Limit).\nOtherwise the '
+                                 'specified number will be selected from each pose (Where Default=1/pose)')
+total_args = ('--total',)
+total_kwargs = dict(action='store_true',
+                    help='Should sequences be selected based on their ranking in the total\ndesign pool? Searches '
+                         'for the top sequences from all poses,\nthen chooses one sequence/pose unless '
+                         '--allow_multiple_poses is invoked')
+weight_args = ('--weight',)
+weight_kwargs = dict(action='store_true', help='Whether to weight sequence selection results using metrics')
+weight_function_args = ('-wf', '--weight_function')
+weight_function_kwargs = dict(type=str.lower, choices=metric_weight_functions, default='normalize', metavar='',
+                              help='How to standardize metrics during selection weighting'
+                                   '\nChoices=%(choices)s\nDefault=%(default)s')
+parser_select_sequences = dict(select_sequences=
+                               dict(description='From the provided poses, generate nucleotide/protein '
+                                                'sequences based on specified selection\ncriteria and '
+                                                'prioritized metrics. Generation of output sequences can take'
+                                                ' multiple forms\ndepending on downstream needs. By default, '
+                                                'disordered region insertion,\ntagging for expression, and '
+                                                'codon optimization (if --nucleotide) are performed'))
 # parser_select_sequences = subparsers.add_parser(select_sequences, help='From the provided poses, generate nucleotide/protein sequences based on specified selection criteria and prioritized metrics. Generation of output sequences can take multiple forms depending on downstream needs. By default, disordered region insertion, tagging for expression, and codon optimization (--nucleotide) are performed')
 select_sequences_arguments = {
-    ('-amp', '--allow_multiple_poses'): dict(action='store_true',
-                                             help='Allow multiple sequences to be selected from the same Pose when '
-                                                  'using --total\nBy default, --total filters the'
-                                                  ' selected sequences by a single Pose\nDefault=%(default)s'),
+    allow_multiple_poses_args: allow_multiple_poses_kwargs,
     ('-ath', '--avoid_tagging_helices'): dict(action='store_true',
-                                              help='Should tags be avoided at termini with helices?'
-                                                   '\nDefault=%(default)s'),
-    ('--csv',): dict(action='store_true', help='Write the sequences file as a .csv instead of the default .fasta'),
-    ('--filter',): dict(action='store_true', help='Whether to filter sequence selection using metrics'
-                                                  '\nDefault=%(default)s'),
+                                              help='Should tags be avoided at termini with helices?'),
+    csv_args: csv_kwargs,
+    filter_args: filter_kwargs,
     ('-m', '--multicistronic'): dict(action='store_true',
                                      help='Should nucleotide sequences by output in multicistronic format?\nBy default,'
-                                          ' uses the pET-Duet intergeneic sequence containing a T7 promoter, LacO, and '
-                                          'RBS\nDefault=%(default)s'),
+                                          ' uses the pET-Duet intergeneic sequence containing\na T7 promoter, LacO, and'
+                                          ' RBS'),
     ('-ms', '--multicistronic_intergenic_sequence'): dict(type=str,
                                                           help='The sequence to use in the intergenic region of a '
                                                                'multicistronic expression output'),
-    ('--nucleotide',): dict(action='store_true', help='Whether to output codon optimized nucleotide sequences'
-                                                      '\nDefault=%(default)s'),
-    ('-n', '--select_number'): dict(type=int, default=sys.maxsize, metavar='int',
-                                    help='Number of sequences to return\nIf total is True, returns the '
-                                         'specified number of sequences (Where Default=No Limit).\nOtherwise the '
-                                         'specified number will be selected from each pose (Where Default=1/pose)'),
-    ('-opt', '--optimize_species'): dict(type=str, default='e_coli',
-                                         help='The organism where expression will occur and nucleotide usage should be '
-                                              'optimized\nDefault=%(default)s'),
-    ('-t', '--preferred_tag'): dict(type=str, choices=expression_tags.keys(), default='his_tag',
-                                    help='The name of your preferred expression tag\nDefault=%(default)s'),
-    (f'--{protocol}',): dict(type=str, help='Use specific protocol(s) to filter designs?', default=None, nargs='*'),
+    ('--nucleotide',): dict(action='store_true', help='Whether to output codon optimized nucleotide sequences'),
+    select_number_args: select_number_kwargs,
+    optimize_species_args: optimize_species_kwargs,
+    ('-t', '--preferred_tag'): dict(type=str.lower, choices=expression_tags.keys(), default='his_tag', metavar='',
+                                    help='The name of your preferred expression tag'
+                                         '\nChoices=%(choices)s\nDefault=%(default)s'),
+    protocol_args: protocol_kwargs,
     ('-ssg', '--skip_sequence_generation'): dict(action='store_true',
                                                  help='Should sequence generation be skipped? Only structures will be '
-                                                      'selected\nDefault=%(default)s'),
+                                                      'selected'),
     # ('--prefix',): dict(type=str, metavar='string', help='String to prepend to selection output name'),
     ('--sequences_per_pose',): dict(type=int, default=1, dest='designs_per_pose',
                                     help='What is the maximum number of sequences that should be selected from '
@@ -625,66 +650,45 @@ select_sequences_arguments = {
                                    '"all" - all entities\n\t"none" - no entities\n\tcomma separated list such as '
                                    '"1,0,1"\n\t\twhere "1" indicates a tag is required\n\t\tand "0" indicates no tag is'
                                    ' required'),
-    ('--save_total',): dict(action='store_false',
-                            help='If --total is used, should the total dataframe be saved?\nDefault=%(default)s'),
-    ('--total',): dict(action='store_true',
-                       help='Should sequences be selected based on their ranking in the total\ndesign pool? Searches '
-                            'for the top sequences from all poses,\nthen chooses one sequence/pose unless '
-                            '--allow_multiple_poses is invoked\nDefault=%(default)s'),
-    ('--weight',): dict(action='store_true', help='Whether to weight sequence selection results using metrics'
-                                                  '\nDefault=%(default)s'),
-    ('-wf', '--weight_function'): dict(choices=metric_weight_functions, default='normalize',
-                                       help='How to standardize metrics during selection weighting'
-                                            '\nDefault=%(default)s')
+    save_total_args: save_total_kwargs,
+    total_args: total_kwargs,
+    weight_args: weight_kwargs,
+    weight_function_args: weight_function_kwargs
 }
 # ---------------------------------------------------
-parser_select_designs = dict(select_designs=dict(help=f'From the provided poses, select designs based on specified '
-                                                      f'selection criteria\nusing metrics. Alias for '
-                                                      f'{select_sequences} with --skip_sequence_generation'))
+parser_select_designs = dict(select_designs=
+                             dict(description=f'From the provided poses, select designs based on specified '
+                                              f'selection criteria\nusing metrics. Alias for '
+                                              f'{select_sequences} with --skip_sequence_generation'))
 select_designs_arguments = {
-    ('-amp', '--allow_multiple_poses'): dict(action='store_true',
-                                             help='Allow multiple sequences to be selected from the same Pose when '
-                                                  'using --total\nBy default, --total filters the'
-                                                  ' selected sequences by a single Pose\nDefault=%(default)s'),
+    allow_multiple_poses_args: allow_multiple_poses_kwargs,
     ('--designs_per_pose',): dict(type=int, default=1,
                                   help='What is the maximum number of sequences that should be selected from '
                                        'each pose?\nDefault=%(default)s'),
-    ('--filter',): dict(action='store_true', help='Whether to filter sequence selection using metrics'
-                                                  '\nDefault=%(default)s'),
-    ('-s', '--select_number'): dict(type=int, default=sys.maxsize, metavar='int',
-                                    help='Number of sequences to return\nIf total is True, returns the '
-                                         'specified number of sequences (Where Default=No Limit).\nOtherwise the '
-                                         'specified number will be selected from each pose (Where Default=1/pose)'),
-    (f'--{protocol}',): dict(type=str, help='Use specific protocol(s) to filter designs?', default=None, nargs='*'),
-    ('--save_total',): dict(action='store_false',
-                            help='If --total is used, should the total dataframe be saved?\nDefault=%(default)s'),
-    ('--total',): dict(action='store_true',
-                       help='Should sequences be selected based on their ranking in the total\ndesign pool? Searches '
-                            'for the top sequences from all poses,\nthen chooses one sequence/pose unless '
-                            '--allow_multiple_poses is invoked\nDefault=%(default)s'),
-    ('--weight',): dict(action='store_true', help='Whether to weight sequence selection results using metrics'
-                                                  '\nDefault=%(default)s'),
-    ('-wf', '--weight_function'): dict(choices=metric_weight_functions, default='normalize',
-                                       help='How to standardize metrics during selection weighting'
-                                            '\nDefault=%(default)s')
+    csv_args: csv_kwargs,
+    filter_args: filter_kwargs,
+    select_number_args: select_number_kwargs,
+    protocol_args: protocol_kwargs,
+    save_total_args: save_total_kwargs,
+    total_args: total_kwargs,
+    weight_args: weight_kwargs,
+    weight_function_args: weight_function_kwargs
 }
 # ---------------------------------------------------
-parser_multicistronic = dict(multicistronic=dict(help='Generate nucleotide sequences for selected designs by codon '
-                                                      'optimizing protein\nsequences, then concatenating nucleotide '
-                                                      'sequences. REQUIRES an input .fasta file\nspecified with the '
-                                                      '-f/--file argument'))
-# parser_multicistronic = subparsers.add_parser('multicistronic', help='Generate nucleotide sequences\n for selected designs by codon optimizing protein sequences, then concatenating nucleotide sequences. REQUIRES an input .fasta file specified as -f/--file')
+parser_multicistronic = dict(multicistronic=
+                             dict(description='Generate nucleotide sequences for selected designs by codon '
+                                              'optimizing protein\nsequences, then concatenating nucleotide '
+                                              'sequences. REQUIRES an input .fasta file\nspecified with the '
+                                              '-f/--file argument'))
+# parser_multicistronic = subparsers.add_parser('multicistronic', description='Generate nucleotide sequences\n for selected designs by codon optimizing protein sequences, then concatenating nucleotide sequences. REQUIRES an input .fasta file specified as -f/--file')
 multicistronic_arguments = {
-    ('--csv',): dict(action='store_true',
-                     help='Write the sequences file as a .csv instead of the default .fasta\nDefault=%(default)s'),
+    csv_args: csv_kwargs,
     ('-ms', '--multicistronic_intergenic_sequence'): dict(type=str,
                                                           help='The sequence to use in the intergenic region of a '
                                                                'multicistronic expression output'),
     ('-n', '--number_of_genes'): dict(type=int, help='The number of protein sequences to concatenate into a '
                                                      'multicistronic expression output'),
-    ('-opt', '--optimize_species'): dict(type=str, default='e_coli',
-                                         help='The organism where expression will occur and nucleotide usage should be '
-                                              'optimized\nDefault=%(default)s'),
+    optimize_species_args: optimize_species_kwargs,
 }
 # ---------------------------------------------------
 # parser_asu = subparsers.add_parser('find_asu', help='From a symmetric assembly, locate an ASU and save the result.')
@@ -692,35 +696,39 @@ multicistronic_arguments = {
 parser_check_clashes = dict(check_clashes=dict(help='Check for any clashes in the input poses.\nThis is performed '
                                                     'by default at Pose load and will raise an error if clashes are '
                                                     'found'))
-# parser_check_clashes = subparsers.add_parser('check_clashes', help='Check for any clashes in the input poses. This is performed standard in all modules and will return an error if clashes are found')
+# parser_check_clashes = subparsers.add_parser('check_clashes', description='Check for any clashes in the input poses. This is performed standard in all modules and will return an error if clashes are found')
 # ---------------------------------------------------
-# parser_check_unmodelled_clashes = subparsers.add_parser('check_unmodelled_clashes', help='Check for clashes between full models. Useful for understanding if loops are missing, whether their modelled density is compatible with the pose')
+# parser_check_unmodelled_clashes = subparsers.add_parser('check_unmodelled_clashes', description='Check for clashes between full models. Useful for understanding if loops are missing, whether their modelled density is compatible with the pose')
 # ---------------------------------------------------
-parser_expand_asu = dict(expand_asu=dict(help='For given poses, expand the asymmetric unit to a symmetric assembly and '
-                                              'write the result'))
-# parser_expand_asu = subparsers.add_parser('expand_asu', help='For given poses, expand the asymmetric unit to a symmetric assembly and write the result to the design directory.')
+parser_expand_asu = dict(expand_asu=
+                         dict(description='For given poses, expand the asymmetric unit to a symmetric assembly and '
+                                          'write the result'))
+# parser_expand_asu = subparsers.add_parser('expand_asu', description='For given poses, expand the asymmetric unit to a symmetric assembly and write the result to the design directory.')
 # ---------------------------------------------------
-parser_generate_fragments = dict(generate_fragments=dict(help='Generate fragment overlap for poses of interest'))
-# parser_generate_fragments = subparsers.add_parser(generate_fragments, help='Generate fragment overlap for poses of interest')
+parser_generate_fragments = dict(generate_fragments=dict(description='Generate fragment overlap for poses of interest'))
+# parser_generate_fragments = subparsers.add_parser(generate_fragments, description='Generate fragment overlap for poses of interest')
 # ---------------------------------------------------
-parser_rename_chains = dict(rename_chains=dict(help='For given poses, rename the chains in the source PDB to the '
-                                                    'alphabetic order.\nUseful for writing a multi-model as distinct '
-                                                    'chains or fixing PDB formatting errors'))
-# parser_rename_chains = subparsers.add_parser('rename_chains', help='For given poses, rename the chains in the source PDB to the alphabetic order. Useful for writing a multi-model as distinct chains or fixing common PDB formatting errors as well. Writes to design directory')
+parser_rename_chains = dict(rename_chains=
+                            dict(description='For given poses, rename the chains in the source PDB to the '
+                                             'alphabetic order.\nUseful for writing a multi-model as distinct '
+                                             'chains or fixing PDB formatting errors'))
+# parser_rename_chains = subparsers.add_parser('rename_chains', description='For given poses, rename the chains in the source PDB to the alphabetic order. Useful for writing a multi-model as distinct chains or fixing common PDB formatting errors as well. Writes to design directory')
 # # ---------------------------------------------------
-# parser_flags = dict(flags=dict(help='Generate a flags file for %s' % program_name))
-# # parser_flags = subparsers.add_parser('flags', help='Generate a flags file for %s' % program_name)
+# parser_flags = dict(flags=dict(description='Generate a flags file for %s' % program_name))
+# # parser_flags = subparsers.add_parser('flags', description='Generate a flags file for %s' % program_name)
 # parser_flags_arguments = {
 #     ('-t', '--template'): dict(action='store_true', help='Generate a flags template to edit on your own.'),
 #     ('-m', '--module'): dict(dest='flags_module', action='store_true',
 #                              help='Generate a flags template to edit on your own.')
 # }
 # # ---------------------------------------------------
-# parser_residue_selector = dict(residue_selector=dict(help='Generate a residue selection for %s' % program_name))
-# # parser_residue_selector = subparsers.add_parser('residue_selector', help='Generate a residue selection for %s' % program_name)
+# parser_residue_selector = dict(residue_selector=dict(description='Generate a residue selection for %s' % program_name))
+# # parser_residue_selector = subparsers.add_parser('residue_selector', description='Generate a residue selection for %s' % program_name)
 # ---------------------------------------------------
 directory_needed = f'Provide your working {program_output} with -d/--directory to locate poses\nfrom a file utilizing '\
                    f'pose IDs (-df, -pf, and -sf)'
+parser_input = dict(input=dict(description='Specify where/which poses should be included in processing\n'
+                                           f'{directory_needed}'))
 parser_input_group = dict(title=f'{"_" * len(input_title)}\n{input_title}',
                           description=f'\nSpecify where/which poses should be included in processing\n'
                                       f'{directory_needed}')
@@ -731,8 +739,7 @@ input_arguments = {
     ('-df', '--dataframe'): dict(type=os.path.abspath, metavar=ex_path('Metrics.csv'),
                                  help=f'A DataFrame created by {program_name} analysis containing\npose info. File is '
                                       f'output in .csv format'),
-    ('-N', f'--{nano}_output'): dict(action='store_true',
-                                     help='Is the input a Nanohedra docking output?\nDefault=%(default)s'),
+    ('-N', f'--{nano}_output'): dict(action='store_true', help='Is the input a Nanohedra docking output?'),
     ('-pf', '--pose_file'): dict(type=str, dest='specification_file', metavar=ex_path('pose_design_specifications.csv'),
                                  help=f'If pose IDs are specified in a file, say as the result of\n{select_poses} or '
                                       f'{select_designs}'),
@@ -770,10 +777,11 @@ input_mutual_arguments = {
                              metavar=ex_path('SymDesignOutput', 'Projects', 'yourProject', 'single_design[.pdb]'),
                              help='Operate on single pose(s) in a project'),
 }
+parser_output = dict(output=dict(description='Specify where output should be written'))
 parser_output_group = dict(title=f'{"_" * len(output_title)}\n{output_title}',
                            description='\nSpecify where output should be written')
 output_arguments = {
-    ('-Oa', '--output_assembly'): dict(action='store_true',
+    ('-Oa', '--output_assembly'): dict(action=argparse.BooleanOptionalAction, default=False,
                                        help='Whether the assembly should be output? Infinite materials are output in a '
                                             'unit cell\nDefault=%(default)s'),
     ('-Od', '--outdir', '--output_directory'): dict(type=os.path.abspath, dest='output_directory', default=None,
@@ -783,10 +791,13 @@ output_arguments = {
     ('-Of', '--output_file'): dict(type=str,  # default=default_path_file,
                                    help='If provided, the name of the output pose file.\nOtherwise, one will be '
                                         'generated based on the time, input, and module'),
-    ('-OF', f'--{output_fragments}'): dict(action='store_true',
+    ('-OF', f'--{output_fragments}'): dict(action=argparse.BooleanOptionalAction, default=False,
                                            help='For any fragments generated, write them along with the Pose'),
-    ('-Oo', f'--{output_oligomers}'): dict(action='store_true',
+    ('-Oo', f'--{output_oligomers}'): dict(action=argparse.BooleanOptionalAction, default=False,
                                            help='For any oligomers generated, write them along with the Pose'),
+    ('-Os', f'--{output_structures}'): dict(action=argparse.BooleanOptionalAction, default=True,
+                                            help=f'For any structures generated, write them.'
+                                                 f'{boolean_positional_prevent_msg(output_structures)}'),
     ('--prefix',): dict(type=str, metavar='string', help='String to prepend to output name'),
     ('--suffix',): dict(type=str, metavar='string', help='String to append to output name'),
 }
@@ -875,8 +886,9 @@ module_subargparser = dict(title=f'{"_" * len(module_title)}\n{module_title}', d
                            description='\nThese are the different modes that designs can be processed. They are'
                                        '\npresented in an order which might be utilized along a design workflow,\nwith '
                                        'utility modules listed at the bottom starting with check_clashes.\nTo see '
-                                       'example commands or algorithmic specifics of each Module enter:\n%s\n\nTo get '
-                                       'help with Module arguments enter:\n%s' % (submodule_guide, submodule_help))
+                                       'example commands or algorithmic specifics of each Module enter:'
+                                       f'\n{submodule_guide}\n\nTo get help with Module arguments enter:'
+                                       f'\n{submodule_help}')
 module_required = ['nanohedra_mutual1']
 # for all parsing of module arguments
 subparsers = argparsers[parser_module].add_subparsers(**module_subargparser)  # required=True,
