@@ -14,7 +14,8 @@ from utils.path import submodule_guide, submodule_help, force_flags, fragment_db
     structure_background, scout, design_profile, evolutionary_profile, \
     fragment_profile, all_scores, analysis_file, select_sequences, program_name, nano, \
     program_command, analysis, select_poses, output_fragments, output_oligomers, protocol, current_energy_function, \
-    ignore_clashes, ignore_pose_clashes, ignore_symmetric_clashes, select_designs
+    ignore_clashes, ignore_pose_clashes, ignore_symmetric_clashes, select_designs, output_structures, rosetta_str, \
+    proteinmpnn
 from utils.ProteinExpression import expression_tags
 from resources.query.utils import input_string, confirmation_string, bool_d, invalid_string, header_string, \
     format_string

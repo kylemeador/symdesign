@@ -59,6 +59,7 @@ scout = 'scout'
 consensus = 'consensus'
 hhblits = 'hhblits'
 rosetta_str = 'rosetta'
+proteinmpnn = 'proteinmpnn'
 protein_mpnn_dir = 'ProteinMPNN'
 protein_mpnn_weights_dir = os.path.join(source, protein_mpnn_dir, 'vanilla_model_weights')
 
