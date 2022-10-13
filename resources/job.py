@@ -3,7 +3,7 @@ from __future__ import annotations
 import os
 from typing import Annotated, AnyStr
 
-from flags import nstruct
+from flags import default_logging_level, nstruct
 from structure.fragment import db
 from resources.EulerLookup import EulerLookup
 from resources.structure_db import structure_database_factory
@@ -95,6 +95,7 @@ class JobResources:
         self.design_selector: dict[str, dict[str, dict[str, set[int] | set[str]]]] | dict = \
             kwargs.get('design_selector', {})
         self.debug: bool = kwargs.get('debug', False)
+        self.log_level: bool = kwargs.get('log_level', default_logging_level)
         self.force_flags: bool = kwargs.get(force_flags, False)
         self.fuse_chains: list[tuple[str]] = [tuple(pair.split(':')) for pair in kwargs.get('fuse_chains', [])]
         self.ignore_clashes: bool = kwargs.get(ignore_clashes, False)
