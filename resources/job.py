@@ -123,7 +123,7 @@ class JobResources:
         self.specific_protocol: str = kwargs.get('specific_protocol', False)
         self.structure_background: bool = kwargs.get(structure_background, False)
         self.sym_entry: SymEntry | None = kwargs.get(sym_entry, None)
-        self.write_structure: bool = kwargs.get(output_structure, True)
+        self.write_structures: bool = kwargs.get(output_structures, True)
         self.write_fragments: bool = kwargs.get(output_fragments, False)
         self.write_oligomers: bool = kwargs.get(output_oligomers, False)
         self.skip_logging: bool = kwargs.get('skip_logging', False)
