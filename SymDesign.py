@@ -743,10 +743,13 @@ def main():
         symdesign_directory = os.path.join(os.getcwd(), PUtils.program_output)
         if args.file:
             # See if the file contains SymDesign specified paths
-            with open(args.file, 'r') as f:
+            # Must index the first file with [0]...
+            with open(args.file[0], 'r') as f:
                 line = f.readline()
                 if os.path.splitext(line)[1] == '':  # No extension. Provided as directory/poseid from SymDesign output
-                    symdesign_directory = utils.get_base_symdesign_dir(line)
+                    file_directory = utils.get_base_symdesign_dir(line)
+                    if file_directory is not None:
+                        symdesign_directory = file_directory
                 else:
                     # Set file basename as "root" keyword argument. Designs are being integrated for the first time
                     queried_flags['root'] = os.path.splitext(os.path.basename(args.file))[0]

@@ -1015,11 +1015,16 @@ def get_base_symdesign_dir(search_path: str = None) -> AnyStr | None:
             if dirname == PUtils.program_output:
                 base_dir = f'{os.sep}{os.path.join(*search_path.split(os.sep)[:idx])}'
                 break
-    elif PUtils.program_output in os.listdir(search_path):  # directory_provided/SymDesignOutput
-        for sub_directory in os.listdir(search_path):
-            if sub_directory == PUtils.program_output:
-                base_dir = os.path.join(search_path, sub_directory)
-                break
+    else:
+        try:
+            all_files = os.listdir(search_path)
+        except FileNotFoundError:
+            all_files = []
+        if PUtils.program_output in all_files:  # directory_provided/SymDesignOutput
+            for sub_directory in all_files:
+                if sub_directory == PUtils.program_output:
+                    base_dir = os.path.join(search_path, sub_directory)
+                    break
 
     return base_dir
 
