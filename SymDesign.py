@@ -497,9 +497,9 @@ def main():
 
             # Set up sbatch scripts for processed Poses
             design_stage = PUtils.scout if getattr(args, PUtils.scout, None) \
-                else (PUtils.interface_design if getattr(args, PUtils.no_hbnet, None)
+                else (PUtils.hbnet_design_profile if getattr(args, PUtils.hbnet, None)
                       else (PUtils.structure_background if getattr(args, PUtils.structure_background, None)
-                            else PUtils.hbnet_design_profile))
+                            else PUtils.interface_design))
             module_files = {PUtils.interface_design: design_stage,
                             PUtils.nano: PUtils.nano,
                             PUtils.refine: PUtils.refine,
@@ -738,7 +738,7 @@ def main():
         symdesign_directory = utils.get_base_symdesign_dir(
             (args.directory or (args.project or args.single or [None])[0] or os.getcwd()))
 
-    if not symdesign_directory:  # check if there is a file and see if we can solve there
+    if symdesign_directory is None:  # Check if there is a file and see if we can solve there
         # By default, assume new input and make in the current directory
         symdesign_directory = os.path.join(os.getcwd(), PUtils.program_output)
         if args.file:
@@ -881,7 +881,7 @@ def main():
     logger.info(f'Using resources in Database located at "{job.data}"')
     queried_flags['job_resources'] = job
     if args.module in [PUtils.nano, PUtils.generate_fragments, PUtils.interface_design, PUtils.analysis]:
-        if job.no_term_constraint:
+        if not job.term_constraint:
             fragment_db, euler_lookup = None, None
         else:
             fragment_db = fragment_factory(source=args.fragment_database)
@@ -1317,11 +1317,11 @@ def main():
     # logger.info('Reduce Memory?: %s', job.reduce_memory)
 
     # Run specific checks
-    if args.module == PUtils.interface_design and not queried_flags[PUtils.no_evolution_constraint]:  # hhblits to run
+    if args.module == PUtils.interface_design and queried_flags[PUtils.evolution_constraint]:  # hhblits to run
         if psutil.virtual_memory().available <= required_memory + utils.CommandDistributer.hhblits_memory_threshold:
             logger.critical('The amount of memory for the computer is insufficient to run hhblits (required for '
                             'designing with evolution)! Please allocate the job to a computer with more memory or the '
-                            'process will fail. Otherwise, select --%s' % PUtils.no_evolution_constraint)
+                            f'process will fail. Otherwise, select --{PUtils.evolution_constraint}')
             exit(1)
     # -----------------------------------------------------------------------------------------------------------------
     # Parse SubModule specific commands
@@ -1551,7 +1551,7 @@ def main():
         #         ' %s at a time. This will speed up pose processing ~%f-fold.' %
         #         (CommmandDistributer.mpi - 1, PUtils.nstruct / (CommmandDistributer.mpi - 1)))
         #     queried_flags.update({'mpi': True, 'script': True})
-        if not queried_flags[PUtils.no_evolution_constraint]:  # hhblits to run
+        if queried_flags[PUtils.evolution_constraint]:  # hhblits to run
             utils.make_path(job.sequences)
             utils.make_path(job.profiles)
         # Start pose processing and preparation for Rosetta

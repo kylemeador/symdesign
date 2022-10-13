@@ -10,7 +10,7 @@ from psutil import cpu_count
 from metrics import metric_weight_functions
 from utils.path import submodule_guide, submodule_help, force_flags, fragment_dbs, biological_interfaces, \
     sym_entry, program_output, nano_entity_flag1, nano_entity_flag2, data, \
-    clustered_poses, interface_design, no_evolution_constraint, no_hbnet, no_term_constraint, number_of_trajectories, \
+    clustered_poses, interface_design, evolution_constraint, hbnet, term_constraint, number_of_trajectories, \
     structure_background, scout, design_profile, evolutionary_profile, \
     fragment_profile, all_scores, analysis_file, select_sequences, program_name, nano, \
     program_command, analysis, select_poses, output_fragments, output_oligomers, protocol, current_energy_function, \
@@ -458,23 +458,25 @@ parser_design = dict(interface_design=dict(description='Gather poses of interest
 # parser_design = subparsers.add_parser(interface_design, description='Gather poses of interest and format for design using sequence constraints in Rosetta. Constrain using evolutionary profiles of homologous sequences and/or fragment profiles extracted from the PDB or neither.')
 nstruct = 20
 interface_design_arguments = {
-    ('-nec', f'--{no_evolution_constraint}'): dict(action='store_true',
-                                                   help='Whether to skip evolutionary constraints during design'
-                                                        '\nDefault=%(default)s'),
-    ('-nhb', f'--{no_hbnet}'): dict(action='store_true', help='Whether to skip hydrogen bond networks in the design'
-                                                              '\nDefault=%(default)s'),
-    ('-ntc', f'--{no_term_constraint}'): dict(action='store_true',
-                                              help='Whether to skip tertiary motif constraints during design'
-                                                   '\nDefault=%(default)s'),
+    ('-ec', f'--{evolution_constraint}'): dict(action=argparse.BooleanOptionalAction, default=True,
+                                               help='Whether to include evolutionary constraints during design.'
+                                                    f'{boolean_positional_prevent_msg(evolution_constraint)}'),
+    ('-hb', f'--{hbnet}'): dict(action=argparse.BooleanOptionalAction, default=True,
+                                help='Whether to include hydrogen bond networks in the design.'
+                                     f'{boolean_positional_prevent_msg(hbnet)}'),
+    ('-m', f'--method'): dict(type=str.lower, default=proteinmpnn, choices={proteinmpnn, rosetta_str}, metavar='',
+                              help='Which design method should be used?\nChoices=%(choices)s\nDefault=%(default)s'),
     ('-n', f'--{number_of_trajectories}'): dict(type=int, default=nstruct,
                                                 help='How many unique sequences should be generated for each input?'
                                                      '\nDefault=%(default)s'),
-    ('-sb', f'--{structure_background}'): dict(action='store_true',
-                                               help='Whether to skip all constraints and measure the structure in an '
-                                                    'optimal context\nDefault=%(default)s'),
-    ('-sc', f'--{scout}'): dict(action='store_true',
-                                help='Whether to set up a low resolution scouting protocol to survey designability'
-                                     '\nDefault=%(default)s')
+    ('-sb', f'--{structure_background}'): dict(action=argparse.BooleanOptionalAction, default=False,
+                                               help='Whether to skip all constraints and measure the structure using '
+                                                    'only the selected energy function'),
+    ('-sc', f'--{scout}'): dict(action=argparse.BooleanOptionalAction, default=False,
+                                help='Whether to set up a low resolution scouting protocol to survey designability'),
+    ('-tc', f'--{term_constraint}'): dict(action=argparse.BooleanOptionalAction, default=True,
+                                          help='Whether to include tertiary motif constraints during design.'
+                                               f'{boolean_positional_prevent_msg(term_constraint)}'),
 }
 # ---------------------------------------------------
 parser_metrics = dict(interface_metrics=
@@ -695,7 +697,7 @@ multicistronic_arguments = {
     optimize_species_args: optimize_species_kwargs,
 }
 # ---------------------------------------------------
-# parser_asu = subparsers.add_parser('find_asu', help='From a symmetric assembly, locate an ASU and save the result.')
+# parser_asu = subparsers.add_parser('find_asu', description='From a symmetric assembly, locate an ASU and save the result.')
 # ---------------------------------------------------
 parser_check_clashes = dict(check_clashes=dict(help='Check for any clashes in the input poses.\nThis is performed '
                                                     'by default at Pose load and will raise an error if clashes are '

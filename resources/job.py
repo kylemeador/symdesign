@@ -11,9 +11,9 @@ from resources.wrapapi import api_database_factory
 from utils import start_log, make_path
 from utils.SymEntry import SymEntry
 from utils.path import sym_entry, all_scores, projects, sequence_info, data, output_oligomers, output_fragments, \
-    structure_background, scout, generate_fragments, number_of_trajectories, no_hbnet, \
-    ignore_symmetric_clashes, ignore_pose_clashes, ignore_clashes, force_flags, no_evolution_constraint, \
-    no_term_constraint, consensus, structure_info, output_structure
+    structure_background, scout, generate_fragments, number_of_trajectories, hbnet, \
+    ignore_symmetric_clashes, ignore_pose_clashes, ignore_clashes, force_flags, evolution_constraint, \
+    term_constraint, consensus, structure_info, output_structures
 
 logger = start_log(name=__name__)
 
@@ -106,9 +106,9 @@ class JobResources:
             self.ignore_symmetric_clashes: bool = kwargs.get(ignore_symmetric_clashes, False)
         self.increment_chains: bool = kwargs.get('increment_chains', False)
         self.mpi: int = kwargs.get('mpi', 0)
-        self.no_evolution_constraint: bool = kwargs.get(no_evolution_constraint, False)
-        self.no_hbnet: bool = kwargs.get(no_hbnet, False)
-        self.no_term_constraint: bool = kwargs.get(no_term_constraint, False)
+        self.evolution_constraint: bool = kwargs.get(evolution_constraint, False)
+        self.hbnet: bool = kwargs.get(hbnet, False)
+        self.term_constraint: bool = kwargs.get(term_constraint, False)
         self.number_of_trajectories: int = kwargs.get(number_of_trajectories, nstruct)
         self.overwrite: bool = kwargs.get('overwrite', False)
         self.output_directory: AnyStr | None = kwargs.get('output_directory', None)
@@ -141,8 +141,14 @@ class JobResources:
         else:
             self.construct_pose = True
 
-        if self.no_term_constraint:
+        # Handle protocol specific flags
+        if not self.term_constraint:
             self.generate_fragments = False
+
+        if self.structure_background:
+            self.evolution_constraint = False
+            self.hbnet = False
+            self.term_constraint = False
 
     # @staticmethod
     # def make_path(path: AnyStr, condition: bool = True):

@@ -963,7 +963,7 @@ class PoseDirectory:
         else:
             distance = 0
 
-        if self.job.no_evolution_constraint:
+        if not self.job.evolution_constraint:
             constraint_percent, free_percent = 0, 1
         else:
             constraint_percent = 0.5
@@ -1788,7 +1788,7 @@ class PoseDirectory:
             elif os.path.exists(self.frag_file):
                 self.retrieve_fragment_info_from_file()
 
-            if not self.job.no_evolution_constraint:
+            if self.job.evolution_constraint:
                 for entity in self.pose.entities:
                     if entity not in self.pose.active_entities:  # we shouldn't design, add a null profile instead
                         entity.add_profile(null=True)
@@ -1809,7 +1809,7 @@ class PoseDirectory:
 
                         if not entity.sequence_file:
                             entity.write_sequence_to_fasta('reference', out_dir=self.job.api_db.sequences.location)
-                        # entity.add_profile(evolution=not self.job.no_evolution_constraint,
+                        # entity.add_profile(evolution=not self.job.evolution_constraint,
                         #                    fragments=self.job.generate_fragments,
                         #                    out_dir=self.job.api_db.hhblits_profiles.location)
                 self.pose.evolutionary_profile = \
@@ -1820,7 +1820,7 @@ class PoseDirectory:
             # self.pose.combine_sequence_profiles()
             # I could alo add the combined profile here instead of at each Entity
             # self.pose.calculate_profile()
-            self.pose.add_profile(evolution=not self.job.no_evolution_constraint,
+            self.pose.add_profile(evolution=not self.job.evolution_constraint,
                                   fragments=self.job.generate_fragments,
                                   out_dir=self.job.api_db.hhblits_profiles.location)
             write_pssm_file(self.pose.profile, file_name=self.design_profile_file)
@@ -1830,7 +1830,7 @@ class PoseDirectory:
             #         concatenate_profile([entity.fragment_profile for entity in self.pose.entities], start_at=0)
             #     write_pssm_file(self.pose.fragment_profile, file_name=self.fragment_profile_file)
 
-            # if not self.job.no_evolution_constraint:  # Set pose.evolutionary_profile by combining evolution profiles
+            # if self.job.evolution_constraint:  # Set pose.evolutionary_profile by combining evolution profiles
             #     self.pose.evolutionary_profile = \
             #         concatenate_profile([entity.evolutionary_profile for entity in self.pose.entities])
             #     self.pose.pssm_file = \
@@ -1875,7 +1875,7 @@ class PoseDirectory:
             metrics_pdb = ['-in:file:l', design_files]  # self.pdb_list]
             # metrics_flags = 'repack=yes'
             additional_cmds, out_file = [], []
-        elif self.job.no_hbnet:  # run the legacy protocol
+        elif not self.job.hbnet:  # Run the legacy protocol
             protocol, protocol_xml1 = PUtils.interface_design, PUtils.interface_design
             nstruct_instruct = ['-nstruct', str(self.job.number_of_trajectories)]
             design_files = os.path.join(self.scripts, f'design_files_{protocol}.txt')
@@ -1884,7 +1884,7 @@ class PoseDirectory:
             metrics_pdb = ['-in:file:l', design_files]  # self.pdb_list]
             # metrics_flags = 'repack=yes'
             additional_cmds, out_file = [], []
-        else:  # run hbnet_design_profile protocol
+        else:  # Run hbnet_design_profile protocol
             protocol, protocol_xml1 = PUtils.hbnet_design_profile, 'hbnet_scout'
             nstruct_instruct = ['-no_nstruct_label', 'true']
             design_files = os.path.join(self.scripts, f'design_files_{protocol}.txt')
@@ -1926,7 +1926,7 @@ class PoseDirectory:
                     consensus_process.communicate()
             else:
                 self.log.critical(f'Cannot run consensus design without fragment info and none was found.'
-                                  f' Did you mean include --{PUtils.no_term_constraint}?')  # Todo may not be included
+                                  f' Did you mean to include --{PUtils.term_constraint} as {self.job.term_constraint}?')
         # DESIGN: Prepare command and flags file
         # Todo must set up a blank -in:file:pssm in case the evolutionary matrix is not used. Design will fail!!
         profile_cmd = ['-in:file:pssm', self.evolutionary_profile_file] \
@@ -3699,14 +3699,14 @@ def interface_design_analysis(pose: Pose, design_poses: Iterable[Pose] = None, s
     #                                         alignment_type=alignment_types[query_idx])
     #         entity.process_fragment_profile()
     # for entity in pose.entities:
-    #     entity.add_profile(evolution=not job.no_evolution_constraint,
+    #     entity.add_profile(evolution=job.evolution_constraint,
     #                        fragments=job.generate_fragments)
 
     # pose.fragment_profile = concatenate_profile([entity.fragment_profile for entity in pose.entities], start_at=0)
     # pose.profile = concatenate_profile([entity.profile for entity in pose.entities])
     # Todo this needs to be worked out
     pose.calculate_profile()
-    pose.add_profile(evolution=not job.no_evolution_constraint,
+    pose.add_profile(evolution=job.evolution_constraint,
                      fragments=job.generate_fragments)
 
     # Load profiles of interest into the analysis
