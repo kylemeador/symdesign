@@ -83,7 +83,7 @@ def handle_design_errors(errors: tuple[Type[Exception], ...] = (Exception,)) -> 
     return wrapper
 
 
-def close_logs(func):
+def close_logs(func: Callable):
     """Wrap a function/method to close the functions first arguments .log attribute FileHandlers after use"""
     @functools.wraps(func)
     def wrapped(self, *args, **kwargs):
