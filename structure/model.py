@@ -16,7 +16,7 @@ import numpy as np
 import torch
 from sklearn.cluster import KMeans
 from sklearn.neighbors import BallTree
-from sklearn.neighbors._ball_tree import BinaryTree  # this typing implementation supports BallTree or KDTree
+from sklearn.neighbors._ball_tree import BinaryTree  # This typing implementation supports BallTree or KDTree
 
 import flags
 from resources.EulerLookup import EulerLookup, euler_factory
