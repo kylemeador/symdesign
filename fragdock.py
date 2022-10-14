@@ -794,7 +794,9 @@ def create_perturbation_transformations(sym_entry: SymEntry, number: int = 10,
                                        (number**seen_dof, 1, 1))
             remaining_dof -= 1
             seen_dof += 1
-            perturbation_mapping[f'rotation{group_idx}'] = perturb_matrices
+        else:  # np.tile the identity matrix to make equally sized
+            perturb_matrices = np.tile(identity_matrix, (number**total_dof, 1, 1))
+        perturbation_mapping[f'rotation{group_idx}'] = perturb_matrices
 
         if getattr(sym_entry, f'is_internal_tx{group_idx}'):
             # Repeat the translation according to the number of perturbations raised to the power of the
