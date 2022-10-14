@@ -1956,7 +1956,10 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
 
         """
         # These variables are accessed from within the resources.ml.batch_calculation scope
-        nonlocal actual_batch_length, batch_slice
+        # nonlocal actual_batch_length, batch_slice
+        _rotation = rotation[batch_slice]
+        # actual_batch_length = batch_slice.stop - batch_slice.start
+        actual_batch_length = _rotation.shape[0]
         # Transform the coordinates
         # Todo for performing broadcasting of this operation
         #  s_broad = np.matmul(tiled_coords2[None, :, None, :], _full_rotation2[:, None, :, :])
@@ -1964,8 +1967,8 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
         #  inverse_transformed_model2_tiled_coords = transform_coordinate_sets(transform_coordinate_sets()).squeeze()
         transformed_query_points = \
             transform_coordinate_sets(
-                transform_coordinate_sets(query_points[:batch_length],  # Slice ensures same size
-                                          rotation=rotation[batch_slice],
+                transform_coordinate_sets(query_points[:actual_batch_length],  # Slice ensures same size
+                                          rotation=_rotation,
                                           translation=None if translation is None
                                           else translation[batch_slice, None, :],
                                           rotation2=rotation2,  # setting matrix, no slice
@@ -1999,25 +2002,23 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
                                                         function_return_containers=(asu_clash_counts, ),
                                                         setup_args=(bb_cb_coords2,))
     while True:
+        size = number_of_dense_transforms
         try:  # The next batch_length
             # The number_of_batches indicates how many iterations are needed to exhaust all models
             # chunk_size = model_elements * batch_length
-            size = number_of_dense_transforms
             number_of_batches = int(ceil(size/batch_length) or 1)  # Select at least 1
             tiled_coords2 = np.tile(bb_cb_coords2, (batch_length, 1, 1))
             for batch in range(number_of_batches):
                 # Find the upper slice limit
                 batch_slice = slice(batch * batch_length, (batch+1) * batch_length)
-                actual_batch_length = batch_slice.stop - batch_slice.start
+                # actual_batch_length = batch_slice.stop - batch_slice.start
+                _full_rotation2_ = _full_rotation2[batch_slice]
+                actual_batch_length = _full_rotation2_.shape[0]
                 # Transform the coordinates
-                # Todo for performing broadcasting of this operation
-                #  s_broad = np.matmul(tiled_coords2[None, :, None, :], _full_rotation2[:, None, :, :])
-                #  produces a shape of (_full_rotation2.shape[0], tiled_coords2.shape[0], 1, 3)
-                #  inverse_transformed_model2_tiled_coords = transform_coordinate_sets(transform_coordinate_sets()).squeeze()
                 inverse_transformed_model2_tiled_coords = \
                     transform_coordinate_sets(
                         transform_coordinate_sets(tiled_coords2[:actual_batch_length],  # Slice ensures same size
-                                                  rotation=_full_rotation2[batch_slice],
+                                                  rotation=_full_rotation2_,
                                                   translation=None if full_int_tx2 is None
                                                   else _full_int_tx2[batch_slice, None, :],
                                                   rotation2=set_mat2,
@@ -2336,12 +2337,13 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
         #     report_residue_numbers = False
         #     update_pose_coords()
 
-    log.info(f'Found {len(zero_counts)} zero counts')
+    log.debug(f'Found {len(zero_counts)} zero counts')
     number_viable_pose_interfaces = len(interface_is_viable)
     if number_viable_pose_interfaces == 0:  # There were no successful transforms
         log.warning(f'No interfaces have enough fragment matches. Terminating {building_blocks} docking')
         return
     # ------------------ TERM ------------------------
+    log.info(f'Found {number_viable_pose_interfaces} poses with viable interfaces')
     # Generate the Pose for output handling
     entity_names = [entity.name for model in models for entity in model.entities]
     # entity_bb_coords = [entity.backbone_coords for model in models for entity in model.entities]
