@@ -18,7 +18,9 @@ import scipy
 import torch
 from sklearn.cluster import DBSCAN
 from sklearn.neighbors import BallTree
+from sklearn.neighbors._ball_tree import BinaryTree  # This typing implementation supports BallTree or KDTree
 
+import resources
 from metrics import calculate_collapse_metrics, calculate_residue_surface_area, errat_1_sigma, errat_2_sigma, \
     multiple_sequence_alignment_dependent_metrics, profile_dependent_metrics, columns_to_new_column, \
     delta_pairs, division_pairs, interface_composition_similarity, clean_up_intermediate_columns, \
@@ -1916,6 +1918,82 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
     # Reduce scale by factor of divisor to be safe
     start_divisor = divisor = 16
     batch_length = int(number_of_elements_available // model_elements // start_divisor)
+
+    # Create the balltree clash check as a batched function
+    # Specify that setup must be performed before the function should be executed
+    def np_tile_wrap(length: int, coords: np.ndarray, *args, **kwargs):
+        return dict(query_points=np.tile(coords, (length, 1, 1)))
+
+    @resources.ml.batch_calculation(size=number_of_dense_transforms, batch_length=batch_length, setup=np_tile_wrap,
+                                    compute_failure_exceptions=(np.core._exceptions._ArrayMemoryError,))
+    def check_tree_for_query_overlap(
+                                     # actual_batch_length: int, batch_slice: slice,
+                                     binarytree: BinaryTree = None, query_points: np.ndarray = None,
+                                     rotation: np.ndarray = None, translation: np.ndarray = None,
+                                     rotation2: np.ndarray = None, translation2: np.ndarray = None,
+                                     rotation3: np.ndarray = None, translation3: np.ndarray = None,
+                                     rotation4: np.ndarray = None, translation4: np.ndarray = None):
+        """Check for overlapping coordinates between a BinaryTree and a collection of query_points.
+        Transform the query over multiple iterations
+
+        Args:
+            binarytree: The tree to check all queries against
+            query_points: The points to transform, then query against the tree
+            rotation:
+            translation:
+            rotation2:
+            translation2:
+            rotation3:
+            translation3:
+            rotation4:
+            translation4:
+
+        Returns:
+
+        """
+        # These variables are accessed from within the resources.ml.batch_calculation scope
+        nonlocal actual_batch_length, batch_slice
+        # Transform the coordinates
+        # Todo for performing broadcasting of this operation
+        #  s_broad = np.matmul(tiled_coords2[None, :, None, :], _full_rotation2[:, None, :, :])
+        #  produces a shape of (_full_rotation2.shape[0], tiled_coords2.shape[0], 1, 3)
+        #  inverse_transformed_model2_tiled_coords = transform_coordinate_sets(transform_coordinate_sets()).squeeze()
+        transformed_query_points = \
+            transform_coordinate_sets(
+                transform_coordinate_sets(query_points[:batch_length],  # Slice ensures same size
+                                          rotation=rotation[batch_slice],
+                                          translation=None if translation is None
+                                          else translation[batch_slice, None, :],
+                                          rotation2=rotation2,  # setting matrix, no slice
+                                          translation2=None if translation2 is None
+                                          else translation2[batch_slice, None, :]),
+                rotation=rotation3,  # setting matrix, no slice
+                translation=None if translation3 is None else translation3[batch_slice, None, :],
+                rotation2=rotation4[batch_slice],
+                translation2=None if translation4 is None else translation4[batch_slice, None, :])
+
+        overlap_counts = \
+            [binarytree.two_point_correlation(transformed_query_points[idx], clash_vect)[0]
+             for idx in range(actual_batch_length)]
+
+        return overlap_counts
+
+    # resources.ml.batch_calculation(number_of_dense_transforms, batch_length,
+    #                                          function=check_tree_for_query_overlap,
+    #                                          function_kwargs=ball_tree_kwargs,
+    #                                          function_return_containers=(asu_clash_counts,), setup=np_tile_wrap)
+    # Using the inverse transform of the model2 backbone and cb (surface fragment) coordinates, check for clashes
+    # with the model1 backbone and cb coordinates BinaryTree
+    ball_tree_kwargs = dict(binarytree=oligomer1_backbone_cb_tree,
+                            rotation=_full_rotation2, translation=_full_int_tx2,
+                            rotation2=set_mat2, translation2=full_ext_tx_sum,
+                            rotation3=full_inv_rotation1, translation3=full_int_tx_inv1,
+                            rotation4=inv_setting1)
+    batch_calculate = False
+    if batch_calculate:
+        asu_clash_counts = check_tree_for_query_overlap(**ball_tree_kwargs,
+                                                        function_return_containers=(asu_clash_counts, ),
+                                                        setup_args=(bb_cb_coords2,))
     while True:
         try:  # The next batch_length
             # The number_of_batches indicates how many iterations are needed to exhaust all models
@@ -2525,41 +2603,25 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
             ext_tx_perturb1 = np.sum(unsqueezed_perturbed_ext_dof_shifts * sym_entry.external_dof1, axis=-2)
             ext_tx_perturb2 = np.sum(unsqueezed_perturbed_ext_dof_shifts * sym_entry.external_dof2, axis=-2)
 
-        # Pack transformation operations up that are available to perturb and pass to function
-        specific_transformation1 = dict(rotation=full_rotation1,
-                                        translation=full_int_tx1,
-                                        # rotation2=set_mat1,
-                                        translation2=full_ext_tx1)
-        specific_transformation2 = dict(rotation=full_rotation2,
-                                        translation=full_int_tx2,
-                                        # rotation2=set_mat2,
-                                        translation2=full_ext_tx2)
-        transformation1, transformation2 = \
-            perturb_transformations(sym_entry, specific_transformation1, specific_transformation2)
-        # transformation1, transformation2 = \
-        #     perturb_transformations_new(sym_entry, specific_transformation1, specific_transformation2,
-        #                                 ext_dof_shifts=full_optimal_ext_dof_shifts, number=number_of_perturbations)
-        # Extract transformation operations
-        full_rotation1 = transformation1['rotation']
-        full_int_tx1 = transformation1['translation']
-        # set_mat1 = transformation1['rotation2']
-        full_ext_tx1 = transformation1['translation2']
-        full_rotation2 = transformation2['rotation']
-        full_int_tx2 = transformation2['translation']
-        # set_mat2 = transformation2['rotation2']
-        full_ext_tx2 = transformation2['translation2']
-
-        # Check for symmetric clashes again
-        length_all_perturbations = full_rotation1.shape[0]
-        passing_symmetric_clash_indices_perturb = remove_symmetric_clashes(length_all_perturbations)
-        # Remove non-viable transforms due to clashing
-        # Todo
-        #  remove_non_viable_indices(passing_symmetric_clash_indices_perturb.tolist())
-        # degen_counts, rot_counts, tx_counts = zip(*[(degen_counts[idx], rot_counts[idx], tx_counts[idx])
-        #                                             for idx in passing_symmetric_clash_indices_perturb.tolist()])
-        # all_passing_ghost_indices = [all_passing_ghost_indices[idx] for idx in passing_symmetric_clash_indices_perturb.tolist()]
-        # all_passing_surf_indices = [all_passing_surf_indices[idx] for idx in passing_symmetric_clash_indices_perturb.tolist()]
-        # all_passing_z_scores = [all_passing_z_scores[idx] for idx in passing_symmetric_clash_indices_perturb.tolist()]
+            # Check for ASU clashes again
+            # Using the inverse transform of the model2 backbone and cb (surface fragment) coordinates, check for clashes
+            # with the model1 backbone and cb coordinates BallTree
+            ball_tree_kwargs = dict(binarytree=oligomer1_backbone_cb_tree,
+                                    rotation=full_rotation2, translation=full_int_tx2,
+                                    rotation2=set_mat2, translation2=full_ext_tx_sum,
+                                    rotation3=full_inv_rotation1, translation3=None if full_int_tx1 is None else full_int_tx1 * -1,
+                                    rotation4=inv_setting1)
+            # Create a fresh asu_clash_counts
+            asu_clash_counts = np.ones(number_of_transforms)
+            asu_clash_counts = check_tree_for_query_overlap(**ball_tree_kwargs,
+                                                            function_return_containers=(asu_clash_counts, ),
+                                                            setup_args=(bb_cb_coords2,))
+            passing_perturbations = np.flatnonzero(asu_clash_counts == 0)
+            # Check for symmetric clashes again
+            passing_symmetric_clash_indices_perturb = find_viable_symmetric_indices(passing_perturbations.tolist())
+            # Index the passing ASU indices with the passing symmetric indices and keep all viable transforms
+            # Stack the viable perturbed transforms
+            stack_viable_transforms(passing_perturbations[passing_symmetric_clash_indices_perturb])
 
         full_rotation1 = full_rotation1[passing_symmetric_clash_indices_perturb]
         full_rotation2 = full_rotation2[passing_symmetric_clash_indices_perturb]
