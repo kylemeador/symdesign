@@ -1740,12 +1740,13 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
         full_ext_tx2 = np.sum(unsqueezed_optimal_ext_dof_shifts * sym_entry.external_dof2, axis=-2)
         # full_ext_tx1 = np.concatenate(full_ext_tx1, axis=0)  # .sum(axis=-2)
         # full_ext_tx2 = np.concatenate(full_ext_tx2, axis=0)  # .sum(axis=-2)
-        # Todo uncomment below if use tile_transform in the reverse orientation
-        # full_ext_tx_sum = full_ext_tx2 - full_ext_tx1
+        full_ext_tx_sum = full_ext_tx2 - full_ext_tx1
     else:
         # stacked_external_tx1, stacked_external_tx2 = None, None
         full_ext_tx1 = full_ext_tx2 = full_optimal_ext_dof_shifts = None
         # full_optimal_ext_dof_shifts = list(repeat(None, number_passing_shifts))
+        external_tx1 = external_tx2 = uc_dimensions = None
+        full_ext_tx_sum = None
 
     # fragment_pairs = np.array(fragment_pairs)
     # Make full, numpy vectorized transformations overwriting individual variables for memory management
@@ -1775,7 +1776,7 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
     # tile_transform1 = {'rotation': full_rotation2,
     #                    'translation': None if full_int_tx2 is None else full_int_tx2[:, None, :],
     #                    'rotation2': set_mat2,
-    #                    'translation2': full_ext_tx_sum[:, None, :] if full_ext_tx_sum is not None else None}  # invert translation
+    #                    'translation2': full_ext_tx_sum[:, None, :] if sym_entry.unit_cell is not None else None}
     # tile_transform2 = {'rotation': inv_setting1,
     #                    'translation': None if full_int_tx1 is None else full_int_tx1[:, None, :] * -1,
     #                    'rotation2': full_inv_rotation1,
@@ -1815,11 +1816,15 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
                                           translation2=None if full_ext_tx2 is None else full_ext_tx2[:, None, :]),
                                      minimum_members=min_matched)
     # cluster_representative_indices, cluster_labels = find_cluster_representatives(transform_neighbor_tree, cluster)
+    # representative_labels = cluster_labels[cluster_representative_indices]
     # Todo?
     #  _, cluster_labels = find_cluster_representatives(transform_neighbor_tree, cluster)
     cluster_labels = cluster.labels_
     # log.debug(f'shape of cluster_labels: {cluster_labels.shape}')
-    sufficiently_dense_indices = np.flatnonzero(cluster_labels != -1)
+    # sufficiently_dense_boolean_Y = cluster_labels != -1
+    # sufficiently_dense_indices = np.flatnonzero(sufficiently_dense_boolean_Y)
+    passing_transforms = cluster_labels != -1
+    sufficiently_dense_indices = np.flatnonzero(passing_transforms)
     number_of_dense_transforms = len(sufficiently_dense_indices)
 
     log.info(f'Found {starting_transforms} total transforms, {starting_transforms - number_of_dense_transforms} of '
@@ -1829,51 +1834,68 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
         log.warning(f'No viable transformations found. Terminating {building_blocks} docking')
         return
     # ------------------ TERM ------------------------
-    # representative_labels = cluster_labels[cluster_representative_indices]
-
-    # Todo?
-    # def remove_non_viable_indices(passing_indices: list[int]):
-    #     degen_counts, rot_counts, tx_counts = zip(*[(degen_counts[idx], rot_counts[idx], tx_counts[idx])
-    #                                                 for idx in passing_indices])
-    #     all_passing_ghost_indices = [all_passing_ghost_indices[idx] for idx in passing_indices]
-    #     all_passing_surf_indices = [all_passing_surf_indices[idx] for idx in passing_indices]
-    #     all_passing_z_scores = [all_passing_z_scores[idx] for idx in passing_indices]
-    #
-    #     full_rotation1 = full_rotation1[passing_indices]
-    #     full_rotation2 = full_rotation2[passing_indices]
-    #     full_int_tx1 = full_int_tx1[passing_indices]
-    #     full_int_tx2 = full_int_tx2[passing_indices]
-    #     if sym_entry.unit_cell:
-    #         full_optimal_ext_dof_shifts = full_optimal_ext_dof_shifts[passing_indices]
-    #         full_uc_dimensions = full_uc_dimensions[passing_indices]
-    #         full_ext_tx1 = full_ext_tx1[passing_indices]
-    #         full_ext_tx2 = full_ext_tx2[passing_indices]
-    #         # full_ext_tx_sum = full_ext_tx2 - full_ext_tx1
-
-    ####################
-    # Remove non-viable transforms by indexing sufficiently_dense_indices
-    # Todo
-    #  remove_non_viable_indices(sufficiently_dense_indices.tolist())
-    degen_counts, rot_counts, tx_counts = zip(*[(degen_counts[idx], rot_counts[idx], tx_counts[idx])
-                                                for idx in sufficiently_dense_indices.tolist()])
     # Update the transformation array and counts with the sufficiently_dense_indices
-    # fragment_pairs = fragment_pairs[sufficiently_dense_indices]
-    full_rotation1 = full_rotation1[sufficiently_dense_indices]
-    full_rotation2 = full_rotation2[sufficiently_dense_indices]
-    if sym_entry.is_internal_tx1:
-        full_int_tx1 = full_int_tx1[sufficiently_dense_indices]
-    if sym_entry.is_internal_tx2:
-        full_int_tx2 = full_int_tx2[sufficiently_dense_indices]
-    if sym_entry.unit_cell:
-        full_optimal_ext_dof_shifts = full_optimal_ext_dof_shifts[sufficiently_dense_indices]
-        full_ext_tx1 = full_ext_tx1[sufficiently_dense_indices]
-        full_ext_tx2 = full_ext_tx2[sufficiently_dense_indices]
-        full_ext_tx_sum = full_ext_tx2 - full_ext_tx1
-    else:
-        # Set this for the first time
-        full_ext_tx_sum = None
-    full_inv_rotation1 = np.linalg.inv(full_rotation1)
+    # degen_counts, rot_counts, tx_counts = zip(*[(degen_counts[idx], rot_counts[idx], tx_counts[idx])
+    #                                             for idx in sufficiently_dense_indices.tolist()])
     inv_setting1 = np.linalg.inv(set_mat1)
+    # fragment_pairs = fragment_pairs[sufficiently_dense_indices]
+    # full_rotation1 = full_rotation1[sufficiently_dense_indices]
+    full_inv_rotation1 = np.linalg.inv(full_rotation1)
+    _full_rotation2 = full_rotation2.copy()
+    if sym_entry.is_internal_tx1:
+        full_int_tx_inv1 = full_int_tx1 * -1  # Invert by multiplying by -1
+    if sym_entry.is_internal_tx2:
+        _full_int_tx2 = full_int_tx2.copy()
+    # if sym_entry.unit_cell:
+    #     # full_optimal_ext_dof_shifts = full_optimal_ext_dof_shifts[sufficiently_dense_indices]
+    #     # full_ext_tx1 = full_ext_tx1[sufficiently_dense_indices]
+    #     # full_ext_tx2 = full_ext_tx2[sufficiently_dense_indices]
+    #     full_ext_tx_sum = full_ext_tx2 - full_ext_tx1
+    # else:
+    #     # Set this for the first time
+    #     full_ext_tx_sum = None
+
+    # Define functions for removing indices from the active transformation arrays
+
+    def remove_non_viable_indices_inverse(passing_indices: np.ndarray | list[int]):
+        # degen_counts, rot_counts, tx_counts = zip(*[(degen_counts[idx], rot_counts[idx], tx_counts[idx])
+        #                                             for idx in passing_indices])
+        # all_passing_ghost_indices = [all_passing_ghost_indices[idx] for idx in passing_indices]
+        # all_passing_surf_indices = [all_passing_surf_indices[idx] for idx in passing_indices]
+        # all_passing_z_scores = [all_passing_z_scores[idx] for idx in passing_indices]
+        nonlocal full_inv_rotation1, _full_rotation2, full_int_tx_inv1, _full_int_tx2, full_ext_tx_sum
+        full_inv_rotation1 = full_inv_rotation1[passing_indices]
+        _full_rotation2 = _full_rotation2[passing_indices]
+        if sym_entry.is_internal_tx1:
+            full_int_tx_inv1 = full_int_tx_inv1[passing_indices]
+        if sym_entry.is_internal_tx2:
+            _full_int_tx2 = _full_int_tx2[passing_indices]
+        if sym_entry.unit_cell:
+            full_ext_tx_sum = full_ext_tx_sum[passing_indices]
+
+    def remove_non_viable_indices(passing_indices: np.ndarray | list[int]):
+        # degen_counts, rot_counts, tx_counts = zip(*[(degen_counts[idx], rot_counts[idx], tx_counts[idx])
+        #                                             for idx in passing_indices])
+        # all_passing_ghost_indices = [all_passing_ghost_indices[idx] for idx in passing_indices]
+        # all_passing_surf_indices = [all_passing_surf_indices[idx] for idx in passing_indices]
+        # all_passing_z_scores = [all_passing_z_scores[idx] for idx in passing_indices]
+        nonlocal full_rotation1, full_rotation2, full_int_tx1, full_int_tx2
+        full_rotation1 = full_rotation1[passing_indices]
+        full_rotation2 = full_rotation2[passing_indices]
+        if sym_entry.is_internal_tx1:
+            full_int_tx1 = full_int_tx1[passing_indices]
+        if sym_entry.is_internal_tx2:
+            full_int_tx2 = full_int_tx2[passing_indices]
+
+        if sym_entry.unit_cell:
+            nonlocal full_optimal_ext_dof_shifts, full_ext_tx1, full_ext_tx2
+            full_optimal_ext_dof_shifts = full_optimal_ext_dof_shifts[passing_indices]
+            # full_uc_dimensions = full_uc_dimensions[passing_indices]
+            full_ext_tx1 = full_ext_tx1[passing_indices]
+            full_ext_tx2 = full_ext_tx2[passing_indices]
+
+    # Remove non-viable transforms by indexing sufficiently_dense_indices
+    remove_non_viable_indices_inverse(sufficiently_dense_indices)
 
     # Transform coords to query for clashes
     # Set up chunks of coordinate transforms for clash testing
@@ -1954,39 +1976,43 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
     # Find those indices where the asu_clash_counts is not zero (inverse of nonzero by using the array == 0)
     asu_is_viable = np.flatnonzero(asu_clash_counts == 0)
     number_non_clashing_transforms = asu_is_viable.shape[0]
+    # Update the passing_transforms
+    # passing_transforms contains all the transformations that are still passing
+    # index the previously passing indices (sufficiently_dense_indices) by new pasing indices (asu_is_viable)
+    # and set each of these indices to 1 (True)
+    # passing_transforms[sufficiently_dense_indices[asu_is_viable]] = 1
     log.info(f'Clash testing for All Oligomer1 and Oligomer2 (took {time.time() - check_clash_coords_start:8f}s) '
-             f'found {number_non_clashing_transforms} viable ASU\'s out of {number_of_dense_transforms}')
+             f"found {number_non_clashing_transforms} viable ASU's out of {number_of_dense_transforms}")
     # input_ = input('Please confirm to continue protocol')
 
     if not number_non_clashing_transforms:  # There were no successful asus that don't clash
         log.warning(f'No viable asymmetric units. Terminating {building_blocks} docking')
         return
     # ------------------ TERM ------------------------
-    # Update the transformation array and counts with the asu_is_viable indices
-    # Todo
-    #  remove_non_viable_indices(asu_is_viable.tolist())
-    degen_counts, rot_counts, tx_counts = zip(*[(degen_counts[idx], rot_counts[idx], tx_counts[idx])
-                                                for idx in asu_is_viable.tolist()])
-    # fragment_pairs = fragment_pairs[asu_is_viable]
-    full_rotation1 = full_rotation1[asu_is_viable]
-    full_rotation2 = full_rotation2[asu_is_viable]
-    if sym_entry.is_internal_tx1:
-        full_int_tx1 = full_int_tx1[asu_is_viable]
-    if sym_entry.is_internal_tx2:
-        full_int_tx2 = full_int_tx2[asu_is_viable]
-    if sym_entry.unit_cell:
-        full_optimal_ext_dof_shifts = full_optimal_ext_dof_shifts[asu_is_viable]
-        full_ext_tx1 = full_ext_tx1[asu_is_viable]
-        full_ext_tx2 = full_ext_tx2[asu_is_viable]
-        full_ext_tx_sum = full_ext_tx2 - full_ext_tx1
-
-    full_inv_rotation1 = full_inv_rotation1[asu_is_viable]
+    # Remove non-viable transforms by indexing asu_is_viable
+    remove_non_viable_indices_inverse(asu_is_viable)
+    # degen_counts, rot_counts, tx_counts = zip(*[(degen_counts[idx], rot_counts[idx], tx_counts[idx])
+    #                                             for idx in asu_is_viable.tolist()])
+    # # fragment_pairs = fragment_pairs[asu_is_viable]
+    # full_rotation1 = full_rotation1[asu_is_viable]
+    # _full_rotation2 = _full_rotation2[asu_is_viable]
+    # if sym_entry.is_internal_tx1:
+    #     full_int_tx_inv1 = full_int_tx_inv1[asu_is_viable]
+    # if sym_entry.is_internal_tx2:
+    #     _full_int_tx2 = _full_int_tx2[asu_is_viable]
+    # if sym_entry.unit_cell:
+    #     full_optimal_ext_dof_shifts = full_optimal_ext_dof_shifts[asu_is_viable]
+    #     full_ext_tx1 = full_ext_tx1[asu_is_viable]
+    #     full_ext_tx2 = full_ext_tx2[asu_is_viable]
+    #     full_ext_tx_sum = full_ext_tx2 - full_ext_tx1
+    #
+    # full_inv_rotation1 = full_inv_rotation1[asu_is_viable]
 
     # log.debug('Checking rotation and translation fidelity after removing non-viable asu indices')
     # check_forward_and_reverse(ghost_guide_coords1,
-    #                           full_rotation1, full_int_tx1,
+    #                           full_rotation1, full_int_tx_inv1,
     #                           surf_guide_coords2,
-    #                           full_rotation2, full_int_tx2,
+    #                           _full_rotation2, _full_int_tx2,
     #                           ghost_rmsds1)
 
     #################
@@ -1998,31 +2024,29 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
     inverse_transformed_model2_tiled_cb_coords = \
         transform_coordinate_sets(transform_coordinate_sets(np.tile(model2.cb_coords,
                                                                     (number_non_clashing_transforms, 1, 1)),
-                                                            rotation=full_rotation2,
+                                                            rotation=_full_rotation2,
                                                             translation=None if full_int_tx2 is None
-                                                            else full_int_tx2[:, None, :],
+                                                            else _full_int_tx2[:, None, :],
                                                             rotation2=set_mat2,
-                                                            translation2=None if full_ext_tx_sum is None
+                                                            translation2=None if sym_entry.unit_cell is None
                                                             else full_ext_tx_sum[:, None, :]),
                                   rotation=inv_setting1,
-                                  translation=None if full_int_tx1 is None else full_int_tx1[:, None, :] * -1,
-                                  rotation2=full_inv_rotation1,
-                                  translation2=None)
+                                  translation=None if full_int_tx1 is None else full_int_tx_inv1[:, None, :],
+                                  rotation2=full_inv_rotation1)
 
     # Transform the surface guide coords of oligomer 2 to each identified transformation
     # Makes a shape (full_rotations.shape[0], surf_guide_coords.shape[0], 3, 3)
     inverse_transformed_surf_frags2_guide_coords = \
         transform_coordinate_sets(transform_coordinate_sets(surf_guide_coords2[None, :, :, :],
-                                                            rotation=full_rotation2[:, None, :, :],
+                                                            rotation=_full_rotation2[:, None, :, :],
                                                             translation=None if full_int_tx2 is None
-                                                            else full_int_tx2[:, None, None, :],
+                                                            else _full_int_tx2[:, None, None, :],
                                                             rotation2=set_mat2[None, None, :, :],
-                                                            translation2=None if full_ext_tx_sum is None
+                                                            translation2=None if sym_entry.unit_cell is None
                                                             else full_ext_tx_sum[:, None, None, :]),
                                   rotation=inv_setting1[None, None, :, :],
-                                  translation=None if full_int_tx1 is None else full_int_tx1[:, None, None, :] * -1,
-                                  rotation2=full_inv_rotation1[:, None, :, :],
-                                  translation2=None)
+                                  translation=None if full_int_tx1 is None else full_int_tx_inv1[:, None, None, :],
+                                  rotation2=full_inv_rotation1[:, None, :, :])
 
     log.info(f'\tTransformation of all viable Oligomer 2 CB atoms and surface fragments took '
              f'{time.time() - int_cb_and_frags_start:8f}s')
@@ -2039,107 +2063,6 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
         new_pose.coords = np.concatenate(new_coords)
 
         return new_pose
-
-    def update_pose_coords(idx):
-        # Get contacting PDB 1 ASU and PDB 2 ASU
-        copy_model_start = time.time()
-        rot_mat1 = full_rotation1[idx]
-        rot_mat2 = full_rotation2[idx]
-        if sym_entry.is_internal_tx1:
-            internal_tx_param1 = full_int_tx1[idx]
-        else:
-            internal_tx_param1 = None
-        if sym_entry.is_internal_tx2:
-            internal_tx_param2 = full_int_tx2[idx]
-        else:
-            internal_tx_param2 = None
-        if sym_entry.unit_cell:
-            external_tx_params1 = full_ext_tx1[idx]
-            external_tx_params2 = full_ext_tx2[idx]
-            # asu.space_group = sym_entry.resulting_symmetry
-            uc_dimensions = full_uc_dimensions[idx]
-        else:
-            external_tx_params1, external_tx_params2 = None, None
-            uc_dimensions = None
-
-        specific_transformation1 = dict(rotation=rot_mat1, translation=internal_tx_param1,
-                                        rotation2=set_mat1, translation2=external_tx_params1)
-        specific_transformation2 = dict(rotation=rot_mat2, translation=internal_tx_param2,
-                                        rotation2=set_mat2, translation2=external_tx_params2)
-        specific_transformations = [specific_transformation1, specific_transformation2]
-
-        # Set the next unit cell dimensions
-        pose.uc_dimensions = uc_dimensions
-        # Transform each starting coords to the candidate pose coords then update the Pose coords
-        # log.debug(f'Transforming pose coordinates to the current docked configuration')
-        new_coords = []
-        for entity_idx, entity in enumerate(pose.entities):
-            # log.debug(f'transform_indices[entity_idx]={transform_indices[entity_idx]}'
-            #           f'entity_idx={entity_idx}')
-            # tsnfmd = transform_coordinate_sets(entity_start_coords[entity_idx],
-            #                                    **specific_transformations[transform_indices[entity_idx]])
-            # log.debug(f'Equality of tsnfmd and original {np.allclose(tsnfmd, entity_start_coords[entity_idx])}')
-            # log.debug(f'tsnfmd: {tsnfmd[:5]}')
-            # log.debug(f'start_coords: {entity_start_coords[entity_idx][:5]}')
-            new_coords.append(transform_coordinate_sets(entity_start_coords[entity_idx],
-                                                        **specific_transformations[transform_indices[entity_idx]]))
-        pose.coords = np.concatenate(new_coords)
-
-        log.debug(f'\tCopy and Transform Oligomer1 and Oligomer2 (took {time.time() - copy_model_start:8f}s)')
-
-    def output_pose(out_path: AnyStr, _pose_id: AnyStr, uc_dimensions: np.ndarray = None):
-        """
-
-        Args:
-            out_path:
-            _pose_id:
-            uc_dimensions:
-
-        Returns:
-
-        """
-        os.makedirs(out_path, exist_ok=True)
-
-        # Set the ASU, then write to a file
-        pose.set_contacting_asu(distance=cb_distance)
-        if sym_entry.unit_cell:  # 2, 3 dimensions
-            # asu = get_central_asu(asu, uc_dimensions, sym_entry.dimension)
-            cryst_record = generate_cryst1_record(uc_dimensions, sym_entry.resulting_symmetry)
-        else:
-            cryst_record = None
-
-        if job.write_structure:
-            pose.write(out_path=os.path.join(out_path, asu_file_name), header=cryst_record)
-
-        # Todo group by input model... not entities
-        # Write Model1, Model2
-        if job.write_oligomers:
-            for entity in pose.entities:
-                entity.write_oligomer(out_path=os.path.join(out_path, f'{entity.name}_{_pose_id}.pdb'))
-
-        # Write assembly files
-        if job.output_assembly:
-            if sym_entry.unit_cell:  # 2, 3 dimensions
-                if job.output_surrounding_uc:
-                    assembly_path = os.path.join(out_path, 'surrounding_unit_cells.pdb')
-                else:
-                    assembly_path = os.path.join(out_path, 'central_uc.pdb')
-            else:  # 0 dimension
-                assembly_path = os.path.join(out_path, 'expanded_assembly.pdb')
-            pose.write(assembly=True, out_path=assembly_path, header=cryst_record,
-                       surrounding_uc=job.output_surrounding_uc)
-
-        # Write fragment files
-        if job.write_fragments:
-            # Make directories to output matched fragment files
-            matching_fragments_dir = os.path.join(out_path, frag_dir)
-            os.makedirs(matching_fragments_dir, exist_ok=True)
-            # high_qual_match for fragments that were matched with z values <= 1, otherwise, low_qual_match
-            # high_quality_matches_dir = os.path.join(matching_fragments_dir, 'high_qual_match')
-            # low_quality_matches_dir = os.path.join(matching_fragments_dir, 'low_qual_match')
-            pose.write_fragment_pairs(out_path=matching_fragments_dir)
-
-        log.info(f'\tSUCCESSFUL DOCKED POSE: {out_path}')
 
     # Use below instead of this until can TODO vectorize asu_interface_residue_processing
     # asu_interface_residues = \
@@ -2339,32 +2262,11 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
         #     update_pose_coords()
 
     log.info(f'Found {len(zero_counts)} zero counts')
-    if not interface_is_viable:  # There were no successful transforms
+    number_viable_pose_interfaces = len(interface_is_viable)
+    if number_viable_pose_interfaces == 0:  # There were no successful transforms
         log.warning(f'No interfaces have enough fragment matches. Terminating {building_blocks} docking')
         return
     # ------------------ TERM ------------------------
-    # Update the transformation array and counts with the interface_is_viable indices
-    # Todo
-    #  remove_non_viable_indices(interface_is_viable)
-    # Todo
-    #  Turn the degen_counts into indices... These will be used for rotation slicing?
-    degen_counts, rot_counts, tx_counts = zip(*[(degen_counts[idx], rot_counts[idx], tx_counts[idx])
-                                                for idx in interface_is_viable])
-    full_rotation1 = full_rotation1[interface_is_viable]
-    full_rotation2 = full_rotation2[interface_is_viable]
-    if sym_entry.is_internal_tx1:
-        full_int_tx1 = full_int_tx1[interface_is_viable]
-    if sym_entry.is_internal_tx2:
-        full_int_tx2 = full_int_tx2[interface_is_viable]
-    if sym_entry.unit_cell:
-        full_optimal_ext_dof_shifts = full_optimal_ext_dof_shifts[interface_is_viable]
-        # Calculate the vectorized uc_dimensions
-        full_uc_dimensions = sym_entry.get_uc_dimensions(full_optimal_ext_dof_shifts)
-        full_ext_tx1 = full_ext_tx1[interface_is_viable]
-        full_ext_tx2 = full_ext_tx2[interface_is_viable]
-        # full_ext_tx_sum = full_ext_tx2 - full_ext_tx1
-    number_viable_pose_interfaces = len(interface_is_viable)
-
     # Generate the Pose for output handling
     entity_names = [entity.name for model in models for entity in model.entities]
     # entity_bb_coords = [entity.backbone_coords for model in models for entity in model.entities]
@@ -2510,35 +2412,83 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
         # Update the transformation array and counts with the _passing_symmetric_clashes indices
         return np.flatnonzero(_passing_symmetric_clashes)
 
-    passing_symmetric_clashes = remove_symmetric_clashes(number_viable_pose_interfaces)
-    number_passing_symmetric_clashes = passing_symmetric_clashes.shape[0]
+    # Make the indices into an array
+    interface_is_viable = np.array(interface_is_viable, dtype=int)
+    # Todo
+    #  Turn the degen_counts into indices... These will be used for rotation slicing?
+    # Update the passing_transforms
+    # passing_transforms contains all the transformations that are still passing
+    # index the previously passing indices (sufficiently_dense_indices) and (asu_is_viable)
+    # by new passing indices (interface_is_viable)
+    # and set each of these indices to 1 (True)
+    # passing_transforms[sufficiently_dense_indices[asu_is_viable[interface_is_viable]]] = 1
+    # # Remove non-viable transforms from the original transformation parameters by indexing interface_is_viable
+    # passing_transforms_indices = np.flatnonzero(passing_transforms)
+    # # remove_non_viable_indices(passing_transforms_indices)
+    passing_transforms_indices = sufficiently_dense_indices[asu_is_viable[interface_is_viable]]
+
+    # degen_counts, rot_counts, tx_counts = zip(*[(degen_counts[idx], rot_counts[idx], tx_counts[idx])
+    #                                             for idx in interface_is_viable])
+    # full_rotation1 = full_rotation1[interface_is_viable]
+    # full_rotation2 = full_rotation2[interface_is_viable]
+    # if sym_entry.is_internal_tx1:
+    #     full_int_tx1 = full_int_tx1[interface_is_viable]
+    # if sym_entry.is_internal_tx2:
+    #     full_int_tx2 = full_int_tx2[interface_is_viable]
+    if sym_entry.unit_cell:
+        # full_optimal_ext_dof_shifts = full_optimal_ext_dof_shifts[interface_is_viable]
+        # Calculate the vectorized uc_dimensions
+        full_uc_dimensions = sym_entry.get_uc_dimensions(full_optimal_ext_dof_shifts)
+        # full_ext_tx1 = full_ext_tx1[interface_is_viable]
+        # full_ext_tx2 = full_ext_tx2[interface_is_viable]
+        # # full_ext_tx_sum = full_ext_tx2 - full_ext_tx1
+
+    # passing_symmetric_clash_indices = remove_symmetric_clashes(number_viable_pose_interfaces)
+    passing_symmetric_clash_indices = remove_symmetric_clashes(passing_transforms_indices.tolist())
+    number_passing_symmetric_clashes = passing_symmetric_clash_indices.shape[0]
     log.info(f'After symmetric clash testing, found {number_passing_symmetric_clashes} viable poses')
 
     if number_passing_symmetric_clashes == 0:  # There were no successful transforms
         log.warning(f'No viable poses without symmetric clashes. Terminating {building_blocks} docking')
         return
     # ------------------ TERM ------------------------
-    # Remove non-viable transforms due to clashing
-    # Todo
-    #  remove_non_viable_indices(passing_symmetric_clashes.tolist())
-    degen_counts, rot_counts, tx_counts = zip(*[(degen_counts[idx], rot_counts[idx], tx_counts[idx])
-                                                for idx in passing_symmetric_clashes.tolist()])
-    all_passing_ghost_indices = [all_passing_ghost_indices[idx] for idx in passing_symmetric_clashes.tolist()]
-    all_passing_surf_indices = [all_passing_surf_indices[idx] for idx in passing_symmetric_clashes.tolist()]
-    all_passing_z_scores = [all_passing_z_scores[idx] for idx in passing_symmetric_clashes.tolist()]
+    # Update the passing_transforms
+    # passing_transforms contains all the transformations that are still passing
+    # index the previously passing indices (sufficiently_dense_indices) and (asu_is_viable) and (interface_is_viable)
+    # by new passing indices (passing_symmetric_clash_indices)
+    # and set each of these indices to 1 (True)
+    # passing_transforms_indices = \
+    #     sufficiently_dense_indices[asu_is_viable[interface_is_viable[passing_symmetric_clash_indices]]]
+    passing_transforms_indices = passing_transforms_indices[passing_symmetric_clash_indices]
+    # Todo could this be used?
+    # passing_transforms[passing_transforms_indices] = 1
 
-    full_rotation1 = full_rotation1[passing_symmetric_clashes]
-    full_rotation2 = full_rotation2[passing_symmetric_clashes]
-    if sym_entry.is_internal_tx1:
-        full_int_tx1 = full_int_tx1[passing_symmetric_clashes]
-    if sym_entry.is_internal_tx2:
-        full_int_tx2 = full_int_tx2[passing_symmetric_clashes]
+    # Remove non-viable transforms from the original transformations due to clashing
+    remove_non_viable_indices(passing_transforms_indices)
+    # passing_transforms_indices = np.flatnonzero(passing_transforms)
+    degen_counts, rot_counts, tx_counts = zip(*[(degen_counts[idx], rot_counts[idx], tx_counts[idx])
+                                                for idx in passing_transforms_indices.tolist()])
+    # degen_counts, rot_counts, tx_counts = zip(*[(degen_counts[idx], rot_counts[idx], tx_counts[idx])
+    #                                             for idx in passing_symmetric_clash_indices.tolist()])
+    # all_passing_ghost_indices = [all_passing_ghost_indices[idx] for idx in passing_symmetric_clash_indices.tolist()]
+    # all_passing_surf_indices = [all_passing_surf_indices[idx] for idx in passing_symmetric_clash_indices.tolist()]
+    # all_passing_z_scores = [all_passing_z_scores[idx] for idx in passing_symmetric_clash_indices.tolist()]
+
+    # full_rotation1 = full_rotation1[passing_symmetric_clash_indices]
+    # full_rotation2 = full_rotation2[passing_symmetric_clash_indices]
+    # if sym_entry.is_internal_tx1:
+    #     full_int_tx1 = full_int_tx1[passing_symmetric_clash_indices]
+    # if sym_entry.is_internal_tx2:
+    #     full_int_tx2 = full_int_tx2[passing_symmetric_clash_indices]
+    # if sym_entry.unit_cell:
+    #     full_optimal_ext_dof_shifts = full_optimal_ext_dof_shifts[passing_symmetric_clash_indices]
+    #     full_uc_dimensions = full_uc_dimensions[passing_symmetric_clash_indices]
+    #     full_ext_tx1 = full_ext_tx1[passing_symmetric_clash_indices]
+    #     full_ext_tx2 = full_ext_tx2[passing_symmetric_clash_indices]
+    #     # full_ext_tx_sum = full_ext_tx2 - full_ext_tx1
     if sym_entry.unit_cell:
-        full_optimal_ext_dof_shifts = full_optimal_ext_dof_shifts[passing_symmetric_clashes]
-        full_uc_dimensions = full_uc_dimensions[passing_symmetric_clashes]
-        full_ext_tx1 = full_ext_tx1[passing_symmetric_clashes]
-        full_ext_tx2 = full_ext_tx2[passing_symmetric_clashes]
-        # full_ext_tx_sum = full_ext_tx2 - full_ext_tx1
+        # Calculate the vectorized uc_dimensions
+        full_uc_dimensions = sym_entry.get_uc_dimensions(full_optimal_ext_dof_shifts)
 
     # Next, expand successful poses from coarse search of transformational space to randomly perturbed offset
     # This occurs by perturbing the transformation by a random small amount to generate transformational diversity from
@@ -2740,6 +2690,8 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
 
         log.info(f'\tSUCCESSFUL DOCKED POSE: {out_path}')
 
+    # From here out, the transforms used should be only those of interest for outputting/sequence design
+    # remove_non_viable_indices() <- This is done above
     # Check output setting. Should interface design, metrics be performed?
     if dock_only:  # Only get pose outputs, no sequences or metrics
         for idx in range(number_of_transforms):
