@@ -1930,13 +1930,13 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
 
     @resources.ml.batch_calculation(size=number_of_dense_transforms, batch_length=batch_length, setup=np_tile_wrap,
                                     compute_failure_exceptions=(np.core._exceptions._ArrayMemoryError,))
-    def check_tree_for_query_overlap(
-                                     # actual_batch_length: int, batch_slice: slice,
+    def check_tree_for_query_overlap(batch_slice: slice,
                                      binarytree: BinaryTree = None, query_points: np.ndarray = None,
                                      rotation: np.ndarray = None, translation: np.ndarray = None,
                                      rotation2: np.ndarray = None, translation2: np.ndarray = None,
                                      rotation3: np.ndarray = None, translation3: np.ndarray = None,
-                                     rotation4: np.ndarray = None, translation4: np.ndarray = None):
+                                     rotation4: np.ndarray = None, translation4: np.ndarray = None) \
+            -> dict[str, list]:
         """Check for overlapping coordinates between a BinaryTree and a collection of query_points.
         Transform the query over multiple iterations
 
@@ -1953,7 +1953,7 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
             translation4:
 
         Returns:
-
+            The number of overlaps found at each transformed query point as a dictionary
         """
         # These variables are accessed from within the resources.ml.batch_calculation scope
         # nonlocal actual_batch_length, batch_slice
@@ -1983,7 +1983,7 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
             [binarytree.two_point_correlation(transformed_query_points[idx], clash_vect)[0]
              for idx in range(actual_batch_length)]
 
-        return overlap_counts
+        return {'overlap_counts': overlap_counts}
 
     # resources.ml.batch_calculation(number_of_dense_transforms, batch_length,
     #                                          function=check_tree_for_query_overlap,
@@ -1996,11 +1996,15 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
                             rotation2=set_mat2, translation2=full_ext_tx_sum,
                             rotation3=full_inv_rotation1, translation3=full_int_tx_inv1,
                             rotation4=inv_setting1)
-    batch_calculate = False
-    if batch_calculate:
-        asu_clash_counts = check_tree_for_query_overlap(**ball_tree_kwargs,
-                                                        function_return_containers=(asu_clash_counts, ),
-                                                        setup_args=(bb_cb_coords2,))
+    # batch_calculate = True
+    # if batch_calculate:
+    # asu_clash_counts, *_ = check_tree_for_query_overlap(**ball_tree_kwargs,
+    overlap_return = check_tree_for_query_overlap(**ball_tree_kwargs,
+                                                  function_return_containers={'overlap_counts': asu_clash_counts},
+                                                  setup_args=(bb_cb_coords2,))
+    # Extract the data
+    asu_clash_counts = overlap_return['overlap_counts']
+
     while True:
         size = number_of_dense_transforms
         try:  # The next batch_length

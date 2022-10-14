@@ -67,8 +67,11 @@ def batch_calculation(size: int, batch_length: int, setup: Callable = None,
         # def wrapped(function_args: Iterable = tuple(), function_kwargs: dict = None,
         #             function_return_containers: tuple = tuple(), setup: Callable = None) -> tuple:
         @functools.wraps(func)
-        def wrapped(*args, function_return_containers: tuple = tuple(),
+        def wrapped(*args, function_return_containers: dict = None,
                     setup_args: tuple = tuple(), setup_kwargs: dict = None, **kwargs) -> tuple:
+
+            if function_return_containers is None:
+                function_return_containers = {}
 
             if setup_kwargs is None:
                 setup_kwargs = {}
@@ -85,13 +88,11 @@ def batch_calculation(size: int, batch_length: int, setup: Callable = None,
                     for batch in range(number_of_batches):
                         # Find the upper slice limit
                         batch_slice = slice(batch * _batch_length, (batch+1) * _batch_length)
-                        # Both batch_slice and actual_batch_length can be used with nonlocal inside func
-                        actual_batch_length = batch_slice.stop - batch_slice.start
-                        # Perform the function
-                        function_returns = func(*args, **kwargs, **setup_returns)
+                        # Perform the function, batch_slice must be used inside the func
+                        function_returns = func(batch_slice, *args, **kwargs, **setup_returns)
                         # Set the returned values in the order they were received to the precalculated return_container
-                        for return_container, return_value in zip(function_return_containers, function_returns):
-                            return_container[batch_slice] = return_value
+                        for return_container_key, return_container in function_return_containers.items():
+                            return_container[batch_slice] = function_returns[return_container_key]
 
                     # Report success
                     logger.debug(f'Successful execution with batch_length of {_batch_length}')
