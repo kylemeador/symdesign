@@ -2362,7 +2362,7 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
         # self.dbref = dbref if dbref else {}  # {'chain': {'db: 'UNP', 'accession': P12345}, ...}
         self.design = design  # assumes not a design unless explicitly found to be a design
         self.entities = []
-        self.entity_info = entity_info if entity_info is not None else {}
+        self.entity_info = {} if entity_info is None else entity_info
         # [{'chains': [Chain objs], 'seq': 'GHIPLF...', 'name': 'A'}, ...]
         # ^ ZERO-indexed for recap project!!!
         # self.file_path = file_path
@@ -2997,7 +2997,8 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
             query_by_sequence: Whether the PDB API should be queried for an Entity name by matching sequence. Only used
                 if entity_names not provided
         """
-        if not self.entity_info:  # we didn't get from the file (probaly not PDB), so we have to try and piece together
+        if not self.entity_info:
+            # We didn't get info from the file (probaly not PDB), so we have to try and piece together.
             # The file is either from a program that has modified an original PDB file, or may be some sort of PDB
             # assembly. If it is a PDB assembly, the only way to know is that the file would have a final numeric suffix
             # after the .pdb extension (.pdb1). If not, it may be an assembly file from another source, in which case we

@@ -22,6 +22,18 @@ logger = start_log(name=__name__)
 null_log = start_log(name='null', handler=3)
 symmetry_combination_format = 'ResultingSymmetry:{Component1Symmetry}{Component2Symmetry}{...}'
 # SYMMETRY COMBINATION MATERIAL TABLE (T.O.Y and J.L, 2020)
+# Guide to table interpretation
+# Standard T:{C3}{C3}
+# Number   grp1             grp1_internal_dof grp1_set_mat grp1_external_dof
+# 54:     ['C3', ['r:<0,0,1,a>', 't:<0,0,b>'],          4,        '<0,0,0>',
+#          grp2             grp2_internal_dof grp2_set_mat grp2_external_dof
+#          'C3', ['r:<0,0,1,c>', 't:<0,0,d>'],         12,        '<0,0,0>',
+#          pnt_grp final_sym dim  unit_cell tot_dof ring_size
+#          'T',         'T',  0,     'N/A',      4,       2],
+# Modified T:{C3}{C3} with group 1 internal DOF allowed, group 2, internal DOF disabled
+# 54:     ['C3', ['r:<0,0,1,a>', 't:<0,0,b>'],  4, '<0,0,0>',
+#          'C3',                           [], 12, '<0,0,0>',
+#          'T', 'T', 0, 'N/A', 4, 2],
 nanohedra_symmetry_combinations = {
     1: ['C2', ['r:<0,0,1,a>', 't:<0,0,b>'], 2, '<0,0,0>', 'C2', ['r:<0,0,1,c>', 't:<0,0,d>'], 1, '<0,0,0>', 'D2', 'D2', 0, 'N/A', 4, 2],
     2: ['C2', ['r:<0,0,1,a>', 't:<0,0,b>'], 1, '<e,0,0>', 'C3', ['r:<0,0,1,c>'], 1, '<e,0.577350*e,0>', 'C6', 'p6', 2, '(2*e, 2*e), 120', 4, 6],
@@ -200,17 +212,7 @@ symmetry_combinations = {
     #                      {'symmetry': 'C3', 'dof_internal': ['r:<0,0,1,a>', 't:<0,0,b>'], 'setting': 4, 'dof_external': '<0,0,0>'}]
     #                       , 'result': ['T', 'T', 0, 'N/A', 1, 1]},
 }
-# Standard T:{C3}{C3}
-# Number   grp1 grp1_idx            grp1_internal_dof grp1_set_mat grp1_external_dof
-# 54:     ['C3',      2, ['r:<0,0,1,a>', 't:<0,0,b>'],          4,        '<0,0,0>',
-#          grp2 grp2_idx            grp2_internal_dof grp2_set_mat grp2_external_dof
-#          'C3',      2, ['r:<0,0,1,c>', 't:<0,0,d>'],         12,        '<0,0,0>',
-#          pnt_grp final_sym dim  unit_cell tot_dof ring_size
-#          'T',         'T',  0,     'N/A',      4,       2],
-# Modified T:{C3}{C3} with group 1 internal DOF allowed, group 2, internal DOF disabled
-# 54:     ['C3', 2, ['r:<0,0,1,a>', 't:<0,0,b>'],  4, '<0,0,0>',
-#          'C3', 2,                           [], 12, '<0,0,0>',
-#          'T', 'T', 0, 'N/A', 4, 2],
+
 custom_entries = list(symmetry_combinations.keys())
 symmetry_combinations.update(nanohedra_symmetry_combinations)
 # reformat the symmetry_combinations to account for groups and results separately
