@@ -2435,6 +2435,8 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
             external_tx2 = full_ext_tx2[idx]
             # asu.space_group = sym_entry.resulting_symmetry
             uc_dimensions = full_uc_dimensions[idx]
+        else:
+            external_tx1 = external_tx2 = uc_dimensions = None
 
         specific_transformation1 = dict(rotation=full_rotation1[idx], translation=internal_tx_param1,
                                         rotation2=set_mat1, translation2=external_tx1)
@@ -2475,14 +2477,14 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
         # _passing_symmetric_clashes = [0 for _ in number_viable_pose_interfaces_range]
         # for idx in number_viable_pose_interfaces_range:
         _passing_symmetric_clashes = [0 for _ in range(len(viable_pose_indices))]
-        for transform_idx in viable_pose_indices:
+        for result_idx, transform_idx in enumerate(viable_pose_indices):
             # This was checking for memory leak in pose operations
             # log.info(f'Available memory: {psutil.virtual_memory().available}')
             # exp_des_clash_time_start = time.time()
             # Find the pose
             update_pose_coords(transform_idx)
             if not pose.symmetric_assembly_is_clash():
-                _passing_symmetric_clashes[transform_idx] = 1
+                _passing_symmetric_clashes[result_idx] = 1
             #     log.info(f'\tNO Backbone Clash when pose is expanded (took '
             #              f'{time.time() - exp_des_clash_time_start:8f}s)')
             # else:
