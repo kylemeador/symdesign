@@ -210,13 +210,13 @@ alignmentdb = os.path.join(dependency_dir, 'ncbi_databases', 'uniref90')
 with open(config_file, 'r') as f_save:
     config = json.load(f_save)
 
-hhblits_exe = os.environ.get(config['hhblits_env'])
+hhblits_exe = os.environ.get(config.get('hhblits_env'))
 hhblits_exe = hhblits_exe if hhblits_exe else 'hhblits'  # ensure not None
 uniclustdb = os.path.join(dependency_dir, 'hh-suite', 'databases', 'UniRef30_2020_02')  # TODO make db dynamic at config
 # uniclust_db = os.path.join(database, 'hh-suite', 'databases', 'UniRef30_2020_02')  # TODO
 install_hhsuite = os.path.join(binaries, 'install_hhsuite.sh')
 # Rosetta
-rosetta_main = os.environ.get(config['rosetta_env'])
+rosetta_main = os.environ.get(config.get('rosetta_env'))
 rosetta_main = rosetta_main if rosetta_main else 'main'  # ensure not None
 make_symmdef = os.path.join(rosetta_main, 'source', 'src', 'apps', 'public', 'symmetry', 'make_symmdef_file.pl')
 # Todo v dependent on external compile. cd to the directory, then type "make" to compile the executable
