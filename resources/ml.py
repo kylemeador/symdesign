@@ -1,5 +1,7 @@
+import functools
 import os
-from typing import Annotated, Iterable, Container
+from math import ceil
+from typing import Annotated, Iterable, Container, Type, Callable
 
 import numpy as np
 import torch
@@ -16,6 +18,92 @@ mpnn_alphabet_length = len(mpnn_alphabet)
 # torch.backends.cudnn.enabled = True
 # pip install GPUtil
 # from GPUtil import showUtilization as gpu_usage
+
+
+# def batch_calculation(size: int, batch_length: int, function_args: Iterable = tuple(),  # function: Callable,
+#                                 function_kwargs: dict = None, function_return_containers: tuple = tuple(),
+#                                 compute_failure_exceptions: tuple[Type[Exception]] =
+#                                 (np.core._exceptions._ArrayMemoryError,), setup: Callable = None) -> tuple:
+#     """Execute a function in batches over an input that is too large for the available memory
+#
+#     Args:
+#         size: The total number of units of work to be done
+#         batch_length: The starting length of a batch. This should be chosen empirically
+#         function: The callable to iteratively execute
+#         function_args: The arguments to pass to the function
+#         function_kwargs: The keyword arguments to pass to the function
+#         function_return_containers: The returns that should be populated by the function
+#         compute_failure_exceptions: A tuple of possible failure modes to restart the calculation upon error
+#         setup: A function which should be called before the batches are executed to produce data that is passed to the
+#             function
+#     Returns:
+#         The populated function_return_containers
+#     """
+
+
+def batch_calculation(size: int, batch_length: int, setup: Callable = None,
+                      compute_failure_exceptions: tuple[Type[Exception]] = (Exception,)) -> Callable:  # tuple
+    """Use as a decorator to execute a function in batches over an input that is too large for available computational
+    resources, typically memory
+
+    Produces the variables actual_batch_length and batch_slice that can be used inside the decorated function
+
+    Args:
+        size: The total number of units of work to be done
+        batch_length: The starting length of a batch. This should be chosen empirically
+        setup: A function which should be called before the batches are executed to produce data that is passed to the
+            function
+        compute_failure_exceptions: A tuple of possible exceptions which upon raising should be allowed to restart
+    Returns:
+        The populated function_return_containers
+    """
+    def wrapper(func: Callable) -> tuple:
+        if setup is None:
+            def _setup(*_args, **_kwargs) -> dict:
+                return {}
+        else:
+            _setup = setup
+
+        # def wrapped(function_args: Iterable = tuple(), function_kwargs: dict = None,
+        #             function_return_containers: tuple = tuple(), setup: Callable = None) -> tuple:
+        @functools.wraps(func)
+        def wrapped(*args, function_return_containers: tuple = tuple(),
+                    setup_args: tuple = tuple(), setup_kwargs: dict = None, **kwargs) -> tuple:
+
+            if setup_kwargs is None:
+                setup_kwargs = {}
+
+            _batch_length = batch_length
+            # finished = False
+            while True:  # not finished:
+                logger.debug(f'The batch_length is: {_batch_length}')
+                try:  # The next batch_length
+                    # The number_of_batches indicates how many iterations are needed to exhaust all models
+                    number_of_batches = int(ceil(size/_batch_length) or 1)  # Select at least 1
+                    # Perform any setup operations
+                    setup_returns = _setup(_batch_length, *setup_args, **setup_kwargs)
+                    for batch in range(number_of_batches):
+                        # Find the upper slice limit
+                        batch_slice = slice(batch * _batch_length, (batch+1) * _batch_length)
+                        # Both batch_slice and actual_batch_length can be used with nonlocal inside func
+                        actual_batch_length = batch_slice.stop - batch_slice.start
+                        # Perform the function
+                        function_returns = func(*args, **kwargs, **setup_returns)
+                        # Set the returned values in the order they were received to the precalculated return_container
+                        for return_container, return_value in zip(function_return_containers, function_returns):
+                            return_container[batch_slice] = return_value
+
+                    # Report success
+                    logger.debug(f'Successful execution with batch_length of {_batch_length}')
+                    break  # finished = True
+                except compute_failure_exceptions:
+                    _batch_length -= 1
+
+            return function_return_containers
+
+        return wrapped
+
+    return wrapper
 
 
 def create_decoding_order(randn: torch.Tensor, chain_mask: torch.Tensor, tied_pos: Iterable[Container] = None,
