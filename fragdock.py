@@ -1762,12 +1762,14 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
         # Add the translation to Z (axis=1)
         stacked_internal_tx_vectors1[:, -1] = full_int_tx1
         full_int_tx1 = stacked_internal_tx_vectors1
+        del stacked_internal_tx_vectors1
 
     if sym_entry.is_internal_tx2:
         stacked_internal_tx_vectors2 = np.zeros((starting_transforms, 3), dtype=float)
         # Add the translation to Z (axis=1)
         stacked_internal_tx_vectors2[:, -1] = full_int_tx2
         full_int_tx2 = stacked_internal_tx_vectors2
+        del stacked_internal_tx_vectors2
 
     # full_int_tx1 = np.concatenate(full_int_tx1, axis=0)
     # full_int_tx2 = np.concatenate(full_int_tx2, axis=0)
@@ -1908,11 +1910,11 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
     memory_constraint = psutil.virtual_memory().available
     # assume each element is np.float64
     element_memory = 8  # where each element is np.float64
-    guide_coords_elements = 9  # For a single guide coordinate with shape (3, 3)
-    coords_multiplier = 2
+    # guide_coords_elements = 9  # For a single guide coordinate with shape (3, 3)
+    # coords_multiplier = 2
     number_of_elements_available = memory_constraint / element_memory
     model_elements = prod(bb_cb_coords2.shape)
-    total_elements_required = model_elements * number_of_dense_transforms
+    # total_elements_required = model_elements * number_of_dense_transforms
     # Start with the assumption that all tested clashes are clashing
     asu_clash_counts = np.ones(number_of_dense_transforms)
     clash_vect = [clash_dist]
@@ -1999,68 +2001,61 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
     while True:
         try:  # The next batch_length
             # The number_of_batches indicates how many iterations are needed to exhaust all models
-            chunk_size = model_elements * batch_length
-            number_of_batches = int(ceil(total_elements_required/chunk_size) or 1)  # Select at least 1
-            # Todo make this for loop a function.
-            #  test_fragdock_clashes(bb_cb_coords2, full_inv_rotation1, full_int_tx1, inv_setting1, full_rotation2,
-            #                        full_int_tx2, set_mat2, full_ext_tx_sum)
-            #   return asu_clash_counts
+            # chunk_size = model_elements * batch_length
+            size = number_of_dense_transforms
+            number_of_batches = int(ceil(size/batch_length) or 1)  # Select at least 1
             tiled_coords2 = np.tile(bb_cb_coords2, (batch_length, 1, 1))
             for batch in range(number_of_batches):
-                # Find the upper slice limiting it at a maximum of number_of_dense_transforms
-                # upper = (batch + 1) * batch_length if batch + 1 != number_of_batches else number_of_dense_transforms
-                # batch_slice = slice(batch * batch_length, upper)
+                # Find the upper slice limit
                 batch_slice = slice(batch * batch_length, (batch+1) * batch_length)
-                # Set full rotation batch to get the length of the remaining transforms
-                _full_rotation2 = full_rotation2[batch_slice]
+                actual_batch_length = batch_slice.stop - batch_slice.start
                 # Transform the coordinates
-                number_of_transforms = _full_rotation2.shape[0]
                 # Todo for performing broadcasting of this operation
                 #  s_broad = np.matmul(tiled_coords2[None, :, None, :], _full_rotation2[:, None, :, :])
                 #  produces a shape of (_full_rotation2.shape[0], tiled_coords2.shape[0], 1, 3)
                 #  inverse_transformed_model2_tiled_coords = transform_coordinate_sets(transform_coordinate_sets()).squeeze()
                 inverse_transformed_model2_tiled_coords = \
                     transform_coordinate_sets(
-                        transform_coordinate_sets(tiled_coords2[:number_of_transforms],  # Slice ensures same size
-                                                  rotation=_full_rotation2,
-                                                  translation=None if full_int_tx2 is None else full_int_tx2[batch_slice, None, :],
+                        transform_coordinate_sets(tiled_coords2[:actual_batch_length],  # Slice ensures same size
+                                                  rotation=_full_rotation2[batch_slice],
+                                                  translation=None if full_int_tx2 is None
+                                                  else _full_int_tx2[batch_slice, None, :],
                                                   rotation2=set_mat2,
-                                                  translation2=None if full_ext_tx_sum is None
+                                                  translation2=None if sym_entry.unit_cell is None
                                                   else full_ext_tx_sum[batch_slice, None, :]),
                         rotation=inv_setting1,
-                        translation=None if full_int_tx1 is None else full_int_tx1[batch_slice, None, :] * -1,
-                        rotation2=full_inv_rotation1[batch_slice],
-                        translation2=None)
+                        translation=None if full_int_tx1 is None else full_int_tx_inv1[batch_slice, None, :],
+                        rotation2=full_inv_rotation1[batch_slice])
                 # Check each transformed oligomer 2 coordinate set for clashing against oligomer 1
                 asu_clash_counts[batch_slice] = \
                     [oligomer1_backbone_cb_tree.two_point_correlation(
                         inverse_transformed_model2_tiled_coords[idx],
-                        clash_vect)[0] for idx in range(number_of_transforms)]
+                        clash_vect)[0] for idx in range(actual_batch_length)]
                 # Save memory by dereferencing the arry before the next calculation
                 del inverse_transformed_model2_tiled_coords
 
             log.critical(f'Successful execution with {divisor} using available memory of '
                          f'{memory_constraint} and batch_length of {batch_length}')
-            # This is the number of total guide coordinates allowed in memory at this point...
-            # Given calculation constraints, this will need to be reduced by at least 4 fold
-            euler_divisor = 4
-            euler_lookup_size_threshold = int(chunk_size / guide_coords_elements // coords_multiplier // euler_divisor)
-            log.info(f'Given memory, the euler_lookup_size_threshold is: {euler_lookup_size_threshold}')
+            # # This is the number of total guide coordinates allowed in memory at this point...
+            # # Given calculation constraints, this will need to be reduced by at least 4 fold
+            # euler_divisor = 4
+            # euler_lookup_size_threshold = int(chunk_size / guide_coords_elements // coords_multiplier // euler_divisor)
+            # log.info(f'Given memory, the euler_lookup_size_threshold is: {euler_lookup_size_threshold}')
             break
         except np.core._exceptions._ArrayMemoryError:
-            divisor = divisor*2
-            batch_length = int(number_of_elements_available // model_elements // divisor)
+            batch_length -= 1
+            # batch_length = int(number_of_elements_available // model_elements // divisor)
 
-    # asu_is_viable = np.where(asu_clash_counts.flatten() == 0)  # , True, False)
-    # asu_is_viable = np.where(np.array(asu_clash_counts) == 0)
+    # asu_is_viable_indices = np.where(asu_clash_counts.flatten() == 0)  # , True, False)
+    # asu_is_viable_indices = np.where(np.array(asu_clash_counts) == 0)
     # Find those indices where the asu_clash_counts is not zero (inverse of nonzero by using the array == 0)
-    asu_is_viable = np.flatnonzero(asu_clash_counts == 0)
-    number_non_clashing_transforms = asu_is_viable.shape[0]
+    asu_is_viable_indices = np.flatnonzero(asu_clash_counts == 0)
+    number_non_clashing_transforms = asu_is_viable_indices.shape[0]
     # Update the passing_transforms
     # passing_transforms contains all the transformations that are still passing
-    # index the previously passing indices (sufficiently_dense_indices) by new pasing indices (asu_is_viable)
+    # index the previously passing indices (sufficiently_dense_indices) by new pasing indices (asu_is_viable_indices)
     # and set each of these indices to 1 (True)
-    # passing_transforms[sufficiently_dense_indices[asu_is_viable]] = 1
+    # passing_transforms[sufficiently_dense_indices[asu_is_viable_indices]] = 1
     log.info(f'Clash testing for All Oligomer1 and Oligomer2 (took {time.time() - check_clash_coords_start:8f}s) '
              f"found {number_non_clashing_transforms} viable ASU's out of {number_of_dense_transforms}")
     # input_ = input('Please confirm to continue protocol')
@@ -2069,24 +2064,24 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
         log.warning(f'No viable asymmetric units. Terminating {building_blocks} docking')
         return
     # ------------------ TERM ------------------------
-    # Remove non-viable transforms by indexing asu_is_viable
-    remove_non_viable_indices_inverse(asu_is_viable)
+    # Remove non-viable transforms by indexing asu_is_viable_indices
+    remove_non_viable_indices_inverse(asu_is_viable_indices)
     # degen_counts, rot_counts, tx_counts = zip(*[(degen_counts[idx], rot_counts[idx], tx_counts[idx])
-    #                                             for idx in asu_is_viable.tolist()])
-    # # fragment_pairs = fragment_pairs[asu_is_viable]
-    # full_rotation1 = full_rotation1[asu_is_viable]
-    # _full_rotation2 = _full_rotation2[asu_is_viable]
+    #                                             for idx in asu_is_viable_indices.tolist()])
+    # # fragment_pairs = fragment_pairs[asu_is_viable_indices]
+    # full_rotation1 = full_rotation1[asu_is_viable_indices]
+    # _full_rotation2 = _full_rotation2[asu_is_viable_indices]
     # if sym_entry.is_internal_tx1:
-    #     full_int_tx_inv1 = full_int_tx_inv1[asu_is_viable]
+    #     full_int_tx_inv1 = full_int_tx_inv1[asu_is_viable_indices]
     # if sym_entry.is_internal_tx2:
-    #     _full_int_tx2 = _full_int_tx2[asu_is_viable]
+    #     _full_int_tx2 = _full_int_tx2[asu_is_viable_indices]
     # if sym_entry.unit_cell:
-    #     full_optimal_ext_dof_shifts = full_optimal_ext_dof_shifts[asu_is_viable]
-    #     full_ext_tx1 = full_ext_tx1[asu_is_viable]
-    #     full_ext_tx2 = full_ext_tx2[asu_is_viable]
+    #     full_optimal_ext_dof_shifts = full_optimal_ext_dof_shifts[asu_is_viable_indices]
+    #     full_ext_tx1 = full_ext_tx1[asu_is_viable_indices]
+    #     full_ext_tx2 = full_ext_tx2[asu_is_viable_indices]
     #     full_ext_tx_sum = full_ext_tx2 - full_ext_tx1
     #
-    # full_inv_rotation1 = full_inv_rotation1[asu_is_viable]
+    # full_inv_rotation1 = full_inv_rotation1[asu_is_viable_indices]
 
     # log.debug('Checking rotation and translation fidelity after removing non-viable asu indices')
     # check_forward_and_reverse(ghost_guide_coords1,
@@ -2460,8 +2455,8 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
 
         log.debug(f'\tCopy and Transform Oligomer1 and Oligomer2 (took {time.time() - copy_model_start:8f}s)')
 
-    # def remove_symmetric_clashes(viable_pose_length: int) -> np.ndarray:
-    def remove_symmetric_clashes(viable_pose_indices: list[int]) -> np.ndarray:
+    # def find_viable_symmetric_indices(viable_pose_length: int) -> np.ndarray:
+    def find_viable_symmetric_indices(viable_pose_indices: list[int]) -> np.ndarray:
         """Assume the pose will fail the clash test (0), otherwise, (1) for passing
 
         Args:
@@ -2498,14 +2493,14 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
     #  Turn the degen_counts into indices... These will be used for rotation slicing?
     # Update the passing_transforms
     # passing_transforms contains all the transformations that are still passing
-    # index the previously passing indices (sufficiently_dense_indices) and (asu_is_viable)
+    # index the previously passing indices (sufficiently_dense_indices) and (asu_is_viable_indices)
     # by new passing indices (interface_is_viable)
     # and set each of these indices to 1 (True)
-    # passing_transforms[sufficiently_dense_indices[asu_is_viable[interface_is_viable]]] = 1
+    # passing_transforms[sufficiently_dense_indices[asu_is_viable_indices[interface_is_viable]]] = 1
     # # Remove non-viable transforms from the original transformation parameters by indexing interface_is_viable
     # passing_transforms_indices = np.flatnonzero(passing_transforms)
     # # remove_non_viable_indices(passing_transforms_indices)
-    passing_transforms_indices = sufficiently_dense_indices[asu_is_viable[interface_is_viable]]
+    passing_transforms_indices = sufficiently_dense_indices[asu_is_viable_indices[interface_is_viable]]
 
     # degen_counts, rot_counts, tx_counts = zip(*[(degen_counts[idx], rot_counts[idx], tx_counts[idx])
     #                                             for idx in interface_is_viable])
@@ -2523,8 +2518,8 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
         # full_ext_tx2 = full_ext_tx2[interface_is_viable]
         # # full_ext_tx_sum = full_ext_tx2 - full_ext_tx1
 
-    # passing_symmetric_clash_indices = remove_symmetric_clashes(number_viable_pose_interfaces)
-    passing_symmetric_clash_indices = remove_symmetric_clashes(passing_transforms_indices.tolist())
+    # passing_symmetric_clash_indices = find_viable_symmetric_indices(number_viable_pose_interfaces)
+    passing_symmetric_clash_indices = find_viable_symmetric_indices(passing_transforms_indices.tolist())
     number_passing_symmetric_clashes = passing_symmetric_clash_indices.shape[0]
     log.info(f'After symmetric clash testing, found {number_passing_symmetric_clashes} viable poses')
 
@@ -2534,11 +2529,11 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
     # ------------------ TERM ------------------------
     # Update the passing_transforms
     # passing_transforms contains all the transformations that are still passing
-    # index the previously passing indices (sufficiently_dense_indices) and (asu_is_viable) and (interface_is_viable)
+    # index the previously passing indices (sufficiently_dense_indices) and (asu_is_viable_indices) and (interface_is_viable)
     # by new passing indices (passing_symmetric_clash_indices)
     # and set each of these indices to 1 (True)
     # passing_transforms_indices = \
-    #     sufficiently_dense_indices[asu_is_viable[interface_is_viable[passing_symmetric_clash_indices]]]
+    #     sufficiently_dense_indices[asu_is_viable_indices[interface_is_viable[passing_symmetric_clash_indices]]]
     passing_transforms_indices = passing_transforms_indices[passing_symmetric_clash_indices]
     # Todo could this be used?
     # passing_transforms[passing_transforms_indices] = 1
@@ -2923,17 +2918,37 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
         size = full_rotation1.shape[0]  # This is the number of transformations, i.e. the number_of_designs
         # The batch_length indicates how many models could fit in the allocated memory. Using floor division to get integer
         # Reduce scale by factor of divisor to be safe
-        start_divisor = divisor = 512  # 256 # 128  # 2048 breaks when there is a gradient for training
+        # start_divisor = divisor = 512  # 256 # 128  # 2048 breaks when there is a gradient for training
         # batch_length = 10
         # batch_length = int(number_of_elements_available//model_elements//start_divisor)
         batch_length = 6  # works for 24 GiB mem, 7 is too much
         once, twice = False, False
         log.critical(f'The number_of_elements_available is: {number_of_elements_available}')
+
+        # Set up ProteinMPNN output data structures
+        # To use torch.nn.NLLL() must use dtype Long -> np.int64, not Int -> np.int32
+        generated_sequences = np.empty((size, pose_length), dtype=np.int64)
+        #                                       number_of_residues), dtype=np.int64)
+        per_residue_evolution_cross_entropy = np.empty((size, pose_length), dtype=np.float32)
+        #                                                       number_of_residues, dtype=np.float))
+        per_residue_fragment_cross_entropy = np.empty_like(per_residue_evolution_cross_entropy)
+        per_residue_complex_sequence_loss = np.empty_like(per_residue_evolution_cross_entropy)
+        per_residue_unbound_sequence_loss = np.empty_like(per_residue_evolution_cross_entropy)
+        per_residue_batch_collapse_z = np.zeros_like(per_residue_evolution_cross_entropy)
+        per_residue_design_indices = np.zeros((size, pose_length), dtype=bool)
+        total_collapse_favorability = []
+        # probabilities = np.empty((size, number_of_residues, mpnn_alphabet_length, dtype=np.float32))
+
         proteinmpnn_time_start = time.time()
         while True:
             log.critical(f'The batch_length is: {batch_length}')
             try:  # Design sequences with ProteinMPNN using the optimal batch size given memory
                 number_of_batches = int(ceil(size/batch_length) or 1)  # Select at least 1
+                # Todo if making this a batched function
+                #  protein_mpnn_setup()
+                #  def protein_mpnn_setup():
+                #      ...
+                #      return {'parameter': data, ...}
                 parameters = pose.get_proteinmpnn_params()
                 # Disregard X, chain_M_pos, and bias_by_res parameters return and use the pose specific data from below
                 parameters.pop('X')
@@ -2978,20 +2993,6 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
 
                     # chain_mask_and_mask = chain_mask * mask
 
-                # Set up ProteinMPNN output data structures
-                # To use torch.nn.NLLL() must use dtype Long -> np.int64, not Int -> np.int32
-                generated_sequences = np.empty((size, pose_length), dtype=np.int64)
-                #                                       number_of_residues), dtype=np.int64)
-                per_residue_evolution_cross_entropy = np.empty((size, pose_length), dtype=np.float32)
-                #                                                       number_of_residues, dtype=np.float))
-                per_residue_fragment_cross_entropy = np.empty_like(per_residue_evolution_cross_entropy)
-                per_residue_complex_sequence_loss = np.empty_like(per_residue_evolution_cross_entropy)
-                per_residue_unbound_sequence_loss = np.empty_like(per_residue_evolution_cross_entropy)
-                per_residue_batch_collapse_z = np.zeros_like(per_residue_evolution_cross_entropy)
-                per_residue_design_indices = np.zeros((size, pose_length), dtype=bool)
-                total_collapse_favorability = []
-                # probabilities = np.empty((size, number_of_residues, mpnn_alphabet_length, dtype=np.float32))
-
                 # Gather the coordinates according to the transformations identified
                 for batch in range(number_of_batches):
                     # For the final batch which may have fewer inputs
@@ -3000,7 +3001,7 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
 
                     # Initialize pose data structures for interface design
                     residue_mask_cpu = np.zeros((actual_batch_length, pose_length),
-                                                dtype=np.int32)# (batch, number_of_residues)
+                                                dtype=np.int32)  # (batch, number_of_residues)
                     bias_by_res = np.zeros((actual_batch_length, pose_length, 21),
                                            dtype=np.float32)  # (batch, number_of_residues, alphabet_length)
                     # Stack the entity coordinates to make up a contiguous block for each pose
