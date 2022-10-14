@@ -765,7 +765,7 @@ def main():
         logger = utils.start_log(level=args.log_level)
         utils.set_logging_to_level(args.log_level)
         queried_flags['debug'] = True
-        logger.warning('Debug mode. Generates verbose output. No writing to *.log files will occur')
+        logger.info('Debug mode. Generates verbose output. No writing to *.log files will occur')
     else:
         # # Root logger logs to stream with level 'warning'
         # utils.start_log(handler_level=args.log_level)  # 3)
