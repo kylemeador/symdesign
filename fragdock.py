@@ -25,8 +25,7 @@ from metrics import calculate_collapse_metrics, calculate_residue_surface_area, 
     multiple_sequence_alignment_dependent_metrics, profile_dependent_metrics, columns_to_new_column, \
     delta_pairs, division_pairs, interface_composition_similarity, clean_up_intermediate_columns, \
     sum_per_residue_metrics, hydrophobic_collapse_index, cross_entropy, collapse_significance_threshold
-from resources.EulerLookup import euler_factory
-from structure.fragment.db import FragmentDatabase, fragment_factory
+from structure.fragment.db import FragmentDatabase, fragment_factory, euler_factory
 from resources.job import job_resources_factory, JobResources
 from resources.ml import proteinmpnn_factory, batch_proteinmpnn_input, sequence_nllloss, \
     proteinmpnn_to_device, mpnn_alphabet, create_decoding_order

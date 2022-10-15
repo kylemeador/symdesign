@@ -5,7 +5,6 @@ from typing import Annotated, AnyStr
 
 from flags import default_logging_level, nstruct
 from structure.fragment import db
-from resources.EulerLookup import EulerLookup
 from resources.structure_db import structure_database_factory
 from resources.wrapapi import api_database_factory
 from utils import start_log, make_path
@@ -88,7 +87,6 @@ class JobResources:
         self.structure_db = structure_database_factory.get(source=self.data)
         # self.symmetry_factory = symmetry_factory
         self.fragment_db: 'db.FragmentDatabase' | None = None
-        self.euler_lookup: EulerLookup | None = None
 
         # Program flags
         self.consensus: bool = kwargs.get(consensus, False)  # Whether to run consensus

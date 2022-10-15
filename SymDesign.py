@@ -32,8 +32,7 @@ from guide import interface_design_guide, analysis_guide, interface_metrics_guid
     select_designs_guide, select_sequences_guide, cluster_poses_guide, refine_guide, optimize_designs_guide, \
     nanohedra_guide, orient_guide, expand_asu_guide
 from metrics import prioritize_design_indices, query_user_for_metrics
-from resources.EulerLookup import euler_factory
-from structure.fragment.db import fragment_factory
+from structure.fragment.db import fragment_factory, euler_factory
 from resources.job import job_resources_factory
 from resources.query.pdb import retrieve_pdb_entries_by_advanced_query
 from resources.query.utils import input_string, bool_d, boolean_choice, invalid_string, \
@@ -893,7 +892,7 @@ def main():
         fragment_db, euler_lookup = None, None
 
     job.fragment_db = fragment_db
-    job.euler_lookup = euler_lookup
+    # job.euler_lookup = euler_lookup
     # -----------------------------------------------------------------------------------------------------------------
     # Grab all Designs (PoseDirectory) to be processed from either database, directory, project name, or file
     # -----------------------------------------------------------------------------------------------------------------
