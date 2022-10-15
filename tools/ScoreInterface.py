@@ -4,11 +4,10 @@ from itertools import repeat
 
 import pandas as pd
 
-from structure.fragment.db import fragment_factory
+from structure.fragment.db import fragment_factory, EulerLookup
 from utils.path import biological_interfaces
 from structure.model import Pose
 from utils import start_log, set_logging_to_level, unpickle, to_iterable, mp_starmap, get_directory_file_paths
-from resources.EulerLookup import EulerLookup
 
 # Globals
 # Create fragment database for all ijk cluster representatives

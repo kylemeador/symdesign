@@ -19,7 +19,6 @@ from sklearn.neighbors import BallTree
 from sklearn.neighbors._ball_tree import BinaryTree  # This typing implementation supports BallTree or KDTree
 
 import flags
-from resources.EulerLookup import EulerLookup, euler_factory
 from resources.ml import proteinmpnn_factory, batch_proteinmpnn_input, proteinmpnn_to_device, mpnn_alphabet_length
 from resources.query.pdb import retrieve_entity_id_by_sequence, query_pdb_by, get_entity_reference_sequence, \
     is_entity_thermophilic
@@ -28,7 +27,7 @@ from resources.wrapapi import APIDatabase, api_database_factory
 from structure.base import Structure, Structures, Residue, StructureBase, atom_or_residue
 from structure.coords import Coords, superposition3d, transform_coordinate_sets
 from structure.fragment import GhostFragment, Fragment, write_frag_match_info_file
-from structure.fragment.db import FragmentDatabase, alignment_types, fragment_info_type
+from structure.fragment.db import FragmentDatabase, alignment_types, fragment_info_type, EulerLookup, euler_factory
 from structure.fragment.metrics import fragment_metric_template
 from structure.sequence import SequenceProfile, generate_alignment, get_equivalent_indices, \
     pssm_as_array, generate_mutations, concatenate_profile
@@ -86,8 +85,6 @@ def find_fragment_overlap(fragments1: Iterable[Fragment], fragments2: Sequence[F
     # Todo memoize this variable into a function default... The load time is kinda significant and shouldn't be used
     #  until needed. Getting the factory everytime is a small overhead that is really unnecessary. Perhaps this function
     #  should be refactored to structure.fragment.db or something and imported upon usage...
-    if euler_lookup is None:
-        euler_lookup = euler_factory()
 
     # logger.debug('Starting Ghost Frag Lookup')
     if clash_coords is not None:
@@ -109,6 +106,10 @@ def find_fragment_overlap(fragments1: Iterable[Fragment], fragments2: Sequence[F
     # Check for matching Euler angles
     # TODO create a stand alone function
     # logger.debug('Starting Euler Lookup')
+    if euler_lookup is None:
+        # euler_lookup = euler_factory()
+        euler_lookup = fragments2[0].fragment_db.euler_lookup
+
     overlapping_ghost_indices, overlapping_frag_indices = \
         euler_lookup.check_lookup_table(residue1_ghost_guide_coords, residue2_guide_coords)
     # logger.debug('Finished Euler Lookup')
@@ -5226,7 +5227,6 @@ class Pose(SymmetricModel):
     design_selector: dict[str, dict[str, dict[str, set[int] | set[str] | None]]] | None
     design_selector_entities: set[Entity]
     design_selector_indices: set[int]
-    euler_lookup: EulerLookup | None
     fragment_metrics: dict
     fragment_pairs: list[tuple[GhostFragment, Fragment, float]] | list
     fragment_queries: dict[tuple[Entity, Entity], list[fragment_info_type]]
@@ -5258,7 +5258,6 @@ class Pose(SymmetricModel):
         self.design_selector = design_selector if design_selector else {}  # kwargs.get('design_selector', {})
         self.design_selector_entities = set()
         self.design_selector_indices = set()
-        self.euler_lookup = euler_factory()  # kwargs.get('euler_lookup', None)
         self.fragment_metrics = {}
         self.fragment_pairs = []
         self.fragment_queries = {}
@@ -6406,8 +6405,7 @@ class Pose(SymmetricModel):
 
         entity1_coords = entity1.backbone_and_cb_coords  # for clash check, we only want the backbone and CB
         fragment_time_start = time.time()
-        ghostfrag_surfacefrag_pairs = find_fragment_overlap(frag_residues1, frag_residues2, clash_coords=entity1_coords,
-                                                            euler_lookup=self.euler_lookup)
+        ghostfrag_surfacefrag_pairs = find_fragment_overlap(frag_residues1, frag_residues2, clash_coords=entity1_coords)
         self.log.info(f'Found {len(ghostfrag_surfacefrag_pairs)} overlapping fragment pairs at the {entity1.name} | '
                       f'{entity2.name} interface')
         self.log.info(f'Took {time.time() - fragment_time_start:.8f}s')
