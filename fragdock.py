@@ -2356,10 +2356,12 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
     transform_indices = {next(entity_idx): transform_idx
                          for transform_idx, model in enumerate(models)
                          for entity in model.entities}
-
+    entity_info = {entity_name: data for model in models
+                   for entity_name, data in model.entity_info.items()}
     pose = Pose.from_entities([entity for idx, model in enumerate(models) for entity in model.entities],
-                              entity_names=entity_names, name='asu', log=log, sym_entry=sym_entry,
-                              surrounding_uc=job.output_surrounding_uc, fragment_db=job.fragment_db,
+                              entity_info=entity_info, entity_names=entity_names, name='asu', log=log,
+                              sym_entry=sym_entry, surrounding_uc=job.output_surrounding_uc,
+                              fragment_db=job.fragment_db,
                               # uc_dimensions=uc_dimensions,
                               pose_format=True,
                               ignore_clashes=True, rename_chains=True)
