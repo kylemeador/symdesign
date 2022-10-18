@@ -883,7 +883,6 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
     frag_dock_time_start = time.time()
     outlier = -1
     # Todo set below as parameters?
-    dock_only = False
     ca_only = False
     design_temperature = 0.1
     low_quality_match_value = .2  # sets the lower bounds on an acceptable match, was upper bound of 2 using z-score
@@ -2890,8 +2889,8 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
     # From here out, the transforms used should be only those of interest for outputting/sequence design
     # remove_non_viable_indices() <- This is done above
     # Check output setting. Should interface design, metrics be performed?
-    if dock_only:  # Only get pose outputs, no sequences or metrics
-        for idx in range(number_of_transforms):
+    if job.dock_only:  # Only get pose outputs, no sequences or metrics
+        for idx, pose_id in range(pose_ids):  # range(number_of_transforms):
             update_pose_coords(idx)
 
             if job.write_fragments:
@@ -2907,7 +2906,7 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
             output_pose(os.path.join(root_out_dir, pose_id), pose_id)
 
         log.info(f'Total {building_blocks} dock trajectory took {time.time() - frag_dock_time_start:.2f}s')
-        return  # End of docking run
+        return terminate()  # End of docking run
     # ------------------ TERM ------------------------
     elif design_output:  # We perform sequence design
         mpnn_model = proteinmpnn_factory()  # Todo accept model_name arg. Now just use the default

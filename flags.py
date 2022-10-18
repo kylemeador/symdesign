@@ -387,6 +387,8 @@ parser_nanohedra = dict(nanohedra=dict(description=f'Run or submit jobs to {nano
 nanohedra_arguments = {
     # ('-e', '--entry', f'--{sym_entry}'): dict(type=int, default=None, dest=sym_entry,  # required=True,
     #                                           help=f'The entry number of {nano.title()} docking combinations to use'),
+    ('--dock_only',): dict(action=argparse.BooleanOptionalAction, default=False,
+                           help='Whether docking should be performed without sequence design'),
     ('-mv', '--match_value'): dict(type=float, default=0.5, dest='high_quality_match_value',
                                    help='What is the minimum match score required for a high quality fragment?'),
     ('-iz', '--initial_z_value'): dict(type=float, default=1.,
