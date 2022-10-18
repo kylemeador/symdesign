@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from copy import copy
-from typing import Annotated, Literal, get_args, Type
+from typing import Annotated, Literal, get_args, Type, Union
 
 import numpy as np
 
@@ -17,7 +17,7 @@ logger = start_log(name=__name__)
 alignment_types_literal = Literal['mapped', 'paired']
 alignment_types: tuple[alignment_types_literal] = get_args(alignment_types_literal)
 fragment_info_keys = Literal[alignment_types_literal, 'match', 'cluster']
-fragment_info_type = Type[dict[fragment_info_keys, int | float | tuple[int, int, int]]]
+fragment_info_type = Type[dict[fragment_info_keys, Union[int, float, tuple[int, int, int]]]]
 RELOAD_DB = 123
 
 

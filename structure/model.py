@@ -507,7 +507,7 @@ class MultiModel:
         """Retrieve the indices of the Structures whose model information is independent of other Structures"""
         return set(range(self.number_of_models)).difference(self.dependents)
 
-    def add_state(self, state):
+    def append_state(self, state: Structures):
         """From a state, incorporate the Structures in the state into the existing Model
 
         Sets:
@@ -524,7 +524,7 @@ class MultiModel:
             raise IndexError('The added State contains fewer Structures than present in the MultiModel. Only pass a '
                              f'State that has the same number of Structures ({self.number_of_models}) as the MultiModel')
 
-    def add_model(self, model: Model, independent: bool = False):
+    def append_model(self, model: Model, independent: bool = False):
         """From a Structure with multiple states, incorporate the Model into the existing Model
 
         Sets:
@@ -1647,8 +1647,7 @@ class Entity(Chain, ContainsChainsMixin):
                            for line_number in range(1, 1 + math.ceil(chain_lengths[chain] / seq_res_len)))
 
     def write(self, out_path: bytes | str = os.getcwd(), file_handle: IO = None, header: str = None,
-              oligomer: bool = False, **kwargs) -> str | None:
-        #               header=None,
+              oligomer: bool = False, **kwargs) -> AnyStr | None:
         """Write Entity Structure to a file specified by out_path or with a passed file_handle
 
         Args:
@@ -1661,6 +1660,7 @@ class Entity(Chain, ContainsChainsMixin):
         Returns:
             The name of the written file if out_path is used
         """
+        self.log.debug(f'Entity is writing')
 
         def entity_write(handle):
             offset = 0
@@ -1669,7 +1669,6 @@ class Entity(Chain, ContainsChainsMixin):
                     handle.write(f'{chain.get_atom_record(atom_offset=offset, **kwargs)}\n')
                     offset += chain.number_of_atoms
             else:
-                self.log.debug(f'Model is writing')
                 super().write(**kwargs)
 
         if file_handle:
@@ -2311,14 +2310,13 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
 
     If you have multiple Models or States, use the MultiModel class to store and retrieve that data
 
-    Args:
-        metadata
     Keyword Args:
         pose_format: bool = False - Whether to renumber the Model to use Residue numbering from 1 to N
         rename_chains: bool = False - Whether to name each chain an incrementally new Alphabetical character
         log
         name
     """
+    # metadata
     api_entry: dict[str, dict[Any] | float] | None
     biological_assembly: str | int | None
     chain_ids: list[str]
@@ -3556,7 +3554,7 @@ class Models(Model):
     # state_attributes: set[str] = Model.state_attributes | {'_models_coords'}
 
     def __init__(self, models: Iterable[Model] = None, **kwargs):
-        if models:
+        if models is not None:
             for model in models:
                 if not isinstance(model, Model):
                     raise TypeError(f'Can\'t initialize {type(self).__name__} with a {type(model).__name__}. Must be an'
@@ -3590,6 +3588,14 @@ class Models(Model):
             self._models_coords = coords
         else:
             self._models_coords = Coords(coords)
+
+    def append_model(self, model: Model):
+        """Append an existing Model into the Models instance
+
+        Sets:
+            self.models
+        """
+        self.models.append(model)
 
     def write(self, out_path: bytes | str = os.getcwd(), file_handle: IO = None, header: str = None,
               increment_chains: bool = False, **kwargs) -> AnyStr | None:
