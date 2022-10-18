@@ -1999,8 +1999,8 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
     ball_tree_kwargs = dict(binarytree=oligomer1_backbone_cb_tree,
                             rotation=_full_rotation2, translation=_full_int_tx2,
                             rotation2=set_mat2, translation2=full_ext_tx_sum,
-                            rotation3=full_inv_rotation1, translation3=full_int_tx_inv1,
-                            rotation4=inv_setting1)
+                            rotation3=inv_setting1, translation3=full_int_tx_inv1,
+                            rotation4=full_inv_rotation1)
     # batch_calculate = True
     # if batch_calculate:
     # asu_clash_counts, *_ = check_tree_for_query_overlap(**ball_tree_kwargs,
