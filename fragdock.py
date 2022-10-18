@@ -2010,51 +2010,51 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
     # Extract the data
     asu_clash_counts = overlap_return['overlap_counts']
 
-    while True:
-        size = number_of_dense_transforms
-        try:  # The next batch_length
-            # The number_of_batches indicates how many iterations are needed to exhaust all models
-            # chunk_size = model_elements * batch_length
-            number_of_batches = int(ceil(size/batch_length) or 1)  # Select at least 1
-            tiled_coords2 = np.tile(bb_cb_coords2, (batch_length, 1, 1))
-            for batch in range(number_of_batches):
-                # Find the upper slice limit
-                batch_slice = slice(batch * batch_length, (batch+1) * batch_length)
-                # actual_batch_length = batch_slice.stop - batch_slice.start
-                _full_rotation2_ = _full_rotation2[batch_slice]
-                actual_batch_length = _full_rotation2_.shape[0]
-                # Transform the coordinates
-                inverse_transformed_model2_tiled_coords = \
-                    transform_coordinate_sets(
-                        transform_coordinate_sets(tiled_coords2[:actual_batch_length],  # Slice ensures same size
-                                                  rotation=_full_rotation2_,
-                                                  translation=None if full_int_tx2 is None
-                                                  else _full_int_tx2[batch_slice, None, :],
-                                                  rotation2=set_mat2,
-                                                  translation2=None if sym_entry.unit_cell is None
-                                                  else full_ext_tx_sum[batch_slice, None, :]),
-                        rotation=inv_setting1,
-                        translation=None if full_int_tx1 is None else full_int_tx_inv1[batch_slice, None, :],
-                        rotation2=full_inv_rotation1[batch_slice])
-                # Check each transformed oligomer 2 coordinate set for clashing against oligomer 1
-                asu_clash_counts[batch_slice] = \
-                    [oligomer1_backbone_cb_tree.two_point_correlation(
-                        inverse_transformed_model2_tiled_coords[idx],
-                        clash_vect)[0] for idx in range(actual_batch_length)]
-                # Save memory by dereferencing the arry before the next calculation
-                del inverse_transformed_model2_tiled_coords
-
-            log.critical(f'Successful execution with {divisor} using available memory of '
-                         f'{memory_constraint} and batch_length of {batch_length}')
-            # # This is the number of total guide coordinates allowed in memory at this point...
-            # # Given calculation constraints, this will need to be reduced by at least 4 fold
-            # euler_divisor = 4
-            # euler_lookup_size_threshold = int(chunk_size / guide_coords_elements // coords_multiplier // euler_divisor)
-            # log.info(f'Given memory, the euler_lookup_size_threshold is: {euler_lookup_size_threshold}')
-            break
-        except np.core._exceptions._ArrayMemoryError:
-            batch_length -= 1
-            # batch_length = int(number_of_elements_available // model_elements // divisor)
+    # while True:
+    #     size = number_of_dense_transforms
+    #     try:  # The next batch_length
+    #         # The number_of_batches indicates how many iterations are needed to exhaust all models
+    #         # chunk_size = model_elements * batch_length
+    #         number_of_batches = int(ceil(size/batch_length) or 1)  # Select at least 1
+    #         tiled_coords2 = np.tile(bb_cb_coords2, (batch_length, 1, 1))
+    #         for batch in range(number_of_batches):
+    #             # Find the upper slice limit
+    #             batch_slice = slice(batch * batch_length, (batch+1) * batch_length)
+    #             # actual_batch_length = batch_slice.stop - batch_slice.start
+    #             _full_rotation2_ = _full_rotation2[batch_slice]
+    #             actual_batch_length = _full_rotation2_.shape[0]
+    #             # Transform the coordinates
+    #             inverse_transformed_model2_tiled_coords = \
+    #                 transform_coordinate_sets(
+    #                     transform_coordinate_sets(tiled_coords2[:actual_batch_length],  # Slice ensures same size
+    #                                               rotation=_full_rotation2_,
+    #                                               translation=None if full_int_tx2 is None
+    #                                               else _full_int_tx2[batch_slice, None, :],
+    #                                               rotation2=set_mat2,
+    #                                               translation2=None if sym_entry.unit_cell is None
+    #                                               else full_ext_tx_sum[batch_slice, None, :]),
+    #                     rotation=inv_setting1,
+    #                     translation=None if full_int_tx1 is None else full_int_tx_inv1[batch_slice, None, :],
+    #                     rotation2=full_inv_rotation1[batch_slice])
+    #             # Check each transformed oligomer 2 coordinate set for clashing against oligomer 1
+    #             asu_clash_counts[batch_slice] = \
+    #                 [oligomer1_backbone_cb_tree.two_point_correlation(
+    #                     inverse_transformed_model2_tiled_coords[idx],
+    #                     clash_vect)[0] for idx in range(actual_batch_length)]
+    #             # Save memory by dereferencing the arry before the next calculation
+    #             del inverse_transformed_model2_tiled_coords
+    #
+    #         log.critical(f'Successful execution with {divisor} using available memory of '
+    #                      f'{memory_constraint} and batch_length of {batch_length}')
+    #         # # This is the number of total guide coordinates allowed in memory at this point...
+    #         # # Given calculation constraints, this will need to be reduced by at least 4 fold
+    #         # euler_divisor = 4
+    #         # euler_lookup_size_threshold = int(chunk_size / guide_coords_elements // coords_multiplier // euler_divisor)
+    #         # log.info(f'Given memory, the euler_lookup_size_threshold is: {euler_lookup_size_threshold}')
+    #         break
+    #     except np.core._exceptions._ArrayMemoryError:
+    #         batch_length -= 1
+    #         # batch_length = int(number_of_elements_available // model_elements // divisor)
 
     # asu_is_viable_indices = np.where(asu_clash_counts.flatten() == 0)  # , True, False)
     # asu_is_viable_indices = np.where(np.array(asu_clash_counts) == 0)
