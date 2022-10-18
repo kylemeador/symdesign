@@ -43,6 +43,7 @@ class Representative:
 class FragmentDatabase(FragmentInfo):
     cluster_representatives_path: str
     cluster_info_path: str
+    euler_lookup: EulerLookup
     indexed_ghosts: dict[int, tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]] | dict
     # dict[int, tuple[3x3, 1x3, tuple[int, int, int], float]]
     # monofrag_representatives_path: str
@@ -58,6 +59,7 @@ class FragmentDatabase(FragmentInfo):
         self.representatives = {}
         self.paired_frags = {}
         self.indexed_ghosts = {}
+        self.euler_lookup = euler_factory()
 
         # if init_db:
         #     logger.info(f'Initializing {self.source} FragmentDatabase from disk. This may take awhile...')
