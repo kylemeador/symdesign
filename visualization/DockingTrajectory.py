@@ -13,7 +13,7 @@ def create_trajectory(design_directories, name='docking_trajectory', output_dir=
     trajectory_model = MultiModel()
     # TODO How to sort?
     for des_dir in design_directories:
-        trajectory_model.add_model(merge_pose_pdbs(des_dir))
+        trajectory_model.append_model(merge_pose_pdbs(des_dir))
 
     return trajectory_model.write(name=name, location=output_dir)
 
