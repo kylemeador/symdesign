@@ -1673,7 +1673,7 @@ class Entity(Chain, ContainsChainsMixin):
                     handle.write(f'{chain.get_atom_record(atom_offset=offset, **kwargs)}\n')
                     offset += chain.number_of_atoms
             else:
-                super().write(**kwargs)
+                super(Structure, Structure).write(self, file_handle=handle, **kwargs)
 
         if file_handle:
             entity_write(file_handle)
