@@ -59,7 +59,7 @@ class FragmentDatabase(FragmentInfo):
         self.representatives = {}
         self.paired_frags = {}
         self.indexed_ghosts = {}
-        self.euler_lookup = euler_factory()
+        # self.euler_lookup = euler_factory()
 
         # if init_db:
         #     logger.info(f'Initializing {self.source} FragmentDatabase from disk. This may take awhile...')
@@ -303,7 +303,7 @@ class FragmentDatabaseFactory:
     def __init__(self, **kwargs):
         self._databases = {}
 
-    def __call__(self, source: str = biological_interfaces, token: int = None, **kwargs) -> FragmentDatabase:
+    def __call__(self, source: str = biological_interfaces, token: int = None, **kwargs) -> FragmentDatabase | None:
         """Return the specified FragmentDatabase object singleton
 
         Args:
@@ -322,6 +322,9 @@ class FragmentDatabaseFactory:
         else:
             logger.info(f'Initializing {source} {FragmentDatabase.__name__}')
             self._databases[source] = FragmentDatabase(source=source, **kwargs)
+
+        # Attach the euler_lookup class
+        self._databases[source].euler_lookup = euler_factory()
 
         return self._databases[source]
 

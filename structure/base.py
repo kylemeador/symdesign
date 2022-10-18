@@ -4690,7 +4690,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
             for idx, structure in enumerate(structures):
                 structures[idx] = copy(structure)
 
-    def __copy__(self):  # -> Self Todo python3.11
+    def __copy__(self) -> Structure:  # -> Self Todo python3.11
         other = self.__class__.__new__(self.__class__)
         # Copy each of the key value pairs to the new, other dictionary
         for attr, obj in self.__dict__.items():

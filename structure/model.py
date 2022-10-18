@@ -855,7 +855,10 @@ class ContainsChainsMixin:
         """
         residues = self.residues
         residue_idx_start, idx = 0, 1
-        prior_residue = residues[0]
+        try:  # If there are no residues, we have an empty Model
+            prior_residue = residues[0]
+        except TypeError:   # self.residues is None
+            return
         chain_residues = []
         for idx, residue in enumerate(residues[1:], 1):  # start at the second index to avoid off by one
             if residue.number <= prior_residue.number or residue.chain != prior_residue.chain:
@@ -1161,14 +1164,14 @@ class Entity(Chain, ContainsChainsMixin):
                 # self.log.debug(f'Updated transform of mate {chain.chain_id}')
                 # In liu of using chain.coords as lengths might be different
                 # Transform prior_coords to chain.coords position, then transform using new_rot and new_tx
-                # new_chain_coords = \
+                # new_chain_ca_coords = \
                 #     np.matmul(np.matmul(prior_ca_coords,
                 #                         np.transpose(transform['rotation'])) + transform['translation'],
                 #               np.transpose(new_rot)) + new_tx
-                new_chain_coords = \
+                new_chain_ca_coords = \
                     np.matmul(chain.ca_coords, np.transpose(new_rot)) + new_tx
                 # Find the transform from current coords and the new mate chain coords
-                _, rot, tx = superposition3d(new_chain_coords, current_ca_coords)
+                _, rot, tx = superposition3d(new_chain_ca_coords, current_ca_coords)
                 # Save transform
                 self._chain_transforms.append(dict(rotation=rot, translation=tx))
                 # Transform existing mate chain
@@ -1226,7 +1229,7 @@ class Entity(Chain, ContainsChainsMixin):
                 list(str)
         """
         first_chain_id = self.chain_id
-        self.chain_ids = [first_chain_id]  # use the existing chain_id
+        self.chain_ids = [first_chain_id]  # Use the existing chain_id
         chain_gen = chain_id_generator()
         # Iterate over the generator until the current chain_id is found
         discard = next(chain_gen)
@@ -1242,8 +1245,8 @@ class Entity(Chain, ContainsChainsMixin):
             self.chain_ids.append(chain_id)
 
         # Must set chain_ids first, then chains
-        for idx, chain in enumerate(self.chains[1:], 1):
-            chain.chain_id = self.chain_ids[idx]
+        for chain, new_id in zip(self.chains[1:], self.chain_ids[1:]):
+            chain.chain_id = new_id
 
     # @property
     # def chain_ids(self) -> list:  # Also used in Model
@@ -1656,15 +1659,16 @@ class Entity(Chain, ContainsChainsMixin):
             header: A string that is desired at the top of the file
             oligomer: Whether to write the oligomeric form of the Entity
         Keyword Args:
-            asu: (bool) = True - Whether to output SEQRES for the Entity ASU or the full oligomer
+            asu: bool = True - Whether to output SEQRES for the Entity ASU or the full oligomer
+            chain: str = None - The chain ID to use
         Returns:
             The name of the written file if out_path is used
         """
         self.log.debug(f'Entity is writing')
 
         def entity_write(handle):
-            offset = 0
             if oligomer:
+                offset = 0
                 for chain in self.chains:
                     handle.write(f'{chain.get_atom_record(atom_offset=offset, **kwargs)}\n')
                     offset += chain.number_of_atoms
@@ -2252,8 +2256,8 @@ class Entity(Chain, ContainsChainsMixin):
                 structures[idx] = new_structure
 
     def __copy__(self) -> Entity:  # -> Self Todo python3.11
-        # Temporarily remove the _captain attribute for the copy
         # self.log.debug('In Entity copy')
+        # Temporarily remove the _captain attribute for the copy
         captain = self._captain
         del self._captain
         other = super().__copy__()
@@ -2408,15 +2412,15 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
         # Todo standardize path with some state variable?
         # self.api_db = api_db if api_db else api_database_factory()
 
-        # self.uc_dimensions = uc_dimensions
         self.structure_containers.extend(['chains', 'entities'])
 
-        # only pass arguments if they are not None
+        # Only pass arguments if they are not None
         if entities is not None:  # if no entities are requested a False argument could be provided
             kwargs['entities'] = entities
         if chains is not None:  # if no chains are requested a False argument could be provided
             kwargs['chains'] = chains
-        # finish processing the model
+
+        # Finish processing the model
         self._process_model(**kwargs)
         # below was depreciated in favor of single call above using kwargs unpacking
         # if self.residues:  # we should have residues if Structure init, otherwise we have None
@@ -2530,6 +2534,7 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
             else:  # Create Entities from Chain.Residues
                 self._create_entities(**kwargs)
 
+            # Set the potential symmetric_dependents to the entities
             self._symmetric_dependents = self.entities  # Todo ensure these never change
 
             if not self.chain_ids:  # set according to self.entities
@@ -3161,12 +3166,14 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
         if tolerance > 1:
             raise ValueError(f"{self._get_entity_info_from_atoms.__name__} tolerance={tolerance}. Can't be > 1")
         entity_idx = 1
-        # get rid of any information already acquired
-        self.entity_info = {f'{self.name}_{entity_idx}':
-                            dict(chains=[self.chains[0]], sequence=self.chains[0].sequence)}
-        for chain in self.chains[1:]:
+        # Get rid of any information already acquired
+        self.entity_info = {}
+        # self.entity_info = {f'{self.name}_{entity_idx}':
+        #                     dict(chains=[self.chains[0]], sequence=self.chains[0].sequence)}
+        for chain in self.chains:
             self.log.debug(f'Searching for matching Entities for Chain {chain.name}')
-            new_entity = True  # assume all chains are unique entities
+            # Assume all chains are unique entities
+            new_entity = True
             for entity_name, data in self.entity_info.items():
                 # Todo implement structure check
                 #  rmsd_threshold = 1.  # threshold needs testing
@@ -3624,7 +3631,8 @@ class Models(Model):
                         chain_id = next(available_chain_ids)
                         chain.write(file_handle=handle, chain=chain_id, **kwargs)
                         c_term_residue = chain.c_terminal_residue
-                        handle.write(f'TER   {c_term_residue.atoms[-1].number + 1:>5d}      {c_term_residue.type:3s} '
+                        # Todo when used with oligomer=True, the c_term_residue is the first monomer residue...
+                        handle.write(f'TER   {c_term_residue.atoms[-1].index + 1:>5d}      {c_term_residue.type:3s} '
                                      f'{chain_id:1s}{c_term_residue.number:>4d}\n')
             else:
                 for model_number, structure in enumerate(self.models, 1):
@@ -3632,7 +3640,7 @@ class Models(Model):
                     for chain in structure.chains:
                         chain.write(file_handle=handle, **kwargs)
                         c_term_residue = chain.c_terminal_residue
-                        handle.write(f'TER   {c_term_residue.atoms[-1].number + 1:>5d}      {c_term_residue.type:3s} '
+                        handle.write(f'TER   {c_term_residue.atoms[-1].index + 1:>5d}      {c_term_residue.type:3s} '
                                      f'{chain.chain_id:1s}{c_term_residue.number:>4d}\n')
 
                     handle.write('ENDMDL\n')
