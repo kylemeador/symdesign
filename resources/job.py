@@ -93,6 +93,7 @@ class JobResources:
         self.design_selector: dict[str, dict[str, dict[str, set[int] | set[str]]]] | dict = \
             kwargs.get('design_selector', {})
         self.debug: bool = kwargs.get('debug', False)
+        self.dock_only: bool = kwargs.get('dock_only', False)
         self.log_level: bool = kwargs.get('log_level', default_logging_level)
         self.force_flags: bool = kwargs.get(force_flags, False)
         self.fuse_chains: list[tuple[str]] = [tuple(pair.split(':')) for pair in kwargs.get('fuse_chains', [])]

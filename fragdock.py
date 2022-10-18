@@ -2948,7 +2948,7 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
 
     # Check output setting. Should interface design, metrics be performed?
     if job.dock_only:  # Only get pose outputs, no sequences or metrics
-        for idx, pose_id in range(pose_ids):  # range(number_of_transforms):
+        for idx, pose_id in enumerate(pose_ids):  # range(number_of_transforms):
             update_pose_coords(idx)
 
             if job.write_fragments:
