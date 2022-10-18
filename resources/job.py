@@ -12,7 +12,7 @@ from utils.SymEntry import SymEntry
 from utils.path import sym_entry, all_scores, projects, sequence_info, data, output_oligomers, output_fragments, \
     structure_background, scout, generate_fragments, number_of_trajectories, hbnet, \
     ignore_symmetric_clashes, ignore_pose_clashes, ignore_clashes, force_flags, evolution_constraint, \
-    term_constraint, consensus, structure_info, output_structures
+    term_constraint, consensus, structure_info, output_structures, output_trajectory
 
 logger = start_log(name=__name__)
 
@@ -121,9 +121,10 @@ class JobResources:
         self.specific_protocol: str = kwargs.get('specific_protocol', False)
         self.structure_background: bool = kwargs.get(structure_background, False)
         self.sym_entry: SymEntry | None = kwargs.get(sym_entry, None)
-        self.write_structures: bool = kwargs.get(output_structures, True)
         self.write_fragments: bool = kwargs.get(output_fragments, False)
         self.write_oligomers: bool = kwargs.get(output_oligomers, False)
+        self.write_structures: bool = kwargs.get(output_structures, True)
+        self.write_trajectory: bool = kwargs.get(output_trajectory, False)
         self.skip_logging: bool = kwargs.get('skip_logging', False)
         self.nanohedra_output: bool = kwargs.get('nanohedra_output', False)
         self.nanohedra_root: str | None = None
