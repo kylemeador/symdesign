@@ -2263,6 +2263,10 @@ class Entity(Chain, ContainsChainsMixin):
         other = super().__copy__()
         if self._is_captain:  # If the copier is a captain
             other._captain = None  # Initialize the copy as a captain -> None
+            if not self.is_parent():
+                # We must update the structure_containers as this wasn't performed by Structure.copy()
+                other._copy_structure_containers()
+            # other._update_structure_container_attributes(_parent=other)
         else:
             # If the copy was initiated by the captain, ._captain
             # will be set after this __copy__ return in _copy_structure_containers()
