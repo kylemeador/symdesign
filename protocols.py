@@ -1394,7 +1394,7 @@ class PoseDirectory:
                 for idx, entity in enumerate(self.pose.entities):
                     # if entity.number_of_symmetry_mates != self.sym_entry.group_subunit_numbers[idx]:
                     #     entity.make_oligomer(symmetry=self.sym_entry.groups[idx], **self.pose.entity_transformations[idx])
-                    entity.write_oligomer(out_path=os.path.join(self.path, f'{entity.name}_oligomer.pdb'))
+                    entity.write(oligomer=True, out_path=os.path.join(self.path, f'{entity.name}_oligomer.pdb'))
 
         # Then modify numbering to ensure standard and accurate use during protocols
         self.pose.pose_numbering()

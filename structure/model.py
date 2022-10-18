@@ -1646,38 +1646,45 @@ class Entity(Chain, ContainsChainsMixin):
                            for chain, sequence in formated_reference_sequence.items()
                            for line_number in range(1, 1 + math.ceil(chain_lengths[chain] / seq_res_len)))
 
-    # Todo overwrite Structure.write() method with oligomer=True flag?
-    def write_oligomer(self, out_path: bytes | str = os.getcwd(), file_handle: IO = None, header: str = None,
-                       **kwargs) -> str | None:
+    def write(self, out_path: bytes | str = os.getcwd(), file_handle: IO = None, header: str = None,
+              oligomer: bool = False, **kwargs) -> str | None:
         #               header=None,
-        """Write Entity.oligomer Structure to a file specified by out_path or with a passed file_handle
+        """Write Entity Structure to a file specified by out_path or with a passed file_handle
 
         Args:
             out_path: The location where the Structure object should be written to disk
             file_handle: Used to write Structure details to an open FileObject
             header: A string that is desired at the top of the file
+            oligomer: Whether to write the oligomeric form of the Entity
         Keyword Args:
             asu: (bool) = True - Whether to output SEQRES for the Entity ASU or the full oligomer
         Returns:
             The name of the written file if out_path is used
         """
-        offset = 0
+
+        def entity_write(handle):
+            offset = 0
+            if oligomer:
+                for chain in self.chains:
+                    handle.write(f'{chain.get_atom_record(atom_offset=offset, **kwargs)}\n')
+                    offset += chain.number_of_atoms
+            else:
+                self.log.debug(f'Model is writing')
+                super().write(**kwargs)
+
         if file_handle:
-            for chain in self.chains:
-                file_handle.write(f'{chain.get_atom_record(atom_offset=offset, **kwargs)}\n')
-                offset += chain.number_of_atoms
+            entity_write(file_handle)
             return None
 
-        if out_path:
-            _header = self.format_header(asu=False, **kwargs)
+        else:  # out_path always has default argument current working directory
+            # oligomer=True implies we want to write all chains, i.e. asu=False
+            _header = self.format_header(asu=not oligomer, **kwargs)
             if header is not None and isinstance(header, str):  # used for cryst_record now...
                 _header += (header if header[-2:] == '\n' else f'{header}\n')
 
             with open(out_path, 'w') as outfile:
-                outfile.write(_header)  # function implies we want all chains, i.e. asu=False
-                for chain in self.chains:
-                    outfile.write(f'{chain.get_atom_record(atom_offset=offset, **kwargs)}\n')
-                    offset += chain.number_of_atoms
+                outfile.write(_header)
+                entity_write(outfile)
 
             return out_path
 
@@ -1735,7 +1742,7 @@ class Entity(Chain, ContainsChainsMixin):
 
         clean_orient_input_output()
         # Have to change residue numbering to PDB numbering
-        self.write_oligomer(out_path=str(orient_input), pdb_number=True)
+        self.write(oligomer=True, out_path=str(orient_input), pdb_number=True)
 
         # Todo superposition3d -> quaternion
         p = subprocess.Popen([PUtils.orient_exe_path], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
@@ -1913,7 +1920,7 @@ class Entity(Chain, ContainsChainsMixin):
 
         if not struct_file:
             # struct_file = self.scout_symmetry(struct_file=struct_file)
-            struct_file = self.write_oligomer(out_path=f'make_sdf_input-{self.name}-{random() * 100000:.0f}.pdb')
+            struct_file = self.write(oligomer=True, out_path=f'make_sdf_input-{self.name}-{random() * 100000:.0f}.pdb')
 
         if self.is_dihedral():
             dihedral_chain = self.find_dihedral_chain()
@@ -2767,7 +2774,7 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
         clean_orient_input_output()
         # Have to change residue numbering to PDB numbering
         if multicomponent:
-            self.entities[0].write_oligomer(out_path=str(orient_input), pdb_number=True)
+            self.entities[0].write(oligomer=True, out_path=str(orient_input), pdb_number=True)
         else:
             self.write(out_path=str(orient_input), pdb_number=True)
 
@@ -3596,6 +3603,7 @@ class Models(Model):
                 otherwise write with the chain IDs present, repeating for each Model
         Keyword Args
             pdb: bool = False - Whether the Residue representation should use the number at file parsing
+            oligomer: bool = False - Whether to write the oligomeric representation of each Model instance
         Returns:
             The name of the written file if out_path is used
         """

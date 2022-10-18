@@ -388,8 +388,8 @@ class StructureDatabase(Database):
                     if symmetry == 'C1':  # Write out only the entity that was extracted
                         # Todo should we delete the source file?
                         entity_file_path = model.write(out_path=entity_out_path)
-                    else:  # write out the entity as parsed. since this is assembly we should get the correct state
-                        entity_file_path = model.write_oligomer(out_path=entity_out_path)
+                    else:  # Write out the entity as parsed. Since this is an assembly, we should get the correct state
+                        entity_file_path = model.write(oligomer=True, out_path=entity_out_path)
 
                     try:  # orient the Structure
                         model.orient(symmetry=symmetry, log=orient_log)
@@ -397,8 +397,8 @@ class StructureDatabase(Database):
                         orient_log.error(str(err))
                         non_viable_structures.append(entry_entity)
                         continue
-                    # Write out file for the orient database
-                    orient_file = model.write_oligomer(out_path=self.oriented.path_to(name=entry_entity))
+                    # Write out oligomer file for the orient database
+                    orient_file = model.write(oligomer=True, out_path=self.oriented.path_to(name=entry_entity))
                     # Write out ASU file for the oriented_asu database
                     model.file_path = model.write(out_path=self.oriented_asu.path_to(name=entry_entity))
                     # save Stride results

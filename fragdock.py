@@ -2846,7 +2846,7 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
         # Write Model1, Model2
         if job.write_oligomers:
             for entity in pose.entities:
-                entity.write_oligomer(out_path=os.path.join(out_path, f'{entity.name}_{_pose_id}.pdb'))
+                entity.write(oligomer=True, out_path=os.path.join(out_path, f'{entity.name}_{_pose_id}.pdb'))
 
         # Write assembly files
         if job.output_assembly:
