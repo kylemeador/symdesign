@@ -1466,16 +1466,23 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
     #         raise RuntimeError('The offset_index has changed to 0')
     #     else:
     #         print(f'{title} offset_index: {pose.entities[-1].offset_index}')
+    if job.development:
+        rotations_to_perform1 = min(rotation_matrices1.shape[0], 13)
+        rotations_to_perform2 = min(rotation_matrices2.shape[0], 12)
+        log.critical(f'Development: Only sampling {rotations_to_perform1} by {rotations_to_perform2} rotations')
+    else:
+        rotations_to_perform1 = rotation_matrices1.shape[0]
+        rotations_to_perform2 = rotation_matrices2.shape[0]
 
     # Todo resolve. Below uses eulerints
     # Get rotated Oligomer1 Ghost Fragment, Oligomer2 Surface Fragment guide coodinate pairs
     # in the same Euler rotational space bucket
-    for idx1 in range(min(rotation_matrices1.shape[0], 13)):  # rotation_matrices1.shape[0]):  # Todo remove min
+    for idx1 in range(rotations_to_perform1):
         rot1_count = idx1%number_of_rotations1 + 1
         degen1_count = idx1//number_of_rotations1 + 1
         rot_mat1 = rotation_matrices1[idx1]
         rotation_ghost_euler_ints1 = stacked_ghost_euler_int1[idx1]
-        for idx2 in range(min(rotation_matrices2.shape[0], 12)):  # rotation_matrices2.shape[0]):  # Todo remove min
+        for idx2 in range(rotations_to_perform2):
             # Rotate Oligomer2 Surface and Ghost Fragment Guide Coordinates using rot_mat2 and set_mat2
             rot2_count = idx2%number_of_rotations2 + 1
             degen2_count = idx2//number_of_rotations2 + 1
