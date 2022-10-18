@@ -2852,7 +2852,8 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
             pose.write(out_path=os.path.join(out_path, asu_file_name), header=cryst_record)
 
         if job.write_trajectory:
-            new_pose = copy.copy(pose)
+            # new_pose = copy.copy(pose)
+            new_pose = copy.copy(pose.models[0])
             for entity in new_pose.chains[1:]:  # new_pose.entities[1:]:
                 entity.chain_id = 'D'
                 # Todo make more reliable
