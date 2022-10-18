@@ -2888,6 +2888,57 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
 
     # From here out, the transforms used should be only those of interest for outputting/sequence design
     # remove_non_viable_indices() <- This is done above
+    # Format pose transformations for output
+    # full_rotation1 = full_rotation1
+    blank_parameter = list(repeat([None, None, None], number_of_transforms))
+    full_ext_tx1 = blank_parameter if full_ext_tx1 is None else full_ext_tx1.squeeze()
+    # full_rotation2 = full_rotation2
+    full_ext_tx2 = blank_parameter if full_ext_tx2 is None else full_ext_tx2.squeeze()
+
+    set_mat1_number, set_mat2_number, *_extra = sym_entry.setting_matrices_numbers
+    rotations1 = scipy.spatial.transform.Rotation.from_matrix(full_rotation1)
+    rotations2 = scipy.spatial.transform.Rotation.from_matrix(full_rotation2)
+    # Get all rotations in terms of the degree of rotation along the z-axis
+    rotation_degrees1 = rotations1.as_rotvec(degrees=True)[:, -1]
+    rotation_degrees2 = rotations2.as_rotvec(degrees=True)[:, -1]
+    # Todo get the degenercy_degrees
+    # degeneracy_degrees1 = rotations1.as_rotvec(degrees=True)[:, :-1]
+    # degeneracy_degrees2 = rotations2.as_rotvec(degrees=True)[:, :-1]
+    if sym_entry.is_internal_tx1:
+        full_int_tx1 = full_int_tx1.squeeze()
+        z_heights1 = full_int_tx1[:, -1]
+    else:
+        z_heights1 = blank_parameter
+    if sym_entry.is_internal_tx2:
+        full_int_tx2 = full_int_tx2.squeeze()
+        z_heights2 = full_int_tx2[:, -1]
+    else:
+        z_heights2 = blank_parameter
+    # if sym_entry.unit_cell:
+    #     full_uc_dimensions = full_uc_dimensions[passing_symmetric_clash_indices_perturb]
+    #     full_ext_tx1 = full_ext_tx1[:]
+    #     full_ext_tx2 = full_ext_tx2[:]
+    #     full_ext_tx_sum = full_ext_tx2 - full_ext_tx1
+    pose_transformations = {}
+    pose_ids = []
+    for idx in range(number_of_transforms):
+        pose_id = create_pose_id(idx)
+        pose_ids.append(pose_id)
+        external_translation1_x, external_translation1_y, external_translation1_z = full_ext_tx1[idx]
+        external_translation2_x, external_translation2_y, external_translation2_z = full_ext_tx2[idx]
+        pose_transformations[pose_id] = dict(rotation1=rotation_degrees1[idx],
+                                             internal_translation1=z_heights1[idx],
+                                             setting_matrix1=set_mat1_number,
+                                             external_translation1_x=external_translation1_x,
+                                             external_translation1_y=external_translation1_y,
+                                             external_translation1_z=external_translation1_z,
+                                             rotation2=rotation_degrees2[idx],
+                                             internal_translation2=z_heights2[idx],
+                                             setting_matrix2=set_mat2_number,
+                                             external_translation2_x=external_translation2_x,
+                                             external_translation2_y=external_translation2_y,
+                                             external_translation2_z=external_translation2_z)
+
     # Check output setting. Should interface design, metrics be performed?
     if job.dock_only:  # Only get pose outputs, no sequences or metrics
         for idx, pose_id in range(pose_ids):  # range(number_of_transforms):
@@ -2901,7 +2952,7 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
                 #     add_fragments_to_pose(all_passing_ghost_indices[idx],
                 #                           all_passing_surf_indices[idx],
                 #                           all_passing_z_scores[idx])
-            pose_id = create_pose_id(idx)
+            # pose_id = create_pose_id(idx)
             # Todo replace with PoseDirectory? Path object?
             output_pose(os.path.join(root_out_dir, pose_id), pose_id)
 
@@ -3564,38 +3615,6 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
         # Format the sequences from design
         sequences = numeric_to_sequence(generated_sequences)
 
-    # Format pose transformations for output
-    # full_rotation1 = full_rotation1
-    blank_parameter = list(repeat([None, None, None], number_of_transforms))
-    full_ext_tx1 = blank_parameter if full_ext_tx1 is None else full_ext_tx1.squeeze()
-    # full_rotation2 = full_rotation2
-    full_ext_tx2 = blank_parameter if full_ext_tx2 is None else full_ext_tx2.squeeze()
-
-    set_mat1_number, set_mat2_number, *_extra = sym_entry.setting_matrices_numbers
-    rotations1 = scipy.spatial.transform.Rotation.from_matrix(full_rotation1)
-    rotations2 = scipy.spatial.transform.Rotation.from_matrix(full_rotation2)
-    # Get all rotations in terms of the degree of rotation along the z-axis
-    rotation_degrees1 = rotations1.as_rotvec(degrees=True)[:, -1]
-    rotation_degrees2 = rotations2.as_rotvec(degrees=True)[:, -1]
-    # Todo get the degenercy_degrees
-    # degeneracy_degrees1 = rotations1.as_rotvec(degrees=True)[:, :-1]
-    # degeneracy_degrees2 = rotations2.as_rotvec(degrees=True)[:, :-1]
-    if sym_entry.is_internal_tx1:
-        full_int_tx1 = full_int_tx1.squeeze()
-        z_heights1 = full_int_tx1[:, -1]
-    else:
-        z_heights1 = blank_parameter
-    if sym_entry.is_internal_tx2:
-        full_int_tx2 = full_int_tx2.squeeze()
-        z_heights2 = full_int_tx2[:, -1]
-    else:
-        z_heights2 = blank_parameter
-    # if sym_entry.unit_cell:
-    #     full_uc_dimensions = full_uc_dimensions[passing_symmetric_clash_indices_perturb]
-    #     full_ext_tx1 = full_ext_tx1[:]
-    #     full_ext_tx2 = full_ext_tx2[:]
-    #     full_ext_tx_sum = full_ext_tx2 - full_ext_tx1
-
     # # Todo REMOVE DUPLICATION FOR TESTING
     # # This is required to run correctly with perturb_dofs = True, probably also without it
     # # Otherwise, the Pose finds no fragment residues upon search...
@@ -3610,28 +3629,30 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
     idx_slice = pd.IndexSlice
     interface_metrics = {}
     interface_local_density = {}
-    pose_transformations = {}
+    # pose_transformations = {}
     # all_pose_divergence = []
     # all_probabilities = {}
-    pose_ids = []
+    # pose_ids = []
     fragment_profile_frequencies = []
     # per_residue_data, residue_info = {}, {}
     nan_blank_data = list(repeat(np.nan, pose_length))
     for idx in range(number_of_transforms):
-        pose_id = create_pose_id(idx)
-        pose_ids.append(pose_id)
-        pose_transformations[pose_id] = dict(rotation1=rotation_degrees1[idx],
-                                             internal_translation1=z_heights1[idx],
-                                             setting_matrix1=set_mat1_number,
-                                             external_translation1_x=full_ext_tx1[idx][0],
-                                             external_translation1_y=full_ext_tx1[idx][1],
-                                             external_translation1_z=full_ext_tx1[idx][2],
-                                             rotation2=rotation_degrees2[idx],
-                                             internal_translation2=z_heights2[idx],
-                                             setting_matrix2=set_mat2_number,
-                                             external_translation2_x=full_ext_tx2[idx][0],
-                                             external_translation2_y=full_ext_tx2[idx][1],
-                                             external_translation2_z=full_ext_tx2[idx][2])
+        # pose_id = create_pose_id(idx)
+        # pose_ids.append(pose_id)
+        # external_translation1_x, external_translation1_y, external_translation1_z = full_ext_tx1[idx]
+        # external_translation2_x, external_translation2_y, external_translation2_z = full_ext_tx2[idx]
+        # pose_transformations[pose_id] = dict(rotation1=rotation_degrees1[idx],
+        #                                      internal_translation1=z_heights1[idx],
+        #                                      setting_matrix1=set_mat1_number,
+        #                                      external_translation1_x=external_translation1_x,
+        #                                      external_translation1_y=external_translation1_y,
+        #                                      external_translation1_z=external_translation1_z,
+        #                                      rotation2=rotation_degrees2[idx],
+        #                                      internal_translation2=z_heights2[idx],
+        #                                      setting_matrix2=set_mat2_number,
+        #                                      external_translation2_x=external_translation2_x,
+        #                                      external_translation2_y=external_translation2_y,
+        #                                      external_translation2_z=external_translation2_z)
 
         # Add the next set of coordinates
         update_pose_coords(idx)
