@@ -267,6 +267,8 @@ options_arguments = {
                             help='Number of cores to use during --multi_processing\nIf run on a cluster, the number of '
                                  'cores will reflect the cluster allocation,\notherwise, will use #physical_cores-1'
                                  '\nDefault=%(default)s'),
+    ('-D', f'--{development}'): dict(action='store_true',
+                                     help='Run in development mode. This should only be used for active development'),
     ('-F', f'--{force_flags}'): dict(action='store_true',
                                      help='Force generation of a new flags file to update script parameters'),
     # ('-gf', f'--{generate_fragments}'): dict(action='store_true',

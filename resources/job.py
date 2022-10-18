@@ -12,7 +12,7 @@ from utils.SymEntry import SymEntry
 from utils.path import sym_entry, all_scores, projects, sequence_info, data, output_oligomers, output_fragments, \
     structure_background, scout, generate_fragments, number_of_trajectories, hbnet, \
     ignore_symmetric_clashes, ignore_pose_clashes, ignore_clashes, force_flags, evolution_constraint, \
-    term_constraint, consensus, structure_info, output_structures, output_trajectory
+    term_constraint, consensus, structure_info, output_structures, output_trajectory, development
 
 logger = start_log(name=__name__)
 
@@ -130,7 +130,7 @@ class JobResources:
         self.nanohedra_root: str | None = None
         # Development Flags
         self.command_only: bool = kwargs.get('command_only', False)  # Whether to reissue commands, only if run_in_shell=False
-        self.development: bool = kwargs.get('development', False)
+        self.development: bool = kwargs.get(development, False)
 
         if self.nanohedra_output:
             self.construct_pose: bool = kwargs.get('construct_pose', True)  # Whether to construct the PoseDirectory
