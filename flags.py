@@ -15,7 +15,7 @@ from utils.path import submodule_guide, submodule_help, force_flags, fragment_db
     fragment_profile, all_scores, analysis_file, select_sequences, program_name, nano, \
     program_command, analysis, select_poses, output_fragments, output_oligomers, protocol, current_energy_function, \
     ignore_clashes, ignore_pose_clashes, ignore_symmetric_clashes, select_designs, output_structures, rosetta_str, \
-    proteinmpnn
+    proteinmpnn, output_trajectory
 from utils.ProteinExpression import expression_tags
 from resources.query.utils import input_string, confirmation_string, bool_d, invalid_string, header_string, \
     format_string
@@ -803,8 +803,11 @@ output_arguments = {
     ('-Oo', f'--{output_oligomers}'): dict(action=argparse.BooleanOptionalAction, default=False,
                                            help='For any oligomers generated, write them along with the Pose'),
     ('-Os', f'--{output_structures}'): dict(action=argparse.BooleanOptionalAction, default=True,
-                                            help=f'For any structures generated, write them.'
+                                            help=f'For any structures generated, write them'
                                                  f'{boolean_positional_prevent_msg(output_structures)}'),
+    ('-Ot', f'--{output_trajectory}'): dict(action=argparse.BooleanOptionalAction, default=False,
+                                            help=f'For all structures generated, write them as a single multimodel '
+                                                 f'file'),
     ('--prefix',): dict(type=str, metavar='string', help='String to prepend to output name'),
     ('--suffix',): dict(type=str, metavar='string', help='String to append to output name'),
 }
