@@ -341,11 +341,71 @@ def parse_cryst_record(cryst_record) -> tuple[list[float], str]:
 class MultiModel:
     """Class for working with iterables of State objects of macromolecular polymers (proteins for now). Each State
     container comprises Structure object(s) which can also be accessed as a unique Model by slicing the Structure across
-    States.
+    each individual State instance.
 
-    self.structures holds each of the individual Structure objects which are involved in the MultiModel. As of now,
-    no checks are made whether the identity of these is the same across States"""
-    def __init__(self, model=None, models=None, state=None, states=None, independent=False, log=None, **kwargs):
+    A more convenient way to think about this scenario is the following table:
+
+    |                State1      State2      State3      StateN
+    |        Index   0           1           2           -1
+    | Model1   0   - Protein1_1, Protein1_2, ...         Protein1_N
+    | Model2   1   - Protein2_1, Protein2_2, ...         Protein2_N
+    | Model3   2   - DNA1_1,     DNA1_2,     ...         DNA1_N
+
+    self.models holds each of the individual Structure instances which are involved in the MultiModel. As of now,
+    no checks are made whether the identity of these are the same across States
+    """
+
+    @classmethod
+    def from_model(cls, model, **kwargs):
+        """Construct a MultiModel from a Structure object container with or without multiple states
+        Ex: [Structure1_State1, Structure1_State2, ...]
+        """
+        return cls(model=model, **kwargs)
+
+    @classmethod
+    def from_models(cls, models, independent=False, **kwargs):
+        """Construct a MultiModel from an iterable of Structure object containers with or without multiple states
+        Ex: [Model[Structure1_State1, Structure1_State2, ...], Model[Structure2_State1, ...]]
+
+        Keyword Args:
+            independent=False (bool): Whether the models are independent (True) or dependent on each other (False)
+        """
+        return cls(models=models, independent=independent, **kwargs)
+
+    @classmethod
+    def from_state(cls, state, **kwargs):
+        """Construct a MultiModel from a Structure object container, representing a single Structural state.
+        For instance, one trajectory in a sequence design with multiple polymers or a SymmetricModel
+        Ex: [Model_State1[Structure1, Structure2, ...], Model_State2[Structure1, Structure2, ...]]
+        """
+        return cls(state=state, **kwargs)
+
+    @classmethod
+    def from_states(cls, states, independent=False, **kwargs):
+        """Construct a MultiModel from an iterable of Structure object containers, each representing a different state
+        of the Structures. For instance, multiple trajectories in a sequence design
+        Ex: [Model_State1[Structure1, Structure2, ...], Model_State2[Structure1, Structure2, ...]]
+
+        Keyword Args:
+            independent=False (bool): Whether the models are independent (True) or dependent on each other (False)
+        """
+        return cls(states=states, independent=independent, **kwargs)
+
+    dependents: set
+    # _model_iterator: Iterator
+    models: list[Model]
+    """In a 2x2 table of Structures, we can think of models as the rows. These could be different Structure instances 
+    from one another entirely. These is no current mechanism to enforce this, for now just a convenience feature to store multiple related
+    Structues.
+    """
+    states: list[list[State]]
+    """In a 2x2 table of Structures, we can think of states as the columns. These "should" be the same model across each 
+    state in the collection of states. These is no current mechanism to enforce this, for now just a convenience feature
+    to store multiple Structure instances that are related by some common feature.
+    """
+
+    def __init__(self, model: Model = None, models: list[Model] | Structures = None, state=None, states=None,
+                 independent=False, log=None, **kwargs):
         if log:
             self.log = log
         elif log is None:
@@ -353,12 +413,14 @@ class MultiModel:
         else:  # When log is explicitly passed as False, use the module logger
             self.log = logger
 
-        if model:
+        if model is not None:
             if not isinstance(model, Model):
                 model = Model(model)
 
             self.models = [model]
+            # This loads Structure objects present in .models. Ex, the symmetry mates in SymmetricModel
             self.states = [[state] for state in model.models]
+
             # self.structures = [[model.states]]
 
         if isinstance(models, list):
@@ -399,42 +461,6 @@ class MultiModel:
         # indicate whether each structure is an independent set of models by setting dependent to corresponding tuple
         dependents = [] if independent else range(self.number_of_models)
         self.dependents = set(dependents)  # tuple(dependents)
-
-    @classmethod
-    def from_model(cls, model, **kwargs):
-        """Construct a MultiModel from a Structure object container with or without multiple states
-        Ex: [Structure1_State1, Structure1_State2, ...]
-        """
-        return cls(model=model, **kwargs)
-
-    @classmethod
-    def from_models(cls, models, independent=False, **kwargs):
-        """Construct a MultiModel from an iterable of Structure object containers with or without multiple states
-        Ex: [Model[Structure1_State1, Structure1_State2, ...], Model[Structure2_State1, ...]]
-
-        Keyword Args:
-            independent=False (bool): Whether the models are independent (True) or dependent on each other (False)
-        """
-        return cls(models=models, independent=independent, **kwargs)
-
-    @classmethod
-    def from_state(cls, state, **kwargs):
-        """Construct a MultiModel from a Structure object container, representing a single Structural state.
-        For instance, one trajectory in a sequence design with multiple polymers or a SymmetricModel
-        Ex: [Model_State1[Structure1, Structure2, ...], Model_State2[Structure1, Structure2, ...]]
-        """
-        return cls(state=state, **kwargs)
-
-    @classmethod
-    def from_states(cls, states, independent=False, **kwargs):
-        """Construct a MultiModel from an iterable of Structure object containers, each representing a different state
-        of the Structures. For instance, multiple trajectories in a sequence design
-        Ex: [Model_State1[Structure1, Structure2, ...], Model_State2[Structure1, Structure2, ...]]
-
-        Keyword Args:
-            independent=False (bool): Whether the models are independent (True) or dependent on each other (False)
-        """
-        return cls(states=states, independent=independent, **kwargs)
 
     # @property
     # def number_of_structures(self):
@@ -495,9 +521,9 @@ class MultiModel:
             # delattr(self, '_model_iterator')
         except IndexError:  # Todo handle mismatched lengths, either passed or existing
             raise IndexError('The added State contains fewer Structures than present in the MultiModel. Only pass a '
-                             'State that has the same number of Structures (%d) as the MultiModel' % self.number_of_models)
+                             f'State that has the same number of Structures ({self.number_of_models}) as the MultiModel')
 
-    def add_model(self, model, independent=False):
+    def add_model(self, model: Model, independent: bool = False):
         """From a Structure with multiple states, incorporate the Model into the existing Model
 
         Sets:
@@ -513,7 +539,7 @@ class MultiModel:
             # delattr(self, '_model_iterator')
         except IndexError:  # Todo handle mismatched lengths, either passed or existing
             raise IndexError('The added Model contains fewer models than present in the MultiModel. Only pass a Model '
-                             'that has the same number of States (%d) as the MultiModel' % self.number_of_states)
+                             f'that has the same number of States ({self.number_of_states}) as the MultiModel')
 
         if not independent:
             self.dependents.add(self.number_of_models - 1)
@@ -564,7 +590,7 @@ class MultiModel:
         return [State(state, log=self.log) for state in models]
 
     @property
-    def model_iterator(self):
+    def model_iterator(self):  # -> Iterator:
         try:
             return iter(self._model_iterator)
         except AttributeError:
