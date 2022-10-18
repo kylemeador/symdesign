@@ -33,7 +33,7 @@ from structure.base import Structure, Residue
 from structure.coords import transform_coordinate_sets
 from structure.fragment import GhostFragment, write_frag_match_info_file
 from structure.fragment.visuals import write_fragment_pairs_as_accumulating_states
-from structure.model import Pose, Model, get_matching_fragment_pairs_info
+from structure.model import Pose, Model, get_matching_fragment_pairs_info, Models
 from structure.sequence import generate_mutations_from_reference, numeric_to_sequence, concatenate_profile, \
     pssm_as_array, MultipleSequenceAlignment
 from utils import dictionary_lookup, start_log, null_log, set_logging_to_level, rmsd_z_score, \
@@ -2821,6 +2821,9 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
             pose.fragment_queries = {entity_tuple: frag_match_info}
             pose.fragment_metrics = {entity_tuple: fragment_metrics}
 
+    if job.write_trajectory:
+        models = Models()
+
     def output_pose(out_path: AnyStr, _pose_id: AnyStr, uc_dimensions: np.ndarray = None):
         """Format the current Pose for output using the job parameters
 
@@ -2841,6 +2844,9 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
 
         if job.write_structures:
             pose.write(out_path=os.path.join(out_path, asu_file_name), header=cryst_record)
+
+        if job.write_trajectory:
+            models.append_model(pose)
 
         # Todo group by input model... not entities
         # Write Model1, Model2
@@ -2871,6 +2877,15 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
             pose.write_fragment_pairs(out_path=matching_fragments_dir)
 
         log.info(f'\tSUCCESSFUL DOCKED POSE: {out_path}')
+
+    def terminate():
+        """Finalize any remaining work and return to the caller"""
+        if job.write_trajectory:
+            if sym_entry.unit_cell:
+                log.warning('No unit cell dimensions applicable to the trajectory file.')
+
+            models.write(out_path=os.path.join(root_out_dir, 'trajectory_oligomeric_models.pdb'),
+                         oligomer=True)
 
     # From here out, the transforms used should be only those of interest for outputting/sequence design
     # remove_non_viable_indices() <- This is done above
@@ -4038,6 +4053,7 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
     per_residue_df.to_csv(os.path.join(job.all_scores, f'{building_blocks}_docked_poses_Residues.csv'))
     # return pose_s
     log.info(f'Total {building_blocks} dock trajectory took {time.time() - frag_dock_time_start:.2f}s')
+    return terminate()  # End of docking run
 
 
 if __name__ == '__main__':
