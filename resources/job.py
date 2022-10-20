@@ -1,8 +1,13 @@
 from __future__ import annotations
 
+# import collections
+import inspect
 import os
+# import types
+from dataclasses import make_dataclass, field
 from typing import Annotated, AnyStr
 
+import flags
 from flags import default_logging_level, nstruct
 from structure.fragment import db
 from resources.structure_db import structure_database_factory
@@ -10,11 +15,23 @@ from resources.wrapapi import api_database_factory
 from utils import start_log, make_path
 from utils.SymEntry import SymEntry
 from utils.path import sym_entry, all_scores, projects, sequence_info, data, output_oligomers, output_fragments, \
-    structure_background, scout, generate_fragments, number_of_trajectories, hbnet, \
-    ignore_symmetric_clashes, ignore_pose_clashes, ignore_clashes, force_flags, evolution_constraint, \
-    term_constraint, consensus, structure_info, output_structures, output_trajectory, development
+    generate_fragments, force_flags, structure_info, output_structures, output_trajectory, development
 
 logger = start_log(name=__name__)
+# DesignFlags = collections.namedtuple('DesignFlags', design_args.keys(), defaults=design_args.values())
+# DesignFlags = types.SimpleNamespace(**design_args)
+
+
+def from_flags(cls, **kwargs):
+    return cls(**{key: value for key, value in kwargs.items()
+                  if key in inspect.signature(cls).parameters})
+
+
+Design = make_dataclass('Design',
+                        [(flag, eval(type(default).__name__), field(default=default))
+                         for flag, default in flags.design.items()],
+                        namespace={'from_flags': classmethod(from_flags)})
+#                         frozen=True)
 
 
 class JobResources:
@@ -89,7 +106,7 @@ class JobResources:
         self.fragment_db: 'db.FragmentDatabase' | None = None
 
         # Program flags
-        self.consensus: bool = kwargs.get(consensus, False)  # Whether to run consensus
+        # self.consensus: bool = kwargs.get(consensus, False)  # Whether to run consensus
         self.design_selector: dict[str, dict[str, dict[str, set[int] | set[str]]]] | dict = \
             kwargs.get('design_selector', {})
         self.debug: bool = kwargs.get('debug', False)
@@ -97,18 +114,23 @@ class JobResources:
         self.log_level: bool = kwargs.get('log_level', default_logging_level)
         self.force_flags: bool = kwargs.get(force_flags, False)
         self.fuse_chains: list[tuple[str]] = [tuple(pair.split(':')) for pair in kwargs.get('fuse_chains', [])]
-        self.ignore_clashes: bool = kwargs.get(ignore_clashes, False)
-        if self.ignore_clashes:
-            self.ignore_pose_clashes = self.ignore_symmetric_clashes = True
-        else:
-            self.ignore_pose_clashes: bool = kwargs.get(ignore_pose_clashes, False)
-            self.ignore_symmetric_clashes: bool = kwargs.get(ignore_symmetric_clashes, False)
+        # self.design = DesignFlags(*[kwargs.get(argument_name) for argument_name in design_args.keys()])
+        # self.design = types.SimpleNamespace(**{flag: kwargs.get(flag, default) for flag, default in flags.design})
+        self.design = Design.from_flags(**kwargs)
+        # self.design = types.SimpleNamespace(**{flag: kwargs.get(flag, default) for flag, default in flags.design})
+        # self.design.ignore_clashes: bool = kwargs.get(ignore_clashes, False)
+        # self.ignore_clashes: bool = kwargs.get(ignore_clashes, False)
+        if self.design.ignore_clashes:
+            self.design.ignore_pose_clashes = self.design.ignore_symmetric_clashes = True
+        # else:
+        #     self.ignore_pose_clashes: bool = kwargs.get(ignore_pose_clashes, False)
+        #     self.ignore_symmetric_clashes: bool = kwargs.get(ignore_symmetric_clashes, False)
         self.increment_chains: bool = kwargs.get('increment_chains', False)
         self.mpi: int = kwargs.get('mpi', 0)
-        self.evolution_constraint: bool = kwargs.get(evolution_constraint, False)
-        self.hbnet: bool = kwargs.get(hbnet, False)
-        self.term_constraint: bool = kwargs.get(term_constraint, False)
-        self.number_of_trajectories: int = kwargs.get(number_of_trajectories, nstruct)
+        # self.evolution_constraint: bool = kwargs.get(evolution_constraint, False)
+        # self.hbnet: bool = kwargs.get(hbnet, False)
+        # self.term_constraint: bool = kwargs.get(term_constraint, False)
+        # self.number_of_trajectories: int = kwargs.get(number_of_trajectories, nstruct)
         self.overwrite: bool = kwargs.get('overwrite', False)
         self.output_directory: AnyStr | None = kwargs.get('output_directory', None)
         self.output_to_directory: bool = True if self.output_directory else False
@@ -118,9 +140,9 @@ class JobResources:
         # self.pre_refine: bool = kwargs.get('pre_refine', True)
         # self.pre_loop_model: bool = kwargs.get('pre_loop_model', True)
         self.generate_fragments: bool = kwargs.get(generate_fragments, True)
-        self.scout: bool = kwargs.get(scout, False)
+        # self.scout: bool = kwargs.get(scout, False)
         self.specific_protocol: str = kwargs.get('specific_protocol', False)
-        self.structure_background: bool = kwargs.get(structure_background, False)
+        # self.structure_background: bool = kwargs.get(structure_background, False)
         self.sym_entry: SymEntry | None = kwargs.get(sym_entry, None)
         self.write_fragments: bool = kwargs.get(output_fragments, False)
         self.write_oligomers: bool = kwargs.get(output_oligomers, False)
@@ -142,13 +164,13 @@ class JobResources:
             self.construct_pose = True
 
         # Handle protocol specific flags
-        if not self.term_constraint:
+        if not self.design.term_constraint:
             self.generate_fragments = False
 
-        if self.structure_background:
-            self.evolution_constraint = False
-            self.hbnet = False
-            self.term_constraint = False
+        if self.design.structure_background:
+            self.design.evolution_constraint = False
+            self.design.hbnet = False
+            self.design.term_constraint = False
 
     # @staticmethod
     # def make_path(path: AnyStr, condition: bool = True):

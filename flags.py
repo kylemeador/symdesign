@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import os
 import sys
+from argparse import _SubParsersAction
 from typing import AnyStr
 
 from psutil import cpu_count
@@ -15,7 +16,7 @@ from utils.path import submodule_guide, submodule_help, force_flags, fragment_db
     fragment_profile, all_scores, analysis_file, select_sequences, program_name, nano, \
     program_command, analysis, select_poses, output_fragments, output_oligomers, protocol, current_energy_function, \
     ignore_clashes, ignore_pose_clashes, ignore_symmetric_clashes, select_designs, output_structures, rosetta_str, \
-    proteinmpnn, output_trajectory, development
+    proteinmpnn, output_trajectory, development, consensus
 from utils.ProteinExpression import expression_tags
 from resources.query.utils import input_string, confirmation_string, bool_d, invalid_string, header_string, \
     format_string
@@ -278,6 +279,7 @@ options_arguments = {
     ('-i', '--fragment_database'): dict(type=str.lower, choices=fragment_dbs, default=biological_interfaces, metavar='',
                                         help='Database to match fragments for interface specific scoring matrices'
                                              '\nChoices=%(choices)s\nDefault=%(default)s'),
+    # ('-ic', f'--{ignore_clashes}'): dict(action=argparse.BooleanOptionalAction, default=False,
     ('-ic', f'--{ignore_clashes}'): dict(action='store_true', help='Whether ANY identified backbone/Cb clash should be '
                                                                    'ignored and allowed to process'),
     ('-ipc', f'--{ignore_pose_clashes}'): dict(action='store_true', help='Whether asu/pose clashes should be '
@@ -303,7 +305,7 @@ options_arguments = {
     setup_args: setup_kwargs,
     ('--skip_logging',): dict(action='store_true',
                               help='Skip logging output to files and direct all logging to stream?'),
-    ('-E', '--entry', f'--{sym_entry}'): dict(type=int, default=None, dest=sym_entry,
+    ('-E', f'--{sym_entry}', '--entry'): dict(type=int, default=None, dest=sym_entry,
                                               help=f'The entry number of {nano.title()} docking combinations to use'),
     ('-S', '--symmetry'): dict(type=str, default=None,
                                help='The specific symmetry of the poses of interest.\nPreferably in a composition '
@@ -416,7 +418,7 @@ nanohedra_arguments = {
 }
 parser_nanohedra_run_type_mutual_group = dict()  # required=True <- adding below to different parsers depending on need
 nanohedra_run_type_mutual_arguments = {
-    ('-e', '-entry', '--entry', f'--{sym_entry}'):
+    ('-e', f'--{sym_entry}', '-entry', '--entry'):
         dict(type=int, default=None, dest=sym_entry, help='The symmetry to use. See --query for possible symmetries'),
     ('-query', '--query',): dict(action='store_true', help='Run in query mode'),
     # Todo alias analysis -metric
@@ -427,8 +429,8 @@ parser_nanohedra_mutual1_group = dict()  # required=True <- adding kwarg below t
 nanohedra_mutual1_arguments = {
     ('-c1', '--pdb_codes1'): dict(type=os.path.abspath, default=None,
                                   help=f'File with list of PDB_entity codes for {nano} component 1'),
-    ('-o1', f'-{nano_entity_flag1}'): dict(type=os.path.abspath, default=None,
-                                           help=f'Disk location where {nano} component 1 file(s) are located'),
+    ('-o1', f'-{nano_entity_flag1}', f'--{nano_entity_flag1}'):
+        dict(type=os.path.abspath, default=None, help=f'Disk location where {nano} component 1 file(s) are located'),
     ('-Q', '--query_codes'): dict(action='store_true', help='Query the PDB API for corresponding codes')
 }
 # parser_dock_mutual2 = parser_dock.add_mutually_exclusive_group()
@@ -436,8 +438,8 @@ parser_nanohedra_mutual2_group = dict()  # required=False
 nanohedra_mutual2_arguments = {
     ('-c2', '--pdb_codes2'): dict(type=os.path.abspath, default=None,
                                   help=f'File with list of PDB_entity codes for {nano} component 2'),
-    ('-o2', f'-{nano_entity_flag2}'): dict(type=os.path.abspath, default=None,
-                                           help=f'Disk location where {nano} component 2 file(s) are located'),
+    ('-o2', f'-{nano_entity_flag2}', f'--{nano_entity_flag2}'):
+        dict(type=os.path.abspath, default=None, help=f'Disk location where {nano} component 2 file(s) are located'),
 }
 # ---------------------------------------------------
 parser_cluster = dict(cluster_poses=dict(description='Cluster all poses by their spatial or interfacial similarity. '
@@ -452,8 +454,8 @@ cluster_poses_arguments = {
                                                       'PoseDirectory objects\nDefault stores as pose IDs'),
     ('-Of', '--output_file'): dict(type=str, default=clustered_poses,
                                    help='Name of the output .pkl file containing pose clusters. Will be saved to the '
-                                        '%s folder of the output.\nDefault=%s'
-                                        % (data.title(), clustered_poses % ('LOCATION', 'TIMESTAMP')))
+                                        f'{data.title()} folder of the output.'
+                                        f'\nDefault={clustered_poses % ("TIMESTAMP", "LOCATION")}')
 }
 # ---------------------------------------------------
 parser_design = dict(interface_design=dict(description='Gather poses of interest and format for design using sequence '
@@ -462,6 +464,7 @@ parser_design = dict(interface_design=dict(description='Gather poses of interest
                                                        'from the PDB or neither'))
 # parser_design = subparsers.add_parser(interface_design, description='Gather poses of interest and format for design using sequence constraints in Rosetta. Constrain using evolutionary profiles of homologous sequences and/or fragment profiles extracted from the PDB or neither.')
 nstruct = 20
+method = 'method'
 interface_design_arguments = {
     ('-ec', f'--{evolution_constraint}'): dict(action=argparse.BooleanOptionalAction, default=True,
                                                help='Whether to include evolutionary constraints during design.'
@@ -469,8 +472,8 @@ interface_design_arguments = {
     ('-hb', f'--{hbnet}'): dict(action=argparse.BooleanOptionalAction, default=True,
                                 help='Whether to include hydrogen bond networks in the design.'
                                      f'{boolean_positional_prevent_msg(hbnet)}'),
-    ('-m', f'--method'): dict(type=str.lower, default=proteinmpnn, choices={proteinmpnn, rosetta_str}, metavar='',
-                              help='Which design method should be used?\nChoices=%(choices)s\nDefault=%(default)s'),
+    ('-m', f'--{method}'): dict(type=str.lower, default=proteinmpnn, choices={proteinmpnn, rosetta_str}, metavar='',
+                                help='Which design method should be used?\nChoices=%(choices)s\nDefault=%(default)s'),
     ('-n', f'--{number_of_trajectories}'): dict(type=int, default=nstruct,
                                                 help='How many unique sequences should be generated for each input?'
                                                      '\nDefault=%(default)s'),
@@ -540,8 +543,8 @@ analysis_arguments = {
     #                          '\nDefault=%(default)s'),
     ('-Of', '--output_file'): dict(type=str, default=analysis_file,
                                    help='Name of the output .csv file containing pose metrics.\nWill be saved to the '
-                                        '%s folder of the output\nDefault=%s'
-                                        % (all_scores, analysis_file % ('TIMESTAMP', 'LOCATION'))),
+                                        f'{all_scores} folder of the output'
+                                        f'\nDefault={analysis_file % ("TIMESTAMP", "LOCATION")}'),
     ('--save',): dict(action=argparse.BooleanOptionalAction, default=True,
                       help=f'Save trajectory information?{boolean_positional_prevent_msg("save")}'),
     ('--figures',): dict(action=argparse.BooleanOptionalAction, default=False,
@@ -768,10 +771,10 @@ parser_input_mutual_group = dict()  # required=True <- adding kwarg below to dif
 input_mutual_arguments = {
     ('-d', '--directory'): dict(type=os.path.abspath, metavar=ex_path('your_pdb_files'),
                                 help='Master directory where poses to be designed are located. This may be\nthe'
-                                     ' output directory from %s.py, a random directory\nwith poses requiring design, or'
-                                     ' the output from %s.\nIf the directory of interest resides in a %s directory,\nit'
-                                     ' is recommended to use -f, -p, or -s for finer control'
-                                     % (nano, program_name, program_output)),
+                                     f' output directory from {nano}.py, a random directory\nwith poses requiring '
+                                     f'design, or the output from {program_name}.\nIf the directory of interest resides'
+                                     f' in a {program_output} directory,\nit is recommended to use -f, -p, or -s for '
+                                     f'finer control'),
     ('-f', '--file'): dict(type=os.path.abspath, default=None, nargs='*',
                            metavar=ex_path('file_with_pose.paths'),
                            help='File(s) with the location of poses listed. For each run of %s,\na file will be created'
@@ -1059,3 +1062,22 @@ for parser_name, parser_kwargs in input_parsers.items():
 #                                                                      name=parser_name, **parser_kwargs[parser_name])
 #         for args, kwargs in arguments.items():
 #             entire_module_suparsers[parser_name].add_argument(*args, **kwargs)
+
+# Separate the provided arguments for modules or overall program arguments to into flags namespaces
+design_arguments = {
+    ignore_clashes, ignore_pose_clashes, ignore_symmetric_clashes, method, evolution_constraint, hbnet,
+    number_of_trajectories, structure_background, scout, term_constraint, consensus
+}
+design = {}
+"""Contains all the arguments used in design and their default parameters"""
+for group in parser._action_groups:
+    for arg in group._group_actions:
+        if isinstance(arg, _SubParsersAction):  # we have a sup parser, recurse
+            for name, sub_parser in arg.choices.items():
+                for sub_group in sub_parser._action_groups:
+                    for arg in sub_group._group_actions:
+                        if arg.dest in design_arguments:
+                            design[arg.dest] = arg.default
+
+        elif arg.dest in design_arguments:
+            design[arg.dest] = arg.default

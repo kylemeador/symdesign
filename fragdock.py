@@ -2996,7 +2996,7 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
         log.critical(f'The number of proteinmpnn model parameters is: {number_of_mpnn_model_parameters}')
 
         # Todo
-        #  Check job.evolution_constraint flag
+        #  Check job.design.evolution_constraint flag
         #  Move this outside if we want to measure docking solutions with ProteinMPNN
         # Add Entity information to the Pose
         measure_evolution, measure_alignment = True, True
@@ -4179,7 +4179,7 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
 
             pose.calculate_profile()
             # Todo use below if the job calls for different profile integration
-            # pose.add_profile(evolution=not job.evolution_constraint,
+            # pose.add_profile(evolution=not job.design.evolution_constraint,
             #                  fragments=job.generate_fragments)
             if pose.profile:
                 design_profile_array = pssm_as_array(pose.profile)
