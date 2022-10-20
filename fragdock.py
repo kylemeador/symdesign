@@ -3515,7 +3515,7 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
                     }
 
         proteinmpnn_kwargs = {}
-        batch_mpnn = False
+        batch_mpnn = True
         if batch_mpnn:
             proteinmpnn_return = pose_batch_to_protein_mpnn(**proteinmpnn_kwargs,
                                                             function_return_containers=
