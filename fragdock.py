@@ -2368,7 +2368,7 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
     entity_info = {entity_name: data for model in models
                    for entity_name, data in model.entity_info.items()}
     chain_gen = structure.utils.chain_id_generator()
-    for entity_name, data in entity_info:
+    for entity_name, data in entity_info.items():
         data['chains'] = [next(chain_gen)]
 
     pose = Pose.from_entities([entity for idx, model in enumerate(models) for entity in model.entities],
@@ -3138,14 +3138,18 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
 
         # Set up ProteinMPNN output data structures
         # To use torch.nn.NLLL() must use dtype Long -> np.int64, not Int -> np.int32
-        generated_sequences = np.empty((size, pose_length), dtype=np.int64)
+        # generated_sequences = np.empty((size, pose_length), dtype=np.int64)
         per_residue_evolution_cross_entropy = np.empty((size, pose_length), dtype=np.float32)
         per_residue_fragment_cross_entropy = np.empty_like(per_residue_evolution_cross_entropy)
-        per_residue_complex_sequence_loss = np.empty_like(per_residue_evolution_cross_entropy)
-        per_residue_unbound_sequence_loss = np.empty_like(per_residue_evolution_cross_entropy)
+        # per_residue_complex_sequence_loss = np.empty_like(per_residue_evolution_cross_entropy)
+        # per_residue_unbound_sequence_loss = np.empty_like(per_residue_evolution_cross_entropy)
         per_residue_batch_collapse_z = np.zeros_like(per_residue_evolution_cross_entropy)
         per_residue_design_indices = np.zeros((size, pose_length), dtype=bool)
         collapse_violation = np.zeros((size, ), dtype=bool)
+        number_of_temperatures = len(job.temperatures)
+        generated_sequences = np.empty((size, number_of_temperatures, pose_length), dtype=np.int64)
+        per_residue_complex_sequence_loss = np.empty(generated_sequences.shape, dtype=np.float32)
+        per_residue_unbound_sequence_loss = np.empty_like(per_residue_complex_sequence_loss)
         # probabilities = np.empty((size, number_of_residues, mpnn_alphabet_length, dtype=np.float32))
 
         # Set up Pose parameters
@@ -3467,7 +3471,7 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
                 'collapse_violation': _poor_collapse,
             }
 
-            _batch_sequences = []
+            batch_sequences = []
             _per_residue_complex_sequence_loss = []
             _per_residue_unbound_sequence_loss = []
             number_of_temps = len(job.temperatures)
@@ -3533,7 +3537,8 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
                 # batch_scores is
                 # tensor([2.1039, 2.0618, 2.0802, 2.0538, 2.0114, 2.0002], device='cuda:0')
                 # Format outputs
-                _batch_sequences.append(S_sample.cpu()[:, :pose_length])
+                _batch_sequences = S_sample.cpu()[:, :pose_length]
+                batch_sequences.append(_batch_sequences)
                 _per_residue_complex_sequence_loss.append(
                     sequence_nllloss(_batch_sequences, complex_log_probs[:, :pose_length]).numpy())
                 _per_residue_unbound_sequence_loss.append(
@@ -3543,7 +3548,7 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
             _return = {
                     # The below structures have a shape (batch_length, number_of_temperatures, pose_length)
                     'sequences':
-                        np.concatenate(_batch_sequences, axis=1).reshape(actual_batch_length, number_of_temps,
+                        np.concatenate(batch_sequences, axis=1).reshape(actual_batch_length, number_of_temps,
                                                                          pose_length),
                     'complex_sequence_loss':
                         np.concatenate(_per_residue_complex_sequence_loss, axis=1).reshape(actual_batch_length,
@@ -3554,7 +3559,9 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
                                                                                            number_of_temps,
                                                                                            pose_length),
                     }
-            return dock_fit_parameters.update(_return)
+            dock_fit_parameters.update(_return)
+
+            return dock_fit_parameters
 
         # Todo perhaps we can put some things in here that are relevant, but given the transformation space calculation
         #  this is quite a hefty code base to put into a couple parameters
