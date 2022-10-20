@@ -2827,17 +2827,19 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
         self.transform(rotation=rot, translation=tx)
         clean_orient_input_output()
 
-    def mutate_residue(self, residue: Residue = None, number: int = None, to: str = 'ALA', **kwargs):  # Todo Structures
+    # Todo Make compatible with Structures
+    def mutate_residue(self, **kwargs):
+        # residue: Residue = None, index: int = None, number: int = None, to: str = 'ALA',
         """Mutate a specific Residue to a new residue type. Type can be 1 or 3 letter format
 
-        Args:
-            residue: A Residue object to mutate
-            number: A Residue number to select the Residue of interest with
-            to: The type of amino acid to mutate to
         Keyword Args:
-            pdb=False (bool): Whether to pull the Residue by PDB number
+            residue: Residue = None - A Residue object to mutate
+            index: int = None - A Residue index to select the Residue instance of interest by
+            number: int = None - A Residue number to select the Residue instance of interest by
+            to: str = 'ALA' - The type of amino acid to mutate to
+            pdb: bool = False - Whether to pull the Residue by PDB number
         """
-        delete_indices = super().mutate_residue(residue=residue, number=number, to=to, **kwargs)
+        delete_indices = super().mutate_residue(**kwargs)  # residue=residue, number=number, to=to,
         if not delete_indices:  # there are no indices
             return
         delete_length = len(delete_indices)
