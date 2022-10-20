@@ -3145,6 +3145,22 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
         total_collapse_favorability = []
         # probabilities = np.empty((size, number_of_residues, mpnn_alphabet_length, dtype=np.float32))
 
+        # Set up Pose parameters
+        parameters = pose.get_proteinmpnn_params()
+        # Add a parameter for the unbound version of X to X
+        X_unbound = np.concatenate(entity_unbound_coords).reshape((number_of_residues, num_model_residues, 3))
+        parameters['X'] = X_unbound
+        # Disregard X, chain_M_pos, and bias_by_res parameters return and use the pose specific data from below
+        # parameters.pop('X')  # overwritten by X_unbound
+        parameters.pop('chain_M_pos')
+        parameters.pop('bias_by_res')
+        tied_pos = parameters.pop('tied_pos')
+        # Todo if modifying the amount of weight given to each of the copies
+        tied_beta = parameters.pop('tied_beta')
+        # Set the design temperature
+        temperature = job.temperatures[0]
+        mpnn_null_idx = 20
+
         proteinmpnn_time_start = time.time()
         while True:
             log.critical(f'The batch_length is: {batch_length}')
@@ -3155,49 +3171,25 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
                 #  def protein_mpnn_setup():
                 #      ...
                 #      return {'parameter': data, ...}
-                parameters = pose.get_proteinmpnn_params()
-                # Disregard X, chain_M_pos, and bias_by_res parameters return and use the pose specific data from below
-                parameters.pop('X')
-                parameters.pop('chain_M_pos')
-                parameters.pop('bias_by_res')
-                # Add a parameter for the unbound version of X to X
-                X_unbound = np.concatenate(entity_unbound_coords).reshape((number_of_residues, num_model_residues, 3))
-                parameters['X'] = X_unbound
                 # Create batch_length fixed parameter data which are the same across poses
-                parameters.update(**batch_proteinmpnn_input(size=batch_length, **parameters))
+                batch_parameters = batch_proteinmpnn_input(size=batch_length, **parameters)
 
                 # Move fixed data structures to the model device
                 with torch.no_grad():  # Ensure no gradients are produced
-                    # Update parameters as some are not transfered to the identified device
-                    parameters.update(proteinmpnn_to_device(mpnn_model.device, **parameters))
-
-                    X_unbound = parameters.get('X', None)
-                    S = parameters.get('S', None)
-                    chain_mask = parameters.get('chain_mask', None)
-                    chain_encoding = parameters.get('chain_encoding', None)
-                    residue_idx = parameters.get('residue_idx', None)
-                    mask = parameters.get('mask', None)
-                    omit_AAs_np = parameters.get('omit_AAs_np', None)
-                    bias_AAs_np = parameters.get('bias_AAs_np', None)
-                    omit_AA_mask = parameters.get('omit_AA_mask', None)
-                    pssm_coef = parameters.get('pssm_coef', None)
-                    pssm_bias = parameters.get('pssm_bias', None)
-                    pssm_multi = parameters.get('pssm_multi', None)
-                    pssm_log_odds_flag = parameters.get('pssm_log_odds_flag', None)
-                    pssm_log_odds_mask = parameters.get('pssm_log_odds_mask', None)
-                    pssm_bias_flag = parameters.get('pssm_bias_flag', None)
-                    tied_pos = parameters.get('tied_pos', None)
-                    tied_beta = parameters.get('tied_beta', None)
+                    # Update parameters as some are not transferred to the identified device
+                    batch_parameters.update(proteinmpnn_to_device(mpnn_model.device, **batch_parameters))
                     # Todo
                     #  Must calculate below individually if using some feature to describe order
                     randn = pose.generate_proteinmpnn_decode_order(to_device=mpnn_model.device)
                     # if not pose.is_symmetric():
                     # Must make a decoding_order batched for mpnn_model.sample()
-                    randn = randn.repeat(batch_length, 1)
-                    decoding_order = create_decoding_order(randn, chain_mask,
-                                                           tied_pos=tied_pos, to_device=mpnn_model.device)
-
-                    # chain_mask_and_mask = chain_mask * mask
+                    batch_parameters['randn'] = randn.repeat(batch_length, 1)
+                X_unbound = batch_parameters.pop('X')  # Remove once batch_calculation()
+                chain_mask = batch_parameters.pop('chain_mask')
+                chain_encoding = batch_parameters.pop('chain_encoding')
+                residue_idx = batch_parameters.pop('residue_idx')
+                mask = batch_parameters.pop('mask')
+                randn = batch_parameters.pop('randn')
 
                 # Gather the coordinates according to the transformations identified
                 for batch in range(number_of_batches):
@@ -3247,14 +3239,8 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
                         #  bias_by_res[batch_idx] = pose.fragment_profile
                         #  OR
                         #  bias_by_res[batch_idx, fragment_residues] = pose.fragment_profile[fragment_residues]
-
-                    # Process the fragment_profiles into an array and take the log of the frequencies for cross entropy
-                    fragment_profile_array = np.array(fragment_profiles)
-                    # RuntimeWarning: divide by zero encountered in log
-                    # np.log causes -inf at 0, thus we need to correct these to a very large number
-                    batch_fragment_profile = torch.from_numpy(np.nan_to_num(fragment_profile_array,
-                                                                            copy=False, nan=np.nan))
-                    # print('batch_fragment_profile', batch_fragment_profile[:, 20:23])
+                        #  If tied_beta is modified
+                        #  tied_beta[batch_idx] = ...
 
                     # If entity_bb_coords are individually transformed, then axis=0 works
                     perturbed_bb_coords = np.concatenate(new_coords, axis=0)
@@ -3287,28 +3273,74 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
                     log.debug(f'X.shape: {X.shape}')
 
                     with torch.no_grad():  # Ensure no gradients are produced
-                        # Update parameters as some are not transfered to the identified device
+                        # Unpack constant parameters and slice reused parameters only once
+                        # X_unbound = batch_parameters.get('X')
+                        # X_unbound = batch_parameters.pop('X')  # Todo inside function
+                        # Clone the data from the sequence tensor so that it can be set with the null token below
+                        S_design_null = batch_parameters.get('S').detach().clone()
+                        # chain_mask = batch_parameters.get('chain_mask')
+                        # chain_encoding = batch_parameters.get('chain_encoding')
+                        # residue_idx = batch_parameters.get('residue_idx')
+                        # mask = batch_parameters.get('mask')
+                        # randn = batch_parameters.get('randn')
+                        if actual_batch_length != batch_length:
+                            # Slice these for the last iteration
+                            X_unbound = X_unbound[:actual_batch_length]  # , None)
+                            S_design_null = S_design_null[:actual_batch_length]  # , None)
+                            chain_mask = chain_mask[:actual_batch_length]  # , None)
+                            chain_encoding = chain_encoding[:actual_batch_length]  # , None)
+                            residue_idx = residue_idx[:actual_batch_length]  # , None)
+                            mask = mask[:actual_batch_length]  # , None)
+                            randn = randn[:actual_batch_length]
+                            # Set keyword args
+                            omit_AA_mask = batch_parameters.get('omit_AA_mask')
+                            pssm_coef = batch_parameters.get('pssm_coef')
+                            pssm_bias = batch_parameters.get('pssm_bias')
+                            pssm_log_odds_mask = batch_parameters.get('pssm_log_odds_mask')
+                            batch_parameters['omit_AA_mask'] = omit_AA_mask[:actual_batch_length]
+                            batch_parameters['pssm_coef'] = pssm_coef[:actual_batch_length]
+                            batch_parameters['pssm_bias'] = pssm_bias[:actual_batch_length]
+                            batch_parameters['pssm_log_odds_mask'] = pssm_log_odds_mask[:actual_batch_length]
+
+                        # pssm_multi = pssm_multi,  # batch_parameters
+                        # pssm_log_odds_flag = pssm_log_odds_flag,  # batch_parameters
+                        # pssm_log_odds_mask = pssm_log_odds_mask[:actual_batch_length]
+
+                        # omit_AAs_np = batch_parameters.get('omit_AAs_np', None)  # Todo to **
+                        # bias_AAs_np = batch_parameters.get('bias_AAs_np', None)  # Todo to **
+                        # omit_AA_mask = batch_parameters.get('omit_AA_mask', None)  # Just needs to be sliced
+                        # pssm_coef = batch_parameters.get('pssm_coef', None)  # Just needs to be sliced
+                        # pssm_bias = batch_parameters.get('pssm_bias', None)  # Just needs to be sliced
+                        # pssm_multi = batch_parameters.get('pssm_multi', None)  # Todo to **
+                        # pssm_log_odds_flag = batch_parameters.get('pssm_log_odds_flag', None)  # Todo to **
+                        # pssm_log_odds_mask = batch_parameters.get('pssm_log_odds_mask', None)
+                        # pssm_bias_flag = batch_parameters.get('pssm_bias_flag', None)  # Todo to **
+                        # tied_pos = parameters.get('tied_pos', None)  # Todo to **
+                        # tied_beta = parameters.get('tied_beta', None)  # Todo to **
+
+                        decoding_order = create_decoding_order(randn, chain_mask,
+                                                               tied_pos=tied_pos,  # parameters['tied_pos'],  #
+                                                               to_device=mpnn_model.device,
+                                                               # **batch_parameters)
+                                                               )
+
+                        # Update parameters as some are not transferred to the identified device
                         separate_parameters = proteinmpnn_to_device(mpnn_model.device, X=X,
                                                                     chain_M_pos=residue_mask_cpu,
                                                                     bias_by_res=bias_by_res)
                         # Different across poses
-                        X = separate_parameters.get('X', None)
+                        X = separate_parameters.pop('X')
                         residue_mask = separate_parameters.get('chain_M_pos', None)
-                        # Potentially different across poses
-                        bias_by_res = separate_parameters.get('bias_by_res', None)
+                        # # Potentially different across poses
+                        # bias_by_res = separate_parameters.get('bias_by_res', None)
                         # Todo
                         #  calculate individually if using some feature to describe order
                         #  MUST reinstate the removal from scope after finished with this batch
                         # decoding_order = pose.generate_proteinmpnn_decode_order(to_device=mpnn_model.device)
                         # decoding_order.repeat(actual_batch_length, 1)
-                        # Slice reused parameters only once
-                        mask = mask[:actual_batch_length]
-                        chain_mask = chain_mask[:actual_batch_length]
-                        residue_idx = residue_idx[:actual_batch_length]
-                        chain_encoding = chain_encoding[:actual_batch_length]
-                        # Make a fresh copy of original S for null sequence usage
-                        S_design_null = S[:actual_batch_length].detach().clone()
-                        residue_mask = residue_mask[:actual_batch_length]
+                        # Use the sequence as an unknown token then guess the probabilities given the remaining
+                        # information, i.e. the sequence and the backbone
+                        S_design_null[residue_mask.type(torch.bool)] = mpnn_null_idx
                         chain_residue_mask = chain_mask * residue_mask
 
                         # See if the pose is useful to design based on constraints of collapse
@@ -3325,11 +3357,6 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
                         # conditional_log_probs_seq = \
                         #     mpnn_model.conditional_probs(X, S[:actual_batch_length], mask, chain_residue_mask, residue_idx,
                         #                                  chain_encoding, decoding_order).cpu()
-                        # Use the sequence as an unknown token then guess the probabilities given the remaining
-                        # information, i.e. the sequence and the backbone
-                        mpnn_null_idx = 20
-                        # S_design_null[:actual_batch_length, residue_mask.type(torch.uint8)] = mpnn_null_idx
-                        S_design_null[residue_mask.type(torch.bool)] = mpnn_null_idx
                         # Calculations with this are done using cpu memory and numpy
                         conditional_log_probs_null_seq = \
                             mpnn_model(X, S_design_null, mask, chain_residue_mask, residue_idx, chain_encoding,
@@ -3368,6 +3395,13 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
                             #  [-3.0685952 -3.575687  -2.9675474 ... -3.3111277 -3.1428783 -3.1201544]]
 
                         if pose.fragment_profile:
+                            # Process the fragment_profiles into an array for cross entropy
+                            fragment_profile_array = np.array(fragment_profiles)
+                            # RuntimeWarning: divide by zero encountered in log
+                            # np.log causes -inf at 0, thus we need to correct these to a very large number
+                            batch_fragment_profile = torch.from_numpy(np.nan_to_num(fragment_profile_array,
+                                                                                    copy=False, nan=np.nan))
+                            # print('batch_fragment_profile', batch_fragment_profile[:, 20:23])
                             # Remove the gaps index from the softmax input -> ... :, :mpnn_null_idx]
                             per_residue_fragment_cross_entropy[batch_slice] = \
                                 cross_entropy(asu_conditional_softmax_null_seq[:, :, :mpnn_null_idx],
@@ -3378,8 +3412,6 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
                             # print('per_residue_fragment_cross_entropy',
                             #       per_residue_fragment_cross_entropy[batch_slice, 20:25])
 
-                        # fragment_ce = cross_entropy(asu_conditional_softmax_null_seq,
-                        #                             batch_fragment_profile[:actual_batch_length])
                         if collapse_profile.size:  # Not equal to zero
                             # Take the hydrophobic collapse of the log probs to understand the profiles "folding"
                             poor_collapse = []
@@ -3447,31 +3479,37 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
                             per_residue_design_indices[batch_slice] = residue_indices_of_interest
                             per_residue_batch_collapse_z[batch_slice] = per_residue_mini_batch_collapse_z
 
+                        # Todo
+                        # for temperature in job.temperatures:
                         # Todo add skip to the selection mechanism
                         sample_start_time = time.time()
-                        sample_dict = mpnn_sample(X, randn[:actual_batch_length],  # decoding_order,
-                                                  # S[:actual_batch_length], chain_mask,
-                                                  S_design_null, chain_mask,
-                                                  chain_encoding, residue_idx, mask, temperature=design_temperature,
-                                                  omit_AAs_np=omit_AAs_np, bias_AAs_np=bias_AAs_np,
-                                                  chain_M_pos=residue_mask,
-                                                  omit_AA_mask=omit_AA_mask[:actual_batch_length],
-                                                  pssm_coef=pssm_coef[:actual_batch_length],
-                                                  pssm_bias=pssm_bias[:actual_batch_length],
-                                                  pssm_multi=pssm_multi,
-                                                  pssm_log_odds_flag=pssm_log_odds_flag,
-                                                  pssm_log_odds_mask=pssm_log_odds_mask[:actual_batch_length],
-                                                  pssm_bias_flag=pssm_bias_flag,
-                                                  tied_pos=tied_pos, tied_beta=tied_beta,
-                                                  bias_by_res=bias_by_res[:actual_batch_length])
+                        sample_dict = mpnn_sample(X, randn,  # decoding_order,
+                                                  S_design_null,  # S[:actual_batch_length],
+                                                  chain_mask, chain_encoding, residue_idx, mask,
+                                                  temperature=temperature,
+                                                  # omit_AAs_np=omit_AAs_np, bias_AAs_np=bias_AAs_np,
+                                                  # chain_M_pos=residue_mask,  # separate_parameters
+                                                  # omit_AA_mask=omit_AA_mask[:actual_batch_length],
+                                                  # pssm_coef=pssm_coef[:actual_batch_length],
+                                                  # pssm_bias=pssm_bias[:actual_batch_length],
+                                                  # pssm_multi=pssm_multi,  # batch_parameters
+                                                  # pssm_log_odds_flag=pssm_log_odds_flag,  # batch_parameters
+                                                  # pssm_log_odds_mask=pssm_log_odds_mask[:actual_batch_length],
+                                                  # pssm_bias_flag=pssm_bias_flag,  # batch_parameters
+                                                  tied_pos=tied_pos,  # parameters
+                                                  tied_beta=tied_beta,  # parameters
+                                                  # bias_by_res=bias_by_res,  # separate_parameters
+                                                  # bias_by_res=bias_by_res[:actual_batch_length],
+                                                  **batch_parameters,
+                                                  **separate_parameters)
                         log.info(f'Sample calculation took {time.time() - sample_start_time:8f}')
                         S_sample = sample_dict['S']
                         # decoding_order_out = sample_dict['decoding_order']
                         decoding_order_out = decoding_order  # When using the same decoding order for all
-                        _X_unbound = X_unbound[:actual_batch_length]
+                        # _X_unbound = X_unbound[:actual_batch_length]
                         unbound_log_prob_start_time = time.time()
                         unbound_log_probs = \
-                            mpnn_model(_X_unbound, S_sample, mask, chain_residue_mask, residue_idx, chain_encoding,
+                            mpnn_model(X_unbound, S_sample, mask, chain_residue_mask, residue_idx, chain_encoding,
                                        None,  # This argument is provided but with below args, is not used
                                        use_input_decoding_order=True, decoding_order=decoding_order_out).cpu()
 
@@ -3554,7 +3592,7 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
                         del S_design_null
                         del residue_mask
                         del bias_by_res
-                        # del decoding_order
+                        del decoding_order
                         # outputs
                         del sample_dict
                         del S_sample
@@ -3582,23 +3620,23 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
                 # Remove all tensors from memory
                 try:  # These are in order of creation, so once one fails, the others haven't been allocated
                     # constant parameters
-                    del parameters
-                    del S
+                    del batch_parameters
+                    # del S
                     del chain_mask
                     del chain_encoding
                     del residue_idx
                     del mask
-                    del omit_AAs_np
-                    del bias_AAs_np
+                    # del omit_AAs_np
+                    # del bias_AAs_np
                     del omit_AA_mask
                     del pssm_coef
                     del pssm_bias
-                    del pssm_multi
-                    del pssm_log_odds_flag
+                    # del pssm_multi
+                    # del pssm_log_odds_flag
                     del pssm_log_odds_mask
-                    del pssm_bias_flag
-                    del tied_pos
-                    del tied_beta
+                    # del pssm_bias_flag
+                    # del tied_pos
+                    # del tied_beta
                     # del chain_mask_and_mask
                     # inputs
                     del separate_parameters
