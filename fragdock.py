@@ -2366,6 +2366,7 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
                          for entity in model.entities}
     entity_info = {entity_name: data for model in models
                    for entity_name, data in model.entity_info.items()}
+    input('entity_info', entity_info)
     pose = Pose.from_entities([entity for idx, model in enumerate(models) for entity in model.entities],
                               entity_info=entity_info, entity_names=entity_names, name='asu', log=log,
                               sym_entry=sym_entry, surrounding_uc=job.output_surrounding_uc,
@@ -3514,33 +3515,36 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
                     'collapse_violation': _poor_collapse,
                     }
 
+        # Todo perhaps we can put some things in here that are relevant, but given the transformation space calculation
+        #  this is quite a hefty code base to put into a couple parameters
         proteinmpnn_kwargs = {}
-        batch_mpnn = True
-        if batch_mpnn:
-            proteinmpnn_return = pose_batch_to_protein_mpnn(**proteinmpnn_kwargs,
-                                                            function_return_containers=
-                                                            {
-                                                             'sequences': generated_sequences,
-                                                             'evolution_cross_entropy': per_residue_evolution_cross_entropy,
-                                                             'fragment_cross_entropy': per_residue_fragment_cross_entropy,
-                                                             'complex_sequence_loss': per_residue_complex_sequence_loss,
-                                                             'unbound_sequence_loss': per_residue_unbound_sequence_loss,
-                                                             'collapse_z': per_residue_batch_collapse_z,
-                                                             'design_indices': per_residue_design_indices,
-                                                             'collapse_violation': collapse_violation,
-                                                             },
-                                                            # setup_args=(parameters,),
-                                                            setup_kwargs=parameters
-                                                            )
-            generated_sequences = proteinmpnn_return['sequences']
-            per_residue_evolution_cross_entropy = proteinmpnn_return['evolution_cross_entropy']
-            per_residue_fragment_cross_entropy = proteinmpnn_return['fragment_cross_entropy']
-            per_residue_complex_sequence_loss = proteinmpnn_return['complex_sequence_loss']
-            per_residue_unbound_sequence_loss = proteinmpnn_return['unbound_sequence_loss']
-            per_residue_batch_collapse_z = proteinmpnn_return['collapse_z']
-            per_residue_design_indices = proteinmpnn_return['design_indices']
-            collapse_violation = proteinmpnn_return['collapse_violation']
+        # batch_mpnn = True
+        # if batch_mpnn:
+        proteinmpnn_return = pose_batch_to_protein_mpnn(**proteinmpnn_kwargs,
+                                                        function_return_containers=
+                                                        {
+                                                         'sequences': generated_sequences,
+                                                         'evolution_cross_entropy': per_residue_evolution_cross_entropy,
+                                                         'fragment_cross_entropy': per_residue_fragment_cross_entropy,
+                                                         'complex_sequence_loss': per_residue_complex_sequence_loss,
+                                                         'unbound_sequence_loss': per_residue_unbound_sequence_loss,
+                                                         'collapse_z': per_residue_batch_collapse_z,
+                                                         'design_indices': per_residue_design_indices,
+                                                         'collapse_violation': collapse_violation,
+                                                         },
+                                                        # setup_args=(parameters,),
+                                                        setup_kwargs=parameters
+                                                        )
+        generated_sequences = proteinmpnn_return['sequences']
+        per_residue_evolution_cross_entropy = proteinmpnn_return['evolution_cross_entropy']
+        per_residue_fragment_cross_entropy = proteinmpnn_return['fragment_cross_entropy']
+        per_residue_complex_sequence_loss = proteinmpnn_return['complex_sequence_loss']
+        per_residue_unbound_sequence_loss = proteinmpnn_return['unbound_sequence_loss']
+        per_residue_batch_collapse_z = proteinmpnn_return['collapse_z']
+        per_residue_design_indices = proteinmpnn_return['design_indices']
+        collapse_violation = proteinmpnn_return['collapse_violation']
 
+        # This is the original code before it was batched
         # while True:
         #     log.critical(f'The batch_length is: {batch_length}')
         #     try:  # Design sequences with ProteinMPNN using the optimal batch size given memory
