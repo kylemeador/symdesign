@@ -5,6 +5,7 @@ import os
 import pickle
 import re
 import shutil
+from collections.abc import Sequence
 from copy import copy
 from glob import glob
 from itertools import combinations, repeat
@@ -963,7 +964,7 @@ class PoseDirectory:
         else:
             distance = 0
 
-        if not self.job.evolution_constraint:
+        if not self.job.design.evolution_constraint:
             constraint_percent, free_percent = 0, 1
         else:
             constraint_percent = 0.5
@@ -1159,8 +1160,8 @@ class PoseDirectory:
         else:
             score = []
 
-        if self.job.number_of_trajectories:
-            trajectories = ['-nstruct', str(self.job.number_of_trajectories)]
+        if self.job.design.number_of_trajectories:
+            trajectories = ['-nstruct', str(self.job.design.number_of_trajectories)]
         else:
             trajectories = ['-no_nstruct_label true']
 
@@ -1378,7 +1379,7 @@ class PoseDirectory:
         # Initialize the Pose with the pdb in PDB numbering so that residue_selectors are respected
         pose_kwargs = dict(name=f'{self}-asu' if self.sym_entry else str(self), sym_entry=self.sym_entry, log=self.log,
                            transformations=self.pose_transformation, design_selector=self.design_selector,
-                           ignore_clashes=self.job.ignore_pose_clashes, fragment_db=self.job.fragment_db)
+                           ignore_clashes=self.job.design.ignore_pose_clashes, fragment_db=self.job.fragment_db)
         #                    api_db=self.job.api_db,
 
         if entities:
@@ -1662,7 +1663,7 @@ class PoseDirectory:
         ClashError if any are found, otherwise, continue with protocol
         """
         if self.pose.symmetric_assembly_is_clash():
-            if self.job.ignore_symmetric_clashes:
+            if self.job.design.ignore_symmetric_clashes:
                 self.log.critical(f'The Symmetric Assembly contains clashes! {self.source} is not viable')
             else:
                 raise ClashError(f'The Symmetric Assembly contains clashes! Design won\'t be considered. If you '
@@ -1795,7 +1796,7 @@ class PoseDirectory:
             elif os.path.exists(self.frag_file):
                 self.retrieve_fragment_info_from_file()
 
-            if self.job.evolution_constraint:
+            if self.job.design.evolution_constraint:
                 for entity in self.pose.entities:
                     if entity not in self.pose.active_entities:  # we shouldn't design, add a null profile instead
                         entity.add_profile(null=True)
@@ -1816,7 +1817,7 @@ class PoseDirectory:
 
                         if not entity.sequence_file:
                             entity.write_sequence_to_fasta('reference', out_dir=self.job.api_db.sequences.location)
-                        # entity.add_profile(evolution=not self.job.evolution_constraint,
+                        # entity.add_profile(evolution=not self.job.design.evolution_constraint,
                         #                    fragments=self.job.generate_fragments,
                         #                    out_dir=self.job.api_db.hhblits_profiles.location)
                 self.pose.evolutionary_profile = \
@@ -1827,7 +1828,7 @@ class PoseDirectory:
             # self.pose.combine_sequence_profiles()
             # I could alo add the combined profile here instead of at each Entity
             # self.pose.calculate_profile()
-            self.pose.add_profile(evolution=not self.job.evolution_constraint,
+            self.pose.add_profile(evolution=not self.job.design.evolution_constraint,
                                   fragments=self.job.generate_fragments,
                                   out_dir=self.job.api_db.hhblits_profiles.location)
             write_pssm_file(self.pose.profile, file_name=self.design_profile_file)
@@ -1837,7 +1838,7 @@ class PoseDirectory:
             #         concatenate_profile([entity.fragment_profile for entity in self.pose.entities], start_at=0)
             #     write_pssm_file(self.pose.fragment_profile, file_name=self.fragment_profile_file)
 
-            # if self.job.evolution_constraint:  # Set pose.evolutionary_profile by combining evolution profiles
+            # if self.job.design.evolution_constraint:  # Set pose.evolutionary_profile by combining evolution profiles
             #     self.pose.evolutionary_profile = \
             #         concatenate_profile([entity.evolutionary_profile for entity in self.pose.entities])
             #     self.pose.pssm_file = \
@@ -1867,24 +1868,24 @@ class PoseDirectory:
         on the PoseDirectory
         """
         # Set up the command base (rosetta bin and database paths)
-        if self.job.scout:
-            protocol, protocol_xml1 = PUtils.scout, PUtils.scout
+        if self.job.design.scout:
+            protocol = protocol_xml1 = PUtils.scout
             nstruct_instruct = ['-no_nstruct_label', 'true']
             generate_files_cmd, metrics_pdb = [], ['-in:file:s', self.scouted_pdb]
             # metrics_flags = 'repack=no'
             additional_cmds, out_file = [], []
-        elif self.job.structure_background:
-            protocol, protocol_xml1 = PUtils.structure_background, PUtils.structure_background
-            nstruct_instruct = ['-nstruct', str(self.job.number_of_trajectories)]
+        elif self.job.design.structure_background:
+            protocol = protocol_xml1 = PUtils.structure_background
+            nstruct_instruct = ['-nstruct', str(self.job.design.number_of_trajectories)]
             design_files = os.path.join(self.scripts, f'design_files_{protocol}.txt')
             generate_files_cmd = \
                 ['python', PUtils.list_pdb_files, '-d', self.designs, '-o', design_files, '-s', '_' + protocol]
             metrics_pdb = ['-in:file:l', design_files]  # self.pdb_list]
             # metrics_flags = 'repack=yes'
             additional_cmds, out_file = [], []
-        elif not self.job.hbnet:  # Run the legacy protocol
+        elif not self.job.design.hbnet:  # Run the legacy protocol
             protocol, protocol_xml1 = PUtils.interface_design, PUtils.interface_design
-            nstruct_instruct = ['-nstruct', str(self.job.number_of_trajectories)]
+            nstruct_instruct = ['-nstruct', str(self.job.design.number_of_trajectories)]
             design_files = os.path.join(self.scripts, f'design_files_{protocol}.txt')
             generate_files_cmd = \
                 ['python', PUtils.list_pdb_files, '-d', self.designs, '-o', design_files, '-s', '_' + protocol]
@@ -1902,7 +1903,8 @@ class PoseDirectory:
             out_file = ['-out:file:silent', os.path.join(self.data, 'hbnet_silent.o'),
                         '-out:file:silent_struct_type', 'binary']
             additional_cmds = \
-                [[PUtils.hbnet_sort, os.path.join(self.data, 'hbnet_silent.o'), str(self.job.number_of_trajectories)]]
+                [[PUtils.hbnet_sort, os.path.join(self.data, 'hbnet_silent.o'),
+                  str(self.job.design.number_of_trajectories)]]
             # silent_file = os.path.join(self.data, 'hbnet_silent.o')
             # additional_commands = \
             #     [
@@ -1918,7 +1920,7 @@ class PoseDirectory:
             self.prepare_rosetta_flags(out_dir=self.scripts)
             self.log.debug(f'Pose flags written to: {self.flags}')
 
-        if self.job.consensus:  # Todo add consensus sbatch generator to the symdesign main
+        if self.job.design.consensus:  # Todo add consensus sbatch generator to SymDesign main
             if self.job.generate_fragments:  # design_with_fragments
                 consensus_cmd = main_cmd + relax_flags_cmdline + \
                     [f'@%{self.flags}', '-in:file:s', self.consensus_pdb,
@@ -1933,7 +1935,8 @@ class PoseDirectory:
                     consensus_process.communicate()
             else:
                 self.log.critical(f'Cannot run consensus design without fragment info and none was found.'
-                                  f' Did you mean to include --{PUtils.term_constraint} as {self.job.term_constraint}?')
+                                  f' Did you mean to include --{PUtils.term_constraint} as '
+                                  f'{self.job.design.term_constraint}?')
         # DESIGN: Prepare command and flags file
         # Todo must set up a blank -in:file:pssm in case the evolutionary matrix is not used. Design will fail!!
         profile_cmd = ['-in:file:pssm', self.evolutionary_profile_file] \
@@ -1957,7 +1960,7 @@ class PoseDirectory:
             ['@%s' % self.flags, '-out:file:score_only', self.scores_file, '-no_nstruct_label', 'true',
              '-parser:protocol', os.path.join(PUtils.rosetta_scripts, 'metrics_entity.xml')]
 
-        if self.job.mpi > 0 and not self.job.scout:
+        if self.job.mpi > 0 and not self.job.design.scout:
             design_cmd = run_cmds[PUtils.rosetta_extras] + [str(self.job.mpi)] + design_cmd
             entity_cmd = run_cmds[PUtils.rosetta_extras] + [str(self.job.mpi)] + entity_cmd
             self.run_in_shell = False
@@ -2051,7 +2054,7 @@ class PoseDirectory:
         protocol = PUtils.optimize_designs
         protocol_xml1 = protocol
         # nstruct_instruct = ['-no_nstruct_label', 'true']
-        nstruct_instruct = ['-nstruct', str(self.job.number_of_trajectories)]
+        nstruct_instruct = ['-nstruct', str(self.job.design.number_of_trajectories)]
         design_list_file = os.path.join(self.scripts, f'design_files_{protocol}.txt')
         generate_files_cmd = \
             ['python', PUtils.list_pdb_files, '-d', self.designs, '-o', design_list_file, '-s', '_' + protocol]
@@ -2151,7 +2154,8 @@ class PoseDirectory:
                 #   pass names if available v
                 pose = Pose.from_file(file, entity_names=self.entity_names, log=self.log, pose_format=True,
                                       sym_entry=self.sym_entry, api_db=self.job.api_db, fragment_db=self.job.fragment_db,
-                                      design_selector=self.job.design_selector, ignore_clashes=self.job.ignore_pose_clashes)
+                                      design_selector=self.job.design_selector,
+                                      ignore_clashes=self.job.design.ignore_pose_clashes)
                 # Todo use PoseDirectory self.info.design_selector
                 design_poses.append(pose)
 
@@ -3706,14 +3710,14 @@ def interface_design_analysis(pose: Pose, design_poses: Iterable[Pose] = None, s
     #                                         alignment_type=alignment_types[query_idx])
     #         entity.process_fragment_profile()
     # for entity in pose.entities:
-    #     entity.add_profile(evolution=job.evolution_constraint,
+    #     entity.add_profile(evolution=job.design.evolution_constraint,
     #                        fragments=job.generate_fragments)
 
     # pose.fragment_profile = concatenate_profile([entity.fragment_profile for entity in pose.entities], start_at=0)
     # pose.profile = concatenate_profile([entity.profile for entity in pose.entities])
     # Todo this needs to be worked out
     pose.calculate_profile()
-    pose.add_profile(evolution=job.evolution_constraint,
+    pose.add_profile(evolution=job.design.evolution_constraint,
                      fragments=job.generate_fragments)
 
     # Load profiles of interest into the analysis

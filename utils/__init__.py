@@ -238,8 +238,8 @@ def pretty_format_table(data: Iterable, justification: Iterable = None, header: 
     elif len(justification) == row_length:
         justifications = [justification_d.get(key.lower(), str.ljust) for key in justification]
     else:
-        raise RuntimeError('The justification length (%d) doesn\'t match the number of columns (%d)'
-                           % (len(justification), row_length))
+        raise RuntimeError(f"The justification length ({len(justification)}) doesn't match the "
+                           f"number of columns ({row_length})")
     if header:
         if len(header) == row_length:
             data = [[column for column in row] for row in data]  # format as list so can insert
@@ -249,11 +249,11 @@ def pretty_format_table(data: Iterable, justification: Iterable = None, header: 
             elif len(header_justification) == row_length:
                 header_justification = [justification_d.get(key.lower(), str.center) for key in header_justification]
             else:
-                raise RuntimeError('The header_justification length (%d) doesn\'t match the number of columns (%d)'
-                                   % (len(header_justification), row_length))
+                raise RuntimeError(f"The header_justification length ({len(header_justification)}) doesn't match the "
+                                   f"number of columns ({row_length})")
         else:
-            raise RuntimeError('The header length (%d) doesn\'t match the number of columns (%d)'
-                               % (len(header), row_length))
+            raise RuntimeError(f"The header length ({len(header)}) doesn't match the "
+                               f"number of columns ({row_length})")
 
     return [' '.join(header_justification[idx](str(col), width) if not idx and header else justifications[idx](str(col), width)
                      for idx, (col, width) in enumerate(zip(row, widths))) for row in data]

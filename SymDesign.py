@@ -883,7 +883,7 @@ def main():
     logger.info(f'Using resources in Database located at "{job.data}"')
     queried_flags['job_resources'] = job
     if args.module in [PUtils.nano, PUtils.generate_fragments, PUtils.interface_design, PUtils.analysis]:
-        if not job.term_constraint:
+        if not job.design.term_constraint:
             fragment_db, euler_lookup = None, None
         else:
             fragment_db = fragment_factory(source=args.fragment_database)
@@ -2369,7 +2369,7 @@ def main():
                                             if tag_input <= len(utils.ProteinExpression.expression_tags):
                                                 tag = list(utils.ProteinExpression.expression_tags.keys())[tag_input-1]
                                                 break
-                                        print('Input doesn\'t match available options. Please try again')
+                                        print("Input doesn't match available options. Please try again")
                                     while True:
                                         termini = input('Your tag will be added to one of the termini. Which termini '
                                                         f'would you prefer? [n/c]{input_string}')
