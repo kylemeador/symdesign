@@ -25,7 +25,7 @@ from metrics import calculate_collapse_metrics, calculate_residue_surface_area, 
     multiple_sequence_alignment_dependent_metrics, profile_dependent_metrics, columns_to_new_column, \
     delta_pairs, division_pairs, interface_composition_similarity, clean_up_intermediate_columns, \
     sum_per_residue_metrics, hydrophobic_collapse_index, cross_entropy, collapse_significance_threshold
-from structure.fragment.db import FragmentDatabase, fragment_factory, euler_factory
+from structure.fragment.db import FragmentDatabase, fragment_factory
 from resources.job import job_resources_factory, JobResources
 from resources.ml import proteinmpnn_factory, batch_proteinmpnn_input, sequence_nllloss, \
     proteinmpnn_to_device, mpnn_alphabet, create_decoding_order
@@ -879,16 +879,19 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
     else:
         job.fragment_db = fragment_factory(source=fragment_db)
 
-    euler_lookup = euler_factory()
+    euler_lookup = job.fragment_db.euler_lookup
     frag_dock_time_start = time.time()
+    # This is used in clustering algorithms to define an observation outside the found clusters
     outlier = -1
     # Todo set below as parameters?
-    ca_only = False
-    design_temperature = 0.1
+    job.ca_only = False
+    job.temperatures = [0.1]
     low_quality_match_value = .2  # sets the lower bounds on an acceptable match, was upper bound of 2 using z-score
     cb_distance = 9.  # change to 8.?
     # cluster_translations = True
     perturb_dofs = False  # True
+    # Todo set below as parameters?
+
     if perturb_dofs:
         number_of_perturbations = 9  # Todo replace with 100
         if sym_entry.unit_cell:
@@ -3063,17 +3066,6 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
         # else:
         #     log.critical('****MISSING evolutionary profile!')
         # Extract parameters to run ProteinMPNN design and modulate memory requirements
-        log.debug(f'The mpnn_model.device is: {mpnn_model.device}')
-        if mpnn_model.device == 'cpu':
-            mpnn_memory_constraint = psutil.virtual_memory().available
-            log.critical(f'The available cpu memory is: {mpnn_memory_constraint}')
-        else:
-            mpnn_memory_constraint, gpu_memory_total = torch.cuda.mem_get_info()
-            log.critical(f'The available gpu memory is: {mpnn_memory_constraint}')
-
-        element_memory = 4  # where each element is np.int/float32
-        number_of_elements_available = mpnn_memory_constraint / element_memory
-        model_elements = number_of_mpnn_model_parameters
 
         # Set up parameters and model sampling type based on symmetry
         if pose.is_symmetric():
@@ -3084,7 +3076,7 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
             mpnn_sample = mpnn_model.sample
             number_of_residues = pose_length
 
-        if ca_only:
+        if job.ca_only:
             coords_type = 'ca_coords'
             num_model_residues = 1
         else:
@@ -3102,6 +3094,18 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
         for idx, coords in enumerate(entity_unbound_coords):
             entity_unbound_coords[idx] = coord_func(coords + unbound_transform*idx)
 
+        log.debug(f'The mpnn_model.device is: {mpnn_model.device}')
+        if mpnn_model.device == 'cpu':
+            mpnn_memory_constraint = psutil.virtual_memory().available
+            log.critical(f'The available cpu memory is: {mpnn_memory_constraint}')
+        else:
+            mpnn_memory_constraint, gpu_memory_total = torch.cuda.mem_get_info()
+            log.critical(f'The available gpu memory is: {mpnn_memory_constraint}')
+
+        element_memory = 4  # where each element is np.int/float32
+        number_of_elements_available = mpnn_memory_constraint / element_memory
+        log.critical(f'The number_of_elements_available is: {number_of_elements_available}')
+        model_elements = number_of_mpnn_model_parameters
         # Todo use 5 as ideal CB is added by the model later with ca_only = False
         model_elements += prod((number_of_residues, num_model_residues, 3))  # X,
         model_elements += number_of_residues  # S.shape
@@ -3126,7 +3130,6 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
         # batch_length = int(number_of_elements_available//model_elements//start_divisor)
         batch_length = 6  # works for 24 GiB mem, 7 is too much
         once, twice = False, False
-        log.critical(f'The number_of_elements_available is: {number_of_elements_available}')
 
         # Set up ProteinMPNN output data structures
         # To use torch.nn.NLLL() must use dtype Long -> np.int64, not Int -> np.int32
