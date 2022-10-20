@@ -3162,7 +3162,6 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
         tied_beta = parameters.pop('tied_beta')
         # Set the design temperature
         temperature = job.temperatures[0]
-        mpnn_null_idx = 20
 
         proteinmpnn_time_start = time.time()
 
@@ -3204,6 +3203,8 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
                                        **batch_parameters
                                        ) -> dict[str, np.ndarray]:
             actual_batch_length = batch_slice.stop - batch_slice.start
+            # Get the null_idx
+            mpnn_null_idx = resources.ml.MPNN_NULL_IDX
             # This parameter is pass as X for compatibility reasons
             X_unbound = X
             # Get the provided batch_length from wrapping function. actual_batch_length may be smaller on last batch

@@ -5709,7 +5709,7 @@ class Pose(SymmetricModel):
 
             # Clone the data from the sequence tensor so that it can be set with the null token below
             S_design_null = S.detach().clone()
-            S_design_null[residue_mask.type(torch.bool)] = resources.ml.mpnn_null_idx
+            S_design_null[residue_mask.type(torch.bool)] = resources.ml.MPNN_NULL_IDX
             chain_residue_mask = chain_mask * residue_mask
 
             decoding_order = create_decoding_order(randn, chain_mask,
