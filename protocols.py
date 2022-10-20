@@ -59,6 +59,7 @@ mean, std = 'mean', 'std'
 stats_metrics = [mean, std]
 variance = 0.8
 symmetry_protocols = {0: 'make_point_group', 2: 'make_layer', 3: 'make_lattice'}  # -1: 'asymmetric',
+null_cmd = ['echo']
 
 
 def handle_design_errors(errors: tuple[Type[Exception], ...] = (Exception,)) -> Callable:
@@ -1607,6 +1608,12 @@ class PoseDirectory:
             refine_pdb = self.source
             refined_pdb = os.path.join(pdb_out_path, refine_pdb)
             additional_flags = ['-no_scorefile', 'true']
+            infile.extend(['-in:file:s', refine_pdb,
+                           '-in:file:native', refine_pdb,
+                           ])
+            metrics_pdb = ['-in:file:s', refined_pdb, '-in:file:native', refine_pdb]
+            generate_files_cmd = null_cmd
+            # generate_files_cmdline = []
 
         flags = os.path.join(flag_dir, 'flags')
         if not os.path.exists(flags) or self.job.force_flags:
@@ -1644,6 +1651,8 @@ class PoseDirectory:
         if self.run_in_shell:
             relax_process = Popen(relax_cmd)
             relax_process.communicate()  # wait for command to complete
+            list_all_files_process = Popen(generate_files_cmd)
+            list_all_files_process.communicate()
             if gather_metrics:
                 for metric_cmd in metric_cmds:
                     metrics_process = Popen(metric_cmd)
@@ -1653,7 +1662,8 @@ class PoseDirectory:
                             '--output_file', os.path.join(self.job.all_scores,
                                                           PUtils.analysis_file % (starttime, protocol))]
             write_shell_script(list2cmdline(relax_cmd), name=protocol, out_path=flag_dir,
-                               additional=[list2cmdline(command) for command in metric_cmds] +
+                               additional=[list2cmdline(generate_files_cmd)] +
+                                          [list2cmdline(command) for command in metric_cmds] +
                                           [list2cmdline(analysis_cmd)])
             #                  status_wrap=self.serialized_info)
         # ANALYSIS: each output from the Design process based on score, Analyze Sequence Variation
@@ -1911,7 +1921,7 @@ class PoseDirectory:
         if self.job.design.scout:
             protocol = protocol_xml1 = PUtils.scout
             nstruct_instruct = ['-no_nstruct_label', 'true']
-            generate_files_cmd, metrics_pdb = [], ['-in:file:s', self.scouted_pdb]
+            generate_files_cmd, metrics_pdb = null_cmd, ['-in:file:s', self.scouted_pdb]
             # metrics_flags = 'repack=no'
             additional_cmds, out_file = [], []
         elif self.job.design.structure_background:
@@ -1924,7 +1934,7 @@ class PoseDirectory:
             # metrics_flags = 'repack=yes'
             additional_cmds, out_file = [], []
         elif not self.job.design.hbnet:  # Run the legacy protocol
-            protocol, protocol_xml1 = PUtils.interface_design, PUtils.interface_design
+            protocol = protocol_xml1 = PUtils.interface_design
             nstruct_instruct = ['-nstruct', str(self.job.design.number_of_trajectories)]
             design_files = os.path.join(self.scripts, f'design_files_{protocol}.txt')
             generate_files_cmd = \
@@ -1997,7 +2007,7 @@ class PoseDirectory:
         # METRICS: Can remove if SimpleMetrics adopts pose metric caching and restoration
         # Assumes all entity chains are renamed from A to Z for entities (1 to n)
         entity_cmd = script_cmd + metrics_pdb + \
-            ['@%s' % self.flags, '-out:file:score_only', self.scores_file, '-no_nstruct_label', 'true',
+            [f'@{self.flags}', '-out:file:score_only', self.scores_file, '-no_nstruct_label', 'true',
              '-parser:protocol', os.path.join(PUtils.rosetta_scripts, 'metrics_entity.xml')]
 
         if self.job.mpi > 0 and not self.job.design.scout:
@@ -2013,6 +2023,8 @@ class PoseDirectory:
         if self.run_in_shell:
             design_process = Popen(design_cmd)
             design_process.communicate()  # wait for command to complete
+            list_all_files_process = Popen(generate_files_cmd)
+            list_all_files_process.communicate()
             for metric_cmd in metric_cmds:
                 metrics_process = Popen(metric_cmd)
                 metrics_process.communicate()
