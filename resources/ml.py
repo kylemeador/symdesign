@@ -87,7 +87,7 @@ def batch_calculation(size: int, batch_length: int, setup: Callable = None,
                     setup_returns = _setup(_batch_length, *setup_args, **setup_kwargs)
                     for batch in range(number_of_batches):
                         # Find the upper slice limit
-                        batch_slice = slice(batch * _batch_length, (batch+1) * _batch_length)
+                        batch_slice = slice(batch * _batch_length, min((batch+1) * _batch_length, size))
                         # Perform the function, batch_slice must be used inside the func
                         function_returns = func(batch_slice, *args, **kwargs, **setup_returns)
                         # Set the returned values in the order they were received to the precalculated return_container
