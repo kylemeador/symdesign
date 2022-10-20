@@ -19,7 +19,9 @@ from sklearn.neighbors import BallTree
 from sklearn.neighbors._ball_tree import BinaryTree  # This typing implementation supports BallTree or KDTree
 
 import flags
-from resources.ml import proteinmpnn_factory, batch_proteinmpnn_input, proteinmpnn_to_device, mpnn_alphabet_length
+import resources
+from resources.ml import proteinmpnn_factory, batch_proteinmpnn_input, proteinmpnn_to_device, mpnn_alphabet_length, \
+    sequence_nllloss, create_decoding_order
 from resources.query.pdb import retrieve_entity_id_by_sequence, query_pdb_by, get_entity_reference_sequence, \
     is_entity_thermophilic
 from resources.query.uniprot import is_uniprot_thermophilic
@@ -5638,10 +5640,11 @@ class Pose(SymmetricModel):
         else:
             return torch.from_numpy(decode_order).to(dtype=torch.float32, device=to_device)
 
+    @torch.no_grad()  # Ensure no gradients are produced
     def design_sequence(self, number: int = flags.nstruct,
                         protein_mpnn: bool = True, model_name: str = 'v_48_020',
-                        backbone_noise: float = 0., temperature: float = .1,
-                        rosetta: bool = False, **kwargs):
+                        backbone_noise: float = 0., temperatures: Iterable[float] = .1,
+                        rosetta: bool = False, **kwargs) -> dict[str, np.ndarray]:
         # pssm_multi: float = 0., pssm_log_odds_flag: bool = False, pssm_bias_flag: bool = False,
         # decode_core_first: bool = False, interface: bool = True,
         """
@@ -5649,7 +5652,7 @@ class Pose(SymmetricModel):
         Args:
             number: The number of sequences to design
             protein_mpnn: Whether to design using ProteinMPNN
-            temperature: The temperature to perform design at
+            temperatures: The temperature to perform design at
             rosetta: Whether to design using Rosetta energy functions
         Keyword Args:
             model_name - (str) = 'v_48_020' - The name of the model to use from ProteinMPNN.
@@ -5666,72 +5669,173 @@ class Pose(SymmetricModel):
         Returns:
 
         """
+        sequences_and_scores = {}
         if rosetta:
             raise NotImplementedError(f"Can't design with Rosetta from this method yet...")
         else:  # Design with vanilla version of ProteinMPNN
             # Set up the model with the desired weights
-            model = proteinmpnn_factory(model_name)
-            device = model.device
+            mpnn_model = proteinmpnn_factory(model_name)
+            device = mpnn_model.device
 
             parameters = self.get_proteinmpnn_params()
             batch_parameters = batch_proteinmpnn_input(device=device, **parameters)
-            torch_parameters = proteinmpnn_to_device(device, **batch_parameters)
-            parameters.update(torch_parameters)
-
-            X = parameters.get('X', None)
-            S = parameters.get('S', None)
-            chain_mask = parameters.get('chain_mask', None)
-            chain_encoding = parameters.get('chain_encoding', None)
-            residue_idx = parameters.get('residue_idx', None)
-            mask = parameters.get('mask', None)
-            omit_AAs_np = parameters.get('omit_AAs_np', None)
-            bias_AAs_np = parameters.get('bias_AAs_np', None)
-            residue_mask = parameters.get('chain_M_pos', None)
-            omit_AA_mask = parameters.get('omit_AA_mask', None)
-            pssm_coef = parameters.get('pssm_coef', None)
-            pssm_bias = parameters.get('pssm_bias', None)
-            pssm_multi = parameters.get('pssm_multi', None)
-            pssm_log_odds_flag = parameters.get('pssm_log_odds_flag', None)
-            pssm_log_odds_mask = parameters.get('pssm_log_odds_mask', None)
-            pssm_bias_flag = parameters.get('pssm_bias_flag', None)
-            tied_pos = parameters.get('tied_pos', None)
-            tied_beta = parameters.get('tied_beta', None)
-            bias_by_res = parameters.get('bias_by_res', None)
+            batch_parameters.update(proteinmpnn_to_device(device, **batch_parameters))
 
             # Solve decoding order
-            decode_order = self.generate_proteinmpnn_decode_order(to_device=device)
+            randn = self.generate_proteinmpnn_decode_order(to_device=device)
+            # if not pose.is_symmetric():
+            # Must make a decoding_order batched for mpnn_model.sample()
+            batch_parameters['randn'] = randn.repeat(actual_batch_length, 1)
 
+            X = batch_parameters.pop('X', None)
+            S = batch_parameters.pop('S', None)
+            chain_mask = batch_parameters.pop('chain_mask', None)
+            chain_encoding = batch_parameters.pop('chain_encoding', None)
+            residue_idx = batch_parameters.pop('residue_idx', None)
+            mask = batch_parameters.pop('mask', None)
+            # omit_AAs_np = batch_parameters.get('omit_AAs_np', None)
+            # bias_AAs_np = batch_parameters.get('bias_AAs_np', None)
+            residue_mask = batch_parameters.pop('chain_M_pos', None)
+            # omit_AA_mask = batch_parameters.get('omit_AA_mask', None)
+            # pssm_coef = batch_parameters.get('pssm_coef', None)
+            # pssm_bias = batch_parameters.get('pssm_bias', None)
+            # pssm_multi = batch_parameters.get('pssm_multi', None)
+            # pssm_log_odds_flag = batch_parameters.get('pssm_log_odds_flag', None)
+            # pssm_log_odds_mask = batch_parameters.get('pssm_log_odds_mask', None)
+            # pssm_bias_flag = batch_parameters.get('pssm_bias_flag', None)
+            tied_pos = batch_parameters.pop('tied_pos', None)
+            tied_beta = batch_parameters.pop('tied_beta', None)
+            # bias_by_res = batch_parameters.get('bias_by_res', None)
+
+            # Clone the data from the sequence tensor so that it can be set with the null token below
+            S_design_null = S.detach().clone()
+            S_design_null[residue_mask.type(torch.bool)] = resources.ml.mpnn_null_idx
+            chain_residue_mask = chain_mask * residue_mask
+
+            decoding_order = create_decoding_order(randn, chain_mask,
+                                                   tied_pos=tied_pos,  # parameters['tied_pos'],  #
+                                                   to_device=mpnn_model.device)
+
+            pose_length = self.number_of_residues
+            # Set up parameters and model sampling type based on symmetry
+            if self.is_symmetric():
+                # number_of_symmetry_mates = pose.number_of_symmetry_mates
+                mpnn_sample = mpnn_model.tied_sample
+                number_of_residues = pose_length * self.number_of_symmetry_mates
+            else:
+                mpnn_sample = mpnn_model.sample
+                number_of_residues = pose_length
+
+            if self.job.design.ca_only:
+                coords_type = 'ca_coords'
+                num_model_residues = 1
+            else:
+                coords_type = 'backbone_coords'
+                num_model_residues = 4
+
+            # Translate the coordinates along z in increments of 1000 to separate coordinates
+            entity_unbound_coords = [getattr(entity, coords_type) for entity in self.entities]
+            unbound_transform = np.array([0, 0, 1000])
+            if self.is_symmetric():
+                coord_func = self.return_symmetric_coords
+            else:
+                def coord_func(coords): return coords
+
+            for idx, coords in enumerate(entity_unbound_coords):
+                entity_unbound_coords[idx] = coord_func(coords + unbound_transform*idx)
+
+            X_unbound = np.concatenate(entity_unbound_coords).reshape((number_of_residues, num_model_residues, 3))
+            extra_batch_parameters = batch_proteinmpnn_input(device=device, X=X_unbound)
+            X_unbound = extra_batch_parameters['X']
+
+            # Set up the inference task
             size = X.shape[0]
-            batch_length = 10
+            batch_length = actual_batch_length = 10
             number_of_batches = size // batch_length
 
+            # Todo implement batching like in fragdock.py
             for batch in range(number_of_batches):
-                # Todo implement batching like in fragdock.py
-                if self.is_symmetric():
-                    sample_dict = model.tied_sample(X, decode_order, S, chain_mask, chain_encoding, residue_idx, mask,
-                                                    temperature=temperature, omit_AAs_np=omit_AAs_np,
-                                                    bias_AAs_np=bias_AAs_np, chain_M_pos=residue_mask,
-                                                    omit_AA_mask=omit_AA_mask,
-                                                    pssm_coef=pssm_coef, pssm_bias=pssm_bias, pssm_multi=pssm_multi,
-                                                    pssm_log_odds_flag=pssm_log_odds_flag,
-                                                    pssm_log_odds_mask=pssm_log_odds_mask, pssm_bias_flag=pssm_bias_flag,
-                                                    tied_pos=tied_pos, tied_beta=tied_beta,
-                                                    bias_by_res=bias_by_res)
-                else:
-                    # For sample(), decode order must be the length of the X tensor
-                    decode_order = decode_order.repeat((X.shape[0], 1))
-                    sample_dict = model.sample(X, decode_order, S, chain_mask, chain_encoding, residue_idx, mask,
-                                               temperature=temperature, omit_AAs_np=omit_AAs_np, bias_AAs_np=bias_AAs_np,
-                                               chain_M_pos=residue_mask, omit_AA_mask=omit_AA_mask,
-                                               pssm_coef=pssm_coef, pssm_bias=pssm_bias,
-                                               pssm_multi=pssm_multi, pssm_log_odds_flag=pssm_log_odds_flag,
-                                               pssm_log_odds_mask=pssm_log_odds_mask, pssm_bias_flag=pssm_bias_flag,
-                                               bias_by_res=bias_by_res)
-                # Compute scores
-                S_sample = sample_dict['S']
-                # Todo finish this routine modelling off fragdock.py
-                raise NotImplementedError(f'finish this routine ({self.design_sequence.__name__}) '
-                                          f'modelling function based on fragdock.py, design_output')
+                # All below matches the design portion of fragdock exactly
+                _batch_sequences = []
+                _per_residue_complex_sequence_loss = []
+                _per_residue_unbound_sequence_loss = []
+                number_of_temps = len(temperatures)
+                for temp_idx, temperature in enumerate(temperatures):
+                    # Todo add _total_collapse_favorability skipping to the selection mechanism?
+                    sample_start_time = time.time()
+                    sample_dict = mpnn_sample(X, randn,  # decoding_order,
+                                              S_design_null,  # S[:actual_batch_length],
+                                              chain_mask, chain_encoding, residue_idx, mask,
+                                              temperature=temperature,
+                                              tied_pos=tied_pos,
+                                              tied_beta=tied_beta,
+                                              **batch_parameters)
+                    self.log.info(f'Sample calculation took {time.time() - sample_start_time:8f}')
+                    S_sample = sample_dict['S']
+                    # decoding_order_out = sample_dict['decoding_order']
+                    decoding_order_out = decoding_order  # When using the same decoding order for all
+                    # _X_unbound = X_unbound[:actual_batch_length]
+                    unbound_log_prob_start_time = time.time()
+                    unbound_log_probs = \
+                        mpnn_model(X_unbound, S_sample, mask, chain_residue_mask, residue_idx, chain_encoding,
+                                   None,  # This argument is provided but with below args, is not used
+                                   use_input_decoding_order=True, decoding_order=decoding_order_out).cpu()
+
+                    log_prob_time = time.time()
+                    log_probs_start_time = time.time()
+                    complex_log_probs = \
+                        mpnn_model(X, S_sample, mask, chain_residue_mask, residue_idx, chain_encoding,
+                                   None,  # This argument is provided but with below args, is not used
+                                   use_input_decoding_order=True, decoding_order=decoding_order_out).cpu()
+                    # complex_log_probs is
+                    # tensor([[[-2.7691, -3.5265, -2.9001,  ..., -3.3623, -3.0247, -4.2772],
+                    #          [-2.7691, -3.5265, -2.9001,  ..., -3.3623, -3.0247, -4.2772],
+                    #          [-2.7691, -3.5265, -2.9001,  ..., -3.3623, -3.0247, -4.2772],
+                    #          ...,
+                    #          [-2.7691, -3.5265, -2.9001,  ..., -3.3623, -3.0247, -4.2772],
+                    #          [-2.7691, -3.5265, -2.9001,  ..., -3.3623, -3.0247, -4.2772],
+                    #          [-2.7691, -3.5265, -2.9001,  ..., -3.3623, -3.0247, -4.2772]],
+                    #         [[-2.6934, -4.0610, -2.6506, ..., -4.2404, -3.4620, -4.8641],
+                    #          [-2.8753, -4.3959, -2.4042,  ..., -4.4922, -3.5962, -5.1403],
+                    #          [-2.5235, -4.0181, -2.7738,  ..., -4.2454, -3.4768, -4.8088],
+                    #          ...,
+                    #          [-3.4500, -4.4373, -3.7814,  ..., -5.1637, -4.6107, -5.2295],
+                    #          [-0.9690, -4.9492, -3.9373,  ..., -2.0154, -2.2262, -4.3334],
+                    #          [-3.1118, -4.3809, -3.8763,  ..., -4.7145, -4.1524, -5.3076]]])
+                    self.log.info(f'Log prob calculation took {time.time() - log_probs_start_time:8f}')
+                    self.log.info(f'Unbound log prob calculation took {log_prob_time - unbound_log_prob_start_time:8f}')
+                    # Score the redesigned structure-sequence
+                    # mask_for_loss = chain_mask_and_mask*residue_mask
+                    # batch_scores = sequence_nllloss(S_sample, complex_log_probs, mask_for_loss, per_residue=False)
+                    # batch_scores is
+                    # tensor([2.1039, 2.0618, 2.0802, 2.0538, 2.0114, 2.0002], device='cuda:0')
+                    # Format outputs
+                _batch_sequences.append(S_sample.cpu()[:, :pose_length])
+                _per_residue_complex_sequence_loss.append(
+                    sequence_nllloss(_batch_sequences, complex_log_probs[:, :pose_length]).numpy())
+                _per_residue_unbound_sequence_loss.append(
+                    sequence_nllloss(_batch_sequences, unbound_log_probs[:, :pose_length]).numpy())
+
+                # return {
+                _return = {
+                    # The below structures have a shape (batch_length, number_of_temperatures, pose_length)
+                    'sequences':
+                        np.concatenate(_batch_sequences, axis=1).reshape(actual_batch_length, number_of_temps,
+                                                                         pose_length),
+                    'complex_sequence_loss':
+                        np.concatenate(_per_residue_complex_sequence_loss, axis=1).reshape(actual_batch_length,
+                                                                                           number_of_temps,
+                                                                                           pose_length),
+                    'unbound_sequence_loss':
+                        np.concatenate(_per_residue_unbound_sequence_loss, axis=1).reshape(actual_batch_length,
+                                                                                           number_of_temps,
+                                                                                           pose_length),
+                }
+
+        return sequences_and_scores
+        # Todo finish this routine modelling off fragdock.py
+        raise NotImplementedError(f'finish this routine ({self.design_sequence.__name__}) '
+                                  f'modelling function based on fragdock.py, design_output')
 
     def combine_sequence_profiles(self):
         """Using each Entity in the Pose, combine individual Entity SequenceProfiles into a Pose SequenceProfile
