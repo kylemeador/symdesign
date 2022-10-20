@@ -1331,16 +1331,16 @@ def main():
     results, success, exceptions = [], [], []
     # ---------------------------------------------------
     if args.module == 'orient':
-        # if not args.to_design_directory:
+        # if not args.to_pose_directory:
         #     SDUtils.make_path(job.orient_dir)
-        # args.to_design_directory = True  # default to True when using this module
+        # args.to_pose_directory = True  # default to True when using this module
         if args.multi_processing:
-            # zipped_args = zip(pose_directories, repeat(args.to_design_directory))
+            # zipped_args = zip(pose_directories, repeat(args.to_pose_directory))
             # results = SDUtils.mp_starmap(protocols.PoseDirectory.orient, zipped_args, processes=cores)
             results = utils.mp_map(protocols.PoseDirectory.orient, pose_directories, processes=cores)
         else:
             for design_dir in pose_directories:
-                results.append(design_dir.orient())  # to_design_directory=args.to_design_directory))
+                results.append(design_dir.orient())  # to_pose_directory=args.to_pose_directory))
 
         terminate(results=results)
     # ---------------------------------------------------
@@ -1531,15 +1531,16 @@ def main():
 
         terminate(results=results)
     # ---------------------------------------------------
-    elif args.module == PUtils.refine:  # -i fragment_library, -s scout
-        args.to_design_directory = True  # always the case when using this module
+    elif args.module == PUtils.refine:
         if args.multi_processing:
-            zipped_args = zip(pose_directories, repeat(args.to_design_directory), repeat(args.interface_to_alanine),
+            args.to_pose_directory = True  # Always the case when using this module
+            zipped_args = zip(pose_directories, repeat(args.to_pose_directory), repeat(args.interface_to_alanine),
                               repeat(args.gather_metrics))
             results = utils.mp_starmap(protocols.PoseDirectory.refine, zipped_args, processes=cores)
         else:
             for design in pose_directories:
-                results.append(design.refine(to_design_directory=args.to_design_directory,
+                results.append(design.refine(
+                                             # to_pose_directory=args.to_pose_directory,
                                              interface_to_alanine=args.interface_to_alanine,
                                              gather_metrics=args.gather_metrics))
 

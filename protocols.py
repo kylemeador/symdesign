@@ -1498,7 +1498,7 @@ class PoseDirectory:
     @handle_design_errors(errors=(DesignError, ValueError, RuntimeError))
     @close_logs
     @remove_structure_memory
-    def orient(self, to_design_directory: bool = True):
+    def orient(self, to_pose_directory: bool = True):
         """Orient the Pose with the prescribed symmetry at the origin and symmetry axes in canonical orientations
         self.symmetry is used to specify the orientation
         """
@@ -1508,7 +1508,7 @@ class PoseDirectory:
             model = Model.from_file(self.source, log=self.log)
 
         if self.design_symmetry:
-            if to_design_directory:
+            if to_pose_directory:
                 out_path = self.assembly_path
             else:
                 out_path = os.path.join(self.job.orient_dir, f'{model.name}.pdb')
@@ -1529,9 +1529,16 @@ class PoseDirectory:
     @handle_design_errors(errors=(DesignError, AssertionError))
     @close_logs
     @remove_structure_memory
-    def refine(self, to_design_directory: bool = False, interface_to_alanine: bool = True,
-               gather_metrics: bool = False):
-        """Refine the source PDB using self.symmetry to specify any symmetry"""
+    def refine(self, to_pose_directory: bool = True, interface_to_alanine: bool = True,
+               refine_sequence: Sequence = None, gather_metrics: bool = False):
+        """Refine the source PDB using self.symmetry to specify any symmetry
+
+        Args:
+            to_pose_directory: Whether the refinement should be saved to the PoseDirectory
+            interface_to_alanine: Whether the identified interface residues should be mutated to Alanine
+            refine_sequence: The sequence to mutate the pose to and have it built using Rosetta FastRelax
+            gather_metrics: Whether metrics should be calculated for the Pose
+        """
         main_cmd = copy(script_cmd)
         protocol = PUtils.refine
         if self.interface_residue_numbers is False or self.interface_design_residue_numbers is False:
@@ -1539,7 +1546,7 @@ class PoseDirectory:
         else:  # We only need to load pose as we already calculated interface
             self.load_pose()
 
-        if to_design_directory:  # Original protocol to refine a pose as provided from Nanohedra
+        if to_pose_directory:  # Original protocol to refine a pose as provided from Nanohedra
             # Assign designable residues to interface1/interface2 variables, not necessary for non-complexed PDB jobs
             if interface_to_alanine:  # Mutate all design positions to Ala before the Refinement
                 for entity_pair, interface_residue_sets in self.pose.interface_residues_by_entity_pair.items():
@@ -1846,7 +1853,7 @@ class PoseDirectory:
 
         if not self.pre_refine and not os.path.exists(self.refined_pdb):
             # Todo this doesn't work since it catches Error and we need interface_design to catch errors
-            self.refine(to_design_directory=True)
+            self.refine()
 
         make_path(self.designs)
         self.rosetta_interface_design()
