@@ -21,6 +21,7 @@ from sklearn.neighbors import BallTree
 from sklearn.neighbors._ball_tree import BinaryTree  # This typing implementation supports BallTree or KDTree
 
 import resources
+import structure.utils
 from metrics import calculate_collapse_metrics, calculate_residue_surface_area, errat_1_sigma, errat_2_sigma, \
     multiple_sequence_alignment_dependent_metrics, profile_dependent_metrics, columns_to_new_column, \
     delta_pairs, division_pairs, interface_composition_similarity, clean_up_intermediate_columns, \
@@ -2366,7 +2367,10 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
                          for entity in model.entities}
     entity_info = {entity_name: data for model in models
                    for entity_name, data in model.entity_info.items()}
-    input(f'entity_info {entity_info}')
+    chain_gen = structure.utils.chain_id_generator()
+    for entity_name, data in entity_info:
+        data['chains'] = [next(chain_gen)]
+
     pose = Pose.from_entities([entity for idx, model in enumerate(models) for entity in model.entities],
                               entity_info=entity_info, entity_names=entity_names, name='asu', log=log,
                               sym_entry=sym_entry, surrounding_uc=job.output_surrounding_uc,
