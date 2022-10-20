@@ -7,7 +7,7 @@
 	</SCOREFXNS>
 
 	<MOVERS>
-		<AddJobPairData name="job_info" key="protocol" value="refine" value_type="string"/>
+		<AddJobPairData name="job_info" key="protocol" value="%%switch%%" value_type="string"/>
 <!--		<FastRelax name="sym_refine" disable_design="true" scorefxn="2015_nano_cst" relaxscript="MonomerRelax2019" repeats="5" ramp_down_constraints="false"/>-->
 <!--		<FastRelax name="asymmetric_refine" disable_design="true" scorefxn="2015_cst" relaxscript="MonomerRelax2019" repeats="5" ramp_down_constraints="false"/>-->
 		<FastRelax name="refine" disable_design="true" scorefxn="2015_cst" relaxscript="MonomerRelax2019" repeats="5" ramp_down_constraints="false"/>
