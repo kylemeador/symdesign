@@ -108,7 +108,7 @@ def batch_calculation(size: int, batch_length: int, setup: Callable = None,
 
 
 def create_decoding_order(randn: torch.Tensor, chain_mask: torch.Tensor, tied_pos: Iterable[Container] = None,
-                          to_device: str = None) \
+                          to_device: str = None, **kwargs) \
         -> torch.Tensor:
     """
 
