@@ -1558,6 +1558,13 @@ class PoseDirectory:
                                 self.log.debug(f'Mutating {residue.number}{residue.type}')
                                 if residue.type != 'GLY':  # No mutation from GLY to ALA as Rosetta would build a CB
                                     self.pose.mutate_residue(residue=residue, to='A')
+            # Todo make this its own protocol?
+            #  def thread_sequence_to_backbone()
+            elif refine_sequence is not None:
+                for idx, residue_type in enumerate(refine_sequence):
+                    self.log.debug(f'Mutating {idx + 1}{residue_type}')
+                    # if residue_type != 'GLY':  # No mutation from GLY to ALA as Rosetta would build a CB
+                    self.pose.mutate_residue(index=idx, to=residue_type)
 
             self.pose.write(out_path=self.refine_pdb)
             self.log.debug(f'Cleaned PDB for {protocol}: "{self.refine_pdb}"')
@@ -1857,7 +1864,15 @@ class PoseDirectory:
             self.refine()
 
         make_path(self.designs)
-        self.rosetta_interface_design()
+        match self.job.design.method:
+            case PUtils.rosetta_str:
+                self.rosetta_interface_design()
+            case PUtils.proteinmpnn:
+                sequences = self.pose.design_sequence()
+                for sequence in sequences:
+                    self.refine(to_pose_directory=False, refine_sequence=sequence)
+            case other:
+                raise ValueError(f"The method {self.job.design.method} isn't available")
         self.pickle_info()  # Todo remove once PoseDirectory state can be returned to the SymDesign dispatch w/ MP
 
     def rosetta_interface_design(self):
