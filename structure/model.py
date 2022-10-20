@@ -4204,7 +4204,8 @@ class SymmetricModel(Models):
             for idx in [0] + interacting_model_indices:  # add the ASU to the model first
                 chains.extend(self.models[idx].chains)
             self._assembly_minimally_contacting = \
-                Model.from_chains(chains, name='assembly', log=self.log, biomt_header=self.format_biomt(),
+                Model.from_chains(chains, name=f'{self.name}-minimal-assembly', log=self.log,
+                                  biomt_header=self.format_biomt(),
                                   cryst_record=self.cryst_record, entity_info=self.entity_info)  #  entities=False)
             # self._assembly_minimally_contacting.write(out_path=os.path.join(os.getcwd(), 'debug_assembly_minimally_contacting.pdb'))
             # self.assembly.write(out_path=os.path.join(os.getcwd(), 'debug_assembly.pdb'))
