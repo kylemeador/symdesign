@@ -1126,7 +1126,7 @@ class Entity(Chain, ContainsChainsMixin):
     #     return cls()
 
     @classmethod
-    def from_chains(cls, chains: list[Chain] | Structures = None, **kwargs):
+    def from_chains(cls, chains: list[Chain] | Structures, **kwargs):
         """Initialize an Entity from a set of Chain objects"""
         return cls(chains=chains, **kwargs)
 
@@ -2462,6 +2462,11 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
             chains:
             rename_chains: Whether to name each chain an incrementally new Alphabetical character
             entities:
+        Keyword Args:
+            entity_names: Sequence = None - Names explicitly passed for the Entity instances. Length must equal number of entities.
+                Names will take precedence over query_by_sequence if passed
+            query_by_sequence: bool = True - Whether the PDB API should be queried for an Entity name by matching sequence. Only used
+                if entity_names not provided
         """
         # Add lists together, only one is populated from class construction
         structures = (chains if isinstance(chains, (list, Structures)) else []) + \
@@ -3076,7 +3081,7 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
                 #     self._get_entity_info_from_atoms(**kwargs)
             else:  # Still nothing, the API didn't work for self.name. Solve by atom information
                 self._get_entity_info_from_atoms(**kwargs)
-                if query_by_sequence and not entity_names:
+                if query_by_sequence and entity_names is None:
                     for entity_name, data in list(self.entity_info.items()):  # Make a new list to prevent pop issues
                         # Todo incorporate wrapapi call here to fetch from local sequence db
                         pdb_api_name = retrieve_entity_id_by_sequence(data['sequence'])
@@ -3085,7 +3090,7 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
                             self.log.info(f'Entity {entity_name} now named "{pdb_api_name}", as found by PDB API '
                                           f'sequence search')
                             self.entity_info[pdb_api_name] = self.entity_info.pop(entity_name)
-        if entity_names:
+        if entity_names is not None:
             # if self.api_db:
             try:
                 # retrieve_api_info = self.api_db.pdb.retrieve_data
@@ -3123,7 +3128,7 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
         # For each Entity, get matching Chain instances
         for entity_name, data in self.entity_info.items():
             chains = [self.chain(chain) if isinstance(chain, str) else chain for chain in data.get('chains')]
-            data['chains'] = [chain for chain in chains if chain]  # remove any missing chains
+            entity_data = {'chains': [chain for chain in chains if chain]}  # remove any missing chains
             # # get uniprot ID if the file is from the PDB and has a DBREF remark
             # try:
             #     accession = self.dbref.get(data['chains'][0].chain_id, None)
@@ -3139,21 +3144,28 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
             #                       'api_entry=%s, original_chain_ids=%s'
             #                       % (self.name, self._create_entities.__name__, self.entity_info,
             #                       self.biological_assembly, self.api_entry, self.original_chain_ids))
-            if 'dbref' not in data:
-                data['dbref'] = {}
+            dbref = data.get('dbref')
+            if dbref is None:
+                dbref = {}
+            entity_data['dbref'] = data['dbref'] = dbref
             # data['chains'] = [chain for chain in chains if chain]  # remove any missing chains
             #                                               generated from a PDB API sequence search v
             # if isinstance(entity_name, int):
             #     data['name'] = f'{self.name}_{data["name"]}'
 
             # ref_seq = data.get('reference_sequence')
-            if 'reference_sequence' not in data:
-                if 'sequence' in data:  # We set from Atom info
-                    data['reference_sequence'] = data['sequence']
-                else:  # We should try to set using the entity_name
-                    data['reference_sequence'] = get_entity_reference_sequence(entity_id=entity_name)
+            reference_sequence = data.get('reference_sequence')
+            if reference_sequence is None:
+                sequence = data.get('sequence')
+                if sequence is None:  # We should try to set using the entity_name
+                    # Todo transition to wrap_api
+                    reference_sequence = get_entity_reference_sequence(entity_id=entity_name)
+                else:  # We set from Atom info
+                    reference_sequence = sequence
+            # else:
+            entity_data['reference_sequence'] = data['reference_sequence'] = reference_sequence
             # data has attributes chains, dbref, and reference_sequence
-            self.entities.append(Entity.from_chains(**data, name=entity_name, parent=self))
+            self.entities.append(Entity.from_chains(**entity_data, name=entity_name, parent=self))
 
     def _get_entity_info_from_atoms(self, method: str = 'sequence', tolerance: float = 0.9, **kwargs):  # Todo define inside _create_entities?
         """Find all unique Entities in the input .pdb file. These are unique sequence objects
