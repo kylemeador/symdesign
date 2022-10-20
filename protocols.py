@@ -1531,13 +1531,13 @@ class PoseDirectory:
     @close_logs
     @remove_structure_memory
     def refine(self, to_pose_directory: bool = True, interface_to_alanine: bool = True,
-               refine_sequence: Sequence = None, gather_metrics: bool = False):
+               refine_sequences: Iterable[Sequence] = None, gather_metrics: bool = False):
         """Refine the source PDB using self.symmetry to specify any symmetry
 
         Args:
             to_pose_directory: Whether the refinement should be saved to the PoseDirectory
             interface_to_alanine: Whether the identified interface residues should be mutated to Alanine
-            refine_sequence: The sequence to mutate the pose to and have it built using Rosetta FastRelax
+            refine_sequences: The sequence to mutate the pose to and have it built using Rosetta FastRelax
             gather_metrics: Whether metrics should be calculated for the Pose
         """
         main_cmd = copy(script_cmd)
@@ -1547,6 +1547,9 @@ class PoseDirectory:
         else:  # We only need to load pose as we already calculated interface
             self.load_pose()
 
+        # nullify -native from flags v
+        # native is here to block flag file version, not actually useful for refine
+        infile = []
         if to_pose_directory:  # Original protocol to refine a pose as provided from Nanohedra
             # Assign designable residues to interface1/interface2 variables, not necessary for non-complexed PDB jobs
             if interface_to_alanine:  # Mutate all design positions to Ala before the Refinement
@@ -1558,30 +1561,54 @@ class PoseDirectory:
                                 self.log.debug(f'Mutating {residue.number}{residue.type}')
                                 if residue.type != 'GLY':  # No mutation from GLY to ALA as Rosetta would build a CB
                                     self.pose.mutate_residue(residue=residue, to='A')
+
+                self.pose.write(out_path=self.refine_pdb)
+                self.log.debug(f'Cleaned PDB for {protocol}: "{self.refine_pdb}"')
+                # refine_pdb = self.refine_pdb
+                # refined_pdb = self.refined_pdb
+                infile.extend(['-in:file:s', self.refine_pdb,
+                               '-in:file:native', self.refine_pdb,
+                               # native is here to block flag file version, not actually useful for refine
+                               ])
+                generate_files_cmd = null_cmd
+                # generate_files_cmdline = []
+                metrics_pdb = ['-in:file:s', self.refined_pdb, '-in:file:native', self.refine_pdb]
+
             # Todo make this its own protocol?
             #  def thread_sequence_to_backbone()
-            elif refine_sequence is not None:
-                for idx, residue_type in enumerate(refine_sequence):
-                    self.log.debug(f'Mutating {idx + 1}{residue_type}')
-                    # if residue_type != 'GLY':  # No mutation from GLY to ALA as Rosetta would build a CB
-                    self.pose.mutate_residue(index=idx, to=residue_type)
+            elif refine_sequences is not None:
+                protocol = 'proteinmpnn_thread'
+                design_files = []
+                for seq_idx, sequence in enumerate(refine_sequences):
+                    for res_idx, residue_type in enumerate(sequence):
+                        self.log.debug(f'Mutating {res_idx + 1}{residue_type}')
+                        # if residue_type != 'GLY':  # No mutation from GLY to ALA as Rosetta would build a CB
+                        self.pose.mutate_residue(index=res_idx, to=residue_type)
+                    pre_threaded_file = os.path.join(self.data, f'{self.name}_{protocol}{seq_idx:04d}.pdb')
+                    design_files.append(self.pose.write(out_path=pre_threaded_file))
 
-            self.pose.write(out_path=self.refine_pdb)
-            self.log.debug(f'Cleaned PDB for {protocol}: "{self.refine_pdb}"')
-            flags = os.path.join(self.scripts, 'flags')
+                infile.extend(['-in:file:l', design_files,
+                               '-in:file:native', self.source,
+                               # native is here to block flag file version, not actually useful for refine
+                               ])
+                designed_files = os.path.join(self.scripts, f'design_files_{protocol}.txt')
+                generate_files_cmd = \
+                    ['python', PUtils.list_pdb_files, '-d', self.designs, '-o', designed_files, '-s', '_' + protocol]
+                metrics_pdb = ['-in:file:l', designed_files, '-in:file:native', self.source]
+                # generate_files_cmdline = [list2cmdline(generate_files_cmd)]
+            else:
+                raise ValueError(f"For {self.refine.__name__}, must pass interface_to_alanine or refine_sequences args")
             flag_dir = self.scripts
             pdb_out_path = self.designs
-            refine_pdb = self.refine_pdb
-            refined_pdb = self.refined_pdb
             additional_flags = []
         else:  # Protocol to refine input structure, place in a common location, then transform for many jobs to source
-            flags = os.path.join(self.job.refine_dir, 'refine_flags')
             flag_dir = self.job.refine_dir
             pdb_out_path = self.job.refine_dir
             refine_pdb = self.source
             refined_pdb = os.path.join(pdb_out_path, refine_pdb)
             additional_flags = ['-no_scorefile', 'true']
 
+        flags = os.path.join(flag_dir, 'flags')
         if not os.path.exists(flags) or self.job.force_flags:
             make_path(flag_dir)
             self.prepare_rosetta_flags(pdb_out_path=pdb_out_path, out_dir=flag_dir)
@@ -1590,17 +1617,15 @@ class PoseDirectory:
 
         # RELAX: Prepare command
         relax_cmd = main_cmd + relax_flags_cmdline + additional_flags + \
-            (['-symmetry_definition', 'CRYST1'] if self.design_dimension > 0 else []) + \
-            [f'@{flags}', '-no_nstruct_label', 'true', '-in:file:s', refine_pdb,
-             '-in:file:native', refine_pdb,  # native is here to block flag file version, not actually useful for refine
-             '-parser:protocol', os.path.join(PUtils.rosetta_scripts, f'{protocol}.xml'),
+            (['-symmetry_definition', 'CRYST1'] if self.design_dimension > 0 else []) + infile + \
+            [f'@{flags}', '-no_nstruct_label', 'true', '-parser:protocol', os.path.join(PUtils.rosetta_scripts, f'{protocol}.xml'),
              '-parser:script_vars', f'switch={protocol}']
         self.log.info(f'{protocol.title()} Command: {list2cmdline(relax_cmd)}')
 
         if gather_metrics:
-            #                            nullify -native from flags v
-            main_cmd += ['-in:file:s', refined_pdb, f'@{flags}', '-in:file:native', refine_pdb,
-                         '-out:file:score_only', self.scores_file, '-no_nstruct_label', 'true', '-parser:protocol']
+            main_cmd += metrics_pdb
+            main_cmd += [f'@{flags}', '-out:file:score_only', self.scores_file,
+                         '-no_nstruct_label', 'true', '-parser:protocol']
             if self.job.mpi > 0:
                 main_cmd = run_cmds[PUtils.rosetta_extras] + [str(self.job.mpi)] + main_cmd
                 self.run_in_shell = False
@@ -1868,9 +1893,9 @@ class PoseDirectory:
             case PUtils.rosetta_str:
                 self.rosetta_interface_design()
             case PUtils.proteinmpnn:
-                sequences = self.pose.design_sequence()
-                for sequence in sequences:
-                    self.refine(to_pose_directory=False, refine_sequence=sequence)
+                sequences_and_scores = self.pose.design_sequence()
+                # for sequence in sequences:
+                self.refine(refine_sequences=sequences_and_scores['sequences'])
             case other:
                 raise ValueError(f"The method {self.job.design.method} isn't available")
         self.pickle_info()  # Todo remove once PoseDirectory state can be returned to the SymDesign dispatch w/ MP
