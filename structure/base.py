@@ -3492,13 +3492,13 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
             if residue.number == residue_number:
                 return residue.number_pdb
 
-    def mutate_residue(self, residue: Residue = None, number: int = None, to: str = 'ALA', **kwargs) -> \
-            list[int] | list:
+    def mutate_residue(self, residue: Residue = None, index: int = None, number: int = None, to: str = 'ALA', **kwargs)\
+            -> list[int] | list:
         """Mutate a specific Residue to a new residue type. Type can be 1 or 3 letter format
-
         Args:
             residue: A Residue object to mutate
-            number: A Residue number to select the Residue of interest with
+            index: A Residue index to select the Residue instance of interest by
+            number: A Residue number to select the Residue instance of interest by
             to: The type of amino acid to mutate to
         Keyword Args:
             pdb: bool = False - Whether to pull the Residue by PDB number
@@ -3508,11 +3508,17 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         # Todo using AA reference, align the backbone + CB atoms of the residue then insert side chain atoms?
         to = protein_letters_1to3.get(to.upper(), to.upper())
 
-        if number is not None:
+        if index is not None:
+            try:
+                residue = self.residues[index]
+            except IndexError:
+                raise IndexError(f'The residue index {index} is out of bounds for the {type(self).__name__} '
+                                 f'{self.name} with {self.number_of_residues} residues')
+        elif number is not None:
             residue = self.residue(number, **kwargs)
 
         if residue is None:
-            raise DesignError(f'Cannot {self.mutate_residue.__name__} without passing Residue instance or number')
+            raise DesignError(f"Can't {self.mutate_residue.__name__} without Residue instance, index, or number")
 
         residue.type = to
         for atom in residue.atoms:
@@ -3520,7 +3526,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
 
         # Find the corresponding Residue Atom indices to delete. Currently, using side-chain and letting Rosetta handle
         delete_indices = residue.side_chain_indices
-        if not delete_indices:  # there are no indices
+        if not delete_indices:  # There are no indices
             return []
 
         # Remove indices from the Residue, and Structure atom_indices
