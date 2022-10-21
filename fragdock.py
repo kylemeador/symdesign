@@ -885,8 +885,8 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
     # This is used in clustering algorithms to define an observation outside the found clusters
     outlier = -1
     # Todo set below as parameters?
-    job.ca_only = False
-    job.temperatures = [0.1]
+    # job.design.ca_only = False
+    # job.design.temperatures = [0.1]
     low_quality_match_value = .2  # sets the lower bounds on an acceptable match, was upper bound of 2 using z-score
     cb_distance = 9.  # change to 8.?
     # cluster_translations = True
@@ -894,7 +894,7 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
     # Todo set below as parameters?
 
     if perturb_dofs:
-        number_of_perturbations = 9  # Todo replace with 100
+        number_of_perturbations = 9  # Todo replace with 10?
         if sym_entry.unit_cell:
             raise NotImplementedError(f"{perturb_transformations.__name__} isn't working for lattice symmetries")
     else:
@@ -3081,7 +3081,7 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
             mpnn_sample = mpnn_model.sample
             number_of_residues = pose_length
 
-        if job.ca_only:
+        if job.design.ca_only:
             coords_type = 'ca_coords'
             num_model_residues = 1
         else:
@@ -3146,7 +3146,7 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
         per_residue_batch_collapse_z = np.zeros_like(per_residue_evolution_cross_entropy)
         per_residue_design_indices = np.zeros((size, pose_length), dtype=bool)
         collapse_violation = np.zeros((size, ), dtype=bool)
-        number_of_temperatures = len(job.temperatures)
+        number_of_temperatures = len(job.design.temperatures)
         generated_sequences = np.empty((size, number_of_temperatures, pose_length), dtype=np.int64)
         per_residue_complex_sequence_loss = np.empty(generated_sequences.shape, dtype=np.float32)
         per_residue_unbound_sequence_loss = np.empty_like(per_residue_complex_sequence_loss)
@@ -3454,8 +3454,8 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
             batch_sequences = []
             _per_residue_complex_sequence_loss = []
             _per_residue_unbound_sequence_loss = []
-            number_of_temps = len(job.temperatures)
-            for temperature in job.temperatures:
+            number_of_temps = len(job.design.temperatures)
+            for temperature in job.design.temperatures:
                 # Todo add _total_collapse_favorability skipping to the selection mechanism?
                 sample_start_time = time.time()
                 sample_dict = mpnn_sample(X, randn,  # decoding_order,
@@ -3892,7 +3892,7 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
         #                     per_residue_batch_collapse_z[batch_slice] = per_residue_mini_batch_collapse_z
         #
         #                 # Todo
-        #                 # for temperature in job.temperatures:
+        #                 # for temperature in job.design.temperatures:
         #                 # Todo add collapse_violation skipping to the selection mechanism?
         #                 sample_start_time = time.time()
         #                 sample_dict = mpnn_sample(X, randn,  # decoding_order,
