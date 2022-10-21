@@ -1995,9 +1995,9 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
         return {'overlap_counts': overlap_counts}
 
     # resources.ml.batch_calculation(number_of_dense_transforms, batch_length,
-    #                                          function=check_tree_for_query_overlap,
-    #                                          function_kwargs=ball_tree_kwargs,
-    #                                          function_return_containers=(asu_clash_counts,), setup=np_tile_wrap)
+    #                                function=check_tree_for_query_overlap,
+    #                                function_kwargs=ball_tree_kwargs,
+    #                                return_containers=(asu_clash_counts,), setup=np_tile_wrap)
     # Using the inverse transform of the model2 backbone and cb (surface fragment) coordinates, check for clashes
     # with the model1 backbone and cb coordinates BinaryTree
     ball_tree_kwargs = dict(binarytree=oligomer1_backbone_cb_tree,
@@ -2009,7 +2009,7 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
     # if batch_calculate:
     # asu_clash_counts, *_ = check_tree_for_query_overlap(**ball_tree_kwargs,
     overlap_return = check_tree_for_query_overlap(**ball_tree_kwargs,
-                                                  function_return_containers={'overlap_counts': asu_clash_counts},
+                                                  return_containers={'overlap_counts': asu_clash_counts},
                                                   setup_args=(bb_cb_coords2,))
     # Extract the data
     asu_clash_counts = overlap_return['overlap_counts']
@@ -3165,11 +3165,11 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
         # parameters.pop('X')  # overwritten by X_unbound
         parameters.pop('chain_M_pos')
         parameters.pop('bias_by_res')
-        tied_pos = parameters.pop('tied_pos')
-        # Todo if modifying the amount of weight given to each of the copies
-        tied_beta = parameters.pop('tied_beta')
-        # Set the design temperature
-        temperature = job.temperatures[0]
+        # tied_pos = parameters.pop('tied_pos')
+        # # Todo if modifying the amount of weight given to each of the copies
+        # tied_beta = parameters.pop('tied_beta')
+        # # Set the design temperature
+        # temperature = job.design.temperatures[0]
 
         proteinmpnn_time_start = time.time()
 
@@ -3179,11 +3179,13 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
                                         compute_failure_exceptions=(RuntimeError, np.core._exceptions._ArrayMemoryError))
         def pose_batch_to_protein_mpnn(batch_slice: slice,
                                        X: torch.Tensor = None,
+                                       S: torch.Tensor = None,
                                        chain_mask: torch.Tensor = None,
                                        chain_encoding: torch.Tensor = None,
                                        residue_idx: torch.Tensor = None,
                                        mask: torch.Tensor = None,
                                        randn: torch.Tensor = None,
+                                       tied_pos: Iterable[Container] = None,
                                        **batch_parameters
                                        ) -> dict[str, np.ndarray]:
             actual_batch_length = batch_slice.stop - batch_slice.start
@@ -3259,9 +3261,6 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
                 # (batch, number_of_sym_residues, ...)
                 residue_mask_cpu = np.tile(residue_mask_cpu, (1, number_of_symmetry_mates))
                 bias_by_res = np.tile(bias_by_res, (1, number_of_symmetry_mates, 1))
-            # else:
-            #     # If entity_bb_coords are individually transformed, then axis=0 works
-            #     perturbed_bb_coords = np.concatenate(new_coords, axis=0)
 
             # Reshape for ProteinMPNN
             log.debug(f'perturbed_bb_coords.shape: {perturbed_bb_coords.shape}')
@@ -3277,7 +3276,9 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
             # mask = batch_parameters.pop('mask')
             # randn = batch_parameters.pop('randn')
             # Clone the data from the sequence tensor so that it can be set with the null token below
-            S_design_null = batch_parameters.get('S').detach().clone()
+            S_design_null = S.detach().clone()
+            # Get the provided batch_length from wrapping function. actual_batch_length may be smaller on last batch
+            batch_length = X_unbound.shape[0]
             if actual_batch_length != batch_length:
                 # Slice these for the last iteration
                 X_unbound = X_unbound[:actual_batch_length]  # , None)
@@ -3472,11 +3473,10 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
                                           # pssm_log_odds_mask=pssm_log_odds_mask[:actual_batch_length],
                                           # pssm_bias_flag=pssm_bias_flag,  # batch_parameters
                                           tied_pos=tied_pos,  # parameters
-                                          tied_beta=tied_beta,  # parameters
+                                          # tied_beta=tied_beta,  # parameters
                                           # bias_by_res=bias_by_res,  # separate_parameters
                                           # bias_by_res=bias_by_res[:actual_batch_length],
-                                          **batch_parameters,
-                                          **separate_parameters)
+                                          **batch_parameters)
                 log.info(f'Sample calculation took {time.time() - sample_start_time:8f}')
                 S_sample = sample_dict['S']
                 # decoding_order_out = sample_dict['decoding_order']
@@ -3546,12 +3546,9 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
         # Todo perhaps we can put some things in here that are relevant, but given the transformation space calculation
         #  this is quite a hefty code base to put into a couple parameters
         proteinmpnn_kwargs = {}
-        # batch_mpnn = True
-        # if batch_mpnn:
         proteinmpnn_return = pose_batch_to_protein_mpnn(**proteinmpnn_kwargs,
-                                                        function_return_containers=
-                                                        {
-                                                         'evolution_cross_entropy': per_residue_evolution_cross_entropy,
+                                                        return_containers=
+                                                        {'evolution_cross_entropy': per_residue_evolution_cross_entropy,
                                                          'fragment_cross_entropy': per_residue_fragment_cross_entropy,
                                                          'collapse_z': per_residue_batch_collapse_z,
                                                          'design_indices': per_residue_design_indices,
@@ -3559,8 +3556,7 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
                                                          'sequences': generated_sequences,
                                                          'complex_sequence_loss': per_residue_complex_sequence_loss,
                                                          'unbound_sequence_loss': per_residue_unbound_sequence_loss,
-                                                        },
-                                                        # setup_args=(parameters,),
+                                                         },
                                                         setup_kwargs=parameters
                                                         )
         per_residue_evolution_cross_entropy = proteinmpnn_return['evolution_cross_entropy']
