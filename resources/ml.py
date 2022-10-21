@@ -309,10 +309,12 @@ def batch_proteinmpnn_input(size: int = None, **kwargs) -> dict[str, np.ndarray]
     # Stack ProteinMPNN sequence design task in "batches"
     device_kwargs = {}
     for key in batch_params:
-        param = kwargs.get(key)
+        param = kwargs.pop(key, None)
         if param is not None:
             device_kwargs[key] = np.tile(param, (size,) + (1,)*param.ndim)
 
+    # Add all kwargs that were not accessed back to the return dictionary
+    device_kwargs.update(**kwargs)
     return device_kwargs
 
 
@@ -368,11 +370,13 @@ def proteinmpnn_to_device(device: str = None, **kwargs) -> dict[str, torch.Tenso
 
     # Convert all numpy arrays to pytorch
     device_kwargs = {}
-    for item, dtype in dtype_map.items():
-        param = kwargs.get(item)
+    for key, dtype in dtype_map.items():
+        param = kwargs.pop(key, None)
         if param is not None:
-            device_kwargs[item] = torch.from_numpy(param).to(dtype=dtype, device=device)
+            device_kwargs[key] = torch.from_numpy(param).to(dtype=dtype, device=device)
 
+    # Add all kwargs that were not accessed back to the return dictionary
+    device_kwargs.update(**kwargs)
     return device_kwargs
 
 
