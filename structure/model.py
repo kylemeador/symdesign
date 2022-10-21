@@ -5588,8 +5588,8 @@ class Pose(SymmetricModel):
             for idx, chain in enumerate(self.chains, 1):
                 chain_encoding[chain.offset_index: chain.offset_index + chain.number_of_residues] = idx
                 residue_idx[chain.offset_index: chain.offset_index + chain.number_of_residues] += 100 * (idx - 1)
-            tied_beta = np.ones_like(residue_mask)  # (number_of_sym_residues,)
-            tied_pos = [[]]
+            tied_beta = None  # np.ones_like(residue_mask)  # (number_of_sym_residues,)
+            tied_pos = None  # [[]]
 
         return dict(X=X,
                     S=S,
