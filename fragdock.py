@@ -3154,6 +3154,10 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
 
         # Set up Pose parameters
         parameters = pose.get_proteinmpnn_params()
+        # Todo
+        #  Must calculate randn individually if using some feature to describe order
+        parameters['randn'] = pose.generate_proteinmpnn_decode_order(to_device=mpnn_model.device)
+
         # Add a parameter for the unbound version of X to X
         X_unbound = np.concatenate(entity_unbound_coords).reshape((number_of_residues, num_model_residues, 3))
         parameters['X'] = X_unbound
@@ -3170,7 +3174,7 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
         proteinmpnn_time_start = time.time()
 
         @torch.no_grad()  # Ensure no gradients are produced
-        def setup_pose_batch_for_proteinmpnn(batch_length: int, **parameters) -> dict[str, Any]:
+        def setup_pose_batch_for_proteinmpnn(batch_length: int, **parameters) -> dict[str, np.ndarray | torch.Tensor]:
             """
 
             Args:
@@ -3180,16 +3184,11 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
             """
             # batch_length = batch_slice.stop - batch_slice.start
             # Create batch_length fixed parameter data which are the same across poses
-            batch_parameters = batch_proteinmpnn_input(size=batch_length, **parameters)
+            batch_parameters: dict[str, np.ndarray | torch.Tensor] = \
+                batch_proteinmpnn_input(size=batch_length, **parameters)
             # Move fixed data structures to the model device
             # Update parameters as some are not transferred to the identified device
             batch_parameters.update(proteinmpnn_to_device(mpnn_model.device, **batch_parameters))
-            # Todo
-            #  Must calculate below individually if using some feature to describe order
-            randn = pose.generate_proteinmpnn_decode_order(to_device=mpnn_model.device)
-            # if not pose.is_symmetric():
-            # Must make a decoding_order batched for mpnn_model.sample()
-            batch_parameters['randn'] = randn.repeat(batch_length, 1)
 
             return batch_parameters
 
