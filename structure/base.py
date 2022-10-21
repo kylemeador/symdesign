@@ -3273,8 +3273,8 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
                 # atom_indices.append(idx)
                 found_types.add(atom.type)
             else:
-                if protein_backbone_atom_types.difference(found_types):  # not an empty set, remove start idx to idx indices
-                    remove_atom_indices.extend(list(range(start_atom_index, idx)))
+                if protein_backbone_atom_types.difference(found_types):  # Not an empty set, remove [start_idx:idx]
+                    remove_atom_indices.extend(range(start_atom_index, idx))
                 else:  # proper format
                     new_residues.append(Residue(atom_indices=list(range(start_atom_index, idx)), parent=self))
                 start_atom_index = idx
@@ -3282,8 +3282,8 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
                 current_residue_number = atom.residue_number
 
         # ensure last residue is added after stop iteration
-        if protein_backbone_atom_types.difference(found_types):  # not an empty set, remove indices from start idx to idx
-            remove_atom_indices.extend(list(range(start_atom_index, idx + 1)))
+        if protein_backbone_atom_types.difference(found_types):  # Not an empty set, remove indices [start_idx:idx]
+            remove_atom_indices.extend(range(start_atom_index, idx + 1))
         else:  # proper format. For each need to increment one higher than the last v
             new_residues.append(Residue(atom_indices=list(range(start_atom_index, idx + 1)), parent=self))
 
