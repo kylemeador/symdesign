@@ -5454,13 +5454,14 @@ class Pose(SymmetricModel):
         else:
             entity_required, self.required_indices = set(), set()
 
-    def get_proteinmpnn_params(self, pssm_multi: float = 0., pssm_log_odds_flag: bool = False,
+    def get_proteinmpnn_params(self, ca_only: bool = False, pssm_multi: float = 0., pssm_log_odds_flag: bool = False,
                                pssm_bias_flag: bool = False, bias_profile_by_probabilities: bool = False,
                                interface: bool = True, decode_core_first: bool = False,
-                               **kwargs):
+                               **kwargs) -> dict[str, np.ndarray]:
         """
 
         Args:
+            ca_only: Whether a minimal CA variant of the protein should be used for design calculations
             pssm_multi: How much to skew the design probabilities towards the sequence profile.
                 Bounded between [1, 0] where 0 is no sequence profile probability.
                 Only used with pssm_bias_flag
@@ -5472,7 +5473,7 @@ class Pose(SymmetricModel):
         Keyword Args:
             distance: (float) = 8. - The distance to measure Residues across an interface
         Returns:
-
+            A mapping of the ProteinMPNN parameter names to their data, typically arrays
         """
         # Initialize pose data structures for design
         if interface:
