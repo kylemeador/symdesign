@@ -16,7 +16,7 @@ from utils.path import submodule_guide, submodule_help, force_flags, fragment_db
     fragment_profile, all_scores, analysis_file, select_sequences, program_name, nano, \
     program_command, analysis, select_poses, output_fragments, output_oligomers, protocol, current_energy_function, \
     ignore_clashes, ignore_pose_clashes, ignore_symmetric_clashes, select_designs, output_structures, rosetta_str, \
-    proteinmpnn, output_trajectory, development, consensus, ca_only, temperatures
+    proteinmpnn, output_trajectory, development, consensus, ca_only, sequences, structures
 from utils.ProteinExpression import expression_tags
 from resources.query.utils import input_string, confirmation_string, bool_d, invalid_string, header_string, \
     format_string
@@ -305,6 +305,10 @@ options_arguments = {
                                         "maximize cassini's computational resources.\nAll computation may"
                                         'fail on a single trajectory mistake.\nDefault=%(default)s'),
     setup_args: setup_kwargs,
+    (f'--{sequences}',): dict(action='store_true',
+                              help='For the protocol, create new sequences for each pose?'),
+    (f'--{structures}',): dict(action='store_true',
+                               help='Whether the structure of each new sequence should be calculated'),
     ('--skip_logging',): dict(action='store_true',
                               help='Skip logging output to files and direct all logging to stream?'),
     ('-E', f'--{sym_entry}', '--entry'): dict(type=int, default=None, dest=sym_entry,
@@ -313,11 +317,6 @@ options_arguments = {
                                help='The specific symmetry of the poses of interest.\nPreferably in a composition '
                                     'formula such as T:{C3}{C3}...\nCan also provide the keyword "cryst" to use crystal'
                                     ' symmetry'),
-    ('-K', f'--{temperatures}'): dict(type=float, nargs='*',
-                                      help='Different sampling "temperature(s)", i.e. values greater'
-                                           '\nthan 0, to use when performing design. In the form:'
-                                           '\nexp(G/T), where G = energy and T = temperature'
-                                           '\nHigher temperatures result in more diversity'),
     ('-U', '--update_database'): dict(action='store_true',
                                       help='Whether to update resources for each Structure in the database'),
 }
@@ -784,9 +783,9 @@ input_mutual_arguments = {
                                      f'finer control'),
     ('-f', '--file'): dict(type=os.path.abspath, default=None, nargs='*',
                            metavar=ex_path('file_with_pose.paths'),
-                           help=f'File(s) with the location of poses listed. For each run of {program_name},\na file '
-                                f'will be created specifying the specific directories to use\nin subsequent commands of'
-                                f' the same designs'),
+                           help='File(s) with the location of poses listed. For each run of %s,\na file will be created'
+                                'specifying the specific directories to use\nin subsequent commands of the same designs'
+                                % program_name),
     ('--fuse_chains',): dict(type=str, nargs='*', default=[],
                              help='The name of a pair of chains to fuse during design.\nPairs should be separated'
                                   ' by a colon, with the n-terminal\npreceding the c-terminal chain new instances by a'
@@ -1073,7 +1072,8 @@ for parser_name, parser_kwargs in input_parsers.items():
 # Separate the provided arguments for modules or overall program arguments to into flags namespaces
 design_arguments = {
     ignore_clashes, ignore_pose_clashes, ignore_symmetric_clashes, method, evolution_constraint, hbnet,
-    number_of_trajectories, structure_background, scout, term_constraint, consensus, ca_only, temperatures
+    number_of_trajectories, structure_background, scout, term_constraint, consensus, ca_only,
+    sequences, structures
 }
 design = {}
 """Contains all the arguments used in design and their default parameters"""
