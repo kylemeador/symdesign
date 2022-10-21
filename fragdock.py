@@ -8,8 +8,8 @@ import time
 from collections.abc import Iterable
 from itertools import repeat, count
 from logging import Logger
-from math import prod, ceil
-from typing import AnyStr, Any
+from math import prod
+from typing import AnyStr, Container
 
 import numpy as np
 import pandas as pd
@@ -3193,8 +3193,7 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
             mpnn_null_idx = resources.ml.MPNN_NULL_IDX
             # This parameter is pass as X for compatibility reasons
             X_unbound = X
-            # Get the provided batch_length from wrapping function. actual_batch_length may be smaller on last batch
-            batch_length = X_unbound.shape[0]
+            # TODO _______________ START HERE ______________
             # Initialize pose data structures for interface design
             residue_mask_cpu = np.zeros((actual_batch_length, pose_length),
                                         dtype=np.int32)  # (batch, number_of_residues)
@@ -3267,6 +3266,20 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
             X = perturbed_bb_coords.reshape((actual_batch_length, -1, num_model_residues, 3))
             log.debug(f'X.shape: {X.shape}')
 
+            # Update different parameters to the identified device
+            batch_parameters.update(proteinmpnn_to_device(mpnn_model.device, X=X,
+                                                          chain_M_pos=residue_mask_cpu,
+                                                          bias_by_res=bias_by_res))
+            # Different across poses
+            X = batch_parameters.pop('X')
+            residue_mask = batch_parameters.get('chain_M_pos', None)
+            # # Potentially different across poses
+            # bias_by_res = batch_parameters.get('bias_by_res', None)
+            # Todo calculate individually if using some feature to describe order
+            #  MUST reinstate the removal from scope after finished with this batch
+            # decoding_order = pose.generate_proteinmpnn_decode_order(to_device=mpnn_model.device)
+            # decoding_order.repeat(actual_batch_length, 1)
+            # TODO ________________ END HERE _______________
             # with torch.no_grad():  # Ensure no gradients are produced
             # Unpack constant parameters and slice reused parameters only once
             # X_unbound = batch_parameters.pop('X')  # Remove once batch_calculation()
@@ -3299,31 +3312,17 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
                 batch_parameters['pssm_bias'] = pssm_bias[:actual_batch_length]
                 batch_parameters['pssm_log_odds_mask'] = pssm_log_odds_mask[:actual_batch_length]
 
-            decoding_order = create_decoding_order(randn, chain_mask,
-                                                   tied_pos=tied_pos,  # parameters['tied_pos'],  #
-                                                   to_device=mpnn_model.device,
-                                                   # **batch_parameters)
-                                                   )
-
-            # Update parameters as some are not transferred to the identified device
-            separate_parameters = proteinmpnn_to_device(mpnn_model.device, X=X,
-                                                        chain_M_pos=residue_mask_cpu,
-                                                        bias_by_res=bias_by_res)
-            # Different across poses
-            X = separate_parameters.pop('X')
-            residue_mask = separate_parameters.get('chain_M_pos', None)
-            # # Potentially different across poses
-            # bias_by_res = separate_parameters.get('bias_by_res', None)
-            # Todo
-            #  calculate individually if using some feature to describe order
-            #  MUST reinstate the removal from scope after finished with this batch
-            # decoding_order = pose.generate_proteinmpnn_decode_order(to_device=mpnn_model.device)
-            # decoding_order.repeat(actual_batch_length, 1)
             # Use the sequence as an unknown token then guess the probabilities given the remaining
             # information, i.e. the sequence and the backbone
             S_design_null[residue_mask.type(torch.bool)] = mpnn_null_idx
             chain_residue_mask = chain_mask * residue_mask
 
+            decoding_order = create_decoding_order(randn, chain_mask,
+                                                   tied_pos=tied_pos,
+                                                   to_device=mpnn_model.device)
+            # Todo _______________ START HERE ______________
+            #  dock_fit_parameters = check_dock_for_designability()
+            #  def check_dock_for_designability():
             # See if the pose is useful to design based on constraints of collapse
 
             # Measure the conditional amino acid probabilities at each residue to see
@@ -3451,6 +3450,9 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
                 'design_indices': _residue_indices_of_interest,
                 'collapse_violation': _poor_collapse,
             }
+            # Todo check_dock_for_designability END
+            #  return dock_fit_parameters
+            # TODO ________________ END HERE _______________
 
             batch_sequences = []
             _per_residue_complex_sequence_loss = []
