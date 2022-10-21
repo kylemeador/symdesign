@@ -1905,7 +1905,13 @@ class PoseDirectory:
             case PUtils.proteinmpnn:
                 sequences_and_scores = self.pose.design_sequence()
                 # for sequence in sequences:
-                self.refine(refine_sequences=sequences_and_scores['sequences'])
+                if self.job.design.structures:
+                    # Todo
+                    #  if job.design.alphafold:
+                    #      self.predict_structure()
+                    #  else:
+                    #      self.refine()
+                    self.refine(refine_sequences=sequences_and_scores['sequences'])
             case other:
                 raise ValueError(f"The method {self.job.design.method} isn't available")
         self.pickle_info()  # Todo remove once PoseDirectory state can be returned to the SymDesign dispatch w/ MP

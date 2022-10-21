@@ -954,8 +954,6 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
     for model in models:
         model.log = log
 
-    design_output = True
-
     # Todo figure out for single component
     model1: Model
     model2: Model
@@ -2401,7 +2399,7 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
     # This needs to be calculated before iterating over each pose
     # residue_info = {pose_source: pose_source_residue_info}
     # residue_info[pose_source] = pose_source_residue_info
-    if design_output:
+    if job.design.sequences and job.design.structures:
         source_contact_order, source_errat = [], []
         for idx, entity in enumerate(pose.entities):
             # Contact order is the same for every design in the Pose and not dependent on pose
@@ -2982,7 +2980,7 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
         log.info(f'Total {building_blocks} dock trajectory took {time.time() - frag_dock_time_start:.2f}s')
         return terminate()  # End of docking run
     # ------------------ TERM ------------------------
-    elif design_output:  # We perform sequence design
+    elif job.design.sequences:  # We perform sequence design
         mpnn_model = proteinmpnn_factory()  # Todo accept model_name arg. Now just use the default
         # set the environment to use memory efficient cuda management
         max_split = 1000
@@ -4161,7 +4159,7 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
         interface_metrics[pose_id] = pose.interface_metrics()
         # _interface_metrics = pose.interface_metrics()
 
-        if design_output:
+        if job.design.sequences:
             pose.calculate_profile()
             # Todo use below if the job calls for different profile integration
             # pose.add_profile(evolution=not job.design.evolution_constraint,
@@ -4276,7 +4274,12 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
                 else:
                     per_residue_fragment_profile_scores = nan_blank_data
 
-                if not job.design.sequence_only:
+                if job.design.structures:
+                    # Todo
+                    #  if job.design.alphafold:
+                    #      pose.predict_structure()
+                    #  else:
+                    #      pose.refine()
                     interface_local_density[design_id] = pose.local_density_interface()  # _interface_local_density
                     per_residue_data[design_id] = pose.get_per_residue_interface_metrics()  # _per_residue_data
                 else:
@@ -4311,7 +4314,7 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
     scores_df = pd.concat([pd.DataFrame(pose_transformations).T, interface_metrics_df], axis=1)
 
     # Collect sequence metrics on every designed Pose
-    if design_output:
+    if job.design.sequences:
         per_residue_sequence_df = pd.DataFrame(sequences, index=design_ids,
                                                columns=pd.MultiIndex.from_product([residue_numbers, ['type']]))
         per_residue_sequence_df.loc[pose_source, :] = list(pose.sequence)
@@ -4397,7 +4400,7 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
             per_residue_df.join([per_residue_sequence_df, per_residue_background_frequencies, per_residue_collapse_df])
         # per_residue_df = pd.merge(residue_df, per_residue_df, left_index=True, right_index=True)
 
-        if not job.design.sequence_only:
+        if job.design.structures:
             scores_df['interface_local_density'] = pd.Series(interface_local_density)
             # Make buried surface area (bsa) columns, and residue classification
             per_residue_df = calculate_residue_surface_area(per_residue_df)  # .loc[:, idx_slice[index_residues, :]])
@@ -4411,7 +4414,7 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
         # scores_df['interface_area_hydrophobic'] = per_residue_df.loc[:, idx_slice[:, 'bsa_hydrophobic']].sum(axis=1)
         # scores_df['interface_area_total'] = \
         #     residue_df.loc[not_pose_source_indices, idx_slice[index_residues, 'bsa_total']].sum(axis=1)
-        if not job.design.sequence_only:
+        if job.design.structures:
             scores_df['interface_area_total'] = bsa_assembly_df = \
                 scores_df['interface_area_polar'] + scores_df['interface_area_hydrophobic']
             # Find the proportion of the residue surface area that is solvent accessible versus buried in the interface
@@ -4435,23 +4438,22 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
         #                                       'evolution': 'evolution_sequence_loss',
         #                                       'fragment': 'fragment_sequence_loss',
         #                                       'designed': 'designed_residues_total'})
-        if design_output:
-            scores_df[groups] = 'proteinmpnn'
-            scores_df['proteinmpnn_v_evolution_cross_entropy_designed_mean'] = \
-                scores_df['proteinmpnn_v_evolution_cross_entropy'] / scores_df['designed_residues_total']
-            scores_df['proteinmpnn_v_fragment_cross_entropy_designed_mean'] = \
-                scores_df['proteinmpnn_v_fragment_cross_entropy'] / scores_df['number_fragment_residues_total']
-            scores_df['proteinmpnn_score_complex'] = \
-                scores_df['interface_energy_complex'] / scores_df['pose_length']
-            scores_df['proteinmpnn_score_unbound'] = \
-                scores_df['interface_energy_unbound'] / scores_df['pose_length']
-            designed_df = per_residue_df.loc[:, idx_slice[:, 'designed']].droplevel(1, axis=1)
-            scores_df['proteinmpnn_score_designed_complex'] = \
-                (per_residue_df.loc[:, idx_slice[:, 'complex']].droplevel(1, axis=1) * designed_df).mean(axis=1)
-            scores_df['proteinmpnn_score_designed_unbound'] = \
-                (per_residue_df.loc[:, idx_slice[:, 'unbound']].droplevel(1, axis=1) * designed_df).mean(axis=1)
-            scores_df['proteinmpnn_score_designed_delta'] = \
-                scores_df['proteinmpnn_score_designed_complex'] - scores_df['proteinmpnn_score_designed_unbound']
+        scores_df[groups] = 'proteinmpnn'
+        scores_df['proteinmpnn_v_evolution_cross_entropy_designed_mean'] = \
+            scores_df['proteinmpnn_v_evolution_cross_entropy'] / scores_df['designed_residues_total']
+        scores_df['proteinmpnn_v_fragment_cross_entropy_designed_mean'] = \
+            scores_df['proteinmpnn_v_fragment_cross_entropy'] / scores_df['number_fragment_residues_total']
+        scores_df['proteinmpnn_score_complex'] = \
+            scores_df['interface_energy_complex'] / scores_df['pose_length']
+        scores_df['proteinmpnn_score_unbound'] = \
+            scores_df['interface_energy_unbound'] / scores_df['pose_length']
+        designed_df = per_residue_df.loc[:, idx_slice[:, 'designed']].droplevel(1, axis=1)
+        scores_df['proteinmpnn_score_designed_complex'] = \
+            (per_residue_df.loc[:, idx_slice[:, 'complex']].droplevel(1, axis=1) * designed_df).mean(axis=1)
+        scores_df['proteinmpnn_score_designed_unbound'] = \
+            (per_residue_df.loc[:, idx_slice[:, 'unbound']].droplevel(1, axis=1) * designed_df).mean(axis=1)
+        scores_df['proteinmpnn_score_designed_delta'] = \
+            scores_df['proteinmpnn_score_designed_complex'] - scores_df['proteinmpnn_score_designed_unbound']
 
         # # Drop unused particular per_residue_df columns that have been summed
         # per_residue_drop_columns = per_residue_energy_states + energy_metric_names + per_residue_sasa_states \
@@ -4524,7 +4526,7 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
     save = True
     if save:
         pose_df.to_csv(os.path.join(job.all_scores, f'{building_blocks}_docked_poses_Trajectories.csv'))
-        if design_output:
+        if job.design.sequences:
             per_residue_df.to_csv(os.path.join(job.all_scores, f'{building_blocks}_docked_poses_Residues.csv'))
     log.info(f'Total {building_blocks} dock trajectory took {time.time() - frag_dock_time_start:.2f}s')
 
