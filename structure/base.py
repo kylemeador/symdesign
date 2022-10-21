@@ -1638,6 +1638,8 @@ class Residue(ResidueFragment, ContainsAtomsMixin):
                     if 'H' not in atom.type:
                         heavy_indices.append(idx)
 
+        # Construction ensures proper order for _bb_indices even if out of order
+        # Important this order is correct for ProteinMPNN
         self.backbone_indices = [getattr(self, f'_{index}_index', None) for index in ['n', 'ca', 'c', 'o']]
         cb_index = getattr(self, '_cb_index', None)
         if cb_index:
