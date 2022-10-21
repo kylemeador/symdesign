@@ -28,8 +28,8 @@ from metrics import calculate_collapse_metrics, calculate_residue_surface_area, 
     sum_per_residue_metrics, hydrophobic_collapse_index, cross_entropy, collapse_significance_threshold
 from structure.fragment.db import FragmentDatabase, fragment_factory
 from resources.job import job_resources_factory, JobResources
-from resources.ml import proteinmpnn_factory, batch_proteinmpnn_input, sequence_nllloss, \
-    proteinmpnn_to_device, mpnn_alphabet, create_decoding_order
+from resources.ml import proteinmpnn_factory, sequence_nllloss, proteinmpnn_to_device, mpnn_alphabet, \
+    create_decoding_order, setup_pose_batch_for_proteinmpnn
 from structure.base import Structure, Residue
 from structure.coords import transform_coordinate_sets
 from structure.fragment import GhostFragment, write_frag_match_info_file
@@ -3172,25 +3172,6 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
         temperature = job.temperatures[0]
 
         proteinmpnn_time_start = time.time()
-
-        @torch.no_grad()  # Ensure no gradients are produced
-        def setup_pose_batch_for_proteinmpnn(batch_length: int, **parameters) -> dict[str, np.ndarray | torch.Tensor]:
-            """
-
-            Args:
-                batch_length: The length the batch to set up
-            Returns:
-                A mapping of necessary containers for ProteinMPNN inference in batches and loaded to the device
-            """
-            # batch_length = batch_slice.stop - batch_slice.start
-            # Create batch_length fixed parameter data which are the same across poses
-            batch_parameters: dict[str, np.ndarray | torch.Tensor] = \
-                batch_proteinmpnn_input(size=batch_length, **parameters)
-            # Move fixed data structures to the model device
-            # Update parameters as some are not transferred to the identified device
-            batch_parameters.update(proteinmpnn_to_device(mpnn_model.device, **batch_parameters))
-
-            return batch_parameters
 
         @torch.no_grad()  # Ensure no gradients are produced
         @resources.ml.batch_calculation(size=size, batch_length=batch_length,

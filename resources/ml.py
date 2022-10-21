@@ -388,35 +388,26 @@ def proteinmpnn_to_device(device: str = None,
             device_kwargs[item] = torch.from_numpy(param).to(dtype=dtype, device=device)
 
     return device_kwargs
-    # X = torch.from_numpy(X).to(dtype=torch.float32, device=device)
-    # S = torch.from_numpy(S).to(dtype=torch.long, device=device)
-    # mask = torch.from_numpy(mask).to(dtype=torch.float32, device=device)
-    # chain_M_pos = torch.from_numpy(chain_M_pos).to(dtype=torch.float32, device=device)                # residue_mask
-    # chain_mask = torch.from_numpy(chain_mask).to(dtype=torch.float32, device=device)
-    # chain_encoding = torch.from_numpy(chain_encoding).to(dtype=torch.long, device=device)
-    # residue_idx = torch.from_numpy(residue_idx).to(dtype=torch.long, device=device)
-    # omit_AA_mask = torch.from_numpy(omit_AA_mask).to(dtype=torch.float32, device=device)
-    # pssm_coef = torch.from_numpy(pssm_coef).to(dtype=torch.float32, device=device)
-    # pssm_bias = torch.from_numpy(pssm_bias).to(dtype=torch.float32, device=device)
-    # pssm_log_odds_mask = torch.from_numpy(pssm_log_odds_mask).to(dtype=torch.float32, device=device)
-    # tied_beta = torch.from_numpy(tied_beta).to(dtype=torch.float32, device=device)
-    # bias_by_res = torch.from_numpy(bias_by_res).to(dtype=torch.float32, device=device)
-    # # omit_aas = torch.from_numpy(omit_aas).to(dtype=torch.float32, device=device)
-    #
-    # return dict(X=X,
-    #             S=S,
-    #             chain_mask=chain_mask,
-    #             chain_encoding=chain_encoding,
-    #             residue_idx=residue_idx,
-    #             mask=mask,
-    #             chain_M_pos=chain_M_pos,  # residue_mask,
-    #             omit_AA_mask=omit_AA_mask,
-    #             pssm_coef=pssm_coef,
-    #             pssm_bias=pssm_bias,
-    #             pssm_log_odds_mask=pssm_log_odds_mask,
-    #             tied_beta=tied_beta,
-    #             bias_by_res=bias_by_res
-    #             )
+
+
+@torch.no_grad()  # Ensure no gradients are produced
+def setup_pose_batch_for_proteinmpnn(mpnn_model, batch_length: int, **parameters) -> dict[str, np.ndarray | torch.Tensor]:
+    """
+
+    Args:
+        batch_length: The length the batch to set up
+    Returns:
+        A mapping of necessary containers for ProteinMPNN inference in batches and loaded to the device
+    """
+    # batch_length = batch_slice.stop - batch_slice.start
+    # Create batch_length fixed parameter data which are the same across poses
+    batch_parameters: dict[str, np.ndarray | torch.Tensor] = \
+        batch_proteinmpnn_input(size=batch_length, **parameters)
+    # Move fixed data structures to the model device
+    # Update parameters as some are not transferred to the identified device
+    batch_parameters.update(proteinmpnn_to_device(mpnn_model.device, **batch_parameters))
+
+    return batch_parameters
 
 
 def sequence_nllloss(sequence: torch.Tensor, log_probs: torch.Tensor,
