@@ -1903,7 +1903,10 @@ class PoseDirectory:
             case PUtils.rosetta_str:
                 self.rosetta_interface_design()
             case PUtils.proteinmpnn:
-                sequences_and_scores = self.pose.design_sequence()
+                sequences_and_scores = self.pose.design_sequences(number=self.job.design.number_of_trajectories,
+                                                                  ca_only=self.job.design.ca_only,
+                                                                  temperatures=self.job.design.temperatures,
+                                                                  )
                 # for sequence in sequences:
                 self.refine(refine_sequences=sequences_and_scores['sequences'])
             case other:
@@ -3393,7 +3396,8 @@ def interface_design_analysis(pose: Pose, design_poses: Iterable[Pose] = None, s
 
     # Find all designs files
     if design_poses is None:
-        design_poses = pose.design_sequence()
+        raise NotImplementedError(f'Attach the job.design arguments here first!')
+        design_poses = pose.design_sequences()
 
     # Assumes each structure is the same length
     pose_length = pose.number_of_residues

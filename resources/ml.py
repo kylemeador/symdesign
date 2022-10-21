@@ -1,7 +1,8 @@
 import functools
 import os
+import time
 from math import ceil
-from typing import Annotated, Iterable, Container, Type, Callable
+from typing import Annotated, Iterable, Container, Type, Callable, Sequence
 
 import numpy as np
 import torch
@@ -398,6 +399,174 @@ def setup_pose_batch_for_proteinmpnn(mpnn_model, batch_length: int, **parameters
     batch_parameters.update(proteinmpnn_to_device(mpnn_model.device, **batch_parameters))
 
     return batch_parameters
+
+
+# @batch_calculation(size=size, batch_length=batch_length,
+#                    setup=setup_pose_batch_for_proteinmpnn,
+#                    compute_failure_exceptions=(RuntimeError, np.core._exceptions._ArrayMemoryError))
+def proteinmpnn_batch_design(batch_slice: slice, proteinmpnn: ProteinMPNN,
+                             X: torch.Tensor = None,
+                             randn: torch.Tensor = None,
+                             S: torch.Tensor = None,
+                             chain_mask: torch.Tensor = None,
+                             chain_encoding: torch.Tensor = None,
+                             residue_idx: torch.Tensor = None,
+                             mask: torch.Tensor = None,
+                             temperatures: Sequence[float] = (0.1,),
+                             tied_pos: Iterable[Container] = None,
+                             X_unbound: torch.Tensor = None,
+                             **batch_parameters
+                             ) -> dict[str, np.ndarray]:
+    """Perform ProteinMPNN design tasks on input that is split into batches
+
+    Args:
+        batch_slice:
+        proteinmpnn:
+        X:
+        randn:
+        S:
+        chain_mask:
+        chain_encoding:
+        residue_idx:
+        mask:
+        temperatures:
+        tied_pos:
+        X_unbound:
+    Returns:
+        A mapping of the key describing to the corresponding value, i.e. sequences, complex_sequence_loss, and
+            unbound_sequence_loss
+    """
+    # X = batch_parameters.pop('X', None)
+    # S = batch_parameters.pop('S', None)
+    # chain_mask = batch_parameters.pop('chain_mask', None)
+    # chain_encoding = batch_parameters.pop('chain_encoding', None)
+    # residue_idx = batch_parameters.pop('residue_idx', None)
+    # mask = batch_parameters.pop('mask', None)
+    # randn = batch_parameters.pop('randn', None)
+    # # omit_AAs_np = batch_parameters.get('omit_AAs_np', None)
+    # # bias_AAs_np = batch_parameters.get('bias_AAs_np', None)
+    residue_mask = batch_parameters.get('chain_M_pos', None)
+    # # omit_AA_mask = batch_parameters.get('omit_AA_mask', None)
+    # # pssm_coef = batch_parameters.get('pssm_coef', None)
+    # # pssm_bias = batch_parameters.get('pssm_bias', None)
+    # # pssm_multi = batch_parameters.get('pssm_multi', None)
+    # # pssm_log_odds_flag = batch_parameters.get('pssm_log_odds_flag', None)
+    # # pssm_log_odds_mask = batch_parameters.get('pssm_log_odds_mask', None)
+    # # pssm_bias_flag = batch_parameters.get('pssm_bias_flag', None)
+    # tied_pos = batch_parameters.pop('tied_pos', None)
+    # # tied_beta = batch_parameters.pop('tied_beta', None)
+    # # bias_by_res = batch_parameters.get('bias_by_res', None)
+
+    actual_batch_length = batch_slice.stop - batch_slice.start
+    # Clone the data from the sequence tensor so that it can be set with the null token below
+    batch_length, pose_length, *_ = S.shape
+    S_design_null = S.detach().clone()
+    # X_unbound = batch_parameters.get('X_unbound')
+    if actual_batch_length != batch_length:
+        # Slice these for the last iteration
+        chain_mask = chain_mask[:actual_batch_length]  # , None)
+        chain_encoding = chain_encoding[:actual_batch_length]  # , None)
+        residue_idx = residue_idx[:actual_batch_length]  # , None)
+        mask = mask[:actual_batch_length]  # , None)
+        randn = randn[:actual_batch_length]
+        residue_mask = residue_mask[:actual_batch_length]
+        S_design_null = S_design_null[:actual_batch_length]  # , None)
+        # Unpack, unpacked keyword args
+        omit_AA_mask = batch_parameters.get('omit_AA_mask')
+        pssm_coef = batch_parameters.get('pssm_coef')
+        pssm_bias = batch_parameters.get('pssm_bias')
+        pssm_log_odds_mask = batch_parameters.get('pssm_log_odds_mask')
+        # Set keyword args
+        batch_parameters['omit_AA_mask'] = omit_AA_mask[:actual_batch_length]
+        batch_parameters['pssm_coef'] = pssm_coef[:actual_batch_length]
+        batch_parameters['pssm_bias'] = pssm_bias[:actual_batch_length]
+        batch_parameters['pssm_log_odds_mask'] = pssm_log_odds_mask[:actual_batch_length]
+        try:
+            X_unbound = X_unbound[:actual_batch_length]  # , None)
+        except TypeError:  # Can't slice NoneType
+            pass
+
+    # Use the sequence as an unknown token then guess the probabilities given the remaining
+    # information, i.e. the sequence and the backbone
+    S_design_null[residue_mask.type(torch.bool)] = MPNN_NULL_IDX
+    chain_residue_mask = chain_mask * residue_mask
+
+    batch_sequences = []
+    _per_residue_complex_sequence_loss = []
+    _per_residue_unbound_sequence_loss = []
+    number_of_temps = len(temperatures)
+    for temp_idx, temperature in enumerate(temperatures):
+        sample_start_time = time.time()
+        if tied_pos is None:
+            sample_dict = proteinmpnn.sample(X, randn, S_design_null, chain_mask, chain_encoding, residue_idx, mask,
+                                             temperature=temperature, **batch_parameters)
+        else:
+            sample_dict = proteinmpnn.tied_sample(X, randn, S_design_null, chain_mask, chain_encoding, residue_idx,
+                                                  mask, temperature=temperature, tied_pos=tied_pos, **batch_parameters)
+        logger.info(f'Sample calculation took {time.time() - sample_start_time:8f}s')
+        S_sample = sample_dict['S']
+        # Format outputs
+        _batch_sequences = S_sample.cpu()[:, :pose_length]
+        batch_sequences.append(_batch_sequences)
+        decoding_order = sample_dict['decoding_order']
+        # decoding_order_out = decoding_order  # When using the same decoding order for all
+        if X_unbound:
+            unbound_log_prob_start_time = time.time()
+            unbound_log_probs = \
+                proteinmpnn(X_unbound, S_sample, mask, chain_residue_mask, residue_idx, chain_encoding,
+                            None,  # This argument is provided but with below args, is not used
+                            use_input_decoding_order=True, decoding_order=decoding_order).cpu()
+            _per_residue_unbound_sequence_loss.append(
+                sequence_nllloss(_batch_sequences, unbound_log_probs[:, :pose_length]).numpy())
+            logger.debug(f'Unbound log probabilities calculation took '
+                         f'{time.time() - unbound_log_prob_start_time:8f}s')
+
+        log_probs_start_time = time.time()
+        complex_log_probs = \
+            proteinmpnn(X, S_sample, mask, chain_residue_mask, residue_idx, chain_encoding,
+                        None,  # This argument is provided but with below args, is not used
+                        use_input_decoding_order=True, decoding_order=decoding_order).cpu()
+        # complex_log_probs is
+        # tensor([[[-2.7691, -3.5265, -2.9001,  ..., -3.3623, -3.0247, -4.2772],
+        #          [-2.7691, -3.5265, -2.9001,  ..., -3.3623, -3.0247, -4.2772],
+        #          [-2.7691, -3.5265, -2.9001,  ..., -3.3623, -3.0247, -4.2772],
+        #          ...,
+        #          [-2.7691, -3.5265, -2.9001,  ..., -3.3623, -3.0247, -4.2772],
+        #          [-2.7691, -3.5265, -2.9001,  ..., -3.3623, -3.0247, -4.2772],
+        #          [-2.7691, -3.5265, -2.9001,  ..., -3.3623, -3.0247, -4.2772]],
+        #         [[-2.6934, -4.0610, -2.6506, ..., -4.2404, -3.4620, -4.8641],
+        #          [-2.8753, -4.3959, -2.4042,  ..., -4.4922, -3.5962, -5.1403],
+        #          [-2.5235, -4.0181, -2.7738,  ..., -4.2454, -3.4768, -4.8088],
+        #          ...,
+        #          [-3.4500, -4.4373, -3.7814,  ..., -5.1637, -4.6107, -5.2295],
+        #          [-0.9690, -4.9492, -3.9373,  ..., -2.0154, -2.2262, -4.3334],
+        #          [-3.1118, -4.3809, -3.8763,  ..., -4.7145, -4.1524, -5.3076]]])
+        # Score the redesigned structure-sequence
+        # mask_for_loss = chain_mask_and_mask*residue_mask
+        # batch_scores = sequence_nllloss(S_sample, complex_log_probs, mask_for_loss, per_residue=False)
+        # batch_scores is
+        # tensor([2.1039, 2.0618, 2.0802, 2.0538, 2.0114, 2.0002], device='cuda:0')
+        _per_residue_complex_sequence_loss.append(
+            sequence_nllloss(_batch_sequences, complex_log_probs[:, :pose_length]).numpy())
+        logger.debug(f'Log probabilities calculation took {time.time() - log_probs_start_time:8f}s')
+
+    # All data structures have a shape (batch_length, number_of_temperatures, pose_length)
+    sequences = np.concatenate(batch_sequences, axis=1).reshape(actual_batch_length, number_of_temps, pose_length)
+    complex_sequence_loss =\
+        np.concatenate(_per_residue_complex_sequence_loss, axis=1).reshape(actual_batch_length,
+                                                                           number_of_temps,
+                                                                           pose_length)
+    if X_unbound:
+        unbound_sequence_loss = \
+            np.concatenate(_per_residue_unbound_sequence_loss, axis=1).reshape(actual_batch_length,
+                                                                               number_of_temps,
+                                                                               pose_length),
+    else:
+        unbound_sequence_loss = np.empty_like(complex_sequence_loss)
+
+    return {'sequences': sequences,
+            'complex_sequence_loss': complex_sequence_loss,
+            'unbound_sequence_loss': unbound_sequence_loss}
 
 
 def sequence_nllloss(sequence: torch.Tensor, log_probs: torch.Tensor,
