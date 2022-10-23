@@ -3098,7 +3098,8 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
             entity_unbound_coords[idx] = coord_func(coords + unbound_transform*idx)
 
         log.debug(f'The mpnn_model.device is: {mpnn_model.device}')
-        if mpnn_model.device == 'cpu':
+        device = mpnn_model.device
+        if device == 'cpu':
             mpnn_memory_constraint = psutil.virtual_memory().available
             log.critical(f'The available cpu memory is: {mpnn_memory_constraint}')
         else:
@@ -3154,7 +3155,7 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
         parameters = pose.get_proteinmpnn_params()
         # Todo
         #  Must calculate randn individually if using some feature to describe order
-        parameters['randn'] = pose.generate_proteinmpnn_decode_order(to_device=mpnn_model.device)
+        parameters['randn'] = pose.generate_proteinmpnn_decode_order(to_device=device)
 
         # Add a parameter for the unbound version of X to X
         X_unbound = np.concatenate(entity_unbound_coords).reshape((number_of_residues, num_model_residues, 3))
@@ -3557,6 +3558,7 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
                                                          'complex_sequence_loss': per_residue_complex_sequence_loss,
                                                          'unbound_sequence_loss': per_residue_unbound_sequence_loss,
                                                          },
+                                                        setup_args=(device,),
                                                         setup_kwargs=parameters
                                                         )
         per_residue_evolution_cross_entropy = proteinmpnn_return['evolution_cross_entropy']
