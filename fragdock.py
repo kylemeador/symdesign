@@ -3155,7 +3155,7 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
         parameters = pose.get_proteinmpnn_params()
         # Todo
         #  Must calculate randn individually if using some feature to describe order
-        parameters['randn'] = pose.generate_proteinmpnn_decode_order(to_device=device)
+        parameters['randn'] = pose.generate_proteinmpnn_decode_order()  # to_device=device)
 
         # Add a parameter for the unbound version of X to X
         X_unbound = np.concatenate(entity_unbound_coords).reshape((number_of_residues, num_model_residues, 3))
