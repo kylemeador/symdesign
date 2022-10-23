@@ -5719,7 +5719,7 @@ class Pose(SymmetricModel):
             # Set up the inference task
             parameters = self.get_proteinmpnn_params(ca_only=ca_only)
             # Solve decoding order
-            parameters['randn'] = self.generate_proteinmpnn_decode_order(to_device=device)
+            parameters['randn'] = self.generate_proteinmpnn_decode_order()  # to_device=device)
 
             size = number
             batch_length = 6
