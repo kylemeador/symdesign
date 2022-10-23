@@ -317,7 +317,7 @@ options_arguments = {
                                help='The specific symmetry of the poses of interest.\nPreferably in a composition '
                                     'formula such as T:{C3}{C3}...\nCan also provide the keyword "cryst" to use crystal'
                                     ' symmetry'),
-    ('-K', f'--{temperatures}'): dict(type=float, nargs='*',
+    ('-K', f'--{temperatures}'): dict(type=float, nargs='*', default=(0.1,),
                                       help='Different sampling "temperature(s)", i.e. values greater'
                                            '\nthan 0, to use when performing design. In the form:'
                                            '\nexp(G/T), where G = energy and T = temperature'
