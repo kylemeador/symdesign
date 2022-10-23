@@ -16,7 +16,7 @@ from utils.path import submodule_guide, submodule_help, force_flags, fragment_db
     fragment_profile, all_scores, analysis_file, select_sequences, program_name, nano, \
     program_command, analysis, select_poses, output_fragments, output_oligomers, protocol, current_energy_function, \
     ignore_clashes, ignore_pose_clashes, ignore_symmetric_clashes, select_designs, output_structures, rosetta_str, \
-    proteinmpnn, output_trajectory, development, consensus, ca_only, temperatures
+    proteinmpnn, output_trajectory, development, consensus, ca_only, sequences, structures, temperatures
 from utils.ProteinExpression import expression_tags
 from resources.query.utils import input_string, confirmation_string, bool_d, invalid_string, header_string, \
     format_string
@@ -305,6 +305,10 @@ options_arguments = {
                                         "maximize cassini's computational resources.\nAll computation may"
                                         'fail on a single trajectory mistake.\nDefault=%(default)s'),
     setup_args: setup_kwargs,
+    (f'--{sequences}',): dict(action='store_true',
+                              help='For the protocol, create new sequences for each pose?'),
+    (f'--{structures}',): dict(action='store_true',
+                               help='Whether the structure of each new sequence should be calculated'),
     ('--skip_logging',): dict(action='store_true',
                               help='Skip logging output to files and direct all logging to stream?'),
     ('-E', f'--{sym_entry}', '--entry'): dict(type=int, default=None, dest=sym_entry,
@@ -1073,7 +1077,8 @@ for parser_name, parser_kwargs in input_parsers.items():
 # Separate the provided arguments for modules or overall program arguments to into flags namespaces
 design_arguments = {
     ignore_clashes, ignore_pose_clashes, ignore_symmetric_clashes, method, evolution_constraint, hbnet,
-    number_of_trajectories, structure_background, scout, term_constraint, consensus, ca_only, temperatures
+    number_of_trajectories, structure_background, scout, term_constraint, consensus, ca_only, temperatures,
+    sequences, structures
 }
 design = {}
 """Contains all the arguments used in design and their default parameters"""
