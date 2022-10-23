@@ -393,6 +393,8 @@ def setup_pose_batch_for_proteinmpnn(batch_length: int, device, **parameters) ->
     """
     # batch_length = batch_slice.stop - batch_slice.start
     # Create batch_length fixed parameter data which are the same across poses
+    print('BATCH_LENGTH', batch_length)
+    print('DEVICE', device)
     batch_parameters: dict[str, np.ndarray | torch.Tensor] = \
         batch_proteinmpnn_input(size=batch_length, **parameters)
     # Move fixed data structures to the model device
