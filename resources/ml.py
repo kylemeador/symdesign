@@ -382,11 +382,12 @@ def proteinmpnn_to_device(device: str = None, **kwargs) -> dict[str, torch.Tenso
 
 
 @torch.no_grad()  # Ensure no gradients are produced
-def setup_pose_batch_for_proteinmpnn(mpnn_model, batch_length: int, **parameters) -> dict[str, np.ndarray | torch.Tensor]:
+def setup_pose_batch_for_proteinmpnn(batch_length: int, device, **parameters) -> dict[str, np.ndarray | torch.Tensor]:
     """
 
     Args:
         batch_length: The length the batch to set up
+        device: The device used for batch calculations
     Returns:
         A mapping of necessary containers for ProteinMPNN inference in batches and loaded to the device
     """
@@ -396,7 +397,7 @@ def setup_pose_batch_for_proteinmpnn(mpnn_model, batch_length: int, **parameters
         batch_proteinmpnn_input(size=batch_length, **parameters)
     # Move fixed data structures to the model device
     # Update parameters as some are not transferred to the identified device
-    batch_parameters.update(proteinmpnn_to_device(mpnn_model.device, **batch_parameters))
+    batch_parameters.update(proteinmpnn_to_device(device, **batch_parameters))
 
     return batch_parameters
 
