@@ -305,8 +305,10 @@ options_arguments = {
                                         "maximize cassini's computational resources.\nAll computation may"
                                         'fail on a single trajectory mistake.\nDefault=%(default)s'),
     setup_args: setup_kwargs,
-    (f'--{sequences}',): dict(action='store_true',
-                              help='For the protocol, create new sequences for each pose?'),
+    # Todo move to only design protocols...
+    (f'--{sequences}',): dict(action=argparse.BooleanOptionalAction, default=True,  # action='store_true',
+                              help='For the protocol, create new sequences for each pose?'
+                                   f'{boolean_positional_prevent_msg(sequences)}'),
     (f'--{structures}',): dict(action='store_true',
                                help='Whether the structure of each new sequence should be calculated'),
     ('--skip_logging',): dict(action='store_true',
