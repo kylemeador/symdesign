@@ -1344,10 +1344,12 @@ class Entity(Chain, ContainsChainsMixin):
         # Set in init -> self._chains = [self]
         if len(self._chains) == 1 and self._chain_transforms and self._is_captain:
             # populate ._chains with Entity mates
+            # These mates will be their own "parent", and will be under the control of this instance, ie. the captain
+            self.log.debug(f'Generating Entity mates as .chains')
             self._chains.extend([self.get_transformed_mate(**transform) for transform in self._chain_transforms])
             chain_ids = self.chain_ids
-            self.log.debug(f'Entity chains property has {len(self._chains)} chains because the underlying '
-                           f'chain_transforms has {len(self._chain_transforms)}. chain_ids has {len(chain_ids)}')
+            # self.log.debug(f'Entity chains property has {len(self._chains)} chains because the underlying '
+            #                f'chain_transforms has {len(self._chain_transforms)}. chain_ids has {len(chain_ids)}')
             for idx, chain in enumerate(self._chains[1:], 1):
                 # set entity.chain_id which sets all residues
                 chain.chain_id = chain_ids[idx]
@@ -2265,30 +2267,32 @@ class Entity(Chain, ContainsChainsMixin):
         captain = self._captain
         del self._captain
         other = super().__copy__()
+        # Mate Entity instances are a "parent", however, they are under the control of their captain instance
         if self._is_captain:  # If the copier is a captain
             other._captain = None  # Initialize the copy as a captain -> None
-            if not self.is_parent():
+            if self.is_dependent() and other.is_dependent():
+                # A parent is making the copy. Update all structure_containers with new instance accordingly
+                self.log.debug('is parent copy_structure_containers')
                 # We must update the structure_containers as this wasn't performed by Structure.copy()
                 other._copy_structure_containers()
             # other._update_structure_container_attributes(_parent=other)
         else:
-            # If the copy was initiated by the captain, ._captain
-            # will be set after this __copy__ return in _copy_structure_containers()
-            # This is True if the .entity_spawn attribute is set
+            # If the .entity_spawn attribute is set, the copy was initiated by the captain,
+            # ._captain will be set after this __copy__ return in _copy_structure_containers()
             try:  # To delete entity_spawn attribute for the self and the copy (it was copied)
                 del self.entity_spawn
                 del other.entity_spawn
             except AttributeError:
                 # This isn't a captain and a captain didn't initiate the copy
-                # We have to make it a captain
-                # Add self._captain object to other._captain
+                # We have to make it a captain -> None
+                # First set self._captain object as other._captain, then
+                # _make_captain() extracts data, and finally, will set _captain as None
                 other._captain = captain
-                # _make_captain will set _captain as None
-                other._make_captain()
+                other._make_captain()  # other._captain -> None
 
         # Set the first chain as the object itself
         other._chains[0] = other
-        # Reset the _captain attribute on self as before the copy
+        # Reset the self state as before the copy. Reset _captain attribute on self
         self._captain = captain
 
         return other
