@@ -4266,8 +4266,8 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
                     per_residue_data[design_id] = {}
 
                 per_residue_data[design_id].update(
-                    {'complex': dock_per_residue_complex_sequence_loss[design_idx],
-                     'unbound': dock_per_residue_unbound_sequence_loss[design_idx],
+                    {'complex': dock_per_residue_complex_sequence_loss[temp_idx],
+                     'unbound': dock_per_residue_unbound_sequence_loss[temp_idx],
                      'proteinmpnn_v_evolution_cross_entropy': dock_per_residue_evolution_cross_entropy,
                      'proteinmpnn_v_fragment_cross_entropy': dock_per_residue_fragment_cross_entropy,
                      'designed_residues_total': dock_per_residue_design_indices,
