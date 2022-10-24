@@ -1109,7 +1109,7 @@ class Entity(Chain, ContainsChainsMixin):
                 # Todo when capable of asymmetric symmetrization
                 # self.chains.append(chain)
             self.number_of_symmetry_mates = len(chains)
-            self.symmetry = f'D{self.number_of_symmetry_mates/2}' if self.is_dihedral() \
+            self.symmetry = f'D{self.number_of_symmetry_mates / 2}' if self.is_dihedral() \
                 else f'C{self.number_of_symmetry_mates}'
         else:
             self.symmetry = None
@@ -1177,6 +1177,7 @@ class Entity(Chain, ContainsChainsMixin):
                 self._chain_transforms.append(dict(rotation=rot, translation=tx))
                 # Transform existing mate chain
                 chain.coords = np.matmul(coords, np.transpose(rot)) + tx
+                # self.log.debug(f'Setting coords on mate chain {chain.chain_id}')
         else:  # Accept the new coords
             super(Structure, Structure).coords.fset(self, coords)  # prefer this over below, as mechanism could change
             # self._coords.replace(self._atom_indices, coords)
@@ -1454,9 +1455,10 @@ class Entity(Chain, ContainsChainsMixin):
 
     def _make_mate(self, other: Entity):
         """Turn the Entity into a "mate" Entity"""
+        # self.log.debug(f'Designating Entity mate')
         self._captain = other
         self._is_captain = False
-        self.chain_ids = [self.chain_id]  # set for a length of 1, using the captain self.chain_id
+        self.chain_ids = [other.chain_id]  # set for a length of 1, using the captain.chain_id
         self._chain_transforms.clear()
 
     def _make_captain(self):
@@ -1614,8 +1616,9 @@ class Entity(Chain, ContainsChainsMixin):
         new_structure = copy(self)
         new_structure._make_mate(self)
         # _make_mate executes the following
+        # self._captain = other
         # self._is_captain = False
-        # self._chain_ids = [self.chain_id]
+        # self._chain_ids = [other.chain_id]
         # self._chain_transforms.clear()
         new_structure.coords = new_coords
 
@@ -1861,7 +1864,7 @@ class Entity(Chain, ContainsChainsMixin):
         #     self.log.critical(f'{self.name} symmetry is malformed! Highest symmetry ({max_symmetry_data["sym"]}-fold)'
         #                       f' is less than 2x greater than the number ({self.number_of_symmetry_mates}) of chains')
 
-        return self.number_of_symmetry_mates/self.max_symmetry == 2
+        return self.number_of_symmetry_mates / self.max_symmetry == 2
 
     def find_dihedral_chain(self) -> Entity | None:
         """From the symmetric system, find a dihedral chain and return the instance

@@ -2369,7 +2369,7 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
     for entity_name, data in entity_info.items():
         data['chains'] = [next(chain_gen)]
 
-    pose = Pose.from_entities([entity for idx, model in enumerate(models) for entity in model.entities],
+    pose = Pose.from_entities([entity for model in models for entity in model.entities],
                               entity_info=entity_info, entity_names=entity_names, name='asu', log=log,
                               sym_entry=sym_entry, surrounding_uc=job.output_surrounding_uc,
                               fragment_db=job.fragment_db,
@@ -2804,7 +2804,7 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
             # Remove old fragments
             pose.fragment_queries = {}
             # Query fragments
-            pose.generate_interface_fragments(write_fragments=job.write_fragments)
+            pose.generate_interface_fragments()  # write_fragments=job.write_fragments)
         else:  # Process with provided data
             # Return the indices sorted by z_value in ascending order, truncated at the number of passing
             sorted_match_scores = match_score_from_z_value(sorted_z_scores)
@@ -4518,8 +4518,11 @@ if __name__ == '__main__':
     if len(sys.argv) > 1:
         # Parsing Command Line Input
         sym_entry_number, model1_path, model2_path, rot_step_deg1, rot_step_deg2, master_outdir, output_assembly, \
-            output_surrounding_uc, min_matched, timer, initial, debug, high_quality_match_value, initial_z_value = \
-            get_docking_parameters(sys.argv)
+            output_surrounding_uc, min_matched, timer, initial, debug, high_quality_match_value, initial_z_value,\
+            extra_args = get_docking_parameters(sys.argv)
+
+        extra_kwargs = dict(zip(extra_args, repeat(True)))
+        logger.debug(f'Generated extra keyword args: {extra_kwargs}')
 
         # Master Log File
         master_log_filepath = os.path.join(master_outdir, master_log)
@@ -4578,7 +4581,8 @@ if __name__ == '__main__':
 
             nanohedra_dock(symmetry_entry, master_outdir, model1_path, model2_path,
                            rotation_step1=rot_step_deg1, rotation_step2=rot_step_deg2, min_matched=min_matched,
-                           high_quality_match_value=high_quality_match_value, initial_z_value=initial_z_value)
+                           high_quality_match_value=high_quality_match_value, initial_z_value=initial_z_value,
+                           **extra_kwargs)
             logger.info(f'COMPLETE ==> {os.path.join(master_outdir, building_blocks)}\n\n')
 
         except KeyboardInterrupt:
