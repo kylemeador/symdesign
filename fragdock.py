@@ -2977,8 +2977,8 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
             # Todo replace with PoseDirectory? Path object?
             output_pose(os.path.join(root_out_dir, pose_id), pose_id)
 
-        log.info(f'Total {building_blocks} dock trajectory took {time.time() - frag_dock_time_start:.2f}s')
-        return terminate()  # End of docking run
+        # log.info(f'Total {building_blocks} dock trajectory took {time.time() - frag_dock_time_start:.2f}s')
+        # return terminate()  # End of docking run
     # ------------------ TERM ------------------------
     elif job.design.sequences:  # We perform sequence design
         mpnn_model = proteinmpnn_factory()  # Todo accept model_name arg. Now just use the default
@@ -4467,7 +4467,8 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
         # scores_df = columns_to_new_column(scores_df, summation_pairs)
         scores_df = columns_to_new_column(scores_df, delta_pairs, mode='sub')
         scores_df = columns_to_new_column(scores_df, division_pairs, mode='truediv')
-        scores_df['interface_composition_similarity'] = scores_df.apply(interface_composition_similarity, axis=1)
+        if job.design.structures:
+            scores_df['interface_composition_similarity'] = scores_df.apply(interface_composition_similarity, axis=1)
         scores_df.drop(clean_up_intermediate_columns, axis=1, inplace=True, errors='ignore')
     # else:  # Get metrics and output
     #     # Generate placeholder all_mutations which only contains "reference"
