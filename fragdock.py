@@ -4156,7 +4156,7 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
             dock_per_residue_complex_sequence_loss = per_residue_complex_sequence_loss[idx]
             dock_per_residue_unbound_sequence_loss = per_residue_unbound_sequence_loss[idx]
             # for design_idx, design_id in enumerate(design_ids, idx * number_of_temperatures):
-            for design_idx in range(idx * number_of_temperatures, (idx+1) * number_of_temperatures):
+            for temp_idx, design_idx in enumerate(range(idx * number_of_temperatures, (idx+1) * number_of_temperatures)):
                 design_id = design_ids[design_idx]
                 # For each Pose, save each sequence design data such as energy # probabilites
                 # all_probabilities[pose_id] = probabilities[idx]
@@ -4198,7 +4198,7 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
                 # Calculate sequence statistics
                 # Todo get the below mechanism clean
                 # Before calculation, we must set this (v) to get the correct values from the profile
-                pose._sequence_numeric = design_sequences[design_idx]
+                pose._sequence_numeric = design_sequences[temp_idx]  # design_idx]
                 # Todo these are not Softmax probabilities
                 try:
                     fragment_profile_frequencies.append(
