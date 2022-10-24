@@ -2421,8 +2421,8 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
             # 'type': list(pose.sequence),
             'contact_order': pose_source_contact_order_s,
             'errat_deviation': pose_source_errat_s}}
-        # per_residue_data[pose_source] = {'contact_order': pose_source_contact_order_s,
-        #                                  'errat_deviation': pose_source_errat_s}
+    else:
+        per_residue_data = {}
 
     # Define functions for updating the single Pose instance coordinates
     def update_pose_coords(idx: int):
