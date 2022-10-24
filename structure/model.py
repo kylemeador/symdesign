@@ -4353,12 +4353,14 @@ class SymmetricModel(Models):
         #                f'not be adequate and need to be overwritten')
 
         if len(self.models) != self.number_of_symmetry_mates:
+            # self.log.debug(f'Generating symmetry mates')
             for coord_idx in range(self.number_of_symmetry_mates):
                 symmetry_mate = copy(self)
                 self.models.append(symmetry_mate)
 
         number_of_atoms = self.number_of_atoms
         symmetric_coords = self.symmetric_coords
+        # self.log.debug(f'Setting symmetry mate coordinates')
         for model_idx, model in enumerate(self.models):
             model.coords = symmetric_coords[model_idx * number_of_atoms: (model_idx+1) * number_of_atoms]
 
