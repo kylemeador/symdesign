@@ -67,12 +67,16 @@ def get_docking_parameters(arg_list):
 
     os.makedirs(outdir, exist_ok=True)
 
+    extra_args = []
     # CHECK INPUT FLAGS
     for sys_input in arg_list:
         if sys_input.startswith('-') and sys_input not in valid_flags:
-            logger.error('%s IS AN INVALID FLAG\nVALID FLAGS FOR DOCKING ARE:\n%s'
-                         % (sys_input, '\n'.join(valid_flags)))
-            exit(1)
+            # logger.error('%s IS AN INVALID FLAG\nVALID FLAGS FOR DOCKING ARE:\n%s'
+            #              % (sys_input, '\n'.join(valid_flags)))
+            # exit(1)
+            extra_arg = sys_input.strip('-')
+            extra_args.append(extra_arg)
+            logger.warning(f'Found extra argument: {extra_arg}')
 
     # SymEntry PARAMETER
     if '-entry' in arg_list:
@@ -210,7 +214,8 @@ def get_docking_parameters(arg_list):
         debug = False
 
     return entry, pdb_dir1_path, pdb_dir2_path, rot_step_deg1, rot_step_deg2, outdir, output_assembly, \
-        output_surrounding_uc, min_matched, keep_time, initial, debug, high_quality_match_value, initial_z_value
+        output_surrounding_uc, min_matched, keep_time, initial, debug, high_quality_match_value, initial_z_value, \
+        extra_args
 
 
 def postprocess_mode(arg_list):

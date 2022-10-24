@@ -122,6 +122,8 @@ class JobResources:
         # self.ignore_clashes: bool = kwargs.get(ignore_clashes, False)
         if self.design.ignore_clashes:
             self.design.ignore_pose_clashes = self.design.ignore_symmetric_clashes = True
+        if self.dock_only:
+            self.design.sequences = self.design.structures = False
         # else:
         #     self.ignore_pose_clashes: bool = kwargs.get(ignore_pose_clashes, False)
         #     self.ignore_symmetric_clashes: bool = kwargs.get(ignore_symmetric_clashes, False)
