@@ -4427,7 +4427,7 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
             scores_df['interface_energy_complex'] / scores_df['pose_length']
         scores_df['proteinmpnn_score_unbound'] = \
             scores_df['interface_energy_unbound'] / scores_df['pose_length']
-        designed_df = per_residue_df.loc[:, idx_slice[:, 'designed']].droplevel(1, axis=1)
+        designed_df = per_residue_df.loc[:, idx_slice[:, 'designed_residues_total']].droplevel(1, axis=1)
         scores_df['proteinmpnn_score_designed_complex'] = \
             (per_residue_df.loc[:, idx_slice[:, 'complex']].droplevel(1, axis=1) * designed_df).mean(axis=1)
         scores_df['proteinmpnn_score_designed_unbound'] = \
