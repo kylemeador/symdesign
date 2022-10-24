@@ -3167,7 +3167,7 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
                     reference_sequence = sequence
             # else:
             entity_data['reference_sequence'] = data['reference_sequence'] = reference_sequence
-            # data has attributes chains, dbref, and reference_sequence
+            # entity_data has attributes chains, dbref, and reference_sequence
             self.entities.append(Entity.from_chains(**entity_data, name=entity_name, parent=self))
 
     def _get_entity_info_from_atoms(self, method: str = 'sequence', tolerance: float = 0.9, **kwargs):  # Todo define inside _create_entities?

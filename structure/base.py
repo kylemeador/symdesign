@@ -2478,8 +2478,9 @@ class Residues:
             # Set an attribute to indicate the atom shouldn't be "detached"
             # since a Structure owns this Atoms instance
             residue._copier = True
-            other.residues[idx] = copy(residue)
-            residue._copier = False
+            new_residue = copy(residue)
+            new_residue._copier = residue._copier = False
+            other.residues[idx] = new_residue
 
         # Todo, these were removed as current caller of Residues.__copy__ typically calls both of them
         # other.find_prev_and_next()
@@ -2838,7 +2839,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
             raise RuntimeError(f'{type(self).__name__} {self.name} '
                                f'received Residue instances that are not dependents of a parent.'
                                f'This check was put in place to inspect program runtime. '
-                               f'How did this situation occur that residues are not dependets?')
+                               f'How did this situation occur that residues are not dependents?')
         self._residues = residues
 
         self._populate_coords(from_source='residues', **kwargs)  # coords may be passed in kwargs
@@ -2849,8 +2850,8 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         # Update Residue instance attributes to ensure they are dependants of this instance
         # Perform after _populate_coords as .coords may be set and then 'residues' .coords are overwritten
         self._residues.set_attributes(_parent=self)
-        self._residues.find_prev_and_next()  # Duplicate call with "residues = copy(residues)"
-        self._residues.reindex()  # Duplicates call .set_index with "residues = copy(residues)"
+        self._residues.find_prev_and_next()  # # Duplicate call with "residues = copy(residues)"
+        self._residues.reindex()  # # Duplicates call .set_index with "residues = copy(residues)"
         self._set_coords_indexed()
 
     # def store_coordinate_index_residue_map(self):
@@ -4716,6 +4717,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
             # Todo comment out when Atom.__copy__ needed somewhere. Maybe used in Atoms.__copy__
             other._atoms.set_attributes(_parent=other)
             # other._residues.set_attributes(_parent=other)
+            # self.log.warning(f'In Structure __copy__')
             other._copy_structure_containers()
             other._update_structure_container_attributes(_parent=other)
             # Remove the attribute spawn after other Structure containers are copied
