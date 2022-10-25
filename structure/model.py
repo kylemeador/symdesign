@@ -5692,6 +5692,8 @@ class Pose(SymmetricModel):
             device = proteinmpnn_model.device
 
             pose_length = self.number_of_residues
+            size = number
+            batch_length = 6
             # Set up parameters and model sampling type based on symmetry
             if self.is_symmetric():
                 # number_of_symmetry_mates = pose.number_of_symmetry_mates
@@ -5721,7 +5723,9 @@ class Pose(SymmetricModel):
                     entity_unbound_coords[idx] = coord_func(coords + unbound_transform*idx)
 
                 X_unbound = np.concatenate(entity_unbound_coords).reshape((number_of_residues, num_model_residues, 3))
-                extra_batch_parameters = batch_proteinmpnn_input(device=device, X=X_unbound)
+                # Todo add this part to the setup_function
+                extra_batch_parameters = batch_proteinmpnn_input(size=batch_length, X=X_unbound)
+                extra_batch_parameters = resources.ml.proteinmpnn_to_device(device, **extra_batch_parameters)
                 extra_batch_parameters['X_unbound'] = extra_batch_parameters.pop('X')
             else:
                 extra_batch_parameters = {}
@@ -5731,8 +5735,6 @@ class Pose(SymmetricModel):
             # Solve decoding order
             parameters['randn'] = self.generate_proteinmpnn_decode_order()  # to_device=device)
 
-            size = number
-            batch_length = 6
             # # number_of_batches = size // batch_length
             # number_of_batches = int(math.ceil(size/batch_length) or 1)  # Select at least 1
 

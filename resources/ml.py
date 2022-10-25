@@ -393,8 +393,6 @@ def setup_pose_batch_for_proteinmpnn(batch_length: int, device, **parameters) ->
     """
     # batch_length = batch_slice.stop - batch_slice.start
     # Create batch_length fixed parameter data which are the same across poses
-    print('BATCH_LENGTH', batch_length)
-    print('DEVICE', device)
     batch_parameters: dict[str, np.ndarray | torch.Tensor] = \
         batch_proteinmpnn_input(size=batch_length, **parameters)
     # Move fixed data structures to the model device
@@ -513,7 +511,7 @@ def proteinmpnn_batch_design(batch_slice: slice, proteinmpnn: ProteinMPNN,
         batch_sequences.append(_batch_sequences)
         decoding_order = sample_dict['decoding_order']
         # decoding_order_out = decoding_order  # When using the same decoding order for all
-        if X_unbound:
+        if X_unbound is not None:
             unbound_log_prob_start_time = time.time()
             unbound_log_probs = \
                 proteinmpnn(X_unbound, S_sample, mask, chain_residue_mask, residue_idx, chain_encoding,
@@ -559,7 +557,7 @@ def proteinmpnn_batch_design(batch_slice: slice, proteinmpnn: ProteinMPNN,
         np.concatenate(_per_residue_complex_sequence_loss, axis=1).reshape(actual_batch_length,
                                                                            number_of_temps,
                                                                            pose_length)
-    if X_unbound:
+    if X_unbound is not None:
         unbound_sequence_loss = \
             np.concatenate(_per_residue_unbound_sequence_loss, axis=1).reshape(actual_batch_length,
                                                                                number_of_temps,

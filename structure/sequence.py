@@ -1476,7 +1476,7 @@ class SequenceProfile(ABC):
                 self.alpha.append(self._alpha * match_modifier)
                 # self.alpha[entry] = self._alpha * match_modifier
 
-    def calculate_profile(self, favor_fragments: bool = False, boltzmann: bool = True):
+    def calculate_profile(self, favor_fragments: bool = False, boltzmann: bool = True, **kwargs):
         """Combine weights for profile PSSM and fragment SSM using fragment significance value to determine overlap
 
         Using self.evolutionary_profile
