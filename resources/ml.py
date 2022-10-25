@@ -440,6 +440,7 @@ def proteinmpnn_batch_design(batch_slice: slice, proteinmpnn: ProteinMPNN,
                              residue_idx: torch.Tensor = None,
                              mask: torch.Tensor = None,
                              temperatures: Sequence[float] = (0.1,),
+                             pose_length: int = None,
                              bias_by_res: torch.Tensor = None,
                              tied_pos: Iterable[Container] = None,
                              X_unbound: torch.Tensor = None,
@@ -458,6 +459,7 @@ def proteinmpnn_batch_design(batch_slice: slice, proteinmpnn: ProteinMPNN,
         residue_idx:
         mask:
         temperatures:
+        pose_length:
         bias_by_res:
         tied_pos:
         X_unbound:
@@ -488,7 +490,10 @@ def proteinmpnn_batch_design(batch_slice: slice, proteinmpnn: ProteinMPNN,
 
     actual_batch_length = batch_slice.stop - batch_slice.start
     # Clone the data from the sequence tensor so that it can be set with the null token below
-    batch_length, pose_length, *_ = S.shape
+    if pose_length is None:
+        batch_length, pose_length, *_ = S.shape
+    else:
+        batch_length, *_ = S.shape
     S_design_null = S.detach().clone()
     # X_unbound = batch_parameters.get('X_unbound')
     if actual_batch_length != batch_length:
