@@ -258,7 +258,7 @@ setup_kwargs = dict(action='store_true', help='Show the %(prog)s set up instruct
 sym_entry_args = ('-E', f'--{sym_entry}', '--entry', '-entry')
 sym_entry_kwargs = dict(type=int, default=None, dest=sym_entry, metavar='INT',
                         help=f'The entry number of {nano.title()} docking combinations to use. '
-                             f'See nanohedra --query for possible symmetries'),
+                             f'See nanohedra --query for possible symmetries')
 default_logging_level = 3
 # ---------------------------------------------------
 options_description = 'Additional options control symmetry, the extent of file output, various ' \
