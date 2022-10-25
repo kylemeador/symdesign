@@ -88,7 +88,13 @@ def batch_calculation(size: int, batch_length: int, setup: Callable = None,
                 logger.debug(f'The batch_length is: {_batch_length}')
                 try:  # The next batch_length
                     # The number_of_batches indicates how many iterations are needed to exhaust all models
-                    number_of_batches = int(ceil(size/_batch_length) or 1)  # Select at least 1
+                    try:
+                        number_of_batches = int(ceil(size/_batch_length) or 1)  # Select at least 1
+                    except ZeroDivisionError:  # We hit the minimal batch size. Report the previous error
+                        try:
+                            raise error
+                        except NameError:  # We haven't defined an error yet
+                            raise ValueError(f'The batch_length ({batch_length}) must be greater than 0')
                     # Perform any setup operations
                     setup_returns = _setup(_batch_length, *setup_args, **setup_kwargs)
                     for batch in range(number_of_batches):
