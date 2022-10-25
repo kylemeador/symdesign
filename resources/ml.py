@@ -84,6 +84,7 @@ def batch_calculation(size: int, batch_length: int, setup: Callable = None,
 
             _batch_length = batch_length
             # finished = False
+            _error = None
             while True:  # not finished:
                 logger.debug(f'The batch_length is: {_batch_length}')
                 try:  # The next batch_length
@@ -92,8 +93,9 @@ def batch_calculation(size: int, batch_length: int, setup: Callable = None,
                         number_of_batches = int(ceil(size/_batch_length) or 1)  # Select at least 1
                     except ZeroDivisionError:  # We hit the minimal batch size. Report the previous error
                         try:
-                            raise error
-                        except NameError:  # We haven't defined an error yet
+                            raise _error
+                        # except NameError:  # We haven't defined an error yet
+                        except TypeError:  # We haven't defined an error yet
                             raise ValueError(f'The batch_length ({batch_length}) must be greater than 0')
                     # Perform any setup operations
                     setup_returns = _setup(_batch_length, *setup_args, **setup_kwargs)
@@ -110,6 +112,7 @@ def batch_calculation(size: int, batch_length: int, setup: Callable = None,
                     logger.debug(f'Successful execution with batch_length of {_batch_length}')
                     break  # finished = True
                 except compute_failure_exceptions as error:
+                    _error = error
                     logger.debug(f'{batch_calculation.__name__}: encountered error during {func.__name__} execution:'
                                  f'\n{error}')
                     _batch_length -= 1
