@@ -255,6 +255,10 @@ guide_kwargs = dict(action='store_true', help=f'Display the {program_name} or {p
                                               f' "{program_command} --guide"\nor "{submodule_guide}"')
 setup_args = ('--set_up',)
 setup_kwargs = dict(action='store_true', help='Show the %(prog)s set up instructions')
+sym_entry_args = ('-E', f'--{sym_entry}', '--entry', '-entry')
+sym_entry_kwargs = dict(type=int, default=None, dest=sym_entry, metavar='INT',
+                        help=f'The entry number of {nano.title()} docking combinations to use. '
+                             f'See nanohedra --query for possible symmetries'),
 default_logging_level = 3
 # ---------------------------------------------------
 options_description = 'Additional options control symmetry, the extent of file output, various ' \
@@ -264,7 +268,7 @@ parser_options = dict(options=dict(description=options_description))
 parser_options_group = dict(title=f'{"_" * len(optional_title)}\n{optional_title}',
                             description=f'\n{options_description}')
 options_arguments = {
-    ('-C', '--cores'): dict(type=int, default=cpu_count(logical=False) - 1,
+    ('-C', '--cores'): dict(type=int, default=cpu_count(logical=False) - 1, metavar='INT',
                             help='Number of cores to use during --multi_processing\nIf run on a cluster, the number of '
                                  'cores will reflect the cluster allocation,\notherwise, will use #physical_cores-1'
                                  '\nDefault=%(default)s'),
@@ -278,12 +282,13 @@ options_arguments = {
     #                                          help='Generate interface fragment observations for poses of interest'
     #                                               '\nDefault=%(default)s'),
     guide_args: guide_kwargs,
-    ('-i', '--fragment_database'): dict(type=str.lower, choices=fragment_dbs, default=biological_interfaces, metavar='',
+    ('-i', '--fragment_database'): dict(type=str.lower, choices=fragment_dbs, default=biological_interfaces,
+                                        metavar='STR',
                                         help='Database to match fragments for interface specific scoring matrices'
                                              '\nChoices=%(choices)s\nDefault=%(default)s'),
     # ('-ic', f'--{ignore_clashes}'): dict(action=argparse.BooleanOptionalAction, default=False,
-    ('-ic', f'--{ignore_clashes}'): dict(action='store_true', help='Whether ANY identified backbone/Cb clash should be '
-                                                                   'ignored and allowed to process'),
+    ('-ic', f'--{ignore_clashes}'): dict(action='store_true', help='Whether ANY identified backbone/Cb clashes should '
+                                                                   'be ignored and allowed to process'),
     ('-ipc', f'--{ignore_pose_clashes}'): dict(action='store_true', help='Whether asu/pose clashes should be '
                                                                          'ignored and allowed to process'),
     ('-isc', f'--{ignore_symmetric_clashes}'): dict(action='store_true', help='Whether symmetric clashes should be '
@@ -291,12 +296,11 @@ options_arguments = {
     ('--log_level',): dict(type=int, default=default_logging_level, choices=set(range(1, 6)),
                            help='What level of log messages should be displayed to stdout?'
                                 '\n1-debug, 2-info, 3-warning, 4-error, 5-critical\nDefault=%(default)s'),
-    ('--mpi',): dict(type=int, default=0, help='If commands should be run as MPI parallel processes, how many '
-                                               'processes\nshould be invoked for each job?\nDefault=%(default)s'),
+    ('--mpi',): dict(type=int, default=0, metavar='INT',
+                     help='If commands should be run as MPI parallel processes, how many '
+                          'processes\nshould be invoked for each job?\nDefault=%(default)s'),
     ('-M', '--multi_processing'): dict(action='store_true',
                                        help='Should job be run with multiple processors?'),
-    ('--overwrite',): dict(action='store_true',
-                           help='Whether to overwrite existing structures upon job fulfillment'),
     ('-P', '--preprocessed'): dict(action='store_true',
                                    help=f'Whether the designs of interest have been preprocessed for the '
                                         f'{current_energy_function}\nenergy function and/or missing loops\n'),
@@ -313,13 +317,12 @@ options_arguments = {
                                help='Whether the structure of each new sequence should be calculated'),
     ('--skip_logging',): dict(action='store_true',
                               help='Skip logging output to files and direct all logging to stream?'),
-    ('-E', f'--{sym_entry}', '--entry'): dict(type=int, default=None, dest=sym_entry,
-                                              help=f'The entry number of {nano.title()} docking combinations to use'),
-    ('-S', '--symmetry'): dict(type=str, default=None,
+    sym_entry_args: sym_entry_kwargs,
+    ('-S', '--symmetry'): dict(type=str, default=None, metavar='RESULT:{GROUP1}{GROUP2}...',
                                help='The specific symmetry of the poses of interest.\nPreferably in a composition '
                                     'formula such as T:{C3}{C3}...\nCan also provide the keyword "cryst" to use crystal'
                                     ' symmetry'),
-    ('-K', f'--{temperatures}'): dict(type=float, nargs='*', default=(0.1,),
+    ('-K', f'--{temperatures}'): dict(type=float, nargs='*', default=(0.1,), metavar='FLOAT',
                                       help='Different sampling "temperature(s)", i.e. values greater'
                                            '\nthan 0, to use when performing design. In the form:'
                                            '\nexp(G/T), where G = energy and T = temperature'
@@ -402,8 +405,6 @@ refine_arguments = {
 parser_nanohedra = dict(nanohedra=dict(description=f'Run or submit jobs to {nano.title()}.py'))
 # parser_dock = subparsers.add_parser(nano, description='Run or submit jobs to %s.py.\nUse the Module arguments -c1/-c2, -o1/-o2, or -q to specify PDB Entity codes, building block directories, or query the PDB for building blocks to dock' % nano.title())
 nanohedra_arguments = {
-    # ('-e', '--entry', f'--{sym_entry}'): dict(type=int, default=None, dest=sym_entry,  # required=True,
-    #                                           help=f'The entry number of {nano.title()} docking combinations to use'),
     ('--dock_only',): dict(action=argparse.BooleanOptionalAction, default=False,
                            help='Whether docking should be performed without sequence design'),
     ('-mv', '--match_value'): dict(type=float, default=0.5, dest='high_quality_match_value',
@@ -431,8 +432,7 @@ nanohedra_arguments = {
 }
 parser_nanohedra_run_type_mutual_group = dict()  # required=True <- adding below to different parsers depending on need
 nanohedra_run_type_mutual_arguments = {
-    ('-e', f'--{sym_entry}', '-entry', '--entry'):
-        dict(type=int, default=None, dest=sym_entry, help='The symmetry to use. See --query for possible symmetries'),
+    sym_entry_args: sym_entry_kwargs,
     ('-query', '--query',): dict(action='store_true', help='Run in query mode'),
     # Todo alias analysis -metric
     ('-postprocess', '--postprocess',): dict(action='store_true', help='Run in post processing mode')
@@ -828,6 +828,8 @@ output_arguments = {
     ('-Ot', f'--{output_trajectory}'): dict(action=argparse.BooleanOptionalAction, default=False,
                                             help=f'For all structures generated, write them as a single multimodel '
                                                  f'file'),
+    ('--overwrite',): dict(action='store_true',
+                           help='Whether to overwrite existing structures upon job fulfillment'),
     ('--prefix',): dict(type=str, metavar='string', help='String to prepend to output name'),
     ('--suffix',): dict(type=str, metavar='string', help='String to append to output name'),
 }
