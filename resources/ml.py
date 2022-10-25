@@ -1,8 +1,10 @@
+from __future__ import annotations
+
 import functools
 import os
 import time
 from math import ceil
-from typing import Annotated, Iterable, Container, Type, Callable, Sequence
+from typing import Annotated, Iterable, Container, Type, Callable, Sequence, Any
 
 import numpy as np
 import torch
@@ -65,7 +67,7 @@ def batch_calculation(size: int, batch_length: int, setup: Callable = None,
     Returns:
         The populated function_return_containers
     """
-    def wrapper(func: Callable) -> tuple:
+    def wrapper(func: Callable) -> Callable[[tuple[Any, ...], dict | None, tuple, dict | None, dict[str, Any]], dict]:
         if setup is None:
             def _setup(*_args, **_kwargs) -> dict:
                 return {}
@@ -74,7 +76,7 @@ def batch_calculation(size: int, batch_length: int, setup: Callable = None,
 
         @functools.wraps(func)
         def wrapped(*args, return_containers: dict = None,
-                    setup_args: tuple = tuple(), setup_kwargs: dict = None, **kwargs) -> tuple:
+                    setup_args: tuple = tuple(), setup_kwargs: dict = None, **kwargs) -> dict:
 
             if return_containers is None:
                 return_containers = {}
@@ -92,10 +94,9 @@ def batch_calculation(size: int, batch_length: int, setup: Callable = None,
                     try:
                         number_of_batches = int(ceil(size/_batch_length) or 1)  # Select at least 1
                     except ZeroDivisionError:  # We hit the minimal batch size. Report the previous error
-                        try:
-                            raise _error
-                        # except NameError:  # We haven't defined an error yet
-                        except TypeError:  # We haven't defined an error yet
+                        if _error is not None:  # This exited from the ZeroDivisionError except
+                            break  # break out and raise the _error
+                        else:
                             raise ValueError(f'The batch_length ({batch_length}) must be greater than 0')
                     # Perform any setup operations
                     setup_returns = _setup(_batch_length, *setup_args, **setup_kwargs)
@@ -110,12 +111,16 @@ def batch_calculation(size: int, batch_length: int, setup: Callable = None,
 
                     # Report success
                     logger.debug(f'Successful execution with batch_length of {_batch_length}')
+                    _error = None
                     break  # finished = True
                 except compute_failure_exceptions as error:
                     _error = error
                     logger.debug(f'{batch_calculation.__name__}: encountered error during {func.__name__} execution:'
                                  f'\n{error}')
                     _batch_length -= 1
+
+            if _error is not None:  # This exited from the ZeroDivisionError except
+                raise _error
 
             return return_containers
         return wrapped
