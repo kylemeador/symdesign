@@ -1046,10 +1046,11 @@ def main():
                 #  if not entity.j_couplings:
                 #    bmdca_cmds.append([PUtils.bmdca_exe_path, '-i', os.path.join(job.profiles, f'{entity.name}.fasta'),
                 #                       '-d', os.path.join(job.profiles, f'{entity.name}_bmDCA')])
-            if hhblits_cmds:
+            if job.design.evolution_constraint and hhblits_cmds:
                 if not os.access(PUtils.hhblits_exe, os.X_OK):
-                    print(f"Couldn't locate the {PUtils.hhblits} executable. Ensure the executable file "
-                          f'{PUtils.hhblits_exe} exists then try your job again')
+                    print(f"Couldn't locate the {PUtils.hhblits} executable. Ensure the executable file referenced by"
+                          f'{PUtils.hhblits_exe} exists then try your job again. Otherwise, use the argument'
+                          f'--{PUtils.evolution_constraint} False ')
                     exit()
                 utils.make_path(job.profiles)
                 utils.make_path(job.sbatch_scripts)
@@ -1554,7 +1555,7 @@ def main():
         #         ' %s at a time. This will speed up pose processing ~%f-fold.' %
         #         (CommmandDistributer.mpi - 1, PUtils.nstruct / (CommmandDistributer.mpi - 1)))
         #     queried_flags.update({'mpi': True, 'script': True})
-        if queried_flags[PUtils.evolution_constraint]:  # hhblits to run
+        if job.design.evolution_constraint:  # hhblits to run
             utils.make_path(job.sequences)
             utils.make_path(job.profiles)
         # Start pose processing and preparation for Rosetta

@@ -97,7 +97,7 @@ def fetch_pdb_file(pdb_code: str, asu: bool = True, location: AnyStr = pdb_db, *
     # if location == pdb_db and asu:
     if os.path.exists(location) and asu:
         file_path = os.path.join(location, f'pdb{pdb_code.lower()}.ent')
-        def get_pdb(): return sorted(glob(file_path))
+        def get_pdb(*args, **kwargs): return sorted(glob(file_path))
         # Cassini format is above, KM local pdb and the escher PDB mirror is below
         # file_path = os.path.join(location, subdirectory(pdb_code), f'{pdb_code.lower()}.pdb')
         logger.debug(f'Searching for PDB file at "{file_path}"')
