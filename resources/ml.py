@@ -94,10 +94,10 @@ def batch_calculation(size: int, batch_length: int, setup: Callable = None,
                     try:
                         number_of_batches = int(ceil(size/_batch_length) or 1)  # Select at least 1
                     except ZeroDivisionError:  # We hit the minimal batch size. Report the previous error
-                        if _error is not None:  # This exited from the ZeroDivisionError except
-                            break  # break out and raise the _error
-                        else:
-                            raise ValueError(f'The batch_length ({batch_length}) must be greater than 0')
+                        # if _error is not None:  # This exited from the ZeroDivisionError except
+                        #     break  # break out and raise the _error
+                        # else:
+                        raise ValueError(f'The batch_length ({batch_length}) must be greater than 0')
                     # Perform any setup operations
                     setup_returns = _setup(_batch_length, *setup_args, **setup_kwargs)
                     for batch in range(number_of_batches):
@@ -111,16 +111,19 @@ def batch_calculation(size: int, batch_length: int, setup: Callable = None,
 
                     # Report success
                     logger.debug(f'Successful execution with batch_length of {_batch_length}')
-                    _error = None
+                    # _error = None
                     break  # finished = True
                 except compute_failure_exceptions as error:
-                    _error = error
+                    if _error is None:  # Set the error the first time
+                        _error = error
+                    else:
+                        raise _error
                     logger.debug(f'{batch_calculation.__name__}: encountered error during {func.__name__} execution:'
                                  f'\n{error}')
                     _batch_length -= 1
 
-            if _error is not None:  # This exited from the ZeroDivisionError except
-                raise _error
+            # if _error is not None:  # This exited from the ZeroDivisionError except
+            #     raise _error
 
             return return_containers
         return wrapped
