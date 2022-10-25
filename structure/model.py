@@ -6273,7 +6273,8 @@ class Pose(SymmetricModel):
             # Without symmetry, we can't measure this, unless intra-oligomeric contacts are desired
             self.log.warning('Entities are the same, but no symmetry is present. The interface between them will not be'
                              ' detected!')
-            raise NotImplementedError("These entities shouldn't necessarily be equal. This issue needs to be addressed"
+            raise NotImplementedError(f"These entities shouldn't necessarily be equal. Did you mean to have "
+                                      f"symmetry={self.symmetry}? If so, this issue needs to be addressed "
                                       'by expanding the __eq__ method of Entity to more accurately reflect what a '
                                       'Structure object represents programmatically')
             # return

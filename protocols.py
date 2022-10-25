@@ -1871,8 +1871,9 @@ class PoseDirectory:
 
                 self.pose.evolutionary_profile = \
                     concatenate_profile([entity.evolutionary_profile for entity in self.pose.entities])
-                self.pose.pssm_file = \
-                    write_pssm_file(self.pose.evolutionary_profile, file_name=self.evolutionary_profile_file)
+                if self.job.design.method == PUtils.rosetta_str:
+                    self.pose.pssm_file = \
+                        write_pssm_file(self.pose.evolutionary_profile, file_name=self.evolutionary_profile_file)
 
             # self.pose.combine_sequence_profiles()
             # I could alo add the combined profile here instead of at each Entity
@@ -1880,7 +1881,8 @@ class PoseDirectory:
             self.pose.add_profile(evolution=self.job.design.evolution_constraint,
                                   fragments=self.job.generate_fragments, favor_fragments=favor_fragments,
                                   out_dir=self.job.api_db.hhblits_profiles.location)
-            write_pssm_file(self.pose.profile, file_name=self.design_profile_file)
+            if self.job.design.method == PUtils.rosetta_str:
+                write_pssm_file(self.pose.profile, file_name=self.design_profile_file)
             # Update PoseDirectory with design information
             # if self.job.generate_fragments:  # Set pose.fragment_profile by combining fragment profiles
             #     self.pose.fragment_profile = \
@@ -3714,7 +3716,8 @@ def interface_design_analysis(pose: Pose, design_poses: Iterable[Pose] = None, s
     scores_df['errat_deviation'] = (errat_sig_df.loc[:, source_errat_inclusion_boolean] * 1).sum(axis=1)
 
     # Calculate hydrophobic collapse for each design
-    measure_evolution, measure_alignment = True, True
+    # Todo reconcile below with fragdock.py
+    measure_evolution = measure_alignment = True
     warn = False
     # Add Entity information to the Pose
     for idx, entity in enumerate(pose.entities):
@@ -3736,7 +3739,7 @@ def interface_design_analysis(pose: Pose, design_poses: Iterable[Pose] = None, s
         try:  # To fetch the multiple sequence alignment for further processing
             msa = job.api_db.alignments.retrieve_data(name=entity.name)
             if not msa:
-                measure_evolution = False
+                measure_alignment = False
                 warn = True
             else:
                 entity.msa = msa
