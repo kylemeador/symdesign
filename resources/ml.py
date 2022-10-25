@@ -440,6 +440,7 @@ def proteinmpnn_batch_design(batch_slice: slice, proteinmpnn: ProteinMPNN,
                              residue_idx: torch.Tensor = None,
                              mask: torch.Tensor = None,
                              temperatures: Sequence[float] = (0.1,),
+                             bias_by_res: torch.Tensor = None,
                              tied_pos: Iterable[Container] = None,
                              X_unbound: torch.Tensor = None,
                              **batch_parameters
@@ -457,6 +458,7 @@ def proteinmpnn_batch_design(batch_slice: slice, proteinmpnn: ProteinMPNN,
         residue_idx:
         mask:
         temperatures:
+        bias_by_res:
         tied_pos:
         X_unbound:
     Returns:
@@ -496,6 +498,7 @@ def proteinmpnn_batch_design(batch_slice: slice, proteinmpnn: ProteinMPNN,
         chain_encoding = chain_encoding[:actual_batch_length]  # , None)
         residue_idx = residue_idx[:actual_batch_length]  # , None)
         mask = mask[:actual_batch_length]  # , None)
+        bias_by_res = bias_by_res[:actual_batch_length]  # , None)
         randn = randn[:actual_batch_length]
         residue_mask = residue_mask[:actual_batch_length]
         S_design_null = S_design_null[:actual_batch_length]  # , None)
@@ -527,11 +530,12 @@ def proteinmpnn_batch_design(batch_slice: slice, proteinmpnn: ProteinMPNN,
         sample_start_time = time.time()
         if tied_pos is None:
             sample_dict = proteinmpnn.sample(X, randn, S_design_null, chain_mask, chain_encoding, residue_idx, mask,
-                                             chain_M_pos=residue_mask, temperature=temperature, **batch_parameters)
+                                             chain_M_pos=residue_mask, temperature=temperature, bias_by_res=bias_by_res,
+                                             **batch_parameters)
         else:
             sample_dict = proteinmpnn.tied_sample(X, randn, S_design_null, chain_mask, chain_encoding, residue_idx,
                                                   mask, chain_M_pos=residue_mask, temperature=temperature,
-                                                  tied_pos=tied_pos, **batch_parameters)
+                                                  bias_by_res=bias_by_res, tied_pos=tied_pos, **batch_parameters)
         logger.info(f'Sample calculation took {time.time() - sample_start_time:8f}s')
         S_sample = sample_dict['S']
         # Format outputs
