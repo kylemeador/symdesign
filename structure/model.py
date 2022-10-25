@@ -5750,7 +5750,7 @@ class Pose(SymmetricModel):
                 return proteinmpnn_batch_design(*args, **kwargs)
 
             sequences_and_scores = \
-                _proteinmpnn_batch_design(proteinmpnn_model, temperatures=temperatures,
+                _proteinmpnn_batch_design(proteinmpnn_model, temperatures=temperatures, pose_length=pose_length,
                                           setup_args=(device,),
                                           setup_kwargs=parameters,
                                           **extra_batch_parameters,
