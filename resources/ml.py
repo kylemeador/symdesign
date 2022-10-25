@@ -484,6 +484,7 @@ def proteinmpnn_batch_design(batch_slice: slice, proteinmpnn: ProteinMPNN,
     # X_unbound = batch_parameters.get('X_unbound')
     if actual_batch_length != batch_length:
         # Slice these for the last iteration
+        X = X[:actual_batch_length]  # , None)
         chain_mask = chain_mask[:actual_batch_length]  # , None)
         chain_encoding = chain_encoding[:actual_batch_length]  # , None)
         residue_idx = residue_idx[:actual_batch_length]  # , None)
