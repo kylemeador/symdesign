@@ -33,19 +33,19 @@ run_cmds = {'default': '',
             'cxx11threadmpi': ['mpiexec', '--oversubscribe', '-np', str(int(min_cores_per_job / num_thread_per_process))]}  # TODO Optimize
 extras_flags = {'default': [],
                 'python': [],
-                'cxx11thread': ['-multithreading:total_threads ' + str(num_thread_per_process),
-                                '-multithreading:interaction_graph_threads ' + str(num_thread_per_process)],
+                'cxx11thread': [f'-multithreading:total_threads {num_thread_per_process}',
+                                f'-multithreading:interaction_graph_threads {num_thread_per_process}'],
                 'mpi': [],
-                'cxx11threadmpi': ['-multithreading:total_threads ' + str(num_thread_per_process)]}
+                'cxx11threadmpi': [f'-multithreading:total_threads {num_thread_per_process}']}
 # Todo modify .linuxgccrelease depending on os
-script_cmd = [os.path.join(rosetta_main, 'source', 'bin', 'rosetta_scripts.%s.linuxgccrelease' % rosetta_extras),
+script_cmd = [os.path.join(rosetta_main, 'source', 'bin', f'rosetta_scripts.{rosetta_extras}.linuxgccrelease'),
               '-database', os.path.join(rosetta_main, 'database')]
 rosetta_flags = extras_flags[rosetta_extras] + \
     ['-ex1', '-ex2', '-extrachi_cutoff 5', '-ignore_unrecognized_res', '-ignore_zero_occupancy false',
      # '-overwrite',
      '-linmem_ig 10', '-out:file:scorefile_format json', '-output_only_asymmetric_unit true', '-no_chainend_ter true',
      '-write_seqres_records true', '-output_pose_energies_table false', '-output_pose_cache_data false',
-     '-holes:dalphaball %s' % dalphaball if os.path.exists(dalphaball) else '',  # This creates a new line if not used
+     f'-holes:dalphaball {dalphaball}' if os.path.exists(dalphaball) else '',  # This creates a new line if not used
      '-use_occurrence_data',  # Todo integrate into xml with Rosetta Source update
      '-preserve_header true', '-write_pdb_title_section_records true',
      '-chemical:exclude_patches LowerDNA UpperDNA Cterm_amidation SpecialRotamer VirtualBB ShoveBB VirtualNTerm '

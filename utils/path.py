@@ -68,7 +68,6 @@ proteinmpnn = 'proteinmpnn'
 protein_mpnn_dir = 'ProteinMPNN'
 protein_mpnn_weights_dir = os.path.join(source, protein_mpnn_dir, 'vanilla_model_weights')
 
-rosetta_extras = 'mpi'  # 'cxx11threadmpi' TODO make dynamic at config
 temp = 'temp.hold'
 pose_prefix = 'tx_'
 # master_log = 'master_log.txt'  # v0
@@ -221,6 +220,7 @@ uniclustdb = os.path.join(dependency_dir, 'hh-suite', 'databases', 'UniRef30_202
 # uniclust_db = os.path.join(database, 'hh-suite', 'databases', 'UniRef30_2020_02')  # TODO
 install_hhsuite = os.path.join(binaries, 'install_hhsuite.sh')
 # Rosetta
+rosetta_extras = config.get('rosetta_make')
 rosetta_main = os.environ.get(config.get('rosetta_env'))
 rosetta_main = rosetta_main if rosetta_main else 'main'  # ensure not None
 make_symmdef = os.path.join(rosetta_main, 'source', 'src', 'apps', 'public', 'symmetry', 'make_symmdef_file.pl')

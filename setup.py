@@ -141,16 +141,17 @@ if __name__ == '__main__':
             else:
                 continue
         if os.path.exists(rosetta):
-            print('Wonderful, Rosetta environment located and exists. You can now use all the features of %s to '
-                  'interface with Rosetta' % PUtils.program_name)
-            print('All %s files are located in %s' % (PUtils.program_name, PUtils.source))
+            print(f'Wonderful, Rosetta environment located and exists. You can now use all the features of '
+                  f'{PUtils.program_name} to interface with Rosetta')
+            print(f'All {PUtils.program_name} files are located in {PUtils.source}')
             break
         else:
-            print('Rosetta environmental path doesn\'t exist. Ensure that $%s is correct... Trying again' % rosetta_env_variable)
+            print(f"Rosetta environmental path doesn't exist. Ensure that ${rosetta_env_variable} is correct... "
+                  f"Trying again")
 
     print('Next, the proper python environment needs to be set up. The following modules need to be available to '
           'python otherwise, %s will not run. These inclue:\n-sklearn\n-numpy\n-biopython')
-    input('If you don\'t have these, use a package manager such as pip or conda to install these in your environment.\n'
+    input("If you don't have these, use a package manager such as pip or conda to install these in your environment.\n"
           'Press Enter once these are located to continue.\nInput:')
 
     print('Finally, hh-suite needs to be available. This is being created for you in the dependencies directory.')
@@ -168,6 +169,9 @@ if __name__ == '__main__':
     #  --disable-threads
 
     config = {'rosetta_env': search_env_for_variable(PUtils.rosetta_str),
-              'hhblits_env': search_env_for_variable(PUtils.hhblits)}
+              'hhblits_env': search_env_for_variable(PUtils.hhblits),
+              # TODO
+              'rosetta_make': 'mpi'  # 'default', 'python', 'mpi' 'cxx11thread', 'cxx11threadmpi'
+              }
 
     write_json(config, PUtils.config_file)
