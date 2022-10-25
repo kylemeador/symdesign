@@ -39,6 +39,9 @@ sequence_types: tuple[sequence_type_literal, ...] = get_args(sequence_type_liter
 aa_counts = dict(zip(protein_letters_alph1, repeat(0)))
 aa_nan_counts = dict(zip(protein_letters_alph1, repeat(np.nan)))
 """{protein_letters_alph1, repeat(numpy.nan))}"""  # , 'stats'=(0, 1))
+# blank_profile_entry = aa_nan_counts.copy()
+# blank_profile_entry.update({'lod': aa_counts, 'type': 'X', 'info': 0., 'weight': 0.})
+# """{profile_keys, repeat(numpy.nan))}"""  # , 'stats'=(0, 1))
 # aa_nan_counts.update({'stats': (0, 1)})
 aa_weighted_counts: info.aa_weighted_counts_type = dict(zip(protein_letters_alph1, repeat(0)))
 """{protein_letters_alph1, repeat(0), 'stats'=(0, 1)}"""
@@ -458,7 +461,7 @@ def write_pssm_file(pssm: profile_dictionary, file_name: AnyStr = None, name: st
     if not pssm:
         return None
 
-    # find out if the pssm has values expressed as frequencies (percentages) or as counts and modify accordingly
+    # Find out if the pssm has values expressed as frequencies (percentages) or as counts and modify accordingly
     # lod_freq, counts_freq = False, False
     # first_key = next(iter(pssm.keys()))
     if isinstance(list(pssm.values())[0]['lod']['A'], float):
@@ -468,6 +471,9 @@ def write_pssm_file(pssm: profile_dictionary, file_name: AnyStr = None, name: st
         # lod_freq = True
     # if type(pssm[first_key]['A']) == float:
     #     counts_freq = True
+
+    # Need to convert np.nan to zeros?
+    # if isinstance():
 
     if file_name is None:
         file_name = os.path.join(out_dir, name)
@@ -507,7 +513,8 @@ profile_dictionary: dict[int, dict[profile_keys, profile_values]]
 """{1: {'A': 0.04, 'C': 0.12, ..., 'lod': {'A': -5, 'C': -9, ...},
         'type': 'W', 'info': 0.00, 'weight': 0.00}, {...}}
 """
-alignment_programs = Literal['hhblits', 'psiblast']
+alignment_programs_literal = Literal['hhblits', 'psiblast']
+alignment_programs: tuple[str, ...] = get_args(alignment_programs_literal)
 profile_types = Literal['evolutionary', 'fragment', '']
 
 
@@ -761,7 +768,7 @@ class SequenceProfile(ABC):
         return True
 
     def add_evolutionary_profile(self, file: AnyStr = None, out_dir: AnyStr = os.getcwd(),
-                                 profile_source: alignment_programs = PUtils.hhblits, force: bool = False):
+                                 profile_source: alignment_programs_literal = PUtils.hhblits, force: bool = False):
         """Add the evolutionary profile to the Structure. If the profile isn't provided, it is generated through search
         of homologous protein sequences using the profile_source argument
 
