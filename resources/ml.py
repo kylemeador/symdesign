@@ -125,9 +125,9 @@ def batch_calculation(size: int, batch_length: int, setup: Callable = None,
 
             if last_error is not None:  # This exited from the ZeroDivisionError except
                 try:
-                    logger.critical(f'{batch_calculation.__name__} exited with the following exceptions: The first '
-                                    f'exception (caught in traceback) was the result of the first iteration, while the '
-                                    f'most recent exception is last\n\n')
+                    logger.critical(f'{batch_calculation.__name__} exited with the following exceptions:\n\nThe first '
+                                    f'exception in the traceback was the result of the first iteration, while the '
+                                    f'most recent exception in the traceback is last\n')
                     raise _error
                 except compute_failure_exceptions:
                     raise last_error
@@ -472,7 +472,7 @@ def proteinmpnn_batch_design(batch_slice: slice, proteinmpnn: ProteinMPNN,
     # randn = batch_parameters.pop('randn', None)
     # # omit_AAs_np = batch_parameters.get('omit_AAs_np', None)
     # # bias_AAs_np = batch_parameters.get('bias_AAs_np', None)
-    residue_mask = batch_parameters.get('chain_M_pos', None)
+    residue_mask = batch_parameters.pop('chain_M_pos', None)  # name change makes more sense
     # # omit_AA_mask = batch_parameters.get('omit_AA_mask', None)
     # # pssm_coef = batch_parameters.get('pssm_coef', None)
     # # pssm_bias = batch_parameters.get('pssm_bias', None)
@@ -527,10 +527,11 @@ def proteinmpnn_batch_design(batch_slice: slice, proteinmpnn: ProteinMPNN,
         sample_start_time = time.time()
         if tied_pos is None:
             sample_dict = proteinmpnn.sample(X, randn, S_design_null, chain_mask, chain_encoding, residue_idx, mask,
-                                             temperature=temperature, **batch_parameters)
+                                             chain_M_pos=residue_mask, temperature=temperature, **batch_parameters)
         else:
             sample_dict = proteinmpnn.tied_sample(X, randn, S_design_null, chain_mask, chain_encoding, residue_idx,
-                                                  mask, temperature=temperature, tied_pos=tied_pos, **batch_parameters)
+                                                  mask, chain_M_pos=residue_mask, temperature=temperature,
+                                                  tied_pos=tied_pos, **batch_parameters)
         logger.info(f'Sample calculation took {time.time() - sample_start_time:8f}s')
         S_sample = sample_dict['S']
         # Format outputs
