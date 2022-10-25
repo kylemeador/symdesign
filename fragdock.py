@@ -3213,14 +3213,14 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
                 # pose.find_and_split_interface(distance=cb_distance)
                 # This is done in the below call
                 add_fragments_to_pose()  # <- here generating fragments fresh
-                # Reset the fragment_profile and fragment_map for each Entity before process_fragment_profile
+                # Reset the fragment_profile and fragment_map for each Entity before calculate_fragment_profile
                 for entity in pose.entities:
                     entity.fragment_profile = {}
                     entity.fragment_map = {}
                     # entity.alpha.clear()
 
                 # Load fragment_profile into the analysis
-                pose.process_fragment_profile()
+                pose.calculate_fragment_profile()
                 if pose.fragment_profile:
                     fragment_profiles.append(pssm_as_array(pose.fragment_profile))
 
@@ -3627,14 +3627,14 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
         #                 # pose.find_and_split_interface(distance=cb_distance)
         #                 # This is done in the below call
         #                 add_fragments_to_pose()  # <- here generating fragments fresh
-        #                 # Reset the fragment_profile and fragment_map for each Entity before process_fragment_profile
+        #                 # Reset fragment_profile and fragment_map for each Entity before calculate_fragment_profile
         #                 for entity in pose.entities:
         #                     entity.fragment_profile = {}
         #                     entity.fragment_map = {}
         #                     # entity.alpha.clear()
         #
         #                 # Load fragment_profile into the analysis
-        #                 pose.process_fragment_profile()
+        #                 pose.calculate_fragment_profile()
         #                 if pose.fragment_profile:
         #                     fragment_profiles.append(pssm_as_array(pose.fragment_profile))
         #
@@ -4114,14 +4114,14 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
         #                           all_passing_surf_indices[idx],
         #                           all_passing_z_scores[idx])
 
-        # Reset the fragment_profile and fragment_map for each Entity before process_fragment_profile
+        # Reset the fragment_map and fragment_profile for each Entity before calculate_fragment_profile
         for entity in pose.entities:
             entity.fragment_profile = {}
             entity.fragment_map = {}
             # entity.alpha.clear()
 
         # Load fragment_profile into the analysis
-        pose.process_fragment_profile()
+        pose.calculate_fragment_profile()
         # if pose.fragment_profile:
         fragment_profile_array = pssm_as_array(pose.fragment_profile)
         # else:
@@ -4140,10 +4140,9 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
         # _interface_metrics = pose.interface_metrics()
 
         if job.design.sequences:
-            pose.calculate_profile()
-            # Todo use below if the job calls for different profile integration
-            # pose.add_profile(evolution=not job.design.evolution_constraint,
-            #                  fragments=job.generate_fragments)
+            # This assumes that the pose already has .evolutionary_profile and .fragment_profile attributes
+            pose.add_profile(evolution=job.design.evolution_constraint,
+                             fragments=job.generate_fragments)
             if pose.profile:
                 design_profile_array = pssm_as_array(pose.profile)
                 # else:

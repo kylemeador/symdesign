@@ -652,16 +652,28 @@ class SequenceProfile(ABC):
 
         Args:
             evolution: Whether to add evolutionary information to the sequence profile
-            fragments: Whether to add fragment information to the sequence profile
+            fragments: Whether to add fragment information to the sequence profile. Can pass fragment instances as well
             null: Whether to use a null profile (non-functional) as the sequence profile
         Keyword Args:
-            alignment_type: (alignment_types_literal) – Either 'mapped' or 'paired' indicating how the fragment
-                observations were generated relative to this Structure.
-                Is it mapped to this Structure or was it paired to it?
-            out_dir: (AnyStr) = os.getcwd() - Location where sequence files should be written
+            alignment_type: alignment_types_literal = 'mapped' – Either 'mapped' or 'paired' indicating how the fragment
+                observations were generated relative to this Structure. Is it mapped to this Structure or was it paired
+                to it?
+            out_dir: AnyStr = os.getcwd() - Location where sequence files should be written
+            favor_fragments: bool = False - Whether to favor fragment profile in the lod score of the resulting profile
+                Currently this routine is only used for Rosetta designs where the fragments should be favored by a
+                particular weighting scheme. By default, the boltzmann weighting scheme is applied
+            boltzmann: bool = False - Whether to weight the fragment profile by a Boltzmann probability scaling using
+                the formula lods = exp(lods[i]/kT)/Z, where Z = sum(exp(lods[i]/kT)), and kT is 1 by default.
+                If False, residues are weighted by the residue local maximum lod score in a linear fashion
+                All lods are scaled to a maximum provided in the Rosetta REF2015 per residue reference weight.
+        Sets:
+            self.profile (profile_dictionary)
         """
         if null or (not evolution and not fragments):
-            null, evolution, fragments = True, False, False
+            self.profile = self.evolutionary_profile = self.create_null_profile()
+            self.fragment_profile = self.create_null_profile(zero_index=True)
+            return
+            # evolution = fragments = False
             # self.add_evolutionary_profile(null=null, **kwargs)
 
         if evolution:  # add evolutionary information to the SequenceProfile
@@ -676,14 +688,16 @@ class SequenceProfile(ABC):
                     self.add_evolutionary_profile(force=True)
                     first = False
                 else:
-                    raise DesignError('Profile Generation got stuck, design aborted')
-        else:
-            self.set_null_evolutionary_profile()
+                    # Todo RuntimeError()
+                    raise DesignError('evolutionary_profile generation got stuck')
+        # else:
+        #     self.evolutionary_profile = self.create_null_profile()
 
         if isinstance(fragments, list):  # Add fragment information to the SequenceProfile
             self.add_fragments_to_profile(fragments, **kwargs)
             # Process fragment profile from self.fragment_profile
-            self.process_fragment_profile()
+            # self.process_fragment_profile()
+            self.simplify_fragment_profile()
         elif fragments:  # If was passed as True
             if not self.fragment_profile:
                 raise AttributeError('Fragments were specified but have not been added to the SequenceProfile! '
@@ -698,10 +712,10 @@ class SequenceProfile(ABC):
             #     raise AttributeError('Fragments were specified but there is no fragment database attached. Ensure '
             #                          f'{self.fragment_db.__name__} is set before requesting fragment information')
 
-            # Process fragment profile from self.fragment_profile
-            self.process_fragment_profile()
+            # # Process fragment profile from self.fragment_profile
+            # self.process_fragment_profile()
 
-        self.calculate_profile(favor_fragments=fragments)
+        self.calculate_profile(**kwargs)
 
     def verify_evolutionary_profile(self) -> bool:
         """Returns True if the evolutionary_profile and Structure sequences are equivalent"""
@@ -806,17 +820,22 @@ class SequenceProfile(ABC):
         # These functions set self.evolutionary_profile
         getattr(self, f'parse_{profile_source}_pssm')()
 
-    def set_null_evolutionary_profile(self):
+    def create_null_profile(self, **kwargs) -> profile_dictionary:
         """Make a blank evolutionary_profile
 
-        Sets:
-            self.evolutionary_profile (profile_dictionary): Dictionary containing residue indexed profile information
+        Keyword Args:
+            zero_index: bool = False - If True, return the dictionary with zero indexing
+            dtype: dtype_literals = 'int' - The type of object present in the interior dictionary
+        Returns:
+            Dictionary containing residue indexed profile information
             Ex: {1: {'A': 0, 'R': 0, ..., 'lod': {'A': -5, 'R': -5, ...}, 'type': 'W', 'info': 3.20, 'weight': 0.73},
                  2: {}, ...}
         """
-        self.evolutionary_profile = populate_design_dictionary(self.number_of_residues, protein_letters_alph3)
-        for residue_type, residue_data in zip(self.sequence, self.evolutionary_profile.values()):
+        evolutionary_profile = populate_design_dictionary(self.number_of_residues, protein_letters_alph3, **kwargs)
+        for residue_type, residue_data in zip(self.sequence, evolutionary_profile.values()):
             residue_data.update({'lod': copy(aa_counts), 'type': residue_type, 'info': 0., 'weight': 0.})
+
+        return evolutionary_profile
 
     def fit_evolutionary_profile_to_structure(self):
         """From an evolutionary profile generated according to a reference sequence, align the profile to the Structure
@@ -1179,19 +1198,19 @@ class SequenceProfile(ABC):
 
         return self.sequence_file
 
-    def process_fragment_profile(self, **kwargs):
-        """From self.fragment_map, add the fragment profile to the SequenceProfile
-
-        Keyword Args:
-            keep_extras: (bool) = True - Whether to keep values for all that are missing data
-            evo_fill: (bool) = False - Whether to fill missing positions with evolutionary profile values
-            alpha: (float) = 0.5 - The maximum contribution of the fragment profile to use, bounded between (0, 1].
-                0 means no use of fragments in the .profile, while 1 means only use fragments
-        Sets:
-            self.fragment_profile (profile_dictionary)
-        """
-        self._simplify_fragment_profile(**kwargs)
-        self._calculate_alpha(**kwargs)
+    # def process_fragment_profile(self, **kwargs):
+    #     """From self.fragment_map, add the fragment profile to the SequenceProfile
+    #
+    #     Keyword Args:
+    #         keep_extras: bool = True - Whether to keep values for all that are missing data
+    #         evo_fill: bool = False - Whether to fill missing positions with evolutionary profile values
+    #         alpha: float = 0.5 - The maximum contribution of the fragment profile to use, bounded between (0, 1].
+    #             0 means no use of fragments in the .profile, while 1 means only use fragments
+    #     Sets:
+    #         self.fragment_profile (profile_dictionary)
+    #     """
+    #     self.simplify_fragment_profile(**kwargs)
+    #     # self._calculate_alpha(**kwargs)
 
     def add_fragments_to_profile(self, fragments: Iterable[fragment_info_type],
                                  alignment_type: alignment_types_literal):
@@ -1259,26 +1278,30 @@ class SequenceProfile(ABC):
         #                       f'offset_index={self.offset_index}')
         #     raise RuntimeError('Need to fix this')
 
-    def _simplify_fragment_profile(self, keep_extras: bool = True, evo_fill: bool = False):
+    def simplify_fragment_profile(self, keep_extras: bool = True, evo_fill: bool = False, **kwargs):
         """Take a multi-indexed, a multi-observation fragment_profile and flatten to single frequency for each residue.
 
         Weight the frequency of each observation by the fragment indexed, average observation weight, proportionally
         scaled by the match score between the fragment database and the observed fragment overlap
 
-        Todo This is wrong
-        Takes the fragment_map with format:
-            (dict): {1: {-2: {0: 'A': 0.23, 'C': 0.01, ..., 'stats': [12, 0.37], 'match': 0.6}}, 1: {}}, -1: {}, ... },
-                     2: {}, ...}
-                Dictionary containing fragment frequency and statistics across a design
-        And makes into
-            (dict): {0: {'A': 0.23, 'C': 0.01, ..., stats': [1, 0.37]}, 1: {...}, ...}
-                Weighted average design dictionary combining all fragment profile information at a single residue where
-                stats[0] is number of fragment observations at each residue, and stats[1] is the total fragment weight
-                over the entire residue
+        From self.fragment_map, add the fragment profile to the SequenceProfile
+
         Args:
             keep_extras: Whether to keep values for all positions that are missing data
             evo_fill: Whether to fill missing positions with evolutionary profile values
+        Keyword Args:
+            alpha: float = 0.5 - The maximum contribution of the fragment profile to use, bounded between (0, 1].
+                0 means no use of fragments in the .profile, while 1 means only use fragments
+        Sets:
+            self.fragment_profile (profile_dictionary)
+                {0: {'A': 0.23, 'C': 0.01, ..., stats': (1, 0.37)}, 1: {...}, ...}
+                profile_dictionary that combines all fragment information at a single residue using a weighted average.
+                'stats'[0] is number of fragment observations at each residue, and 'stats'[1] is the total fragment
+                weight over the entire residue
         """
+        if not self.fragment_map:
+            raise RuntimeError(f"Must {self.add_fragments_to_profile.__name__} before "
+                               f"{self.simplify_fragment_profile.__name__}. No fragments were set")
         database_bkgnd_aa_freq = self._fragment_db.aa_frequencies
         # Fragment profile is correct size for indexing all STRUCTURAL residues
         #  self.reference_sequence is not used for this. Instead, self.sequence is used in place since the use
@@ -1360,13 +1383,19 @@ class SequenceProfile(ABC):
                 for residue_index in no_design:
                     self.fragment_profile[residue_index] = self.evolutionary_profile.get(residue_index + zero_offset)
             else:  # Add a blank entry
+                null_profile = self.create_null_profile(zero_index=True)
                 for residue_index in no_design:
-                    self.fragment_profile[residue_index] = copy(aa_nan_counts)
+                    # self.fragment_profile[residue_index] = copy(aa_nan_counts)
+                    # blank_residue_entry = copy(blank_profile_entry)
+                    # blank_residue_entry['type'] = sequence[residue_index]
+                    self.fragment_profile[residue_index] = null_profile[residue_index]  # blank_residue_entry
         else:  # Remove missing residues from dictionary
             for residue_index in no_design:
                 self.fragment_profile.pop(residue_index)
 
-    def _calculate_alpha(self, alpha: float = .5):
+        self._calculate_alpha(**kwargs)
+
+    def _calculate_alpha(self, alpha: float = .5, **kwargs):
         """Find fragment contribution to design with a maximum contribution of alpha. Used subsequently to integrate
         fragment profile during combination with evolutionary profile in calculate_profile
 
@@ -1453,7 +1482,6 @@ class SequenceProfile(ABC):
                 {48: {'A': 0.167, 'D': 0.028, 'E': 0.056, ..., 'stats': [4, 0.274]}, 50: {...}, ...}
         self.alpha
             (list[float]): [0., 0., 0., 0.5, 0.321, ...]
-            # (dict[int, float]): {48: 0.5, 50: 0.321, ...}
         Args:
             favor_fragments: Whether to favor fragment profile in the lod score of the resulting profile
                 Currently this routine is only used for Rosetta designs where the fragments should be favored by a
@@ -1463,16 +1491,20 @@ class SequenceProfile(ABC):
                 If False, residues are weighted by the residue local maximum lod score in a linear fashion
                 All lods are scaled to a maximum provided in the Rosetta REF2015 per residue reference weight.
         Sets:
-            self.profile: (profile_dictionary) =
+            self.profile: (profile_dictionary)
                 {1: {'A': 0.04, 'C': 0.12, ..., 'lod': {'A': -5, 'C': -9, ...},
-                     'type': 'W', 'info': 0.00, 'weight': 0.00}, ...}}
+                     'type': 'W', 'info': 0.00, 'weight': 0.00}, ...}, ...}
         """
         if self._alpha == 0:  # We get a division error
-            self.log.info(f'{self.calculate_profile.__name__}: _alpha set with 1e-5 tolerance due to 0 value')
+            self.log.debug(f'{self.calculate_profile.__name__}: _alpha set with 1e-5 tolerance due to 0 value')
             self._alpha = 0.000001
 
-        if not self.evolutionary_profile:
-            self.set_null_evolutionary_profile()
+        if not self.evolutionary_profile:  # No evolutionary information available
+            self.evolutionary_profile = self.create_null_profile()
+
+        if not self.alpha:  # No fragments to combine
+            self.profile = self.evolutionary_profile
+            return
 
         # Copy the evolutionary profile to self.profile (structure specific scoring matrix)
         self.profile = deepcopy(self.evolutionary_profile)
@@ -1485,8 +1517,8 @@ class SequenceProfile(ABC):
 
         # Combine fragment and evolutionary probability profile according to alpha parameter
         log_string = []
-        # for entry, weight in self.alpha.items():  # Weight will be 0 if the fragment_profile is empty
-        for entry, weight in enumerate(self.alpha, 1):  # Weight will be 0 if the fragment_profile is empty
+        for entry, weight in enumerate(self.alpha, 1):
+            # Weight will be 0 if the fragment_profile is empty
             if weight > 0:
                 log_string.append(f'Residue {entry:5d}: {weight * 100:.0f}% fragment weight')
                 inverse_weight = 1 - weight
@@ -1638,7 +1670,7 @@ class SequenceProfile(ABC):
 dtype_literals = Literal['list', 'set', 'tuple', 'float', 'int']
 
 
-def populate_design_dictionary(n: int, alphabet: Sequence, zero_index: bool = False, dtype: dtype_literals = 'int')\
+def populate_design_dictionary(n: int, alphabet: Sequence, zero_index: bool = False, dtype: dtype_literals = 'int') \
         -> dict[int, dict[int | str, Any]]:
     """Return a dictionary with n elements, each integer key containing another dictionary with the items in
     alphabet as keys. By default, one-indexed, and data inside the alphabet dictionary is a dictionary.
@@ -1649,10 +1681,10 @@ def populate_design_dictionary(n: int, alphabet: Sequence, zero_index: bool = Fa
         alphabet: alphabet of interest
         zero_index: If True, return the dictionary with zero indexing
         dtype: The type of object present in the interior dictionary
-     Returns:
-         N length, one indexed dictionary with entry number keys
+    Returns:
+        N length, one indexed dictionary with entry number keys
             ex: {1: {alphabet[0]: dtype, alphabet[1]: dtype, ...}, 2: {}, ...}
-     """
+    """
     offset = 0 if zero_index else zero_offset
 
     # Todo add
