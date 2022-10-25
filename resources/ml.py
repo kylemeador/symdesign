@@ -599,7 +599,7 @@ def proteinmpnn_batch_design(batch_slice: slice, proteinmpnn: ProteinMPNN,
         unbound_sequence_loss = \
             np.concatenate(_per_residue_unbound_sequence_loss, axis=1).reshape(actual_batch_length,
                                                                                number_of_temps,
-                                                                               pose_length),
+                                                                               pose_length)
     else:
         unbound_sequence_loss = np.empty_like(complex_sequence_loss)
 
