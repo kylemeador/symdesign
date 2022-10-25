@@ -791,7 +791,7 @@ class PoseDirectory:
                 self.info['pre_loop_model'] = pre_loop_model
 
         self.design_selector = self.info.get('design_selector', self.design_selector)
-        self.pose_transformation = self.info.get('pose_transformation', {})
+        self.pose_transformation = self.info.get('pose_transformation', [])  # {})
         self.fragment_observations = self.info.get('fragments', None)  # None signifies query wasn't attempted
         self.interface_design_residue_numbers = self.info.get('interface_design_residues', False)  # (set[int])
         self.interface_residue_ids = self.info.get('interface_residue_ids', {})

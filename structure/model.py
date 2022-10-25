@@ -3719,6 +3719,14 @@ class SymmetricModel(Models):
          '_symmetric_coords_split_by_entity'}
     uc_volume: float
 
+    @classmethod
+    def from_assembly(cls, assembly: list[Structure], sym_entry: SymEntry | int = None, symmetry: str = None, **kwargs):
+        """Initialize from a symmetric assembly"""
+        if symmetry is None and sym_entry is None:
+            raise ValueError(f"Can't initialize {type(cls).__name__} without symmetry! Pass symmetry or "
+                             f'sym_entry to constructor {cls.from_assembly.__name__}')
+        return cls(models=assembly, sym_entry=sym_entry, symmetry=symmetry, **kwargs)
+
     def __init__(self, sym_entry: SymEntry | int = None, symmetry: str = None, transformations: list[dict] = None,
                  uc_dimensions: list[float] = None, expand_matrices: np.ndarray | list = None,
                  surrounding_uc: bool = True, **kwargs):
@@ -3764,14 +3772,6 @@ class SymmetricModel(Models):
             self.make_oligomers(transformations=transformations)
             # if generate_symmetry_mates:  # always set to False before. commenting out
             #     self.generate_assembly_symmetry_models(**kwargs)
-
-    @classmethod
-    def from_assembly(cls, assembly: list[Structure], sym_entry: SymEntry | int = None, symmetry: str = None, **kwargs):
-        """Initialize from a symmetric assembly"""
-        if symmetry is None and sym_entry is None:
-            raise ValueError(f"Can't initialize {type(cls).__name__} without symmetry! Pass symmetry or "
-                             f'sym_entry to constructor {cls.from_assembly.__name__}')
-        return cls(models=assembly, sym_entry=sym_entry, symmetry=symmetry, **kwargs)
 
     def set_symmetry(self, sym_entry: SymEntry | int = None, symmetry: str = None,
                      uc_dimensions: list[float] = None, expand_matrices: np.ndarray | list = None):
@@ -4855,6 +4855,7 @@ class SymmetricModel(Models):
         if not self.is_symmetric():
             raise SymmetryError(f'Must set a global symmetry to {self._assign_pose_transformation.__name__}')
 
+        self.log.debug(f'Searching for transformation parameters for the Pose {self.name}')
         # Get optimal external translation
         if self.dimension == 0:
             external_tx = [None for _ in self.sym_entry.groups]
@@ -5178,7 +5179,7 @@ class SymmetricModel(Models):
         Args:
             transformations: The entity_transformations operations that reproduce the individual oligomers
         """
-        if transformations is None:
+        if not transformations:  # Could be an empty list[dictionary] too is None:
             transformations = self.entity_transformations
 
         for entity, subunit_number, symmetry, transformation in zip(self.entities, self.sym_entry.group_subunit_numbers,
