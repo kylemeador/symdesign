@@ -1026,8 +1026,8 @@ class Atoms:
         """
         if start_at > 0:
             if start_at < self.atoms.shape[0]:  # if in the Atoms index range
-                prior_atom = self.atoms[start_at - 1]
-                for idx, atom in enumerate(self.atoms[start_at:].tolist(), prior_atom.idx + 1):
+                prior_atom: Atom = self.atoms[start_at - 1]
+                for idx, atom in enumerate(self.atoms[start_at:].tolist(), prior_atom.index + 1):
                     atom.index = idx
         else:
             for idx, atom in enumerate(self, start_at):
