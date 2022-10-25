@@ -107,6 +107,7 @@ def batch_calculation(size: int, batch_length: int, setup: Callable = None,
                         function_returns = func(batch_slice, *args, **kwargs, **setup_returns)
                         # Set the returned values in the order they were received to the precalculated return_container
                         for return_container_key, return_container in return_containers.items():
+                            print('return_container[batch_clice].shape', return_container[batch_slice].shape)
                             return_container[batch_slice] = function_returns[return_container_key]
 
                     # Report success
@@ -602,6 +603,12 @@ def proteinmpnn_batch_design(batch_slice: slice, proteinmpnn: ProteinMPNN,
     else:
         unbound_sequence_loss = np.empty_like(complex_sequence_loss)
 
+    print('sequences.shape', sequences.shape)
+    print('sequences', sequences[:2])
+    print('complex_sequence_loss.shape', complex_sequence_loss.shape)
+    print('complex_sequence_loss', complex_sequence_loss[:2])
+    print('unbound_sequence_loss.shape', unbound_sequence_loss.shape)
+    print('unbound_sequence_loss', unbound_sequence_loss[:2])
     return {'sequences': sequences,
             'complex_sequence_loss': complex_sequence_loss,
             'unbound_sequence_loss': unbound_sequence_loss}
