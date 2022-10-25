@@ -103,7 +103,9 @@ def batch_calculation(size: int, batch_length: int, setup: Callable = None,
                     # Report success
                     logger.debug(f'Successful execution with batch_length of {_batch_length}')
                     break  # finished = True
-                except compute_failure_exceptions:
+                except compute_failure_exceptions as error:
+                    logger.debug(f'{batch_calculation.__name__}: encountered error during {func.__name__} execution:'
+                                 f'\n{error}')
                     _batch_length -= 1
 
             return return_containers
