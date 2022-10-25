@@ -460,7 +460,7 @@ def main():
                 logger.critical(
                     f'The file "{designs_file}" contains the locations of every pose that passed checks/'
                     f'filters for this job. Utilize this file to input these poses in future {PUtils.program_name} '
-                    f'commands such as:\n\t{PUtils.program_command} --file {designs_file} MODULE ...')
+                    f'commands such as:\n\t{PUtils.program_command} MODULE --file {designs_file} ...')
 
             if args.module == PUtils.analysis:
                 all_scores = job.all_scores
