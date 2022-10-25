@@ -2523,41 +2523,32 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
     # # remove_non_viable_indices(passing_transforms_indices)
     passing_transforms_indices = sufficiently_dense_indices[asu_is_viable_indices[interface_is_viable]]
 
-    # degen_counts, rot_counts, tx_counts = zip(*[(degen_counts[idx], rot_counts[idx], tx_counts[idx])
-    #                                             for idx in interface_is_viable])
-    # full_rotation1 = full_rotation1[interface_is_viable]
-    # full_rotation2 = full_rotation2[interface_is_viable]
-    # if sym_entry.is_internal_tx1:
-    #     full_int_tx1 = full_int_tx1[interface_is_viable]
-    # if sym_entry.is_internal_tx2:
-    #     full_int_tx2 = full_int_tx2[interface_is_viable]
-    if sym_entry.unit_cell:
-        # full_optimal_ext_dof_shifts = full_optimal_ext_dof_shifts[interface_is_viable]
-        # Calculate the vectorized uc_dimensions
-        full_uc_dimensions = sym_entry.get_uc_dimensions(full_optimal_ext_dof_shifts)
-        # full_ext_tx1 = full_ext_tx1[interface_is_viable]
-        # full_ext_tx2 = full_ext_tx2[interface_is_viable]
-        # # full_ext_tx_sum = full_ext_tx2 - full_ext_tx1
+    if job.design.ignore_symmetric_clashes:
+        log.warning(f'Not checking for symmetric clashes as per requested flag --ignore_symmetric_clashes')
+    else:
+        if sym_entry.unit_cell:
+            # Calculate the vectorized uc_dimensions
+            full_uc_dimensions = sym_entry.get_uc_dimensions(full_optimal_ext_dof_shifts)
 
-    # passing_symmetric_clash_indices = find_viable_symmetric_indices(number_viable_pose_interfaces)
-    passing_symmetric_clash_indices = find_viable_symmetric_indices(passing_transforms_indices.tolist())
-    number_passing_symmetric_clashes = passing_symmetric_clash_indices.shape[0]
-    log.info(f'After symmetric clash testing, found {number_passing_symmetric_clashes} viable poses')
+        # passing_symmetric_clash_indices = find_viable_symmetric_indices(number_viable_pose_interfaces)
+        passing_symmetric_clash_indices = find_viable_symmetric_indices(passing_transforms_indices.tolist())
+        number_passing_symmetric_clashes = passing_symmetric_clash_indices.shape[0]
+        log.info(f'After symmetric clash testing, found {number_passing_symmetric_clashes} viable poses')
 
-    if number_passing_symmetric_clashes == 0:  # There were no successful transforms
-        log.warning(f'No viable poses without symmetric clashes. Terminating {building_blocks} docking')
-        return
-    # ------------------ TERM ------------------------
-    # Update the passing_transforms
-    # passing_transforms contains all the transformations that are still passing
-    # index the previously passing indices (sufficiently_dense_indices) and (asu_is_viable_indices) and (interface_is_viable)
-    # by new passing indices (passing_symmetric_clash_indices)
-    # and set each of these indices to 1 (True)
-    # passing_transforms_indices = \
-    #     sufficiently_dense_indices[asu_is_viable_indices[interface_is_viable[passing_symmetric_clash_indices]]]
-    passing_transforms_indices = passing_transforms_indices[passing_symmetric_clash_indices]
-    # Todo could this be used?
-    # passing_transforms[passing_transforms_indices] = 1
+        if number_passing_symmetric_clashes == 0:  # There were no successful transforms
+            log.warning(f'No viable poses without symmetric clashes. Terminating {building_blocks} docking')
+            return
+        # ------------------ TERM ------------------------
+        # Update the passing_transforms
+        # passing_transforms contains all the transformations that are still passing
+        # index the previously passing indices (sufficiently_dense_indices) and (asu_is_viable_indices) and (interface_is_viable)
+        # by new passing indices (passing_symmetric_clash_indices)
+        # and set each of these indices to 1 (True)
+        # passing_transforms_indices = \
+        #     sufficiently_dense_indices[asu_is_viable_indices[interface_is_viable[passing_symmetric_clash_indices]]]
+        passing_transforms_indices = passing_transforms_indices[passing_symmetric_clash_indices]
+        # Todo could this be used?
+        # passing_transforms[passing_transforms_indices] = 1
 
     # Remove non-viable transforms from the original transformations due to clashing
     remove_non_viable_indices(passing_transforms_indices)
