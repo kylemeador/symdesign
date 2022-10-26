@@ -2848,12 +2848,12 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
             pdb: bool = False - Whether to pull the Residue by PDB number
         """
         delete_indices = super().mutate_residue(**kwargs)  # residue=residue, number=number, to=to,
-        if not delete_indices:  # there are no indices
+        if not delete_indices:  # Probably an empty list, there are no indices to delete
             return
         delete_length = len(delete_indices)
         # remove these indices from the Structure atom_indices (If other structures, must update their atom_indices!)
         for structure_type in self.structure_containers:
-            for structure in getattr(self, structure_type):  # iterate over Structures in each structure_container
+            for structure in getattr(self, structure_type):  # Iterate over each Structure in each structure_container
                 try:
                     atom_delete_index = structure.atom_indices.index(delete_indices[0])
                     for _ in iter(delete_indices):
@@ -2861,6 +2861,17 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
                     structure._offset_indices(start_at=atom_delete_index, offset=-delete_length)
                 except (ValueError, IndexError):  # this should happen if the Atom is not in the Structure of interest
                     continue
+
+        self.reset_state()
+
+    def reset_state(self):
+        """Remove StructureBase attributes that are invalid for the current state for each member Structure instance
+
+        This is useful for transfer of ownership, or changes in the Model state that should be overwritten
+        """
+        for structure_type in self.structure_containers:
+            for structure in getattr(self, structure_type):  # Iterate over each Structure in each structure_container
+                structure.reset_state()
 
     def insert_residue_type(self, residue_type: str, at: int = None, chain: str = None):  # Todo Structures
         """Insert a standard Residue type into the Structure based on Pose numbering (1 to N) at the origin.

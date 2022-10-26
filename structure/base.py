@@ -627,7 +627,7 @@ class StructureBase(Symmetry, ABC):
             self._coords.replace(self._atom_indices, coords)
 
     def reset_state(self):
-        """Remove StructureBase attributes that are valid for the current state but not for a new state
+        """Remove StructureBase attributes that are valid for the current state
 
         This is useful for transfer of ownership, or changes in the StructureBase state that should be overwritten
         """
