@@ -3,13 +3,11 @@ import csv
 
 # from itertools import chain as iter_chain  # combinations,
 import numpy as np
-from Bio.Data.IUPACData import protein_letters
 
-from utils import path as PUtils
-# from Pose import Model
-# import Pose
 import utils
+from utils import path as PUtils
 from structure.sequence import generate_alignment
+from structure.utils import protein_letters_alph1
 from DnaChisel.dnachisel import DnaOptimizationProblem, CodonOptimize, reverse_translate, AvoidHairpins, \
     EnforceGCContent, AvoidPattern, AvoidRareCodons, UniquifyAllKmers, EnforceTranslation  # EnforceMeltingTemperature
 from resources.query.pdb import get_entity_reference_sequence, pdb_id_matching_uniprot_id
@@ -522,11 +520,11 @@ def add_expression_tag(tag, sequence):
     # print(tag_seq)
     # print(seq)
     # starting_index_of_seq2 = seq.find(sequence[0])
-    # i = -starting_index_of_seq2 + index_offset  # make 1 index so residue value starts at 1
+    # i = -starting_index_of_seq2 + zero_offset  # make 1 index so residue value starts at 1
     final_seq = ''
     for i, (seq1_aa, seq2_aa) in enumerate(zip(tag_seq, seq)):
         if seq2_aa == '-':
-            if seq1_aa in protein_letters:
+            if seq1_aa in protein_letters_alph1:
                 final_seq += seq1_aa
         else:
             final_seq += seq2_aa
@@ -609,7 +607,12 @@ def optimize_protein_sequence(sequence: str, species: str = 'e_coli') -> str:
     """
     seq_length = len(sequence)
     species = species.lower()
-    problem = DnaOptimizationProblem(sequence=reverse_translate(sequence),  # max_random_iters=20000,
+    try:
+        dna_sequence = reverse_translate(sequence)
+    except KeyError as error:
+        raise KeyError(f'Warning an invalid character was found in your protein sequence: {error}')
+
+    problem = DnaOptimizationProblem(sequence=dna_sequence,  # max_random_iters=20000,
                                      objectives=[CodonOptimize(species=species)], logger=None,
                                      constraints=[EnforceGCContent(mini=0.25, maxi=0.65),  # twist required
                                                   EnforceGCContent(mini=0.35, maxi=0.65, window=50),  # twist required
@@ -626,7 +629,7 @@ def optimize_protein_sequence(sequence: str, species: str = 'e_coli') -> str:
     #                                             EnforceMeltingTemperature(mini=10, maxi=62, location=(1, seq_length)),
                                                   ])
 
-    # Solve constraints and solve with regards to the objective
+    # Solve constraints and solve in regard to the objective
     problem.max_random_iters = 20000
     problem.resolve_constraints()
     problem.optimize()

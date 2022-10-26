@@ -1,5 +1,5 @@
 from metrics import master_metrics, rosetta_required_metrics
-from utils.path import no_term_constraint, no_evolution_constraint, no_hbnet, scout, program_command, select_sequences, \
+from utils.path import term_constraint, evolution_constraint, hbnet, scout, program_command, select_sequences, \
     program_name, structure_background, current_energy_function, number_of_trajectories, force_flags, interface_design, \
     select_poses, analysis, protocol, select_designs, nano, nano_publication, interface_metrics, cluster_poses, \
     optimize_designs
@@ -26,7 +26,7 @@ select_poses_guide = \
     f' metrics, say "interface_area_total > 1000, shape_complementarity > 0.65, ' \
     f'percent_residues_fragment_center > 0.3, and interface_composition_similarity > 0.6", those poses which contain' \
     f' metrics that satify each of these filters will be chosen. Additionally, by using three weights, ' \
-    f'say "interface_secondary_structure_fragment_count = 0.33, entity_thermophilicity = 0.33, and ' \
+    f'say "interface_secondary_structure_fragment_count = 0.33, pose_thermophilicity = 0.33, and ' \
     f'shape_complementarity 0.33" those passing designs can then be sorted according to their cumulative weight' \
     f' allowing you to prioritize poses and only push the best ones forward. In this way, you can take a large number' \
     f' of starting conformations and cull them to those that are more favorable given some set of design constraints.' \
@@ -112,7 +112,7 @@ interface_design_guide = \
     f'production of soluble, folded proteins. As sequence homology captures the latent sequence information that ' \
     f'prescribes a protein\'s overall 3D fold, utilizing evolutionary constraint ensures the design generally ' \
     f'maintains its initial conformation upon mutation as during the interface design task. Evolutionary constraint ' \
-    f'is utilized by default, however, providing the flag "--{no_evolution_constraint}" removes this constraint. ' \
+    f'is utilized by default, however, providing the flag "--no-{evolution_constraint}" removes this constraint. ' \
     f'In essence, the evolutionarily observed frequencies guide the selection of amino acid types to sample during ' \
     f'design. As an additional constraint to form bound interfaces, position specific sequence design is augmented ' \
     f'with tertiary motifs (TERMs). TERMs represent structural motifs between a pair of naturally observed secondary ' \
@@ -124,10 +124,10 @@ interface_design_guide = \
     f'residues to form a tightly packed interface core. The inclusion of this sequence structure information ' \
     f'contrasts the typical surface environment of proteins and provides much needed interactions to favor tight ' \
     f'interfaces free of entropically disordered water. By default, design with TERMs is enabled, however, ' \
-    f'providing the flag "--{no_term_constraint}" will disable this search. Finally, after specifying these position ' \
+    f'providing the flag "--no-{term_constraint}" will disable this search. Finally, after specifying these position ' \
     f'specific amino acid constraints, we explicitly design hydrogen bond networks into the interface at applicable ' \
     f'positions and perform sequence design on the surrounding residues to promote the strongest interface possible. ' \
-    f'By default, hydrogen bond network generation occurs, however, this can be skipped with "--{no_hbnet}". If the ' \
+    f'By default, hydrogen bond network generation occurs, however, this can be skipped with "--no-{hbnet}". If the ' \
     f'design set up is favorable, it has the effect of utilizing hydrophobic residues to achieve tight binding, but ' \
     f'extensive hydrophobics are interrupted by polar networks which are intended to maintain the protein fold, ' \
     f'increase solubility, and provide interface specificity. Finally, to prevent excessive sampling and perform ' \

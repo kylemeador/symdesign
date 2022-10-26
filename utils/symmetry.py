@@ -306,7 +306,7 @@ def get_central_asu(pdb, uc_dimensions, design_dimension):  # Todo remove from F
         # xyz_min_shifted_cart_tx = frac_to_cart(xyz_min_shift_vec_frac, uc_dimensions)
         # xyz_min_shifted_asu_pdb = copy.copy(pdb)
         # xyz_min_shifted_asu_pdb.set_coords(pdb.coords + xyz_min_shifted_cart_tx)
-        # return pdb.return_transformed_copy(translation=xyz_min_shifted_cart_tx)
+        # return pdb.get_transformed_copy(translation=xyz_min_shifted_cart_tx)
         # xyz_min_shifted_asu_pdb.set_atom_coordinates(xyz_min_shifted_pdb_asu_coords_cart)
         return pdb
 
@@ -347,7 +347,7 @@ def get_ptgrp_sym_op(sym_type: str,
 #     # asu_coords = pdb_asu.extract_all_coords()
 #     for r in expand_matrices:
 #         # r_asu_coords = np.matmul(asu_coords, np.transpose(np.array(r)))
-#         asu_sym_mate_pdb = pdb_asu.return_transformed_copy(rotation=np.array(r))
+#         asu_sym_mate_pdb = pdb_asu.get_transformed_copy(rotation=np.array(r))
 #         # asu_sym_mate_pdb = PDB()
 #         # asu_sym_mate_pdb_atom_list = []
 #         # atom_count = 0
@@ -397,7 +397,7 @@ def get_ptgrp_sym_op(sym_type: str,
 #         tr_asu_frac_coords = np.matmul(asu_frac_coords, np.transpose(rot)) + t_vec
 #
 #         tr_asu_cart_coords = frac_to_cart(tr_asu_frac_coords, uc_dimensions).tolist()
-#         # asu_sym_mate_pdb = pdb_asu.return_transformed_copy(rotation=np.array(r), translation=tx)
+#         # asu_sym_mate_pdb = pdb_asu.get_transformed_copy(rotation=np.array(r), translation=tx)
 #         unit_cell_sym_mate_pdb = copy_pdb_asu.replace_coords(tr_asu_cart_coords)
 #
 #         # unit_cell_sym_mate_pdb = PDB()

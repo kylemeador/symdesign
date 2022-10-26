@@ -5,9 +5,7 @@ from itertools import product, combinations
 
 from fragdock import nanohedra_dock
 from resources.structure_db import orient_structure_files
-from resources.fragment import fragment_factory
-from utils import start_log, set_logging_to_debug, get_directory_file_paths, path as PUtils
-from resources.EulerLookup import euler_factory
+from utils import start_log, set_logging_to_level, get_directory_file_paths, set_loggers_to_propagate, path as PUtils
 from utils.SymEntry import symmetry_factory
 from utils.nanohedra.cmdline import get_docking_parameters, query_mode, postprocess_mode
 from utils.nanohedra.general import write_docking_parameters
@@ -30,7 +28,7 @@ if __name__ == '__main__':
 
         # Parsing Command Line Input
         sym_entry_number, pdb1_path, pdb2_path, rot_step_deg1, rot_step_deg2, master_outdir, output_assembly, \
-            output_surrounding_uc, min_matched, timer, initial, debug, high_quality_match_value, initial_z_value = \
+            output_surrounding_uc, min_matched, initial, debug, high_quality_match_value, initial_z_value = \
             get_docking_parameters(sys.argv)
 
         # Master Output Directory and Master Log File
@@ -39,14 +37,19 @@ if __name__ == '__main__':
         if debug:
             # Root logs to stream with level debug
             logger = start_log(level=1)
-            set_logging_to_debug()
+            set_logging_to_level()
             master_logger, bb_logger = logger, logger
             logger.debug('Debug mode. Produces verbose output and not written to any .log files')
         else:
-            master_logger = start_log(name=os.path.basename(__file__), handler=2, location=master_log_filepath,
-                                      propagate=True)
-        master_logger.info('Nanohedra\nMODE: DOCK\n')
+            # Set all modules to propagate logs to write to master log file
+            set_loggers_to_propagate()
+            set_logging_to_level(handler_level=3)
+            # Root logger logs to a single file with level 'info'
+            start_log(handler=2, location=master_log_filepath)
+            # Nanohedra main logs to stream with level info
+            master_logger = start_log(name=os.path.basename(__file__), propagate=True)
 
+        master_logger.info('Nanohedra\nMODE: DOCK\n')
         try:
             # Orient Oligomer Fortran Executable Path
             orient_executable_path = PUtils.orient_exe_path
@@ -132,36 +135,16 @@ if __name__ == '__main__':
                                    % (len(pdb2_oriented_filepaths), len(pdb2_filepaths), oriented_pdb2_outdir))
                 pdb_filepaths = product(pdb1_oriented_filepaths, pdb2_oriented_filepaths)
 
-            # Create fragment database for all ijk cluster representatives
-            # ijk_frag_db = unpickle(PUtils.biological_fragment_db_pickle)
-            # Todo parameterize when more available
-            ijk_frag_db = fragment_factory(source=PUtils.biological_interfaces)
-            # Load Euler Lookup table for each instance
-            euler_lookup = euler_factory()
-            # ijk_frag_db = FragmentDB()
-            #
-            # # Get complete IJK fragment representatives database dictionaries
-            # ijk_frag_db.get_monofrag_cluster_rep_dict()
-            # ijk_frag_db.get_intfrag_cluster_rep_dict()
-            # ijk_frag_db.get_intfrag_cluster_info_dict()
-
             for pdb1_path, pdb2_path in pdb_filepaths:
-                pdb1_name = os.path.splitext(os.path.basename(pdb1_path))[0]
-                pdb2_name = os.path.splitext(os.path.basename(pdb2_path))[0]
-                # with open(master_log_filepath, 'a+') as master_log_file:
-                master_logger.info('Docking %s / %s' % (pdb1_name, pdb2_name))
-
+                model1_name = os.path.splitext(os.path.basename(pdb1_path))[0]
+                model2_name = os.path.splitext(os.path.basename(pdb2_path))[0]
+                master_logger.info(f'Docking {model1_name} / {model2_name}\n')
+                building_blocks = f'{model1_name}_{model2_name}'
                 # Output Directory  # Todo PoseDirectory
-                # outdir = os.path.join(master_outdir, '%s_%s' % (pdb1_name, pdb2_name))
+                # outdir = os.path.join(master_outdir, building_blocks)
                 # if not os.path.exists(outdir):
                 #     os.makedirs(outdir)
 
-                building_blocks = '%s_%s' % (pdb1_name, pdb2_name)
-                # log_file_path = os.path.join(outdir, '%s_log.txt' % building_blocks)
-                # if os.path.exists(log_file_path):
-                #     resume = True
-                # else:
-                #     resume = False
                 # bb_logger = start_log(name=building_blocks, handler=2, location=log_file_path, format_log=False)
                 # bb_logger.info('Found a prior incomplete run! Resuming from last sampled transformation.\n') \
                 #     if resume else None
@@ -170,13 +153,12 @@ if __name__ == '__main__':
                 # if not resume:
                 #     # with open(log_file_path, 'w') as log_file:
                 #     bb_logger.info('DOCKING %s TO %s\nOligomer 1 Path: %s\nOligomer 2 Path: %s\n\n'
-                #                    % (pdb1_name, pdb2_name, pdb1_path, pdb2_path))
+                #                    % (model1_name, model2_name, pdb1_path, pdb2_path))
 
-                nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1_path, pdb2_path,
+                nanohedra_dock(sym_entry, master_outdir, pdb1_path, pdb2_path,
                                rotation_step1=rot_step_deg1, rotation_step2=rot_step_deg2, min_matched=min_matched,
-                               output_assembly=output_assembly, output_surrounding_uc=output_surrounding_uc,
-                               keep_time=timer, high_quality_match_value=high_quality_match_value,
-                               initial_z_value=initial_z_value)  # log=bb_logger,
+                               high_quality_match_value=high_quality_match_value, initial_z_value=initial_z_value,
+                               output_assembly=output_assembly, output_surrounding_uc=output_surrounding_uc)
 
                 # with open(master_log_filepath, 'a+') as master_log_file:
                 master_logger.info('COMPLETE ==> %s' % os.path.join(master_outdir, building_blocks))

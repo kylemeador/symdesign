@@ -2,8 +2,11 @@ import argparse
 import math
 import os
 
+import structure
 from structure.model import Model
 from structure.coords import superposition3d
+from utils.SymEntry import parse_symmetry_to_sym_entry
+from utils.path import sym_entry, nano
 
 
 class ListFile:
@@ -391,9 +394,9 @@ class HelixFusion:
                             return -1
 
                         # Extract coordinates of segment to be overlapped from PDB Fixed
-                        pdb_fixed_coords = target_protein.chain(self.add_target_helix[2]).get_coords_subset(target_term_resi + i, target_term_resi + 4 + i)
+                        pdb_fixed_coords = target_protein.chain(self.add_target_helix[2]).get_coords_subset(target_term_resi+i, target_term_resi+4+i)
                         # Extract coordinates of segment to be overlapped from PDB Moving
-                        pdb_moble_coords = pdb_oligomer.chains[0].get_coords_subset(oligomer_term_resi, oligomer_term_resi + 4)
+                        pdb_moble_coords = pdb_oligomer.chains[0].get_coords_subset(oligomer_term_resi, oligomer_term_resi+4)
 
                         # Create PDBOverlap instance
                         # pdb_overlap = PDBOverlap(pdb_fixed_coords, pdb_moble_coords)
@@ -564,50 +567,162 @@ class HelixFusion:
         print('Done')
 
 
-def align(pdb1_path, start_1, end_1, chain_1, pdb2_path, start_2, end_2, chain_2, extend_helix=False):
-        pdb1 = Model.from_file(pdb1_path)
-        pdb2 = Model.from_file(pdb2_path)
+def align(model1, residue_start1, residue_end1, model2, residue_start2, residue_end2,
+          chain1: str = 'A', chain2: str = 'A', extend_helix: bool = False) -> tuple(Model, Model):
+    """Take two Structure Models and align the second one to the first along a helical termini
 
-        if extend_helix:
-            n_terminus = pdb1.chain(chain_1).n_terminal_residue.number
-            if n_terminus in range(start_1, end_1) or n_terminus < start_1:
-                term = 'N'
-            else:
-                term = 'C'
-            print('Adding ideal helix to %s-terminus of reference molecule' % term)
-            pdb1.add_ideal_helix(term, chain_1)  # terminus, chain number
-        coords1 = pdb1.chain(chain_1).get_coords_subset(start_1, end_1)
-        coords2 = pdb2.chain(chain_2).get_coords_subset(start_2, end_2)
+    Args:
+        model1: The first model. This model will be fixed during the procedure
+        residue_start1: The first residue to use for alignment from model1
+        residue_end1: The last residue to use for alignment from model1
+        model2: The second model. This model will be moved during the procedure
+        residue_start2: The first residue to use for alignment from model2
+        residue_end2: The last residue to use for alignment from model2
+        chain1: The chainID to perform the alignment on in model1
+        chain2: The chainID to perform the alignment on in model2
+        extend_helix: Whether an ideal helix should be used to extend the model1 alignment window
+    Returns:
+        The aligned Models
+    """
+    # Get Building Blocks in pose format to remove need for fragments to use chain info
+    if not isinstance(model1, structure.base.Structure):
+        model1 = Model.from_file(model1)
+    if not isinstance(model2, structure.base.Structure):
+        model2 = Model.from_file(model2)
 
-        rmsd, rot, tx = superposition3d(coords1, coords2)
-        pdb2.transform(rot, tx)
+    if residue_end1-residue_start1 != residue_end2-residue_start2:
+        raise ValueError(f'The aligned lengths are not equal! '
+                         f'model1 length ({residue_end1-residue_start1}) '
+                         f'!= model2 length ({residue_end2-residue_start2})')
 
-        return pdb2
+    _chain1 = model1.chain(chain1)
+    if not _chain1:
+        raise ValueError(f'The provided chain1 {_chain1} was not found in model1')
+    else:  # Set the new variable to prepare for the case that an ideal helix is added
+        _chain1_ = _chain1
+
+    _chain2 = model2.chain(chain2)
+    if not _chain2:
+        raise ValueError(f'The provided chain1 {_chain1} was not found in model1')
+
+    while extend_helix:
+        n_terminal_number = _chain1.n_terminal_residue.number
+        c_terminal_number = _chain1.c_terminal_residue.number
+
+        model_residue_range = range(residue_start1, residue_end1 + 1)
+        if n_terminal_number in model_residue_range or n_terminal_number < residue_start1:
+            termini = 'N'
+        elif c_terminal_number in model_residue_range or c_terminal_number > residue_start1:
+            termini = 'C'
+        else:  # we can't extend...
+            break
+
+        _chain1_ = _chain1.copy()
+        _chain1_.add_ideal_helix(termini=termini, length=residue_end2-residue_start2)
+        break
+
+    coords1 = _chain1_.get_coords_subset(residue_start1, residue_end1)
+    coords2 = _chain2.get_coords_subset(residue_start2, residue_end2)
+
+    rmsd, rot, tx = superposition3d(coords1, coords2)
+
+    return model1, model2.get_transformed_copy(rotation=rot, translation=tx)
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=os.path.basename(__file__) +
                                      '\nTool for aligning terminal helices of two proteins')
-    parser.add_argument('-r', '--reference_pdb', type=str, help='The disk location of pdb file to serve as reference')
-    parser.add_argument('-s', '--ref_start_res', type=int, help='First residue in a range to serve as reference for '
-                                                                'alignment')
-    parser.add_argument('-e', '--ref_end_res', type=int, help='Last residue to serve as reference for alignment')
-    parser.add_argument('-c', '--ref_chain', help='Chain ID of the reference moleulce, Default=A', default='A')
-    parser.add_argument('-a', '--aligned_pdb', type=str, help='The disk location of pdb file to be aligned to the '
-                                                              'reference')
-    parser.add_argument('-as', '--align_start_res', type=int, help='First residue to align to reference')
-    parser.add_argument('-ae', '--align_end_res', type=int, help='Last residue to align to reference')
-    parser.add_argument('-ac', '--aligned_chain', help='Chain Id of the moving molecule')
+    parser.add_argument('-r', '--reference_pdb', type=str, required=True,
+                        help='The disk location of pdb file to serve as reference')
+    parser.add_argument('-s', '--ref_start_res', type=int, required=True,
+                        help='First residue in a range to serve as reference for alignment')
+    parser.add_argument('-e', '--ref_end_res', type=int, required=True,
+                        help='Last residue (inclusive) to serve as reference for alignment')
+    parser.add_argument('-c', '--ref_chain', default='A', help='ChainID of the reference molecule\nDefault=%(default)s')
+    parser.add_argument('-a', '--aligned_pdb', type=str, required=True,
+                        help='The disk location of pdb file to be aligned to the reference')
+    parser.add_argument('-as', '--align_start_res', type=int, required=True,
+                        help='First residue to align to reference')
+    parser.add_argument('-ae', '--align_end_res', type=int, required=True,
+                        help='Last residue (inclusive) to align to reference')
+    parser.add_argument('-ac', '--aligned_chain', default='A',
+                        help='ChainID of the moving molecule\nDefault=%(default)s')
     parser.add_argument('-x', '--extend_helical_termini', action='store_true',
                         help='Whether to extend the termini in question with an ideal 10 residue alpha helix. All '
                              'residue ranges will be modified accordingly. '
                              'Ex. --extend_helical_termini --ref_start_res 1 --ref_end_res 9 '
                              'will insert a 10 residue alpha helix to the reference range and perform alignment from '
                              'residue 1-9 of the extended alpha helix. Default=False')
-    parser.add_argument('-o', '--out_file_path', type=str, help='The disk location of file containing a pdb to be moved')
+    parser.add_argument('-Od', '--outdir', '--output_directory',
+                        type=os.path.abspath, dest='output_directory', default=None,
+                        help='If provided, the name of the directory to output all created files.\nOtherwise, one will'
+                             ' be generated based on the time, input, and module'),
+    parser.add_argument('-o', '--out_path', type=str,
+                        help='The disk location of the output directory containing the alignment result')
+    parser.add_argument('-e', '--entry', f'--{sym_entry}', type=int, default=None, dest=sym_entry,
+                        help=f'The entry number of {nano.title()} docking combinations to use for symmetry'),
+    parser.add_argument('-S', '--symmetry', type=str, default=None,
+                        help='The specific symmetry of the poses of interest.\nPreferably in a composition '
+                             'formula such as T:{C3}{C3}...\nCan also provide the keyword "cryst" to use crystal'
+                             ' symmetry'),
     args = parser.parse_args()
 
-    aligned_pdb = align(args.reference_pdb, args.ref_start_res, args.ref_end_res, args.ref_chain,
-                        args.aligned_pdb, args.align_start_res, args.align_end_res, args.aligned_chain,
-                        extend_helix=args.extend_helical_termini)
-    aligned_pdb.write(args.out_file_path)
+    if args.symmetry or args.sym_entry:
+        sym_entry = parse_symmetry_to_sym_entry(sym_entry=args.sym_entry, sym_map=args.symmetry)
+    else:
+        sym_entry = None
+
+    # Load files and check for helical termini, residue number and chain if provided
+    model1 = Model.from_file(args.reference_pdb)
+    if model1.is_termini_helical():
+        n_term1 = True
+    else:
+        n_term1 = False
+    if model1.is_termini_helical('c'):
+        c_term1 = True
+    else:
+        c_term1 = False
+
+    if args.ref_start_res:
+        residue_number_start1 = args.ref_start_res
+    if args.ref_end_res:
+        residue_number_end1 = args.ref_end_res
+
+    model2 = Model.from_file(args.aligned_pdb)
+    if model2.is_termini_helical():
+        n_term2 = True
+    else:
+        n_term2 = False
+    if model2.is_termini_helical('c'):
+        c_term2 = True
+    else:
+        c_term2 = False
+
+    if args.ref_start_res:
+        residue_number_start2 = args.align_start_res
+    if args.align_end_res:
+        residue_number_end2 = args.align_end_res
+
+    if args.extend_helical_termini:
+        # Use a maximum 15 residue window if an ideal helix is added
+        alignment_window = 15-residue_number_end1-residue_number_start1
+    else:
+        alignment_window = residue_number_end1-residue_number_start1
+
+    for i in range(alignment_window):
+        residue_number_start1 += i
+        residue_number_end1 += i
+        template_model, aligned_model = align(model1, residue_number_start1, residue_number_end1,
+                                              model2, residue_number_start2, residue_number_end2,
+                                              chain1=args.ref_chain, chain2=args.aligned_chain,
+                                              extend_helix=args.extend_helical_termini)
+
+        full_model = structure.model.Pose.from_models([template_model, aligned_model], sym_entry=sym_entry)
+        file_name = f'{template_model.name}_aligned_to_{aligned_model.name}_{i}'
+        out_path = os.path.join(args.output_directory, file_name)
+        if sym_entry is not None:
+            full_model.write(assembly=True, out_path=f'{out_path}_assembly.pdb')
+            full_model.write(out_path=f'{out_path}_asu.pdb')
+        else:
+            full_model.write(out_path=f'{out_path}.pdb')
+

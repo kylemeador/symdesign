@@ -3,7 +3,7 @@ import os
 from typing import Union
 
 from structure.model import Model
-from utils import start_log, set_logging_to_debug, to_iterable
+from utils import start_log, set_logging_to_level, to_iterable
 from utils.symmetry import cubic_point_groups, point_group_symmetry_operators
 
 
@@ -13,7 +13,7 @@ def get_expanded_ptgrp_pdb(pdb_asu, expand_matrices):
     # asu_coords = pdb_asu.extract_coords()
     # asu_coords = pdb_asu.extract_all_coords()
     for r in expand_matrices:
-        asu_sym_mate_pdb = pdb_asu.return_transformed_copy(rotation=r.T)
+        asu_sym_mate_pdb = pdb_asu.get_transformed_copy(rotation=r.T)
         asu_symm_mates.append(asu_sym_mate_pdb)
 
     return asu_symm_mates
@@ -62,10 +62,10 @@ if __name__ == '__main__':
 
     if args.debug:
         logger = start_log(name=os.path.basename(__file__), level=1)
-        set_logging_to_debug()
+        set_logging_to_level()
         logger.debug('Debug mode. Produces verbose output and not written to any .log files')
     else:
-        logger = start_log(name=os.path.basename(__file__), propagate=True)
+        logger = start_log(name=os.path.basename(__file__))
 
     logger.info('Starting %s with options:\n\t%s' %
                 (os.path.basename(__file__),

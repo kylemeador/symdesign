@@ -4,22 +4,14 @@ from itertools import repeat
 
 import pandas as pd
 
-from resources.fragment import fragment_factory
+from structure.fragment.db import fragment_factory, EulerLookup
 from utils.path import biological_interfaces
 from structure.model import Pose
-from utils import start_log, set_logging_to_debug, unpickle, to_iterable, mp_starmap, get_directory_file_paths
-from resources.EulerLookup import EulerLookup
+from utils import start_log, set_logging_to_level, unpickle, to_iterable, mp_starmap, get_directory_file_paths
 
 # Globals
 # Create fragment database for all ijk cluster representatives
-# ijk_frag_db = unpickle(biological_fragment_db_pickle)
 ijk_frag_db = fragment_factory(source=biological_interfaces)
-# ijk_frag_db = FragmentDB()
-# # Get complete IJK fragment representatives database dictionaries
-# ijk_monofrag_cluster_rep_pdb_dict = ijk_frag_db.get_monofrag_cluster_rep_dict()
-# ijk_intfrag_cluster_rep_dict = ijk_frag_db.get_intfrag_cluster_rep_dict()
-# ijk_intfrag_cluster_info_dict = ijk_frag_db.get_intfrag_cluster_info_dict()
-
 # Initialize Euler Lookup Class
 eul_lookup = EulerLookup()
 
@@ -42,7 +34,7 @@ if __name__ == '__main__':
 
     if args.debug:
         logger = start_log(name=os.path.basename(__file__), level=1)
-        set_logging_to_debug()
+        set_logging_to_level()
         logger.debug('Debug mode. Produces verbose output and not written to any .log files')
     else:
         logger = start_log(name=os.path.basename(__file__), level=2, propagate=True)

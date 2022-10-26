@@ -13,7 +13,7 @@ def create_trajectory(design_directories, name='docking_trajectory', output_dir=
     trajectory_model = MultiModel()
     # TODO How to sort?
     for des_dir in design_directories:
-        trajectory_model.add_model(merge_pose_pdbs(des_dir))
+        trajectory_model.append_model(merge_pose_pdbs(des_dir))
 
     return trajectory_model.write(name=name, location=output_dir)
 
@@ -66,10 +66,10 @@ if __name__ == '__main__':
     # Start logging output
     if args.debug:
         logger = utils.start_log(name=os.path.basename(__file__), level=1)
-        utils.set_logging_to_debug()
+        utils.set_logging_to_level()
         logger.debug('Debug mode. Produces verbose output and not written to any .log files')
     else:
-        logger = utils.start_log(name=os.path.basename(__file__), propagate=True)
+        logger = utils.start_log(name=os.path.basename(__file__))
 
     all_poses, location = utils.collect_designs(files=args.file, directory=args.directory)
     assert all_poses, 'No %s directories found within \'%s\'! Please ensure correct location' \

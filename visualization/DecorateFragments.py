@@ -8,10 +8,16 @@ sys.path.append(parent_dir)
 import numpy as np
 from sklearn.neighbors import BallTree
 
-from utils import start_log, set_logging_to_debug, collect_designs
+from structure.fragment.db import fragment_factory
 from structure.fragment import MonoFragment
-from resources.fragment import FragmentDatabase
 from structure.model import Model
+from utils import start_log, set_logging_to_level, collect_designs
+from utils.path import biological_interfaces
+
+
+# Globals
+logger = start_log(name=__name__)
+fragment_db = fragment_factory(source=biological_interfaces)
 
 
 def decorate_with_fragments(pdb_path, out_path=os.getcwd()):
@@ -33,8 +39,7 @@ def decorate_with_fragments(pdb_path, out_path=os.getcwd()):
     # Get Oligomer 1 Ghost Fragments With Guide Coordinates Using Initial Match Fragment Database
     kdtree_oligomer1_backbone = BallTree(np.array(pdb1.backbone_coords))
     surface_residues = pdb1.surface_residues
-    raise NotImplementedError('This is missing the FragmentDatabase. fragment_factory()')
-    surf_frags_1 = pdb1.get_fragment_residues(residues=pdb1.surface_residues, fragment_db=)
+    surf_frags_1 = pdb1.get_fragment_residues(residues=pdb1.surface_residues, fragment_db=fragment_db)
 
     ghost_frag_list = []
     # ghost_frag_guide_coords_list = []
@@ -56,12 +61,12 @@ def decorate_with_fragments(pdb_path, out_path=os.getcwd()):
     for fragment in ghost_frag_list:
         fragment.pdb.write(out_path=os.path.join(out_path, init_dir, 'frag%s_chain%s_res%s.pdb'
                                                  % ('%d_%d_%d' % fragment.ijk,
-                                                    *fragment.get_aligned_chain_and_residue)))
+                                                    *fragment.aligned_chain_and_residue)))
 
     for fragment in complete_ghost_frag_list:
         fragment.pdb.write(out_path=os.path.join(out_path, complete_dir, 'frag%s_chain%s_res%s.pdb'
                                                  % ('%d_%d_%d' % fragment.ijk,
-                                                    *fragment.get_aligned_chain_and_residue)))
+                                                    *fragment.aligned_chain_and_residue)))
 
 
 if __name__ == '__main__':
@@ -79,10 +84,10 @@ if __name__ == '__main__':
     # Start logging output
     if args.debug:
         logger = start_log(name=os.path.basename(__file__), level=1)
-        set_logging_to_debug()
+        set_logging_to_level()
         logger.debug('Debug mode. Produces verbose output and not written to any .log files')
     else:
-        logger = start_log(name=os.path.basename(__file__), propagate=True)
+        logger = start_log(name=os.path.basename(__file__))
 
     logger.info('Starting %s with options:\n\t%s' %
                 (os.path.basename(__file__),
@@ -96,10 +101,6 @@ if __name__ == '__main__':
         exit('Specify either a file or a directory to locate the files!')
 
     logger.info('Getting Fragment Information')
-    ijk_frag_db = FragmentDatabase()
-    # Get complete IJK fragment representatives database dictionaries
-    # ijk_monofrag_cluster_rep_pdb_dict = ijk_frag_db.get_monofrag_cluster_rep_dict()
-    ijk_intfrag_cluster_rep_dict = ijk_frag_db.get_intfrag_cluster_rep_dict()
-    ijk_intfrag_cluster_info_dict = ijk_frag_db.get_intfrag_cluster_info_dict()
+    ijk_frag_db = fragment_factory(source=biological_interfaces)
 
     decorate = [decorate_with_fragments(file, out_path=args.out_path) for file in file_paths]

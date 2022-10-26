@@ -1,22 +1,52 @@
 from __future__ import annotations
 
+import math
 import operator
+import warnings
+from copy import copy
 from itertools import repeat
 from json import loads
-from typing import Literal, AnyStr, Any
+from typing import Literal, AnyStr, Any, Sequence, Iterable
 
 import numpy as np
 import pandas as pd
+import torch
 
+import structure
+from structure.utils import protein_letters_literal, alphabet_types, create_translation_tables
 from utils.path import groups, reference_name, structure_background, design_profile, hbnet_design_profile
 from resources.query.utils import input_string, validate_type, verify_choice, header_string
-from utils import handle_errors, start_log, pretty_format_table, index_intersection, digit_translate_table, DesignError
+from utils import handle_errors, start_log, pretty_format_table, index_intersection, digit_translate_table, \
+    DesignError, z_score
 
 # Globals
 logger = start_log(name=__name__)
 _min, _max = 'min', 'max'
 rank, normalize, boolean = 'rank', 'normalize', 'boolean'
 metric_weight_functions = [rank, normalize]
+residue_classification = ['core', 'rim', 'support']  # 'hot_spot'
+per_residue_energy_states = ['complex', 'bound', 'unbound', 'solv_complex', 'solv_bound', 'solv_unbound']
+energy_metric_names = ['interface_energy_complex', 'interface_energy_bound', 'interface_energy_unbound',
+                       'interface_solvation_energy_complex', 'interface_solvation_energy_bound',
+                       'interface_solvation_energy_unbound']
+per_residue_sasa_states = ['sasa_hydrophobic_bound', 'sasa_polar_bound', 'sasa_hydrophobic_complex',
+                           'sasa_polar_complex', 'sasa_relative_complex', 'sasa_relative_bound',
+                           'sasa_total_bound', 'sasa_total_complex']
+per_residue_intermediate_states = ['bsa_polar', 'bsa_hydrophobic', 'bsa_total']
+sasa_metric_names = ['interface_area_polar', 'interface_area_hydrophobic', 'interface_area_total']
+collapse_metrics = ['new_collapse_islands', 'new_collapse_island_significance', 'contact_order_collapse_significance',
+                    'contact_order_collapse_z_sum', 'global_collapse_z_sum', 'hydrophobicity_deviation_magnitude',
+                    'sequential_collapse_peaks_z_sum', 'sequential_collapse_z_sum']
+# Only slice the final 3 values
+sasa_metrics_rename_mapping = dict(zip(per_residue_intermediate_states, sasa_metric_names))
+# Based on bsa_total values for highest deviating surface residue of one design from multiple measurements
+# Ex: 0.45, 0.22, 0.04, 0.19, 0.01, 0.2, 0.04, 0.19, 0.01, 0.19, 0.01, 0.21, 0.06, 0.17, 0.01, 0.21, -0.04, 0.22
+bsa_tolerance = 0.25
+energy_metrics_rename_mapping = dict(zip(per_residue_energy_states, energy_metric_names))
+errat_1_sigma, errat_2_sigma, errat_3_sigma = 5.76, 11.52, 17.28  # These are approximate magnitude of deviation
+collapse_significance_threshold = 0.43
+collapse_reported_std = .05
+idx_slice = pd.IndexSlice
 master_metrics = {
     'average_fragment_z_score':
         dict(description='The average fragment z-value used in docking/design',
@@ -85,6 +115,17 @@ master_metrics = {
     'contact_count':
         dict(description='Number of carbon-carbon contacts across interface',
              direction=_max, function=rank, filter=True),
+    'contact_order_collapse_significance':
+        dict(description='Summed significance values taking product of positive collapse and contact order per residue.'
+                         ' Positive values indicate collapse in areas with low contact order. Negative, collapse in '
+                         'high contact order. A protein fold relying on high contact order may not need as much '
+                         'collapse, while without high contact order, the segment should rely on itself to fold',
+             direction=_max, function=rank, filter=True),
+    'contact_order_collapse_z_sum':
+        dict(description='Summed contact order z score, scaled proportionally by positions with increased collapse. '
+                         'More negative is more isolated collapse. Positive indicates collapse is occurring in '
+                         'predominantly higher contact order sites',
+             direction=_min, function=rank, filter=True),
     'core':
         dict(description='The number of "core" residues as classified by E. Levy 2010',
              direction=_max, function=rank, filter=True),
@@ -162,9 +203,6 @@ master_metrics = {
     'entity_max_radius_ratio_1v2':  # TODO make a single metric
         dict(description='The ratio of the maximum radius from a reference of component 1 versus 2',
              direction=None, function=None, filter=None),
-    'entity_maximum_radius':
-        dict(description='The maximum radius any entity extends from the assembly core',
-             direction=_min, function=rank, filter=True),
     'entity_min_radius_average_deviation':
         dict(description='In a multi entity assembly, the total deviation of the min radii of each entity from'
                          ' one another',
@@ -172,9 +210,6 @@ master_metrics = {
     'entity_min_radius_ratio_1v2':  # TODO make a single metric
         dict(description='The ratio of the minimum radius from a reference of component 1 versus 2',
              direction=None, function=None, filter=None),
-    'entity_minimum_radius':
-        dict(description='The minimum radius any entity approaches the assembly core',
-             direction=_max, function=rank, filter=True),
     'entity_number_of_residues_average_deviation':
         dict(description='In a multi entity assembly, the total deviation of the number of residues of each '
                          'entity from one another',
@@ -187,12 +222,6 @@ master_metrics = {
              direction=_min, function=rank, filter=True),
     'entity_radius_ratio_1v2':  # TODO make a single metric
         dict(description='', direction=None, function=None, filter=None),
-    'entity_residue_length_total':
-        dict(description='The total number of residues in the design',
-             direction=_min, function=rank, filter=True),
-    'entity_thermophilicity':
-        dict(description='The extent to which the entities in the pose are thermophilic',
-             direction=_max, function=rank, filter=True),
     'errat_accuracy':
         dict(description='The overall Errat score of the design',
              direction=_max, function=rank, filter=True),
@@ -210,8 +239,8 @@ master_metrics = {
         dict(description='The two-body (residue-pair) energy of the complexed interface. No solvation '
                          'energies', direction=_min, function=rank, filter=True),
     'global_collapse_z_sum':
-        dict(description='The sum of collapsing sequence regions z-score. Measures the magnitude of additional'
-                         ' hydrophobic collapse',
+        dict(description='The sum of all sequence regions z-scores experiencing increased collapse. Measures the '
+                         'normalized magnitude of additional hydrophobic collapse',
              direction=_min, function=rank, filter=True),
     'hydrophobicity_deviation_magnitude':
         dict(description='The total deviation in the hydrophobic collapse, either more or less collapse '
@@ -307,6 +336,12 @@ master_metrics = {
     'interface_local_density':
         dict(description='A measure of the average number of atom neighbors for each atom in the interface',
              direction=_max, function=rank, filter=True),
+    'maximum_radius':
+        dict(description='The maximum radius any entity extends from the assembly core',
+             direction=_min, function=rank, filter=True),
+    'minimum_radius':
+        dict(description='The minimum radius any entity approaches the assembly core',
+             direction=_max, function=rank, filter=True),
     'multiple_fragment_ratio':
         dict(description='The extent to which fragment observations are connected in the interface. Higher '
                          'ratio means multiple fragment observations per residue',
@@ -325,8 +360,8 @@ master_metrics = {
         dict(description='The Nanohedra Score normalized by number of fragment residues',
              direction=_max, function=rank, filter=True),
     'new_collapse_island_significance':
-        dict(description='The significance of new collapse islands according to their inverse signficance '
-                         'towards the contact order',
+        dict(description='The magnitude of the contact_order_collapse_significance (abs(deviation)) for identified '
+                         'new collapse islands',
              direction=_min, function=rank, filter=True),
     'new_collapse_islands':
         dict(description='The number of new collapse islands found',
@@ -364,7 +399,7 @@ master_metrics = {
     'percent_core':
         dict(description='The percentage of residues which are "core" according to Levy, E. 2010',
              direction=_max, function=normalize, filter=True),
-    'percent_fragment':
+    'percent_fragment_interface':
         dict(description='Percent of residues with fragment data out of total residues',
              direction=_max, function=normalize, filter=True),
     'percent_fragment_coil':
@@ -385,10 +420,10 @@ master_metrics = {
     'percent_mutations':
         dict(description='The percent of the design which has been mutated',
              direction=_max, function=normalize, filter=True),
-    'percent_residues_fragment_center':
+    'percent_residues_fragment_interface_center':
         dict(description='The percentage of residues which are central fragment observations',
              direction=_max, function=normalize, filter=True),
-    'percent_residues_fragment_total':
+    'percent_residues_fragment_interface_total':
         dict(description='The percentage of residues which are represented by fragment observations',
              direction=_max, function=normalize, filter=True),
     'percent_rim':
@@ -397,6 +432,12 @@ master_metrics = {
     'percent_support':
         dict(description='The percentage of residues which are "support" according to Levy, E. 2010',
              direction=_max, function=normalize, filter=True),
+    'pose_length':
+        dict(description='The total number of residues in the design',
+             direction=_min, function=rank, filter=True),
+    'pose_thermophilicity':
+        dict(description='The extent to which the entities in the pose are thermophilic',
+             direction=_max, function=rank, filter=True),
     groups:
         dict(description='Protocols utilized to search sequence space given fragment and/or evolutionary '
                          'constraint information',
@@ -561,10 +602,11 @@ master_metrics = {
 filter_df = pd.DataFrame(master_metrics)
 nanohedra_metrics = ['nanohedra_score_normalized', 'nanohedra_score_center_normalized', 'nanohedra_score',
                      'nanohedra_score_center', 'number_fragment_residues_total', 'number_fragment_residues_center',
-                     'multiple_fragment_ratio', 'percent_fragment_helix', 'percent_fragment_strand',
-                     'percent_fragment_coil', 'number_of_fragments', 'total_interface_residues',
-                     'total_non_fragment_interface_residues', 'percent_residues_fragment_total',
-                     'percent_residues_fragment_center']
+                     'multiple_fragment_ratio', 'percent_fragment_interface', 'percent_fragment_helix',
+                     'percent_fragment_strand', 'percent_fragment_coil', 'number_of_fragments',
+                     'total_interface_residues',
+                     'total_non_fragment_interface_residues', 'percent_residues_fragment_interface_total',
+                     'percent_residues_fragment_interface_center']
 # These metrics are necessary for all calculations performed during the analysis script. If missing, something will fail
 necessary_metrics = {'buns_complex', 'buns_1_unbound', 'contact_count', 'coordinate_constraint',
                      'favor_residue_energy', 'hbonds_res_selection_complex', 'hbonds_res_selection_1_bound',
@@ -591,7 +633,7 @@ rosetta_required_metrics = []
 # unused, just a placeholder for the metrics in population
 final_metrics = {'buried_unsatisfied_hbonds', 'contact_count', 'core', 'coordinate_constraint',
                  'divergence_design_per_residue', 'divergence_evolution_per_residue', 'divergence_fragment_per_residue',
-                 'divergence_interface_per_residue', 'entity_thermophilicity', 'favor_residue_energy',
+                 'divergence_interface_per_residue', 'pose_thermophilicity', 'favor_residue_energy',
                  'interface_area_hydrophobic', 'interface_area_polar', 'interface_area_total',
                  'interface_composition_similarity', 'interface_connectivity_1', 'interface_connectivity_2',
                  'interface_energy_1_unbound', 'interface_energy_2_unbound',
@@ -603,10 +645,11 @@ final_metrics = {'buried_unsatisfied_hbonds', 'contact_count', 'core', 'coordina
                  'number_fragment_residues_total', 'number_fragment_residues_central', 'number_of_fragments',
                  'observations',
                  'observed_design', 'observed_evolution', 'observed_fragment', 'observed_interface', 'percent_core',
-                 'percent_fragment', 'percent_fragment_coil', 'percent_fragment_helix', 'percent_fragment_strand',
+                 'percent_fragment_interface',
+                 'percent_fragment_coil', 'percent_fragment_helix', 'percent_fragment_strand',
                  'percent_interface_area_hydrophobic', 'percent_interface_area_polar', 'percent_mutations',
-                 'percent_residues_fragment_center',
-                 'percent_residues_fragment_total', 'percent_rim', 'percent_support',
+                 'percent_residues_fragment_interface_center',
+                 'percent_residues_fragment_interface_total', 'percent_rim', 'percent_support',
                  'protocol_energy_distance_sum', 'protocol_similarity_sum', 'protocol_seq_distance_sum',
                  'rosetta_reference_energy', 'rim', 'rmsd', 'shape_complementarity', 'interface_solvation_energy',
                  'interface_solvation_energy_activation', 'support',
@@ -746,6 +789,8 @@ significance_columns = ['buried_unsatisfied_hbonds',
 multiple_sequence_alignment_dependent_metrics = \
     ['global_collapse_z_sum', 'hydrophobicity_deviation_magnitude', 'new_collapse_island_significance',
      'new_collapse_islands', 'sequential_collapse_peaks_z_sum', 'sequential_collapse_z_sum']
+profile_dependent_metrics = ['divergence_evolution_per_residue', 'observed_evolution']
+frag_profile_dependent_metrics = ['divergence_fragment_per_residue', 'observed_fragment']
 # per_res_keys = ['jsd', 'des_jsd', 'int_jsd', 'frag_jsd']
 
 
@@ -968,8 +1013,9 @@ def interface_composition_similarity(series):
     return sum(class_ratio_diff_d.values()) / len(class_ratio_diff_d)
 
 
-def process_residue_info(design_residue_scores: dict, mutations: dict, hbonds: dict = None) -> dict:
-    """Process energy metrics from per residue info and incorporate mutation and hydrogen bond measurements
+def incorporate_mutation_info(design_residue_scores: dict,
+                              mutations: dict[str, 'structure.sequence.mutation_dictionary']) -> dict:
+    """Incorporate mutation measurements into residue info. design_residue_scores and mutations must be the same index
 
     Args:
         design_residue_scores: {'001': {15: {'complex': -2.71, 'bound': [-1.9, 0], 'unbound': [-1.9, 0],
@@ -977,58 +1023,244 @@ def process_residue_info(design_residue_scores: dict, mutations: dict, hbonds: d
                                              'fsp': 0., 'cst': 0.}, ...}, ...}
         mutations: {'reference': {mutation_index: {'from': 'A', 'to: 'K'}, ...},
                     '001': {mutation_index: {}, ...}, ...}
+    Returns:
+        {'001': {15: {'type': 'T', 'energy_delta': -2.71, 'coordinate_constraint': 0. 'residue_favored': 0., 'hbond': 0}
+                 ...}, ...}
+    """
+    warn = False
+    reference_data = mutations.get(reference_name)
+    pose_length = len(reference_data)
+    for design, residue_info in design_residue_scores.items():
+        mutation_data = mutations.get(design)
+        if not mutation_data:
+            continue
+
+        remove_residues = []
+        for residue_number, data in residue_info.items():
+            try:  # Set residue AA type based on provided mutations
+                data['type'] = mutation_data[residue_number]
+            except KeyError:  # Residue is not in mutations, probably missing as it is not a mutation
+                try:  # Fill in with AA from reference_name seq
+                    data['type'] = reference_data[residue_number]
+                except KeyError:  # Residue is out of bounds on pose length
+                    # Possibly a virtual residue or string that was processed incorrectly from the digit_translate_table
+                    if not warn:
+                        logger.error(f'Encountered residue number "{residue_number}" which is not within the pose size '
+                                     f'"{pose_length}" and will be removed from processing. This is likely an error '
+                                     f'with residue processing or residue selection in the specified rosetta protocol.'
+                                     f' If there were warnings produced indicating a larger residue number than pose '
+                                     f'size, this problem was not addressable heuristically and something else has '
+                                     f'occurred. It is likely that this residue number is not useful if you indeed have'
+                                     f' output_as_pdb_nums="true"')
+                        warn = True
+                    remove_residues.append(residue_number)
+                    continue
+
+        # Clean up any incorrect residues
+        for residue in remove_residues:
+            residue_info.pop(residue)
+
+    return design_residue_scores
+
+
+def process_residue_info(design_residue_scores: dict, hbonds: dict = None) -> dict:
+    """Process energy metrics to Pose formatted dictionary from multiple measurements per residue
+    and incorporate hydrogen bond information. design_residue_scores and hbonds must be the same index
+
+    Args:
+        design_residue_scores: {'001': {15: {'complex': -2.71, 'bound': [-1.9, 0], 'unbound': [-1.9, 0],
+                                             'solv_complex': -2.71, 'solv_bound': [-1.9, 0], 'solv_unbound': [-1.9, 0],
+                                             'fsp': 0., 'cst': 0.}, ...}, ...}
         hbonds: {'001': [34, 54, 67, 68, 106, 178], ...}
     Returns:
         {'001': {15: {'type': 'T', 'energy_delta': -2.71, 'coordinate_constraint': 0. 'residue_favored': 0., 'hbond': 0}
                  ...}, ...}
     """
-    if not hbonds:
+    if hbonds is None:
         hbonds = {}
 
-    warn2 = False
-    pose_length = len(mutations[reference_name])
     for design, residue_info in design_residue_scores.items():
         design_hbonds = hbonds.get(design, [])
-        remove_residues = []
         for residue_number, data in residue_info.items():
-            try:  # set residue AA type based on provided mutations
-                data['type'] = mutations[design][residue_number]
-            except KeyError:  # residue is not a mutation, so missing from mutations
-                try:  # fill with aa from wt seq
-                    data['type'] = mutations[reference_name][residue_number]
-                except KeyError:  # residue is out of bounds on pose length
-                    # Possibly a virtual residue or string that was processed incorrectly from the digit_translate_table
-                    if not warn2:
-                        logger.error('Encountered residue number "%d" which is not within the pose size "%d" and will '
-                                     'be removed from processing. This is likely an error with residue processing or '
-                                     'residue selection in the specified rosetta protocol. If there were warnings '
-                                     'produced indicating a larger residue number than pose size, this problem was not '
-                                     'addressable heuristically and something else has occurred. It is likely that this'
-                                     ' residue number is not useful if you indeed have output_as_pdb_nums="true"'
-                                     % (residue_number, pose_length))
-                        warn2 = True
-                    remove_residues.append(residue_number)
-                    continue
-            # set hbond data if available
+            # Set hbond bool if available
             data['hbond'] = 1 if residue_number in design_hbonds else 0
-            # compute the energy delta of each residue which requires summing the unbound energies
-            data['bound'] = sum(data['bound'])
+            # Compute the energy delta which requires summing the unbound energies
             data['unbound'] = sum(data['unbound'])
+            data['energy_delta'] = data['complex'] - data['unbound']
+            # Compute the "preconfiguration" energy delta which requires summing the bound energies
+            data['bound'] = sum(data['bound'])
+            # data['energy_bound_activation'] = data['bound'] - data['unbound']
             data['solv_bound'] = sum(data['solv_bound'])
             data['solv_unbound'] = sum(data['solv_unbound'])
-            data['energy_delta'] = data['complex'] - data['unbound']
-            # data['energy_bound_activation'] = data['bound'] - data['unbound']
             data['coordinate_constraint'] = data.get('cst', 0.)
             data['residue_favored'] = data.get('fsp', 0.)
-            # data.pop('energy')
             # if residue_data[residue_number]['energy'] <= hot_spot_energy:
             #     residue_data[residue_number]['hot_spot'] = 1
 
-        # clean up any incorrect residues
-        for residue in remove_residues:
-            residue_info.pop(residue)
-
     return design_residue_scores
+
+
+def calculate_collapse_metrics(sequences_of_interest: Iterable[Iterable[Sequence[str]]],
+                               # poses_of_interest: list['structure.model.Pose'],
+                               residue_contact_order_z: np.ndarray, reference_collapse: np.ndarray,
+                               collapse_profile: np.ndarray = None) -> list[dict[str, float]]:
+    """Measure folding metrics from sequences based on reference per residue contact order and hydrophobic collapse
+    parameters
+
+    Args:
+        sequences_of_interest:
+        residue_contact_order_z:
+        reference_collapse:
+        collapse_profile:
+    Returns:
+        The collapse metric dictionary (metric, value pairs) for each concatenated sequence in the provided
+            sequences_of_interest
+    """
+    # The contact order is always positive. Negating makes it inverted as to weight more highly contacting poorly
+    residue_contact_order_inverted_z = residue_contact_order_z * -1
+    # reference_collapse = hydrophobic_collapse_index(self.api_db.sequences.retrieve_data(name=entity.name))
+    reference_collapse_bool = np.where(reference_collapse > collapse_significance_threshold, 1, 0)
+    # [0, 0, 0, 0, 1, 1, 0, 0, 1, 1, ...]
+
+    if collapse_profile is not None:
+        collapse_profile_mean = np.nanmean(collapse_profile, axis=-2)
+        collapse_profile_std = np.nanstd(collapse_profile, axis=-2)
+        # Use only the reference (index=0) hydrophobic_collapse_index to calculate a reference
+        reference_collapse_z_score = z_score(collapse_profile[0], collapse_profile_mean, collapse_profile_std)
+
+    # A measure of the sequential, the local, the global, and the significance all constitute interesting
+    # parameters which contribute to the outcome. I can use the measure of each to do a post-hoc solubility
+    # analysis. In the meantime, I could stay away from any design which causes the global collapse to increase
+    # by some percent of total relating to the z-score. This could also be an absolute which would tend to favor
+    # smaller proteins. Favor smaller or larger? What is the literature/data say about collapse?
+    #
+    # A synopsis of my reading is as follows:
+    # I hypothesize that the worst offenders in collapse modification will be those that increase in
+    # hydrophobicity in sections intended for high contact order packing. Additionally, the establishment of new
+    # collapse locales will be detrimental to the folding pathway regardless of their location, however
+    # establishment in folding locations before a significant protein core is established are particularly
+    # egregious. If there is already collapse occurring, the addition of new collapse could be less important as
+    # the structural determinants (geometric satisfaction) of the collapse are not as significant
+    #
+    # All possible important aspects measured are:
+    # X the sequential collapse (earlier is worse than later as nucleation of core is wrong),
+    #   sequential_collapse_peaks_z_sum, sequential_collapse_z_sum
+    # X the local nature of collapse (is the sequence/structural context amenable to collapse?),
+    #   contact_order_collapse_z_sum
+    # X the global nature of collapse (how much has collapse increased globally),
+    #   hydrophobicity_deviation_magnitude, global_collapse_z_sum,
+    # X the change from "non-collapsing" to "collapsing" where collapse passes a threshold and changes folding
+    #   new_collapse_islands, new_collapse_island_significance
+
+    # linearly weight residue by sequence position (early > late) with the halfway position (midpoint)
+    # weighted at 1
+    midpoint = .5
+    scale = 1 / midpoint
+    folding_and_collapse = []
+    # for pose_idx, pose in enumerate(poses_of_interest):
+    #     standardized_collapse = []
+    #     for entity_idx, entity in enumerate(pose.entities):
+    #         sequence_length = entity.number_of_residues
+    #         standardized_collapse.append(entity.hydrophobic_collapse)
+    for pose_idx, sequences in enumerate(sequences_of_interest):
+        # Gather all the collapse info for the particular sequence group
+        standardized_collapse = [hydrophobic_collapse_index(sequence) for entity_idx, sequence in enumerate(sequences)]
+        # Todo
+        #  Calculate two HCI ?at the same time? to benchmark the two hydrophobicity scales
+        #   -> observed_collapse, standardized_collapse = hydrophobic_collapse_index(sequence)
+        standardized_collapse = np.concatenate(standardized_collapse)
+        sequence_length = standardized_collapse.shape[0]
+        # find collapse where: delta above standard collapse, collapsable boolean, and successive number
+        # collapse_propensity = np.where(standardized_collapse > 0.43, standardized_collapse - 0.43, 0)
+        # scale the collapse propensity by the standard collapse threshold and make z score
+        collapse_propensity_z = z_score(standardized_collapse, collapse_significance_threshold, collapse_reported_std)
+        positive_collapse_propensity_z = np.maximum(collapse_propensity_z, 0)
+        # ^ [0, 0, 0, 0, 0.04, 0.06, 0, 0, 0.1, 0.07, ...]
+
+        collapse_bool = positive_collapse_propensity_z != 0  # [0, 0, 0, 0, 1, 1, 0, 0, 1, 1, ...]
+        # collapse_bool = np.where(positive_collapse_propensity_z, 1, 0)
+        increased_collapse = np.where(collapse_bool - reference_collapse_bool == 1, 1, 0)
+        # Check if increased collapse positions resulted in a location of new collapse.
+        # i.e. sites where a new collapse is formed compared to wild-type and there are no neighboring collapse residues
+        # Ex, [0, 0, 1, 1, 0, 0, 0, 0, 0, 0, ...]
+        # new_collapse = np.zeros_like(collapse_bool)
+        # list is faster to index than np.ndarray so we use here
+        new_collapse = [True if collapse and not (ref_collapse_prior or ref_collapse_next) else False
+                        for collapse, ref_collapse_prior, ref_collapse_next in zip(increased_collapse[1:-1].tolist(),
+                                                                                   reference_collapse[:-2].tolist(),
+                                                                                   reference_collapse[2:].tolist())]
+        # Ensure the first and last are calculated as well
+        new_collapse = [True if increased_collapse[0] and not reference_collapse[1] else False] \
+            + new_collapse \
+            + [True if increased_collapse[-1] and not reference_collapse[-2] else False]
+        new_collapse_peak_start = [0 for _ in range(collapse_bool.shape[0])]  # [0, 0, 0, 1, 0, 0, 0, 0, 0, 0, ...]
+        collapse_peak_start = copy(new_collapse_peak_start)  # [0, 0, 0, 0, 1, 0, 0, 0, 1, 0, ...]
+        sequential_collapse_points = np.zeros_like(collapse_bool)  # [0, 0, 0, 0, 1, 1, 0, 0, 2, 2, ..]
+        collapse_iterator = 0
+        for prior_idx, idx in enumerate(range(1, collapse_propensity_z.shape[0])):
+            # Check for the new_collapse "islands" and collapse_peak_start index by comparing neighboring residues
+            # Both conditions are only True when 0 -> 1 transition occurs
+            if new_collapse[prior_idx] < new_collapse[idx]:
+                new_collapse_peak_start[idx] = 1
+            if collapse_bool[prior_idx] < collapse_bool[idx]:
+                collapse_peak_start[idx] = 1
+                collapse_iterator += 1
+            sequential_collapse_points[idx] = collapse_iterator
+
+        if collapse_profile is not None:
+            # Compare the measured collapse to the metrics gathered from the collapse_profile
+            z_array = z_score(standardized_collapse, collapse_profile_mean, collapse_profile_std)
+            # Find indices where the z_array is increased/decreased compared to the reference_collapse_z_score
+            # Todo
+            #  Test for magnitude and directory of the wt versus profile.
+            #  Remove subtraction? It seems useful...
+            difference_collapse_z = z_array - reference_collapse_z_score
+            # Find the indices where the sequence collapse has increased compared to reference collapse_profile
+            global_collapse_z = np.maximum(difference_collapse_z, 0)
+            # Sum the contact order, scaled proportionally by the collapse increase. More negative is more isolated
+            # collapse. Positive indicates poor maintaning of the starting collapse
+            contact_order_collapse_z_sum = np.sum(residue_contact_order_z * global_collapse_z)
+            # The sum of all sequence regions z-scores experiencing increased collapse. Measures the normalized
+            # magnitude of additional hydrophobic collapse
+            global_collapse_z_sum = global_collapse_z.sum()
+            hydrophobicity_deviation_magnitude = np.abs(difference_collapse_z).sum()
+
+            # Reduce sequential_collapse_points iter to only points where collapse_bool is True (1)
+            sequential_collapse_points *= collapse_bool
+            step = 1 / sum(collapse_peak_start)  # This is 1 over the "total_collapse_points"
+            add_step_array = collapse_bool * step
+            # v [0, 0, 0, 0, 2, 2, 0, 0, 1.8, 1.8, ...]
+            sequential_collapse_weights = scale * ((1 - step * sequential_collapse_points) + add_step_array)
+            sequential_collapse_peaks_z_sum = np.sum(sequential_collapse_weights * global_collapse_z)
+            # v [2, 1.98, 1.96, 1.94, 1.92, ...]
+            sequential_weights = scale * (1 - np.arange(sequence_length) / sequence_length)
+            sequential_collapse_z_sum = np.sum(sequential_weights * global_collapse_z)
+        else:
+            hydrophobicity_deviation_magnitude, contact_order_collapse_z_sum, sequential_collapse_peaks_z_sum, \
+                sequential_collapse_z_sum, global_collapse_z_sum = 0., 0., 0., 0., 0.
+
+        # With 'new_collapse_island_significance'
+        #  Use contact order and hci to understand designability of an area and its folding modification
+        #  Indicate the degree to which low contact order segments (+) are reliant on collapse for folding, while
+        #  high contact order (-) use collapse
+
+        #  For positions experiencing collapse, multiply by inverted contact order
+        collapse_significance = residue_contact_order_inverted_z * positive_collapse_propensity_z
+        #  Positive values indicate collapse in areas with low contact order
+        #  Negative, collapse in high contact order
+
+        # Add the concatenated collapse metrics to total
+        folding_and_collapse.append({'new_collapse_islands': sum(new_collapse_peak_start),
+                                     'new_collapse_island_significance': np.sum(new_collapse_peak_start
+                                                                                * np.abs(collapse_significance)),
+                                     'contact_order_collapse_significance': collapse_significance,
+                                     'contact_order_collapse_z_sum': contact_order_collapse_z_sum,
+                                     'global_collapse_z_sum': global_collapse_z_sum,
+                                     'hydrophobicity_deviation_magnitude': hydrophobicity_deviation_magnitude,
+                                     'sequential_collapse_peaks_z_sum': sequential_collapse_peaks_z_sum,
+                                     'sequential_collapse_z_sum': sequential_collapse_z_sum})
+
+    return folding_and_collapse
 
 
 def mutation_conserved(residue_info: dict, bkgnd: dict) -> dict:
@@ -1069,6 +1301,375 @@ def per_res_metric(sequence_metrics: dict[Any, float] | dict[Any, dict[str, floa
         return 0.
     else:
         return s / total
+
+
+def calculate_residue_surface_area(per_residue_df: pd.DataFrame) -> pd.DataFrame:
+    #  index_residues: list[int] = slice(None, None)
+    """From a DataFrame with per residue values, tabulate the values relating to interfacial surface area
+
+    Args:
+        per_residue_df: The DataFrame with MultiIndex columns where level1=residue_numbers, level0=residue_metric
+    Returns:
+        The same dataframe with added columns
+    """
+    # Make buried surface area (bsa) columns
+    bound_hydro = per_residue_df.loc[:, idx_slice[:, 'sasa_hydrophobic_bound']]
+    bound_polar = per_residue_df.loc[:, idx_slice[:, 'sasa_polar_bound']]
+    complex_hydro = per_residue_df.loc[:, idx_slice[:, 'sasa_hydrophobic_complex']]
+    complex_polar = per_residue_df.loc[:, idx_slice[:, 'sasa_polar_complex']]
+
+    bsa_hydrophobic = (bound_hydro.rename(columns={'sasa_hydrophobic_bound': 'bsa_hydrophobic'})
+                       - complex_hydro.rename(columns={'sasa_hydrophobic_complex': 'bsa_hydrophobic'}))
+    bsa_polar = (bound_polar.rename(columns={'sasa_polar_bound': 'bsa_polar'})
+                 - complex_polar.rename(columns={'sasa_polar_complex': 'bsa_polar'}))
+    bsa_total = (bsa_hydrophobic.rename(columns={'bsa_hydrophobic': 'bsa_total'})
+                 + bsa_polar.rename(columns={'bsa_polar': 'bsa_total'}))
+
+    # Make sasa_complex_total columns
+    bound_total = (bound_hydro.rename(columns={'sasa_hydrophobic_bound': 'sasa_total_bound'})
+                   + bound_polar.rename(columns={'sasa_polar_bound': 'sasa_total_bound'}))
+    complex_total = (complex_hydro.rename(columns={'sasa_hydrophobic_complex': 'sasa_total_complex'})
+                     + complex_polar.rename(columns={'sasa_polar_complex': 'sasa_total_complex'}))
+
+    # Find the relative sasa of the complex and the unbound fraction
+    rim_core_support = (bsa_total > bsa_tolerance).to_numpy()
+    interior_surface = ~rim_core_support
+    # surface_or_rim = per_residue_df.loc[:, idx_slice[index_residues, 'sasa_relative_complex']] > 0.25
+    # v These could also be support
+    core_or_support_or_interior = per_residue_df.loc[:, idx_slice[:, 'sasa_relative_complex']] < 0.25
+    surface_or_rim = ~core_or_support_or_interior
+    support_or_interior_not_core_or_rim = per_residue_df.loc[:, idx_slice[:, 'sasa_relative_bound']] < 0.25
+    # ^ These could be interior too
+    # core_sufficient = np.logical_and(core_or_support_or_interior, rim_core_support).to_numpy()
+    interior_residues = np.logical_and(core_or_support_or_interior, interior_surface).rename(
+        columns={'sasa_relative_complex': 'interior'})
+    surface_residues = np.logical_and(surface_or_rim, interior_surface).rename(
+        columns={'sasa_relative_complex': 'surface'})
+
+    support_residues = np.logical_and(support_or_interior_not_core_or_rim, rim_core_support).rename(
+        columns={'sasa_relative_bound': 'support'})
+    rim_residues = np.logical_and(surface_or_rim, rim_core_support).rename(
+        columns={'sasa_relative_complex': 'rim'})
+    core_residues = np.logical_and(~support_residues,
+                                   np.logical_and(core_or_support_or_interior, rim_core_support).to_numpy()).rename(
+        columns={'support': 'core'})
+
+    per_residue_df = per_residue_df.join([bsa_hydrophobic, bsa_polar, bsa_total, bound_total, complex_total,
+                                          core_residues, interior_residues, support_residues, rim_residues,
+                                          surface_residues
+                                          ])
+    # per_residue_df = pd.concat([per_residue_df, core_residues, interior_residues, support_residues, rim_residues,
+    #                             surface_residues], axis=1)
+    return per_residue_df
+
+
+def sum_per_residue_metrics(per_residue_df: pd.DataFrame) -> pd.DataFrame:
+    """From a DataFrame with per residue values, tabulate the values relating to interfacial energy and solvation energy
+
+    Args:
+        per_residue_df: The DataFrame with MultiIndex columns where level1=residue_numbers, level0=residue_metric
+    Returns:
+        A new DataFrame with the summation of all residue_numbers in the per_residue columns
+    """
+    # Group by the columns according to the metrics (level=-1). Upper level(s) are residue identifiers
+    summed_scores_df = per_residue_df.groupby(axis=1, level=-1).sum()
+    # print('after grouby sum', summed_scores_df)
+    # per_residue_df_columns = per_residue_df.columns
+    # present_per_residue_energies = \
+    #     [state for state in per_residue_energy_states if state in per_residue_df_columns]
+    # summed_energies = \
+    #     {energy_state: per_residue_df.loc[:, idx_slice[:, energy_state]].sum(axis=1)
+    #      for energy_state in present_per_residue_energies}
+    # present_per_residue_classification = \
+    #     [classifier for classifier in residue_classification if classifier in residue_classification]
+    # summed_residue_classification = \
+    #     {residue_class: per_residue_df.loc[:, idx_slice[:, residue_class]].sum(axis=1)
+    #      for residue_class in present_per_residue_classification}
+    #
+    # summed_scores_df = pd.DataFrame({**summed_energies, **summed_residue_classification})
+
+    return summed_scores_df.rename(columns={**energy_metrics_rename_mapping, **sasa_metrics_rename_mapping})
+
+
+def calculate_sequence_observations_and_divergence(alignment: 'structure.sequence.MultipleSequenceAlignment',
+                                                   backgrounds: dict[str, np.ndarray],
+                                                   select_indices: list[int] = None) \
+        -> tuple[dict[str, np.ndarray], dict[str, np.ndarray]]:
+    """Gather the observed frequencies from each sequence in a MultipleSequenceAlignment"""
+    # mutation_frequencies = pose_alignment.frequencies[[residue-1 for residue in pose.interface_design_residue_numbers]]
+    # mutation_frequencies = filter_dictionary_keys(pose_alignment.frequencies, pose.interface_design_residue_numbers)
+    # mutation_frequencies = filter_dictionary_keys(pose_alignment['frequencies'], interface_residue_numbers)
+
+    # Calculate amino acid observation percent from residue_info and background SSM's
+    # observation_d = {profile: {design: mutation_conserved(info, background)
+    #                            for design, numerical_sequence in residue_info.items()}
+    # observation_d = {profile: {design: np.where(background[:, numerical_sequence] > 0, 1, 0)
+    #                            for design, numerical_sequence in zip(pose_sequences,
+    #                                                                  list(pose_alignment.numerical_alignment))}
+    #                  for profile, background in profile_background.items()}
+    # Find the observed background for each profile, for each designed pose
+    # pose_observed_bkd = {profile: {design: freq.mean() for design, freq in design_obs_freqs.items()}
+    #                      for profile, design_obs_freqs in observation_d.items()}
+    # for profile, observed_frequencies in pose_observed_bkd.items():
+    #     scores_df[f'observed_{profile}'] = pd.Series(observed_frequencies)
+    # for profile, design_obs_freqs in observation_d.items():
+    #     scores_df[f'observed_{profile}'] = \
+    #         pd.Series({design: freq.mean() for design, freq in design_obs_freqs.items()})
+    # observed_dfs = []
+    transposed_alignment = alignment.numerical_alignment.T
+    # observed = {profile: np.take_along_axis(background, transposed_alignment, axis=1).T
+    observed = {profile: np.where(np.take_along_axis(background, transposed_alignment, axis=1) > 0, 1, 0).T
+                for profile, background in backgrounds.items()}
+    # for profile, background in profile_background.items():
+    #     observed[profile] = np.where(np.take_along_axis(background, transposed_alignment, axis=1) > 0, 1, 0).T
+    #     # obs_df = pd.DataFrame(data=np.where(np.take_along_axis(background, transposed_alignment, axis=1) > 0,
+    #     #                                     1, 0).T,
+    #     #                       index=pose_sequences,
+    #     #                       columns=pd.MultiIndex.from_product([residue_indices, [f'observed_{profile}']]))
+    #     # observed_dfs.append(obs_df)
+
+    # Calculate Jensen Shannon Divergence using different SSM occurrence data and design mutations
+    #                                              both mut_freq and profile_background[profile] are one-indexed
+    divergence = {f'divergence_{profile}':
+                  # position_specific_jsd(pose_alignment.frequencies, background)[interface_indexer]
+                  position_specific_divergence(alignment.frequencies, background)[select_indices]
+                  for profile, background in backgrounds.items()}
+
+    return observed, divergence
+
+
+# def position_specific_jsd(msa: dict[int, dict[str, float]], background: dict[int, dict[str, float]]) -> \
+#         dict[int, float]:
+#     """Generate the Jensen-Shannon Divergence for a dictionary of residues versus a specific background frequency
+#
+#     Both msa and background must be the same index
+#     Args:
+#         msa: {15: {'A': 0.05, 'C': 0.001, 'D': 0.1, ...}, 16: {}, ...}
+#         background: {0: {'A': 0, 'R': 0, ...}, 1: {}, ...}
+#             Containing residue index with inner dictionary of single amino acid types
+#     Returns:
+#         divergence_dict: {15: 0.732, 16: 0.552, ...}
+#     """
+#     return {idx: js_divergence(freq, background[idx]) for idx, freq in msa.items() if idx in background}
+#
+#
+# def js_divergence(frequencies: dict[str, float], bgd_frequencies: dict[str, float], lambda_: float = 0.5) -> \
+#         float:
+#     """Calculate residue specific Jensen-Shannon Divergence value
+#
+#     Args:
+#         frequencies: {'A': 0.05, 'C': 0.001, 'D': 0.1, ...}
+#         bgd_frequencies: {'A': 0, 'R': 0, ...}
+#         lambda_: Value bounded between 0 and 1 to calculate the contribution from the observation versus the background
+#     Returns:
+#         Bounded between 0 and 1. 1 is more divergent from background frequencies
+#     """
+#     sum_prob1, sum_prob2 = 0, 0
+#     for item, frequency in frequencies.items():
+#         bgd_frequency = bgd_frequencies.get(item)
+#         try:
+#             r = (lambda_ * frequency) + ((1 - lambda_) * bgd_frequency)
+#         except TypeError:  # bgd_frequency is None, therefore the frequencies can't be compared. Should error be raised?
+#             continue
+#         try:
+#             with warnings.catch_warnings() as w:
+#                 # Cause all warnings to always be ignored
+#                 warnings.simplefilter('ignore')
+#                 try:
+#                     prob2 = (bgd_frequency * log(bgd_frequency / r, 2))
+#                     sum_prob2 += prob2
+#                 except (ValueError, RuntimeWarning):  # math DomainError doesn't raise, instead RunTimeWarn
+#                     pass  # continue
+#                 try:
+#                     prob1 = (frequency * log(frequency / r, 2))
+#                     sum_prob1 += prob1
+#                 except (ValueError, RuntimeWarning):  # math domain error
+#                     continue
+#         except ZeroDivisionError:  # r = 0
+#             continue
+#
+#     return lambda_ * sum_prob1 + (1 - lambda_) * sum_prob2
+
+
+def jensen_shannon_divergence(sequence_frequencies: np.ndarray, background_aa_freq: np.ndarray, **kwargs) -> np.ndarray:
+    """Calculate Jensen-Shannon Divergence value for all residues against a background frequency dict
+
+    Args:
+        sequence_frequencies: [[0.05, 0.001, 0.1, ...], ...]
+        background_aa_freq: [0.11, 0.03, 0.53, ...]
+    Keyword Args:
+        lambda_: float = 0.5 - Bounded between 0 and 1 indicates weight of the observation versus the background
+    Returns:
+        The divergence per residue bounded between 0 and 1. 1 is more divergent from background, i.e. [0.732, ...]
+    """
+    return np.array([js_divergence(sequence_frequencies[idx], background_aa_freq, **kwargs)
+                     for idx in range(len(sequence_frequencies))])
+
+
+def position_specific_jsd(msa: np.ndarray, background: np.ndarray, **kwargs) -> np.ndarray:
+    """Generate the Jensen-Shannon Divergence for a dictionary of residues versus a specific background frequency
+
+    Both msa and background must be the same index
+
+    Args:
+        msa: {15: {'A': 0.05, 'C': 0.001, 'D': 0.1, ...}, 16: {}, ...}
+        background: {0: {'A': 0, 'R': 0, ...}, 1: {}, ...}
+            Containing residue index with inner dictionary of single amino acid types
+    Keyword Args:
+        lambda_: float = 0.5 - Bounded between 0 and 1 indicates weight of the observation versus the background
+    Returns:
+        The divergence values per position, i.e [0.732, 0.552, ...]
+    """
+    return np.array([js_divergence(msa[idx], background[idx], **kwargs) for idx in range(len(msa))])
+
+
+# KL divergence is similar to cross entropy loss or the "log loss"
+# divergence of p from q where p is the true distribution and q is the model
+# Cross-Entropy = -SUMi->N(probability(pi) * log(probability(qi)))
+# Kullback–Leibler-Divergence = -SUMi->N(probability(pi) * log(probability(qi)/probability(pi)))
+# Shannon-Entropy = -SUMi->N(probability(pi) * log(probability(pi)))
+# Cross entropy can be rearranged where:
+# Cross-Entropy = Shannon-Entropy + Kullback-Leibler-Divergence
+# CE = -SUMi->N(probability(pi) * log(probability(pi))) + -SUMi->N(probability(pi) * log(probability(qi)/probability(pi)))
+# CE = -SUMi->N(probability(pi) * log(probability(pi))) + -SUMi->N(probability(pi) * log(probability(qi)) - (probability(pi) * log(probability(pi)))
+# CE = ----------------------------------------------- + -SUMi->N(probability(pi) * log(probability(qi)) - ----------------------------------------
+# CE = -SUMi->N(probability(pi) * log(probability(qi))
+
+
+def kl_divergence(frequencies: np.ndarray, bgd_frequencies: np.ndarray, per_entry: bool = False,
+                  mask: np.array = None, axis: int | tuple[int, ...] = None) \
+        -> np.ndarray | float:
+    """Calculate Kullback–Leibler Divergence entropy between observed and background frequency distribution(s)
+
+    The divergence will be summed across the last axis/dimension of the input array
+
+    Args:
+        frequencies: [0.05, 0.001, 0.1, ...] The true distribution
+        bgd_frequencies: [0, 0, ...] The model distribution
+        per_entry: Whether the result should be returned after summation over the last axis
+        mask: A mask to restrict calculations to certain entries
+        axis: If the input should be summed over additional axis, which one(s)?
+    Returns:
+        The additional entropy needed to represent the frequencies as the background frequencies.
+            The minimum divergence is 0 when both distributions are identical
+    """
+    probs1 = bgd_frequencies * np.log(frequencies/bgd_frequencies)
+    # if per_residue:
+    kl_per_entry = np.sum(np.where(np.isnan(probs1), 0, probs1), axis=-1)
+    #     return loss
+    if per_entry:
+        return -kl_per_entry
+    elif mask is None:
+        return -np.sum(kl_per_entry, axis=axis)
+    else:
+        # return -(kl_per_entry * mask) / mask
+        return -np.sum(kl_per_entry * mask, axis=axis) / np.sum(mask, axis=axis)
+
+
+def cross_entropy(frequencies: np.ndarray, bgd_frequencies: np.ndarray, per_entry: bool = False,
+                  mask: np.array = None, axis: int | tuple[int, ...] = None) \
+        -> np.ndarray | float:
+    """Calculate the cross entropy between observed and background frequency distribution(s)
+
+    The entropy will be summed across the last axis/dimension of the input array
+
+    Args:
+        frequencies: [0.05, 0.001, 0.1, ...] The true distribution
+        bgd_frequencies: [0, 0, ...] The model distribution
+        per_entry: Whether the result should be returned after summation over the last axis
+        mask: A mask to restrict calculations to certain entries
+        axis: If the input should be summed over additional axis, which one(s)?
+    Returns:
+        The total entropy to represent the frequencies as the background frequencies.
+            The minimum entropy is 0 where both distributions are identical
+    """
+    probs1 = bgd_frequencies * np.log(frequencies)
+    # if per_residue:
+    ce_per_entry = np.sum(np.where(np.isnan(probs1), 0, probs1), axis=-1)
+    #     return loss
+    if per_entry:
+        return -ce_per_entry
+    elif mask is None:
+        return -np.sum(ce_per_entry, axis=axis)
+    else:
+        # return -(ce_per_entry * mask) / mask
+        return -np.sum(ce_per_entry * mask, axis=axis) / np.sum(mask, axis=axis)
+
+
+def js_divergence(frequencies: np.ndarray, bgd_frequencies: np.ndarray, lambda_: float = 0.5) -> float:
+    """Calculate Jensen-Shannon Divergence value from observed and background frequencies
+
+    Args:
+        frequencies: [0.05, 0.001, 0.1, ...] The true distribution
+        bgd_frequencies: [0, 0, ...] The model distribution
+        lambda_: Bounded between 0 and 1 indicates weight of the observation versus the background
+    Returns:
+        Bounded between 0 and 1. 1 is more divergent from background frequencies
+    """
+    r = (lambda_ * frequencies) + ((1 - lambda_) * bgd_frequencies)
+    probs1 = frequencies * np.log2(frequencies / r)
+    probs2 = bgd_frequencies * np.log2(bgd_frequencies / r)
+    return (lambda_ * np.where(np.isnan(probs1), 0, probs1).sum()) \
+        + ((1 - lambda_) * np.where(np.isnan(probs2), 0, probs2).sum())
+
+
+# This is for a multiaxis ndarray
+def position_specific_divergence(frequencies: np.ndarray, bgd_frequencies: np.ndarray, lambda_: float = 0.5) -> \
+        np.ndarray:
+    """Calculate Jensen-Shannon Divergence value from observed and background frequencies
+
+    Args:
+        frequencies: [0.05, 0.001, 0.1, ...]
+        bgd_frequencies: [0, 0, ...]
+        lambda_: Bounded between 0 and 1 indicates weight of the observation versus the background
+    Returns:
+        An array of divergences bounded between 0 and 1. 1 indicates frequencies are more divergent from background
+    """
+    r = (lambda_ * frequencies) + ((1 - lambda_) * bgd_frequencies)
+    with warnings.catch_warnings() as w:
+        # Ignore all warnings related to np.nan
+        warnings.simplefilter('ignore')
+        probs1 = frequencies * np.log2(frequencies / r)
+        probs2 = bgd_frequencies * np.log2(bgd_frequencies / r)
+    return (lambda_ * np.where(np.isnan(probs1), 0, probs1).sum(axis=1)) \
+        + ((1 - lambda_) * np.where(np.isnan(probs2), 0, probs2).sum(axis=1))
+
+# def js_divergence(frequencies: Sequence[float], bgd_frequencies: Sequence[float], lambda_: float = 0.5) -> \
+#         float:
+#     """Calculate Jensen-Shannon Divergence value from observed and background frequencies
+#
+#     Args:
+#         frequencies: [0.05, 0.001, 0.1, ...]
+#         bgd_frequencies: [0, 0, ...]
+#         lambda_: Bounded between 0 and 1 indicates weight of the observation versus the background
+#     Returns:
+#         Bounded between 0 and 1. 1 is more divergent from background frequencies
+#     """
+#     sum_prob1, sum_prob2 = 0, 0
+#     for frequency, bgd_frequency in zip(frequencies, bgd_frequencies):
+#         # bgd_frequency = bgd_frequencies.get(item)
+#         try:
+#             r = (lambda_ * frequency) + ((1 - lambda_) * bgd_frequency)
+#         except TypeError:  # bgd_frequency is None, therefore the frequencies can't be compared. Should error be raised?
+#             continue
+#         try:
+#             with warnings.catch_warnings() as w:
+#                 # Cause all warnings to always be ignored
+#                 warnings.simplefilter('ignore')
+#                 try:
+#                     prob2 = bgd_frequency * log(bgd_frequency / r, 2)
+#                 except (ValueError, RuntimeWarning):  # math DomainError doesn't raise, instead RunTimeWarn
+#                     prob2 = 0
+#                 sum_prob2 += prob2
+#                 try:
+#                     prob1 = frequency * log(frequency / r, 2)
+#                 except (ValueError, RuntimeWarning):  # math domain error
+#                     continue
+#                 sum_prob1 += prob1
+#         except ZeroDivisionError:  # r = 0
+#             continue
+#
+#     return lambda_ * sum_prob1 + (1 - lambda_) * sum_prob2
 
 
 def df_permutation_test(grouped_df: pd.DataFrame, diff_s: pd.Series, group1_size: int = 0, compare: str = 'mean',
@@ -1420,3 +2021,198 @@ def rank_dataframe_by_metric_weights(df: pd.DataFrame, weights: dict[str, float]
         return df.sum(axis=1).sort_values(ascending=False)
     else:  # just sort by lowest energy
         return df['interface_energy'].sort_values('interface_energy', ascending=True)
+
+
+def window_function(data: Sequence[int | float], windows: Iterable[int] = None, lower: int = None,
+                    upper: int = None) -> np.ndarray:
+    """Perform windowing operations on a sequence of data and return the result of the calculation. Window lengths can
+    be specified by passing the windows to perform calculation on as an Iterable or by a range of window lengths
+
+    Args:
+        data: The sequence of numeric data to perform calculations
+        windows: An iterable of window lengths to use. If a single, pass as the Iterable
+        lower: The lower range of the window to operate on. "window" is inclusive of this value
+        upper: The upper range of the window to operate on. "window" is inclusive of this value
+    Returns:
+        The (number of windows, length of data) array of values with each requested window along axis=0
+            and the particular value of the windowed data along axis=1
+    """
+    array_length = len(data)
+    if windows is None:
+        if lower is not None and upper is not None:
+            windows = list(range(lower, upper + 1))  # +1 makes inclusive in range
+        else:
+            raise ValueError(f'{window_function.__name__}:'
+                             f' Must provide either window, or lower and upper')
+
+    # Make an array with axis=0 equal to number of windows used, axis=1 equal to length of values
+    # range_size = len(windows)
+    # data_template = [0 for _ in range(array_length)]
+    window_array = np.zeros((len(windows), array_length))
+    for array_idx, window_size in enumerate(windows):  # Make the divisor a float
+        half_window = math.floor(window_size / 2)  # how far on each side should the window extend
+        # # Calculate score accordingly, with cases for N- and C-terminal windows
+        # for data_idx in range(half_window):  # N-terminus windows
+        #     # add 1 as high slice not inclusive
+        #     window_array[array_idx, data_idx] = sequence_array[:data_idx + half_window + 1].sum() / window_size
+        # for data_idx in range(half_window, array_length-half_window):  # continuous length windows
+        #     # add 1 as high slice not inclusive
+        #     window_array[array_idx, data_idx] = \
+        #         sequence_array[data_idx - half_window: data_idx + half_window+1].sum() / window_size
+        # for data_idx in range(array_length-half_window, array_length):  # C-terminus windows
+        #     # No add 1 as low slice inclusive
+        #     window_array[array_idx, data_idx] = sequence_array[data_idx - half_window:].sum() / window_size
+        #
+        # # check if the range is even, then subtract 1/2 of the value of trailing and leading window values
+        # if window_size % 2 == 0.:
+        #     # subtract_half_leading_residue = sequence_array[half_window:] * 0.5 / window_size
+        #     window_array[array_idx, :array_length - half_window] -= \
+        #         sequence_array[half_window:] * 0.5 / window_size
+        #     # subtract_half_trailing_residue = sequence_array[:array_length - half_window] * 0.5 / window_size
+        #     window_array[array_idx, half_window:] -= \
+        #         sequence_array[:array_length - half_window] * 0.5 / window_size
+
+        # Calculate score accordingly, with cases for N- and C-terminal windows
+        # array_length_range = range(array_length)
+        # # Make a "zeros" list
+        # data_window = [0 for _ in range(array_length)]
+        # window_data = copy(data_template)
+        # This would be the method if the slices need to be taken with respect to the c-term
+        # for end_idx, start_idx in enumerate(range(array_length - window_size), window_size):
+        # There is no off by one error if we slice lower or higher than list so include both termini
+        # for end_idx, start_idx in enumerate(range(array_length), window_size):
+        #     idx_sum = sum(data[start_idx:end_idx])
+        #     # for window_position in range(start_idx, end_idx + 1):
+        #     # # for window_position in range(data_idx - half_window, data_idx + half_window + 1):
+        #     #     idx_sum += sum(data[start_idx:end_idx])
+        #     window_data[data_idx] = idx_sum
+
+        # Calculate each score given the window. Accounts for window cases with N- and C-termini
+        # There is no off by one error if we slice lower or higher than list so include both termini
+        window_data = [sum(data[start_idx:end_idx])
+                       for end_idx, start_idx in enumerate(range(-array_length - half_window, -half_window),
+                                                           half_window + 1)]
+
+        # # Old python list method
+        # for data_idx in array_length_range:
+        #     idx_sum = 0
+        #     if data_idx < half_window:  # N-terminus
+        #         for window_position in range(data_idx + half_window + 1):
+        #             idx_sum += data[window_position]
+        #     elif data_idx + half_window >= array_length:  # C-terminus
+        #         for window_position in range(data_idx - half_window, array_length):
+        #             idx_sum += data[window_position]
+        #     else:
+        #         for window_position in range(data_idx - half_window, data_idx + half_window + 1):
+        #             idx_sum += data[window_position]
+        #
+        #     # Set each idx_sum to the idx in data_window
+        #     data_window[data_idx] = idx_sum
+        # Handle data_window incorporation into numpy array
+        window_array[array_idx] = window_data
+        window_array[array_idx] /= float(window_size)
+
+        # Account for windows that have even ranges
+        if window_size % 2 == 0.:  # The range is even
+            # Calculate a modifier to subtract from each of the data values given the original value and the window size
+            even_modifier = .5 / window_size
+            even_modified_data = [value * even_modifier for value in data]
+            # subtract_half_leading_residue = sequence_array[half_window:] * 0.5 / window_size
+            window_array[array_idx, :-half_window] -= even_modified_data[half_window:]
+            # subtract_half_trailing_residue = sequence_array[:array_length - half_window] * 0.5 / window_size
+            window_array[array_idx, half_window:] -= even_modified_data[:-half_window]
+
+    return window_array
+
+
+hydrophobicity_scale = \
+    {'expanded': {'A': 0, 'C': 0, 'D': 0, 'E': 0, 'F': 1, 'G': 0, 'H': 0, 'I': 1, 'K': 0, 'L': 1, 'M': 1, 'N': 0,
+                  'P': 0, 'Q': 0, 'R': 0, 'S': 0, 'T': 0, 'V': 1, 'W': 1, 'Y': 1, 'B': 0, 'J': 0, 'O': 0, 'U': 0,
+                  'X': 0, 'Z': 0},
+     'standard': {'A': 0, 'C': 0, 'D': 0, 'E': 0, 'F': 1, 'G': 0, 'H': 0, 'I': 1, 'K': 0, 'L': 1, 'M': 0, 'N': 0,
+                  'P': 0, 'Q': 0, 'R': 0, 'S': 0, 'T': 0, 'V': 1, 'W': 0, 'Y': 0, 'B': 0, 'J': 0, 'O': 0, 'U': 0,
+                  'X': 0, 'Z': 0}}
+
+
+def hydrophobic_collapse_index(sequence: Sequence[str | int] | np.ndarry, hydrophobicity: str = 'standard',
+                               custom: dict[protein_letters_literal, int] = None, alphabet_type: alphabet_types = None,
+                               lower_window: int = 3, upper_window: int = 9) -> np.ndarray:
+    """Calculate hydrophobic collapse index for sequence(s) of interest and return an HCI array
+
+    Args:
+        sequence: The sequence to measure. Can be a character based sequence (or array of sequences with shape
+            (sequences, residues)), an integer based sequence, or a sequence profile like array (residues, alphabet)
+            where each character in the alphabet contains a typical distribution of amino acid observations
+        hydrophobicity: The hydrophobicity scale to consider. Either 'standard' (FILV), 'expanded' (FMILYVW),
+            or provide one with 'custom' keyword argument
+        custom: A user defined dictionary of hydrophobicity key, value (float/int) pairs
+        alphabet_type: The amino acid alphabet used if the sequence consists of integer characters
+        lower_window: The smallest window used to measure
+        upper_window: The largest window used to measure
+    Returns:
+        1D array with the hydrophobic collapse index at every position on the input sequence(s)
+    """
+    if custom is None:
+        hydrophobicity_values = hydrophobicity_scale.get(hydrophobicity)
+        # hydrophobicity == 'background':  # Todo
+        if not hydrophobicity_values:
+            raise ValueError(f'The hydrophobicity "{hydrophobicity}" table is not available. Add it if you think it '
+                             f'should be')
+    else:
+        hydrophobicity_values = custom
+
+    missing_alphabet = f'Must pass an alphabet type when calculating {hydrophobic_collapse_index.__name__} using ' \
+                       f'integer sequence values'
+    if isinstance(sequence[0], int):  # This is an integer sequence. An alphabet is required
+        print('integer')
+        if alphabet_type is None:
+            raise ValueError(missing_alphabet)
+        else:
+            alphabet = create_translation_tables(alphabet_type)
+
+        values = [hydrophobicity_values[aa] for aa in alphabet]
+        sequence_array = [values[aa_int] for aa_int in sequence]
+        # raise ValueError(f"sequence argument with type {type(sequence).__name__} isn't supported")
+    elif isinstance(sequence[0], str):  # This is a string array # if isinstance(sequence[0], str):
+        sequence_array = [hydrophobicity_values.get(aa, 0) for aa in sequence]
+        # raise ValueError(f"sequence argument with type {type(sequence).__name__} isn't supported")
+    elif isinstance(sequence, (torch.Tensor, np.ndarray)):  # This is an integer sequence. An alphabet is required
+        # if sequence.ndim == 2:
+        np_torch_int_types = (np.int8, np.int16, np.int32, np.int64,
+                              torch.int, torch.int8, torch.int16, torch.int32, torch.int64)
+        np_torch_float_types = (np.float16, np.float32, np.float64,
+                                torch.float, torch.float16, torch.float32, torch.float64)
+        np_torch_int_float_types = np_torch_int_types + np_torch_float_types
+        if sequence.dtype in np_torch_int_float_types:
+            if alphabet_type is None:
+                raise ValueError(missing_alphabet)
+            else:
+                alphabet = create_translation_tables(alphabet_type)
+
+            # torch.Tensor and np.ndarray can multiply by np.ndarray
+            values = np.array([hydrophobicity_values[aa] for aa in alphabet])
+            if sequence.ndim == 2:
+                # print('HCI debug')
+                # print('array.shape', sequence.shape, 'values.shape', values.shape)
+                # The array must have shape (number_of_residues, alphabet_length)
+                sequence_array = sequence * values
+                # Ensure each position is a combination of the values for each amino acid
+                sequence_array = sequence_array.sum(axis=-1)
+                # print('sequence_array', sequence_array)
+            else:
+                raise ValueError(f"Can't process a {sequence.ndim}-dimensional array yet")
+        else:  # We assume it is a sequence array with bytes?
+            # The array must have shape (number_of_residues, alphabet_length)
+            sequence_array = sequence * np.vectorize(hydrophobicity_values.__getitem__)(sequence)
+            # Ensure each position is a combination of the values for each amino acid in the array
+            sequence_array = sequence_array.mean(axis=-2)
+        # elif isinstance(sequence, Sequence):
+        #     sequence_array = [hydrophobicity_values.get(aa, 0) for aa in sequence]
+    else:
+        raise ValueError(f'The provided sequence must comprise the canonical amino acid string characters or '
+                         f'integer values corresponding to numerical amino acid conversions. '
+                         f'Got type={type(sequence[0]).__name__} instead')
+
+    window_array = window_function(sequence_array, lower=lower_window, upper=upper_window)
+
+    return window_array.mean(axis=0)

@@ -16,7 +16,7 @@ To run SymDesign, prepare your design target either with seamless integration of
 All of these modules come with a number of parameters that can modify the outcome. You can access the available options (flags) through `python SymDesign.py --help` or `python SymDesign.py MODULE --help`. As an example, for design, you can specify whether you'd like evolutionary information or fragment information applied to the sampling as well as any specific entities, chains, or residues you would like to focus on (select, such as --select_residues) or exclude (mask, such as --mask_residues) from design. Further you can specify if any residues or chains are required (--required_residues) in design beyond the interface design (say you want to correct a helical fusion that your uncertain of the best overlapping sequence). All flags can also be provided to any module by using the notation @my_favorite_flags.file in the specified command. Alternatively, these values will take their defaults if none are provided or if you only have one flag that your really interested in you can simply add this to the command.  
 Some examples of viable commands:
 
-    python SymDesign.py --directory DOCKING/OUTPUT interface_design --symmetry T33 --nanohedra_output --no_term_constraint --select_designable_chains A,B --mask_designable_residues_by_pose_number 243-287
+    python SymDesign.py --directory DOCKING/OUTPUT interface_design --symmetry T33 --nanohedra_output --no-term_constraint --select_designable_chains A,B --mask_designable_residues_by_pose_number 243-287
 
 Additionally, the fragment propensities can be measured at the interface of symmetric entities by specifying a symmetry (or providing a CRYST1 record in the .pdb file) in the case of 2D and 3D symmetries
 

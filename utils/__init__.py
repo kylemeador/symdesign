@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import math
 import multiprocessing as mp
 import os
@@ -15,7 +16,8 @@ from itertools import repeat
 from logging import Logger, DEBUG, INFO, WARNING, ERROR, CRITICAL, getLogger, StreamHandler, FileHandler, NullHandler, \
     Formatter, root
 from string import digits
-from typing import Any, Callable, Union, Iterable, List, Tuple, AnyStr, Dict, DefaultDict, Sequence, Iterator
+from typing import Any, Callable, Union, Iterable, List, Tuple, AnyStr, Dict, DefaultDict, Sequence, Iterator, \
+    Literal, Type
 
 import numpy as np
 import psutil
@@ -27,7 +29,7 @@ from utils import path as PUtils
 
 # Globals
 input_string = '\nInput: '
-index_offset = 1
+zero_offset = 1
 rmsd_threshold = 1.0
 # from colorbrewer (https://colorbrewer2.org/)
 color_arrays = [
@@ -68,7 +70,7 @@ def set_dictionary_by_path(root, items, value):
 # ERRORS
 ##########
 
-def handle_errors(errors: tuple[Exception, ...] = (Exception,)) -> Any:
+def handle_errors(errors: tuple[Type[Exception], ...] = (Exception,)) -> Any:
     """Decorator to wrap a function with try: ... except errors:
 
     Args:
@@ -105,60 +107,77 @@ class SymmetryError(DesignError):
 
 
 def timestamp() -> str:
-    """Return the date/time formatted as YEAR-MO-DA-245959"""
+    """Return the date/time formatted as YR-MO-DA-HRMNSC. Ex: 2022-Jan-01-245959"""
     return time.strftime('%y-%m-%d-%H%M%S')
 
 
+def datestamp(short: bool = False) -> str:
+    """Return the date/time formatted as Year-Mon-DA.
+
+    Args:
+        short: Whether to return the short date
+    Returns:
+        Ex: 2022-Jan-01 or 01-Jan-22 if short
+    """
+    if short:
+        return time.strftime('%d-%b-%y')  # Desired PDB format
+    else:
+        return time.strftime('%Y-%b-%d')  # Preferred format
+
+
+short_start_date = datestamp(short=True)
+long_start_date = datestamp()
 starttime = timestamp()
+log_handler = {1: StreamHandler, 2: FileHandler, 3: NullHandler}
+log_level = {1: DEBUG, 2: INFO, 3: WARNING, 4: ERROR, 5: CRITICAL,
+             10: DEBUG, 20: INFO, 30: WARNING, 40: ERROR, 50: CRITICAL}
+logging_levels: Literal[1, 2, 3, 4, 5, 10, 20, 30, 40, 50]
 
 
-def start_log(name: str = '', handler: int = 1, level: int = 2, location: Union[str, bytes] = os.getcwd(),
+def start_log(name: str = '', handler: int = 1, level: logging_levels = 2, location: Union[str, bytes] = os.getcwd(),
               propagate: bool = False, format_log: bool = True, no_log_name: bool = False,
-              set_handler_level: bool = False) -> Logger:
+              handler_level: logging_levels = None) -> Logger:
     """Create a logger to handle program messages
 
     Args:
-        name: The name of the logger. By default the root logger is returned
+        name: The name of the logger. By default, the root logger is returned
         handler: Whether to handle to stream (1), a file (2), or a NullHandler (3+)
         level: What level of messages to emit (1-debug, 2-info, 3-warning, 4-error, 5-critical)
         location: If a FileHandler is used (handler=2) where should file be written? .log is appended to the filename
         propagate: Whether to propagate messages to parent loggers (such as root or parent.current_logger)
         format_log: Whether to format the log with logger specific formatting otherwise use message format
         no_log_name: Whether to omit the logger name from the output
-        set_handler_level: Whether to set the level for the logger overall in addition to the logHandler
+        handler_level: Whether to set the level for the logger handler on top of the overall level
     Returns:
         Logger object to handle messages
     """
-    # Todo make a mechanism to only emit warning or higher if propagate=True
-    # log_handler = {1: logging.StreamHandler(), 2: logging.FileHandler(location + '.log'), 3: logging.NullHandler}
-    log_level = {1: DEBUG, 2: INFO, 3: WARNING, 4: ERROR, 5: CRITICAL}
-
     _logger = getLogger(name)
     _logger.setLevel(log_level[level])
-    if not propagate:
-        _logger.propagate = False
-    # lh = log_handler[handler]
-    if handler == 1:
-        lh = StreamHandler()
-    elif handler == 2:
-        if os.path.splitext(location)[1] == '':  # no extension, should add one
-            lh = FileHandler(f'{location}.log')
-        else:  # already has extension
-            lh = FileHandler(location)
-    else:  # handler == 3:
-        lh = NullHandler()
-        # return _logger
-    if set_handler_level:
-        lh.setLevel(log_level[level])
+    # Todo make a mechanism to only emit warning or higher if propagate=True
+    #  See SymDesign.py use of adding handler[0].addFilter()
+    _logger.propagate = propagate
+    _handler = log_handler[handler]
+    if handler == 2:
+        # Check for extension. If one doesn't exist, add ".log"
+        lh = _handler(f'{location}.log' if os.path.splitext(location)[1] == '' else location)
+    else:
+        lh = _handler()
+
+    if handler_level is not None:
+        lh.setLevel(log_level[handler_level])
     _logger.addHandler(lh)
 
     if format_log:
         if no_log_name:
             # log_format = Formatter('%(levelname)s: %(message)s')
-            log_format = Formatter('\033[38;5;208m%(levelname)s\033[0;0m: %(message)s')
+            # log_format = Formatter('\033[38;5;208m%(levelname)s\033[0;0m: %(message)s')
+            log_format = Formatter(fmt='\033[38;5;208m{levelname}\033[0;0m: {message}', style='{')
+
         else:
             # log_format = Formatter('[%(name)s]-%(levelname)s: %(message)s')  # \033[48;5;69m background
-            log_format = Formatter('\033[38;5;93m%(name)s\033[0;0m-\033[38;5;208m%(levelname)s\033[0;0m: %(message)s')
+            # log_format = Formatter('\033[38;5;93m%(name)s\033[0;0m-\033[38;5;208m%(levelname)s\033[0;0m: %(message)s')
+            log_format = Formatter(fmt='\033[38;5;93m{name}\033[0;0m-\033[38;5;208m{levelname}\033[0;0m: {message}',
+                                   style='{')
         lh.setFormatter(log_format)
 
     return _logger
@@ -168,12 +187,39 @@ logger = start_log(name=__name__)
 null_log = start_log(name='null', handler=3)
 
 
-def set_logging_to_debug():
-    """For each Logger in current run time set the Logger level to debug"""
+def set_logging_to_level(level: logging_levels = None, handler_level: logging_levels = None):
+    """For each Logger in current run time, set the Logger or the Logger.handlers level to level
+
+    level is debug by default if no arguments are specified
+
+    Args:
+        level: The level to set all loggers to
+        handler_level: The level to set all logger handlers to
+    """
+    if level is not None:
+        _level = log_level[level]
+        set_level_func = Logger.setLevel
+    elif handler_level is not None:  # Todo possibly rework this to accept both arguments
+        _level = log_level[handler_level]
+
+        def set_level_func(logger_: Logger, level_: int):
+            for handler in logger_.handlers:
+                handler.setLevel(level_)
+    else:  # if level is None and handler_level is None:
+        _level = log_level[1]
+        set_level_func = Logger.setLevel
+
     for logger_name in root.manager.loggerDict:
         _logger = getLogger(logger_name)
-        _logger.setLevel(DEBUG)
-        _logger.propagate = False
+        set_level_func(_logger, _level)
+        # _logger.setLevel(_level)
+
+
+def set_loggers_to_propagate():
+    """For each Logger in current run time, set the Logger to propagate"""
+    for logger_name in root.manager.loggerDict:
+        _logger = getLogger(logger_name)
+        _logger.propagate = True
 
 
 def pretty_format_table(data: Iterable, justification: Iterable = None, header: Iterable = None,
@@ -202,8 +248,8 @@ def pretty_format_table(data: Iterable, justification: Iterable = None, header: 
     elif len(justification) == row_length:
         justifications = [justification_d.get(key.lower(), str.ljust) for key in justification]
     else:
-        raise RuntimeError('The justification length (%d) doesn\'t match the number of columns (%d)'
-                           % (len(justification), row_length))
+        raise RuntimeError(f"The justification length ({len(justification)}) doesn't match the "
+                           f"number of columns ({row_length})")
     if header:
         if len(header) == row_length:
             data = [[column for column in row] for row in data]  # format as list so can insert
@@ -213,11 +259,11 @@ def pretty_format_table(data: Iterable, justification: Iterable = None, header: 
             elif len(header_justification) == row_length:
                 header_justification = [justification_d.get(key.lower(), str.center) for key in header_justification]
             else:
-                raise RuntimeError('The header_justification length (%d) doesn\'t match the number of columns (%d)'
-                                   % (len(header_justification), row_length))
+                raise RuntimeError(f"The header_justification length ({len(header_justification)}) doesn't match the "
+                                   f"number of columns ({row_length})")
         else:
-            raise RuntimeError('The header length (%d) doesn\'t match the number of columns (%d)'
-                               % (len(header), row_length))
+            raise RuntimeError(f"The header length ({len(header)}) doesn't match the "
+                               f"number of columns ({row_length})")
 
     return [' '.join(header_justification[idx](str(col), width) if not idx and header else justifications[idx](str(col), width)
                      for idx, (col, width) in enumerate(zip(row, widths))) for row in data]
@@ -243,6 +289,35 @@ def make_path(path: AnyStr, condition: bool = True):
     """
     if condition:
         os.makedirs(path, exist_ok=True)
+
+
+def read_json(file_name, **kwargs) -> dict | None:
+    """Use json.load to read an object from a file
+
+    Args:
+        file_name: The location of the file to write
+    Returns:
+        The json data in the file
+    """
+    with open(file_name, 'r') as f_save:
+        data = json.load(f_save)
+
+    return data
+
+
+def write_json(data: Any, file_name: AnyStr, **kwargs) -> AnyStr:
+    """Use json.dump to write an object to a file
+
+    Args:
+        data: The object to write
+        file_name: The location of the file to write
+    Returns:
+        The name of the written file
+    """
+    with open(file_name, 'w') as f_save:
+        json.dump(data, f_save, **kwargs)
+
+    return file_name
 
 
 # @handle_errors(errors=(FileNotFoundError,))
@@ -477,7 +552,7 @@ def remove_duplicates(_iter: Iterable) -> List:
 
 def write_shell_script(command: str, name: str = 'script', out_path: Union[str, bytes] = os.getcwd(),
                        additional: List = None, shell: str = 'bash', status_wrap: str = None) -> Union[str, bytes]:
-    """Take a command and write to a name.sh script. By default bash is used as the shell interpreter
+    """Take a command and write to a name.sh script. By default, bash is used as the shell interpreter
 
     Args:
         command: The command formatted using subprocess.list2cmdline(list())
@@ -491,10 +566,9 @@ def write_shell_script(command: str, name: str = 'script', out_path: Union[str, 
     """
     if status_wrap:
         modifier = '&&'
-        check = subprocess.list2cmdline(['python', os.path.join(PUtils.utils_dir, 'CommandDistributer.py'),
-                                         '--stage', name, 'status', '--info', status_wrap, '--check', modifier, '\n'])
-        _set = subprocess.list2cmdline(['python', os.path.join(PUtils.utils_dir, 'CommandDistributer.py'),
-                                        '--stage', name, 'status', '--info', status_wrap, '--set'])
+        _base_cmd = ['python', PUtils.command_distributer, '--stage', name, 'status', '--info', status_wrap]
+        check = subprocess.list2cmdline(_base_cmd + ['--check', modifier, '\n'])
+        _set = subprocess.list2cmdline(_base_cmd + ['--set'])
     else:
         check, _set, modifier = '', '', ''
 
@@ -519,7 +593,7 @@ def write_commands(commands: Iterable[str], name: str = 'all_commands', out_path
     Returns:
         The filename of the new file
     """
-    file = os.path.join(out_path, '%s.cmds' % name if len(commands) > 1 else '%s.cmd' % name)
+    file = os.path.join(out_path, f'{name}.cmds' if len(commands) > 1 else f'{name}.cmd')
     with open(file, 'w') as f:
         f.write('%s\n' % '\n'.join(command for command in commands))
 
@@ -781,7 +855,7 @@ def get_file_paths_recursively(directory: AnyStr, extension: str = None, sort: b
     Returns:
         The list of files matching the search
     """
-    if extension:
+    if extension is not None:
         file_generator = (os.path.join(os.path.abspath(root), file)
                           for root, dirs, files in os.walk(directory, followlinks=True) for file in files
                           if extension in file)
@@ -792,7 +866,7 @@ def get_file_paths_recursively(directory: AnyStr, extension: str = None, sort: b
     return sorted(file_generator) if sort else list(file_generator)
 
 
-def get_directory_file_paths(directory: AnyStr, suffix: str = '', extension: str = '.pdb*', sort: bool = True) -> \
+def get_directory_file_paths(directory: AnyStr, suffix: str = '', extension: str = '', sort: bool = True) -> \
         list[AnyStr]:
     """Return all files in a directory with specified extensions and suffixes
 
@@ -928,7 +1002,7 @@ def collect_designs(files: Sequence = None, directory: str = None, projects: Seq
             all_paths = get_directory_file_paths(directory, extension='.pdb')
             directory = os.path.basename(directory)  # This is for the location variable return
         else:  # function was called with all set to None. This shouldn't happen
-            raise RuntimeError('Can\'t collect_designs when no arguments were passed!')
+            raise RuntimeError("Can't collect_designs when no arguments were passed!")
 
     location = (files or directory or projects or singles)
 
@@ -944,18 +1018,23 @@ def get_base_symdesign_dir(search_path: str = None) -> AnyStr | None:
         The path of the identified program root
     """
     base_dir = None
-    if not search_path:
+    if search_path is None:
         pass
     elif PUtils.program_output in search_path:   # directory1/SymDesignOutput/directory2/directory3
         for idx, dirname in enumerate(search_path.split(os.sep), 1):
             if dirname == PUtils.program_output:
                 base_dir = f'{os.sep}{os.path.join(*search_path.split(os.sep)[:idx])}'
                 break
-    elif PUtils.program_output in os.listdir(search_path):  # directory_provided/SymDesignOutput
-        for sub_directory in os.listdir(search_path):
-            if sub_directory == PUtils.program_output:
-                base_dir = os.path.join(search_path, sub_directory)
-                break
+    else:
+        try:
+            all_files = os.listdir(search_path)
+        except FileNotFoundError:
+            all_files = []
+        if PUtils.program_output in all_files:  # directory_provided/SymDesignOutput
+            for sub_directory in all_files:
+                if sub_directory == PUtils.program_output:
+                    base_dir = os.path.join(search_path, sub_directory)
+                    break
 
     return base_dir
 
@@ -1024,7 +1103,7 @@ class PoseSpecification(Dialect):
             self.directives.append(dict(residue_directive for residue_directive in residue_directives))
         # print('Total Design Directives', self.directives)
 
-    def return_directives(self) -> Iterator[Tuple[str, str, Dict[int, str]]]:
+    def get_directives(self) -> Iterator[Tuple[str, str, Dict[int, str]]]:
         all_poses_len = len(self.all_poses)
         if self.directives:
             if all_poses_len == len(self.design_names) == len(self.directives):  # specification file
@@ -1076,7 +1155,7 @@ def calculate_match(coords1: float | np.ndarray = None, coords2: float | np.ndar
     Args:
         coords1: The first set of coordinates
         coords2: The second set of coordinates
-        coords_rmsd_reference: The reference RMSD to compared each pair of coordinates against
+        coords_rmsd_reference: The reference RMSD to compare each pair of coordinates against
     Returns:
         The match score(s)
     """
@@ -1097,7 +1176,7 @@ def rmsd_z_score(coords1: float | np.ndarray = None, coords2: float | np.ndarray
         coords2: The second set of coordinates
         coords_rmsd_reference: The reference RMSD to compare each pair of coordinates against
     Returns:
-        The overlap z-value where the RMSD between coords1 and coords2 is < max_z_value, otherwise False
+        The overlap z-value
     """
     #         max_z_value: The z-score deviation threshold of the overlap to be considered a match
     # Calculate Guide Atom Overlap Z-Value
@@ -1265,8 +1344,8 @@ def parameterize_frag_length(length: int) -> tuple[int, int]:
     """
     if length % 2 == 1:  # fragment length is odd
         index_offset = 1
-        # fragment_range = (0 - _range, 0 + _range + index_offset)
-        # return 0 - _range, 0 + _range + index_offset
+        # fragment_range = (0 - _range, 0 + _range + zero_offset)
+        # return 0 - _range, 0 + _range + zero_offset
     else:  # length is even
         logger.critical(f'{length} is an even integer which is not symmetric about a single residue. '
                         'Ensure this is what you want')

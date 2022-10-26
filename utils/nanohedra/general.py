@@ -2,10 +2,14 @@ from __future__ import annotations
 
 import os
 from logging import Logger
+from typing import AnyStr
 
-from utils.SymEntry import SymEntry
-from utils.path import docked_pose_file
+import numpy as np
+
 from utils import start_log
+from utils.path import docked_pose_file
+from utils.SymEntry import SymEntry
+from utils.symmetry import origin
 
 # Globals
 logger = start_log(name=__name__)
@@ -96,7 +100,7 @@ def get_rotation_step(sym_entry: SymEntry, rot_step_deg1: float | int = None, ro
             rot_step_deg1 = 3  # set rotation step to default
     else:
         if rot_step_deg1 and initial:
-            log.warning('Specified Rotation Step 1 Was Ignored. Oligomer 1 Doesn\'t Have Internal Rotational DOF\n')
+            log.warning("Specified Rotation Step 1 Was Ignored. Oligomer 1 Doesn't Have Internal Rotational DOF\n")
         rot_step_deg1 = 1
 
     if sym_entry.is_internal_rot2:  # if rotation step required
@@ -104,7 +108,7 @@ def get_rotation_step(sym_entry: SymEntry, rot_step_deg1: float | int = None, ro
             rot_step_deg2 = 3  # set rotation step to default
     else:
         if rot_step_deg2 and initial:
-            log.warning('Specified Rotation Step 2 Was Ignored. Oligomer 2 Doesn\'t Have Internal Rotational DOF\n')
+            log.warning("Specified Rotation Step 2 Was Ignored. Oligomer 2 Doesn't Have Internal Rotational DOF\n")
         rot_step_deg2 = 1
 
     return rot_step_deg1, rot_step_deg2
@@ -177,11 +181,51 @@ def write_docking_parameters(pdb1_path, pdb2_path, rot_step_deg1, rot_step_deg2,
     log.info('Retrieving Database of Complete Interface Fragment Cluster Representatives')
 
 
-def get_components_from_nanohedra_docking(pose_file) -> list[str]:
-    """Gather information for the docked Pose from a Nanohedra output. Includes coarse fragment metrics
+def retrieve_pose_transformation_from_nanohedra_docking(pose_file: AnyStr) -> list[dict]:
+    """Gather pose transformation information for the Pose from Nanohedra output
 
+    Args:
+        pose_file: The file containing pose information from Nanohedra output
     Returns:
-        pose_transformation operations
+        The pose transformation arrays as found in the pose_file
+    """
+    with open(pose_file, 'r') as f:
+        pose_transformation = {}
+        for line in f.readlines():
+            # all parsing lacks PDB number suffix such as PDB1 or PDB2 for hard coding in dict key
+            if line[:20] == 'ROT/DEGEN MATRIX PDB':
+                # data = eval(line[22:].strip())
+                data = [[float(item) for item in group.split(', ')]
+                        for group in line[22:].strip().strip('[]').split('], [')]
+                pose_transformation[int(line[20:21])] = {'rotation': np.array(data)}
+            elif line[:15] == 'INTERNAL Tx PDB':
+                try:  # This may have values of None
+                    data = np.array([float(item) for item in line[17:].strip().strip('[]').split(', ')])
+                except ValueError:  # we received a string which is not a float
+                    data = origin
+                pose_transformation[int(line[15:16])]['translation'] = data
+            elif line[:18] == 'SETTING MATRIX PDB':
+                # data = eval(line[20:].strip())
+                data = [[float(item) for item in group.split(', ')]
+                        for group in line[20:].strip().strip('[]').split('], [')]
+                pose_transformation[int(line[18:19])]['rotation2'] = np.array(data)
+            elif line[:22] == 'REFERENCE FRAME Tx PDB':
+                try:  # This may have values of None
+                    data = np.array([float(item) for item in line[24:].strip().strip('[]').split(', ')])
+                except ValueError:  # we received a string which is not a float
+                    data = origin
+                pose_transformation[int(line[22:23])]['translation2'] = data
+
+    return [pose_transformation[idx] for idx, _ in enumerate(pose_transformation, 1)]
+
+
+def get_components_from_nanohedra_docking(pose_file: AnyStr) -> list[str]:
+    """Gather information on the docking componenet identifiers for the docked Pose from a Nanohedra output
+
+    Args:
+        pose_file: The file containing pose information from Nanohedra output
+    Returns:
+        The names of the models used during Nanohedra
     """
     entity_names = []
     with open(pose_file, 'r') as f:  # self.pose_file

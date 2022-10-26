@@ -36,19 +36,26 @@ class Coords:
         """
         self.coords = np.delete(self.coords, indices, axis=0)
 
-    def insert(self, new_coords: np.ndarray | list[list[float]], at: int = None):
+    def insert(self, at: int, new_coords: np.ndarray | list[list[float]]):
         """Insert additional coordinates into the Coords container
 
         Args:
-            new_coords: The coords to include into Coords
             at: The index to perform the insert at
+            new_coords: The coords to include into Coords
         Sets:
             self.coords = numpy.concatenate(self.coords[:at] + new_coords + self.coords[at:])
         """
-        self.coords = \
-            np.concatenate((self.coords[:at] if 0 <= at <= len(self.coords) else self.coords, new_coords,
-                            self.coords[at:])
-                           if at else (self.coords[:at] if 0 <= at <= len(self.coords) else self.coords, new_coords))
+        self.coords = np.concatenate((self.coords[:at], new_coords, self.coords[at:]))
+
+    def append(self, new_coords: np.ndarray | list[list[float]]):
+        """Append additional coordinates into the Coords container
+
+        Args:
+            new_coords: The coords to include into Coords
+        Sets:
+            self.coords = numpy.concatenate(self.coords[:at] + new_coords + self.coords[at:])
+        """
+        self.coords = np.concatenate((self.coords, new_coords))
 
     def replace(self, indices: Sequence[int], new_coords: np.ndarray | list[list[float]]):
         """Replace existing coordinates in the Coords container with new coordinates
@@ -65,7 +72,7 @@ class Coords:
             if self.coords.shape[0] == 0:  # there are no coords, lets use set mechanism
                 self.coords = new_coords
             else:
-                raise ValueError(f'The new_coords are not the same shape as the selected indices {error}')
+                raise ValueError(f'The new_coords are not the same shape as the selected indices: {error}')
 
     def set(self, coords: np.ndarray | list[list[float]]):
         """Set self.coords to the provided coordinates
@@ -83,7 +90,7 @@ class Coords:
     def __iter__(self) -> list[float, float, float]:
         yield from self.coords.tolist()
 
-    def __copy__(self):  # -> Self Todo python3.11
+    def __copy__(self) -> Coords:  # -> Self Todo python3.11
         other = self.__class__.__new__(self.__class__)
         # other.__dict__ = self.__dict__.copy()
         other.coords = self.coords.copy()

@@ -87,7 +87,7 @@ def pose_pair_rmsd(pair: tuple[PoseDirectory, PoseDirectory]) -> float:
 
     # # protein_pair_path = pair[0].composition
     # # Grab designed resides from the pose_directory
-    # design_residues = [set(pose.interface_design_residues) for pose in pair]
+    # design_residues = [set(pose.interface_design_residue_numbers) for pose in pair]
     #
     # # Set up the list of residues undergoing design (interface) on each pair. Return the intersection
     # # could use the union as well...?
@@ -466,7 +466,7 @@ def cluster_designs(compositions: list[PoseDirectory]) -> dict[str | PoseDirecto
         Cluster with representative pose as the key and matching poses as the values
     """
     # format all transforms for the selected compositions
-    stacked_transforms = [pose_directory.pose_transformation for pose_directory in compositions]
+    stacked_transforms = [pose_directory.pose.entity_transformations for pose_directory in compositions]
     trans1_rot1, trans1_tx1, trans1_rot2, trans1_tx2 = zip(*[transform[0].values()
                                                              for transform in stacked_transforms])
     trans2_rot1, trans2_tx1, trans2_rot2, trans2_tx2 = zip(*[transform[1].values()
