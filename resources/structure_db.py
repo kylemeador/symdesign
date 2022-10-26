@@ -304,7 +304,8 @@ class StructureDatabase(Database):
                     model.file_path = self.oriented_asu.path_to(name=model.name)
                     model.symmetry = symmetry
                     with open(model.file_path, 'w') as f:
-                        model.write_header(f)
+                        # model.write_header(f)
+                        f.write(model.format_header())
                         for entity in model.entities:
                             # write each Entity to asu
                             entity.write(file_handle=f)
@@ -416,7 +417,8 @@ class StructureDatabase(Database):
                     # Extract ASU from the Structure, save the file as .file_path for preprocess_structures_for_design
                     model.file_path = self.oriented_asu.path_to(name=entry_entity)
                     with open(model.file_path, 'w') as f:
-                        model.write_header(f)
+                        # model.write_header(f)
+                        f.write(model.format_header())
                         for entity in model.entities:
                             # write each Entity to asu
                             entity.write(file_handle=f)
