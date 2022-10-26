@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import functools
+import json
 import os
 import pickle
 import re
@@ -1531,7 +1532,7 @@ class PoseDirectory:
     @handle_design_errors(errors=(DesignError, AssertionError))
     @close_logs
     @remove_structure_memory
-    def refine(self, to_pose_directory: bool = True, interface_to_alanine: bool = True,
+    def refine(self, to_pose_directory: bool = True, interface_to_alanine: bool = False,
                refine_sequences: Iterable[Sequence] = None, gather_metrics: bool = False):
         """Refine the source PDB using self.symmetry to specify any symmetry
 
@@ -1578,7 +1579,7 @@ class PoseDirectory:
             # Todo make this its own protocol?
             #  def thread_sequence_to_backbone()
             elif refine_sequences is not None:
-                protocol = 'proteinmpnn_thread'
+                protocol = 'thread'  # 'proteinmpnn_thread'
                 design_files = []
                 for seq_idx, sequence in enumerate(refine_sequences):
                     for res_idx, residue_type in enumerate(sequence):
@@ -1588,7 +1589,16 @@ class PoseDirectory:
                     pre_threaded_file = os.path.join(self.data, f'{self.name}_{protocol}{seq_idx:04d}.pdb')
                     design_files.append(self.pose.write(out_path=pre_threaded_file))
 
-                infile.extend(['-in:file:l', design_files,
+                design_files_file = os.path.join(self.scripts, f'files_{protocol}.txt')
+                # generate_files_file_cmd = \
+                #     ['python', PUtils.list_pdb_files, '-d', self.data, '-o', design_files_file, '-s', '_' + protocol]
+                # list_all_files_process = Popen(generate_files_file_cmd)
+                # list_all_files_process.communicate()
+                # get_directory_file_paths(self.data)
+                with open(design_files_file, 'w') as f:
+                    f.write('%s\n' % '\n'.join(design_files))
+
+                infile.extend(['-in:file:l', design_files_file,
                                '-in:file:native', self.source,
                                # native is here to block flag file version, not actually useful for refine
                                ])
@@ -1626,7 +1636,7 @@ class PoseDirectory:
         # '-no_nstruct_label', 'true' comes from v
         relax_cmd = main_cmd + relax_flags_cmdline + additional_flags + \
             (['-symmetry_definition', 'CRYST1'] if self.design_dimension > 0 else []) + infile + \
-            [f'@{flags}', '-no_nstruct_label', 'true', '-parser:protocol', os.path.join(PUtils.rosetta_scripts, f'{protocol}.xml'),
+            [f'@{flags}', '-parser:protocol', os.path.join(PUtils.rosetta_scripts, f'refine.xml'),  # f'{protocol}.xml')
              '-parser:script_vars', f'switch={protocol}']
         self.log.info(f'{protocol.title()} Command: {list2cmdline(relax_cmd)}')
 
@@ -1668,6 +1678,8 @@ class PoseDirectory:
                                           [list2cmdline(analysis_cmd)])
             #                  status_wrap=self.serialized_info)
         # ANALYSIS: each output from the Design process based on score, Analyze Sequence Variation
+        return
+        # Todo this isn't working right now with mutations to structure
         if self.run_in_shell:
             pose_s = self.interface_design_analysis()
             out_path = os.path.join(self.job.all_scores, PUtils.analysis_file % (starttime, 'All'))
