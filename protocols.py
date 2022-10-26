@@ -2251,8 +2251,9 @@ class PoseDirectory:
             for file in self.get_designs():
                 # pose format should already be the case, but let's make sure
                 #   pass names if available v
+                # api_db=self.job.api_db,
                 pose = Pose.from_file(file, entity_names=self.entity_names, log=self.log, pose_format=True,
-                                      sym_entry=self.sym_entry, api_db=self.job.api_db, fragment_db=self.job.fragment_db,
+                                      sym_entry=self.sym_entry, fragment_db=self.job.fragment_db,
                                       design_selector=self.job.design_selector,
                                       ignore_clashes=self.job.design.ignore_pose_clashes)
                 # Todo use PoseDirectory self.info.design_selector
