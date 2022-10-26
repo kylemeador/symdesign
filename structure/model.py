@@ -2851,17 +2851,22 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
         if not delete_indices:  # Probably an empty list, there are no indices to delete
             return
         delete_length = len(delete_indices)
-        # remove these indices from the Structure atom_indices (If other structures, must update their atom_indices!)
+        # Remove delete_indices from each Structure atom_indices. If other structures, must update their atom_indices!
         for structure_type in self.structure_containers:
+            residue_found = False
             for structure in getattr(self, structure_type):  # Iterate over each Structure in each structure_container
                 try:
-                    atom_delete_index = structure.atom_indices.index(delete_indices[0])
+                    structure_atom_indices = structure.atom_indices
+                    atom_delete_index = structure_atom_indices.index(delete_indices[0])
                     for _ in iter(delete_indices):
-                        structure.atom_indices.pop(atom_delete_index)
+                        structure_atom_indices.pop(atom_delete_index)
                     structure._offset_indices(start_at=atom_delete_index, offset=-delete_length)
                     structure.reset_state()
+                    residue_found = True
                 except (ValueError, IndexError):  # This should happen if the Atom is not in the Structure of interest
-                    continue
+                    if residue_found:  # The Structure the Residue belongs to is already accounted for, just offset
+                        structure._offset_indices(start_at=0, offset=-delete_length)
+                        structure.reset_state()
 
         self.reset_state()
 
