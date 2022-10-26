@@ -1582,7 +1582,7 @@ class PoseDirectory:
                 design_files = []
                 for seq_idx, sequence in enumerate(refine_sequences):
                     for res_idx, residue_type in enumerate(sequence):
-                        self.log.debug(f'Mutating {res_idx + 1}{residue_type}')
+                        # self.log.debug(f'Mutating {res_idx + 1}{residue_type}')
                         # if residue_type != 'GLY':  # No mutation from GLY to ALA as Rosetta would build a CB
                         self.pose.mutate_residue(index=res_idx, to=residue_type)
                     pre_threaded_file = os.path.join(self.data, f'{self.name}_{protocol}{seq_idx:04d}.pdb')

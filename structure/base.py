@@ -3526,7 +3526,12 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         if residue is None:
             raise DesignError(f"Can't {self.mutate_residue.__name__} without Residue instance, index, or number")
 
+        if residue.type == to:  # No mutation necessary
+            return []
+
+        self.log.debug(f'Mutating {residue.type}{residue.number}{to}')
         residue.type = to
+        # Todo is the Atom mutation necessary?
         for atom in residue.atoms:
             atom.residue_type = to
 
@@ -3534,11 +3539,18 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         delete_indices = residue.side_chain_indices
         if not delete_indices:  # There are no indices
             return []
+        else:
+            # Clear all state variables for all Residue instances
+            self._residues.reset_state()
+            # residue.side_chain_indices = []
 
         # Remove indices from the Residue, and Structure atom_indices
         residue_delete_index = residue.atom_indices.index(delete_indices[0])
         for _ in iter(delete_indices):
             residue.atom_indices.pop(residue_delete_index)
+
+        # Reissue the atom assignments for the Residue
+        residue.delegate_atoms()
 
         # If this Structure isn't parent, then parent Structure must update the atom_indices
         atom_delete_index = self._atom_indices.index(delete_indices[0])
