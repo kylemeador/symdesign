@@ -111,12 +111,22 @@ def timestamp() -> str:
     return time.strftime('%y-%m-%d-%H%M%S')
 
 
-def datestamp() -> str:
-    """Return the date/time formatted as Year-Mon-DA. Ex: 2022-Jan-01"""
-    return time.strftime('%Y-%b-%d')
+def datestamp(short: bool = False) -> str:
+    """Return the date/time formatted as Year-Mon-DA.
+
+    Args:
+        short: Whether to return the short date
+    Returns:
+        Ex: 2022-Jan-01 or 01-Jan-22 if short
+    """
+    if short:
+        return time.strftime('%d-%b-%y')  # Desired PDB format
+    else:
+        return time.strftime('%Y-%b-%d')  # Preferred format
 
 
-startdate = datestamp()
+short_start_date = datestamp(short=True)
+long_start_date = datestamp()
 starttime = timestamp()
 log_handler = {1: StreamHandler, 2: FileHandler, 3: NullHandler}
 log_level = {1: DEBUG, 2: INFO, 3: WARNING, 4: ERROR, 5: CRITICAL,
