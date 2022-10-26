@@ -506,7 +506,7 @@ def main():
                             # 'custom_script': os.path.splitext(os.path.basename(getattr(args, 'script', 'c/custom')))[0],
                             PUtils.optimize_designs: PUtils.optimize_designs}
             stage = module_files.get(args.module)
-            if stage and not args.run_in_shell:
+            if stage and args.distribute_work:
                 if len(success) == 0:
                     exit_code = 1
                     exit(exit_code)
@@ -1114,9 +1114,9 @@ def main():
             if not args.preprocessed:
                 preprocess_instructions, pre_refine, pre_loop_model = \
                     job.structure_db.preprocess_structures_for_design(all_structures, load_resources=load_resources,
-                                                                      script_out_path=job.sbatch_scripts,
-                                                                      batch_commands=not args.run_in_shell)
-                info_messages += preprocess_instructions
+                                                                      script_out_path=job.sbatch_scripts)
+            #                                                           , batch_commands=args.distribute_work)
+            info_messages += preprocess_instructions
 
             if load_resources or not pre_refine or not pre_loop_model:  # entity processing commands are needed
                 if info_messages:
@@ -1234,8 +1234,8 @@ def main():
         info_messages = []
         preprocess_instructions, pre_refine, pre_loop_model = \
             job.structure_db.preprocess_structures_for_design(all_structures, load_resources=load_resources,
-                                                              script_out_path=job.sbatch_scripts,
-                                                              batch_commands=not args.run_in_shell)
+                                                              script_out_path=job.sbatch_scripts)
+        #                                                       , batch_commands=args.distribute_work)
         if load_resources or not pre_refine or not pre_loop_model:  # entity processing commands are needed
             logger.critical(sbatch_warning)
             for message in info_messages + preprocess_instructions:
@@ -1291,10 +1291,10 @@ def main():
     # Format computational requirements
     if args.module in [PUtils.nano, PUtils.refine, PUtils.interface_design, PUtils.interface_metrics,
                        PUtils.optimize_designs, 'custom_script']:
-        if args.run_in_shell:
-            logger.info('Modeling will occur in this process, ensure you don\'t lose connection to the shell!')
-        else:
+        if args.distribute_work:
             logger.info('Writing modeling commands out to file, no modeling will occur until commands are executed')
+        else:
+            logger.info("Modeling will occur in this process, ensure you don't lose connection to the shell!")
 
     if args.multi_processing:
         # Calculate the number of cores to use depending on computer resources
@@ -1425,7 +1425,25 @@ def main():
     # ---------------------------------------------------
     elif args.module == PUtils.nano:  # -o1 oligomer1, -o2 oligomer2, -e entry, -o outdir
         # Initialize docking procedure
-        if args.run_in_shell:
+        if args.distribute_work:  # Write all commands to a file and use sbatch
+            design_source = f'Entry{sym_entry.entry_number}'  # used for terminate()
+            # script_out_dir = os.path.join(job.docking_master_dir, PUtils.scripts)
+            # os.makedirs(script_out_dir, exist_ok=True)
+            cmd = ['python', PUtils.nanohedra_dock_file, '-dock']
+            kwargs = dict(outdir=job.docking_master_dir, entry=sym_entry.entry_number, rot_step1=args.rotation_step1,
+                          rot_step2=args.rotation_step2, min_matched=args.min_matched,
+                          high_quality_match_value=args.high_quality_match_value, initial_z_value=args.initial_z_value)
+            cmd.extend(chain.from_iterable([[f'-{key}', str(value)] for key, value in kwargs.items()]))
+
+            if args.output_assembly:
+                cmd.append('output_assembly')
+            if args.output_surrounding_uc:
+                cmd.append('output_surrounding_uc')
+
+            commands = [cmd + [PUtils.nano_entity_flag1, model1.file_path, PUtils.nano_entity_flag2, model2.file_path]
+                        + (['-initial'] if idx == 0 else []) for idx, (model1, model2) in enumerate(structure_pairs)]
+            terminate(results=commands)
+        else:
             if job.debug:
                 # Root logs to stream with level debug according to prior logging initialization
                 master_logger, bb_logger = logger, logger
@@ -1434,7 +1452,7 @@ def main():
                 master_logger = utils.start_log(name=PUtils.nano.title(), handler=2, location=master_log_filepath,
                                                 propagate=True, no_log_name=True)
                 bb_logger = None  # have to include this incase started as debug
-            master_logger.info('Nanohedra\nMODE: DOCK\n\n')
+            master_logger.info('Nanohedra\nMODE: DOCK\n')
             utils.nanohedra.general.write_docking_parameters(args.oligomer1, args.oligomer2, args.rotation_step1,
                                                              args.rotation_step2, sym_entry, job.docking_master_dir,
                                                              log=master_logger)
@@ -1455,24 +1473,7 @@ def main():
                                    initial_z_value=args.initial_z_value, log=bb_logger, job=job)
                     # results.append(result)  # DONT need. Results uses pose_directories. There are none and no output
             terminate(results=results, output=False)
-        else:  # write all commands to a file and use sbatch
-            design_source = f'Entry{sym_entry.entry_number}'  # used for terminate()
-            # script_out_dir = os.path.join(job.docking_master_dir, PUtils.scripts)
-            # os.makedirs(script_out_dir, exist_ok=True)
-            cmd = ['python', PUtils.nanohedra_dock_file, '-dock']
-            kwargs = dict(outdir=job.docking_master_dir, entry=sym_entry.entry_number, rot_step1=args.rotation_step1,
-                          rot_step2=args.rotation_step2, min_matched=args.min_matched,
-                          high_quality_match_value=args.high_quality_match_value, initial_z_value=args.initial_z_value)
-            cmd.extend(chain.from_iterable([[f'-{key}', str(value)] for key, value in kwargs.items()]))
 
-            if args.output_assembly:
-                cmd.append('output_assembly')
-            if args.output_surrounding_uc:
-                cmd.append('output_surrounding_uc')
-
-            commands = [cmd + [PUtils.nano_entity_flag1, model1.file_path, PUtils.nano_entity_flag2, model2.file_path]
-                        + (['-initial'] if idx == 0 else []) for idx, (model1, model2) in enumerate(structure_pairs)]
-            terminate(results=commands)
         # # Make single file with names of each directory. Specific for docking due to no established directory
         # args.file = os.path.join(args.directory, 'all_docked_directories.paths')
         # with open(args.file, 'w') as design_f:

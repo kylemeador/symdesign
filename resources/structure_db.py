@@ -529,7 +529,8 @@ class StructureDatabase(Database):
                         % (', you can run this script at any time. E' if load_resources else ', e', refine_sbatch)
                     info_messages.append(refine_sbatch_message)
                 else:
-                    raise NotImplementedError('Refinement run_in_shell functionality hasn\'t been implemented yet')
+                    raise NotImplementedError("Currently, refinement can't be run in the shell. "
+                                              'Implement this if you would like this feature')
                 load_resources = True
             else:
                 pre_refine = True
@@ -616,7 +617,8 @@ class StructureDatabase(Database):
                            else ', e', loop_model_sbatch)
                     info_messages.append(loop_model_sbatch_message)
                 else:
-                    raise NotImplementedError('Loop modeling run_in_shell functionality hasn\'t been implemented yet')
+                    raise NotImplementedError("Currently, loop modeling can't be run in the shell. "
+                                              'Implement this if you would like this feature')
             else:
                 pre_loop_model = True
 
