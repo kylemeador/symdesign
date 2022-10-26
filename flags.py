@@ -274,8 +274,11 @@ options_arguments = {
                                  '\nDefault=%(default)s'),
     (f'--{ca_only}',): dict(action='store_true',
                             help='Whether a minimal CA variant of the protein should be used for design calculations'),
-    ('-D', f'--{development}'): dict(action='store_true',
-                                     help='Run in development mode. This should only be used for active development'),
+    (f'--{development}',): dict(action='store_true',
+                                help='Run in development mode. This should only be used for active development'),
+    ('-D', '--distribute_work'): dict(action='store_true',
+                                      help="Should commands be distributed to a cluster?\nIn most cases, this will "
+                                           'maximize computational resources\nDefault=%(default)s'),
     ('-F', f'--{force_flags}'): dict(action='store_true',
                                      help='Force generation of a new flags file to update script parameters'),
     # ('-gf', f'--{generate_fragments}'): dict(action='store_true',
@@ -304,10 +307,6 @@ options_arguments = {
     ('-P', '--preprocessed'): dict(action='store_true',
                                    help=f'Whether the designs of interest have been preprocessed for the '
                                         f'{current_energy_function}\nenergy function and/or missing loops\n'),
-    ('-R', '--run_in_shell'): dict(action='store_true',
-                                   help="'Should commands be executed at %(prog)s runtime?\nIn most cases, it won't "
-                                        "maximize cassini's computational resources.\nAll computation may"
-                                        'fail on a single trajectory mistake.\nDefault=%(default)s'),
     setup_args: setup_kwargs,
     # Todo move to only design protocols...
     (f'--{sequences}',): dict(action=argparse.BooleanOptionalAction, default=True,  # action='store_true',

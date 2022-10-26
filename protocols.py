@@ -103,7 +103,6 @@ class PoseDirectory:
     _evolutionary_profile: np.ndarry | None
     _fragment_profile: np.ndarry | None
     _fragment_source: str | None
-    _run_in_shell: bool
     _symmetry_definition_files: list[AnyStr]
     composition: str | None
     directives: list[dict[int, str]]
@@ -363,18 +362,6 @@ class PoseDirectory:
     @classmethod
     def from_pose_id(cls, design_path: str, root: AnyStr = None, **kwargs):
         return cls(design_path, pose_id=True, root=root, **kwargs)
-
-    @property
-    def run_in_shell(self) -> bool:
-        try:
-            return self._run_in_shell
-        except AttributeError:
-            self._run_in_shell = self.job.run_in_shell
-            return self._run_in_shell
-
-    @run_in_shell.setter
-    def run_in_shell(self, value: bool):
-        self._run_in_shell = value
 
     # Decorator static methods: These must be declared above their usage, but made static after each declaration
     # def handle_design_errors(errors: tuple = (Exception,)) -> Callable:
@@ -1087,7 +1074,6 @@ class PoseDirectory:
         #              '-in:file:native', self.refined_pdb,
         if self.job.mpi > 0:
             main_cmd = run_cmds[PUtils.rosetta_extras] + [str(self.job.mpi)] + main_cmd
-            self.run_in_shell = False
 
         metric_cmd_bound = main_cmd + (['-symmetry_definition', 'CRYST1'] if self.design_dimension > 0 else []) + \
             [os.path.join(PUtils.rosetta_scripts, f'{protocol}{"_DEV" if self.job.development else ""}.xml')]
@@ -1097,19 +1083,22 @@ class PoseDirectory:
         metric_cmds.extend(self.generate_entity_metrics(entity_cmd))
 
         # Create executable to gather interface Metrics on all Designs
-        if self.run_in_shell:
-            for metric_cmd in metric_cmds:
-                metrics_process = Popen(metric_cmd)
-                metrics_process.communicate()  # wait for command to complete
-        else:
+        if self.job.distribute_work:
             analysis_cmd = ['python', PUtils.program_exe, PUtils.analysis, '--single', self.path, '--no-output',
                             '--output_file', os.path.join(self.job.all_scores,
                                                           PUtils.analysis_file % (starttime, protocol))]
             write_shell_script(list2cmdline(generate_files_cmd), name=PUtils.interface_metrics, out_path=self.scripts,
                                additional=[list2cmdline(command) for command in metric_cmds] +
                                           [list2cmdline(analysis_cmd)])
+        else:
+            list_all_files_process = Popen(generate_files_cmd)
+            list_all_files_process.communicate()
+            for metric_cmd in metric_cmds:
+                metrics_process = Popen(metric_cmd)
+                metrics_process.communicate()  # wait for command to complete
+
         # ANALYSIS: each output from the Design process based on score, Analyze Sequence Variation
-        if self.run_in_shell:
+        if not self.job.distribute_work:
             pose_s = self.interface_design_analysis()
             out_path = os.path.join(self.job.all_scores, PUtils.analysis_file % (starttime, 'All'))
             if os.path.exists(out_path):
@@ -1179,19 +1168,19 @@ class PoseDirectory:
             score + suffix + trajectories + ['-parser:protocol', script] + variables
         if self.job.mpi > 0:
             cmd = run_cmds[PUtils.rosetta_extras] + [str(self.job.mpi)] + cmd
-            self.run_in_shell = False
 
-        if self.run_in_shell:
-            raise NotImplementedError('Need to implement this feature')
-        else:
+        if self.job.distribute_work:
             write_shell_script(list2cmdline(generate_files_cmd), name=script_name, out_path=self.scripts,
                                additional=[list2cmdline(cmd)])
+        else:
+            raise NotImplementedError('Need to implement this feature')
+
         # Todo  + [list2cmdline(analysis_cmd)])
         #  analysis_cmd = ['python', PUtils.program_exe, PUtils.analysis, '--single', self.path, '--no-output',
         #                 '--output_file', os.path.join(self.job.all_scores, PUtils.analysis_file % (starttime, protocol))]
 
         # ANALYSIS: each output from the Design process based on score, Analyze Sequence Variation
-        if self.run_in_shell:
+        if not self.job.distribute_work:
             pose_s = self.interface_design_analysis()
             out_path = os.path.join(self.job.all_scores, PUtils.analysis_file % (starttime, 'All'))
             if os.path.exists(out_path):
@@ -1650,7 +1639,6 @@ class PoseDirectory:
                          '-no_nstruct_label', 'true', '-parser:protocol']
             if self.job.mpi > 0:
                 main_cmd = run_cmds[PUtils.rosetta_extras] + [str(self.job.mpi)] + main_cmd
-                self.run_in_shell = False
 
             metric_cmd_bound = main_cmd + (['-symmetry_definition', 'CRYST1'] if self.design_dimension > 0 else []) + \
                 [os.path.join(PUtils.rosetta_scripts, f'{PUtils.interface_metrics}'
@@ -1663,16 +1651,7 @@ class PoseDirectory:
             metric_cmds = []
 
         # Create executable/Run FastRelax on Clean ASU with RosettaScripts
-        if self.run_in_shell:
-            relax_process = Popen(relax_cmd)
-            relax_process.communicate()  # wait for command to complete
-            list_all_files_process = Popen(generate_files_cmd)
-            list_all_files_process.communicate()
-            if gather_metrics:
-                for metric_cmd in metric_cmds:
-                    metrics_process = Popen(metric_cmd)
-                    metrics_process.communicate()
-        else:
+        if self.job.distribute_work:
             analysis_cmd = ['python', PUtils.program_exe, PUtils.analysis, '--single', self.path, '--no-output',
                             '--output_file', os.path.join(self.job.all_scores,
                                                           PUtils.analysis_file % (starttime, protocol))]
@@ -1681,10 +1660,20 @@ class PoseDirectory:
                                           [list2cmdline(command) for command in metric_cmds] +
                                           [list2cmdline(analysis_cmd)])
             #                  status_wrap=self.serialized_info)
+        else:
+            relax_process = Popen(relax_cmd)
+            relax_process.communicate()  # wait for command to complete
+            list_all_files_process = Popen(generate_files_cmd)
+            list_all_files_process.communicate()
+            if gather_metrics:
+                for metric_cmd in metric_cmds:
+                    metrics_process = Popen(metric_cmd)
+                    metrics_process.communicate()
+
         # ANALYSIS: each output from the Design process based on score, Analyze Sequence Variation
-        return
-        # Todo this isn't working right now with mutations to structure
-        if self.run_in_shell:
+        # return
+        # # Todo this isn't working right now with mutations to structure
+        if not self.job.distribute_work:
             pose_s = self.interface_design_analysis()
             out_path = os.path.join(self.job.all_scores, PUtils.analysis_file % (starttime, 'All'))
             if os.path.exists(out_path):
@@ -1819,7 +1808,7 @@ class PoseDirectory:
         interfacial redesign between Pose Entities. Aware of symmetry, design_selectors, fragments, and
         evolutionary information in interface design
         """
-        if self.job.command_only and self.run_in_shell:  # just reissue the commands
+        if self.job.command_only and not self.job.distribute_work:  # Just reissue the commands
             pass
         else:
             if self.interface_residue_numbers is False or self.interface_design_residue_numbers is False:
@@ -2035,7 +2024,7 @@ class PoseDirectory:
                      '-parser:protocol', os.path.join(PUtils.rosetta_scripts, f'{PUtils.consensus}.xml'),
                      '-parser:script_vars', f'switch={PUtils.consensus}']
                 self.log.info(f'Consensus command: {list2cmdline(consensus_cmd)}')
-                if not self.run_in_shell:
+                if self.job.distribute_work:
                     write_shell_script(list2cmdline(consensus_cmd), name=PUtils.consensus, out_path=self.scripts)
                 else:
                     consensus_process = Popen(consensus_cmd)
@@ -2070,22 +2059,13 @@ class PoseDirectory:
         if self.job.mpi > 0 and not self.job.design.scout:
             design_cmd = run_cmds[PUtils.rosetta_extras] + [str(self.job.mpi)] + design_cmd
             entity_cmd = run_cmds[PUtils.rosetta_extras] + [str(self.job.mpi)] + entity_cmd
-            self.run_in_shell = False
 
         self.log.info(f'{self.rosetta_interface_design.__name__} command: {list2cmdline(design_cmd)}')
         metric_cmds = []
         metric_cmds.extend(self.generate_entity_metrics(entity_cmd))
 
         # Create executable/Run FastDesign on Refined ASU with RosettaScripts. Then, gather Metrics
-        if self.run_in_shell:
-            design_process = Popen(design_cmd)
-            design_process.communicate()  # wait for command to complete
-            list_all_files_process = Popen(generate_files_cmd)
-            list_all_files_process.communicate()
-            for metric_cmd in metric_cmds:
-                metrics_process = Popen(metric_cmd)
-                metrics_process.communicate()
-        else:
+        if self.job.distribute_work:
             analysis_cmd = ['python', PUtils.program_exe, PUtils.analysis, '--single', self.path, '--no-output',
                             '--output_file', os.path.join(self.job.all_scores,
                                                           PUtils.analysis_file % (starttime, protocol))]
@@ -2095,9 +2075,17 @@ class PoseDirectory:
                                           [list2cmdline(command) for command in metric_cmds] +
                                           [list2cmdline(analysis_cmd)])
             #                  status_wrap=self.serialized_info,
+        else:
+            design_process = Popen(design_cmd)
+            design_process.communicate()  # wait for command to complete
+            list_all_files_process = Popen(generate_files_cmd)
+            list_all_files_process.communicate()
+            for metric_cmd in metric_cmds:
+                metrics_process = Popen(metric_cmd)
+                metrics_process.communicate()
 
         # ANALYSIS: each output from the Design process based on score, Analyze Sequence Variation
-        if self.run_in_shell:
+        if not self.job.distribute_work:
             pose_s = self.interface_design_analysis()
             out_path = os.path.join(self.job.all_scores, PUtils.analysis_file % (starttime, 'All'))
             if os.path.exists(out_path):
@@ -2195,20 +2183,13 @@ class PoseDirectory:
         if self.job.mpi > 0:
             design_cmd = run_cmds[PUtils.rosetta_extras] + [str(self.job.mpi)] + design_cmd
             entity_cmd = run_cmds[PUtils.rosetta_extras] + [str(self.job.mpi)] + entity_cmd
-            self.run_in_shell = False
 
         self.log.info(f'{self.optimize_designs.__name__} command: {list2cmdline(design_cmd)}')
         metric_cmds = []
         metric_cmds.extend(self.generate_entity_metrics(entity_cmd))
 
         # Create executable/Run FastDesign on Refined ASU with RosettaScripts. Then, gather Metrics
-        if self.run_in_shell:
-            design_process = Popen(design_cmd)
-            design_process.communicate()  # wait for command to complete
-            for metric_cmd in metric_cmds:
-                metrics_process = Popen(metric_cmd)
-                metrics_process.communicate()
-        else:
+        if self.job.distribute_work:
             analysis_cmd = ['python', PUtils.program_exe, PUtils.analysis, '--single', self.path, '--no-output',
                             '--output_file', os.path.join(self.job.all_scores,
                                                           PUtils.analysis_file % (starttime, protocol))]
@@ -2216,8 +2197,17 @@ class PoseDirectory:
                                additional=[list2cmdline(generate_files_cmd)] +
                                           [list2cmdline(command) for command in metric_cmds] +
                                           [list2cmdline(analysis_cmd)])
+        else:
+            design_process = Popen(design_cmd)
+            design_process.communicate()  # wait for command to complete
+            list_all_files_process = Popen(generate_files_cmd)
+            list_all_files_process.communicate()
+            for metric_cmd in metric_cmds:
+                metrics_process = Popen(metric_cmd)
+                metrics_process.communicate()
+
         # ANALYSIS: each output from the Design process based on score, Analyze Sequence Variation
-        if self.run_in_shell:
+        if not self.job.distribute_work:
             pose_s = self.interface_design_analysis()
             out_path = os.path.join(self.job.all_scores, PUtils.analysis_file % (starttime, 'All'))
             if os.path.exists(out_path):

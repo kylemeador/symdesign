@@ -138,7 +138,9 @@ class JobResources:
         self.output_to_directory: bool = True if self.output_directory else False
         self.output_assembly: bool = kwargs.get('output_assembly', False)
         self.output_surrounding_uc: bool = kwargs.get('output_surrounding_uc', False)
-        self.run_in_shell: bool = kwargs.get('run_in_shell', False)
+        self.distribute_work: bool = kwargs.get('distribute_work', False)
+        if self.mpi > 0:
+            self.distribute_work = True
         # self.pre_refine: bool = kwargs.get('pre_refine', True)
         # self.pre_loop_model: bool = kwargs.get('pre_loop_model', True)
         self.generate_fragments: bool = kwargs.get(generate_fragments, True)
@@ -154,7 +156,8 @@ class JobResources:
         self.nanohedra_output: bool = kwargs.get('nanohedra_output', False)
         self.nanohedra_root: str | None = None
         # Development Flags
-        self.command_only: bool = kwargs.get('command_only', False)  # Whether to reissue commands, only if run_in_shell=False
+        # Whether to reissue commands, only if distribute_work=False
+        self.command_only: bool = kwargs.get('command_only', False)
         self.development: bool = kwargs.get(development, False)
 
         if self.nanohedra_output:
