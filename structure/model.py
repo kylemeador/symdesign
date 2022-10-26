@@ -2859,20 +2859,20 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
                     for _ in iter(delete_indices):
                         structure.atom_indices.pop(atom_delete_index)
                     structure._offset_indices(start_at=atom_delete_index, offset=-delete_length)
-                    # structure.reset_state()
+                    structure.reset_state()
                 except (ValueError, IndexError):  # This should happen if the Atom is not in the Structure of interest
                     continue
 
         self.reset_state()
 
-    def reset_state(self):  # Todo this seems to introduce errors during Pose.find_interface_residues()
-        """Remove StructureBase attributes that are invalid for the current state for each member Structure instance
-
-        This is useful for transfer of ownership, or changes in the Model state that should be overwritten
-        """
-        for structure_type in self.structure_containers:
-            for structure in getattr(self, structure_type):  # Iterate over each Structure in each structure_container
-                structure.reset_state()
+    # def reset_state(self):  # Todo this seems to introduce errors during Pose.find_interface_residues()
+    #     """Remove StructureBase attributes that are invalid for the current state for each member Structure instance
+    #
+    #     This is useful for transfer of ownership, or changes in the Model state that should be overwritten
+    #     """
+    #     for structure_type in self.structure_containers:
+    #         for structure in getattr(self, structure_type):  # Iterate over each Structure in each structure_container
+    #             structure.reset_state()
 
     def insert_residue_type(self, residue_type: str, at: int = None, chain: str = None):  # Todo Structures
         """Insert a standard Residue type into the Structure based on Pose numbering (1 to N) at the origin.
