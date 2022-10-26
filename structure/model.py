@@ -31,7 +31,7 @@ from structure.fragment import GhostFragment, Fragment, write_frag_match_info_fi
 from structure.fragment.db import FragmentDatabase, alignment_types, fragment_info_type, EulerLookup, euler_factory
 from structure.fragment.metrics import fragment_metric_template
 from structure.sequence import SequenceProfile, generate_alignment, get_equivalent_indices, \
-    pssm_as_array, generate_mutations, concatenate_profile
+    pssm_as_array, generate_mutations, concatenate_profile, numeric_to_sequence
 from structure.utils import protein_letters_3to1_extended, protein_letters_1to3_extended, chain_id_generator
 from utils import start_log, null_log, DesignError, ClashError, SymmetryError, digit_translate_table, calculate_match, \
     z_value_from_match_score, remove_duplicates, z_score, rmsd_z_score, match_score_from_z_value, path as PUtils
@@ -5758,6 +5758,9 @@ class Pose(SymmetricModel):
                                                              'complex_sequence_loss': per_residue_complex_sequence_loss,
                                                              'unbound_sequence_loss': per_residue_unbound_sequence_loss}
                                           )
+            sequences_and_scores['sequences'] = numeric_to_sequence(sequences_and_scores['sequences'])
+            for data_type, data in sequences_and_scores.items():
+                sequences_and_scores[data_type] = np.concatenate(data, axis=1).reshape(-1, pose_length)
         else:
             raise ValueError(f"The method '{method}' isn't a viable design protocol")
 
