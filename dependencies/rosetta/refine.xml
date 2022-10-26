@@ -11,6 +11,7 @@
 <!--		<FastRelax name="sym_refine" disable_design="true" scorefxn="2015_nano_cst" relaxscript="MonomerRelax2019" repeats="5" ramp_down_constraints="false"/>-->
 <!--		<FastRelax name="asymmetric_refine" disable_design="true" scorefxn="2015_cst" relaxscript="MonomerRelax2019" repeats="5" ramp_down_constraints="false"/>-->
 		<FastRelax name="refine" disable_design="true" scorefxn="2015_cst" relaxscript="MonomerRelax2019" repeats="5" ramp_down_constraints="false"/>
+		<FastRelax name="thread" disable_design="true" scorefxn="2015_cst" relaxscript="MonomerRelax2019" repeats="1" ramp_down_constraints="false"/>
 	</MOVERS>
 
 	# Symmetry set up section
@@ -24,7 +25,7 @@
 
 	<PROTOCOLS>
 		<Add mover_name="symmetry"/>
-		<Add mover_name="refine"/>
+		<Add mover_name="%%switch%%"/>
 		<Add mover_name="job_info"/>
 	</PROTOCOLS>
 

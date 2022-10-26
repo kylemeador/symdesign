@@ -305,7 +305,7 @@ def read_json(file_name, **kwargs) -> dict | None:
     return data
 
 
-def write_json(data, file_name, **kwargs) -> AnyStr:
+def write_json(data: Any, file_name: AnyStr, **kwargs) -> AnyStr:
     """Use json.dump to write an object to a file
 
     Args:
