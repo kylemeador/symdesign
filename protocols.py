@@ -1917,14 +1917,36 @@ class PoseDirectory:
                                                                   ca_only=self.job.design.ca_only,
                                                                   temperatures=self.job.design.temperatures,
                                                                   )
-                # for sequence in sequences:
+
+                def write_per_residue_scores(designs: Sequence[str], scores: dict[str, np.ndarray]) -> AnyStr:
+                    """"""
+                    # json_scores = {score_type: score.tolist() for score_type, score in scores}
+                    design_scores = {design: {'decoy': design} for design in designs}
+                    for score_type, score in scores.items():
+                        # score_list = score.tolist()
+                        for design, score in zip(designs, score.tolist()):
+                            design_scores[design].update({score_type: score})
+
+                    for design, _scores in design_scores.items():
+                        # write_json(_scores, self.scores_file)
+                        with open(self.scores_file, 'a') as f_save:
+                            json.dump(_scores, f_save)  # , **kwargs)
+
+                    return self.scores_file
+                    # return write_json(design_scores, self.scores_file)
+                # Todo make a job variable...
+                protocol = 'thread'
+                # designs = [os.path.join(self.data, f'{self.name}_{protocol}{seq_idx:04d}.pdb')
+                designs = [f'{self.name}_{protocol}{seq_idx:04d}.pdb'
+                           for seq_idx in range(len(sequences_and_scores['sequences']))]
+                write_per_residue_scores(designs, sequences_and_scores)
+
                 if self.job.design.structures:
                     # Todo
                     #  if job.design.alphafold:
                     #      self.predict_structure()
                     #  else:
-                    #      self.refine()
-                    self.refine(refine_sequences=sequences_and_scores['sequences'])
+                    self.refine(refine_sequences=sequences_and_scores['sequences'], gather_metrics=True)
             case other:
                 raise ValueError(f"The method '{self.job.design.method}' isn't available")
         self.pickle_info()  # Todo remove once PoseDirectory state can be returned to the SymDesign dispatch w/ MP
