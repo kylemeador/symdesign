@@ -1623,6 +1623,7 @@ class PoseDirectory:
             make_path(pdb_out_path)
 
         # RELAX: Prepare command
+        # '-no_nstruct_label', 'true' comes from v
         relax_cmd = main_cmd + relax_flags_cmdline + additional_flags + \
             (['-symmetry_definition', 'CRYST1'] if self.design_dimension > 0 else []) + infile + \
             [f'@{flags}', '-no_nstruct_label', 'true', '-parser:protocol', os.path.join(PUtils.rosetta_scripts, f'{protocol}.xml'),
@@ -1925,7 +1926,7 @@ class PoseDirectory:
                     #      self.refine()
                     self.refine(refine_sequences=sequences_and_scores['sequences'])
             case other:
-                raise ValueError(f"The method {self.job.design.method} isn't available")
+                raise ValueError(f"The method '{self.job.design.method}' isn't available")
         self.pickle_info()  # Todo remove once PoseDirectory state can be returned to the SymDesign dispatch w/ MP
 
     def rosetta_interface_design(self):
