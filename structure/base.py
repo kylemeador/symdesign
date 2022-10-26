@@ -2405,20 +2405,22 @@ class Residues:
         residue: Residue
         if start_at > 0:
             if start_at < self.residues.shape[0]:  # if in the Residues index range
-                prior_residue = self.residues[start_at-1]
+                prior_residue = self.residues[start_at - 1]
                 # prior_residue.start_index = start_at
                 for residue in self.residues[start_at:].tolist():
-                    residue.start_index = prior_residue.atom_indices[-1]+1
+                    residue.start_index = prior_residue.atom_indices[-1] + 1
                     prior_residue = residue
             else:
                 # self.residues[-1].start_index = self.residues[-2].atom_indices[-1]+1
                 raise IndexError(f'{Residues.reindex_atoms.__name__}: Starting index is outside of the '
                                  f'allowable indices in the Residues object!')
         else:  # when start_at is 0 or less
+            if start_at < 0:
+                raise NotImplementedError(f'Need to adjust {self.reindex_atoms.__name__} for negative integers')
             prior_residue = self.residues[0]
             prior_residue.start_index = start_at
             for residue in self.residues[1:].tolist():
-                residue.start_index = prior_residue.atom_indices[-1]+1
+                residue.start_index = prior_residue.atom_indices[-1] + 1
                 prior_residue = residue
 
     def delete(self, indices: Sequence[int]):
@@ -2741,24 +2743,22 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         number_new = len(new_indices)
         setattr(self, f'_{dtype}_indices', indices[:at] + new_indices + [idx + number_new for idx in indices[at:]])
 
-    def _offset_indices(self, start_at: int = 0, offset: int = None):
-        """Reindex the Structure atom_indices by an offset, starting with the start_at index
+    def _offset_indices(self, start_at: int = None, offset: int = None):
+        """Reindex the Structure atom_indices by a uniform offset, starting with the index 'start_at'
 
         Args:
             start_at: The integer to start reindexing atom_indices at
             offset: The integer to offset the index by. For negative offset, pass a negative value
         """
-        if start_at:
+        if start_at is not None:
             try:
-            # if offset:
                 self._atom_indices = \
                     self._atom_indices[:start_at] + [idx + offset for idx in self._atom_indices[start_at:]]
-            # else:
-            except TypeError:  # None is not valide
+            except TypeError:  # None is not valid
                 raise ValueError(f'{offset} is a not a valid value. Must provide an integer when re-indexing atoms '
                                  f'using the argument "start_at"')
-        elif self.is_parent():
-            # this shouldn't be used for a Structure object who is dependent on another Structure!
+        elif self.is_parent():  # Just reset all the indices without regard for gaps
+            # This shouldn't be used for a Structure object who is dependent on another Structure
             self._atom_indices = list(range(self.number_of_atoms))
         else:
             raise ValueError(f'{self.name}: Must include start_at when re-indexing atoms from a child structure!')
@@ -3529,6 +3529,11 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         if residue.type == to:  # No mutation necessary
             return []
 
+        if self.is_dependent():
+            # We should ensure the mutation is done by the Structure parent to account for everything correctly
+            self.parent.mutate_residue(residue, to=to)
+            return
+
         self.log.debug(f'Mutating {residue.type}{residue.number}{to}')
         residue.type = to
         # Todo is the Atom mutation necessary?
@@ -3545,15 +3550,18 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
             # residue.side_chain_indices = []
 
         # Remove indices from the Residue, and Structure atom_indices
-        residue_delete_index = residue.atom_indices.index(delete_indices[0])
+        residue_atom_indices = residue.atom_indices
+        residue_delete_index = residue_atom_indices.index(delete_indices[0])
+        _atom_indices = self._atom_indices
+        atom_delete_index = _atom_indices.index(delete_indices[0])
         for _ in iter(delete_indices):
-            residue.atom_indices.pop(residue_delete_index)
+            residue_atom_indices.pop(residue_delete_index)
+            _atom_indices.pop(atom_delete_index)
 
         # Reissue the atom assignments for the Residue
         residue.delegate_atoms()
 
         # If this Structure isn't parent, then parent Structure must update the atom_indices
-        atom_delete_index = self._atom_indices.index(delete_indices[0])
         self._offset_indices(start_at=atom_delete_index, offset=-len(delete_indices))
 
         # Re-index all succeeding Atom and Residue instance indices
