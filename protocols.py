@@ -1399,11 +1399,11 @@ class PoseDirectory:
         if self.interface_residue_numbers:  # or self.interface_design_residue_numbers is False:
             # Add interface_residues to the pose
             self.pose.interface_residue_numbers = self.interface_residue_numbers
-        if self.fragment_observations is not None:  # or self.interface_design_residue_numbers is False:
-            # Todo distinguish between entities that are involved
-            self.pose.fragment_metrics = self.fragment_observations
-            # These are not used...
-            # self.pose.interface_design_residue_numbers = self.interface_design_residue_numbers
+        # if self.fragment_observations is not None:  # or self.interface_design_residue_numbers is False:
+        #     # Todo distinguish between entities that are involved
+        #     self.pose.fragment_metrics = self.fragment_observations
+        #     # These are not used...
+        #     # self.pose.interface_design_residue_numbers = self.interface_design_residue_numbers
 
         # Save renumbered PDB to clean_asu.pdb
         if not self.asu_path or not os.path.exists(self.asu_path):
