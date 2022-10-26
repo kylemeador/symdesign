@@ -9,7 +9,7 @@ if __name__ == '__main__':
     parser.add_argument('-d', '--directory', type=path.abspath, help='Directory where models are located',
                         required=True)
     parser.add_argument('-s', '--suffix', type=str, help='A suffix in the files to search for', default='')
-    parser.add_argument('-e', '--extension', type=str, help='An extension in the files to search for')
+    parser.add_argument('-e', '--extension', type=str, help='An extension in the files to search for', default='')
     parser.add_argument('-o', '--out_path', type=path.abspath, help='File path where list should be written',
                         required=True)
 
