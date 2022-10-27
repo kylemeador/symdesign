@@ -2239,6 +2239,15 @@ class Entity(Chain, ContainsChainsMixin):
             f.write('%s\n' % '\n'.join(blueprint_lines))
         return blueprint_file
 
+    def reset_state(self):
+        """Remove StructureBase attributes that are invalid for the current state for each member Structure instance
+
+        This is useful for transfer of ownership, or changes in the Model state that should be overwritten
+        """
+        super().reset_state()
+        # Remove oligomeric chains. This should be generated fresh
+        self._chains = self._chains[:1]
+
     def _update_structure_container_attributes(self, **kwargs):
         """Update attributes specified by keyword args for all Structure container members. Entity specific handling"""
         # As this was causing error with keeping mate chains, mates, just return
