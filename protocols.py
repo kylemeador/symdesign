@@ -1600,7 +1600,7 @@ class PoseDirectory:
                     # self.log.debug(f'Mutating {res_idx + 1}{residue_type}')
                     # if residue_type != 'GLY':  # No mutation from GLY to ALA as Rosetta would build a CB
                     self.pose.mutate_residue(index=res_idx, to=residue_type)
-                pre_threaded_file = os.path.join(self.data, f'{self.name}_{protocol}{seq_idx:04d}.pdb')
+                pre_threaded_file = os.path.join(self.data, f'{self.name}_{protocol}{seq_idx:04d}')
                 design_files.append(self.pose.write(out_path=pre_threaded_file))
 
             design_files_file = os.path.join(self.scripts, f'files_{protocol}.txt')
@@ -1936,6 +1936,7 @@ class PoseDirectory:
                         # write_json(_scores, self.scores_file)
                         with open(self.scores_file, 'a') as f_save:
                             json.dump(_scores, f_save)  # , **kwargs)
+                            f_save.write('\n')
 
                     return self.scores_file
                     # return write_json(design_scores, self.scores_file)
