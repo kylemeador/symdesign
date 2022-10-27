@@ -1946,6 +1946,8 @@ class PoseDirectory:
                 #                                  for temperature in self.job.design.temperatures]
                 # trajectories_temperatures_ids = [{'temperature': temperature} for idx in self.job.design.number_of_trajectories
                 #                                  for temperature in self.job.design.temperatures]
+                sequences_and_scores['protocol'] = \
+                    repeat('proteinmpnn', len(self.job.design.number_of_trajectories * self.job.design.temperatures))
                 sequences_and_scores['temperature'] = [temperature for temperature in self.job.design.temperatures
                                                        for _ in range(self.job.design.number_of_trajectories)]
 
@@ -2359,7 +2361,7 @@ class PoseDirectory:
                     pass
 
             # Todo these need to be reconciled with taking the rosetta complex and unbound energies
-            proteinmpnn_scores = ['complex_sequence_loss', 'unbound_sequence_loss']
+            proteinmpnn_scores = ['sequences', 'complex_sequence_loss', 'unbound_sequence_loss']
             # Create protocol dataframe
             scores_df = pd.DataFrame(all_viable_design_scores).T
             scores_df = pd.concat([source_df, scores_df])
@@ -2377,7 +2379,7 @@ class PoseDirectory:
             if proteinmpnn_columns:
                 proteinmpnn_df = scores_df.loc[:, proteinmpnn_columns]
                 print('proteinmpnn_df', proteinmpnn_df)
-                scores_df.drop(proteinmpnn_columns, axis=1, inplace=True)
+                # scores_df.drop(proteinmpnn_columns, axis=1, inplace=True)
 
             # Check proper input
             metric_set = necessary_metrics.difference(set(scores_df.columns))
