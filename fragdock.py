@@ -4283,7 +4283,7 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
         all_sequences_by_entity = list(zip(*all_sequences_split))
         # Todo, should the reference pose be used? -> + [entity.sequence for entity in pose.entities]
         # Include the pose as the pose_source in the measured designs
-        contact_order_per_res_z, reference_collapse, collapse_profile = pose.get_folding_metrics()
+        # contact_order_per_res_z, reference_collapse, collapse_profile = pose.get_folding_metrics()
         folding_and_collapse = calculate_collapse_metrics(all_sequences_by_entity,
                                                           contact_order_per_res_z, reference_collapse, collapse_profile)
         per_residue_collapse_df = pd.concat({design_id: pd.DataFrame(data, index=residue_numbers)
