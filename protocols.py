@@ -1537,7 +1537,7 @@ class PoseDirectory:
     @handle_design_errors(errors=(DesignError, AssertionError))
     @close_logs
     @remove_structure_memory
-    def refine(self, to_pose_directory: bool = True, interface_to_alanine: bool = False,
+    def _refine(self, to_pose_directory: bool = True, interface_to_alanine: bool = False,
                refine_sequences: Iterable[Sequence] = None, gather_metrics: bool = False):
         """Refine the source PDB using self.symmetry to specify any symmetry
 
