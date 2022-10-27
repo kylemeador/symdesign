@@ -2377,10 +2377,11 @@ class PoseDirectory:
             if proteinmpnn_columns:
                 proteinmpnn_df = scores_df.loc[:, proteinmpnn_columns]
                 print('proteinmpnn_df', proteinmpnn_df)
+                scores_df.drop(proteinmpnn_columns, axis=1, inplace=True)
 
             # Check proper input
             metric_set = necessary_metrics.difference(set(scores_df.columns))
-            # self.log.debug('Score columns present before required metric check: %s' % scores_df.columns.to_list())
+            self.log.debug('Score columns present before required metric check: %s' % scores_df.columns.to_list())
             if metric_set:
                 raise DesignError(f'Missing required metrics: "{", ".join(metric_set)}"')
 
