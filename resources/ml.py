@@ -394,6 +394,7 @@ def proteinmpnn_to_device(device: str = None, **kwargs) -> dict[str, torch.Tenso
     """
     if device is None:
         raise ValueError('Must provide the desired device to load proteinmpnn')
+    logger.debug(f'Loading ProteinMPNN parameters to device: {device}')
 
     # Convert all numpy arrays to pytorch
     device_kwargs = {}
