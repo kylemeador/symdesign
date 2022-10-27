@@ -2357,23 +2357,34 @@ class PoseDirectory:
                     all_viable_design_scores[pose.name] = all_design_scores.pop(pose.name)
                 except KeyError:  # structure wasn't scored, we will remove this later
                     pass
+
+            # Todo these need to be reconciled with taking the rosetta complex and unbound energies
+            proteinmpnn_scores = ['complex_sequence_loss', 'unbound_sequence_loss']
             # Create protocol dataframe
             scores_df = pd.DataFrame(all_viable_design_scores).T
             scores_df = pd.concat([source_df, scores_df])
             # Gather all columns into specific types for processing and formatting
             per_res_columns, hbonds_columns = [], []
+            proteinmpnn_columns = []
             for column in scores_df.columns.to_list():
                 if column.startswith('per_res_'):
                     per_res_columns.append(column)
                 elif column.startswith('hbonds_res_selection'):
                     hbonds_columns.append(column)
+                elif column in proteinmpnn_scores:
+                    proteinmpnn_columns.append(column)
+
+            if proteinmpnn_columns:
+                proteinmpnn_df = scores_df.loc[:, proteinmpnn_columns]
+                print('proteinmpnn_df', proteinmpnn_df)
 
             # Check proper input
             metric_set = necessary_metrics.difference(set(scores_df.columns))
             # self.log.debug('Score columns present before required metric check: %s' % scores_df.columns.to_list())
-            if not metric_set:
+            if metric_set:
                 raise DesignError(f'Missing required metrics: "{", ".join(metric_set)}"')
 
+            print('scores_df', scores_df)
             # Remove unnecessary (old scores) as well as Rosetta pose score terms besides ref (has been renamed above)
             # TODO learn know how to produce score terms in output score file. Not in FastRelax...
             remove_columns = per_res_columns + hbonds_columns + rosetta_terms + unnecessary
@@ -2580,6 +2591,13 @@ class PoseDirectory:
             # Todo remove Rosetta
             #  This is a measurement of interface_connectivity like from Rosetta
             interface_local_density[pose.name] = pose.local_density_interface()
+
+        if proteinmpnn_columns:
+            for pose in design_poses:
+                per_residue_data[pose.name].update({
+                    'complex_sequence_loss': proteinmpnn_df.loc[pose.name, 'complex_sequence_loss'],
+                    'unbound_sequence_loss': proteinmpnn_df.loc[pose.name, 'unbound_sequence_loss']
+                })
 
         # Convert per_residue_data into a dataframe matching residue_df orientation
         per_residue_df = pd.concat({name: pd.DataFrame(data, index=residue_indices)
