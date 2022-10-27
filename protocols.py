@@ -1947,7 +1947,7 @@ class PoseDirectory:
                 # trajectories_temperatures_ids = [{'temperature': temperature} for idx in self.job.design.number_of_trajectories
                 #                                  for temperature in self.job.design.temperatures]
                 sequences_and_scores['temperature'] = [temperature for temperature in self.job.design.temperatures
-                                                       for idx in self.job.design.number_of_trajectories]
+                                                       for _ in range(self.job.design.number_of_trajectories)]
 
                 def write_per_residue_scores(designs: Sequence[str], scores: dict[str, np.ndarray]) -> AnyStr:
                     """"""
