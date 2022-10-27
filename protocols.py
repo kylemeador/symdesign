@@ -1933,10 +1933,21 @@ class PoseDirectory:
             case PUtils.rosetta_str:
                 self.rosetta_interface_design()
             case PUtils.proteinmpnn:
-                sequences_and_scores = self.pose.design_sequences(number=self.job.design.number_of_trajectories,
-                                                                  ca_only=self.job.design.ca_only,
-                                                                  temperatures=self.job.design.temperatures,
-                                                                  )
+                sequences_and_scores: dict[str, np.ndarray | list] = \
+                    self.pose.design_sequences(number=self.job.design.number_of_trajectories,
+                                               ca_only=self.job.design.ca_only,
+                                               temperatures=self.job.design.temperatures,
+                                               )
+                # Convert each numpy array into a list for output
+                for score_type, score in sequences_and_scores.items():
+                    sequences_and_scores[score_type] = score.tolist()
+
+                # trajectories_temperatures_ids = [f'temp{temperature}' for idx in self.job.design.number_of_trajectories
+                #                                  for temperature in self.job.design.temperatures]
+                # trajectories_temperatures_ids = [{'temperature': temperature} for idx in self.job.design.number_of_trajectories
+                #                                  for temperature in self.job.design.temperatures]
+                sequences_and_scores['temperature'] = [temperature for temperature in self.job.design.temperatures
+                                                       for idx in self.job.design.number_of_trajectories]
 
                 def write_per_residue_scores(designs: Sequence[str], scores: dict[str, np.ndarray]) -> AnyStr:
                     """"""
@@ -1944,7 +1955,7 @@ class PoseDirectory:
                     design_scores = {design: {'decoy': design} for design in designs}
                     for score_type, score in scores.items():
                         # score_list = score.tolist()
-                        for design, score in zip(designs, score.tolist()):
+                        for design, score in zip(designs, score):
                             design_scores[design].update({score_type: score})
 
                     for design, _scores in design_scores.items():
