@@ -5696,7 +5696,9 @@ class Pose(SymmetricModel):
         Returns:
             A mapping of the design output type to the output.
                 For proteinmpnn, this is the string mapped to the corresponding returned sequences,
-                complex_sequence_loss, and unbound_sequence_loss
+                complex_sequence_loss, and unbound_sequence_loss. For each data return the return varies such as:
+                 [temp1/repeat1, temp1/repeat2, ..., tempN/repeat1, ...] where designs are sorted by temperature
+
                 For rosetta
         """
         # rosetta: Whether to design using Rosetta energy functions
@@ -5766,6 +5768,7 @@ class Pose(SymmetricModel):
             def _proteinmpnn_batch_design(*args, **kwargs):
                 return proteinmpnn_batch_design(*args, **kwargs)
 
+            # Data has shape (batch_length, number_of_temperatures, pose_length)
             sequences_and_scores = \
                 _proteinmpnn_batch_design(proteinmpnn_model, temperatures=temperatures, pose_length=pose_length,
                                           setup_args=(device,),
@@ -5776,6 +5779,8 @@ class Pose(SymmetricModel):
                                                              'unbound_sequence_loss': per_residue_unbound_sequence_loss}
                                           )
             sequences_and_scores['sequences'] = numeric_to_sequence(sequences_and_scores['sequences'])
+            # Format returns to have shape (temperaturesxsize, pose_length) where the temperatures vary slower
+            # Ex: [temp1/pose1, temp1/pose2, ..., tempN/pose1, ...] This groups the designs by temperature first
             for data_type, data in sequences_and_scores.items():
                 sequences_and_scores[data_type] = np.concatenate(data, axis=1).reshape(-1, pose_length)
         else:
