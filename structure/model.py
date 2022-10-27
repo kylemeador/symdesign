@@ -1049,6 +1049,15 @@ class Entity(Chain, ContainsChainsMixin):
     rotation_d: dict[str, dict[str, int | np.ndarray]] | None
     symmetry: str | None
 
+    @classmethod
+    def from_chains(cls, chains: list[Chain] | Structures, **kwargs):
+        """Initialize an Entity from a set of Chain objects"""
+        return cls(chains=chains, **kwargs)
+
+    # @classmethod  # Todo implemented above, but clean here to mirror Model?
+    # def from_file(cls):
+    #     return cls()
+
     def __init__(self, chains: list[Chain] | Structures = None, dbref: dict[str, str] = None,
                  reference_sequence: str = None, thermophilic: bool = None, **kwargs):
         """When init occurs chain_ids are set if chains were passed. If not, then they are auto generated"""
@@ -1121,15 +1130,6 @@ class Entity(Chain, ContainsChainsMixin):
             self.uniprot_id = dbref
         if reference_sequence is not None:
             self._reference_sequence = reference_sequence
-
-    # @classmethod  # Todo implemented above, but clean here to mirror Model?
-    # def from_file(cls):
-    #     return cls()
-
-    @classmethod
-    def from_chains(cls, chains: list[Chain] | Structures, **kwargs):
-        """Initialize an Entity from a set of Chain objects"""
-        return cls(chains=chains, **kwargs)
 
     @StructureBase.coords.setter
     def coords(self, coords: np.ndarray | list[list[float]]):
