@@ -1534,11 +1534,11 @@ class PoseDirectory:
         self._refine(to_pose_directory=to_pose_directory, interface_to_alanine=interface_to_alanine,
                      refine_sequences=refine_sequences, gather_metrics=gather_metrics)
 
-    @handle_design_errors(errors=(DesignError, AssertionError))
-    @close_logs
-    @remove_structure_memory
+    # @handle_design_errors(errors=(DesignError, AssertionError))
+    # @close_logs
+    # @remove_structure_memory
     def _refine(self, to_pose_directory: bool = True, interface_to_alanine: bool = False,
-               refine_sequences: Iterable[Sequence] = None, gather_metrics: bool = False):
+                refine_sequences: Iterable[Sequence] = None, gather_metrics: bool = False):
         """Refine the source PDB using self.symmetry to specify any symmetry
 
         Args:
