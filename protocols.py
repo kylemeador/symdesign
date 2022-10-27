@@ -2387,7 +2387,7 @@ class PoseDirectory:
             print('scores_df', scores_df)
             # Remove unnecessary (old scores) as well as Rosetta pose score terms besides ref (has been renamed above)
             # TODO learn know how to produce score terms in output score file. Not in FastRelax...
-            remove_columns = per_res_columns + hbonds_columns + rosetta_terms + unnecessary
+            remove_columns = per_res_columns + hbonds_columns + rosetta_terms + unnecessary + proteinmpnn_columns
             # TODO remove dirty when columns are correct (after P432)
             #  and column tabulation precedes residue/hbond_processing
             interface_hbonds = dirty_hbond_processing(all_viable_design_scores)
