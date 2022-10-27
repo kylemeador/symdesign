@@ -1099,7 +1099,7 @@ class PoseDirectory:
 
         # ANALYSIS: each output from the Design process based on score, Analyze Sequence Variation
         if not self.job.distribute_work:
-            pose_s = self.interface_design_analysis()
+            pose_s = self._interface_design_analysis()
             out_path = os.path.join(self.job.all_scores, PUtils.analysis_file % (starttime, 'All'))
             if os.path.exists(out_path):
                 header = False
@@ -1181,7 +1181,7 @@ class PoseDirectory:
 
         # ANALYSIS: each output from the Design process based on score, Analyze Sequence Variation
         if not self.job.distribute_work:
-            pose_s = self.interface_design_analysis()
+            pose_s = self._interface_design_analysis()
             out_path = os.path.join(self.job.all_scores, PUtils.analysis_file % (starttime, 'All'))
             if os.path.exists(out_path):
                 header = False
@@ -1531,6 +1531,22 @@ class PoseDirectory:
             refine_sequences: The sequence to mutate the pose to and have it built using Rosetta FastRelax
             gather_metrics: Whether metrics should be calculated for the Pose
         """
+        self._refine(to_pose_directory=to_pose_directory, interface_to_alanine=interface_to_alanine,
+                     refine_sequences=refine_sequences, gather_metrics=gather_metrics)
+
+    @handle_design_errors(errors=(DesignError, AssertionError))
+    @close_logs
+    @remove_structure_memory
+    def refine(self, to_pose_directory: bool = True, interface_to_alanine: bool = False,
+               refine_sequences: Iterable[Sequence] = None, gather_metrics: bool = False):
+        """Refine the source PDB using self.symmetry to specify any symmetry
+
+        Args:
+            to_pose_directory: Whether the refinement should be saved to the PoseDirectory
+            interface_to_alanine: Whether the identified interface residues should be mutated to Alanine
+            refine_sequences: The sequence to mutate the pose to and have it built using Rosetta FastRelax
+            gather_metrics: Whether metrics should be calculated for the Pose
+        """
         main_cmd = copy(script_cmd)
         protocol = PUtils.refine
         if self.interface_residue_numbers is False or self.interface_design_residue_numbers is False:
@@ -1674,7 +1690,7 @@ class PoseDirectory:
         # return
         # # Todo this isn't working right now with mutations to structure
         if not self.job.distribute_work:
-            pose_s = self.interface_design_analysis()
+            pose_s = self._interface_design_analysis()
             out_path = os.path.join(self.job.all_scores, PUtils.analysis_file % (starttime, 'All'))
             if os.path.exists(out_path):
                 header = False
@@ -1910,8 +1926,7 @@ class PoseDirectory:
             self.info['fragment_source'] = self.fragment_source
 
         if not self.pre_refine and not os.path.exists(self.refined_pdb):
-            # Todo this doesn't work since it catches Error and we need interface_design to catch errors
-            self.refine()
+            self._refine()
 
         make_path(self.designs)
         match self.job.design.method:
@@ -1943,7 +1958,7 @@ class PoseDirectory:
                 # Todo make a job variable...
                 protocol = 'thread'
                 # designs = [os.path.join(self.data, f'{self.name}_{protocol}{seq_idx:04d}.pdb')
-                designs = [f'{self.name}_{protocol}{seq_idx:04d}.pdb'
+                designs = [f'{self.name}_{protocol}{seq_idx:04d}'
                            for seq_idx in range(len(sequences_and_scores['sequences']))]
                 write_per_residue_scores(designs, sequences_and_scores)
 
@@ -1952,7 +1967,7 @@ class PoseDirectory:
                     #  if job.design.alphafold:
                     #      self.predict_structure()
                     #  else:
-                    self.refine(refine_sequences=sequences_and_scores['sequences'], gather_metrics=True)
+                    self._refine(refine_sequences=sequences_and_scores['sequences'], gather_metrics=True)
             case other:
                 raise ValueError(f"The method '{self.job.design.method}' isn't available")
         self.pickle_info()  # Todo remove once PoseDirectory state can be returned to the SymDesign dispatch w/ MP
@@ -2087,7 +2102,7 @@ class PoseDirectory:
 
         # ANALYSIS: each output from the Design process based on score, Analyze Sequence Variation
         if not self.job.distribute_work:
-            pose_s = self.interface_design_analysis()
+            pose_s = self._interface_design_analysis()
             out_path = os.path.join(self.job.all_scores, PUtils.analysis_file % (starttime, 'All'))
             if os.path.exists(out_path):
                 header = False
@@ -2209,7 +2224,7 @@ class PoseDirectory:
 
         # ANALYSIS: each output from the Design process based on score, Analyze Sequence Variation
         if not self.job.distribute_work:
-            pose_s = self.interface_design_analysis()
+            pose_s = self._interface_design_analysis()
             out_path = os.path.join(self.job.all_scores, PUtils.analysis_file % (starttime, 'All'))
             if os.path.exists(out_path):
                 header = False
@@ -2222,6 +2237,21 @@ class PoseDirectory:
     @remove_structure_memory
     def interface_design_analysis(self, design_poses: Iterable[Pose] = None, merge_residue_data: bool = False,
                                   save_metrics: bool = True, figures: bool = False) -> pd.Series:
+        """Retrieve all score information from a PoseDirectory and write results to .csv file
+
+        Args:
+            design_poses: The subsequent designs to perform analysis on
+            merge_residue_data: Whether to incorporate residue data into Pose DataFrame
+            save_metrics: Whether to save trajectory and residue DataFrames
+            figures: Whether to make and save pose figures
+        Returns:
+            Series containing summary metrics for all designs in the design directory
+        """
+        return self._interface_design_analysis(design_poses=design_poses, merge_residue_data=merge_residue_data,
+                                               save_metrics=save_metrics, figures=figures)
+
+    def _interface_design_analysis(self, design_poses: Iterable[Pose] = None, merge_residue_data: bool = False,
+                                   save_metrics: bool = True, figures: bool = False) -> pd.Series:
         """Retrieve all score information from a PoseDirectory and write results to .csv file
 
         Args:
