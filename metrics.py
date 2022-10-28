@@ -1209,7 +1209,7 @@ def calculate_collapse_metrics(sequences_of_interest: Iterable[Iterable[Sequence
                 collapse_iterator += 1
             sequential_collapse_points[idx] = collapse_iterator
 
-        if collapse_profile is not None:
+        if collapse_profile is not None and collapse_profile.size:  # Not equal to zero
             # Compare the measured collapse to the metrics gathered from the collapse_profile
             z_array = z_score(standardized_collapse, collapse_profile_mean, collapse_profile_std)
             # Find indices where the z_array is increased/decreased compared to the reference_collapse_z_score
