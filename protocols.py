@@ -2382,7 +2382,7 @@ class PoseDirectory:
 
             # Check proper input
             metric_set = necessary_metrics.difference(set(scores_df.columns))
-            self.log.debug('Score columns present before required metric check: %s' % scores_df.columns.to_list())
+            # self.log.debug('Score columns present before required metric check: %s' % scores_df.columns.to_list())
             if metric_set:
                 raise DesignError(f'Missing required metrics: "{", ".join(metric_set)}"')
 
