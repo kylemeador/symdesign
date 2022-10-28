@@ -1616,7 +1616,7 @@ class PoseDirectory:
                     # self.log.debug(f'Mutating {res_idx + 1}{residue_type}')
                     # if residue_type != 'GLY':  # No mutation from GLY to ALA as Rosetta would build a CB
                     self.pose.mutate_residue(index=res_idx, to=residue_type)
-                pre_threaded_file = os.path.join(self.data, f'{self.name}_{protocol}{seq_idx:04d}')
+                pre_threaded_file = os.path.join(self.data, f'{self.name}_{protocol}{seq_idx:04d}.pdb')
                 design_files.append(self.pose.write(out_path=pre_threaded_file))
 
             design_files_file = os.path.join(self.scripts, f'files_{protocol}.txt')
