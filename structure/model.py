@@ -5917,8 +5917,21 @@ class Pose(SymmetricModel):
             self.log.warning(f'There were missing MultipleSequenceAlignment objects on {sum(missing)} Entity '
                              f'instances. The collapse_profile will not be captured for the entire '
                              f'{type(self).__name__}.')
-            hydrophobic_collapse_profile = np.ndarray([])
-            # print('inside function', hydrophobic_collapse_profile)  # This was printing 7.0 . wtf??
+            hydrophobic_collapse_profile = np.empty(0)
+            # empty_list = []
+            # hydrophobic_collapse_profile = np.ndarray(empty_list)
+            # print('empty_list', empty_list)
+            # _hydrophobic_collapse_profile = np.ndarray([])
+            # print('inside function !', hydrophobic_collapse_profile)  # This was printing 7.0. wtf??
+            # print('inside function _!', _hydrophobic_collapse_profile)  # This was printing 3.5e-323. wtf??
+            # if hydrophobic_collapse_profile is not None and hydrophobic_collapse_profile.size:  # Not equal to zero
+            #     print('collapse_profile', hydrophobic_collapse_profile)
+            #     print('collapse_profile.size', hydrophobic_collapse_profile.size)
+            # >>> empty_list []
+            # >>> inside function ! 7.0
+            # >>> inside function _! 3.5e-323
+            # >>> collapse_profile 7.0
+            # >>> collapse_profile.size 1
         else:
             # We have to concatenate where the values will be different
             # axis=1 is along the residues, so the result should be the length of the pose
