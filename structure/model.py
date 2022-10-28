@@ -6468,6 +6468,10 @@ class Pose(SymmetricModel):
                 split_number_pairs_and_sort(self._find_interface_atom_pairs(entity1=entity1, entity2=entity2))
             interface_indices1.extend(atoms_indices1), interface_indices2.extend(atoms_indices2)
 
+        if not interface_indices1 and not interface_indices2:
+            self.log.warning(f'No interface atoms located during {self.local_density_interface.__name__}')
+            return 0.
+
         if self.is_symmetric():
             interface_coords = self.symmetric_coords[list(set(interface_indices1).union(interface_indices2))]
         else:
