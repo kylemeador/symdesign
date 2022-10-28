@@ -2069,6 +2069,8 @@ class Residue(ResidueFragment, ContainsAtomsMixin):
             self.parent.get_sasa()
             for atom in self.atoms:
                 polarity_list[residue_atom_polarity[atom.type]].append(atom.sasa)
+        except RecursionError:
+            self.log.debug(f'Missing SASA information for Atom {atom}')
         # except TypeError:
         #     print(residue_atom_polarity, atom.type, self.type, self.number)
 
