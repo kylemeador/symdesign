@@ -736,7 +736,7 @@ class SequenceProfile(ABC):
         incorrect_count = 0
         for residue, position_data in zip(self.residues, self.evolutionary_profile.values()):
             profile_res_type = position_data['type']
-            pose_res_type = protein_letters_3to1[residue.type.title()]
+            pose_res_type = protein_letters_3to1[residue.type]
             if profile_res_type != pose_res_type:
                 # This may not be the worst thing in the world... If the profile was made off of an entity
                 # that is not the exact structure, there should be some reality to it. I think the issue would
