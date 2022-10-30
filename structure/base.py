@@ -17,7 +17,7 @@ from structure.fragment import Fragment, MonoFragment, ResidueFragment
 from structure.fragment.db import FragmentDatabase, fragment_factory
 from structure.utils import protein_letters_alph1, protein_letters_1to3, protein_letters_3to1_extended
 from utils.path import freesasa_exe_path, stride_exe_path, errat_exe_path, freesasa_config_path, \
-    reference_residues_pkl, program_name, program_version, biological_interfaces
+    reference_residues_pkl, program_name, program_version, biological_interfaces, sasa_debug_dir
 from utils import start_log, null_log, unpickle, digit_translate_table, DesignError, ClashError, short_start_date, \
     long_start_date
 from utils.symmetry import origin
@@ -4022,7 +4022,17 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
                     residues[if_idx].sasa = float(line[16:])
                     if_idx += 1
         # Todo change to sasa property to call this automatically if AttributeError?
-        self.sasa = sum([residue.sasa for residue in self.residues])
+        try:
+            self.sasa = sum([residue.sasa for residue in self.residues])
+        except RecursionError:
+            self.log.error('RecursionError measuring SASA')
+            os.makedirs(sasa_debug_dir, exist_ok=True)
+            self.write(out_path=os.path.join(sasa_debug_dir, f'SASA-INPUT-{self.name}.pdb'))
+            with open(os.path.join(sasa_debug_dir, f'SASA-OUTPUT-{self.name}.pdb'), 'w') as f:
+                f.write('%s\n' % '\n'.join(sasa_output))
+
+            raise DesignError(f'Measurement of SASA is not working, probably due to a missing Atom. '
+                              f'Debug files written to {sasa_debug_dir}')
 
     @property
     def surface_residues(self, relative_sasa_thresh: float = 0.25, **kwargs) -> list[Residue]:
