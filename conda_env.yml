@@ -3,6 +3,7 @@ channels:
   - conda-forge
   - defaults
   - pytorch
+  - nvidia
 dependencies:
   - biopython
   - flametree
