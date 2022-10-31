@@ -2522,6 +2522,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
     _backbone_indices: list[int]
     _ca_indices: list[int]
     _cb_indices: list[int]
+    _contains_hydrogen: bool
     _fragment_db: FragmentDatabase
     _heavy_indices: list[int]
     _helix_cb_indices: list[int]
@@ -2682,12 +2683,24 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
     #     else:
     #         raise TypeError(f'The log type ({type(log)}) is not of the specified type logging.Logger')
 
-    def contains_hydrogen(self) -> bool:  # in Residue too
-        """Returns whether the Structure contains hydrogen atoms"""
-        return self.residues[0].contains_hydrogen()
-
     # Below properties are considered part of the Structure state
     # Todo refactor properties to below here for accounting
+    def contains_hydrogen(self) -> bool:  # in Residue too
+        """Returns whether the Structure contains hydrogen atoms"""
+        # return self.residues[0].contains_hydrogen()
+        try:
+            return self._contains_hydrogen
+        except AttributeError:
+            # One of the first 20 residues should indicate, otherwise, we have an anomoly
+            for residue in self.residues[:20]:
+                if residue.contains_hydrogen():
+                    self._contains_hydrogen = True
+                    break
+            else:
+                self._contains_hydrogen = False
+
+        return self._contains_hydrogen
+
     @property
     def sequence(self) -> str:
         """Holds the Structure amino acid sequence"""
