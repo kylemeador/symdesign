@@ -6510,7 +6510,7 @@ class Pose(SymmetricModel):
         if not entity2_residues:  # entity1 == entity2 and not entity2_residues:
             # entity1_residues = set(entity1_residues + entity2_residues)
             entity2_residues = entity1_residues
-            frag_residues2 = frag_residues1
+            frag_residues2 = frag_residues1.copy()
             # residue_numbers2 = residue_numbers1
         else:
             # residue_numbers2 = sorted(residue.number for residue in entity2_residues)
