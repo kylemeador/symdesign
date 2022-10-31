@@ -210,7 +210,7 @@ class PoseDirectory:
             path_components = os.path.splitext(self.source_path)[0].split(os.sep)
             # Save job variables to the state during initialization
             if self.sym_entry:
-                self.info['sym_entry_specification'] = self.sym_entry_number, self.sym_entry_map
+                self.info['sym_entry_specification'] = self.sym_entry.entry_number, self.sym_entry.sym_map
             if self.design_selector:
                 self.info['design_selector'] = self.design_selector
 
@@ -260,7 +260,7 @@ class PoseDirectory:
             #         shutil.copy(self.pose_file, self.path)
             #         shutil.copy(self.frag_file, self.path)
             #     self.info['nanohedra'] = True
-            #     self.info['sym_entry_specification'] = self.sym_entry_number, self.sym_entry_map
+            #     self.info['sym_entry_specification'] = self.sym_entry.entry_number, self.sym_entry.sym_map
             #     self.pose_transformation = self.retrieve_pose_metrics_from_file()
             #     self.info['oligomer_names'] = self.oligomer_names
             #     self.info['entity_names'] = self.entity_names
@@ -295,7 +295,7 @@ class PoseDirectory:
         #             # copy the source file to the PoseDirectory for record keeping...
         #             shutil.copy(self.source_path, self.path)
         #         # save the SymEntry initialization key in the state
-        #         self.info['sym_entry_specification'] = self.sym_entry_number, self.sym_entry_map
+        #         self.info['sym_entry_specification'] = self.sym_entry.entry_number, self.sym_entry.sym_map
         #
         #     self.pose_file = path.join(self.path, PUtils.pose_file)
         #     self.frag_file = path.join(self.path, PUtils.frag_dir, PUtils.frag_text_file)
@@ -442,22 +442,22 @@ class PoseDirectory:
         except AttributeError:
             return None
 
-    @property
-    def sym_entry_number(self) -> int | None:
-        """The entry number of the SymEntry"""
-        try:
-            return self.sym_entry.entry_number
-        except AttributeError:
-            return None
+    # @property
+    # def sym_entry_number(self) -> int | None:
+    #     """The entry number of the SymEntry"""
+    #     try:
+    #         return self.sym_entry.entry_number
+    #     except AttributeError:
+    #         return None
 
-    @property
-    def sym_entry_map(self) -> list[str] | None:
-        """The symmetry map of the SymEntry"""
-        try:
-            # return [self.sym_entry.resulting_symmetry] + list(self.sym_entry.sym_map.values())
-            return self.sym_entry.sym_map
-        except AttributeError:
-            return None
+    # @property
+    # def sym_entry_map(self) -> list[str] | None:
+    #     """The symmetry map of the SymEntry"""
+    #     try:
+    #         # return [self.sym_entry.resulting_symmetry] + list(self.sym_entry.sym_map.values())
+    #         return self.sym_entry.sym_map
+    #     except AttributeError:
+    #         return None
 
     # @property
     # def sym_entry_combination(self) -> str | None:
@@ -736,7 +736,7 @@ class PoseDirectory:
             # if 'sym_entry' in self.info:
             #     self.sym_entry = self.info['sym_entry']  # get instance
             #     self.info.pop('sym_entry')  # remove this object
-            #     self.info['sym_entry_specification'] = self.sym_entry_number, self.sym_entry_map
+            #     self.info['sym_entry_specification'] = self.sym_entry.entry_number, self.sym_entry.sym_map
             if 'oligomer_names' in self.info:
                 self.info['entity_names'] = [f'{name}_1' for name in self.info['oligomer_names']]
             # if 'design_residue_ids' in self.info:  # format is old, convert
@@ -1202,7 +1202,7 @@ class PoseDirectory:
             self.log.critical("No symmetry invoked during design. Rosetta will still design your PDB, however, if it's"
                               ' an ASU it may be missing crucial interface contacts. Is this what you want?')
         else:  # Symmetric
-            # self.log.debug(f'Design has Symmetry Entry Number: {self.sym_entry_number} (Laniado & Yeates, 2020)')
+            # self.log.debug(f'Design has Symmetry Entry Number: {self.sym_entry.entry_number} (Laniado & Yeates, 2020)')
             self.symmetry_protocol = symmetry_protocols[self.design_dimension]
             self.sym_def_file = self.sym_entry.sdf_lookup()
         self.log.info(f'Symmetry Option: {self.symmetry_protocol}')
