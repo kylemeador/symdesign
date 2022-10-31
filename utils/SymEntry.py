@@ -309,24 +309,23 @@ class SymEntry:
             self.sym_map = [self.resulting_symmetry] + self.groups
         else:  # Requires full specification of all symmetry groups
             self.groups = []
-            result, *sym_map = sym_map  # Remove the result and pass the groups
-            for idx, sub_symmetry in enumerate(sym_map, 1):
-                if sub_symmetry not in valid_symmetries:
-                    if sub_symmetry is None:
+            self.sym_map = sym_map
+            result, *groups = sym_map  # Remove the result and pass the groups
+            for idx, group in enumerate(groups, 1):
+                if group not in valid_symmetries:
+                    if group is None:
                         continue  # Todo ignore for now. Need to refactor symmetry_combinations for any number of elements
                     else:
-                        raise ValueError(f'The symmetry "{sub_symmetry}" specified at index "{idx}" is not a valid '
+                        raise ValueError(f'The symmetry group "{group}" specified at index "{idx}" is not a valid '
                                          f'sub-symmetry')
-                if sub_symmetry not in entry_groups:
+                if group not in entry_groups:
                     # This is probably a sub-symmetry of one of the groups. Is it allowed?
-                    if not symmetry_groups_are_allowed_in_entry(sym_map, *entry_groups, result=self.resulting_symmetry):
+                    if not symmetry_groups_are_allowed_in_entry(groups, *entry_groups, result=self.resulting_symmetry):
                                                                 # group1=group1, group2=group2):
-                        raise SymmetryError(f"The sub-symmetry {sub_symmetry} isn't an allowed sub-symmetry of the "
+                        raise SymmetryError(f"The symmetry group {group} isn't an allowed sub-symmetry of the "
                                             f'result {self.resulting_symmetry}, or the group(s) '
                                             f'{", ".join(group for group in entry_groups if group is not None)}.')
-                self.groups.append(sub_symmetry)
-
-            self.sym_map = sym_map
+                self.groups.append(group)
 
         self._int_dof_groups, self._setting_matrices, self._setting_matrices_numbers, self._ref_frame_tx_dof, self.__external_dof = [], [], [], [], []
         for group_idx, group_symmetry in enumerate(self.groups, 1):
