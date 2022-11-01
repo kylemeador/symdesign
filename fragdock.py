@@ -29,7 +29,7 @@ from metrics import calculate_collapse_metrics, calculate_residue_surface_area, 
 from structure.fragment.db import FragmentDatabase, fragment_factory
 from resources.job import job_resources_factory, JobResources
 from resources.ml import proteinmpnn_factory, sequence_nllloss, proteinmpnn_to_device, mpnn_alphabet, \
-    create_decoding_order, setup_pose_batch_for_proteinmpnn, proteinmpnn_batch_design
+    create_decoding_order, setup_pose_batch_for_proteinmpnn, proteinmpnn_batch_design, batch_proteinmpnn_input
 from structure.base import Structure, Residue
 from structure.coords import transform_coordinate_sets
 from structure.fragment import GhostFragment, write_frag_match_info_file
@@ -3095,7 +3095,9 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
 
         # Add a parameter for the unbound version of X to X
         X_unbound = np.concatenate(entity_unbound_coords).reshape((number_of_residues, num_model_residues, 3))
-        parameters['X_unbound'] = X_unbound
+        extra_batch_parameters = resources.ml.proteinmpnn_to_device(device, **batch_proteinmpnn_input(size=batch_length,
+                                                                                                      X=X_unbound))
+        parameters['X_unbound'] = extra_batch_parameters.pop('X')
         # Disregard X, chain_M_pos, and bias_by_res parameters return and use the pose specific data from below
         # parameters.pop('X')  # overwritten by X_unbound
         parameters.pop('chain_M_pos')
