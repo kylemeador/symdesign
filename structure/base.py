@@ -1103,6 +1103,8 @@ class Atoms:
 class ContainsAtomsMixin(StructureBase):
     # _atom_indices: list[int]
     _atoms: Atoms
+    _indices_attributes: set[str] = {'_backbone_and_cb_indices', '_backbone_indices', '_ca_indices', '_cb_indices',
+                                     '_heavy_indices', '_side_chain_indices'}
     # _coords: Coords
     backbone_and_cb_indices: list[int]
     backbone_indices: list[int]
@@ -1112,9 +1114,7 @@ class ContainsAtomsMixin(StructureBase):
     number_of_atoms: int
     side_chain_indices: list[int]
     # These state_attributes are used by all subclasses despite no usage in this class
-    state_attributes: set[str] = StructureBase.state_attributes | \
-        {'_backbone_and_cb_indices', '_backbone_indices', '_ca_indices', '_cb_indices', '_heavy_indices',
-         '_side_chain_indices'}
+    state_attributes: set[str] = StructureBase.state_attributes | _indices_attributes
 
     def __init__(self, atoms: list[Atom] | Atoms = None, **kwargs):
         super().__init__(**kwargs)
@@ -1323,6 +1323,14 @@ class ContainsAtomsMixin(StructureBase):
     def start_index(self) -> int:
         """The first atomic index of the StructureBase"""
         return self._atom_indices[0]
+
+    def reset_indices(self):
+        """Reset the indices attached to the instance"""
+        for attr in self._indices_attributes:
+            try:
+                delattr(self, attr)
+            except AttributeError:
+                continue
 
     def format_header(self, **kwargs) -> str:
         """Format any records desired in the Structure header
@@ -1569,6 +1577,8 @@ class Residue(ResidueFragment, ContainsAtomsMixin):
         self._atom_indices = list(range(index, index + self.number_of_atoms))
         for atom, index in zip(self._atoms.atoms[self._atom_indices].tolist(), self._atom_indices):
             atom.index = index
+        # Clear all the indices attributes for this Residue
+        super().reset_indices()
 
     @property
     def range(self) -> list[int]:
