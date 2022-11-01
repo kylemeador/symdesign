@@ -28,7 +28,14 @@ from utils import handle_errors, pretty_format_table, clean_comma_separated_stri
     ex_path
 
 
-# terminal_formatter = '\n\t\t\t\t\t\t     '
+nstruct = 20
+method = 'method'
+design_arguments = {
+    ignore_clashes, ignore_pose_clashes, ignore_symmetric_clashes, method, evolution_constraint, hbnet,
+    number_of_trajectories, structure_background, scout, term_constraint, consensus, ca_only, temperatures,
+    sequences, structures
+}
+
 
 def format_for_cmdline(flag: str):
     return flag.replace('_', '-')
@@ -522,8 +529,6 @@ interface_design_help = 'Gather poses of interest and format for design using se
                         'ProteinMPNN.\nConstrain using evolutionary profiles of homologous sequences and/or fragment ' \
                         'profiles\nextracted from the PDB or neither'
 parser_design = {interface_design: dict(description=interface_design_help, help=interface_design_help)}
-nstruct = 20
-method = 'method'
 interface_design_arguments = {
     ('-ec', f'--{evolution_constraint}'):
         dict(action=argparse.BooleanOptionalAction, default=True,
@@ -801,6 +806,10 @@ input_arguments = {
     ('-df', '--dataframe'): dict(type=os.path.abspath, metavar=ex_path('Metrics.csv'),
                                  help=f'A DataFrame created b {program_name} analysis containing\npose info. File is '
                                       f'output in .csv format'),
+    ('--fuse-chains',): dict(type=str, nargs='*', default=[], metavar='A:B C:D',
+                             help='The name of a pair of chains to fuse during design.\nPaired chains should be '
+                                  'separated by a colon, with the n-terminal\npreceding the c-terminal chain. Fusion '
+                                  'instances should be\nseparated by a space\nEx --fuse-chains A:B C:D'),
     ('-N', f'--{nanohedra}-output'): dict(action='store_true', help='Is the input a Nanohedra docking output?'),
     ('-pf', '--pose-file'): dict(type=str, dest='specification_file', metavar=ex_path('pose_design_specifications.csv'),
                                  help=f'If pose IDs are specified in a file, say as the result of\n{select_poses} or '
@@ -828,10 +837,6 @@ input_mutual_arguments = {
                            help=f'File(s) with the location of poses listed. For each run of {program_name},\na file '
                                 f'will be created specifying the specific directories to use\nin subsequent commands of'
                                 f' the same designs'),
-    ('--fuse-chains',): dict(type=str, nargs='*', default=[], metavar='A:B C:D',
-                             help='The name of a pair of chains to fuse during design.\nPaired chains should be '
-                                  'separated by a colon, with the n-terminal\npreceding the c-terminal chain. Fusion '
-                                  'instances should be\nseparated by a space\nEx --fuse-chains A:B C:D'),
     ('-p', '--project'): dict(type=os.path.abspath, nargs='*',
                               metavar=ex_path('SymDesignOutput', 'Projects', 'yourProject'),
                               help='Operate on designs specified within a project(s)'),
@@ -1126,11 +1131,6 @@ for parser_name, parser_kwargs in input_parsers.items():
 #             entire_module_suparsers[parser_name].add_argument(*args, **kwargs)
 
 # Separate the provided arguments for modules or overall program arguments to into flags namespaces
-design_arguments = {
-    ignore_clashes, ignore_pose_clashes, ignore_symmetric_clashes, method, evolution_constraint, hbnet,
-    number_of_trajectories, structure_background, scout, term_constraint, consensus, ca_only, temperatures,
-    sequences, structures
-}
 design = {}
 """Contains all the arguments used in design and their default parameters"""
 for group in parser._action_groups:
