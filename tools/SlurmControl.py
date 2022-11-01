@@ -7,7 +7,7 @@ from glob import glob
 from itertools import repeat
 
 import utils
-
+from utils.path import multi_processing
 
 logger = utils.start_log(name=os.path.basename(__file__))
 
@@ -160,7 +160,7 @@ if __name__ == '__main__':
     parser.add_argument('-d', '--directory', type=str, help='Directory where Job output is located. Default=CWD')
     parser.add_argument('-f', '--file', type=str, help='Path to file where commands for the SBATCH array are located',
                         default=None, required=True)
-    parser.add_argument('-mp', '--multi_processing', action='store_true',
+    parser.add_argument('-mp', f'--{multi_processing}', action='store_true',
                         help='Should job be run with multiprocessing?\nDefault=False')
     parser.add_argument('--debug', action='store_true', help='Debug all steps to standard out?\nDefault=False')
     parser.add_argument('-e', '--exclude', action='store_true',

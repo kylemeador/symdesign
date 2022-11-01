@@ -876,7 +876,7 @@ def main():
     # retrieve all poses and filter for those ID's in consideration
     all_poses, location = utils.collect_designs(directory=docked_poses_dirpath)  # , file=args.file)
     assert all_poses != list(), 'No %s directories found within \'%s\'! Please ensure correct location' \
-                                % (PUtils.nano.title(), location)
+                                % (PUtils.nanohedra.title(), location)
     all_design_directories = [protocols.PoseDirectory.from_nanohedra(design_path)
                               for design_path in all_poses]  # , symmetry=args.design_string)
     # return only directories for which an id is matched

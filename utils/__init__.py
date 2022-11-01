@@ -1329,8 +1329,13 @@ def condensed_to_square(k, n):
     return i, j
 
 
-def ex_path(*string):
-    return os.path.join('path', 'to', *string)
+def ex_path(*directories: Sequence[str]) -> AnyStr:
+    """Create an example path prepended with /path/to/provided/directories
+
+    Args:
+        directories: Example: ('provided', 'directories')
+    """
+    return os.path.join('path', 'to', *directories)
 
 
 def parameterize_frag_length(length: int) -> tuple[int, int]:

@@ -47,7 +47,7 @@ from utils import large_color_array, handle_errors, starttime, start_log, null_l
 from utils.SymEntry import SymEntry, symmetry_factory
 from structure.fragment.db import FragmentDatabase
 from utils.nanohedra.general import get_components_from_nanohedra_docking
-from utils.path import pose_source, state_file
+from utils.path import pose_source, state_file, sym_entry
 
 # Globals
 logger = start_log(name=__name__)
@@ -61,6 +61,7 @@ stats_metrics = [mean, std]
 variance = 0.8
 symmetry_protocols = {0: 'make_point_group', 2: 'make_layer', 3: 'make_lattice'}  # -1: 'asymmetric',
 null_cmd = ['echo']
+warn_missing_symmetry = f'Cannot %s without providing symmetry! Provide symmetry with "--symmetry" or "--{sym_entry}"'
 
 
 def handle_design_errors(errors: tuple[Type[Exception], ...] = (Exception,)) -> Callable:
@@ -1086,7 +1087,7 @@ class PoseDirectory:
         if self.job.distribute_work:
             analysis_cmd = ['python', PUtils.program_exe, PUtils.analysis, '--single', self.path, '--no-output',
                             '--output_file', os.path.join(self.job.all_scores,
-                                                          PUtils.analysis_file % (starttime, protocol))]
+                                                          PUtils.default_analysis_file % (starttime, protocol))]
             write_shell_script(list2cmdline(generate_files_cmd), name=PUtils.interface_metrics, out_path=self.scripts,
                                additional=[list2cmdline(command) for command in metric_cmds] +
                                           [list2cmdline(analysis_cmd)])
@@ -1100,7 +1101,7 @@ class PoseDirectory:
         # ANALYSIS: each output from the Design process based on score, Analyze Sequence Variation
         if not self.job.distribute_work:
             pose_s = self._interface_design_analysis()
-            out_path = os.path.join(self.job.all_scores, PUtils.analysis_file % (starttime, 'All'))
+            out_path = os.path.join(self.job.all_scores, PUtils.default_analysis_file % (starttime, 'All'))
             if os.path.exists(out_path):
                 header = False
             else:
@@ -1177,12 +1178,12 @@ class PoseDirectory:
 
         # Todo  + [list2cmdline(analysis_cmd)])
         #  analysis_cmd = ['python', PUtils.program_exe, PUtils.analysis, '--single', self.path, '--no-output',
-        #                 '--output_file', os.path.join(self.job.all_scores, PUtils.analysis_file % (starttime, protocol))]
+        #                 '--output_file', os.path.join(self.job.all_scores, PUtils.default_analysis_file % (starttime, protocol))]
 
         # ANALYSIS: each output from the Design process based on score, Analyze Sequence Variation
         if not self.job.distribute_work:
             pose_s = self._interface_design_analysis()
-            out_path = os.path.join(self.job.all_scores, PUtils.analysis_file % (starttime, 'All'))
+            out_path = os.path.join(self.job.all_scores, PUtils.default_analysis_file % (starttime, 'All'))
             if os.path.exists(out_path):
                 header = False
             else:
@@ -1516,7 +1517,7 @@ class PoseDirectory:
             # self.load_pose(source=orient_file)
             self.load_pose(entities=model.entities)
         else:
-            self.log.critical(PUtils.warn_missing_symmetry % self.orient.__name__)
+            raise SymmetryError(warn_missing_symmetry % self.orient.__name__)
 
     @handle_design_errors(errors=(DesignError, AssertionError))
     @close_logs
@@ -1670,7 +1671,7 @@ class PoseDirectory:
         if self.job.distribute_work:
             analysis_cmd = ['python', PUtils.program_exe, PUtils.analysis, '--single', self.path, '--no-output',
                             '--output_file', os.path.join(self.job.all_scores,
-                                                          PUtils.analysis_file % (starttime, protocol))]
+                                                          PUtils.default_analysis_file % (starttime, protocol))]
             write_shell_script(list2cmdline(relax_cmd), name=protocol, out_path=flag_dir,
                                additional=[list2cmdline(generate_files_cmd)] +
                                           [list2cmdline(command) for command in metric_cmds] +
@@ -1691,7 +1692,7 @@ class PoseDirectory:
         # # Todo this isn't working right now with mutations to structure
         if not self.job.distribute_work:
             pose_s = self._interface_design_analysis()
-            out_path = os.path.join(self.job.all_scores, PUtils.analysis_file % (starttime, 'All'))
+            out_path = os.path.join(self.job.all_scores, PUtils.default_analysis_file % (starttime, 'All'))
             if os.path.exists(out_path):
                 header = False
             else:
@@ -1751,7 +1752,7 @@ class PoseDirectory:
             self.pose.write(assembly=True, out_path=self.assembly_path, increment_chains=self.job.increment_chains)
             self.log.info(f'Symmetric assembly written to: "{self.assembly_path}"')
         else:
-            self.log.critical(PUtils.warn_missing_symmetry % self.expand_asu.__name__)
+            raise SymmetryError(warn_missing_symmetry % self.expand_asu.__name__)
         self.pickle_info()  # Todo remove once PoseDirectory state can be returned to the SymDesign dispatch w/ MP
 
     @handle_design_errors(errors=(DesignError, AssertionError))
@@ -2097,7 +2098,7 @@ class PoseDirectory:
         if self.job.distribute_work:
             analysis_cmd = ['python', PUtils.program_exe, PUtils.analysis, '--single', self.path, '--no-output',
                             '--output_file', os.path.join(self.job.all_scores,
-                                                          PUtils.analysis_file % (starttime, protocol))]
+                                                          PUtils.default_analysis_file % (starttime, protocol))]
             write_shell_script(list2cmdline(design_cmd), name=protocol, out_path=self.scripts,
                                additional=[list2cmdline(command) for command in additional_cmds] +
                                           [list2cmdline(generate_files_cmd)] +
@@ -2116,7 +2117,7 @@ class PoseDirectory:
         # ANALYSIS: each output from the Design process based on score, Analyze Sequence Variation
         if not self.job.distribute_work:
             pose_s = self._interface_design_analysis()
-            out_path = os.path.join(self.job.all_scores, PUtils.analysis_file % (starttime, 'All'))
+            out_path = os.path.join(self.job.all_scores, PUtils.default_analysis_file % (starttime, 'All'))
             if os.path.exists(out_path):
                 header = False
             else:
@@ -2221,7 +2222,7 @@ class PoseDirectory:
         if self.job.distribute_work:
             analysis_cmd = ['python', PUtils.program_exe, PUtils.analysis, '--single', self.path, '--no-output',
                             '--output_file', os.path.join(self.job.all_scores,
-                                                          PUtils.analysis_file % (starttime, protocol))]
+                                                          PUtils.default_analysis_file % (starttime, protocol))]
             write_shell_script(list2cmdline(design_cmd), name=protocol, out_path=self.scripts,
                                additional=[list2cmdline(generate_files_cmd)] +
                                           [list2cmdline(command) for command in metric_cmds] +
@@ -2238,7 +2239,7 @@ class PoseDirectory:
         # ANALYSIS: each output from the Design process based on score, Analyze Sequence Variation
         if not self.job.distribute_work:
             pose_s = self._interface_design_analysis()
-            out_path = os.path.join(self.job.all_scores, PUtils.analysis_file % (starttime, 'All'))
+            out_path = os.path.join(self.job.all_scores, PUtils.default_analysis_file % (starttime, 'All'))
             if os.path.exists(out_path):
                 header = False
             else:
