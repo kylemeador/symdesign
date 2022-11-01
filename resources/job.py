@@ -15,7 +15,8 @@ from resources.wrapapi import api_database_factory
 from utils import start_log, make_path
 from utils.SymEntry import SymEntry
 from utils.path import sym_entry, all_scores, projects, sequence_info, data, output_oligomers, output_fragments, \
-    generate_fragments, force_flags, structure_info, output_structures, output_trajectory, development
+    generate_fragments, force_flags, structure_info, output_structures, output_trajectory, development, distribute_work, \
+    output_surrounding_uc, output_assembly, output_directory, skip_logging
 
 logger = start_log(name=__name__)
 # DesignFlags = collections.namedtuple('DesignFlags', design_args.keys(), defaults=design_args.values())
@@ -134,11 +135,11 @@ class JobResources:
         # self.term_constraint: bool = kwargs.get(term_constraint, False)
         # self.number_of_trajectories: int = kwargs.get(number_of_trajectories, nstruct)
         self.overwrite: bool = kwargs.get('overwrite', False)
-        self.output_directory: AnyStr | None = kwargs.get('output_directory', None)
+        self.output_directory: AnyStr | None = kwargs.get(output_directory, None)
         self.output_to_directory: bool = True if self.output_directory else False
-        self.output_assembly: bool = kwargs.get('output_assembly', False)
-        self.output_surrounding_uc: bool = kwargs.get('output_surrounding_uc', False)
-        self.distribute_work: bool = kwargs.get('distribute_work', False)
+        self.output_assembly: bool = kwargs.get(output_assembly, False)
+        self.output_surrounding_uc: bool = kwargs.get(output_surrounding_uc, False)
+        self.distribute_work: bool = kwargs.get(distribute_work, False)
         if self.mpi > 0:
             self.distribute_work = True
         # self.pre_refine: bool = kwargs.get('pre_refine', True)
@@ -152,7 +153,7 @@ class JobResources:
         self.write_oligomers: bool = kwargs.get(output_oligomers, False)
         self.write_structures: bool = kwargs.get(output_structures, True)
         self.write_trajectory: bool = kwargs.get(output_trajectory, False)
-        self.skip_logging: bool = kwargs.get('skip_logging', False)
+        self.skip_logging: bool = kwargs.get(skip_logging, False)
         self.nanohedra_output: bool = kwargs.get('nanohedra_output', False)
         self.nanohedra_root: str | None = None
         # Development Flags

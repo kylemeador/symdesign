@@ -1,7 +1,7 @@
 from metrics import master_metrics, rosetta_required_metrics
 from utils.path import term_constraint, evolution_constraint, hbnet, scout, program_command, select_sequences, \
     program_name, structure_background, current_energy_function, number_of_trajectories, force_flags, interface_design, \
-    select_poses, analysis, protocol, select_designs, nano, nano_publication, interface_metrics, cluster_poses, \
+    select_poses, analysis, protocol, select_designs, nanohedra, nano_publication, interface_metrics, cluster_poses, \
     optimize_designs
 from utils import pretty_format_table
 
@@ -87,10 +87,10 @@ cluster_poses_guide = \
     f'configuration to other poses in the set. The second clustering methodology is to use a transformational cluster' \
     f'. Transformational clustering compares the transforms present in each symmetry group in a pose with other poses' \
     f' symmetry group transforms. This clustering method is a bit coarse, but is much more rapid and quickly finds ' \
-    f'the best poses in fragment based {nano.title()} docking. For instance, if two structural homologs are used in a' \
+    f'the best poses in fragment based {nanohedra.title()} docking. For instance, if two structural homologs are used in a' \
     f' set of poses, their similarity may be completely apparent to iAlign, but their entities are different ' \
     f'identities and therefore they wouldn\'t be equal by transformation. When thousands of poses are under ' \
-    f'consideration, such as in the case of {nano.title()} outputs, spatial transformation can quickly identify ' \
+    f'consideration, such as in the case of {nanohedra.title()} outputs, spatial transformation can quickly identify ' \
     f'matching poses.\n\tCluster maps are implemented through the argument -C and can be used in many cases ' \
     f'during a selection scheme such as in {select_poses}, {select_designs}, or {select_sequences}, This will allow a' \
     f' mapping from cluster representative to cluster members should be utilized to select the most favorable poses' \
@@ -151,7 +151,7 @@ analysis_guide = \
     f'parameters. Selection of the resulting poses/designs/sequences can be accomplished through the modules ' \
     f'"{select_poses}, {select_designs}, or {select_sequences}".\n\t{module_help_string}'
 nanohedra_guide = \
-    f'{nano} operates the {nano.title()} program which carries out the fragment based docking routine described in' \
+    f'{nanohedra} operates the {nanohedra.title()} program which carries out the fragment based docking routine described in' \
     f' {nano_publication}. Fragment based docking is the main way {program_name} samples new symmetric materials' \
     f' from component building blocks, but can also be used to dock any two proteins based on surface fragment ' \
     f'complementarity or tertiary motifs (TERMs). To create new docked poses, protein surface patches are queried for' \

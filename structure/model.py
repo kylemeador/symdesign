@@ -5606,9 +5606,9 @@ class Pose(SymmetricModel):
             pssm_log_odds_mask = np.tile(pssm_log_odds_mask, (number_of_symmetry_mates, 1))
             omit_AA_mask = np.tile(omit_AA_mask, (number_of_symmetry_mates, 1))
             bias_by_res = np.tile(bias_by_res, (number_of_symmetry_mates, 1))
-            self.log.info(f'Tiled bias_by_res start: {bias_by_res[:5]}')
-            self.log.info(f'Tiled bias_by_res: '
-                          f'{bias_by_res[number_of_residues-5: number_of_residues+5]}')
+            self.log.debug(f'Tiled bias_by_res start: {bias_by_res[:5]}')
+            self.log.debug(f'Tiled bias_by_res: '
+                           f'{bias_by_res[number_of_residues-5: number_of_residues+5]}')
             tied_beta = np.ones_like(residue_mask)  # (number_of_sym_residues,)
             tied_pos = [self.make_indices_symmetric([idx], dtype='residue') for idx in design_residues]
             # (design_residues, number_of_symmetry_mates)

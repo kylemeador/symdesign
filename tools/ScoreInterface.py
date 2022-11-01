@@ -5,7 +5,7 @@ from itertools import repeat
 import pandas as pd
 
 from structure.fragment.db import fragment_factory, EulerLookup
-from utils.path import biological_interfaces
+from utils.path import biological_interfaces, multi_processing
 from structure.model import Pose
 from utils import start_log, set_logging_to_level, unpickle, to_iterable, mp_starmap, get_directory_file_paths
 
@@ -23,7 +23,7 @@ if __name__ == '__main__':
                         default=os.getcwd())
     parser.add_argument('-f', '--file', type=str, help='A serialized dictionary with selected PDB code: [interface ID] '
                                                        'pairs', required=True)
-    parser.add_argument('-mp', '--multi_processing', action='store_true',
+    parser.add_argument('-mp', f'--{multi_processing}', action='store_true',
                         help='Should job be run with multiprocessing?\nDefault=False')
     parser.add_argument('-t', '--cores', type=int, help='How many cores should be utilized?\nDefault=1', default=1)
     parser.add_argument('--debug', action='store_true', help='Debug all steps to standard out?\nDefault=False')

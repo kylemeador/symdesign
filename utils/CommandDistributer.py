@@ -10,7 +10,7 @@ from itertools import repeat, chain
 from typing import AnyStr
 
 from utils import start_log, unpickle, pickle_object, calculate_mp_cores, mp_starmap, collect_designs, DesignError
-from utils.path import sbatch_template_dir, nano, rosetta_main, rosetta_extras, dalphaball, submodule_help, \
+from utils.path import sbatch_template_dir, nanohedra, rosetta_main, rosetta_extras, dalphaball, submodule_help, \
     program_name, interface_design, interface_metrics, optimize_designs, refine, rosetta_scripts, \
     sym_weights, solvent_weights_sym, solvent_weights, scout, consensus, hbnet_design_profile, structure_background
 
@@ -72,7 +72,7 @@ rosetta_variables = [('scripts', rosetta_scripts), ('sym_score_patch', sym_weigh
 stage = {1: refine, 2: interface_design, 3: 'metrics', 4: 'analysis', 5: consensus,
          6: 'rmsd_calculation', 7: 'all_to_all', 8: 'rmsd_clustering', 9: 'rmsd_to_cluster', 10: 'rmsd',
          11: 'all_to_cluster', 12: scout, 13: hbnet_design_profile, 14: structure_background}
-process_scale = {refine: 2, interface_design: 2, stage[3]: 2, consensus: 2, nano: 2,
+process_scale = {refine: 2, interface_design: 2, stage[3]: 2, consensus: 2, nanohedra: 2,
                  stage[6]: 1, stage[7]: 1, stage[8]: 1, stage[9]: 1, stage[10]: 1,
                  stage[11]: 1, stage[12]: 2, stage[13]: 2, optimize_designs: 2,
                  'metrics_bound': 2, interface_metrics: 2, 'hhblits': 1, 'bmdca': 2}
@@ -83,7 +83,7 @@ sbatch_templates = {refine: os.path.join(sbatch_template_dir, refine),
                     stage[3]: os.path.join(sbatch_template_dir, interface_design),
                     stage[4]: os.path.join(sbatch_template_dir, refine),
                     consensus: os.path.join(sbatch_template_dir, refine),
-                    nano: os.path.join(sbatch_template_dir, nano),
+                    nanohedra: os.path.join(sbatch_template_dir, nanohedra),
                     stage[6]: os.path.join(sbatch_template_dir, stage[6]),
                     stage[7]: os.path.join(sbatch_template_dir, stage[6]),
                     stage[8]: os.path.join(sbatch_template_dir, stage[6]),
