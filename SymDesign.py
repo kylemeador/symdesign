@@ -712,6 +712,8 @@ def main():
     else:
         if args.module == PUtils.nanohedra:  # remove the dummy input
             del args.file
+        # Replace the commandline formatting with pythonic underscores
+        args.module = args.module.replace('-', '_')
         queried_flags = vars(args)
     # -----------------------------------------------------------------------------------------------------------------
     # Find base symdesign_directory and check for proper set up of program i/o
