@@ -156,29 +156,33 @@ def start_log(name: str = '', handler: int = 1, level: logging_levels = 2, locat
     # Todo make a mechanism to only emit warning or higher if propagate=True
     #  See SymDesign.py use of adding handler[0].addFilter()
     _logger.propagate = propagate
+    if format_log:
+        if no_log_name:
+            # log_format = Formatter('%(levelname)s: %(message)s')
+            # log_format = Formatter('\033[38;5;208m%(levelname)s\033[0;0m: %(message)s')
+            message_fmt = '\033[38;5;208m{levelname}\033[0;0m: {message}'
+        else:
+            # log_format = Formatter('[%(name)s]-%(levelname)s: %(message)s')  # \033[48;5;69m background
+            # log_format = Formatter('\033[38;5;93m%(name)s\033[0;0m-\033[38;5;208m%(levelname)s\033[0;0m: %(message)s')
+            message_fmt = '\033[38;5;93m{name}\033[0;0m-\033[38;5;208m{levelname}\033[0;0m: {message}'
+    else:
+        message_fmt = ''
+
     _handler = log_handler[handler]
     if handler == 2:
         # Check for extension. If one doesn't exist, add ".log"
         lh = _handler(f'{location}.log' if os.path.splitext(location)[1] == '' else location)
+        # Remove any coloring from the log
+        message_fmt = message_fmt.replace('\033[38;5;208m', '').replace('\033[38;5;93m', '').replace('\033[0;0m', '')
     else:
         lh = _handler()
 
     if handler_level is not None:
         lh.setLevel(log_level[handler_level])
+
+    log_format = Formatter(fmt=message_fmt, style='{')
+    lh.setFormatter(log_format)
     _logger.addHandler(lh)
-
-    if format_log:
-        if no_log_name:
-            # log_format = Formatter('%(levelname)s: %(message)s')
-            # log_format = Formatter('\033[38;5;208m%(levelname)s\033[0;0m: %(message)s')
-            log_format = Formatter(fmt='\033[38;5;208m{levelname}\033[0;0m: {message}', style='{')
-
-        else:
-            # log_format = Formatter('[%(name)s]-%(levelname)s: %(message)s')  # \033[48;5;69m background
-            # log_format = Formatter('\033[38;5;93m%(name)s\033[0;0m-\033[38;5;208m%(levelname)s\033[0;0m: %(message)s')
-            log_format = Formatter(fmt='\033[38;5;93m{name}\033[0;0m-\033[38;5;208m{levelname}\033[0;0m: {message}',
-                                   style='{')
-        lh.setFormatter(log_format)
 
     return _logger
 
@@ -1329,8 +1333,13 @@ def condensed_to_square(k, n):
     return i, j
 
 
-def ex_path(*string):
-    return os.path.join('path', 'to', *string)
+def ex_path(*directories: Sequence[str]) -> AnyStr:
+    """Create an example path prepended with /path/to/provided/directories
+
+    Args:
+        directories: Example: ('provided', 'directories')
+    """
+    return os.path.join('path', 'to', *directories)
 
 
 def parameterize_frag_length(length: int) -> tuple[int, int]:

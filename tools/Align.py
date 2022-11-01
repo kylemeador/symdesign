@@ -6,7 +6,7 @@ import structure
 from structure.model import Model
 from structure.coords import superposition3d
 from utils.SymEntry import parse_symmetry_to_sym_entry
-from utils.path import sym_entry, nano
+from utils.path import sym_entry, nanohedra
 
 
 class ListFile:
@@ -660,7 +660,7 @@ if __name__ == '__main__':
     parser.add_argument('-o', '--out_path', type=str,
                         help='The disk location of the output directory containing the alignment result')
     parser.add_argument('-e', '--entry', f'--{sym_entry}', type=int, default=None, dest=sym_entry,
-                        help=f'The entry number of {nano.title()} docking combinations to use for symmetry'),
+                        help=f'The entry number of {nanohedra.title()} docking combinations to use for symmetry'),
     parser.add_argument('-S', '--symmetry', type=str, default=None,
                         help='The specific symmetry of the poses of interest.\nPreferably in a composition '
                              'formula such as T:{C3}{C3}...\nCan also provide the keyword "cryst" to use crystal'

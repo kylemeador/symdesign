@@ -394,6 +394,7 @@ def proteinmpnn_to_device(device: str = None, **kwargs) -> dict[str, torch.Tenso
     """
     if device is None:
         raise ValueError('Must provide the desired device to load proteinmpnn')
+    logger.debug(f'Loading ProteinMPNN parameters to device: {device}')
 
     # Convert all numpy arrays to pytorch
     device_kwargs = {}
@@ -490,11 +491,11 @@ def proteinmpnn_batch_design(batch_slice: slice, proteinmpnn: ProteinMPNN,
 
     actual_batch_length = batch_slice.stop - batch_slice.start
     # Clone the data from the sequence tensor so that it can be set with the null token below
+    S_design_null = S.detach().clone()
     if pose_length is None:
         batch_length, pose_length, *_ = S.shape
     else:
         batch_length, *_ = S.shape
-    S_design_null = S.detach().clone()
     # X_unbound = batch_parameters.get('X_unbound')
     if actual_batch_length != batch_length:
         # Slice these for the last iteration
@@ -588,7 +589,7 @@ def proteinmpnn_batch_design(batch_slice: slice, proteinmpnn: ProteinMPNN,
             sequence_nllloss(_batch_sequences, complex_log_probs[:, :pose_length]).numpy())
         logger.debug(f'Log probabilities calculation took {time.time() - log_probs_start_time:8f}s')
 
-    # All data structures have a shape (batch_length, number_of_temperatures, pose_length)
+    # Reshape data structures to have shape (batch_length, number_of_temperatures, pose_length)
     sequences = np.concatenate(batch_sequences, axis=1).reshape(actual_batch_length, number_of_temps, pose_length)
     complex_sequence_loss =\
         np.concatenate(_per_residue_complex_sequence_loss, axis=1).reshape(actual_batch_length,

@@ -17,7 +17,7 @@ from structure.fragment import Fragment, MonoFragment, ResidueFragment
 from structure.fragment.db import FragmentDatabase, fragment_factory
 from structure.utils import protein_letters_alph1, protein_letters_1to3, protein_letters_3to1_extended
 from utils.path import freesasa_exe_path, stride_exe_path, errat_exe_path, freesasa_config_path, \
-    reference_residues_pkl, program_name, program_version, biological_interfaces
+    reference_residues_pkl, program_name, program_version, biological_interfaces, sasa_debug_dir
 from utils import start_log, null_log, unpickle, digit_translate_table, DesignError, ClashError, short_start_date, \
     long_start_date
 from utils.symmetry import origin
@@ -1103,6 +1103,8 @@ class Atoms:
 class ContainsAtomsMixin(StructureBase):
     # _atom_indices: list[int]
     _atoms: Atoms
+    _indices_attributes: set[str] = {'_backbone_and_cb_indices', '_backbone_indices', '_ca_indices', '_cb_indices',
+                                     '_heavy_indices', '_side_chain_indices'}
     # _coords: Coords
     backbone_and_cb_indices: list[int]
     backbone_indices: list[int]
@@ -1112,9 +1114,7 @@ class ContainsAtomsMixin(StructureBase):
     number_of_atoms: int
     side_chain_indices: list[int]
     # These state_attributes are used by all subclasses despite no usage in this class
-    state_attributes: set[str] = StructureBase.state_attributes | \
-        {'_backbone_and_cb_indices', '_backbone_indices', '_ca_indices', '_cb_indices', '_heavy_indices',
-         '_side_chain_indices'}
+    state_attributes: set[str] = StructureBase.state_attributes | _indices_attributes
 
     def __init__(self, atoms: list[Atom] | Atoms = None, **kwargs):
         super().__init__(**kwargs)
@@ -1323,6 +1323,14 @@ class ContainsAtomsMixin(StructureBase):
     def start_index(self) -> int:
         """The first atomic index of the StructureBase"""
         return self._atom_indices[0]
+
+    def reset_indices(self):
+        """Reset the indices attached to the instance"""
+        for attr in self._indices_attributes:
+            try:
+                delattr(self, attr)
+            except AttributeError:
+                continue
 
     def format_header(self, **kwargs) -> str:
         """Format any records desired in the Structure header
@@ -1569,6 +1577,8 @@ class Residue(ResidueFragment, ContainsAtomsMixin):
         self._atom_indices = list(range(index, index + self.number_of_atoms))
         for atom, index in zip(self._atoms.atoms[self._atom_indices].tolist(), self._atom_indices):
             atom.index = index
+        # Clear all the indices attributes for this Residue
+        super().reset_indices()
 
     @property
     def range(self) -> list[int]:
@@ -2065,9 +2075,12 @@ class Residue(ResidueFragment, ContainsAtomsMixin):
             for atom in self.atoms:
                 polarity_list[residue_atom_polarity[atom.type]].append(atom.sasa)
         except AttributeError:  # missing atom.sasa
+            self.log.warning(f'Missing SASA information for Atom {atom}')
             self.parent.get_sasa()
             for atom in self.atoms:
                 polarity_list[residue_atom_polarity[atom.type]].append(atom.sasa)
+        except RecursionError:
+            self.log.error(f'Missing SASA information for Atom {atom}')
         # except TypeError:
         #     print(residue_atom_polarity, atom.type, self.type, self.number)
 
@@ -2519,6 +2532,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
     _backbone_indices: list[int]
     _ca_indices: list[int]
     _cb_indices: list[int]
+    _contains_hydrogen: bool
     _fragment_db: FragmentDatabase
     _heavy_indices: list[int]
     _helix_cb_indices: list[int]
@@ -2679,12 +2693,24 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
     #     else:
     #         raise TypeError(f'The log type ({type(log)}) is not of the specified type logging.Logger')
 
-    def contains_hydrogen(self) -> bool:  # in Residue too
-        """Returns whether the Structure contains hydrogen atoms"""
-        return self.residues[0].contains_hydrogen()
-
     # Below properties are considered part of the Structure state
     # Todo refactor properties to below here for accounting
+    def contains_hydrogen(self) -> bool:  # in Residue too
+        """Returns whether the Structure contains hydrogen atoms"""
+        # return self.residues[0].contains_hydrogen()
+        try:
+            return self._contains_hydrogen
+        except AttributeError:
+            # One of the first 20 residues should indicate, otherwise, we have an anomoly
+            for residue in self.residues[:20]:
+                if residue.contains_hydrogen():
+                    self._contains_hydrogen = True
+                    break
+            else:
+                self._contains_hydrogen = False
+
+        return self._contains_hydrogen
+
     @property
     def sequence(self) -> str:
         """Holds the Structure amino acid sequence"""
@@ -4019,7 +4045,17 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
                     residues[if_idx].sasa = float(line[16:])
                     if_idx += 1
         # Todo change to sasa property to call this automatically if AttributeError?
-        self.sasa = sum([residue.sasa for residue in self.residues])
+        try:
+            self.sasa = sum([residue.sasa for residue in self.residues])
+        except RecursionError:
+            self.log.error('RecursionError measuring SASA')
+            os.makedirs(sasa_debug_dir, exist_ok=True)
+            self.write(out_path=os.path.join(sasa_debug_dir, f'SASA-INPUT-{self.name}.pdb'))
+            with open(os.path.join(sasa_debug_dir, f'SASA-OUTPUT-{self.name}.pdb'), 'w') as f:
+                f.write('%s\n' % '\n'.join(sasa_output))
+
+            raise DesignError(f'Measurement of SASA is not working, probably due to a missing Atom. '
+                              f'Debug files written to {sasa_debug_dir}')
 
     @property
     def surface_residues(self, relative_sasa_thresh: float = 0.25, **kwargs) -> list[Residue]:

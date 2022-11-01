@@ -2,6 +2,8 @@ name: symdesign
 channels:
   - conda-forge
   - defaults
+  - pytorch
+  - nvidia
 dependencies:
   - biopython
   - flametree
@@ -16,6 +18,9 @@ dependencies:
   - psutil
   - python=3.10
   - pytorch
+  - torchvision
+  - torchaudio
+  - cudatoolkit=10.2
   - requests
   - scikit-learn
   - scipy

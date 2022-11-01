@@ -1049,6 +1049,15 @@ class Entity(Chain, ContainsChainsMixin):
     rotation_d: dict[str, dict[str, int | np.ndarray]] | None
     symmetry: str | None
 
+    @classmethod
+    def from_chains(cls, chains: list[Chain] | Structures, **kwargs):
+        """Initialize an Entity from a set of Chain objects"""
+        return cls(chains=chains, **kwargs)
+
+    # @classmethod  # Todo implemented above, but clean here to mirror Model?
+    # def from_file(cls):
+    #     return cls()
+
     def __init__(self, chains: list[Chain] | Structures = None, dbref: dict[str, str] = None,
                  reference_sequence: str = None, thermophilic: bool = None, **kwargs):
         """When init occurs chain_ids are set if chains were passed. If not, then they are auto generated"""
@@ -1121,15 +1130,6 @@ class Entity(Chain, ContainsChainsMixin):
             self.uniprot_id = dbref
         if reference_sequence is not None:
             self._reference_sequence = reference_sequence
-
-    # @classmethod  # Todo implemented above, but clean here to mirror Model?
-    # def from_file(cls):
-    #     return cls()
-
-    @classmethod
-    def from_chains(cls, chains: list[Chain] | Structures, **kwargs):
-        """Initialize an Entity from a set of Chain objects"""
-        return cls(chains=chains, **kwargs)
 
     @StructureBase.coords.setter
     def coords(self, coords: np.ndarray | list[list[float]]):
@@ -2238,6 +2238,15 @@ class Entity(Chain, ContainsChainsMixin):
         with open(blueprint_file, 'w') as f:
             f.write('%s\n' % '\n'.join(blueprint_lines))
         return blueprint_file
+
+    def reset_state(self):
+        """Remove StructureBase attributes that are invalid for the current state for each member Structure instance
+
+        This is useful for transfer of ownership, or changes in the Model state that should be overwritten
+        """
+        super().reset_state()
+        # Remove oligomeric chains. This should be generated fresh
+        self._chains = self._chains[:1]
 
     def _update_structure_container_attributes(self, **kwargs):
         """Update attributes specified by keyword args for all Structure container members. Entity specific handling"""
@@ -5597,9 +5606,9 @@ class Pose(SymmetricModel):
             pssm_log_odds_mask = np.tile(pssm_log_odds_mask, (number_of_symmetry_mates, 1))
             omit_AA_mask = np.tile(omit_AA_mask, (number_of_symmetry_mates, 1))
             bias_by_res = np.tile(bias_by_res, (number_of_symmetry_mates, 1))
-            self.log.info(f'Tiled bias_by_res start: {bias_by_res[:5]}')
-            self.log.info(f'Tiled bias_by_res: '
-                          f'{bias_by_res[number_of_residues-5: number_of_residues+5]}')
+            self.log.debug(f'Tiled bias_by_res start: {bias_by_res[:5]}')
+            self.log.debug(f'Tiled bias_by_res: '
+                           f'{bias_by_res[number_of_residues-5: number_of_residues+5]}')
             tied_beta = np.ones_like(residue_mask)  # (number_of_sym_residues,)
             tied_pos = [self.make_indices_symmetric([idx], dtype='residue') for idx in design_residues]
             # (design_residues, number_of_symmetry_mates)
@@ -5696,7 +5705,9 @@ class Pose(SymmetricModel):
         Returns:
             A mapping of the design output type to the output.
                 For proteinmpnn, this is the string mapped to the corresponding returned sequences,
-                complex_sequence_loss, and unbound_sequence_loss
+                complex_sequence_loss, and unbound_sequence_loss. For each data return the return varies such as:
+                 [temp1/repeat1, temp1/repeat2, ..., tempN/repeat1, ...] where designs are sorted by temperature
+
                 For rosetta
         """
         # rosetta: Whether to design using Rosetta energy functions
@@ -5766,6 +5777,7 @@ class Pose(SymmetricModel):
             def _proteinmpnn_batch_design(*args, **kwargs):
                 return proteinmpnn_batch_design(*args, **kwargs)
 
+            # Data has shape (batch_length, number_of_temperatures, pose_length)
             sequences_and_scores = \
                 _proteinmpnn_batch_design(proteinmpnn_model, temperatures=temperatures, pose_length=pose_length,
                                           setup_args=(device,),
@@ -5776,6 +5788,8 @@ class Pose(SymmetricModel):
                                                              'unbound_sequence_loss': per_residue_unbound_sequence_loss}
                                           )
             sequences_and_scores['sequences'] = numeric_to_sequence(sequences_and_scores['sequences'])
+            # Format returns to have shape (temperaturesxsize, pose_length) where the temperatures vary slower
+            # Ex: [temp1/pose1, temp1/pose2, ..., tempN/pose1, ...] This groups the designs by temperature first
             for data_type, data in sequences_and_scores.items():
                 sequences_and_scores[data_type] = np.concatenate(data, axis=1).reshape(-1, pose_length)
         else:
@@ -5903,8 +5917,21 @@ class Pose(SymmetricModel):
             self.log.warning(f'There were missing MultipleSequenceAlignment objects on {sum(missing)} Entity '
                              f'instances. The collapse_profile will not be captured for the entire '
                              f'{type(self).__name__}.')
-            hydrophobic_collapse_profile = np.ndarray([])
-            # print('inside function', hydrophobic_collapse_profile)  # This was printing 7.0 . wtf??
+            hydrophobic_collapse_profile = np.empty(0)
+            # empty_list = []
+            # hydrophobic_collapse_profile = np.ndarray(empty_list)
+            # print('empty_list', empty_list)
+            # _hydrophobic_collapse_profile = np.ndarray([])
+            # print('inside function !', hydrophobic_collapse_profile)  # This was printing 7.0. wtf??
+            # print('inside function _!', _hydrophobic_collapse_profile)  # This was printing 3.5e-323. wtf??
+            # if hydrophobic_collapse_profile is not None and hydrophobic_collapse_profile.size:  # Not equal to zero
+            #     print('collapse_profile', hydrophobic_collapse_profile)
+            #     print('collapse_profile.size', hydrophobic_collapse_profile.size)
+            # >>> empty_list []
+            # >>> inside function ! 7.0
+            # >>> inside function _! 3.5e-323
+            # >>> collapse_profile 7.0
+            # >>> collapse_profile.size 1
         else:
             # We have to concatenate where the values will be different
             # axis=1 is along the residues, so the result should be the length of the pose
@@ -6441,6 +6468,10 @@ class Pose(SymmetricModel):
                 split_number_pairs_and_sort(self._find_interface_atom_pairs(entity1=entity1, entity2=entity2))
             interface_indices1.extend(atoms_indices1), interface_indices2.extend(atoms_indices2)
 
+        if not interface_indices1 and not interface_indices2:
+            self.log.warning(f'No interface atoms located during {self.local_density_interface.__name__}')
+            return 0.
+
         if self.is_symmetric():
             interface_coords = self.symmetric_coords[list(set(interface_indices1).union(interface_indices2))]
         else:
@@ -6479,7 +6510,7 @@ class Pose(SymmetricModel):
         if not entity2_residues:  # entity1 == entity2 and not entity2_residues:
             # entity1_residues = set(entity1_residues + entity2_residues)
             entity2_residues = entity1_residues
-            frag_residues2 = frag_residues1
+            frag_residues2 = frag_residues1.copy()
             # residue_numbers2 = residue_numbers1
         else:
             # residue_numbers2 = sorted(residue.number for residue in entity2_residues)

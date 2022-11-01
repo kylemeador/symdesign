@@ -29,7 +29,7 @@ from metrics import calculate_collapse_metrics, calculate_residue_surface_area, 
 from structure.fragment.db import FragmentDatabase, fragment_factory
 from resources.job import job_resources_factory, JobResources
 from resources.ml import proteinmpnn_factory, sequence_nllloss, proteinmpnn_to_device, mpnn_alphabet, \
-    create_decoding_order, setup_pose_batch_for_proteinmpnn
+    create_decoding_order, setup_pose_batch_for_proteinmpnn, proteinmpnn_batch_design, batch_proteinmpnn_input
 from structure.base import Structure, Residue
 from structure.coords import transform_coordinate_sets
 from structure.fragment import GhostFragment, write_frag_match_info_file
@@ -3095,7 +3095,9 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
 
         # Add a parameter for the unbound version of X to X
         X_unbound = np.concatenate(entity_unbound_coords).reshape((number_of_residues, num_model_residues, 3))
-        parameters['X'] = X_unbound
+        extra_batch_parameters = resources.ml.proteinmpnn_to_device(device, **batch_proteinmpnn_input(size=batch_length,
+                                                                                                      X=X_unbound))
+        parameters['X_unbound'] = extra_batch_parameters.pop('X')
         # Disregard X, chain_M_pos, and bias_by_res parameters return and use the pose specific data from below
         # parameters.pop('X')  # overwritten by X_unbound
         parameters.pop('chain_M_pos')
@@ -3111,9 +3113,413 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
         @torch.no_grad()  # Ensure no gradients are produced
         @resources.ml.batch_calculation(size=size, batch_length=batch_length,
                                         setup=setup_pose_batch_for_proteinmpnn,
+                                        compute_failure_exceptions=(
+                                        RuntimeError, np.core._exceptions._ArrayMemoryError))
+        def check_dock_for_designability(batch_slice: slice,
+                                         S: torch.Tensor = None,
+                                         chain_mask: torch.Tensor = None,
+                                         chain_encoding: torch.Tensor = None,
+                                         residue_idx: torch.Tensor = None,
+                                         mask: torch.Tensor = None,
+                                         randn: torch.Tensor = None,
+                                         pose_length: int = None,
+                                         tied_pos: Iterable[Container] = None,
+                                         **batch_parameters) -> dict[str, np.ndarray]:
+            actual_batch_length = batch_slice.stop - batch_slice.start
+            # Get the null_idx
+            mpnn_null_idx = resources.ml.MPNN_NULL_IDX
+            if pose_length is None:
+                batch_length, pose_length, *_ = S.shape
+            else:
+                batch_length, *_ = S.shape
+            # Initialize pose data structures for interface design
+            residue_mask_cpu = np.zeros((actual_batch_length, pose_length),
+                                        dtype=np.int32)  # (batch, number_of_residues)
+            # Stack the entity coordinates to make up a contiguous block for each pose
+            # If entity_bb_coords are stacked, then must concatenate along axis=1 to get full pose
+            new_coords = np.zeros((actual_batch_length, pose_length * num_model_residues, 3),
+                                  dtype=np.float32)  # (batch, number_of_residues, coords_length)
+
+            fragment_profiles = []
+            # Use batch_idx to set new numpy arrays, transform_idx (includes perturb_idx) to set coords
+            for batch_idx, transform_idx in enumerate(range(batch_slice.start, batch_slice.stop)):
+                # Get the transformations based on the global index from batch_length
+                update_pose_coords(transform_idx)
+                new_coords[batch_idx] = getattr(pose, coords_type)
+
+                # pose.find_and_split_interface(distance=cb_distance)
+                # This is done in the below call
+                add_fragments_to_pose()  # <- here generating fragments fresh
+                # Reset the fragment_profile and fragment_map for each Entity before calculate_fragment_profile
+                for entity in pose.entities:
+                    entity.fragment_profile = {}
+                    entity.fragment_map = {}
+                    # entity.alpha.clear()
+
+                # Load fragment_profile into the analysis
+                pose.calculate_fragment_profile()
+                if pose.fragment_profile:
+                    fragment_profiles.append(pssm_as_array(pose.fragment_profile))
+
+                # Add all interface residues
+                design_residues = []
+                for number, residues_entities in pose.split_interface_residues.items():
+                    design_residues.extend([residue.index for residue, _ in residues_entities])
+
+                # Residues to design are 1, others are 0
+                residue_mask_cpu[batch_idx, design_residues] = 1
+
+            # If entity_bb_coords are individually transformed, then axis=0 works
+            perturbed_bb_coords = np.concatenate(new_coords, axis=0)
+
+            # Format the bb coords for ProteinMPNN
+            if pose.is_symmetric():
+                # Make each set of coordinates "symmetric"
+                # Todo - This uses starting coords to symmetrize... Crystalline won't be right with external_translation
+                _perturbed_bb_coords = []
+                for idx in range(perturbed_bb_coords.shape[0]):
+                    _perturbed_bb_coords.append(pose.return_symmetric_coords(perturbed_bb_coords[idx]))
+
+                # Let -1 fill in the pose length dimension with the number of residues
+                # 4 is shape of backbone coords (N, Ca, C, O), 3 is x,y,z
+                # X = perturbed_bb_coords.reshape((number_of_perturbations, -1, 4, 3))
+                perturbed_bb_coords = np.concatenate(_perturbed_bb_coords)
+
+                # Symmetrize other arrays
+                number_of_symmetry_mates = pose.number_of_symmetry_mates
+                # (batch, number_of_sym_residues, ...)
+                residue_mask_cpu = np.tile(residue_mask_cpu, (1, number_of_symmetry_mates))
+                # bias_by_res = np.tile(bias_by_res, (1, number_of_symmetry_mates, 1))
+
+            # Reshape for ProteinMPNN
+            log.debug(f'perturbed_bb_coords.shape: {perturbed_bb_coords.shape}')
+            X = perturbed_bb_coords.reshape((actual_batch_length, -1, num_model_residues, 3))
+            log.debug(f'X.shape: {X.shape}')
+
+            # Update different parameters to the identified device
+            batch_parameters.update(proteinmpnn_to_device(mpnn_model.device, X=X,
+                                                          chain_M_pos=residue_mask_cpu))
+            # Different across poses
+            X = batch_parameters.pop('X')
+            residue_mask = batch_parameters.get('chain_M_pos', None)
+            # # Potentially different across poses
+            # bias_by_res = batch_parameters.get('bias_by_res', None)
+            # Todo calculate individually if using some feature to describe order
+            #  MUST reinstate the removal from scope after finished with this batch
+            # decoding_order = pose.generate_proteinmpnn_decode_order(to_device=mpnn_model.device)
+            # decoding_order.repeat(actual_batch_length, 1)
+            # with torch.no_grad():  # Ensure no gradients are produced
+            # Unpack constant parameters and slice reused parameters only once
+            # X_unbound = batch_parameters.pop('X')  # Remove once batch_calculation()
+            # chain_mask = batch_parameters.pop('chain_mask')
+            # chain_encoding = batch_parameters.pop('chain_encoding')
+            # residue_idx = batch_parameters.pop('residue_idx')
+            # mask = batch_parameters.pop('mask')
+            # randn = batch_parameters.pop('randn')
+
+            # Todo remove S from above unpacking
+            #
+            # proteinmpnn_batch_design(batch_slice,
+            #                          mpnn_model: ProteinMPNN,
+            #                          temperatures=job.design.temperatures,
+            #                          **parameters,  # (randn, S, chain_mask, chain_encoding, residue_idx, mask, temperatures, pose_length, bias_by_res, tied_pos, X_unbound)
+            #                          **batch_parameters  # (X, chain_M_pos, bias_by_res)
+            # proteinmpnn_batch_design(batch_slice: slice, proteinmpnn: ProteinMPNN,
+            #                          X: torch.Tensor = None,
+            #                          randn: torch.Tensor = None,
+            #                          S: torch.Tensor = None,
+            #                          chain_mask: torch.Tensor = None,
+            #                          chain_encoding: torch.Tensor = None,
+            #                          residue_idx: torch.Tensor = None,
+            #                          mask: torch.Tensor = None,
+            #                          temperatures: Sequence[float] = (0.1,),
+            #                          pose_length: int = None,
+            #                          bias_by_res: torch.Tensor = None,
+            #                          tied_pos: Iterable[Container] = None,
+            #                          X_unbound: torch.Tensor = None,
+            #                          **batch_parameters
+            #                          ) -> dict[str, np.ndarray]:
+
+            # Clone the data from the sequence tensor so that it can be set with the null token below
+            S_design_null = S.detach().clone()
+            # Get the provided batch_length from wrapping function. actual_batch_length may be smaller on last batch
+            batch_length = X.shape[0]
+            # batch_length = X_unbound.shape[0]
+            if actual_batch_length != batch_length:
+                # Slice these for the last iteration
+                # X_unbound = X_unbound[:actual_batch_length]  # , None)
+                chain_mask = chain_mask[:actual_batch_length]  # , None)
+                chain_encoding = chain_encoding[:actual_batch_length]  # , None)
+                residue_idx = residue_idx[:actual_batch_length]  # , None)
+                mask = mask[:actual_batch_length]  # , None)
+                randn = randn[:actual_batch_length]
+                S_design_null = S_design_null[:actual_batch_length]  # , None)
+                # # Unpack, unpacked keyword args
+                # omit_AA_mask = batch_parameters.get('omit_AA_mask')
+                # pssm_coef = batch_parameters.get('pssm_coef')
+                # pssm_bias = batch_parameters.get('pssm_bias')
+                # pssm_log_odds_mask = batch_parameters.get('pssm_log_odds_mask')
+                # # Set keyword args
+                # batch_parameters['omit_AA_mask'] = omit_AA_mask[:actual_batch_length]
+                # batch_parameters['pssm_coef'] = pssm_coef[:actual_batch_length]
+                # batch_parameters['pssm_bias'] = pssm_bias[:actual_batch_length]
+                # batch_parameters['pssm_log_odds_mask'] = pssm_log_odds_mask[:actual_batch_length]
+
+            # Use the sequence as an unknown token then guess the probabilities given the remaining
+            # information, i.e. the sequence and the backbone
+            S_design_null[residue_mask.type(torch.bool)] = mpnn_null_idx
+            chain_residue_mask = chain_mask * residue_mask
+
+            decoding_order = create_decoding_order(randn, chain_mask,
+                                                   tied_pos=tied_pos,
+                                                   to_device=mpnn_model.device)
+            # See if the pose is useful to design based on constraints of collapse
+
+            # Measure the conditional amino acid probabilities at each residue to see
+            # how they compare to various profiles from the Pose multiple sequence alignment
+            # If conditional_probs() are measured, then we need a batched_decoding order
+            # conditional_start_time = time.time()
+            # Calculations with this are done using cpu memory and numpy
+            conditional_log_probs_null_seq = \
+                mpnn_model(X, S_design_null, mask, chain_residue_mask, residue_idx, chain_encoding,
+                           None,  # This argument is provided but with below args, is not used
+                           use_input_decoding_order=True, decoding_order=decoding_order).cpu()
+            _residue_indices_of_interest = residue_mask_cpu[:, :pose_length].astype(bool)
+            #  Taking the KL divergence would indicate how divergent the interfaces are from the
+            #  surface. This should be simultaneously minimized (i.e. lowest evolutionary divergence)
+            #  while the aa frequency distribution cross_entropy compared to the fragment profile is
+            #  minimized
+            asu_conditional_softmax_null_seq = \
+                np.exp(conditional_log_probs_null_seq[:, :pose_length])
+            # asu_conditional_softmax
+            # tensor([[[0.0273, 0.0125, 0.0200,  ..., 0.0073, 0.0102, 0.0052],
+            #          [0.0273, 0.0125, 0.0200,  ..., 0.0073, 0.0102, 0.0052],
+            #          [0.0273, 0.0125, 0.0200,  ..., 0.0073, 0.0102, 0.0052],
+            #          ...,
+            #          [0.0091, 0.0078, 0.0101,  ..., 0.0038, 0.0029, 0.0059],
+            #          [0.0091, 0.0078, 0.0101,  ..., 0.0038, 0.0029, 0.0059],
+            #          [0.0091, 0.0078, 0.0101,  ..., 0.0038, 0.0029, 0.0059]],
+            #          ...
+            #         [[0.0273, 0.0125, 0.0200,  ..., 0.0073, 0.0102, 0.0052],
+            #          [0.0273, 0.0125, 0.0200,  ..., 0.0073, 0.0102, 0.0052],
+            #          [0.0273, 0.0125, 0.0200,  ..., 0.0073, 0.0102, 0.0052],
+            #          ...,
+            #          [0.0091, 0.0078, 0.0101,  ..., 0.0038, 0.0029, 0.0059],
+            #          [0.0091, 0.0078, 0.0101,  ..., 0.0038, 0.0029, 0.0059],
+            #          [0.0091, 0.0078, 0.0101,  ..., 0.0038, 0.0029, 0.0059]]])
+
+            if pose.fragment_profile:
+                # Process the fragment_profiles into an array for cross entropy
+                fragment_profile_array = np.array(fragment_profiles)
+                # RuntimeWarning: divide by zero encountered in log
+                # np.log causes -inf at 0, thus we need to correct these to a very large number
+                batch_fragment_profile = torch.from_numpy(np.nan_to_num(fragment_profile_array,
+                                                                        copy=False, nan=np.nan))
+                # print('batch_fragment_profile', batch_fragment_profile[:, 20:23])
+                # Remove the gaps index from the softmax input -> ... :, :mpnn_null_idx]
+                _per_residue_fragment_cross_entropy = \
+                    cross_entropy(asu_conditional_softmax_null_seq[:, :, :mpnn_null_idx],
+                                  batch_fragment_profile,
+                                  per_entry=True)
+                #                 mask=_residue_indices_of_interest,
+                #                 axis=1)
+                # All per_residue metrics look the same. Shape batch_length, number_of_residues
+                # per_residue_evolution_cross_entropy[batch_slice]
+                # [[-3.0685883 -3.575249  -2.967545  ... -3.3111317 -3.1204746 -3.1201541]
+                #  [-3.0685873 -3.5752504 -2.9675443 ... -3.3111336 -3.1204753 -3.1201541]
+                #  [-3.0685952 -3.575687  -2.9675474 ... -3.3111277 -3.1428783 -3.1201544]]
+
+            if pose.evolutionary_profile:
+                # Remove the gaps index from the softmax input -> ... :, :mpnn_null_idx]
+                _per_residue_evolution_cross_entropy = \
+                    cross_entropy(asu_conditional_softmax_null_seq[:, :, :mpnn_null_idx],
+                                  batch_evolutionary_profile[:actual_batch_length],
+                                  per_entry=True)
+                #                 mask=_residue_indices_of_interest,
+                #                 axis=1)
+            else:  # Populate with null data
+                _per_residue_evolution_cross_entropy = np.empty_like(residue_mask_cpu)
+                _per_residue_evolution_cross_entropy[:] = np.nan
+
+            if collapse_profile.size:  # Not equal to zero
+                # Take the hydrophobic collapse of the log probs to understand the profiles "folding"
+                _poor_collapse = []
+                _per_residue_mini_batch_collapse_z = \
+                    np.empty((actual_batch_length, pose_length), dtype=np.float32)
+                for pose_idx in range(actual_batch_length):
+                    # Only include the residues in the ASU
+                    design_probs_collapse = \
+                        hydrophobic_collapse_index(asu_conditional_softmax_null_seq[pose_idx],
+                                                   # asu_unconditional_softmax,
+                                                   alphabet_type=mpnn_alphabet)
+                    # Todo?
+                    #  design_probs_collapse = \
+                    #      hydrophobic_collapse_index(asu_conditional_softmax,
+                    #                                 alphabet_type=mpnn_alphabet)
+                    # Compare the sequence collapse to the pose collapse
+                    # USE:
+                    #  contact_order_per_res_z, reference_collapse, collapse_profile
+                    # print('HCI profile mean', collapse_profile_mean)
+                    # print('HCI profile std', collapse_profile_std)
+                    _per_residue_mini_batch_collapse_z[pose_idx] = collapse_z = \
+                        z_score(design_probs_collapse, collapse_profile_mean, collapse_profile_std)
+                    # folding_loss = sequence_nllloss(S_sample, design_probs_collapse)  # , mask_for_loss)
+                    pose_idx_residues_of_interest = _residue_indices_of_interest[pose_idx]
+                    designed_indices_collapse_z = collapse_z[pose_idx_residues_of_interest]
+                    # magnitude_of_collapse_z_deviation = np.abs(designed_indices_collapse_z)
+                    # Check if dock has collapse larger than collapse_significance_threshold and increased collapse
+                    if np.any(np.logical_and(design_probs_collapse[pose_idx_residues_of_interest]
+                                             > collapse_significance_threshold,
+                                             designed_indices_collapse_z > 0)):
+                        # Todo save this
+                        print('design_probs_collapse', design_probs_collapse[_residue_indices_of_interest[pose_idx]])
+                        print('designed_indices_collapse_z', designed_indices_collapse_z)
+                        # print('magnitude greater than 1', magnitude_of_collapse_z_deviation > 1)
+                        log.warning(f'***Collapse is larger than one standard deviation.'
+                                    f' Pose is *** being considered')
+                        _poor_collapse.append(1)
+                    else:
+                        _poor_collapse.append(0)
+                    #     log.critical(
+                    #         # f'Total deviation={magnitude_of_collapse_z_deviation.sum()}. '
+                    #                  f'Mean={designed_indices_collapse_z.mean()}'
+                    #                  f'Standard Deviation={designed_indices_collapse_z.std()}')
+                # _total_collapse_favorability.extend(_poor_collapse)
+                # per_residue_design_indices[batch_slice] = _residue_indices_of_interest
+                # per_residue_batch_collapse_z[batch_slice] = _per_residue_mini_batch_collapse_z
+            else:  # Populate with null data
+                _per_residue_mini_batch_collapse_z = _per_residue_evolution_cross_entropy.copy()
+                _per_residue_mini_batch_collapse_z[:] = np.nan
+                _poor_collapse = _per_residue_mini_batch_collapse_z[:, 0]
+
+            return {
+                # The below structures have a shape (batch_length, pose_length)
+                'evolution_cross_entropy': _per_residue_evolution_cross_entropy,
+                'fragment_cross_entropy': _per_residue_fragment_cross_entropy,
+                'collapse_z': _per_residue_mini_batch_collapse_z,
+                'design_indices': _residue_indices_of_interest,
+                'collapse_violation': _poor_collapse,
+            }
+
+        @torch.no_grad()  # Ensure no gradients are produced
+        @resources.ml.batch_calculation(size=size, batch_length=batch_length,
+                                        setup=setup_pose_batch_for_proteinmpnn,
+                                        compute_failure_exceptions=(RuntimeError, np.core._exceptions._ArrayMemoryError))
+        def fragdock_design(batch_slice: slice, **batch_parameters) -> dict[str, np.ndarray]:
+            actual_batch_length = batch_slice.stop - batch_slice.start
+            # Initialize pose data structures for interface design
+
+            residue_mask_cpu = np.zeros((actual_batch_length, pose_length),
+                                        dtype=np.int32)  # (batch, number_of_residues)
+            bias_by_res = np.zeros((actual_batch_length, pose_length, 21),
+                                   dtype=np.float32)  # (batch, number_of_residues, alphabet_length)
+            # Stack the entity coordinates to make up a contiguous block for each pose
+            # If entity_bb_coords are stacked, then must concatenate along axis=1 to get full pose
+            new_coords = np.zeros((actual_batch_length, pose_length * num_model_residues, 3),
+                                  dtype=np.float32)  # (batch, number_of_residues, coords_length)
+
+            fragment_profiles = []
+            # Use batch_idx to set new numpy arrays, transform_idx (includes perturb_idx) to set coords
+            for batch_idx, transform_idx in enumerate(range(batch_slice.start, batch_slice.stop)):
+                # Get the transformations based on the global index from batch_length
+                update_pose_coords(transform_idx)
+                new_coords[batch_idx] = getattr(pose, coords_type)
+
+                # pose.find_and_split_interface(distance=cb_distance)
+                # This is done in the below call
+                add_fragments_to_pose()  # <- here generating fragments fresh
+                # Reset the fragment_profile and fragment_map for each Entity before calculate_fragment_profile
+                for entity in pose.entities:
+                    entity.fragment_profile = {}
+                    entity.fragment_map = {}
+                    # entity.alpha.clear()
+
+                # Load fragment_profile into the analysis
+                pose.calculate_fragment_profile()
+                if pose.fragment_profile:
+                    fragment_profiles.append(pssm_as_array(pose.fragment_profile))
+
+                # Add all interface residues
+                design_residues = []
+                for number, residues_entities in pose.split_interface_residues.items():
+                    design_residues.extend([residue.index for residue, _ in residues_entities])
+
+                # Residues to design are 1, others are 0
+                residue_mask_cpu[batch_idx, design_residues] = 1
+                # Todo Should I use this?
+                #  bias_by_res[batch_idx] = pose.fragment_profile
+                #  OR
+                #  bias_by_res[batch_idx, fragment_residues] = pose.fragment_profile[fragment_residues]
+                #  If tied_beta is modified
+                #  tied_beta[batch_idx] = ...
+
+            # If entity_bb_coords are individually transformed, then axis=0 works
+            perturbed_bb_coords = np.concatenate(new_coords, axis=0)
+
+            # Format the bb coords for ProteinMPNN
+            if pose.is_symmetric():
+                # Make each set of coordinates "symmetric"
+                # Todo - This uses starting coords to symmetrize... Crystalline won't be right with external_translation
+                _perturbed_bb_coords = []
+                for idx in range(perturbed_bb_coords.shape[0]):
+                    _perturbed_bb_coords.append(pose.return_symmetric_coords(perturbed_bb_coords[idx]))
+
+                # Let -1 fill in the pose length dimension with the number of residues
+                # 4 is shape of backbone coords (N, Ca, C, O), 3 is x,y,z
+                # X = perturbed_bb_coords.reshape((number_of_perturbations, -1, 4, 3))
+                perturbed_bb_coords = np.concatenate(_perturbed_bb_coords)
+
+                # Symmetrize other arrays
+                number_of_symmetry_mates = pose.number_of_symmetry_mates
+                # (batch, number_of_sym_residues, ...)
+                residue_mask_cpu = np.tile(residue_mask_cpu, (1, number_of_symmetry_mates))
+                bias_by_res = np.tile(bias_by_res, (1, number_of_symmetry_mates, 1))
+
+            # Reshape for ProteinMPNN
+            log.debug(f'perturbed_bb_coords.shape: {perturbed_bb_coords.shape}')
+            X = perturbed_bb_coords.reshape((actual_batch_length, -1, num_model_residues, 3))
+            log.debug(f'X.shape: {X.shape}')
+
+            # Update different parameters to the identified device
+            batch_parameters.update(proteinmpnn_to_device(mpnn_model.device, X=X,
+                                                          chain_M_pos=residue_mask_cpu,
+                                                          bias_by_res=bias_by_res))
+            # Different across poses
+            # X = batch_parameters.pop('X')
+            # residue_mask = batch_parameters.get('chain_M_pos', None)
+
+            # # Potentially different across poses
+            # bias_by_res = batch_parameters.get('bias_by_res', None)
+            # Todo calculate individually if using some feature to describe order
+            #  MUST reinstate the removal from scope after finished with this batch
+            # decoding_order = pose.generate_proteinmpnn_decode_order(to_device=mpnn_model.device)
+            # decoding_order.repeat(actual_batch_length, 1)
+            # TODO ________________ END HERE _______________
+            # with torch.no_grad():  # Ensure no gradients are produced
+            # Unpack constant parameters and slice reused parameters only once
+            # X_unbound = batch_parameters.pop('X')  # Remove once batch_calculation()
+            # chain_mask = batch_parameters.pop('chain_mask')
+            # chain_encoding = batch_parameters.pop('chain_encoding')
+            # residue_idx = batch_parameters.pop('residue_idx')
+            # mask = batch_parameters.pop('mask')
+            # randn = batch_parameters.pop('randn')
+
+            # Todo remove S from above unpacking
+            #
+            return proteinmpnn_batch_design(batch_slice,
+                                            mpnn_model,
+                                            temperatures=job.design.temperatures,
+                                            pose_length=pose_length,
+                                            # **parameters,  # (randn, S, chain_mask, chain_encoding, residue_idx, mask, temperatures, pose_length, bias_by_res, tied_pos, X_unbound)
+                                            **batch_parameters  # (X, chain_M_pos, bias_by_res)
+                                            )
+
+        @torch.no_grad()  # Ensure no gradients are produced
+        @resources.ml.batch_calculation(size=size, batch_length=batch_length,
+                                        setup=setup_pose_batch_for_proteinmpnn,
                                         compute_failure_exceptions=(RuntimeError, np.core._exceptions._ArrayMemoryError))
         def pose_batch_to_protein_mpnn(batch_slice: slice,
-                                       X: torch.Tensor = None,
+                                       X_unbound: torch.Tensor = None,
                                        S: torch.Tensor = None,
                                        chain_mask: torch.Tensor = None,
                                        chain_encoding: torch.Tensor = None,
@@ -3127,7 +3533,7 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
             # Get the null_idx
             mpnn_null_idx = resources.ml.MPNN_NULL_IDX
             # This parameter is pass as X for compatibility reasons
-            X_unbound = X
+            # X_unbound = X
             # TODO _______________ START HERE ______________
             # Initialize pose data structures for interface design
             residue_mask_cpu = np.zeros((actual_batch_length, pose_length),
@@ -3483,28 +3889,43 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
         # Todo perhaps we can put some things in here that are relevant, but given the transformation space calculation
         #  this is quite a hefty code base to put into a couple parameters
         proteinmpnn_kwargs = {}
-        proteinmpnn_return = pose_batch_to_protein_mpnn(**proteinmpnn_kwargs,
-                                                        return_containers=
-                                                        {'evolution_cross_entropy': per_residue_evolution_cross_entropy,
-                                                         'fragment_cross_entropy': per_residue_fragment_cross_entropy,
-                                                         'collapse_z': per_residue_batch_collapse_z,
-                                                         'design_indices': per_residue_design_indices,
-                                                         'collapse_violation': collapse_violation,
-                                                         'sequences': generated_sequences,
-                                                         'complex_sequence_loss': per_residue_complex_sequence_loss,
-                                                         'unbound_sequence_loss': per_residue_unbound_sequence_loss,
-                                                         },
-                                                        setup_args=(device,),
-                                                        setup_kwargs=parameters
-                                                        )
-        per_residue_evolution_cross_entropy = proteinmpnn_return['evolution_cross_entropy']
-        per_residue_fragment_cross_entropy = proteinmpnn_return['fragment_cross_entropy']
-        per_residue_batch_collapse_z = proteinmpnn_return['collapse_z']
-        per_residue_design_indices = proteinmpnn_return['design_indices']
-        collapse_violation = proteinmpnn_return['collapse_violation']
-        generated_sequences = proteinmpnn_return['sequences']
-        per_residue_complex_sequence_loss = proteinmpnn_return['complex_sequence_loss']
-        per_residue_unbound_sequence_loss = proteinmpnn_return['unbound_sequence_loss']
+        dock_returns = {'evolution_cross_entropy': per_residue_evolution_cross_entropy,
+                        'fragment_cross_entropy': per_residue_fragment_cross_entropy,
+                        'collapse_z': per_residue_batch_collapse_z,
+                        'design_indices': per_residue_design_indices,
+                        'collapse_violation': collapse_violation}
+        # # This is used for understanding dock fit only
+        # dock_fit_parameters = check_dock_for_designability(**proteinmpnn_kwargs,
+        #                                                    return_containers=dock_returns,
+        #                                                    setup_args=(device,),
+        #                                                    setup_kwargs=parameters)
+
+        design_returns = {'sequences': generated_sequences,
+                          'complex_sequence_loss': per_residue_complex_sequence_loss,
+                          'unbound_sequence_loss': per_residue_unbound_sequence_loss,
+                          }
+        # # This is used for design only
+        # sequences_and_scores = fragdock_design(**proteinmpnn_kwargs,
+        #                                        return_containers=design_returns,
+        #                                        setup_args=(device,),
+        #                                        setup_kwargs=parameters
+        #                                        )
+
+        # This is used for October 2022 working dock/design protocol
+        dock_design_returns = {**dock_returns, **design_returns}
+        sequences_and_scores = pose_batch_to_protein_mpnn(**proteinmpnn_kwargs,
+                                                          return_containers=dock_design_returns,
+                                                          setup_args=(device,),
+                                                          setup_kwargs=parameters
+                                                          )
+        per_residue_evolution_cross_entropy = sequences_and_scores['evolution_cross_entropy']
+        per_residue_fragment_cross_entropy = sequences_and_scores['fragment_cross_entropy']
+        per_residue_batch_collapse_z = sequences_and_scores['collapse_z']
+        per_residue_design_indices = sequences_and_scores['design_indices']
+        collapse_violation = sequences_and_scores['collapse_violation']
+        generated_sequences = sequences_and_scores['sequences']
+        per_residue_complex_sequence_loss = sequences_and_scores['complex_sequence_loss']
+        per_residue_unbound_sequence_loss = sequences_and_scores['unbound_sequence_loss']
 
         # This is the original code before it was batched
         # while True:
@@ -4283,7 +4704,7 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
         all_sequences_by_entity = list(zip(*all_sequences_split))
         # Todo, should the reference pose be used? -> + [entity.sequence for entity in pose.entities]
         # Include the pose as the pose_source in the measured designs
-        contact_order_per_res_z, reference_collapse, collapse_profile = pose.get_folding_metrics()
+        # contact_order_per_res_z, reference_collapse, collapse_profile = pose.get_folding_metrics()
         folding_and_collapse = calculate_collapse_metrics(all_sequences_by_entity,
                                                           contact_order_per_res_z, reference_collapse, collapse_profile)
         per_residue_collapse_df = pd.concat({design_id: pd.DataFrame(data, index=residue_numbers)

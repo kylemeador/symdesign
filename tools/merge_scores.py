@@ -5,6 +5,7 @@ from json import loads, dumps
 from utils import path as PUtils
 import protocols
 import utils
+from utils.path import multi_processing
 
 
 def merge_scores(dirs1, dirs2):
@@ -33,7 +34,7 @@ if __name__ == '__main__':
                                                               % PUtils.program_name, default=os.getcwd())
     parser.add_argument('-f', '--file', type=str, help='File with location(s) of %s poses' % PUtils.program_name
                         , default=None)
-    parser.add_argument('-m', '--multi_processing', action='store_true',
+    parser.add_argument('-mp', f'--{multi_processing}', action='store_true',
                         help='Should job be run with multiprocessing?\nDefault=False')
     parser.add_argument('--debug', action='store_true', help='Debug all steps to standard out?\nDefault=False')
     args = parser.parse_args()
@@ -53,7 +54,7 @@ if __name__ == '__main__':
     # Grab all poses (directories) to be processed from either directory name or file
     all_poses1, location = utils.collect_designs(files=args.file, directory=args.directory)
     assert all_poses1 != list(), 'No %s directories found within \'%s\' input! Please ensure correct location' \
-                                 % (PUtils.nano, location)
+                                 % (PUtils.nanohedra, location)
     all_design_directories1 = [protocols.PoseDirectory.from_nanohedra(design_path)
                                for design_path in all_poses1]
     logger.info('%d Poses found in \'%s\'' % (len(all_poses1), location))
@@ -61,7 +62,7 @@ if __name__ == '__main__':
     # Grab all poses (directories) to be processed from either directory name or file
     all_poses2, location = utils.collect_designs(files=args.file, directory=args.directory)
     assert all_poses2 != list(), 'No %s directories found within \'%s\' input! Please ensure correct location' \
-                                 % (PUtils.nano, location)
+                                 % (PUtils.nanohedra, location)
     all_design_directories2 = [protocols.PoseDirectory.from_nanohedra(design_path)
                                for design_path in all_poses2]
     logger.info('%d Poses found in \'%s\'' % (len(all_poses2), location))

@@ -217,7 +217,7 @@ from structure.utils import protein_letters_alph1
 #                 complete.append(sorted(glob(os.path.join(_rmsd_dir(all_design_directories[k].program_root[0]),
 #                                                          '*_clustered.txt')))[0])
 #     # KM removed 7/1/22
-#     # elif _stage == PUtils.nano:
+#     # elif _stage == PUtils.nanohedra:
 #     #     from classes import get_last_sampling_state
 #     #     # observed_building_blocks = []
 #     #     for des_dir in all_design_directories:
@@ -415,7 +415,7 @@ def main():
             design.pickle_info()
 
         if results:
-            if pose_directories:  # pose_directories is empty list when nano
+            if pose_directories:  # pose_directories is empty list when nanohedra
                 success = \
                     [pose_directories[idx] for idx, result in enumerate(results) if
                      not isinstance(result, BaseException)]
@@ -454,7 +454,7 @@ def main():
                 designs_file = f'{scratch_designs[0]}_pose{scratch_designs[-1]}'
                 output_analysis = kwargs.get('output_analysis', True)
 
-            if pose_directories and output_analysis:  # pose_directories is empty list when nano
+            if pose_directories and output_analysis:  # pose_directories is empty list when nanohedra
                 with open(designs_file, 'w') as f:
                     f.write('%s\n' % '\n'.join(design.path for design in success))
                 logger.critical(
@@ -490,7 +490,7 @@ def main():
                             'representative is the most similar to all members. If clustering was performed by ialign, '
                             'then the representative is randomly chosen.')
                 logger.info(
-                    f'To utilize the above clustering, during {PUtils.select_poses}, using the option --cluster_map'
+                    f'To utilize the above clustering, during {PUtils.select_poses}, using the option --cluster-map'
                     f', will apply clustering to poses to select a cluster representative based on the most '
                     f'favorable cluster member')
 
@@ -500,7 +500,7 @@ def main():
                       else (PUtils.structure_background if getattr(args, PUtils.structure_background, None)
                             else PUtils.interface_design))
             module_files = {PUtils.interface_design: design_stage,
-                            PUtils.nano: PUtils.nano,
+                            PUtils.nanohedra: PUtils.nanohedra,
                             PUtils.refine: PUtils.refine,
                             PUtils.interface_metrics: PUtils.interface_metrics,
                             # 'custom_script': os.path.splitext(os.path.basename(getattr(args, 'script', 'c/custom')))[0],
@@ -518,7 +518,7 @@ def main():
                     sbatch_file = utils.CommandDistributer.distribute(file=command_file, out_path=job.sbatch_scripts,
                                                                       scale=args.module)
                     #                                                                        ^ for sbatch template
-                else:  # pose_directories is empty list when nano, use success as the commands holder
+                else:  # pose_directories is empty list when nanohedra, use success as the commands holder
                     command_file = utils.write_commands([list2cmdline(cmd) for cmd in success], out_path=job_paths,
                                                         name='_'.join(default_output_tuple))
                     sbatch_file = utils.CommandDistributer.distribute(file=command_file, out_path=job.sbatch_scripts,
@@ -641,7 +641,7 @@ def main():
             print(optimize_designs_guide)
         elif args.module == PUtils.refine:
             print(refine_guide)
-        elif args.module == PUtils.nano:
+        elif args.module == PUtils.nanohedra:
             print(nanohedra_guide)
         elif args.module == PUtils.select_poses:
             print(select_poses_guide)
@@ -649,9 +649,9 @@ def main():
             print(select_designs_guide)
         elif args.module == PUtils.select_sequences:
             print(select_sequences_guide)
-        elif args.module == 'expand_asu':
+        elif args.module == PUtils.expand_asu:
             print(expand_asu_guide)
-        elif args.module == 'orient':
+        elif args.module == PUtils.orient:
             print(orient_guide)
         # elif args.module == 'check_clashes':
         #     print()
@@ -693,7 +693,7 @@ def main():
     # -----------------------------------------------------------------------------------------------------------------
     # parse arguments for the actual runtime which accounts for differential argument ordering from standard argparse
     args, additional_args = argparsers[parser_module].parse_known_args()
-    if args.module == PUtils.nano:
+    if args.module == PUtils.nanohedra:
         if args.query:  # we need to submit before we check for additional_args as query comes with additional args
             utils.nanohedra.cmdline.query_mode([__file__, '-query'] + additional_args)
             exit()
@@ -710,8 +710,10 @@ def main():
              f'Please correct (try adding --help if unsure), and resubmit your command\n')
         queried_flags = None
     else:
-        if args.module == PUtils.nano:  # remove the dummy input
+        if args.module == PUtils.nanohedra:  # remove the dummy input
             del args.file
+        # Replace the commandline formatting with pythonic underscores
+        args.module = args.module.replace('-', '_')
         queried_flags = vars(args)
     # -----------------------------------------------------------------------------------------------------------------
     # Find base symdesign_directory and check for proper set up of program i/o
@@ -785,7 +787,7 @@ def main():
         # # Reject any message that is warning or greater to let root handle
         # logger.handlers[0].addFilter(emit_info_and_lower)
 
-        # All Designs will log to specific file with level info unless -skip_logging is passed
+        # All Designs will log to specific file with level info unless skip_logging is passed
     # -----------------------------------------------------------------------------------------------------------------
     # Process flags, job information which is necessary for processing and i/o
     # -----------------------------------------------------------------------------------------------------------------
@@ -807,9 +809,9 @@ def main():
         queried_flags.pop(PUtils.sym_entry)
 
     # Set up module specific arguments
-    if args.module in [PUtils.interface_design, PUtils.generate_fragments, 'orient', 'expand_asu',
-                       PUtils.interface_metrics, PUtils.refine, PUtils.optimize_designs, 'rename_chains',
-                       'check_clashes']:  # , 'custom_script', 'find_asu', 'status', 'visualize'
+    if args.module in [PUtils.interface_design, PUtils.generate_fragments, PUtils.orient, PUtils.expand_asu,
+                       PUtils.interface_metrics, PUtils.refine, PUtils.optimize_designs, PUtils.rename_chains,
+                       PUtils.check_clashes]:  # , 'custom_script', 'find_asu', 'status', 'visualize'
         initialize = True  # set up design directories
     elif args.module in [PUtils.analysis, PUtils.cluster_poses,
                          PUtils.select_poses, PUtils.select_designs, PUtils.select_sequences]:
@@ -825,13 +827,14 @@ def main():
         if args.module == PUtils.select_sequences and args.select_number == sys.maxsize and not args.total:
             # change default number to a single sequence/pose when not doing a total selection
             args.select_number = 1
-    else:  # [PUtils.nano, 'multicistronic', 'input', 'output', 'options', 'residue_selector']
+    else:  # [PUtils.nanohedra, PUtils.multicistronic,
+        #     PUtils.input, PUtils.output, PUtils.options, PUtils.residue_selector]
         decoy_modules = {'input', 'output', 'options', 'residue_selector'}
-        if args.module == PUtils.nano:
+        if args.module == PUtils.nanohedra:
             if not sym_entry:
-                raise RuntimeError(f'When running {PUtils.nano}, the argument -e/--entry/--{PUtils.sym_entry} is '
+                raise RuntimeError(f'When running {PUtils.nanohedra}, the argument -e/--entry/--{PUtils.sym_entry} is '
                                    f'required')
-        elif args.module in ['multicistronic']:
+        elif args.module in [PUtils.multicistronic]:
             pass
         elif args.module in decoy_modules:
             exit()
@@ -844,7 +847,7 @@ def main():
     # -----------------------------------------------------------------------------------------------------------------
     #  report options
     # -----------------------------------------------------------------------------------------------------------------
-    if args.module in ['multicistronic']:  # PUtils.tools
+    if args.module in [PUtils.multicistronic]:  # PUtils.tools
         # Todo should multicistronic be a tool? module->tools->parse others like list_overlap, flags, residue_selector
         pass
     else:  # display flags
@@ -882,7 +885,7 @@ def main():
     # Set up Databases
     logger.info(f'Using resources in Database located at "{job.data}"')
     queried_flags['job_resources'] = job
-    if args.module in [PUtils.nano, PUtils.generate_fragments, PUtils.interface_design, PUtils.analysis]:
+    if args.module in [PUtils.nanohedra, PUtils.generate_fragments, PUtils.interface_design, PUtils.analysis]:
         if not job.design.term_constraint:
             fragment_db, euler_lookup = None, None
         else:
@@ -1155,8 +1158,8 @@ def main():
                 logger.info(f'All design specific logs are located in their corresponding directories\n\tEx: '
                             f'{representative_pose_directory.log_path}')
 
-    elif args.module == PUtils.nano:
-        logger.critical(f'Setting up inputs for {PUtils.nano.title()} docking')
+    elif args.module == PUtils.nanohedra:
+        logger.critical(f'Setting up inputs for {PUtils.nanohedra.title()} docking')
         # Todo make current with sql ambitions
         # Make master output directory. sym_entry is required, so this won't fail v
         job.docking_master_dir = os.path.join(job.projects, f'NanohedraEntry{sym_entry.entry_number}DockedPoses')
@@ -1279,7 +1282,7 @@ def main():
         location = args.oligomer1
         design_source = os.path.splitext(os.path.basename(location))[0]
     else:
-        # this logic is possible with args.module in 'multicistronic', or select_poses with --metric or --dataframe
+        # this logic is possible with args.module in PUtils.multicistronic, or select_poses with --metric or --dataframe
         # job.structure_db = None
         # job.api_db = None
         # design_source = os.path.basename(representative_pose_directory.project_designs)
@@ -1289,7 +1292,7 @@ def main():
     # Set up Job specific details and resources
     # -----------------------------------------------------------------------------------------------------------------
     # Format computational requirements
-    if args.module in [PUtils.nano, PUtils.refine, PUtils.interface_design, PUtils.interface_metrics,
+    if args.module in [PUtils.nanohedra, PUtils.refine, PUtils.interface_design, PUtils.interface_metrics,
                        PUtils.optimize_designs, 'custom_script']:
         if args.distribute_work:
             logger.info('Writing modeling commands out to file, no modeling will occur until commands are executed')
@@ -1302,10 +1305,10 @@ def main():
         logger.info(f'Starting multiprocessing using {cores} cores')
     else:
         cores = 1
-        logger.info('Starting processing. If single process is taking awhile, use --multi_processing during submission')
+        logger.info(f'Starting processing. To increase processing, use --{PUtils.multi_processing} during submission')
 
     # Format memory requirements with module dependencies
-    if args.module == PUtils.nano:  # Todo
+    if args.module == PUtils.nanohedra:  # Todo
         required_memory = PUtils.baseline_program_memory + PUtils.nanohedra_memory  # 30 GB ?
     elif args.module == PUtils.analysis:
         required_memory = (PUtils.baseline_program_memory +
@@ -1331,7 +1334,7 @@ def main():
     # -----------------------------------------------------------------------------------------------------------------
     results, success, exceptions = [], [], []
     # ---------------------------------------------------
-    if args.module == 'orient':
+    if args.module == PUtils.orient:
         # if not args.to_pose_directory:
         #     SDUtils.make_path(job.orient_dir)
         # args.to_pose_directory = True  # default to True when using this module
@@ -1375,7 +1378,7 @@ def main():
 
         terminate(results=results)
     # ---------------------------------------------------
-    elif args.module == 'expand_asu':
+    elif args.module == PUtils.expand_asu:
         if args.multi_processing:
             results = utils.mp_map(protocols.PoseDirectory.expand_asu, pose_directories, processes=cores)
         else:
@@ -1384,7 +1387,7 @@ def main():
 
         terminate(results=results)
     # ---------------------------------------------------
-    elif args.module == 'rename_chains':
+    elif args.module == PUtils.rename_chains:
         if args.multi_processing:
             results = utils.mp_map(protocols.PoseDirectory.rename_chains, pose_directories, processes=cores)
         else:
@@ -1403,7 +1406,7 @@ def main():
     #
     #     terminate(results=results)
     # ---------------------------------------------------
-    elif args.module == 'check_clashes':
+    elif args.module == PUtils.check_clashes:
         if args.multi_processing:
             results = utils.mp_map(protocols.PoseDirectory.check_clashes, pose_directories, processes=cores)
         else:
@@ -1423,7 +1426,7 @@ def main():
 
         terminate(results=results)
     # ---------------------------------------------------
-    elif args.module == PUtils.nano:  # -o1 oligomer1, -o2 oligomer2, -e entry, -o outdir
+    elif args.module == PUtils.nanohedra:  # -o1 oligomer1, -o2 oligomer2, -e entry, -o outdir
         # Initialize docking procedure
         if args.distribute_work:  # Write all commands to a file and use sbatch
             design_source = f'Entry{sym_entry.entry_number}'  # used for terminate()
@@ -1436,9 +1439,9 @@ def main():
             cmd.extend(chain.from_iterable([[f'-{key}', str(value)] for key, value in kwargs.items()]))
 
             if args.output_assembly:
-                cmd.append('output_assembly')
+                cmd.append(PUtils.output_assembly)
             if args.output_surrounding_uc:
-                cmd.append('output_surrounding_uc')
+                cmd.append(PUtils.output_surrounding_uc)
 
             commands = [cmd + [PUtils.nano_entity_flag1, model1.file_path, PUtils.nano_entity_flag2, model2.file_path]
                         + (['-initial'] if idx == 0 else []) for idx, (model1, model2) in enumerate(structure_pairs)]
@@ -1449,7 +1452,7 @@ def main():
                 master_logger, bb_logger = logger, logger
             else:
                 master_log_filepath = os.path.join(args.output_directory, PUtils.master_log)
-                master_logger = utils.start_log(name=PUtils.nano.title(), handler=2, location=master_log_filepath,
+                master_logger = utils.start_log(name=PUtils.nanohedra.title(), handler=2, location=master_log_filepath,
                                                 propagate=True, no_log_name=True)
                 bb_logger = None  # have to include this incase started as debug
             master_logger.info('Nanohedra\nMODE: DOCK\n')
@@ -1482,16 +1485,16 @@ def main():
 
         # all_commands = [result for result in results if result]
         # if len(all_commands) > 0:
-        #     command_file = SDUtils.write_commands(all_commands, name=PUtils.nano, out_path=args.directory)
+        #     command_file = SDUtils.write_commands(all_commands, name=PUtils.nanohedra, out_path=args.directory)
         #     args.success_file = None
         #     args.failure_file = None
         #     args.max_jobs = 80
-        #     utils.CommandDistributer.distribute(stage=PUtils.nano, directory=args.directory, file=command_file,
+        #     utils.CommandDistributer.distribute(stage=PUtils.nanohedra, directory=args.directory, file=command_file,
         #                                         success_file=args.success_file, failure_file=args.success_file,
         #                                         max_jobs=args.max_jobs)
-        #     logger.info('All "%s" commands were written to "%s"' % (PUtils.nano, command_file))
+        #     logger.info('All "%s" commands were written to "%s"' % (PUtils.nanohedra, command_file))
         # else:
-        #     logger.error('No "%s" commands were written!' % PUtils.nano)
+        #     logger.error('No "%s" commands were written!' % PUtils.nanohedra)
     # ---------------------------------------------------
     elif args.module == PUtils.interface_metrics:
         # Start pose processing and preparation for Rosetta
@@ -1577,7 +1580,7 @@ def main():
         # ensure analysis write directory exists
         utils.make_path(job.all_scores)
         # Start pose analysis of all designed files
-        if args.output_file == PUtils.analysis_file:
+        if args.output_file == PUtils.default_analysis_file:
             args.output_file = os.path.join(job.all_scores, args.output_file % (utils.starttime, design_source))
         elif len(args.output_file.split(os.sep)) <= 1:  # the path isn't an absolute or relative path, prepend location
             args.output_file = os.path.join(job.all_scores, args.output_file)
@@ -1600,7 +1603,7 @@ def main():
     #         # Grab all poses (directories) to be processed from either directory name or file
     #         all_poses2, location2 = SDUtils.collect_designs(files=args.file2, directory=args.directory2)
     #         assert all_poses2 != list(), logger.critical(
-    #             'No %s.py directories found within "%s"! Please ensure correct location' % (PUtils.nano.title(),
+    #             'No %s.py directories found within "%s"! Please ensure correct location' % (PUtils.nanohedra.title(),
     #                                                                                           location2))
     #         all_design_directories2 = set_up_directory_objects(all_poses2)
     #         logger.info('%d Poses found in "%s"' % (len(all_poses2), location2))
@@ -1613,7 +1616,7 @@ def main():
     #         if args.merge_mode == PUtils.interface_design:
     #             exit('No source location was specified! Use -d2 or -f2 to specify the source of poses when merging '
     #                  'design directories')
-    #         elif args.merge_mode == PUtils.nano:
+    #         elif args.merge_mode == PUtils.nanohedra:
     #             directory_pairs, failures = pair_dock_directories(pose_directories)  #  all_dock_directories)
     #             for pair in directory_pairs:
     #                 if args.force:
@@ -1763,14 +1766,14 @@ def main():
         if args.cluster_map:
             cluster_map = args.cluster_map
         else:
-            cluster_map = os.path.join(job.clustered_poses, PUtils.clustered_poses % (utils.starttime, location))
+            cluster_map = os.path.join(job.clustered_poses, PUtils.default_clustered_pose_file % (utils.starttime, location))
 
         if os.path.exists(cluster_map):
             pose_cluster_map = utils.unpickle(cluster_map)
         else:  # try to generate the cluster_map
-            logger.info('No cluster pose map was found at %s. Clustering similar poses may eliminate redundancy '
-                        'from the final design selection. To cluster poses broadly, run "%s %s"'
-                        % (cluster_map, PUtils.program_command, PUtils.cluster_poses))
+            logger.info(f'No cluster pose map was found at {cluster_map}. Clustering similar poses may eliminate '
+                        f'redundancy from the final design selection. To cluster poses broadly, '
+                        f'run "{PUtils.program_command} {PUtils.cluster_poses}"')
             while True:
                 # Todo add option to provide the path to an existing file
                 confirm = input(f'Would you like to {PUtils.cluster_poses} on the subset of designs '
@@ -1966,7 +1969,7 @@ def main():
                 pose_cluster_file = utils.pickle_object(pose_cluster_map, args.output_file, out_path='')
             else:
                 pose_cluster_file = utils.pickle_object(pose_cluster_map,
-                                                        PUtils.clustered_poses % (location, utils.starttime),
+                                                        PUtils.default_clustered_pose_file % (utils.starttime, location),
                                                         out_path=job.clustered_poses)
             logger.info(f'Cluster map written to {pose_cluster_file}')
         else:
@@ -2529,7 +2532,7 @@ def main():
     # ---------------------------------------------------
     # Tools are found below here
     # ---------------------------------------------------
-    elif args.module == 'multicistronic':
+    elif args.module == PUtils.multicistronic:
         # if not args.multicistronic_intergenic_sequence:
         #     args.multicistronic_intergenic_sequence = utils.ProteinExpression.default_multicistronic_sequence
 

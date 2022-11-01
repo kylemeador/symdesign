@@ -5,6 +5,7 @@
     <mapping directory="$PROJECT_DIR$/DnaChisel" vcs="Git" />
     <mapping directory="$PROJECT_DIR$/Proglog" vcs="Git" />
     <mapping directory="$PROJECT_DIR$/ProteinMPNN" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/alphafold" vcs="Git" />
     <mapping directory="$PROJECT_DIR$/codon-usage-tables" vcs="Git" />
     <mapping directory="$PROJECT_DIR$/dependencies/bmDCA" vcs="Git" />
     <mapping directory="$PROJECT_DIR$/dependencies/carma" vcs="Git" />
@@ -12,6 +13,8 @@
     <mapping directory="$PROJECT_DIR$/dependencies/hh-suite" vcs="Git" />
     <mapping directory="$PROJECT_DIR$/dependencies/libcifpp" vcs="Git" />
     <mapping directory="$PROJECT_DIR$/dependencies/nanohedra" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/freesasa" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/freesasa/third-party/gemmi" vcs="Git" />
     <mapping directory="$PROJECT_DIR$/python_codon_tables" vcs="Git" />
   </component>
 </project>
