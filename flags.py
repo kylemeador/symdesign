@@ -3,7 +3,6 @@ from __future__ import annotations
 import argparse
 import os
 import sys
-from argparse import _SubParsersAction
 from typing import AnyStr
 
 from psutil import cpu_count
@@ -295,8 +294,10 @@ design_selector_title = 'Design Selector Arguments'
 input_title = 'Input Arguments'
 output_title = 'Output Arguments'
 module_title = 'Module Arguments'
-usage_string = f'\n      python %s.py %%s [{module_title.lower()}] [{input_title.lower()}] [{output_title.lower()}] ' \
-               f'[{design_selector_title.lower()}] [{optional_title.lower()}]' % program_name
+usage_str = f'\n      python {program_name}.py module [{module_title.lower()}][{input_title.lower()}]' \
+               f'[{output_title.lower()}][{design_selector_title.lower()}][{optional_title.lower()}]'
+module_usage_str = f'\n      python {program_name}.py %s [{input_title.lower()}]' \
+                   f'[{output_title.lower()}][{design_selector_title.lower()}][{optional_title.lower()}]'
 guide_args = ('--guide',)
 guide_kwargs = dict(action='store_true', help=f'Display the {program_name}/module specific guide\nEx:'
                                               f' "{program_command} --guide"\nor "{submodule_guide}"')
@@ -432,7 +433,7 @@ residue_selector_arguments = {
 # ---------------------------------------------------
 # Set Up SubModule Parsers
 # ---------------------------------------------------
-# module_parser = argparse.ArgumentParser(add_help=False)  # usage=usage_string,
+# module_parser = argparse.ArgumentParser(add_help=False)  # usage=usage_str,
 # ---------------------------------------------------
 orient_help = 'Orient a symmetric assembly in a canonical orientation at the origin'
 parser_orient = {orient: dict(description=orient_help, help=orient_help)}
@@ -535,7 +536,7 @@ interface_design_arguments = {
         dict(type=str.lower, default=proteinmpnn, choices={proteinmpnn, rosetta_str}, metavar='',
              help='Which design method should be used?\nChoices=%(choices)s\nDefault=%(default)s'),
     ('-n', f'--{number_of_trajectories}'):
-        dict(type=int, default=nstruct,
+        dict(type=int, default=nstruct, metavar='INT',
              help='How many unique sequences should be generated for each input?\nDefault=%(default)s'),
     ('-sb', f'--{structure_background}'):
         dict(action=argparse.BooleanOptionalAction, default=False,
@@ -884,7 +885,7 @@ module_parsers = {
     interface_design: parser_design,
     interface_metrics: parser_metrics,
     optimize_designs: parser_optimize_designs,
-    #custom_script: parser_custom,
+    # custom_script: parser_custom,
     analysis: parser_analysis,
     select_poses: parser_select_poses,
     # select_poses_mutual: parser_select_poses_mutual_group,  # _mutual,
@@ -908,29 +909,30 @@ input_parsers = dict(input=parser_input_group,
 output_parsers = dict(output=parser_output_group)
 option_parsers = dict(options=parser_options_group)
 residue_selector_parsers = dict(residue_selector=parser_residue_selector_group)
-parser_arguments = dict(options=options_arguments,
-                        residue_selector=residue_selector_arguments,
-                        refine=refine_arguments,
-                        nanohedra=nanohedra_arguments,
-                        nanohedra_mutual1=nanohedra_mutual1_arguments,  # mutually_exclusive_group
-                        nanohedra_mutual2=nanohedra_mutual2_arguments,  # mutually_exclusive_group
-                        nanohedra_mutual_run_type=nanohedra_run_type_mutual_arguments,  # mutually_exclusive
-                        cluster_poses=cluster_poses_arguments,
-                        interface_design=interface_design_arguments,
-                        interface_metrics=interface_metrics_arguments,
-                        optimize_designs=optimize_designs_arguments,
-                        analysis=analysis_arguments,
-                        select_poses=select_poses_arguments,
-                        select_designs=select_designs_arguments,
-                        select_sequences=select_sequences_arguments,
-                        multicistronic=multicistronic_arguments,
-                        input=input_arguments,
-                        input_mutual=input_mutual_arguments,  # add_mutually_exclusive_group
-                        output=output_arguments,
-                        # custom_script_arguments=parser_custom_script_arguments,
-                        # select_poses_mutual_arguments=parser_select_poses_mutual_arguments, # mutually_exclusive_group
-                        # flags_arguments=parser_flags_arguments,
-                        )
+parser_arguments = {
+    options: options_arguments,
+    residue_selector: residue_selector_arguments,
+    refine: refine_arguments,
+    nanohedra: nanohedra_arguments,
+    'nanohedra_mutual1': nanohedra_mutual1_arguments,  # mutually_exclusive_group
+    'nanohedra_mutual2': nanohedra_mutual2_arguments,  # mutually_exclusive_group
+    'nanohedra_mutual_run_type': nanohedra_run_type_mutual_arguments,  # mutually_exclusive
+    cluster_poses: cluster_poses_arguments,
+    interface_design: interface_design_arguments,
+    interface_metrics: interface_metrics_arguments,
+    optimize_designs: optimize_designs_arguments,
+    analysis: analysis_arguments,
+    select_poses: select_poses_arguments,
+    select_designs: select_designs_arguments,
+    select_sequences: select_sequences_arguments,
+    multicistronic: multicistronic_arguments,
+    input_: input_arguments,
+    'input_mutual': input_mutual_arguments,  # add_mutually_exclusive_group
+    output: output_arguments,
+    # custom_script_arguments: parser_custom_script_arguments,
+    # select_poses_mutual_arguments: parser_select_poses_mutual_arguments, # mutually_exclusive_group
+    # flags_arguments: parser_flags_arguments,
+}
 parser_options = 'parser_options'
 parser_residue_selector = 'parser_residue_selector'
 parser_input = 'parser_input'
@@ -938,24 +940,26 @@ parser_output = 'parser_output'
 parser_module = 'parser_module'
 parser_guide = 'parser_guide'
 parser_entire = 'parser_entire'
-options_argparser = dict(add_help=False, allow_abbrev=False, formatter_class=Formatter)  # Todo? , usage=usage_string)
+options_argparser = dict(add_help=False, allow_abbrev=False, formatter_class=Formatter)  # Todo? , usage=usage_str)
 residue_selector_argparser = \
-    dict(add_help=False, allow_abbrev=False, formatter_class=Formatter, usage=usage_string % 'module')
-input_argparser = dict(add_help=False, allow_abbrev=False, formatter_class=Formatter, usage=usage_string % 'module')
-module_argparser = dict(add_help=False, allow_abbrev=False, formatter_class=Formatter, usage=usage_string % 'module')
-guide_argparser = dict(add_help=False, allow_abbrev=False, formatter_class=Formatter, usage=usage_string % 'module')
-output_argparser = dict(add_help=False, allow_abbrev=False, formatter_class=Formatter, usage=usage_string % 'module')
-argparser_kwargs = dict(parser_options=options_argparser,
-                        parser_residue_selector=residue_selector_argparser,
-                        parser_input=input_argparser,
-                        parser_module=module_argparser,
-                        parser_guide=guide_argparser,
-                        parser_output=output_argparser,
-                        )
+    dict(add_help=False, allow_abbrev=False, formatter_class=Formatter, usage=usage_str)
+input_argparser = dict(add_help=False, allow_abbrev=False, formatter_class=Formatter, usage=usage_str)
+module_argparser = dict(add_help=False, allow_abbrev=False, formatter_class=Formatter, usage=usage_str)
+guide_argparser = dict(add_help=False, allow_abbrev=False, formatter_class=Formatter, usage=usage_str)
+output_argparser = dict(add_help=False, allow_abbrev=False, formatter_class=Formatter, usage=usage_str)
+argparsers_kwargs = dict(parser_options=options_argparser,
+                         parser_residue_selector=residue_selector_argparser,
+                         parser_input=input_argparser,
+                         parser_module=module_argparser,
+                         parser_guide=guide_argparser,
+                         parser_output=output_argparser,
+                         )
 # Initialize various independent ArgumentParsers
 argparsers: dict[str, argparse.ArgumentParser] = {}
-for argparser_name, argparser_args in argparser_kwargs.items():
-    argparsers[argparser_name] = argparse.ArgumentParser(**argparser_args)
+for argparser_name, argparser_kwargs in argparsers_kwargs.items():
+    # Todo https://gist.github.com/fonic/fe6cade2e1b9eaf3401cc732f48aeebd
+    #  argparsers[argparser_name] = ArgumentParser(**argparser_args)
+    argparsers[argparser_name] = argparse.ArgumentParser(**argparser_kwargs)
 
 # Set up module ArgumentParser with module arguments
 module_subargparser = dict(title=f'{"_" * len(module_title)}\n{module_title}', dest='module',  # metavar='',
@@ -985,7 +989,7 @@ for parser_name, parser_kwargs in module_parsers.items():
         for args, kwargs in arguments.items():
             exclusive_parser.add_argument(*args, **kwargs)
     else:  # save the subparser in a dictionary to access with mutual groups
-        module_suparsers[parser_name] = subparsers.add_parser(prog=usage_string % parser_name,
+        module_suparsers[parser_name] = subparsers.add_parser(prog=module_usage_str % parser_name,
                                                               # prog=f'python SymDesign.py %(name) '
                                                               #      f'[input_arguments] [optional_arguments]',
                                                               formatter_class=Formatter, allow_abbrev=False,
@@ -1076,9 +1080,11 @@ entire_argparser = dict(fromfile_prefix_chars='@', allow_abbrev=False,  # exit_o
                                     f"If you're a first time user, try '{program_command} --guide'"
                                     '\nAll jobs have built in features for command monitoring and distribution to '
                                     'computational clusters for parallel processing',
-                        formatter_class=Formatter, usage=usage_string % 'module',
+                        formatter_class=Formatter, usage=usage_str,
                         parents=[argparsers.get(parser)
                                  for parser in [parser_module, parser_options, parser_residue_selector, parser_output]])
+# Todo
+#  argparsers[parser_entire] = ArgumentParser(**entire_argparser)
 argparsers[parser_entire] = argparse.ArgumentParser(**entire_argparser)
 parser = argparsers[parser_entire]
 # Can't set up parser_input via a parent due to mutually_exclusive groups formatting messed up in help.
@@ -1111,7 +1117,7 @@ for parser_name, parser_kwargs in input_parsers.items():
 #         for args, kwargs in arguments.items():
 #             exclusive_parser.add_argument(*args, **kwargs)
 #     else:  # save the subparser in a dictionary to access with mutual groups
-#         entire_module_suparsers[parser_name] = subparsers.add_parser(prog=usage_string % parser_name,
+#         entire_module_suparsers[parser_name] = subparsers.add_parser(prog=module_usage_str % parser_name,
 #                                                                      # prog=f'python SymDesign.py %(name) '
 #                                                                      #      f'[input_arguments] [optional_arguments]',
 #                                                                      formatter_class=Formatter, allow_abbrev=False,
@@ -1129,7 +1135,7 @@ design = {}
 """Contains all the arguments used in design and their default parameters"""
 for group in parser._action_groups:
     for arg in group._group_actions:
-        if isinstance(arg, _SubParsersAction):  # we have a sup parser, recurse
+        if isinstance(arg, argparse._SubParsersAction):  # we have a sup parser, recurse
             for name, sub_parser in arg.choices.items():
                 for sub_group in sub_parser._action_groups:
                     for arg in sub_group._group_actions:
