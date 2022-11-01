@@ -3095,7 +3095,7 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
 
         # Add a parameter for the unbound version of X to X
         X_unbound = np.concatenate(entity_unbound_coords).reshape((number_of_residues, num_model_residues, 3))
-        parameters['X'] = X_unbound
+        parameters['X_unbound'] = X_unbound
         # Disregard X, chain_M_pos, and bias_by_res parameters return and use the pose specific data from below
         # parameters.pop('X')  # overwritten by X_unbound
         parameters.pop('chain_M_pos')
@@ -3113,7 +3113,7 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
                                         setup=setup_pose_batch_for_proteinmpnn,
                                         compute_failure_exceptions=(RuntimeError, np.core._exceptions._ArrayMemoryError))
         def pose_batch_to_protein_mpnn(batch_slice: slice,
-                                       X: torch.Tensor = None,
+                                       X_unbound: torch.Tensor = None,
                                        S: torch.Tensor = None,
                                        chain_mask: torch.Tensor = None,
                                        chain_encoding: torch.Tensor = None,
@@ -3127,7 +3127,7 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
             # Get the null_idx
             mpnn_null_idx = resources.ml.MPNN_NULL_IDX
             # This parameter is pass as X for compatibility reasons
-            X_unbound = X
+            # X_unbound = X
             # TODO _______________ START HERE ______________
             # Initialize pose data structures for interface design
             residue_mask_cpu = np.zeros((actual_batch_length, pose_length),
