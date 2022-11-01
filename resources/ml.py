@@ -491,11 +491,11 @@ def proteinmpnn_batch_design(batch_slice: slice, proteinmpnn: ProteinMPNN,
 
     actual_batch_length = batch_slice.stop - batch_slice.start
     # Clone the data from the sequence tensor so that it can be set with the null token below
+    S_design_null = S.detach().clone()
     if pose_length is None:
         batch_length, pose_length, *_ = S.shape
     else:
         batch_length, *_ = S.shape
-    S_design_null = S.detach().clone()
     # X_unbound = batch_parameters.get('X_unbound')
     if actual_batch_length != batch_length:
         # Slice these for the last iteration
