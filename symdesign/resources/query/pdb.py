@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import argparse
 import os
-import sys
 import time
 from copy import deepcopy
 from json import dumps, load
@@ -11,7 +10,7 @@ from typing import Any, Iterable
 import requests
 
 from symdesign import utils
-from resources.query.utils import input_string, confirmation_string, bool_d, validate_input, invalid_string, header_string, \
+from symdesign.resources.query.utils import input_string, confirmation_string, bool_d, validate_input, invalid_string, header_string, \
     format_string, connection_exception_handler
 
 # Globals

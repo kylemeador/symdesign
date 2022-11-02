@@ -8,7 +8,7 @@ from logging import Logger
 from pathlib import Path
 from typing import Iterable, Annotated, AnyStr
 
-from resources.database import Database, DataStore
+from symdesign.resources.database import Database, DataStore
 from query.utils import boolean_choice
 import structure
 from symdesign import utils

@@ -7,7 +7,7 @@ from copy import copy
 from symdesign.interface_analysis.ParsePisa import retrieve_pisa_file_path, get_complex_interfaces
 from structure.model import Model, Chain
 from symdesign import utils
-from resources import query as qPDB
+from symdesign.resources import query
 
 
 def pisa_polymer_interface(interface):
@@ -386,7 +386,7 @@ if __name__ == '__main__':
     pdbs_of_interest_file_name = 'under3A_protein_no_multimodel_no_mmcif_no_bad_pisa.txt'  # Todo parameterize
     all_protein_file = os.path.join(current_interface_file_path, pdbs_of_interest_file_name)
     if args.query_web:
-        pdbs_of_interest = qPDB.retrieve_pdb_entries_by_advanced_query()
+        pdbs_of_interest = query.retrieve_pdb_entries_by_advanced_query()
     else:
         pdbs_of_interest = utils.to_iterable(all_protein_file, ensure_file=True)
 
@@ -510,11 +510,11 @@ if __name__ == '__main__':
     all_pdb_uniprot_file = os.path.join(current_interface_file_path, pdb_uniprot_file_name)
     if os.path.exists(all_pdb_uniprot_file):  # retrieve the pdb, DBreference, resolution, and crystal dictionary
         pdb_uniprot_info = utils.unpickle(all_pdb_uniprot_file)
-        pdb_uniprot_info.update({pdb_code: qPDB.query_pdb_by(entry=pdb_code)
+        pdb_uniprot_info.update({pdb_code: query.query_pdb_by(entry=pdb_code)
                                  for pdb_code in set(pdbs_of_interest).difference(pdb_uniprot_info.keys())})
     else:
         # if args.query_web:  # Retrieve from the PDB web
-        pdb_uniprot_info = {pdb_code: qPDB.query_pdb_by(entry=pdb_code) for pdb_code in pdbs_of_interest}
+        pdb_uniprot_info = {pdb_code: query.query_pdb_by(entry=pdb_code) for pdb_code in pdbs_of_interest}
         # else:  # From the database of files
         #     pdb_uniprot_info = {}
         #     for pdb_code in pdbs_of_interest:

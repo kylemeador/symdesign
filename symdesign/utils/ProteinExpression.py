@@ -10,8 +10,7 @@ from structure.sequence import generate_alignment
 from structure.utils import protein_letters_alph1
 from DnaChisel.dnachisel import DnaOptimizationProblem, CodonOptimize, reverse_translate, AvoidHairpins, \
     EnforceGCContent, AvoidPattern, AvoidRareCodons, UniquifyAllKmers, EnforceTranslation  # EnforceMeltingTemperature
-from resources.query.pdb import get_entity_reference_sequence, pdb_id_matching_uniprot_id
-from resources.query.utils import input_string
+from symdesign.resources import query
 
 # Globals
 logger = utils.start_log(name=__name__)
@@ -274,8 +273,8 @@ def find_matching_expression_tags(uniprot_id=None, pdb_code=None, chain=None):
         uniprot_id = pull_uniprot_id_by_pdb(uniprot_pdb_d, pdb_code, chain=chain)
 
     # from PDB API
-    partner_sequences = [get_entity_reference_sequence(entity_id=entity_id)
-                         for entity_id in pdb_id_matching_uniprot_id(uniprot_id=uniprot_id)]
+    partner_sequences = [query.pdb.get_entity_reference_sequence(entity_id=entity_id)
+                         for entity_id in query.pdb.pdb_id_matching_uniprot_id(uniprot_id=uniprot_id)]
     # # from internal data storage
     # if uniprot_id not in uniprot_pdb_d:
     #     return {'name': None, 'seq': None}
@@ -295,7 +294,7 @@ def find_matching_expression_tags(uniprot_id=None, pdb_code=None, chain=None):
     # #     partner_sequences.append(partner_pdb.reference_sequence[chain])
     #     # api_info = _get_entry_info(matching_pdb)
     #     # chain_entity = {chain: entity_idx for entity_idx, chains in api_info.get('entity').items() for ch in chains}
-    #     partner_sequences.append(get_entity_reference_sequence(entry=matching_pdb, chain=chain))
+    #     partner_sequences.append(query.pdb.get_entity_reference_sequence(entry=matching_pdb, chain=chain))
 
     # matching_pdb_tags = {idx: find_expression_tags(seq) for idx, seq in enumerate(partner_sequences)}
     # [[{'name': tag_name, 'termini': 'n', 'sequence': 'MSGHHHHHHGKLKPNDLRI'}, ...], ...]
@@ -359,14 +358,14 @@ def select_tags_for_sequence(sequence_id, matching_pdb_tags, preferred=None, n=T
                 input('For sequence target %s, NEITHER termini are available for tagging.\n\n'
                       'You can set up tags anyway and modify this sequence later, or skip tagging.\nThe tag options, '
                       'are as follows:\n  Termini: {tag name: count}}\n\t%s\nWhich termini would you prefer '
-                      '[n/c]? To skip, input \'skip\'%s' %
-                      (sequence_id, '\n\t'.join('%s: %s' % it for it in pdb_tag_tally.items()), input_string)).lower()
+                      '[n/c]? To skip, input "skip"%s' %
+                      (sequence_id, '\n\t'.join('%s: %s' % it for it in pdb_tag_tally.items()), query.utils.input_string)).lower()
             if termini in ['n', 'c']:
                 break
             elif termini == 'skip':
                 return final_tag_sequence
             else:
-                print('\'%s\' is an invalid input, one of \'n\', \'c\', or \'skip\' is required.' % termini)
+                print('"%s" is an invalid input, one of "n", "c", or "skip" is required.' % termini)
     else:  # termini = 'Both'
         if c and not n:
             termini = 'c'
@@ -377,15 +376,15 @@ def select_tags_for_sequence(sequence_id, matching_pdb_tags, preferred=None, n=T
                 termini = \
                     input('For sequence target %s, BOTH termini are available and have the same number of matched tags.'
                           '\nThe tag options, are as follows:\n  Termini: {tag name: count}}\n\t%s\nWhich termini would'
-                          ' you prefer [n/c]? To skip, input \'skip\'%s' %
+                          ' you prefer [n/c]? To skip, input "skip"%s' %
                           (sequence_id, '\n\t'.join('%s: %s' % it for it in pdb_tag_tally.items()),
-                           input_string)).lower()
+                           query.utils.input_string)).lower()
                 if termini in ['n', 'c']:
                     break
                 elif termini == 'skip':
                     return final_tag_sequence
                 else:
-                    print('\'%s\' is an invalid input, one of \'n\', \'c\', or \'skip\' is required.' % termini)
+                    print('"%s" is an invalid input, one of "n", "c", or "skip" is required.' % termini)
 
     # Find the most common tag at the specific termini
     all_tags = []
@@ -414,10 +413,10 @@ def select_tags_for_sequence(sequence_id, matching_pdb_tags, preferred=None, n=T
         else:
             default = \
                 input('For %s, the RECOMMENDED tag options are: Termini-%s Type-%s\nIf the Termini or Type is '
-                      'undesired, you can see the underlying options by specifying \'options\'. Otherwise, \'%s\' will '
-                      'be chosen.\nIf you would like to proceed with the RECOMMENDED options, enter \'y\'.%s'
+                      'undesired, you can see the underlying options by specifying "options". Otherwise, "%s" will '
+                      'be chosen.\nIf you would like to proceed with the RECOMMENDED options, enter "y".%s'
                       % (sequence_id, final_tags['termini'], final_tags['name'][0], final_tags['name'][0],
-                         input_string)).lower()
+                         query.utils.input_string)).lower()
         if default == 'y':
             final_choice['name'] = final_tags['name'][0]
             final_choice['termini'] = final_tags['termini']
@@ -428,20 +427,20 @@ def select_tags_for_sequence(sequence_id, matching_pdb_tags, preferred=None, n=T
             # Todo pretty_table_format on the .values() from each item in above list() ('name', 'termini', 'sequence')
             while True:
                 termini_input = input('What termini would you like to use [n/c]? If no tag option is appealing, '
-                                      'enter \'none\' or specify the termini and select \'custom\' at the next step %s'
-                                      % input_string).lower()
+                                      'enter "none" or specify the termini and select "custom" at the next step %s'
+                                      % query.utils.input_string).lower()
                 if termini in ['n', 'c']:
                     final_choice['termini'] = termini_input
                     break
                 elif termini == 'none':
                     return final_tag_sequence
                 else:
-                    print('Input \'%s\' doesn\'t match available options. Please try again' % termini_input)
+                    print(f"Input '{termini_input}' doesn't match available options. Please try again")
             while True:
                 tag_input = input('What tag would you like to use? Enter the number of the below options.\n\t%s%s\n%s'
                                   % ('\n\t'.join(['%d - %s' % (i, tag)
                                                   for i, tag in enumerate(pdb_tag_tally[termini_input], 1)]),
-                                     '\n\t%d - %s' % (len(pdb_tag_tally[termini_input]) + 1, 'CUSTOM'), input_string))
+                                     '\n\t%d - %s' % (len(pdb_tag_tally[termini_input]) + 1, 'CUSTOM'), query.utils.input_string))
                 if tag_input.isdigit():
                     tag_input = int(tag_input)
                     if tag_input <= len(pdb_tag_tally[termini_input]):
@@ -454,17 +453,17 @@ def select_tags_for_sequence(sequence_id, matching_pdb_tags, preferred=None, n=T
                                               '\n\t%s\n%s'
                                               % ('\n\t'.join(['%d - %s' % (i, tag)
                                                               for i, tag in enumerate(expression_tags, 1)]),
-                                                 input_string))
+                                                 query.utils.input_string))
                             if tag_input.isdigit():
                                 tag_input = int(tag_input)
                             if tag_input <= len(expression_tags):
                                 final_choice['name'] = list(expression_tags.keys())[tag_input - 1]
                                 break
-                            print('Input \'%s\' doesn\'t match available options. Please try again' % tag_input)
+                            print(f"Input '{tag_input}' doesn't match available options. Please try again")
                         break
-                print('Input \'%s\' doesn\'t match available options. Please try again' % tag_input)
+                print(f"Input '{tag_input}' doesn't match available options. Please try again")
             break
-        print('Input \'%s\' doesn\'t match. Please try again' % default)
+        print(f"Input '{default}' doesn't match. Please try again")
 
     final_tag_sequence['name'] = final_choice['name']
     final_tag_sequence['termini'] = final_choice['termini']
