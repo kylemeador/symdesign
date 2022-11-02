@@ -1,6 +1,7 @@
 import os
 from Bio.PDB import PDBParser, PDBIO, Superimposer
-import FragUtils as Frag
+
+import structure.fragment.extraction.FragUtils as Frag
 
 
 # Globals

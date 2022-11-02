@@ -10,17 +10,13 @@ from typing import Any, Iterable
 
 import requests
 
-# This is set up for SymDesignUtils import
-current_dir = os.path.dirname(os.path.abspath(__file__))
-parent_dir = os.path.dirname(current_dir)
-sys.path.append(parent_dir)
-
-from utils import start_log, unpickle, pickle_object, io_save, ex_path
+from symdesign import utils
 from resources.query.utils import input_string, confirmation_string, bool_d, validate_input, invalid_string, header_string, \
     format_string, connection_exception_handler
 
 # Globals
-logger = start_log(name=__name__)
+logger = utils.start_log(name=__name__)
+current_dir = os.path.dirname(os.path.abspath(__file__))
 # General Formatting
 user_input_format = f'\n{format_string.format("Option", "Description")}\n%s'
 additional_input_string = f'\nWould you like to add another%s? [y/n]{input_string}'
@@ -637,7 +633,7 @@ def retrieve_pdb_entries_by_advanced_query(save: bool = True, return_results: bo
     retrieved_ids = parse_pdb_response_for_ids(response_d)
 
     if save:
-        io_save(retrieved_ids)
+        utils.io_save(retrieved_ids)
 
     if return_results:
         return retrieved_ids
@@ -1254,24 +1250,25 @@ def get_rcsb_metadata_schema(file=os.path.join(current_dir, 'rcsb_schema.pkl'), 
                 if search_only:  # remove entries that don't have a corresponding operator as these aren't searchable
                     schema_d.pop(attribute_full)
 
-        pickled_schema_file = pickle_object(schema_d, file, out_path='')
+        pickled_schema_file = utils.pickle_object(schema_d, file, out_path='')
     else:
-        return unpickle(file)
+        return utils.unpickle(file)
 
     return schema_d
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Query the PDB for entries\n')
-    parser.add_argument('-f', '--file_list', type=str,
-                        help='%s. Can be newline or comma separated.' % ex_path('pdblist.file'))
+    parser.add_argument('-f', '--file_list', type=os.path.abspath,
+                        help=f'{utils.ex_path("pdblist.file")}. Can be newline or comma separated')
     parser.add_argument('-d', '--download', type=bool, default=False,
                         help='Whether files should be downloaded. Default=False')
-    parser.add_argument('-p', '--input_pdb_directory', type=str, help='Where should reference PDB files be found? '
-                                                                      'Default=CWD', default=os.getcwd())
-    parser.add_argument('-i', '--input_pisa_directory', type=str, help='Where should reference PISA files be found? '
-                                                                       'Default=CWD', default=os.getcwd())
-    parser.add_argument('-o', '--output_directory', type=str, help='Where should interface files be saved?')
+    parser.add_argument('-p', '--input_pdb_directory', type=os.path.abspath,
+                        help='Where should reference PDB files be found? Default=CWD', default=os.getcwd())
+    parser.add_argument('-i', '--input_pisa_directory', type=os.path.abspath,
+                        help='Where should reference PISA files be found? Default=CWD', default=os.getcwd())
+    parser.add_argument('-o', '--output_directory', type=os.path.abspath,
+                        help='Where should interface files be saved?')
     parser.add_argument('-q', '--query_web', action='store_true',
                         help='Should information be retrieved from the web?')
     parser.add_argument('-db', '--database', type=str, help='Should a database be connected?')

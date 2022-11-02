@@ -4,11 +4,12 @@ from copy import deepcopy
 from itertools import repeat
 
 from Bio.PDB import PDBParser, Superimposer, PDBIO
+
 from FragUtils import get_biopdb_ca, add_guide_atoms
-from utils import start_log, mp_starmap, get_file_paths_recursively
+from symdesign import utils
 
 # Globals
-logger = start_log(name=__name__)
+logger = utils.start_log(name=__name__)
 
 
 def ij_sort(int_frag_path, cent_split_frag_rep_biopdb, i_cluster_dict, outdir, clust_rmsd_thresh):
@@ -127,14 +128,14 @@ def main(cent_i_frag, paired_frag_dir, outdir, i_frag_limit, clust_rmsd_thresh, 
     logger.info('Finished Setting Up I Directories, Fetched I Fragments')
 
     # Get Paths for Paired Interface Fragment PDB files
-    paired_frag_paths = get_file_paths_recursively(paired_frag_dir, extension='.pdb')
+    paired_frag_paths = utils.get_file_paths_recursively(paired_frag_dir, extension='.pdb')
 
     logger.info('Mapping Pairs to I Fragments, Setting Up Guide Atoms, and Making J Directories. This may take some '
                 'time...')
     if multi:
         zipped_fragment_paths = zip(paired_frag_paths, repeat(cent_split_frag_rep_biopdb), repeat(i_cluster_dict),
                                     repeat(outdir), repeat(clust_rmsd_thresh))
-        result = mp_starmap(ij_sort, zipped_fragment_paths, num_threads)
+        result = utils.mp_starmap(ij_sort, zipped_fragment_paths, num_threads)
         # Frag.report_errors(result)
     else:
         for int_frag_path in paired_frag_paths:

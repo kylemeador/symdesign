@@ -8,14 +8,14 @@ from typing import Annotated, AnyStr
 from structure.sequence import MultipleSequenceAlignment, parse_hhblits_pssm, read_fasta_file, write_sequence_to_fasta
 from structure.base import parse_stride
 from resources.database import Database, DataStore
-from utils.path import program_name, data, sequence_info, structure_info
 from query.pdb import query_entity_id, query_assembly_id, parse_entities_json, parse_assembly_json, query_entry_id, \
     parse_entry_json, _is_entity_thermophilic
 from query.uniprot import query_uniprot
-from utils import start_log, make_path
+from symdesign import utils
 # import dependencies.bmdca as bmdca
 
-logger = start_log(name=__name__)
+# Globals
+logger = utils.start_log(name=__name__)
 
 
 class APIDatabase(Database):
@@ -67,8 +67,8 @@ class APIDatabaseFactory:
         # self._databases = {}
         self._database = None
 
-    def __call__(self, source: str = os.path.join(os.getcwd(), f'{program_name}{data.title()}'), sql: bool = False,
-                 **kwargs) -> APIDatabase:
+    def __call__(self, source: str = os.path.join(os.getcwd(), f'{utils.path.program_name}{utils.path.data.title()}'),
+                 sql: bool = False, **kwargs) -> APIDatabase:
         """Return the specified APIDatabase object singleton
 
         Args:
@@ -86,25 +86,25 @@ class APIDatabaseFactory:
         elif sql:
             raise NotImplementedError('SQL set up has not been completed!')
         else:
-            structure_info_dir = os.path.join(source, structure_info)
-            sequence_info_dir = os.path.join(source, sequence_info)
+            structure_info_dir = os.path.join(source, utils.path.structure_info)
+            sequence_info_dir = os.path.join(source, utils.path.sequence_info)
             external_db = os.path.join(source, 'ExternalDatabases')
             # stride directory
             stride_dir = os.path.join(structure_info_dir, 'stride')
             # Todo only make paths if they are needed...
-            make_path(stride_dir)
+            utils.make_path(stride_dir)
             # sequence_info subdirectories
             sequences = os.path.join(sequence_info_dir, 'sequences')
             profiles = os.path.join(sequence_info_dir, 'profiles')
-            make_path(sequences)
-            make_path(profiles)
+            utils.make_path(sequences)
+            utils.make_path(profiles)
             # external database subdirectories
             pdb = os.path.join(external_db, 'pdb')
-            make_path(pdb)
+            utils.make_path(pdb)
             # pdb_entity_api = os.path.join(external_db, 'pdb_entity')
             # pdb_assembly_api = os.path.join(external_db, 'pdb_assembly')
             uniprot = os.path.join(external_db, 'uniprot')
-            make_path(uniprot)
+            utils.make_path(uniprot)
             # self._databases[source] = APIDatabase(stride_dir, sequences, profiles, pdb, uniprot, sql=None)
             self._database = APIDatabase(stride_dir, sequences, profiles, pdb, uniprot, sql=None)
 
@@ -203,8 +203,8 @@ class PDBDataStore(DataStore):
         # pdb_assembly_api: AnyStr | Path = os.path.join(self.location, 'pdb_assembly')
         # self.entity_api = EntityDataStore(location=pdb_entity_api, extension='.json', sql=self.sql, log=self.log)
         # self.assembly_api = AssemblyDataStore(location=pdb_assembly_api, extension='.json', sql=self.sql, log=self.log)
-        # make_path(pdb_entity_api)
-        # make_path(pdb_assembly_api)
+        # utils.make_path(pdb_entity_api)
+        # utils.make_path(pdb_assembly_api)
 
     def is_thermophilic(self, name: str = None, **kwargs) -> bool:
         """Return whether the entity json entry in question is thermophilic"""

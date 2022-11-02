@@ -1,7 +1,6 @@
 import os
-from itertools import combinations, repeat
-from random import shuffle
-import FragUtils as Frag
+
+import structure.fragment.extraction.FragUtils as Frag
 from I_MPAllToAllRMSD_2 import main as frag2main
 
 

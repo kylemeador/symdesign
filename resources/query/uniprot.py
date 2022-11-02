@@ -3,10 +3,10 @@ from __future__ import annotations
 from requests import Response
 
 from resources.query.utils import connection_exception_handler
-from utils import start_log
+from symdesign import utils
 
 # Globals
-logger = start_log(name=__name__)
+logger = utils.start_log(name=__name__)
 example = 'https://rest.uniprot.org/uniprotkb/Q9HIA7.json'
 
 

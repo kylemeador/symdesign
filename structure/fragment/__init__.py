@@ -11,8 +11,7 @@ from sklearn.neighbors._ball_tree import BinaryTree
 
 import structure
 from structure.coords import superposition3d, transform_coordinate_sets
-from utils.path import frag_text_file
-from utils.symmetry import identity_matrix, origin
+from symdesign import utils
 
 
 class GhostFragment:
@@ -180,8 +179,8 @@ class Fragment(ABC):
         self.ghost_fragments = None
         self.i_type = fragment_type
         # self.guide_coords = guide_coords
-        self.rotation = identity_matrix
-        self.translation = origin
+        self.rotation = utils.symmetry.identity_matrix
+        self.translation = utils.symmetry.origin
         if fragment_db is None:  # Skip fragment_db.setter
             self._fragment_db = None
         else:
@@ -510,7 +509,7 @@ def write_frag_match_info_file(ghost_frag: GhostFragment = None, matched_frag: F
     # if not ghost_frag and not matched_frag and not overlap_error and not match_number:  # TODO
     #     raise DesignError('%s: Missing required information for writing!' % write_frag_match_info_file.__name__)
 
-    with open(os.path.join(out_path, frag_text_file), 'a+') as out_info_file:
+    with open(os.path.join(out_path, utils.path.frag_text_file), 'a+') as out_info_file:
         # if is_initial_match:
         if match_number == 1:
             out_info_file.write(f'DOCKED POSE ID: {pose_id}\n\n')

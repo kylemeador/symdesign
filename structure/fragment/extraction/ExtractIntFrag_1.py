@@ -2,14 +2,10 @@ from itertools import repeat
 import os
 import sys
 
-from structure.model import Model
 from structure.base import Structure
-
-current_dir = os.path.dirname(os.path.abspath(__file__))
-parent_dir = os.path.dirname(current_dir)
-sys.path.append(parent_dir)
-import FragUtils as Frag
-import utils
+import structure.fragment.extraction.FragUtils as Frag
+from structure.model import Model
+from symdesign import utils
 
 # Globals
 module = 'Extract Interface Fragments:'

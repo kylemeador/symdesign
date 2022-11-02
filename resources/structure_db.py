@@ -8,18 +8,14 @@ from logging import Logger
 from pathlib import Path
 from typing import Iterable, Annotated, AnyStr
 
-from utils.CommandDistributer import rosetta_flags, relax_flags, rosetta_variables, script_cmd, distribute
 from resources.database import Database, DataStore
-from utils.path import qs_bio, pdb_db, orient_log_file, rosetta_scripts, refine, models_to_multimodel_exe, program_name,\
-    data, structure_info
-import structure
 from query.utils import boolean_choice
-from utils import starttime, start_log, make_path, unpickle, to_iterable, write_shell_script, write_commands
-from utils.SymEntry import parse_symmetry_to_sym_entry, sdf_lookup
+import structure
+from symdesign import utils
 
 # Todo adjust the logging level for this module?
-logger = start_log(name=__name__)
-qsbio_confirmed = unpickle(qs_bio)
+logger = utils.start_log(name=__name__)
+qsbio_confirmed = utils.unpickle(utils.path.qs_bio)
 
 
 def _fetch_pdb_from_api(pdb_codes: str | list, assembly: int = 1, asu: bool = False, out_dir: AnyStr = os.getcwd(),
@@ -37,7 +33,7 @@ def _fetch_pdb_from_api(pdb_codes: str | list, assembly: int = 1, asu: bool = Fa
         Filenames of the retrieved files
     """
     file_names = []
-    for pdb_code in to_iterable(pdb_codes):
+    for pdb_code in utils.to_iterable(pdb_codes):
         clean_pdb = pdb_code[:4].lower()
         if asu:
             clean_pdb = f'{clean_pdb}.pdb'
@@ -63,7 +59,7 @@ def _fetch_pdb_from_api(pdb_codes: str | list, assembly: int = 1, asu: bool = Fa
             p.communicate()
             if p.returncode != 0:
                 logger.error(f'PDB download failed for: {clean_pdb}. If you believe this PDB ID is correct, there may '
-                             f'only be a .cif file available for this entry, which currently can\'t be parsed')
+                             "only be a .cif file available for this entry, which currently can't be parsed")
                 # Todo parse .cif file.
                 #  Super easy as the names of the columns are given in a loop and the ATOM records still start with ATOM
                 #  The additional benefits is that the records contain entity IDS as well as the residue index and the
@@ -80,7 +76,7 @@ def _fetch_pdb_from_api(pdb_codes: str | list, assembly: int = 1, asu: bool = Fa
     return file_names
 
 
-def fetch_pdb_file(pdb_code: str, asu: bool = True, location: AnyStr = pdb_db, **kwargs) -> AnyStr | None:
+def fetch_pdb_file(pdb_code: str, asu: bool = True, location: AnyStr = utils.path.pdb_db, **kwargs) -> AnyStr | None:
     #                assembly: int = 1, out_dir: AnyStr = os.getcwd()
     """Fetch PDB object from PDBdb or download from PDB server
 
@@ -94,7 +90,7 @@ def fetch_pdb_file(pdb_code: str, asu: bool = True, location: AnyStr = pdb_db, *
     Returns:
         The path to the file if located successfully
     """
-    # if location == pdb_db and asu:
+    # if location == utils.path.pdb_db and asu:
     if os.path.exists(location) and asu:
         file_path = os.path.join(location, f'pdb{pdb_code.lower()}.ent')
         def get_pdb(*args, **kwargs): return sorted(glob(file_path))
@@ -221,7 +217,7 @@ class StructureDatabase(Database):
             file_path = fetch_pdb_file(entry, assembly=assembly, asu=False, out_dir=out_dir)
 
             if not file_path:
-                logger.warning(f'Couldn\'t locate the file "{file_path}", there may have been an issue '
+                logger.warning(f"Couldn't locate the file '{file_path}', there may have been an issue "
                                'downloading it from the PDB. Attempting to copy from job data source...')
                 # Todo
                 raise NotImplementedError("This functionality hasn't been written yet. Use the canonical_pdb1/2 "
@@ -236,7 +232,7 @@ class StructureDatabase(Database):
                 if entity:
                     model = entity
                 else:  # We couldn't find the specified EntityID
-                    logger.warning(f'For {entry_entity}, couldn\'t locate the specified Entity "{entity}". The'
+                    logger.warning(f"For {entry_entity}, couldn't locate the specified Entity '{entity}'. The"
                                    f' available Entities are {", ".join(entity.name for entity in model.entities)}')
                     continue
             #
@@ -273,12 +269,12 @@ class StructureDatabase(Database):
         self.oriented_asu.make_path()
         self.stride.make_path()
         # orient_log = start_log(name='orient', handler=1)
-        orient_log = start_log(name='orient', propagate=True)
+        orient_log = utils.start_log(name='orient', propagate=True)
         # For some reason this won't also emit to stream when the log level is error
         # orient_log = \
         #     start_log(name='orient', handler=2, location=os.path.join(orient_dir, orient_log_file), propagate=True)
         if symmetry:
-            sym_entry = parse_symmetry_to_sym_entry(symmetry=symmetry)
+            sym_entry = utils.SymEntry.parse_symmetry_to_sym_entry(symmetry=symmetry)
             logger.info(f'The requested {"files" if by_file else "IDs"} are being checked for proper orientation '
                         f'with symmetry {symmetry}: {", ".join(structure_identifiers)}')
             if by_file:
@@ -291,7 +287,7 @@ class StructureDatabase(Database):
         else:  # This is only possible if symmetry directly passed as None, in which case we should treat as C1 anyway
             symmetry = 'C1'
             # sym_entry = None
-            sym_entry = parse_symmetry_to_sym_entry(symmetry=symmetry)
+            sym_entry = utils.SymEntry.parse_symmetry_to_sym_entry(symmetry=symmetry)
             logger.info(f'The requested {"files" if by_file else "IDs"} are being set up into the DataBase: '
                         f'{", ".join(structure_identifiers)}')
             if by_file:
@@ -367,7 +363,7 @@ class StructureDatabase(Database):
                 file_path = fetch_pdb_file(entry, assembly=assembly, asu=asu, out_dir=models_dir)
 
                 if not file_path:
-                    logger.warning(f'Couldn\'t locate the file "{file_path}", there may have been an issue '
+                    logger.warning(f"Couldn't locate the file '{file_path}', there may have been an issue "
                                    'downloading it from the PDB. Attempting to copy from job data source...')
                     # Todo
                     raise NotImplementedError("This functionality hasn't been written yet. Use the canonical_pdb1/2 "
@@ -381,8 +377,8 @@ class StructureDatabase(Database):
                     if entity:
                         model = entity
                     else:  # we couldn't find the specified EntityID
-                        logger.warning(f'For {entry_entity}, couldn\'t locate the specified Entity "{entity}". The'
-                                       f' available Entities are {", ".join(entity.name for entity in model.entities)}')
+                        logger.warning(f"For {entry_entity}, couldn't locate the specified Entity '{entity}'. The "
+                                       f'available Entities are {", ".join(entity.name for entity in model.entities)}')
                         continue
 
                     entity_out_path = os.path.join(models_dir, f'{entry_entity}.pdb')
@@ -466,7 +462,8 @@ class StructureDatabase(Database):
         structures_to_refine, structures_to_loop_model, sym_def_files = [], [], {}
         for structure in structures:  # if structure is here, the file should've been oriented...
             sym_def_files[structure.symmetry] = \
-                sdf_lookup() if structure.symmetry == 'C1' else sdf_lookup(structure.symmetry)
+                utils.SymEntry.sdf_lookup() if structure.symmetry == 'C1' \
+                else utils.SymEntry.sdf_lookup(structure.symmetry)
             if structure.name not in refine_names:  # assumes oriented_asu structure name is the same
                 structures_to_refine.append(structure)
             if structure.name not in full_model_names:  # assumes oriented_asu structure name is the same
@@ -501,29 +498,34 @@ class StructureDatabase(Database):
                 # Generate sbatch refine command
                 flags_file = os.path.join(refine_dir, 'refine_flags')
                 # if not os.path.exists(flags_file):
-                flags = copy(rosetta_flags) + relax_flags
+                flags = copy(utils.CommandDistributer.rosetta_flags) + utils.CommandDistributer.relax_flags
                 flags.extend([f'-out:path:pdb {refine_dir}', '-no_scorefile true'])
                 flags.remove('-output_only_asymmetric_unit true')  # want full oligomers
-                variables = copy(rosetta_variables)
+                variables = copy(utils.CommandDistributer.rosetta_variables)
                 variables.append(('dist', 0))  # Todo modify if not point groups used
                 flags.append('-parser:script_vars %s' % ' '.join(f'{var}={val}' for var, val in variables))
 
                 with open(flags_file, 'w') as f:
                     f.write('%s\n' % '\n'.join(flags))
 
-                refine_cmd = [f'@{flags_file}', '-parser:protocol', os.path.join(rosetta_scripts, f'{refine}.xml')]
-                refine_cmds = [script_cmd + refine_cmd + ['-in:file:s', structure.file_path, '-parser:script_vars'] +
-                               [f'sdf={sym_def_files[structure.symmetry]}',
-                                f'symmetry={"make_point_group" if structure.symmetry != "C1" else "asymmetric"}']
+                refine_cmd = [f'@{flags_file}', '-parser:protocol',
+                              os.path.join(utils.path.rosetta_scripts, f'{utils.path.refine}.xml')]
+                refine_cmds = [utils.CommandDistributer.script_cmd + refine_cmd
+                               + ['-in:file:s', structure.file_path, '-parser:script_vars']
+                               + [f'sdf={sym_def_files[structure.symmetry]}',
+                                  f'symmetry={"make_point_group" if structure.symmetry != "C1" else "asymmetric"}']
                                for structure in structures_to_refine]
                 if batch_commands:
                     commands_file = \
-                        write_commands([subprocess.list2cmdline(cmd) for cmd in refine_cmds], out_path=refine_dir,
-                                       name=f'{starttime}-refine_entities')
-                    refine_sbatch = distribute(file=commands_file, out_path=script_out_path, scale=refine,
-                                               log_file=os.path.join(refine_dir, f'{refine}.log'),
-                                               max_jobs=int(len(refine_cmds) / 2 + 0.5),
-                                               number_of_commands=len(refine_cmds))
+                        utils.write_commands([subprocess.list2cmdline(cmd) for cmd in refine_cmds], out_path=refine_dir,
+                                             name=f'{utils.starttime}-refine_entities')
+                    refine_sbatch = \
+                        utils.CommandDistributer.distribute(file=commands_file, out_path=script_out_path,
+                                                            scale=utils.path.refine,
+                                                            log_file=os.path.join(refine_dir,
+                                                                                  f'{utils.path.refine}.log'),
+                                                            max_jobs=int(len(refine_cmds) / 2 + 0.5),
+                                                            number_of_commands=len(refine_cmds))
                     refine_sbatch_message = \
                         'Once you are satisfied%snter the following to distribute refine jobs:\n\tsbatch %s' \
                         % (', you can run this script at any time. E' if load_resources else ', e', refine_sbatch)
@@ -562,7 +564,7 @@ class StructureDatabase(Database):
                 # if not os.path.exists(flags_file):
                 loop_model_flags = ['-remodel::save_top 0', '-run:chain A', '-remodel:num_trajectory 1']
                 #                   '-remodel:run_confirmation true', '-remodel:quick_and_dirty',
-                flags = copy(rosetta_flags) + loop_model_flags
+                flags = copy(utils.CommandDistributer.rosetta_flags) + loop_model_flags
                 # flags.extend(['-out:path:pdb %s' % full_model_dir, '-no_scorefile true'])
                 flags.extend(['-no_scorefile true', '-no_nstruct_label true'])
                 variables = [('script_nstruct', '100')]  # generate 100 trial loops, 500 is typically sufficient
@@ -570,47 +572,50 @@ class StructureDatabase(Database):
                 with open(flags_file, 'w') as f:
                     f.write('%s\n' % '\n'.join(flags))
                 loop_model_cmd = [f'@{flags_file}', '-parser:protocol',
-                                  os.path.join(rosetta_scripts, 'loop_model_ensemble.xml'), '-parser:script_vars']
+                                  os.path.join(utils.path.rosetta_scripts, 'loop_model_ensemble.xml'),
+                                  '-parser:script_vars']
                 # Make all output paths and files for each loop ensemble
                 # logger.info('Preparing blueprint and loop files for structure:')
                 # for structure in structures_to_loop_model:
                 loop_model_cmds = []
                 for idx, structure in enumerate(structures_to_loop_model):
                     structure_out_path = os.path.join(full_model_dir, structure.name)
-                    make_path(structure_out_path)  # make a new directory for each structure
+                    utils.make_path(structure_out_path)  # make a new directory for each structure
                     structure.renumber_residues()
                     structure_loop_file = structure.make_loop_file(out_path=full_model_dir)
                     if not structure_loop_file:  # no loops found, copy input file to the full model
                         copy_cmd = ['scp', self.refined.path_to(structure.name), self.full_models.path_to(structure.name)]
                         loop_model_cmds.append(
-                            write_shell_script(subprocess.list2cmdline(copy_cmd), name=structure.name,
-                                               out_path=full_model_dir))
+                            utils.write_shell_script(subprocess.list2cmdline(copy_cmd), name=structure.name,
+                                                     out_path=full_model_dir))
                         continue
                     structure_blueprint = structure.make_blueprint_file(out_path=full_model_dir)
-                    structure_cmd = script_cmd + loop_model_cmd + \
+                    structure_cmd = utils.CommandDistributer.script_cmd + loop_model_cmd + \
                         [f'blueprint={structure_blueprint}', f'loop_file={structure_loop_file}',
                          '-in:file:s', self.refined.path_to(structure.name), '-out:path:pdb', structure_out_path] + \
                         (['-symmetry:symmetry_definition', sym_def_files[structure.symmetry]]
                          if structure.symmetry != 'C1' else [])
                     # create a multimodel from all output loop models
-                    multimodel_cmd = ['python', models_to_multimodel_exe, '-d', structure_loop_file,
+                    multimodel_cmd = ['python', utils.path.models_to_multimodel_exe, '-d', structure_loop_file,
                                       '-o', os.path.join(full_model_dir, f'{structure.name}_ensemble.pdb')]
                     # copy the first model from output loop models to be the full model
                     copy_cmd = ['scp', os.path.join(structure_out_path, f'{structure.name}_0001.pdb'),
                                 self.full_models.path_to(structure.name)]
                     loop_model_cmds.append(
-                        write_shell_script(subprocess.list2cmdline(structure_cmd), name=structure.name,
-                                           out_path=full_model_dir,
-                                           additional=[subprocess.list2cmdline(multimodel_cmd),
-                                                       subprocess.list2cmdline(copy_cmd)]))
+                        utils.write_shell_script(subprocess.list2cmdline(structure_cmd), name=structure.name,
+                                                 out_path=full_model_dir,
+                                                 additional=[subprocess.list2cmdline(multimodel_cmd),
+                                                             subprocess.list2cmdline(copy_cmd)]))
                 if batch_commands:
                     loop_cmds_file = \
-                        write_commands(loop_model_cmds, name=f'{starttime}-loop_model_entities',
-                                       out_path=full_model_dir)
-                    loop_model_sbatch = distribute(file=loop_cmds_file, out_path=script_out_path, scale=refine,
-                                                   log_file=os.path.join(full_model_dir, 'loop_model.log'),
-                                                   max_jobs=int(len(loop_model_cmds) / 2 + 0.5),
-                                                   number_of_commands=len(loop_model_cmds))
+                        utils.write_commands(loop_model_cmds, name=f'{utils.starttime}-loop_model_entities',
+                                             out_path=full_model_dir)
+                    loop_model_sbatch = \
+                        utils.CommandDistributer.distribute(file=loop_cmds_file, out_path=script_out_path,
+                                                            scale=utils.path.refine,
+                                                            log_file=os.path.join(full_model_dir, 'loop_model.log'),
+                                                            max_jobs=int(len(loop_model_cmds) / 2 + 0.5),
+                                                            number_of_commands=len(loop_model_cmds))
                     loop_model_sbatch_message = \
                         'Once you are satisfied%snter the following to distribute loop_modeling jobs:\n\tsbatch %s' \
                         % (', run this script AFTER completion of the Entity refinement script. E' if load_resources
@@ -636,8 +641,8 @@ class StructureDatabaseFactory:
         # self._databases = {}
         self._database = None
 
-    def __call__(self, source: str = os.path.join(os.getcwd(), f'{program_name}{data.title()}'), sql: bool = False,
-                 **kwargs) -> StructureDatabase:
+    def __call__(self, source: str = os.path.join(os.getcwd(), f'{utils.path.program_name}{utils.path.data.title()}'),
+                 sql: bool = False, **kwargs) -> StructureDatabase:
         """Return the specified StructureDatabase object singleton
 
         Args:
@@ -655,21 +660,21 @@ class StructureDatabaseFactory:
         elif sql:
             raise NotImplementedError('SQL set up has not been completed!')
         else:
-            structure_info_dir = os.path.join(source, structure_info)
+            structure_info_dir = os.path.join(source, utils.path.structure_info)
             pdbs = os.path.join(structure_info_dir, 'PDBs')  # Used to store downloaded PDB's
             # stride directory
             stride_dir = os.path.join(structure_info_dir, 'stride')
             # Todo only make paths if they are needed...
-            make_path(stride_dir)
+            utils.make_path(stride_dir)
             # pdbs subdirectories
             orient_dir = os.path.join(pdbs, 'oriented')
             orient_asu_dir = os.path.join(pdbs, 'oriented_asu')
             refine_dir = os.path.join(pdbs, 'refined')
             full_model_dir = os.path.join(pdbs, 'full_models')
-            make_path(orient_dir)
-            make_path(orient_asu_dir)
-            make_path(refine_dir)
-            make_path(full_model_dir)
+            utils.make_path(orient_dir)
+            utils.make_path(orient_asu_dir)
+            utils.make_path(refine_dir)
+            utils.make_path(full_model_dir)
             logger.info(f'Initializing {source} {StructureDatabase.__name__}')
 
             # self._databases[source] = \

@@ -1,14 +1,15 @@
 import os
 from itertools import repeat
 
-import FragUtils as Frag
 
-from structure.model import Model
 from structure.base import Atom, Structure
-from utils import get_file_paths_recursively
+import structure.fragment.extraction.FragUtils as Frag
+from structure.model import Model
+from symdesign import utils
 
 # Globals
 module = 'Extract Interface Fragments:'
+
 
 def atom_record_to_atom(record):
     atom = Atom(number, type, alt_location, residue_type, chain, residue_number, code_for_insertion, x, y,
@@ -88,7 +89,7 @@ def main(int_db_dir, single_outdir, paired_outdir, frag_length, interface_dist, 
          num_threads=4):
     print('%s Beginning' % module)
     # Get Natural Interface PDB File Paths
-    int_db_filepaths = get_file_paths_recursively(int_db_dir, extension='.pdb')
+    int_db_filepaths = utils.get_file_paths_recursively(int_db_dir, extension='.pdb')
     lower_bound, upper_bound, index_offset = Frag.parameterize_frag_length(frag_length)
 
     print('%s Creating Neighbor CB Atom Trees at %d Angstroms Distance' % (module, interface_dist))
