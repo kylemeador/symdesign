@@ -6,15 +6,13 @@ import multiprocessing as mp
 
 import numpy as np
 from sklearn.neighbors import BallTree
-
-current_dir = os.path.dirname(os.path.abspath(__file__))
-parent_dir = os.path.dirname(current_dir)
-sys.path.append(parent_dir)
 from Bio.PDB import PDBParser, Atom, Residue, Chain, Superimposer
+
 from structure.base import Structure
-from utils import DesignError
+from symdesign import utils
 
 # Globals
+logger = utils.start_log(name=__name__)
 module = 'Fragment Utilities:'
 
 
@@ -392,7 +390,7 @@ def parameterize_frag_length(length):
     else:
         logger.critical('%d is an even integer which is not symmetric about a single residue. '
                         'Ensure this is what you want and modify %s' % (length, parameterize_frag_length.__name__))
-        raise DesignError('Function not supported: Even fragment length \'%d\'' % length)
+        raise utils.DesignError(f'Function not supported: Even fragment length "{length}"')
 
 
 def report_errors(results):

@@ -1,7 +1,8 @@
 import os
 import shutil
 from itertools import repeat
-import FragUtils as Frag
+
+import structure.fragment.extraction.FragUtils as Frag
 
 # Globals
 module = 'Get IJK Cluster Representatives:'

@@ -5,7 +5,7 @@ from typing import Sequence, Iterable
 import numpy as np
 from scipy.spatial.transform import Rotation
 
-from utils.symmetry import identity_matrix
+from symdesign import utils
 
 
 class Coords:
@@ -179,8 +179,8 @@ def superposition3d(fixed_coords: np.ndarray, moving_coords: np.ndarray, a_weigh
     # Calculate "P" (equation 22)
     matrix_p = np.zeros((4, 4))
     # Calculate "q" (equation 17)
-    # q = m + m.T - 2*identity_matrix*np.trace(m)
-    matrix_p[:3, :3] = m + m.T - 2*identity_matrix*np.trace(m)
+    # q = m + m.T - 2*utils.symmetry.identity_matrix*np.trace(m)
+    matrix_p[:3, :3] = m + m.T - 2*utils.symmetry.identity_matrix*np.trace(m)
     matrix_p[3, :3] = v
     matrix_p[:3, 3] = v
     # [[ q[0][0] q[0][1] q[0][2] v[0] ]
@@ -347,8 +347,8 @@ def superposition3d_weighted(fixed_coords: np.ndarray, moving_coords: np.ndarray
     # Calculate "P" (equation 22)
     matrix_p = np.zeros((4, 4))
     # Calculate "q" (equation 17)
-    # q = m + m.T - 2*identity_matrix*np.trace(m)
-    matrix_p[:3, :3] = m + m.T - 2*identity_matrix*np.trace(m)
+    # q = m + m.T - 2*utils.symmetry.identity_matrix*np.trace(m)
+    matrix_p[:3, :3] = m + m.T - 2*utils.symmetry.identity_matrix*np.trace(m)
     matrix_p[3, :3] = v
     matrix_p[:3, 3] = v
     # [[ q[0][0] q[0][1] q[0][2] v[0] ]

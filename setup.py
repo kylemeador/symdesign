@@ -3,7 +3,8 @@ from __future__ import annotations
 import os
 import subprocess
 
-from utils import write_json, path as PUtils
+from symdesign import utils
+from symdesign.utils import path as PUtils
 
 rosetta_url = 'https://www.rosettacommons.org/software/license-and-download'
 rosetta_compile_url = 'https://www.rosettacommons.org/docs/latest/build_documentation/Build-Documentation'
@@ -174,4 +175,4 @@ if __name__ == '__main__':
               'rosetta_make': 'mpi'  # 'default', 'python', 'mpi' 'cxx11thread', 'cxx11threadmpi'
               }
 
-    write_json(config, PUtils.config_file)
+    utils.write_json(config, PUtils.config_file)

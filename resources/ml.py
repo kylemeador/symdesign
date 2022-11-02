@@ -10,10 +10,9 @@ import numpy as np
 import torch
 
 from ProteinMPNN.protein_mpnn_utils import ProteinMPNN
-from utils import start_log
-from utils.path import protein_mpnn_weights_dir
+from symdesign import utils
 
-logger = start_log(name=__name__)
+logger = utils.start_log(name=__name__)
 mpnn_alphabet = 'ACDEFGHIKLMNPQRSTVWYX'  # structure.utils.protein_letters_alph1_unknown
 mpnn_alphabet_length = len(mpnn_alphabet)
 MPNN_NULL_IDX = 20
@@ -206,7 +205,7 @@ class ProteinMPNNFactory:
             # Acquire a adequate computing device
             device = torch.device('cuda:0' if (torch.cuda.is_available()) else 'cpu')
             # device = torch.device('cpu')
-            checkpoint = torch.load(os.path.join(protein_mpnn_weights_dir, f'{model_name}.pt'),
+            checkpoint = torch.load(os.path.join(utils.path.protein_mpnn_weights_dir, f'{model_name}.pt'),
                                     map_location=device)
             logger.info(f'Number of edges: {checkpoint["num_edges"]}')
             logger.info(f'Training noise level: {checkpoint["noise_level"]} Angstroms')

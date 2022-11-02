@@ -6,11 +6,9 @@ from itertools import repeat
 from typing import AnyStr, Literal, get_args, Sequence
 
 from structure.utils import protein_letters_alph1, protein_letters_literal
-from utils.path import biological_interfaces, frag_directory, intfrag_cluster_info_dirpath
-from utils import start_log, unpickle, DesignError, parameterize_frag_length, get_file_paths_recursively
-from utils.sql import Mysql
+from symdesign import utils
 
-logger = start_log(name=__name__)
+logger = utils.start_log(name=__name__)
 source_literal = Literal['size', 'rmsd', 'rep', 'mapped', 'paired']
 weighted_counts_keys = Literal[protein_letters_literal, 'stats']  # could add 'weight', 'count']
 aa_weighted_counts_type: dict[weighted_counts_keys, int | tuple[int, int]]
@@ -64,11 +62,12 @@ class FragmentInfo:
     source: str
     statistics: dict
 
-    def __init__(self, source: str = biological_interfaces, fragment_length: int = 5, sql: bool = False, **kwargs):
+    def __init__(self, source: str = utils.path.biological_interfaces, fragment_length: int = 5, sql: bool = False,
+                 **kwargs):
         super().__init__()  # object
-        self.cluster_info_path = intfrag_cluster_info_dirpath
+        self.cluster_info_path = utils.path.intfrag_cluster_info_dirpath
         self.fragment_length = fragment_length
-        self.fragment_range = parameterize_frag_length(fragment_length)
+        self.fragment_range = utils.parameterize_frag_length(fragment_length)
         self.info = {}
         self.source = source
         self.statistics = {}
@@ -88,7 +87,7 @@ class FragmentInfo:
     @property
     def location(self) -> AnyStr | None:
         """Provide the location where fragments are stored"""
-        return frag_directory.get(self.source, None)
+        return utils.path.frag_directory.get(self.source, None)
 
     def _load_db_statistics(self):
         """Retrieve summary statistics for a specific fragment database located on directory
@@ -108,12 +107,12 @@ class FragmentInfo:
                                         f"{os.path.join(os.path.dirname(self.location), f'{self.source}_statistics.pkl')}"
                                         f" which is required for {self._load_db_statistics.__name__}")
             elif len(stats_file) == 1:
-                self.statistics = unpickle(stats_file[0])
+                self.statistics = utils.unpickle(stats_file[0])
             else:
-                raise DesignError('There were too many statistics.pkl files found from the fragment database source!')
+                raise utils.DesignError('There were too many statistics.pkl files found at the database source')
             # for file in os.listdir(self.location):
             #     if 'statistics.pkl' in file:
-            #         self.statistics = unpickle(os.path.join(self.location, file))
+            #         self.statistics = utils.unpickle(os.path.join(self.location, file))
             #         return
 
     @property
@@ -174,14 +173,14 @@ class FragmentInfo:
         else:
             if ids is None:  # Load all data
                 identified_files = [(os.path.splitext(os.path.basename(cluster_file))[0], cluster_file)
-                                    for cluster_file in get_file_paths_recursively(self.location, extension='.pkl')]
+                                    for cluster_file in utils.get_file_paths_recursively(self.location, extension='.pkl')]
             else:
                 identified_files = \
                     [(_id, os.path.join(self.location, c_id1, f'{c_id1}_{c_id2}', _id, f'{_id}.pkl'))
                      for _id, (c_id1, c_id2, c_id3) in zip(ids, map(str.split, ids, repeat('_')))]
 
             self.info.update({tuple(map(int, cluster_id.split('_'))):
-                              ClusterInfo(name=cluster_id, **unpickle(cluster_file))
+                              ClusterInfo(name=cluster_id, **utils.unpickle(cluster_file))
                               for cluster_id, cluster_file in identified_files})
 
     def load_cluster_info_from_text(self, ids: Sequence[str] = None):
@@ -198,7 +197,7 @@ class FragmentInfo:
             if ids is None:  # Load all data
                 identified_files = \
                     [(os.path.splitext(os.path.basename(cluster_directory))[0], cluster_directory)
-                     for cluster_directory in get_file_paths_recursively(self.cluster_info_path)]
+                     for cluster_directory in utils.get_file_paths_recursively(self.cluster_info_path)]
                 # for root, dirs, files in os.walk(self.cluster_info_path):
                 #     if not dirs:
                 #         i_cluster_type, j_cluster_type, k_cluster_type = map(int, os.path.basename(root).split('_'))
@@ -250,4 +249,4 @@ class FragmentInfo:
         return '_'.join(info)
 
     def start_mysql_connection(self):
-        self.fragdb = Mysql(host='cassini-mysql', database='kmeader', user='kmeader', password='km3@d3r')
+        self.fragdb = utils.sql.Mysql(host='cassini-mysql', database='kmeader', user='kmeader', password='km3@d3r')

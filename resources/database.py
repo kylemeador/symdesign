@@ -5,9 +5,9 @@ from glob import glob
 from logging import Logger
 from typing import Any, Callable, AnyStr
 
-from utils import start_log, read_json, write_json
+from symdesign import utils
 
-logger = start_log(name=__name__)
+logger = utils.start_log(name=__name__)
 # for checking out the options to read and write Rosetta runs to a relational DB such as MySQL
 # https://new.rosettacommons.org/docs/latest/rosetta_basics/options/Database-options
 
@@ -88,8 +88,8 @@ class DataStore:
                 self.load_file = read_file
                 self.save_file = write_list_to_file
             elif '.json' in extension:
-                self.load_file = read_json
-                self.save_file = write_json
+                self.load_file = utils.read_json
+                self.save_file = utils.write_json
             else:
                 self.load_file = load_file if load_file else not_implemented
                 self.save_file = save_file if save_file else not_implemented

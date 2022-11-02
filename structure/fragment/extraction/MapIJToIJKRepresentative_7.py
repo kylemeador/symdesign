@@ -1,8 +1,10 @@
 import os
 import shutil
 from itertools import repeat
+
 from Bio.PDB import PDBParser
-import FragUtils as Frag
+
+import structure.fragment.extraction.FragUtils as Frag
 
 # Globals
 module = 'Map Fragment Pairs to Representative:'

@@ -5,10 +5,10 @@ from typing import Any, Container
 
 import requests
 
-from utils import start_log
+from symdesign import utils
 
 # Globals
-logger = start_log(name=__name__)
+logger = utils.start_log(name=__name__)
 input_string = '\nInput: '
 confirmation_string = 'If this is correct, indicate "y", if not "n", and you can re-input%s' % input_string
 bool_d = {'y': True, 'n': False, 'yes': True, 'no': False, '': True}

@@ -2,11 +2,11 @@ import os
 import pickle
 from itertools import repeat
 
-import FragUtils as Frag
 import numpy as np
 
-from structure.utils import protein_letters_3to1
+import structure.fragment.extraction.FragUtils as Frag
 from structure.model import Model
+from structure.utils import protein_letters_3to1
 
 # Globals
 module = 'Make IJK Cluster Frequency Files:'

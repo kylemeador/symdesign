@@ -8,12 +8,10 @@ import numpy as np
 import structure
 # import structure.base
 from structure.fragment.info import FragmentInfo
-from utils import start_log, unpickle
-from utils.path import intfrag_cluster_rep_dirpath, monofrag_cluster_rep_dirpath, biological_interfaces, \
-    biological_fragment_db_pickle, binary_lookup_table_path
+from symdesign import utils
 
 # Globals
-logger = start_log(name=__name__)
+logger = utils.start_log(name=__name__)
 alignment_types_literal = Literal['mapped', 'paired']
 alignment_types: tuple[alignment_types_literal] = get_args(alignment_types_literal)
 fragment_info_keys = Literal[alignment_types_literal, 'match', 'cluster']
@@ -52,9 +50,9 @@ class FragmentDatabase(FragmentInfo):
 
     def __init__(self, **kwargs):  # init_db: bool = True, fragment_length: int = 5
         super().__init__(**kwargs)
-        if self.source == biological_interfaces:  # Todo parameterize
-            self.cluster_representatives_path = intfrag_cluster_rep_dirpath
-            self.monofrag_representatives_path = monofrag_cluster_rep_dirpath
+        if self.source == utils.path.biological_interfaces:  # Todo parameterize
+            self.cluster_representatives_path = utils.path.intfrag_cluster_rep_dirpath
+            self.monofrag_representatives_path = utils.path.monofrag_cluster_rep_dirpath
 
         self.representatives = {}
         self.paired_frags = {}
@@ -303,7 +301,8 @@ class FragmentDatabaseFactory:
     def __init__(self, **kwargs):
         self._databases = {}
 
-    def __call__(self, source: str = biological_interfaces, token: int = None, **kwargs) -> FragmentDatabase | None:
+    def __call__(self, source: str = utils.path.biological_interfaces, token: int = None, **kwargs) \
+            -> FragmentDatabase | None:
         """Return the specified FragmentDatabase object singleton
 
         Args:
@@ -314,11 +313,11 @@ class FragmentDatabaseFactory:
         fragment_db = self._databases.get(source)
         if fragment_db:
             return fragment_db
-        elif source == biological_interfaces:
+        elif source == utils.path.biological_interfaces:
             if token == RELOAD_DB:
                 return None
             logger.info(f'Initializing {source} {FragmentDatabase.__name__}')
-            self._databases[source] = unpickle(biological_fragment_db_pickle)
+            self._databases[source] = utils.unpickle(utils.path.biological_fragment_db_pickle)
         else:
             logger.info(f'Initializing {source} {FragmentDatabase.__name__}')
             self._databases[source] = FragmentDatabase(source=source, **kwargs)
@@ -374,7 +373,7 @@ def nanohedra_fragment_match_score(fragment_metrics: dict) -> float:
 class EulerLookup:
     def __init__(self, scale: float = 3.):
         # 6-d bool array [[[[[[True, False, ...], ...]]]]] with shape (37, 19, 37, 37, 19, 37)
-        self.eul_lookup_40 = np.load(binary_lookup_table_path)['a']
+        self.eul_lookup_40 = np.load(utils.path.binary_lookup_table_path)['a']
         """Indicates whether two sets of triplet integer values for each Euler angle are within an acceptable angular 
         offset. Acceptable offset is approximately +/- 40 degrees, or +/- 3 integers in one of the rotation angles and
         a couple of integers in another i.e.
@@ -586,7 +585,7 @@ class EulerLookup:
 
 class EulerLookupV1:
     def __init__(self, scale=3.0):
-        self.eul_lookup_40 = np.load(binary_lookup_table_path)['a']  # 6-d bool array [[[[[[True, False, ...], ...]]]]]
+        self.eul_lookup_40 = np.load(utils.path.binary_lookup_table_path)['a']  # 6-d bool array [[[[[[True, False, ...], ...]]]]]
         self.scale = scale
 
     @staticmethod
