@@ -8,10 +8,10 @@ from typing import AnyStr
 from psutil import cpu_count
 
 from metrics import metric_weight_functions
-from utils.path import submodule_guide, submodule_help, force_flags, sym_entry, program_output, interface_metrics, \
-    nano_entity_flag1, nano_entity_flag2, data, multi_processing, residue_selector, options, cluster_poses, orient, \
-    default_clustered_pose_file, interface_design, evolution_constraint, hbnet, term_constraint, number_of_trajectories, refine, \
-    structure_background, scout, design_profile, evolutionary_profile, \
+from symdesign.utils.path import submodule_guide, submodule_help, force_flags, sym_entry, program_output, \
+    interface_metrics, nano_entity_flag1, nano_entity_flag2, data, multi_processing, residue_selector, options, \
+    cluster_poses, orient, default_clustered_pose_file, interface_design, evolution_constraint, hbnet, term_constraint,\
+    number_of_trajectories, refine, structure_background, scout, design_profile, evolutionary_profile, \
     fragment_profile, all_scores, default_analysis_file, select_sequences, program_name, nanohedra, \
     program_command, analysis, select_poses, output_fragments, output_oligomers, protocol, current_energy_function, \
     ignore_clashes, ignore_pose_clashes, ignore_symmetric_clashes, select_designs, output_structures, rosetta_str, \
@@ -19,13 +19,13 @@ from utils.path import submodule_guide, submodule_help, force_flags, sym_entry, 
     distribute_work, output_directory, output_surrounding_uc, skip_logging, output_file, multicistronic, \
     generate_fragments, input_, output, output_assembly, expand_asu, check_clashes, rename_chains, optimize_designs
 # These shouldn't be moved here
-from utils.path import fragment_dbs, biological_interfaces
-from utils.ProteinExpression import expression_tags
-from resources.query.utils import input_string, confirmation_string, bool_d, invalid_string, header_string, \
+from symdesign.utils.path import fragment_dbs, biological_interfaces
+from symdesign.utils.ProteinExpression import expression_tags
+from symdesign.resources.query.utils import input_string, confirmation_string, bool_d, invalid_string, header_string, \
     format_string
-from structure.sequence import read_fasta_file
-from utils import handle_errors, pretty_format_table, clean_comma_separated_string, format_index_string, DesignError, \
-    ex_path
+from symdesign.structure.sequence import read_fasta_file
+from symdesign.utils import handle_errors, pretty_format_table, clean_comma_separated_string, format_index_string, \
+    DesignError, ex_path
 
 
 nstruct = 20

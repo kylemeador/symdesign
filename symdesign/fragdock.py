@@ -21,32 +21,33 @@ from sklearn.neighbors import BallTree
 from sklearn.neighbors._ball_tree import BinaryTree  # This typing implementation supports BallTree or KDTree
 
 from symdesign import resources
-import structure.utils
 from metrics import calculate_collapse_metrics, calculate_residue_surface_area, errat_1_sigma, errat_2_sigma, \
     multiple_sequence_alignment_dependent_metrics, profile_dependent_metrics, columns_to_new_column, \
     delta_pairs, division_pairs, interface_composition_similarity, clean_up_intermediate_columns, \
     sum_per_residue_metrics, hydrophobic_collapse_index, cross_entropy, collapse_significance_threshold
-from structure.fragment.db import FragmentDatabase, fragment_factory
-from resources.job import job_resources_factory, JobResources
-from resources.ml import proteinmpnn_factory, sequence_nllloss, proteinmpnn_to_device, mpnn_alphabet, \
+from symdesign.structure.fragment.db import FragmentDatabase, fragment_factory
+from symdesign.resources.job import job_resources_factory, JobResources
+from symdesign.resources.ml import proteinmpnn_factory, sequence_nllloss, proteinmpnn_to_device, mpnn_alphabet, \
     create_decoding_order, setup_pose_batch_for_proteinmpnn, proteinmpnn_batch_design, batch_proteinmpnn_input
-from structure.base import Structure, Residue
-from structure.coords import transform_coordinate_sets
-from structure.fragment import GhostFragment, write_frag_match_info_file
-from structure.fragment.visuals import write_fragment_pairs_as_accumulating_states
-from structure.model import Pose, Model, get_matching_fragment_pairs_info, Models
-from structure.sequence import generate_mutations_from_reference, numeric_to_sequence, concatenate_profile, \
+from symdesign.structure.base import Structure, Residue
+from symdesign.structure.coords import transform_coordinate_sets
+from symdesign.structure.fragment import GhostFragment, write_frag_match_info_file
+from symdesign.structure.fragment.visuals import write_fragment_pairs_as_accumulating_states
+from symdesign.structure.model import Pose, Model, get_matching_fragment_pairs_info, Models
+from symdesign.structure.sequence import generate_mutations_from_reference, numeric_to_sequence, concatenate_profile, \
     pssm_as_array, MultipleSequenceAlignment
-from utils import dictionary_lookup, start_log, null_log, set_logging_to_level, rmsd_z_score, \
+from symdesign.utils import dictionary_lookup, start_log, null_log, set_logging_to_level, rmsd_z_score, \
     z_value_from_match_score, match_score_from_z_value, set_loggers_to_propagate, make_path, z_score
-from utils.cluster import cluster_transformation_pairs
-from utils.nanohedra.OptimalTx import OptimalTx
-from utils.nanohedra.WeightedSeqFreq import FragMatchInfo, SeqFreqInfo
-from utils.nanohedra.cmdline import get_docking_parameters
-from utils.nanohedra.general import write_docked_pose_info, get_rotation_step, write_docking_parameters
-from utils.path import frag_text_file, master_log, frag_dir, biological_interfaces, asu_file_name, pose_source, groups
-from utils.SymEntry import SymEntry, get_rot_matrices, make_rotations_degenerate, symmetry_factory
-from utils.symmetry import generate_cryst1_record, get_central_asu, identity_matrix
+# import symdesign.structure.utils
+from symdesign.utils.cluster import cluster_transformation_pairs
+from symdesign.utils.nanohedra.OptimalTx import OptimalTx
+from symdesign.utils.nanohedra.WeightedSeqFreq import FragMatchInfo, SeqFreqInfo
+from symdesign.utils.nanohedra.cmdline import get_docking_parameters
+from symdesign.utils.nanohedra.general import write_docked_pose_info, get_rotation_step, write_docking_parameters
+from symdesign.utils.path import frag_text_file, master_log, frag_dir, biological_interfaces, asu_file_name, \
+    pose_source, groups
+from symdesign.utils.SymEntry import SymEntry, get_rot_matrices, make_rotations_degenerate, symmetry_factory
+from symdesign.utils.symmetry import generate_cryst1_record, get_central_asu, identity_matrix
 
 # Globals
 logger = start_log(name=__name__, format_log=False)
