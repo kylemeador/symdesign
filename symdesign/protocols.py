@@ -1077,8 +1077,8 @@ class PoseDirectory:
             main_cmd = run_cmds[PUtils.rosetta_extras] + [str(self.job.mpi)] + main_cmd
 
         metric_cmd_bound = main_cmd + (['-symmetry_definition', 'CRYST1'] if self.design_dimension > 0 else []) + \
-            [os.path.join(PUtils.rosetta_scripts, f'{protocol}{"_DEV" if self.job.development else ""}.xml')]
-        entity_cmd = main_cmd + [os.path.join(PUtils.rosetta_scripts,
+            [os.path.join(PUtils.rosetta_scripts_dir, f'{protocol}{"_DEV" if self.job.development else ""}.xml')]
+        entity_cmd = main_cmd + [os.path.join(PUtils.rosetta_scripts_dir,
                                               f'metrics_entity{"_DEV" if self.job.development else ""}.xml')]
         metric_cmds = [metric_cmd_bound]
         metric_cmds.extend(self.generate_entity_metrics(entity_cmd))
@@ -1646,7 +1646,7 @@ class PoseDirectory:
         # '-no_nstruct_label', 'true' comes from v
         relax_cmd = main_cmd + relax_flags_cmdline + additional_flags + \
             (['-symmetry_definition', 'CRYST1'] if self.design_dimension > 0 else []) + infile + \
-            [f'@{flags}', '-parser:protocol', os.path.join(PUtils.rosetta_scripts, f'refine.xml'),  # f'{protocol}.xml')
+            [f'@{flags}', '-parser:protocol', os.path.join(PUtils.rosetta_scripts_dir, f'refine.xml'),  # f'{protocol}.xml')
              '-parser:script_vars', f'switch={protocol}']
         self.log.info(f'{protocol.title()} Command: {list2cmdline(relax_cmd)}')
 
@@ -1658,9 +1658,9 @@ class PoseDirectory:
                 main_cmd = run_cmds[PUtils.rosetta_extras] + [str(self.job.mpi)] + main_cmd
 
             metric_cmd_bound = main_cmd + (['-symmetry_definition', 'CRYST1'] if self.design_dimension > 0 else []) + \
-                [os.path.join(PUtils.rosetta_scripts, f'{PUtils.interface_metrics}'
+                [os.path.join(PUtils.rosetta_scripts_dir, f'{PUtils.interface_metrics}'
                                                       f'{"_DEV" if self.job.development else ""}.xml')]
-            entity_cmd = main_cmd + [os.path.join(PUtils.rosetta_scripts,
+            entity_cmd = main_cmd + [os.path.join(PUtils.rosetta_scripts_dir,
                                                   f'metrics_entity{"_DEV" if self.job.development else ""}.xml')]
             metric_cmds = [metric_cmd_bound]
             metric_cmds.extend(self.generate_entity_metrics(entity_cmd))
@@ -2051,7 +2051,7 @@ class PoseDirectory:
                 consensus_cmd = main_cmd + relax_flags_cmdline + \
                     [f'@%{self.flags}', '-in:file:s', self.consensus_pdb,
                      # '-in:file:native', self.refined_pdb,
-                     '-parser:protocol', os.path.join(PUtils.rosetta_scripts, f'{PUtils.consensus}.xml'),
+                     '-parser:protocol', os.path.join(PUtils.rosetta_scripts_dir, f'{PUtils.consensus}.xml'),
                      '-parser:script_vars', f'switch={PUtils.consensus}']
                 self.log.info(f'Consensus command: {list2cmdline(consensus_cmd)}')
                 if self.job.distribute_work:
@@ -2069,7 +2069,7 @@ class PoseDirectory:
             if os.path.exists(self.evolutionary_profile_file) else []
         design_cmd = main_cmd + profile_cmd + \
             [f'@{self.flags}', '-in:file:s', self.scouted_pdb if os.path.exists(self.scouted_pdb) else self.refined_pdb,
-             '-parser:protocol', os.path.join(PUtils.rosetta_scripts, f'{protocol_xml1}.xml'),
+             '-parser:protocol', os.path.join(PUtils.rosetta_scripts_dir, f'{protocol_xml1}.xml'),
              '-out:suffix', f'_{protocol}'] + (['-overwrite'] if self.job.overwrite else []) \
             + out_file + nstruct_instruct
         if additional_cmds:  # this is where hbnet_design_profile.xml is set up, which could be just design_profile.xml
@@ -2078,13 +2078,13 @@ class PoseDirectory:
                 ['-in:file:silent', os.path.join(self.data, 'hbnet_selected.o'), f'@{self.flags}',
                  '-in:file:silent_struct_type', 'binary',
                  # '-out:suffix', '_%s' % protocol,  adding no_nstruct_label true as only hbnet uses this mechanism
-                 '-parser:protocol', os.path.join(PUtils.rosetta_scripts, f'{protocol}.xml')] + nstruct_instruct)
+                 '-parser:protocol', os.path.join(PUtils.rosetta_scripts_dir, f'{protocol}.xml')] + nstruct_instruct)
 
         # METRICS: Can remove if SimpleMetrics adopts pose metric caching and restoration
         # Assumes all entity chains are renamed from A to Z for entities (1 to n)
         entity_cmd = script_cmd + metrics_pdb + \
             [f'@{self.flags}', '-out:file:score_only', self.scores_file, '-no_nstruct_label', 'true',
-             '-parser:protocol', os.path.join(PUtils.rosetta_scripts, 'metrics_entity.xml')]
+             '-parser:protocol', os.path.join(PUtils.rosetta_scripts_dir, 'metrics_entity.xml')]
 
         if self.job.mpi > 0 and not self.job.design.scout:
             design_cmd = run_cmds[PUtils.rosetta_extras] + [str(self.job.mpi)] + design_cmd
@@ -2197,10 +2197,10 @@ class PoseDirectory:
         # Todo must set up a blank -in:file:pssm in case the evolutionary matrix is not used. Design will fail!!
         profile_cmd = ['-in:file:pssm', self.evolutionary_profile_file] \
             if os.path.exists(self.evolutionary_profile_file) else []
-        design_cmd = main_cmd + profile_cmd + \
-            ['-in:file:s', specific_design if specific_design else self.refined_pdb,
-             f'@{self.flags}', '-out:suffix', f'_{protocol}', '-packing:resfile', res_file,
-             '-parser:protocol', os.path.join(PUtils.rosetta_scripts, f'{protocol_xml1}.xml')] + nstruct_instruct
+        design_cmd = main_cmd + profile_cmd \
+            + ['-in:file:s', specific_design if specific_design else self.refined_pdb,
+               f'@{self.flags}', '-out:suffix', f'_{protocol}', '-packing:resfile', res_file,
+               '-parser:protocol', os.path.join(PUtils.rosetta_scripts_dir, f'{protocol_xml1}.xml')] + nstruct_instruct
 
         # metrics_pdb = ['-in:file:l', design_list_file]  # self.pdb_list]
         # METRICS: Can remove if SimpleMetrics adopts pose metric caching and restoration
@@ -2208,7 +2208,7 @@ class PoseDirectory:
         # metric_cmd = main_cmd + ['-in:file:s', self.specific_design if self.specific_design else self.refined_pdb] + \
         entity_cmd = main_cmd + ['-in:file:l', design_list_file] + \
             [f'@{self.flags}', '-out:file:score_only', self.scores_file, '-no_nstruct_label', 'true',
-             '-parser:protocol', os.path.join(PUtils.rosetta_scripts, 'metrics_entity.xml')]
+             '-parser:protocol', os.path.join(PUtils.rosetta_scripts_dir, 'metrics_entity.xml')]
 
         if self.job.mpi > 0:
             design_cmd = run_cmds[PUtils.rosetta_extras] + [str(self.job.mpi)] + design_cmd
