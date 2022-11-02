@@ -11,7 +11,7 @@ from symdesign import utils
 from symdesign.utils import path as PUtils
 from structure.sequence import generate_mutations
 from structure.coords import superposition3d
-from resources.structure_db import fetch_pdb_file
+from symdesign.resources.structure_db import fetch_pdb_file
 from structure.model import Model
 
 # if sys.version[0] < 3:

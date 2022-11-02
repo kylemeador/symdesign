@@ -20,7 +20,7 @@ from sklearn.cluster import DBSCAN
 from sklearn.neighbors import BallTree
 from sklearn.neighbors._ball_tree import BinaryTree  # This typing implementation supports BallTree or KDTree
 
-import resources
+from symdesign import resources
 import structure.utils
 from metrics import calculate_collapse_metrics, calculate_residue_surface_area, errat_1_sigma, errat_2_sigma, \
     multiple_sequence_alignment_dependent_metrics, profile_dependent_metrics, columns_to_new_column, \

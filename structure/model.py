@@ -18,12 +18,8 @@ from sklearn.cluster import KMeans
 from sklearn.neighbors import BallTree
 from sklearn.neighbors._ball_tree import BinaryTree  # This typing implementation supports BallTree or KDTree
 
-import resources
-from resources.ml import proteinmpnn_factory, batch_proteinmpnn_input, mpnn_alphabet_length, proteinmpnn_batch_design
-from resources.query.pdb import retrieve_entity_id_by_sequence, query_pdb_by, get_entity_reference_sequence, \
-    is_entity_thermophilic
-from resources.query.uniprot import is_uniprot_thermophilic
-from resources.wrapapi import APIDatabase, api_database_factory
+from symdesign import resources
+from symdesign.resources import query
 from structure.base import Structure, Structures, Residue, StructureBase, atom_or_residue
 from structure.coords import Coords, superposition3d, transform_coordinate_sets
 from structure.fragment import GhostFragment, Fragment, write_frag_match_info_file
@@ -1182,7 +1178,7 @@ class Entity(Chain, ContainsChainsMixin):
         try:
             return self._uniprot_id
         except AttributeError:
-            self.api_entry = query_pdb_by(entity_id=self.name)  # {chain: {'accession': 'Q96DC8', 'db': 'UNP'}, ...}
+            self.api_entry = query.pdb.query_pdb_by(entity_id=self.name)  # {chain: {'accession': 'Q96DC8', 'db': 'UNP'}, ...}
             # self.api_entry = _get_entity_info(self.name)  # {chain: {'accession': 'Q96DC8', 'db': 'UNP'}, ...}
             for chain, api_data in self.api_entry.items():  # [next(iter(self.api_entry))]
                 # print('Retrieving UNP ID for %s\nAPI DATA for chain %s:\n%s' % (self.name, chain, api_data))
@@ -1405,14 +1401,14 @@ class Entity(Chain, ContainsChainsMixin):
                 self.log.warning(f"{self._retrieve_sequence_from_api.__name__}: If an entity_id isn't passed and the "
                                  f'Entity name "{self.name}" is not the correct format (1abc_1), the query will fail. '
                                  f'Retrieving closest entity_id by PDB API structure sequence')
-                entity_id = retrieve_entity_id_by_sequence(self.sequence)
+                entity_id = query.pdb.retrieve_entity_id_by_sequence(self.sequence)
                 if not entity_id:
                     # self._reference_sequence = None
                     return None
 
         self.log.debug(f'Querying {entity_id} reference sequence from PDB')
-        # self._reference_sequence = get_entity_reference_sequence(entity_id=entity_id)
-        return get_entity_reference_sequence(entity_id=entity_id)
+        # self._reference_sequence = query.pdb.get_entity_reference_sequence(entity_id=entity_id)
+        return query.pdb.get_entity_reference_sequence(entity_id=entity_id)
 
     # def retrieve_info_from_api(self):
     #     """Retrieve information from the PDB API about the Entity
@@ -2353,7 +2349,7 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
     # multimodel: bool
     original_chain_ids: list[str]
     resolution: float | None
-    api_db: APIDatabase
+    api_db: resources.wrapapi.APIDatabase
     # _reference_sequence: dict[str, str]
     # space_group: str | None
     # uc_dimensions: list[float] | None
@@ -2382,7 +2378,7 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
                  fragment_db: FragmentDatabase = None,
                  # multimodel: bool = False,
                  resolution: float = None,
-                 # api_db: APIDatabase = None,
+                 # api_db: resources.wrapapi.APIDatabase = None,
                  # reference_sequence: list[str] = None,
                  reference_sequence: dict[str, str] = None,
                  # metadata: Model = None,
@@ -2427,7 +2423,7 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
         # ^ SEQRES or PDB API entries. key is chainID, value is 'AGHKLAIDL'
         # self.space_group = space_group
         # Todo standardize path with some state variable?
-        # self.api_db = api_db if api_db else api_database_factory()
+        # self.api_db = api_db if api_db else resources.wrapapi.api_database_factory()
 
         self.structure_containers.extend(['chains', 'entities'])
 
@@ -2978,9 +2974,9 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
         # if self.api_db:
         try:
             # retrieve_api_info = self.api_db.pdb.retrieve_data
-            retrieve_api_info = api_database_factory().pdb.retrieve_data
+            retrieve_api_info = resources.wrapapi.api_database_factory().pdb.retrieve_data
         except AttributeError:
-            retrieve_api_info = query_pdb_by
+            retrieve_api_info = query.pdb.query_pdb_by
 
         # if self.name:  # try to solve API details from name
         parsed_name = self.name
@@ -3116,7 +3112,7 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
                 if query_by_sequence and entity_names is None:
                     for entity_name, data in list(self.entity_info.items()):  # Make a new list to prevent pop issues
                         # Todo incorporate wrapapi call here to fetch from local sequence db
-                        pdb_api_name = retrieve_entity_id_by_sequence(data['sequence'])
+                        pdb_api_name = query.pdb.retrieve_entity_id_by_sequence(data['sequence'])
                         if pdb_api_name:
                             pdb_api_name = pdb_api_name.lower()
                             self.log.info(f'Entity {entity_name} now named "{pdb_api_name}", as found by PDB API '
@@ -3126,9 +3122,9 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
             # if self.api_db:
             try:
                 # retrieve_api_info = self.api_db.pdb.retrieve_data
-                retrieve_api_info = api_database_factory().pdb.retrieve_data
+                retrieve_api_info = resources.wrapapi.api_database_factory().pdb.retrieve_data
             except AttributeError:
-                retrieve_api_info = query_pdb_by
+                retrieve_api_info = query.pdb.query_pdb_by
 
             api_entry_entity = self.api_entry.get('entity', {})
             if not api_entry_entity:
@@ -3191,7 +3187,7 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
                 sequence = data.get('sequence')
                 if sequence is None:  # We should try to set using the entity_name
                     # Todo transition to wrap_api
-                    reference_sequence = get_entity_reference_sequence(entity_id=entity_name)
+                    reference_sequence = query.pdb.get_entity_reference_sequence(entity_id=entity_name)
                 else:  # We set from Atom info
                     reference_sequence = sequence
             # else:
@@ -5529,9 +5525,9 @@ class Pose(SymmetricModel):
         residue_mask[design_residues] = 1
 
         # Todo resolve these data structures as flags
-        omit_AAs_np = np.zeros(mpnn_alphabet_length, dtype=np.int32)  # (alphabet_length,)
+        omit_AAs_np = np.zeros(resources.ml.mpnn_alphabet_length, dtype=np.int32)  # (alphabet_length,)
         bias_AAs_np = np.zeros_like(omit_AAs_np)  # (alphabet_length,)
-        omit_AA_mask = np.zeros((self.number_of_residues, mpnn_alphabet_length),
+        omit_AA_mask = np.zeros((self.number_of_residues, resources.ml.mpnn_alphabet_length),
                                 dtype=np.int32)  # (number_of_residues, alphabet_length)
         # Todo what is enough bias?
         #  This needs to be on a scale with the magnitude of a typical logit for a decoded position
@@ -5720,7 +5716,7 @@ class Pose(SymmetricModel):
             raise NotImplementedError(f"Can't design with Rosetta from this method yet...")
         elif method == PUtils.proteinmpnn:  # Design with vanilla version of ProteinMPNN
             # Set up the model with the desired weights
-            proteinmpnn_model = proteinmpnn_factory(**kwargs)
+            proteinmpnn_model = resources.ml.proteinmpnn_factory(**kwargs)
             device = proteinmpnn_model.device
 
             pose_length = self.number_of_residues
@@ -5756,7 +5752,7 @@ class Pose(SymmetricModel):
 
                 X_unbound = np.concatenate(entity_unbound_coords).reshape((number_of_residues, num_model_residues, 3))
                 # Todo add this part to the setup_function
-                extra_batch_parameters = batch_proteinmpnn_input(size=batch_length, X=X_unbound)
+                extra_batch_parameters = resources.ml.batch_proteinmpnn_input(size=batch_length, X=X_unbound)
                 extra_batch_parameters = resources.ml.proteinmpnn_to_device(device, **extra_batch_parameters)
                 extra_batch_parameters['X_unbound'] = extra_batch_parameters.pop('X')
             else:
@@ -5779,7 +5775,7 @@ class Pose(SymmetricModel):
                                             compute_failure_exceptions=(RuntimeError,
                                                                         np.core._exceptions._ArrayMemoryError))
             def _proteinmpnn_batch_design(*args, **kwargs):
-                return proteinmpnn_batch_design(*args, **kwargs)
+                return resources.ml.proteinmpnn_batch_design(*args, **kwargs)
 
             # Data has shape (batch_length, number_of_temperatures, pose_length)
             sequences_and_scores = \
@@ -5857,7 +5853,7 @@ class Pose(SymmetricModel):
             # if self.api_db:
             try:
                 # retrieve_api_info = self.api_db.pdb.retrieve_data
-                retrieve_stride_info = api_database_factory().stride.retrieve_data
+                retrieve_stride_info = resources.wrapapi.api_database_factory().stride.retrieve_data
             except AttributeError:
                 retrieve_stride_info = Structure.stride
 
@@ -6051,12 +6047,12 @@ class Pose(SymmetricModel):
             metrics['design_dimension'] = 'asymmetric'
 
         try:
-            api_db = api_database_factory()
+            api_db = resources.wrapapi.api_database_factory()
             is_ukb_thermophilic = api_db.uniprot.is_thermophilic
             is_pdb_thermophile = api_db.pdb.is_thermophilic
         except AttributeError:
-            is_ukb_thermophilic = is_uniprot_thermophilic
-            is_pdb_thermophile = is_entity_thermophilic
+            is_ukb_thermophilic = query.uniprot.is_uniprot_thermophilic
+            is_pdb_thermophile = query.pdb.is_entity_thermophilic
 
         # total_residue_counts = []
         minimum_radius, maximum_radius = float('inf'), 0
@@ -6770,7 +6766,7 @@ class Pose(SymmetricModel):
         # if self.api_db:
         try:
             # retrieve_api_info = self.api_db.pdb.retrieve_data
-            retrieve_stride_info = api_database_factory().stride.retrieve_data
+            retrieve_stride_info = resources.wrapapi.api_database_factory().stride.retrieve_data
         except AttributeError:
             retrieve_stride_info = Structure.stride
 
