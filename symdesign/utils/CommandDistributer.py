@@ -11,7 +11,7 @@ from typing import AnyStr
 
 from symdesign import utils
 from symdesign.utils.path import sbatch_template_dir, nanohedra, rosetta_main, rosetta_extras, dalphaball, \
-    submodule_help, program_name, interface_design, interface_metrics, optimize_designs, refine, rosetta_scripts, \
+    submodule_help, program_name, interface_design, interface_metrics, optimize_designs, refine, rosetta_scripts_dir, \
     sym_weights, solvent_weights_sym, solvent_weights, scout, consensus, hbnet_design_profile, structure_background
 
 # Globals
@@ -64,7 +64,7 @@ relax_flags_cmdline = relax_singles + list(chain.from_iterable(map(str.split, re
 #                        '-no_optH', 'false', '-relax:coord_constrain_sidechains', '-relax:coord_cst_stdev', '0.5',
 #                        '-no_his_his_pairE', '-flip_HNQ', '-nblist_autoupdate', 'true', '-no_nstruct_label', 'true',
 #                        '-relax:bb_move', 'false']
-rosetta_variables = [('scripts', rosetta_scripts), ('sym_score_patch', sym_weights),
+rosetta_variables = [('scripts', rosetta_scripts_dir), ('sym_score_patch', sym_weights),
                      ('solvent_sym_score_patch', solvent_weights_sym),
                      ('solvent_score_patch', solvent_weights)]
 # Those jobs having a scale of 2 utilize two threads. Therefore, two commands are selected from a supplied commands list

@@ -508,7 +508,7 @@ class StructureDatabase(Database):
                     f.write('%s\n' % '\n'.join(flags))
 
                 refine_cmd = [f'@{flags_file}', '-parser:protocol',
-                              os.path.join(utils.path.rosetta_scripts, f'{utils.path.refine}.xml')]
+                              os.path.join(utils.path.rosetta_scripts_dir, f'{utils.path.refine}.xml')]
                 refine_cmds = [utils.CommandDistributer.script_cmd + refine_cmd
                                + ['-in:file:s', structure.file_path, '-parser:script_vars']
                                + [f'sdf={sym_def_files[structure.symmetry]}',
@@ -571,7 +571,7 @@ class StructureDatabase(Database):
                 with open(flags_file, 'w') as f:
                     f.write('%s\n' % '\n'.join(flags))
                 loop_model_cmd = [f'@{flags_file}', '-parser:protocol',
-                                  os.path.join(utils.path.rosetta_scripts, 'loop_model_ensemble.xml'),
+                                  os.path.join(utils.path.rosetta_scripts_dir, 'loop_model_ensemble.xml'),
                                   '-parser:script_vars']
                 # Make all output paths and files for each loop ensemble
                 # logger.info('Preparing blueprint and loop files for structure:')
