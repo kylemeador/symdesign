@@ -18,6 +18,7 @@ except subprocess.CalledProcessError:
 program_name = 'SymDesign'
 program_exe = os.path.join(source, f'{program_name}.py')
 config_file = os.path.join(source, 'cfg.json')
+third_party_dir = os.path.join(source, 'third-party')
 program_output = f'{program_name}Output'
 projects = 'Projects'
 program_command = f'python {program_exe}'
@@ -83,7 +84,7 @@ hhblits = 'hhblits'
 rosetta_str = 'rosetta'
 proteinmpnn = 'proteinmpnn'
 protein_mpnn_dir = 'ProteinMPNN'
-protein_mpnn_weights_dir = os.path.join(source, protein_mpnn_dir, 'vanilla_model_weights')
+protein_mpnn_weights_dir = os.path.join(third_party_dir, protein_mpnn_dir, 'vanilla_model_weights')
 
 temp = 'temp.hold'
 pose_prefix = 'tx_'
@@ -211,7 +212,7 @@ intfrag_cluster_info_dirpath = os.path.join(fragment_db, 'IJK_ClusteredInterface
 
 # External Program Dependencies
 # Free SASA Executable Path
-freesasa_exe_path = os.path.join(source, 'freesasa', 'src', 'freesasa')
+freesasa_exe_path = os.path.join(third_party_dir, 'freesasa', 'src', 'freesasa')
 freesasa_config_path = os.path.join(dependency_dir, 'freesasa-2.0.config')
 
 orient_dir = os.path.join(dependency_dir, 'orient')
@@ -245,9 +246,9 @@ make_symmdef = os.path.join(rosetta_main, 'source', 'src', 'apps', 'public', 'sy
 # Todo v dependent on external compile. cd to the directory, then type "make" to compile the executable
 dalphaball = os.path.join(rosetta_main, 'source', 'external', 'DAlpahBall', 'DAlphaBall.gcc')
 # Rosetta Scripts and Misc Files'
-rosetta_scripts = os.path.join(dependency_dir, 'rosetta')
+rosetta_scripts_dir = os.path.join(dependency_dir, 'rosetta')
 symmetry_def_file_dir = 'rosetta_symmetry_definition_files'
-symmetry_def_files = os.path.join(rosetta_scripts, 'sdf')
+symmetry_def_files = os.path.join(rosetta_scripts_dir, 'sdf')
 sym_weights = 'ref2015_sym.wts_patch'
 solvent_weights = 'ref2015_solvent.wts_patch'
 solvent_weights_sym = 'ref2015_sym_solvent.wts_patch'
