@@ -144,7 +144,7 @@ if __name__ == '__main__':
         if os.path.exists(rosetta):
             print(f'Wonderful, Rosetta environment located and exists. You can now use all the features of '
                   f'{PUtils.program_name} to interface with Rosetta')
-            print(f'All {PUtils.program_name} files are located in {PUtils.source}')
+            print(f'All {PUtils.program_name} files are located in {PUtils.git_source}')
             break
         else:
             print(f"Rosetta environmental path doesn't exist. Ensure that ${rosetta_env_variable} is correct... "

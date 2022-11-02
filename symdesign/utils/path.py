@@ -6,9 +6,10 @@ import subprocess
 
 # Project strings and file names
 utils_dir = os.path.dirname(os.path.realpath(__file__))  # reveals utils subdirectory
-source = os.path.dirname(utils_dir)  # reveals master symdesign directory
+python_source = os.path.dirname(utils_dir)  # reveals master symdesign directory
+git_source = os.path.dirname(python_source)  # reveals master symdesign directory
 try:
-    p = subprocess.Popen(['git', '--git-dir', os.path.join(source, '.git'), 'rev-parse', '--short', 'HEAD'],
+    p = subprocess.Popen(['git', '--git-dir', os.path.join(git_source, '.git'), 'rev-parse', '--short', 'HEAD'],
                          stdout=subprocess.PIPE)
     stdout, _ = p.communicate()
     program_version = stdout.decode().strip()
@@ -16,9 +17,9 @@ except subprocess.CalledProcessError:
     program_version = 'unknown'
 
 program_name = 'SymDesign'
-program_exe = os.path.join(source, f'{program_name}.py')
-config_file = os.path.join(source, 'cfg.json')
-third_party_dir = os.path.join(source, 'third-party')
+program_exe = os.path.join(python_source, f'{program_name}.py')
+config_file = os.path.join(python_source, 'cfg.json')
+third_party_dir = os.path.join(python_source, 'third-party')
 program_output = f'{program_name}Output'
 projects = 'Projects'
 program_command = f'python {program_exe}'
@@ -138,15 +139,16 @@ baseline_program_memory = 3000000000  # 3GB
 nanohedra_memory = 30000000000  # 30Gb
 
 # Project paths
-readme = os.path.join(source, 'README.md')
-dependency_dir = os.path.join(source, 'dependencies')
-tools = os.path.join(source, 'tools')
+readme = os.path.join(git_source, 'README.md')
+# dependency_dir = os.path.join(source, 'dependencies')
+dependency_dir = os.path.join(git_source, 'dependencies')
+tools = os.path.join(python_source, 'tools')
 sym_op_location = os.path.join(dependency_dir, 'symmetry_operators')
 sasa_debug_dir = os.path.join(dependency_dir, 'sasa')
 point_group_symmetry_operator_location = os.path.join(sym_op_location, 'point_group_operators.pkl')
 space_group_symmetry_operator_location = os.path.join(sym_op_location, 'space_group_operators.pkl')
-nanohedra_main = os.path.join(source, f'{nanohedra.title()}.py')
-nanohedra_dock_file = os.path.join(source, 'fragdock.py')
+nanohedra_main = os.path.join(python_source, f'{nanohedra.title()}.py')
+nanohedra_dock_file = os.path.join(python_source, 'fragdock.py')
 binaries = os.path.join(dependency_dir, 'bin')
 models_to_multimodel_exe = os.path.join(tools, 'models_to_multimodel.py')
 list_pdb_files = os.path.join(tools, 'list_files_in_directory.py')
@@ -154,7 +156,7 @@ command_distributer = os.path.join(utils_dir, 'CommandDistributer.py')
 hbnet_sort = os.path.join(binaries, 'sort_hbnet_silent_file_results.sh')
 sbatch_template_dir = os.path.join(dependency_dir, 'sbatch')
 disbatch = os.path.join(binaries, 'diSbatch.sh')  # DEPRECIATED
-data_dir = os.path.join(source, data)
+data_dir = os.path.join(python_source, data)
 binary_lookup_table_path = os.path.join(dependency_dir, 'euler_lookup', 'euler_lookup_40.npz')
 reference_aa_file = os.path.join(data_dir, 'AAreference.pdb')
 # reference_aa_pickle = os.path.join(data_dir, 'AAreference.pkl')

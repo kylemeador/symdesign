@@ -25,7 +25,8 @@ import psutil
 # from Bio.PDB import PDBParser, Superimposer
 # from Query.utils import validate_input
 
-from ..utils import cluster, CommandDistributer, ProteinExpression, SymEntry, symmetry, path as PUtils
+from ..utils import path as PUtils
+# from ..utils import cluster, CommandDistributer, ProteinExpression, SymEntry, symmetry, path as PUtils
 
 # Globals
 input_string = '\nInput: '
