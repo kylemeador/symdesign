@@ -7,12 +7,12 @@
 	branch = main
 	url = https://github.com/kylemeador/python_codon_tables.git
 [submodule "third-party/DnaChisel"]
-	path = thrid-party/DnaChisel
+	path = third-party/DnaChisel
 	branch = main
 	url = https://github.com/kylemeador/DnaChisel.git
 [submodule "third-party/freesasa"]
 	path = third-party/freesasa
 	url = https://github.com/mittinatten/freesasa.git
-[submodule "alphafold"]
+[submodule "third-party/alphafold"]
 	path = third-party/alphafold
 	url = https://github.com/deepmind/alphafold.git
