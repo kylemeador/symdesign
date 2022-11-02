@@ -5,7 +5,7 @@ from itertools import repeat
 
 from Bio.PDB.Atom import PDBConstructionWarning
 
-from structure.model import Model
+from symdesign.structure.model import Model
 from top_n_all_to_all_docked_poses_irmsd import map_align_interface_chains, interface_chains_and_resnums
 from symdesign import protocols, utils
 

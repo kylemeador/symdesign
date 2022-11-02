@@ -1,5 +1,4 @@
 import os
-import sys
 from itertools import chain
 import math
 import multiprocessing as mp
@@ -8,7 +7,7 @@ import numpy as np
 from sklearn.neighbors import BallTree
 from Bio.PDB import PDBParser, Atom, Residue, Chain, Superimposer
 
-from structure.base import Structure
+from symdesign.structure.base import Structure
 from symdesign import utils
 
 # Globals

@@ -8,8 +8,8 @@ from itertools import repeat
 from lxml import etree, html
 from requests import get, post
 
-from structure.model import Model
-from structure.base import Structure
+from symdesign.structure.model import Model
+from symdesign.structure.base import Structure
 from symdesign import utils
 
 # from interface_analysis.InterfaceSorting import logger

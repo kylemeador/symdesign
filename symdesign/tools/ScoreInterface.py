@@ -4,8 +4,8 @@ from itertools import repeat
 
 import pandas as pd
 
-from structure.fragment.db import fragment_factory, EulerLookup
-from structure.model import Pose
+from symdesign.structure.fragment.db import fragment_factory, EulerLookup
+from symdesign.structure.model import Pose
 from symdesign import utils
 
 # Globals

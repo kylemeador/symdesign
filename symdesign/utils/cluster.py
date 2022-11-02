@@ -13,7 +13,7 @@ import sklearn
 #     handle_design_errors, DesignError
 from symdesign.metrics import prioritize_design_indices, nanohedra_metrics  # query_user_for_metrics,
 from symdesign.protocols import PoseDirectory
-from structure.coords import superposition3d, transform_coordinate_sets
+from symdesign.structure.coords import superposition3d, transform_coordinate_sets
 from symdesign import utils
 
 # globals

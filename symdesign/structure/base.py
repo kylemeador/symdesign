@@ -12,10 +12,10 @@ from typing import IO, Sequence, Container, Literal, get_args, Callable, Any, An
 import numpy as np
 from sklearn.neighbors import BallTree  # , KDTree, NearestNeighbors
 
-from structure.coords import Coords, superposition3d
-from structure.fragment import Fragment, MonoFragment, ResidueFragment
-from structure.fragment.db import FragmentDatabase, fragment_factory
-from structure.utils import protein_letters_alph1, protein_letters_1to3, protein_letters_3to1_extended
+# from ..structure import coords, fragment, utils
+from ..structure.coords import Coords, superposition3d
+from ..structure import fragment
+from ..structure.utils import protein_letters_alph1, protein_letters_1to3, protein_letters_3to1_extended
 from symdesign import utils
 
 # globals
@@ -1407,7 +1407,7 @@ class ContainsAtomsMixin(StructureBase):
                 setattr(atom, kwarg, value)
 
 
-class Residue(ResidueFragment, ContainsAtomsMixin):
+class Residue(fragment.ResidueFragment, ContainsAtomsMixin):
     _ca_indices: list[int]
     _cb_indices: list[int]
     _bb_indices: list[int]
@@ -1448,7 +1448,7 @@ class Residue(ResidueFragment, ContainsAtomsMixin):
     def __init__(self, atoms: list[Atoms] | Atoms = None, atom_indices: list[int] = None, **kwargs):
         # kwargs passed to StructureBase
         #          parent: StructureBase = None, log: Log | Logger | bool = True, coords: list[list[float]] = None
-        # kwargs passed to ResidueFragment -> Fragment
+        # kwargs passed to fragment.ResidueFragment -> Fragment
         #          fragment_type: int = None, guide_coords: np.ndarray = None, fragment_length: int = 5,
         super().__init__(**kwargs)
 
@@ -2529,7 +2529,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
     _ca_indices: list[int]
     _cb_indices: list[int]
     _contains_hydrogen: bool
-    _fragment_db: FragmentDatabase
+    _fragment_db: fragment.db.FragmentDatabase
     _heavy_indices: list[int]
     _helix_cb_indices: list[int]
     _side_chain_indices: list[int]
@@ -2653,19 +2653,17 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         return dict(coords=self._coords, atoms=self._atoms, residues=self._residues)  # log=self._log,
 
     @property
-    def fragment_db(self) -> FragmentDatabase:
+    def fragment_db(self) -> fragment.db.FragmentDatabase:
         """The FragmentDatabase that the Fragment was created from"""
         return self._fragment_db
 
     @fragment_db.setter
-    def fragment_db(self, fragment_db: FragmentDatabase):
-        # self.log.critical(f'Found fragment_db {type(fragment_db)}. '
-        #                   f'isinstance(fragment_db, FragmentDatabase) = {isinstance(fragment_db, FragmentDatabase)}')
-        if not isinstance(fragment_db, FragmentDatabase):
+    def fragment_db(self, fragment_db: fragment.db.FragmentDatabase):
+        if not isinstance(fragment_db, fragment.db.FragmentDatabase):
             # Todo add fragment_length, sql kwargs
             self.log.debug(f'fragment_db was set to the default since a {type(fragment_db).__name__} was passed which '
-                           f'is not of the required type {FragmentDatabase.__name__}')
-            fragment_db = fragment_factory.get(source=utils.path.biological_interfaces, token=fragment_db)
+                           f'is not of the required type {fragment.db.FragmentDatabase.__name__}')
+            fragment_db = fragment.db.fragment_factory.get(source=utils.path.biological_interfaces, token=fragment_db)
 
         self._fragment_db = fragment_db
 
@@ -4439,7 +4437,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
     #         return out_path
 
     def get_fragments(self, residues: list[Residue] = None, residue_numbers: list[int] = None, fragment_db: int = None,
-                      **kwargs) -> list[MonoFragment]:
+                      **kwargs) -> list[fragment.MonoFragment]:
         """From the Structure, find Residues with a matching fragment type as identified in a fragment library
 
         Args:
@@ -4473,7 +4471,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
             frag_residues = self.get_residues(numbers=[residue_number + i for i in fragment_range])
 
             if len(frag_residues) == fragment_length:
-                fragment = MonoFragment(residues=frag_residues, fragment_db=fragment_db, **kwargs)
+                fragment = fragment.MonoFragment(residues=frag_residues, fragment_db=fragment_db, **kwargs)
                 if fragment.i_type:
                     fragments.append(fragment)
 
@@ -4482,9 +4480,8 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
     # Preferred method using Residue fragments
     def get_fragment_residues(self, residues: list[Residue] = None, residue_numbers: list[int] = None,
                               # fragment_length: int = 5,
-                              fragment_db: object = None,
-                              # fragment_db: FragmentDatabase = None, # Todo typing with FragmentDatabase
-                              rmsd_thresh: float = Fragment.rmsd_thresh, **kwargs) -> list | list[Residue]:
+                              fragment_db: fragment.db.FragmentDatabase = None,
+                              rmsd_thresh: float = fragment.Fragment.rmsd_thresh, **kwargs) -> list | list[Residue]:
         """Assign a Fragment type to Residues in the Structure, as identified from a FragmentDatabase, then return them
 
         Args:
@@ -4545,7 +4542,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
 
             if residue.frag_type:
                 # residue.guide_coords = \
-                #     np.matmul(Fragment.template_coords, np.transpose(residue.rotation)) + residue.translation
+                #     np.matmul(fragment.Fragment.template_coords, np.transpose(residue.rotation)) + residue.translation
                 residue.fragment_db = fragment_db
                 # residue._fragment_coords = residue_ca_coord_set
                 residue._fragment_coords = fragment_db.representatives[residue.frag_type].backbone_coords

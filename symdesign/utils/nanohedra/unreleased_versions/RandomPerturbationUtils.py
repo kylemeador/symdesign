@@ -9,7 +9,7 @@ import re
 
 import numpy as np
 
-from structure.model import Model
+from symdesign.structure.model import Model
 from symdesign import utils
 
 

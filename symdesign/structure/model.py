@@ -20,14 +20,14 @@ from sklearn.neighbors._ball_tree import BinaryTree  # This typing implementatio
 
 from symdesign import resources
 from symdesign.resources import query
-from structure.base import Structure, Structures, Residue, StructureBase, atom_or_residue
-from structure.coords import Coords, superposition3d, transform_coordinate_sets
-from structure.fragment import GhostFragment, Fragment, write_frag_match_info_file
-from structure.fragment.db import FragmentDatabase, alignment_types, fragment_info_type, EulerLookup
-from structure.fragment.metrics import fragment_metric_template
-from structure.sequence import SequenceProfile, generate_alignment, get_equivalent_indices, \
+from ..structure.base import Structure, Structures, Residue, StructureBase, atom_or_residue
+from ..structure.coords import Coords, superposition3d, transform_coordinate_sets
+from ..structure.fragment import GhostFragment, Fragment, write_frag_match_info_file
+from ..structure.fragment.db import FragmentDatabase, alignment_types, fragment_info_type, EulerLookup
+from ..structure.fragment.metrics import fragment_metric_template
+from ..structure.sequence import SequenceProfile, generate_alignment, get_equivalent_indices, \
     pssm_as_array, generate_mutations, concatenate_profile, numeric_to_sequence
-from structure.utils import protein_letters_3to1_extended, protein_letters_1to3_extended, chain_id_generator
+from ..structure.utils import protein_letters_3to1_extended, protein_letters_1to3_extended, chain_id_generator
 from symdesign import flags
 from symdesign import utils
 from symdesign.utils import path as PUtils

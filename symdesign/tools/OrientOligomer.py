@@ -1,7 +1,7 @@
 import os
 import sys
 
-from structure.model import Model
+from symdesign.structure.model import Model
 from symdesign import utils
 
 

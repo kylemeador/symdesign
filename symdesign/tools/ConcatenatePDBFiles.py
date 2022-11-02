@@ -1,7 +1,7 @@
 import argparse
 import os
 
-from structure.model import Model
+from symdesign.structure.model import Model
 from symdesign import utils
 
 # globals

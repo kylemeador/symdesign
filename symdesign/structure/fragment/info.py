@@ -5,7 +5,7 @@ from glob import glob
 from itertools import repeat
 from typing import AnyStr, Literal, get_args, Sequence
 
-from structure.utils import protein_letters_alph1, protein_letters_literal
+from symdesign.structure.utils import protein_letters_alph1, protein_letters_literal
 from symdesign import utils
 
 logger = utils.start_log(name=__name__)

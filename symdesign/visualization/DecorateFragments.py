@@ -8,15 +8,13 @@ sys.path.append(parent_dir)
 import numpy as np
 from sklearn.neighbors import BallTree
 
-from structure.fragment.db import fragment_factory
-from structure.fragment import MonoFragment
-from structure.model import Model
+from symdesign.structure import fragment, model
 from symdesign import utils
 
 
 # Globals
 logger = utils.start_log(name=__name__)
-fragment_db = fragment_factory(source=utils.path.biological_interfaces)
+fragment_db = fragment.db.fragment_factory(source=utils.path.biological_interfaces)
 
 
 def decorate_with_fragments(pdb_path, out_path=os.getcwd()):
@@ -32,7 +30,7 @@ def decorate_with_fragments(pdb_path, out_path=os.getcwd()):
     # Get PDB1 Symmetric Building Block
     # pdb1 = PDB()
     # pdb1.readfile(pdb_path)
-    pdb1 = Model.from_file(pdb_path)
+    pdb1 = model.Model.from_file(pdb_path)
     pdb1.renumber_residues()
 
     # Get Oligomer 1 Ghost Fragments With Guide Coordinates Using Initial Match Fragment Database
@@ -43,7 +41,7 @@ def decorate_with_fragments(pdb_path, out_path=os.getcwd()):
     ghost_frag_list = []
     # ghost_frag_guide_coords_list = []
     for frag1 in surf_frags_1:
-        monofrag1 = MonoFragment(frag1, {'1': ijk_monofrag_cluster_rep_pdb_dict['1']})
+        monofrag1 = fragment.MonoFragment(frag1, {'1': ijk_monofrag_cluster_rep_pdb_dict['1']})
         monofrag_ghostfrag_list = monofrag1.get_ghost_fragments(clash_tree=kdtree_oligomer1_backbone)
         if monofrag_ghostfrag_list is not None:
             ghost_frag_list.extend(monofrag_ghostfrag_list)
@@ -52,7 +50,7 @@ def decorate_with_fragments(pdb_path, out_path=os.getcwd()):
     # Get Oligomer1 Ghost Fragments With Guide Coordinates Using COMPLETE Fragment Database
     complete_ghost_frag_list = []
     for frag1 in surf_frags_1:
-        complete_monofrag1 = MonoFragment(frag1, ijk_monofrag_cluster_rep_pdb_dict)
+        complete_monofrag1 = fragment.MonoFragment(frag1, ijk_monofrag_cluster_rep_pdb_dict)
         complete_monofrag1_ghostfrag_list = complete_monofrag1.get_ghost_fragments(clash_tree=kdtree_oligomer1_backbone)
         if complete_monofrag1_ghostfrag_list:
             complete_ghost_frag_list.extend(complete_monofrag1_ghostfrag_list)
@@ -100,6 +98,6 @@ if __name__ == '__main__':
         exit('Specify either a file or a directory to locate the files!')
 
     logger.info('Getting Fragment Information')
-    ijk_frag_db = fragment_factory(source=utils.path.biological_interfaces)
+    ijk_frag_db = fragment.db.fragment_factory(source=utils.path.biological_interfaces)
 
     decorate = [decorate_with_fragments(file, out_path=args.out_path) for file in file_paths]

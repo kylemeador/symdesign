@@ -2,8 +2,8 @@ import sys
 
 import numpy as np
 
-from structure.model import Model
-from structure.coords import superposition3d
+from symdesign.structure.model import Model
+from symdesign.structure.coords import superposition3d
 
 
 def coords_to_pdb(coords):

@@ -2,7 +2,7 @@ import argparse
 import os
 from typing import Union
 
-from structure.model import Model
+from symdesign.structure.model import Model
 from symdesign import utils
 
 
