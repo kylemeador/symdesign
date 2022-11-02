@@ -24,7 +24,7 @@ from Bio.SeqRecord import SeqRecord
 import protocols
 import utils
 import utils.path as PUtils
-from DnaChisel.dnachisel.DnaOptimizationProblem.NoSolutionError import NoSolutionError
+from third_party.DnaChisel.dnachisel.DnaOptimizationProblem.NoSolutionError import NoSolutionError
 from flags import argparsers, parser_entire, parser_options, parser_module, parser_input, parser_guide, \
     process_design_selector_flags, parser_residue_selector, parser_output
 from fragdock import nanohedra_dock

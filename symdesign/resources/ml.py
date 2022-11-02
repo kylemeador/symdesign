@@ -9,7 +9,7 @@ from typing import Annotated, Iterable, Container, Type, Callable, Sequence, Any
 import numpy as np
 import torch
 
-from ProteinMPNN.protein_mpnn_utils import ProteinMPNN
+from symdesign.third_party.ProteinMPNN.protein_mpnn_utils import ProteinMPNN
 from symdesign import utils
 
 logger = utils.start_log(name=__name__)
