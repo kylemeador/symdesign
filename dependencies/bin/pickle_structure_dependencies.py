@@ -2,8 +2,8 @@ import os
 from shutil import copy, move
 from typing import AnyStr
 
-import structure.model
-from structure.fragment.db import FragmentDatabase, Representative, RELOAD_DB
+from symdesign.structure import base, model
+from symdesign.structure.fragment.db import FragmentDatabase, Representative, RELOAD_DB
 from symdesign import utils
 
 logger = utils.start_log(name=__name__)
@@ -22,7 +22,7 @@ def create_fragment_db_from_raw_files(source: AnyStr) -> FragmentDatabase:
     # self.get_monofrag_cluster_rep_dict()
     fragment_db.representatives = \
         {int(os.path.splitext(os.path.basename(file))[0]):
-         Representative(structure.base.Structure.from_file(file, entities=False, log=None), fragment_db=fragment_db)
+         Representative(base.Structure.from_file(file, entities=False, log=None), fragment_db=fragment_db)
          for file in utils.get_file_paths_recursively(fragment_db.monofrag_representatives_path)}
     fragment_db.paired_frags = load_paired_fragment_representatives(fragment_db.cluster_representatives_path)
     fragment_db.load_cluster_info()  # Using my generated data instead of Josh's for future compatibility and size
@@ -50,8 +50,7 @@ def load_paired_fragment_representatives(cluster_representatives_path) \
         i_type, j_type, k_type = map(int, cluster_name.split('_'))
 
         # We pass the token RELOAD_DB to ensure loading happens without default loading
-        ijk_frag_cluster_rep_pdb = \
-            structure.model.Model.from_file(file_path, entities=False, log=None, fragment_db=RELOAD_DB)
+        ijk_frag_cluster_rep_pdb = model.Model.from_file(file_path, entities=False, log=None, fragment_db=RELOAD_DB)
         # Load as Model as we must look up the partner coords later by using chain_id stored in file_name
         partner_chain_idx = file_path.find('partnerchain')
         ijk_cluster_rep_partner_chain = file_path[partner_chain_idx + 13:partner_chain_idx + 14]
@@ -92,7 +91,7 @@ def load_paired_fragment_representatives(cluster_representatives_path) \
 
 
 try:
-    from structure import base
+    from symdesign.structure import base
 except Exception as error:  # If something goes wrong, we should remake this too
     # Create and save the new reference_residues_pkl from scratch
     # Todo if this never catches then these aren't updated
@@ -102,7 +101,7 @@ except Exception as error:  # If something goes wrong, we should remake this too
 
 # Create fragment database for all ijk cluster representatives
 # This should work now
-from structure import base
+from symdesign.structure import base
 base.protein_backbone_atom_types = {'N', 'CA', 'O'}  # 'C', Removing 'C' for fragment library guide atoms...
 ijk_frag_db = create_fragment_db_from_raw_files(source=utils.path.biological_interfaces)
 

@@ -13,8 +13,8 @@ from Bio.PDB.Atom import PDBConstructionWarning, Atom as BioPDBAtom
 
 from symdesign import protocols, utils
 from symdesign.utils import path as PUtils
-from structure.model import Model
-from structure.base import Atom
+from symdesign.structure.model import Model
+from symdesign.structure.base import Atom
 
 warnings.simplefilter('ignore', PDBConstructionWarning)
 

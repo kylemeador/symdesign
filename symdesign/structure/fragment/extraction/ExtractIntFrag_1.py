@@ -1,10 +1,9 @@
 from itertools import repeat
 import os
-import sys
 
-from structure.base import Structure
-import structure.fragment.extraction.FragUtils as Frag
-from structure.model import Model
+from symdesign.structure.base import Structure
+import symdesign.structure.fragment.extraction.FragUtils as Frag
+from symdesign.structure.model import Model
 from symdesign import utils
 
 # Globals

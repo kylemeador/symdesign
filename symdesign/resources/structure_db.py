@@ -10,8 +10,7 @@ from typing import Iterable, Annotated, AnyStr
 
 from symdesign.resources.database import Database, DataStore
 from query.utils import boolean_choice
-import structure
-from symdesign import utils
+from symdesign import utils, structure
 
 # Todo adjust the logging level for this module?
 logger = utils.start_log(name=__name__)

@@ -9,10 +9,10 @@ import pandas as pd
 
 from symdesign import utils
 from symdesign.utils import path as PUtils
-from structure.sequence import generate_mutations
-from structure.coords import superposition3d
+from symdesign.structure.sequence import generate_mutations
+from symdesign.structure.coords import superposition3d
 from symdesign.resources.structure_db import fetch_pdb_file
-from structure.model import Model
+from symdesign.structure.model import Model
 
 # if sys.version[0] < 3:
 pickle_prot = 2

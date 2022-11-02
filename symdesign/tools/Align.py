@@ -2,10 +2,7 @@ import argparse
 import math
 import os
 
-import structure
-from structure.model import Model
-from structure.coords import superposition3d
-from symdesign import utils
+from symdesign import utils, structure
 
 
 class ListFile:
@@ -282,12 +279,12 @@ class HelixFusion:
             orient_target_path = os.path.splitext(self.target_protein_path)[0] + '_orient.pdb'
             if os.path.exists(orient_target_path):
                 print('Done Orienting Target Molecule')
-                target_protein = Model.from_file(orient_target_path)
+                target_protein = structure.model.Model.from_file(orient_target_path)
             else:
                 print('Could Not Orient Target Molecule')
                 return -1
         else:
-            target_protein = Model.from_file(self.target_protein_path)
+            target_protein = structure.model.Model.from_file(self.target_protein_path)
 
         # Add Ideal 10 Ala Helix to Target if desired
         if self.add_target_helix[0]:
@@ -344,7 +341,7 @@ class HelixFusion:
         oligomer_id_list = oligomer_id_listfile.list_file
         for oligomer_id in oligomer_id_list:
             oligomer_filepath = os.path.join(self.work_dir, '%s.pdb1' % oligomer_id)
-            correct_oligomer_state = Model.from_file(oligomer_filepath)
+            correct_oligomer_state = structure.model.Model.from_file(oligomer_filepath)
             correct_sate_out_path = os.path.splitext(oligomer_filepath)[0] + '.pdb'
             correct_sate_out = open(correct_sate_out_path, 'w')
             for atom in correct_oligomer_state.all_atoms:
@@ -567,7 +564,8 @@ class HelixFusion:
 
 
 def align(model1, residue_start1, residue_end1, model2, residue_start2, residue_end2,
-          chain1: str = 'A', chain2: str = 'A', extend_helix: bool = False) -> tuple(Model, Model):
+          chain1: str = 'A', chain2: str = 'A', extend_helix: bool = False) -> \
+        tuple(structure.model.Model, structure.model.Model):
     """Take two Structure Models and align the second one to the first along a helical termini
 
     Args:
@@ -585,9 +583,9 @@ def align(model1, residue_start1, residue_end1, model2, residue_start2, residue_
     """
     # Get Building Blocks in pose format to remove need for fragments to use chain info
     if not isinstance(model1, structure.base.Structure):
-        model1 = Model.from_file(model1)
+        model1 = structure.model.Model.from_file(model1)
     if not isinstance(model2, structure.base.Structure):
-        model2 = Model.from_file(model2)
+        model2 = structure.model.Model.from_file(model2)
 
     if residue_end1-residue_start1 != residue_end2-residue_start2:
         raise ValueError(f'The aligned lengths are not equal! '
@@ -623,7 +621,7 @@ def align(model1, residue_start1, residue_end1, model2, residue_start2, residue_
     coords1 = _chain1_.get_coords_subset(residue_start1, residue_end1)
     coords2 = _chain2.get_coords_subset(residue_start2, residue_end2)
 
-    rmsd, rot, tx = superposition3d(coords1, coords2)
+    rmsd, rot, tx = structure.coords.superposition3d(coords1, coords2)
 
     return model1, model2.get_transformed_copy(rotation=rot, translation=tx)
 
@@ -673,7 +671,7 @@ if __name__ == '__main__':
         sym_entry = None
 
     # Load files and check for helical termini, residue number and chain if provided
-    model1 = Model.from_file(args.reference_pdb)
+    model1 = structure.model.Model.from_file(args.reference_pdb)
     if model1.is_termini_helical():
         n_term1 = True
     else:
@@ -688,7 +686,7 @@ if __name__ == '__main__':
     if args.ref_end_res:
         residue_number_end1 = args.ref_end_res
 
-    model2 = Model.from_file(args.aligned_pdb)
+    model2 = structure.model.Model.from_file(args.aligned_pdb)
     if model2.is_termini_helical():
         n_term2 = True
     else:

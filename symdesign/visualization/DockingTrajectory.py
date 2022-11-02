@@ -5,7 +5,7 @@ from itertools import chain
 
 from symdesign import protocols, utils
 from symdesign.utils import path as PUtils
-from structure.model import Model, MultiModel
+from symdesign.structure.model import Model, MultiModel
 
 
 def create_trajectory(design_directories, name='docking_trajectory', output_dir=os.getcwd()):

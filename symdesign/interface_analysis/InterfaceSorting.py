@@ -5,7 +5,7 @@ import os
 from copy import copy
 
 from symdesign.interface_analysis.ParsePisa import retrieve_pisa_file_path, get_complex_interfaces
-from structure.model import Model, Chain
+from symdesign.structure.model import Model, Chain
 from symdesign import utils
 from symdesign.resources import query
 

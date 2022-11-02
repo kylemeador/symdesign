@@ -5,13 +5,13 @@ from typing import AnyStr
 import pandas as pd
 import seaborn as sns
 
-import structure.base
-from structure.fragment import GhostFragment
+from symdesign import structure
 
 idx_slice = pd.IndexSlice
 
 
-def write_fragment_pairs_as_accumulating_states(ghost_frags: list[GhostFragment], filename: AnyStr = os.getcwd()):
+def write_fragment_pairs_as_accumulating_states(ghost_frags: list[structure.fragment.GhostFragment],
+                                                filename: AnyStr = os.getcwd()):
     """
 
     Args:

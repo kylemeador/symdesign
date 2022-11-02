@@ -3,7 +3,7 @@ import os
 from itertools import combinations, repeat
 from random import shuffle
 
-import structure.fragment.extraction.FragUtils as Frag
+import symdesign.structure.fragment.extraction.FragUtils as Frag
 from symdesign import utils
 
 # Globals

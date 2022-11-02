@@ -1,6 +1,6 @@
 import os
 
-import structure.fragment.extraction.FragUtils as Frag
+import symdesign.structure.fragment.extraction.FragUtils as Frag
 from I_MPAllToAllRMSD_2 import main as frag2main
 
 

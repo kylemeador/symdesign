@@ -4,9 +4,9 @@ from itertools import repeat
 
 import numpy as np
 
-import structure.fragment.extraction.FragUtils as Frag
-from structure.model import Model
-from structure.utils import protein_letters_3to1
+import symdesign.structure.fragment.extraction.FragUtils as Frag
+from symdesign.structure.model import Model
+from symdesign.structure.utils import protein_letters_3to1
 
 # Globals
 module = 'Make IJK Cluster Frequency Files:'

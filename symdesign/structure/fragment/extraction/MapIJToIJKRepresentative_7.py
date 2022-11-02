@@ -4,7 +4,7 @@ from itertools import repeat
 
 from Bio.PDB import PDBParser
 
-import structure.fragment.extraction.FragUtils as Frag
+import symdesign.structure.fragment.extraction.FragUtils as Frag
 
 # Globals
 module = 'Map Fragment Pairs to Representative:'

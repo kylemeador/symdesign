@@ -1,4 +1,4 @@
-from structure.base import Atom
+from symdesign.structure.base import Atom
 
 
 def x_axis(self):

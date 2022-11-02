@@ -9,9 +9,7 @@ from typing import IO, Sequence, AnyStr
 import numpy as np
 from sklearn.neighbors._ball_tree import BinaryTree
 
-import structure
-from structure.coords import superposition3d, transform_coordinate_sets
-from symdesign import utils
+from symdesign import utils, structure
 
 
 class GhostFragment:
@@ -294,12 +292,11 @@ class Fragment(ABC):
 
         stacked_bb_coords, stacked_guide_coords, ijk_types, rmsd_array = ghost_i_type_arrays
         # No need to transform stacked_guide_coords as these will be transformed upon .guide_coords access
-        # transformed_guide_coords = transform_coordinate_sets(stacked_guide_coords, *self.transformation)
         if clash_tree is None:
             viable_indices = None
         else:
             # Ensure that the backbone coords are transformed to the Fragment reference frame
-            transformed_bb_coords = transform_coordinate_sets(stacked_bb_coords, *self.transformation)
+            transformed_bb_coords = structure.coords.transform_coordinate_sets(stacked_bb_coords, *self.transformation)
             # with .reshape(), we query on a np.view saving memory
             neighbors = clash_tree.query_radius(transformed_bb_coords.reshape(-1, 3), clash_dist)
             neighbor_counts = np.array([neighbor.size for neighbor in neighbors])
@@ -372,7 +369,7 @@ class MonoFragment(Fragment):
         min_rmsd = float('inf')
 
         for fragment_type, representative in fragment_db.representatives.items():
-            rmsd, rot, tx = superposition3d(fragment_ca_coords, representative.ca_coords)
+            rmsd, rot, tx = structure.coords.superposition3d(fragment_ca_coords, representative.ca_coords)
             if rmsd <= self.rmsd_thresh and rmsd <= min_rmsd:
                 self.i_type = fragment_type
                 min_rmsd, self.rotation, self.translation = rmsd, rot, tx
@@ -410,7 +407,7 @@ class MonoFragment(Fragment):
     def coords(self, coords: np.ndarray | list[list[float]]):
         if coords.shape == (3, 3):
             # Move the transformation accordingly
-            _, self.rotation, self.translation = superposition3d(coords, self.template_coords)
+            _, self.rotation, self.translation = structure.coords.superposition3d(coords, self.template_coords)
             # self.guide_coords = coords
         else:
             raise ValueError(f'{type(self).__name__} coords must be shape (3, 3), not {coords.shape}')
@@ -485,8 +482,9 @@ class ResidueFragment(Fragment, ABC):
     def transformation(self) -> tuple[np.ndarray, np.ndarray]:  # dict[str, np.ndarray]:
         """The transformation of the ResidueFragment from the FragmentDatabase to its current position"""
         # return dict(rotation=self.rotation, translation=self.translation)
-        # _, self.rotation, self.translation = superposition3d(self._fragment_coords, self._fragment_coords)
-        _, self.rotation, self.translation = superposition3d(self.backbone_coords, self._fragment_coords)
+        _, self.rotation, self.translation = \
+            structure.coords.superposition3d(self.backbone_coords, self._fragment_coords)
+        #     structure.coords.superposition3d(self._fragment_coords, self._fragment_coords)
         return self.rotation, self.translation
         # return dict(rotation=self.rotation, translation=self.translation)
 

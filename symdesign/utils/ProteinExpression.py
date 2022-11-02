@@ -6,8 +6,8 @@ import numpy as np
 
 from symdesign import utils
 from symdesign.utils import path as PUtils
-from structure.sequence import generate_alignment
-from structure.utils import protein_letters_alph1
+from symdesign.structure.sequence import generate_alignment
+from symdesign.structure.utils import protein_letters_alph1
 from DnaChisel.dnachisel import DnaOptimizationProblem, CodonOptimize, reverse_translate, AvoidHairpins, \
     EnforceGCContent, AvoidPattern, AvoidRareCodons, UniquifyAllKmers, EnforceTranslation  # EnforceMeltingTemperature
 from symdesign.resources import query

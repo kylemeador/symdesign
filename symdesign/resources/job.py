@@ -8,7 +8,7 @@ from dataclasses import make_dataclass, field
 from typing import Annotated, AnyStr
 
 from symdesign import resources
-from structure.fragment import db
+from symdesign.structure.fragment import db
 from symdesign import flags
 from symdesign import utils
 
