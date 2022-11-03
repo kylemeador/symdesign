@@ -90,18 +90,22 @@ def load_paired_fragment_representatives(cluster_representatives_path) \
     #                 (ijk_frag_cluster_rep_pdb, ijk_cluster_rep_partner_chain)  # ijk_cluster_rep_mapped_chain,
 
 
-try:
-    from symdesign.structure import base
-except Exception as error:  # If something goes wrong, we should remake this too
-    # Create and save the new reference_residues_pkl from scratch
-    # Todo if this never catches then these aren't updated
-    ref_aa = base.Structure.from_file(utils.path.reference_aa_file)
-    move(utils.path.reference_residues_pkl, f'{utils.path.reference_residues_pkl}.bak')
-    utils.pickle_object(ref_aa.residues, name=utils.path.reference_residues_pkl, out_path='')
+# try:
+#     from symdesign.structure import base
+# except Exception as error:  # If something goes wrong, we should remake this too
+#     # Create and save the new reference_residues_pkl from scratch
+#     # Todo if this never catches then these aren't updated
+#     ref_aa = base.Structure.from_file(utils.path.reference_aa_file)
+#     move(utils.path.reference_residues_pkl, f'{utils.path.reference_residues_pkl}.bak')
+#     utils.pickle_object(ref_aa.residues, name=utils.path.reference_residues_pkl, out_path='')
+
+ref_aa = base.Structure.from_file(utils.path.reference_aa_file)
+move(utils.path.reference_residues_pkl, f'{utils.path.reference_residues_pkl}.bak')
+utils.pickle_object(ref_aa.residues, name=utils.path.reference_residues_pkl, out_path='')
 
 # Create fragment database for all ijk cluster representatives
 # This should work now
-from symdesign.structure import base
+# from symdesign.structure import base
 base.protein_backbone_atom_types = {'N', 'CA', 'O'}  # 'C', Removing 'C' for fragment library guide atoms...
 ijk_frag_db = create_fragment_db_from_raw_files(source=utils.path.biological_interfaces)
 
