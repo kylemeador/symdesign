@@ -23,7 +23,7 @@ from ..structure import utils
 from symdesign.metrics import hydrophobic_collapse_index
 from ..structure.fragment import info
 from ..structure.fragment.db import alignment_types_literal, alignment_types, fragment_info_type
-from symdesign import utils
+from symdesign import utils as sdutils
 from symdesign.utils import path as PUtils
 
 # import dependencies.bmdca as bmdca
@@ -204,14 +204,14 @@ class MultipleSequenceAlignment:
         try:
             return cls(alignment=read_alignment(file, alignment_type='stockholm'), **kwargs)
         except FileNotFoundError:
-            raise utils.DesignError(f"The multiple sequence alignemnt file '{file}' doesn't exist")
+            raise sdutils.DesignError(f"The multiple sequence alignemnt file '{file}' doesn't exist")
 
     @classmethod
     def from_fasta(cls, file):
         try:
             return cls(alignment=read_alignment(file))
         except FileNotFoundError:
-            raise utils.DesignError(f"The multiple sequence alignemnt file '{file}' doesn't exist")
+            raise sdutils.DesignError(f"The multiple sequence alignemnt file '{file}' doesn't exist")
 
     @classmethod
     def from_dictionary(cls, named_sequences: dict[str, str], **kwargs):
@@ -696,7 +696,7 @@ class SequenceProfile(ABC):
                     first = False
                 else:
                     # Todo RuntimeError()
-                    raise utils.DesignError('evolutionary_profile generation got stuck')
+                    raise sdutils.DesignError('evolutionary_profile generation got stuck')
         # else:
         #     self.evolutionary_profile = self.create_null_profile()
 
@@ -820,9 +820,9 @@ class SequenceProfile(ABC):
                         if int(time.time()) - int(os.path.getmtime(temp_file)) > 5400:  # > 1 hr 30 minutes have passed
                             # os.remove(temp_file)
                             temp_file.unlink(missing_ok=True)
-                            raise utils.DesignError(f'{self.add_evolutionary_profile.__name__}: Generation of the '
-                                                    f'profile for {self.name} took longer than the time limit. '
-                                                    'Job killed!')
+                            raise sdutils.DesignError(f'{self.add_evolutionary_profile.__name__}: Generation of the '
+                                                      f'profile for {self.name} took longer than the time limit. '
+                                                      'Job killed!')
                         time.sleep(20)
 
         # These functions set self.evolutionary_profile
@@ -961,7 +961,7 @@ class SequenceProfile(ABC):
                 self.evolutionary_profile[residue_number]['info'] = float(line_data[42])
                 self.evolutionary_profile[residue_number]['weight'] = float(line_data[43])
 
-    def hhblits(self, out_dir: AnyStr = os.getcwd(), threads: int = utils.CommandDistributer.hhblits_threads,
+    def hhblits(self, out_dir: AnyStr = os.getcwd(), threads: int = hhblits_threads,
                 return_command: bool = False, **kwargs) -> str | None:
         """Generate a position specific scoring matrix from HHblits using Hidden Markov Models
 
@@ -997,7 +997,7 @@ class SequenceProfile(ABC):
             temp_file.unlink(missing_ok=True)
             # if os.path.exists(temp_file):  # remove hold file blocking progress
             #     os.remove(temp_file)
-            raise utils.DesignError(f'Profile generation for {self.name} got stuck')  #
+            raise sdutils.DesignError(f'Profile generation for {self.name} got stuck')  #
             # raise DesignError(f'Profile generation for {self.name} got stuck. See the error for details -> {p.stderr} '
             #                   f'output -> {p.stdout}')  #
         p = subprocess.Popen([PUtils.reformat_msa_exe_path, self.a3m_file, self.msa_file, '-num', '-uc'])
@@ -1542,7 +1542,7 @@ class SequenceProfile(ABC):
 
         if favor_fragments:
             boltzman_energy = 1
-            favor_seqprofile_score_modifier = 0.2 * utils.CommandDistributer.reference_average_residue_weight
+            favor_seqprofile_score_modifier = 0.2 * sdutils.CommandDistributer.reference_average_residue_weight
             database_bkgnd_aa_freq = self._fragment_db.aa_frequencies
 
             null_residue = get_lod(database_bkgnd_aa_freq, database_bkgnd_aa_freq, as_int=False)
@@ -1860,7 +1860,7 @@ def get_cluster_dicts(db=PUtils.biological_interfaces, id_list=None):  # TODO Re
     """
     info_db = PUtils.frag_directory[db]
     if id_list is None:
-        directory_list = utils.get_base_root_paths_recursively(info_db)
+        directory_list = sdutils.get_base_root_paths_recursively(info_db)
     else:
         directory_list = []
         for _id in id_list:
@@ -1871,7 +1871,7 @@ def get_cluster_dicts(db=PUtils.biological_interfaces, id_list=None):  # TODO Re
     cluster_dict = {}
     for cluster in directory_list:
         filename = os.path.join(cluster, os.path.basename(cluster) + '.pkl')
-        cluster_dict[os.path.basename(cluster)] = utils.unpickle(filename)
+        cluster_dict[os.path.basename(cluster)] = sdutils.unpickle(filename)
 
     return cluster_dict
 
@@ -2030,7 +2030,7 @@ def deconvolve_clusters(cluster_dict, design_dict, cluster_map):
                 design_dict[resi][index_cluster_pair[0]][observation[index_cluster_pair[0]]]['match'] = \
                     cluster_map[resi]['match']
             except KeyError:
-                raise utils.DesignError(f'Missing residue {resi} in {deconvolve_clusters.__name__}')
+                raise sdutils.DesignError(f'Missing residue {resi} in {deconvolve_clusters.__name__}')
             observation[index_cluster_pair[0]] += 1
 
     return design_dict
@@ -2074,7 +2074,7 @@ def deconvolve_clusters(cluster_dict, design_dict, cluster_map):
 #     return outfile_name, p
 #
 #
-# def hhblits(query, cores=CommandDistributer.hhblits_threads, outpath=os.getcwd()):
+# def hhblits(query, cores=hhblits_threads, outpath=os.getcwd()):
 #     """Generate an position specific scoring matrix from HHblits using Hidden Markov Models
 #
 #     Args:
@@ -2514,13 +2514,13 @@ def generate_alignment(seq1: Sequence[str], seq2: Sequence[str], matrix: str = '
     return align[0] if top_alignment else align
 
 
-mutation_entry = Type[dict[Literal['to', 'from'], utils.utils.protein_letters_alph3_gapped_literal]]
+mutation_entry = Type[dict[Literal['to', 'from'], utils.protein_letters_alph3_gapped_literal]]
 """Mapping of a reference sequence amino acid type, 'to', and the resulting sequence amino acid type, 'from'"""
 mutation_dictionary = dict[int, mutation_entry]
 """The mapping of a residue number to a mutation entry containing the reference, 'to', and sequence, 'from', amino acid 
 type
 """
-sequence_dictionary = dict[int, utils.utils.protein_letters_alph3_gapped_literal]
+sequence_dictionary = dict[int, utils.protein_letters_alph3_gapped_literal]
 """The mapping of a residue number to the corresponding amino acid type"""
 
 
@@ -2814,7 +2814,7 @@ def multi_chain_alignment(mutated_sequences, **kwargs):
         # return generate_msa_dictionary(total_alignment)
         return MultipleSequenceAlignment(alignment=total_alignment, **kwargs)
     else:
-        raise utils.DesignError(f'{multi_chain_alignment.__name__} - No sequences were found!')
+        raise sdutils.DesignError(f'{multi_chain_alignment.__name__} - No sequences were found!')
 
 
 def pdb_to_pose_offset(reference_sequence: dict[Any, Sequence]) -> dict[Any, int]:
@@ -2864,8 +2864,8 @@ def generate_multiple_mutations(reference, sequences, pose_num=True):
             for chain, sequence in chain_sequences.items():
                 mutations[name][chain] = generate_mutations(reference[chain], sequence, offset=False)
     except KeyError:
-        raise utils.DesignError(f"The reference sequence and mutated_sequences have different chains! Chain {chain} "
-                                "isn't in the reference")
+        raise sdutils.DesignError(f"The reference sequence and mutated_sequences have different chains! Chain {chain} "
+                                  "isn't in the reference")
     if pose_num:
         offset_dict = pdb_to_pose_offset(reference)
         # pose_mutations = {}
@@ -2961,7 +2961,7 @@ def generate_sequences(wild_type_sequences, all_design_mutations):
     return mutated_sequences
 
 
-@utils.handle_errors(errors=(FileNotFoundError,))
+@sdutils.handle_errors(errors=(FileNotFoundError,))
 def read_fasta_file(file_name: AnyStr, **kwargs) -> Iterator[SeqRecord]:
     """Opens a fasta file and return a parser object to load the sequences to SeqRecords
 
@@ -2973,7 +2973,7 @@ def read_fasta_file(file_name: AnyStr, **kwargs) -> Iterator[SeqRecord]:
     return SeqIO.parse(file_name, 'fasta')
 
 
-@utils.handle_errors(errors=(FileNotFoundError,))
+@sdutils.handle_errors(errors=(FileNotFoundError,))
 def read_alignment(file_name: AnyStr, alignment_type: str = 'fasta', **kwargs) -> MultipleSeqAlignment:
     """Open an alignment file and parse the alignment to a Biopython MultipleSeqAlignment
 

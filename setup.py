@@ -12,24 +12,6 @@ rosetta_extras_url = 'https://www.rosettacommons.org/docs/latest/rosetta_basics/
                      'rosetta-with-multiple-threads'
 rosetta_variable_dictionary = {0: 'ROSETTA', 1: 'Rosetta', 2: 'rosetta'}
 # Todo use search_env_for_variable() to accomplsh this
-
-
-def set_up_instructions():
-    instructions = 'I have done this using the SymDesignEnvironment.yaml provided to initialize the SymDesign environment in conda. If you are using anaconda/conda (which I recommend), `conda env create --file SymDesignEnvironment.yaml` will handle this for you. If you are using something else, there is probably an easy way to ensure your virtual environment is up to speed with SymDesign\'s dependencies.'
-    'Next, you must add the following variable to your .bashrc (or .tschrc) so that the hhblits dependency can be correctly sourced.'
-
-    'export PATH=/home/kmeador/symdesign/dependencies/hh-suite/build/bin:$PATH'
-    'or on .tcshrc'
-    'setenv PATH /home/kmeador/symdesign/dependencies/hh-suite/build/bin:$PATH'
-
-    'Additionally, add this path if you want to build your own scripts with any of the modules for easy import into python'
-    'export PYTHONPATH=/yeates1/kmeador/symdesign:$PYTHONPATH'
-    'or'
-    'setenv PYTHONPATH /yeates1/kmeador/symdesign:$PYTHONPATH'
-
-    print(instructions)
-
-
 string_ops = [str.upper, str.lower, str.title]
 
 
