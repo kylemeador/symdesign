@@ -967,6 +967,7 @@ for argparser_name, argparser_kwargs in argparsers_kwargs.items():
 
 # Set up module ArgumentParser with module arguments
 module_subargparser = dict(title=f'{"_" * len(module_title)}\n{module_title}', dest='module',  # metavar='',
+                           # allow_abbrev=False,  # Not allowed here, but some of the modules try to parse -s as -sc...
                            description='\nThese are the different modes that designs can be processed. They are'
                                        '\npresented in an order which might be utilized along a design workflow,\nwith '
                                        'utility modules listed at the bottom starting with check_clashes.\nTo see '
