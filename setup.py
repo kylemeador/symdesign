@@ -4,7 +4,7 @@ import os
 import subprocess
 
 from symdesign import utils
-from symdesign.utils import path as PUtils
+from symdesign.utils import path as putils
 
 rosetta_url = 'https://www.rosettacommons.org/software/license-and-download'
 rosetta_compile_url = 'https://www.rosettacommons.org/docs/latest/build_documentation/Build-Documentation'
@@ -37,7 +37,7 @@ def search_env_for_variable(search_variable: str) -> str | None:
     if env_variable is None:
         print(f'"{search_variable}" environment inaccessible as no environmental variable was found at any of '
               f'${", $".join(search_strings)}. If you believe there was a mistake, add this enviromental variable to '
-              f'the {PUtils.config_file} file. Ex: '
+              f'the {putils.config_file} file. Ex: '
               '{'
               f'"{search_variable}_env": {search_variable.upper()}, ...'
               '}'
@@ -125,8 +125,8 @@ if __name__ == '__main__':
                 continue
         if os.path.exists(rosetta):
             print(f'Wonderful, Rosetta environment located and exists. You can now use all the features of '
-                  f'{PUtils.program_name} to interface with Rosetta')
-            print(f'All {PUtils.program_name} files are located in {PUtils.git_source}')
+                  f'{putils.program_name} to interface with Rosetta')
+            print(f'All {putils.program_name} files are located in {putils.git_source}')
             break
         else:
             print(f"Rosetta environmental path doesn't exist. Ensure that ${rosetta_env_variable} is correct... "
@@ -143,18 +143,29 @@ if __name__ == '__main__':
     hhsuite.communicate()
 
     print('Set up is complete! You can now use %s for design of protein interfaces generated using Nanohedra.'
-          % PUtils.program_name)
+          % putils.program_name)
     print('To design materials, navigate to your desired Nanohedra output directory and run the command %s for details'
-          % PUtils.program_exe)
+          % putils.program_exe)
 
     # TODO Set up SymDesign.py and ProcessRosettaCommands.sh depending on status of PathUtils
     # Todo ensure that FreeSASA is built. May need to investigate this option
     #  --disable-threads
 
-    config = {'rosetta_env': search_env_for_variable(PUtils.rosetta_str),
-              'hhblits_env': search_env_for_variable(PUtils.hhblits),
+    config = {'rosetta_env': search_env_for_variable(putils.rosetta_str),
+              'hhblits_env': search_env_for_variable(putils.hhblits),
               # TODO
               'rosetta_make': 'mpi'  # 'default', 'python', 'mpi' 'cxx11thread', 'cxx11threadmpi'
               }
 
-    utils.write_json(config, PUtils.config_file)
+    utils.write_json(config, putils.config_file)
+    # Set up git submodule
+    p0 = subprocess.Popen(['git', 'submodule', 'update', '--init', '--recursive'])
+    p0.communicate()
+    # Set up freesasa dependency
+    os.chdir(putils.freesasa_dir)
+    p1 = subprocess.Popen(['autoreconf', '-i'])
+    p1.communicate()
+    p2 = subprocess.Popen(['./configure', '--disable-xml', '--disable-json'])
+    p2.communicate()
+    p3 = subprocess.Popen(['make'])
+    p3.communicate()
