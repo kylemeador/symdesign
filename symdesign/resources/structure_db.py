@@ -352,7 +352,7 @@ class StructureDatabase(Database):
                     entity = None
                     logger.debug(f'Fetching entry {entry} from PDB')
 
-                    asu = False
+                asu = False
                 if symmetry == 'C1':
                     # Todo modify if monomers are removed from qs_bio
                     assembly = query_qs_bio(entry)
