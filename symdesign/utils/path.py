@@ -312,7 +312,7 @@ logging_cfg = {
         }
     },
     'root': {
-        'level': 'WARNING',
+        'level': 'INFO',
         # 'handlers': ['console'],  # Can't include this and any above as the handlers get added twice
     },
 }
