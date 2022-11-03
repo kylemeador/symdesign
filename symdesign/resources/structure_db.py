@@ -12,11 +12,10 @@ from typing import Iterable, Annotated, AnyStr
 from .database import Database, DataStore
 from .query.utils import boolean_choice
 from symdesign import utils, structure
-from symdesign.utils import path as putils
 
 # Todo adjust the logging level for this module?
 logger = logging.getLogger(__name__)
-qsbio_confirmed = utils.unpickle(putils.qs_bio)
+qsbio_confirmed = utils.unpickle(utils.path.qs_bio)
 
 
 def _fetch_pdb_from_api(pdb_codes: str | list, assembly: int = 1, asu: bool = False, out_dir: AnyStr = os.getcwd(),
@@ -77,7 +76,7 @@ def _fetch_pdb_from_api(pdb_codes: str | list, assembly: int = 1, asu: bool = Fa
     return file_names
 
 
-def fetch_pdb_file(pdb_code: str, asu: bool = True, location: AnyStr = putils.pdb_db, **kwargs) -> AnyStr | None:
+def fetch_pdb_file(pdb_code: str, asu: bool = True, location: AnyStr = utils.path.pdb_db, **kwargs) -> AnyStr | None:
     #                assembly: int = 1, out_dir: AnyStr = os.getcwd()
     """Fetch PDB object from PDBdb or download from PDB server
 
@@ -91,7 +90,7 @@ def fetch_pdb_file(pdb_code: str, asu: bool = True, location: AnyStr = putils.pd
     Returns:
         The path to the file if located successfully
     """
-    # if location == putils.pdb_db and asu:
+    # if location == utils.path.pdb_db and asu:
     if os.path.exists(location) and asu:
         file_path = os.path.join(location, f'pdb{pdb_code.lower()}.ent')
         def get_pdb(*args, **kwargs): return sorted(glob(file_path))
@@ -269,11 +268,10 @@ class StructureDatabase(Database):
         models_dir = os.path.dirname(orient_dir)  # this is the case because it was specified this way, but not required
         self.oriented_asu.make_path()
         self.stride.make_path()
-        # orient_logger = start_log(name='orient', handler=1)
-        # orient_logger = utils.start_log(name='orient', propagate=True)
-        orient_logger = logging.getLogger(putils.orient)
+        # orient_log = start_log(name='orient', handler=1)
+        orient_log = utils.start_log(name='orient', propagate=True)
         # For some reason this won't also emit to stream when the log level is error
-        # orient_logger = \
+        # orient_log = \
         #     start_log(name='orient', handler=2, location=os.path.join(orient_dir, orient_log_file), propagate=True)
         if symmetry:
             sym_entry = utils.SymEntry.parse_symmetry_to_sym_entry(symmetry=symmetry)
@@ -281,7 +279,7 @@ class StructureDatabase(Database):
                         f'with symmetry {symmetry}: {", ".join(structure_identifiers)}')
             if by_file:
                 oriented_filepaths = \
-                    orient_structure_files(structure_identifiers, log=orient_logger, symmetry=symmetry, out_dir=orient_dir)
+                    orient_structure_files(structure_identifiers, log=orient_log, symmetry=symmetry, out_dir=orient_dir)
                 # Pull out the structure names and use below to retrieve the oriented file
                 structure_identifiers = \
                     list(map(os.path.basename, [os.path.splitext(file)[0]
@@ -318,18 +316,19 @@ class StructureDatabase(Database):
         orient_asu_names = self.oriented_asu.retrieve_names()
         all_structures = []
         non_viable_structures = []
+        pose_kwargs = dict(sym_entry=sym_entry, ignore_clashes=True)
         for structure_identifier in structure_identifiers:
             # First, check if the structure_identifier ASU has been processed. This happens when files are passed
             if structure_identifier in orient_asu_names:  # orient_asu file exists, stride should as well. Just load asu
                 orient_asu_file = self.oriented_asu.retrieve_file(name=structure_identifier)
-                pose = structure.model.Pose.from_file(orient_asu_file, name=structure_identifier, sym_entry=sym_entry)
+                pose = structure.model.Pose.from_file(orient_asu_file, name=structure_identifier, **pose_kwargs)
                 # Get the full assembly and set the symmetry as it has none
                 model = pose.assembly
                 model.name = structure_identifier
                 model.file_path = orient_asu_file  # pose.file_path
-            elif structure_identifier in orient_names:  # orient file exists, load, save asu, and create stride
+            elif structure_identifier in orient_names:  # orient file exists, load asu, save and create stride
                 orient_file = self.oriented.retrieve_file(name=structure_identifier)
-                pose = structure.model.Pose.from_file(orient_file, name=structure_identifier, sym_entry=sym_entry)
+                pose = model.Pose.from_file(orient_file, name=structure_identifier, **pose_kwargs)
                 # Write out the Pose ASU
                 pose.file_path = pose.write(out_path=self.oriented_asu.path_to(name=structure_identifier))
                 # save Stride results
@@ -391,9 +390,9 @@ class StructureDatabase(Database):
                         entity_file_path = model.write(oligomer=True, out_path=entity_out_path)
 
                     try:  # orient the Structure
-                        model.orient(symmetry=symmetry)
+                        model.orient(symmetry=symmetry, log=orient_log)
                     except (ValueError, RuntimeError) as err:
-                        orient_logger.error(str(err))
+                        orient_log.error(str(err))
                         non_viable_structures.append(entry_entity)
                         continue
                     # Write out oligomer file for the orient database
@@ -405,9 +404,9 @@ class StructureDatabase(Database):
 
                 else:  # orient the whole set of chains based on orient() multicomponent solution
                     try:  # orient the Structure
-                        model.orient(symmetry=symmetry)
+                        model.orient(symmetry=symmetry, log=orient_log)
                     except (ValueError, RuntimeError) as err:
-                        orient_logger.error(str(err))
+                        orient_log.error(str(err))
                         non_viable_structures.append(entry_entity)
                         continue
                     # Write out file for the orient database
@@ -423,7 +422,7 @@ class StructureDatabase(Database):
                             # save Stride results
                             entity.stride(to_file=self.stride.path_to(name=entity.name))
 
-                orient_logger.info(f'Oriented: {orient_file}')
+                orient_log.info(f'Oriented: {orient_file}')
 
             # For every variation, set .symmetry to ensure preprocess_structures_for_design has attribute available
             model.symmetry = symmetry
@@ -431,7 +430,7 @@ class StructureDatabase(Database):
 
         if non_viable_structures:
             non_str = ', '.join(non_viable_structures)
-            orient_logger.error(f'The Model'
+            orient_log.error(f'The Model'
                              f'{f"s {non_str} were" if len(non_viable_structures) > 1 else f" {non_str} was"} '
                              f'unable to be oriented properly')
         return all_structures
@@ -511,7 +510,7 @@ class StructureDatabase(Database):
                     f.write('%s\n' % '\n'.join(flags))
 
                 refine_cmd = [f'@{flags_file}', '-parser:protocol',
-                              os.path.join(putils.rosetta_scripts_dir, f'{putils.refine}.xml')]
+                              os.path.join(utils.path.rosetta_scripts_dir, f'{utils.path.refine}.xml')]
                 refine_cmds = [utils.CommandDistributer.script_cmd + refine_cmd
                                + ['-in:file:s', structure.file_path, '-parser:script_vars']
                                + [f'sdf={sym_def_files[structure.symmetry]}',
@@ -523,9 +522,9 @@ class StructureDatabase(Database):
                                              name=f'{utils.starttime}-refine_entities')
                     refine_sbatch = \
                         utils.CommandDistributer.distribute(file=commands_file, out_path=script_out_path,
-                                                            scale=putils.refine,
+                                                            scale=utils.path.refine,
                                                             log_file=os.path.join(refine_dir,
-                                                                                  f'{putils.refine}.log'),
+                                                                                  f'{utils.path.refine}.log'),
                                                             max_jobs=int(len(refine_cmds) / 2 + 0.5),
                                                             number_of_commands=len(refine_cmds))
                     refine_sbatch_message = \
@@ -574,7 +573,7 @@ class StructureDatabase(Database):
                 with open(flags_file, 'w') as f:
                     f.write('%s\n' % '\n'.join(flags))
                 loop_model_cmd = [f'@{flags_file}', '-parser:protocol',
-                                  os.path.join(putils.rosetta_scripts_dir, 'loop_model_ensemble.xml'),
+                                  os.path.join(utils.path.rosetta_scripts_dir, 'loop_model_ensemble.xml'),
                                   '-parser:script_vars']
                 # Make all output paths and files for each loop ensemble
                 # logger.info('Preparing blueprint and loop files for structure:')
@@ -582,7 +581,7 @@ class StructureDatabase(Database):
                 loop_model_cmds = []
                 for idx, structure in enumerate(structures_to_loop_model):
                     structure_out_path = os.path.join(full_model_dir, structure.name)
-                    putils.make_path(structure_out_path)  # make a new directory for each structure
+                    utils.make_path(structure_out_path)  # make a new directory for each structure
                     structure.renumber_residues()
                     structure_loop_file = structure.make_loop_file(out_path=full_model_dir)
                     if not structure_loop_file:  # no loops found, copy input file to the full model
@@ -598,7 +597,7 @@ class StructureDatabase(Database):
                         (['-symmetry:symmetry_definition', sym_def_files[structure.symmetry]]
                          if structure.symmetry != 'C1' else [])
                     # create a multimodel from all output loop models
-                    multimodel_cmd = ['python', putils.models_to_multimodel_exe, '-d', structure_loop_file,
+                    multimodel_cmd = ['python', utils.path.models_to_multimodel_exe, '-d', structure_loop_file,
                                       '-o', os.path.join(full_model_dir, f'{structure.name}_ensemble.pdb')]
                     # copy the first model from output loop models to be the full model
                     copy_cmd = ['scp', os.path.join(structure_out_path, f'{structure.name}_0001.pdb'),
@@ -614,7 +613,7 @@ class StructureDatabase(Database):
                                              out_path=full_model_dir)
                     loop_model_sbatch = \
                         utils.CommandDistributer.distribute(file=loop_cmds_file, out_path=script_out_path,
-                                                            scale=putils.refine,
+                                                            scale=utils.path.refine,
                                                             log_file=os.path.join(full_model_dir, 'loop_model.log'),
                                                             max_jobs=int(len(loop_model_cmds) / 2 + 0.5),
                                                             number_of_commands=len(loop_model_cmds))
@@ -643,7 +642,7 @@ class StructureDatabaseFactory:
         # self._databases = {}
         self._database = None
 
-    def __call__(self, source: str = os.path.join(os.getcwd(), f'{putils.program_name}{putils.data.title()}'),
+    def __call__(self, source: str = os.path.join(os.getcwd(), f'{utils.path.program_name}{utils.path.data.title()}'),
                  sql: bool = False, **kwargs) -> StructureDatabase:
         """Return the specified StructureDatabase object singleton
 
@@ -662,21 +661,21 @@ class StructureDatabaseFactory:
         elif sql:
             raise NotImplementedError('SQL set up has not been completed!')
         else:
-            structure_info_dir = os.path.join(source, putils.structure_info)
+            structure_info_dir = os.path.join(source, utils.path.structure_info)
             pdbs = os.path.join(structure_info_dir, 'PDBs')  # Used to store downloaded PDB's
             # stride directory
             stride_dir = os.path.join(structure_info_dir, 'stride')
             # Todo only make paths if they are needed...
-            putils.make_path(stride_dir)
+            utils.make_path(stride_dir)
             # pdbs subdirectories
             orient_dir = os.path.join(pdbs, 'oriented')
             orient_asu_dir = os.path.join(pdbs, 'oriented_asu')
             refine_dir = os.path.join(pdbs, 'refined')
             full_model_dir = os.path.join(pdbs, 'full_models')
-            putils.make_path(orient_dir)
-            putils.make_path(orient_asu_dir)
-            putils.make_path(refine_dir)
-            putils.make_path(full_model_dir)
+            utils.make_path(orient_dir)
+            utils.make_path(orient_asu_dir)
+            utils.make_path(refine_dir)
+            utils.make_path(full_model_dir)
             logger.info(f'Initializing {source} {StructureDatabase.__name__}')
 
             # self._databases[source] = \
