@@ -3170,7 +3170,8 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
                 # We missed a chain from the entity_info. We probably have a nucleotide at the moment
             # except IndexError:  # we didn't find any chains. It may be a nucleotide structure
                 self.log.warning(f'Missing associated chains for the Entity {entity_name} with data: '
-                                 f'self.chain_ids={self.chain_ids}'
+                                 f"self.chain_ids={self.chain_ids}, entity_data['chains']={entity_data['chains']}, "
+                                 f"data['chains']={data_chains}"
                                  f'{", ".join(f"{k}={v}" for k, v in data.items())}')
                 continue
             #     raise utils.DesignError('Missing Chain object for %s %s! entity_info=%s, assembly=%s and '
