@@ -214,6 +214,7 @@ intfrag_cluster_info_dirpath = os.path.join(fragment_db, 'IJK_ClusteredInterface
 
 # External Program Dependencies
 # Free SASA Executable Path
+freesasa_dir = os.path.join(third_party_dir, 'freesasa')
 freesasa_exe_path = os.path.join(third_party_dir, 'freesasa', 'src', 'freesasa')
 freesasa_config_path = os.path.join(dependency_dir, 'freesasa-2.0.config')
 
