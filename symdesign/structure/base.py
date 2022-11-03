@@ -4806,14 +4806,17 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         return self.name
 
 
-try:
-    # 0 indexed, 1 letter aa, alphabetically sorted at the origin
-    reference_residues = utils.unpickle(utils.path.reference_residues_pkl)
-    reference_aa = Structure.from_residues(residues=reference_residues)
-except Exception as error:  # If something goes wrong, we should remake this
-    # logger.critical('The reference residues are out of date and need to be regenerated. '
-    #                 'Please execute pickle_structure_dependencies.py')
-    raise error  # catching in pickle_structure_dependencies.py
+# try:
+#     # 0 indexed, 1 letter aa, alphabetically sorted at the origin
+#     reference_residues = utils.unpickle(utils.path.reference_residues_pkl)
+#     reference_aa = Structure.from_residues(residues=reference_residues)
+# except ModuleNotFoundError as error:  # If something goes wrong, we should remake this
+#     Structure.from_residues(residues=reference_residues)
+#
+# except Exception as error:  # If something goes wrong, we should remake this
+#     # logger.critical('The reference residues are out of date and need to be regenerated. '
+#     #                 'Please execute pickle_structure_dependencies.py')
+#     raise error  # catching in pickle_structure_dependencies.py
 
 
 class Structures(Structure, UserList):
