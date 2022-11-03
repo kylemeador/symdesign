@@ -449,7 +449,7 @@ class StructureDatabase(Database):
             load_resources: Whether resources have been specified to be loaded already
             batch_commands: Whether commands should be made for batch submission
         Returns:
-            Any instructions, then booleans for whether to refine or whether to loop_model designs
+            Any instructions, then booleans for whether designs need to be refined (True) and loop_modelled
         """
         # Todo
         #  Need to move make_loop_file to Pose/Structure (with SequenceProfile superclass)
