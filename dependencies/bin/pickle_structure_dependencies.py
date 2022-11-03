@@ -110,8 +110,8 @@ utils.pickle_object(ref_aa.residues, name=utils.path.reference_residues_pkl, out
 base.protein_backbone_atom_types = {'N', 'CA', 'O'}  # 'C', Removing 'C' for fragment library guide atoms...
 ijk_frag_db = create_fragment_db_from_raw_files(source=utils.path.biological_interfaces)
 
-logger.info(f'Making a backup of the old fragment_db: {biological_fragment_db_pickle} '
-            f'-> {biological_fragment_db_pickle}.bak-{timestamp()}')
+logger.info(f'Making a backup of the old fragment_db: {utils.biological_fragment_db_pickle} '
+            f'-> {utils.biological_fragment_db_pickle}.bak-{utils.timestamp()}')
 copy(utils.path.biological_fragment_db_pickle, f'{utils.path.biological_fragment_db_pickle}.bak-{utils.timestamp()}')
-logger.info(f'Saving the new fragment_db: {biological_fragment_db_pickle}')
+logger.info(f'Saving the new fragment_db: {utils.biological_fragment_db_pickle}')
 utils.pickle_object(ijk_frag_db, name=utils.path.biological_fragment_db_pickle, out_path='')
