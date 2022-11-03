@@ -8,7 +8,7 @@ from itertools import repeat
 import pandas as pd
 
 from symdesign import utils
-from symdesign.utils import path as PUtils
+from symdesign.utils import path as putils
 from symdesign.structure.sequence import generate_mutations
 from symdesign.structure.coords import superposition3d
 from symdesign.resources.structure_db import fetch_pdb_file
@@ -98,7 +98,7 @@ def design_recapitulation(design_file, output_dir, pdb_dir=None, oligomer=False)
     Returns:
         None
     """
-    qsbio_assemblies = utils.unpickle(PUtils.qsbio)
+    qsbio_assemblies = utils.unpickle(putils.qsbio)
     with open(design_file, 'r') as f_csv:
         reading_csv = reader(f_csv)
         if pdb_dir:

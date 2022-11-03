@@ -244,7 +244,7 @@ def cluster_poses(identifier_pairs: Iterable[tuple[Any, Any]], values: Iterable[
 
     # PCA analysis of distances
     # building_block_rmsd_matrix = sklearn.preprocessing.StandardScaler().fit_transform(symmetric_pair_values)
-    # pca = PCA(PUtils.variance)
+    # pca = PCA(putils.variance)
     # building_block_rmsd_pc_np = pca.fit_transform(building_block_rmsd_matrix)
     # pca_distance_vector = pdist(building_block_rmsd_pc_np)
     # epsilon = pca_distance_vector.mean() * 0.5

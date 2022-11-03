@@ -31,7 +31,7 @@ from .sequence import SequenceProfile, generate_alignment, get_equivalent_indice
 from .utils import protein_letters_3to1_extended, protein_letters_1to3_extended, chain_id_generator
 from symdesign import flags
 from symdesign import utils
-from symdesign.utils import path as PUtils
+from symdesign.utils import path as putils
 
 # Globals
 logger = logging.getLogger(__name__)
@@ -1735,8 +1735,8 @@ class Entity(Chain, ContainsChainsMixin):
         else:
             raise ValueError(f'{self.name}: Cannot orient a Structure with only a single chain. No symmetry present!')
 
-        orient_input = Path(PUtils.orient_dir, 'input.pdb')
-        orient_output = Path(PUtils.orient_dir, 'output.pdb')
+        orient_input = Path(putils.orient_dir, 'input.pdb')
+        orient_output = Path(putils.orient_dir, 'output.pdb')
 
         def clean_orient_input_output():
             orient_input.unlink(missing_ok=True)
@@ -1747,9 +1747,9 @@ class Entity(Chain, ContainsChainsMixin):
         self.write(oligomer=True, out_path=str(orient_input), pdb_number=True)
 
         # Todo superposition3d -> quaternion
-        p = subprocess.Popen([PUtils.orient_exe_path], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-                             stderr=subprocess.PIPE, cwd=PUtils.orient_dir)
-        in_symm_file = os.path.join(PUtils.orient_dir, 'symm_files', symmetry)
+        p = subprocess.Popen([putils.orient_exe_path], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                             stderr=subprocess.PIPE, cwd=putils.orient_dir)
+        in_symm_file = os.path.join(putils.orient_dir, 'symm_files', symmetry)
         stdout, stderr = p.communicate(input=in_symm_file.encode('utf-8'))
         log.info(file_name + stdout.decode()[28:])
         log.info(stderr.decode()) if stderr else None
@@ -1931,7 +1931,7 @@ class Entity(Chain, ContainsChainsMixin):
             chains = [self.max_symmetry_chain]
 
         sdf_cmd = \
-            ['perl', PUtils.make_symmdef, '-m', sdf_mode, '-q', '-p', struct_file, '-a', self.chain_ids[0], '-i']\
+            ['perl', putils.make_symmdef, '-m', sdf_mode, '-q', '-p', struct_file, '-a', self.chain_ids[0], '-i']\
             + chains
         self.log.info(f'Creating symmetry definition file: {subprocess.list2cmdline(sdf_cmd)}')
         # with open(out_file, 'w') as file:
@@ -2619,7 +2619,7 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
         #     # Todo add fragment_length, sql kwargs
         #     self.log.debug(f'fragment_db was set to the default since a {type(fragment_db).__name__} was passed which '
         #                    f'is not of the required type {FragmentDatabase.__name__}')
-        #     fragment_db = fragment_factory(source=PUtils.biological_interfaces)
+        #     fragment_db = fragment_factory(source=putils.biological_interfaces)
 
         # self._fragment_db = fragment_db
         if self._fragment_db:
@@ -2786,8 +2786,8 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
         else:
             raise ValueError(f'{self.name}: Cannot orient a Structure with only a single chain. No symmetry present!')
 
-        orient_input = Path(PUtils.orient_dir, 'input.pdb')
-        orient_output = Path(PUtils.orient_dir, 'output.pdb')
+        orient_input = Path(putils.orient_dir, 'input.pdb')
+        orient_output = Path(putils.orient_dir, 'output.pdb')
 
         def clean_orient_input_output():
             orient_input.unlink(missing_ok=True)
@@ -2801,9 +2801,9 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
             self.write(out_path=str(orient_input), pdb_number=True)
 
         # Todo superposition3d -> quaternion
-        p = subprocess.Popen([PUtils.orient_exe_path], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-                             stderr=subprocess.PIPE, cwd=PUtils.orient_dir)
-        in_symm_file = os.path.join(PUtils.orient_dir, 'symm_files', symmetry)
+        p = subprocess.Popen([putils.orient_exe_path], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                             stderr=subprocess.PIPE, cwd=putils.orient_dir)
+        in_symm_file = os.path.join(putils.orient_dir, 'symm_files', symmetry)
         stdout, stderr = p.communicate(input=in_symm_file.encode('utf-8'))
         log.info(file_name + stdout.decode()[28:])
         log.info(stderr.decode()) if stderr else None
@@ -3848,7 +3848,7 @@ class SymmetricModel(Models):
             # else:  # when a point group besides T, O, or I is provided
             #     raise utils.DesignError('Symmetry %s is not available yet! Get the canonical symm operators from %s '
             #                             'and add to the pickled operators if this displeases you!'
-            #                             % (symmetry, PUtils.orient_dir))
+            #                             % (symmetry, putils.orient_dir))
         else:  # no symmetry was provided
             # since this is now subclassed by Pose, lets ignore this error since self.symmetry is explicitly False
             return
@@ -5681,7 +5681,7 @@ class Pose(SymmetricModel):
 
     @torch.no_grad()  # Ensure no gradients are produced
     def design_sequences(self, number: int = flags.nstruct,
-                         method: design_algorithms_literal = PUtils.proteinmpnn, ca_only: bool = False,
+                         method: design_algorithms_literal = putils.proteinmpnn, ca_only: bool = False,
                          temperatures: Sequence[float] = (0.1,), measure_unbound: bool = True, **kwargs) \
             -> dict[str, np.ndarray]:
         """Perform sequence design on the Pose
@@ -5712,10 +5712,10 @@ class Pose(SymmetricModel):
                 For rosetta
         """
         # rosetta: Whether to design using Rosetta energy functions
-        if method == PUtils.rosetta_str:
+        if method == putils.rosetta_str:
             sequences_and_scores = {}
             raise NotImplementedError(f"Can't design with Rosetta from this method yet...")
-        elif method == PUtils.proteinmpnn:  # Design with vanilla version of ProteinMPNN
+        elif method == putils.proteinmpnn:  # Design with vanilla version of ProteinMPNN
             # Set up the model with the desired weights
             proteinmpnn_model = resources.ml.proteinmpnn_factory(**kwargs)
             device = proteinmpnn_model.device
@@ -7161,7 +7161,7 @@ class Pose(SymmetricModel):
         """
         ghost_frag: GhostFragment
         surface_frag: Fragment
-        frag_file = os.path.join(out_path, PUtils.frag_text_file)
+        frag_file = os.path.join(out_path, putils.frag_text_file)
         if os.path.exists(frag_file):
             os.system(f'rm {frag_file}')  # ensure old file is removed before new write
 

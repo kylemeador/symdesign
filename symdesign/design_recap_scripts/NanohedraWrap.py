@@ -5,7 +5,7 @@ from itertools import chain
 from typing import Union
 
 from symdesign import utils
-from symdesign.utils import path as PUtils
+from symdesign.utils import path as putils
 
 
 @utils.handle_errors(errors=(utils.DesignError, ))
@@ -86,12 +86,12 @@ def nanohedra_command_concise(path1: Union[str, bytes], path2: Union[str, bytes]
         The name of the file containing the Nanohedra command
     """
     nano_out_dir = os.path.join(out_dir, 'NanohedraEntry%sDockedPoses%s' % entry)
-    script_out_dir = os.path.join(nano_out_dir, PUtils.scripts)
+    script_out_dir = os.path.join(nano_out_dir, putils.scripts)
     os.makedirs(nano_out_dir, exist_ok=True)
     os.makedirs(script_out_dir, exist_ok=True)
 
-    cmd = ['python', PUtils.nanohedra_dock_file, '-dock', '-entry', entry, PUtils.nano_entity_flag1, path1,
-           PUtils.nano_entity_flag2, path2, '-outdir', nano_out_dir]
+    cmd = ['python', putils.nanohedra_dock_file, '-dock', '-entry', entry, putils.nano_entity_flag1, path1,
+           putils.nano_entity_flag2, path2, '-outdir', nano_out_dir]
     #        ['rot_step1', rotation1, '-rot_step2', rotation2, '-min_matched']
     cmd.extend(chain.from_iterable([['-%s' % key, str(value)] for key, value in kwargs]))
     if initial:
@@ -120,7 +120,7 @@ def nanohedra_command(entry, path1, path2, out_dir=None, suffix=None, initial=Fa
             pass
 
     script_out_dir = os.path.join(nano_out_dir, 'job_scripts')
-    program = PUtils.nanohedra_main
+    program = putils.nanohedra_main
     if os.path.splitext(path1)[1] == '':  # check if path1 is directory
         if os.path.splitext(path2)[1] == '':  # check if path2 is directory
             # both are directories
@@ -135,7 +135,7 @@ def nanohedra_command(entry, path1, path2, out_dir=None, suffix=None, initial=Fa
                                                os.path.splitext(os.path.basename(path2))[0])
             name = 'nanohedra_%s' % building_block_string
             script_out_dir = os.path.join(nano_out_dir, building_block_string)
-            program = PUtils.nanohedra_dock_file
+            program = putils.nanohedra_dock_file
 
     if not os.path.exists(script_out_dir):
         os.makedirs(script_out_dir)

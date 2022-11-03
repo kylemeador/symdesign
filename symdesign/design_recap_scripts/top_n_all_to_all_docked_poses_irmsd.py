@@ -12,7 +12,7 @@ import sklearn.neighbors
 from Bio.PDB.Atom import PDBConstructionWarning, Atom as BioPDBAtom
 
 from symdesign import protocols, utils
-from symdesign.utils import path as PUtils
+from symdesign.utils import path as putils
 from symdesign.structure.model import Model
 from symdesign.structure.base import Atom
 
@@ -875,7 +875,7 @@ def main():
     # retrieve all poses and filter for those ID's in consideration
     all_poses, location = utils.collect_designs(directory=docked_poses_dirpath)  # , file=args.file)
     assert all_poses != list(), 'No %s directories found within \'%s\'! Please ensure correct location' \
-                                % (PUtils.nanohedra.title(), location)
+                                % (putils.nanohedra.title(), location)
     all_design_directories = [protocols.PoseDirectory.from_nanohedra(design_path)
                               for design_path in all_poses]  # , symmetry=args.design_string)
     # return only directories for which an id is matched

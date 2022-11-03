@@ -12,12 +12,12 @@ from symdesign.structure.sequence import generate_alignment
 from symdesign.structure.utils import protein_letters_alph1
 from symdesign.third_party.DnaChisel.dnachisel import DnaOptimizationProblem, CodonOptimize, reverse_translate, \
     AvoidHairpins, EnforceGCContent, AvoidPattern, AvoidRareCodons, UniquifyAllKmers, EnforceTranslation
-from symdesign.utils import path as PUtils
+from symdesign.utils import path as putils
 
 # Globals
 logger = logging.getLogger(__name__)
-uniprot_pdb_d = utils.unpickle(PUtils.uniprot_pdb_map)
-with open(PUtils.affinity_tags, 'r') as f:
+uniprot_pdb_d = utils.unpickle(putils.uniprot_pdb_map)
+with open(putils.affinity_tags, 'r') as f:
     expression_tags = {'_'.join(map(str.lower, row[0].split())): row[1] for row in csv.reader(f)}
 ndeI_multicistronic_sequence = \
     'taatgcttaagtcgaacagaaagtaatcgtattgtacacggccgcataatcgaaat' \
@@ -534,7 +534,7 @@ def add_expression_tag(tag, sequence):
 
 
 def pull_uniprot_id_by_pdb(uniprot_pdb_d, pdb_code, chain=None):
-    # uniprot_pdb_d = SDUtils.unpickle(PUtils.uniprot_pdb_map)
+    # uniprot_pdb_d = SDUtils.unpickle(putils.uniprot_pdb_map)
     source = 'unique_pdb'
     pdb_code = pdb_code.upper()
     if chain:

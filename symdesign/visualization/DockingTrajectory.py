@@ -4,7 +4,7 @@ from glob import glob
 from itertools import chain
 
 from symdesign import protocols, utils
-from symdesign.utils import path as PUtils
+from symdesign.utils import path as putils
 from symdesign.structure.model import Model, MultiModel
 
 
@@ -47,10 +47,10 @@ def merge_pose_pdbs(des_dir, frags=True):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='%s\nCreate multimodel PDBS with multiple docked orientations from '
-                                                 '%s output' % (__name__, PUtils.nanohedra))
+                                                 '%s output' % (__name__, putils.nanohedra))
     parser.add_argument('-d', '--directory', type=str, help='Where is the docked PDB directory located?',
                         default=os.getcwd())
-    parser.add_argument('-f', '--file', type=str, help='File with location(s) of %s poses' % PUtils.program_name,
+    parser.add_argument('-f', '--file', type=str, help='File with location(s) of %s poses' % putils.program_name,
                         default=None)
     parser.add_argument('-s', '--design_string', type=str, help='If pose names are specified by design string instead '
                                                                 'of directories, which directory path to '
@@ -72,7 +72,7 @@ if __name__ == '__main__':
 
     all_poses, location = utils.collect_designs(files=args.file, directory=args.directory)
     assert all_poses, 'No %s directories found within \'%s\'! Please ensure correct location' \
-                      % (PUtils.nanohedra.title(), location)
+                      % (putils.nanohedra.title(), location)
 
     all_design_directories = [protocols.PoseDirectory.from_nanohedra(design_path, symmetry=args.design_string)
                               for design_path in all_poses]

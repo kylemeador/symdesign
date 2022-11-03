@@ -5,7 +5,7 @@ from itertools import product, combinations
 
 from symdesign.fragdock import nanohedra_dock
 from symdesign.resources.structure_db import orient_structure_files
-from symdesign.utils import start_log, set_logging_to_level, get_directory_file_paths, set_loggers_to_propagate, path as PUtils
+from symdesign.utils import start_log, set_logging_to_level, get_directory_file_paths, set_loggers_to_propagate, path as putils
 from symdesign.utils.SymEntry import symmetry_factory
 from symdesign.utils.nanohedra.cmdline import get_docking_parameters, query_mode, postprocess_mode
 from symdesign.utils.nanohedra.general import write_docking_parameters
@@ -33,7 +33,7 @@ if __name__ == '__main__':
 
         # Master Output Directory and Master Log File
         os.makedirs(master_outdir, exist_ok=True)
-        master_log_filepath = os.path.join(master_outdir, PUtils.master_log)
+        master_log_filepath = os.path.join(master_outdir, putils.master_log)
         if debug:
             # Root logs to stream with level debug
             logger = start_log(level=1)
@@ -52,7 +52,7 @@ if __name__ == '__main__':
         master_logger.info('Nanohedra\nMODE: DOCK\n')
         try:
             # Orient Oligomer Fortran Executable Path
-            orient_executable_path = PUtils.orient_exe_path
+            orient_executable_path = putils.orient_exe_path
             orient_assert_error_message = 'Could not locate orient_oligomer executable at: %s\n' \
                                           'Check README file for instructions on how to compile ' \
                                           'orient_oligomer.f' % orient_executable_path
