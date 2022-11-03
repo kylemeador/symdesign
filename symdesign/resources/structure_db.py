@@ -352,13 +352,13 @@ class StructureDatabase(Database):
                     entity = None
                     logger.debug(f'Fetching entry {entry} from PDB')
 
+                    asu = False
                 if symmetry == 'C1':
                     # Todo modify if monomers are removed from qs_bio
                     assembly = query_qs_bio(entry)
                     # assembly = None  # 1 is the default
-                    asu = True
+                    # asu = True <- NOT NECESSARILY A MONOMERIC FILE!
                 else:
-                    asu = False
                     assembly = query_qs_bio(entry)
                 # get the specified file_path for the assembly state of interest
                 file_path = fetch_pdb_file(entry, assembly=assembly, asu=asu, out_dir=models_dir)
