@@ -169,3 +169,9 @@ if __name__ == '__main__':
     p2.communicate()
     p3 = subprocess.Popen(['make'])
     p3.communicate()
+    os.chdir(putils.stride_dir)
+    p4 = subprocess.Popen(['tar', '-zxf', 'stride.tar.gz'])
+    p4.communicate()
+    p5 = subprocess.Popen(['make'])
+    p5.communicate()
+
