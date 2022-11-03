@@ -4771,7 +4771,7 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
             scores_df['errat_deviation'] = (errat_sig_df.loc[:, source_errat_inclusion_boolean] * 1).sum(axis=1)
 
         # Drop unused particular scores_df columns that have been summed
-        scores_drop_columns = ['hydrophobic_collapse']
+        scores_drop_columns = ['hydrophobic_collapse', 'sasa_relative_bound', 'sasa_relative_complex']
         scores_df = scores_df.drop(scores_drop_columns, errors='ignore', axis=1)
         scores_df = scores_df.rename(columns={'type': 'sequence'})
         #                                       'evolution': 'evolution_sequence_loss',
