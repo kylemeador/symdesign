@@ -44,7 +44,7 @@ from symdesign.structure.sequence import parse_pssm, generate_mutations_from_ref
 from symdesign.structure.utils import protein_letters_3to1, protein_letters_1to3
 from symdesign.utils import large_color_array, handle_errors, starttime, start_log, make_path, unpickle, \
     pickle_object, index_intersection, write_shell_script, DesignError, ClashError, SymmetryError, \
-    match_score_from_z_value, all_vs_all, sym, condensed_to_square, path as PUtils
+    match_score_from_z_value, all_vs_all, sym, condensed_to_square, path as putils
 from symdesign.utils.CommandDistributer import reference_average_residue_weight, run_cmds, script_cmd, rosetta_flags, \
     rosetta_variables, relax_flags_cmdline
 from symdesign.utils.SymEntry import SymEntry, symmetry_factory
@@ -56,7 +56,7 @@ logger = logging.getLogger(__name__)
 pose_logger = start_log(name='pose', handler_level=3, propagate=True)
 zero_offset = 1
 idx_slice = pd.IndexSlice
-# design_directory_modes = [PUtils.interface_design, 'dock', 'filter']
+# design_directory_modes = [putils.interface_design, 'dock', 'filter']
 cst_value = round(0.2 * reference_average_residue_weight, 2)
 mean, std = 'mean', 'std'
 stats_metrics = [mean, std]
@@ -164,7 +164,7 @@ class PoseDirectory:
         # self.uc_dimensions = None
 
         # Design attributes
-        self.background_profile: str = kwargs.get('background_profile', PUtils.design_profile)
+        self.background_profile: str = kwargs.get('background_profile', putils.design_profile)
         self.directives = kwargs.get('directives', [])
         if self.job.design_selector:
             # self.info['design_selector'] = self.design_selector = self.job.design_selector
@@ -197,7 +197,7 @@ class PoseDirectory:
         self.name = os.path.splitext(os.path.basename(self.source_path))[0]
         output_identifier = f'{self.name}_' if self.job.output_to_directory else ''
 
-        self.serialized_info = os.path.join(self.source_path, f'{output_identifier}{PUtils.data}', state_file)
+        self.serialized_info = os.path.join(self.source_path, f'{output_identifier}{putils.data}', state_file)
         self.initialized = True if os.path.exists(self.serialized_info) else False
         if self.initialized:
             self.source = None  # will be set to self.asu_path later
@@ -226,7 +226,7 @@ class PoseDirectory:
                 # design_symmetry/building_blocks (P432/4ftd_5tch)
                 # path/to/[design_symmetry]/building_blocks/degen/rot/tx
                 root = path_components[-5] if root is None else root
-                self.source = os.path.join(self.source_path, PUtils.asu_file_name)
+                self.source = os.path.join(self.source_path, putils.asu_file_name)
             else:  # Set up PoseDirectory initially from input file
                 # path_components = path.splitext(self.source_path)[0].split(os.sep)
                 try:
@@ -244,8 +244,8 @@ class PoseDirectory:
                 self.project_designs = ''
                 self.path = self.job.program_root  # /output_directory<- self.path /design.pdb
             else:
-                self.projects = os.path.join(self.job.program_root, PUtils.projects)
-                self.project_designs = os.path.join(self.projects, f'{root}_{PUtils.pose_directory}')
+                self.projects = os.path.join(self.job.program_root, putils.projects)
+                self.project_designs = os.path.join(self.projects, f'{root}_{putils.pose_directory}')
                 self.path = os.path.join(self.project_designs, self.name)
                 # ^ /program_root/projects/project/design<- self.path /design.pdb
 
@@ -259,7 +259,7 @@ class PoseDirectory:
             # self.entity_names = [f'{name}_1' for name in oligomer_names]  # assumes the entity is the first
 
             # if self.job.construct_pose:
-            #     if not path.exists(path.join(self.path, PUtils.pose_file)):
+            #     if not path.exists(path.join(self.path, putils.pose_file)):
             #         shutil.copy(self.pose_file, self.path)
             #         shutil.copy(self.frag_file, self.path)
             #     self.info['nanohedra'] = True
@@ -287,9 +287,9 @@ class PoseDirectory:
         #             self.project_designs = ''
         #             self.path = self.job.program_root  # /output_directory<- self.path /design.pdb
         #         else:
-        #             self.projects = path.join(self.job.program_root, PUtils.projects)
+        #             self.projects = path.join(self.job.program_root, putils.projects)
         #             self.project_designs = \
-        #                 path.join(self.projects, f'{self.source_path.split(os.sep)[-2]}_{PUtils.pose_directory}')
+        #                 path.join(self.projects, f'{self.source_path.split(os.sep)[-2]}_{putils.pose_directory}')
         #             self.path = path.join(self.project_designs, self.name)
         #             # ^ /program_root/projects/project/design<- self.path /design.pdb
         #             # make_path(self.projects)
@@ -300,28 +300,28 @@ class PoseDirectory:
         #         # save the SymEntry initialization key in the state
         #         self.info['sym_entry_specification'] = self.sym_entry.entry_number, self.sym_entry.sym_map
         #
-        #     self.pose_file = path.join(self.path, PUtils.pose_file)
-        #     self.frag_file = path.join(self.path, PUtils.frag_dir, PUtils.frag_text_file)
+        #     self.pose_file = path.join(self.path, putils.pose_file)
+        #     self.frag_file = path.join(self.path, putils.frag_dir, putils.frag_text_file)
 
         # PoseDirectory path attributes. Set after finding correct path
         self.log_path: str | Path = os.path.join(self.path, f'{self.name}.log')
-        self.designs: str | Path = os.path.join(self.path, PUtils.designs)
+        self.designs: str | Path = os.path.join(self.path, putils.designs)
         # /root/Projects/project_Poses/design/designs
-        self.scripts: str | Path = os.path.join(self.path, f'{output_identifier}{PUtils.scripts}')
+        self.scripts: str | Path = os.path.join(self.path, f'{output_identifier}{putils.scripts}')
         # /root/Projects/project_Poses/design/scripts
-        self.frags: str | Path = os.path.join(self.path, f'{output_identifier}{PUtils.frag_dir}')
+        self.frags: str | Path = os.path.join(self.path, f'{output_identifier}{putils.frag_dir}')
         # /root/Projects/project_Poses/design/matching_fragments
         self.flags: str | Path = os.path.join(self.scripts, 'flags')
         # /root/Projects/project_Poses/design/scripts/flags
-        self.data: str | Path = os.path.join(self.path, f'{output_identifier}{PUtils.data}')
+        self.data: str | Path = os.path.join(self.path, f'{output_identifier}{putils.data}')
         # /root/Projects/project_Poses/design/data
         self.scores_file: str | Path = os.path.join(self.data, f'{self.name}.sc')
         # /root/Projects/project_Poses/design/data/name.sc
         self.serialized_info: str | Path = os.path.join(self.data, state_file)
         # /root/Projects/project_Poses/design/data/info.pkl
-        self.asu_path: str | Path = os.path.join(self.path, f'{self.name}_{PUtils.clean_asu}')
+        self.asu_path: str | Path = os.path.join(self.path, f'{self.name}_{putils.clean_asu}')
         # /root/Projects/project_Poses/design/design_name_clean_asu.pdb
-        self.assembly_path: str | Path = os.path.join(self.path, f'{self.name}_{PUtils.assembly}')
+        self.assembly_path: str | Path = os.path.join(self.path, f'{self.name}_{putils.assembly}')
         # /root/Projects/project_Poses/design/design_name_assembly.pdb
         self.refine_pdb: str | Path = f'{os.path.splitext(self.asu_path)[0]}_for_refine.pdb'
         # /root/Projects/project_Poses/design/clean_asu_for_refine.pdb
@@ -340,8 +340,8 @@ class PoseDirectory:
         self.refined_pdb: str | Path | None = None  # /root/Projects/project_Poses/design/design_name_refined.pdb
         self.scouted_pdb: str | Path | None = None  # /root/Projects/project_Poses/design/design_name_scouted.pdb
         # These files may be present from Nanohedra outputs
-        self.pose_file = os.path.join(self.source_path, PUtils.pose_file)
-        self.frag_file = os.path.join(self.source_path, PUtils.frag_dir, PUtils.frag_text_file)
+        self.pose_file = os.path.join(self.source_path, putils.pose_file)
+        self.frag_file = os.path.join(self.source_path, putils.frag_dir, putils.frag_text_file)
         # These files are used as output from analysis protocols
         self.trajectories = os.path.join(self.job.all_scores, f'{self}_Trajectories.csv')
         self.residues = os.path.join(self.job.all_scores, f'{self}_Residues.csv')
@@ -575,7 +575,7 @@ class PoseDirectory:
     #         return self._fragment_data
     #     except AttributeError:
     #         try:
-    #             frag_pkl = os.path.join(self.data, f'{self.fragment_source}_{PUtils.fragment_profile}.pkl')
+    #             frag_pkl = os.path.join(self.data, f'{self.fragment_source}_{putils.fragment_profile}.pkl')
     #             self._fragment_data = self.info['fragment_data'] if 'fragment_data' in self.info else unpickle(frag_pkl)
     #         except FileNotFoundError:
     #             # fragment_profile is removed of all entries that are not fragment populated.
@@ -696,8 +696,8 @@ class PoseDirectory:
             if '_Designs-' in pose_id:
                 self.path = os.path.join(root, 'Projects', pose_id.replace('_Designs-', f'_Designs{os.sep}'))
             else:
-                self.path = os.path.join(root, 'Projects', pose_id.replace(f'_{PUtils.pose_directory}-',
-                                                                           f'_{PUtils.pose_directory}{os.sep}'))
+                self.path = os.path.join(root, 'Projects', pose_id.replace(f'_{putils.pose_directory}-',
+                                                                           f'_{putils.pose_directory}{os.sep}'))
 
     @handle_design_errors(errors=(FileNotFoundError, ValueError))
     @close_logs
@@ -730,7 +730,7 @@ class PoseDirectory:
             #     print('Found pickled file with huge size %d. fragment_database being removed'
             #           % stat(self.serialized_info).st_size)
             #     self.info['fragment_source'] = \
-            #         getattr(self.info.get('fragment_database'), 'source', PUtils.biological_interfaces)
+            #         getattr(self.info.get('fragment_database'), 'source', putils.biological_interfaces)
             #     self.pickle_info()  # save immediately so we don't have this issue with reading again!
             # Todo Remove Above this line to Dev branch only
             self._info = self.info.copy()  # create a copy of the state upon initialization
@@ -792,7 +792,7 @@ class PoseDirectory:
         self.pre_loop_model = self.info.get('pre_loop_model', True)
 
         if self.job.nanohedra_output and self.job.construct_pose:
-            if not os.path.exists(os.path.join(self.path, PUtils.pose_file)):
+            if not os.path.exists(os.path.join(self.path, putils.pose_file)):
                 shutil.copy(self.pose_file, self.path)
                 shutil.copy(self.frag_file, self.path)
             # self.info['oligomer_names'] = self.oligomer_names
@@ -863,7 +863,7 @@ class PoseDirectory:
 
         return wt_file[0]
 
-    def get_designs(self, design_type: str = None) -> list[AnyStr]:  # design_type: str = PUtils.interface_design
+    def get_designs(self, design_type: str = None) -> list[AnyStr]:  # design_type: str = putils.interface_design
         """Return the paths of all design files in a PoseDirectory
 
         Args:
@@ -964,9 +964,9 @@ class PoseDirectory:
 
         variables = rosetta_variables + [('dist', distance), ('repack', 'yes'),
                                          ('constrained_percent', constraint_percent), ('free_percent', free_percent)]
-        variables.extend([(PUtils.design_profile, self.design_profile_file)]
+        variables.extend([(putils.design_profile, self.design_profile_file)]
                          if os.path.exists(self.design_profile_file) else [])
-        variables.extend([(PUtils.fragment_profile, self.fragment_profile_file)]
+        variables.extend([(putils.fragment_profile, self.fragment_profile_file)]
                          if os.path.exists(self.fragment_profile_file) else [])
 
         if self.symmetric:
@@ -1030,7 +1030,7 @@ class PoseDirectory:
                     entity.make_sdf(out_path=self.data,
                                     modify_sym_energy_for_cryst=True if self.design_dimension in [2, 3] else False)
                 else:
-                    shutil.copy(os.path.join(PUtils.symmetry_def_files, 'C1.sym'),
+                    shutil.copy(os.path.join(putils.symmetry_def_files, 'C1.sym'),
                                 os.path.join(self.data, f'{entity.name}.sdf'))
 
         entity_metric_commands = []
@@ -1053,7 +1053,7 @@ class PoseDirectory:
     def rosetta_interface_metrics(self):
         """Generate a script capable of running Rosetta interface metrics analysis on the bound and unbound states"""
         # metrics_flags = 'repack=yes'
-        protocol = PUtils.interface_metrics
+        protocol = putils.interface_metrics
         main_cmd = copy(script_cmd)
         if self.interface_residue_numbers is False or self.interface_design_residue_numbers is False:
             self.identify_interface()
@@ -1068,7 +1068,7 @@ class PoseDirectory:
 
         design_files = os.path.join(self.scripts,
                                     f'design_files{f"_{self.job.specific_protocol}" if self.job.specific_protocol else ""}.txt')
-        generate_files_cmd = ['python', PUtils.list_pdb_files, '-d', self.designs, '-o', design_files] + \
+        generate_files_cmd = ['python', putils.list_pdb_files, '-d', self.designs, '-o', design_files] + \
             (['-s', self.job.specific_protocol] if self.job.specific_protocol else [])
         main_cmd += ['@%s' % self.flags, '-in:file:l', design_files,
                      # TODO out:file:score_only file is not respected if out:path:score_file given
@@ -1076,21 +1076,21 @@ class PoseDirectory:
                      '-out:file:score_only', self.scores_file, '-no_nstruct_label', 'true', '-parser:protocol']
         #              '-in:file:native', self.refined_pdb,
         if self.job.mpi > 0:
-            main_cmd = run_cmds[PUtils.rosetta_extras] + [str(self.job.mpi)] + main_cmd
+            main_cmd = run_cmds[putils.rosetta_extras] + [str(self.job.mpi)] + main_cmd
 
         metric_cmd_bound = main_cmd + (['-symmetry_definition', 'CRYST1'] if self.design_dimension > 0 else []) + \
-            [os.path.join(PUtils.rosetta_scripts_dir, f'{protocol}{"_DEV" if self.job.development else ""}.xml')]
-        entity_cmd = main_cmd + [os.path.join(PUtils.rosetta_scripts_dir,
+            [os.path.join(putils.rosetta_scripts_dir, f'{protocol}{"_DEV" if self.job.development else ""}.xml')]
+        entity_cmd = main_cmd + [os.path.join(putils.rosetta_scripts_dir,
                                               f'metrics_entity{"_DEV" if self.job.development else ""}.xml')]
         metric_cmds = [metric_cmd_bound]
         metric_cmds.extend(self.generate_entity_metrics(entity_cmd))
 
         # Create executable to gather interface Metrics on all Designs
         if self.job.distribute_work:
-            analysis_cmd = ['python', PUtils.program_exe, PUtils.analysis, '--single', self.path, '--no-output',
+            analysis_cmd = ['python', putils.program_exe, putils.analysis, '--single', self.path, '--no-output',
                             '--output_file', os.path.join(self.job.all_scores,
-                                                          PUtils.default_analysis_file % (starttime, protocol))]
-            write_shell_script(list2cmdline(generate_files_cmd), name=PUtils.interface_metrics, out_path=self.scripts,
+                                                          putils.default_analysis_file % (starttime, protocol))]
+            write_shell_script(list2cmdline(generate_files_cmd), name=putils.interface_metrics, out_path=self.scripts,
                                additional=[list2cmdline(command) for command in metric_cmds] +
                                           [list2cmdline(analysis_cmd)])
         else:
@@ -1103,7 +1103,7 @@ class PoseDirectory:
         # ANALYSIS: each output from the Design process based on score, Analyze Sequence Variation
         if not self.job.distribute_work:
             pose_s = self._interface_design_analysis()
-            out_path = os.path.join(self.job.all_scores, PUtils.default_analysis_file % (starttime, 'All'))
+            out_path = os.path.join(self.job.all_scores, putils.default_analysis_file % (starttime, 'All'))
             if os.path.exists(out_path):
                 header = False
             else:
@@ -1131,7 +1131,7 @@ class PoseDirectory:
 
         if file_list:
             pdb_input = os.path.join(self.scripts, 'design_files.txt')
-            generate_files_cmd = ['python', PUtils.list_pdb_files, '-d', self.designs, '-o', pdb_input]
+            generate_files_cmd = ['python', putils.list_pdb_files, '-d', self.designs, '-o', pdb_input]
         else:
             pdb_input = self.refined_pdb
             generate_files_cmd = []  # empty command
@@ -1170,7 +1170,7 @@ class PoseDirectory:
         cmd += ['@%s' % flags, '-in:file:%s' % ('l' if file_list else 's'), pdb_input, '-in:file:native', native] + \
             score + suffix + trajectories + ['-parser:protocol', script] + variables
         if self.job.mpi > 0:
-            cmd = run_cmds[PUtils.rosetta_extras] + [str(self.job.mpi)] + cmd
+            cmd = run_cmds[putils.rosetta_extras] + [str(self.job.mpi)] + cmd
 
         if self.job.distribute_work:
             write_shell_script(list2cmdline(generate_files_cmd), name=script_name, out_path=self.scripts,
@@ -1179,13 +1179,13 @@ class PoseDirectory:
             raise NotImplementedError('Need to implement this feature')
 
         # Todo  + [list2cmdline(analysis_cmd)])
-        #  analysis_cmd = ['python', PUtils.program_exe, PUtils.analysis, '--single', self.path, '--no-output',
-        #                 '--output_file', os.path.join(self.job.all_scores, PUtils.default_analysis_file % (starttime, protocol))]
+        #  analysis_cmd = ['python', putils.program_exe, putils.analysis, '--single', self.path, '--no-output',
+        #                 '--output_file', os.path.join(self.job.all_scores, putils.default_analysis_file % (starttime, protocol))]
 
         # ANALYSIS: each output from the Design process based on score, Analyze Sequence Variation
         if not self.job.distribute_work:
             pose_s = self._interface_design_analysis()
-            out_path = os.path.join(self.job.all_scores, PUtils.default_analysis_file % (starttime, 'All'))
+            out_path = os.path.join(self.job.all_scores, putils.default_analysis_file % (starttime, 'All'))
             if os.path.exists(out_path):
                 header = False
             else:
@@ -1551,7 +1551,7 @@ class PoseDirectory:
             gather_metrics: Whether metrics should be calculated for the Pose
         """
         main_cmd = copy(script_cmd)
-        protocol = PUtils.refine
+        protocol = putils.refine
         if self.interface_residue_numbers is False or self.interface_design_residue_numbers is False:
             self.identify_interface()
         else:  # We only need to load pose as we already calculated interface
@@ -1624,7 +1624,7 @@ class PoseDirectory:
 
             design_files_file = os.path.join(self.scripts, f'files_{protocol}.txt')
             # generate_files_file_cmd = \
-            #     ['python', PUtils.list_pdb_files, '-d', self.data, '-o', design_files_file, '-s', '_' + protocol]
+            #     ['python', putils.list_pdb_files, '-d', self.data, '-o', design_files_file, '-s', '_' + protocol]
             # list_all_files_process = Popen(generate_files_file_cmd)
             # list_all_files_process.communicate()
             # get_directory_file_paths(self.data)
@@ -1637,7 +1637,7 @@ class PoseDirectory:
                            ])
             designed_files = os.path.join(self.scripts, f'design_files_{protocol}.txt')
             generate_files_cmd = \
-                ['python', PUtils.list_pdb_files, '-d', self.designs, '-o', designed_files, '-s', '_' + protocol]
+                ['python', putils.list_pdb_files, '-d', self.designs, '-o', designed_files, '-s', '_' + protocol]
             metrics_pdb = ['-in:file:l', designed_files, '-in:file:native', self.source]
             # generate_files_cmdline = [list2cmdline(generate_files_cmd)]
         else:
@@ -1648,7 +1648,7 @@ class PoseDirectory:
         # '-no_nstruct_label', 'true' comes from v
         relax_cmd = main_cmd + relax_flags_cmdline + additional_flags + \
             (['-symmetry_definition', 'CRYST1'] if self.design_dimension > 0 else []) + infile + \
-            [f'@{flags}', '-parser:protocol', os.path.join(PUtils.rosetta_scripts_dir, f'refine.xml'),  # f'{protocol}.xml')
+            [f'@{flags}', '-parser:protocol', os.path.join(putils.rosetta_scripts_dir, f'refine.xml'),  # f'{protocol}.xml')
              '-parser:script_vars', f'switch={protocol}']
         self.log.info(f'{protocol.title()} Command: {list2cmdline(relax_cmd)}')
 
@@ -1657,12 +1657,12 @@ class PoseDirectory:
             main_cmd += [f'@{flags}', '-out:file:score_only', self.scores_file,
                          '-no_nstruct_label', 'true', '-parser:protocol']
             if self.job.mpi > 0:
-                main_cmd = run_cmds[PUtils.rosetta_extras] + [str(self.job.mpi)] + main_cmd
+                main_cmd = run_cmds[putils.rosetta_extras] + [str(self.job.mpi)] + main_cmd
 
             metric_cmd_bound = main_cmd + (['-symmetry_definition', 'CRYST1'] if self.design_dimension > 0 else []) + \
-                [os.path.join(PUtils.rosetta_scripts_dir, f'{PUtils.interface_metrics}'
+                [os.path.join(putils.rosetta_scripts_dir, f'{putils.interface_metrics}'
                                                       f'{"_DEV" if self.job.development else ""}.xml')]
-            entity_cmd = main_cmd + [os.path.join(PUtils.rosetta_scripts_dir,
+            entity_cmd = main_cmd + [os.path.join(putils.rosetta_scripts_dir,
                                                   f'metrics_entity{"_DEV" if self.job.development else ""}.xml')]
             metric_cmds = [metric_cmd_bound]
             metric_cmds.extend(self.generate_entity_metrics(entity_cmd))
@@ -1671,9 +1671,9 @@ class PoseDirectory:
 
         # Create executable/Run FastRelax on Clean ASU with RosettaScripts
         if self.job.distribute_work:
-            analysis_cmd = ['python', PUtils.program_exe, PUtils.analysis, '--single', self.path, '--no-output',
+            analysis_cmd = ['python', putils.program_exe, putils.analysis, '--single', self.path, '--no-output',
                             '--output_file', os.path.join(self.job.all_scores,
-                                                          PUtils.default_analysis_file % (starttime, protocol))]
+                                                          putils.default_analysis_file % (starttime, protocol))]
             write_shell_script(list2cmdline(relax_cmd), name=protocol, out_path=flag_dir,
                                additional=[list2cmdline(generate_files_cmd)] +
                                           [list2cmdline(command) for command in metric_cmds] +
@@ -1694,7 +1694,7 @@ class PoseDirectory:
         # # Todo this isn't working right now with mutations to structure
         if not self.job.distribute_work:
             pose_s = self._interface_design_analysis()
-            out_path = os.path.join(self.job.all_scores, PUtils.default_analysis_file % (starttime, 'All'))
+            out_path = os.path.join(self.job.all_scores, putils.default_analysis_file % (starttime, 'All'))
             if os.path.exists(out_path):
                 header = False
             else:
@@ -1735,7 +1735,7 @@ class PoseDirectory:
             else:
                 raise ClashError(f'The Symmetric Assembly contains clashes! Design won\'t be considered. If you '
                                  f'would like to generate the Assembly anyway, re-submit the command with '
-                                 f'--{PUtils.ignore_symmetric_clashes}')
+                                 f'--{putils.ignore_symmetric_clashes}')
 
     @handle_design_errors(errors=(DesignError, AssertionError))
     @close_logs
@@ -1844,13 +1844,13 @@ class PoseDirectory:
             # # else:  # self.job.generate_fragments:
             # # self.generate_interface_fragments()
             #     # raise DesignError(f'Fragments were specified during design, but observations have not been yet been '
-            #     #                   f'generated for this Design! Try with the flag --{PUtils.generate_fragments}')
+            #     #                   f'generated for this Design! Try with the flag --{putils.generate_fragments}')
             make_path(self.data)  # Todo consolidate this check with pickle_info()
             # Create all files which store the evolutionary_profile and/or fragment_profile -> design_profile
             if self.job.generate_fragments:
                 make_path(self.frags, condition=self.job.write_fragments)
                 self.pose.generate_interface_fragments(out_path=self.frags, write_fragments=self.job.write_fragments)
-                if self.job.design.method == PUtils.rosetta_str:
+                if self.job.design.method == putils.rosetta_str:
                     self.pose.calculate_fragment_profile(evo_fill=True)
                     # for query_pair, fragment_info in self.pose.fragment_queries.items():
                     #     self.log.debug(f'Query Pair: {query_pair[0].name}, {query_pair[1].name}'
@@ -1896,7 +1896,7 @@ class PoseDirectory:
 
                 self.pose.evolutionary_profile = \
                     concatenate_profile([entity.evolutionary_profile for entity in self.pose.entities])
-                if self.job.design.method == PUtils.rosetta_str:
+                if self.job.design.method == putils.rosetta_str:
                     self.pose.pssm_file = \
                         write_pssm_file(self.pose.evolutionary_profile, file_name=self.evolutionary_profile_file)
 
@@ -1906,7 +1906,7 @@ class PoseDirectory:
             self.pose.add_profile(evolution=self.job.design.evolution_constraint,
                                   fragments=self.job.generate_fragments, favor_fragments=favor_fragments,
                                   out_dir=self.job.api_db.hhblits_profiles.location)
-            if self.job.design.method == PUtils.rosetta_str:
+            if self.job.design.method == putils.rosetta_str:
                 write_pssm_file(self.pose.profile, file_name=self.design_profile_file)
             # Update PoseDirectory with design information
             # if self.job.generate_fragments:  # Set pose.fragment_profile by combining fragment profiles
@@ -1933,9 +1933,9 @@ class PoseDirectory:
 
         make_path(self.designs)
         match self.job.design.method:
-            case PUtils.rosetta_str:
+            case putils.rosetta_str:
                 self.rosetta_interface_design()
-            case PUtils.proteinmpnn:
+            case putils.proteinmpnn:
                 sequences_and_scores: dict[str, np.ndarray | list] = \
                     self.pose.design_sequences(number=self.job.design.number_of_trajectories,
                                                ca_only=self.job.design.ca_only,
@@ -1997,41 +1997,41 @@ class PoseDirectory:
         """
         # Set up the command base (rosetta bin and database paths)
         if self.job.design.scout:
-            protocol = protocol_xml1 = PUtils.scout
+            protocol = protocol_xml1 = putils.scout
             nstruct_instruct = ['-no_nstruct_label', 'true']
             generate_files_cmd, metrics_pdb = null_cmd, ['-in:file:s', self.scouted_pdb]
             # metrics_flags = 'repack=no'
             additional_cmds, out_file = [], []
         elif self.job.design.structure_background:
-            protocol = protocol_xml1 = PUtils.structure_background
+            protocol = protocol_xml1 = putils.structure_background
             nstruct_instruct = ['-nstruct', str(self.job.design.number_of_trajectories)]
             design_files = os.path.join(self.scripts, f'design_files_{protocol}.txt')
             generate_files_cmd = \
-                ['python', PUtils.list_pdb_files, '-d', self.designs, '-o', design_files, '-s', '_' + protocol]
+                ['python', putils.list_pdb_files, '-d', self.designs, '-o', design_files, '-s', '_' + protocol]
             metrics_pdb = ['-in:file:l', design_files]  # self.pdb_list]
             # metrics_flags = 'repack=yes'
             additional_cmds, out_file = [], []
         elif not self.job.design.hbnet:  # Run the legacy protocol
-            protocol = protocol_xml1 = PUtils.interface_design
+            protocol = protocol_xml1 = putils.interface_design
             nstruct_instruct = ['-nstruct', str(self.job.design.number_of_trajectories)]
             design_files = os.path.join(self.scripts, f'design_files_{protocol}.txt')
             generate_files_cmd = \
-                ['python', PUtils.list_pdb_files, '-d', self.designs, '-o', design_files, '-s', '_' + protocol]
+                ['python', putils.list_pdb_files, '-d', self.designs, '-o', design_files, '-s', '_' + protocol]
             metrics_pdb = ['-in:file:l', design_files]  # self.pdb_list]
             # metrics_flags = 'repack=yes'
             additional_cmds, out_file = [], []
         else:  # Run hbnet_design_profile protocol
-            protocol, protocol_xml1 = PUtils.hbnet_design_profile, 'hbnet_scout'
+            protocol, protocol_xml1 = putils.hbnet_design_profile, 'hbnet_scout'
             nstruct_instruct = ['-no_nstruct_label', 'true']
             design_files = os.path.join(self.scripts, f'design_files_{protocol}.txt')
             generate_files_cmd = \
-                ['python', PUtils.list_pdb_files, '-d', self.designs, '-o', design_files, '-s', '_' + protocol]
+                ['python', putils.list_pdb_files, '-d', self.designs, '-o', design_files, '-s', '_' + protocol]
             metrics_pdb = ['-in:file:l', design_files]  # self.pdb_list]
             # metrics_flags = 'repack=yes'
             out_file = ['-out:file:silent', os.path.join(self.data, 'hbnet_silent.o'),
                         '-out:file:silent_struct_type', 'binary']
             additional_cmds = \
-                [[PUtils.hbnet_sort, os.path.join(self.data, 'hbnet_silent.o'),
+                [[putils.hbnet_sort, os.path.join(self.data, 'hbnet_silent.o'),
                   str(self.job.design.number_of_trajectories)]]
             # silent_file = os.path.join(self.data, 'hbnet_silent.o')
             # additional_commands = \
@@ -2053,17 +2053,17 @@ class PoseDirectory:
                 consensus_cmd = main_cmd + relax_flags_cmdline + \
                     [f'@%{self.flags}', '-in:file:s', self.consensus_pdb,
                      # '-in:file:native', self.refined_pdb,
-                     '-parser:protocol', os.path.join(PUtils.rosetta_scripts_dir, f'{PUtils.consensus}.xml'),
-                     '-parser:script_vars', f'switch={PUtils.consensus}']
+                     '-parser:protocol', os.path.join(putils.rosetta_scripts_dir, f'{putils.consensus}.xml'),
+                     '-parser:script_vars', f'switch={putils.consensus}']
                 self.log.info(f'Consensus command: {list2cmdline(consensus_cmd)}')
                 if self.job.distribute_work:
-                    write_shell_script(list2cmdline(consensus_cmd), name=PUtils.consensus, out_path=self.scripts)
+                    write_shell_script(list2cmdline(consensus_cmd), name=putils.consensus, out_path=self.scripts)
                 else:
                     consensus_process = Popen(consensus_cmd)
                     consensus_process.communicate()
             else:
                 self.log.critical(f'Cannot run consensus design without fragment info and none was found.'
-                                  f' Did you mean to include --{PUtils.term_constraint} as '
+                                  f' Did you mean to include --{putils.term_constraint} as '
                                   f'{self.job.design.term_constraint}?')
         # DESIGN: Prepare command and flags file
         # Todo must set up a blank -in:file:pssm in case the evolutionary matrix is not used. Design will fail!!
@@ -2071,7 +2071,7 @@ class PoseDirectory:
             if os.path.exists(self.evolutionary_profile_file) else []
         design_cmd = main_cmd + profile_cmd + \
             [f'@{self.flags}', '-in:file:s', self.scouted_pdb if os.path.exists(self.scouted_pdb) else self.refined_pdb,
-             '-parser:protocol', os.path.join(PUtils.rosetta_scripts_dir, f'{protocol_xml1}.xml'),
+             '-parser:protocol', os.path.join(putils.rosetta_scripts_dir, f'{protocol_xml1}.xml'),
              '-out:suffix', f'_{protocol}'] + (['-overwrite'] if self.job.overwrite else []) \
             + out_file + nstruct_instruct
         if additional_cmds:  # this is where hbnet_design_profile.xml is set up, which could be just design_profile.xml
@@ -2080,17 +2080,17 @@ class PoseDirectory:
                 ['-in:file:silent', os.path.join(self.data, 'hbnet_selected.o'), f'@{self.flags}',
                  '-in:file:silent_struct_type', 'binary',
                  # '-out:suffix', '_%s' % protocol,  adding no_nstruct_label true as only hbnet uses this mechanism
-                 '-parser:protocol', os.path.join(PUtils.rosetta_scripts_dir, f'{protocol}.xml')] + nstruct_instruct)
+                 '-parser:protocol', os.path.join(putils.rosetta_scripts_dir, f'{protocol}.xml')] + nstruct_instruct)
 
         # METRICS: Can remove if SimpleMetrics adopts pose metric caching and restoration
         # Assumes all entity chains are renamed from A to Z for entities (1 to n)
         entity_cmd = script_cmd + metrics_pdb + \
             [f'@{self.flags}', '-out:file:score_only', self.scores_file, '-no_nstruct_label', 'true',
-             '-parser:protocol', os.path.join(PUtils.rosetta_scripts_dir, 'metrics_entity.xml')]
+             '-parser:protocol', os.path.join(putils.rosetta_scripts_dir, 'metrics_entity.xml')]
 
         if self.job.mpi > 0 and not self.job.design.scout:
-            design_cmd = run_cmds[PUtils.rosetta_extras] + [str(self.job.mpi)] + design_cmd
-            entity_cmd = run_cmds[PUtils.rosetta_extras] + [str(self.job.mpi)] + entity_cmd
+            design_cmd = run_cmds[putils.rosetta_extras] + [str(self.job.mpi)] + design_cmd
+            entity_cmd = run_cmds[putils.rosetta_extras] + [str(self.job.mpi)] + entity_cmd
 
         self.log.info(f'{self.rosetta_interface_design.__name__} command: {list2cmdline(design_cmd)}')
         metric_cmds = []
@@ -2098,9 +2098,9 @@ class PoseDirectory:
 
         # Create executable/Run FastDesign on Refined ASU with RosettaScripts. Then, gather Metrics
         if self.job.distribute_work:
-            analysis_cmd = ['python', PUtils.program_exe, PUtils.analysis, '--single', self.path, '--no-output',
+            analysis_cmd = ['python', putils.program_exe, putils.analysis, '--single', self.path, '--no-output',
                             '--output_file', os.path.join(self.job.all_scores,
-                                                          PUtils.default_analysis_file % (starttime, protocol))]
+                                                          putils.default_analysis_file % (starttime, protocol))]
             write_shell_script(list2cmdline(design_cmd), name=protocol, out_path=self.scripts,
                                additional=[list2cmdline(command) for command in additional_cmds] +
                                           [list2cmdline(generate_files_cmd)] +
@@ -2119,7 +2119,7 @@ class PoseDirectory:
         # ANALYSIS: each output from the Design process based on score, Analyze Sequence Variation
         if not self.job.distribute_work:
             pose_s = self._interface_design_analysis()
-            out_path = os.path.join(self.job.all_scores, PUtils.default_analysis_file % (starttime, 'All'))
+            out_path = os.path.join(self.job.all_scores, putils.default_analysis_file % (starttime, 'All'))
             if os.path.exists(out_path):
                 header = False
             else:
@@ -2180,13 +2180,13 @@ class PoseDirectory:
 
         res_file = self.pose.make_resfile(directives, out_path=self.data, include=wt, background=background)
 
-        protocol = PUtils.optimize_designs
+        protocol = putils.optimize_designs
         protocol_xml1 = protocol
         # nstruct_instruct = ['-no_nstruct_label', 'true']
         nstruct_instruct = ['-nstruct', str(self.job.design.number_of_trajectories)]
         design_list_file = os.path.join(self.scripts, f'design_files_{protocol}.txt')
         generate_files_cmd = \
-            ['python', PUtils.list_pdb_files, '-d', self.designs, '-o', design_list_file, '-s', '_' + protocol]
+            ['python', putils.list_pdb_files, '-d', self.designs, '-o', design_list_file, '-s', '_' + protocol]
 
         main_cmd = copy(script_cmd)
         main_cmd += ['-symmetry_definition', 'CRYST1'] if self.design_dimension > 0 else []
@@ -2202,7 +2202,7 @@ class PoseDirectory:
         design_cmd = main_cmd + profile_cmd \
             + ['-in:file:s', specific_design if specific_design else self.refined_pdb,
                f'@{self.flags}', '-out:suffix', f'_{protocol}', '-packing:resfile', res_file,
-               '-parser:protocol', os.path.join(PUtils.rosetta_scripts_dir, f'{protocol_xml1}.xml')] + nstruct_instruct
+               '-parser:protocol', os.path.join(putils.rosetta_scripts_dir, f'{protocol_xml1}.xml')] + nstruct_instruct
 
         # metrics_pdb = ['-in:file:l', design_list_file]  # self.pdb_list]
         # METRICS: Can remove if SimpleMetrics adopts pose metric caching and restoration
@@ -2210,11 +2210,11 @@ class PoseDirectory:
         # metric_cmd = main_cmd + ['-in:file:s', self.specific_design if self.specific_design else self.refined_pdb] + \
         entity_cmd = main_cmd + ['-in:file:l', design_list_file] + \
             [f'@{self.flags}', '-out:file:score_only', self.scores_file, '-no_nstruct_label', 'true',
-             '-parser:protocol', os.path.join(PUtils.rosetta_scripts_dir, 'metrics_entity.xml')]
+             '-parser:protocol', os.path.join(putils.rosetta_scripts_dir, 'metrics_entity.xml')]
 
         if self.job.mpi > 0:
-            design_cmd = run_cmds[PUtils.rosetta_extras] + [str(self.job.mpi)] + design_cmd
-            entity_cmd = run_cmds[PUtils.rosetta_extras] + [str(self.job.mpi)] + entity_cmd
+            design_cmd = run_cmds[putils.rosetta_extras] + [str(self.job.mpi)] + design_cmd
+            entity_cmd = run_cmds[putils.rosetta_extras] + [str(self.job.mpi)] + entity_cmd
 
         self.log.info(f'{self.optimize_designs.__name__} command: {list2cmdline(design_cmd)}')
         metric_cmds = []
@@ -2222,9 +2222,9 @@ class PoseDirectory:
 
         # Create executable/Run FastDesign on Refined ASU with RosettaScripts. Then, gather Metrics
         if self.job.distribute_work:
-            analysis_cmd = ['python', PUtils.program_exe, PUtils.analysis, '--single', self.path, '--no-output',
+            analysis_cmd = ['python', putils.program_exe, putils.analysis, '--single', self.path, '--no-output',
                             '--output_file', os.path.join(self.job.all_scores,
-                                                          PUtils.default_analysis_file % (starttime, protocol))]
+                                                          putils.default_analysis_file % (starttime, protocol))]
             write_shell_script(list2cmdline(design_cmd), name=protocol, out_path=self.scripts,
                                additional=[list2cmdline(generate_files_cmd)] +
                                           [list2cmdline(command) for command in metric_cmds] +
@@ -2241,7 +2241,7 @@ class PoseDirectory:
         # ANALYSIS: each output from the Design process based on score, Analyze Sequence Variation
         if not self.job.distribute_work:
             pose_s = self._interface_design_analysis()
-            out_path = os.path.join(self.job.all_scores, PUtils.default_analysis_file % (starttime, 'All'))
+            out_path = os.path.join(self.job.all_scores, putils.default_analysis_file % (starttime, 'All'))
             if os.path.exists(out_path):
                 header = False
             else:
@@ -2311,7 +2311,7 @@ class PoseDirectory:
         residue_numbers = list(range(1, pose_length + 1))
         pose_sequences = {pose_source: self.pose.sequence}
         # Todo implement reference sequence from included file(s) or as with self.pose.sequence below
-        pose_sequences.update({PUtils.reference_name: self.pose.sequence})
+        pose_sequences.update({putils.reference_name: self.pose.sequence})
         pose_sequences.update({pose.name: pose.sequence for pose in design_poses})
         all_mutations = generate_mutations_from_reference(self.pose.sequence, pose_sequences, return_to=True)  # , zero_index=True)
         #    generate_mutations_from_reference(''.join(self.pose.atom_sequences.values()), pose_sequences)
@@ -2330,7 +2330,7 @@ class PoseDirectory:
             self.log.debug(f'Found design scores in file: {self.scores_file}')
             design_was_performed = True
             # Get the scores from the score file on design trajectory metrics
-            source_df = pd.DataFrame({pose_source: {PUtils.groups: job_key}}).T
+            source_df = pd.DataFrame({pose_source: {putils.groups: job_key}}).T
             for idx, entity in enumerate(self.pose.entities, 1):
                 source_df[f'buns_{idx}_unbound'] = 0
                 source_df[f'interface_energy_{idx}_bound'] = 0
@@ -2413,14 +2413,14 @@ class PoseDirectory:
 
             # Drop designs where required data isn't present
             # Format protocol columns
-            missing_group_indices = scores_df[PUtils.groups].isna()
+            missing_group_indices = scores_df[putils.groups].isna()
             # Todo remove not DEV
             scout_indices = [idx for idx in scores_df[missing_group_indices].index if 'scout' in idx]
-            scores_df.loc[scout_indices, PUtils.groups] = PUtils.scout
+            scores_df.loc[scout_indices, putils.groups] = putils.scout
             structure_bkgnd_indices = [idx for idx in scores_df[missing_group_indices].index if 'no_constraint' in idx]
-            scores_df.loc[structure_bkgnd_indices, PUtils.groups] = PUtils.structure_background
+            scores_df.loc[structure_bkgnd_indices, putils.groups] = putils.structure_background
             # Todo Done remove
-            # protocol_s.replace({'combo_profile': PUtils.design_profile}, inplace=True)  # ensure proper profile name
+            # protocol_s.replace({'combo_profile': putils.design_profile}, inplace=True)  # ensure proper profile name
 
             scores_df.drop(missing_group_indices, axis=0, inplace=True, errors='ignore')
             # protocol_s.drop(missing_group_indices, inplace=True, errors='ignore')
@@ -2455,8 +2455,8 @@ class PoseDirectory:
             design_was_performed = False
             # Todo add relevant missing scores such as those specified as 0 below
             # Todo may need to put source_df in scores file alternative
-            source_df = pd.DataFrame({pose_source: {PUtils.groups: job_key}}).T
-            scores_df = pd.DataFrame({pose.name: {PUtils.groups: job_key} for pose in design_poses}).T
+            source_df = pd.DataFrame({pose_source: {putils.groups: job_key}}).T
+            scores_df = pd.DataFrame({pose.name: {putils.groups: job_key} for pose in design_poses}).T
             scores_df = pd.concat([source_df, scores_df])
             for idx, entity in enumerate(self.pose.entities, 1):
                 source_df[f'buns_{idx}_unbound'] = 0
@@ -2509,13 +2509,13 @@ class PoseDirectory:
         #                         for chain, named_sequences in entity_sequences.items()}
 
         # Find protocols for protocol specific data processing removing from scores_df
-        protocol_s = scores_df.pop(PUtils.groups).copy()
+        protocol_s = scores_df.pop(putils.groups).copy()
         designs_by_protocol = protocol_s.groupby(protocol_s).groups
         # remove refine and consensus if present as there was no design done over multiple protocols
         unique_protocols = list(designs_by_protocol.keys())
         # Todo change if we did multiple rounds of these protocols
-        designs_by_protocol.pop(PUtils.refine, None)
-        designs_by_protocol.pop(PUtils.consensus, None)
+        designs_by_protocol.pop(putils.refine, None)
+        designs_by_protocol.pop(putils.consensus, None)
         # Get unique protocols
         unique_design_protocols = set(designs_by_protocol.keys())
         self.log.info(f'Unique Design Protocols: {", ".join(unique_design_protocols)}')
@@ -2897,10 +2897,10 @@ class PoseDirectory:
             scores_df.drop('repacking', axis=1, inplace=True)
 
         # Process dataframes for missing values and drop refine trajectory if present
-        # refine_index = scores_df[scores_df[PUtils.groups] == PUtils.refine].index
+        # refine_index = scores_df[scores_df[putils.groups] == putils.refine].index
         # scores_df.drop(refine_index, axis=0, inplace=True, errors='ignore')
         # per_residue_df.drop(refine_index, axis=0, inplace=True, errors='ignore')
-        # residue_info.pop(PUtils.refine, None)  # Remove refine from analysis
+        # residue_info.pop(putils.refine, None)  # Remove refine from analysis
         # residues_no_frags = per_residue_df.columns[per_residue_df.isna().all(axis=0)].remove_unused_levels().levels[0]
         per_residue_df.dropna(how='all', inplace=True, axis=1)  # remove completely empty columns such as obs_interface
         # fill in contact order for each design
@@ -2912,15 +2912,15 @@ class PoseDirectory:
         # scores_df = pd.concat([scores_df, proteinmpnn_df], axis=1)
         scores_df.dropna(how='all', inplace=True, axis=1)  # remove completely empty columns
         # refine is not considered sequence design and destroys mean. remove v
-        # trajectory_df = scores_df.sort_index().drop(PUtils.refine, axis=0, errors='ignore')
+        # trajectory_df = scores_df.sort_index().drop(putils.refine, axis=0, errors='ignore')
         # consensus cst_weights are very large and destroy the mean.
         # remove this drop for consensus or refine if they are run multiple times
         trajectory_df = \
-            scores_df.drop([pose_source, PUtils.refine, PUtils.consensus], axis=0, errors='ignore').sort_index()
+            scores_df.drop([pose_source, putils.refine, putils.consensus], axis=0, errors='ignore').sort_index()
 
         # Get total design statistics for every sequence in the pose and every protocol specifically
-        scores_df[PUtils.groups] = protocol_s
-        protocol_groups = scores_df.groupby(PUtils.groups)
+        scores_df[putils.groups] = protocol_s
+        protocol_groups = scores_df.groupby(putils.groups)
         # numerics = ['int16', 'int32', 'int64', 'float16', 'float32', 'float64']
         # print(trajectory_df.select_dtypes(exclude=numerics))
 
@@ -2959,11 +2959,11 @@ class PoseDirectory:
 
         # Calculate protocol significance
         pvalue_df = pd.DataFrame()
-        scout_protocols = list(filter(re.compile(f'.*{PUtils.scout}').match,
+        scout_protocols = list(filter(re.compile(f'.*{putils.scout}').match,
                                       protocol_s[~protocol_s.isna()].unique().tolist()))
-        similarity_protocols = unique_design_protocols.difference([PUtils.refine, job_key] + scout_protocols)
-        if PUtils.structure_background not in unique_design_protocols:
-            self.log.info(f'Missing background protocol "{PUtils.structure_background}". No protocol significance '
+        similarity_protocols = unique_design_protocols.difference([putils.refine, job_key] + scout_protocols)
+        if putils.structure_background not in unique_design_protocols:
+            self.log.info(f'Missing background protocol "{putils.structure_background}". No protocol significance '
                           f'measurements available for this pose')
         elif len(similarity_protocols) == 1:  # measure significance
             self.log.info("Can't measure protocol significance, only one protocol of interest")
@@ -3005,12 +3005,12 @@ class PoseDirectory:
 
             # Merge PC DataFrames with labels
             # seq_pc_df = pd.merge(protocol_s, seq_pc_df, left_index=True, right_index=True)
-            seq_pc_df[PUtils.groups] = protocol_s
+            seq_pc_df[putils.groups] = protocol_s
             # residue_energy_pc_df = pd.merge(protocol_s, residue_energy_pc_df, left_index=True, right_index=True)
-            residue_energy_pc_df[PUtils.groups] = protocol_s
+            residue_energy_pc_df[putils.groups] = protocol_s
             # Next group the labels
-            sequence_groups = seq_pc_df.groupby(PUtils.groups)
-            residue_energy_groups = residue_energy_pc_df.groupby(PUtils.groups)
+            sequence_groups = seq_pc_df.groupby(putils.groups)
+            residue_energy_groups = residue_energy_pc_df.groupby(putils.groups)
             # Measure statistics for each group
             # All protocol means have pairwise distance measured to access similarity
             # Gather protocol similarity/distance metrics
@@ -3026,11 +3026,11 @@ class PoseDirectory:
                     # structure background mean (if structure background, is the mean is useful too?)
                     background_distance = \
                         cdist(residue_energy_pc,
-                              grouped_pc_energy_df.loc[PUtils.structure_background, :].values[np.newaxis, :])
+                              grouped_pc_energy_df.loc[putils.structure_background, :].values[np.newaxis, :])
                     trajectory_df = \
                         pd.concat([trajectory_df,
                                    pd.Series(background_distance.flatten(), index=residue_energy_pc_df.index,
-                                             name=f'energy_distance_from_{PUtils.structure_background}_mean')], axis=1)
+                                             name=f'energy_distance_from_{putils.structure_background}_mean')], axis=1)
 
                     # if renaming is necessary
                     # protocol_stats_s[stat].index = protocol_stats_s[stat].index.to_series().map(
@@ -3155,7 +3155,7 @@ class PoseDirectory:
             trajectory_df.sort_index(inplace=True, axis=1)
             per_residue_df.sort_index(inplace=True)
             per_residue_df.sort_index(level=0, axis=1, inplace=True, sort_remaining=False)
-            per_residue_df[(PUtils.groups, PUtils.groups)] = protocol_s
+            per_residue_df[(putils.groups, putils.groups)] = protocol_s
             # per_residue_df.sort_index(inplace=True, key=lambda x: x.str.isdigit())  # put wt entry first
             if merge_residue_data:
                 trajectory_df = pd.concat([trajectory_df], axis=1, keys=['metrics'])
@@ -3172,8 +3172,8 @@ class PoseDirectory:
             collapse_graph_df = per_residue_df.loc[:, idx_slice[:, 'hydrophobic_collapse']].droplevel(-1, axis=1)
             reference_collapse = [entity.hydrophobic_collapse for entity in self.pose.entities]
             reference_collapse_concatenated_s = \
-                pd.Series(np.concatenate(reference_collapse), name=PUtils.reference_name)
-            collapse_graph_df[PUtils.reference_name] = reference_collapse_concatenated_s
+                pd.Series(np.concatenate(reference_collapse), name=putils.reference_name)
+            collapse_graph_df[putils.reference_name] = reference_collapse_concatenated_s
             # collapse_graph_df.columns += 1  # offset index to residue numbering
             # collapse_graph_df.sort_index(axis=1, inplace=True)
             # graph_collapse = sns.lineplot(data=collapse_graph_df)
@@ -3331,7 +3331,7 @@ class PoseDirectory:
         # CONSTRUCT: Create pose series and format index names
         pose_s = pd.concat([interface_metrics_s, stat_s, divergence_s] + sim_series).swaplevel(0, 1)
         # Remove pose specific metrics from pose_s, sort, and name protocol_mean_df
-        pose_s.drop([PUtils.groups], level=2, inplace=True, errors='ignore')
+        pose_s.drop([putils.groups], level=2, inplace=True, errors='ignore')
         pose_s.sort_index(level=2, inplace=True, sort_remaining=False)  # ascending=True, sort_remaining=True)
         pose_s.sort_index(level=1, inplace=True, sort_remaining=False)  # ascending=True, sort_remaining=True)
         pose_s.sort_index(level=0, inplace=True, sort_remaining=False)  # ascending=False
@@ -3539,7 +3539,7 @@ def interface_design_analysis(pose: Pose, design_poses: Iterable[Pose] = None, s
     residue_indices = list(range(1, pose_length + 1))
     pose_sequences = {pose_source: pose.sequence}
     # Todo implement reference sequence from included file(s) or as with pose.sequence below
-    pose_sequences.update({PUtils.reference_name: pose.sequence})
+    pose_sequences.update({putils.reference_name: pose.sequence})
     pose_sequences.update({pose.name: pose.sequence for pose in design_poses})
     all_mutations = generate_mutations_from_reference(pose.sequence, pose_sequences, return_to=True)  # , zero_index=True)
     #    generate_mutations_from_reference(''.join(pose.atom_sequences.values()), pose_sequences)
@@ -3558,7 +3558,7 @@ def interface_design_analysis(pose: Pose, design_poses: Iterable[Pose] = None, s
         pose.log.debug(f'Found design scores in file: {scores_file}')
         design_was_performed = True
         # Get the scores from the score file on design trajectory metrics
-        source_df = pd.DataFrame({pose_source: {PUtils.groups: job_key}}).T
+        source_df = pd.DataFrame({pose_source: {putils.groups: job_key}}).T
         for idx, entity in enumerate(pose.entities, 1):
             source_df[f'buns_{idx}_unbound'] = 0
             source_df[f'interface_energy_{idx}_bound'] = 0
@@ -3631,14 +3631,14 @@ def interface_design_analysis(pose: Pose, design_poses: Iterable[Pose] = None, s
 
         # Drop designs where required data isn't present
         # Format protocol columns
-        missing_group_indices = scores_df[PUtils.groups].isna()
+        missing_group_indices = scores_df[putils.groups].isna()
         # Todo remove not DEV
         scout_indices = [idx for idx in scores_df[missing_group_indices].index if 'scout' in idx]
-        scores_df.loc[scout_indices, PUtils.groups] = PUtils.scout
+        scores_df.loc[scout_indices, putils.groups] = putils.scout
         structure_bkgnd_indices = [idx for idx in scores_df[missing_group_indices].index if 'no_constraint' in idx]
-        scores_df.loc[structure_bkgnd_indices, PUtils.groups] = PUtils.structure_background
+        scores_df.loc[structure_bkgnd_indices, putils.groups] = putils.structure_background
         # Todo Done remove
-        # protocol_s.replace({'combo_profile': PUtils.design_profile}, inplace=True)  # ensure proper profile name
+        # protocol_s.replace({'combo_profile': putils.design_profile}, inplace=True)  # ensure proper profile name
 
         scores_df.drop(missing_group_indices, axis=0, inplace=True, errors='ignore')
         # protocol_s.drop(missing_group_indices, inplace=True, errors='ignore')
@@ -3672,8 +3672,8 @@ def interface_design_analysis(pose: Pose, design_poses: Iterable[Pose] = None, s
         design_was_performed = False
         # Todo add relevant missing scores such as those specified as 0 below
         # Todo may need to put source_df in scores file alternative
-        source_df = pd.DataFrame({pose_source: {PUtils.groups: job_key}}).T
-        scores_df = pd.DataFrame({pose.name: {PUtils.groups: job_key} for pose in design_poses}).T
+        source_df = pd.DataFrame({pose_source: {putils.groups: job_key}}).T
+        scores_df = pd.DataFrame({pose.name: {putils.groups: job_key} for pose in design_poses}).T
         scores_df = pd.concat([source_df, scores_df])
         for idx, entity in enumerate(pose.entities, 1):
             source_df[f'buns_{idx}_unbound'] = 0
@@ -3726,13 +3726,13 @@ def interface_design_analysis(pose: Pose, design_poses: Iterable[Pose] = None, s
     #                         for chain, named_sequences in entity_sequences.items()}
 
     # Find protocols for protocol specific data processing removing from scores_df
-    protocol_s = scores_df.pop(PUtils.groups).copy()
+    protocol_s = scores_df.pop(putils.groups).copy()
     designs_by_protocol = protocol_s.groupby(protocol_s).groups
     # remove refine and consensus if present as there was no design done over multiple protocols
     unique_protocols = list(designs_by_protocol.keys())
     # Todo change if we did multiple rounds of these protocols
-    designs_by_protocol.pop(PUtils.refine, None)
-    designs_by_protocol.pop(PUtils.consensus, None)
+    designs_by_protocol.pop(putils.refine, None)
+    designs_by_protocol.pop(putils.consensus, None)
     # Get unique protocols
     unique_design_protocols = set(designs_by_protocol.keys())
     pose.log.info(f'Unique Design Protocols: {", ".join(unique_design_protocols)}')
@@ -4138,10 +4138,10 @@ def interface_design_analysis(pose: Pose, design_poses: Iterable[Pose] = None, s
         scores_df.drop('repacking', axis=1, inplace=True)
 
     # Process dataframes for missing values and drop refine trajectory if present
-    # refine_index = scores_df[scores_df[PUtils.groups] == PUtils.refine].index
+    # refine_index = scores_df[scores_df[putils.groups] == putils.refine].index
     # scores_df.drop(refine_index, axis=0, inplace=True, errors='ignore')
     # residue_df.drop(refine_index, axis=0, inplace=True, errors='ignore')
-    # residue_info.pop(PUtils.refine, None)  # Remove refine from analysis
+    # residue_info.pop(putils.refine, None)  # Remove refine from analysis
     # residues_no_frags = residue_df.columns[residue_df.isna().all(axis=0)].remove_unused_levels().levels[0]
     residue_df.dropna(how='all', inplace=True, axis=1)  # remove completely empty columns such as obs_interface
     # fill in contact order for each design
@@ -4153,15 +4153,15 @@ def interface_design_analysis(pose: Pose, design_poses: Iterable[Pose] = None, s
     scores_df = pd.concat([scores_df, pose_collapse_df], axis=1)
     scores_df.dropna(how='all', inplace=True, axis=1)  # remove completely empty columns
     # refine is not considered sequence design and destroys mean. remove v
-    # trajectory_df = scores_df.sort_index().drop(PUtils.refine, axis=0, errors='ignore')
+    # trajectory_df = scores_df.sort_index().drop(putils.refine, axis=0, errors='ignore')
     # consensus cst_weights are very large and destroy the mean.
     # remove this drop for consensus or refine if they are run multiple times
     trajectory_df = \
-        scores_df.drop([pose_source, PUtils.refine, PUtils.consensus], axis=0, errors='ignore').sort_index()
+        scores_df.drop([pose_source, putils.refine, putils.consensus], axis=0, errors='ignore').sort_index()
 
     # Get total design statistics for every sequence in the pose and every protocol specifically
-    scores_df[PUtils.groups] = protocol_s
-    protocol_groups = scores_df.groupby(PUtils.groups)
+    scores_df[putils.groups] = protocol_s
+    protocol_groups = scores_df.groupby(putils.groups)
     # numerics = ['int16', 'int32', 'int64', 'float16', 'float32', 'float64']
     # print(trajectory_df.select_dtypes(exclude=numerics))
 
@@ -4199,10 +4199,10 @@ def interface_design_analysis(pose: Pose, design_poses: Iterable[Pose] = None, s
 
     # Calculate protocol significance
     pvalue_df = pd.DataFrame()
-    scout_protocols = list(filter(re.compile(f'.*{PUtils.scout}').match, protocol_s.unique().tolist()))
-    similarity_protocols = unique_design_protocols.difference([PUtils.refine, job_key] + scout_protocols)
-    if PUtils.structure_background not in unique_design_protocols:
-        pose.log.info(f'Missing background protocol "{PUtils.structure_background}". No protocol significance '
+    scout_protocols = list(filter(re.compile(f'.*{putils.scout}').match, protocol_s.unique().tolist()))
+    similarity_protocols = unique_design_protocols.difference([putils.refine, job_key] + scout_protocols)
+    if putils.structure_background not in unique_design_protocols:
+        pose.log.info(f'Missing background protocol "{putils.structure_background}". No protocol significance '
                       f'measurements available for this pose')
     elif len(similarity_protocols) == 1:  # measure significance
         pose.log.info("Can't measure protocol significance, only one protocol of interest")
@@ -4244,12 +4244,12 @@ def interface_design_analysis(pose: Pose, design_poses: Iterable[Pose] = None, s
 
         # Merge PC DataFrames with labels
         # seq_pc_df = pd.merge(protocol_s, seq_pc_df, left_index=True, right_index=True)
-        seq_pc_df[PUtils.groups] = protocol_s
+        seq_pc_df[putils.groups] = protocol_s
         # residue_energy_pc_df = pd.merge(protocol_s, residue_energy_pc_df, left_index=True, right_index=True)
-        residue_energy_pc_df[PUtils.groups] = protocol_s
+        residue_energy_pc_df[putils.groups] = protocol_s
         # Next group the labels
-        sequence_groups = seq_pc_df.groupby(PUtils.groups)
-        residue_energy_groups = residue_energy_pc_df.groupby(PUtils.groups)
+        sequence_groups = seq_pc_df.groupby(putils.groups)
+        residue_energy_groups = residue_energy_pc_df.groupby(putils.groups)
         # Measure statistics for each group
         # All protocol means have pairwise distance measured to access similarity
         # Gather protocol similarity/distance metrics
@@ -4265,11 +4265,11 @@ def interface_design_analysis(pose: Pose, design_poses: Iterable[Pose] = None, s
                 # structure background mean (if structure background, is the mean is useful too?)
                 background_distance = \
                     cdist(residue_energy_pc,
-                          grouped_pc_energy_df.loc[PUtils.structure_background, :].values[np.newaxis, :])
+                          grouped_pc_energy_df.loc[putils.structure_background, :].values[np.newaxis, :])
                 trajectory_df = \
                     pd.concat([trajectory_df,
                                pd.Series(background_distance.flatten(), index=residue_energy_pc_df.index,
-                                         name=f'energy_distance_from_{PUtils.structure_background}_mean')], axis=1)
+                                         name=f'energy_distance_from_{putils.structure_background}_mean')], axis=1)
 
                 # if renaming is necessary
                 # protocol_stats_s[stat].index = protocol_stats_s[stat].index.to_series().map(
@@ -4394,7 +4394,7 @@ def interface_design_analysis(pose: Pose, design_poses: Iterable[Pose] = None, s
         trajectory_df.sort_index(inplace=True, axis=1)
         residue_df.sort_index(inplace=True)
         residue_df.sort_index(level=0, axis=1, inplace=True, sort_remaining=False)
-        residue_df[(PUtils.groups, PUtils.groups)] = protocol_s
+        residue_df[(putils.groups, putils.groups)] = protocol_s
         # residue_df.sort_index(inplace=True, key=lambda x: x.str.isdigit())  # put wt entry first
         if merge_residue_data:
             trajectory_df = pd.concat([trajectory_df], axis=1, keys=['metrics'])
@@ -4411,8 +4411,8 @@ def interface_design_analysis(pose: Pose, design_poses: Iterable[Pose] = None, s
         collapse_graph_df = per_residue_df.loc[:, idx_slice[:, 'hydrophobic_collapse']].droplevel(-1, axis=1)
         reference_collapse = [entity.hydrophobic_collapse for entity in pose.entities]
         reference_collapse_concatenated_s = \
-            pd.Series(np.concatenate(reference_collapse), name=PUtils.reference_name)
-        collapse_graph_df[PUtils.reference_name] = reference_collapse_concatenated_s
+            pd.Series(np.concatenate(reference_collapse), name=putils.reference_name)
+        collapse_graph_df[putils.reference_name] = reference_collapse_concatenated_s
         # collapse_graph_df.columns += 1  # offset index to residue numbering
         # collapse_graph_df.sort_index(axis=1, inplace=True)
         # graph_collapse = sns.lineplot(data=collapse_graph_df)
@@ -4570,7 +4570,7 @@ def interface_design_analysis(pose: Pose, design_poses: Iterable[Pose] = None, s
     # CONSTRUCT: Create pose series and format index names
     pose_s = pd.concat([interface_metrics_s, stat_s, divergence_s] + sim_series).swaplevel(0, 1)
     # Remove pose specific metrics from pose_s, sort, and name protocol_mean_df
-    pose_s.drop([PUtils.groups], level=2, inplace=True, errors='ignore')
+    pose_s.drop([putils.groups], level=2, inplace=True, errors='ignore')
     pose_s.sort_index(level=2, inplace=True, sort_remaining=False)  # ascending=True, sort_remaining=True)
     pose_s.sort_index(level=1, inplace=True, sort_remaining=False)  # ascending=True, sort_remaining=True)
     pose_s.sort_index(level=0, inplace=True, sort_remaining=False)  # ascending=False

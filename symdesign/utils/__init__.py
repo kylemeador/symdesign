@@ -27,8 +27,8 @@ import psutil
 
 # from Query.utils import validate_input
 # from . import CommandDistributer, ProteinExpression  # Doesn't work due to circular imports
-from . import path as PUtils
-# from ..utils import cluster, CommandDistributer, ProteinExpression, SymEntry, symmetry, path as PUtils
+from . import path as putils
+# from ..utils import cluster, CommandDistributer, ProteinExpression, SymEntry, symmetry, path as putils
 
 # Globals
 logger = logging.getLogger(__name__)
@@ -575,7 +575,7 @@ def write_shell_script(command: str, name: str = 'script', out_path: Union[str, 
     """
     if status_wrap:
         modifier = '&&'
-        _base_cmd = ['python', PUtils.command_distributer, '--stage', name, 'status', '--info', status_wrap]
+        _base_cmd = ['python', putils.command_distributer, '--stage', name, 'status', '--info', status_wrap]
         check = subprocess.list2cmdline(_base_cmd + ['--check', modifier, '\n'])
         _set = subprocess.list2cmdline(_base_cmd + ['--set'])
     else:
@@ -662,7 +662,7 @@ def write_commands(commands: Iterable[str], name: str = 'all_commands', out_path
 
 
 # def rename_decoy_protocols(des_dir, rename_dict):
-#     score_file = os.path.join(des_dir.scores, PUtils.scores_file)
+#     score_file = os.path.join(des_dir.scores, putils.scores_file)
 #     with open(score_file, 'r+') as f:
 #         scores = [loads(score) for score in f.readlines()]
 #         for i, score in enumerate(scores):
@@ -943,7 +943,7 @@ def get_base_nanohedra_dirs(base_dir):
     """
     nanohedra_dirs = []
     for root, dirs, files in os.walk(base_dir, followlinks=True):
-        if PUtils.master_log in files:
+        if putils.master_log in files:
             nanohedra_dirs.append(root)
             del dirs[:]
 
@@ -1029,9 +1029,9 @@ def get_base_symdesign_dir(search_path: str = None) -> AnyStr | None:
     base_dir = None
     if search_path is None:
         pass
-    elif PUtils.program_output in search_path:   # directory1/SymDesignOutput/directory2/directory3
+    elif putils.program_output in search_path:   # directory1/SymDesignOutput/directory2/directory3
         for idx, dirname in enumerate(search_path.split(os.sep), 1):
-            if dirname == PUtils.program_output:
+            if dirname == putils.program_output:
                 base_dir = f'{os.sep}{os.path.join(*search_path.split(os.sep)[:idx])}'
                 break
     else:
@@ -1039,9 +1039,9 @@ def get_base_symdesign_dir(search_path: str = None) -> AnyStr | None:
             all_files = os.listdir(search_path)
         except FileNotFoundError:
             all_files = []
-        if PUtils.program_output in all_files:  # directory_provided/SymDesignOutput
+        if putils.program_output in all_files:  # directory_provided/SymDesignOutput
             for sub_directory in all_files:
-                if sub_directory == PUtils.program_output:
+                if sub_directory == putils.program_output:
                     base_dir = os.path.join(search_path, sub_directory)
                     break
 
@@ -1054,7 +1054,7 @@ def get_symdesign_dirs(base: str = None, projects: Iterable = None, singles: Ite
     """
     paths = []
     if base:
-        paths = glob(f'{base}{os.sep}{PUtils.projects}{os.sep}*{os.sep}*{os.sep}')  # base/Projects/*/*/
+        paths = glob(f'{base}{os.sep}{putils.projects}{os.sep}*{os.sep}*{os.sep}')  # base/Projects/*/*/
     elif projects:
         for project in projects:
             paths.extend(glob(f'{project}{os.sep}*{os.sep}'))  # project/*/

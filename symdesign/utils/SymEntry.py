@@ -9,7 +9,7 @@ from typing import AnyStr, Iterable
 import numpy as np
 
 from symdesign import utils
-from symdesign.utils import path as PUtils
+from symdesign.utils import path as putils
 from symdesign.utils.symmetry import valid_subunit_number, space_group_symmetry_operators, \
     point_group_symmetry_operators, all_sym_entry_dict, rotation_range, setting_matrices, identity_matrix, \
     sub_symmetries, flip_y_matrix, max_sym, valid_symmetries
@@ -717,19 +717,19 @@ class SymEntry:
             The location of the symmetry definition file on disk
         """
         if self.dimension > 0:
-            return os.path.join(PUtils.symmetry_def_files, 'C1.sym')
+            return os.path.join(putils.symmetry_def_files, 'C1.sym')
 
         symmetry = self.simple_combination_string
-        for file, ext in map(os.path.splitext, os.listdir(PUtils.symmetry_def_files)):
+        for file, ext in map(os.path.splitext, os.listdir(putils.symmetry_def_files)):
             if symmetry == file:
-                return os.path.join(PUtils.symmetry_def_files, file + ext)
+                return os.path.join(putils.symmetry_def_files, file + ext)
 
         symmetry = self.resulting_symmetry
-        for file, ext in map(os.path.splitext, os.listdir(PUtils.symmetry_def_files)):
+        for file, ext in map(os.path.splitext, os.listdir(putils.symmetry_def_files)):
             if symmetry == file:
-                return os.path.join(PUtils.symmetry_def_files, file + ext)
+                return os.path.join(putils.symmetry_def_files, file + ext)
 
-        raise FileNotFoundError(f"Couldn't locate correct symmetry definition file at '{PUtils.symmetry_def_files}' "
+        raise FileNotFoundError(f"Couldn't locate correct symmetry definition file at '{putils.symmetry_def_files}' "
                                 f'for SymEntry: {self.entry_number}')
 
 
@@ -998,8 +998,8 @@ def get_uc_dimensions(uc_string, e=1, f=0, g=0):
 
 
 highest_point_group_msg = f'If this is a point group. You likely need to modify the current highest cyclic symmetry ' \
-                          f'{max_sym} in {PUtils.path_to_sym_utils}, then run the file using "python ' \
-                          f'{PUtils.path_to_sym_utils}".'
+                          f'{max_sym} in {putils.path_to_sym_utils}, then run the file using "python ' \
+                          f'{putils.path_to_sym_utils}".'
 example_symmetry_specification = 'RESULT:{SUBSYMMETRY}{SUBSYMMETRY}...'
 
 
@@ -1063,20 +1063,20 @@ def sdf_lookup(symmetry: str = None) -> AnyStr:
         The location of the symmetry definition file on disk
     """
     if not symmetry:
-        return os.path.join(PUtils.symmetry_def_files, 'C1.sym')
+        return os.path.join(putils.symmetry_def_files, 'C1.sym')
     else:
         symmetry = symmetry.upper()
 
-    for file, ext in map(os.path.splitext, os.listdir(PUtils.symmetry_def_files)):
+    for file, ext in map(os.path.splitext, os.listdir(putils.symmetry_def_files)):
         if symmetry == file:
-            return os.path.join(PUtils.symmetry_def_files, file + ext)
+            return os.path.join(putils.symmetry_def_files, file + ext)
 
     raise utils.DesignError(f"Couldn't locate correct symmetry definition file at "
-                            f"'{PUtils.symmetry_def_files}' for symmetry: {symmetry}")
+                            f"'{putils.symmetry_def_files}' for symmetry: {symmetry}")
 
 
 repeat_with_sym_entry = f'Cannot distinguish between the desired entry. Please repeat your command, however, ' \
-                        f'additionally specify the preferred Entry Number (ex: --{PUtils.sym_entry} 1) to proceed'
+                        f'additionally specify the preferred Entry Number (ex: --{putils.sym_entry} 1) to proceed'
 header_format_string = '{:5s}  {:6s}  {:10s}  {:9s}  {:^20s}  {:6s}  {:10s}  {:9s}  {:^20s}  {:6s}'
 query_output_format_string = '{:>5s}  {:>6s}  {:>10s}  {:>9s}  {:^20s}  {:>6s}  {:>10s}  {:>9s}  {:^20s}  {:>6s}'
 
