@@ -218,6 +218,7 @@ def set_logging_to_level(level: logging_levels = None, handler_level: logging_le
         _level = log_level[1]
         set_level_func = Logger.setLevel
 
+    # print(root.manager.loggerDict)
     for logger_name in root.manager.loggerDict:
         _logger = getLogger(logger_name)
         set_level_func(_logger, _level)

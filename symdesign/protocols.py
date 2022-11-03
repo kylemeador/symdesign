@@ -673,16 +673,16 @@ class PoseDirectory:
 
         if self.job.debug:
             handler, level = 1, 1  # Defaults to stdout, debug is level 1
-            propagate, no_log_name = False, False
+            no_log_name = False
         else:
             handler = 2  # To a file
-            propagate, no_log_name = True, True
+            no_log_name = True
 
         if self.job.skip_logging or not self.job.construct_pose:  # Set up null_logger
             self.log = logging.getLogger('null')
         else:  # f'{__name__}.{self}'
             self.log = start_log(name=f'pose.{self}', handler=handler, level=level, location=self.log_path,
-                                 propagate=propagate, no_log_name=no_log_name)
+                                 no_log_name=no_log_name)  # propagate=propagate,
 
     def directory_string_to_path(self, root: AnyStr, pose_id: str):
         """Set self.path to the root/poseID where the poseID is converted from dash "-" separation to path separators"""
@@ -2625,9 +2625,12 @@ class PoseDirectory:
                                              for design_id, data in zip(viable_designs, folding_and_collapse)},
                                             ).unstack().swaplevel(0, 1, axis=1)
 
+        idx_slice = pd.IndexSlice
         # Convert per_residue_data into a dataframe matching residue_df orientation
         per_residue_df = pd.concat({name: pd.DataFrame(data, index=residue_numbers)
                                     for name, data in per_residue_data.items()}).unstack().swaplevel(0, 1, axis=1)
+        # Fill in contact order for each design
+        per_residue_df.fillna(per_residue_df.loc[pose_source, idx_slice[:, 'contact_order']], inplace=True)
         per_residue_df = per_residue_df.join(per_residue_collapse_df)
 
         # Process mutational frequencies, H-bond, and Residue energy metrics to dataframe
@@ -2636,7 +2639,6 @@ class PoseDirectory:
         # during residue_df unstack, all residues with missing dicts are copied as nan
         # Merge interface design specific residue metrics with total per residue metrics
         index_residues = list(self.interface_design_residue_numbers)
-        idx_slice = pd.IndexSlice
         per_residue_df = pd.merge(residue_df.loc[:, idx_slice[index_residues, :]],
                                   per_residue_df.loc[:, idx_slice[index_residues, :]],
                                   left_index=True, right_index=True)
@@ -2820,6 +2822,10 @@ class PoseDirectory:
             # then select only those residues which are expressly important by the inclusion boolean
             scores_df['errat_deviation'] = (errat_sig_df.loc[:, source_errat_inclusion_boolean] * 1).sum(axis=1)
 
+        scores_drop_columns = ['hydrophobic_collapse', 'sasa_relative_bound', 'sasa_relative_complex']
+        scores_df = scores_df.drop(scores_drop_columns, errors='ignore', axis=1)
+        scores_df = scores_df.rename(columns={'type': 'sequence'})
+
         # Find the proportion of the residue surface area that is solvent accessible versus buried in the interface
         sasa_assembly_df = per_residue_df.loc[:, idx_slice[index_residues, 'sasa_total_complex']].droplevel(-1, axis=1)
         bsa_assembly_df = per_residue_df.loc[:, idx_slice[index_residues, 'bsa_total']].droplevel(-1, axis=1)
@@ -2841,30 +2847,30 @@ class PoseDirectory:
         # interface_residues = set(per_residue_df.columns.levels[0].unique()).difference(interior_residue_numbers)
 
         # Add design residue information to scores_df such as how many core, rim, and support residues were measured
-        for residue_class in residue_classification:
-            scores_df[residue_class] = per_residue_df.loc[:, idx_slice[:, residue_class]].sum(axis=1)
+        # for residue_class in residue_classification:
+        #     scores_df[residue_class] = per_residue_df.loc[:, idx_slice[:, residue_class]].sum(axis=1)
 
         # Calculate new metrics from combinations of other metrics
         scores_columns = scores_df.columns.to_list()
         self.log.debug(f'Metrics present: {scores_columns}')
         # sum columns using list[0] + list[1] + list[n]
-        complex_df = per_residue_df.loc[:, idx_slice[:, 'complex']]
-        bound_df = per_residue_df.loc[:, idx_slice[:, 'bound']]
-        unbound_df = per_residue_df.loc[:, idx_slice[:, 'unbound']]
-        solvation_complex_df = per_residue_df.loc[:, idx_slice[:, 'solv_complex']]
-        solvation_bound_df = per_residue_df.loc[:, idx_slice[:, 'solv_bound']]
-        solvation_unbound_df = per_residue_df.loc[:, idx_slice[:, 'solv_unbound']]
-        # scores_df['interface_energy_complex'] = complex_df.sum(axis=1)
-        scores_df['interface_energy_bound'] = bound_df.sum(axis=1)
-        scores_df['interface_energy_unbound'] = unbound_df.sum(axis=1)
-        scores_df['interface_solvation_energy_complex'] = solvation_complex_df.sum(axis=1)
-        scores_df['interface_solvation_energy_bound'] = solvation_bound_df.sum(axis=1)
-        scores_df['interface_solvation_energy_unbound'] = solvation_unbound_df.sum(axis=1)
-        per_residue_df = per_residue_df.drop([column
-                                              for columns in [complex_df.columns, bound_df.columns, unbound_df.columns,
-                                                              solvation_complex_df.columns, solvation_bound_df.columns,
-                                                              solvation_unbound_df.columns]
-                                              for column in columns], axis=1)
+        # complex_df = per_residue_df.loc[:, idx_slice[:, 'complex']]
+        # bound_df = per_residue_df.loc[:, idx_slice[:, 'bound']]
+        # unbound_df = per_residue_df.loc[:, idx_slice[:, 'unbound']]
+        # solvation_complex_df = per_residue_df.loc[:, idx_slice[:, 'solv_complex']]
+        # solvation_bound_df = per_residue_df.loc[:, idx_slice[:, 'solv_bound']]
+        # solvation_unbound_df = per_residue_df.loc[:, idx_slice[:, 'solv_unbound']]
+        # # scores_df['interface_energy_complex'] = complex_df.sum(axis=1)
+        # scores_df['interface_energy_bound'] = bound_df.sum(axis=1)
+        # scores_df['interface_energy_unbound'] = unbound_df.sum(axis=1)
+        # scores_df['interface_solvation_energy_complex'] = solvation_complex_df.sum(axis=1)
+        # scores_df['interface_solvation_energy_bound'] = solvation_bound_df.sum(axis=1)
+        # scores_df['interface_solvation_energy_unbound'] = solvation_unbound_df.sum(axis=1)
+        # per_residue_df = per_residue_df.drop([column
+        #                                       for columns in [complex_df.columns, bound_df.columns, unbound_df.columns,
+        #                                                       solvation_complex_df.columns, solvation_bound_df.columns,
+        #                                                       solvation_unbound_df.columns]
+        #                                       for column in columns], axis=1)
         summation_pairs = \
             {'buns_unbound': list(filter(re.compile('buns_[0-9]+_unbound$').match, scores_columns)),  # Rosetta
              # 'interface_energy_bound':
@@ -2903,8 +2909,6 @@ class PoseDirectory:
         # residue_info.pop(putils.refine, None)  # Remove refine from analysis
         # residues_no_frags = per_residue_df.columns[per_residue_df.isna().all(axis=0)].remove_unused_levels().levels[0]
         per_residue_df.dropna(how='all', inplace=True, axis=1)  # remove completely empty columns such as obs_interface
-        # fill in contact order for each design
-        per_residue_df.fillna(per_residue_df.loc[pose_source, idx_slice[:, 'contact_order']], inplace=True)  # method='pad',
         per_residue_df = per_residue_df.fillna(0.).copy()
         # residue_indices_no_frags = per_residue_df.columns[per_residue_df.isna().all(axis=0)]
 
@@ -3153,6 +3157,7 @@ class PoseDirectory:
         # Format output and save Trajectory, Residue DataFrames, and PDB Sequences
         if save_metrics:
             trajectory_df.sort_index(inplace=True, axis=1)
+            per_residue_df = per_residue_df.loc[:, idx_slice[index_residues, :]]
             per_residue_df.sort_index(inplace=True)
             per_residue_df.sort_index(level=0, axis=1, inplace=True, sort_remaining=False)
             per_residue_df[(putils.groups, putils.groups)] = protocol_s
