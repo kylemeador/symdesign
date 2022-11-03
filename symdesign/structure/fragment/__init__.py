@@ -10,6 +10,7 @@ import numpy as np
 from sklearn.neighbors._ball_tree import BinaryTree
 
 from symdesign import utils, structure
+from ..fragment import info
 
 
 class GhostFragment:

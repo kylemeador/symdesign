@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import copy
+import logging
 import math
 import os
 import sys
@@ -21,7 +22,7 @@ from sklearn.neighbors import BallTree
 from sklearn.neighbors._ball_tree import BinaryTree  # This typing implementation supports BallTree or KDTree
 
 from symdesign import resources
-from metrics import calculate_collapse_metrics, calculate_residue_surface_area, errat_1_sigma, errat_2_sigma, \
+from symdesign.metrics import calculate_collapse_metrics, calculate_residue_surface_area, errat_1_sigma, errat_2_sigma, \
     multiple_sequence_alignment_dependent_metrics, profile_dependent_metrics, columns_to_new_column, \
     delta_pairs, division_pairs, interface_composition_similarity, clean_up_intermediate_columns, \
     sum_per_residue_metrics, hydrophobic_collapse_index, cross_entropy, collapse_significance_threshold

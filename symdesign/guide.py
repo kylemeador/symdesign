@@ -188,3 +188,21 @@ additional = \
     f'perform mutagenesis of surface positions to match the surface to the correct overall charge density for a ' \
     f'specified organism. This may improve solubility by making the overall mobility within the cytosol equal to that' \
     f' of the organism typical cytosolic electrostatics.'
+
+
+def set_up_instructions():
+    instructions = \
+        'I have done this using the SymDesignEnvironment.yaml provided to initialize the SymDesign' \
+        ' environment in conda. If you are using anaconda/conda (which I recommend), ' \
+        '`conda env create --file SymDesignEnvironment.yaml` will handle this for you. If you are using ' \
+        'something else, there is probably an easy way to ensure your virtual environment is up to speed ' \
+        f"with {program_name}'s dependencies. Next, you must add the following variable to your .bashrc " \
+        '(or .tschrc) so that the hhblits dependency can be correctly sourced. ' \
+        'export PATH=/home/kmeador/symdesign/dependencies/hh-suite/build/bin:$PATH' \
+        'or on .tcshrc' \
+        'setenv PATH /home/kmeador/symdesign/dependencies/hh-suite/build/bin:$PATH' \
+        'Additionally, add this path if you want to build your own scripts with any of the modules for easy import ' \
+        'into python export PYTHONPATH=/yeates1/kmeador/symdesign:$PYTHONPATH or ' \
+        'setenv PYTHONPATH /yeates1/kmeador/symdesign:$PYTHONPATH'
+
+    print(instructions)

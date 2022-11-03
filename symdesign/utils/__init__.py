@@ -24,9 +24,10 @@ import numpy as np
 import psutil
 # from numba import njit
 # from Bio.PDB import PDBParser, Superimposer
-# from Query.utils import validate_input
 
-from ..utils import path as PUtils
+# from Query.utils import validate_input
+# from . import CommandDistributer, ProteinExpression  # Doesn't work due to circular imports
+from . import path as PUtils
 # from ..utils import cluster, CommandDistributer, ProteinExpression, SymEntry, symmetry, path as PUtils
 
 # Globals
