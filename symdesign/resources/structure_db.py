@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import os
 import subprocess
 from copy import copy
@@ -8,12 +9,12 @@ from logging import Logger
 from pathlib import Path
 from typing import Iterable, Annotated, AnyStr
 
-from symdesign.resources.database import Database, DataStore
-from query.utils import boolean_choice
+from .database import Database, DataStore
+from .query.utils import boolean_choice
 from symdesign import utils, structure
 
 # Todo adjust the logging level for this module?
-logger = utils.start_log(name=__name__)
+logger = logging.getLogger(__name__)
 qsbio_confirmed = utils.unpickle(utils.path.qs_bio)
 
 

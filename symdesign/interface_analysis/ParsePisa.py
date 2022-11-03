@@ -1,4 +1,5 @@
 #!/home/kmeador/miniconda3/bin/python
+import logging
 import os
 import subprocess
 import sys
@@ -8,13 +9,11 @@ from itertools import repeat
 from lxml import etree, html
 from requests import get, post
 
-from symdesign.structure.model import Model
-from symdesign.structure.base import Structure
 from symdesign import utils
+from symdesign.structure.base import Structure
+from symdesign.structure.model import Model
 
-# from interface_analysis.InterfaceSorting import logger
-
-logger = utils.start_log(name=__name__)
+logger = logging.getLogger(__name__)
 
 # Globals
 # pisa_type_extensions = {'multimers': '.xml', 'interfaces': '.xml', 'multimer': '.pdb', 'pisa': '.pkl'}

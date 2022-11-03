@@ -6,6 +6,8 @@ SLURM computational clusters, analysis of designed poses, and sequence selection
 from __future__ import annotations
 
 import copy
+# import logging
+import logging.config
 import os
 import shutil
 import sys
@@ -21,26 +23,27 @@ import psutil
 from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
 
-import protocols
-import utils
-import utils.path as PUtils
-from symdesign.third_party.DnaChisel.dnachisel.DnaOptimizationProblem.NoSolutionError import NoSolutionError
-from flags import argparsers, parser_entire, parser_options, parser_module, parser_input, parser_guide, \
+import symdesign.utils.path as PUtils
+# logging.config.fileConfig(PUtils.logging_cfg_file)
+logging.config.dictConfig(PUtils.logging_cfg)
+logger = logging.getLogger(__name__)
+from symdesign import protocols, utils
+from symdesign.flags import argparsers, parser_entire, parser_options, parser_module, parser_input, parser_guide, \
     process_design_selector_flags, parser_residue_selector, parser_output
-from fragdock import nanohedra_dock
-from guide import interface_design_guide, analysis_guide, interface_metrics_guide, select_poses_guide, \
+from symdesign.fragdock import nanohedra_dock
+from symdesign.guide import interface_design_guide, analysis_guide, interface_metrics_guide, select_poses_guide, \
     select_designs_guide, select_sequences_guide, cluster_poses_guide, refine_guide, optimize_designs_guide, \
-    nanohedra_guide, orient_guide, expand_asu_guide
-from metrics import prioritize_design_indices, query_user_for_metrics
-from structure.fragment.db import fragment_factory, euler_factory
-from resources.job import job_resources_factory
-from resources.query.pdb import retrieve_pdb_entries_by_advanced_query
-from resources.query.utils import input_string, bool_d, boolean_choice, invalid_string, \
+    nanohedra_guide, orient_guide, expand_asu_guide, set_up_instructions
+from symdesign.metrics import prioritize_design_indices, query_user_for_metrics
+from symdesign.structure.fragment.db import fragment_factory, euler_factory
+from symdesign.resources.job import job_resources_factory
+from symdesign.resources.query.pdb import retrieve_pdb_entries_by_advanced_query
+from symdesign.resources.query.utils import input_string, bool_d, boolean_choice, invalid_string, \
     validate_input_return_response_value
-from setup import set_up_instructions
-from structure.model import Model
-from structure.sequence import generate_mutations, find_orf_offset, read_fasta_file
-from structure.utils import protein_letters_alph1
+from symdesign.structure.model import Model
+from symdesign.structure.sequence import generate_mutations, find_orf_offset, read_fasta_file
+from symdesign.structure.utils import protein_letters_alph1
+from symdesign.third_party.DnaChisel.dnachisel.DnaOptimizationProblem.NoSolutionError import NoSolutionError
 
 # def rename(des_dir, increment=PUtils.nstruct):
 #     """Rename the decoy numbers in a PoseDirectory by a specified increment

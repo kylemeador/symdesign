@@ -1,10 +1,9 @@
+import logging
 from math import sqrt
 
 import numpy as np
 
-from symdesign import utils
-
-logger = utils.start_log(name=__name__)
+logger = logging.getLogger(__name__)
 
 
 class OptimalTx:

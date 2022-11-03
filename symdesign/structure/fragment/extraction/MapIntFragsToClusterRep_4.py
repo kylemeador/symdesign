@@ -1,4 +1,5 @@
 """Map Paired Fragments to IJ Cluster and Add Guide Atoms"""
+import logging
 import os
 from copy import deepcopy
 from itertools import repeat
@@ -9,7 +10,7 @@ from FragUtils import get_biopdb_ca, add_guide_atoms
 from symdesign import utils
 
 # Globals
-logger = utils.start_log(name=__name__)
+logger = logging.getLogger(__name__)
 
 
 def ij_sort(int_frag_path, cent_split_frag_rep_biopdb, i_cluster_dict, outdir, clust_rmsd_thresh):

@@ -1,7 +1,8 @@
 from __future__ import annotations
 
+
+import logging
 import os
-from logging import Logger
 from pathlib import Path
 from typing import Annotated, AnyStr
 
@@ -9,14 +10,14 @@ from symdesign.structure.sequence import MultipleSequenceAlignment, parse_hhblit
     write_sequence_to_fasta
 from symdesign.structure.base import parse_stride
 from symdesign.resources.database import Database, DataStore
-from query.pdb import query_entity_id, query_assembly_id, parse_entities_json, parse_assembly_json, query_entry_id, \
+from .query.pdb import query_entity_id, query_assembly_id, parse_entities_json, parse_assembly_json, query_entry_id, \
     parse_entry_json, _is_entity_thermophilic
-from query.uniprot import query_uniprot
+from .query.uniprot import query_uniprot
 from symdesign import utils
 # import dependencies.bmdca as bmdca
 
 # Globals
-logger = utils.start_log(name=__name__)
+logger = logging.getLogger(__name__)
 
 
 class APIDatabase(Database):
@@ -198,7 +199,7 @@ argument
 
 
 class PDBDataStore(DataStore):
-    def __init__(self, location: str = None, extension: str = '.json', sql=None, log: Logger = logger):
+    def __init__(self, location: str = None, extension: str = '.json', sql=None, log: logging.Logger = logger):
         super().__init__(location=location, extension=extension, sql=sql, log=log)
         # pdb_entity_api: AnyStr | Path = os.path.join(self.location, 'pdb_entity')
         # pdb_assembly_api: AnyStr | Path = os.path.join(self.location, 'pdb_assembly')
@@ -375,7 +376,7 @@ class PDBDataStore(DataStore):
 
 
 class UniProtDataStore(DataStore):
-    def __init__(self, location: str = None, extension: str = '.json', sql=None, log: Logger = logger):
+    def __init__(self, location: str = None, extension: str = '.json', sql=None, log: logging.Logger = logger):
         super().__init__(location=location, extension=extension, sql=sql, log=log)
 
     def retrieve_data(self, name: str = None, **kwargs) -> dict | None:

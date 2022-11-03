@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import math
 import os
 import warnings
@@ -9,16 +10,16 @@ import numpy as np
 
 from symdesign import utils
 from symdesign.utils import path as PUtils
-from symdesign.utils.symmetry import valid_subunit_number, space_group_symmetry_operators, point_group_symmetry_operators, \
-    all_sym_entry_dict, rotation_range, setting_matrices, identity_matrix, sub_symmetries, flip_y_matrix, max_sym, \
-    valid_symmetries
+from symdesign.utils.symmetry import valid_subunit_number, space_group_symmetry_operators, \
+    point_group_symmetry_operators, all_sym_entry_dict, rotation_range, setting_matrices, identity_matrix, \
+    sub_symmetries, flip_y_matrix, max_sym, valid_symmetries
 
 # Copyright 2020 Joshua Laniado and Todd O. Yeates.
 __author__ = "Joshua Laniado and Todd O. Yeates"
 __copyright__ = "Copyright 2020, Nanohedra"
 __version__ = "1.0"
 
-logger = utils.start_log(name=__name__)
+logger = logging.getLogger(__name__)
 null_log = utils.start_log(name='null', handler=3)
 symmetry_combination_format = 'ResultingSymmetry:{Component1Symmetry}{Component2Symmetry}{...}'
 # SYMMETRY COMBINATION MATERIAL TABLE (T.O.Y and J.L, 2020)

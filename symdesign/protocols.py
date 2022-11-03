@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import functools
 import json
+import logging
 import os
 import pickle
 import re
@@ -26,9 +27,8 @@ from matplotlib.ticker import MultipleLocator
 # from mpl_toolkits.mplot3d import Axes3D
 from scipy.spatial.distance import pdist, cdist
 
-from symdesign.utils.CommandDistributer import reference_average_residue_weight, run_cmds, script_cmd, rosetta_flags, \
-    rosetta_variables, relax_flags_cmdline
-from metrics import read_scores, interface_composition_similarity, unnecessary, necessary_metrics, rosetta_terms, \
+from symdesign.metrics import read_scores, interface_composition_similarity, unnecessary, necessary_metrics, \
+    rosetta_terms, \
     columns_to_new_column, division_pairs, delta_pairs, dirty_hbond_processing, significance_columns, \
     df_permutation_test, clean_up_intermediate_columns, protocol_specific_columns, rank_dataframe_by_metric_weights, \
     filter_df_for_index_by_value, multiple_sequence_alignment_dependent_metrics, profile_dependent_metrics, \
@@ -37,20 +37,22 @@ from metrics import read_scores, interface_composition_similarity, unnecessary, 
     incorporate_mutation_info, residue_classification, sum_per_residue_metrics
 from symdesign.resources.job import JobResources, job_resources_factory
 from symdesign.structure.base import Structure  # , Structures
+from symdesign.structure.fragment.db import FragmentDatabase
 from symdesign.structure.model import Pose, MultiModel, Models, Model, Entity
 from symdesign.structure.sequence import parse_pssm, generate_mutations_from_reference, \
     sequence_difference, MultipleSequenceAlignment, pssm_as_array, concatenate_profile, write_pssm_file
 from symdesign.structure.utils import protein_letters_3to1, protein_letters_1to3
-from utils import large_color_array, handle_errors, starttime, start_log, null_log, make_path, unpickle, \
+from symdesign.utils import large_color_array, handle_errors, starttime, start_log, make_path, unpickle, \
     pickle_object, index_intersection, write_shell_script, DesignError, ClashError, SymmetryError, \
     match_score_from_z_value, all_vs_all, sym, condensed_to_square, path as PUtils
+from symdesign.utils.CommandDistributer import reference_average_residue_weight, run_cmds, script_cmd, rosetta_flags, \
+    rosetta_variables, relax_flags_cmdline
 from symdesign.utils.SymEntry import SymEntry, symmetry_factory
-from symdesign.structure.fragment.db import FragmentDatabase
 from symdesign.utils.nanohedra.general import get_components_from_nanohedra_docking
 from symdesign.utils.path import pose_source, state_file, sym_entry
 
 # Globals
-logger = start_log(name=__name__)
+logger = logging.getLogger(__name__)
 pose_logger = start_log(name='pose', handler_level=3, propagate=True)
 zero_offset = 1
 idx_slice = pd.IndexSlice
@@ -677,7 +679,7 @@ class PoseDirectory:
             propagate, no_log_name = True, True
 
         if self.job.skip_logging or not self.job.construct_pose:  # Set up null_logger
-            self.log = null_log
+            self.log = logging.getLogger('null')
         else:  # f'{__name__}.{self}'
             self.log = start_log(name=f'pose.{self}', handler=handler, level=level, location=self.log_path,
                                  propagate=propagate, no_log_name=no_log_name)

@@ -1,19 +1,15 @@
 import argparse
+import logging
 import os
-import sys
 
-current_dir = os.path.dirname(os.path.abspath(__file__))
-parent_dir = os.path.dirname(current_dir)
-sys.path.append(parent_dir)
 import numpy as np
 from sklearn.neighbors import BallTree
 
 from symdesign.structure import fragment, model
 from symdesign import utils
 
-
 # Globals
-logger = utils.start_log(name=__name__)
+logger = logging.getLogger(__name__)
 fragment_db = fragment.db.fragment_factory(source=utils.path.biological_interfaces)
 
 

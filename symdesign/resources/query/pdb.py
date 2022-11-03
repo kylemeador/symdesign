@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import logging
 import os
 import time
 from copy import deepcopy
@@ -10,11 +11,11 @@ from typing import Any, Iterable
 import requests
 
 from symdesign import utils
-from symdesign.resources.query.utils import input_string, confirmation_string, bool_d, validate_input, invalid_string, header_string, \
-    format_string, connection_exception_handler
+from symdesign.resources.query.utils import input_string, confirmation_string, bool_d, validate_input, invalid_string, \
+    header_string, format_string, connection_exception_handler
 
 # Globals
-logger = utils.start_log(name=__name__)
+logger = logging.getLogger(__name__)
 current_dir = os.path.dirname(os.path.abspath(__file__))
 # General Formatting
 user_input_format = f'\n{format_string.format("Option", "Description")}\n%s'

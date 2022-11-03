@@ -1,4 +1,5 @@
 from itertools import repeat
+import logging
 import os
 
 from symdesign.structure.base import Structure
@@ -8,7 +9,7 @@ from symdesign import utils
 
 # Globals
 module = 'Extract Interface Fragments:'
-logger = utils.start_log(name=__name__)
+logger = logging.getLogger(__name__)
 
 
 def extract_to_db(db_cursor, fragment_length=5):

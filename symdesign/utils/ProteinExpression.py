@@ -1,19 +1,21 @@
 """Add expression tags onto the termini of specific designs"""
 import csv
+import logging
 
 # from itertools import chain as iter_chain  # combinations,
 import numpy as np
 
 from symdesign import utils
-from symdesign.utils import path as PUtils
+# EnforceMeltingTemperature
+from symdesign.resources import query
 from symdesign.structure.sequence import generate_alignment
 from symdesign.structure.utils import protein_letters_alph1
-from DnaChisel.dnachisel import DnaOptimizationProblem, CodonOptimize, reverse_translate, AvoidHairpins, \
-    EnforceGCContent, AvoidPattern, AvoidRareCodons, UniquifyAllKmers, EnforceTranslation  # EnforceMeltingTemperature
-from symdesign.resources import query
+from symdesign.third_party.DnaChisel.dnachisel import DnaOptimizationProblem, CodonOptimize, reverse_translate, \
+    AvoidHairpins, EnforceGCContent, AvoidPattern, AvoidRareCodons, UniquifyAllKmers, EnforceTranslation
+from symdesign.utils import path as PUtils
 
 # Globals
-logger = utils.start_log(name=__name__)
+logger = logging.getLogger(__name__)
 uniprot_pdb_d = utils.unpickle(PUtils.uniprot_pdb_map)
 with open(PUtils.affinity_tags, 'r') as f:
     expression_tags = {'_'.join(map(str.lower, row[0].split())): row[1] for row in csv.reader(f)}

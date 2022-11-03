@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import math
 import operator
 import warnings
@@ -12,14 +13,14 @@ import numpy as np
 import pandas as pd
 import torch
 
-from symdesign.structure.utils import protein_letters_literal, alphabet_types, create_translation_tables
-from symdesign.utils.path import groups, reference_name, structure_background, design_profile, hbnet_design_profile
 from symdesign.resources.query.utils import input_string, validate_type, verify_choice, header_string
-from symdesign.utils import handle_errors, start_log, pretty_format_table, index_intersection, digit_translate_table, \
+from symdesign.structure.utils import protein_letters_literal, alphabet_types, create_translation_tables
+from symdesign.utils import handle_errors, pretty_format_table, index_intersection, digit_translate_table, \
     DesignError, z_score
+from symdesign.utils.path import groups, reference_name, structure_background, design_profile, hbnet_design_profile
 
 # Globals
-logger = start_log(name=__name__)
+logger = logging.getLogger(__name__)
 _min, _max = 'min', 'max'
 rank, normalize, boolean = 'rank', 'normalize', 'boolean'
 metric_weight_functions = [rank, normalize]

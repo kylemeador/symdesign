@@ -1,9 +1,9 @@
-from metrics import master_metrics, rosetta_required_metrics
+from symdesign.metrics import master_metrics, rosetta_required_metrics
+from symdesign.utils import pretty_format_table
 from symdesign.utils.path import term_constraint, evolution_constraint, hbnet, scout, program_command, \
     select_sequences, program_name, structure_background, current_energy_function, number_of_trajectories, force_flags,\
     interface_design, select_poses, analysis, protocol, select_designs, nanohedra, nano_publication, interface_metrics,\
     cluster_poses, optimize_designs
-from symdesign.utils import pretty_format_table
 
 nltb = '\n\t'
 module_help_string = f'"{program_command} MODULE --help" will direct you towards the proper formatting of program flags'

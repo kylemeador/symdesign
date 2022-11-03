@@ -36,7 +36,7 @@ from symdesign.structure.fragment.visuals import write_fragment_pairs_as_accumul
 from symdesign.structure.model import Pose, Model, get_matching_fragment_pairs_info, Models
 from symdesign.structure.sequence import generate_mutations_from_reference, numeric_to_sequence, concatenate_profile, \
     pssm_as_array, MultipleSequenceAlignment
-from symdesign.utils import dictionary_lookup, start_log, null_log, set_logging_to_level, rmsd_z_score, \
+from symdesign.utils import dictionary_lookup, start_log, set_logging_to_level, rmsd_z_score, \
     z_value_from_match_score, match_score_from_z_value, set_loggers_to_propagate, make_path, z_score
 # import symdesign.structure.utils
 from symdesign.utils.cluster import cluster_transformation_pairs
@@ -50,7 +50,8 @@ from symdesign.utils.SymEntry import SymEntry, get_rot_matrices, make_rotations_
 from symdesign.utils.symmetry import generate_cryst1_record, get_central_asu, identity_matrix
 
 # Globals
-logger = start_log(name=__name__, format_log=False)
+logger = logging.getLogger(__name__)
+# logger = start_log(name=__name__, format_log=False)
 zero_offset = 1
 
 
@@ -129,7 +130,7 @@ def get_contacting_asu(pdb1, pdb2, contact_dist=8, **kwargs):
 def find_docked_poses(sym_entry, ijk_frag_db, pdb1, pdb2, optimal_tx_params, complete_ghost_frags, complete_surf_frags,
                       degen_subdir_out_path, rot_subdir_out_path, eul_lookup,
                       rot_mat1=None, rot_mat2=None, max_z_val=2.0, output_assembly=False, output_surrounding_uc=False,
-                      clash_dist=2.2, min_matched=3, high_quality_match_value=1, log=null_log):
+                      clash_dist=2.2, min_matched=3, high_quality_match_value=1, log=logging.getLogger('null')):
     """
 
     Keyword Args:

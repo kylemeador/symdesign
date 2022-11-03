@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import functools
+import logging
 import os
 import time
 from math import ceil
@@ -12,7 +13,7 @@ import torch
 from symdesign.third_party.ProteinMPNN.protein_mpnn_utils import ProteinMPNN
 from symdesign import utils
 
-logger = utils.start_log(name=__name__)
+logger = logging.getLogger(__name__)
 mpnn_alphabet = 'ACDEFGHIKLMNPQRSTVWYX'  # structure.utils.protein_letters_alph1_unknown
 mpnn_alphabet_length = len(mpnn_alphabet)
 MPNN_NULL_IDX = 20

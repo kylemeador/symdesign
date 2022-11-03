@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import os
 import subprocess
 from abc import ABC
@@ -19,7 +20,7 @@ from ..structure.utils import protein_letters_alph1, protein_letters_1to3, prote
 from symdesign import utils
 
 # globals
-logger = utils.start_log(name=__name__)
+logger = logging.getLogger(__name__)
 protein_letters_3to1_extended_mse = protein_letters_3to1_extended.copy()
 protein_letters_3to1_extended_mse['MSE'] = 'M'
 coords_type_literal = Literal['all', 'backbone', 'backbone_and_cb', 'ca', 'cb', 'heavy']
@@ -441,7 +442,7 @@ class Log:
     Args:
         log: The logging.Logger to handle StructureBase logging. If None is passed a Logger with NullHandler is used
     """
-    def __init__(self, log: Logger | None = utils.null_log):
+    def __init__(self, log: Logger | None = logging.getLogger('null')):
         self.log = log
 
 

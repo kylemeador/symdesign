@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import os
 from glob import glob
 from itertools import repeat
@@ -8,7 +9,7 @@ from typing import AnyStr, Literal, get_args, Sequence
 from symdesign.structure.utils import protein_letters_alph1, protein_letters_literal
 from symdesign import utils
 
-logger = utils.start_log(name=__name__)
+logger = logging.getLogger(__name__)
 source_literal = Literal['size', 'rmsd', 'rep', 'mapped', 'paired']
 weighted_counts_keys = Literal[protein_letters_literal, 'stats']  # could add 'weight', 'count']
 aa_weighted_counts_type: dict[weighted_counts_keys, int | tuple[int, int]]

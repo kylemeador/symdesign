@@ -1,12 +1,12 @@
 from __future__ import annotations
 
+import logging
 from requests import Response
 
 from symdesign.resources.query.utils import connection_exception_handler
-from symdesign import utils
 
 # Globals
-logger = utils.start_log(name=__name__)
+logger = logging.getLogger(__name__)
 example = 'https://rest.uniprot.org/uniprotkb/Q9HIA7.json'
 
 
