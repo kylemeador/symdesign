@@ -25,8 +25,14 @@ from Bio.SeqRecord import SeqRecord
 
 import symdesign.utils.path as putils
 # logging.config.fileConfig(putils.logging_cfg_file)
+# print(putils.logging_cfg['loggers'])
 logging.config.dictConfig(putils.logging_cfg)
 logger = logging.getLogger(__name__)
+# print(__name__)
+# print(logger.__dict__)
+# logger.info('Starting logger')
+# logger.warning('Starting logger')
+# input('WHY LOGGING')
 from symdesign import protocols, utils
 from symdesign.flags import argparsers, parser_entire, parser_options, parser_module, parser_input, parser_guide, \
     process_design_selector_flags, parser_residue_selector, parser_output
@@ -766,21 +772,24 @@ def main():
     # -----------------------------------------------------------------------------------------------------------------
     if args.log_level == 1:  # Debugging
         # Root logs to stream with level debug
-        logger = utils.start_log(level=args.log_level)
+        # logger = utils.start_log(level=args.log_level)
+        # utils.start_log(level=args.log_level)
+        # utils.set_loggers_to_propagate()
         utils.set_logging_to_level(args.log_level)
         queried_flags['debug'] = True
-        logger.info('Debug mode. Generates verbose output. No writing to *.log files will occur')
+        logger.warning('Debug mode. Generates verbose output. No writing to *.log files will occur')
     else:
         # # Root logger logs to stream with level 'warning'
         # utils.start_log(handler_level=args.log_level)  # 3)
         # # Stream above still emits at 'warning'
         # Set all modules to propagate logs to write to master log file
         utils.set_loggers_to_propagate()
-        utils.set_logging_to_level(handler_level=args.log_level)  # 3)
-        # Root logger logs to a single file with level 'info'
-        utils.start_log(handler=2, location=os.path.join(symdesign_directory, putils.program_name))
+        utils.set_logging_to_level(level=args.log_level)  # 3)
+        # utils.set_logging_to_level(handler_level=args.log_level)  # 3)
+        # # Root logger logs to a single file with level 'info'
+        # utils.start_log(handler=2, location=os.path.join(symdesign_directory, putils.program_name))
         # SymDesign main logs to stream with level info and propagates to main log
-        logger = utils.start_log(name=putils.program_name, propagate=True)
+        # logger = utils.start_log(name=putils.program_name, propagate=True)
 
         # def emit_info_and_lower(record) -> int:
         #     if record.levelno < 21:  # logging.INFO and logging.DEBUG

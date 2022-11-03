@@ -285,7 +285,7 @@ logging_cfg = {
     'handlers': {
         'console': {
             'class': 'logging.StreamHandler',
-            'level': 'INFO',
+            'level': 'DEBUG',
             'formatter': 'standard',
         },
         'main_file': {
@@ -293,15 +293,15 @@ logging_cfg = {
             'level': 'INFO',
             'mode': 'a',
             'formatter': 'file_standard',
-            'filename': f'{program_name}.log',
+            'filename': f'{program_name.upper()}.log',
         },
         'null': {
             'class': 'logging.NullHandler',
         },
     },
     'loggers': {
-        'SymDesign': {
-            'level': 'INFO',
+        'symdesign': {
+            'level': 'INFO',  # 'WARNING',
             'handlers': ['console', 'main_file'],
             'propagate': 'no'
         },
@@ -313,6 +313,6 @@ logging_cfg = {
     },
     'root': {
         'level': 'WARNING',
-        'handlers': ['console'],
+        # 'handlers': ['console'],  # Can't include this and any above as the handlers get added twice
     },
 }
