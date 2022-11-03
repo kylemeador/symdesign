@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import os
 from logging import Logger
 from typing import AnyStr
@@ -9,7 +10,7 @@ import numpy as np
 from symdesign import utils
 
 # Globals
-logger = utils.start_log(name=__name__)
+logger = logging.getLogger(__name__)
 number_of_nanohedra_components = 2
 
 

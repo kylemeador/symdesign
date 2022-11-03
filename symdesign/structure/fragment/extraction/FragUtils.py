@@ -1,3 +1,4 @@
+import logging
 import os
 from itertools import chain
 import math
@@ -11,7 +12,7 @@ from symdesign.structure.base import Structure
 from symdesign import utils
 
 # Globals
-logger = utils.start_log(name=__name__)
+logger = logging.getLogger(__name__)
 module = 'Fragment Utilities:'
 
 

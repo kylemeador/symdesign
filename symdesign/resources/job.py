@@ -1,18 +1,17 @@
 from __future__ import annotations
 
-# import collections
+import logging
 import inspect
 import os
-# import types
 from dataclasses import make_dataclass, field
 from typing import Annotated, AnyStr
 
-from symdesign import resources
+from symdesign.resources import structure_db, wrapapi
 from symdesign.structure.fragment import db
 from symdesign import flags
 from symdesign import utils
 
-logger = utils.start_log(name=__name__)
+logger = logging.getLogger(__name__)
 # DesignFlags = collections.namedtuple('DesignFlags', design_args.keys(), defaults=design_args.values())
 # DesignFlags = types.SimpleNamespace(**design_args)
 
@@ -95,8 +94,8 @@ class JobResources:
         # self.make_path(self.full_model_dir)
         # self.make_path(self.stride_dir)
         self.reduce_memory = False
-        self.api_db = resources.wrapapi.api_database_factory.get(source=self.data)
-        self.structure_db = resources.structure_db.structure_database_factory.get(source=self.data)
+        self.api_db = wrapapi.api_database_factory.get(source=self.data)
+        self.structure_db = structure_db.structure_database_factory.get(source=self.data)
         # self.symmetry_factory = symmetry_factory
         self.fragment_db: 'db.FragmentDatabase' | None = None
 

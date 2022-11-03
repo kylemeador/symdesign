@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from copy import copy
 from typing import Annotated, Literal, get_args, Type, Union
 
@@ -8,7 +9,7 @@ import numpy as np
 from symdesign import utils, structure
 
 # Globals
-logger = utils.start_log(name=__name__)
+logger = logging.getLogger(__name__)
 alignment_types_literal = Literal['mapped', 'paired']
 alignment_types: tuple[alignment_types_literal] = get_args(alignment_types_literal)
 fragment_info_keys = Literal[alignment_types_literal, 'match', 'cluster']

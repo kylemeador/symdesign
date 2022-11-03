@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import os
 from glob import glob
 from logging import Logger
@@ -7,7 +8,7 @@ from typing import Any, Callable, AnyStr
 
 from symdesign import utils
 
-logger = utils.start_log(name=__name__)
+logger = logging.getLogger(__name__)
 # for checking out the options to read and write Rosetta runs to a relational DB such as MySQL
 # https://new.rosettacommons.org/docs/latest/rosetta_basics/options/Database-options
 

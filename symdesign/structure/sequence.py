@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import os
 import subprocess
 import time
@@ -28,7 +29,8 @@ from symdesign.utils import path as PUtils
 # import dependencies.bmdca as bmdca
 
 # Globals
-logger = utils.start_log(name=__name__)
+logger = logging.getLogger(__name__)
+hhblits_threads = 2
 zero_offset = 1
 sequence_type_literal = Literal['reference', 'structure']
 sequence_types: tuple[sequence_type_literal, ...] = get_args(sequence_type_literal)

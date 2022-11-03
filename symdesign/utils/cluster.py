@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import os
 import subprocess
 from itertools import combinations
@@ -10,14 +11,13 @@ import numpy as np
 import pandas as pd
 import sklearn
 
-#     handle_design_errors, DesignError
+from symdesign import utils
 from symdesign.metrics import prioritize_design_indices, nanohedra_metrics  # query_user_for_metrics,
 from symdesign.protocols import PoseDirectory
 from symdesign.structure.coords import superposition3d, transform_coordinate_sets
-from symdesign import utils
 
 # globals
-logger = utils.start_log(name=__name__)
+logger = logging.getLogger(__name__)
 
 
 # def pose_rmsd_mp(pose_directories: list[PoseDirectory], cores: int = 1):

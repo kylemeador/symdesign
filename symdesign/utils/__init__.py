@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import math
 import multiprocessing as mp
 import os
@@ -29,6 +30,9 @@ from ..utils import path as PUtils
 # from ..utils import cluster, CommandDistributer, ProteinExpression, SymEntry, symmetry, path as PUtils
 
 # Globals
+logger = logging.getLogger(__name__)
+# null_logger = logging.getLogger('null')
+
 input_string = '\nInput: '
 zero_offset = 1
 rmsd_threshold = 1.0
@@ -167,7 +171,7 @@ def start_log(name: str = '', handler: int = 1, level: logging_levels = 2, locat
             # log_format = Formatter('\033[38;5;93m%(name)s\033[0;0m-\033[38;5;208m%(levelname)s\033[0;0m: %(message)s')
             message_fmt = '\033[38;5;93m{name}\033[0;0m-\033[38;5;208m{levelname}\033[0;0m: {message}'
     else:
-        message_fmt = ''
+        message_fmt = '{message}'
 
     _handler = log_handler[handler]
     if handler == 2:
@@ -188,8 +192,7 @@ def start_log(name: str = '', handler: int = 1, level: logging_levels = 2, locat
     return _logger
 
 
-logger = start_log(name=__name__)
-null_log = start_log(name='null', handler=3)
+# logger = start_log(name=__name__)
 
 
 def set_logging_to_level(level: logging_levels = None, handler_level: logging_levels = None):

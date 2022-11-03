@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import logging
 import os
 import signal
 import subprocess
@@ -16,12 +17,11 @@ from symdesign.utils.path import sbatch_template_dir, nanohedra, rosetta_main, r
 
 # Globals
 cmd_dist = os.path.abspath(__file__)
-logger = utils.start_log(name=__name__)
+logger = logging.getLogger(__name__)
 index_offset = 1
 min_cores_per_job = 1  # currently one for the MPI node, and 5 workers
 mpi = 4
 num_thread_per_process = 2
-hhblits_threads = 2
 hhblits_memory_threshold = 30000000000  # 30GB
 reference_average_residue_weight = 3  # for REF2015
 sbatch = 'sbatch'

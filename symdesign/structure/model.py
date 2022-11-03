@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import math
 import os
 import subprocess
@@ -20,20 +21,20 @@ from sklearn.neighbors._ball_tree import BinaryTree  # This typing implementatio
 
 from symdesign import resources
 from symdesign.resources import query
-from ..structure.base import Structure, Structures, Residue, StructureBase, atom_or_residue
-from ..structure.coords import Coords, superposition3d, transform_coordinate_sets
-from ..structure.fragment import GhostFragment, Fragment, write_frag_match_info_file
-from ..structure.fragment.db import FragmentDatabase, alignment_types, fragment_info_type, EulerLookup
-from ..structure.fragment.metrics import fragment_metric_template
-from ..structure.sequence import SequenceProfile, generate_alignment, get_equivalent_indices, \
+from .base import Structure, Structures, Residue, StructureBase, atom_or_residue
+from .coords import Coords, superposition3d, transform_coordinate_sets
+from .fragment import GhostFragment, Fragment, write_frag_match_info_file
+from .fragment.db import FragmentDatabase, alignment_types, fragment_info_type, EulerLookup
+from .fragment.metrics import fragment_metric_template
+from .sequence import SequenceProfile, generate_alignment, get_equivalent_indices, \
     pssm_as_array, generate_mutations, concatenate_profile, numeric_to_sequence
-from ..structure.utils import protein_letters_3to1_extended, protein_letters_1to3_extended, chain_id_generator
+from .utils import protein_letters_3to1_extended, protein_letters_1to3_extended, chain_id_generator
 from symdesign import flags
 from symdesign import utils
 from symdesign.utils import path as PUtils
 
 # Globals
-logger = utils.start_log(name=__name__)
+logger = logging.getLogger(__name__)
 zero_offset = 1
 seq_res_len = 52
 transformation_mapping: dict[str, list[float] | list[list[float]] | np.ndarray]
@@ -401,7 +402,7 @@ class MultiModel:
         if log:
             self.log = log
         elif log is None:
-            self.log = utils.null_log
+            self.log = logging.getLogger('null')
         else:  # When log is explicitly passed as False, use the module logger
             self.log = logger
 
@@ -609,7 +610,7 @@ class State(Structures):
     #     # if log:
     #     #     self.log = log
     #     # elif log is None:
-    #     #     self.log = utils.null_log
+    #     #     self.log = logging.getLogger('null')
     #     # else:  # When log is explicitly passed as False, use the module logger
     #     #     self.log = logger
     #

@@ -1,10 +1,11 @@
+import logging
 import os
 import sys
 
 from symdesign import utils
 
 # Globals
-logger = utils.start_log(name=__name__)
+logger = logging.getLogger(__name__)
 
 
 def query_mode(arg_list):
