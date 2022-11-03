@@ -1,6 +1,9 @@
 [submodule "symdesign/third_party/alphafold"]
 	path = symdesign/third_party/alphafold
 	url = https://github.com/deepmind/alphafold.git
+[submodule "symdesign/third_party/freesasa"]
+	path = symdesign/third_party/freesasa
+	url = https://github.com/mittinatten/freesasa.git
 [submodule "symdesign/third_party/DnaChisel"]
 	path = symdesign/third_party/DnaChisel
 	url = https://github.com/kylemeador/DnaChisel.git
