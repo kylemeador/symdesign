@@ -3166,7 +3166,7 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
             #     continue
             # try:  # Todo clean here and the above entity vs chain len checks with nucleotide parsing
                 # chain_check_to_account_for_inability_to_parse_nucleotides = entity_data['chains'][0]
-            if len(data_chains) == 0:  # len(entity_data['chains']):
+            if len(entity_data['chains']) == 0:
                 # We missed a chain from the entity_info. We probably have a nucleotide at the moment
             # except IndexError:  # we didn't find any chains. It may be a nucleotide structure
                 self.log.warning(f'Missing associated chains for the Entity {entity_name} with data: '
