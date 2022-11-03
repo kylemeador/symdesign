@@ -3,7 +3,7 @@ import time
 import os
 from glob import glob
 
-from utils import start_log
+from symdesign.utils import start_log
 
 file_types = \
     ['gradients_h_%d.bin', 'ergo_%d.txt', 'learning_rates_J_%d.bin', 'stat_MC_1p_sigma_%d.bin', 'gradients_J_%d.bin',

@@ -2,12 +2,11 @@ import os
 from shutil import copy, move
 from typing import AnyStr
 
-import structure.model
-from structure.fragment.db import FragmentDatabase, Representative, RELOAD_DB
-from utils.path import biological_fragment_db_pickle, reference_aa_file, reference_residues_pkl, biological_interfaces
-from utils import timestamp, pickle_object, start_log, get_file_paths_recursively
+from symdesign.structure import base, model
+from symdesign.structure.fragment.db import FragmentDatabase, Representative, RELOAD_DB
+from symdesign import utils
 
-logger = start_log(name=__name__)
+logger = utils.start_log(name=__name__)
 
 
 def create_fragment_db_from_raw_files(source: AnyStr) -> FragmentDatabase:
@@ -24,8 +23,8 @@ def create_fragment_db_from_raw_files(source: AnyStr) -> FragmentDatabase:
     # self.get_monofrag_cluster_rep_dict()
     fragment_db.representatives = \
         {int(os.path.splitext(os.path.basename(file))[0]):
-         Representative(structure.base.Structure.from_file(file, entities=False, log=None), fragment_db=fragment_db)
-         for file in get_file_paths_recursively(fragment_db.monofrag_representatives_path)}
+         Representative(base.Structure.from_file(file, entities=False, log=None), fragment_db=fragment_db)
+         for file in utils.get_file_paths_recursively(fragment_db.monofrag_representatives_path)}
     fragment_db.paired_frags = load_paired_fragment_representatives(fragment_db.cluster_representatives_path)
     fragment_db.load_cluster_info()  # Using my generated data instead of Josh's for future compatibility and size
     # fragment_db.load_cluster_info_from_text()
@@ -45,15 +44,14 @@ def load_paired_fragment_representatives(cluster_representatives_path) \
     """
     identified_files = \
         {os.path.basename(os.path.dirname(representative_file)): representative_file
-         for representative_file in get_file_paths_recursively(cluster_representatives_path)}
+         for representative_file in utils.get_file_paths_recursively(cluster_representatives_path)}
 
     paired_frags = {}
     for cluster_name, file_path in identified_files.items():
         i_type, j_type, k_type = map(int, cluster_name.split('_'))
 
         # We pass the token RELOAD_DB to ensure loading happens without default loading
-        ijk_frag_cluster_rep_pdb = \
-            structure.model.Model.from_file(file_path, entities=False, log=None, fragment_db=RELOAD_DB)
+        ijk_frag_cluster_rep_pdb = model.Model.from_file(file_path, entities=False, log=None, fragment_db=RELOAD_DB)
         # Load as Model as we must look up the partner coords later by using chain_id stored in file_name
         partner_chain_idx = file_path.find('partnerchain')
         ijk_cluster_rep_partner_chain = file_path[partner_chain_idx + 13:partner_chain_idx + 14]
@@ -93,23 +91,27 @@ def load_paired_fragment_representatives(cluster_representatives_path) \
     #                 (ijk_frag_cluster_rep_pdb, ijk_cluster_rep_partner_chain)  # ijk_cluster_rep_mapped_chain,
 
 
-try:
-    from structure import base
-except Exception as error:  # If something goes wrong, we should remake this too
-    # Create and save the new reference_residues_pkl from scratch
-    # Todo if this never catches then these aren't updated
-    ref_aa = base.Structure.from_file(reference_aa_file)
-    move(reference_residues_pkl, f'{reference_residues_pkl}.bak')
-    pickle_object(ref_aa.residues, name=reference_residues_pkl, out_path='')
+# try:
+#     from symdesign.structure import base
+# except Exception as error:  # If something goes wrong, we should remake this too
+#     # Create and save the new reference_residues_pkl from scratch
+#     # Todo if this never catches then these aren't updated
+#     ref_aa = base.Structure.from_file(utils.path.reference_aa_file)
+#     move(utils.path.reference_residues_pkl, f'{utils.path.reference_residues_pkl}.bak')
+#     utils.pickle_object(ref_aa.residues, name=utils.path.reference_residues_pkl, out_path='')
+
+ref_aa = base.Structure.from_file(utils.path.reference_aa_file)
+move(utils.path.reference_residues_pkl, f'{utils.path.reference_residues_pkl}.bak')
+utils.pickle_object(ref_aa.residues, name=utils.path.reference_residues_pkl, out_path='')
 
 # Create fragment database for all ijk cluster representatives
 # This should work now
-from structure import base
+# from symdesign.structure import base
 base.protein_backbone_atom_types = {'N', 'CA', 'O'}  # 'C', Removing 'C' for fragment library guide atoms...
-ijk_frag_db = create_fragment_db_from_raw_files(source=biological_interfaces)
+ijk_frag_db = create_fragment_db_from_raw_files(source=utils.path.biological_interfaces)
 
 logger.info(f'Making a backup of the old fragment_db: {biological_fragment_db_pickle} '
             f'-> {biological_fragment_db_pickle}.bak-{timestamp()}')
-copy(biological_fragment_db_pickle, f'{biological_fragment_db_pickle}.bak-{timestamp()}')
+copy(utils.path.biological_fragment_db_pickle, f'{utils.path.biological_fragment_db_pickle}.bak-{utils.timestamp()}')
 logger.info(f'Saving the new fragment_db: {biological_fragment_db_pickle}')
-pickle_object(ijk_frag_db, name=biological_fragment_db_pickle, out_path='')
+utils.pickle_object(ijk_frag_db, name=utils.path.biological_fragment_db_pickle, out_path='')
