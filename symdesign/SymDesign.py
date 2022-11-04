@@ -25,9 +25,9 @@ from Bio.SeqRecord import SeqRecord
 
 import symdesign.utils.path as putils
 # logging.config.fileConfig(putils.logging_cfg_file)
-# print(putils.logging_cfg['loggers'])
 logging.config.dictConfig(putils.logging_cfg)
 logger = logging.getLogger(__name__)
+# print(putils.logging_cfg['loggers'])
 # print(__name__)
 # print(logger.__dict__)
 # logger.info('Starting logger')
@@ -1040,29 +1040,33 @@ def main():
                 all_entities = [entity for structure in all_structures for entity in structure.entities]
 
             info_messages = []
-            # Set up sequence data using hhblits and profile bmDCA for each input entity
-            utils.make_path(job.sequences)
             hhblits_cmds, bmdca_cmds = [], []
-            for entity in all_entities:
-                entity.sequence_file = job.api_db.sequences.retrieve_file(name=entity.name)
-                if not entity.sequence_file:
-                    entity.write_sequence_to_fasta('reference', out_dir=job.sequences)
-                    # entity.add_evolutionary_profile(out_dir=job.api_db.hhblits_profiles.location)
-                else:
-                    entity.evolutionary_profile = job.api_db.hhblits_profiles.retrieve_data(name=entity.name)
-                    # entity.h_fields = job.api_db.bmdca_fields.retrieve_data(name=entity.name)
-                    # TODO reinstate entity.j_couplings = job.api_db.bmdca_couplings.retrieve_data(name=entity.name)
-                if not entity.evolutionary_profile:
-                    # To generate in current runtime
-                    # entity.add_evolutionary_profile(out_dir=job.api_db.hhblits_profiles.location)
-                    # To generate in a sbatch script
-                    # profile_cmds.append(entity.hhblits(out_dir=job.profiles, return_command=True))
-                    hhblits_cmds.append(entity.hhblits(out_dir=job.profiles, return_command=True))
-                # TODO reinstate
-                #  if not entity.j_couplings:
-                #    bmdca_cmds.append([putils.bmdca_exe_path, '-i', os.path.join(job.profiles, f'{entity.name}.fasta'),
-                #                       '-d', os.path.join(job.profiles, f'{entity.name}_bmDCA')])
-            if job.design.evolution_constraint and hhblits_cmds:
+            if job.design.evolution_constraint:
+                # Set up sequence data using hhblits and profile bmDCA for each input entity
+                utils.make_path(job.sequences)
+                for entity in all_entities:
+                    entity.sequence_file = job.api_db.sequences.retrieve_file(name=entity.name)
+                    if not entity.sequence_file:
+                        entity.write_sequence_to_fasta('reference', out_dir=job.sequences)
+                        # entity.add_evolutionary_profile(out_dir=job.api_db.hhblits_profiles.location)
+                    else:
+                        entity.evolutionary_profile = job.api_db.hhblits_profiles.retrieve_data(name=entity.name)
+                        # entity.h_fields = job.api_db.bmdca_fields.retrieve_data(name=entity.name)
+                        # TODO reinstate entity.j_couplings = job.api_db.bmdca_couplings.retrieve_data(name=entity.name)
+                    if not entity.evolutionary_profile:
+                        # To generate in current runtime
+                        # entity.add_evolutionary_profile(out_dir=job.api_db.hhblits_profiles.location)
+                        # To generate in a sbatch script
+                        # profile_cmds.append(entity.hhblits(out_dir=job.profiles, return_command=True))
+                        hhblits_cmds.append(entity.hhblits(out_dir=job.profiles, return_command=True))
+                    # TODO reinstate
+                    # before this is run, hhblits must be run and the file located at profiles/entity-name.fasta contains
+                    # the multiple sequence alignment in .fasta format
+                    #  if not entity.j_couplings:
+                    #    bmdca_cmds.append([putils.bmdca_exe_path, '-i', os.path.join(job.profiles, f'{entity.name}.fasta'),
+                    #                       '-d', os.path.join(job.profiles, f'{entity.name}_bmDCA')])
+
+            if hhblits_cmds:
                 if not os.access(putils.hhblits_exe, os.X_OK):
                     print(f"Couldn't locate the {putils.hhblits} executable. Ensure the executable file referenced by"
                           f'{putils.hhblits_exe} exists then try your job again. Otherwise, use the argument'
@@ -1125,17 +1129,14 @@ def main():
                 info_messages.append(bmdca_sbatch_message)
                 load_resources = True
             else:
-                bmdca_sbatch, reformat_sbatch = None, None
+                bmdca_sbatch = reformat_sbatch = None
 
-            if args.preprocessed:
-                preprocess_instructions = []
-            else:
+            if not args.preprocessed:
                 preprocess_instructions, initial_refinement, initial_loop_model = \
                     job.structure_db.preprocess_structures_for_design(all_structures, load_resources=load_resources,
                                                                       script_out_path=job.sbatch_scripts)
             #                                                           , batch_commands=args.distribute_work)
-
-            info_messages += preprocess_instructions
+                info_messages += preprocess_instructions
 
             if load_resources or initial_refinement or initial_loop_model:  # entity processing commands are needed
                 if info_messages:
@@ -1149,7 +1150,8 @@ def main():
                     # After completion of sbatch, the next time initialized, there will be no refine files left allowing
                     # initialization to proceed
                 else:
-                    raise utils.DesignError("This shouldn't have happened!")
+                    # We always prepare info_messages when jobs should be run
+                    raise utils.DesignError("This shouldn't have happened. info_messages can't be False here...")
 
             # Ensure we report to PoseDirectory the results after skipping set up
             if args.preprocessed:
