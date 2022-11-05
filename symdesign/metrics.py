@@ -14,9 +14,9 @@ import pandas as pd
 import torch
 
 from symdesign.resources.query.utils import input_string, validate_type, verify_choice, header_string
-from symdesign.structure.utils import protein_letters_literal, alphabet_types, create_translation_tables
+from symdesign.structure.utils import protein_letters_literal, alphabet_types, create_translation_tables, DesignError
 from symdesign.utils import handle_errors, pretty_format_table, index_intersection, digit_translate_table, \
-    DesignError, z_score
+    z_score
 from symdesign.utils.path import groups, reference_name, structure_background, design_profile, hbnet_design_profile
 
 # Globals

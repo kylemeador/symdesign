@@ -323,9 +323,10 @@ class SymEntry:
                     # This is probably a sub-symmetry of one of the groups. Is it allowed?
                     if not symmetry_groups_are_allowed_in_entry(groups, *entry_groups, result=self.resulting_symmetry):
                                                                 # group1=group1, group2=group2):
-                        raise utils.SymmetryError(f"The symmetry group {group} isn't an allowed sub-symmetry of the "
-                                                  f'result {self.resulting_symmetry}, or the group(s) '
-                                                  f'{", ".join(group for group in entry_groups if group is not None)}.')
+                        viable_groups = [group for group in entry_groups if group is not None]
+                        raise utils.SymmetryInputError(f"The symmetry group {group} isn't an allowed sub-symmetry of "
+                                                       f'the result {self.resulting_symmetry}, or the group(s) '
+                                                       f'{", ".join(viable_groups)}.')
                 self.groups.append(group)
 
         self._int_dof_groups, self._setting_matrices, self._setting_matrices_numbers, self._ref_frame_tx_dof, self.__external_dof = [], [], [], [], []
@@ -344,8 +345,8 @@ class SymEntry:
                         self.__external_dof.append(construct_uc_matrix(ref_frame_tx_dof))
                     else:
                         if getattr(self, f'is_ref_frame_tx_dof{group_idx}'):
-                            raise utils.SymmetryError('Cannot yet create a SymEntry with external degrees of freedom '
-                                                      'and > 2 groups!')
+                            raise utils.SymmetryInputError('Cannot yet create a SymEntry with external degrees of '
+                                                           'freedom and > 2 groups!')
         # Reformat reference_frame entries
         # self.is_ref_frame_tx_dof1 = False if self.ref_frame_tx_dof1 == '<0,0,0>' else True
         # self.is_ref_frame_tx_dof2 = False if self.ref_frame_tx_dof2 == '<0,0,0>' else True
@@ -374,16 +375,16 @@ class SymEntry:
         self.n_dof_external = self.external_dof.shape[0]
         # Check construction is valid
         if self.point_group_symmetry not in valid_symmetries:
-            raise ValueError(f'Invalid point group symmetry {self.point_group_symmetry}')
+            raise utils.SymmetryInputError(f'Invalid point group symmetry {self.point_group_symmetry}')
         try:
             if self.dimension == 0:
                 self.expand_matrices = point_group_symmetry_operators[self.resulting_symmetry]
             elif self.dimension in [2, 3]:
                 self.expand_matrices = space_group_symmetry_operators[self.resulting_symmetry]
             else:
-                raise ValueError('Invalid symmetry entry. Supported design dimensions are 0, 2, and 3')
+                raise utils.SymmetryInputError('Invalid symmetry entry. Supported design dimensions are 0, 2, and 3')
         except KeyError:
-            raise utils.SymmetryError(f'The symmetry result "{self.resulting_symmetry}" is not allowed')
+            raise utils.SymmetryInputError(f'The symmetry result "{self.resulting_symmetry}" is not allowed')
         self.unit_cell = None if self.unit_cell == 'N/A' else \
             [dim.strip('()').replace(' ', '').split(',') for dim in self.unit_cell.split('), ')]
 
@@ -1038,8 +1039,8 @@ def parse_symmetry_to_sym_entry(sym_entry: int = None, symmetry: str = None, sym
             else:  # C35
                 raise ValueError(f'{symmetry} is not a supported symmetry! {highest_point_group_msg}')
         else:
-            raise utils.SymmetryError(f"{parse_symmetry_to_sym_entry.__name__}: "
-                                      f"Can't initialize without symmetry or sym_map!")
+            raise utils.SymmetryInputError(f"{parse_symmetry_to_sym_entry.__name__}: "
+                                           f"Can't initialize without symmetry or sym_map!")
 
     if not sym_entry:
         try:
@@ -1071,7 +1072,7 @@ def sdf_lookup(symmetry: str = None) -> AnyStr:
         if symmetry == file:
             return os.path.join(putils.symmetry_def_files, file + ext)
 
-    raise utils.DesignError(f"Couldn't locate correct symmetry definition file at "
+    raise FileNotFoundError(f"Couldn't locate correct symmetry definition file at "
                             f"'{putils.symmetry_def_files}' for symmetry: {symmetry}")
 
 
@@ -1108,7 +1109,7 @@ def symmetry_groups_are_allowed_in_entry(symmetry_operators: Iterable[str], *gro
     elif entry_number is not None:
         entry = symmetry_combinations.get(entry_number)
         if entry is None:
-            raise utils.SymmetryError(f"The entry number {entry_number} is not an available SymEntry")
+            raise utils.SymmetryInputError(f"The entry number {entry_number} is not an available SymEntry")
 
         group1, _, _, _, group2, _, _, _, _, result, *_ = entry
         groups = (group1, group2)  # Todo modify for more than 2

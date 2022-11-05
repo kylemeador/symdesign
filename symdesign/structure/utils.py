@@ -4,6 +4,8 @@ from collections import defaultdict
 from collections.abc import Generator
 from typing import get_args, Literal
 
+from symdesign import utils
+
 protein_letters3: tuple[str, ...] = \
     ('ALA', 'CYS', 'ASP', 'GLU', 'PHE', 'GLY', 'HIS', 'ILE', 'LYS', 'LEU', 'MET', 'ASN',
      'PRO', 'GLN', 'ARG', 'SER', 'THR', 'VAL', 'TRP', 'TYR')
@@ -147,3 +149,23 @@ def chain_id_generator() -> Generator[str, None, None]:
             for first in [''] + list(getattr(available_letters, modification)())
             for second in list(getattr(available_letters, 'upper')()) +
             list(getattr(available_letters, 'lower')()))
+
+
+class DesignError(Exception):
+    pass
+
+
+class ConstructionError(DesignError):
+    pass
+
+
+class ClashError(DesignError):
+    pass
+
+
+class SymmetryError(DesignError):
+    pass
+
+
+# 0 indexed, 1 letter aa, alphabetically sorted at the origin
+reference_residues = utils.unpickle(utils.path.reference_residues_pkl)

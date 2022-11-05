@@ -95,18 +95,6 @@ def handle_errors(errors: tuple[Type[Exception], ...] = (Exception,)) -> Any:
     return wrapper
 
 
-class DesignError(Exception):
-    pass
-
-
-class ClashError(DesignError):
-    pass
-
-
-class SymmetryError(DesignError):
-    pass
-
-
 #####################
 # Runtime Utilities
 #####################
@@ -339,7 +327,7 @@ def unpickle(file_name: Union[str, bytes]) -> Any:  # , protocol=pickle.HIGHEST_
         with open(file_name, 'rb') as serial_f:
             new_object = pickle.load(serial_f)
     except EOFError as ex:
-        raise DesignError('The object serialized at location %s couldn\'t be accessed. No data present!' % file_name)
+        raise InputError(f"The serialized file '{file_name}' contains no data present.")
 
     return new_object
 
@@ -921,7 +909,7 @@ def collect_nanohedra_designs(files: Sequence = None, directory: str = None, doc
                         paths = map(str.rstrip, [location.strip() for location in f.readlines()
                                                  if location.strip() != ''], repeat(os.sep))
                 except IsADirectoryError:
-                    raise DesignError(f'{file} is a directory not a file. Did you mean to run with --directory?')
+                    raise InputError(f'{file} is a directory not a file. Did you mean to run with --directory?')
                 all_paths.extend(paths)
     elif directory:
         if dock:
@@ -971,6 +959,14 @@ def get_docked_dirs_from_base(base: str) -> list[AnyStr]:
     return sorted(set(map(os.path.abspath, glob(f'{base}{f"{os.sep}*" * 4}{os.sep}'))))
 
 
+class InputError(Exception):
+    pass
+
+
+class SymmetryInputError(Exception):
+    pass
+
+
 def collect_designs(files: Sequence = None, directory: str = None, projects: Sequence = None, singles: Sequence = None)\
         -> Tuple[List, str]:
     """Grab all poses from an input source
@@ -998,7 +994,7 @@ def collect_designs(files: Sequence = None, directory: str = None, projects: Seq
                         paths = map(str.rstrip, [location.strip() for location in f.readlines()
                                                  if location.strip() != ''], repeat(os.sep))
                 except IsADirectoryError:
-                    raise DesignError(f'{file} is a directory not a file. Did you mean to run with --file?')
+                    raise InputError(f'{file} is a directory not a file. Did you mean to run with --file?')
                 all_paths.extend(paths)
     else:
         base_directory = get_base_symdesign_dir(directory)

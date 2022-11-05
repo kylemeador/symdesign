@@ -48,7 +48,6 @@ from symdesign.resources.query.utils import input_string, bool_d, boolean_choice
     validate_input_return_response_value
 from symdesign.structure.model import Model
 from symdesign.structure.sequence import generate_mutations, find_orf_offset, read_fasta_file
-from symdesign.structure.utils import protein_letters_alph1
 from symdesign.third_party.DnaChisel.dnachisel.DnaOptimizationProblem.NoSolutionError import NoSolutionError
 
 # def rename(des_dir, increment=putils.nstruct):
@@ -619,8 +618,8 @@ def main():
         except FileNotFoundError:
             raise FileNotFoundError(
                 f'Nanohedra master directory is malformed. Missing required docking file {log_path}')
-        raise utils.SymmetryError(f'Nanohedra master docking file {log_path} is malformed. Missing required info '
-                                  f'"Nanohedra Entry Number:"')
+        raise utils.InputError(f'Nanohedra master docking file {log_path} is malformed. Missing required info'
+                               f' "Nanohedra Entry Number:"')
 
     def print_guide():
         """Print the SymDesign guide and exit"""
@@ -950,7 +949,7 @@ def main():
                     shutil.copy(os.path.join(job.nanohedra_root, putils.master_log), project_designs)
         elif args.specification_file:
             if not args.directory:
-                raise utils.DesignError('A --directory must be provided when using --specification_file')
+                raise utils.InputError('A --directory must be provided when using --specification-file')
             # Todo, combine this with collect_designs
             #  this works for file locations as well! should I have a separate mechanism for each?
             design_specification = utils.PoseSpecification(args.specification_file)
@@ -965,17 +964,17 @@ def main():
                 if all_poses[0].count(os.sep) == 0:  # check to ensure -f wasn't used when -pf was meant
                     # assume that we have received pose-IDs and process accordingly
                     if not args.directory:
-                        raise utils.DesignError('Your input specification appears to be pose IDs, however no '
-                                                '--directory location was passed. Please resubmit with --directory '
-                                                'and use --pose_file or --specification_file with pose IDs')
+                        raise utils.InputError('Your input specification appears to be pose IDs, however no '
+                                               '--directory was passed. Please resubmit with --directory '
+                                               'and use --pose-file/--specification-file with pose IDs')
                     pose_directories = [protocols.PoseDirectory.from_pose_id(pose, root=args.directory, **queried_flags)
                                         for pose in all_poses[low_range:high_range]]
                 else:
                     pose_directories = [protocols.PoseDirectory.from_file(pose, **queried_flags)
                                         for pose in all_poses[low_range:high_range]]
         if not pose_directories:
-            raise utils.DesignError(f'No {putils.program_name} directories found within "{location}"! Please ensure '
-                                    f'correct location')
+            raise utils.InputError(f'No {putils.program_name} directories found within "{location}"! Please ensure '
+                                   f'correct location')
         representative_pose_directory = next(iter(pose_directories))
         design_source = os.path.splitext(os.path.basename(location))[0]
         default_output_tuple = (utils.starttime, args.module, design_source)
@@ -1145,7 +1144,7 @@ def main():
                     # After completion of sbatch, the next time initialized, there will be no refine files left allowing
                     # initialization to proceed
                 else:
-                    raise utils.DesignError("This shouldn't have happened!")
+                    raise utils.InputError("This shouldn't have happened!")
 
             # Ensure we report to PoseDirectory the results after skipping set up
             if args.preprocessed:
@@ -2441,7 +2440,8 @@ def main():
                                 print(f'"{tag_input}" is an invalid input. Try again')
                             number_of_found_tags = len(des_dir.pose.entities) - sum(missing_tags[(des_dir, design)])
 
-                # apply all tags to the sequences
+                # Apply all tags to the sequences
+                from symdesign.structure.utils import protein_letters_alph1
                 # Todo indicate the linkers that will be used!
                 #  Request a new one if not ideal!
                 cistronic_sequence = ''

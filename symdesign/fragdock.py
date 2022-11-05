@@ -39,7 +39,6 @@ from symdesign.structure.sequence import generate_mutations_from_reference, nume
     pssm_as_array, MultipleSequenceAlignment
 from symdesign.utils import dictionary_lookup, start_log, set_logging_to_level, rmsd_z_score, \
     z_value_from_match_score, match_score_from_z_value, set_loggers_to_propagate, make_path, z_score
-# import symdesign.structure.utils
 from symdesign.utils.cluster import cluster_transformation_pairs
 from symdesign.utils.nanohedra.OptimalTx import OptimalTx
 from symdesign.utils.nanohedra.WeightedSeqFreq import FragMatchInfo, SeqFreqInfo

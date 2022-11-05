@@ -8,7 +8,7 @@ from symdesign import utils
 from symdesign.utils import path as putils
 
 
-@utils.handle_errors(errors=(utils.DesignError, ))
+@utils.handle_errors(errors=(FileNotFoundError,))
 def nanohedra_design_recap(dock_dir, suffix=None):
     """From a directory set up for docking, a '_dock.pkl' file specifies the arguments passed to nanohedra commands"""
 
@@ -30,12 +30,12 @@ def nanohedra_design_recap(dock_dir, suffix=None):
         # Used with the flipped_180y pdb's
         if sym.split('_')[0] == '1':  # The higher symmetry
             if not os.path.exists(os.path.join(dock_dir, new_sym, '%s.pdb' % des_dir_d[sym].lower())):
-                raise utils.DesignError('Missing symmetry %s PDB file %s!' % (new_sym, des_dir_d[sym].lower()))
+                raise FileNotFoundError('Missing symmetry %s PDB file %s!' % (new_sym, des_dir_d[sym].lower()))
             else:
                 path2 = os.path.join(dock_dir, new_sym, '%s.pdb' % des_dir_d[sym].lower())
         else:
             if not os.path.exists(os.path.join(dock_dir, new_sym, '%s.pdb' % des_dir_d[sym].lower())):
-                raise utils.DesignError('Missing symmetry %s PDB file %s!' % (new_sym, des_dir_d[sym].lower()))
+                raise FileNotFoundError('Missing symmetry %s PDB file %s!' % (new_sym, des_dir_d[sym].lower()))
             else:
                 path1 = os.path.join(dock_dir, new_sym, '%s.pdb' % des_dir_d[sym].lower())
 
@@ -46,7 +46,7 @@ def nanohedra_design_recap(dock_dir, suffix=None):
 
         # check if .pdb exists
         if not os.path.exists(os.path.join(dock_dir, new_sym, '%s.pdb' % des_dir_d[sym].lower())):
-            raise utils.DesignError('Missing symmetry %s PDB file %s!' % (new_sym, des_dir_d[sym].lower()))
+            raise FileNotFoundError('Missing symmetry %s PDB file %s!' % (new_sym, des_dir_d[sym].lower()))
 
         # This protocol should be obsolete with DesignRecapFileController.py fixed symmetry order TODO, remove when old pickles are unnecessary
         new_symmetry_rank = sym_hierarchy[_sym]
@@ -69,10 +69,10 @@ def nanohedra_design_recap(dock_dir, suffix=None):
     # out_dir = '/gscratch/kmeador/Nanohedra_design_recap_test/Nanohedra_output'
     # out_dir = os.path.join(os.path.dirname(dock_dir).split(os.sep)[-2])
 
-    # used with second docking set up (degeneracies)
+    # used with second docking set up (degeneracies) for Laniado, Meador, Yeates. PEDS 2021
     return nanohedra_command(str(entry_num), path1, path2, out_dir=dock_dir, suffix=suffix, default=False)
 
-    # Used in first docking set up
+    # Used in first docking set up for Laniado, Meador, Yeates. PEDS 2021
     # return nanohedra_command(str(entry_num), os.path.join(dock_dir, '%s' % sym_d['lower_path']),
     #                          os.path.join(dock_dir, '%s' % sym_d['higher_path']), out_dir=dock_dir, suffix=suffix,
     #                          default=False)
