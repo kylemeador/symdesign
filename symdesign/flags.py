@@ -10,9 +10,9 @@ from psutil import cpu_count
 from symdesign.metrics import metric_weight_functions
 from symdesign.resources.query.utils import input_string, confirmation_string, bool_d, invalid_string, header_string, \
     format_string
-from symdesign.structure.sequence import read_fasta_file
+from symdesign.structure.sequence import read_fasta_file  # Todo refactor to structure.utils?
 from symdesign.utils import handle_errors, pretty_format_table, clean_comma_separated_string, format_index_string, \
-    DesignError, ex_path
+    ex_path
 from symdesign.utils.ProteinExpression import expression_tags
 # These shouldn't be moved here
 from symdesign.utils.path import fragment_dbs, biological_interfaces
@@ -235,13 +235,12 @@ def generate_sequence_mask(fasta_file: AnyStr) -> list[int]:
     Returns:
         The residue numbers (in pose format) that should be ignored in design
     """
-    sequence_and_mask = read_fasta_file(fasta_file)
-    sequences = list(sequence_and_mask)
-    sequence = sequences[0]
-    mask = sequences[1]
+    sequence_and_mask = list(read_fasta_file(fasta_file))
+    # sequences = sequence_and_mask
+    sequence, mask, *_ = sequence_and_mask
     if not len(sequence) == len(mask):
-        raise DesignError('The sequence and design_selector are different lengths! Please correct the alignment and '
-                          'lengths before proceeding.')
+        raise ValueError('The sequence and design_selector are different lengths! Please correct the alignment and '
+                         'lengths before proceeding.')
 
     return [idx for idx, aa in enumerate(mask, 1) if aa != '-']
 

@@ -19,10 +19,10 @@ from Bio.Align import MultipleSeqAlignment, substitution_matrices
 from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
 
-from ..structure import utils
+from . import utils
 from symdesign.metrics import hydrophobic_collapse_index
-from ..structure.fragment import info
-from ..structure.fragment.db import alignment_types_literal, alignment_types, fragment_info_type
+from .fragment import info
+from .fragment.db import alignment_types_literal, alignment_types, fragment_info_type
 from symdesign import utils as sdutils
 from symdesign.utils import path as putils
 
@@ -204,14 +204,14 @@ class MultipleSequenceAlignment:
         try:
             return cls(alignment=read_alignment(file, alignment_type='stockholm'), **kwargs)
         except FileNotFoundError:
-            raise sdutils.DesignError(f"The multiple sequence alignemnt file '{file}' doesn't exist")
+            raise FileNotFoundError(f"The multiple sequence alignment file '{file}' doesn't exist")
 
     @classmethod
     def from_fasta(cls, file):
         try:
             return cls(alignment=read_alignment(file))
         except FileNotFoundError:
-            raise sdutils.DesignError(f"The multiple sequence alignemnt file '{file}' doesn't exist")
+            raise FileNotFoundError(f"The multiple sequence alignment file '{file}' doesn't exist")
 
     @classmethod
     def from_dictionary(cls, named_sequences: dict[str, str], **kwargs):
@@ -696,7 +696,7 @@ class SequenceProfile(ABC):
                     first = False
                 else:
                     # Todo RuntimeError()
-                    raise sdutils.DesignError('evolutionary_profile generation got stuck')
+                    raise RuntimeError('evolutionary_profile generation got stuck')
         # else:
         #     self.evolutionary_profile = self.create_null_profile()
 
@@ -820,9 +820,8 @@ class SequenceProfile(ABC):
                         if int(time.time()) - int(os.path.getmtime(temp_file)) > 5400:  # > 1 hr 30 minutes have passed
                             # os.remove(temp_file)
                             temp_file.unlink(missing_ok=True)
-                            raise sdutils.DesignError(f'{self.add_evolutionary_profile.__name__}: Generation of the '
-                                                      f'profile for {self.name} took longer than the time limit. '
-                                                      'Job killed!')
+                            raise RuntimeError(f'{self.add_evolutionary_profile.__name__}: Generation of the '
+                                               f'profile for {self.name} took longer than the time limit. Job killed!')
                         time.sleep(20)
 
         # These functions set self.evolutionary_profile
@@ -997,7 +996,7 @@ class SequenceProfile(ABC):
             temp_file.unlink(missing_ok=True)
             # if os.path.exists(temp_file):  # remove hold file blocking progress
             #     os.remove(temp_file)
-            raise sdutils.DesignError(f'Profile generation for {self.name} got stuck')  #
+            raise RuntimeError(f'Profile generation for {self.name} got stuck')  #
             # raise DesignError(f'Profile generation for {self.name} got stuck. See the error for details -> {p.stderr} '
             #                   f'output -> {p.stdout}')  #
         p = subprocess.Popen([putils.reformat_msa_exe_path, self.a3m_file, self.msa_file, '-num', '-uc'])
@@ -2030,7 +2029,7 @@ def deconvolve_clusters(cluster_dict, design_dict, cluster_map):
                 design_dict[resi][index_cluster_pair[0]][observation[index_cluster_pair[0]]]['match'] = \
                     cluster_map[resi]['match']
             except KeyError:
-                raise sdutils.DesignError(f'Missing residue {resi} in {deconvolve_clusters.__name__}')
+                raise RuntimeError(f'Missing residue {resi} in {deconvolve_clusters.__name__}')
             observation[index_cluster_pair[0]] += 1
 
     return design_dict
@@ -2814,7 +2813,7 @@ def multi_chain_alignment(mutated_sequences, **kwargs):
         # return generate_msa_dictionary(total_alignment)
         return MultipleSequenceAlignment(alignment=total_alignment, **kwargs)
     else:
-        raise sdutils.DesignError(f'{multi_chain_alignment.__name__} - No sequences were found!')
+        raise RuntimeError(f'{multi_chain_alignment.__name__} - No sequences were found!')
 
 
 def pdb_to_pose_offset(reference_sequence: dict[Any, Sequence]) -> dict[Any, int]:
@@ -2864,8 +2863,8 @@ def generate_multiple_mutations(reference, sequences, pose_num=True):
             for chain, sequence in chain_sequences.items():
                 mutations[name][chain] = generate_mutations(reference[chain], sequence, offset=False)
     except KeyError:
-        raise sdutils.DesignError(f"The reference sequence and mutated_sequences have different chains! Chain {chain} "
-                                  "isn't in the reference")
+        raise RuntimeError(f"The reference sequence and mutated_sequences have different chains! Chain {chain} "
+                           "isn't in the reference")
     if pose_num:
         offset_dict = pdb_to_pose_offset(reference)
         # pose_mutations = {}

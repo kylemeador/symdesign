@@ -9,7 +9,6 @@ from sklearn.neighbors import BallTree
 from Bio.PDB import PDBParser, Atom, Residue, Chain, Superimposer
 
 from symdesign.structure.base import Structure
-from symdesign import utils
 
 # Globals
 logger = logging.getLogger(__name__)
@@ -390,7 +389,7 @@ def parameterize_frag_length(length):
     else:
         logger.critical('%d is an even integer which is not symmetric about a single residue. '
                         'Ensure this is what you want and modify %s' % (length, parameterize_frag_length.__name__))
-        raise utils.DesignError(f'Function not supported: Even fragment length "{length}"')
+        raise NotImplementedError(f'Function not supported: Even fragment length "{length}"')
 
 
 def report_errors(results):

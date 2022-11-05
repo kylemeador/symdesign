@@ -14,9 +14,9 @@ import numpy as np
 from sklearn.neighbors import BallTree  # , KDTree, NearestNeighbors
 
 # from ..structure import coords, fragment, utils
-from ..structure.coords import Coords, superposition3d
-from ..structure import fragment
-from ..structure.utils import protein_letters_alph1, protein_letters_1to3, protein_letters_3to1_extended
+from .coords import Coords, superposition3d
+from . import fragment, utils as stutils
+from .utils import protein_letters_alph1, protein_letters_1to3, protein_letters_3to1_extended
 from symdesign import utils
 
 # globals
@@ -2546,13 +2546,27 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
     structure_containers: list | list[str]
     state_attributes: set[str] = ContainsAtomsMixin.state_attributes | {'_sequence', '_helix_cb_indices'}
 
-    def __init__(self, atoms: list[Atom] | Atoms = None, residues: list[Residue] | Residues = None,
-                 residue_indices: list[int] = None, name: str = None,
-                 file_path: AnyStr = None,
+    def __init__(self, atoms: list[Atom] | Atoms = None,
+                 residues: list[Residue] | Residues = None, residue_indices: list[int] = None,
+                 name: str = None, file_path: AnyStr = None,
                  biomt: list = None, biomt_header: str = None,
                  **kwargs):
-        # kwargs passed to StructureBase
-        #          parent: StructureBase = None, log: Log | Logger | bool = True, coords: list[list[float]] = None
+        """ Todo Docstring
+
+        Args:
+            atoms:
+            residues:
+            residue_indices:
+            name:
+            file_path:
+            biomt:
+            biomt_header:
+            **kwargs:
+        """
+        """
+        kwargs passed to StructureBase
+        parent: StructureBase = None, log: Log | Logger | bool = True, coords: list[list[float]] = None
+        """
         super().__init__(atoms=atoms, **kwargs)
         # self._atoms = None
         # self._atom_indices = None
@@ -2576,25 +2590,24 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         #     self._log = Log(log)
 
         parent = self.parent
-        if parent:  # we are setting up a dependent Structure
-            # self._atoms = parent._atoms
-            # self._residues = parent._residues
+        if parent:  # We are setting up a dependent Structure
             try:
                 residue_indices[0]
             except TypeError:
                 if isinstance(self, Structures):  # Structures handles this itself
                     return
-                raise ValueError(f'Argument residue_indices must be provided when constructing {type(self).__name__} '
-                                 f' class from a parent')
-            # must set this before setting _atom_indices
-            self._residue_indices = residue_indices  # None
-            # set the atom_indices from the provided residues
+                raise stutils.ConstructionError(f'Argument residue_indices must be provided when constructing '
+                                                f'dependent {type(self).__name__} instance. Found state:\n'
+                                                f'{self.residues}')
+            # Must set this before setting _atom_indices
+            self._residue_indices = residue_indices
+            # Get the atom_indices from the provided residues
             self._atom_indices = [idx for residue in self.residues for idx in residue.atom_indices]
-        # we are setting up a parent (independent) Structure
+        # We are setting up a parent Structure
         elif residues:  # is not None  # assume the passed residues aren't bound to an existing Structure
             self._assign_residues(residues, atoms=atoms)
-        elif self.atoms:  # assume ContainsAtomsMixin initialized .atoms, continue making Residues
-            # self._assign_atoms(atoms)
+        elif self.atoms:
+            # Assume ContainsAtomsMixin initialized .atoms. Make Residue instances, Residues
             self._create_residues()
             self._set_coords_indexed()
         else:  # set up an empty Structure or let subclass handle population
@@ -2800,6 +2813,15 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
             return self._residues.residues[self._residue_indices].tolist()
         except AttributeError:  # when self._residues isn't set or is None and doesn't have .residues
             return
+        # Todo
+        #  try:
+        #      return self._r
+        #  except AttributeError:  # when self._residues isn't set or is None and doesn't have .residues
+        #     self._r = self._residues.residues[self._residue_indices].tolist()
+        #     return self._r
+        #
+        # Todo add ^ above in class attributes
+        #  self.state_attributes | set('_r')
 
     # @residues.setter
     # def residues(self, residues: Residues | list[Residue]):
@@ -3542,7 +3564,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
             residue = self.residue(number, **kwargs)
 
         if residue is None:
-            raise utils.DesignError(f"Can't {self.mutate_residue.__name__} without Residue instance, index, or number")
+            raise stutils.DesignError(f"Can't {self.mutate_residue.__name__} without Residue instance, index, or number")
 
         if residue.type == to:  # No mutation necessary
             return []
@@ -3604,7 +3626,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         # Todo solve this issue for self.is_dependents()
         #  this check and error really isn't True with the Residues object shared. It can be overcome...
         if self.is_dependent():
-            raise utils.DesignError(f"This Structure '{self.name}' isn't the owner of it's attributes and therefore "
+            raise stutils.DesignError(f"This Structure '{self.name}' isn't the owner of it's attributes and therefore "
                                     "can't handle residue insertion!")
         # Convert incoming aa to residue index so that AAReference can fetch the correct amino acid
         reference_index = \
@@ -3615,7 +3637,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
             raise IndexError(f'{self.insert_residue_type.__name__} at index {at} < 1 is not allowed')
 
         # Grab the reference atom coordinates and push into the atom list
-        new_residue = copy(reference_aa.residue(reference_index))
+        new_residue = copy(stutils.reference_residues[reference_index])
         new_residue.number = at
         residue_index = at - 1  # since at is one-indexed integer, take from pose numbering to zero-indexed
         # insert the new_residue coords and atoms into the Structure Atoms
@@ -3645,7 +3667,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
             new_residue.next_residue = next_residue
         except IndexError:  # c_termini = True
             if not prior_residue:  # insertion on an empty Structure? block for now to simplify chain identification
-                raise utils.DesignError(f"Can't insert_residue_type for an empty {type(self).__name__} class")
+                raise stutils.DesignError(f"Can't insert_residue_type for an empty {type(self).__name__} class")
             next_residue = None
 
         # set the new chain_id, number_pdb. Must occur after self._residue_indices update if chain isn't provided
@@ -3659,7 +3681,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
                 if prior_residue.chain == next_residue.chain:
                     res_with_info = prior_residue
                 else:  # we have a discrepancy which means this is an internal termini
-                    raise utils.DesignError(chain_assignment_error)
+                    raise stutils.DesignError(chain_assignment_error)
             else:  # we can solve as this represents an absolute termini case
                 res_with_info = prior_residue if prior_residue else next_residue
             new_residue.chain = res_with_info.chain
@@ -3903,7 +3925,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
             def any_clashes(_clash_indices: Iterable[int]):
                 for clashing_idx in _clash_indices:
                     if getattr(atoms[clashing_idx], f'is_{measure}', return_true)():
-                        raise utils.ClashError(clash_msg)
+                        raise stutils.ClashError(clash_msg)
 
                 return clashes
 
@@ -3948,14 +3970,14 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
                                           for residue, atom in measured_clashes)
                     self.log.error(f'{self.name} contains {len(measured_clashes)} {measure} clashes from the following '
                                    f'Residues to the corresponding Atom:\n\t{bb_info}')
-                    raise utils.ClashError(clash_msg)
+                    raise stutils.ClashError(clash_msg)
             # else:
                 if other_clashes:
                     sc_info = '\n\t'.join(f'Residue {residue.number:5d}: {atom.get_atom_record()}'
                                           for residue, atom in other_clashes)
                     self.log.warning(f'{self.name} contains {len(other_clashes)} {other} clashes between the '
                                      f'following Residues:\n\t{sc_info}')
-        except utils.ClashError as error:  # This was raised from any_clashes()
+        except stutils.ClashError as error:  # This was raised from any_clashes()
             if silence_exceptions:
                 return True
             else:
@@ -4046,8 +4068,8 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
             with open(os.path.join(utils.path.sasa_debug_dir, f'SASA-OUTPUT-{self.name}.pdb'), 'w') as f:
                 f.write('%s\n' % '\n'.join(sasa_output))
 
-            raise utils.DesignError('Measurement of SASA is not working, probably due to a missing Atom. '
-                                    f'Debug files written to {utils.path.sasa_debug_dir}')
+            raise stutils.DesignError('Measurement of SASA is not working, probably due to a missing Atom. '
+                                      f'Debug files written to {utils.path.sasa_debug_dir}')
 
     @property
     def surface_residues(self, relative_sasa_thresh: float = 0.25, **kwargs) -> list[Residue]:
@@ -4801,19 +4823,6 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
 
     def __str__(self) -> str:
         return self.name
-
-
-# try:
-#     # 0 indexed, 1 letter aa, alphabetically sorted at the origin
-#     reference_residues = utils.unpickle(utils.path.reference_residues_pkl)
-#     reference_aa = Structure.from_residues(residues=reference_residues)
-# except ModuleNotFoundError as error:  # If something goes wrong, we should remake this
-#     Structure.from_residues(residues=reference_residues)
-#
-# except Exception as error:  # If something goes wrong, we should remake this
-#     # logger.critical('The reference residues are out of date and need to be regenerated. '
-#     #                 'Please execute pickle_structure_dependencies.py')
-#     raise error  # catching in pickle_structure_dependencies.py
 
 
 class Structures(Structure, UserList):

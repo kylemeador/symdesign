@@ -110,7 +110,7 @@ class FragmentInfo:
             elif len(stats_file) == 1:
                 self.statistics = utils.unpickle(stats_file[0])
             else:
-                raise utils.DesignError('There were too many statistics.pkl files found at the database source')
+                raise RuntimeError('There were too many statistics.pkl files found at the database source')
             # for file in os.listdir(self.location):
             #     if 'statistics.pkl' in file:
             #         self.statistics = utils.unpickle(os.path.join(self.location, file))

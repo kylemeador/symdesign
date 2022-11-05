@@ -196,42 +196,49 @@ def distribute(file: AnyStr = None, out_path: AnyStr = os.getcwd(), scale: str =
         #                      Could add a hyperthreading=True parameter to remove process scale
         #     command_divisor = process_scale
         # else:
-        raise utils.DesignError('No --stage specified. Required!!!')
+        raise utils.InputError('Required flag --stage not specified')
 
     script_or_command = \
-        '%s is malformed at line %d!\n%s\nAll commands must either have a file extension or not. Cannot mix!'
+        '{} is malformed at line {}. All commands should match.\n* * *\n{}\n* * *' \
+        '\nEither a file extension OR a command requried. Cannot mix'
     if number_of_commands:
-        _commands = [0 for _ in range(number_of_commands)]
+        directives = [0 for _ in range(number_of_commands)]
     elif file:  # Automatically detect if the commands file has executable scripts or errors
         # use collect_designs to get commands from the provided file
-        _commands, location = utils.collect_designs(files=[file])  # , directory=out_path)
-        script_present, error = False, None
-        for idx, _command in enumerate(_commands, 1):
-            if _command.endswith('.sh'):  # the command string is a shell script, ex: "refine.sh"
-                if not os.path.exists(_command):  # check for any missing commands and report
-                    error = '%s is malformed at line %d! The command at location (%s) doesn\'t exist!'
-                if idx != 1 and not script_present:  # There was a change from non-script files to script files
-                    error = script_or_command
-                script_present = True
-            else:  # the command string is not a shell script
-                if idx != 1 and script_present:  # There was a change from script files to non-script files
-                    error = script_or_command
-        if error:
-            raise utils.DesignError(error % (file, idx, _command))
+        directives, location = utils.collect_designs(files=[file])  # , directory=out_path)
+        # Check if the file lines (directives) contain a script or a command
+        scripts = True if directives[0].endswith('.sh') else False
+        # command_present = not scripts
+        start_idx = 1
+        for idx, directive in enumerate(directives[start_idx:], start_idx):
+            # Check if the command string is a shell script type file string. Ex: "refine.sh"
+            if directive.endswith('.sh'):  # This is a file
+                if not os.path.exists(directive):  # Check if file is missing
+                    raise utils.InputError(f"{file} is malformed at line {idx}. "
+                                           f"The command at location '{directive}' doesn't exist")
+                if not scripts:  # There was a change from non-script files
+                    raise utils.InputError(script_or_command.format(file, idx, directive))
+            else:  # directive is a command
+                # Check if there was a change from script files to non-script files
+                if scripts:
+                    raise utils.InputError(script_or_command.format(file, idx, directive))
+                else:
+                    scripts = False
+
     else:
-        raise utils.DesignError(f'You must pass number_of_commands or file to {distribute.__name__}')
+        raise utils.InputError(f'Must pass number_of_commands or file to {distribute.__name__}')
 
     # Create success and failures files
     name = os.path.basename(os.path.splitext(file)[0])
-    if not success_file:
-        success_file = os.path.join(out_path, '%s_%s_success.log' % (name, sbatch))
-    if not failure_file:
-        failure_file = os.path.join(out_path, '%s_%s_failures.log' % (name, sbatch))
+    if success_file is None:
+        success_file = os.path.join(out_path, f'{name}-{sbatch}.success')
+    if failure_file is None:
+        failure_file = os.path.join(out_path, f'{name}-{sbatch}.failures')
     output = os.path.join(out_path, 'sbatch_output')
     os.makedirs(output, exist_ok=True)
 
     # Make sbatch file from template, array details, and command distribution script
-    filename = os.path.join(out_path, '%s_%s.sh' % (name, sbatch))
+    filename = os.path.join(out_path, f'{name}_{sbatch}.sh')
     with open(filename, 'w') as new_f:
         # Todo set up sbatch accordingly. Include a multiplier for the number of CPU's. Actually, might be passed
         # if mpi:
@@ -239,13 +246,13 @@ def distribute(file: AnyStr = None, out_path: AnyStr = os.getcwd(), scale: str =
         # grab and write sbatch template
         with open(sbatch_templates[scale]) as template_f:
             new_f.write(''.join(template_f.readlines()))
-        out = 'output=%s/%s' % (output, '%A_%a.out')
-        new_f.write('%s%s\n' % (sb_flag, out))
-        array = 'array=1-%d%%%d' % (int(len(_commands) / process_scale[scale] + 0.5), max_jobs)
-        new_f.write('%s%s\n\n' % (sb_flag, array))
-        new_f.write('python %s --stage %s distribute %s--success_file %s --failure_file %s --command_file %s\n' %
-                    (cmd_dist, scale, '--log_file %s ' % log_file if log_file else '', success_file, failure_file, file,
-                     ))
+        out = f'output={output}/%A_%a.out'
+        new_f.write(f'{sb_flag}{out}\n')
+        array = f'array=1-{int(len(directives) / process_scale[scale] + 0.5)}%{max_jobs}'
+        new_f.write(f'{sb_flag}{array}\n\n')
+        new_f.write(f'python {cmd_dist} --stage {scale} distribute %s'
+                    f'--success_file {success_file} --failure_file {failure_file} --command_file {file}\n'
+                    % f'--log_file {log_file} ' if log_file else '')
         if finishing_commands:
             new_f.write('# Wait for all to complete\nwait\n\n# Then execute\n%s\n' % '\n'.join(finishing_commands))
 
