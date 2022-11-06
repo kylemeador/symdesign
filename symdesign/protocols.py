@@ -888,35 +888,35 @@ class PoseDirectory:
     #     self.all_residue_score, self.center_residue_score, self.fragment_residues_total, \
     #         self.central_residues_with_fragment_overlap, self.multiple_frag_ratio, self.fragment_content_d
 
-    @handle_errors(errors=(FileNotFoundError, NotADirectoryError))
-    def retrieve_fragment_info_from_file(self):
-        """Gather observed fragment metrics from fragment matching output
-
-        Sets:
-            self.fragment_observations (list[dict[str, int | str | float]])
-        """
-        fragment_observations = set()
-        with open(self.frag_file, 'r') as f:
-            lines = f.readlines()
-            for line in lines:
-                if line[:6] == 'z-val:':
-                    # overlap_rmsd_divded_by_cluster_rmsd
-                    match_score = match_score_from_z_value(float(line[6:].strip()))
-                elif line[:21] == 'oligomer1 ch, resnum:':
-                    oligomer1_info = line[21:].strip().split(',')
-                    # chain1 = oligomer1_info[0]  # doesn't matter when all subunits are symmetric
-                    residue_number1 = int(oligomer1_info[1])
-                elif line[:21] == 'oligomer2 ch, resnum:':
-                    oligomer2_info = line[21:].strip().split(',')
-                    # chain2 = oligomer2_info[0]  # doesn't matter when all subunits are symmetric
-                    residue_number2 = int(oligomer2_info[1])
-                elif line[:3] == 'id:':
-                    cluster_id = [index.strip('ijk') for index in line[3:].strip().split('_')]
-                    # use with self.entity_names to get mapped and paired oligomer id
-                    # fragment_observations.add((residue_number1, residue_number2, '_'.join(cluster_id), match_score))
-                    fragment_observations.add((residue_number1, residue_number2, tuple(map(int, cluster_id)), match_score))
-        self.fragment_observations = [dict(zip(('mapped', 'paired', 'cluster', 'match'), frag_obs))
-                                      for frag_obs in fragment_observations]
+    # @handle_errors(errors=(FileNotFoundError, NotADirectoryError))
+    # def retrieve_fragment_info_from_file(self):
+    #     """Gather observed fragment metrics from fragment matching output
+    #
+    #     Sets:
+    #         self.fragment_observations (list[dict[str, int | str | float]])
+    #     """
+    #     fragment_observations = set()
+    #     with open(self.frag_file, 'r') as f:
+    #         lines = f.readlines()
+    #         for line in lines:
+    #             if line[:6] == 'z-val:':
+    #                 # overlap_rmsd_divded_by_cluster_rmsd
+    #                 match_score = match_score_from_z_value(float(line[6:].strip()))
+    #             elif line[:21] == 'oligomer1 ch, resnum:':
+    #                 oligomer1_info = line[21:].strip().split(',')
+    #                 # chain1 = oligomer1_info[0]  # doesn't matter when all subunits are symmetric
+    #                 residue_number1 = int(oligomer1_info[1])
+    #             elif line[:21] == 'oligomer2 ch, resnum:':
+    #                 oligomer2_info = line[21:].strip().split(',')
+    #                 # chain2 = oligomer2_info[0]  # doesn't matter when all subunits are symmetric
+    #                 residue_number2 = int(oligomer2_info[1])
+    #             elif line[:3] == 'id:':
+    #                 cluster_id = [index.strip('ijk') for index in line[3:].strip().split('_')]
+    #                 # use with self.entity_names to get mapped and paired oligomer id
+    #                 # fragment_observations.add((residue_number1, residue_number2, '_'.join(cluster_id), match_score))
+    #                 fragment_observations.add((residue_number1, residue_number2, tuple(map(int, cluster_id)), match_score))
+    #     self.fragment_observations = [dict(zip(('mapped', 'paired', 'cluster', 'match'), frag_obs))
+    #                                   for frag_obs in fragment_observations]
 
     def pickle_info(self):
         """Write any design attributes that should persist over program run time to serialized file"""
@@ -1865,8 +1865,8 @@ class PoseDirectory:
                     self.pose.calculate_fragment_profile(evo_fill=False)
             elif self.fragment_observations or self.fragment_observations == list():
                 pass  # fragment generation was run and maybe succeeded. If not ^
-            elif os.path.exists(self.frag_file):
-                self.retrieve_fragment_info_from_file()
+            # elif os.path.exists(self.frag_file):
+            #     self.retrieve_fragment_info_from_file()
 
             if self.job.design.evolution_constraint:
                 for entity in self.pose.entities:
