@@ -1,0 +1,23 @@
+Size: 4
+RMSD: 0.6343794626152144
+Representative Name: 1vim_AC_frag_73_177_mappedchain_A_fragtype_4_partnerchain_C_fragtype_1_orientationtype_82.pdb
+Residue 1 Weight: 
+Frequency: ('T', 0.25) ('V', 0.75) ('stats', [4, 0.081]) 
+Residue 2 Weight: 
+Frequency: ('P', 0.25) ('Q', 0.75) ('stats', [4, 0.193]) 
+Residue 3 Weight: 
+Frequency: ('R', 0.25) ('S', 0.75) ('stats', [4, 0.711]) 
+Residue 4 Weight: 
+Frequency: ('D', 0.75) ('I', 0.25) ('stats', [4, 0.0]) 
+Residue 5 Weight: 
+Frequency: ('I', 0.5) ('L', 0.25) ('T', 0.25) ('stats', [4, 0.015]) 
+Residue 1 Weight: 
+Frequency: ('I', 0.75) ('L', 0.25) ('stats', [4, 0.0]) 
+Residue 2 Weight: 
+Frequency: ('D', 0.25) ('E', 0.25) ('N', 0.5) ('stats', [4, 0.043]) 
+Residue 3 Weight: 
+Frequency: ('A', 0.25) ('F', 0.25) ('L', 0.5) ('stats', [4, 0.032]) 
+Residue 4 Weight: 
+Frequency: ('L', 0.25) ('M', 0.5) ('R', 0.25) ('stats', [4, 0.325]) 
+Residue 5 Weight: 
+Frequency: ('F', 0.5) ('H', 0.25) ('I', 0.25) ('stats', [4, 0.6]) 

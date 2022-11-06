@@ -1,0 +1,23 @@
+Size: 3
+RMSD: 0.6646019144786188
+Representative Name: 1UMD_EJ_frag_275_289_mappedchain_J_fragtype_4_partnerchain_E_fragtype_1_orientationtype_266.pdb
+Residue 1 Weight: 
+Frequency: ('A', 0.667) ('F', 0.333) ('stats', [3, 0.0]) 
+Residue 2 Weight: 
+Frequency: ('P', 1.0) ('stats', [3, 0.0]) 
+Residue 3 Weight: 
+Frequency: ('I', 0.333) ('P', 0.667) ('stats', [3, 0.0]) 
+Residue 4 Weight: 
+Frequency: ('I', 0.333) ('M', 0.333) ('S', 0.333) ('stats', [3, 0.0]) 
+Residue 5 Weight: 
+Frequency: ('P', 0.333) ('R', 0.667) ('stats', [3, 1.0]) 
+Residue 1 Weight: 
+Frequency: ('H', 0.333) ('I', 0.333) ('V', 0.333) ('stats', [3, 0.0]) 
+Residue 2 Weight: 
+Frequency: ('A', 0.333) ('P', 0.333) ('S', 0.333) ('stats', [3, 0.0]) 
+Residue 3 Weight: 
+Frequency: ('A', 0.333) ('S', 0.667) ('stats', [3, 0.774]) 
+Residue 4 Weight: 
+Frequency: ('F', 0.333) ('T', 0.667) ('stats', [3, 0.226]) 
+Residue 5 Weight: 
+Frequency: ('I', 0.333) ('V', 0.667) ('stats', [3, 0.0]) 

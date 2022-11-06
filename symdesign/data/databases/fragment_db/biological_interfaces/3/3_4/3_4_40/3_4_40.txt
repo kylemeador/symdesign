@@ -1,0 +1,23 @@
+Size: 4
+RMSD: 0.4699791253959197
+Representative Name: 1qwl_AD_frag_322_15_mappedchain_A_fragtype_3_partnerchain_D_fragtype_4_orientationtype_40.pdb
+Residue 1 Weight: 
+Frequency: ('I', 0.25) ('L', 0.25) ('T', 0.25) ('V', 0.25) ('stats', [4, 0.0]) 
+Residue 2 Weight: 
+Frequency: ('V', 1.0) ('stats', [4, 0.096]) 
+Residue 3 Weight: 
+Frequency: ('P', 1.0) ('stats', [4, 0.904]) 
+Residue 4 Weight: 
+Frequency: ('G', 1.0) ('stats', [4, 0.0]) 
+Residue 5 Weight: 
+Frequency: ('I', 1.0) ('stats', [4, 0.0]) 
+Residue 1 Weight: 
+Frequency: ('G', 1.0) ('stats', [4, 0.0]) 
+Residue 2 Weight: 
+Frequency: ('A', 1.0) ('stats', [4, 0.685]) 
+Residue 3 Weight: 
+Frequency: ('P', 0.75) ('V', 0.25) ('stats', [4, 0.315]) 
+Residue 4 Weight: 
+Frequency: ('A', 0.25) ('V', 0.75) ('stats', [4, 0.0]) 
+Residue 5 Weight: 
+Frequency: ('G', 0.25) ('V', 0.5) ('W', 0.25) ('stats', [4, 0.0]) 
