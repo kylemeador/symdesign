@@ -1,0 +1,23 @@
+Size: 3
+RMSD: 0.5016666903329676
+Representative Name: 3dhz_AB_frag_75_18_mappedchain_A_fragtype_1_partnerchain_B_fragtype_4_orientationtype_210.pdb
+Residue 1 Weight: 
+Frequency: ('L', 1.0) ('stats', [3, 0.0]) 
+Residue 2 Weight: 
+Frequency: ('T', 1.0) ('stats', [3, 0.435]) 
+Residue 3 Weight: 
+Frequency: ('L', 1.0) ('stats', [3, 0.565]) 
+Residue 4 Weight: 
+Frequency: ('L', 1.0) ('stats', [3, 0.0]) 
+Residue 5 Weight: 
+Frequency: ('D', 1.0) ('stats', [3, 0.0]) 
+Residue 1 Weight: 
+Frequency: ('I', 0.667) ('V', 0.333) ('stats', [3, 0.073]) 
+Residue 2 Weight: 
+Frequency: ('K', 0.333) ('S', 0.667) ('stats', [3, 0.0]) 
+Residue 3 Weight: 
+Frequency: ('A', 1.0) ('stats', [3, 0.905]) 
+Residue 4 Weight: 
+Frequency: ('I', 1.0) ('stats', [3, 0.022]) 
+Residue 5 Weight: 
+Frequency: ('N', 1.0) ('stats', [3, 0.0]) 

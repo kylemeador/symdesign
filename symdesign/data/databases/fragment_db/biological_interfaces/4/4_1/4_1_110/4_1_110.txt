@@ -1,0 +1,23 @@
+Size: 4
+RMSD: 0.41043578313781337
+Representative Name: 4gis_AB_frag_171_69_mappedchain_A_fragtype_4_partnerchain_B_fragtype_1_orientationtype_110.pdb
+Residue 1 Weight: 
+Frequency: ('N', 0.75) ('S', 0.25) ('stats', [4, 0.0]) 
+Residue 2 Weight: 
+Frequency: ('K', 0.25) ('P', 0.75) ('stats', [4, 0.0]) 
+Residue 3 Weight: 
+Frequency: ('T', 1.0) ('stats', [4, 1.0]) 
+Residue 4 Weight: 
+Frequency: ('E', 0.25) ('P', 0.5) ('Q', 0.25) ('stats', [4, 0.0]) 
+Residue 5 Weight: 
+Frequency: ('G', 1.0) ('stats', [4, 0.0]) 
+Residue 1 Weight: 
+Frequency: ('I', 1.0) ('stats', [4, 0.0]) 
+Residue 2 Weight: 
+Frequency: ('E', 1.0) ('stats', [4, 0.0]) 
+Residue 3 Weight: 
+Frequency: ('D', 1.0) ('stats', [4, 1.0]) 
+Residue 4 Weight: 
+Frequency: ('I', 0.25) ('L', 0.75) ('stats', [4, 0.0]) 
+Residue 5 Weight: 
+Frequency: ('W', 1.0) ('stats', [4, 0.0]) 

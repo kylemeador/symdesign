@@ -1,0 +1,23 @@
+Size: 7
+RMSD: 0.6977061825359047
+Representative Name: 2qud_AB_frag_84_102_mappedchain_B_fragtype_1_partnerchain_A_fragtype_2_orientationtype_263.pdb
+Residue 1 Weight: 
+Frequency: ('A', 0.143) ('D', 0.143) ('K', 0.143) ('L', 0.143) ('Q', 0.143) ('R', 0.143) ('W', 0.143) ('stats', [7, 0.0]) 
+Residue 2 Weight: 
+Frequency: ('C', 0.143) ('D', 0.143) ('F', 0.143) ('N', 0.143) ('S', 0.143) ('V', 0.286) ('stats', [7, 0.0]) 
+Residue 3 Weight: 
+Frequency: ('A', 0.143) ('I', 0.143) ('L', 0.286) ('T', 0.143) ('V', 0.286) ('stats', [7, 0.875]) 
+Residue 4 Weight: 
+Frequency: ('D', 0.143) ('E', 0.143) ('F', 0.143) ('L', 0.143) ('N', 0.143) ('R', 0.143) ('Y', 0.143) ('stats', [7, 0.125]) 
+Residue 5 Weight: 
+Frequency: ('A', 0.143) ('D', 0.143) ('L', 0.429) ('S', 0.286) ('stats', [7, 0.0]) 
+Residue 1 Weight: 
+Frequency: ('A', 0.143) ('E', 0.143) ('F', 0.286) ('G', 0.143) ('Q', 0.286) ('stats', [7, 0.202]) 
+Residue 2 Weight: 
+Frequency: ('A', 0.143) ('C', 0.143) ('F', 0.143) ('N', 0.143) ('V', 0.429) ('stats', [7, 0.0]) 
+Residue 3 Weight: 
+Frequency: ('A', 0.143) ('M', 0.143) ('V', 0.571) ('W', 0.143) ('stats', [7, 0.798]) 
+Residue 4 Weight: 
+Frequency: ('E', 0.143) ('R', 0.286) ('S', 0.286) ('T', 0.286) ('stats', [7, 0.0]) 
+Residue 5 Weight: 
+Frequency: ('E', 0.143) ('H', 0.143) ('I', 0.286) ('K', 0.143) ('T', 0.143) ('V', 0.143) ('stats', [7, 0.0]) 

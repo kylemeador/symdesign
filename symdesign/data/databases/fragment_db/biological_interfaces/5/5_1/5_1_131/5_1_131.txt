@@ -1,0 +1,23 @@
+Size: 3
+RMSD: 0.23400575701948237
+Representative Name: 2e6f_AB_frag_199_228_mappedchain_A_fragtype_5_partnerchain_B_fragtype_1_orientationtype_131.pdb
+Residue 1 Weight: 
+Frequency: ('G', 1.0) ('stats', [3, 0.0]) 
+Residue 2 Weight: 
+Frequency: ('N', 1.0) ('stats', [3, 0.0]) 
+Residue 3 Weight: 
+Frequency: ('G', 1.0) ('stats', [3, 0.0]) 
+Residue 4 Weight: 
+Frequency: ('L', 1.0) ('stats', [3, 0.874]) 
+Residue 5 Weight: 
+Frequency: ('F', 0.333) ('V', 0.667) ('stats', [3, 0.126]) 
+Residue 1 Weight: 
+Frequency: ('K', 0.333) ('L', 0.667) ('stats', [3, 0.0]) 
+Residue 2 Weight: 
+Frequency: ('P', 1.0) ('stats', [3, 0.61]) 
+Residue 3 Weight: 
+Frequency: ('T', 1.0) ('stats', [3, 0.019]) 
+Residue 4 Weight: 
+Frequency: ('A', 1.0) ('stats', [3, 0.0]) 
+Residue 5 Weight: 
+Frequency: ('L', 1.0) ('stats', [3, 0.372]) 

@@ -1,0 +1,23 @@
+Size: 11
+RMSD: 0.2084633302240797
+Representative Name: 6CPH_AE_frag_132_149_mappedchain_E_fragtype_1_partnerchain_A_fragtype_2_orientationtype_320.pdb
+Residue 1 Weight: 
+Frequency: ('S', 1.0) ('stats', [11, 0.623]) 
+Residue 2 Weight: 
+Frequency: ('E', 1.0) ('stats', [11, 0.0]) 
+Residue 3 Weight: 
+Frequency: ('A', 1.0) ('stats', [11, 0.133]) 
+Residue 4 Weight: 
+Frequency: ('E', 1.0) ('stats', [11, 0.244]) 
+Residue 5 Weight: 
+Frequency: ('I', 1.0) ('stats', [11, 0.0]) 
+Residue 1 Weight: 
+Frequency: ('A', 1.0) ('stats', [11, 0.0]) 
+Residue 2 Weight: 
+Frequency: ('V', 1.0) ('stats', [11, 0.0]) 
+Residue 3 Weight: 
+Frequency: ('Y', 1.0) ('stats', [11, 0.817]) 
+Residue 4 Weight: 
+Frequency: ('Q', 1.0) ('stats', [11, 0.0]) 
+Residue 5 Weight: 
+Frequency: ('L', 1.0) ('stats', [11, 0.183]) 

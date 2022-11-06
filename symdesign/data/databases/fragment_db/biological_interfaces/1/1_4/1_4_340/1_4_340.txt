@@ -1,0 +1,23 @@
+Size: 5
+RMSD: 0.3296742665096571
+Representative Name: 5ZJG_AC_frag_268_432_mappedchain_A_fragtype_1_partnerchain_C_fragtype_4_orientationtype_340.pdb
+Residue 1 Weight: 
+Frequency: ('P', 0.8) ('S', 0.2) ('stats', [5, 0.0]) 
+Residue 2 Weight: 
+Frequency: ('L', 0.2) ('P', 0.8) ('stats', [5, 0.011]) 
+Residue 3 Weight: 
+Frequency: ('P', 1.0) ('stats', [5, 0.575]) 
+Residue 4 Weight: 
+Frequency: ('S', 1.0) ('stats', [5, 0.01]) 
+Residue 5 Weight: 
+Frequency: ('S', 1.0) ('stats', [5, 0.404]) 
+Residue 1 Weight: 
+Frequency: ('G', 0.2) ('N', 0.8) ('stats', [5, 0.0]) 
+Residue 2 Weight: 
+Frequency: ('K', 1.0) ('stats', [5, 0.0]) 
+Residue 3 Weight: 
+Frequency: ('R', 1.0) ('stats', [5, 0.257]) 
+Residue 4 Weight: 
+Frequency: ('M', 0.2) ('P', 0.8) ('stats', [5, 0.0]) 
+Residue 5 Weight: 
+Frequency: ('L', 1.0) ('stats', [5, 0.743]) 
