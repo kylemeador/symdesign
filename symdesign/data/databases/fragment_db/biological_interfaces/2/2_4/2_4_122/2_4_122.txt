@@ -1,0 +1,23 @@
+Size: 10
+RMSD: 0.5339606281931062
+Representative Name: 6FUN_AK_frag_155_173_mappedchain_A_fragtype_2_partnerchain_K_fragtype_4_orientationtype_122.pdb
+Residue 1 Weight: 
+Frequency: ('D', 1.0) ('stats', [10, 0.0]) 
+Residue 2 Weight: 
+Frequency: ('V', 1.0) ('stats', [10, 0.0]) 
+Residue 3 Weight: 
+Frequency: ('Y', 1.0) ('stats', [10, 0.871]) 
+Residue 4 Weight: 
+Frequency: ('I', 1.0) ('stats', [10, 0.0]) 
+Residue 5 Weight: 
+Frequency: ('T', 1.0) ('stats', [10, 0.129]) 
+Residue 1 Weight: 
+Frequency: ('Q', 1.0) ('stats', [10, 0.0]) 
+Residue 2 Weight: 
+Frequency: ('P', 1.0) ('stats', [10, 0.0]) 
+Residue 3 Weight: 
+Frequency: ('L', 1.0) ('stats', [10, 0.758]) 
+Residue 4 Weight: 
+Frequency: ('K', 1.0) ('stats', [10, 0.0]) 
+Residue 5 Weight: 
+Frequency: ('E', 1.0) ('stats', [10, 0.242]) 

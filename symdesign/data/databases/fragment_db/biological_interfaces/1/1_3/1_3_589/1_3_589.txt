@@ -1,0 +1,23 @@
+Size: 3
+RMSD: 0.34977839861378107
+Representative Name: 4ghg_AC_frag_222_223_mappedchain_C_fragtype_1_partnerchain_A_fragtype_3_orientationtype_589.pdb
+Residue 1 Weight: 
+Frequency: ('E', 1.0) ('stats', [3, 0.0]) 
+Residue 2 Weight: 
+Frequency: ('K', 1.0) ('stats', [3, 0.307]) 
+Residue 3 Weight: 
+Frequency: ('H', 1.0) ('stats', [3, 0.693]) 
+Residue 4 Weight: 
+Frequency: ('N', 1.0) ('stats', [3, 0.0]) 
+Residue 5 Weight: 
+Frequency: ('I', 1.0) ('stats', [3, 0.0]) 
+Residue 1 Weight: 
+Frequency: ('H', 1.0) ('stats', [3, 0.0]) 
+Residue 2 Weight: 
+Frequency: ('E', 1.0) ('stats', [3, 0.0]) 
+Residue 3 Weight: 
+Frequency: ('K', 1.0) ('stats', [3, 0.75]) 
+Residue 4 Weight: 
+Frequency: ('H', 1.0) ('stats', [3, 0.25]) 
+Residue 5 Weight: 
+Frequency: ('N', 1.0) ('stats', [3, 0.0]) 
