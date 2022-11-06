@@ -100,6 +100,10 @@ def close_logs(func: Callable):
     return wrapped
 
 
+class PoseProtocol:
+    pass  # Todo. Put in methods that are useful on a pose, not necessarily attributes, not path resources
+
+
 class PoseDirectory:
     _design_profile: np.ndarry | None
     _evolutionary_profile: np.ndarry | None
@@ -126,6 +130,18 @@ class PoseDirectory:
     source_path: str
     specific_designs: list
     specific_designs_file_paths: list[AnyStr]
+
+    @classmethod
+    def from_nanohedra(cls, design_path: str, root: AnyStr = None, nanohedra_output: bool = True, **kwargs):
+        return cls(design_path, root=root, nanohedra_output=nanohedra_output, **kwargs)
+
+    @classmethod
+    def from_file(cls, design_path: str, root: AnyStr = None, **kwargs):
+        return cls(design_path, root=root, **kwargs)
+
+    @classmethod
+    def from_pose_id(cls, design_path: str, root: AnyStr = None, **kwargs):
+        return cls(design_path, pose_id=True, root=root, **kwargs)
 
     def __init__(self, design_path: AnyStr, job_resources: JobResources = None, pose_id: bool = False,
                  root: AnyStr = None, **kwargs):
@@ -352,18 +368,6 @@ class PoseDirectory:
             self.find_entity_names()
         else:
             self.entity_names = self.info.get('entity_names', [])  # set so that DataBase set up works
-
-    @classmethod
-    def from_nanohedra(cls, design_path: str, root: AnyStr = None, nanohedra_output: bool = True, **kwargs):
-        return cls(design_path, root=root, nanohedra_output=nanohedra_output, **kwargs)
-
-    @classmethod
-    def from_file(cls, design_path: str, root: AnyStr = None, **kwargs):
-        return cls(design_path, root=root, **kwargs)
-
-    @classmethod
-    def from_pose_id(cls, design_path: str, root: AnyStr = None, **kwargs):
-        return cls(design_path, pose_id=True, root=root, **kwargs)
 
     # Decorator static methods: These must be declared above their usage, but made static after each declaration
     # def handle_design_errors(errors: tuple = (Exception,)) -> Callable:
@@ -873,50 +877,6 @@ class PoseDirectory:
         if design_type is None:
             design_type = ''
         return sorted(glob(os.path.join(self.designs, f'*{design_type}*.pdb')))
-        # return sorted(glob(os.path.join(self.designs, '*%s*.pdb' % design_type)))
-
-    # def return_symmetry_stats(self):  # Depreciated
-    #     return len(symm for symm in self.job.program_root)
-    #
-    # def return_building_block_stats(self):  # Depreciated
-    #     return len(bb for symm_bb in self.composition for bb in symm_bb)
-    #
-    # def return_unique_pose_stats(self):  # Depreciated
-    #     return len(bb for symm in self.composition for bb in symm)
-
-    # def get_fragment_metrics(self):
-    #     self.all_residue_score, self.center_residue_score, self.fragment_residues_total, \
-    #         self.central_residues_with_fragment_overlap, self.multiple_frag_ratio, self.fragment_content_d
-
-    # @handle_errors(errors=(FileNotFoundError, NotADirectoryError))
-    # def retrieve_fragment_info_from_file(self):
-    #     """Gather observed fragment metrics from fragment matching output
-    #
-    #     Sets:
-    #         self.fragment_observations (list[dict[str, int | str | float]])
-    #     """
-    #     fragment_observations = set()
-    #     with open(self.frag_file, 'r') as f:
-    #         lines = f.readlines()
-    #         for line in lines:
-    #             if line[:6] == 'z-val:':
-    #                 # overlap_rmsd_divded_by_cluster_rmsd
-    #                 match_score = match_score_from_z_value(float(line[6:].strip()))
-    #             elif line[:21] == 'oligomer1 ch, resnum:':
-    #                 oligomer1_info = line[21:].strip().split(',')
-    #                 # chain1 = oligomer1_info[0]  # doesn't matter when all subunits are symmetric
-    #                 residue_number1 = int(oligomer1_info[1])
-    #             elif line[:21] == 'oligomer2 ch, resnum:':
-    #                 oligomer2_info = line[21:].strip().split(',')
-    #                 # chain2 = oligomer2_info[0]  # doesn't matter when all subunits are symmetric
-    #                 residue_number2 = int(oligomer2_info[1])
-    #             elif line[:3] == 'id:':
-    #                 cluster_id = [index.strip('ijk') for index in line[3:].strip().split('_')]
-    #                 # use with self.entity_names to get mapped and paired oligomer id
-    #                 # fragment_observations.add((residue_number1, residue_number2, '_'.join(cluster_id), match_score))
-    #                 fragment_observations.add((residue_number1, residue_number2, tuple(map(int, cluster_id)), match_score))
-    #     self.fragment_observations = [dict(zip(('mapped', 'paired', 'cluster', 'match'), frag_obs))
-    #                                   for frag_obs in fragment_observations]
 
     def pickle_info(self):
         """Write any design attributes that should persist over program run time to serialized file"""
@@ -931,285 +891,7 @@ class PoseDirectory:
         # except ValueError:
         #     print(self.info)
 
-    def prepare_rosetta_flags(self, symmetry_protocol: str = None, sym_def_file: str = None, pdb_out_path: str = None,
-                              out_dir: AnyStr = os.getcwd()) -> str:
-        """Prepare a protocol specific Rosetta flags file with program specific variables
-
-        Args:
-            symmetry_protocol: The type of symmetric protocol (specifying design dimension) to use for Rosetta jobs
-            sym_def_file: A Rosetta specific file specifying the symmetry system
-            pdb_out_path: Disk location to write the resulting design files
-            out_dir: Disk location to write the flags file
-        Returns:
-            Disk location of the flags file
-        """
-        # flag_variables (list(tuple)): The variable value pairs to be filed in the RosettaScripts XML
-        number_of_residues = self.pose.number_of_residues
-        self.log.info(f'Total number of residues in Pose: {number_of_residues}')
-
-        # Get ASU distance parameters
-        if self.design_dimension:  # check for None and dimension 0 simultaneously
-            # The furthest point from the ASU COM + the max individual Entity radius
-            distance = self.pose.radius + max([entity.radius for entity in self.pose.entities])  # all the radii
-            self.log.info(f'Expanding ASU into symmetry group by {distance:.2f} Angstroms')
-        else:
-            distance = 0
-
-        if not self.job.design.evolution_constraint:
-            constraint_percent, free_percent = 0, 1
-        else:
-            constraint_percent = 0.5
-            free_percent = 1 - constraint_percent
-
-        variables = rosetta_variables + [('dist', distance), ('repack', 'yes'),
-                                         ('constrained_percent', constraint_percent), ('free_percent', free_percent)]
-        variables.extend([(putils.design_profile, self.design_profile_file)]
-                         if os.path.exists(self.design_profile_file) else [])
-        variables.extend([(putils.fragment_profile, self.fragment_profile_file)]
-                         if os.path.exists(self.fragment_profile_file) else [])
-
-        if self.symmetric:
-            self.prepare_symmetry_for_rosetta()
-            if symmetry_protocol is None:
-                symmetry_protocol = self.symmetry_protocol
-            if not sym_def_file:
-                sym_def_file = self.sym_def_file
-            variables.extend([] if symmetry_protocol is None else [('symmetry', symmetry_protocol),
-                                                                   ('sdf', sym_def_file)])
-            out_of_bounds_residue = number_of_residues*self.pose.number_of_symmetry_mates + 1
-        else:
-            variables.append(('symmetry', symmetry_protocol))
-            out_of_bounds_residue = number_of_residues + 1
-        variables.extend([(interface, residues) if residues else (interface, out_of_bounds_residue)
-                          for interface, residues in self.interface_residue_ids.items()])
-
-        # Assign any additional designable residues
-        if self.pose.required_residues:
-            variables.extend([('required_residues', ','.join(f'{res.number}{res.chain}'
-                                                             for res in self.pose.required_residues))])
-        else:  # Get an out-of-bounds index
-            variables.extend([('required_residues', out_of_bounds_residue)])
-
-        # Allocate any "core" residues based on central fragment information
-        center_residue_indices = self.pose.center_residue_indices
-        if center_residue_indices:
-            variables.extend([('core_residues', ','.join([f'{index + 1}' for index in center_residue_indices]))])
-        else:  # Get an out-of-bounds index
-            variables.extend([('core_residues', out_of_bounds_residue)])
-
-        flags = copy(rosetta_flags)
-        if pdb_out_path:
-            flags.extend([f'-out:path:pdb {pdb_out_path}', f'-scorefile {self.scores_file}'])
-        else:
-            flags.extend([f'-out:path:pdb {self.designs}', f'-scorefile {self.scores_file}'])
-        flags.append(f'-in:file:native {self.refined_pdb}')
-        flags.append(f'-parser:script_vars {" ".join(f"{var}={val}" for var, val in variables)}')
-
-        out_file = os.path.join(out_dir, 'flags')
-        with open(out_file, 'w') as f:
-            f.write('%s\n' % '\n'.join(flags))
-
-        return out_file
-
-    def generate_entity_metrics(self, entity_command) -> list[list[str] | None]:
-        """Use the Pose state to generate metrics commands for each Entity instance
-
-        Args:
-            entity_command: The base command to build Entity metric commands off of
-        Returns:
-            The formatted command for every Entity in the Pose
-        """
-        # self.entity_names not dependent on Pose load
-        if len(self.entity_names) == 1:  # there is no unbound state to query as only one entity
-            return []
-        if len(self.symmetry_definition_files) != len(self.entity_names) or self.job.force_flags:
-            self.load_pose()  # Need to initialize the pose so each entity can get sdf created
-            for entity in self.pose.entities:
-                if entity.is_oligomeric():  # make symmetric energy in line with SymDesign energies v
-                    entity.make_sdf(out_path=self.data,
-                                    modify_sym_energy_for_cryst=True if self.design_dimension in [2, 3] else False)
-                else:
-                    shutil.copy(os.path.join(putils.symmetry_def_files, 'C1.sym'),
-                                os.path.join(self.data, f'{entity.name}.sdf'))
-
-        entity_metric_commands = []
-        for idx, (entity, name) in enumerate(zip(self.pose.entities, self.entity_names), 1):
-            if self.symmetric:
-                entity_sdf = f'sdf={os.path.join(self.data, f"{name}.sdf")}'
-                entity_sym = 'symmetry=make_point_group'
-            else:
-                entity_sdf, entity_sym = '', 'symmetry=asymmetric'
-            metric_cmd = entity_command + ['-parser:script_vars', 'repack=yes', f'entity={idx}', entity_sym] + \
-                ([entity_sdf] if entity_sdf != '' else [])
-            self.log.info(f'Metrics Command for Entity {name}: {list2cmdline(metric_cmd)}')
-            entity_metric_commands.append(metric_cmd)
-
-        return entity_metric_commands
-
-    @handle_design_errors(errors=(DesignError, AssertionError))
-    @close_logs
-    @remove_structure_memory
-    def rosetta_interface_metrics(self):
-        """Generate a script capable of running Rosetta interface metrics analysis on the bound and unbound states"""
-        # metrics_flags = 'repack=yes'
-        protocol = putils.interface_metrics
-        main_cmd = copy(script_cmd)
-        if self.interface_residue_numbers is False or self.interface_design_residue_numbers is False:
-            self.identify_interface()
-        else:  # We only need to load pose as we already calculated interface
-            self.load_pose()
-
-        # interface_secondary_structure
-        if not os.path.exists(self.flags) or self.job.force_flags:
-            make_path(self.scripts)
-            self.prepare_rosetta_flags(out_dir=self.scripts)
-            self.log.debug(f'Pose flags written to: {self.flags}')
-
-        design_files = os.path.join(self.scripts,
-                                    f'design_files{f"_{self.job.specific_protocol}" if self.job.specific_protocol else ""}.txt')
-        generate_files_cmd = ['python', putils.list_pdb_files, '-d', self.designs, '-o', design_files] + \
-            (['-s', self.job.specific_protocol] if self.job.specific_protocol else [])
-        main_cmd += ['@%s' % self.flags, '-in:file:l', design_files,
-                     # TODO out:file:score_only file is not respected if out:path:score_file given
-                     #  -run:score_only true?
-                     '-out:file:score_only', self.scores_file, '-no_nstruct_label', 'true', '-parser:protocol']
-        #              '-in:file:native', self.refined_pdb,
-        if self.job.mpi > 0:
-            main_cmd = run_cmds[putils.rosetta_extras] + [str(self.job.mpi)] + main_cmd
-
-        metric_cmd_bound = main_cmd + (['-symmetry_definition', 'CRYST1'] if self.design_dimension > 0 else []) + \
-            [os.path.join(putils.rosetta_scripts_dir, f'{protocol}{"_DEV" if self.job.development else ""}.xml')]
-        entity_cmd = main_cmd + [os.path.join(putils.rosetta_scripts_dir,
-                                              f'metrics_entity{"_DEV" if self.job.development else ""}.xml')]
-        metric_cmds = [metric_cmd_bound]
-        metric_cmds.extend(self.generate_entity_metrics(entity_cmd))
-
-        # Create executable to gather interface Metrics on all Designs
-        if self.job.distribute_work:
-            analysis_cmd = ['python', putils.program_exe, putils.analysis, '--single', self.path, '--no-output',
-                            '--output_file', os.path.join(self.job.all_scores,
-                                                          putils.default_analysis_file % (starttime, protocol))]
-            write_shell_script(list2cmdline(generate_files_cmd), name=putils.interface_metrics, out_path=self.scripts,
-                               additional=[list2cmdline(command) for command in metric_cmds] +
-                                          [list2cmdline(analysis_cmd)])
-        else:
-            list_all_files_process = Popen(generate_files_cmd)
-            list_all_files_process.communicate()
-            for metric_cmd in metric_cmds:
-                metrics_process = Popen(metric_cmd)
-                metrics_process.communicate()  # wait for command to complete
-
-        # ANALYSIS: each output from the Design process based on score, Analyze Sequence Variation
-        if not self.job.distribute_work:
-            pose_s = self._interface_design_analysis()
-            out_path = os.path.join(self.job.all_scores, putils.default_analysis_file % (starttime, 'All'))
-            if os.path.exists(out_path):
-                header = False
-            else:
-                header = True
-            pose_s.to_csv(out_path, mode='a', header=header)
-
-    def custom_rosetta_script(self, script, file_list=None, native=None, suffix=None,
-                              score_only=None, variables=None, **kwargs):
-        """Generate a custom script to dispatch to the design using a variety of parameters"""
-        raise DesignError('This module is outdated, please update it to use')  # Todo reflect modern metrics collection
-        cmd = copy(script_cmd)
-        script_name = os.path.splitext(os.path.basename(script))[0]
-        if self.interface_residue_numbers is False or self.interface_design_residue_numbers is False:
-            self.identify_interface()
-        else:  # We only need to load pose as we already calculated interface
-            self.load_pose()
-
-        flags = os.path.join(self.scripts, 'flags')
-        if not os.path.exists(self.flags) or self.job.force_flags:
-            make_path(self.scripts)
-            self.prepare_rosetta_flags(out_dir=self.scripts)
-            self.log.debug('Pose flags written to: %s' % flags)
-
-        cmd += ['-symmetry_definition', 'CRYST1'] if self.design_dimension > 0 else []
-
-        if file_list:
-            pdb_input = os.path.join(self.scripts, 'design_files.txt')
-            generate_files_cmd = ['python', putils.list_pdb_files, '-d', self.designs, '-o', pdb_input]
-        else:
-            pdb_input = self.refined_pdb
-            generate_files_cmd = []  # empty command
-
-        if native:
-            native = getattr(self, native, 'refined_pdb')
-        else:
-            native = self.refined_pdb
-
-        # if isinstance(suffix, str):
-        #     suffix = ['-out:suffix', '_%s' % suffix]
-        # if isinstance(suffix, bool):
-        if suffix:
-            suffix = ['-out:suffix', '_%s' % script_name]
-        else:
-            suffix = []
-
-        if score_only:
-            score = ['-out:file:score_only', self.scores_file]
-        else:
-            score = []
-
-        if self.job.design.number_of_trajectories:
-            trajectories = ['-nstruct', str(self.job.design.number_of_trajectories)]
-        else:
-            trajectories = ['-no_nstruct_label true']
-
-        if variables:
-            for idx, var_val in enumerate(variables):
-                variable, value = var_val.split('=')
-                variables[idx] = '%s=%s' % (variable, getattr(self.pose, value, ''))
-            variables = ['-parser:script_vars'] + variables
-        else:
-            variables = []
-
-        cmd += ['@%s' % flags, '-in:file:%s' % ('l' if file_list else 's'), pdb_input, '-in:file:native', native] + \
-            score + suffix + trajectories + ['-parser:protocol', script] + variables
-        if self.job.mpi > 0:
-            cmd = run_cmds[putils.rosetta_extras] + [str(self.job.mpi)] + cmd
-
-        if self.job.distribute_work:
-            write_shell_script(list2cmdline(generate_files_cmd), name=script_name, out_path=self.scripts,
-                               additional=[list2cmdline(cmd)])
-        else:
-            raise NotImplementedError('Need to implement this feature')
-
-        # Todo  + [list2cmdline(analysis_cmd)])
-        #  analysis_cmd = ['python', putils.program_exe, putils.analysis, '--single', self.path, '--no-output',
-        #                 '--output_file', os.path.join(self.job.all_scores, putils.default_analysis_file % (starttime, protocol))]
-
-        # ANALYSIS: each output from the Design process based on score, Analyze Sequence Variation
-        if not self.job.distribute_work:
-            pose_s = self._interface_design_analysis()
-            out_path = os.path.join(self.job.all_scores, putils.default_analysis_file % (starttime, 'All'))
-            if os.path.exists(out_path):
-                header = False
-            else:
-                header = True
-            pose_s.to_csv(out_path, mode='a', header=header)
-
-    def prepare_symmetry_for_rosetta(self):
-        """For the specified design, locate/make the symmetry files necessary for Rosetta input
-
-        Sets:
-            self.symmetry_protocol (str)
-            self.sym_def_file (AnyStr)
-        """
-        if self.design_dimension is None:  # asymmetric
-            self.symmetry_protocol = 'asymmetric'
-            # self.sym_def_file = sdf_lookup()
-            self.log.critical("No symmetry invoked during design. Rosetta will still design your PDB, however, if it's"
-                              ' an ASU it may be missing crucial interface contacts. Is this what you want?')
-        else:  # Symmetric
-            # self.log.debug(f'Design has Symmetry Entry Number: {self.sym_entry.entry_number} (Laniado & Yeates, 2020)')
-            self.symmetry_protocol = symmetry_protocols[self.design_dimension]
-            self.sym_def_file = self.sym_entry.sdf_lookup()
-        self.log.info(f'Symmetry Option: {self.symmetry_protocol}')
-
-    def transform_entities_to_pose(self, **kwargs):
+    def transform_entities_to_pose(self, **kwargs):  # Todo to PoseProtocols?
         """Take the set of entities involved in a pose composition and transform them from a standard reference frame to
         the Pose reference frame using the pose.entity_transformations parameters
 
@@ -1226,7 +908,7 @@ class PoseDirectory:
             raise SymmetryError('The design could not be transformed as it is missing the required '
                                 'entity_transformations parameter. Were they generated properly?')
 
-    def transform_structures_to_pose(self, structures: Iterable[Structure], **kwargs) -> list[Structure]:
+    def transform_structures_to_pose(self, structures: Iterable[Structure], **kwargs) -> list[Structure]:  # Todo to PoseProtocols?
         """Take a set of Structure instances and transform them from a standard reference frame to the Pose reference
         frame using the pose.entity_transformations parameters
 
@@ -1243,7 +925,7 @@ class PoseDirectory:
         else:
             return list(structures)
 
-    def get_entities(self, refined: bool = True, oriented: bool = False, **kwargs):
+    def get_entities(self, refined: bool = True, oriented: bool = False, **kwargs):  # Todo to PoseProtocols?
         """Retrieve Entity files from the design Database using either the oriented directory, or the refined directory.
         If these don't exist, use the Pose directory, and load them into job for further processing
 
@@ -1333,7 +1015,7 @@ class PoseDirectory:
         if len(self.entities) != len(self.entity_names):  # Todo need to make len(self.symmetry_groups) from SymEntry
             raise RuntimeError(f'Expected {len(self.entities)} entities, but found {len(self.entity_names)}')
 
-    def load_pose(self, source: str = None, entities: list[Structure] = None):
+    def load_pose(self, source: str = None, entities: list[Structure] = None):  # Todo to PoseProtocols?
         """For the design info given by a PoseDirectory source, initialize the Pose with self.source file,
         self.symmetry, self.job, self.fragment_database, and self.log objects
 
@@ -1416,7 +1098,7 @@ class PoseDirectory:
 
             self.save_asu()
 
-    def save_asu(self):  # , rename_chains=False
+    def save_asu(self):    # Todo to PoseProtocols? # , rename_chains=False
         """Save a new Structure from multiple Chain or Entity objects including the Pose symmetry"""
         if self.job.fuse_chains:
             # try:
@@ -1446,99 +1128,197 @@ class PoseDirectory:
         self.pose.write(out_path=self.asu_path)
         self.log.info(f'Cleaned PDB: "{self.asu_path}"')
 
-    @handle_design_errors(errors=(DesignError,))
-    @close_logs
-    @remove_structure_memory
-    def check_unmodelled_clashes(self, clashing_threshold: float = 0.75):
-        """Given a multimodel file, measure the number of clashes is less than a percentage threshold"""
-        raise DesignError('This module is not working correctly at the moment')
-        models = [Models.from_PDB(self.job.structure_db.full_models.retrieve_data(name=entity), log=self.log)
-                  for entity in self.entity_names]
-        # models = [Models.from_file(self.job.structure_db.full_models.retrieve_data(name=entity))
-        #           for entity in self.entity_names]
+    def identify_interface(self):  # Todo to PoseProtocols?
+        """Find the interface(s) between each Entity in the Pose. Handles symmetric clash testing, writing the assembly
 
-        # for each model, transform to the correct space
-        models = self.transform_structures_to_pose(models)
-        multimodel = MultiModel.from_models(models, independent=True, log=self.log)
-
-        clashes = 0
-        prior_clashes = 0
-        for idx, state in enumerate(multimodel, 1):
-            clashes += (1 if state.is_clash() else 0)
-            state.write(out_path=os.path.join(self.path, f'state_{idx}.pdb'))
-            print(f'State {idx} - Clashes: {"YES" if clashes > prior_clashes else "NO"}')
-            prior_clashes = clashes
-
-        if clashes/float(len(multimodel)) > clashing_threshold:
-            raise DesignError(f'The frequency of clashes ({clashes/float(len(multimodel))}) exceeds the clashing '
-                              f'threshold ({clashing_threshold})')
-
-    @handle_design_errors(errors=(DesignError,))
-    @close_logs
-    @remove_structure_memory
-    def check_clashes(self):
-        """Check for clashes in the input and in the symmetric assembly if symmetric"""
-        self.load_pose()
-
-    @handle_design_errors(errors=(DesignError,))
-    @close_logs
-    @remove_structure_memory
-    def rename_chains(self):
-        """Standardize the chain names in incremental order found in the design source file"""
-        model = Model.from_file(self.source, log=self.log)
-        model.rename_chains()
-        model.write(out_path=self.asu_path)
-
-    @handle_design_errors(errors=(DesignError, ValueError, RuntimeError))
-    @close_logs
-    @remove_structure_memory
-    def orient(self, to_pose_directory: bool = True):
-        """Orient the Pose with the prescribed symmetry at the origin and symmetry axes in canonical orientations
-        self.symmetry is used to specify the orientation
+        Sets:
+            self.interface_residue_ids (dict[str, str]):
+                Map each interface to the corresponding residue/chain pairs
+            self.interface_design_residue_numbers (set[int]):
+                The residues in proximity of the interface, including buried residues
+            self.interface_residue_numbers (set[int]):
+                The residues in contact across the interface
         """
-        if self.initial_model:
-            model = self.initial_model
-        else:
-            model = Model.from_file(self.source, log=self.log)
+        self.load_pose()
+        if self.symmetric:
+            self.symmetric_assembly_is_clash()
+            if self.job.output_assembly:
+                self.pose.write(assembly=True, out_path=self.assembly_path, increment_chains=self.job.increment_chains)
+                self.log.info(f'Symmetric assembly written to: "{self.assembly_path}"')
 
-        if self.design_symmetry:
-            if to_pose_directory:
-                out_path = self.assembly_path
+        self.pose.find_and_split_interface()
+        # self.interface_design_residue_numbers = self.pose.interface_design_residue_numbers
+        # self.interface_residue_numbers = self.pose.interface_residue_numbers
+        self.interface_design_residue_numbers = set()  # Replace set(). Add new residues
+        for number, residues_entities in self.pose.split_interface_residues.items():
+            self.interface_design_residue_numbers.update([residue.number for residue, _ in residues_entities])
+
+        self.interface_residue_numbers = set()  # Replace set(). Add new residues
+        for entity in self.pose.entities:
+            # Todo v clean as it is redundant with analysis and falls out of scope
+            entity_oligomer = Model.from_chains(entity.chains, log=entity.log, entities=False)
+            # entity.oligomer.get_sasa()
+            # Must get_residues by number as the Residue instance will be different in entity_oligomer
+            for residue in entity_oligomer.get_residues(self.interface_design_residue_numbers):
+                if residue.sasa > 0:
+                    # Using set ensures that if we have repeats they won't be unique if Entity is symmetric
+                    self.interface_residue_numbers.add(residue.number)
+
+        for number, residues_entities in self.pose.split_interface_residues.items():
+            self.interface_residue_ids[f'interface{number}'] = \
+                ','.join(f'{residue.number}{entity.chain_id}' for residue, entity in residues_entities)
+
+        self.info['interface_design_residues'] = self.interface_design_residue_numbers
+        self.info['interface_residues'] = self.interface_residue_numbers
+        self.info['interface_residue_ids'] = self.interface_residue_ids
+
+    def symmetric_assembly_is_clash(self):  # Todo to PoseProtocols?
+        """Wrapper around the Pose symmetric_assembly_is_clash() to check at the Pose level for clashes and raise
+        ClashError if any are found, otherwise, continue with protocol
+        """
+        if self.pose.symmetric_assembly_is_clash():
+            if self.job.design.ignore_symmetric_clashes:
+                self.log.critical(f'The Symmetric Assembly contains clashes! {self.source} is not viable')
             else:
-                out_path = os.path.join(self.job.orient_dir, f'{model.name}.pdb')
+                raise ClashError(f'The Symmetric Assembly contains clashes! Design won\'t be considered. If you '
+                                 f'would like to generate the Assembly anyway, re-submit the command with '
+                                 f'--{putils.ignore_symmetric_clashes}')
 
-            model.orient(symmetry=self.design_symmetry)
-
-            orient_file = model.write(out_path=out_path)
-            self.log.info(f'The oriented file was saved to {orient_file}')
-            # self.clear_pose_transformation()
-            for entity in model.entities:
-                entity.remove_mate_chains()
-            # save the asu
-            # self.load_pose(source=orient_file)
-            self.load_pose(entities=model.entities)
-        else:
-            raise SymmetryError(warn_missing_symmetry % self.orient.__name__)
-
-    @handle_design_errors(errors=(DesignError, AssertionError))
-    @close_logs
-    @remove_structure_memory
-    def refine(self, to_pose_directory: bool = True, interface_to_alanine: bool = False,
-               refine_sequences: Iterable[Sequence] = None, gather_metrics: bool = False):
-        """Refine the source PDB using self.symmetry to specify any symmetry
+    def prepare_rosetta_flags(self, symmetry_protocol: str = None, sym_def_file: str = None, pdb_out_path: str = None,
+                              out_dir: AnyStr = os.getcwd()) -> str:
+        """Prepare a protocol specific Rosetta flags file with program specific variables
 
         Args:
-            to_pose_directory: Whether the refinement should be saved to the PoseDirectory
-            interface_to_alanine: Whether the identified interface residues should be mutated to Alanine
-            refine_sequences: The sequence to mutate the pose to and have it built using Rosetta FastRelax
-            gather_metrics: Whether metrics should be calculated for the Pose
+            symmetry_protocol: The type of symmetric protocol (specifying design dimension) to use for Rosetta jobs
+            sym_def_file: A Rosetta specific file specifying the symmetry system
+            pdb_out_path: Disk location to write the resulting design files
+            out_dir: Disk location to write the flags file
+        Returns:
+            Disk location of the flags file
         """
-        self._refine(to_pose_directory=to_pose_directory, interface_to_alanine=interface_to_alanine,
-                     refine_sequences=refine_sequences, gather_metrics=gather_metrics)
+        # flag_variables (list(tuple)): The variable value pairs to be filed in the RosettaScripts XML
+        number_of_residues = self.pose.number_of_residues
+        self.log.info(f'Total number of residues in Pose: {number_of_residues}')
 
-    # @handle_design_errors(errors=(DesignError, AssertionError))
-    # @close_logs
-    # @remove_structure_memory
+        # Get ASU distance parameters
+        if self.design_dimension:  # check for None and dimension 0 simultaneously
+            # The furthest point from the ASU COM + the max individual Entity radius
+            distance = self.pose.radius + max([entity.radius for entity in self.pose.entities])  # all the radii
+            self.log.info(f'Expanding ASU into symmetry group by {distance:.2f} Angstroms')
+        else:
+            distance = 0
+
+        if not self.job.design.evolution_constraint:
+            constraint_percent, free_percent = 0, 1
+        else:
+            constraint_percent = 0.5
+            free_percent = 1 - constraint_percent
+
+        variables = rosetta_variables + [('dist', distance), ('repack', 'yes'),
+                                         ('constrained_percent', constraint_percent), ('free_percent', free_percent)]
+        variables.extend([(putils.design_profile, self.design_profile_file)]
+                         if os.path.exists(self.design_profile_file) else [])
+        variables.extend([(putils.fragment_profile, self.fragment_profile_file)]
+                         if os.path.exists(self.fragment_profile_file) else [])
+
+        if self.symmetric:
+            def prepare_symmetry_for_rosetta():
+                """For the specified design, locate/make the symmetry files necessary for Rosetta input
+
+                Sets:
+                    self.symmetry_protocol (str)
+                    self.sym_def_file (AnyStr)
+                """
+                if self.design_dimension is None:  # asymmetric
+                    self.symmetry_protocol = 'asymmetric'
+                    # self.sym_def_file = sdf_lookup()
+                    self.log.critical(
+                        "No symmetry invoked during design. Rosetta will still design your PDB, however, if it's"
+                        ' an ASU it may be missing crucial interface contacts. Is this what you want?')
+                else:  # Symmetric
+                    # self.log.debug(f'Design has Symmetry Entry Number: {self.sym_entry.entry_number} (Laniado & Yeates, 2020)')
+                    self.symmetry_protocol = symmetry_protocols[self.design_dimension]
+                    self.sym_def_file = self.sym_entry.sdf_lookup()
+                self.log.info(f'Symmetry Option: {self.symmetry_protocol}')
+
+            prepare_symmetry_for_rosetta()
+            if symmetry_protocol is None:
+                symmetry_protocol = self.symmetry_protocol
+            if not sym_def_file:
+                sym_def_file = self.sym_def_file
+            variables.extend([] if symmetry_protocol is None else [('symmetry', symmetry_protocol),
+                                                                   ('sdf', sym_def_file)])
+            out_of_bounds_residue = number_of_residues*self.pose.number_of_symmetry_mates + 1
+        else:
+            variables.append(('symmetry', symmetry_protocol))
+            out_of_bounds_residue = number_of_residues + 1
+        variables.extend([(interface, residues) if residues else (interface, out_of_bounds_residue)
+                          for interface, residues in self.interface_residue_ids.items()])
+
+        # Assign any additional designable residues
+        if self.pose.required_residues:
+            variables.extend([('required_residues', ','.join(f'{res.number}{res.chain}'
+                                                             for res in self.pose.required_residues))])
+        else:  # Get an out-of-bounds index
+            variables.extend([('required_residues', out_of_bounds_residue)])
+
+        # Allocate any "core" residues based on central fragment information
+        center_residue_indices = self.pose.center_residue_indices
+        if center_residue_indices:
+            variables.extend([('core_residues', ','.join([f'{index + 1}' for index in center_residue_indices]))])
+        else:  # Get an out-of-bounds index
+            variables.extend([('core_residues', out_of_bounds_residue)])
+
+        flags = copy(rosetta_flags)
+        if pdb_out_path:
+            flags.extend([f'-out:path:pdb {pdb_out_path}', f'-scorefile {self.scores_file}'])
+        else:
+            flags.extend([f'-out:path:pdb {self.designs}', f'-scorefile {self.scores_file}'])
+        flags.append(f'-in:file:native {self.refined_pdb}')
+        flags.append(f'-parser:script_vars {" ".join(f"{var}={val}" for var, val in variables)}')
+
+        out_file = os.path.join(out_dir, 'flags')
+        with open(out_file, 'w') as f:
+            f.write('%s\n' % '\n'.join(flags))
+
+        return out_file
+
+    # Below methods run Rosetta script set up for various design applications
+    def generate_entity_metrics(self, entity_command) -> list[list[str] | None]:
+        """Use the Pose state to generate metrics commands for each Entity instance
+
+        Args:
+            entity_command: The base command to build Entity metric commands off of
+        Returns:
+            The formatted command for every Entity in the Pose
+        """
+        # self.entity_names not dependent on Pose load
+        if len(self.entity_names) == 1:  # there is no unbound state to query as only one entity
+            return []
+        if len(self.symmetry_definition_files) != len(self.entity_names) or self.job.force_flags:
+            self.load_pose()  # Need to initialize the pose so each entity can get sdf created
+            for entity in self.pose.entities:
+                if entity.is_oligomeric():  # make symmetric energy in line with SymDesign energies v
+                    entity.make_sdf(out_path=self.data,
+                                    modify_sym_energy_for_cryst=True if self.design_dimension in [2, 3] else False)
+                else:
+                    shutil.copy(os.path.join(putils.symmetry_def_files, 'C1.sym'),
+                                os.path.join(self.data, f'{entity.name}.sdf'))
+
+        entity_metric_commands = []
+        for idx, (entity, name) in enumerate(zip(self.pose.entities, self.entity_names), 1):
+            if self.symmetric:
+                entity_sdf = f'sdf={os.path.join(self.data, f"{name}.sdf")}'
+                entity_sym = 'symmetry=make_point_group'
+            else:
+                entity_sdf, entity_sym = '', 'symmetry=asymmetric'
+            metric_cmd = entity_command + ['-parser:script_vars', 'repack=yes', f'entity={idx}', entity_sym] + \
+                ([entity_sdf] if entity_sdf != '' else [])
+            self.log.info(f'Metrics Command for Entity {name}: {list2cmdline(metric_cmd)}')
+            entity_metric_commands.append(metric_cmd)
+
+        return entity_metric_commands
+
     def _refine(self, to_pose_directory: bool = True, interface_to_alanine: bool = False,
                 refine_sequences: Iterable[Sequence] = None, gather_metrics: bool = False):
         """Refine the source PDB using self.symmetry to specify any symmetry
@@ -1700,6 +1480,242 @@ class PoseDirectory:
                 header = True
             pose_s.to_csv(out_path, mode='a', header=header)
 
+    def custom_rosetta_script(self, script, file_list=None, native=None, suffix=None,
+                              score_only=None, variables=None, **kwargs):
+        """Generate a custom script to dispatch to the design using a variety of parameters"""
+        raise DesignError('This module is outdated, please update it to use')  # Todo reflect modern metrics collection
+        cmd = copy(script_cmd)
+        script_name = os.path.splitext(os.path.basename(script))[0]
+        if self.interface_residue_numbers is False or self.interface_design_residue_numbers is False:
+            self.identify_interface()
+        else:  # We only need to load pose as we already calculated interface
+            self.load_pose()
+
+        flags = os.path.join(self.scripts, 'flags')
+        if not os.path.exists(self.flags) or self.job.force_flags:
+            make_path(self.scripts)
+            self.prepare_rosetta_flags(out_dir=self.scripts)
+            self.log.debug('Pose flags written to: %s' % flags)
+
+        cmd += ['-symmetry_definition', 'CRYST1'] if self.design_dimension > 0 else []
+
+        if file_list:
+            pdb_input = os.path.join(self.scripts, 'design_files.txt')
+            generate_files_cmd = ['python', putils.list_pdb_files, '-d', self.designs, '-o', pdb_input]
+        else:
+            pdb_input = self.refined_pdb
+            generate_files_cmd = []  # empty command
+
+        if native:
+            native = getattr(self, native, 'refined_pdb')
+        else:
+            native = self.refined_pdb
+
+        # if isinstance(suffix, str):
+        #     suffix = ['-out:suffix', '_%s' % suffix]
+        # if isinstance(suffix, bool):
+        if suffix:
+            suffix = ['-out:suffix', '_%s' % script_name]
+        else:
+            suffix = []
+
+        if score_only:
+            score = ['-out:file:score_only', self.scores_file]
+        else:
+            score = []
+
+        if self.job.design.number_of_trajectories:
+            trajectories = ['-nstruct', str(self.job.design.number_of_trajectories)]
+        else:
+            trajectories = ['-no_nstruct_label true']
+
+        if variables:
+            for idx, var_val in enumerate(variables):
+                variable, value = var_val.split('=')
+                variables[idx] = '%s=%s' % (variable, getattr(self.pose, value, ''))
+            variables = ['-parser:script_vars'] + variables
+        else:
+            variables = []
+
+        cmd += ['@%s' % flags, '-in:file:%s' % ('l' if file_list else 's'), pdb_input, '-in:file:native', native] + \
+            score + suffix + trajectories + ['-parser:protocol', script] + variables
+        if self.job.mpi > 0:
+            cmd = run_cmds[putils.rosetta_extras] + [str(self.job.mpi)] + cmd
+
+        if self.job.distribute_work:
+            write_shell_script(list2cmdline(generate_files_cmd), name=script_name, out_path=self.scripts,
+                               additional=[list2cmdline(cmd)])
+        else:
+            raise NotImplementedError('Need to implement this feature')
+
+        # Todo  + [list2cmdline(analysis_cmd)])
+        #  analysis_cmd = ['python', putils.program_exe, putils.analysis, '--single', self.path, '--no-output',
+        #                 '--output_file', os.path.join(self.job.all_scores, putils.default_analysis_file % (starttime, protocol))]
+
+        # ANALYSIS: each output from the Design process based on score, Analyze Sequence Variation
+        if not self.job.distribute_work:
+            pose_s = self._interface_design_analysis()
+            out_path = os.path.join(self.job.all_scores, putils.default_analysis_file % (starttime, 'All'))
+            if os.path.exists(out_path):
+                header = False
+            else:
+                header = True
+            pose_s.to_csv(out_path, mode='a', header=header)
+
+    @handle_design_errors(errors=(DesignError, AssertionError))
+    @close_logs
+    @remove_structure_memory
+    def interface_metrics(self):
+        """Generate a script capable of running Rosetta interface metrics analysis on the bound and unbound states"""
+        # metrics_flags = 'repack=yes'
+        protocol = putils.interface_metrics
+        main_cmd = copy(script_cmd)
+        if self.interface_residue_numbers is False or self.interface_design_residue_numbers is False:
+            self.identify_interface()
+        else:  # We only need to load pose as we already calculated interface
+            self.load_pose()
+
+        # interface_secondary_structure
+        if not os.path.exists(self.flags) or self.job.force_flags:
+            make_path(self.scripts)
+            self.prepare_rosetta_flags(out_dir=self.scripts)
+            self.log.debug(f'Pose flags written to: {self.flags}')
+
+        design_files = os.path.join(self.scripts,
+                                    f'design_files{f"_{self.job.specific_protocol}" if self.job.specific_protocol else ""}.txt')
+        generate_files_cmd = ['python', putils.list_pdb_files, '-d', self.designs, '-o', design_files] + \
+            (['-s', self.job.specific_protocol] if self.job.specific_protocol else [])
+        main_cmd += ['@%s' % self.flags, '-in:file:l', design_files,
+                     # TODO out:file:score_only file is not respected if out:path:score_file given
+                     #  -run:score_only true?
+                     '-out:file:score_only', self.scores_file, '-no_nstruct_label', 'true', '-parser:protocol']
+        #              '-in:file:native', self.refined_pdb,
+        if self.job.mpi > 0:
+            main_cmd = run_cmds[putils.rosetta_extras] + [str(self.job.mpi)] + main_cmd
+
+        metric_cmd_bound = main_cmd + (['-symmetry_definition', 'CRYST1'] if self.design_dimension > 0 else []) + \
+            [os.path.join(putils.rosetta_scripts_dir, f'{protocol}{"_DEV" if self.job.development else ""}.xml')]
+        entity_cmd = main_cmd + [os.path.join(putils.rosetta_scripts_dir,
+                                              f'metrics_entity{"_DEV" if self.job.development else ""}.xml')]
+        metric_cmds = [metric_cmd_bound]
+        metric_cmds.extend(self.generate_entity_metrics(entity_cmd))
+
+        # Create executable to gather interface Metrics on all Designs
+        if self.job.distribute_work:
+            analysis_cmd = ['python', putils.program_exe, putils.analysis, '--single', self.path, '--no-output',
+                            '--output_file', os.path.join(self.job.all_scores,
+                                                          putils.default_analysis_file % (starttime, protocol))]
+            write_shell_script(list2cmdline(generate_files_cmd), name=putils.interface_metrics, out_path=self.scripts,
+                               additional=[list2cmdline(command) for command in metric_cmds] +
+                                          [list2cmdline(analysis_cmd)])
+        else:
+            list_all_files_process = Popen(generate_files_cmd)
+            list_all_files_process.communicate()
+            for metric_cmd in metric_cmds:
+                metrics_process = Popen(metric_cmd)
+                metrics_process.communicate()  # wait for command to complete
+
+        # ANALYSIS: each output from the Design process based on score, Analyze Sequence Variation
+        if not self.job.distribute_work:
+            pose_s = self._interface_design_analysis()
+            out_path = os.path.join(self.job.all_scores, putils.default_analysis_file % (starttime, 'All'))
+            if os.path.exists(out_path):
+                header = False
+            else:
+                header = True
+            pose_s.to_csv(out_path, mode='a', header=header)
+
+    # Below are protocols for various design applications
+    @handle_design_errors(errors=(DesignError,))
+    @close_logs
+    @remove_structure_memory
+    def check_unmodelled_clashes(self, clashing_threshold: float = 0.75):
+        """Given a multimodel file, measure the number of clashes is less than a percentage threshold"""
+        raise DesignError('This module is not working correctly at the moment')
+        models = [Models.from_PDB(self.job.structure_db.full_models.retrieve_data(name=entity), log=self.log)
+                  for entity in self.entity_names]
+        # models = [Models.from_file(self.job.structure_db.full_models.retrieve_data(name=entity))
+        #           for entity in self.entity_names]
+
+        # for each model, transform to the correct space
+        models = self.transform_structures_to_pose(models)
+        multimodel = MultiModel.from_models(models, independent=True, log=self.log)
+
+        clashes = 0
+        prior_clashes = 0
+        for idx, state in enumerate(multimodel, 1):
+            clashes += (1 if state.is_clash() else 0)
+            state.write(out_path=os.path.join(self.path, f'state_{idx}.pdb'))
+            print(f'State {idx} - Clashes: {"YES" if clashes > prior_clashes else "NO"}')
+            prior_clashes = clashes
+
+        if clashes/float(len(multimodel)) > clashing_threshold:
+            raise DesignError(f'The frequency of clashes ({clashes/float(len(multimodel))}) exceeds the clashing '
+                              f'threshold ({clashing_threshold})')
+
+    @handle_design_errors(errors=(DesignError,))
+    @close_logs
+    @remove_structure_memory
+    def check_clashes(self):
+        """Check for clashes in the input and in the symmetric assembly if symmetric"""
+        self.load_pose()
+
+    @handle_design_errors(errors=(DesignError,))
+    @close_logs
+    @remove_structure_memory
+    def rename_chains(self):
+        """Standardize the chain names in incremental order found in the design source file"""
+        model = Model.from_file(self.source, log=self.log)
+        model.rename_chains()
+        model.write(out_path=self.asu_path)
+
+    @handle_design_errors(errors=(DesignError, ValueError, RuntimeError))
+    @close_logs
+    @remove_structure_memory
+    def orient(self, to_pose_directory: bool = True):
+        """Orient the Pose with the prescribed symmetry at the origin and symmetry axes in canonical orientations
+        self.symmetry is used to specify the orientation
+        """
+        if self.initial_model:
+            model = self.initial_model
+        else:
+            model = Model.from_file(self.source, log=self.log)
+
+        if self.design_symmetry:
+            if to_pose_directory:
+                out_path = self.assembly_path
+            else:
+                out_path = os.path.join(self.job.orient_dir, f'{model.name}.pdb')
+
+            model.orient(symmetry=self.design_symmetry)
+
+            orient_file = model.write(out_path=out_path)
+            self.log.info(f'The oriented file was saved to {orient_file}')
+            # self.clear_pose_transformation()
+            for entity in model.entities:
+                entity.remove_mate_chains()
+            # save the asu
+            # self.load_pose(source=orient_file)
+            self.load_pose(entities=model.entities)
+        else:
+            raise SymmetryError(warn_missing_symmetry % self.orient.__name__)
+
+    @handle_design_errors(errors=(DesignError, AssertionError))
+    @close_logs
+    @remove_structure_memory
+    def refine(self, to_pose_directory: bool = True, interface_to_alanine: bool = False,
+               refine_sequences: Iterable[Sequence] = None, gather_metrics: bool = False):
+        """Refine the source PDB using self.symmetry to specify any symmetry
+
+        Args:
+            to_pose_directory: Whether the refinement should be saved to the PoseDirectory
+            interface_to_alanine: Whether the identified interface residues should be mutated to Alanine
+            refine_sequences: The sequence to mutate the pose to and have it built using Rosetta FastRelax
+            gather_metrics: Whether metrics should be calculated for the Pose
+        """
+        self._refine(to_pose_directory=to_pose_directory, interface_to_alanine=interface_to_alanine,
+                     refine_sequences=refine_sequences, gather_metrics=gather_metrics)
+
     @handle_design_errors(errors=(DesignError, AssertionError, FileNotFoundError))
     @close_logs
     @remove_structure_memory
@@ -1723,18 +1739,6 @@ class PoseDirectory:
             # asu.update_attributes_from_pdb(pdb)
             # asu_path.write(out_path=self.asu_path)
         self.save_asu()  # force saving the Pose.asu
-
-    def symmetric_assembly_is_clash(self):
-        """Wrapper around the Pose symmetric_assembly_is_clash() to check at the Pose level for clashes and raise
-        ClashError if any are found, otherwise, continue with protocol
-        """
-        if self.pose.symmetric_assembly_is_clash():
-            if self.job.design.ignore_symmetric_clashes:
-                self.log.critical(f'The Symmetric Assembly contains clashes! {self.source} is not viable')
-            else:
-                raise ClashError(f'The Symmetric Assembly contains clashes! Design won\'t be considered. If you '
-                                 f'would like to generate the Assembly anyway, re-submit the command with '
-                                 f'--{putils.ignore_symmetric_clashes}')
 
     @handle_design_errors(errors=(DesignError, AssertionError))
     @close_logs
@@ -1773,50 +1777,6 @@ class PoseDirectory:
         self.info['fragments'] = self.fragment_observations = self.pose.get_fragment_observations()
         self.info['fragment_source'] = self.fragment_source
         self.pickle_info()  # Todo remove once PoseDirectory state can be returned to the SymDesign dispatch w/ MP
-
-    def identify_interface(self):
-        """Find the interface(s) between each Entity in the Pose. Handles symmetric clash testing, writing the assembly
-
-        Sets:
-            self.interface_residue_ids (dict[str, str]):
-                Map each interface to the corresponding residue/chain pairs
-            self.interface_design_residue_numbers (set[int]):
-                The residues in proximity of the interface, including buried residues
-            self.interface_residue_numbers (set[int]):
-                The residues in contact across the interface
-        """
-        self.load_pose()
-        if self.symmetric:
-            self.symmetric_assembly_is_clash()
-            if self.job.output_assembly:
-                self.pose.write(assembly=True, out_path=self.assembly_path, increment_chains=self.job.increment_chains)
-                self.log.info(f'Symmetric assembly written to: "{self.assembly_path}"')
-
-        self.pose.find_and_split_interface()
-        # self.interface_design_residue_numbers = self.pose.interface_design_residue_numbers
-        # self.interface_residue_numbers = self.pose.interface_residue_numbers
-        self.interface_design_residue_numbers = set()  # Replace set(). Add new residues
-        for number, residues_entities in self.pose.split_interface_residues.items():
-            self.interface_design_residue_numbers.update([residue.number for residue, _ in residues_entities])
-
-        self.interface_residue_numbers = set()  # Replace set(). Add new residues
-        for entity in self.pose.entities:
-            # Todo v clean as it is redundant with analysis and falls out of scope
-            entity_oligomer = Model.from_chains(entity.chains, log=entity.log, entities=False)
-            # entity.oligomer.get_sasa()
-            # Must get_residues by number as the Residue instance will be different in entity_oligomer
-            for residue in entity_oligomer.get_residues(self.interface_design_residue_numbers):
-                if residue.sasa > 0:
-                    # Using set ensures that if we have repeats they won't be unique if Entity is symmetric
-                    self.interface_residue_numbers.add(residue.number)
-
-        for number, residues_entities in self.pose.split_interface_residues.items():
-            self.interface_residue_ids[f'interface{number}'] = \
-                ','.join(f'{residue.number}{entity.chain_id}' for residue, entity in residues_entities)
-
-        self.info['interface_design_residues'] = self.interface_design_residue_numbers
-        self.info['interface_residues'] = self.interface_residue_numbers
-        self.info['interface_residue_ids'] = self.interface_residue_ids
 
     @handle_design_errors(errors=(DesignError, AssertionError))
     @close_logs
@@ -1935,54 +1895,7 @@ class PoseDirectory:
             case putils.rosetta_str:
                 self.rosetta_interface_design()
             case putils.proteinmpnn:
-                sequences_and_scores: dict[str, np.ndarray | list] = \
-                    self.pose.design_sequences(number=self.job.design.number_of_trajectories,
-                                               ca_only=self.job.design.ca_only,
-                                               temperatures=self.job.design.temperatures,
-                                               )
-                # Convert each numpy array into a list for output
-                for score_type, score in sequences_and_scores.items():
-                    sequences_and_scores[score_type] = score.tolist()
-
-                # trajectories_temperatures_ids = [f'temp{temperature}' for idx in self.job.design.number_of_trajectories
-                #                                  for temperature in self.job.design.temperatures]
-                # trajectories_temperatures_ids = [{'temperature': temperature} for idx in self.job.design.number_of_trajectories
-                #                                  for temperature in self.job.design.temperatures]
-                sequences_and_scores['protocol'] = \
-                    repeat('proteinmpnn', len(self.job.design.number_of_trajectories * self.job.design.temperatures))
-                sequences_and_scores['temperature'] = [temperature for temperature in self.job.design.temperatures
-                                                       for _ in range(self.job.design.number_of_trajectories)]
-
-                def write_per_residue_scores(designs: Sequence[str], scores: dict[str, np.ndarray]) -> AnyStr:
-                    """"""
-                    # json_scores = {score_type: score.tolist() for score_type, score in scores}
-                    design_scores = {design: {'decoy': design} for design in designs}
-                    for score_type, score in scores.items():
-                        # score_list = score.tolist()
-                        for design, score in zip(designs, score):
-                            design_scores[design].update({score_type: score})
-
-                    for design, _scores in design_scores.items():
-                        # write_json(_scores, self.scores_file)
-                        with open(self.scores_file, 'a') as f_save:
-                            json.dump(_scores, f_save)  # , **kwargs)
-                            f_save.write('\n')
-
-                    return self.scores_file
-                    # return write_json(design_scores, self.scores_file)
-                # Todo make a job variable...
-                protocol = 'thread'
-                # designs = [os.path.join(self.data, f'{self.name}_{protocol}{seq_idx:04d}.pdb')
-                designs = [f'{self.name}_{protocol}{seq_idx:04d}'
-                           for seq_idx in range(len(sequences_and_scores['sequences']))]
-                write_per_residue_scores(designs, sequences_and_scores)
-
-                if self.job.design.structures:
-                    # Todo
-                    #  if job.design.alphafold:
-                    #      self.predict_structure()
-                    #  else:
-                    self._refine(refine_sequences=sequences_and_scores['sequences'], gather_metrics=True)
+                self.proteinmpnn_interface_design()
             case other:
                 raise ValueError(f"The method '{self.job.design.method}' isn't available")
         self.pickle_info()  # Todo remove once PoseDirectory state can be returned to the SymDesign dispatch w/ MP
@@ -2124,6 +2037,60 @@ class PoseDirectory:
             else:
                 header = True
             pose_s.to_csv(out_path, mode='a', header=header)
+
+    def proteinmpnn_interface_design(self):
+        sequences_and_scores: dict[str, np.ndarray | list] = \
+            self.pose.design_sequences(number=self.job.design.number_of_trajectories,
+                                       ca_only=self.job.design.ca_only,
+                                       temperatures=self.job.design.temperatures,
+                                       )
+
+        self.output_proteinmpnn_scores(sequences_and_scores)
+        if self.job.design.structures:
+            # Todo
+            #  if job.design.alphafold:
+            #      self.predict_structure()
+            #  else:
+            self._refine(refine_sequences=sequences_and_scores['sequences'], gather_metrics=True)
+
+    def output_proteinmpnn_scores(self, sequences_and_scores: dict[str, np.ndarray | list]):
+        # Convert each numpy array into a list for output
+        for score_type, score in sequences_and_scores.items():
+            sequences_and_scores[score_type] = score.tolist()
+
+        # trajectories_temperatures_ids = [f'temp{temperature}' for idx in self.job.design.number_of_trajectories
+        #                                  for temperature in self.job.design.temperatures]
+        # trajectories_temperatures_ids = [{'temperature': temperature} for idx in self.job.design.number_of_trajectories
+        #                                  for temperature in self.job.design.temperatures]
+        sequences_and_scores['protocol'] = \
+            repeat('proteinmpnn', len(self.job.design.number_of_trajectories * self.job.design.temperatures))
+        sequences_and_scores['temperature'] = [temperature for temperature in self.job.design.temperatures
+                                               for _ in range(self.job.design.number_of_trajectories)]
+
+        def write_per_residue_scores(designs: Sequence[str], scores: dict[str, np.ndarray]) -> AnyStr:
+            """"""
+            # json_scores = {score_type: score.tolist() for score_type, score in scores}
+            design_scores = {design: {'decoy': design} for design in designs}
+            for score_type, score in scores.items():
+                # score_list = score.tolist()
+                for design, score in zip(designs, score):
+                    design_scores[design].update({score_type: score})
+
+            for design, _scores in design_scores.items():
+                # write_json(_scores, self.scores_file)
+                with open(self.scores_file, 'a') as f_save:
+                    json.dump(_scores, f_save)  # , **kwargs)
+                    f_save.write('\n')
+
+            return self.scores_file
+            # return write_json(design_scores, self.scores_file)
+
+        # Todo make a job variable...
+        protocol = 'thread'
+        # designs = [os.path.join(self.data, f'{self.name}_{protocol}{seq_idx:04d}.pdb')
+        designs = [f'{self.name}_{protocol}{seq_idx:04d}'
+                   for seq_idx in range(len(sequences_and_scores['sequences']))]
+        write_per_residue_scores(designs, sequences_and_scores)
 
     @handle_design_errors(errors=(DesignError, AssertionError))
     @close_logs
@@ -3499,8 +3466,8 @@ class PoseDirectory:
             return self.path.replace(f'{self.projects}{os.sep}', '').replace(os.sep, '-')
 
 
-@handle_design_errors(errors=(DesignError, AssertionError))
-@close_logs
+# @handle_design_errors(errors=(DesignError, AssertionError))
+# @close_logs
 # @remove_structure_memory
 def interface_design_analysis(pose: Pose, design_poses: Iterable[Pose] = None, scores_file: AnyStr = None,
                               merge_residue_data: bool = False, save_metrics: bool = True,

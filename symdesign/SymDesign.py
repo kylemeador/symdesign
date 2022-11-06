@@ -1511,12 +1511,12 @@ def main():
         # Start pose processing and preparation for Rosetta
         if args.multi_processing:
             # zipped_args = zip(pose_directories, repeat(args.force_flags), repeat(queried_flags.get('development')))
-            results = utils.mp_map(protocols.PoseDirectory.rosetta_interface_metrics, pose_directories, processes=cores)
+            results = utils.mp_map(protocols.PoseDirectory.interface_metrics, pose_directories, processes=cores)
         else:
             for design in pose_directories:
                 # if design.sym_entry is None:
                 #     continue
-                results.append(design.rosetta_interface_metrics())
+                results.append(design.interface_metrics())
 
         terminate(results=results)
     # ---------------------------------------------------
