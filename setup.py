@@ -174,4 +174,9 @@ if __name__ == '__main__':
     p4.communicate()
     p5 = subprocess.Popen(['make'])
     p5.communicate()
-
+    # Set up orient dependency
+    p6 = subprocess.Popen(['gfortran', '-o', putils.orient_exe_path, f'{putils.orient_exe_path}.f'])
+    p6.communicate()
+    # Set up errat dependency
+    p7 = subprocess.Popen(['g++', '-o', putils.errat_exe_path, putils.errat_residue_source])
+    p7.communicate()
