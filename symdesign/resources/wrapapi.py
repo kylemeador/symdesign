@@ -13,7 +13,7 @@ from symdesign.resources.database import Database, DataStore
 from .query.pdb import query_entity_id, query_assembly_id, parse_entities_json, parse_assembly_json, query_entry_id, \
     parse_entry_json, _is_entity_thermophilic
 from .query.uniprot import query_uniprot
-from symdesign import utils
+from symdesign.utils import path as putils
 # import dependencies.bmdca as bmdca
 
 # Globals
@@ -69,7 +69,7 @@ class APIDatabaseFactory:
         # self._databases = {}
         self._database = None
 
-    def __call__(self, source: str = os.path.join(os.getcwd(), f'{utils.path.program_name}{utils.path.data.title()}'),
+    def __call__(self, source: str = os.path.join(os.getcwd(), f'{putils.program_name}{putils.data.title()}'),
                  sql: bool = False, **kwargs) -> APIDatabase:
         """Return the specified APIDatabase object singleton
 
@@ -88,25 +88,25 @@ class APIDatabaseFactory:
         elif sql:
             raise NotImplementedError('SQL set up has not been completed!')
         else:
-            structure_info_dir = os.path.join(source, utils.path.structure_info)
-            sequence_info_dir = os.path.join(source, utils.path.sequence_info)
+            structure_info_dir = os.path.join(source, putils.structure_info)
+            sequence_info_dir = os.path.join(source, putils.sequence_info)
             external_db = os.path.join(source, 'ExternalDatabases')
             # stride directory
             stride_dir = os.path.join(structure_info_dir, 'stride')
             # Todo only make paths if they are needed...
-            utils.make_path(stride_dir)
+            putils.make_path(stride_dir)
             # sequence_info subdirectories
             sequences = os.path.join(sequence_info_dir, 'sequences')
             profiles = os.path.join(sequence_info_dir, 'profiles')
-            utils.make_path(sequences)
-            utils.make_path(profiles)
+            putils.make_path(sequences)
+            putils.make_path(profiles)
             # external database subdirectories
             pdb = os.path.join(external_db, 'pdb')
-            utils.make_path(pdb)
+            putils.make_path(pdb)
             # pdb_entity_api = os.path.join(external_db, 'pdb_entity')
             # pdb_assembly_api = os.path.join(external_db, 'pdb_assembly')
             uniprot = os.path.join(external_db, 'uniprot')
-            utils.make_path(uniprot)
+            putils.make_path(uniprot)
             # self._databases[source] = APIDatabase(stride_dir, sequences, profiles, pdb, uniprot, sql=None)
             self._database = APIDatabase(stride_dir, sequences, profiles, pdb, uniprot, sql=None)
 
@@ -205,8 +205,8 @@ class PDBDataStore(DataStore):
         # pdb_assembly_api: AnyStr | Path = os.path.join(self.location, 'pdb_assembly')
         # self.entity_api = EntityDataStore(location=pdb_entity_api, extension='.json', sql=self.sql, log=self.log)
         # self.assembly_api = AssemblyDataStore(location=pdb_assembly_api, extension='.json', sql=self.sql, log=self.log)
-        # utils.make_path(pdb_entity_api)
-        # utils.make_path(pdb_assembly_api)
+        # putils.make_path(pdb_entity_api)
+        # putils.make_path(pdb_assembly_api)
 
     def is_thermophilic(self, name: str = None, **kwargs) -> bool:
         """Return whether the entity json entry in question is thermophilic"""

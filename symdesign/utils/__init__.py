@@ -278,17 +278,6 @@ def get_table_column_widths(data: Iterable) -> Tuple[int]:
     return tuple(max(map(len, map(str, column))) for column in zip(*data))
 
 
-def make_path(path: AnyStr, condition: bool = True):
-    """Make all required directories in specified path if it doesn't exist, and optional condition is True
-
-    Args:
-        path: The path to create
-        condition: A condition to check before the path production is executed
-    """
-    if condition:
-        os.makedirs(path, exist_ok=True)
-
-
 def read_json(file_name, **kwargs) -> dict | None:
     """Use json.load to read an object from a file
 

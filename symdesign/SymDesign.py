@@ -447,7 +447,7 @@ def main():
         if success and output:
             nonlocal design_source
             job_paths = job.job_paths
-            utils.make_path(job_paths)
+            putils.make_path(job_paths)
             if low and high:
                 design_source = f'{design_source}-{low:.2f}-{high:.2f}'
             # Make single file with names of each directory where all_docked_poses can be found
@@ -519,7 +519,7 @@ def main():
                     exit_code = 1
                     exit(exit_code)
 
-                utils.make_path(job.sbatch_scripts)
+                putils.make_path(job.sbatch_scripts)
                 if pose_directories:
                     command_file = utils.write_commands([os.path.join(des.scripts, f'{stage}.sh') for des in success],
                                                         out_path=job_paths, name='_'.join(default_output_tuple))
@@ -945,7 +945,7 @@ def main():
                 project_designs = \
                     os.path.join(job.projects, f'{os.path.basename(job.nanohedra_root)}_{putils.pose_directory}')
                 if not os.path.exists(os.path.join(project_designs, putils.master_log)):
-                    utils.make_path(project_designs)
+                    putils.make_path(project_designs)
                     shutil.copy(os.path.join(job.nanohedra_root, putils.master_log), project_designs)
         elif args.specification_file:
             if not args.directory:
@@ -994,8 +994,8 @@ def main():
             if not initialized and args.preprocessed:
                 # args.orient, args.refine = True, True  # Todo make part of argparse? Could be variables in NanohedraDB
                 # SDUtils.make_path(job.refine_dir)
-                utils.make_path(job.full_model_dir)
-                utils.make_path(job.stride_dir)
+                putils.make_path(job.full_model_dir)
+                putils.make_path(job.stride_dir)
                 all_entities, found_entity_names = [], set()
                 for entity in [entity for pose in pose_directories for entity in pose.initial_model.entities]:
                     if entity.name not in found_entity_names:
@@ -1039,7 +1039,7 @@ def main():
 
             info_messages = []
             # Set up sequence data using hhblits and profile bmDCA for each input entity
-            utils.make_path(job.sequences)
+            putils.make_path(job.sequences)
             hhblits_cmds, bmdca_cmds = [], []
             for entity in all_entities:
                 entity.sequence_file = job.api_db.sequences.retrieve_file(name=entity.name)
@@ -1066,8 +1066,8 @@ def main():
                           f'{putils.hhblits_exe} exists then try your job again. Otherwise, use the argument'
                           f'--{putils.evolution_constraint} False ')
                     exit()
-                utils.make_path(job.profiles)
-                utils.make_path(job.sbatch_scripts)
+                putils.make_path(job.profiles)
+                putils.make_path(job.sbatch_scripts)
                 # Prepare files for running hhblits commands
                 instructions = 'Please follow the instructions below to generate sequence profiles for input proteins'
                 info_messages.append(instructions)
@@ -1093,8 +1093,8 @@ def main():
                 hhblits_sbatch = None
 
             if bmdca_cmds:
-                utils.make_path(job.profiles)
-                utils.make_path(job.sbatch_scripts)
+                putils.make_path(job.profiles)
+                putils.make_path(job.sbatch_scripts)
                 # bmdca_cmds = \
                 #     [list2cmdline([putils.bmdca_exe_path, '-i', os.path.join(job.profiles, '%s.fasta' % entity.name),
                 #                   '-d', os.path.join(job.profiles, '%s_bmDCA' % entity.name)])
@@ -1571,8 +1571,8 @@ def main():
         #         (CommmandDistributer.mpi - 1, putils.nstruct / (CommmandDistributer.mpi - 1)))
         #     queried_flags.update({'mpi': True, 'script': True})
         if job.design.evolution_constraint:  # hhblits to run
-            utils.make_path(job.sequences)
-            utils.make_path(job.profiles)
+            putils.make_path(job.sequences)
+            putils.make_path(job.profiles)
         # Start pose processing and preparation for Rosetta
         if args.multi_processing:
             results = utils.mp_map(protocols.PoseDirectory.interface_design, pose_directories, processes=cores)
@@ -1589,7 +1589,7 @@ def main():
         #     args.save = True
 
         # ensure analysis write directory exists
-        utils.make_path(job.all_scores)
+        putils.make_path(job.all_scores)
         # Start pose analysis of all designed files
         if args.output_file == putils.default_analysis_file:
             args.output_file = os.path.join(job.all_scores, args.output_file % (utils.starttime, design_source))
@@ -1743,7 +1743,7 @@ def main():
             if len(pose_directories) > 500:
                 design_source = f'top_{args.metric}'
                 default_output_tuple = (utils.starttime, args.module, design_source)
-                utils.make_path(job.job_paths)
+                putils.make_path(job.job_paths)
                 designs_file = os.path.join(job.job_paths, '%s_%s_%s_pose.scores' % default_output_tuple)
                 with open(designs_file, 'w') as f:
                     f.write(top_designs_string % '\n\t'.join(results_strings))
