@@ -2,7 +2,7 @@ import os
 import sys
 from itertools import product
 
-from symdesign.fragdock import nanohedra_dock
+from symdesign.protocols.fragdock import nanohedra_dock
 # from utils.path import biological_fragment_db_pickle
 # from utils import unpickle
 # from resources.EulerLookup import euler_factory
