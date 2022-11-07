@@ -33,10 +33,10 @@ logger = logging.getLogger(__name__)
 # logger.info('Starting logger')
 # logger.warning('Starting logger')
 # input('WHY LOGGING')
-from symdesign import protocols, utils
+from symdesign import utils
 from symdesign.flags import argparsers, parser_entire, parser_options, parser_module, parser_input, parser_guide, \
     process_design_selector_flags, parser_residue_selector, parser_output
-from symdesign.protocols.fragdock import nanohedra_dock
+from symdesign.protocols import fragdock, protocols
 from symdesign.guide import interface_design_guide, analysis_guide, interface_metrics_guide, select_poses_guide, \
     select_designs_guide, select_sequences_guide, cluster_poses_guide, refine_guide, optimize_designs_guide, \
     nanohedra_guide, orient_guide, expand_asu_guide, set_up_instructions
@@ -1478,15 +1478,15 @@ def main():
                                   repeat(args.rotation_step1), repeat(args.rotation_step2), repeat(args.min_matched),
                                   repeat(args.high_quality_match_value), repeat(args.initial_z_value),
                                   repeat(bb_logger), repeat(job))
-                results = utils.mp_starmap(nanohedra_dock, zipped_args, processes=cores)
+                results = utils.mp_starmap(fragdock.nanohedra_dock, zipped_args, processes=cores)
             else:  # using combinations of directories with .pdb files
                 for model1, model2 in structure_pairs:
-                    # result = nanohedra_dock(sym_entry, fragment_db, euler_lookup, job.output_directory, pdb1, pdb2,
                     # result = None
-                    nanohedra_dock(sym_entry, job.output_directory, model1, model2,
-                                   rotation_step1=args.rotation_step1, rotation_step2=args.rotation_step2,
-                                   min_matched=args.min_matched, high_quality_match_value=args.high_quality_match_value,
-                                   initial_z_value=args.initial_z_value, job=job)  # log=bb_logger,
+                    fragdock.nanohedra_dock(sym_entry, job.output_directory, model1, model2,
+                                            rotation_step1=args.rotation_step1, rotation_step2=args.rotation_step2,
+                                            min_matched=args.min_matched,
+                                            high_quality_match_value=args.high_quality_match_value,
+                                            initial_z_value=args.initial_z_value, job=job)  # log=bb_logger,
                     # results.append(result)  # DONT need. Results uses pose_directories. There are none and no output
             terminate(results=results, output=False)
 

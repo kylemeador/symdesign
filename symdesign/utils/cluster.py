@@ -13,7 +13,7 @@ import sklearn
 
 from symdesign import utils
 from symdesign.metrics import prioritize_design_indices, nanohedra_metrics  # query_user_for_metrics,
-from symdesign.protocols import PoseDirectory
+from symdesign.protocols.protocols import PoseDirectory
 from symdesign.structure.coords import superposition3d, transform_coordinate_sets
 
 # globals
