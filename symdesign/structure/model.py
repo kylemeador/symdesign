@@ -7176,7 +7176,7 @@ class Pose(SymmetricModel):
         for match_count, (ghost_frag, surface_frag, match_score) in enumerate(ghost_mono_frag_pairs, 1):
             i, j, k = ijk = ghost_frag.ijk
             fragment_pdb, _ = ghost_frag.fragment_db.paired_frags[ijk]
-            trnsfmd_fragment = fragment_pdb.get_transformed_copy()
+            trnsfmd_fragment = fragment_pdb.get_transformed_copy(*ghost_frag.transformation)
             trnsfmd_fragment.write(out_path=os.path.join(out_path, f'{i}_{j}_{k}_fragment_match_{match_count}.pdb'))
             write_frag_match_info_file(ghost_frag=ghost_frag, matched_frag=surface_frag,
                                        overlap_error=utils.z_value_from_match_score(match_score),

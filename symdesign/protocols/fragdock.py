@@ -2551,7 +2551,7 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
     passing_transforms_indices = sufficiently_dense_indices[asu_is_viable_indices[interface_is_viable]]
 
     if job.design.ignore_symmetric_clashes:
-        log.warning(f'Not checking for symmetric clashes as per requested flag --ignore_symmetric_clashes')
+        log.warning(f'Not checking for symmetric clashes as per requested flag --ignore-symmetric-clashes')
     else:
         if sym_entry.unit_cell:
             # Calculate the vectorized uc_dimensions
@@ -2987,23 +2987,24 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
 
     # Check output setting. Should interface design, metrics be performed?
     if job.dock_only:  # Only get pose outputs, no sequences or metrics
-        for idx, pose_id in enumerate(pose_ids):  # range(number_of_transforms):
-            update_pose_coords(idx)
-
-            if job.write_fragments:
-                # if number_of_perturbations > 1:
-                add_fragments_to_pose()  # <- here generating fresh
-                # else:
-                #     # Here, loading fragments. No self-symmetric interactions found
-                #     add_fragments_to_pose(all_passing_ghost_indices[idx],
-                #                           all_passing_surf_indices[idx],
-                #                           all_passing_z_scores[idx])
-            # pose_id = create_pose_id(idx)
-            # Todo replace with PoseDirectory? Path object?
-            output_pose(os.path.join(root_out_dir, pose_id), pose_id)
-
-        # log.info(f'Total {building_blocks} dock trajectory took {time.time() - frag_dock_time_start:.2f}s')
-        # return terminate()  # End of docking run
+        pass
+        # for idx, pose_id in enumerate(pose_ids):  # range(number_of_transforms):
+        #     update_pose_coords(idx)
+        #
+        #     if job.write_fragments:
+        #         # if number_of_perturbations > 1:
+        #         add_fragments_to_pose()  # <- here generating fresh
+        #         # else:
+        #         #     # Here, loading fragments. No self-symmetric interactions found
+        #         #     add_fragments_to_pose(all_passing_ghost_indices[idx],
+        #         #                           all_passing_surf_indices[idx],
+        #         #                           all_passing_z_scores[idx])
+        #     # pose_id = create_pose_id(idx)
+        #     # Todo replace with PoseDirectory? Path object?
+        #     output_pose(os.path.join(root_out_dir, pose_id), pose_id)
+        #
+        # # log.info(f'Total {building_blocks} dock trajectory took {time.time() - frag_dock_time_start:.2f}s')
+        # # return terminate()  # End of docking run
     # ------------------ TERM ------------------------
     elif job.design.sequences:  # We perform sequence design
         mpnn_model = ml.proteinmpnn_factory()  # Todo accept model_name arg. Now just use the default
@@ -4548,8 +4549,6 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
     for idx, pose_id in enumerate(pose_ids):  # range(number_of_transforms):
         # Add the next set of coordinates
         update_pose_coords(idx)
-        # Todo reinstate after alphafold integration?
-        # output_pose(os.path.join(root_out_dir, pose_id), pose_id)
 
         # if number_of_perturbations > 1:
         add_fragments_to_pose()  # <- here generating fresh
@@ -4559,6 +4558,11 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
         #     add_fragments_to_pose(all_passing_ghost_indices[idx],
         #                           all_passing_surf_indices[idx],
         #                           all_passing_z_scores[idx])
+
+        # Todo reinstate after alphafold integration?
+        # Todo replace with PoseDirectory? Path object?
+        if job.output:
+            output_pose(os.path.join(root_out_dir, pose_id), pose_id)
 
         # Reset the fragment_map and fragment_profile for each Entity before calculate_fragment_profile
         for entity in pose.entities:
@@ -4574,7 +4578,8 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
         #     pose.log.info('No fragment information')
 
         # Remove saved pose attributes from the prior iteration calculations
-        pose.ss_index_array.clear(), pose.ss_type_array.clear(), pose.fragment_metrics.clear()
+        pose.ss_index_array.clear(), pose.ss_type_array.clear()
+        pose.fragment_metrics.clear(), pose.fragment_pairs.clear()
         for attribute in ['_design_residues', '_interface_residues']:  # _assembly_minimally_contacting
             try:
                 delattr(pose, attribute)
@@ -4951,9 +4956,14 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
     make_path(job.all_scores)
     save = True
     if save:
-        pose_df.to_csv(os.path.join(job.all_scores, f'{building_blocks}_docked_poses_Trajectories.csv'))
+        trajectory_metrics_csv = os.path.join(job.all_scores, f'{building_blocks}_docked_poses_Trajectories.csv')
+        pose_df.to_csv(trajectory_metrics_csv)
+        log.info(f'Wrote trajectory metrics to {trajectory_metrics_csv}')
         if job.design.sequences:
-            per_residue_df.to_csv(os.path.join(job.all_scores, f'{building_blocks}_docked_poses_Residues.csv'))
+            residue_metrics_csv = os.path.join(job.all_scores, f'{building_blocks}_docked_poses_Residues.csv')
+            per_residue_df.to_csv(residue_metrics_csv)
+            log.info(f'Wrote per residue metrics to {residue_metrics_csv}')
+
     log.info(f'Total {building_blocks} dock trajectory took {time.time() - frag_dock_time_start:.2f}s')
 
     return terminate()  # End of docking run
