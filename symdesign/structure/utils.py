@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+import _pickle
+import logging
 from collections import defaultdict
 from collections.abc import Generator
 from typing import get_args, Literal
 
 from symdesign import utils
 
+logger = logging.getLogger(__name__)
 protein_letters3: tuple[str, ...] = \
     ('ALA', 'CYS', 'ASP', 'GLU', 'PHE', 'GLY', 'HIS', 'ILE', 'LYS', 'LEU', 'MET', 'ASN',
      'PRO', 'GLN', 'ARG', 'SER', 'THR', 'VAL', 'TRP', 'TYR')

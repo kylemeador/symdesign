@@ -25,18 +25,18 @@ from Bio.SeqRecord import SeqRecord
 
 import symdesign.utils.path as putils
 # logging.config.fileConfig(putils.logging_cfg_file)
-logging.config.dictConfig(putils.logging_cfg)
-logger = logging.getLogger(__name__)
 # print(putils.logging_cfg['loggers'])
+logging.config.dictConfig(putils.logging_cfg)
+logger = logging.getLogger(putils.program_name.lower())  # __name__)
 # print(__name__)
 # print(logger.__dict__)
 # logger.info('Starting logger')
 # logger.warning('Starting logger')
 # input('WHY LOGGING')
-from symdesign import protocols, utils
+from symdesign import utils
 from symdesign.flags import argparsers, parser_entire, parser_options, parser_module, parser_input, parser_guide, \
     process_design_selector_flags, parser_residue_selector, parser_output
-from symdesign.fragdock import nanohedra_dock
+from symdesign.protocols import fragdock, protocols
 from symdesign.guide import interface_design_guide, analysis_guide, interface_metrics_guide, select_poses_guide, \
     select_designs_guide, select_sequences_guide, cluster_poses_guide, refine_guide, optimize_designs_guide, \
     nanohedra_guide, orient_guide, expand_asu_guide, set_up_instructions
@@ -48,7 +48,6 @@ from symdesign.resources.query.utils import input_string, bool_d, boolean_choice
     validate_input_return_response_value
 from symdesign.structure.model import Model
 from symdesign.structure.sequence import generate_mutations, find_orf_offset, read_fasta_file
-from symdesign.structure.utils import protein_letters_alph1
 from symdesign.third_party.DnaChisel.dnachisel.DnaOptimizationProblem.NoSolutionError import NoSolutionError
 
 # def rename(des_dir, increment=putils.nstruct):
@@ -448,7 +447,7 @@ def main():
         if success and output:
             nonlocal design_source
             job_paths = job.job_paths
-            utils.make_path(job_paths)
+            putils.make_path(job_paths)
             if low and high:
                 design_source = f'{design_source}-{low:.2f}-{high:.2f}'
             # Make single file with names of each directory where all_docked_poses can be found
@@ -520,7 +519,7 @@ def main():
                     exit_code = 1
                     exit(exit_code)
 
-                utils.make_path(job.sbatch_scripts)
+                putils.make_path(job.sbatch_scripts)
                 if pose_directories:
                     command_file = utils.write_commands([os.path.join(des.scripts, f'{stage}.sh') for des in success],
                                                         out_path=job_paths, name='_'.join(default_output_tuple))
@@ -619,8 +618,8 @@ def main():
         except FileNotFoundError:
             raise FileNotFoundError(
                 f'Nanohedra master directory is malformed. Missing required docking file {log_path}')
-        raise utils.SymmetryError(f'Nanohedra master docking file {log_path} is malformed. Missing required info '
-                                  f'"Nanohedra Entry Number:"')
+        raise utils.InputError(f'Nanohedra master docking file {log_path} is malformed. Missing required info'
+                               f' "Nanohedra Entry Number:"')
 
     def print_guide():
         """Print the SymDesign guide and exit"""
@@ -917,6 +916,8 @@ def main():
     structure_pairs = None  # all_dock_directories
     low = high = low_range = high_range = None
     initial_refinement = initial_loop_model = None  # set below if needed
+    # Start with the assumption that we aren't loading resources
+    load_resources = False
     if initialize:
         if args.range:
             try:
@@ -946,11 +947,11 @@ def main():
                 project_designs = \
                     os.path.join(job.projects, f'{os.path.basename(job.nanohedra_root)}_{putils.pose_directory}')
                 if not os.path.exists(os.path.join(project_designs, putils.master_log)):
-                    utils.make_path(project_designs)
+                    putils.make_path(project_designs)
                     shutil.copy(os.path.join(job.nanohedra_root, putils.master_log), project_designs)
         elif args.specification_file:
             if not args.directory:
-                raise utils.DesignError('A --directory must be provided when using --specification_file')
+                raise utils.InputError('A --directory must be provided when using --specification-file')
             # Todo, combine this with collect_designs
             #  this works for file locations as well! should I have a separate mechanism for each?
             design_specification = utils.PoseSpecification(args.specification_file)
@@ -965,17 +966,17 @@ def main():
                 if all_poses[0].count(os.sep) == 0:  # check to ensure -f wasn't used when -pf was meant
                     # assume that we have received pose-IDs and process accordingly
                     if not args.directory:
-                        raise utils.DesignError('Your input specification appears to be pose IDs, however no '
-                                                '--directory location was passed. Please resubmit with --directory '
-                                                'and use --pose_file or --specification_file with pose IDs')
+                        raise utils.InputError('Your input specification appears to be pose IDs, however no '
+                                               '--directory was passed. Please resubmit with --directory '
+                                               'and use --pose-file/--specification-file with pose IDs')
                     pose_directories = [protocols.PoseDirectory.from_pose_id(pose, root=args.directory, **queried_flags)
                                         for pose in all_poses[low_range:high_range]]
                 else:
                     pose_directories = [protocols.PoseDirectory.from_file(pose, **queried_flags)
                                         for pose in all_poses[low_range:high_range]]
         if not pose_directories:
-            raise utils.DesignError(f'No {putils.program_name} directories found within "{location}"! Please ensure '
-                                    f'correct location')
+            raise utils.InputError(f'No {putils.program_name} directories found within "{location}"! Please ensure '
+                                   f'correct location')
         representative_pose_directory = next(iter(pose_directories))
         design_source = os.path.splitext(os.path.basename(location))[0]
         default_output_tuple = (utils.starttime, args.module, design_source)
@@ -990,14 +991,12 @@ def main():
         #      putils.refine]  # pre_refine not necessary. maybe hhblits, bmDCA, loop_modelling
         # Todo fix below sloppy logic
         if (not initialized and args.module in initialize_modules) or args.nanohedra_output or args.update_database:
-            # Start with the assumption that we aren't loading resources
-            load_resources = False
             all_structures = []
             if not initialized and args.preprocessed:
                 # args.orient, args.refine = True, True  # Todo make part of argparse? Could be variables in NanohedraDB
                 # SDUtils.make_path(job.refine_dir)
-                utils.make_path(job.full_model_dir)
-                utils.make_path(job.stride_dir)
+                putils.make_path(job.full_model_dir)
+                putils.make_path(job.stride_dir)
                 all_entities, found_entity_names = [], set()
                 for entity in [entity for pose in pose_directories for entity in pose.initial_model.entities]:
                     if entity.name not in found_entity_names:
@@ -1043,7 +1042,7 @@ def main():
             hhblits_cmds, bmdca_cmds = [], []
             if job.design.evolution_constraint:
                 # Set up sequence data using hhblits and profile bmDCA for each input entity
-                utils.make_path(job.sequences)
+                putils.make_path(job.sequences)
                 for entity in all_entities:
                     entity.sequence_file = job.api_db.sequences.retrieve_file(name=entity.name)
                     if not entity.sequence_file:
@@ -1072,8 +1071,8 @@ def main():
                           f'{putils.hhblits_exe} exists then try your job again. Otherwise, use the argument'
                           f'--{putils.evolution_constraint} False ')
                     exit()
-                utils.make_path(job.profiles)
-                utils.make_path(job.sbatch_scripts)
+                putils.make_path(job.profiles)
+                putils.make_path(job.sbatch_scripts)
                 # Prepare files for running hhblits commands
                 instructions = 'Please follow the instructions below to generate sequence profiles for input proteins'
                 info_messages.append(instructions)
@@ -1099,8 +1098,8 @@ def main():
                 hhblits_sbatch = None
 
             if bmdca_cmds:
-                utils.make_path(job.profiles)
-                utils.make_path(job.sbatch_scripts)
+                putils.make_path(job.profiles)
+                putils.make_path(job.sbatch_scripts)
                 # bmdca_cmds = \
                 #     [list2cmdline([putils.bmdca_exe_path, '-i', os.path.join(job.profiles, '%s.fasta' % entity.name),
                 #                   '-d', os.path.join(job.profiles, '%s_bmDCA' % entity.name)])
@@ -1151,7 +1150,7 @@ def main():
                     # initialization to proceed
                 else:
                     # We always prepare info_messages when jobs should be run
-                    raise utils.DesignError("This shouldn't have happened. info_messages can't be False here...")
+                    raise utils.InputError("This shouldn't have happened. info_messages can't be False here...")
 
             # Ensure we report to PoseDirectory the results after skipping set up
             if args.preprocessed:
@@ -1179,11 +1178,11 @@ def main():
         logger.critical(f'Setting up inputs for {putils.nanohedra.title()} docking')
         # Todo make current with sql ambitions
         # Make master output directory. sym_entry is required, so this won't fail v
-        job.docking_master_dir = os.path.join(job.projects, f'NanohedraEntry{sym_entry.entry_number}DockedPoses')
-        os.makedirs(job.docking_master_dir, exist_ok=True)
+        if args.output_directory is None:
+            job.output_directory = os.path.join(job.projects, f'NanohedraEntry{sym_entry.entry_number}DockedPoses')
+            os.makedirs(job.output_directory, exist_ok=True)
         # Transform input entities to canonical orientation and return their ASU
         all_structures = []
-        load_resources = False
         # Set up variables for the correct parsing of provided file paths
         by_file1 = by_file2 = False
         eventual_structure_names1, eventual_structure_names2 = None, None
@@ -1252,19 +1251,20 @@ def main():
             structure_names2 = eventual_structure_names2
 
         info_messages = []
-        preprocess_instructions, initial_refinement, initial_loop_model = \
-            job.structure_db.preprocess_structures_for_design(all_structures, load_resources=load_resources,
-                                                              script_out_path=job.sbatch_scripts)
-        #                                                       , batch_commands=args.distribute_work)
-        if load_resources or initial_refinement or initial_loop_model:  # entity processing commands are needed
-            logger.critical(sbatch_warning)
-            for message in info_messages + preprocess_instructions:
-                logger.info(message)
-            print('\n')
-            logger.info(f'After completion of sbatch script(s), re-run your {putils.program_name} command:\n\tpython '
-                        f'{" ".join(sys.argv)}')
-            terminate(output=False)
-            # After completion of sbatch, the next time command is entered docking will proceed
+        if not args.preprocessed:
+            preprocess_instructions, initial_refinement, initial_loop_model = \
+                job.structure_db.preprocess_structures_for_design(all_structures, load_resources=load_resources,
+                                                                  script_out_path=job.sbatch_scripts)
+            #                                                       , batch_commands=args.distribute_work)
+            if load_resources or initial_refinement or initial_loop_model:  # entity processing commands are needed
+                logger.critical(sbatch_warning)
+                for message in info_messages + preprocess_instructions:
+                    logger.info(message)
+                print('\n')
+                logger.info(f'After completion of sbatch script(s), re-run your {putils.program_name} command:\n\tpython '
+                            f'{" ".join(sys.argv)}')
+                terminate(output=False)
+                # After completion of sbatch, the next time command is entered docking will proceed
 
         # # Ensure all_entities are symmetric. As of now, all orient_structures returns are the symmetrized structure
         # for entity in [entity for structure in all_structures for entity in structure.entities]:
@@ -1447,50 +1447,51 @@ def main():
         # Initialize docking procedure
         if args.distribute_work:  # Write all commands to a file and use sbatch
             design_source = f'Entry{sym_entry.entry_number}'  # used for terminate()
-            # script_out_dir = os.path.join(job.docking_master_dir, putils.scripts)
+            # script_out_dir = os.path.join(job.output_directory, putils.scripts)
             # os.makedirs(script_out_dir, exist_ok=True)
             cmd = ['python', putils.nanohedra_dock_file, '-dock']
-            kwargs = dict(outdir=job.docking_master_dir, entry=sym_entry.entry_number, rot_step1=args.rotation_step1,
+            kwargs = dict(outdir=job.output_directory, entry=sym_entry.entry_number, rot_step1=args.rotation_step1,
                           rot_step2=args.rotation_step2, min_matched=args.min_matched,
                           high_quality_match_value=args.high_quality_match_value, initial_z_value=args.initial_z_value)
             cmd.extend(chain.from_iterable([[f'-{key}', str(value)] for key, value in kwargs.items()]))
 
             if args.output_assembly:
-                cmd.append(putils.output_assembly)
+                cmd.append(f'-{putils.output_assembly}')
             if args.output_surrounding_uc:
-                cmd.append(putils.output_surrounding_uc)
+                cmd.append(f'-{putils.output_surrounding_uc}')
 
-            commands = [cmd + [putils.nano_entity_flag1, model1.file_path, putils.nano_entity_flag2, model2.file_path]
+            commands = [cmd + [f'-{putils.nano_entity_flag1}', model1.file_path,
+                               f'-{putils.nano_entity_flag2}', model2.file_path]
                         + (['-initial'] if idx == 0 else []) for idx, (model1, model2) in enumerate(structure_pairs)]
             terminate(results=commands)
         else:
             if job.debug:
                 # Root logs to stream with level debug according to prior logging initialization
-                master_logger, bb_logger = logger, logger
+                master_logger = bb_logger = logger
             else:
-                master_log_filepath = os.path.join(args.output_directory, putils.master_log)
-                master_logger = utils.start_log(name=putils.nanohedra.title(), handler=2, location=master_log_filepath,
-                                                propagate=True, no_log_name=True)
+                master_logger = utils.start_log(name=f'{putils.program_name.lower()}.{putils.nanohedra.title()}')
+                # master_log_filepath = os.path.join(job.output_directory, putils.master_log)
+                # master_logger = utils.start_log(name=putils.nanohedra.title(), handler=2, location=master_log_filepath,
+                #                                 propagate=True, no_log_name=True)
                 bb_logger = None  # have to include this incase started as debug
-            master_logger.info('Nanohedra\nMODE: DOCK\n')
+            master_logger.info('MODE: DOCK')
             utils.nanohedra.general.write_docking_parameters(args.oligomer1, args.oligomer2, args.rotation_step1,
-                                                             args.rotation_step2, sym_entry, job.docking_master_dir,
+                                                             args.rotation_step2, sym_entry, job.output_directory,
                                                              log=master_logger)
             if args.multi_processing:
-                zipped_args = zip(repeat(sym_entry), repeat(job.docking_master_dir), *zip(*structure_pairs),
+                zipped_args = zip(repeat(sym_entry), repeat(job.output_directory), *zip(*structure_pairs),
                                   repeat(args.rotation_step1), repeat(args.rotation_step2), repeat(args.min_matched),
                                   repeat(args.high_quality_match_value), repeat(args.initial_z_value),
                                   repeat(bb_logger), repeat(job))
-                results = utils.mp_starmap(nanohedra_dock, zipped_args, processes=cores)
+                results = utils.mp_starmap(fragdock.nanohedra_dock, zipped_args, processes=cores)
             else:  # using combinations of directories with .pdb files
                 for model1, model2 in structure_pairs:
-                    master_logger.info(f'Docking {model1.name} / {model2.name}')
-                    # result = nanohedra_dock(sym_entry, fragment_db, euler_lookup, job.docking_master_dir, pdb1, pdb2,
                     # result = None
-                    nanohedra_dock(sym_entry, job.docking_master_dir, model1, model2,
-                                   rotation_step1=args.rotation_step1, rotation_step2=args.rotation_step2,
-                                   min_matched=args.min_matched, high_quality_match_value=args.high_quality_match_value,
-                                   initial_z_value=args.initial_z_value, log=bb_logger, job=job)
+                    fragdock.nanohedra_dock(sym_entry, job.output_directory, model1, model2,
+                                            rotation_step1=args.rotation_step1, rotation_step2=args.rotation_step2,
+                                            min_matched=args.min_matched,
+                                            high_quality_match_value=args.high_quality_match_value,
+                                            initial_z_value=args.initial_z_value, job=job)  # log=bb_logger,
                     # results.append(result)  # DONT need. Results uses pose_directories. There are none and no output
             terminate(results=results, output=False)
 
@@ -1517,12 +1518,12 @@ def main():
         # Start pose processing and preparation for Rosetta
         if args.multi_processing:
             # zipped_args = zip(pose_directories, repeat(args.force_flags), repeat(queried_flags.get('development')))
-            results = utils.mp_map(protocols.PoseDirectory.rosetta_interface_metrics, pose_directories, processes=cores)
+            results = utils.mp_map(protocols.PoseDirectory.interface_metrics, pose_directories, processes=cores)
         else:
             for design in pose_directories:
                 # if design.sym_entry is None:
                 #     continue
-                results.append(design.rosetta_interface_metrics())
+                results.append(design.interface_metrics())
 
         terminate(results=results)
     # ---------------------------------------------------
@@ -1577,8 +1578,8 @@ def main():
         #         (CommmandDistributer.mpi - 1, putils.nstruct / (CommmandDistributer.mpi - 1)))
         #     queried_flags.update({'mpi': True, 'script': True})
         if job.design.evolution_constraint:  # hhblits to run
-            utils.make_path(job.sequences)
-            utils.make_path(job.profiles)
+            putils.make_path(job.sequences)
+            putils.make_path(job.profiles)
         # Start pose processing and preparation for Rosetta
         if args.multi_processing:
             results = utils.mp_map(protocols.PoseDirectory.interface_design, pose_directories, processes=cores)
@@ -1595,7 +1596,7 @@ def main():
         #     args.save = True
 
         # ensure analysis write directory exists
-        utils.make_path(job.all_scores)
+        putils.make_path(job.all_scores)
         # Start pose analysis of all designed files
         if args.output_file == putils.default_analysis_file:
             args.output_file = os.path.join(job.all_scores, args.output_file % (utils.starttime, design_source))
@@ -1749,7 +1750,7 @@ def main():
             if len(pose_directories) > 500:
                 design_source = f'top_{args.metric}'
                 default_output_tuple = (utils.starttime, args.module, design_source)
-                utils.make_path(job.job_paths)
+                putils.make_path(job.job_paths)
                 designs_file = os.path.join(job.job_paths, '%s_%s_%s_pose.scores' % default_output_tuple)
                 with open(designs_file, 'w') as f:
                     f.write(top_designs_string % '\n\t'.join(results_strings))
@@ -2446,7 +2447,8 @@ def main():
                                 print(f'"{tag_input}" is an invalid input. Try again')
                             number_of_found_tags = len(des_dir.pose.entities) - sum(missing_tags[(des_dir, design)])
 
-                # apply all tags to the sequences
+                # Apply all tags to the sequences
+                from symdesign.structure.utils import protein_letters_alph1
                 # Todo indicate the linkers that will be used!
                 #  Request a new one if not ideal!
                 cistronic_sequence = ''
