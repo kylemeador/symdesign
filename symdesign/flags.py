@@ -15,10 +15,10 @@ from symdesign.utils import handle_errors, pretty_format_table, clean_comma_sepa
     ex_path
 from symdesign.utils.ProteinExpression import expression_tags
 # These shouldn't be moved here
-from symdesign.utils.path import fragment_dbs, biological_interfaces
+from symdesign.utils.path import fragment_dbs, biological_interfaces, default_logging_level
 from symdesign.utils.path import submodule_guide, submodule_help, force_flags, sym_entry, program_output, \
     interface_metrics, nano_entity_flag1, nano_entity_flag2, data, multi_processing, residue_selector, options, \
-    cluster_poses, orient, default_clustered_pose_file, interface_design, evolution_constraint, hbnet, term_constraint, \
+    cluster_poses, orient, default_clustered_pose_file, interface_design, evolution_constraint, hbnet, term_constraint,\
     number_of_trajectories, refine, structure_background, scout, design_profile, evolutionary_profile, \
     fragment_profile, all_scores, default_analysis_file, select_sequences, program_name, nanohedra, \
     program_command, analysis, select_poses, output_fragments, output_oligomers, protocol, current_energy_function, \
@@ -314,7 +314,6 @@ sym_entry_args = ('-E', f'--{sym_entry}', '--entry', '-entry')
 sym_entry_kwargs = dict(type=int, default=None, metavar='INT',
                         help=f'The entry number of {nanohedra.title()} docking combinations to use.\n'
                              f'See {nanohedra} --query for possible symmetries')
-default_logging_level = 3
 # ---------------------------------------------------
 options_help = f'Additional options control symmetry, the extent of file output, various {program_name} runtime ' \
                'considerations,\nand programmatic options for determining design outcomes'
@@ -358,7 +357,7 @@ options_arguments = {
                      help='If commands should be run as MPI parallel processes, how many '
                           'processes\nshould be invoked for each job?\nDefault=%(default)s'),
     ('-M', f'--{multi_processing}'): dict(action='store_true',
-                                       help='Should job be run with multiple processors?'),
+                                          help='Should job be run with multiple processors?'),
     ('-P', '--preprocessed'): dict(action='store_true',
                                    help=f'Whether the designs of interest have been preprocessed for the '
                                         f'{current_energy_function}\nenergy function and/or missing loops\n'),
