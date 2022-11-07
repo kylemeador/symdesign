@@ -608,10 +608,16 @@ def get_perturb_matrices(rotation_degrees: float, number: int = 10) -> np.ndarra
         A 3D numpy array where each subsequent rotation is along axis=0,
             and each 3x3 rotation matrix is along axis=1/2
     """
-    half_grid_range = int(number / 2)
+    half_grid_range, remainder = divmod(number, 2)
+    # If the number is odd we should center on 0 else center with more on the negative side
+    if remainder:
+        upper_range = half_grid_range + 1
+    else:
+        upper_range = half_grid_range
+
     step_degrees = rotation_degrees / number
     perturb_matrices = []
-    for step in range(-half_grid_range, half_grid_range):  # Range from -5 to 4(5) for example. 0 is identity matrix
+    for step in range(-half_grid_range, upper_range):  # Range from -5 to 4(5) for example. 0 is identity matrix
         rad = math.radians(step * step_degrees)
         rad_s = math.sin(rad)
         rad_c = math.cos(rad)
@@ -784,8 +790,7 @@ def create_perturbation_transformations(sym_entry: SymEntry, number: int = 10,
             perturb_matrices = get_perturb_matrices(rotation_step, number=number)
             # Repeat the matrices according to the number of perturbations raised to the power of the
             # remaining dof (remaining_dof), then tile that by how many dof have been seen (seen_dof)
-            perturb_matrices = np.tile(np.repeat(perturb_matrices,
-                                                 (number**remaining_dof, 1, 1)),
+            perturb_matrices = np.tile(np.tile(perturb_matrices, (number**remaining_dof, 1, 1)),
                                        (number**seen_dof, 1, 1))
             remaining_dof -= 1
             seen_dof += 1
@@ -799,9 +804,8 @@ def create_perturbation_transformations(sym_entry: SymEntry, number: int = 10,
             internal_translation_grid = copy.copy(translation_grid)
 
             translation_perturb_vector = np.linspace(-translation_range[idx], translation_range[idx], number)
-            internal_translation_grid[:, 2] = np.tile(np.repeat(translation_perturb_vector,
-                                                                (number**remaining_dof, 1, 1)),
-                                                      (number**seen_dof, 1, 1))
+            internal_translation_grid[:, 2] = np.repeat(np.repeat(translation_perturb_vector, number**remaining_dof),
+                                                        number**seen_dof)
             remaining_dof -= 1
             seen_dof += 1
             perturbation_mapping[f'translation{group_idx}'] = internal_translation_grid
@@ -828,9 +832,9 @@ def create_perturbation_transformations(sym_entry: SymEntry, number: int = 10,
 
         perturbation_mapping['external_translations'] = external_translation_grid
 
-    if remaining_dof != 0 and seen_dof + 1 != total_dof:
-        logger.critical(f'e number of perturbations is unstable! {remaining_dof} != 0 and '
-                        f'{seen_dof + 1} != {total_dof} total_dof')
+    if remaining_dof + 1 != 0 and seen_dof != total_dof:
+        logger.critical(f'The number of perturbations is unstable! {remaining_dof + 1} != 0 and '
+                        f'{seen_dof} != {total_dof} total_dof')
 
     return perturbation_mapping
 
@@ -888,8 +892,8 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
     perturb_dofs = False  # True
     # Todo set below as parameters?
 
-    if perturb_dofs:
-        number_of_perturbations = 9  # Todo replace with 10?
+    if job.design.perturb_dof:
+        number_of_perturbations = 3  # Todo replace with 10?
         if sym_entry.unit_cell:
             raise NotImplementedError(f"{perturb_transformations.__name__} isn't working for lattice symmetries")
     else:

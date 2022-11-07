@@ -25,14 +25,15 @@ from symdesign.utils.path import submodule_guide, submodule_help, force_flags, s
     ignore_clashes, ignore_pose_clashes, ignore_symmetric_clashes, select_designs, output_structures, rosetta_str, \
     proteinmpnn, output_trajectory, development, consensus, ca_only, sequences, structures, temperatures, \
     distribute_work, output_directory, output_surrounding_uc, skip_logging, output_file, multicistronic, \
-    generate_fragments, input_, output, output_assembly, expand_asu, check_clashes, rename_chains, optimize_designs
+    generate_fragments, input_, output, output_assembly, expand_asu, check_clashes, rename_chains, optimize_designs, \
+    perturb_dof
 
 nstruct = 20
 method = 'method'
 design_arguments = {
     ignore_clashes, ignore_pose_clashes, ignore_symmetric_clashes, method, evolution_constraint, hbnet,
     number_of_trajectories, structure_background, scout, term_constraint, consensus, ca_only, temperatures,
-    sequences, structures
+    sequences, structures, perturb_dof
 }
 
 
@@ -61,6 +62,7 @@ structure_background = format_for_cmdline(structure_background)
 # fragment_profile = format_for_cmdline(fragment_profile)
 sym_entry = format_for_cmdline(sym_entry)
 ca_only = format_for_cmdline(ca_only)
+perturb_dof = format_for_cmdline(perturb_dof)
 force_flags = format_for_cmdline(force_flags)
 distribute_work = format_for_cmdline(distribute_work)
 multi_processing = format_for_cmdline(multi_processing)
@@ -458,6 +460,9 @@ parser_nanohedra = {nanohedra: dict(description=nanohedra_help, help=nanohedra_h
 nanohedra_arguments = {
     ('--dock-only',): dict(action=argparse.BooleanOptionalAction, default=False,
                            help='Whether docking should be performed without sequence design'),
+    (f'--{perturb_dof}',): dict(action=argparse.BooleanOptionalAction, default=False,
+                                help='Whether the degrees of freedom should be finely sampled in subsequent docking '
+                                     'iterations'),
     ('-mv', '--match-value'): dict(type=float, default=0.5, dest='high_quality_match_value',
                                    help='What is the minimum match score required for a high quality fragment?'),
     ('-iz', '--initial-z-value'): dict(type=float, default=1.,
