@@ -1036,21 +1036,30 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
         # Set up the output array with the number of residues by the length of the max number of ghost fragments
         max_ghost_frags = max([len(ghost_frags) for ghost_frags in ghost_frags_by_residue1])
         number_or_surface_frags = len(surf_frags1)
-        same_component_overlapping_ghost_frags = np.zeros((number_or_surface_frags, max_ghost_frags))
-        # Todo size all of these correctly given different padding
+        same_component_overlapping_ghost_frags = np.zeros((number_or_surface_frags, max_ghost_frags), dtype=int)
         # Set up the input array types with the various information needed for each pairwise check
         ghost_frag_type_by_residue = [[ghost.frag_type for ghost in residue_ghosts]
                                       for residue_ghosts in ghost_frags_by_residue1]
-        ghost_frag_rmsds_by_residue = np.array([[ghost.rmsd for ghost in residue_ghosts]
-                                                for residue_ghosts in ghost_frags_by_residue1])
-        ghost_guide_coords_by_residue1 = np.array([[ghost.guide_coords for ghost in residue_ghosts]
-                                                   for residue_ghosts in ghost_frags_by_residue1])
+        ghost_frag_rmsds_by_residue = np.zeros_like(same_component_overlapping_ghost_frags, dtype=float)
+        ghost_guide_coords_by_residue1 = np.zeros((number_or_surface_frags, max_ghost_frags, 3, 3))
+        for idx, residue_ghosts in enumerate(ghost_frags_by_residue1):
+            number_of_ghosts = len(residue_ghosts)
+            # Set any viable index to 1 to distinguish between padding with 0
+            same_component_overlapping_ghost_frags[idx, :number_of_ghosts] = 1
+            ghost_frag_rmsds_by_residue[idx, :number_of_ghosts] = [ghost.rmsd for ghost in residue_ghosts]
+            ghost_guide_coords_by_residue1[idx, :number_of_ghosts] = [ghost.guide_coords for ghost in residue_ghosts]
+        # ghost_frag_rmsds_by_residue = np.array([[ghost.rmsd for ghost in residue_ghosts]
+        #                                         for residue_ghosts in ghost_frags_by_residue1], dtype=object)
+        # ghost_guide_coords_by_residue1 = np.array([[ghost.guide_coords for ghost in residue_ghosts]
+        #                                            for residue_ghosts in ghost_frags_by_residue1], dtype=object)
         # surface_frag_residue_numbers = [residue.number for residue in surf_frags1]
         surface_frag_residue_indices = list(range(number_or_surface_frags))
         # Query for residue-residue distances for each surface fragment
-        surface_frag_cb_coords = np.concatenate([residue.cb_coords for residue in surf_frags1], axis=0)
+        # surface_frag_cb_coords = np.concatenate([residue.cb_coords for residue in surf_frags1], axis=0)
+        surface_frag_cb_coords = np.array([residue.cb_coords for residue in surf_frags1])
         model1_surface_cb_ball_tree = BallTree(surface_frag_cb_coords)
-        residue_contact_query: list[list[int]] = model1_surface_cb_ball_tree.query(surface_frag_cb_coords, cb_distance)
+        residue_contact_query: list[list[int]] = \
+            model1_surface_cb_ball_tree.query_radius(surface_frag_cb_coords, cb_distance)
         contacting_residue_pairs: list[tuple[int, int]] = \
             [(surface_frag_residue_indices[idx1], surface_frag_residue_indices[idx2])
              for idx2 in range(residue_contact_query.size) for idx1 in residue_contact_query[idx2]]
@@ -1102,25 +1111,17 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
 
             # These should pick out each instance of the guide_coords identified as overlapping by indexing bool type
             # Resulting instances should be present multiple times from residue_idxN_ghost_indices
-            print('length of ghost_guide_coords_by_residue1[residue_idx1]',
-                  len(ghost_guide_coords_by_residue1[residue_idx1]))
             ghost_coords_residue1 = ghost_guide_coords_by_residue1[residue_idx1][residue_idx1_ghost_indices]
-            print('Length of ABOVE indexing with [residue_idx1_ghost_indices] -> ghost_coords_residue1:',
-                  len(ghost_coords_residue1))
-            print('length of ghost_guide_coords_by_residue1[residue_idx2]',
-                  len(ghost_guide_coords_by_residue1[residue_idx2]))
             ghost_coords_residue2 = ghost_guide_coords_by_residue1[residue_idx2][residue_idx2_ghost_indices]
-            print('Length of ABOVE indexing with [residue_idx2_ghost_indices] -> ghost_coords_residue2:',
-                  len(ghost_coords_residue2))
             if len(ghost_coords_residue1) != len(residue_idx1_ghost_indices):
                 raise IndexError('There was an issue indexing')
+            ghost_reference_rmsds_residue1 = ghost_frag_rmsds_by_residue[residue_idx1][residue_idx1_ghost_indices]
 
             # Perform the overlap calculation and find indices with overlap
-            ghost_reference_rmsds_residue1 = ghost_frag_rmsds_by_residue[residue_idx1][residue_idx1_ghost_indices]
-            overlapping_indices = rmsd_z_score(ghost_coords_residue1,
+            overlapping_z_score = rmsd_z_score(ghost_coords_residue1,
                                                ghost_coords_residue2,
                                                ghost_reference_rmsds_residue1)  # , max_z_value=initial_z_value)
-            same_component_overlapping_indices = np.flatnonzero(np.where(overlapping_indices <= initial_z_value))
+            same_component_overlapping_indices = np.flatnonzero(overlapping_z_score <= initial_z_value)
             # Increment indices of overlapping ghost fragments for each residue
             # same_component_overlapping_ghost_frags[
             #     residue_idx1, residue_idx1_ghost_indices[same_component_overlapping_indices]
@@ -1143,12 +1144,18 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
             #  Or guide coords cross product points along direction of persistence and euler angles are matched between
             #  all overlap ghosts to identify those which share "moment of extension"
 
+        # Measure where greater than 0 as a value of 1 was included to mark viable fragment indices
+        fragment_overlap_counts = \
+            same_component_overlapping_ghost_frags[np.nonzero(same_component_overlapping_ghost_frags)]
+        log.debug('fragment_overlap_counts.shape', fragment_overlap_counts.shape)
+        viable_same_component_overlapping_ghost_frags = np.flatnonzero(fragment_overlap_counts > 1)
+        log.debug('viable_same_component_overlapping_ghost_frags.shape', viable_same_component_overlapping_ghost_frags.shape)
+        log.debug('viable_same_component_overlapping_ghost_frags[:10]', viable_same_component_overlapping_ghost_frags[:10])
         # Prioritize search at those fragments which have same component, ghost fragment overlap
         initial_ghost_frags1 = \
-            [complete_ghost_frags1[idx] for idx in same_component_overlapping_ghost_frags.flatten().tolist()]
+            [complete_ghost_frags1[idx] for idx in viable_same_component_overlapping_ghost_frags.tolist()]
         init_ghost_guide_coords1 = np.array([ghost_frag.guide_coords for ghost_frag in initial_ghost_frags1])
         init_ghost_rmsds1 = np.array([ghost_frag.rmsd for ghost_frag in initial_ghost_frags1])
-        # init_ghost_residue_numbers1 = np.array([ghost_frag.number for ghost_frag in initial_ghost_frags1])
     else:
         init_ghost_frag_indices1 = \
             [idx for idx, ghost_frag in enumerate(complete_ghost_frags1) if ghost_frag.j_type == initial_surf_type2]
