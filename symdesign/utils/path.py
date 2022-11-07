@@ -225,6 +225,7 @@ orient_exe = 'orient_oligomer'
 orient_exe_path = os.path.join(orient_dir, orient_exe)
 orient_log_file = 'orient_oligomer_log.txt'
 errat_exe_path = os.path.join(dependency_dir, 'errat', 'errat')
+errat_residue_source = os.path.join(dependency_dir, 'errat', 'errat_every_residue.cpp')
 stride_dir = os.path.join(dependency_dir, 'stride')
 stride_exe_path = os.path.join(dependency_dir, 'stride', 'stride')
 bmdca_exe_path = os.path.join(dependency_dir, 'bmDCA', 'src', 'bmdca')
