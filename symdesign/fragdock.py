@@ -326,7 +326,7 @@ def find_docked_poses(sym_entry, ijk_frag_db, pdb1, pdb2, optimal_tx_params, com
         if optimal_ext_dof_shifts:
             asu = get_central_asu(asu, uc_dimensions, sym_entry.dimension)
             cryst1_record = generate_cryst1_record(uc_dimensions, sym_entry.resulting_symmetry)
-        asu.write(out_path=os.path.join(tx_dir, asu_file_name), header=cryst1_record)
+        asu.write(out_path=os.path.join(tx_dir, putils.asu_file_name), header=cryst1_record)
         pdb1_copy.write(os.path.join(tx_dir, '%s_%s.pdb' % (pdb1_copy.name, sampling_id)))
         pdb2_copy.write(os.path.join(tx_dir, '%s_%s.pdb' % (pdb2_copy.name, sampling_id)))
 
@@ -415,14 +415,14 @@ def find_docked_poses(sym_entry, ijk_frag_db, pdb1, pdb2, optimal_tx_params, com
                                        out_path=matching_fragments_dir, pose_id=pose_id)
 
             # Keep track of residue pair frequencies and match information
-            res_pair_freq_info_list.append(FragMatchInfo(ghost_frag_central_freqs,
-                                                         surf_frag_chain1, surf_frag_central_res_num1,
-                                                         surf_frag_chain2, surf_frag_central_res_num2, z_value))
+            res_pair_freq_info_list.append(nanohedra.WeightedSeqFreq.FragMatchInfo(
+                ghost_frag_central_freqs, surf_frag_chain1, surf_frag_central_res_num1,
+                surf_frag_chain2, surf_frag_central_res_num2, z_value))
 
         # log.debug('Wrote Fragments to matching_fragments')
-        # calculate weighted frequency for central residues and write weighted frequencies to frag_text_file
-        weighted_seq_freq_info = SeqFreqInfo(res_pair_freq_info_list)
-        weighted_seq_freq_info.write(os.path.join(matching_fragments_dir, frag_text_file))
+        # calculate weighted frequency for central residues and write weighted frequencies to putils.frag_text_file
+        weighted_seq_freq_info = nanohedra.WeightedSeqFreq.SeqFreqInfo(res_pair_freq_info_list)
+        weighted_seq_freq_info.write(os.path.join(matching_fragments_dir, putils.frag_text_file))
 
         unique_matched_monofrag_count = len(unique_frags_info1) + len(unique_frags_info2)
         percent_of_interface_covered = unique_matched_monofrag_count / float(unique_total_monofrags_count)
@@ -443,11 +443,12 @@ def find_docked_poses(sym_entry, ijk_frag_db, pdb1, pdb2, optimal_tx_params, com
                 n2 = n2 * 2
 
         # Write Out Docked Pose Info to docked_pose_info_file.txt
-        write_docked_pose_info(tx_dir, res_lev_sum_score, high_qual_match_count, unique_matched_monofrag_count,
-                               unique_total_monofrags_count, percent_of_interface_covered, rot_mat1, internal_tx_param1,
-                               sym_entry.setting_matrix1, external_tx_params1, rot_mat2, internal_tx_param2,
-                               sym_entry.setting_matrix2, external_tx_params2, cryst1_record, pdb1.file_path,
-                               pdb2.file_path, pose_id)
+        nanohedra.general.write_docked_pose_info(
+            tx_dir, res_lev_sum_score, high_qual_match_count, unique_matched_monofrag_count,
+            unique_total_monofrags_count, percent_of_interface_covered, rot_mat1, internal_tx_param1,
+            sym_entry.setting_matrix1, external_tx_params1, rot_mat2, internal_tx_param2,
+            sym_entry.setting_matrix2, external_tx_params2, cryst1_record, pdb1.file_path,
+            pdb2.file_path, pose_id)
 
 
 def slice_variable_for_log(var, length=5):
@@ -837,7 +838,7 @@ def create_perturbation_transformations(sym_entry: SymEntry, number: int = 10,
 def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure | AnyStr, model2: Structure | AnyStr,
                    rotation_step1: float = 3., rotation_step2: float = 3., min_matched: int = 3,
                    high_quality_match_value: float = .5, initial_z_value: float = 1., log: Logger = logger,
-                   job: JobResources = None, fragment_db: FragmentDatabase | str = biological_interfaces,
+                   job: symjob.JobResources = None, fragment_db: db.FragmentDatabase | str = putils.biological_interfaces,
                    clash_dist: float = 2.2, write_frags_only: bool = False, same_component_filter: bool = False,
                    **kwargs):
     """
@@ -864,15 +865,15 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
         None
     """
     # Todo ensure that msa is loaded upon docking initialization
-    # Create JobResources for all flags
+    # Create symjob.JobResources for all flags
     if job is None:
-        job = job_resources_factory.get(program_root=root_out_dir, **kwargs)
+        job = symjob.job_resources_factory.get(program_root=root_out_dir, **kwargs)
 
     # Create FragmenDatabase for all ijk cluster representatives
-    if isinstance(fragment_db, FragmentDatabase):
+    if isinstance(fragment_db, db.FragmentDatabase):
         job.fragment_db = fragment_db
     else:
-        job.fragment_db = fragment_factory(source=fragment_db)
+        job.fragment_db = db.fragment_factory(source=fragment_db)
 
     euler_lookup = job.fragment_db.euler_lookup
     frag_dock_time_start = time.time()
@@ -938,7 +939,11 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
     if log is None:
         log_file_path = os.path.join(root_out_dir, f'{building_blocks}_log.txt')
     else:
-        log_file_path = getattr(log.handlers[0], 'baseFilename', None)
+        try:
+            log_file_path = getattr(log.handlers[0], 'baseFilename', None)
+        except IndexError:  # No handler attached to this logger. Probably passing to a parent logger
+            log_file_path = None
+
     if log_file_path:
         # Start logging to a file in addition
         log = start_log(name=building_blocks, handler=2, location=log_file_path, format_log=False, propagate=True)
@@ -1453,7 +1458,8 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
     # Initialize the OptimalTx object
     log.debug(f'zshift1 = {zshift1}, zshift2 = {zshift2}, max_z_value={initial_z_value:2f}')
     optimal_tx = \
-        OptimalTx.from_dof(sym_entry.external_dof, zshift1=zshift1, zshift2=zshift2, max_z_value=initial_z_value)
+        nanohedra.OptimalTx.OptimalTx.from_dof(sym_entry.external_dof, zshift1=zshift1, zshift2=zshift2,
+                                               max_z_value=initial_z_value)
 
     number_of_init_ghost = init_ghost_guide_coords1.shape[0]
     number_of_init_surf = init_surf_guide_coords2.shape[0]
@@ -1838,7 +1844,7 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
     #                    'translation2': None}
     # Find the clustered transformations to expedite search of ASU clashing
     # Todo
-    #  can I use the cluster_transformation_pairs distance graph to provide feedback on other aspects of the dock?
+    #  can I use cluster.cluster_transformation_pairs distance graph to provide feedback on other aspects of the dock?
     #  seems that I could use the distances to expedite clashing checks, especially for more time consuming expansion
     #  checks such as the full material...
     #  At some point, extracting the exact rotation degree from the rotation matrix and extracting translation params
@@ -1860,21 +1866,22 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
 
     clustering_start = time.time()
     # Must add a new axis to translations so the operations are broadcast together in transform_coordinate_sets()
-    transform_neighbor_tree, cluster = \
-        cluster_transformation_pairs(dict(rotation=full_rotation1,
-                                          translation=None if full_int_tx1 is None else full_int_tx1[:, None, :],
-                                          rotation2=set_mat1,
-                                          translation2=None if full_ext_tx1 is None else full_ext_tx1[:, None, :]),
-                                     dict(rotation=full_rotation2,
-                                          translation=None if full_int_tx2 is None else full_int_tx2[:, None, :],
-                                          rotation2=set_mat2,
-                                          translation2=None if full_ext_tx2 is None else full_ext_tx2[:, None, :]),
-                                     minimum_members=min_matched)
-    # cluster_representative_indices, cluster_labels = find_cluster_representatives(transform_neighbor_tree, cluster)
+    transform_neighbor_tree, transform_cluster = \
+        cluster.cluster_transformation_pairs(dict(rotation=full_rotation1,
+                                                  translation=None if full_int_tx1 is None else full_int_tx1[:, None, :],
+                                                  rotation2=set_mat1,
+                                                  translation2=None if full_ext_tx1 is None else full_ext_tx1[:, None, :]),
+                                             dict(rotation=full_rotation2,
+                                                  translation=None if full_int_tx2 is None else full_int_tx2[:, None, :],
+                                                  rotation2=set_mat2,
+                                                  translation2=None if full_ext_tx2 is None else full_ext_tx2[:, None, :]),
+                                             minimum_members=min_matched)
+    # cluster_representative_indices, cluster_labels = \
+    #     find_cluster_representatives(transform_neighbor_tree, transform_cluster)
     # representative_labels = cluster_labels[cluster_representative_indices]
     # Todo?
-    #  _, cluster_labels = find_cluster_representatives(transform_neighbor_tree, cluster)
-    cluster_labels = cluster.labels_
+    #  _, cluster_labels = find_cluster_representatives(transform_neighbor_tree, transform_cluster)
+    cluster_labels = transform_cluster.labels_
     # log.debug(f'shape of cluster_labels: {cluster_labels.shape}')
     passing_transforms = cluster_labels != -1
     sufficiently_dense_indices = np.flatnonzero(passing_transforms)
@@ -2420,7 +2427,7 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
         pose_source_errat_s = pd.Series(np.concatenate(source_errat), index=residue_numbers)
 
         # per_residue_data = {}  # pose_source: pose.get_per_residue_interface_metrics()}
-        per_residue_data = {pose_source: {
+        per_residue_data = {putils.pose_source: {
             # 'type': list(pose.sequence),
             'contact_order': pose_source_contact_order_s,
             'errat_deviation': pose_source_errat_s}}
@@ -2833,7 +2840,7 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
             cryst_record = None
 
         if job.write_structures:
-            pose.write(out_path=os.path.join(out_path, asu_file_name), header=cryst_record)
+            pose.write(out_path=os.path.join(out_path, putils.asu_file_name), header=cryst_record)
 
         if job.write_trajectory:
             nonlocal idx
@@ -2867,7 +2874,7 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
         # Write fragment files
         if job.write_fragments:
             # Make directories to output matched fragment files
-            matching_fragments_dir = os.path.join(out_path, frag_dir)
+            matching_fragments_dir = os.path.join(out_path, putils.frag_dir)
             os.makedirs(matching_fragments_dir, exist_ok=True)
             # high_qual_match for fragments that were matched with z values <= 1, otherwise, low_qual_match
             # high_quality_matches_dir = os.path.join(matching_fragments_dir, 'high_qual_match')
@@ -2959,7 +2966,7 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
         # return terminate()  # End of docking run
     # ------------------ TERM ------------------------
     elif job.design.sequences:  # We perform sequence design
-        mpnn_model = proteinmpnn_factory()  # Todo accept model_name arg. Now just use the default
+        mpnn_model = ml.proteinmpnn_factory()  # Todo accept model_name arg. Now just use the default
         # set the environment to use memory efficient cuda management
         max_split = 1000
         pytorch_conf = f'max_split_size_mb:{max_split},roundup_power2_divisions:4,garbage_collection_threshold:0.7'
@@ -3137,8 +3144,8 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
 
         # Add a parameter for the unbound version of X to X
         X_unbound = np.concatenate(entity_unbound_coords).reshape((number_of_residues, num_model_residues, 3))
-        extra_batch_parameters = resources.ml.proteinmpnn_to_device(device, **batch_proteinmpnn_input(size=batch_length,
-                                                                                                      X=X_unbound))
+        extra_batch_parameters = ml.proteinmpnn_to_device(device, **ml.batch_proteinmpnn_input(size=batch_length,
+                                                                                               X=X_unbound))
         parameters['X_unbound'] = extra_batch_parameters.pop('X')
         # Disregard X, chain_M_pos, and bias_by_res parameters return and use the pose specific data from below
         # parameters.pop('X')  # overwritten by X_unbound
@@ -3154,7 +3161,7 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
 
         @torch.no_grad()  # Ensure no gradients are produced
         @resources.ml.batch_calculation(size=size, batch_length=batch_length,
-                                        setup=setup_pose_batch_for_proteinmpnn,
+                                        setup=ml.setup_pose_batch_for_proteinmpnn,
                                         compute_failure_exceptions=(
                                         RuntimeError, np.core._exceptions._ArrayMemoryError))
         def check_dock_for_designability(batch_slice: slice,
@@ -3239,8 +3246,8 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
             log.debug(f'X.shape: {X.shape}')
 
             # Update different parameters to the identified device
-            batch_parameters.update(proteinmpnn_to_device(mpnn_model.device, X=X,
-                                                          chain_M_pos=residue_mask_cpu))
+            batch_parameters.update(ml.proteinmpnn_to_device(mpnn_model.device, X=X,
+                                                             chain_M_pos=residue_mask_cpu))
             # Different across poses
             X = batch_parameters.pop('X')
             residue_mask = batch_parameters.get('chain_M_pos', None)
@@ -3261,26 +3268,26 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
 
             # Todo remove S from above unpacking
             #
-            # proteinmpnn_batch_design(batch_slice,
-            #                          mpnn_model: ProteinMPNN,
-            #                          temperatures=job.design.temperatures,
-            #                          **parameters,  # (randn, S, chain_mask, chain_encoding, residue_idx, mask, temperatures, pose_length, bias_by_res, tied_pos, X_unbound)
-            #                          **batch_parameters  # (X, chain_M_pos, bias_by_res)
-            # proteinmpnn_batch_design(batch_slice: slice, proteinmpnn: ProteinMPNN,
-            #                          X: torch.Tensor = None,
-            #                          randn: torch.Tensor = None,
-            #                          S: torch.Tensor = None,
-            #                          chain_mask: torch.Tensor = None,
-            #                          chain_encoding: torch.Tensor = None,
-            #                          residue_idx: torch.Tensor = None,
-            #                          mask: torch.Tensor = None,
-            #                          temperatures: Sequence[float] = (0.1,),
-            #                          pose_length: int = None,
-            #                          bias_by_res: torch.Tensor = None,
-            #                          tied_pos: Iterable[Container] = None,
-            #                          X_unbound: torch.Tensor = None,
-            #                          **batch_parameters
-            #                          ) -> dict[str, np.ndarray]:
+            # ml.proteinmpnn_batch_design(batch_slice,
+            #                             mpnn_model: ProteinMPNN,
+            #                             temperatures=job.design.temperatures,
+            #                             **parameters,  # (randn, S, chain_mask, chain_encoding, residue_idx, mask, temperatures, pose_length, bias_by_res, tied_pos, X_unbound)
+            #                             **batch_parameters  # (X, chain_M_pos, bias_by_res)
+            # ml.proteinmpnn_batch_design(batch_slice: slice, proteinmpnn: ProteinMPNN,
+            #                             X: torch.Tensor = None,
+            #                             randn: torch.Tensor = None,
+            #                             S: torch.Tensor = None,
+            #                             chain_mask: torch.Tensor = None,
+            #                             chain_encoding: torch.Tensor = None,
+            #                             residue_idx: torch.Tensor = None,
+            #                             mask: torch.Tensor = None,
+            #                             temperatures: Sequence[float] = (0.1,),
+            #                             pose_length: int = None,
+            #                             bias_by_res: torch.Tensor = None,
+            #                             tied_pos: Iterable[Container] = None,
+            #                             X_unbound: torch.Tensor = None,
+            #                             **batch_parameters
+            #                             ) -> dict[str, np.ndarray]:
 
             # Clone the data from the sequence tensor so that it can be set with the null token below
             S_design_null = S.detach().clone()
@@ -3312,9 +3319,9 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
             S_design_null[residue_mask.type(torch.bool)] = mpnn_null_idx
             chain_residue_mask = chain_mask * residue_mask
 
-            decoding_order = create_decoding_order(randn, chain_mask,
-                                                   tied_pos=tied_pos,
-                                                   to_device=mpnn_model.device)
+            decoding_order = ml.create_decoding_order(randn, chain_mask,
+                                                      tied_pos=tied_pos,
+                                                      to_device=mpnn_model.device)
             # See if the pose is useful to design based on constraints of collapse
 
             # Measure the conditional amino acid probabilities at each residue to see
@@ -3393,11 +3400,11 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
                     design_probs_collapse = \
                         hydrophobic_collapse_index(asu_conditional_softmax_null_seq[pose_idx],
                                                    # asu_unconditional_softmax,
-                                                   alphabet_type=mpnn_alphabet)
+                                                   alphabet_type=ml.mpnn_alphabet)
                     # Todo?
                     #  design_probs_collapse = \
                     #      hydrophobic_collapse_index(asu_conditional_softmax,
-                    #                                 alphabet_type=mpnn_alphabet)
+                    #                                 alphabet_type=ml.mpnn_alphabet)
                     # Compare the sequence collapse to the pose collapse
                     # USE:
                     #  contact_order_per_res_z, reference_collapse, collapse_profile
@@ -3405,7 +3412,7 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
                     # print('HCI profile std', collapse_profile_std)
                     _per_residue_mini_batch_collapse_z[pose_idx] = collapse_z = \
                         z_score(design_probs_collapse, collapse_profile_mean, collapse_profile_std)
-                    # folding_loss = sequence_nllloss(S_sample, design_probs_collapse)  # , mask_for_loss)
+                    # folding_loss = ml.sequence_nllloss(S_sample, design_probs_collapse)  # , mask_for_loss)
                     pose_idx_residues_of_interest = _residue_indices_of_interest[pose_idx]
                     designed_indices_collapse_z = collapse_z[pose_idx_residues_of_interest]
                     # magnitude_of_collapse_z_deviation = np.abs(designed_indices_collapse_z)
@@ -3445,7 +3452,7 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
 
         @torch.no_grad()  # Ensure no gradients are produced
         @resources.ml.batch_calculation(size=size, batch_length=batch_length,
-                                        setup=setup_pose_batch_for_proteinmpnn,
+                                        setup=ml.setup_pose_batch_for_proteinmpnn,
                                         compute_failure_exceptions=(RuntimeError, np.core._exceptions._ArrayMemoryError))
         def fragdock_design(batch_slice: slice, **batch_parameters) -> dict[str, np.ndarray]:
             actual_batch_length = batch_slice.stop - batch_slice.start
@@ -3523,9 +3530,9 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
             log.debug(f'X.shape: {X.shape}')
 
             # Update different parameters to the identified device
-            batch_parameters.update(proteinmpnn_to_device(mpnn_model.device, X=X,
-                                                          chain_M_pos=residue_mask_cpu,
-                                                          bias_by_res=bias_by_res))
+            batch_parameters.update(ml.proteinmpnn_to_device(mpnn_model.device, X=X,
+                                                             chain_M_pos=residue_mask_cpu,
+                                                             bias_by_res=bias_by_res))
             # Different across poses
             # X = batch_parameters.pop('X')
             # residue_mask = batch_parameters.get('chain_M_pos', None)
@@ -3548,17 +3555,17 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
 
             # Todo remove S from above unpacking
             #
-            return proteinmpnn_batch_design(batch_slice,
-                                            mpnn_model,
-                                            temperatures=job.design.temperatures,
-                                            pose_length=pose_length,
-                                            # **parameters,  # (randn, S, chain_mask, chain_encoding, residue_idx, mask, temperatures, pose_length, bias_by_res, tied_pos, X_unbound)
-                                            **batch_parameters  # (X, chain_M_pos, bias_by_res)
-                                            )
+            return ml.proteinmpnn_batch_design(batch_slice,
+                                               mpnn_model,
+                                               temperatures=job.design.temperatures,
+                                               pose_length=pose_length,
+                                               # **parameters,  # (randn, S, chain_mask, chain_encoding, residue_idx, mask, temperatures, pose_length, bias_by_res, tied_pos, X_unbound)
+                                               **batch_parameters  # (X, chain_M_pos, bias_by_res)
+                                               )
 
         @torch.no_grad()  # Ensure no gradients are produced
         @resources.ml.batch_calculation(size=size, batch_length=batch_length,
-                                        setup=setup_pose_batch_for_proteinmpnn,
+                                        setup=ml.setup_pose_batch_for_proteinmpnn,
                                         compute_failure_exceptions=(RuntimeError, np.core._exceptions._ArrayMemoryError))
         def pose_batch_to_protein_mpnn(batch_slice: slice,
                                        X_unbound: torch.Tensor = None,
@@ -3650,9 +3657,9 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
             log.debug(f'X.shape: {X.shape}')
 
             # Update different parameters to the identified device
-            batch_parameters.update(proteinmpnn_to_device(mpnn_model.device, X=X,
-                                                          chain_M_pos=residue_mask_cpu,
-                                                          bias_by_res=bias_by_res))
+            batch_parameters.update(ml.proteinmpnn_to_device(mpnn_model.device, X=X,
+                                                             chain_M_pos=residue_mask_cpu,
+                                                             bias_by_res=bias_by_res))
             # Different across poses
             X = batch_parameters.pop('X')
             residue_mask = batch_parameters.get('chain_M_pos', None)
@@ -3700,9 +3707,9 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
             S_design_null[residue_mask.type(torch.bool)] = mpnn_null_idx
             chain_residue_mask = chain_mask * residue_mask
 
-            decoding_order = create_decoding_order(randn, chain_mask,
-                                                   tied_pos=tied_pos,
-                                                   to_device=mpnn_model.device)
+            decoding_order = ml.create_decoding_order(randn, chain_mask,
+                                                      tied_pos=tied_pos,
+                                                      to_device=mpnn_model.device)
             # Todo _______________ START HERE ______________
             #  dock_fit_parameters = check_dock_for_designability()
             #  def check_dock_for_designability():
@@ -3784,11 +3791,11 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
                     design_probs_collapse = \
                         hydrophobic_collapse_index(asu_conditional_softmax_null_seq[pose_idx],
                                                    # asu_unconditional_softmax,
-                                                   alphabet_type=mpnn_alphabet)
+                                                   alphabet_type=ml.mpnn_alphabet)
                     # Todo?
                     #  design_probs_collapse = \
                     #      hydrophobic_collapse_index(asu_conditional_softmax,
-                    #                                 alphabet_type=mpnn_alphabet)
+                    #                                 alphabet_type=ml.mpnn_alphabet)
                     # Compare the sequence collapse to the pose collapse
                     # USE:
                     #  contact_order_per_res_z, reference_collapse, collapse_profile
@@ -3796,7 +3803,7 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
                     # print('HCI profile std', collapse_profile_std)
                     _per_residue_mini_batch_collapse_z[pose_idx] = collapse_z = \
                         z_score(design_probs_collapse, collapse_profile_mean, collapse_profile_std)
-                    # folding_loss = sequence_nllloss(S_sample, design_probs_collapse)  # , mask_for_loss)
+                    # folding_loss = ml.sequence_nllloss(S_sample, design_probs_collapse)  # , mask_for_loss)
                     pose_idx_residues_of_interest = _residue_indices_of_interest[pose_idx]
                     designed_indices_collapse_z = collapse_z[pose_idx_residues_of_interest]
                     # magnitude_of_collapse_z_deviation = np.abs(designed_indices_collapse_z)
@@ -3898,16 +3905,16 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
                 log.info(f'Unbound log prob calculation took {log_prob_time - unbound_log_prob_start_time:8f}')
                 # Score the redesigned structure-sequence
                 # mask_for_loss = chain_mask_and_mask*residue_mask
-                # batch_scores = sequence_nllloss(S_sample, complex_log_probs, mask_for_loss, per_residue=False)
+                # batch_scores = ml.sequence_nllloss(S_sample, complex_log_probs, mask_for_loss, per_residue=False)
                 # batch_scores is
                 # tensor([2.1039, 2.0618, 2.0802, 2.0538, 2.0114, 2.0002], device='cuda:0')
                 # Format outputs
                 _batch_sequences = S_sample.cpu()[:, :pose_length]
                 batch_sequences.append(_batch_sequences)
                 _per_residue_complex_sequence_loss.append(
-                    sequence_nllloss(_batch_sequences, complex_log_probs[:, :pose_length]).numpy())
+                    ml.sequence_nllloss(_batch_sequences, complex_log_probs[:, :pose_length]).numpy())
                 _per_residue_unbound_sequence_loss.append(
-                    sequence_nllloss(_batch_sequences, unbound_log_probs[:, :pose_length]).numpy())
+                    ml.sequence_nllloss(_batch_sequences, unbound_log_probs[:, :pose_length]).numpy())
 
             # return {
             _return = {
@@ -3980,12 +3987,12 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
         #         #      ...
         #         #      return {'parameter': data, ...}
         #         # Create batch_length fixed parameter data which are the same across poses
-        #         batch_parameters = batch_proteinmpnn_input(size=batch_length, **parameters)
+        #         batch_parameters = ml.batch_proteinmpnn_input(size=batch_length, **parameters)
         #
         #         # Move fixed data structures to the model device
         #         with torch.no_grad():  # Ensure no gradients are produced
         #             # Update parameters as some are not transferred to the identified device
-        #             batch_parameters.update(proteinmpnn_to_device(mpnn_model.device, **batch_parameters))
+        #             batch_parameters.update(ml.proteinmpnn_to_device(mpnn_model.device, **batch_parameters))
         #             # Todo
         #             #  Must calculate below individually if using some feature to describe order
         #             randn = pose.generate_proteinmpnn_decode_order(to_device=mpnn_model.device)
@@ -4127,16 +4134,16 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
         #                 # tied_pos = parameters.get('tied_pos', None)  # Todo to **
         #                 # tied_beta = parameters.get('tied_beta', None)  # Todo to **
         #
-        #                 decoding_order = create_decoding_order(randn, chain_mask,
-        #                                                        tied_pos=tied_pos,  # parameters['tied_pos'],  #
-        #                                                        to_device=mpnn_model.device,
-        #                                                        # **batch_parameters)
-        #                                                        )
+        #                 decoding_order = ml.create_decoding_order(randn, chain_mask,
+        #                                                           tied_pos=tied_pos,  # parameters['tied_pos'],  #
+        #                                                           to_device=mpnn_model.device,
+        #                                                           # **batch_parameters)
+        #                                                           )
         #
         #                 # Update parameters as some are not transferred to the identified device
-        #                 separate_parameters = proteinmpnn_to_device(mpnn_model.device, X=X,
-        #                                                             chain_M_pos=residue_mask_cpu,
-        #                                                             bias_by_res=bias_by_res)
+        #                 separate_parameters = ml.proteinmpnn_to_device(mpnn_model.device, X=X,
+        #                                                                chain_M_pos=residue_mask_cpu,
+        #                                                                bias_by_res=bias_by_res)
         #                 # Different across poses
         #                 X = separate_parameters.pop('X')
         #                 residue_mask = separate_parameters.get('chain_M_pos', None)
@@ -4251,11 +4258,11 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
         #                         design_probs_collapse = \
         #                             hydrophobic_collapse_index(asu_conditional_softmax_null_seq[pose_idx],
         #                                                        # asu_unconditional_softmax,
-        #                                                        alphabet_type=mpnn_alphabet)
+        #                                                        alphabet_type=ml.mpnn_alphabet)
         #                         # Todo?
         #                         #  design_probs_collapse = \
         #                         #      hydrophobic_collapse_index(asu_conditional_softmax,
-        #                         #                                 alphabet_type=mpnn_alphabet)
+        #                         #                                 alphabet_type=ml.mpnn_alphabet)
         #                         # Compare the sequence collapse to the pose collapse
         #                         # USE:
         #                         #  contact_order_per_res_z, reference_collapse, collapse_profile
@@ -4263,7 +4270,7 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
         #                         # print('HCI profile std', collapse_profile_std)
         #                         per_residue_mini_batch_collapse_z[pose_idx] = collapse_z = \
         #                             z_score(design_probs_collapse, collapse_profile_mean, collapse_profile_std)
-        #                         # folding_loss = sequence_nllloss(S_sample, design_probs_collapse)  # , mask_for_loss)
+        #                         # folding_loss = ml.sequence_nllloss(S_sample, design_probs_collapse)  # , mask_for_loss)
         #                         pose_idx_residues_of_interest = residue_indices_of_interest[pose_idx]
         #                         designed_indices_collapse_z = collapse_z[pose_idx_residues_of_interest]
         #                         # magnitude_of_collapse_z_deviation = np.abs(designed_indices_collapse_z)
@@ -4372,15 +4379,15 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
         #                 # Score the redesigned structure-sequence
         #                 # mask_for_loss = chain_mask_and_mask*residue_mask
         #                 # S_sample, complex_log_probs, and mask_for_loss should all be the same size
-        #                 # batch_scores = sequence_nllloss(S_sample, complex_log_probs, mask_for_loss, per_residue=False)
+        #                 # batch_scores = ml.sequence_nllloss(S_sample, complex_log_probs, mask_for_loss, per_residue=False)
         #                 # batch_scores is
         #                 # tensor([2.1039, 2.0618, 2.0802, 2.0538, 2.0114, 2.0002], device='cuda:0')
         #                 # Format outputs
         #                 generated_sequences[batch_slice] = batch_sequences = S_sample.cpu()[:, :pose_length]
         #                 per_residue_complex_sequence_loss[batch_slice] = \
-        #                     sequence_nllloss(batch_sequences, complex_log_probs[:, :pose_length]).numpy()
+        #                     ml.sequence_nllloss(batch_sequences, complex_log_probs[:, :pose_length]).numpy()
         #                 per_residue_unbound_sequence_loss[batch_slice] = \
-        #                     sequence_nllloss(batch_sequences, unbound_log_probs[:, :pose_length]).numpy()
+        #                     ml.sequence_nllloss(batch_sequences, unbound_log_probs[:, :pose_length]).numpy()
         #                 # per_residue_complex_sequence_loss[batch_slice]
         #                 # tensor([[2.6774, 2.8040, 2.6776,  ..., 0.5250, 4.3917, 3.3005],
         #                 #         [2.5753, 3.0423, 2.6879,  ..., 0.5574, 4.3880, 3.3008]])
@@ -4388,7 +4395,7 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
         #                 # tensor([[2.5189, 2.6957, 2.5164,  ..., 2.5407, 3.4855, 1.5007],
         #                 #         [2.8567, 2.7632, 2.5662,  ..., 2.5407, 3.4855, 1.5007]])
         #                 # Score the whole structure-sequence
-        #                 # global_scores = sequence_nllloss(S_sample, complex_log_probs, mask, per_residue=False)
+        #                 # global_scores = ml.sequence_nllloss(S_sample, complex_log_probs, mask, per_residue=False)
         #
         #                 # per_residue_complex_sequence_loss[batch_slice] = complexed_batch_scores_per_residue.cpu().numpy()  # scores
         #                 # per_residue_unbound_sequence_loss[batch_slice] = unbound_batch_scores_per_residue.cpu().numpy()  # scores
@@ -4633,8 +4640,8 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
                 # Get the negative log likelihood of the .evolutionary_ and .fragment_profile
                 torch_numeric = torch.from_numpy(pose.sequence_numeric)
                 if pose.evolutionary_profile:
-                    per_residue_evolutionary_profile_scores = sequence_nllloss(torch_numeric,
-                                                                               torch_log_evolutionary_profile)
+                    per_residue_evolutionary_profile_scores = ml.sequence_nllloss(torch_numeric,
+                                                                                  torch_log_evolutionary_profile)
                 else:
                     per_residue_evolutionary_profile_scores = nan_blank_data
 
@@ -4644,8 +4651,8 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
                     # np.log causes -inf at 0, thus we need to correct these to a very large number
                     corrected_frag_array = np.nan_to_num(np.log(fragment_profile_array), copy=False, nan=np.nan)
                     # print('corrected_frag_array', corrected_frag_array[20:30])
-                    per_residue_fragment_profile_scores = sequence_nllloss(torch_numeric,
-                                                                           torch.from_numpy(corrected_frag_array))
+                    per_residue_fragment_profile_scores = ml.sequence_nllloss(torch_numeric,
+                                                                              torch.from_numpy(corrected_frag_array))
                     # Find the non-zero sites in the profile
                     # interface_indexer = [residue.index for residue in pose.interface_residues]
                     # interface_observed_from_fragment_profile = fragment_profile_frequencies[idx][interface_indexer]
@@ -4695,8 +4702,8 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
     if job.design.sequences:
         per_residue_sequence_df = pd.DataFrame(sequences, index=design_ids,
                                                columns=pd.MultiIndex.from_product([residue_numbers, ['type']]))
-        per_residue_sequence_df.loc[pose_source, :] = list(pose.sequence)
-        # per_residue_sequence_df.append(pd.DataFrame(list(pose.sequence), columns=[pose_source]).T)
+        per_residue_sequence_df.loc[putils.pose_source, :] = list(pose.sequence)
+        # per_residue_sequence_df.append(pd.DataFrame(list(pose.sequence), columns=[putils.pose_source]).T)
         pose_sequences = dict(zip(design_ids, [''.join(sequence) for sequence in sequences.tolist()]))
         # Todo This is pretty much already done!
         #  pose_alignment = MultipleSequenceAlignment.from_array(sequences)
@@ -4816,7 +4823,7 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
         #                                       'evolution': 'evolution_sequence_loss',
         #                                       'fragment': 'fragment_sequence_loss',
         #                                       'designed': 'designed_residues_total'})
-        scores_df[groups] = 'proteinmpnn'
+        scores_df[putils.groups] = 'proteinmpnn'
         scores_df['proteinmpnn_v_evolution_cross_entropy_designed_mean'] = \
             scores_df['proteinmpnn_v_evolution_cross_entropy'] / scores_df['designed_residues_total']
         scores_df['proteinmpnn_v_fragment_cross_entropy_designed_mean'] = \
@@ -4918,13 +4925,13 @@ if __name__ == '__main__':
         # Parsing Command Line Input
         sym_entry_number, model1_path, model2_path, rot_step_deg1, rot_step_deg2, master_outdir, output_assembly, \
             output_surrounding_uc, min_matched, timer, initial, debug, high_quality_match_value, initial_z_value,\
-            extra_args = get_docking_parameters(sys.argv)
+            extra_args = nanohedra.cmdline.get_docking_parameters(sys.argv)
 
         extra_kwargs = dict(zip(extra_args, repeat(True)))
         logger.debug(f'Generated extra keyword args: {extra_kwargs}')
 
         # Master Log File
-        master_log_filepath = os.path.join(master_outdir, master_log)
+        master_log_filepath = os.path.join(master_outdir, putils.master_log)
         if debug:
             # Root logs to stream with level debug
             logger = start_log(level=1)
@@ -4946,16 +4953,15 @@ if __name__ == '__main__':
             # make master output directory
             os.makedirs(master_outdir, exist_ok=True)
             logger.info('Nanohedra\nMODE: DOCK\n')
-            write_docking_parameters(model1_path, model2_path, rot_step_deg1, rot_step_deg2, symmetry_entry,
-                                     master_outdir, log=logger)
+            nanohedra.general.write_docking_parameters(model1_path, model2_path, rot_step_deg1, rot_step_deg2,
+                                                       symmetry_entry, master_outdir, log=logger)
         else:  # for parallel runs, ensure that the first file was able to write before adding below log
             time.sleep(1)
-        rot_step_deg1, rot_step_deg2 = \
-            get_rotation_step(symmetry_entry, rot_step_deg1, rot_step_deg2, log=logger)
+        # rot_step_deg1, rot_step_deg2 = \
+        #     get_rotation_step(symmetry_entry, rot_step_deg1, rot_step_deg2, log=logger)
 
         model1_name = os.path.basename(os.path.splitext(model1_path)[0])
         model2_name = os.path.basename(os.path.splitext(model2_path)[0])
-        logger.info(f'Docking {model1_name} / {model2_name}\n')
 
         try:
             # Output Directory  # Todo PoseDirectory
