@@ -1173,8 +1173,9 @@ def main():
         logger.critical(f'Setting up inputs for {putils.nanohedra.title()} docking')
         # Todo make current with sql ambitions
         # Make master output directory. sym_entry is required, so this won't fail v
-        job.docking_master_dir = os.path.join(job.projects, f'NanohedraEntry{sym_entry.entry_number}DockedPoses')
-        os.makedirs(job.docking_master_dir, exist_ok=True)
+        if args.output_directory is None:
+            job.output_directory = os.path.join(job.projects, f'NanohedraEntry{sym_entry.entry_number}DockedPoses')
+            os.makedirs(job.output_directory, exist_ok=True)
         # Transform input entities to canonical orientation and return their ASU
         all_structures = []
         load_resources = False
@@ -1441,50 +1442,51 @@ def main():
         # Initialize docking procedure
         if args.distribute_work:  # Write all commands to a file and use sbatch
             design_source = f'Entry{sym_entry.entry_number}'  # used for terminate()
-            # script_out_dir = os.path.join(job.docking_master_dir, putils.scripts)
+            # script_out_dir = os.path.join(job.output_directory, putils.scripts)
             # os.makedirs(script_out_dir, exist_ok=True)
             cmd = ['python', putils.nanohedra_dock_file, '-dock']
-            kwargs = dict(outdir=job.docking_master_dir, entry=sym_entry.entry_number, rot_step1=args.rotation_step1,
+            kwargs = dict(outdir=job.output_directory, entry=sym_entry.entry_number, rot_step1=args.rotation_step1,
                           rot_step2=args.rotation_step2, min_matched=args.min_matched,
                           high_quality_match_value=args.high_quality_match_value, initial_z_value=args.initial_z_value)
             cmd.extend(chain.from_iterable([[f'-{key}', str(value)] for key, value in kwargs.items()]))
 
             if args.output_assembly:
-                cmd.append(putils.output_assembly)
+                cmd.append(f'-{putils.output_assembly}')
             if args.output_surrounding_uc:
-                cmd.append(putils.output_surrounding_uc)
+                cmd.append(f'-{putils.output_surrounding_uc}')
 
-            commands = [cmd + [putils.nano_entity_flag1, model1.file_path, putils.nano_entity_flag2, model2.file_path]
+            commands = [cmd + [f'-{putils.nano_entity_flag1}', model1.file_path,
+                               f'-{putils.nano_entity_flag2}', model2.file_path]
                         + (['-initial'] if idx == 0 else []) for idx, (model1, model2) in enumerate(structure_pairs)]
             terminate(results=commands)
         else:
             if job.debug:
                 # Root logs to stream with level debug according to prior logging initialization
-                master_logger, bb_logger = logger, logger
+                master_logger = bb_logger = logger
             else:
-                master_log_filepath = os.path.join(args.output_directory, putils.master_log)
-                master_logger = utils.start_log(name=putils.nanohedra.title(), handler=2, location=master_log_filepath,
-                                                propagate=True, no_log_name=True)
+                master_logger = utils.start_log(name=putils.nanohedra.title())
+                # master_log_filepath = os.path.join(job.output_directory, putils.master_log)
+                # master_logger = utils.start_log(name=putils.nanohedra.title(), handler=2, location=master_log_filepath,
+                #                                 propagate=True, no_log_name=True)
                 bb_logger = None  # have to include this incase started as debug
-            master_logger.info('Nanohedra\nMODE: DOCK\n')
+            master_logger.info('MODE: DOCK\n')
             utils.nanohedra.general.write_docking_parameters(args.oligomer1, args.oligomer2, args.rotation_step1,
-                                                             args.rotation_step2, sym_entry, job.docking_master_dir,
+                                                             args.rotation_step2, sym_entry, job.output_directory,
                                                              log=master_logger)
             if args.multi_processing:
-                zipped_args = zip(repeat(sym_entry), repeat(job.docking_master_dir), *zip(*structure_pairs),
+                zipped_args = zip(repeat(sym_entry), repeat(job.output_directory), *zip(*structure_pairs),
                                   repeat(args.rotation_step1), repeat(args.rotation_step2), repeat(args.min_matched),
                                   repeat(args.high_quality_match_value), repeat(args.initial_z_value),
                                   repeat(bb_logger), repeat(job))
                 results = utils.mp_starmap(nanohedra_dock, zipped_args, processes=cores)
             else:  # using combinations of directories with .pdb files
                 for model1, model2 in structure_pairs:
-                    master_logger.info(f'Docking {model1.name} / {model2.name}')
-                    # result = nanohedra_dock(sym_entry, fragment_db, euler_lookup, job.docking_master_dir, pdb1, pdb2,
+                    # result = nanohedra_dock(sym_entry, fragment_db, euler_lookup, job.output_directory, pdb1, pdb2,
                     # result = None
-                    nanohedra_dock(sym_entry, job.docking_master_dir, model1, model2,
+                    nanohedra_dock(sym_entry, job.output_directory, model1, model2,
                                    rotation_step1=args.rotation_step1, rotation_step2=args.rotation_step2,
                                    min_matched=args.min_matched, high_quality_match_value=args.high_quality_match_value,
-                                   initial_z_value=args.initial_z_value, log=bb_logger, job=job)
+                                   initial_z_value=args.initial_z_value, job=job)  # log=bb_logger,
                     # results.append(result)  # DONT need. Results uses pose_directories. There are none and no output
             terminate(results=results, output=False)
 
