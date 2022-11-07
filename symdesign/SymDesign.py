@@ -36,7 +36,7 @@ logger = logging.getLogger(__name__)
 from symdesign import protocols, utils
 from symdesign.flags import argparsers, parser_entire, parser_options, parser_module, parser_input, parser_guide, \
     process_design_selector_flags, parser_residue_selector, parser_output
-from symdesign.fragdock import nanohedra_dock
+from symdesign.protocols.fragdock import nanohedra_dock
 from symdesign.guide import interface_design_guide, analysis_guide, interface_metrics_guide, select_poses_guide, \
     select_designs_guide, select_sequences_guide, cluster_poses_guide, refine_guide, optimize_designs_guide, \
     nanohedra_guide, orient_guide, expand_asu_guide, set_up_instructions

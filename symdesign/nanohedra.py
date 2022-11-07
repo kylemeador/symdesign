@@ -3,7 +3,7 @@ import sys
 import time
 from itertools import product, combinations
 
-from symdesign.fragdock import nanohedra_dock
+from symdesign.protocols.fragdock import nanohedra_dock
 from symdesign.resources.structure_db import orient_structure_files
 from symdesign.utils import start_log, set_logging_to_level, get_directory_file_paths, set_loggers_to_propagate, path as putils
 from symdesign.utils.SymEntry import symmetry_factory
