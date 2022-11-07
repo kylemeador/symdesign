@@ -1457,9 +1457,8 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
 
     # Initialize the OptimalTx object
     log.debug(f'zshift1 = {zshift1}, zshift2 = {zshift2}, max_z_value={initial_z_value:2f}')
-    optimal_tx = \
-        nanohedra.OptimalTx.OptimalTx.from_dof(sym_entry.external_dof, zshift1=zshift1, zshift2=zshift2,
-                                               max_z_value=initial_z_value)
+    optimal_tx = resources.OptimalTx.from_dof(sym_entry.external_dof, zshift1=zshift1, zshift2=zshift2,
+                                              max_z_value=initial_z_value)
 
     number_of_init_ghost = init_ghost_guide_coords1.shape[0]
     number_of_init_surf = init_surf_guide_coords2.shape[0]
