@@ -2,7 +2,7 @@ import os
 
 from pymol import cmd, stored
 
-from symdesign import utils
+from symdesign.utils import symmetry as symutils
 
 
 def generate_symmetry_mates_pymol(name, expand_matrices):  # name: str, expand_matrices: list[list[float]]):
@@ -22,15 +22,15 @@ def generate_symmetry_mates_pymol(name, expand_matrices):  # name: str, expand_m
     cmd.group(f'{prefix}_expanded', f'{prefix}_*')
 
 
-def expand(name=None, symmetry=None):
-    symmetry_result = utils.symmetry.possible_symmetries.get(symmetry)
+def expand(name: str = None, symmetry: str = None):
+    symmetry_result = symutils.possible_symmetries.get(symmetry)
     if symmetry_result:
-        expand_matrices = utils.path.point_group_symmetry_operators[symmetry_result].tolist()
+        expand_matrices = symutils.point_group_symmetry_operators[symmetry_result].tolist()
         # Todo
         #  expand_matrices = space_group_symmetry_operators[symmetry_result]
     else:
         print(f'No symmetry "{symmetry}" was found in the possible symmetries. Must be one of the following:\n%s'
-              % ', '.join(sorted(set(utils.symmetry.possible_symmetries.keys()))))
+              % ', '.join(sorted(set(symutils.possible_symmetries.keys()))))
         return
 
     if name == 'all':
