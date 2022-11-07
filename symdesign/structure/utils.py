@@ -171,4 +171,8 @@ class SymmetryError(DesignError):
 
 
 # 0 indexed, 1 letter aa, alphabetically sorted at the origin
-reference_residues = utils.unpickle(utils.path.reference_residues_pkl)
+try:
+    reference_residues = utils.unpickle(utils.path.reference_residues_pkl)
+except _pickle.UnpicklingError:
+    logger.error(f'The reference_residues ran into an error upon load. You need to regenerate the serialized version!')
+    reference_residues = None
