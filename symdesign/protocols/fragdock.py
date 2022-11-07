@@ -1037,7 +1037,7 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
     ghost_residue_numbers1 = np.array([ghost_frag.number for ghost_frag in complete_ghost_frags1])
     ghost_j_indices1 = np.array([ghost_frag.j_type for ghost_frag in complete_ghost_frags1])
 
-    if same_component_filter:  # Todo test this
+    if same_component_filter:
         # Identify surface/ghost frag overlap originating from the same oligomer
         # Set up the output array with the number of residues by the length of the max number of ghost fragments
         max_ghost_frags = max([len(ghost_frags) for ghost_frags in ghost_frags_by_residue1])
