@@ -326,6 +326,7 @@ logging_cfg = {
         # 'handlers': ['console'],  # Can't include this and any above as the handlers get added twice
     },
 }
+default_logging_level = 2
 
 
 def make_path(path: AnyStr, condition: bool = True):
