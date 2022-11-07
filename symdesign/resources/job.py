@@ -9,7 +9,7 @@ from typing import Annotated, AnyStr
 from symdesign.resources import structure_db, wrapapi
 from symdesign.structure.fragment import db
 from symdesign import flags
-from symdesign import utils
+from symdesign.utils import SymEntry, path as putils
 
 logger = logging.getLogger(__name__)
 # DesignFlags = collections.namedtuple('DesignFlags', design_args.keys(), defaults=design_args.values())
@@ -43,18 +43,18 @@ class JobResources:
             raise TypeError(f"Can't initialize {JobResources.__name__} without parameter 'program_root'")
 
         # program_root subdirectories
-        self.data = os.path.join(self.program_root, utils.path.data.title())
-        self.projects = os.path.join(self.program_root, utils.path.projects)
+        self.data = os.path.join(self.program_root, putils.data.title())
+        self.projects = os.path.join(self.program_root, putils.projects)
         self.job_paths = os.path.join(self.program_root, 'JobPaths')
         self.sbatch_scripts = os.path.join(self.program_root, 'Scripts')
         # TODO ScoreDatabase integration
-        self.all_scores = os.path.join(self.program_root, utils.path.all_scores)
+        self.all_scores = os.path.join(self.program_root, putils.all_scores)
 
         # data subdirectories
         self.clustered_poses = os.path.join(self.data, 'ClusteredPoses')
-        self.structure_info = os.path.join(self.data, utils.path.structure_info)
+        self.structure_info = os.path.join(self.data, putils.structure_info)
         self.pdbs = os.path.join(self.structure_info, 'PDBs')  # Used to store downloaded PDB's
-        self.sequence_info = os.path.join(self.data, utils.path.sequence_info)
+        self.sequence_info = os.path.join(self.data, putils.sequence_info)
         self.external_db = os.path.join(self.data, 'ExternalDatabases')
         # pdbs subdirectories
         self.orient_dir = os.path.join(self.pdbs, 'oriented')
@@ -78,10 +78,10 @@ class JobResources:
         #     self.projects = os.path.join(self.program_root, projects)
         # self.design_db = None
         # self.score_db = None
-        utils.make_path(self.pdb_api)
-        # utils.make_path(self.pdb_entity_api)
-        # utils.make_path(self.pdb_assembly_api)
-        utils.make_path(self.uniprot_api)
+        putils.make_path(self.pdb_api)
+        # putils.make_path(self.pdb_entity_api)
+        # putils.make_path(self.pdb_assembly_api)
+        putils.make_path(self.uniprot_api)
         # sequence database specific
         # self.make_path(self.sequence_info)
         # self.make_path(self.sequences)
@@ -106,7 +106,7 @@ class JobResources:
         self.debug: bool = kwargs.get('debug', False)
         self.dock_only: bool = kwargs.get('dock_only', False)
         self.log_level: bool = kwargs.get('log_level', flags.default_logging_level)
-        self.force_flags: bool = kwargs.get(utils.path.force_flags, False)
+        self.force_flags: bool = kwargs.get(putils.force_flags, False)
         self.fuse_chains: list[tuple[str]] = [tuple(pair.split(':')) for pair in kwargs.get('fuse_chains', [])]
         # self.design = DesignFlags(*[kwargs.get(argument_name) for argument_name in design_args.keys()])
         # self.design = types.SimpleNamespace(**{flag: kwargs.get(flag, default) for flag, default in flags.design})
@@ -128,31 +128,31 @@ class JobResources:
         # self.term_constraint: bool = kwargs.get(term_constraint, False)
         # self.number_of_trajectories: int = kwargs.get(number_of_trajectories, flags.nstruct)
         self.overwrite: bool = kwargs.get('overwrite', False)
-        self.output_directory: AnyStr | None = kwargs.get(utils.path.output_directory, None)
+        self.output_directory: AnyStr | None = kwargs.get(putils.output_directory, None)
         self.output_to_directory: bool = True if self.output_directory else False
-        self.output_assembly: bool = kwargs.get(utils.path.output_assembly, False)
-        self.output_surrounding_uc: bool = kwargs.get(utils.path.output_surrounding_uc, False)
-        self.distribute_work: bool = kwargs.get(utils.path.distribute_work, False)
+        self.output_assembly: bool = kwargs.get(putils.output_assembly, False)
+        self.output_surrounding_uc: bool = kwargs.get(putils.output_surrounding_uc, False)
+        self.distribute_work: bool = kwargs.get(putils.distribute_work, False)
         if self.mpi > 0:
             self.distribute_work = True
         # self.pre_refine: bool = kwargs.get('pre_refine', True)
         # self.pre_loop_model: bool = kwargs.get('pre_loop_model', True)
-        self.generate_fragments: bool = kwargs.get(utils.path.generate_fragments, True)
+        self.generate_fragments: bool = kwargs.get(putils.generate_fragments, True)
         # self.scout: bool = kwargs.get(scout, False)
         self.specific_protocol: str = kwargs.get('specific_protocol', False)
         # self.structure_background: bool = kwargs.get(structure_background, False)
-        self.sym_entry: utils.SymEntry.SymEntry | None = kwargs.get(utils.path.sym_entry, None)
-        self.write_fragments: bool = kwargs.get(utils.path.output_fragments, False)
-        self.write_oligomers: bool = kwargs.get(utils.path.output_oligomers, False)
-        self.write_structures: bool = kwargs.get(utils.path.output_structures, True)
-        self.write_trajectory: bool = kwargs.get(utils.path.output_trajectory, False)
-        self.skip_logging: bool = kwargs.get(utils.path.skip_logging, False)
+        self.sym_entry: SymEntry.SymEntry | None = kwargs.get(putils.sym_entry, None)
+        self.write_fragments: bool = kwargs.get(putils.output_fragments, False)
+        self.write_oligomers: bool = kwargs.get(putils.output_oligomers, False)
+        self.write_structures: bool = kwargs.get(putils.output_structures, True)
+        self.write_trajectory: bool = kwargs.get(putils.output_trajectory, False)
+        self.skip_logging: bool = kwargs.get(putils.skip_logging, False)
         self.nanohedra_output: bool = kwargs.get('nanohedra_output', False)
         self.nanohedra_root: str | None = None
         # Development Flags
         # Whether to reissue commands, only if distribute_work=False
         self.command_only: bool = kwargs.get('command_only', False)
-        self.development: bool = kwargs.get(utils.path.development, False)
+        self.development: bool = kwargs.get(putils.development, False)
 
         if self.nanohedra_output:
             self.construct_pose: bool = kwargs.get('construct_pose', True)  # Whether to construct the PoseDirectory

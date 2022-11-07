@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import os
 import subprocess
+from typing import AnyStr
 
 # Project strings and file names
 utils_dir = os.path.dirname(os.path.realpath(__file__))  # reveals utils subdirectory
@@ -320,3 +321,14 @@ logging_cfg = {
         # 'handlers': ['console'],  # Can't include this and any above as the handlers get added twice
     },
 }
+
+
+def make_path(path: AnyStr, condition: bool = True):
+    """Make all required directories in specified path if it doesn't exist, and optional condition is True
+
+    Args:
+        path: The path to create
+        condition: A condition to check before the path production is executed
+    """
+    if condition:
+        os.makedirs(path, exist_ok=True)

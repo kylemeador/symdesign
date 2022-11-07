@@ -41,14 +41,10 @@ from symdesign.structure.model import Pose, MultiModel, Models, Model, Entity
 from symdesign.structure.sequence import parse_pssm, generate_mutations_from_reference, \
     sequence_difference, MultipleSequenceAlignment, pssm_as_array, concatenate_profile, write_pssm_file
 from symdesign.structure.utils import protein_letters_3to1, protein_letters_1to3, DesignError, ClashError, SymmetryError
-from symdesign.utils import large_color_array, handle_errors, starttime, start_log, make_path, unpickle, \
-    pickle_object, index_intersection, write_shell_script, match_score_from_z_value, all_vs_all, sym, \
-    condensed_to_square, path as putils
-from symdesign.utils.CommandDistributer import reference_average_residue_weight, run_cmds, script_cmd, rosetta_flags, \
-    rosetta_variables, relax_flags_cmdline
+from symdesign.utils import large_color_array, starttime, start_log, unpickle, pickle_object, index_intersection, \
+    write_shell_script, all_vs_all, sym, condensed_to_square, CommandDistributer, path as putils
 from symdesign.utils.SymEntry import SymEntry, symmetry_factory
 from symdesign.utils.nanohedra.general import get_components_from_nanohedra_docking
-from symdesign.utils.path import pose_source, state_file, sym_entry
 
 # Globals
 logger = logging.getLogger(__name__)
@@ -56,13 +52,14 @@ pose_logger = start_log(name='pose', handler_level=3, propagate=True)
 zero_offset = 1
 idx_slice = pd.IndexSlice
 # design_directory_modes = [putils.interface_design, 'dock', 'filter']
-cst_value = round(0.2 * reference_average_residue_weight, 2)
+cst_value = round(0.2 * CommandDistributer.reference_average_residue_weight, 2)
 mean, std = 'mean', 'std'
 stats_metrics = [mean, std]
 variance = 0.8
 symmetry_protocols = {0: 'make_point_group', 2: 'make_layer', 3: 'make_lattice'}  # -1: 'asymmetric',
 null_cmd = ['echo']
-warn_missing_symmetry = f'Cannot %s without providing symmetry! Provide symmetry with "--symmetry" or "--{sym_entry}"'
+warn_missing_symmetry = \
+    f'Cannot %s without providing symmetry! Provide symmetry with "--symmetry" or "--{putils.sym_entry}"'
 
 
 def handle_design_errors(errors: tuple[Type[Exception], ...] = (Exception,)) -> Callable:
@@ -212,7 +209,7 @@ class PoseDirectory:
         self.name = os.path.splitext(os.path.basename(self.source_path))[0]
         output_identifier = f'{self.name}_' if self.job.output_to_directory else ''
 
-        self.serialized_info = os.path.join(self.source_path, f'{output_identifier}{putils.data}', state_file)
+        self.serialized_info = os.path.join(self.source_path, f'{output_identifier}{putils.data}', putils.state_file)
         self.initialized = True if os.path.exists(self.serialized_info) else False
         if self.initialized:
             self.source = None  # will be set to self.asu_path later
@@ -268,7 +265,7 @@ class PoseDirectory:
                 # # Not using now that pose_format can be disregarded...
                 # shutil.copy(self.source_path, self.path)
 
-            make_path(self.path, condition=self.job.construct_pose)
+            putils.make_path(self.path, condition=self.job.construct_pose)
 
             # oligomer_names = list(map(str.lower, path_components[-4].split('_')))
             # self.entity_names = [f'{name}_1' for name in oligomer_names]  # assumes the entity is the first
@@ -307,9 +304,9 @@ class PoseDirectory:
         #                 path.join(self.projects, f'{self.source_path.split(os.sep)[-2]}_{putils.pose_directory}')
         #             self.path = path.join(self.project_designs, self.name)
         #             # ^ /program_root/projects/project/design<- self.path /design.pdb
-        #             # make_path(self.projects)
-        #             # make_path(self.project_designs)
-        #             make_path(self.path)
+        #             # putils.make_path(self.projects)
+        #             # putils.make_path(self.project_designs)
+        #             putils.make_path(self.path)
         #             # copy the source file to the PoseDirectory for record keeping...
         #             shutil.copy(self.source_path, self.path)
         #         # save the SymEntry initialization key in the state
@@ -332,7 +329,7 @@ class PoseDirectory:
         # /root/Projects/project_Poses/design/data
         self.scores_file: str | Path = os.path.join(self.data, f'{self.name}.sc')
         # /root/Projects/project_Poses/design/data/name.sc
-        self.serialized_info: str | Path = os.path.join(self.data, state_file)
+        self.serialized_info: str | Path = os.path.join(self.data, putils.state_file)
         # /root/Projects/project_Poses/design/data/info.pkl
         self.asu_path: str | Path = os.path.join(self.path, f'{self.name}_{putils.clean_asu}')
         # /root/Projects/project_Poses/design/design_name_clean_asu.pdb
@@ -739,9 +736,9 @@ class PoseDirectory:
             self._info = self.info.copy()  # create a copy of the state upon initialization
             # # These statements are a temporary patch Todo remove for SymDesign master branch
             # # if not self.sym_entry:  # none was provided at initiation or in state
-            # if 'sym_entry' in self.info:
-            #     self.sym_entry = self.info['sym_entry']  # get instance
-            #     self.info.pop('sym_entry')  # remove this object
+            # if putils.sym_entry in self.info:
+            #     self.sym_entry = self.info[putils.sym_entry]  # get instance
+            #     self.info.pop(putils.sym_entry)  # remove this object
             #     self.info['sym_entry_specification'] = self.sym_entry.entry_number, self.sym_entry.sym_map
             if 'oligomer_names' in self.info:
                 self.info['entity_names'] = [f'{name}_1' for name in self.info['oligomer_names']]
@@ -883,7 +880,7 @@ class PoseDirectory:
         if not self.job.construct_pose:  # This is only true when self.job.nanohedra_output is True
             # Don't write anything as we are just querying
             return
-        make_path(self.data)
+        putils.make_path(self.data)
         # try:
         # Todo make better patch for numpy.ndarray compare value of array is ambiguous
         if self.info.keys() != self._info.keys():  # if the state has changed from the original version
@@ -1214,8 +1211,9 @@ class PoseDirectory:
             constraint_percent = 0.5
             free_percent = 1 - constraint_percent
 
-        variables = rosetta_variables + [('dist', distance), ('repack', 'yes'),
-                                         ('constrained_percent', constraint_percent), ('free_percent', free_percent)]
+        variables = CommandDistributer.rosetta_variables \
+                    + [('dist', distance), ('repack', 'yes'),
+                       ('constrained_percent', constraint_percent), ('free_percent', free_percent)]
         variables.extend([(putils.design_profile, self.design_profile_file)]
                          if os.path.exists(self.design_profile_file) else [])
         variables.extend([(putils.fragment_profile, self.fragment_profile_file)]
@@ -1269,7 +1267,7 @@ class PoseDirectory:
         else:  # Get an out-of-bounds index
             variables.extend([('core_residues', out_of_bounds_residue)])
 
-        flags = copy(rosetta_flags)
+        flags = copy(CommandDistributer.rosetta_flags)
         if pdb_out_path:
             flags.extend([f'-out:path:pdb {pdb_out_path}', f'-scorefile {self.scores_file}'])
         else:
@@ -1329,7 +1327,7 @@ class PoseDirectory:
             refine_sequences: The sequence to mutate the pose to and have it built using Rosetta FastRelax
             gather_metrics: Whether metrics should be calculated for the Pose
         """
-        main_cmd = copy(script_cmd)
+        main_cmd = copy(CommandDistributer.script_cmd)
         protocol = putils.refine
         if self.interface_residue_numbers is False or self.interface_design_residue_numbers is False:
             self.identify_interface()
@@ -1360,10 +1358,10 @@ class PoseDirectory:
 
         flags = os.path.join(flag_dir, 'flags')
         if not os.path.exists(flags) or self.job.force_flags:
-            make_path(flag_dir)
+            putils.make_path(flag_dir)
             self.prepare_rosetta_flags(pdb_out_path=pdb_out_path, out_dir=flag_dir)
             self.log.debug(f'Pose flags written to: {flags}')
-            make_path(pdb_out_path)
+            putils.make_path(pdb_out_path)
 
         # Assign designable residues to interface1/interface2 variables, not necessary for non-complexed PDB jobs
         if interface_to_alanine:  # Mutate all design positions to Ala before the Refinement
@@ -1425,7 +1423,7 @@ class PoseDirectory:
 
         # RELAX: Prepare command
         # '-no_nstruct_label', 'true' comes from v
-        relax_cmd = main_cmd + relax_flags_cmdline + additional_flags + \
+        relax_cmd = main_cmd + CommandDistributer.relax_flags_cmdline + additional_flags + \
             (['-symmetry_definition', 'CRYST1'] if self.design_dimension > 0 else []) + infile + \
             [f'@{flags}', '-parser:protocol', os.path.join(putils.rosetta_scripts_dir, f'refine.xml'),  # f'{protocol}.xml')
              '-parser:script_vars', f'switch={protocol}']
@@ -1436,7 +1434,7 @@ class PoseDirectory:
             main_cmd += [f'@{flags}', '-out:file:score_only', self.scores_file,
                          '-no_nstruct_label', 'true', '-parser:protocol']
             if self.job.mpi > 0:
-                main_cmd = run_cmds[putils.rosetta_extras] + [str(self.job.mpi)] + main_cmd
+                main_cmd = CommandDistributer.run_cmds[putils.rosetta_extras] + [str(self.job.mpi)] + main_cmd
 
             metric_cmd_bound = main_cmd + (['-symmetry_definition', 'CRYST1'] if self.design_dimension > 0 else []) + \
                 [os.path.join(putils.rosetta_scripts_dir, f'{putils.interface_metrics}'
@@ -1484,7 +1482,7 @@ class PoseDirectory:
                               score_only=None, variables=None, **kwargs):
         """Generate a custom script to dispatch to the design using a variety of parameters"""
         raise DesignError('This module is outdated, please update it to use')  # Todo reflect modern metrics collection
-        cmd = copy(script_cmd)
+        cmd = copy(CommandDistributer.script_cmd)
         script_name = os.path.splitext(os.path.basename(script))[0]
         if self.interface_residue_numbers is False or self.interface_design_residue_numbers is False:
             self.identify_interface()
@@ -1493,7 +1491,7 @@ class PoseDirectory:
 
         flags = os.path.join(self.scripts, 'flags')
         if not os.path.exists(self.flags) or self.job.force_flags:
-            make_path(self.scripts)
+            putils.make_path(self.scripts)
             self.prepare_rosetta_flags(out_dir=self.scripts)
             self.log.debug('Pose flags written to: %s' % flags)
 
@@ -1540,7 +1538,7 @@ class PoseDirectory:
         cmd += ['@%s' % flags, '-in:file:%s' % ('l' if file_list else 's'), pdb_input, '-in:file:native', native] + \
             score + suffix + trajectories + ['-parser:protocol', script] + variables
         if self.job.mpi > 0:
-            cmd = run_cmds[putils.rosetta_extras] + [str(self.job.mpi)] + cmd
+            cmd = CommandDistributer.run_cmds[putils.rosetta_extras] + [str(self.job.mpi)] + cmd
 
         if self.job.distribute_work:
             write_shell_script(list2cmdline(generate_files_cmd), name=script_name, out_path=self.scripts,
@@ -1569,7 +1567,7 @@ class PoseDirectory:
         """Generate a script capable of running Rosetta interface metrics analysis on the bound and unbound states"""
         # metrics_flags = 'repack=yes'
         protocol = putils.interface_metrics
-        main_cmd = copy(script_cmd)
+        main_cmd = copy(CommandDistributer.script_cmd)
         if self.interface_residue_numbers is False or self.interface_design_residue_numbers is False:
             self.identify_interface()
         else:  # We only need to load pose as we already calculated interface
@@ -1577,7 +1575,7 @@ class PoseDirectory:
 
         # interface_secondary_structure
         if not os.path.exists(self.flags) or self.job.force_flags:
-            make_path(self.scripts)
+            putils.make_path(self.scripts)
             self.prepare_rosetta_flags(out_dir=self.scripts)
             self.log.debug(f'Pose flags written to: {self.flags}')
 
@@ -1591,7 +1589,7 @@ class PoseDirectory:
                      '-out:file:score_only', self.scores_file, '-no_nstruct_label', 'true', '-parser:protocol']
         #              '-in:file:native', self.refined_pdb,
         if self.job.mpi > 0:
-            main_cmd = run_cmds[putils.rosetta_extras] + [str(self.job.mpi)] + main_cmd
+            main_cmd = CommandDistributer.run_cmds[putils.rosetta_extras] + [str(self.job.mpi)] + main_cmd
 
         metric_cmd_bound = main_cmd + (['-symmetry_definition', 'CRYST1'] if self.design_dimension > 0 else []) + \
             [os.path.join(putils.rosetta_scripts_dir, f'{protocol}{"_DEV" if self.job.development else ""}.xml')]
@@ -1772,7 +1770,7 @@ class PoseDirectory:
         else:  # We only need to load pose as we already calculated interface
             self.load_pose()
 
-        make_path(self.frags, condition=self.job.write_fragments)
+        putils.make_path(self.frags, condition=self.job.write_fragments)
         self.pose.generate_interface_fragments(out_path=self.frags, write_fragments=self.job.write_fragments)
         self.info['fragments'] = self.fragment_observations = self.pose.get_fragment_observations()
         self.info['fragment_source'] = self.fragment_source
@@ -1795,7 +1793,7 @@ class PoseDirectory:
                 self.load_pose()
 
             # if self.job.generate_fragments:
-            #     make_path(self.frags, condition=self.job.write_fragments)
+            #     putils.make_path(self.frags, condition=self.job.write_fragments)
             # elif self.fragment_observations or self.fragment_observations == list():
             #     pass  # fragment generation was run and maybe succeeded. If not ^
             # elif os.path.exists(self.frag_file):
@@ -1804,10 +1802,10 @@ class PoseDirectory:
             # # self.generate_interface_fragments()
             #     # raise DesignError(f'Fragments were specified during design, but observations have not been yet been '
             #     #                   f'generated for this Design! Try with the flag --{putils.generate_fragments}')
-            make_path(self.data)  # Todo consolidate this check with pickle_info()
+            putils.make_path(self.data)  # Todo consolidate this check with pickle_info()
             # Create all files which store the evolutionary_profile and/or fragment_profile -> design_profile
             if self.job.generate_fragments:
-                make_path(self.frags, condition=self.job.write_fragments)
+                putils.make_path(self.frags, condition=self.job.write_fragments)
                 self.pose.generate_interface_fragments(out_path=self.frags, write_fragments=self.job.write_fragments)
                 if self.job.design.method == putils.rosetta_str:
                     self.pose.calculate_fragment_profile(evo_fill=True)
@@ -1890,7 +1888,7 @@ class PoseDirectory:
         if not self.pre_refine and not os.path.exists(self.refined_pdb):
             self._refine()
 
-        make_path(self.designs)
+        putils.make_path(self.designs)
         match self.job.design.method:
             case putils.rosetta_str:
                 self.rosetta_interface_design()
@@ -1953,16 +1951,16 @@ class PoseDirectory:
             #      [os.path.join(self.data, 'hbnet_selected.tags')]
             #     ]
 
-        main_cmd = copy(script_cmd)
+        main_cmd = copy(CommandDistributer.script_cmd)
         main_cmd += ['-symmetry_definition', 'CRYST1'] if self.design_dimension > 0 else []
         if not os.path.exists(self.flags) or self.job.force_flags:
-            make_path(self.scripts)
+            putils.make_path(self.scripts)
             self.prepare_rosetta_flags(out_dir=self.scripts)
             self.log.debug(f'Pose flags written to: {self.flags}')
 
         if self.job.design.consensus:  # Todo add consensus sbatch generator to SymDesign main
             if self.job.generate_fragments:  # design_with_fragments
-                consensus_cmd = main_cmd + relax_flags_cmdline + \
+                consensus_cmd = main_cmd + CommandDistributer.relax_flags_cmdline + \
                     [f'@%{self.flags}', '-in:file:s', self.consensus_pdb,
                      # '-in:file:native', self.refined_pdb,
                      '-parser:protocol', os.path.join(putils.rosetta_scripts_dir, f'{putils.consensus}.xml'),
@@ -1996,13 +1994,13 @@ class PoseDirectory:
 
         # METRICS: Can remove if SimpleMetrics adopts pose metric caching and restoration
         # Assumes all entity chains are renamed from A to Z for entities (1 to n)
-        entity_cmd = script_cmd + metrics_pdb + \
+        entity_cmd = CommandDistributer.script_cmd + metrics_pdb + \
             [f'@{self.flags}', '-out:file:score_only', self.scores_file, '-no_nstruct_label', 'true',
              '-parser:protocol', os.path.join(putils.rosetta_scripts_dir, 'metrics_entity.xml')]
 
         if self.job.mpi > 0 and not self.job.design.scout:
-            design_cmd = run_cmds[putils.rosetta_extras] + [str(self.job.mpi)] + design_cmd
-            entity_cmd = run_cmds[putils.rosetta_extras] + [str(self.job.mpi)] + entity_cmd
+            design_cmd = CommandDistributer.run_cmds[putils.rosetta_extras] + [str(self.job.mpi)] + design_cmd
+            entity_cmd = CommandDistributer.run_cmds[putils.rosetta_extras] + [str(self.job.mpi)] + entity_cmd
 
         self.log.info(f'{self.rosetta_interface_design.__name__} command: {list2cmdline(design_cmd)}')
         metric_cmds = []
@@ -2154,10 +2152,10 @@ class PoseDirectory:
         generate_files_cmd = \
             ['python', putils.list_pdb_files, '-d', self.designs, '-o', design_list_file, '-s', '_' + protocol]
 
-        main_cmd = copy(script_cmd)
+        main_cmd = copy(CommandDistributer.script_cmd)
         main_cmd += ['-symmetry_definition', 'CRYST1'] if self.design_dimension > 0 else []
         if not os.path.exists(self.flags) or self.job.force_flags:
-            make_path(self.scripts)
+            putils.make_path(self.scripts)
             self.prepare_rosetta_flags(out_dir=self.scripts)
             self.log.debug(f'Pose flags written to: {self.flags}')
 
@@ -2179,8 +2177,8 @@ class PoseDirectory:
              '-parser:protocol', os.path.join(putils.rosetta_scripts_dir, 'metrics_entity.xml')]
 
         if self.job.mpi > 0:
-            design_cmd = run_cmds[putils.rosetta_extras] + [str(self.job.mpi)] + design_cmd
-            entity_cmd = run_cmds[putils.rosetta_extras] + [str(self.job.mpi)] + entity_cmd
+            design_cmd = CommandDistributer.run_cmds[putils.rosetta_extras] + [str(self.job.mpi)] + design_cmd
+            entity_cmd = CommandDistributer.run_cmds[putils.rosetta_extras] + [str(self.job.mpi)] + entity_cmd
 
         self.log.info(f'{self.optimize_designs.__name__} command: {list2cmdline(design_cmd)}')
         metric_cmds = []
@@ -2251,7 +2249,7 @@ class PoseDirectory:
 
         self.log.debug(f'Found design residues: {", ".join(map(str, sorted(self.interface_design_residue_numbers)))}')
         if self.job.generate_fragments and not self.pose.fragment_queries:
-            make_path(self.frags, condition=self.job.write_fragments)
+            putils.make_path(self.frags, condition=self.job.write_fragments)
             self.pose.generate_interface_fragments(write_fragments=self.job.write_fragments, out_path=self.frags)
 
         # Gather miscellaneous pose specific metrics
@@ -2275,7 +2273,7 @@ class PoseDirectory:
         # Assumes each structure is the same length
         pose_length = self.pose.number_of_residues
         residue_numbers = list(range(1, pose_length + 1))
-        pose_sequences = {pose_source: self.pose.sequence}
+        pose_sequences = {putils.pose_source: self.pose.sequence}
         # Todo implement reference sequence from included file(s) or as with self.pose.sequence below
         pose_sequences.update({putils.reference_name: self.pose.sequence})
         pose_sequences.update({pose.name: pose.sequence for pose in design_poses})
@@ -2289,14 +2287,14 @@ class PoseDirectory:
                               'solv_unbound': copy(entity_energies), 'fsp': 0., 'cst': 0.,
                               'type': protein_letters_3to1.get(residue.type), 'hbond': 0}
              for entity in self.pose.entities for residue in entity.residues}
-        residue_info = {pose_source: pose_source_residue_info}
+        residue_info = {putils.pose_source: pose_source_residue_info}
         job_key = 'no_energy'
         stat_s, sim_series = pd.Series(dtype=float), []
         if os.path.exists(self.scores_file):  # Rosetta scores file is present
             self.log.debug(f'Found design scores in file: {self.scores_file}')
             design_was_performed = True
             # Get the scores from the score file on design trajectory metrics
-            source_df = pd.DataFrame({pose_source: {putils.groups: job_key}}).T
+            source_df = pd.DataFrame({putils.pose_source: {putils.groups: job_key}}).T
             for idx, entity in enumerate(self.pose.entities, 1):
                 source_df[f'buns_{idx}_unbound'] = 0
                 source_df[f'interface_energy_{idx}_bound'] = 0
@@ -2421,7 +2419,7 @@ class PoseDirectory:
             design_was_performed = False
             # Todo add relevant missing scores such as those specified as 0 below
             # Todo may need to put source_df in scores file alternative
-            source_df = pd.DataFrame({pose_source: {putils.groups: job_key}}).T
+            source_df = pd.DataFrame({putils.pose_source: {putils.groups: job_key}}).T
             scores_df = pd.DataFrame({pose.name: {putils.groups: job_key} for pose in design_poses}).T
             scores_df = pd.concat([source_df, scores_df])
             for idx, entity in enumerate(self.pose.entities, 1):
@@ -2495,16 +2493,16 @@ class PoseDirectory:
         # per_residue_data = {'errat_deviation': {}, 'hydrophobic_collapse': {}, 'contact_order': {},
         #                     'sasa_hydrophobic_complex': {}, 'sasa_polar_complex': {}, 'sasa_relative_complex': {},
         #                     'sasa_hydrophobic_bound': {}, 'sasa_polar_bound': {}, 'sasa_relative_bound': {}}
-        interface_local_density = {pose_source: self.pose.local_density_interface()}
+        interface_local_density = {putils.pose_source: self.pose.local_density_interface()}
         # atomic_deviation = {}
         # pose_assembly_minimally_contacting = self.pose.assembly_minimally_contacting
         # perform SASA measurements
         # pose_assembly_minimally_contacting.get_sasa()
         # assembly_asu_residues = pose_assembly_minimally_contacting.residues[:pose_length]
-        # per_residue_data['sasa_hydrophobic_complex'][pose_source] = \
+        # per_residue_data['sasa_hydrophobic_complex'][putils.pose_source] = \
         #     [residue.sasa_apolar for residue in assembly_asu_residues]
-        # per_residue_data['sasa_polar_complex'][pose_source] = [residue.sasa_polar for residue in assembly_asu_residues]
-        # per_residue_data['sasa_relative_complex'][pose_source] = \
+        # per_residue_data['sasa_polar_complex'][putils.pose_source] = [residue.sasa_polar for residue in assembly_asu_residues]
+        # per_residue_data['sasa_relative_complex'][putils.pose_source] = \
         #     [residue.relative_sasa for residue in assembly_asu_residues]
 
         # Grab metrics for the pose source. Checks if self.pose was designed
@@ -2525,10 +2523,10 @@ class PoseDirectory:
                 _, oligomeric_errat = entity_oligomer.errat(out_path=self.data)
                 source_errat.append(oligomeric_errat[:entity.number_of_residues])
 
-        per_residue_data = {pose_source: self.pose.get_per_residue_interface_metrics()}
+        per_residue_data = {putils.pose_source: self.pose.get_per_residue_interface_metrics()}
         pose_source_contact_order_s = \
             pd.Series(np.concatenate(source_contact_order), index=residue_numbers, name='contact_order')
-        per_residue_data[pose_source]['contact_order'] = pose_source_contact_order_s
+        per_residue_data[putils.pose_source]['contact_order'] = pose_source_contact_order_s
 
         number_of_entities = self.pose.number_of_entities
         if design_was_performed:  # The input structure was not meant to be together, treat as such
@@ -2542,16 +2540,16 @@ class PoseDirectory:
                 entity_oligomer = Model.from_chains(entity.chains, log=self.log, entities=False)
                 _, oligomeric_errat = entity_oligomer.errat(out_path=self.data)
                 source_errat.append(oligomeric_errat[:entity.number_of_residues])
-            # atomic_deviation[pose_source] = sum(source_errat_accuracy) / float(number_of_entities)
+            # atomic_deviation[putils.pose_source] = sum(source_errat_accuracy) / float(number_of_entities)
             pose_source_errat_s = pd.Series(np.concatenate(source_errat), index=residue_numbers)
         else:
             pose_assembly_minimally_contacting = self.pose.assembly_minimally_contacting
-            # atomic_deviation[pose_source], pose_per_residue_errat = \
+            # atomic_deviation[putils.pose_source], pose_per_residue_errat = \
             _, pose_per_residue_errat = \
                 pose_assembly_minimally_contacting.errat(out_path=self.data)
             pose_source_errat_s = pose_per_residue_errat[:pose_length]
 
-        per_residue_data[pose_source]['errat_deviation'] = pose_source_errat_s
+        per_residue_data[putils.pose_source]['errat_deviation'] = pose_source_errat_s
 
         # Compute structural measurements for all designs
         for pose in design_poses:  # Takes 1-2 seconds for Structure -> assembly -> errat
@@ -2596,7 +2594,7 @@ class PoseDirectory:
         per_residue_df = pd.concat({name: pd.DataFrame(data, index=residue_numbers)
                                     for name, data in per_residue_data.items()}).unstack().swaplevel(0, 1, axis=1)
         # Fill in contact order for each design
-        per_residue_df.fillna(per_residue_df.loc[pose_source, idx_slice[:, 'contact_order']], inplace=True)
+        per_residue_df.fillna(per_residue_df.loc[putils.pose_source, idx_slice[:, 'contact_order']], inplace=True)
         per_residue_df = per_residue_df.join(per_residue_collapse_df)
 
         # Process mutational frequencies, H-bond, and Residue energy metrics to dataframe
@@ -2886,7 +2884,7 @@ class PoseDirectory:
         # consensus cst_weights are very large and destroy the mean.
         # remove this drop for consensus or refine if they are run multiple times
         trajectory_df = \
-            scores_df.drop([pose_source, putils.refine, putils.consensus], axis=0, errors='ignore').sort_index()
+            scores_df.drop([putils.pose_source, putils.refine, putils.consensus], axis=0, errors='ignore').sort_index()
 
         # Get total design statistics for every sequence in the pose and every protocol specifically
         scores_df[putils.groups] = protocol_s
@@ -2917,7 +2915,7 @@ class PoseDirectory:
         trajectory_df = pd.concat([trajectory_df]
                                   + [df.dropna(how='all', axis=0) for df in protocol_stats]  # v don't add if nothing
                                   + [pd.to_numeric(s).to_frame().T for s in pose_stats if not all(s.isna())])
-        # this concat ^ puts back pose_source, refine, consensus designs since protocol_stats is calculated on scores_df
+        # this concat ^ puts back putils.pose_source, refine, consensus designs since protocol_stats is calculated on scores_df
         # add all docking and pose information to each trajectory, dropping the pose observations
         interface_metrics_s = pd.Series(other_pose_metrics)
         pose_metrics_df = pd.concat([interface_metrics_s] * number_of_trajectories, axis=1).T
@@ -3246,7 +3244,7 @@ class PoseDirectory:
             # errat_graph_df = per_residue_df.loc[:, idx_slice[:, 'errat_deviation']].droplevel(-1, axis=1)
             # errat_graph_df = errat_df
             # wt_errat_concatenated_s = pd.Series(np.concatenate(list(source_errat.values())), name='clean_asu')
-            # errat_graph_df[pose_source] = pose_source_errat_s
+            # errat_graph_df[putils.pose_source] = pose_source_errat_s
             # errat_graph_df.columns += 1  # offset index to residue numbering
             errat_df.sort_index(axis=0, inplace=True)
             # errat_ax = errat_graph_df.plot.line(legend=False, ax=errat_ax, figsize=figure_aspect_ratio)
@@ -3508,7 +3506,7 @@ def interface_design_analysis(pose: Pose, design_poses: Iterable[Pose] = None, s
     # Assumes each structure is the same length
     pose_length = pose.number_of_residues
     residue_indices = list(range(1, pose_length + 1))
-    pose_sequences = {pose_source: pose.sequence}
+    pose_sequences = {putils.pose_source: pose.sequence}
     # Todo implement reference sequence from included file(s) or as with pose.sequence below
     pose_sequences.update({putils.reference_name: pose.sequence})
     pose_sequences.update({pose.name: pose.sequence for pose in design_poses})
@@ -3522,14 +3520,14 @@ def interface_design_analysis(pose: Pose, design_poses: Iterable[Pose] = None, s
                           'solv_unbound': copy(entity_energies), 'fsp': 0., 'cst': 0.,
                           'type': protein_letters_3to1.get(residue.type), 'hbond': 0}
          for entity in pose.entities for residue in entity.residues}
-    residue_info = {pose_source: pose_source_residue_info}
+    residue_info = {putils.pose_source: pose_source_residue_info}
     job_key = 'no_energy'
     stat_s, sim_series = pd.Series(dtype=float), []
     if scores_file is not None and os.path.exists(scores_file):  # Rosetta scores file is present
         pose.log.debug(f'Found design scores in file: {scores_file}')
         design_was_performed = True
         # Get the scores from the score file on design trajectory metrics
-        source_df = pd.DataFrame({pose_source: {putils.groups: job_key}}).T
+        source_df = pd.DataFrame({putils.pose_source: {putils.groups: job_key}}).T
         for idx, entity in enumerate(pose.entities, 1):
             source_df[f'buns_{idx}_unbound'] = 0
             source_df[f'interface_energy_{idx}_bound'] = 0
@@ -3643,7 +3641,7 @@ def interface_design_analysis(pose: Pose, design_poses: Iterable[Pose] = None, s
         design_was_performed = False
         # Todo add relevant missing scores such as those specified as 0 below
         # Todo may need to put source_df in scores file alternative
-        source_df = pd.DataFrame({pose_source: {putils.groups: job_key}}).T
+        source_df = pd.DataFrame({putils.pose_source: {putils.groups: job_key}}).T
         scores_df = pd.DataFrame({pose.name: {putils.groups: job_key} for pose in design_poses}).T
         scores_df = pd.concat([source_df, scores_df])
         for idx, entity in enumerate(pose.entities, 1):
@@ -3717,16 +3715,16 @@ def interface_design_analysis(pose: Pose, design_poses: Iterable[Pose] = None, s
     # per_residue_data = {'errat_deviation': {}, 'hydrophobic_collapse': {}, 'contact_order': {},
     #                     'sasa_hydrophobic_complex': {}, 'sasa_polar_complex': {}, 'sasa_relative_complex': {},
     #                     'sasa_hydrophobic_bound': {}, 'sasa_polar_bound': {}, 'sasa_relative_bound': {}}
-    interface_local_density = {pose_source: pose.local_density_interface()}
+    interface_local_density = {putils.pose_source: pose.local_density_interface()}
     # atomic_deviation = {}
     # pose_assembly_minimally_contacting = pose.assembly_minimally_contacting
     # perform SASA measurements
     # pose_assembly_minimally_contacting.get_sasa()
     # assembly_asu_residues = pose_assembly_minimally_contacting.residues[:pose_length]
-    # per_residue_data['sasa_hydrophobic_complex'][pose_source] = \
+    # per_residue_data['sasa_hydrophobic_complex'][putils.pose_source] = \
     #     [residue.sasa_apolar for residue in assembly_asu_residues]
-    # per_residue_data['sasa_polar_complex'][pose_source] = [residue.sasa_polar for residue in assembly_asu_residues]
-    # per_residue_data['sasa_relative_complex'][pose_source] = \
+    # per_residue_data['sasa_polar_complex'][putils.pose_source] = [residue.sasa_polar for residue in assembly_asu_residues]
+    # per_residue_data['sasa_relative_complex'][putils.pose_source] = \
     #     [residue.relative_sasa for residue in assembly_asu_residues]
 
     # Grab metrics for the pose source. Checks if pose was designed
@@ -3747,10 +3745,10 @@ def interface_design_analysis(pose: Pose, design_poses: Iterable[Pose] = None, s
             _, oligomeric_errat = entity_oligomer.errat(out_path=os.path.devnull)
             source_errat.append(oligomeric_errat[:entity.number_of_residues])
 
-    per_residue_data = {pose_source: pose.get_per_residue_interface_metrics()}
+    per_residue_data = {putils.pose_source: pose.get_per_residue_interface_metrics()}
     pose_source_contact_order_s = \
         pd.Series(np.concatenate(source_contact_order), index=residue_indices, name='contact_order')
-    per_residue_data[pose_source]['contact_order'] = pose_source_contact_order_s
+    per_residue_data[putils.pose_source]['contact_order'] = pose_source_contact_order_s
 
     number_of_entities = pose.number_of_entities
     if design_was_performed:  # The input structure was not meant to be together, treat as such
@@ -3764,16 +3762,16 @@ def interface_design_analysis(pose: Pose, design_poses: Iterable[Pose] = None, s
             entity_oligomer = Model.from_chains(entity.chains, log=pose.log, entities=False)
             _, oligomeric_errat = entity_oligomer.errat(out_path=os.path.devnull)
             source_errat.append(oligomeric_errat[:entity.number_of_residues])
-        # atomic_deviation[pose_source] = sum(source_errat_accuracy) / float(number_of_entities)
+        # atomic_deviation[putils.pose_source] = sum(source_errat_accuracy) / float(number_of_entities)
         pose_source_errat_s = pd.Series(np.concatenate(source_errat), index=residue_indices)
     else:
         pose_assembly_minimally_contacting = pose.assembly_minimally_contacting
-        # atomic_deviation[pose_source], pose_per_residue_errat = \
+        # atomic_deviation[putils.pose_source], pose_per_residue_errat = \
         _, pose_per_residue_errat = \
             pose_assembly_minimally_contacting.errat(out_path=os.path.devnull)
         pose_source_errat_s = pose_per_residue_errat[:pose_length]
 
-    per_residue_data[pose_source]['errat_deviation'] = pose_source_errat_s
+    per_residue_data[putils.pose_source]['errat_deviation'] = pose_source_errat_s
 
     # Compute structural measurements for all designs
     for pose in design_poses:  # Takes 1-2 seconds for Structure -> assembly -> errat
@@ -3852,7 +3850,7 @@ def interface_design_analysis(pose: Pose, design_poses: Iterable[Pose] = None, s
                               f'there was no profile found. These include: '
                               f'{", ".join(profile_dependent_metrics)}')
 
-    # Include the pose_source in the measured designs
+    # Include the putils.pose_source in the measured designs
     contact_order_per_res_z, reference_collapse, collapse_profile = pose.get_folding_metrics()
     folding_and_collapse = calculate_collapse_metrics(list(zip(*[list(design_sequences.values())
                                                                  for design_sequences in entity_sequences])),
@@ -4116,7 +4114,7 @@ def interface_design_analysis(pose: Pose, design_poses: Iterable[Pose] = None, s
     # residues_no_frags = residue_df.columns[residue_df.isna().all(axis=0)].remove_unused_levels().levels[0]
     residue_df.dropna(how='all', inplace=True, axis=1)  # remove completely empty columns such as obs_interface
     # fill in contact order for each design
-    residue_df.fillna(residue_df.loc[pose_source, idx_slice[:, 'contact_order']], inplace=True)  # method='pad',
+    residue_df.fillna(residue_df.loc[putils.pose_source, idx_slice[:, 'contact_order']], inplace=True)  # method='pad',
     residue_df = residue_df.fillna(0.).copy()
     # residue_indices_no_frags = residue_df.columns[residue_df.isna().all(axis=0)]
 
@@ -4128,7 +4126,7 @@ def interface_design_analysis(pose: Pose, design_poses: Iterable[Pose] = None, s
     # consensus cst_weights are very large and destroy the mean.
     # remove this drop for consensus or refine if they are run multiple times
     trajectory_df = \
-        scores_df.drop([pose_source, putils.refine, putils.consensus], axis=0, errors='ignore').sort_index()
+        scores_df.drop([putils.pose_source, putils.refine, putils.consensus], axis=0, errors='ignore').sort_index()
 
     # Get total design statistics for every sequence in the pose and every protocol specifically
     scores_df[putils.groups] = protocol_s
@@ -4159,7 +4157,7 @@ def interface_design_analysis(pose: Pose, design_poses: Iterable[Pose] = None, s
     trajectory_df = pd.concat([trajectory_df] +
                               [df.dropna(how='all', axis=0) for df in protocol_stats] +  # v don't add if nothing
                               [pd.to_numeric(s).to_frame().T for s in pose_stats if not all(s.isna())])
-    # this concat ^ puts back pose_source, refine, consensus designs since protocol_stats is calculated on scores_df
+    # this concat ^ puts back putils.pose_source, refine, consensus designs since protocol_stats is calculated on scores_df
     # add all docking and pose information to each trajectory, dropping the pose observations
     interface_metrics_s = pd.Series(other_pose_metrics)
     pose_metrics_df = pd.concat([interface_metrics_s] * number_of_trajectories, axis=1).T
@@ -4485,7 +4483,7 @@ def interface_design_analysis(pose: Pose, design_poses: Iterable[Pose] = None, s
         # errat_graph_df = per_residue_df.loc[:, idx_slice[:, 'errat_deviation']].droplevel(-1, axis=1)
         # errat_graph_df = errat_df
         # wt_errat_concatenated_s = pd.Series(np.concatenate(list(source_errat.values())), name='clean_asu')
-        # errat_graph_df[pose_source] = pose_source_errat_s
+        # errat_graph_df[putils.pose_source] = pose_source_errat_s
         # errat_graph_df.columns += 1  # offset index to residue numbering
         errat_df.sort_index(axis=0, inplace=True)
         # errat_ax = errat_graph_df.plot.line(legend=False, ax=errat_ax, figsize=figure_aspect_ratio)
