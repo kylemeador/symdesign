@@ -3784,7 +3784,7 @@ class SymmetricModel(Models):
             # Ensure the Model is an asu
             if number_of_entities != self.number_of_chains:
                 self.set_contacting_asu()
-            elif self.symmetric_coords is None:
+            if self.symmetric_coords is None:
                 # We need to generate the symmetric coords
                 self.log.debug('Generating symmetric coords')
                 self.generate_symmetric_coords(surrounding_uc=surrounding_uc)  # default has surrounding_uc=True
@@ -5172,23 +5172,46 @@ class SymmetricModel(Models):
         if self.number_of_entities * number_of_symmetry_mates == self.number_of_chains:
             self.log.critical(f'Setting the {type(self).__name__} to an ASU from a symmetric representation. '
                               f'This method has not been thoroughly debugged')
-            # Remove extra chains. Both from self and from entities
-            self.chains = self.chains[:number_of_symmetry_mates]
-            for entity in self.entities:
-                entity.remove_mate_chains()
-            # Set the symmetric coords according to existing coords
-            self._models_coords = self._coords
-            # Set the base Structure attributes
+            # Set base Structure attributes
+            # Can't do this as they may not be symmetric!
+            # # Set the symmetric coords according to existing coords
+            # self._models_coords = self._coords
             number_of_atoms = self.number_of_atoms
-            desired_number_of_atoms = number_of_atoms / number_of_symmetry_mates
-            self._coords = Coords(self.coords[:desired_number_of_atoms])
-            self._atom_indices = list(range(len(self._coords)))
-            self._atoms.delete(list(range(desired_number_of_atoms, number_of_atoms)))
+            desired_number_of_atoms, remainder = divmod(number_of_atoms, number_of_symmetry_mates)
+            # if remainder > 0:
+            #     raise SymmetryError(f"Couldn't split assembly into an even asymmetric unit: number_of_atoms "
+            #                         f"({number_of_atoms}), number_of_symmetry_mates ({number_of_symmetry_mates})")
+            # self._coords = Coords(self.coords[:desired_number_of_atoms])
+            # Must solve for the chains that are in the ASU
+            total_atom_increment = last_atom_increment = chain_idx = 0
+            for chain_idx, chain in enumerate(self.chains, chain_idx):
+                total_atom_increment += chain.number_of_atoms
+                if total_atom_increment > desired_number_of_atoms:
+                    increment_offset = total_atom_increment - desired_number_of_atoms
+                    last_increment_offset = desired_number_of_atoms - last_atom_increment
+                    if last_increment_offset < increment_offset:
+                        # desired_number_of_atoms is closer to the last chain number_of_atoms. Use it as the ASU boundary
+                        total_atom_increment -= chain.number_of_atoms
+                        chain_idx -= 1
+                    break  # End the search
+                else:
+                    last_atom_increment = total_atom_increment
+
+            # self.coords = self.coords[:total_atom_increment]
+            self._coords = Coords(self.coords[:total_atom_increment])
+            self._atom_indices = list(range(total_atom_increment))
+            self._atoms.delete(list(range(total_atom_increment + 1, number_of_atoms)))
             number_of_residues = self.number_of_residues
-            desired_number_of_residues = self.number_of_residues / number_of_symmetry_mates
-            self._residue_indices = list(range(int(number_of_residues / number_of_symmetry_mates)))
-            self._residues.delete(list(range(desired_number_of_residues, number_of_residues)))
+            # desired_number_of_residues, remainder = divmod(number_of_residues, number_of_symmetry_mates)
+            desired_number_of_residues = self.chains[chain_idx].c_terminal_residue.index + 1
+            self._residue_indices = list(range(desired_number_of_residues))
+            self._residues.delete(list(range(desired_number_of_residues + 1, number_of_residues)))
             self._set_coords_indexed()
+
+            # Remove extra chains. Both from self and from entities
+            self.chains = self.chains[:chain_idx + 1]  # Add 1 for the slice operation to get all desired indices
+            # for entity in self.entities:
+            #     entity.remove_mate_chains()
         else:
             self.log.debug(f'Setting {type(self).__name__} ASU to the ASU with the most contacting interface')
             entities = self.find_contacting_asu(**kwargs)
