@@ -27,7 +27,7 @@ import symdesign.utils.path as putils
 # logging.config.fileConfig(putils.logging_cfg_file)
 # print(putils.logging_cfg['loggers'])
 logging.config.dictConfig(putils.logging_cfg)
-logger = logging.getLogger(__name__)
+logger = logging.getLogger(putils.program_name.lower())  # __name__)
 # print(__name__)
 # print(logger.__dict__)
 # logger.info('Starting logger')
@@ -916,6 +916,8 @@ def main():
     structure_pairs = None  # all_dock_directories
     low = high = low_range = high_range = None
     initial_refinement = initial_loop_model = None  # set below if needed
+    # Start with the assumption that we aren't loading resources
+    load_resources = False
     if initialize:
         if args.range:
             try:
@@ -989,8 +991,6 @@ def main():
         #      putils.refine]  # pre_refine not necessary. maybe hhblits, bmDCA, loop_modelling
         # Todo fix below sloppy logic
         if (not initialized and args.module in initialize_modules) or args.nanohedra_output or args.update_database:
-            # Start with the assumption that we aren't loading resources
-            load_resources = False
             all_structures = []
             if not initialized and args.preprocessed:
                 # args.orient, args.refine = True, True  # Todo make part of argparse? Could be variables in NanohedraDB
@@ -1183,7 +1183,6 @@ def main():
             os.makedirs(job.output_directory, exist_ok=True)
         # Transform input entities to canonical orientation and return their ASU
         all_structures = []
-        load_resources = False
         # Set up variables for the correct parsing of provided file paths
         by_file1 = by_file2 = False
         eventual_structure_names1, eventual_structure_names2 = None, None
@@ -1252,19 +1251,20 @@ def main():
             structure_names2 = eventual_structure_names2
 
         info_messages = []
-        preprocess_instructions, initial_refinement, initial_loop_model = \
-            job.structure_db.preprocess_structures_for_design(all_structures, load_resources=load_resources,
-                                                              script_out_path=job.sbatch_scripts)
-        #                                                       , batch_commands=args.distribute_work)
-        if load_resources or initial_refinement or initial_loop_model:  # entity processing commands are needed
-            logger.critical(sbatch_warning)
-            for message in info_messages + preprocess_instructions:
-                logger.info(message)
-            print('\n')
-            logger.info(f'After completion of sbatch script(s), re-run your {putils.program_name} command:\n\tpython '
-                        f'{" ".join(sys.argv)}')
-            terminate(output=False)
-            # After completion of sbatch, the next time command is entered docking will proceed
+        if not args.preprocessed:
+            preprocess_instructions, initial_refinement, initial_loop_model = \
+                job.structure_db.preprocess_structures_for_design(all_structures, load_resources=load_resources,
+                                                                  script_out_path=job.sbatch_scripts)
+            #                                                       , batch_commands=args.distribute_work)
+            if load_resources or initial_refinement or initial_loop_model:  # entity processing commands are needed
+                logger.critical(sbatch_warning)
+                for message in info_messages + preprocess_instructions:
+                    logger.info(message)
+                print('\n')
+                logger.info(f'After completion of sbatch script(s), re-run your {putils.program_name} command:\n\tpython '
+                            f'{" ".join(sys.argv)}')
+                terminate(output=False)
+                # After completion of sbatch, the next time command is entered docking will proceed
 
         # # Ensure all_entities are symmetric. As of now, all orient_structures returns are the symmetrized structure
         # for entity in [entity for structure in all_structures for entity in structure.entities]:
@@ -1469,12 +1469,12 @@ def main():
                 # Root logs to stream with level debug according to prior logging initialization
                 master_logger = bb_logger = logger
             else:
-                master_logger = utils.start_log(name=putils.nanohedra.title())
+                master_logger = utils.start_log(name=f'{putils.program_name.lower()}.{putils.nanohedra.title()}')
                 # master_log_filepath = os.path.join(job.output_directory, putils.master_log)
                 # master_logger = utils.start_log(name=putils.nanohedra.title(), handler=2, location=master_log_filepath,
                 #                                 propagate=True, no_log_name=True)
                 bb_logger = None  # have to include this incase started as debug
-            master_logger.info('MODE: DOCK\n')
+            master_logger.info('MODE: DOCK')
             utils.nanohedra.general.write_docking_parameters(args.oligomer1, args.oligomer2, args.rotation_step1,
                                                              args.rotation_step2, sym_entry, job.output_directory,
                                                              log=master_logger)

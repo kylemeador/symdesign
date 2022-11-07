@@ -1822,6 +1822,8 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
     full_rotation1 = np.concatenate(full_rotation1, axis=0)
     full_rotation2 = np.concatenate(full_rotation2, axis=0)
     starting_transforms = full_rotation1.shape[0]
+    log.info(f'Initial optimal translation search found {starting_transforms} total transforms '
+             f'({time.time() - init_translation_time_start:8f}s)')
     if sym_entry.is_internal_tx1:
         stacked_internal_tx_vectors1 = np.zeros((starting_transforms, 3), dtype=float)
         # Add the translation to Z (axis=1)
