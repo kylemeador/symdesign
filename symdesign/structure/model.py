@@ -1691,13 +1691,13 @@ class Entity(Chain, ContainsChainsMixin):
 
             return out_path
 
-    def orient(self, symmetry: str = None, log: AnyStr = None):  # similar function in Model
-        """Orient a symmetric PDB at the origin with its symmetry axis canonically set on axes defined by symmetry
-        file. Automatically produces files in PDB numbering for proper orient execution
+    def orient(self, symmetry: str = None):  # similar function in Model
+        """Orient a symmetric Structure at the origin with symmetry axis set on canonical axes defined by symmetry file
+
+        Returns the same Structure, just oriented. Therefore, all member chains will be their original parsed lengths
 
         Args:
-            symmetry: What is the symmetry of the specified PDB?
-            log: If there is a log specific for orienting
+            symmetry: The symmetry of the Structure
         """
         # orient_oligomer.f program notes
         # C		Will not work in any of the infinite situations where a PDB file is f***ed up,
@@ -1715,8 +1715,8 @@ class Entity(Chain, ContainsChainsMixin):
                            f'Please try one of: {", ".join(utils.symmetry.valid_symmetries)}')
             return
 
-        if not log:
-            log = self.log
+        # if not log:
+        #     log = self.log
 
         if self.file_path:
             file_name = os.path.basename(self.file_path)
@@ -1726,7 +1726,7 @@ class Entity(Chain, ContainsChainsMixin):
 
         number_of_subunits = self.number_of_chains
         if symmetry == 'C1':
-            log.debug('C1 symmetry doesn\'t have a cannonical orientation')
+            self.log.debug("C1 symmetry doesn't have a canonical orientation")
             self.translate(-self.center_of_mass)
             return
         elif number_of_subunits > 1:
@@ -1752,14 +1752,14 @@ class Entity(Chain, ContainsChainsMixin):
                              stderr=subprocess.PIPE, cwd=putils.orient_dir)
         in_symm_file = os.path.join(putils.orient_dir, 'symm_files', symmetry)
         stdout, stderr = p.communicate(input=in_symm_file.encode('utf-8'))
-        log.info(file_name + stdout.decode()[28:])
-        log.info(stderr.decode()) if stderr else None
+        self.log.info(file_name + stdout.decode()[28:])
+        self.log.info(stderr.decode()) if stderr else None
         if not orient_output.exists() or orient_output.stat().st_size == 0:
-            log_file = getattr(log.handlers[0], 'baseFilename', None)
+            log_file = getattr(self.log.handlers[0], 'baseFilename', None)
             log_message = f'. Check {log_file} for more information' if log_file else ''
             raise RuntimeError(f'orient_oligomer could not orient {file_name}{log_message}')
 
-        oriented_pdb = Entity.from_file(str(orient_output), name=self.name, log=log)
+        oriented_pdb = Entity.from_file(str(orient_output), name=self.name, log=self.log)
         orient_fixed_struct = oriented_pdb.chains[0]
         moving_struct = self
 
@@ -2739,13 +2739,13 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
     #     self.log.debug(f'Model is writing')
     #     return super().write(**kwargs)
 
-    def orient(self, symmetry: str = None, log: AnyStr = None):  # similar function in Entity
-        """Orient a symmetric PDB at the origin with its symmetry axis canonically set on axes defined by symmetry
-        file. Automatically produces files in PDB numbering for proper orient execution
+    def orient(self, symmetry: str = None):  # similar function in Entity
+        """Orient a symmetric Structure at the origin with symmetry axis set on canonical axes defined by symmetry file
+
+        Returns the same Structure, just oriented. Therefore, all member chains will be their original parsed lengths
 
         Args:
-            symmetry: What is the symmetry of the specified PDB?
-            log: If there is a log specific for orienting
+            symmetry: The symmetry of the Structure
         """
         # orient_oligomer.f program notes
         # C		Will not work in any of the infinite situations where a PDB file is f***ed up,
@@ -2762,8 +2762,8 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
                            f'Please try one of: {", ".join(utils.symmetry.valid_symmetries)}')
             return
 
-        if not log:
-            log = self.log
+        # if not log:
+        #     log = self.log
 
         if self.file_path:
             file_name = os.path.basename(self.file_path)
@@ -2774,7 +2774,7 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
         number_of_subunits = self.number_of_chains
         multicomponent = False
         if symmetry == 'C1':
-            log.debug('C1 symmetry doesn\'t have a cannonical orientation')
+            self.log.debug("C1 symmetry doesn't have a canonical orientation")
             self.translate(-self.center_of_mass)
             return
         elif number_of_subunits > 1:
@@ -2806,14 +2806,14 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
                              stderr=subprocess.PIPE, cwd=putils.orient_dir)
         in_symm_file = os.path.join(putils.orient_dir, 'symm_files', symmetry)
         stdout, stderr = p.communicate(input=in_symm_file.encode('utf-8'))
-        log.info(file_name + stdout.decode()[28:])
-        log.info(stderr.decode()) if stderr else None
+        self.log.info(file_name + stdout.decode()[28:])
+        self.log.info(stderr.decode()) if stderr else None
         if not orient_output.exists() or orient_output.stat().st_size == 0:
-            log_file = getattr(log.handlers[0], 'baseFilename', None)
+            log_file = getattr(self.log.handlers[0], 'baseFilename', None)
             log_message = f'. Check {log_file} for more information' if log_file else ''
             raise RuntimeError(f'orient_oligomer could not orient {file_name}{log_message}')
 
-        oriented_pdb = Model.from_file(str(orient_output), name=self.name, entities=False, log=log)
+        oriented_pdb = Model.from_file(str(orient_output), name=self.name, entities=False, log=self.log)
         orient_fixed_struct = oriented_pdb.chains[0]
         if multicomponent:
             moving_struct = self.entities[0]
@@ -5248,14 +5248,21 @@ class SymmetricModel(Models):
             # Last, we take out those indices that are inclusive of the model_asu_indices like below
             return self._assembly_tree
 
-    def orient(self, symmetry: str = None, log: AnyStr = None):  # similar function in Entity
-        """Orient is not available for SymmetricModel"""
+    def orient(self, symmetry: str = None):  # similar function in Entity
+        """Orient is not available for SymmetricModel!
+        Orient a symmetric Structure at the origin with symmetry axis set on canonical axes defined by symmetry file
+
+        Returns the same Structure, just oriented. Therefore, all member chains will be their original parsed lengths
+
+        Args:
+            symmetry: The symmetry of the Structure
+        """
         if self.is_symmetric():
             raise NotImplementedError(f'{self.orient.__name__} is not available for {type(self).__name__}')
             # Todo is this method at all useful? Could there be a situation where the symmetry is right,
             #  but the axes aren't in their canonical locations?
         else:
-            super().orient(symmetry=symmetry, log=log)
+            super().orient(symmetry=symmetry)
 
     def format_biomt(self, **kwargs) -> str:
         """Return the SymmetricModel expand_matrices as a BIOMT record

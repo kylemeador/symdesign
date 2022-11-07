@@ -138,7 +138,6 @@ if __name__ == '__main__':
             for pdb1_path, pdb2_path in pdb_filepaths:
                 model1_name = os.path.splitext(os.path.basename(pdb1_path))[0]
                 model2_name = os.path.splitext(os.path.basename(pdb2_path))[0]
-                master_logger.info(f'Docking {model1_name} / {model2_name}\n')
                 building_blocks = f'{model1_name}_{model2_name}'
                 # Output Directory  # Todo PoseDirectory
                 # outdir = os.path.join(master_outdir, building_blocks)

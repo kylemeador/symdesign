@@ -309,6 +309,11 @@ logging_cfg = {
             'handlers': ['console', 'main_file'],
             'propagate': 'no'
         },
+        'orient': {
+            'level': 'INFO',  # 'WARNING',
+            'handlers': ['console', 'main_file'],
+            'propagate': 'no'
+        },
         'null': {
             'level': 'WARNING',
             'handlers': ['null'],
