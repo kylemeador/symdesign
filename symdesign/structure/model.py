@@ -3157,18 +3157,23 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
 
         # For each Entity, get matching Chain instances
         for entity_name, data in self.entity_info.items():
-            chains = [self.chain(chain) if isinstance(chain, str) else chain for chain in data.get('chains')]
+            data_chains = data.get('chains', [])
+            chains = [self.chain(chain) if isinstance(chain, str) else chain for chain in data_chains]
             entity_data = {'chains': [chain for chain in chains if chain]}  # remove any missing chains
             # # get uniprot ID if the file is from the PDB and has a DBREF remark
             # try:
             #     accession = self.dbref.get(data['chains'][0].chain_id, None)
             # except IndexError:  # we didn't find any chains. It may be a nucleotide structure
             #     continue
-            try:  # Todo clean here and the above entity vs chain len checks with nucleotide parsing
-                chain_check_to_account_for_inability_to_parse_nucleotides = data['chains'][0]
-            except IndexError:  # we didn't find any chains. It may be a nucleotide structure
-                self.log.debug(f'Missing associated chains for the Entity {entity_name} with data '
-                               f'{", ".join(f"{k}={v}" for k, v in data.items())}')
+            # try:  # Todo clean here and the above entity vs chain len checks with nucleotide parsing
+                # chain_check_to_account_for_inability_to_parse_nucleotides = entity_data['chains'][0]
+            if len(entity_data['chains']) == 0:
+                # We missed a chain from the entity_info. We probably have a nucleotide at the moment
+            # except IndexError:  # we didn't find any chains. It may be a nucleotide structure
+                self.log.warning(f'Missing associated chains for the Entity {entity_name} with data: '
+                                 f"self.chain_ids={self.chain_ids}, entity_data['chains']={entity_data['chains']}, "
+                                 f"data['chains']={data_chains}"
+                                 f'{", ".join(f"{k}={v}" for k, v in data.items())}')
                 continue
             #     raise utils.DesignError('Missing Chain object for %s %s! entity_info=%s, assembly=%s and '
             #                             'api_entry=%s, original_chain_ids=%s'

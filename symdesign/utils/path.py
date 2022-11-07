@@ -296,7 +296,7 @@ logging_cfg = {
         },
         'main_file': {
             'class': 'logging.FileHandler',
-            'level': 'INFO',
+            'level': 'DEBUG',
             'mode': 'a',
             'formatter': 'file_standard',
             'filename': f'{program_name.upper()}.log',

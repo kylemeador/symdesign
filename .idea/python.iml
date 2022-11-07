@@ -6,6 +6,8 @@
       <excludeFolder url="file://$MODULE_DIR$/data/databases/fragment_db/biological_interfaces" />
       <excludeFolder url="file://$MODULE_DIR$/data/databases/pdbDB" />
       <excludeFolder url="file://$MODULE_DIR$/data/databases/pisaDB" />
+      <excludeFolder url="file://$MODULE_DIR$/symdesign/data/databases/pdbDB" />
+      <excludeFolder url="file://$MODULE_DIR$/symdesign/data/databases/pisaDB" />
     </content>
     <orderEntry type="jdk" jdkName="Python 3.10 (dev)" jdkType="Python SDK" />
     <orderEntry type="sourceFolder" forTests="false" />

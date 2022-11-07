@@ -532,8 +532,8 @@ def main():
                     sbatch_file = utils.CommandDistributer.distribute(file=command_file, out_path=job.sbatch_scripts,
                                                                       scale=args.module, number_of_commands=len(success))
                 logger.critical(sbatch_warning)
-                global pre_refine
-                if args.module == putils.interface_design and pre_refine is False:  # False, so should refine before design
+                global initial_refinement
+                if args.module == putils.interface_design and initial_refinement:  # True, should refine before design
                     refine_file = utils.write_commands([os.path.join(design.scripts, f'{putils.refine}.sh')
                                                         for design in success], out_path=job_paths,
                                                        name='_'.join(
@@ -913,9 +913,9 @@ def main():
     all_poses: list[AnyStr] | None = None
     pose_directories: list[protocols.PoseDirectory] = []
     location: str | None = None
-    all_dock_directories, structure_pairs = None, None
-    low, high, low_range, high_range = None, None, None, None
-    pre_refine, pre_loop_model = None, None  # set below if needed
+    structure_pairs = None  # all_dock_directories
+    low = high = low_range = high_range = None
+    initial_refinement = initial_loop_model = None  # set below if needed
     if initialize:
         if args.range:
             try:
@@ -989,6 +989,7 @@ def main():
         #      putils.refine]  # pre_refine not necessary. maybe hhblits, bmDCA, loop_modelling
         # Todo fix below sloppy logic
         if (not initialized and args.module in initialize_modules) or args.nanohedra_output or args.update_database:
+            # Start with the assumption that we aren't loading resources
             load_resources = False
             all_structures = []
             if not initialized and args.preprocessed:
@@ -1038,29 +1039,33 @@ def main():
                 all_entities = [entity for structure in all_structures for entity in structure.entities]
 
             info_messages = []
-            # Set up sequence data using hhblits and profile bmDCA for each input entity
-            putils.make_path(job.sequences)
             hhblits_cmds, bmdca_cmds = [], []
-            for entity in all_entities:
-                entity.sequence_file = job.api_db.sequences.retrieve_file(name=entity.name)
-                if not entity.sequence_file:
-                    entity.write_sequence_to_fasta('reference', out_dir=job.sequences)
-                    # entity.add_evolutionary_profile(out_dir=job.api_db.hhblits_profiles.location)
-                else:
-                    entity.evolutionary_profile = job.api_db.hhblits_profiles.retrieve_data(name=entity.name)
-                    # entity.h_fields = job.api_db.bmdca_fields.retrieve_data(name=entity.name)
-                    # TODO reinstate entity.j_couplings = job.api_db.bmdca_couplings.retrieve_data(name=entity.name)
-                if not entity.evolutionary_profile:
-                    # To generate in current runtime
-                    # entity.add_evolutionary_profile(out_dir=job.api_db.hhblits_profiles.location)
-                    # To generate in a sbatch script
-                    # profile_cmds.append(entity.hhblits(out_dir=job.profiles, return_command=True))
-                    hhblits_cmds.append(entity.hhblits(out_dir=job.profiles, return_command=True))
-                # TODO reinstate
-                #  if not entity.j_couplings:
-                #    bmdca_cmds.append([putils.bmdca_exe_path, '-i', os.path.join(job.profiles, f'{entity.name}.fasta'),
-                #                       '-d', os.path.join(job.profiles, f'{entity.name}_bmDCA')])
-            if job.design.evolution_constraint and hhblits_cmds:
+            if job.design.evolution_constraint:
+                # Set up sequence data using hhblits and profile bmDCA for each input entity
+                putils.make_path(job.sequences)
+                for entity in all_entities:
+                    entity.sequence_file = job.api_db.sequences.retrieve_file(name=entity.name)
+                    if not entity.sequence_file:
+                        entity.write_sequence_to_fasta('reference', out_dir=job.sequences)
+                        # entity.add_evolutionary_profile(out_dir=job.api_db.hhblits_profiles.location)
+                    else:
+                        entity.evolutionary_profile = job.api_db.hhblits_profiles.retrieve_data(name=entity.name)
+                        # entity.h_fields = job.api_db.bmdca_fields.retrieve_data(name=entity.name)
+                        # TODO reinstate entity.j_couplings = job.api_db.bmdca_couplings.retrieve_data(name=entity.name)
+                    if not entity.evolutionary_profile:
+                        # To generate in current runtime
+                        # entity.add_evolutionary_profile(out_dir=job.api_db.hhblits_profiles.location)
+                        # To generate in a sbatch script
+                        # profile_cmds.append(entity.hhblits(out_dir=job.profiles, return_command=True))
+                        hhblits_cmds.append(entity.hhblits(out_dir=job.profiles, return_command=True))
+                    # TODO reinstate
+                    # before this is run, hhblits must be run and the file located at profiles/entity-name.fasta contains
+                    # the multiple sequence alignment in .fasta format
+                    #  if not entity.j_couplings:
+                    #    bmdca_cmds.append([putils.bmdca_exe_path, '-i', os.path.join(job.profiles, f'{entity.name}.fasta'),
+                    #                       '-d', os.path.join(job.profiles, f'{entity.name}_bmDCA')])
+
+            if hhblits_cmds:
                 if not os.access(putils.hhblits_exe, os.X_OK):
                     print(f"Couldn't locate the {putils.hhblits} executable. Ensure the executable file referenced by"
                           f'{putils.hhblits_exe} exists then try your job again. Otherwise, use the argument'
@@ -1123,16 +1128,16 @@ def main():
                 info_messages.append(bmdca_sbatch_message)
                 load_resources = True
             else:
-                bmdca_sbatch, reformat_sbatch = None, None
+                bmdca_sbatch = reformat_sbatch = None
 
             if not args.preprocessed:
-                preprocess_instructions, pre_refine, pre_loop_model = \
+                preprocess_instructions, initial_refinement, initial_loop_model = \
                     job.structure_db.preprocess_structures_for_design(all_structures, load_resources=load_resources,
                                                                       script_out_path=job.sbatch_scripts)
             #                                                           , batch_commands=args.distribute_work)
-            info_messages += preprocess_instructions
+                info_messages += preprocess_instructions
 
-            if load_resources or not pre_refine or not pre_loop_model:  # entity processing commands are needed
+            if load_resources or initial_refinement or initial_loop_model:  # entity processing commands are needed
                 if info_messages:
                     logger.critical(sbatch_warning)
                     for message in info_messages:
@@ -1144,12 +1149,12 @@ def main():
                     # After completion of sbatch, the next time initialized, there will be no refine files left allowing
                     # initialization to proceed
                 else:
-                    raise utils.InputError("This shouldn't have happened!")
+                    # We always prepare info_messages when jobs should be run
+                    raise utils.InputError("This shouldn't have happened. info_messages can't be False here...")
 
             # Ensure we report to PoseDirectory the results after skipping set up
             if args.preprocessed:
-                pre_refine = True
-                pre_loop_model = True
+                initial_refinement = initial_loop_model = False
 
         if args.multi_processing:  # and not args.skip_master_db:
             logger.info('Loading Database for multiprocessing fork')
@@ -1161,7 +1166,7 @@ def main():
             # SDUtils.mp_map(protocols.PoseDirectory.link_master_database, pose_directories, processes=cores)
         # Set up in series
         for pose in pose_directories:
-            pose.set_up_pose_directory(pre_refine=pre_refine, pre_loop_model=pre_loop_model)
+            pose.set_up_pose_directory(pre_refine=not initial_refinement, pre_loop_model=not initial_loop_model)
 
         logger.info(f'{len(pose_directories)} unique poses found in "{location}"')
         if not job.debug and not job.skip_logging:
@@ -1247,11 +1252,11 @@ def main():
             structure_names2 = eventual_structure_names2
 
         info_messages = []
-        preprocess_instructions, pre_refine, pre_loop_model = \
+        preprocess_instructions, initial_refinement, initial_loop_model = \
             job.structure_db.preprocess_structures_for_design(all_structures, load_resources=load_resources,
                                                               script_out_path=job.sbatch_scripts)
         #                                                       , batch_commands=args.distribute_work)
-        if load_resources or not pre_refine or not pre_loop_model:  # entity processing commands are needed
+        if load_resources or initial_refinement or initial_loop_model:  # entity processing commands are needed
             logger.critical(sbatch_warning)
             for message in info_messages + preprocess_instructions:
                 logger.info(message)

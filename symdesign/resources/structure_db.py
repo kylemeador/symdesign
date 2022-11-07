@@ -318,18 +318,19 @@ class StructureDatabase(Database):
         orient_asu_names = self.oriented_asu.retrieve_names()
         all_structures = []
         non_viable_structures = []
+        pose_kwargs = dict(sym_entry=sym_entry, ignore_clashes=True)
         for structure_identifier in structure_identifiers:
             # First, check if the structure_identifier ASU has been processed. This happens when files are passed
             if structure_identifier in orient_asu_names:  # orient_asu file exists, stride should as well. Just load asu
                 orient_asu_file = self.oriented_asu.retrieve_file(name=structure_identifier)
-                pose = structure.model.Pose.from_file(orient_asu_file, name=structure_identifier, sym_entry=sym_entry)
+                pose = structure.model.Pose.from_file(orient_asu_file, name=structure_identifier, **pose_kwargs)
                 # Get the full assembly and set the symmetry as it has none
                 model = pose.assembly
                 model.name = structure_identifier
                 model.file_path = orient_asu_file  # pose.file_path
             elif structure_identifier in orient_names:  # orient file exists, load, save asu, and create stride
                 orient_file = self.oriented.retrieve_file(name=structure_identifier)
-                pose = structure.model.Pose.from_file(orient_file, name=structure_identifier, sym_entry=sym_entry)
+                pose = structure.model.Pose.from_file(orient_file, name=structure_identifier, **pose_kwargs)
                 # Write out the Pose ASU
                 pose.file_path = pose.write(out_path=self.oriented_asu.path_to(name=structure_identifier))
                 # save Stride results
@@ -353,13 +354,13 @@ class StructureDatabase(Database):
                     entity = None
                     logger.debug(f'Fetching entry {entry} from PDB')
 
+                asu = False
                 if symmetry == 'C1':
                     # Todo modify if monomers are removed from qs_bio
                     assembly = query_qs_bio(entry)
                     # assembly = None  # 1 is the default
-                    asu = True
+                    # asu = True <- NOT NECESSARILY A MONOMERIC FILE!
                 else:
-                    asu = False
                     assembly = query_qs_bio(entry)
                 # get the specified file_path for the assembly state of interest
                 file_path = fetch_pdb_file(entry, assembly=assembly, asu=asu, out_dir=models_dir)
@@ -450,7 +451,7 @@ class StructureDatabase(Database):
             load_resources: Whether resources have been specified to be loaded already
             batch_commands: Whether commands should be made for batch submission
         Returns:
-            Any instructions, then booleans for whether to refine or whether to loop_model designs
+            Any instructions, then booleans for whether designs need to be refined (True) and loop_modelled
         """
         # Todo
         #  Need to move make_loop_file to Pose/Structure (with SequenceProfile superclass)
