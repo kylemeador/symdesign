@@ -126,6 +126,7 @@ def write_docking_parameters(pdb1_path, pdb2_path, rot_step_deg1, rot_step_deg2,
     # log.info("Oligomer 2 Internal ROT DOF: %s\n" % str(sym_entry.get_internal_rot2()))
     # log.info("Oligomer 1 Internal Tx DOF: %s\n" % str(sym_entry.get_internal_tx1()))
     # log.info("Oligomer 2 Internal Tx DOF: %s\n" % str(sym_entry.get_internal_tx2()))
+    # Todo textwrap.textwrapper() prettify these matrices
     log.info('Oligomer 1 Setting Matrix: %s' % sym_entry.setting_matrix1.tolist())
     log.info('Oligomer 2 Setting Matrix: %s' % sym_entry.setting_matrix2.tolist())
     log.info('Oligomer 1 Reference Frame Tx DOF: %s' % (sym_entry.ref_frame_tx_dof1

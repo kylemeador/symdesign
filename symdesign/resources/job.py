@@ -154,6 +154,10 @@ class JobResources:
         self.command_only: bool = kwargs.get('command_only', False)
         self.development: bool = kwargs.get(putils.development, False)
 
+        if self.write_structures or self.output_assembly or self.output_surrounding_uc or self.write_fragments \
+                or self.write_oligomers or self.write_trajectory:
+            self.output: bool = kwargs.get(putils.output_fragments, False)
+
         if self.nanohedra_output:
             self.construct_pose: bool = kwargs.get('construct_pose', True)  # Whether to construct the PoseDirectory
             if not self.construct_pose:  # no construction specific flags
