@@ -34,6 +34,7 @@ from symdesign.structure.fragment.visuals import write_fragment_pairs_as_accumul
 from symdesign.structure.model import Pose, Model, get_matching_fragment_pairs_info, Models
 from symdesign.structure.sequence import generate_mutations_from_reference, numeric_to_sequence, concatenate_profile, \
     pssm_as_array, MultipleSequenceAlignment
+from symdesign.structure.utils import chain_id_generator
 from symdesign.utils import dictionary_lookup, start_log, set_logging_to_level, rmsd_z_score, \
     z_value_from_match_score, match_score_from_z_value, set_loggers_to_propagate, z_score, \
     cluster, nanohedra, path as putils
@@ -1701,6 +1702,8 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
                 translation_cluster = \
                     DBSCAN(eps=translation_epsilon, min_samples=min_matched).fit(transform_passing_shifts)
                 transform_passing_shifts = transform_passing_shifts[translation_cluster.labels_ != outlier]
+                cluster_time = time.time() - cluster_time_start
+                log.debug(f'Clustering {pre_cluster_passing_shifts} possible transforms (took {cluster_time:8f}s)')
             # else:  # Use all translations
             #     pass
 
@@ -1726,9 +1729,11 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
                 full_optimal_ext_dof_shifts.append(optimal_ext_dof_shifts)
             else:
                 number_passing_shifts = transform_passing_shifts.shape[0]
-                log.debug(f'\tFound {number_passing_shifts} transforms after clustering from '
-                          f'{pre_cluster_passing_shifts} possible transforms (took '
-                          f'{time.time() - cluster_time_start:8f}s)')
+
+            # log.debug(f'\tFound {number_passing_shifts} transforms'
+            #           'after clustering from '
+            #           f'{pre_cluster_passing_shifts} possible transforms (took '
+            #           f'{time.time() - cluster_time_start:8f}s)')
 
             # Prepare the transformation parameters for storage in full transformation arrays
             # Use of [:, None] transforms the array into an array with each internal dof sored as a scalar in
@@ -1795,7 +1800,6 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
             #                           reference_rmsds)
             # # Todo remove debug
 
-    log.info(f'Initial Optimal Translation search took {time.time() - init_translation_time_start:8f}s')
     ##############
     # Here represents an important break in the execution of this code.
     # Below create vectors for cluster transformations
@@ -2160,18 +2164,15 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
              f'{time.time() - int_cb_and_frags_start:8f}s')
 
     # Todo if using individual Poses
-    def clone_pose(idx: int) -> Pose:
-        # Create a copy of the base Pose
-        new_pose = copy.copy(pose)
-
-        if sym_entry.unit_cell:
-            # Set the next unit cell dimensions
-            new_pose.uc_dimensions = full_uc_dimensions[idx]
-
-        # Update the Pose coords
-        new_pose.coords = np.concatenate(new_coords)
-
-        return new_pose
+    #  def clone_pose(idx: int) -> Pose:
+    #      # Create a copy of the base Pose
+    #      new_pose = copy.copy(pose)
+    #      if sym_entry.unit_cell:
+    #          # Set the next unit cell dimensions
+    #          new_pose.uc_dimensions = full_uc_dimensions[idx]
+    #      # Update the Pose coords
+    #      new_pose.coords = np.concatenate(new_coords)
+    #      return new_pose
 
     # Use below instead of this until can TODO vectorize asu_interface_residue_processing
     # asu_interface_residues = \
@@ -2387,7 +2388,7 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
                          for entity in model.entities}
     entity_info = {entity_name: data for model in models
                    for entity_name, data in model.entity_info.items()}
-    chain_gen = structure.utils.chain_id_generator()
+    chain_gen = chain_id_generator()
     for entity_name, data in entity_info.items():
         data['chains'] = [next(chain_gen)]
 
@@ -2584,7 +2585,7 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
         full_uc_dimensions = sym_entry.get_uc_dimensions(full_optimal_ext_dof_shifts)
 
     number_of_transforms = passing_transforms_indices.shape[0]
-    if perturb_dofs:
+    if job.design.perturb_dof:
         # Define a function to stack the transforms
         perturb_rotation1, perturb_rotation2, perturb_int_tx1, perturb_int_tx2, perturb_optimal_ext_dof_shifts = \
             [], [], [], [], []
@@ -2622,19 +2623,25 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
         # if sym_entry.is_internal_rot1:
         original_rotation1 = full_rotation1
         rotation_perturbations1 = perturbations['rotation1']
+        print('rotation_perturbations1.shape', rotation_perturbations1.shape)
+        total_perturbation_size, *_ = rotation_perturbations1.shape
+
         # if sym_entry.is_internal_rot2:
         original_rotation2 = full_rotation2
         rotation_perturbations2 = perturbations['rotation2']
+        print('rotation_perturbations2.shape', rotation_perturbations2.shape)
         blank_parameter = list(repeat([None, None, None], number_of_transforms))
         if sym_entry.is_internal_tx1:
             original_int_tx1 = full_int_tx1
             translation_perturbations1 = perturbations['translation1']
+            print('translation_perturbations1.shape', translation_perturbations1.shape)
         # else:
         #     translation_perturbations1 = blank_parameter
 
         if sym_entry.is_internal_tx2:
             original_int_tx2 = full_int_tx2
             translation_perturbations2 = perturbations['translation2']
+            print('translation_perturbations2.shape', translation_perturbations2.shape)
         # else:
         #     translation_perturbations2 = blank_parameter
 
@@ -2650,6 +2657,9 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
         for idx in range(number_of_transforms):
             # Rotate the unique rotation by the perturb_matrix_grid and set equal to the full_rotation* array
             full_rotation1 = np.matmul(original_rotation1[idx], rotation_perturbations1.swapaxes(-1, -2))  # rotation1
+            print('rotation_perturbations1', rotation_perturbations1)
+            print('original_rotation1', original_rotation1)
+            print('full_rotation1', full_rotation1)
             full_inv_rotation1 = np.linalg.inv(full_rotation1)
             full_rotation2 = np.matmul(original_rotation2[idx], rotation_perturbations2.swapaxes(-1, -2))  # rotation2
 
@@ -2681,19 +2691,29 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
                                     rotation3=full_inv_rotation1, translation3=None if full_int_tx1 is None else full_int_tx1 * -1,
                                     rotation4=inv_setting1)
             # Create a fresh asu_clash_counts
-            asu_clash_counts = np.ones(number_of_transforms)
-            asu_clash_counts = check_tree_for_query_overlap(**ball_tree_kwargs,
-                                                            function_return_containers=(asu_clash_counts, ),
-                                                            setup_args=(bb_cb_coords2,))
+            asu_clash_counts = np.ones(total_perturbation_size)
+            overlap_return = check_tree_for_query_overlap(**ball_tree_kwargs,
+                                                          return_containers={'overlap_counts': asu_clash_counts},
+                                                          setup_args=(bb_cb_coords2,))
+            # Extract the data
+            asu_clash_counts = overlap_return['overlap_counts']
+            # TODO seems that none of the found parameters don't clash... Perhaps a dof is wacky
+            print('asu_clash_counts', asu_clash_counts)
             passing_perturbations = np.flatnonzero(asu_clash_counts == 0)
+            print('passing_perturbations', passing_perturbations)
             # Check for symmetric clashes again
             passing_symmetric_clash_indices_perturb = find_viable_symmetric_indices(passing_perturbations.tolist())
+            print('passing_symmetric_clash_indices_perturb', passing_symmetric_clash_indices_perturb)
+            print('viable_perturb_transforms', passing_perturbations[passing_symmetric_clash_indices_perturb])
             # Index the passing ASU indices with the passing symmetric indices and keep all viable transforms
             # Stack the viable perturbed transforms
             stack_viable_transforms(passing_perturbations[passing_symmetric_clash_indices_perturb])
 
         # Concatenate the stacked perturbations
+        print('perturb_rotation1', perturb_rotation1)
         full_rotation1 = np.concatenate(perturb_rotation1, axis=0)
+        print('full_rotation1', full_rotation1)
+        print('full_rotation1.shape', full_rotation1.shape)
         full_rotation2 = np.concatenate(perturb_rotation2, axis=0)
         number_of_perturbed_transforms = full_rotation1.shape[0]
         if sym_entry.is_internal_tx1:
@@ -2923,12 +2943,14 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
     # degeneracy_degrees1 = rotations1.as_rotvec(degrees=True)[:, :-1]
     # degeneracy_degrees2 = rotations2.as_rotvec(degrees=True)[:, :-1]
     if sym_entry.is_internal_tx1:
-        full_int_tx1 = full_int_tx1.squeeze()
+        if full_int_tx1.shape[0] > 1:
+            full_int_tx1 = full_int_tx1.squeeze()
         z_heights1 = full_int_tx1[:, -1]
     else:
         z_heights1 = blank_parameter
     if sym_entry.is_internal_tx2:
-        full_int_tx2 = full_int_tx2.squeeze()
+        if full_int_tx2.shape[0] > 1:
+            full_int_tx2 = full_int_tx2.squeeze()
         z_heights2 = full_int_tx2[:, -1]
     else:
         z_heights2 = blank_parameter
@@ -3399,7 +3421,7 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
                 #                 mask=_residue_indices_of_interest,
                 #                 axis=1)
             else:  # Populate with null data
-                _per_residue_evolution_cross_entropy = np.empty_like(residue_mask_cpu)
+                _per_residue_evolution_cross_entropy = np.empty_like(residue_mask_cpu, dtype=np.float32)
                 _per_residue_evolution_cross_entropy[:] = np.nan
 
             if collapse_profile.size:  # Not equal to zero
