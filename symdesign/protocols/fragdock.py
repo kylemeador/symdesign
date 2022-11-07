@@ -844,7 +844,8 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
                    rotation_step1: float = 3., rotation_step2: float = 3., min_matched: int = 3,
                    high_quality_match_value: float = .5, initial_z_value: float = 1., log: Logger = logger,
                    job: symjob.JobResources = None, fragment_db: db.FragmentDatabase | str = putils.biological_interfaces,
-                   clash_dist: float = 2.2, write_frags_only: bool = False, same_component_filter: bool = False,
+                   clash_dist: float = 2.2, write_frags_only: bool = False,
+                   same_component_filter: bool = True,
                    **kwargs):
     """
     Perform the fragment docking routine described in Laniado, Meador, & Yeates, PEDS. 2021
@@ -889,8 +890,8 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
     # job.design.temperatures = [0.1]
     low_quality_match_value = .2  # sets the lower bounds on an acceptable match, was upper bound of 2 using z-score
     cb_distance = 9.  # change to 8.?
-    # cluster_translations = True
-    perturb_dofs = False  # True
+    # Testing if this is too strict when strict overlaps are used
+    cluster_transforms = not same_component_filter  # True
     # Todo set below as parameters?
 
     if job.design.perturb_dof:
@@ -1696,8 +1697,8 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
                 log.info(f'\tNo transforms were found passing optimal shift criteria '
                          f'(took {optimal_shifts_time:8f}s)')
                 continue
-            # elif cluster_translations:
-            else:
+            elif cluster_transforms:
+            # else:
                 cluster_time_start = time.time()
                 translation_cluster = \
                     DBSCAN(eps=translation_epsilon, min_samples=min_matched).fit(transform_passing_shifts)
@@ -1850,67 +1851,7 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
     # log.debug(f'shape of full_int_tx1 {full_int_tx1.shape}')
     # log.debug(f'shape of full_int_tx2 {full_int_tx2.shape}')
 
-    # tile_transform1 = {'rotation': full_rotation2,
-    #                    'translation': None if full_int_tx2 is None else full_int_tx2[:, None, :],
-    #                    'rotation2': set_mat2,
-    #                    'translation2': full_ext_tx_sum[:, None, :] if sym_entry.unit_cell is not None else None}
-    # tile_transform2 = {'rotation': inv_setting1,
-    #                    'translation': None if full_int_tx1 is None else full_int_tx1[:, None, :] * -1,
-    #                    'rotation2': full_inv_rotation1,
-    #                    'translation2': None}
-    # Find the clustered transformations to expedite search of ASU clashing
-    # Todo
-    #  can I use cluster.cluster_transformation_pairs distance graph to provide feedback on other aspects of the dock?
-    #  seems that I could use the distances to expedite clashing checks, especially for more time consuming expansion
-    #  checks such as the full material...
-    #  At some point, extracting the exact rotation degree from the rotation matrix and extracting translation params
-    #  will provide the bounds around, what I believe will appear as docking "islands" where docks are possible,
-    #  likely, and preferred. Searching these docks is far more important than just outputting the possible docks and
-    #  their scores. These docking islands can subsequently be used to define a design potential that could be explored
-    #  during design and can be minimized
-    #  |
-    #  Look at rmsd_z_score function output from T33 docks to see about timeing. Could the euler lookup be skipped
-    #  if calculate overlap time is multiplied by the number of possible?
-    #  UPDATE: It seems that skipping is slower for the number of fragments queried... Below measurement was wrong
-    #  ||
-    #  Timings on these from my improvement protocol shows about similar times to euler lookup and calculate overlap
-    #  even with vastly different scales of the arrays. This ignores the fact that the overlap time uses a number of
-    #  indexing steps including making the ij_match array formation, indexing against the ghost and surface arrays, the
-    #  rmsd_reference construction
-    #  Given the lookups sort of irrelevance to the scoring (given very poor alignment), I could remove that step
-    #  if it interferes with differentiability
-
-    clustering_start = time.time()
-    # Must add a new axis to translations so the operations are broadcast together in transform_coordinate_sets()
-    transform_neighbor_tree, transform_cluster = \
-        cluster.cluster_transformation_pairs(dict(rotation=full_rotation1,
-                                                  translation=None if full_int_tx1 is None else full_int_tx1[:, None, :],
-                                                  rotation2=set_mat1,
-                                                  translation2=None if full_ext_tx1 is None else full_ext_tx1[:, None, :]),
-                                             dict(rotation=full_rotation2,
-                                                  translation=None if full_int_tx2 is None else full_int_tx2[:, None, :],
-                                                  rotation2=set_mat2,
-                                                  translation2=None if full_ext_tx2 is None else full_ext_tx2[:, None, :]),
-                                             minimum_members=min_matched)
-    # cluster_representative_indices, cluster_labels = \
-    #     find_cluster_representatives(transform_neighbor_tree, transform_cluster)
-    # representative_labels = cluster_labels[cluster_representative_indices]
-    # Todo?
-    #  _, cluster_labels = find_cluster_representatives(transform_neighbor_tree, transform_cluster)
-    cluster_labels = transform_cluster.labels_
-    # log.debug(f'shape of cluster_labels: {cluster_labels.shape}')
-    passing_transforms = cluster_labels != -1
-    sufficiently_dense_indices = np.flatnonzero(passing_transforms)
-    number_of_dense_transforms = len(sufficiently_dense_indices)
-
-    log.info(f'Found {starting_transforms} total transforms, {starting_transforms - number_of_dense_transforms} of '
-             f'which are missing the minimum number of close transforms to be viable. {number_of_dense_transforms} '
-             f'remain (took {time.time() - clustering_start:8f}s)')
-    if not number_of_dense_transforms:  # There were no successful transforms
-        log.warning(f'No viable transformations found. Terminating {building_blocks} docking')
-        return
-    # ------------------ TERM ------------------------
-    # Update the transformation array and counts with the sufficiently_dense_indices
+    # Make inverted transformations
     inv_setting1 = np.linalg.inv(set_mat1)
     full_inv_rotation1 = np.linalg.inv(full_rotation1)
     _full_rotation2 = full_rotation2.copy()
@@ -1948,8 +1889,73 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
             full_ext_tx1 = full_ext_tx1[passing_indices]
             full_ext_tx2 = full_ext_tx2[passing_indices]
 
-    # Remove non-viable transforms by indexing sufficiently_dense_indices
-    remove_non_viable_indices_inverse(sufficiently_dense_indices)
+    # tile_transform1 = {'rotation': full_rotation2,
+    #                    'translation': None if full_int_tx2 is None else full_int_tx2[:, None, :],
+    #                    'rotation2': set_mat2,
+    #                    'translation2': full_ext_tx_sum[:, None, :] if sym_entry.unit_cell is not None else None}
+    # tile_transform2 = {'rotation': inv_setting1,
+    #                    'translation': None if full_int_tx1 is None else full_int_tx1[:, None, :] * -1,
+    #                    'rotation2': full_inv_rotation1,
+    #                    'translation2': None}
+    # Find the clustered transformations to expedite search of ASU clashing
+    # Todo
+    #  can I use cluster.cluster_transformation_pairs distance graph to provide feedback on other aspects of the dock?
+    #  seems that I could use the distances to expedite clashing checks, especially for more time consuming expansion
+    #  checks such as the full material...
+    #  At some point, extracting the exact rotation degree from the rotation matrix and extracting translation params
+    #  will provide the bounds around, what I believe will appear as docking "islands" where docks are possible,
+    #  likely, and preferred. Searching these docks is far more important than just outputting the possible docks and
+    #  their scores. These docking islands can subsequently be used to define a design potential that could be explored
+    #  during design and can be minimized
+    #  |
+    #  Look at rmsd_z_score function output from T33 docks to see about timeing. Could the euler lookup be skipped
+    #  if calculate overlap time is multiplied by the number of possible?
+    #  UPDATE: It seems that skipping is slower for the number of fragments queried... Below measurement was wrong
+    #  ||
+    #  Timings on these from my improvement protocol shows about similar times to euler lookup and calculate overlap
+    #  even with vastly different scales of the arrays. This ignores the fact that the overlap time uses a number of
+    #  indexing steps including making the ij_match array formation, indexing against the ghost and surface arrays, the
+    #  rmsd_reference construction
+    #  Given the lookups sort of irrelevance to the scoring (given very poor alignment), I could remove that step
+    #  if it interferes with differentiability
+
+    if cluster_transforms:
+        clustering_start = time.time()
+        # Must add a new axis to translations so the operations are broadcast together in transform_coordinate_sets()
+        transform_neighbor_tree, transform_cluster = \
+            cluster.cluster_transformation_pairs(dict(rotation=full_rotation1,
+                                                      translation=None if full_int_tx1 is None else full_int_tx1[:, None, :],
+                                                      rotation2=set_mat1,
+                                                      translation2=None if full_ext_tx1 is None else full_ext_tx1[:, None, :]),
+                                                 dict(rotation=full_rotation2,
+                                                      translation=None if full_int_tx2 is None else full_int_tx2[:, None, :],
+                                                      rotation2=set_mat2,
+                                                      translation2=None if full_ext_tx2 is None else full_ext_tx2[:, None, :]),
+                                                 minimum_members=min_matched)
+        # cluster_representative_indices, cluster_labels = \
+        #     find_cluster_representatives(transform_neighbor_tree, transform_cluster)
+        # representative_labels = cluster_labels[cluster_representative_indices]
+        # Todo?
+        #  _, cluster_labels = find_cluster_representatives(transform_neighbor_tree, transform_cluster)
+        cluster_labels = transform_cluster.labels_
+        # log.debug(f'shape of cluster_labels: {cluster_labels.shape}')
+        passing_transforms = cluster_labels != -1
+        sufficiently_dense_indices = np.flatnonzero(passing_transforms)
+        number_of_dense_transforms = len(sufficiently_dense_indices)
+
+        log.info(f'After clustering, {starting_transforms - number_of_dense_transforms} are missing the minimum number'
+                 f' of close transforms to be viable. {number_of_dense_transforms} transforms '
+                 f'remain ({time.time() - clustering_start:8f}s)')
+        if not number_of_dense_transforms:  # There were no successful transforms
+            log.warning(f'No viable transformations found. Terminating {building_blocks} docking')
+            return
+        # ------------------ TERM ------------------------
+        # Update the transformation array and counts with the sufficiently_dense_indices
+        # Remove non-viable transforms by indexing sufficiently_dense_indices
+        remove_non_viable_indices_inverse(sufficiently_dense_indices)
+    else:
+        sufficiently_dense_indices = np.arange(starting_transforms)
+        number_of_dense_transforms = starting_transforms
 
     # Transform coords to query for clashes
     # Set up chunks of coordinate transforms for clash testing
