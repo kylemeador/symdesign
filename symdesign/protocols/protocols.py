@@ -1438,9 +1438,10 @@ class PoseDirectory:
 
             metric_cmd_bound = main_cmd + (['-symmetry_definition', 'CRYST1'] if self.design_dimension > 0 else []) + \
                 [os.path.join(putils.rosetta_scripts_dir, f'{putils.interface_metrics}'
-                                                      f'{"_DEV" if self.job.development else ""}.xml')]
+                              f'{"_DEV" if self.job.development else ""}.xml')]
             entity_cmd = main_cmd + [os.path.join(putils.rosetta_scripts_dir,
                                                   f'metrics_entity{"_DEV" if self.job.development else ""}.xml')]
+            self.log.info(f'Metrics Command: {list2cmdline(metric_cmd_bound)}')
             metric_cmds = [metric_cmd_bound]
             metric_cmds.extend(self.generate_entity_metrics(entity_cmd))
         else:
