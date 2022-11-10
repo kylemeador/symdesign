@@ -881,7 +881,7 @@ class Atom(StructureBase):
     def __eq__(self, other: Atom) -> bool:
         if isinstance(other, Atom):
             return self.__key() == other.__key()
-        raise NotImplementedError(f'Can\' compare {type(self).__name__} instance to {type(other).__name__} instance')
+        raise NotImplementedError(f"Can't compare {type(self).__name__} instance to {type(other).__name__} instance")
 
     def __hash__(self) -> int:
         return hash(self.__key())
@@ -1607,10 +1607,13 @@ class Residue(fragment.ResidueFragment, ContainsAtomsMixin):
                 match atom.type:
                     case 'N':
                         self._n_index = idx
-                        self.chain = atom.chain
-                        self.number = atom.residue_number
-                        self.number_pdb = atom.pdb_residue_number
-                        self.type = atom.residue_type
+                        try:  # To see if the residue has a number attribute already
+                            self.number
+                        except AttributeError:  # This is the first set up. Add information from the N atom
+                            self.chain = atom.chain
+                            self.number = atom.residue_number
+                            self.number_pdb = atom.pdb_residue_number
+                            self.type = atom.residue_type
                     case 'CA':
                         self._ca_index = idx
                     case 'CB':
@@ -1629,10 +1632,13 @@ class Residue(fragment.ResidueFragment, ContainsAtomsMixin):
             for idx, atom in enumerate(self.atoms):
                 if atom.type == 'N':
                     self._n_index = idx
-                    self.chain = atom.chain
-                    self.number = atom.residue_number
-                    self.number_pdb = atom.pdb_residue_number
-                    self.type = atom.residue_type
+                    try:  # To see if the residue has a number attribute already
+                        self.number
+                    except AttributeError:  # This is the first set up. Add information from the N atom
+                        self.chain = atom.chain
+                        self.number = atom.residue_number
+                        self.number_pdb = atom.pdb_residue_number
+                        self.type = atom.residue_type
                 elif atom.type == 'CA':
                     self._ca_index = idx
                 elif atom.type == 'CB':
@@ -2277,7 +2283,7 @@ class Residue(fragment.ResidueFragment, ContainsAtomsMixin):
     def __eq__(self, other: Residue) -> bool:
         if isinstance(other, Residue):
             return self.__key() == other.__key()
-        raise NotImplementedError(f'Can\' compare {type(self).__name__} instance to {type(other).__name__} instance')
+        raise NotImplementedError(f"Can't compare {type(self).__name__} instance to {type(other).__name__} instance")
 
     def get_atom_record(self, **kwargs) -> str:
         """Provide the Structure Atoms as a PDB file string
@@ -3538,7 +3544,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
             if residue.number == residue_number:
                 return residue.number_pdb
 
-    def mutate_residue(self, residue: Residue = None, index: int = None, number: int = None, to: str = 'ALA', **kwargs)\
+    def mutate_residue(self, residue: Residue = None, index: int = None, number: int = None, to: str = 'A', **kwargs) \
             -> list[int] | list:
         """Mutate a specific Residue to a new residue type. Type can be 1 or 3 letter format
         Args:
@@ -3551,9 +3557,6 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         Returns:
             The indices of the Atoms being removed from the Structure
         """
-        # Todo using AA reference, align the backbone + CB atoms of the residue then insert side chain atoms?
-        to = protein_letters_1to3.get(to.upper(), to.upper())
-
         if index is not None:
             try:
                 residue = self.residues[index]
@@ -3566,13 +3569,20 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         if residue is None:
             raise stutils.DesignError(f"Can't {self.mutate_residue.__name__} without Residue instance, index, or number")
 
+        to = protein_letters_1to3.get(to.upper(), to.upper())
         if residue.type == to:  # No mutation necessary
             return []
+        else:
+            try:
+                protein_letters_3to1_extended[to]
+            except KeyError:
+                raise KeyError(f'The mutation type {to} is not a viable residue type')
 
+        # Todo using AA reference, align the backbone + CB atoms of the residue then insert side chain atoms?
         if self.is_dependent():
             # We should ensure the mutation is done by the Structure parent to account for everything correctly
             self.parent.mutate_residue(residue, to=to)
-            return
+            return []
 
         self.log.debug(f'Mutating {residue.type}{residue.number}{to}')
         residue.type = to
@@ -3598,9 +3608,6 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
             residue_atom_indices.pop(residue_delete_index)
             _atom_indices.pop(atom_delete_index)
 
-        # Reissue the atom assignments for the Residue
-        residue.delegate_atoms()
-
         # If this Structure isn't parent, then parent Structure must update the atom_indices
         self._offset_indices(start_at=atom_delete_index, offset=-len(delete_indices))
 
@@ -3609,6 +3616,9 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         self._atoms.delete(delete_indices)
         self._atoms.reindex(start_at=atom_delete_index)
         self._residues.reindex_atoms(start_at=residue.index)
+
+        # Reissue the atom assignments for the Residue
+        residue.delegate_atoms()
 
         return delete_indices
 
