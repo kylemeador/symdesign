@@ -1261,9 +1261,10 @@ class PoseDirectory:
             variables.extend([('required_residues', out_of_bounds_residue)])
 
         # Allocate any "core" residues based on central fragment information
-        center_residue_indices = self.pose.center_residue_indices
-        if center_residue_indices:
-            variables.extend([('core_residues', ','.join([f'{index + 1}' for index in center_residue_indices]))])
+        residues = self.pose.residues
+        center_residues = [residues[index] for index in self.pose.center_residue_indices]
+        if center_residues:
+            variables.extend([('core_residues', ','.join([f'{res.number}{res.chain}' for res in center_residues]))])
         else:  # Get an out-of-bounds index
             variables.extend([('core_residues', out_of_bounds_residue)])
 

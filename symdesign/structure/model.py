@@ -6581,7 +6581,7 @@ class Pose(SymmetricModel):
 
     @property
     def center_residue_indices(self) -> list[int]:
-        """The Residue numbers where Fragment occurances are observed"""
+        """The Residue indices where Fragment occurrences are observed"""
         # Populate self.fragment_metrics for repeat calculation efficiency
         try:
             return self._center_residue_indices
