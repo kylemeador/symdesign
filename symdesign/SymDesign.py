@@ -39,7 +39,7 @@ from symdesign.flags import argparsers, parser_entire, parser_options, parser_mo
 from symdesign.protocols import fragdock, protocols
 from symdesign.guide import interface_design_guide, analysis_guide, interface_metrics_guide, select_poses_guide, \
     select_designs_guide, select_sequences_guide, cluster_poses_guide, refine_guide, optimize_designs_guide, \
-    nanohedra_guide, orient_guide, expand_asu_guide, set_up_instructions
+    nanohedra_guide, orient_guide, expand_asu_guide, setup_instructions
 from symdesign.metrics import prioritize_design_indices, query_user_for_metrics
 from symdesign.structure.fragment.db import fragment_factory, euler_factory
 from symdesign.resources.job import job_resources_factory
@@ -672,8 +672,8 @@ def main():
         #              SDUtils.ex_path('design.paths')))
         else:  # print the full program readme
             print_guide()
-    elif args.set_up:
-        set_up_instructions()
+    elif args.setup:
+        setup_instructions()
         exit()
     # ---------------------------------------------------
     # elif args.flags:  # Todo
@@ -1006,7 +1006,7 @@ def main():
                 #  How to know if Entity is needed or a combo? Need sym map to tell if they are the same length?
             elif initialized and args.update_database:
                 for pose in pose_directories:
-                    pose.set_up_pose_directory()
+                    pose.setup()
 
                 all_entities, found_entity_names = [], set()
                 for pose in pose_directories:
@@ -1162,11 +1162,11 @@ def main():
             job.structure_db.load_all_data()
             job.api_db.load_all_data()
             # Todo tweak behavior of these two parameters. Need Queue based PoseDirectory
-            # SDUtils.mp_map(protocols.PoseDirectory.set_up_pose_directory, pose_directories, processes=cores)
+            # SDUtils.mp_map(protocols.PoseDirectory.setup, pose_directories, processes=cores)
             # SDUtils.mp_map(protocols.PoseDirectory.link_master_database, pose_directories, processes=cores)
         # Set up in series
         for pose in pose_directories:
-            pose.set_up_pose_directory(pre_refine=not initial_refinement, pre_loop_model=not initial_loop_model)
+            pose.setup(pre_refine=not initial_refinement, pre_loop_model=not initial_loop_model)
 
         logger.info(f'{len(pose_directories)} unique poses found in "{location}"')
         if not job.debug and not job.skip_logging:
