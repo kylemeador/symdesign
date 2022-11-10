@@ -701,7 +701,7 @@ class PoseDirectory:
 
     @handle_design_errors(errors=(FileNotFoundError, ValueError))
     @close_logs
-    def set_up_pose_directory(self, pre_refine: bool = None, pre_loop_model: bool = None):
+    def setup(self, pre_refine: bool = None, pre_loop_model: bool = None):
         """Prepare output Directory and File locations. Each PoseDirectory always includes this format
 
         Args:

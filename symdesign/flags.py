@@ -310,7 +310,7 @@ guide_kwargs = dict(action='store_true', help=f'Display the {program_name}/modul
                                               f' "{program_command} --guide"\nor "{submodule_guide}"')
 output_directory_args = ('-Od', f'--{output_directory}', '--outdir')
 output_file_args = ('-Of', f'--{output_file}')
-setup_args = ('--set-up',)
+setup_args = ('--setup',)
 setup_kwargs = dict(action='store_true', help='Show the %(prog)s set up instructions')
 sym_entry_args = ('-E', f'--{sym_entry}', '--entry', '-entry')
 sym_entry_kwargs = dict(type=int, default=None, metavar='INT',

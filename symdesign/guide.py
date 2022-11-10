@@ -190,7 +190,7 @@ additional = \
     f' of the organism typical cytosolic electrostatics.'
 
 
-def set_up_instructions():
+def setup_instructions():
     instructions = \
         'I have done this using the SymDesignEnvironment.yaml provided to initialize the SymDesign' \
         ' environment in conda. If you are using anaconda/conda (which I recommend), ' \
