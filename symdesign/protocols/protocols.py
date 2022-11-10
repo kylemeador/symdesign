@@ -1070,7 +1070,7 @@ class PoseDirectory:
                     entity.write(oligomer=True, out_path=os.path.join(self.path, f'{entity.name}_oligomer.pdb'))
 
         # Then modify numbering to ensure standard and accurate use during protocols
-        self.pose.pose_numbering()
+        # self.pose.pose_numbering()
         if not self.entity_names:  # Store the entity names if they were never generated
             self.entity_names = [entity.name for entity in self.pose.entities]
             self.log.info(f'Input Entities: {", ".join(self.entity_names)}')
