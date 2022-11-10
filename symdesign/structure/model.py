@@ -6721,7 +6721,7 @@ class Pose(SymmetricModel):
                         break
                     # Neither of our Entities were found, thus we would add 2 entities to each interface side, violation
                     else:
-                        interface[first_side][entity1], interface[second_side][entity2] = False, False
+                        interface[first_side][entity1] = interface[second_side][entity2] = False
                         terminate = True
                         break
 
@@ -6734,6 +6734,7 @@ class Pose(SymmetricModel):
                 terminate = True
                 break
 
+        # Remove self key from the dictionary after finished sorting
         self_indications = interface.pop('self')
         if terminate:
             self.log.critical('The set of interfaces found during interface search generated a topologically '
