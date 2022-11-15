@@ -2604,6 +2604,7 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
                 passing_indices: The indices that should be selected from the full transformation sets
             """
             # nonlocal perturb_rotation1, perturb_rotation2, perturb_int_tx1, perturb_int_tx2
+            log.debug(f'Perturb expansion found {len(passing_indices)} passing_perturbations')
             perturb_rotation1.append(full_rotation1[passing_indices])
             perturb_rotation2.append(full_rotation2[passing_indices])
             if sym_entry.is_internal_tx1:
@@ -2619,35 +2620,30 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
                 # full_ext_tx2 = full_ext_tx2[passing_indices]
 
         # Expand successful poses from coarse search of transformational space to randomly perturbed offset
-        # This occurs by perturbing the transformation by a random small amount to generate transformational diversity from
+        # By perturbing the transformation a random small amount, we generate transformational diversity from
         # the already identified solutions.
         # THIS IS NEW
-        # raise NotImplementedError('fix the integration of perturbation stacks brah')
         perturbations = create_perturbation_transformations(sym_entry, number=number_of_perturbations,
                                                             rotation_range=rotation_steps)
         # Extract perturbation parameters and set the original transformation parameters to a new variable
         # if sym_entry.is_internal_rot1:
         original_rotation1 = full_rotation1
         rotation_perturbations1 = perturbations['rotation1']
-        print('rotation_perturbations1.shape', rotation_perturbations1.shape)
         total_perturbation_size, *_ = rotation_perturbations1.shape
 
         # if sym_entry.is_internal_rot2:
         original_rotation2 = full_rotation2
         rotation_perturbations2 = perturbations['rotation2']
-        print('rotation_perturbations2.shape', rotation_perturbations2.shape)
-        blank_parameter = list(repeat([None, None, None], number_of_transforms))
+        # blank_parameter = list(repeat([None, None, None], number_of_transforms))
         if sym_entry.is_internal_tx1:
             original_int_tx1 = full_int_tx1
             translation_perturbations1 = perturbations['translation1']
-            print('translation_perturbations1.shape', translation_perturbations1.shape)
         # else:
         #     translation_perturbations1 = blank_parameter
 
         if sym_entry.is_internal_tx2:
             original_int_tx2 = full_int_tx2
             translation_perturbations2 = perturbations['translation2']
-            print('translation_perturbations2.shape', translation_perturbations2.shape)
         # else:
         #     translation_perturbations2 = blank_parameter
 
@@ -2663,9 +2659,6 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
         for idx in range(number_of_transforms):
             # Rotate the unique rotation by the perturb_matrix_grid and set equal to the full_rotation* array
             full_rotation1 = np.matmul(original_rotation1[idx], rotation_perturbations1.swapaxes(-1, -2))  # rotation1
-            print('rotation_perturbations1', rotation_perturbations1)
-            print('original_rotation1', original_rotation1)
-            print('full_rotation1', full_rotation1)
             full_inv_rotation1 = np.linalg.inv(full_rotation1)
             full_rotation2 = np.matmul(original_rotation2[idx], rotation_perturbations2.swapaxes(-1, -2))  # rotation2
 
@@ -2694,8 +2687,9 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
             ball_tree_kwargs = dict(binarytree=oligomer1_backbone_cb_tree,
                                     rotation=full_rotation2, translation=full_int_tx2,
                                     rotation2=set_mat2, translation2=full_ext_tx_sum,
-                                    rotation3=full_inv_rotation1, translation3=None if full_int_tx1 is None else full_int_tx1 * -1,
-                                    rotation4=inv_setting1)
+                                    rotation3=inv_setting1,
+                                    translation3=None if full_int_tx1 is None else full_int_tx1 * -1,
+                                    rotation4=full_inv_rotation1)
             # Create a fresh asu_clash_counts
             asu_clash_counts = np.ones(total_perturbation_size)
             overlap_return = check_tree_for_query_overlap(**ball_tree_kwargs,
@@ -2704,22 +2698,17 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
             # Extract the data
             asu_clash_counts = overlap_return['overlap_counts']
             # TODO seems that none of the found parameters don't clash... Perhaps a dof is wacky
-            print('asu_clash_counts', asu_clash_counts)
+            log.debug(f'Perturb expansion found asu_clash_counts:\n{asu_clash_counts}')
             passing_perturbations = np.flatnonzero(asu_clash_counts == 0)
-            print('passing_perturbations', passing_perturbations)
             # Check for symmetric clashes again
             passing_symmetric_clash_indices_perturb = find_viable_symmetric_indices(passing_perturbations.tolist())
-            print('passing_symmetric_clash_indices_perturb', passing_symmetric_clash_indices_perturb)
-            print('viable_perturb_transforms', passing_perturbations[passing_symmetric_clash_indices_perturb])
             # Index the passing ASU indices with the passing symmetric indices and keep all viable transforms
             # Stack the viable perturbed transforms
             stack_viable_transforms(passing_perturbations[passing_symmetric_clash_indices_perturb])
 
         # Concatenate the stacked perturbations
-        print('perturb_rotation1', perturb_rotation1)
         full_rotation1 = np.concatenate(perturb_rotation1, axis=0)
-        print('full_rotation1', full_rotation1)
-        print('full_rotation1.shape', full_rotation1.shape)
+        log.debug(f'After perturbation, found full_rotation1.shape: {full_rotation1.shape}')
         full_rotation2 = np.concatenate(perturb_rotation2, axis=0)
         number_of_perturbed_transforms = full_rotation1.shape[0]
         if sym_entry.is_internal_tx1:
@@ -3158,7 +3147,7 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
         # start_divisor = divisor = 512  # 256 # 128  # 2048 breaks when there is a gradient for training
         # batch_length = 10
         # batch_length = int(number_of_elements_available//model_elements//start_divisor)
-        batch_length = 6  # works for 24 GiB mem, 7 is too much
+        batch_length = 6  # works for 24 GiB mem with 6264 residue T input, 7 is too much
         # once, twice = False, False
 
         # Set up ProteinMPNN output data structures
@@ -3203,8 +3192,8 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
         @torch.no_grad()  # Ensure no gradients are produced
         @resources.ml.batch_calculation(size=size, batch_length=batch_length,
                                         setup=ml.setup_pose_batch_for_proteinmpnn,
-                                        compute_failure_exceptions=(
-                                        RuntimeError, np.core._exceptions._ArrayMemoryError))
+                                        compute_failure_exceptions=(RuntimeError,
+                                                                    np.core._exceptions._ArrayMemoryError))
         def check_dock_for_designability(batch_slice: slice,
                                          S: torch.Tensor = None,
                                          chain_mask: torch.Tensor = None,
@@ -3494,7 +3483,8 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
         @torch.no_grad()  # Ensure no gradients are produced
         @resources.ml.batch_calculation(size=size, batch_length=batch_length,
                                         setup=ml.setup_pose_batch_for_proteinmpnn,
-                                        compute_failure_exceptions=(RuntimeError, np.core._exceptions._ArrayMemoryError))
+                                        compute_failure_exceptions=(RuntimeError,
+                                                                    np.core._exceptions._ArrayMemoryError))
         def fragdock_design(batch_slice: slice, **batch_parameters) -> dict[str, np.ndarray]:
             actual_batch_length = batch_slice.stop - batch_slice.start
             # Initialize pose data structures for interface design
@@ -3607,7 +3597,8 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
         @torch.no_grad()  # Ensure no gradients are produced
         @resources.ml.batch_calculation(size=size, batch_length=batch_length,
                                         setup=ml.setup_pose_batch_for_proteinmpnn,
-                                        compute_failure_exceptions=(RuntimeError, np.core._exceptions._ArrayMemoryError))
+                                        compute_failure_exceptions=(RuntimeError,
+                                                                    np.core._exceptions._ArrayMemoryError))
         def pose_batch_to_protein_mpnn(batch_slice: slice,
                                        X_unbound: torch.Tensor = None,
                                        S: torch.Tensor = None,
@@ -4691,8 +4682,9 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
                     per_residue_evolutionary_profile_scores = nan_blank_data
 
                 if pose.fragment_profile:
-                    # RuntimeWarning: divide by zero encountered in log
                     # print('fragment_profile_array', fragment_profile_array[20:30])
+                    # Todo
+                    #  RuntimeWarning: divide by zero encountered in log
                     # np.log causes -inf at 0, thus we need to correct these to a very large number
                     corrected_frag_array = np.nan_to_num(np.log(fragment_profile_array), copy=False, nan=np.nan)
                     # print('corrected_frag_array', corrected_frag_array[20:30])
