@@ -24,7 +24,7 @@ from symdesign.metrics import hydrophobic_collapse_index
 from .fragment import info
 from .fragment.db import alignment_types_literal, alignment_types, fragment_info_type
 from symdesign import utils as sdutils
-from symdesign.utils import path as putils
+from symdesign.utils import CommandDistributer, path as putils
 
 # import dependencies.bmdca as bmdca
 
@@ -697,8 +697,8 @@ class SequenceProfile(ABC):
                 else:
                     # Todo RuntimeError()
                     raise RuntimeError('evolutionary_profile generation got stuck')
-        # else:
-        #     self.evolutionary_profile = self.create_null_profile()
+        else:  # Set the evolutionary_profile to null
+            self.evolutionary_profile = self.create_null_profile()
 
         if isinstance(fragments, list):  # Add fragment information to the SequenceProfile
             self.add_fragments_to_profile(fragments, **kwargs)
@@ -1507,23 +1507,10 @@ class SequenceProfile(ABC):
             self.log.debug(f'{self._calculate_profile.__name__}: _alpha set with 1e-5 tolerance due to 0 value')
             self._alpha = 0.000001
 
-        # Todo move to add_profile() ??
-        if not self.evolutionary_profile:  # No evolutionary information available
-            self.evolutionary_profile = self.profile = self.create_null_profile()
-        else:
-            # Copy the evolutionary profile to self.profile (structure specific scoring matrix)
-            self.profile = deepcopy(self.evolutionary_profile)
-
+        # Copy the evolutionary profile to self.profile (structure specific scoring matrix)
+        self.profile = deepcopy(self.evolutionary_profile)
         if sum(self.alpha) == 0:  # No fragments to combine
-            self.profile = self.evolutionary_profile
             return
-
-        # if self.alpha:
-        #     self.log.info(f'At {self.name}, combined evolutionary and fragment profiles into Design Profile with:'
-        #                   f'\n\t%s'
-        #                   % '\n\t'.join(f'Residue {entry + 1:5d}: {weight * 100:.0f}% fragment weight'
-        #                                 for entry, weight in enumerate(self.alpha) if weight > 0))
-        #                                 # for entry, weight in self.alpha.items()))
 
         # Combine fragment and evolutionary probability profile according to alpha parameter
         log_string = []
@@ -1544,7 +1531,7 @@ class SequenceProfile(ABC):
 
         if favor_fragments:
             boltzman_energy = 1
-            favor_seqprofile_score_modifier = 0.2 * sdutils.CommandDistributer.reference_average_residue_weight
+            favor_seqprofile_score_modifier = 0.2 * CommandDistributer.reference_average_residue_weight
             database_bkgnd_aa_freq = self._fragment_db.aa_frequencies
 
             null_residue = get_lod(database_bkgnd_aa_freq, database_bkgnd_aa_freq, as_int=False)
