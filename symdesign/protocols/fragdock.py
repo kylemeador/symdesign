@@ -895,11 +895,11 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
     # Todo set below as parameters?
 
     if job.design.perturb_dof:
-        number_of_perturbations = 3  # Todo replace with 10?
+        number_of_perturbation_steps = 3  # Todo replace with 10?
         if sym_entry.unit_cell:
             raise NotImplementedError(f"{perturb_transformations.__name__} isn't working for lattice symmetries")
     else:
-        number_of_perturbations = 1
+        number_of_perturbation_steps = 1
 
     translation_epsilon = 1  # 1 seems to work well at recapitulating the results without it. More stringent -> 0.75
     high_quality_z_value = z_value_from_match_score(high_quality_match_value)
@@ -2623,7 +2623,7 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
         # By perturbing the transformation a random small amount, we generate transformational diversity from
         # the already identified solutions.
         # THIS IS NEW
-        perturbations = create_perturbation_transformations(sym_entry, number=number_of_perturbations,
+        perturbations = create_perturbation_transformations(sym_entry, number=number_of_perturbation_steps,
                                                             rotation_range=rotation_steps)
         # Extract perturbation parameters and set the original transformation parameters to a new variable
         # if sym_entry.is_internal_rot1:
@@ -2707,18 +2707,19 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
             stack_viable_transforms(passing_perturbations[passing_symmetric_clash_indices_perturb])
 
         # Concatenate the stacked perturbations
+        total_number_of_perturbations = number_of_transforms * total_perturbation_size
         full_rotation1 = np.concatenate(perturb_rotation1, axis=0)
         log.debug(f'After perturbation, found full_rotation1.shape: {full_rotation1.shape}')
         full_rotation2 = np.concatenate(perturb_rotation2, axis=0)
-        number_of_perturbed_transforms = number_of_transforms = full_rotation1.shape[0]
+        number_of_transforms = full_rotation1.shape[0]
         if sym_entry.is_internal_tx1:
-            stacked_internal_tx_vectors1 = np.zeros((number_of_perturbed_transforms, 3), dtype=float)
+            stacked_internal_tx_vectors1 = np.zeros((number_of_transforms, 3), dtype=float)
             # Add the translation to Z (axis=1)
             stacked_internal_tx_vectors1[:, -1] = perturb_int_tx1
             full_int_tx1 = stacked_internal_tx_vectors1
 
         if sym_entry.is_internal_tx2:
-            stacked_internal_tx_vectors2 = np.zeros((number_of_perturbed_transforms, 3), dtype=float)
+            stacked_internal_tx_vectors2 = np.zeros((number_of_transforms, 3), dtype=float)
             # Add the translation to Z (axis=1)
             stacked_internal_tx_vectors2[:, -1] = perturb_int_tx2
             full_int_tx2 = stacked_internal_tx_vectors2
@@ -2744,7 +2745,7 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
         #     perturb_transformations(sym_entry, specific_transformation1, specific_transformation2)
         # # transformation1, transformation2 = \
         # #     perturb_transformations_new(sym_entry, specific_transformation1, specific_transformation2,
-        # #                                 ext_dof_shifts=full_optimal_ext_dof_shifts, number=number_of_perturbations)
+        # #                                 ext_dof_shifts=full_optimal_ext_dof_shifts, number=number_of_perturbation_steps)
         # # Extract transformation operations
         # full_rotation1 = transformation1['rotation']
         # full_int_tx1 = transformation1['translation']
@@ -2792,13 +2793,13 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
             The PoseID with format building_blocks-degeneracy-rotation-transform-perturb if perturbation used
                 Ex: '****_#-****_#-d_#_#-r_#_#-t_#-p_#' OR '****_#-****_#-d_#_#-r_#_#-t_#' (no perturbation)
         """
-        transform_idx = _idx // number_of_perturbations
+        transform_idx = _idx // total_number_of_perturbations
         _pose_id = f'd_{"_".join(map(str, degen_counts[transform_idx]))}' \
                    f'-r_{"_".join(map(str, rot_counts[transform_idx]))}' \
                    f'-t_{tx_counts[transform_idx]}'  # translation idx
-        if number_of_perturbations > 1:
-            # perturb_idx = idx % number_of_perturbations
-            _pose_id = f'{_pose_id}-p_{_idx%number_of_perturbations + 1}'
+        if total_number_of_perturbations > 1:
+            # perturb_idx = idx % total_number_of_perturbations
+            _pose_id = f'{_pose_id}-p_{_idx%total_number_of_perturbations + 1}'
 
         return f'{building_blocks}-{_pose_id}'
 
@@ -2981,7 +2982,7 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
         #     update_pose_coords(idx)
         #
         #     if job.write_fragments:
-        #         # if number_of_perturbations > 1:
+        #         # if total_number_of_perturbations > 1:
         #         add_fragments_to_pose()  # <- here generating fresh
         #         # else:
         #         #     # Here, loading fragments. No self-symmetric interactions found
@@ -3261,7 +3262,6 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
 
                 # Let -1 fill in the pose length dimension with the number of residues
                 # 4 is shape of backbone coords (N, Ca, C, O), 3 is x,y,z
-                # X = perturbed_bb_coords.reshape((number_of_perturbations, -1, 4, 3))
                 perturbed_bb_coords = np.concatenate(_perturbed_bb_coords)
 
                 # Symmetrize other arrays
@@ -3546,7 +3546,6 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
 
                 # Let -1 fill in the pose length dimension with the number of residues
                 # 4 is shape of backbone coords (N, Ca, C, O), 3 is x,y,z
-                # X = perturbed_bb_coords.reshape((number_of_perturbations, -1, 4, 3))
                 perturbed_bb_coords = np.concatenate(_perturbed_bb_coords)
 
                 # Symmetrize other arrays
@@ -3674,7 +3673,6 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
 
                 # Let -1 fill in the pose length dimension with the number of residues
                 # 4 is shape of backbone coords (N, Ca, C, O), 3 is x,y,z
-                # X = perturbed_bb_coords.reshape((number_of_perturbations, -1, 4, 3))
                 perturbed_bb_coords = np.concatenate(_perturbed_bb_coords)
 
                 # Symmetrize other arrays
@@ -4546,7 +4544,7 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
         # Add the next set of coordinates
         update_pose_coords(idx)
 
-        # if number_of_perturbations > 1:
+        # if total_number_of_perturbations > 1:
         add_fragments_to_pose()  # <- here generating fresh
         # else:
         #     # Here, loading fragments. No self-symmetric interactions will be generated!
