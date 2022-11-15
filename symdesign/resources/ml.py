@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import functools
+import gc
 import logging
 import os
 import time
@@ -99,11 +100,16 @@ def batch_calculation(size: int, batch_length: int, setup: Callable = None,
                         else:
                             raise ValueError(f'The batch_length ({batch_length}) must be greater than 0')
                     # Perform any setup operations
+                    logger.critical(f'Before SETUP\nmemory_allocated: {torch.cuda.memory_allocated()}'
+                                    f'\nmemory_reserved: {torch.cuda.memory_reserved()}')
                     setup_returns = _setup(_batch_length, *setup_args, **setup_kwargs)
+                    logger.critical(f'After SETUP\nmemory_allocated: {torch.cuda.memory_allocated()}'
+                                    f'\nmemory_reserved: {torch.cuda.memory_reserved()}')
                     for batch in range(number_of_batches):
                         # Find the upper slice limit
                         batch_slice = slice(batch * _batch_length, min((batch+1) * _batch_length, size))
                         # Perform the function, batch_slice must be used inside the func
+                        logger.debug(f'Calculating batch {batch + 1}')
                         function_returns = func(batch_slice, *args, **kwargs, **setup_returns)
                         # Set the returned values in the order they were received to the precalculated return_container
                         for return_container_key, return_container in return_containers.items():
@@ -114,6 +120,12 @@ def batch_calculation(size: int, batch_length: int, setup: Callable = None,
                     last_error = None
                     break  # finished = True
                 except compute_failure_exceptions as error:
+                    # del setup_returns
+                    logger.critical(f'After ERROR\nmemory_allocated: {torch.cuda.memory_allocated()}'
+                                    f'\nmemory_reserved: {torch.cuda.memory_reserved()}')
+                    gc.collect()
+                    logger.critical(f'After GC\nmemory_allocated: {torch.cuda.memory_allocated()}'
+                                    f'\nmemory_reserved: {torch.cuda.memory_reserved()}')
                     if _error is None:  # Set the error the first time
                         _error = last_error = error
                     else:
@@ -212,18 +224,19 @@ class ProteinMPNNFactory:
             logger.info(f'Training noise level: {checkpoint["noise_level"]} Angstroms')
             hidden_dim = 128
             num_layers = 3
-            model = ProteinMPNN(num_letters=mpnn_alphabet_length,
-                                node_features=hidden_dim,
-                                edge_features=hidden_dim,
-                                hidden_dim=hidden_dim,
-                                num_encoder_layers=num_layers,
-                                num_decoder_layers=num_layers,
-                                augment_eps=backbone_noise,
-                                k_neighbors=checkpoint['num_edges'])
-            model.to(device)
-            model.load_state_dict(checkpoint['model_state_dict'])
-            model.eval()
-            model.device = device
+            with torch.no_grad():
+                model = ProteinMPNN(num_letters=mpnn_alphabet_length,
+                                    node_features=hidden_dim,
+                                    edge_features=hidden_dim,
+                                    hidden_dim=hidden_dim,
+                                    num_encoder_layers=num_layers,
+                                    num_decoder_layers=num_layers,
+                                    augment_eps=backbone_noise,
+                                    k_neighbors=checkpoint['num_edges'])
+                model.to(device)
+                model.load_state_dict(checkpoint['model_state_dict'])
+                model.eval()
+                model.device = device
             self._models[model_name_key] = model
 
         return model

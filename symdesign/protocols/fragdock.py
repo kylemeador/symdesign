@@ -3752,6 +3752,8 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
             # If conditional_probs() are measured, then we need a batched_decoding order
             # conditional_start_time = time.time()
             # Calculations with this are done using cpu memory and numpy
+            logger.critical(f'Before model forward pass\nmemory_allocated: {torch.cuda.memory_allocated()}'
+                            f'\nmemory_reserved: {torch.cuda.memory_reserved()}')
             conditional_log_probs_null_seq = \
                 mpnn_model(X, S_design_null, mask, chain_residue_mask, residue_idx, chain_encoding,
                            None,  # This argument is provided but with below args, is not used
