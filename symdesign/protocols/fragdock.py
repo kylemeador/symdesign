@@ -2710,7 +2710,7 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
         full_rotation1 = np.concatenate(perturb_rotation1, axis=0)
         log.debug(f'After perturbation, found full_rotation1.shape: {full_rotation1.shape}')
         full_rotation2 = np.concatenate(perturb_rotation2, axis=0)
-        number_of_perturbed_transforms = full_rotation1.shape[0]
+        number_of_perturbed_transforms = number_of_transforms = full_rotation1.shape[0]
         if sym_entry.is_internal_tx1:
             stacked_internal_tx_vectors1 = np.zeros((number_of_perturbed_transforms, 3), dtype=float)
             # Add the translation to Z (axis=1)
@@ -3918,7 +3918,7 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
                                None,  # This argument is provided but with below args, is not used
                                use_input_decoding_order=True, decoding_order=decoding_order_out).cpu()
 
-                log_prob_time = time.time()
+                log.debug(f'Unbound log prob calculation took {time.time() - unbound_log_prob_start_time:8f}')
                 log_probs_start_time = time.time()
                 complex_log_probs = \
                     mpnn_model(X, S_sample, mask, chain_residue_mask, residue_idx, chain_encoding,
@@ -3939,15 +3939,14 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
                 #          [-3.4500, -4.4373, -3.7814,  ..., -5.1637, -4.6107, -5.2295],
                 #          [-0.9690, -4.9492, -3.9373,  ..., -2.0154, -2.2262, -4.3334],
                 #          [-3.1118, -4.3809, -3.8763,  ..., -4.7145, -4.1524, -5.3076]]])
-                log.info(f'Log prob calculation took {time.time() - log_probs_start_time:8f}')
-                log.info(f'Unbound log prob calculation took {log_prob_time - unbound_log_prob_start_time:8f}')
+                log.debug(f'Log prob calculation took {time.time() - log_probs_start_time:8f}')
                 # Score the redesigned structure-sequence
                 # mask_for_loss = chain_mask_and_mask*residue_mask
                 # batch_scores = ml.sequence_nllloss(S_sample, complex_log_probs, mask_for_loss, per_residue=False)
                 # batch_scores is
                 # tensor([2.1039, 2.0618, 2.0802, 2.0538, 2.0114, 2.0002], device='cuda:0')
                 # Format outputs
-                _batch_sequences = S_sample.cpu()[:, :pose_length]
+                _batch_sequences = S_sample[:, :pose_length].cpu()
                 batch_sequences.append(_batch_sequences)
                 _per_residue_complex_sequence_loss.append(
                     ml.sequence_nllloss(_batch_sequences, complex_log_probs[:, :pose_length]).numpy())
