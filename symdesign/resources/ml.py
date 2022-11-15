@@ -141,10 +141,10 @@ def batch_calculation(size: int, batch_length: int, setup: Callable = None,
                                 f'exception in the traceback was the result of the first iteration, while the '
                                 f'most recent exception in the traceback is last\n')
                 # raise _error
-                print(_error)
+                print(''.join(_error))
                 # except compute_failure_exceptions:
                 #     raise last_error
-                print(last_error)
+                print(''.join(last_error))
                 raise RuntimeError()
 
             return return_containers
