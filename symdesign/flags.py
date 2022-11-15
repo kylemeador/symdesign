@@ -30,6 +30,8 @@ from symdesign.utils.path import submodule_guide, submodule_help, force_flags, s
 
 nstruct = 20
 method = 'method'
+dock_only = 'dock_only'
+dock_proteinmpnn = 'dock_proteinmpnn'
 design_arguments = {
     ignore_clashes, ignore_pose_clashes, ignore_symmetric_clashes, method, evolution_constraint, hbnet,
     number_of_trajectories, structure_background, scout, term_constraint, consensus, ca_only, temperatures,
@@ -61,6 +63,8 @@ structure_background = format_for_cmdline(structure_background)
 # evolutionary_profile = format_for_cmdline(evolutionary_profile)
 # fragment_profile = format_for_cmdline(fragment_profile)
 sym_entry = format_for_cmdline(sym_entry)
+dock_only = format_for_cmdline(dock_only)
+dock_proteinmpnn = format_for_cmdline(dock_proteinmpnn)
 ca_only = format_for_cmdline(ca_only)
 perturb_dof = format_for_cmdline(perturb_dof)
 force_flags = format_for_cmdline(force_flags)
@@ -458,8 +462,10 @@ refine_arguments = {
 nanohedra_help = f'Run {nanohedra.title()}.py'
 parser_nanohedra = {nanohedra: dict(description=nanohedra_help, help=nanohedra_help)}
 nanohedra_arguments = {
-    ('--dock-only',): dict(action=argparse.BooleanOptionalAction, default=False,
+    (f'--{dock_only}',): dict(action=argparse.BooleanOptionalAction, default=False,
                            help='Whether docking should be performed without sequence design'),
+    (f'--{dock_proteinmpnn}',): dict(action=argparse.BooleanOptionalAction, default=False,
+                                     help='Whether docking fit should be measured using ProteinMPNN'),
     (f'--{perturb_dof}',): dict(action=argparse.BooleanOptionalAction, default=False,
                                 help='Whether the degrees of freedom should be finely sampled in subsequent docking '
                                      'iterations'),
