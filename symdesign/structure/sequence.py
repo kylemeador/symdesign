@@ -706,10 +706,10 @@ class SequenceProfile(ABC):
             # self.process_fragment_profile()
             self.simplify_fragment_profile()
         elif fragments:  # If was passed as True
-            if not self.fragment_profile:
+            if not self.alpha:  # not self.fragment_profile and
                 raise AttributeError('Fragments were specified but have not been added to the SequenceProfile! '
                                      f'Call {self.add_fragments_to_profile.__name__} with fragment information or pass'
-                                     f'fragments and alignment_type to {self.add_profile.__name__}')
+                                     f' fragments and alignment_type to {self.add_profile.__name__}')
             # # Fragments have already been added, connect DB info
             # elif self.fragment_db:
             #     retrieve_fragments = [fragment['cluster'] for idx_d in self.fragment_map.values()
@@ -722,7 +722,7 @@ class SequenceProfile(ABC):
             # # Process fragment profile from self.fragment_profile
             # self.process_fragment_profile()
 
-        self.calculate_profile(**kwargs)
+        self._calculate_profile(**kwargs)
 
     def verify_evolutionary_profile(self) -> bool:
         """Returns True if the evolutionary_profile and Structure sequences are equivalent"""
@@ -936,7 +936,7 @@ class SequenceProfile(ABC):
     # @handle_errors(errors=(FileNotFoundError,))
     def parse_psiblast_pssm(self, **kwargs):
         """Take the contents of a pssm file, parse, and input into a sequence dictionary.
-        # Todo it's CURRENTLY IMPOSSIBLE to use in calculate_profile, CHANGE psiblast lod score parsing
+        # Todo it's CURRENTLY IMPOSSIBLE to use in _calculate_profile, CHANGE psiblast lod score parsing
         Sets:
             self.evolutionary_profile (profile_dictionary): Dictionary containing residue indexed profile information
             Ex: {1: {'A': 0, 'R': 0, ..., 'lod': {'A': -5, 'R': -5, ...}, 'type': 'W', 'info': 3.20, 'weight': 0.73},
@@ -1306,7 +1306,7 @@ class SequenceProfile(ABC):
                 'stats'[0] is number of fragment observations at each residue, and 'stats'[1] is the total fragment
                 weight over the entire residue
         """
-        if not self.fragment_map:
+        if not self.fragment_map:  # We need this for _calculate_alpha()
             raise RuntimeError(f"Must {self.add_fragments_to_profile.__name__} before "
                                f"{self.simplify_fragment_profile.__name__}. No fragments were set")
         database_bkgnd_aa_freq = self._fragment_db.aa_frequencies
@@ -1404,7 +1404,7 @@ class SequenceProfile(ABC):
 
     def _calculate_alpha(self, alpha: float = .5, **kwargs):
         """Find fragment contribution to design with a maximum contribution of alpha. Used subsequently to integrate
-        fragment profile during combination with evolutionary profile in calculate_profile
+        fragment profile during combination with evolutionary profile in _calculate_profile
 
         Takes self.fragment_profile
             (dict) {0: {'A': 0.23, 'C': 0.01, ..., stats': [1, 0.37]}, 13: {...}, ...}
@@ -1433,13 +1433,14 @@ class SequenceProfile(ABC):
         match_score_average = 0.5  # when fragment pair rmsd equal to the mean cluster rmsd
         bounded_floor = 0.2
         fragment_stats = self._fragment_db.statistics
-        self.alpha.clear()  # Reset the data
+        # self.alpha.clear()  # Reset the data
+        self.alpha = [0 for residue in self.residues]  # Reset the data
         for entry, data in self.fragment_profile.items():
             # Can't use the match count as the fragment index may have no useful residue information
             # Instead use number of fragments with SC interactions count from the frequency map
             count, frag_weight = data.get('stats', (None, None))
             if not count:  # When data is missing 'stats', or 'stats'[0] is 0
-                self.alpha.append(0.)
+                # self.alpha[entry] = 0.
                 continue  # Move on, this isn't a fragment observation, or we have no observed fragments
 
             # Match score 'match' is bounded between [0.2, 1]
@@ -1470,13 +1471,13 @@ class SequenceProfile(ABC):
             # Modify alpha proportionally to cluster average weight and match_modifier
             # If design frag weight is less than db cluster average weight
             if frag_weight_average < stats_average:
-                self.alpha.append(self._alpha * match_modifier * (frag_weight_average/stats_average))
-                # self.alpha[entry] = self._alpha * match_modifier * (frag_weight_average/stats_average)
+                # self.alpha.append(self._alpha * match_modifier * (frag_weight_average/stats_average))
+                self.alpha[entry] = self._alpha * match_modifier * (frag_weight_average/stats_average)
             else:
-                self.alpha.append(self._alpha * match_modifier)
-                # self.alpha[entry] = self._alpha * match_modifier
+                # self.alpha.append(self._alpha * match_modifier)
+                self.alpha[entry] = self._alpha * match_modifier
 
-    def calculate_profile(self, favor_fragments: bool = False, boltzmann: bool = True, **kwargs):
+    def _calculate_profile(self, favor_fragments: bool = False, boltzmann: bool = True, **kwargs):
         """Combine weights for profile PSSM and fragment SSM using fragment significance value to determine overlap
 
         Using self.evolutionary_profile
@@ -1503,18 +1504,20 @@ class SequenceProfile(ABC):
                      'type': 'W', 'info': 0.00, 'weight': 0.00}, ...}, ...}
         """
         if self._alpha == 0:  # We get a division error
-            self.log.debug(f'{self.calculate_profile.__name__}: _alpha set with 1e-5 tolerance due to 0 value')
+            self.log.debug(f'{self._calculate_profile.__name__}: _alpha set with 1e-5 tolerance due to 0 value')
             self._alpha = 0.000001
 
+        # Todo move to add_profile() ??
         if not self.evolutionary_profile:  # No evolutionary information available
-            self.evolutionary_profile = self.create_null_profile()
+            self.evolutionary_profile = self.profile = self.create_null_profile()
+        else:
+            # Copy the evolutionary profile to self.profile (structure specific scoring matrix)
+            self.profile = deepcopy(self.evolutionary_profile)
 
-        if not self.alpha:  # No fragments to combine
+        if sum(self.alpha) == 0:  # No fragments to combine
             self.profile = self.evolutionary_profile
             return
 
-        # Copy the evolutionary profile to self.profile (structure specific scoring matrix)
-        self.profile = deepcopy(self.evolutionary_profile)
         # if self.alpha:
         #     self.log.info(f'At {self.name}, combined evolutionary and fragment profiles into Design Profile with:'
         #                   f'\n\t%s'

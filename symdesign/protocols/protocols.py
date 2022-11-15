@@ -1817,9 +1817,7 @@ class PoseDirectory:
                     #     for query_idx, entity in enumerate(query_pair):
                     #         entity.add_fragments_to_profile(fragments=fragment_info,
                     #                                         alignment_type=alignment_types[query_idx])
-                    raise NotImplementedError('Writing fragment_profile needs work to convert np.nan')
                     favor_fragments = True
-                    write_pssm_file(self.pose.fragment_profile, file_name=self.fragment_profile_file)
                 else:
                     favor_fragments = False
                     self.pose.calculate_fragment_profile(evo_fill=False)
@@ -1855,18 +1853,20 @@ class PoseDirectory:
 
                 self.pose.evolutionary_profile = \
                     concatenate_profile([entity.evolutionary_profile for entity in self.pose.entities])
-                if self.job.design.method == putils.rosetta_str:
-                    self.pose.pssm_file = \
-                        write_pssm_file(self.pose.evolutionary_profile, file_name=self.evolutionary_profile_file)
+            # else:
+            #     self.pose.add_profile(null=True)
+
+            # if self.job.design.method == putils.rosetta_str:
+            #     self.pose.pssm_file = \
+            #         write_pssm_file(self.pose.evolutionary_profile, file_name=self.evolutionary_profile_file)
 
             # self.pose.combine_sequence_profiles()
-            # I could alo add the combined profile here instead of at each Entity
-            # self.pose.calculate_profile()
+            # I could also add the combined profile here instead of at each Entity
             self.pose.add_profile(evolution=self.job.design.evolution_constraint,
                                   fragments=self.job.generate_fragments, favor_fragments=favor_fragments,
                                   out_dir=self.job.api_db.hhblits_profiles.location)
-            if self.job.design.method == putils.rosetta_str:
-                write_pssm_file(self.pose.profile, file_name=self.design_profile_file)
+            # if self.job.design.method == putils.rosetta_str:
+            #     write_pssm_file(self.pose.profile, file_name=self.design_profile_file)
             # Update PoseDirectory with design information
             # if self.job.generate_fragments:  # Set pose.fragment_profile by combining fragment profiles
             #     self.pose.fragment_profile = \
@@ -1880,7 +1880,7 @@ class PoseDirectory:
             #         write_pssm_file(self.pose.evolutionary_profile, file_name=self.evolutionary_profile_file)
 
             # self.pose.profile = concatenate_profile([entity.profile for entity in self.pose.entities])
-            write_pssm_file(self.pose.profile, file_name=self.design_profile_file)
+            # write_pssm_file(self.pose.profile, file_name=self.design_profile_file)
             # -------------------------------------------------------------------------
             # Todo self.solve_consensus()
             # -------------------------------------------------------------------------
@@ -1893,6 +1893,12 @@ class PoseDirectory:
         putils.make_path(self.designs)
         match self.job.design.method:
             case putils.rosetta_str:
+                # Write generated files
+                self.pose.pssm_file = \
+                    write_pssm_file(self.pose.evolutionary_profile, file_name=self.evolutionary_profile_file)
+                write_pssm_file(self.pose.profile, file_name=self.design_profile_file)
+                raise NotImplementedError('Writing fragment_profile needs work to convert np.nan')
+                write_pssm_file(self.pose.fragment_profile, file_name=self.fragment_profile_file)
                 self.rosetta_interface_design()
             case putils.proteinmpnn:
                 self.proteinmpnn_interface_design()
@@ -2570,17 +2576,60 @@ class PoseDirectory:
                 })
 
         # Calculate hydrophobic collapse for each design
-        warn = True
+        # warn = True
+        # # Add Entity information to the Pose
+        # for idx, entity in enumerate(self.pose.entities):
+        #     try:  # To fetch the multiple sequence alignment for further processing
+        #         entity.msa = self.job.api_db.alignments.retrieve_data(name=entity.name)
+        #     except ValueError:  # When the Entity reference sequence and alignment are different lengths
+        #         if not warn:
+        #             self.log.info(f'Metrics relying on a multiple sequence alignment are not being collected as '
+        #                           f'there is no MSA found. These include: '
+        #                           f'{", ".join(multiple_sequence_alignment_dependent_metrics)}')
+        #             warn = False
+        measure_evolution = measure_alignment = True
+        warn = False
         # Add Entity information to the Pose
         for idx, entity in enumerate(self.pose.entities):
+            # entity.sequence_file = job.api_db.sequences.retrieve_file(name=entity.name)
+            # if not entity.sequence_file:
+            #     entity.write_sequence_to_fasta('reference', out_dir=job.sequences)
+            #     # entity.add_evolutionary_profile(out_dir=job.api_db.hhblits_profiles.location)
+            # else:
+            profile = self.job.api_db.hhblits_profiles.retrieve_data(name=entity.name)
+            if not profile:
+                measure_evolution = False
+                warn = True
+            else:
+                entity.evolutionary_profile = profile
+
+            if not entity.verify_evolutionary_profile():
+                entity.fit_evolutionary_profile_to_structure()
+
             try:  # To fetch the multiple sequence alignment for further processing
-                entity.msa = self.job.api_db.alignments.retrieve_data(name=entity.name)
-            except ValueError:  # When the Entity reference sequence and alignment are different lengths
-                if not warn:
-                    self.log.info(f'Metrics relying on a multiple sequence alignment are not being collected as '
-                                  f'there is no MSA found. These include: '
-                                  f'{", ".join(multiple_sequence_alignment_dependent_metrics)}')
-                    warn = False
+                msa = self.job.api_db.alignments.retrieve_data(name=entity.name)
+                if not msa:
+                    measure_alignment = False
+                    warn = True
+                else:
+                    entity.msa = msa
+            except ValueError as error:  # When the Entity reference sequence and alignment are different lengths
+                self.pose.log.info(f'Entity reference sequence and provided alignment are different lengths: {error}')
+                warn = True
+
+        if warn:
+            if not measure_evolution and not measure_alignment:
+                self.pose.log.info(f'Metrics relying on multiple sequence alignment data are not being collected as'
+                                   f' there were none found. These include: '
+                                   f'{", ".join(multiple_sequence_alignment_dependent_metrics)}')
+            elif not measure_alignment:
+                self.pose.log.info(f'Metrics relying on a multiple sequence alignment are not being collected as '
+                                   f'there was no MSA found. These include: '
+                                   f'{", ".join(multiple_sequence_alignment_dependent_metrics)}')
+            else:
+                self.pose.log.info(f'Metrics relying on an evolutionary profile are not being collected as '
+                                   f'there was no profile found. These include: '
+                                   f'{", ".join(profile_dependent_metrics)}')
         # Include the pose_source in the measured designs
         contact_order_per_res_z, reference_collapse, collapse_profile = self.pose.get_folding_metrics()
         folding_and_collapse = calculate_collapse_metrics(list(zip(*[list(design_sequences.values())
@@ -2591,7 +2640,6 @@ class PoseDirectory:
                                              for design_id, data in zip(viable_designs, folding_and_collapse)},
                                             ).unstack().swaplevel(0, 1, axis=1)
 
-        idx_slice = pd.IndexSlice
         # Convert per_residue_data into a dataframe matching residue_df orientation
         per_residue_df = pd.concat({name: pd.DataFrame(data, index=residue_numbers)
                                     for name, data in per_residue_data.items()}).unstack().swaplevel(0, 1, axis=1)
@@ -2610,19 +2658,26 @@ class PoseDirectory:
                                   left_index=True, right_index=True)
 
         # Load profiles of interest into the analysis
-        profile_background = {}
-        if self.pose.profile:
-            profile_background['design'] = pssm_as_array(self.pose.profile)
+        if measure_evolution:
+            pose.evolutionary_profile = concatenate_profile([entity.evolutionary_profile for entity in pose.entities])
+
+        # pose.generate_interface_fragments() was already called
+        pose.calculate_fragment_profile()
+        pose.add_profile(evolution=self.job.design.evolution_constraint,
+                         fragments=self.job.generate_fragments)
+
+        profile_background = {'design': pssm_as_array(self.pose.profile),
+                              'evolution': pssm_as_array(self.pose.evolutionary_profile),
+                              'fragment': pssm_as_array(self.pose.fragment_profile)}
+        # if self.pose.profile:
         # else:
         #     self.log.info('Pose has no profile information')
-        if self.pose.evolutionary_profile:
-            profile_background['evolution'] = pssm_as_array(self.pose.evolutionary_profile)
-        else:
-            self.log.info('No evolution information')
-        if self.pose.fragment_profile:
-            profile_background['fragment'] = pssm_as_array(self.pose.fragment_profile)
-        else:
-            self.log.info('No fragment information')
+        # if self.pose.evolutionary_profile:
+        # else:
+        #     self.log.info('No evolution information')
+        # if self.pose.fragment_profile:
+        # else:
+        #     self.log.info('No fragment information')
         if self.job.fragment_db is not None:
             interface_bkgd = np.array(list(self.job.fragment_db.aa_frequencies.values()))
             profile_background['interface'] = np.tile(interface_bkgd, (self.pose.number_of_residues, 1))
@@ -3788,18 +3843,6 @@ def interface_design_analysis(pose: Pose, design_poses: Iterable[Pose] = None, s
         #  This is a measurement of interface_connectivity like from Rosetta
         interface_local_density[pose.name] = pose.local_density_interface()
 
-    # Convert per_residue_data into a dataframe matching residue_df orientation
-    per_residue_df = pd.concat({name: pd.DataFrame(data, index=residue_indices)
-                                for name, data in per_residue_data.items()}).unstack().swaplevel(0, 1, axis=1)
-    # Process mutational frequencies, H-bond, and Residue energy metrics to dataframe
-    residue_df = pd.concat({design: pd.DataFrame(info) for design, info in residue_info.items()}).unstack()
-    # returns multi-index column with residue number as first (top) column index, metric as second index
-    # during residue_df unstack, all residues with missing dicts are copied as nan
-    # Merge interface design specific residue metrics with total per residue metrics
-    index_residues = list(pose.interface_design_residue_numbers)
-    residue_df = pd.merge(residue_df.loc[:, idx_slice[index_residues, :]],
-                          per_residue_df.loc[:, idx_slice[index_residues, :]],
-                          left_index=True, right_index=True)
     # scores_df['errat_accuracy'] = pd.Series(atomic_deviation)
     scores_df['interface_local_density'] = pd.Series(interface_local_density)
     # Include in errat_deviation if errat score is < 2 std devs and isn't 0 to begin with
@@ -3842,64 +3885,65 @@ def interface_design_analysis(pose: Pose, design_poses: Iterable[Pose] = None, s
             pose.log.info(f'Entity reference sequence and provided alignment are different lengths: {error}')
             warn = True
 
-        if warn:
-            if not measure_evolution and not measure_alignment:
-                pose.log.info(f'Metrics relying on multiple sequence alignment data are not being collected as '
-                              f'there were none found. These include: '
-                              f'{", ".join(multiple_sequence_alignment_dependent_metrics)}')
-            elif not measure_alignment:
-                pose.log.info(f'Metrics relying on a multiple sequence alignment are not being collected as '
-                              f'there was no MSA found. These include: '
-                              f'{", ".join(multiple_sequence_alignment_dependent_metrics)}')
-            else:
-                pose.log.info(f'Metrics relying on an evolutionary profile are not being collected as '
-                              f'there was no profile found. These include: '
-                              f'{", ".join(profile_dependent_metrics)}')
+    if warn:
+        if not measure_evolution and not measure_alignment:
+            pose.log.info(f'Metrics relying on multiple sequence alignment data are not being collected as '
+                          f'there were none found. These include: '
+                          f'{", ".join(multiple_sequence_alignment_dependent_metrics)}')
+        elif not measure_alignment:
+            pose.log.info(f'Metrics relying on a multiple sequence alignment are not being collected as '
+                          f'there was no MSA found. These include: '
+                          f'{", ".join(multiple_sequence_alignment_dependent_metrics)}')
+        else:
+            pose.log.info(f'Metrics relying on an evolutionary profile are not being collected as '
+                          f'there was no profile found. These include: '
+                          f'{", ".join(profile_dependent_metrics)}')
 
     # Include the putils.pose_source in the measured designs
     contact_order_per_res_z, reference_collapse, collapse_profile = pose.get_folding_metrics()
     folding_and_collapse = calculate_collapse_metrics(list(zip(*[list(design_sequences.values())
                                                                  for design_sequences in entity_sequences])),
                                                       contact_order_per_res_z, reference_collapse, collapse_profile)
-    pose_collapse_df = pd.DataFrame(folding_and_collapse).T
-
+    # pose_collapse_df = pd.DataFrame(folding_and_collapse).T
+    per_residue_collapse_df = pd.concat({design_id: pd.DataFrame(data, index=residue_numbers)
+                                         for design_id, data in zip(viable_designs, folding_and_collapse)},
+                                        ).unstack().swaplevel(0, 1, axis=1)
+    # Convert per_residue_data into a dataframe matching residue_df orientation
+    per_residue_df = pd.concat({name: pd.DataFrame(data, index=residue_indices)
+                                for name, data in per_residue_data.items()}).unstack().swaplevel(0, 1, axis=1)
+    # Fill in contact order for each design
+    per_residue_df.fillna(per_residue_df.loc[putils.pose_source, idx_slice[:, 'contact_order']], inplace=True)
+    per_residue_df = per_residue_df.join(per_residue_collapse_df)
+    # Process mutational frequencies, H-bond, and Residue energy metrics to dataframe
+    residue_df = pd.concat({design: pd.DataFrame(info) for design, info in residue_info.items()}).unstack()
+    # returns multi-index column with residue number as first (top) column index, metric as second index
+    # during residue_df unstack, all residues with missing dicts are copied as nan
+    # Merge interface design specific residue metrics with total per residue metrics
+    index_residues = list(pose.interface_design_residue_numbers)
+    residue_df = pd.merge(residue_df.loc[:, idx_slice[index_residues, :]],
+                          per_residue_df.loc[:, idx_slice[index_residues, :]],
+                          left_index=True, right_index=True)
     if measure_evolution:
         pose.evolutionary_profile = concatenate_profile([entity.evolutionary_profile for entity in pose.entities])
 
     # pose.generate_interface_fragments() was already called
     pose.calculate_fragment_profile()
-    # # (Entity1, Entity2), list[fragment_info_type]
-    # for query_pair, fragment_info in pose.fragment_queries.items():
-    #     # self.log.debug(f'Query Pair: {query_pair[0].name}, {query_pair[1].name}'
-    #     #                f'\n\tFragment Info:{fragment_info}')
-    #     for query_idx, entity in enumerate(query_pair):
-    #         entity.add_fragments_to_profile(fragments=fragment_info,
-    #                                         alignment_type=alignment_types[query_idx])
-    #         entity.calculate_fragment_profile()
-    # for entity in pose.entities:
-    #     entity.add_profile(evolution=job.design.evolution_constraint,
-    #                        fragments=job.generate_fragments)
-
-    # pose.fragment_profile = concatenate_profile([entity.fragment_profile for entity in pose.entities], start_at=0)
-    # pose.profile = concatenate_profile([entity.profile for entity in pose.entities])
-    # pose.calculate_profile()
     pose.add_profile(evolution=job.design.evolution_constraint,
                      fragments=job.generate_fragments)
 
     # Load profiles of interest into the analysis
-    profile_background = {}
-    if pose.profile:
-        profile_background['design'] = pssm_as_array(pose.profile)
+    profile_background = {'design': pssm_as_array(pose.profile),
+                          'evolution': pssm_as_array(pose.evolutionary_profile),
+                          'fragment': pssm_as_array(pose.fragment_profile)}
+    # if pose.profile:
     # else:
     #     pose.log.info('Design has no fragment information')
-    if pose.evolutionary_profile:
-        profile_background['evolution'] = pssm_as_array(pose.evolutionary_profile)
-    else:
-        pose.log.info('No evolution information')
-    if pose.fragment_profile:
-        profile_background['fragment'] = pssm_as_array(pose.fragment_profile)
-    else:
-        pose.log.info('No fragment information')
+    # if pose.evolutionary_profile:
+    # else:
+    #     pose.log.info('No evolution information')
+    # if pose.fragment_profile:
+    # else:
+    #     pose.log.info('No fragment information')
     if job.fragment_db is not None:
         interface_bkgd = np.array(list(job.fragment_db.aa_frequencies.values()))
         profile_background['interface'] = np.tile(interface_bkgd, (pose.number_of_residues, 1))
