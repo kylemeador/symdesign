@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import functools
-import gc
 import logging
+import math
 import os
 import time
 import traceback
@@ -218,11 +218,23 @@ class ProteinMPNNFactory:
         if model:
             return model
         else:  # Create a new ProteinMPNN model instance
-            # Acquire a adequate computing device
-            device = torch.device('cuda:0' if (torch.cuda.is_available()) else 'cpu')
-            # device = torch.device('cpu')
+            if not self._models:  # Nothing initialized
+                # Acquire a adequate computing device
+                if torch.cuda.is_available():
+                    self.device = torch.device('cuda:0')
+                    # Set the environment to use memory efficient cuda management
+                    max_split = 1000
+                    pytorch_conf = f'max_split_size_mb:{max_split},' \
+                                   f'roundup_power2_divisions:4,' \
+                                   f'garbage_collection_threshold:0.7'
+                    os.environ['PYTORCH_CUDA_ALLOC_CONF'] = pytorch_conf
+                    logger.debug(f'Setting pytorch configuration:\n{pytorch_conf}\n'
+                                 f'Result:{os.getenv("PYTORCH_CUDA_ALLOC_CONF")}')
+                else:
+                    self.device = torch.device('cpu')
+
             checkpoint = torch.load(os.path.join(utils.path.protein_mpnn_weights_dir, f'{model_name}.pt'),
-                                    map_location=device)
+                                    map_location=self.device)
             logger.info(f'Number of edges: {checkpoint["num_edges"]}')
             logger.info(f'Training noise level: {checkpoint["noise_level"]} Angstroms')
             hidden_dim = 128
@@ -236,10 +248,14 @@ class ProteinMPNNFactory:
                                     num_decoder_layers=num_layers,
                                     augment_eps=backbone_noise,
                                     k_neighbors=checkpoint['num_edges'])
-                model.to(device)
+                model.to(self.device)
                 model.load_state_dict(checkpoint['model_state_dict'])
                 model.eval()
-                model.device = device
+                model.device = self.device
+
+            number_of_mpnn_model_parameters = sum([math.prod(param.size()) for param in model.parameters()])
+            logger.debug(f'The number of proteinmpnn model parameters is: {number_of_mpnn_model_parameters}')
+
             self._models[model_name_key] = model
 
         return model

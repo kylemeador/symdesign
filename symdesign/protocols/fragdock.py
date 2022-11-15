@@ -2998,20 +2998,7 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
     # ------------------ TERM ------------------------
     elif job.design.sequences:  # We perform sequence design
         mpnn_model = ml.proteinmpnn_factory()  # Todo accept model_name arg. Now just use the default
-        # set the environment to use memory efficient cuda management
-        max_split = 1000
-        pytorch_conf = f'max_split_size_mb:{max_split},roundup_power2_divisions:4,garbage_collection_threshold:0.7'
-        os.environ['PYTORCH_CUDA_ALLOC_CONF'] = pytorch_conf
-        # pytorch_conf = 'PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:-1,roundup_power2_divisions:4,garbage_collection_threshold:0.7'
-        # set_conf = f'export {pytorch_conf}'
-        # os.system(set_conf)
-        log.critical(f'Setting pytorch configuration:\n{pytorch_conf}\nResult:{os.getenv("PYTORCH_CUDA_ALLOC_CONF")}')
-        number_of_mpnn_model_parameters = sum([prod(param.size()) for param in mpnn_model.parameters()])
-        log.critical(f'The number of proteinmpnn model parameters is: {number_of_mpnn_model_parameters}')
 
-        # Todo
-        #  Check job.design.evolution_constraint flag
-        #  Move this outside if we want to measure docking solutions with ProteinMPNN
         # Load profiles of interest into the analysis
         profile_background = {}
         if job.design.evolution_constraint:
