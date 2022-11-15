@@ -3457,6 +3457,24 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
                         # Todo save this
                         print('design_probs_collapse', design_probs_collapse[_residue_indices_of_interest[pose_idx]])
                         print('designed_indices_collapse_z', designed_indices_collapse_z)
+                        # design_probs_collapse [0.1229698  0.14987233 0.23318215 0.23268045 0.23882663 0.24801936
+                        #  0.25622816 0.44975936 0.43138875 0.3607946  0.3140504  0.28207788
+                        #  0.27033003 0.27388856 0.28031376 0.28897327 0.14254868 0.13711281
+                        #  0.12078322 0.11563808 0.13515363 0.16421124 0.16638894 0.16817969
+                        #  0.16234223 0.19553652 0.20065537 0.1901575  0.17455298 0.17621328
+                        #  0.20747318 0.21465868 0.22461864 0.21520302 0.21346277 0.2054776
+                        #  0.17700449 0.15074518 0.11202089 0.07674509 0.08504518 0.09990609
+                        #  0.16057604 0.14554144 0.14646661 0.15743639 0.2136532  0.23222249
+                        #  0.26718637]
+                        # designed_indices_collapse_z [-0.80368181 -1.2787087   0.71124918  1.04688287  1.26099661 -0.17269616
+                        #  -0.06417628  1.16625098  0.94364294  0.62500235  0.53019078  0.5038286
+                        #   0.59372686  0.82563642  1.12022683  1.1989269  -1.07529947 -1.27769417
+                        #  -1.24323295 -0.95376269  0.55229076  1.05845308  0.62604691  0.20474606
+                        #  -0.20987778 -0.45545679 -0.40602295 -0.54974293 -0.72873982 -0.84489538
+                        #  -0.8104777  -0.80596935 -0.71591074 -0.79774316 -0.75114322 -0.77010185
+                        #  -0.63265472 -0.61240502 -0.69975283 -1.11501543 -0.81130281 -0.64497745
+                        #  -0.10221637 -0.32925792 -0.53646227 -0.54949522 -0.35537453 -0.28560236
+                        #   0.23599237]
                         # print('magnitude greater than 1', magnitude_of_collapse_z_deviation > 1)
                         log.warning(f'***Collapse is larger than one standard deviation.'
                                     f' Pose is *** being considered')
@@ -4876,8 +4894,11 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
         scores_df[putils.groups] = 'proteinmpnn'
         scores_df['proteinmpnn_v_evolution_cross_entropy_designed_mean'] = \
             scores_df['proteinmpnn_v_evolution_cross_entropy'] / scores_df['designed_residues_total']
-        scores_df['proteinmpnn_v_fragment_cross_entropy_designed_mean'] = \
-            scores_df['proteinmpnn_v_fragment_cross_entropy'] / scores_df['number_fragment_residues_total']
+        try:
+            scores_df['proteinmpnn_v_fragment_cross_entropy_designed_mean'] = \
+                scores_df['proteinmpnn_v_fragment_cross_entropy'] / scores_df['number_fragment_residues_total']
+        except ZeroDivisionError:
+            scores_df['proteinmpnn_v_fragment_cross_entropy_designed_mean'] = 0.
         scores_df['proteinmpnn_score_complex'] = \
             scores_df['interface_energy_complex'] / scores_df['pose_length']
         scores_df['proteinmpnn_score_unbound'] = \
