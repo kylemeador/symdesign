@@ -136,13 +136,16 @@ def batch_calculation(size: int, batch_length: int, setup: Callable = None,
                     _batch_length -= 1
 
             if last_error is not None:  # This exited from the ZeroDivisionError except
-                try:
-                    logger.critical(f'{batch_calculation.__name__} exited with the following exceptions:\n\nThe first '
-                                    f'exception in the traceback was the result of the first iteration, while the '
-                                    f'most recent exception in the traceback is last\n')
-                    raise _error
-                except compute_failure_exceptions:
-                    raise last_error
+                # try:
+                logger.critical(f'{batch_calculation.__name__} exited with the following exceptions:\n\nThe first '
+                                f'exception in the traceback was the result of the first iteration, while the '
+                                f'most recent exception in the traceback is last\n')
+                # raise _error
+                print(_error)
+                # except compute_failure_exceptions:
+                #     raise last_error
+                print(last_error)
+                raise RuntimeError()
 
             return return_containers
         return wrapped
