@@ -3012,64 +3012,66 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
         # Todo
         #  Check job.design.evolution_constraint flag
         #  Move this outside if we want to measure docking solutions with ProteinMPNN
-        # Add Entity information to the Pose
-        measure_evolution, measure_alignment = True, True
-        warn = False
-        for entity in pose.entities:
-            # entity.sequence_file = job.api_db.sequences.retrieve_file(name=entity.name)
-            # if not entity.sequence_file:
-            #     entity.write_sequence_to_fasta('reference', out_dir=job.sequences)
-            #     # entity.add_evolutionary_profile(out_dir=job.api_db.hhblits_profiles.location)
-            # else:
-            profile = job.api_db.hhblits_profiles.retrieve_data(name=entity.name)
-            if not profile:
-                measure_evolution = False
-                warn = True
-            else:
-                entity.evolutionary_profile = profile
-
-            if not entity.verify_evolutionary_profile():
-                entity.fit_evolutionary_profile_to_structure()
-
-            try:  # To fetch the multiple sequence alignment for further processing
-                msa = job.api_db.alignments.retrieve_data(name=entity.name)
-                if not msa:
+        # Load profiles of interest into the analysis
+        profile_background = {}
+        if job.design.evolution_constraint:
+            # Add Entity information to the Pose
+            measure_evolution = measure_alignment = True
+            warn = False
+            for entity in pose.entities:
+                # entity.sequence_file = job.api_db.sequences.retrieve_file(name=entity.name)
+                # if not entity.sequence_file:
+                #     entity.write_sequence_to_fasta('reference', out_dir=job.sequences)
+                #     # entity.add_evolutionary_profile(out_dir=job.api_db.hhblits_profiles.location)
+                # else:
+                profile = job.api_db.hhblits_profiles.retrieve_data(name=entity.name)
+                if not profile:
                     measure_evolution = False
                     warn = True
                 else:
-                    entity.msa = msa
-            except ValueError as error:  # When the Entity reference sequence and alignment are different lengths
-                # raise error
-                log.info(f'Entity reference sequence and provided alignment are different lengths: {error}')
-                warn = True
+                    entity.evolutionary_profile = profile
 
-        if warn:
-            if not measure_evolution and not measure_alignment:
-                log.info(f'Metrics relying on multiple sequence alignment data are not being collected as '
-                         f'there were none found. These include: '
-                         f'{", ".join(multiple_sequence_alignment_dependent_metrics)}')
-            elif not measure_alignment:
-                log.info(f'Metrics relying on a multiple sequence alignment are not being collected as '
-                         f'there was no MSA found. These include: '
-                         f'{", ".join(multiple_sequence_alignment_dependent_metrics)}')
+                if not entity.verify_evolutionary_profile():
+                    entity.fit_evolutionary_profile_to_structure()
+
+                try:  # To fetch the multiple sequence alignment for further processing
+                    msa = job.api_db.alignments.retrieve_data(name=entity.name)
+                    if not msa:
+                        measure_evolution = False
+                        warn = True
+                    else:
+                        entity.msa = msa
+                except ValueError as error:  # When the Entity reference sequence and alignment are different lengths
+                    # raise error
+                    log.info(f'Entity reference sequence and provided alignment are different lengths: {error}')
+                    warn = True
+
+            if warn:
+                if not measure_evolution and not measure_alignment:
+                    log.info(f'Metrics relying on multiple sequence alignment data are not being collected as '
+                             f'there were none found. These include: '
+                             f'{", ".join(multiple_sequence_alignment_dependent_metrics)}')
+                elif not measure_alignment:
+                    log.info(f'Metrics relying on a multiple sequence alignment are not being collected as '
+                             f'there was no MSA found. These include: '
+                             f'{", ".join(multiple_sequence_alignment_dependent_metrics)}')
+                else:
+                    log.info(f'Metrics relying on an evolutionary profile are not being collected as '
+                             f'there was no profile found. These include: '
+                             f'{", ".join(profile_dependent_metrics)}')
+
+            if measure_evolution:
+                pose.evolutionary_profile = concatenate_profile([entity.evolutionary_profile for entity in pose.entities])
+
+            if pose.evolutionary_profile:
+                profile_background['evolution'] = evolutionary_profile_array = pssm_as_array(pose.evolutionary_profile)
+                batch_evolutionary_profile = torch.from_numpy(np.tile(evolutionary_profile_array,
+                                                                      (batch_length, 1, 1)))
+                # log_evolutionary_profile = np.log(evolutionary_profile_array)
+                torch_log_evolutionary_profile = torch.from_numpy(np.log(evolutionary_profile_array))
             else:
-                log.info(f'Metrics relying on an evolutionary profile are not being collected as '
-                         f'there was no profile found. These include: '
-                         f'{", ".join(profile_dependent_metrics)}')
+                pose.log.info('No evolution information')
 
-        # Load profiles of interest into the analysis
-        profile_background = {}
-        if measure_evolution:
-            pose.evolutionary_profile = concatenate_profile([entity.evolutionary_profile for entity in pose.entities])
-
-        if pose.evolutionary_profile:
-            profile_background['evolution'] = evolutionary_profile_array = pssm_as_array(pose.evolutionary_profile)
-            batch_evolutionary_profile = torch.from_numpy(np.tile(evolutionary_profile_array,
-                                                                  (batch_length, 1, 1)))
-            # log_evolutionary_profile = np.log(evolutionary_profile_array)
-            torch_log_evolutionary_profile = torch.from_numpy(np.log(evolutionary_profile_array))
-        else:
-            pose.log.info('No evolution information')
         if job.fragment_db is not None:
             # Todo ensure the AA order is the same as MultipleSequenceAlignment.from_dictionary(pose_sequences) below
             interface_bkgd = np.array(list(job.fragment_db.aa_frequencies.values()))
@@ -3238,8 +3240,10 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
 
                 # Load fragment_profile into the analysis
                 pose.calculate_fragment_profile()
-                if pose.fragment_profile:
-                    fragment_profiles.append(pssm_as_array(pose.fragment_profile))
+                # if pose.fragment_profile:
+                fragment_profiles.append(pssm_as_array(pose.fragment_profile))
+                # else:
+                #     fragment_profiles.append(pssm_as_array(pose.fragment_profile))
 
                 # Add all interface residues
                 design_residues = []
@@ -3516,8 +3520,10 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
 
                 # Load fragment_profile into the analysis
                 pose.calculate_fragment_profile()
-                if pose.fragment_profile:
-                    fragment_profiles.append(pssm_as_array(pose.fragment_profile))
+                # if pose.fragment_profile:
+                fragment_profiles.append(pssm_as_array(pose.fragment_profile))
+                # else:
+                #     fragment_profiles.append(pssm_as_array(pose.fragment_profile))
 
                 # Add all interface residues
                 design_residues = []
@@ -3643,8 +3649,10 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
 
                 # Load fragment_profile into the analysis
                 pose.calculate_fragment_profile()
-                if pose.fragment_profile:
-                    fragment_profiles.append(pssm_as_array(pose.fragment_profile))
+                # if pose.fragment_profile:
+                fragment_profiles.append(pssm_as_array(pose.fragment_profile))
+                # else:
+                #     fragment_profiles.append(pssm_as_array(pose.fragment_profile))
 
                 # Add all interface residues
                 design_residues = []
@@ -4588,10 +4596,10 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
             # This assumes that the pose already has .evolutionary_profile and .fragment_profile attributes
             pose.add_profile(evolution=job.design.evolution_constraint,
                              fragments=job.generate_fragments)
-            if pose.profile:
-                design_profile_array = pssm_as_array(pose.profile)
-                # else:
-                #     pose.log.info('Design has no fragment information')
+            # # if pose.profile:
+            # design_profile_array = pssm_as_array(pose.profile)
+            # # else:
+            # #     pose.log.info('Design has no fragment information')
             dock_per_residue_evolution_cross_entropy = per_residue_evolution_cross_entropy[idx]
             dock_per_residue_fragment_cross_entropy = per_residue_fragment_cross_entropy[idx]
             dock_per_residue_design_indices = per_residue_design_indices[idx]
@@ -4651,6 +4659,8 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
                     # raise NotImplementedError(f"We currently don't have a solution for this...{error}")
                     log.warning(f"We didn't find any fragment information... due to: {error}"
                                 f"\nSetting the pose.fragment_profile = {'{}'}")
+                    raise IndexError(f'With new updates to calculate_fragment_profile this code should be unreachable.'
+                                     f' Original error:\n{error}')
                     pose.fragment_profile = {}
 
                 # observed, divergence = \

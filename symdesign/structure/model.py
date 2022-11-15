@@ -6831,17 +6831,25 @@ class Pose(SymmetricModel):
 
         # The order of this and below could be switched by combining self.fragment_map too
         # Also, need to extract the entity.fragment_map to Pose to SequenceProfile.process_fragment_profile() ...
+        fragments_available = False
         for entity in self.entities:
             if entity.fragment_map:
                 entity.simplify_fragment_profile(**kwargs)
+                fragments_available = True
 
-        self.fragment_profile = concatenate_profile([entity.fragment_profile for entity in self.entities],
-                                                    start_at=0)
-        # self.alpha = concatenate_profile([entity.alpha for entity in self.entities])
-        self.alpha = []
-        for entity in self.entities:
-            self.alpha.extend(entity.alpha)
-        self._alpha = entity._alpha
+        if fragments_available:
+            self.fragment_profile = concatenate_profile([entity.fragment_profile for entity in self.entities],
+                                                        start_at=0)
+            # self.alpha = concatenate_profile([entity.alpha for entity in self.entities])
+            self.alpha = []
+            for entity in self.entities:
+                self.alpha.extend(entity.alpha)
+            self._alpha = entity._alpha  # Logic enforces entity is always referenced here
+        else:
+            self.alpha = [0 for residue in self.residues]  # Reset the data
+            self.fragment_profile = self.create_null_profile(zero_index=True)
+            # self.fragment_profile = {residue_index: [[] for _ in range(self._fragment_db.fragment_length)]
+            #                          for residue_index in range(self.number_of_residues)}
 
     def get_fragment_observations(self) -> list[dict[str, str | int | float]] | list:
         """Return the fragment observations identified on the pose regardless of Entity binding
