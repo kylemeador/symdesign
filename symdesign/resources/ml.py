@@ -119,8 +119,8 @@ def batch_calculation(size: int, batch_length: int, setup: Callable = None,
                     else:
                         # raise _error
                         last_error = error
-                    logger.debug(f'{batch_calculation.__name__}: encountered error during {func.__name__} execution:'
-                                 f'\n{error}')
+                    # logger.debug(f'{batch_calculation.__name__}: encountered error during {func.__name__} execution:'
+                    #              f'\n{error}')
                     _batch_length -= 1
 
             if last_error is not None:  # This exited from the ZeroDivisionError except

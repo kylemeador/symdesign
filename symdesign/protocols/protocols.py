@@ -2896,6 +2896,10 @@ class PoseDirectory:
 
         pose_stats, protocol_stats = [], []
         for idx, stat in enumerate(stats_metrics):
+            # Todo both groupby calls have this warning
+            #  FutureWarning: The default value of numeric_only in DataFrame.mean is deprecated. In a future version,
+            #  it will default to False. In addition, specifying 'numeric_only=None' is deprecated. Select only valid
+            #  columns or specify the value of numeric_only to silence this warning.
             pose_stats.append(getattr(trajectory_df, stat)().rename(stat))
             protocol_stats.append(getattr(protocol_groups, stat)())
 
