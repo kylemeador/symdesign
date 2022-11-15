@@ -232,6 +232,7 @@ class ProteinMPNNFactory:
                                  f'Result:{os.getenv("PYTORCH_CUDA_ALLOC_CONF")}')
                 else:
                     self.device = torch.device('cpu')
+                logger.debug(f'The ProteinMPNN device is: {self.device}')
 
             checkpoint = torch.load(os.path.join(utils.path.protein_mpnn_weights_dir, f'{model_name}.pt'),
                                     map_location=self.device)

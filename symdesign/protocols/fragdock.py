@@ -3068,14 +3068,12 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
         # Gather folding metrics for the pose for comparison to the designed sequences
         contact_order_per_res_z, reference_collapse, collapse_profile = pose.get_folding_metrics()
         if collapse_profile.size:  # Not equal to zero
-            # print(collapse_profile.shape)
-            # log.critical('****Found evolutionary profile!')
             collapse_profile_mean, collapse_profile_std = \
                 np.nanmean(collapse_profile, axis=-2), np.nanstd(collapse_profile, axis=-2)
-        # else:
-        #     log.critical('****MISSING evolutionary profile!')
-        # Extract parameters to run ProteinMPNN design and modulate memory requirements
 
+        # Extract parameters to run ProteinMPNN design and modulate memory requirements
+        # Retrieve the ProteinMPNN model
+        mpnn_model = ml.proteinmpnn_factory()  # Todo accept model_name arg. Now just use the default
         # Set up parameters and model sampling type based on symmetry
         if pose.is_symmetric():
             # number_of_symmetry_mates = pose.number_of_symmetry_mates
@@ -3103,18 +3101,18 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
         for idx, coords in enumerate(entity_unbound_coords):
             entity_unbound_coords[idx] = coord_func(coords + unbound_transform*idx)
 
-        log.debug(f'The mpnn_model.device is: {mpnn_model.device}')
         device = mpnn_model.device
         if device == 'cpu':
             mpnn_memory_constraint = psutil.virtual_memory().available
-            log.critical(f'The available cpu memory is: {mpnn_memory_constraint}')
+            log.debug(f'The available cpu memory is: {mpnn_memory_constraint}')
         else:
             mpnn_memory_constraint, gpu_memory_total = torch.cuda.mem_get_info()
-            log.critical(f'The available gpu memory is: {mpnn_memory_constraint}')
+            log.debug(f'The available gpu memory is: {mpnn_memory_constraint}')
 
         element_memory = 4  # where each element is np.int/float32
         number_of_elements_available = mpnn_memory_constraint / element_memory
-        log.critical(f'The number_of_elements_available is: {number_of_elements_available}')
+        log.debug(f'The number_of_elements_available is: {number_of_elements_available}')
+        number_of_mpnn_model_parameters = sum([math.prod(param.size()) for param in model.parameters()])
         model_elements = number_of_mpnn_model_parameters
         # Todo use 5 as ideal CB is added by the model later with ca_only = False
         model_elements += prod((number_of_residues, num_model_residues, 3))  # X,
@@ -3130,7 +3128,7 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
         model_elements += prod((number_of_residues, 20))  # pssm_log_odds_mask.shape
         model_elements += number_of_residues  # tied_beta.shape
         model_elements += prod((number_of_residues, 21))  # bias_by_res.shape
-        log.critical(f'The number of model_elements is: {model_elements}')
+        log.debug(f'The number of model_elements is: {model_elements}')
 
         size = full_rotation1.shape[0]  # This is the number of transformations, i.e. the number_of_designs
         # The batch_length indicates how many models could fit in the allocated memory. Using floor division to get integer
@@ -3252,8 +3250,7 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
             log.debug(f'X.shape: {X.shape}')
 
             # Update different parameters to the identified device
-            batch_parameters.update(ml.proteinmpnn_to_device(mpnn_model.device, X=X,
-                                                             chain_M_pos=residue_mask_cpu))
+            batch_parameters.update(ml.proteinmpnn_to_device(device, X=X, chain_M_pos=residue_mask_cpu))
             # Different across poses
             X = batch_parameters.pop('X')
             residue_mask = batch_parameters.get('chain_M_pos', None)
@@ -3261,7 +3258,7 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
             # bias_by_res = batch_parameters.get('bias_by_res', None)
             # Todo calculate individually if using some feature to describe order
             #  MUST reinstate the removal from scope after finished with this batch
-            # decoding_order = pose.generate_proteinmpnn_decode_order(to_device=mpnn_model.device)
+            # decoding_order = pose.generate_proteinmpnn_decode_order(to_device=device)
             # decoding_order.repeat(actual_batch_length, 1)
             # with torch.no_grad():  # Ensure no gradients are produced
             # Unpack constant parameters and slice reused parameters only once
@@ -3325,9 +3322,7 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
             S_design_null[residue_mask.type(torch.bool)] = mpnn_null_idx
             chain_residue_mask = chain_mask * residue_mask
 
-            decoding_order = ml.create_decoding_order(randn, chain_mask,
-                                                      tied_pos=tied_pos,
-                                                      to_device=mpnn_model.device)
+            decoding_order = ml.create_decoding_order(randn, chain_mask, tied_pos=tied_pos, to_device=device)
             # See if the pose is useful to design based on constraints of collapse
 
             # Measure the conditional amino acid probabilities at each residue to see
@@ -3383,6 +3378,9 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
                 # [[-3.0685883 -3.575249  -2.967545  ... -3.3111317 -3.1204746 -3.1201541]
                 #  [-3.0685873 -3.5752504 -2.9675443 ... -3.3111336 -3.1204753 -3.1201541]
                 #  [-3.0685952 -3.575687  -2.9675474 ... -3.3111277 -3.1428783 -3.1201544]]
+            else:
+                _per_residue_fragment_cross_entropy = np.empty_like(_residue_indices_of_interest, dtype=np.float32)
+                _per_residue_fragment_cross_entropy[:] = np.nan
 
             if pose.evolutionary_profile:
                 # Remove the gaps index from the softmax input -> ... :, :mpnn_null_idx]
@@ -3393,7 +3391,7 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
                 #                 mask=_residue_indices_of_interest,
                 #                 axis=1)
             else:  # Populate with null data
-                _per_residue_evolution_cross_entropy = np.empty_like(residue_mask_cpu, dtype=np.float32)
+                _per_residue_evolution_cross_entropy = np.empty_like(_per_residue_fragment_cross_entropy)
                 _per_residue_evolution_cross_entropy[:] = np.nan
 
             if collapse_profile.size:  # Not equal to zero
@@ -3556,8 +3554,7 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
             log.debug(f'X.shape: {X.shape}')
 
             # Update different parameters to the identified device
-            batch_parameters.update(ml.proteinmpnn_to_device(mpnn_model.device, X=X,
-                                                             chain_M_pos=residue_mask_cpu,
+            batch_parameters.update(ml.proteinmpnn_to_device(device, X=X, chain_M_pos=residue_mask_cpu,
                                                              bias_by_res=bias_by_res))
             # Different across poses
             # X = batch_parameters.pop('X')
@@ -3567,7 +3564,7 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
             # bias_by_res = batch_parameters.get('bias_by_res', None)
             # Todo calculate individually if using some feature to describe order
             #  MUST reinstate the removal from scope after finished with this batch
-            # decoding_order = pose.generate_proteinmpnn_decode_order(to_device=mpnn_model.device)
+            # decoding_order = pose.generate_proteinmpnn_decode_order(to_device=device)
             # decoding_order.repeat(actual_batch_length, 1)
             # TODO ________________ END HERE _______________
             # with torch.no_grad():  # Ensure no gradients are produced
@@ -3685,8 +3682,7 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
             log.debug(f'X.shape: {X.shape}')
 
             # Update different parameters to the identified device
-            batch_parameters.update(ml.proteinmpnn_to_device(mpnn_model.device, X=X,
-                                                             chain_M_pos=residue_mask_cpu,
+            batch_parameters.update(ml.proteinmpnn_to_device(device, X=X, chain_M_pos=residue_mask_cpu,
                                                              bias_by_res=bias_by_res))
             # Different across poses
             X = batch_parameters.pop('X')
@@ -3695,7 +3691,7 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
             # bias_by_res = batch_parameters.get('bias_by_res', None)
             # Todo calculate individually if using some feature to describe order
             #  MUST reinstate the removal from scope after finished with this batch
-            # decoding_order = pose.generate_proteinmpnn_decode_order(to_device=mpnn_model.device)
+            # decoding_order = pose.generate_proteinmpnn_decode_order(to_device=device)
             # decoding_order.repeat(actual_batch_length, 1)
             # TODO ________________ END HERE _______________
             # with torch.no_grad():  # Ensure no gradients are produced
@@ -3735,9 +3731,7 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
             S_design_null[residue_mask.type(torch.bool)] = mpnn_null_idx
             chain_residue_mask = chain_mask * residue_mask
 
-            decoding_order = ml.create_decoding_order(randn, chain_mask,
-                                                      tied_pos=tied_pos,
-                                                      to_device=mpnn_model.device)
+            decoding_order = ml.create_decoding_order(randn, chain_mask, tied_pos=tied_pos, to_device=device)
             # Todo _______________ START HERE ______________
             #  dock_fit_parameters = check_dock_for_designability()
             #  def check_dock_for_designability():
@@ -3748,8 +3742,8 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
             # If conditional_probs() are measured, then we need a batched_decoding order
             # conditional_start_time = time.time()
             # Calculations with this are done using cpu memory and numpy
-            logger.critical(f'Before model forward pass\nmemory_allocated: {torch.cuda.memory_allocated()}'
-                            f'\nmemory_reserved: {torch.cuda.memory_reserved()}')
+            # logger.critical(f'Before model forward pass\nmemory_allocated: {torch.cuda.memory_allocated()}'
+            #                 f'\nmemory_reserved: {torch.cuda.memory_reserved()}')
             conditional_log_probs_null_seq = \
                 mpnn_model(X, S_design_null, mask, chain_residue_mask, residue_idx, chain_encoding,
                            None,  # This argument is provided but with below args, is not used
@@ -3799,7 +3793,6 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
                 #  [-3.0685873 -3.5752504 -2.9675443 ... -3.3111336 -3.1204753 -3.1201541]
                 #  [-3.0685952 -3.575687  -2.9675474 ... -3.3111277 -3.1428783 -3.1201544]]
             else:
-                print('_residue_indices_of_interest.shape', _residue_indices_of_interest.shape)
                 _per_residue_fragment_cross_entropy = np.empty_like(_residue_indices_of_interest, dtype=np.float32)
                 _per_residue_fragment_cross_entropy[:] = np.nan
 
@@ -3812,7 +3805,7 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
                 #                 mask=_residue_indices_of_interest,
                 #                 axis=1)
             else:  # Populate with null data
-                _per_residue_evolution_cross_entropy = np.empty_like(_residue_indices_of_interest, dtype=np.float32)
+                _per_residue_evolution_cross_entropy = np.empty_like(_per_residue_fragment_cross_entropy)
                 _per_residue_evolution_cross_entropy[:] = np.nan
 
             if collapse_profile.size:  # Not equal to zero
