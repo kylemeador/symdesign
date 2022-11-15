@@ -5,6 +5,7 @@ import gc
 import logging
 import os
 import time
+import traceback
 from math import ceil
 from typing import Annotated, Iterable, Container, Type, Callable, Sequence, Any
 
@@ -121,18 +122,17 @@ def batch_calculation(size: int, batch_length: int, setup: Callable = None,
                     break  # finished = True
                 except compute_failure_exceptions as error:
                     # del setup_returns
-                    logger.critical(f'After ERROR\nmemory_allocated: {torch.cuda.memory_allocated()}'
-                                    f'\nmemory_reserved: {torch.cuda.memory_reserved()}')
-                    gc.collect()
-                    logger.critical(f'After GC\nmemory_allocated: {torch.cuda.memory_allocated()}'
-                                    f'\nmemory_reserved: {torch.cuda.memory_reserved()}')
+                    # logger.critical(f'After ERROR\nmemory_allocated: {torch.cuda.memory_allocated()}'
+                    #                 f'\nmemory_reserved: {torch.cuda.memory_reserved()}')
+                    # gc.collect()
+                    # logger.critical(f'After GC\nmemory_allocated: {torch.cuda.memory_allocated()}'
+                    #                 f'\nmemory_reserved: {torch.cuda.memory_reserved()}')
                     if _error is None:  # Set the error the first time
-                        _error = last_error = error
+                        # _error = last_error = error
+                        _error = last_error = traceback.format_exception(error)
                     else:
-                        # raise _error
-                        last_error = error
-                    # logger.debug(f'{batch_calculation.__name__}: encountered error during {func.__name__} execution:'
-                    #              f'\n{error}')
+                        # last_error = error
+                        last_error = traceback.format_exception(error)
                     _batch_length -= 1
 
             if last_error is not None:  # This exited from the ZeroDivisionError except
