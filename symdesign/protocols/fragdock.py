@@ -3803,7 +3803,8 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
                 #  [-3.0685873 -3.5752504 -2.9675443 ... -3.3111336 -3.1204753 -3.1201541]
                 #  [-3.0685952 -3.575687  -2.9675474 ... -3.3111277 -3.1428783 -3.1201544]]
             else:
-                _per_residue_fragment_cross_entropy = np.empty_like(residue_mask_cpu, dtype=np.float32)
+                print('_residue_indices_of_interest.shape', _residue_indices_of_interest.shape)
+                _per_residue_fragment_cross_entropy = np.empty_like(_residue_indices_of_interest, dtype=np.float32)
                 _per_residue_fragment_cross_entropy[:] = np.nan
 
             if pose.evolutionary_profile:
@@ -3815,7 +3816,7 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
                 #                 mask=_residue_indices_of_interest,
                 #                 axis=1)
             else:  # Populate with null data
-                _per_residue_evolution_cross_entropy = np.empty_like(residue_mask_cpu, dtype=np.float32)
+                _per_residue_evolution_cross_entropy = np.empty_like(_residue_indices_of_interest, dtype=np.float32)
                 _per_residue_evolution_cross_entropy[:] = np.nan
 
             if collapse_profile.size:  # Not equal to zero
