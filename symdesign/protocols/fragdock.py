@@ -3802,6 +3802,9 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
                 # [[-3.0685883 -3.575249  -2.967545  ... -3.3111317 -3.1204746 -3.1201541]
                 #  [-3.0685873 -3.5752504 -2.9675443 ... -3.3111336 -3.1204753 -3.1201541]
                 #  [-3.0685952 -3.575687  -2.9675474 ... -3.3111277 -3.1428783 -3.1201544]]
+            else:
+                _per_residue_fragment_cross_entropy = np.empty_like(residue_mask_cpu)
+                _per_residue_fragment_cross_entropy[:] = np.nan
 
             if pose.evolutionary_profile:
                 # Remove the gaps index from the softmax input -> ... :, :mpnn_null_idx]
