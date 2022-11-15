@@ -3112,7 +3112,7 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
         element_memory = 4  # where each element is np.int/float32
         number_of_elements_available = mpnn_memory_constraint / element_memory
         log.debug(f'The number_of_elements_available is: {number_of_elements_available}')
-        number_of_mpnn_model_parameters = sum([math.prod(param.size()) for param in model.parameters()])
+        number_of_mpnn_model_parameters = sum([math.prod(param.size()) for param in mpnn_model.parameters()])
         model_elements = number_of_mpnn_model_parameters
         # Todo use 5 as ideal CB is added by the model later with ca_only = False
         model_elements += prod((number_of_residues, num_model_residues, 3))  # X,
