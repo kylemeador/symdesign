@@ -303,6 +303,7 @@ dtype_map = dict(
     pssm_log_odds_mask=torch.float32,  # pssm_log_odds_mask,
     tied_beta=torch.float32,  # tied_beta,
     bias_by_res=torch.float32,  # bias_by_res
+    X_unbound=torch.float32,  # Add the special parameter X_unbound for measuring interfaces...
 )
 batch_params = list(dtype_map.keys())
 # Remove tied_beta as this parameter is not "batched" in ProteinMPNN.tied_sample()
@@ -529,7 +530,7 @@ def proteinmpnn_batch_design(batch_slice: slice, proteinmpnn: ProteinMPNN,
         batch_length, pose_length, *_ = S.shape
     else:
         batch_length, *_ = S.shape
-    # X_unbound = batch_parameters.get('X_unbound')
+
     if actual_batch_length != batch_length:
         # Slice these for the last iteration
         X = X[:actual_batch_length]  # , None)

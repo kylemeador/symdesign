@@ -5787,15 +5787,15 @@ class Pose(SymmetricModel):
                     entity_unbound_coords[idx] = coord_func(coords + unbound_transform*idx)
 
                 X_unbound = np.concatenate(entity_unbound_coords).reshape((number_of_residues, num_model_residues, 3))
-                # Todo add this part to the setup_function
-                extra_batch_parameters = resources.ml.batch_proteinmpnn_input(size=batch_length, X=X_unbound)
-                extra_batch_parameters = resources.ml.proteinmpnn_to_device(device, **extra_batch_parameters)
-                extra_batch_parameters['X_unbound'] = extra_batch_parameters.pop('X')
+                # extra_batch_parameters = resources.ml.batch_proteinmpnn_input(size=batch_length, X=X_unbound)
+                # extra_batch_parameters = resources.ml.proteinmpnn_to_device(device, **extra_batch_parameters)
+                # extra_batch_parameters['X_unbound'] = extra_batch_parameters.pop('X')
+                parameters = {'X_unbound': X_unbound}
             else:
-                extra_batch_parameters = {}
+                parameters = {}
 
             # Set up the inference task
-            parameters = self.get_proteinmpnn_params(ca_only=ca_only)
+            parameters.update(**self.get_proteinmpnn_params(ca_only=ca_only))
             # Solve decoding order
             parameters['randn'] = self.generate_proteinmpnn_decode_order()  # to_device=device)
 
@@ -5818,7 +5818,6 @@ class Pose(SymmetricModel):
                 _proteinmpnn_batch_design(proteinmpnn_model, temperatures=temperatures, pose_length=pose_length,
                                           setup_args=(device,),
                                           setup_kwargs=parameters,
-                                          **extra_batch_parameters,
                                           return_containers={'sequences': generated_sequences,
                                                              'complex_sequence_loss': per_residue_complex_sequence_loss,
                                                              'unbound_sequence_loss': per_residue_unbound_sequence_loss}

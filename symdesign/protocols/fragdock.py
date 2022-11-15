@@ -3147,9 +3147,9 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
 
         # Add a parameter for the unbound version of X to X
         X_unbound = np.concatenate(entity_unbound_coords).reshape((number_of_residues, num_model_residues, 3))
-        extra_batch_parameters = ml.proteinmpnn_to_device(device, **ml.batch_proteinmpnn_input(size=batch_length,
-                                                                                               X=X_unbound))
-        parameters['X_unbound'] = extra_batch_parameters.pop('X')
+        # extra_batch_parameters = ml.proteinmpnn_to_device(device, **ml.batch_proteinmpnn_input(size=batch_length,
+        #                                                                                        X=X_unbound))
+        parameters['X_unbound'] = X_unbound
         # Disregard X, chain_M_pos, and bias_by_res parameters return and use the pose specific data from below
         # parameters.pop('X')  # overwritten by X_unbound
         parameters.pop('chain_M_pos')
