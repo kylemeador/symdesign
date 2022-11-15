@@ -6593,7 +6593,7 @@ class Pose(SymmetricModel):
         ghostfrag_surfacefrag_pairs = find_fragment_overlap(frag_residues1, frag_residues2, clash_coords=entity1_coords)
         self.log.info(f'Found {len(ghostfrag_surfacefrag_pairs)} overlapping fragment pairs at the {entity1.name} | '
                       f'{entity2.name} interface')
-        self.log.info(f'Took {time.time() - fragment_time_start:.8f}s')
+        self.log.debug(f'Took {time.time() - fragment_time_start:.8f}s')
         # # Debug the fragment process
         # out_dir = os.getcwd()
         # self.debug_pdb(out_dir=out_dir, tag='query_fragments')
@@ -6860,7 +6860,8 @@ class Pose(SymmetricModel):
         # The order of this and below could be switched by combining self.fragment_map too
         # Also, need to extract the entity.fragment_map to Pose to SequenceProfile.process_fragment_profile() ...
         for entity in self.entities:
-            entity.simplify_fragment_profile(**kwargs)
+            if entity.fragment_map:
+                entity.simplify_fragment_profile(**kwargs)
 
         self.fragment_profile = concatenate_profile([entity.fragment_profile for entity in self.entities],
                                                     start_at=0)
