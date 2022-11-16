@@ -624,7 +624,7 @@ def proteinmpnn_batch_design(batch_slice: slice, proteinmpnn: ProteinMPNN,
         logger.debug(f'Log probabilities calculation took {time.time() - log_probs_start_time:8f}s')
 
     # Reshape data structures to have shape (batch_length, number_of_temperatures, pose_length)
-    _residue_indices_of_interest = residue_mask[:, :pose_length].astype(bool)
+    _residue_indices_of_interest = residue_mask[:, :pose_length].cpu().numpy().astype(bool)
     sequences = np.concatenate(batch_sequences, axis=1).reshape(actual_batch_length, number_of_temps, pose_length)
     complex_sequence_loss =\
         np.concatenate(_per_residue_complex_sequence_loss, axis=1).reshape(actual_batch_length,
