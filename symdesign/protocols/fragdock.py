@@ -4294,6 +4294,9 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
 
     # Collect sequence metrics on every designed Pose
     if proteinmpnn_used:
+        # Construct per_residue_df
+        per_residue_df = pd.concat({design_id: pd.DataFrame(data, index=residue_numbers)
+                                    for design_id, data in per_residue_data.items()}).unstack().swaplevel(0, 1, axis=1)
         if job.design.sequences:
             sequences = numeric_to_sequence(generated_sequences)
             # Format the sequences from design with shape (size, number_of_temperatures, pose_length)
@@ -4379,14 +4382,8 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
                     / scores_df[f'entity_{idx}_number_of_residues']
             per_residue_df = per_residue_df.join([per_residue_sequence_df, per_residue_background_frequencies,
                                                   per_residue_collapse_df])
-            # per_residue_df = pd.merge(residue_df, per_residue_df, left_index=True, right_index=True)
-
         # else:
         #     per_residue_sequence_df = per_residue_background_frequencies = per_residue_collapse_df = pd.DataFrame()
-
-        # Construct per_residue_df
-        per_residue_df = pd.concat({design_id: pd.DataFrame(data, index=residue_numbers)
-                                    for design_id, data in per_residue_data.items()}).unstack().swaplevel(0, 1, axis=1)
 
         if job.design.structures:
             scores_df['interface_local_density'] = pd.Series(interface_local_density)
@@ -4494,7 +4491,7 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
     # Get the average thermophilicity for all entities
     scores_df['pose_thermophilicity'] = \
         scores_df.loc[:, [f'entity_{idx}_thermophile' for idx in range(1, pose.number_of_entities)]
-        ].sum(axis=1) / pose.number_of_entities
+                      ].sum(axis=1) / pose.number_of_entities
 
     scores_columns = scores_df.columns.to_list()
     log.debug(f'Metrics present: {scores_columns}')
