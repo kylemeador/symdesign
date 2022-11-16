@@ -3861,7 +3861,8 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
                 # per_residue_design_indices[batch_slice] = _residue_indices_of_interest
                 # per_residue_batch_collapse_z[batch_slice] = _per_residue_mini_batch_collapse_z
             else:  # Populate with null data
-                _per_residue_mini_batch_collapse_z = _per_residue_evolution_cross_entropy.copy()
+                _per_residue_mini_batch_collapse_z = np.empty_like(_per_residue_evolution_cross_entropy)
+                # _per_residue_mini_batch_collapse_z = _per_residue_evolution_cross_entropy.copy()
                 _per_residue_mini_batch_collapse_z[:] = np.nan
                 _poor_collapse = _per_residue_mini_batch_collapse_z[:, 0]
 
@@ -4139,6 +4140,8 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
                     'designed_residues_total': per_residue_design_indices[idx],
                     'collapse_profile_z': per_residue_batch_collapse_z[idx],
                 }
+                # 'collapse_profile_z' - The z score for the collapse profile as measured from an evolutionary
+                # collapse profile
             else:
                 design_dock_params = {}
 
@@ -4423,18 +4426,19 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
         #                                       'evolution': 'evolution_sequence_loss',
         #                                       'fragment': 'fragment_sequence_loss',
         #                                       'designed': 'designed_residues_total'})
-        scores_df[putils.groups] = 'proteinmpnn'
-        scores_df['proteinmpnn_v_evolution_cross_entropy_designed_mean'] = \
-            scores_df['proteinmpnn_v_evolution_cross_entropy'] / scores_df['designed_residues_total']
-        try:
-            scores_df['proteinmpnn_v_fragment_cross_entropy_designed_mean'] = \
-                scores_df['proteinmpnn_v_fragment_cross_entropy'] / scores_df['number_fragment_residues_total']
-        except ZeroDivisionError:
-            scores_df['proteinmpnn_v_fragment_cross_entropy_designed_mean'] = 0.
+        if job.dock_proteinmpnn:
+            scores_df['proteinmpnn_v_evolution_cross_entropy_designed_mean'] = \
+                scores_df['proteinmpnn_v_evolution_cross_entropy'] / scores_df['designed_residues_total']
+            try:
+                scores_df['proteinmpnn_v_fragment_cross_entropy_designed_mean'] = \
+                    scores_df['proteinmpnn_v_fragment_cross_entropy'] / scores_df['number_fragment_residues_total']
+            except ZeroDivisionError:
+                scores_df['proteinmpnn_v_fragment_cross_entropy_designed_mean'] = 0.
 
         designed_df = per_residue_df.loc[:, idx_slice[:, 'designed_residues_total']].droplevel(1, axis=1)
 
         if job.design.sequences:
+            scores_df[putils.groups] = 'proteinmpnn'
             scores_df['proteinmpnn_score_complex'] = \
                 scores_df['interface_energy_complex'] / scores_df['pose_length']
             scores_df['proteinmpnn_score_unbound'] = \
