@@ -1243,6 +1243,7 @@ def main():
                                                                  by_file=by_file2))
         if by_file1:
             structure_names1 = eventual_structure_names1
+            print('eventual_structure_names1', eventual_structure_names1)
         if by_file2:
             structure_names2 = eventual_structure_names2
 
@@ -1274,7 +1275,9 @@ def main():
         if single_component_design:
             # structures1 = [entity for entity in all_entities if entity.name in structures1]
             # ^ doesn't work as entity_id is set in orient_structures, but structure name is entry_id
+            print('structures1', structures1)
             structure_pairs = list(combinations(structures1, 2))
+            print('structure_pairs', structure_pairs)
         else:
             structures2 = []
             for structure_name in structure_names2:
