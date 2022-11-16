@@ -3299,7 +3299,7 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
             # Clone the data from the sequence tensor so that it can be set with the null token below
             S_design_null = S.detach().clone()
             # Get the provided batch_length from wrapping function. actual_batch_length may be smaller on last batch
-            batch_length = X.shape[0]
+            # batch_length = X.shape[0]
             # batch_length = X_unbound.shape[0]
             if actual_batch_length != batch_length:
                 # Slice these for the last iteration
@@ -3481,7 +3481,9 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
                                         setup=ml.setup_pose_batch_for_proteinmpnn,
                                         compute_failure_exceptions=(RuntimeError,
                                                                     np.core._exceptions._ArrayMemoryError))
-        def fragdock_design(batch_slice: slice, **batch_parameters) -> dict[str, np.ndarray]:
+        def fragdock_design(batch_slice: slice,
+                            pose_length: int = None,
+                            **batch_parameters) -> dict[str, np.ndarray]:
             actual_batch_length = batch_slice.stop - batch_slice.start
             # Initialize pose data structures for interface design
 
@@ -3584,7 +3586,7 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
             #
             return ml.proteinmpnn_batch_design(batch_slice,
                                                mpnn_model,
-                                               temperatures=job.design.temperatures,
+                                               # temperatures=job.design.temperatures,
                                                pose_length=pose_length,
                                                # **parameters,  # (randn, S, chain_mask, chain_encoding, residue_idx, mask, temperatures, pose_length, bias_by_res, tied_pos, X_unbound)
                                                **batch_parameters  # (X, chain_M_pos, bias_by_res)
@@ -3967,7 +3969,8 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
 
         # Initialize correct data for the calculation
         # Todo perhaps can put some things in here that are relevant
-        proteinmpnn_kwargs = {}
+        proteinmpnn_kwargs = dict(pose_length=pose_length,
+                                  temperatures=job.design.temperatures)
         number_of_temperatures = len(job.design.temperatures)
         # probabilities = np.empty((size, number_of_residues, mpnn_alphabet_length, dtype=np.float32))
         if job.dock_proteinmpnn:
