@@ -33,6 +33,7 @@ method = 'method'
 dock_only = 'dock_only'
 dock_proteinmpnn = 'dock_proteinmpnn'
 dock_continuous_ghost = 'dock_continuous_ghost'
+perturb_dof_steps = 'perturb_dof_steps'
 cluster_map = 'cluster_map'
 specification_file_ = 'specification_file'
 pose_file_ = 'pose_file'
@@ -41,7 +42,7 @@ dataframe = 'dataframe'
 design_arguments = {
     ignore_clashes, ignore_pose_clashes, ignore_symmetric_clashes, method, evolution_constraint, hbnet,
     number_of_trajectories, structure_background, scout, term_constraint, consensus, ca_only, temperatures,
-    sequences, structures, perturb_dof
+    sequences, structures, perturb_dof, perturb_dof_steps
 }
 
 
@@ -75,6 +76,7 @@ sym_entry = format_for_cmdline(sym_entry)
 dock_only = format_for_cmdline(dock_only)
 dock_proteinmpnn = format_for_cmdline(dock_proteinmpnn)
 dock_continuous_ghost = format_for_cmdline(dock_continuous_ghost)
+perturb_dof_steps = format_for_cmdline(perturb_dof_steps)
 ca_only = format_for_cmdline(ca_only)
 perturb_dof = format_for_cmdline(perturb_dof)
 force_flags = format_for_cmdline(force_flags)
@@ -482,6 +484,10 @@ nanohedra_arguments = {
     (f'--{perturb_dof}',): dict(action=argparse.BooleanOptionalAction, default=False,
                                 help='Whether the degrees of freedom should be finely sampled in subsequent docking '
                                      'iterations'),
+    (f'--{perturb_dof_steps}',): dict(type=int, default=3,
+                                      help='How many dof steps should be used during subsequent docking iterations. '
+                                           f'For each DOF, a total of --{perturb_dof_steps} will be sampled during '
+                                           f'perturbation'),
     ('-mv', '--match-value'): dict(type=float, default=0.5, dest='high_quality_match_value',
                                    help='What is the minimum match score required for a high quality fragment?'),
     ('-iz', '--initial-z-value'): dict(type=float, default=1.,
