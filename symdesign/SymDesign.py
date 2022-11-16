@@ -1181,15 +1181,16 @@ def main():
         all_structures = []
         # Set up variables for the correct parsing of provided file paths
         by_file1 = by_file2 = False
-        eventual_structure_names1, eventual_structure_names2 = None, None
+        eventual_structure_names1 = eventual_structure_names2 = None
         if args.oligomer1:
             by_file1 = True
             logger.critical(f'Ensuring provided file(s) at {args.oligomer1} are oriented for Nanohedra Docking')
             if '.pdb' in args.oligomer1:
                 pdb1_filepaths = [args.oligomer1]
             else:
-                pdb1_filepaths = utils.get_directory_file_paths(args.oligomer1, extension='.pdb')
-
+                pdb1_filepaths = utils.get_directory_file_paths(args.oligomer1, extension='.pdb*')
+                if not pdb1_filepaths:
+                    logger.warning(f'Found no .pdb files at {args.oligomer1}')
             # Set filepaths to structure_names, reformat the file paths to the file_name for structure_names
             structure_names1 = pdb1_filepaths
             eventual_structure_names1 = \
@@ -1217,7 +1218,9 @@ def main():
                 if '.pdb' in args.oligomer2:
                     pdb2_filepaths = [args.oligomer2]
                 else:
-                    pdb2_filepaths = utils.get_directory_file_paths(args.oligomer2, extension='.pdb')
+                    pdb2_filepaths = utils.get_directory_file_paths(args.oligomer2, extension='.pdb*')
+                    if not pdb2_filepaths:
+                        logger.warning(f'Found no .pdb files at {args.oligomer2}')
 
                 # Set filepaths to structure_names, reformat the file paths to the file_name for structure_names
                 structure_names2 = pdb2_filepaths
