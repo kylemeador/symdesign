@@ -106,6 +106,7 @@ class JobResources:
         self.debug: bool = kwargs.get('debug', False)
         self.dock_only: bool = kwargs.get('dock_only', False)
         self.dock_proteinmpnn: bool = kwargs.get('dock_proteinmpnn', False)
+        self.dock_continuous_ghost: bool = kwargs.get('dock_continuous_ghost', False)
         self.log_level: bool = kwargs.get('log_level', flags.default_logging_level)
         self.force_flags: bool = kwargs.get(putils.force_flags, False)
         self.fuse_chains: list[tuple[str]] = [tuple(pair.split(':')) for pair in kwargs.get('fuse_chains', [])]
