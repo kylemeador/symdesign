@@ -2450,7 +2450,7 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
             # 'type': list(pose.sequence),
             'contact_order': pose_source_contact_order_s,
             'errat_deviation': pose_source_errat_s}}
-    else:
+    else:  # Set up per_residue_data to be empty and populated later. Only populated by proteinmpnn_used = True logic
         per_residue_data = {}
 
     # Define functions for updating the single Pose instance coordinates
@@ -3845,7 +3845,7 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
                                              > collapse_significance_threshold,
                                              designed_indices_collapse_z > 0)):
                         # Todo save this
-                        print('design_probs_collapse', design_probs_collapse[_residue_indices_of_interest[pose_idx]])
+                        print('design_probs_collapse', design_probs_collapse[pose_idx_residues_of_interest])
                         print('designed_indices_collapse_z', designed_indices_collapse_z)
                         # print('magnitude greater than 1', magnitude_of_collapse_z_deviation > 1)
                         log.warning(f'***Collapse is larger than one standard deviation.'
@@ -3973,6 +3973,8 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
                                   temperatures=job.design.temperatures)
         number_of_temperatures = len(job.design.temperatures)
         # probabilities = np.empty((size, number_of_residues, mpnn_alphabet_length, dtype=np.float32))
+        # Include design indices in both dock and design
+        per_residue_design_indices = np.zeros((size, pose_length), dtype=bool)
         if job.dock_proteinmpnn:
             # Set up ProteinMPNN output data structures
             # To use torch.nn.NLLL() must use dtype Long -> np.int64, not Int -> np.int32
@@ -3980,7 +3982,6 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
             per_residue_evolution_cross_entropy = np.empty((size, pose_length), dtype=np.float32)
             per_residue_fragment_cross_entropy = np.empty_like(per_residue_evolution_cross_entropy)
             per_residue_batch_collapse_z = np.zeros_like(per_residue_evolution_cross_entropy)
-            per_residue_design_indices = np.zeros((size, pose_length), dtype=bool)
             collapse_violation = np.zeros((size,), dtype=bool)
             dock_returns = {'evolution_cross_entropy': per_residue_evolution_cross_entropy,
                             'fragment_cross_entropy': per_residue_fragment_cross_entropy,
@@ -3995,6 +3996,7 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
             design_returns = {'sequences': generated_sequences,
                               'complex_sequence_loss': per_residue_complex_sequence_loss,
                               'unbound_sequence_loss': per_residue_unbound_sequence_loss,
+                              'design_indices': per_residue_design_indices
                               }
 
         # Perform the calculation
@@ -4039,8 +4041,9 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
             generated_sequences = sequences_and_scores['sequences']
             per_residue_complex_sequence_loss = sequences_and_scores['complex_sequence_loss']
             per_residue_unbound_sequence_loss = sequences_and_scores['unbound_sequence_loss']
+            per_residue_design_indices = sequences_and_scores['design_indices']
             per_residue_evolution_cross_entropy = per_residue_fragment_cross_entropy = per_residue_batch_collapse_z = \
-                per_residue_design_indices = collapse_violation = None
+                collapse_violation = None
         else:
             raise RuntimeError(f"Logic shouldn't allow this to happen")
 
@@ -4140,6 +4143,7 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
                 design_dock_params = {}
 
             if job.design.sequences:
+                dock_per_residue_design_indices = per_residue_design_indices[idx]
                 design_sequences = generated_sequences[idx]
                 dock_per_residue_complex_sequence_loss = per_residue_complex_sequence_loss[idx]
                 dock_per_residue_unbound_sequence_loss = per_residue_unbound_sequence_loss[idx]
@@ -4258,11 +4262,11 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
                     per_residue_data[design_id] = {
                         **per_res_interface_metrics,
                         **design_dock_params,
+                        'designed_residues_total': dock_per_residue_design_indices,
                         'complex': dock_per_residue_complex_sequence_loss[temp_idx],
                         'unbound': dock_per_residue_unbound_sequence_loss[temp_idx],
                         # 'proteinmpnn_v_evolution_cross_entropy': dock_per_residue_evolution_cross_entropy,
                         # 'proteinmpnn_v_fragment_cross_entropy': dock_per_residue_fragment_cross_entropy,
-                        # 'designed_residues_total': dock_per_residue_design_indices,
                         # 'collapse_profile_z': dock_per_residue_batch_collapse_z,
                         'evolution_sequence_loss': per_residue_evolutionary_profile_scores,
                         'fragment_sequence_loss': per_residue_fragment_profile_scores,
@@ -4430,17 +4434,20 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
                 scores_df['proteinmpnn_v_fragment_cross_entropy'] / scores_df['number_fragment_residues_total']
         except ZeroDivisionError:
             scores_df['proteinmpnn_v_fragment_cross_entropy_designed_mean'] = 0.
-        scores_df['proteinmpnn_score_complex'] = \
-            scores_df['interface_energy_complex'] / scores_df['pose_length']
-        scores_df['proteinmpnn_score_unbound'] = \
-            scores_df['interface_energy_unbound'] / scores_df['pose_length']
+
         designed_df = per_residue_df.loc[:, idx_slice[:, 'designed_residues_total']].droplevel(1, axis=1)
-        scores_df['proteinmpnn_score_designed_complex'] = \
-            (per_residue_df.loc[:, idx_slice[:, 'complex']].droplevel(1, axis=1) * designed_df).mean(axis=1)
-        scores_df['proteinmpnn_score_designed_unbound'] = \
-            (per_residue_df.loc[:, idx_slice[:, 'unbound']].droplevel(1, axis=1) * designed_df).mean(axis=1)
-        scores_df['proteinmpnn_score_designed_delta'] = \
-            scores_df['proteinmpnn_score_designed_complex'] - scores_df['proteinmpnn_score_designed_unbound']
+
+        if job.design.sequences:
+            scores_df['proteinmpnn_score_complex'] = \
+                scores_df['interface_energy_complex'] / scores_df['pose_length']
+            scores_df['proteinmpnn_score_unbound'] = \
+                scores_df['interface_energy_unbound'] / scores_df['pose_length']
+            scores_df['proteinmpnn_score_designed_complex'] = \
+                (per_residue_df.loc[:, idx_slice[:, 'complex']].droplevel(1, axis=1) * designed_df).mean(axis=1)
+            scores_df['proteinmpnn_score_designed_unbound'] = \
+                (per_residue_df.loc[:, idx_slice[:, 'unbound']].droplevel(1, axis=1) * designed_df).mean(axis=1)
+            scores_df['proteinmpnn_score_designed_delta'] = \
+                scores_df['proteinmpnn_score_designed_complex'] - scores_df['proteinmpnn_score_designed_unbound']
 
         # # Drop unused particular per_residue_df columns that have been summed
         # per_residue_drop_columns = per_residue_energy_states + energy_metric_names + per_residue_sasa_states \

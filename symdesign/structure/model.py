@@ -5773,8 +5773,9 @@ class Pose(SymmetricModel):
             # number_of_batches = int(math.ceil(size/batch_length) or 1)  # Select at least 1
 
             generated_sequences = np.empty((size, len(temperatures), pose_length), dtype=np.int64)
-            per_residue_complex_sequence_loss = np.empty(generated_sequences.shape, dtype=np.float32)
+            per_residue_complex_sequence_loss = np.empty_like(generated_sequences, dtype=np.float32)
             per_residue_unbound_sequence_loss = np.empty_like(per_residue_complex_sequence_loss)
+            # design_indices = np.empty_like(generated_sequences, dtype=bool)
 
             @resources.ml.batch_calculation(size=size, batch_length=batch_length,
                                             setup=resources.ml.setup_pose_batch_for_proteinmpnn,
@@ -5790,7 +5791,9 @@ class Pose(SymmetricModel):
                                           setup_kwargs=parameters,
                                           return_containers={'sequences': generated_sequences,
                                                              'complex_sequence_loss': per_residue_complex_sequence_loss,
-                                                             'unbound_sequence_loss': per_residue_unbound_sequence_loss}
+                                                             'unbound_sequence_loss': per_residue_unbound_sequence_loss,
+                                                             # 'design_indices': design_indices
+                                                             }
                                           )
             sequences_and_scores['sequences'] = numeric_to_sequence(sequences_and_scores['sequences'])
             # Format returns to have shape (temperaturesxsize, pose_length) where the temperatures vary slower
