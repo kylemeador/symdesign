@@ -101,11 +101,11 @@ def batch_calculation(size: int, batch_length: int, setup: Callable = None,
                         else:
                             raise ValueError(f'The batch_length ({batch_length}) must be greater than 0')
                     # Perform any setup operations
-                    logger.critical(f'Before SETUP\nmemory_allocated: {torch.cuda.memory_allocated()}'
-                                    f'\nmemory_reserved: {torch.cuda.memory_reserved()}')
+                    # logger.critical(f'Before SETUP\nmemory_allocated: {torch.cuda.memory_allocated()}'
+                    #                 f'\nmemory_reserved: {torch.cuda.memory_reserved()}')
                     setup_returns = _setup(_batch_length, *setup_args, **setup_kwargs)
-                    logger.critical(f'After SETUP\nmemory_allocated: {torch.cuda.memory_allocated()}'
-                                    f'\nmemory_reserved: {torch.cuda.memory_reserved()}')
+                    # logger.critical(f'After SETUP\nmemory_allocated: {torch.cuda.memory_allocated()}'
+                    #                 f'\nmemory_reserved: {torch.cuda.memory_reserved()}')
                     for batch in range(number_of_batches):
                         # Find the upper slice limit
                         batch_slice = slice(batch * _batch_length, min((batch+1) * _batch_length, size))
