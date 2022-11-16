@@ -32,6 +32,11 @@ nstruct = 20
 method = 'method'
 dock_only = 'dock_only'
 dock_proteinmpnn = 'dock_proteinmpnn'
+cluster_map = 'cluster_map'
+specification_file_ = 'specification_file'
+pose_file_ = 'pose_file'
+directory = 'directory'
+dataframe = 'dataframe'
 design_arguments = {
     ignore_clashes, ignore_pose_clashes, ignore_symmetric_clashes, method, evolution_constraint, hbnet,
     number_of_trajectories, structure_background, scout, term_constraint, consensus, ca_only, temperatures,
@@ -62,6 +67,9 @@ structure_background = format_for_cmdline(structure_background)
 # design_profile = format_for_cmdline(design_profile)
 # evolutionary_profile = format_for_cmdline(evolutionary_profile)
 # fragment_profile = format_for_cmdline(fragment_profile)
+cluster_map = format_for_cmdline(cluster_map)
+specification_file = format_for_cmdline(specification_file_)
+pose_file = format_for_cmdline(pose_file_)
 sym_entry = format_for_cmdline(sym_entry)
 dock_only = format_for_cmdline(dock_only)
 dock_proteinmpnn = format_for_cmdline(dock_proteinmpnn)
@@ -463,7 +471,7 @@ nanohedra_help = f'Run {nanohedra.title()}.py'
 parser_nanohedra = {nanohedra: dict(description=nanohedra_help, help=nanohedra_help)}
 nanohedra_arguments = {
     (f'--{dock_only}',): dict(action=argparse.BooleanOptionalAction, default=False,
-                           help='Whether docking should be performed without sequence design'),
+                              help='Whether docking should be performed without sequence design'),
     (f'--{dock_proteinmpnn}',): dict(action=argparse.BooleanOptionalAction, default=False,
                                      help='Whether docking fit should be measured using ProteinMPNN'),
     (f'--{perturb_dof}',): dict(action=argparse.BooleanOptionalAction, default=False,
@@ -505,7 +513,8 @@ nanohedra_mutual1_arguments = {
     ('-c1', '--pdb-codes1'): dict(type=os.path.abspath, default=None,
                                   help=f'File with list of PDB_entity codes for {nanohedra} component 1'),
     ('-o1', f'-{nano_entity_flag1}', f'--{nano_entity_flag1}'):
-        dict(type=os.path.abspath, default=None, help=f'Disk location where {nanohedra} component 1 file(s) are located'),
+        dict(type=os.path.abspath, default=None,
+             help=f'Disk location where {nanohedra} component 1 file(s) are located'),
     ('-Q', '--query-codes'): dict(action='store_true', help='Query the PDB API for corresponding codes')
 }
 # parser_dock_mutual2 = parser_dock.add_mutually_exclusive_group()
@@ -514,13 +523,13 @@ nanohedra_mutual2_arguments = {
     ('-c2', '--pdb-codes2'): dict(type=os.path.abspath, default=None,
                                   help=f'File with list of PDB_entity codes for {nanohedra} component 2'),
     ('-o2', f'-{nano_entity_flag2}', f'--{nano_entity_flag2}'):
-        dict(type=os.path.abspath, default=None, help=f'Disk location where {nanohedra} component 2 file(s) are located'),
+        dict(type=os.path.abspath, default=None,
+             help=f'Disk location where {nanohedra} component 2 file(s) are located'),
 }
 # ---------------------------------------------------
 cluster_poses_help = 'Cluster all poses by their spatial or interfacial similarity. This is\nuseful to identify ' \
                      'conformationally flexible docked configurations'
 parser_cluster = {cluster_poses: dict(description=cluster_poses_help, help=cluster_poses_help)}
-# parser_cluster = subparsers.add_parser(cluster_poses, description='Cluster all poses by their spatial similarity. This can remove redundancy or be useful in identifying conformationally flexible docked configurations')
 cluster_poses_arguments = {
     ('-m', '--mode'): dict(type=str.lower, choices=['transform', 'ialign'], metavar='', default='transform',
                            help='Which type of clustering should be performed?'
@@ -600,14 +609,15 @@ optimize_designs_arguments = {
 #     ('--score-only',): dict(action='store_true', help='Whether to only score the design(s)\nDefault=%(default)s'),
 #     ('script',): dict(type=os.path.abspath, help='The location of the custom script'),
 #     ('--suffix',): dict(type=str, metavar='SUFFIX',
-#                         help='Append to each output file (decoy in .sc and .pdb) the script name (i.e. "decoy_SUFFIX") '
-#                              'to identify this protocol. No extension will be included'),
+#                         help='Append to each output file (decoy in .sc and .pdb) the script name (i.e. '
+#                              '"decoy_SUFFIX") to identify this protocol. No extension will be included'),
 #     ('-v', '--variables'): dict(type=str, nargs='*',
-#                                 help='Additional variables that should be populated in the script.\nProvide a list of '
-#                                      'such variables with the format "variable1=value variable2=value". Where variable1'
-#                                      ' is a RosettaScripts %%%%variable1%%%% and value is a known value. For variables '
-#                                      'that must be calculated on the fly for each design, please modify structure.model.py '
-#                                      'class to produce a method that can generate an attribute with the specified name')
+#                                 help='Additional variables that should be populated in the script.\nProvide a list of'
+#                                      ' such variables with the format "variable1=value variable2=value". Where '
+#                                      'variable1 is a RosettaScripts %%%%variable1%%%% and value is a known value. For'
+#                                      'variables that must be calculated on the fly for each design, please modify '
+#                                      'structure.model.py class to produce a method that can generate an attribute '
+#                                      'with the specified name')
 #     # Todo ' either a known value or an attribute available to the Pose object'
 # }
 # ---------------------------------------------------
@@ -689,8 +699,6 @@ select_poses_arguments = {
     ('-m', '--metric'): dict(type=str.lower, choices=['score', 'fragments_matched'], metavar='', default='score',
                              help='If a single metric is sufficient, which metric to sort by?'
                                   '\nChoices=%(choices)s\nDefault=%(default)s'),
-    # ('-pf', '--pose_design_file'): dict(type=str, metavar=ex_path('pose_design.csv'),
-    #                                     help='Name of .csv file with (pose, design pairs to serve as sequence selector')
 }
 # ---------------------------------------------------
 intergenic_sequence_args = ('-ms', '--multicistronic-intergenic-sequence')
@@ -808,38 +816,39 @@ parser_input_group = dict(title=f'{"_" * len(input_title)}\n{input_title}',
                           description=f'\nSpecify where/which poses should be included in processing\n'
                                       f'{directory_needed}')
 input_arguments = {
-    ('-c', '--cluster-map'): dict(type=os.path.abspath, metavar=ex_path('TIMESTAMP-ClusteredPoses-LOCATION.pkl'),
-                                  help='The location of a serialized file containing spatially\nor interfacial '
-                                       'clustered poses'),
-    ('-df', '--dataframe'): dict(type=os.path.abspath, metavar=ex_path('Metrics.csv'),
-                                 help=f'A DataFrame created b {program_name} analysis containing\npose info. File is '
-                                      f'output in .csv format'),
+    ('-c', f'--{cluster_map}'): dict(type=os.path.abspath, metavar=ex_path('TIMESTAMP-ClusteredPoses-LOCATION.pkl'),
+                                     help='The location of a serialized file containing spatially\nor interfacial '
+                                          'clustered poses'),
+    ('-df', f'--{dataframe}'): dict(type=os.path.abspath, metavar=ex_path('Metrics.csv'),
+                                    help=f'A DataFrame created b {program_name} analysis containing\npose info. File is'
+                                         ' output in .csv format'),
     ('--fuse-chains',): dict(type=str, nargs='*', default=[], metavar='A:B C:D',
                              help='The name of a pair of chains to fuse during design.\nPaired chains should be '
                                   'separated by a colon, with the n-terminal\npreceding the c-terminal chain. Fusion '
                                   'instances should be\nseparated by a space\nEx --fuse-chains A:B C:D'),
     ('-N', f'--{nanohedra}-output'): dict(action='store_true', help='Is the input a Nanohedra docking output?'),
-    ('-pf', '--pose-file'): dict(type=str, dest='specification_file', metavar=ex_path('pose_design_specifications.csv'),
-                                 help=f'If pose IDs are specified in a file, say as the result of\n{select_poses} or '
-                                      f'{select_designs}'),
+    ('-pf', f'--{pose_file}'): dict(type=str, dest=specification_file_,
+                                    metavar=ex_path('pose_design_specifications.csv'),
+                                    help=f'If pose IDs are specified in a file, say as the result of\n{select_poses}'
+                                         f' or {select_designs}'),
     ('-r', '--range'): dict(type=float, default=None, metavar='int-int',
                             help='The range of poses to process from a larger specification.\n'
                                  'Specify a %% between 0 and 100, separating the range by "-"\n'
                                  'Ex: 0-25'),
-    ('-sf', '--specification-file'): dict(type=str, metavar=ex_path('pose_design_specifications.csv'),
-                                          help='Name of comma separated file with each line formatted:\nposeID, '
-                                               '[designID], [residue_number:directive residue_number2-'
-                                               'residue_number9:directive ...]')
+    ('-sf', f'--{specification_file}'): dict(type=str, metavar=ex_path('pose_design_specifications.csv'),
+                                             help='Name of comma separated file with each line formatted:\nposeID, '
+                                                  '[designID], [residue_number:directive residue_number2-'
+                                                  'residue_number9:directive ...]')
 }
 # parser_input_mutual = parser_input.add_mutually_exclusive_group()
 parser_input_mutual_group = dict()  # required=True <- adding kwarg below to different parsers depending on need
 input_mutual_arguments = {
-    ('-d', '--directory'): dict(type=os.path.abspath, metavar=ex_path('your_pdb_files'),
-                                help='Master directory where poses to be designed are located. This may be\nthe'
-                                     f' output directory from {nanohedra}.py, a random directory\nwith poses requiring '
-                                     f'design, or the output from {program_name}.\nIf the directory of interest resides'
-                                     f' in a {program_output} directory,\nit is recommended to use -f, -p, or -s for '
-                                     f'finer control'),
+    ('-d', f'--{directory}'): dict(type=os.path.abspath, metavar=ex_path('your_pdb_files'),
+                                   help='Master directory where poses to be designed are located. This may be\nthe'
+                                        f' output directory from {nanohedra}.py, a random directory\nwith poses '
+                                        f'requiring design, or the output from {program_name}.\nIf the directory of '
+                                        f'interest resides in a {program_output} directory,\nit is recommended to use '
+                                        '-f, -p, or -s for finer control'),
     ('-f', '--file'): dict(type=os.path.abspath, default=None, nargs='*',
                            metavar=ex_path('file_with_pose.paths'),
                            help=f'File(s) with the location of poses listed. For each run of {program_name},\na file '
@@ -860,7 +869,6 @@ output_arguments = {
     ('-Oa', f'--{output_assembly}'):
         dict(action=argparse.BooleanOptionalAction, default=False,
              help='Whether the assembly should be output? Infinite materials are output in a unit cell'),
-                  # '\nDefault=%(default)s'),
     output_directory_args:
         dict(type=os.path.abspath, default=None,
              help='If provided, the name of the directory to output all created files.\nOtherwise, one will be '
