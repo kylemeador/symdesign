@@ -4154,9 +4154,9 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
                         #  else:
                         #      pose.refine()
                         interface_local_density[design_id] = pose.local_density_interface()
-                        per_residue_data[design_id] = pose.get_per_residue_interface_metrics()
+                        per_res_interface_metrics = pose.get_per_residue_interface_metrics()
                     else:
-                        per_residue_data[design_id] = {}
+                        per_res_interface_metrics = {}
                     # For each Pose, save each sequence design data such as energy # probabilites
                     # all_probabilities[pose_id] = probabilities[idx]
                     # Todo process the all_probabilities to a DataFrame?
@@ -4197,7 +4197,7 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
                     # Calculate sequence statistics
                     # Todo get the below mechanism clean
                     # Before calculation, we must set this (v) to get the correct values from the profile
-                    pose._sequence_numeric = design_sequences[temp_idx]  # design_idx]
+                    pose._sequence_numeric = design_sequences[temp_idx]
                     # Todo these are not Softmax probabilities
                     try:
                         fragment_profile_frequencies.append(
@@ -4255,29 +4255,30 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
                     else:
                         per_residue_fragment_profile_scores = nan_blank_data
 
-                    per_residue_data[design_id].update(
-                        {**design_dock_params,
-                         'complex': dock_per_residue_complex_sequence_loss[temp_idx],
-                         'unbound': dock_per_residue_unbound_sequence_loss[temp_idx],
-                         # 'proteinmpnn_v_evolution_cross_entropy': dock_per_residue_evolution_cross_entropy,
-                         # 'proteinmpnn_v_fragment_cross_entropy': dock_per_residue_fragment_cross_entropy,
-                         # 'designed_residues_total': dock_per_residue_design_indices,
-                         # 'collapse_profile_z': dock_per_residue_batch_collapse_z,
-                         'evolution_sequence_loss': per_residue_evolutionary_profile_scores,
-                         'fragment_sequence_loss': per_residue_fragment_profile_scores,
-                         # 'bound': 0.,  # copy(entity_energies),
-                         # copy(entity_energies),
-                         # 'solv_complex': 0., 'solv_bound': 0.,
-                         # copy(entity_energies),
-                         # 'solv_unbound': 0.,  # copy(entity_energies),
-                         # 'fsp': 0., 'cst': 0.,
-                         # 'type': protein_letters_3to1.get(residue.type),
-                         # 'hbond': 0
-                         })
+                    per_residue_data[design_id] = {
+                        **per_res_interface_metrics,
+                        **design_dock_params,
+                        'complex': dock_per_residue_complex_sequence_loss[temp_idx],
+                        'unbound': dock_per_residue_unbound_sequence_loss[temp_idx],
+                        # 'proteinmpnn_v_evolution_cross_entropy': dock_per_residue_evolution_cross_entropy,
+                        # 'proteinmpnn_v_fragment_cross_entropy': dock_per_residue_fragment_cross_entropy,
+                        # 'designed_residues_total': dock_per_residue_design_indices,
+                        # 'collapse_profile_z': dock_per_residue_batch_collapse_z,
+                        'evolution_sequence_loss': per_residue_evolutionary_profile_scores,
+                        'fragment_sequence_loss': per_residue_fragment_profile_scores,
+                        # 'bound': 0.,  # copy(entity_energies),
+                        # copy(entity_energies),
+                        # 'solv_complex': 0., 'solv_bound': 0.,
+                        # copy(entity_energies),
+                        # 'solv_unbound': 0.,  # copy(entity_energies),
+                        # 'fsp': 0., 'cst': 0.,
+                        # 'type': protein_letters_3to1.get(residue.type),
+                        # 'hbond': 0
+                        }
             else:
                 for temp_idx, design_idx in enumerate(range(idx * number_of_temperatures,
                                                             (idx+1) * number_of_temperatures)):
-                    per_residue_data[design_id] = design_dock_params
+                    per_residue_data[design_ids[design_idx]] = design_dock_params
     # Todo get the keys right here
     # all_pose_divergence_df = pd.DataFrame()
     # all_pose_divergence_df = pd.concat(all_pose_divergence, keys=[('sequence', 'pose')], axis=1)
