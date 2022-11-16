@@ -897,7 +897,7 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
     # Todo set below as parameters?
 
     if job.design.perturb_dof:
-        number_of_perturbation_steps = 3  # Todo replace with 10?
+        number_of_perturbation_steps = job.design.perturb_dof_steps
         if sym_entry.unit_cell:
             raise NotImplementedError(f"{perturb_transformations.__name__} isn't working for lattice symmetries")
     else:
