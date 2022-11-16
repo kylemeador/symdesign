@@ -3049,7 +3049,11 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
                              f'{", ".join(profile_dependent_metrics)}')
 
             if measure_evolution:
-                pose.evolutionary_profile = concatenate_profile([entity.evolutionary_profile for entity in pose.entities])
+                pose.evolutionary_profile = \
+                    concatenate_profile([entity.evolutionary_profile for entity in pose.entities])
+            else:
+                pose.log.info('No evolution information')
+                pose.evolutionary_profile = pose.create_null_profile()
 
             if pose.evolutionary_profile:
                 profile_background['evolution'] = evolutionary_profile_array = pssm_as_array(pose.evolutionary_profile)
@@ -3057,8 +3061,8 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
                                                                       (batch_length, 1, 1)))
                 # log_evolutionary_profile = np.log(evolutionary_profile_array)
                 torch_log_evolutionary_profile = torch.from_numpy(np.log(evolutionary_profile_array))
-            else:
-                pose.log.info('No evolution information')
+            # else:
+            #     pose.log.info('No evolution information')
 
         if job.fragment_db is not None:
             # Todo ensure the AA order is the same as MultipleSequenceAlignment.from_dictionary(pose_sequences) below
@@ -4092,10 +4096,8 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
 
         # Load fragment_profile into the analysis
         pose.calculate_fragment_profile()
-        # if pose.fragment_profile:
+        # This could be an empty array if no fragments were found
         fragment_profile_array = pssm_as_array(pose.fragment_profile)
-        # else:
-        #     pose.log.info('No fragment information')
 
         # Remove saved pose attributes from the prior iteration calculations
         pose.ss_index_array.clear(), pose.ss_type_array.clear()
@@ -4112,16 +4114,6 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
 
         # if job.design.sequences:
         if proteinmpnn_used:
-            if job.design.structures:
-                # Todo use the template protocol from protocols.py
-                #  if job.design.alphafold:
-                #      pose.predict_structure()
-                #  else:
-                #      pose.refine()
-                interface_local_density[design_id] = pose.local_density_interface()
-                per_residue_data[design_id] = pose.get_per_residue_interface_metrics()
-            else:
-                per_residue_data[design_id] = {}
             # Todo, hook this into analysis
             #  This assumes that the pose already has .evolutionary_profile and .fragment_profile attributes
             #  pose.add_profile(evolution=job.design.evolution_constraint,
@@ -4135,20 +4127,33 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
                 # dock_per_residue_fragment_cross_entropy = per_residue_fragment_cross_entropy[idx]
                 # dock_per_residue_design_indices = per_residue_design_indices[idx]
                 # dock_per_residue_batch_collapse_z = per_residue_batch_collapse_z[idx]
-                per_residue_data[design_id].update({
+                design_dock_params = {
                     'proteinmpnn_v_evolution_cross_entropy': per_residue_evolution_cross_entropy[idx],
                     'proteinmpnn_v_fragment_cross_entropy': per_residue_fragment_cross_entropy[idx],
                     'designed_residues_total': per_residue_design_indices[idx],
                     'collapse_profile_z': per_residue_batch_collapse_z[idx],
-                })
+                }
+            else:
+                design_dock_params = {}
+
             if job.design.sequences:
                 design_sequences = generated_sequences[idx]
                 dock_per_residue_complex_sequence_loss = per_residue_complex_sequence_loss[idx]
                 dock_per_residue_unbound_sequence_loss = per_residue_unbound_sequence_loss[idx]
-                # for design_idx, design_id in enumerate(design_ids, idx * number_of_temperatures):
+
                 for temp_idx, design_idx in enumerate(range(idx * number_of_temperatures,
                                                             (idx+1) * number_of_temperatures)):
                     design_id = design_ids[design_idx]
+                    if job.design.structures:
+                        # Todo use the template protocol from protocols.py
+                        #  if job.design.alphafold:
+                        #      pose.predict_structure()
+                        #  else:
+                        #      pose.refine()
+                        interface_local_density[design_id] = pose.local_density_interface()
+                        per_residue_data[design_id] = pose.get_per_residue_interface_metrics()
+                    else:
+                        per_residue_data[design_id] = {}
                     # For each Pose, save each sequence design data such as energy # probabilites
                     # all_probabilities[pose_id] = probabilities[idx]
                     # Todo process the all_probabilities to a DataFrame?
@@ -4227,19 +4232,18 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
                     # Todo get divergence?
                     # Get the negative log likelihood of the .evolutionary_ and .fragment_profile
                     torch_numeric = torch.from_numpy(pose.sequence_numeric)
-                    if pose.evolutionary_profile:
-                        per_residue_evolutionary_profile_scores = ml.sequence_nllloss(torch_numeric,
-                                                                                      torch_log_evolutionary_profile)
+                    # if pose.evolutionary_profile:
+                    if measure_evolution:
+                        per_residue_evolutionary_profile_scores = \
+                            ml.sequence_nllloss(torch_numeric, torch_log_evolutionary_profile)
                     else:
                         per_residue_evolutionary_profile_scores = nan_blank_data
 
                     if pose.fragment_profile:
-                        # print('fragment_profile_array', fragment_profile_array[20:30])
                         # Todo
                         #  RuntimeWarning: divide by zero encountered in log
                         # np.log causes -inf at 0, thus we need to correct these to a very large number
                         corrected_frag_array = np.nan_to_num(np.log(fragment_profile_array), copy=False, nan=np.nan)
-                        # print('corrected_frag_array', corrected_frag_array[20:30])
                         per_residue_fragment_profile_scores = \
                             ml.sequence_nllloss(torch_numeric, torch.from_numpy(corrected_frag_array))
                         # Find the non-zero sites in the profile
@@ -4249,7 +4253,7 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
                         per_residue_fragment_profile_scores = nan_blank_data
 
                     per_residue_data[design_id].update(
-                        {
+                        {**design_dock_params,
                          'complex': dock_per_residue_complex_sequence_loss[temp_idx],
                          'unbound': dock_per_residue_unbound_sequence_loss[temp_idx],
                          # 'proteinmpnn_v_evolution_cross_entropy': dock_per_residue_evolution_cross_entropy,
@@ -4267,7 +4271,10 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
                          # 'type': protein_letters_3to1.get(residue.type),
                          # 'hbond': 0
                          })
-
+            else:
+                for temp_idx, design_idx in enumerate(range(idx * number_of_temperatures,
+                                                            (idx+1) * number_of_temperatures)):
+                    per_residue_data[design_id] = design_dock_params
     # Todo get the keys right here
     # all_pose_divergence_df = pd.DataFrame()
     # all_pose_divergence_df = pd.concat(all_pose_divergence, keys=[('sequence', 'pose')], axis=1)
