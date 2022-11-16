@@ -480,12 +480,12 @@ nanohedra_arguments = {
                                      help='Whether docking fit should be measured using ProteinMPNN'),
     (f'--{dock_continuous_ghost}',): dict(action=argparse.BooleanOptionalAction, default=False,
                                           help='Whether to prioritize docking with ghost fragments that form continuous'
-                                               ' segments on a single component'),
+                                               '\nsegments on a single component'),
     (f'--{perturb_dof}',): dict(action=argparse.BooleanOptionalAction, default=False,
-                                help='Whether the degrees of freedom should be finely sampled in subsequent docking '
+                                help='Whether the degrees of freedom should be finely sampled in\nsubsequent docking '
                                      'iterations'),
-    (f'--{perturb_dof_steps}',): dict(type=int, default=3,
-                                      help='How many dof steps should be used during subsequent docking iterations. '
+    (f'--{perturb_dof_steps}',): dict(type=int, default=3, metavar='INT',
+                                      help='How many dof steps should be used during subsequent docking iterations.\n'
                                            f'For each DOF, a total of --{perturb_dof_steps} will be sampled during '
                                            f'perturbation'),
     ('-mv', '--match-value'): dict(type=float, default=0.5, dest='high_quality_match_value',
@@ -509,7 +509,7 @@ nanohedra_arguments = {
                                            'search\nDefault=%(default)s'),
     ('-Os', f'--{output_surrounding_uc}'):
         dict(action=argparse.BooleanOptionalAction, default=False,
-             help='Whether the surrounding unit cells should be output? Only for infinite materials')
+             help='Whether the surrounding unit cells should be output?\nOnly for infinite materials')
 }
 parser_nanohedra_run_type_mutual_group = dict()  # required=True <- adding below to different parsers depending on need
 nanohedra_run_type_mutual_arguments = {
