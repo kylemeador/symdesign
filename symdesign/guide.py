@@ -1,9 +1,9 @@
 from symdesign.metrics import master_metrics, rosetta_required_metrics
 from symdesign.utils import pretty_format_table
 from symdesign.utils.path import term_constraint, evolution_constraint, hbnet, scout, program_command, \
-    select_sequences, program_name, structure_background, current_energy_function, number_of_trajectories, force_flags,\
-    interface_design, select_poses, analysis, protocol, select_designs, nanohedra, nano_publication, interface_metrics,\
-    cluster_poses, optimize_designs
+    select_sequences, program_name, structure_background, current_energy_function, number_of_trajectories, force_flags, \
+    interface_design, select_poses, analysis, protocol, select_designs, nanohedra, nano_publication, interface_metrics, \
+    cluster_poses, optimize_designs, readme
 
 nltb = '\n\t'
 module_help_string = f'"{program_command} MODULE --help" will direct you towards the proper formatting of program flags'
@@ -188,6 +188,13 @@ additional = \
     f'perform mutagenesis of surface positions to match the surface to the correct overall charge density for a ' \
     f'specified organism. This may improve solubility by making the overall mobility within the cytosol equal to that' \
     f' of the organism typical cytosolic electrostatics.'
+
+
+def print_guide():
+    """Print the SymDesign guide and exit"""
+    with open(readme, 'r') as f:
+        print(f.read(), end='')
+    exit()
 
 
 def setup_instructions():

@@ -18,7 +18,7 @@ except subprocess.CalledProcessError:
     program_version = 'unknown'
 
 program_name = 'SymDesign'
-program_exe = os.path.join(python_source, f'{program_name}.py')
+program_exe = os.path.join(git_source, program_name.lower())
 logging_cfg_file = os.path.join(python_source, 'logging.cfg')
 config_file = os.path.join(python_source, 'cfg.json')
 third_party_dir = os.path.join(python_source, 'third_party')

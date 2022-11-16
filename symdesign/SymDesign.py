@@ -33,22 +33,18 @@ logger = logging.getLogger(putils.program_name.lower())  # __name__)
 # logger.info('Starting logger')
 # logger.warning('Starting logger')
 # input('WHY LOGGING')
-from symdesign import utils
-from symdesign.flags import argparsers, parser_entire, parser_options, parser_module, parser_input, parser_guide, \
-    process_design_selector_flags, parser_residue_selector, parser_output
-from symdesign.protocols import fragdock, protocols
-from symdesign.guide import interface_design_guide, analysis_guide, interface_metrics_guide, select_poses_guide, \
-    select_designs_guide, select_sequences_guide, cluster_poses_guide, refine_guide, optimize_designs_guide, \
-    nanohedra_guide, orient_guide, expand_asu_guide, setup_instructions
+from symdesign import flags, guide, utils
 from symdesign.metrics import prioritize_design_indices, query_user_for_metrics
-from symdesign.structure.fragment.db import fragment_factory, euler_factory
+from symdesign.protocols import fragdock, protocols
 from symdesign.resources.job import job_resources_factory
 from symdesign.resources.query.pdb import retrieve_pdb_entries_by_advanced_query
 from symdesign.resources.query.utils import input_string, bool_d, boolean_choice, invalid_string, \
     validate_input_return_response_value
+from symdesign.structure.fragment.db import fragment_factory, euler_factory
 from symdesign.structure.model import Model
 from symdesign.structure.sequence import generate_mutations, find_orf_offset, read_fasta_file
 from symdesign.third_party.DnaChisel.dnachisel.DnaOptimizationProblem.NoSolutionError import NoSolutionError
+from symdesign.utils import ProteinExpression, nanohedra
 
 # def rename(des_dir, increment=putils.nstruct):
 #     """Rename the decoy numbers in a PoseDirectory by a specified increment
@@ -497,10 +493,9 @@ def main():
                             'clustering was performed by entity_transformations or interface_residues, then the '
                             'representative is the most similar to all members. If clustering was performed by ialign, '
                             'then the representative is randomly chosen.')
-                logger.info(
-                    f'To utilize the above clustering, during {putils.select_poses}, using the option --cluster-map'
-                    f', will apply clustering to poses to select a cluster representative based on the most '
-                    f'favorable cluster member')
+                logger.info(f'To utilize the above clustering during {flags.select_poses}, provide the option '
+                            f'--{flags.cluster_map}. This will apply clustering to poses to select a cluster '
+                            'representative based on the most favorable cluster member')
 
             # Set up sbatch scripts for processed Poses
             design_stage = putils.scout if getattr(args, putils.scout, None) \
@@ -616,51 +611,48 @@ def main():
                     if 'Nanohedra Entry Number: ' in line:  # "Symmetry Entry Number: " or
                         return utils.SymEntry.symmetry_factory.get(int(line.split(':')[-1]))  # sym_map inclusion?
         except FileNotFoundError:
-            raise FileNotFoundError(
-                f'Nanohedra master directory is malformed. Missing required docking file {log_path}')
+            raise FileNotFoundError('Nanohedra master directory is malformed. '
+                                    f'Missing required docking file {log_path}')
         raise utils.InputError(f'Nanohedra master docking file {log_path} is malformed. Missing required info'
-                               f' "Nanohedra Entry Number:"')
+                               ' "Nanohedra Entry Number:"')
 
-    def print_guide():
-        """Print the SymDesign guide and exit"""
-        with open(putils.readme, 'r') as f:
-            print(f.read(), end='')
-        exit()
+    resubmit_command_message = f'After completion of sbatch script(s), re-submit your {putils.program_name} ' \
+                               f'command:\n\tpython {" ".join(sys.argv)}'
     # -----------------------------------------------------------------------------------------------------------------
     # Process optional program flags
     # -----------------------------------------------------------------------------------------------------------------
     # ensure module specific arguments are collected and argument help is printed in full
-    args, additional_args = argparsers[parser_guide].parse_known_args()  # additional_args, args)
+    args, additional_args = flags.argparsers[flags.parser_guide].parse_known_args()
     # -----------------------------------------------------------------------------------------------------------------
     # Display the program guide if requested
     # -----------------------------------------------------------------------------------------------------------------
     if args.guide:  # or not args.module:
         if args.module == putils.analysis:
-            print(analysis_guide)
+            print(guide.analysis)
         elif args.module == putils.cluster_poses:
-            print(cluster_poses_guide)
+            print(guide.cluster_poses)
         elif args.module == putils.interface_design:
-            print(interface_design_guide)
+            print(guide.interface_design)
         elif args.module == putils.interface_metrics:
-            print(interface_metrics_guide)
+            print(guide.interface_metrics)
         # elif args.module == 'custom_script':
         #     print()
         elif args.module == putils.optimize_designs:
-            print(optimize_designs_guide)
+            print(guide.optimize_designs)
         elif args.module == putils.refine:
-            print(refine_guide)
+            print(guide.refine)
         elif args.module == putils.nanohedra:
-            print(nanohedra_guide)
+            print(guide.nanohedra)
         elif args.module == putils.select_poses:
-            print(select_poses_guide)
+            print(guide.select_poses)
         elif args.module == putils.select_designs:
-            print(select_designs_guide)
+            print(guide.select_designs)
         elif args.module == putils.select_sequences:
-            print(select_sequences_guide)
+            print(guide.select_sequences)
         elif args.module == putils.expand_asu:
-            print(expand_asu_guide)
+            print(guide.expand_asu)
         elif args.module == putils.orient:
-            print(orient_guide)
+            print(guide.orient)
         # elif args.module == 'check_clashes':
         #     print()
         # elif args.module == 'residue_selector':
@@ -671,9 +663,9 @@ def main():
         #              SDUtils.ex_path('pose_directory'), SDUtils.ex_path('DataFrame.csv'),
         #              SDUtils.ex_path('design.paths')))
         else:  # print the full program readme
-            print_guide()
+            guide.print_guide()
     elif args.setup:
-        setup_instructions()
+        guide.setup_instructions()
         exit()
     # ---------------------------------------------------
     # elif args.flags:  # Todo
@@ -700,27 +692,28 @@ def main():
     # Initialize program with provided flags and arguments
     # -----------------------------------------------------------------------------------------------------------------
     # parse arguments for the actual runtime which accounts for differential argument ordering from standard argparse
-    args, additional_args = argparsers[parser_module].parse_known_args()
+    args, additional_args = flags.argparsers[flags.parser_module].parse_known_args()
     if args.module == putils.nanohedra:
-        if args.query:  # we need to submit before we check for additional_args as query comes with additional args
-            utils.nanohedra.cmdline.query_mode([__file__, '-query'] + additional_args)
+        if args.query:  # We need to submit before we check for additional_args as query comes with additional args
+            nanohedra.cmdline.query_mode([__file__, '-query'] + additional_args)
             exit()
         else:  # we need to add a dummy input for argparse to happily continue with required args
             additional_args.extend(['--file', 'dummy'])
 
-    entire_parser = argparsers[parser_entire]
+    entire_parser = flags.argparsers[flags.parser_entire]
     _args, _additional_args = entire_parser.parse_known_args()
-    for argparser in [parser_options, parser_residue_selector, parser_output, parser_input]:
-        args, additional_args = argparsers[argparser].parse_known_args(args=additional_args, namespace=args)
+    for argparser in [flags.parser_options, flags.parser_residue_selector, flags.parser_output, flags.parser_input]:
+        args, additional_args = flags.argparsers[argparser].parse_known_args(args=additional_args, namespace=args)
 
     if additional_args:
         exit(f'\nSuspending run. Found flag(s) that are not recognized program wide: {", ".join(additional_args)}\n'
-             f'Please correct (try adding --help if unsure), and resubmit your command\n')
+             'Please correct (try adding --help if unsure), and resubmit your command\n')
         queried_flags = None
     else:
         if args.module == putils.nanohedra:  # remove the dummy input
             del args.file
         # Replace the commandline formatting with pythonic underscores
+        flag_specified_module = args.module
         args.module = args.module.replace('-', '_')
         queried_flags = vars(args)
     # -----------------------------------------------------------------------------------------------------------------
@@ -730,13 +723,14 @@ def main():
     if args.output_file and os.path.exists(args.output_file) and args.module not in putils.analysis \
             and not args.overwrite:
         exit(f'The specified output file "{args.output_file}" already exists, this will overwrite your old '
-             f'data! Please specify a new name with with -Of/--output_file, or append --overwrite to your command')
+             f'data! Please specify a new name with with -Of/--{flags.output_file}, '
+             'or append --overwrite to your command')
         symdesign_directory = None
     elif args.output_directory:
         if os.path.exists(args.output_directory) and not args.overwrite:
             exit(f'The specified output directory "{args.output_directory}" already exists, this will overwrite '
-                 f'your old data! Please specify a new name with with -Od/--output_directory, --prefix or --suffix, or '
-                 f'append --overwrite to your command')
+                 f'your old data! Please specify a new name with with -Od/--{flags.output_directory}, '
+                 '--prefix or --suffix, or append --overwrite to your command')
             symdesign_directory = None
         else:
             queried_flags['output_directory'] = symdesign_directory = args.output_directory
@@ -803,7 +797,7 @@ def main():
     # Process flags, job information which is necessary for processing and i/o
     # -----------------------------------------------------------------------------------------------------------------
     # process design_selectors
-    queried_flags['design_selector'] = process_design_selector_flags(queried_flags)
+    queried_flags['design_selector'] = flags.process_design_selector_flags(queried_flags)
     # process symmetry
     user_sym_entry = queried_flags.get(putils.sym_entry)
     user_symmetry = queried_flags.get('symmetry')
@@ -843,14 +837,14 @@ def main():
         decoy_modules = {'input', 'output', 'options', 'residue_selector'}
         if args.module == putils.nanohedra:
             if not sym_entry:
-                raise RuntimeError(f'When running {putils.nanohedra}, the argument -e/--entry/--{putils.sym_entry} is '
-                                   f'required')
+                raise RuntimeError(f'When running {putils.nanohedra}, the argument -e/--entry/--{flags.sym_entry} is '
+                                   'required')
         elif args.module in [putils.multicistronic]:
             pass
         elif args.module in decoy_modules:
             exit()
         else:  # We have no module passed. Print the guide
-            print_guide()
+            guide.print_guide()
         initialize = False
 
     # create JobResources which holds shared program objects and options
@@ -929,7 +923,7 @@ def main():
                 raise ValueError('The input flag -r/--range argument is outside of the acceptable bounds [0-100]')
             logger.info(f'Selecting poses within range: {low_range if low_range else 1}-{high_range}')
 
-        logger.info(f'Setting up input files for {args.module}')
+        logger.info(f'Setting up input files for {flag_specified_module}')
         if args.nanohedra_output:  # Nanohedra directory
             all_poses, location = utils.collect_nanohedra_designs(files=args.file, directory=args.directory)
             if all_poses:
@@ -951,7 +945,8 @@ def main():
                     shutil.copy(os.path.join(job.nanohedra_root, putils.master_log), project_designs)
         elif args.specification_file:
             if not args.directory:
-                raise utils.InputError('A --directory must be provided when using --specification-file')
+                raise utils.InputError(f'A --{flags.directory} must be provided when using '
+                                       f'--{flags.specification_file}')
             # Todo, combine this with collect_designs
             #  this works for file locations as well! should I have a separate mechanism for each?
             design_specification = utils.PoseSpecification(args.specification_file)
@@ -967,8 +962,9 @@ def main():
                     # assume that we have received pose-IDs and process accordingly
                     if not args.directory:
                         raise utils.InputError('Your input specification appears to be pose IDs, however no '
-                                               '--directory was passed. Please resubmit with --directory '
-                                               'and use --pose-file/--specification-file with pose IDs')
+                                               f'--{flags.directory} was passed. Please resubmit with '
+                                               f'--{flags.directory} and use --{flags.pose_file}/'
+                                               f'--{flags.specification_file} with pose IDs')
                     pose_directories = [protocols.PoseDirectory.from_pose_id(pose, root=args.directory, **queried_flags)
                                         for pose in all_poses[low_range:high_range]]
                 else:
@@ -1069,7 +1065,7 @@ def main():
                 if not os.access(putils.hhblits_exe, os.X_OK):
                     print(f"Couldn't locate the {putils.hhblits} executable. Ensure the executable file referenced by"
                           f'{putils.hhblits_exe} exists then try your job again. Otherwise, use the argument'
-                          f'--{putils.evolution_constraint} False ')
+                          f'--no-{flags.evolution_constraint}')
                     exit()
                 putils.make_path(job.profiles)
                 putils.make_path(job.sbatch_scripts)
@@ -1082,14 +1078,15 @@ def main():
                                      f'\'{os.path.join(job.profiles, "*.a3m")}\'', '.sto', '-num', '-uc']
                 reformat_msa_cmd2 = [putils.reformat_msa_exe_path, 'a3m', 'fas',
                                      f'\'{os.path.join(job.profiles, "*.a3m")}\'', '.fasta', '-M', 'first', '-r']
-                hhblits_cmd_file = \
-                    utils.write_commands(hhblits_cmds, name=f'{utils.starttime}-hhblits', out_path=job.profiles)
-                hhblits_sbatch = utils.CommandDistributer.distribute(file=hhblits_cmd_file, out_path=job.sbatch_scripts,
-                                                                     scale='hhblits', max_jobs=len(hhblits_cmds),
-                                                                     number_of_commands=len(hhblits_cmds),
-                                                                     log_file=os.path.join(job.profiles, 'generate_profiles.log'),
-                                                                     finishing_commands=[list2cmdline(reformat_msa_cmd1),
-                                                                                         list2cmdline(reformat_msa_cmd2)])
+                hhblits_cmd_file = utils.write_commands(hhblits_cmds, name=f'{utils.starttime}-{putils.hhblits}',
+                                                        out_path=job.profiles)
+                hhblits_sbatch = \
+                    utils.CommandDistributer.distribute(file=hhblits_cmd_file, out_path=job.sbatch_scripts,
+                                                        scale=putils.hhblits, max_jobs=len(hhblits_cmds),
+                                                        number_of_commands=len(hhblits_cmds),
+                                                        log_file=os.path.join(job.profiles, 'generate_profiles.log'),
+                                                        finishing_commands=[list2cmdline(reformat_msa_cmd1),
+                                                                            list2cmdline(reformat_msa_cmd2)])
                 hhblits_sbatch_message = \
                     f'Enter the following to distribute {putils.hhblits} jobs:\n\tsbatch {hhblits_sbatch}'
                 info_messages.append(hhblits_sbatch_message)
@@ -1143,8 +1140,7 @@ def main():
                     for message in info_messages:
                         logger.info(message)
                     print('\n')
-                    logger.info(f'After completion of sbatch script(s), re-run your {putils.program_name} command:\n\t'
-                                f'python {" ".join(sys.argv)}')
+                    logger.info(resubmit_command_message)
                     terminate(output=False)
                     # After completion of sbatch, the next time initialized, there will be no refine files left allowing
                     # initialization to proceed
@@ -1261,8 +1257,7 @@ def main():
                 for message in info_messages + preprocess_instructions:
                     logger.info(message)
                 print('\n')
-                logger.info(f'After completion of sbatch script(s), re-run your {putils.program_name} command:\n\tpython '
-                            f'{" ".join(sys.argv)}')
+                logger.info(resubmit_command_message)
                 terminate(output=False)
                 # After completion of sbatch, the next time command is entered docking will proceed
 
@@ -1322,7 +1317,8 @@ def main():
         logger.info(f'Starting multiprocessing using {cores} cores')
     else:
         cores = 1
-        logger.info(f'Starting processing. To increase processing, use --{putils.multi_processing} during submission')
+        logger.info(f'Starting processing. To increase processing speed, '
+                    f'use --{flags.multi_processing} during submission')
 
     # Format memory requirements with module dependencies
     if args.module == putils.nanohedra:  # Todo
@@ -1342,9 +1338,9 @@ def main():
     # Run specific checks
     if args.module == putils.interface_design and queried_flags[putils.evolution_constraint]:  # hhblits to run
         if psutil.virtual_memory().available <= required_memory + utils.CommandDistributer.hhblits_memory_threshold:
-            logger.critical('The amount of memory for the computer is insufficient to run hhblits (required for '
-                            'designing with evolution)! Please allocate the job to a computer with more memory or the '
-                            f'process will fail. Otherwise, select --{putils.evolution_constraint}')
+            logger.critical(f'The amount of memory for the computer is insufficient to run {putils.hhblits} (required '
+                            'for designing with evolution)! Please allocate the job to a computer with more memory or '
+                            f'the process will fail. Otherwise, select --no-{flags.evolution_constraint}')
             exit(1)
     # -----------------------------------------------------------------------------------------------------------------
     # Parse SubModule specific commands
@@ -1475,9 +1471,9 @@ def main():
                 #                                 propagate=True, no_log_name=True)
                 bb_logger = None  # have to include this incase started as debug
             master_logger.info('MODE: DOCK')
-            utils.nanohedra.general.write_docking_parameters(args.oligomer1, args.oligomer2, args.rotation_step1,
-                                                             args.rotation_step2, sym_entry, job.output_directory,
-                                                             log=master_logger)
+            nanohedra.general.write_docking_parameters(args.oligomer1, args.oligomer2, args.rotation_step1,
+                                                       args.rotation_step2, sym_entry, job.output_directory,
+                                                       log=master_logger)
             if args.multi_processing:
                 zipped_args = zip(repeat(sym_entry), repeat(job.output_directory), *zip(*structure_pairs),
                                   repeat(args.rotation_step1), repeat(args.rotation_step2), repeat(args.min_matched),
@@ -1713,9 +1709,9 @@ def main():
         elif args.dataframe:  # Figure out poses from a pose dataframe, filters, and weights
             # program_root = next(iter(pose_directories)).program_root
             if args.dataframe and not pose_directories:  # not args.directory:
-                logger.critical('If using a --dataframe for selection, you must include the directory where the designs'
-                                ' are located in order to properly select designs. Please specify -d/--directory on the'
-                                ' command line')
+                logger.critical(f'If using a --{flags.dataframe} for selection, you must include the directory where '
+                                f'the designs are located in order to properly select designs. Please specify '
+                                f'-d/--{flags.directory} with your command')
                 exit(1)
             program_root = job.program_root
             df = pd.read_csv(args.dataframe, index_col=0, header=[0, 1, 2])
@@ -1767,7 +1763,7 @@ def main():
         if args.total and args.save_total:
             total_df = os.path.join(program_root, 'TotalPosesTrajectoryMetrics.csv')
             df.to_csv(total_df)
-            logger.info(f'Total Pose/Designs DataFrame was written to {total_df}')
+            logger.info(f'Total Pose/Designs DataFrame was written to: {total_df}')
 
         if args.filter or args.weight:
             new_dataframe = os.path.join(program_root, f'{utils.starttime}-{"Filtered" if args.filter else ""}'
@@ -1778,7 +1774,7 @@ def main():
         logger.info(f'{len(selected_poses_df)} poses were selected')
         if len(selected_poses_df) != len(df):
             selected_poses_df.to_csv(new_dataframe)
-            logger.info(f'New DataFrame with selected poses was written to {new_dataframe}')
+            logger.info(f'New DataFrame with selected poses was written to: {new_dataframe}')
 
         # Sort results according to clustered poses if clustering exists
         if args.cluster_map:
@@ -1792,15 +1788,15 @@ def main():
         else:  # try to generate the cluster_map
             logger.info(f'No cluster pose map was found at {cluster_map}. Clustering similar poses may eliminate '
                         f'redundancy from the final design selection. To cluster poses broadly, '
-                        f'run "{putils.program_command} {putils.cluster_poses}"')
+                        f'run "{putils.program_command} {flags.cluster_poses}"')
             while True:
                 # Todo add option to provide the path to an existing file
-                confirm = input(f'Would you like to {putils.cluster_poses} on the subset of designs '
+                confirm = input(f'Would you like to {flags.cluster_poses} on the subset of designs '
                                 f'({len(selected_poses)}) located so far? [y/n]{input_string}')
                 if confirm.lower() in bool_d:
                     break
                 else:
-                    print(f'{invalid_string} {confirm} is not a valid choice!')
+                    print(f'{invalid_string} {confirm} is not a valid choice')
 
             pose_cluster_map: dict[str | protocols.PoseDirectory, list[str | protocols.PoseDirectory]] = {}
             # {pose_string: [pose_string, ...]} where key is representative, values are matching designs
@@ -1839,18 +1835,18 @@ def main():
             # Todo report the clusters and the number of instances
             final_poses = [members[0] for members in pose_clusters_found.values()]
             if pose_not_found:
-                logger.warning('Couldn\'t locate the following poses:\n\t%s\nWas %s only run on a subset of the '
-                               'poses that were selected? Adding all of these to your final poses...'
-                               % ('\n\t'.join(pose_not_found), putils.cluster_poses))
+                logger.warning(f"Couldn't locate the following poses:\n\t%s\nWas {flags.cluster_poses} only run on a "
+                               'subset of the poses that were selected? Adding all of these to your final poses...'
+                               % '\n\t'.join(pose_not_found))
                 final_poses.extend(pose_not_found)
-            logger.info('Found %d poses after clustering' % len(final_poses))
+            logger.info(f'Found {len(final_poses)} poses after clustering')
         else:
             logger.info('Grabbing all selected poses')
             final_poses = selected_poses
 
         if len(final_poses) > args.select_number:
             final_poses = final_poses[:args.select_number]
-            logger.info('Found %d poses after applying your select_number selection criteria' % len(final_poses))
+            logger.info(f'Found {len(final_poses)} poses after applying your select_number selection criteria')
 
         # Need to initialize pose_directories to terminate()
         pose_directories = final_poses
@@ -2037,7 +2033,7 @@ def main():
                 results = {pose_dir: design for pose_dir, design in loc_result}
             else:  # elif args.designs_per_pose:
                 logger.info(f'Choosing up to {args.select_number} designs, with {args.designs_per_pose} designs per '
-                            f'pose')
+                            'pose')
                 number_chosen = 0
                 selected_poses = {}
                 for pose_directory, design in selected_designs:
@@ -2119,7 +2115,7 @@ def main():
         if args.total and args.save_total:
             total_df = os.path.join(outdir, 'TotalPosesTrajectoryMetrics.csv')
             df.to_csv(total_df)
-            logger.info(f'Total Pose/Designs DataFrame was written to {total_df}')
+            logger.info(f'Total Pose/Designs DataFrame was written to: {total_df}')
 
         if save_poses_df is not None:  # Todo make work if DataFrame is empty...
             if args.filter or args.weight:
@@ -2128,7 +2124,7 @@ def main():
             else:
                 new_dataframe = os.path.join(outdir, f'{utils.starttime}-DesignMetrics.csv')
             save_poses_df.to_csv(new_dataframe)
-            logger.info(f'New DataFrame with selected designs was written to {new_dataframe}')
+            logger.info(f'New DataFrame with selected designs was written to: {new_dataframe}')
 
         logger.info(f'Relevant design files are being copied to the new directory: {outdir}')
         # Create new output of designed PDB's  # TODO attach the state to these files somehow for further SymDesign use
@@ -2196,7 +2192,7 @@ def main():
             if args.multicistronic_intergenic_sequence:
                 intergenic_sequence = args.multicistronic_intergenic_sequence
             else:
-                intergenic_sequence = utils.ProteinExpression.default_multicistronic_sequence
+                intergenic_sequence = ProteinExpression.default_multicistronic_sequence
         else:
             intergenic_sequence = ''
 
@@ -2208,10 +2204,10 @@ def main():
             des_dir.load_pose()  # source=des_dir.asu_path)
             des_dir.pose.rename_chains()  # Do I need to modify chains?
             for design in designs:
-                file_glob = '%s%s*%s*' % (des_dir.designs, os.sep, design)
+                file_glob = f'{des_dir.designs}{os.sep}*{design}*'
                 file = sorted(glob(file_glob))
                 if not file:
-                    logger.error('No file found for %s' % file_glob)
+                    logger.error(f'No file found for {file_glob}')
                     continue
                 design_pose = Model.from_file(file[0], log=des_dir.log, entity_names=des_dir.entity_names)
                 designed_atom_sequences = [entity.sequence for entity in design_pose.entities]
@@ -2271,7 +2267,7 @@ def main():
                     # Check for expression tag addition to the designed sequences after disorder addition
                     inserted_design_sequence = design_entity.sequence
                     selected_tag = {}
-                    available_tags = utils.ProteinExpression.find_expression_tags(inserted_design_sequence)
+                    available_tags = ProteinExpression.find_expression_tags(inserted_design_sequence)
                     if available_tags:  # look for existing tag to remove from sequence and save identity
                         tag_names, tag_termini, existing_tag_sequences = \
                             zip(*[(tag['name'], tag['termini'], tag['sequence']) for tag in available_tags])
@@ -2281,8 +2277,8 @@ def main():
                                 selected_tag = available_tags[preferred_tag_index]
                         except ValueError:
                             pass
-                        pretag_sequence = utils.ProteinExpression.remove_expression_tags(inserted_design_sequence,
-                                                                                         existing_tag_sequences)
+                        pretag_sequence = ProteinExpression.remove_expression_tags(inserted_design_sequence,
+                                                                                   existing_tag_sequences)
                     else:
                         pretag_sequence = inserted_design_sequence
                     logger.debug(f'The pretag sequence is:\n{pretag_sequence}')
@@ -2302,7 +2298,7 @@ def main():
                         uniprot_id_matching_tags = tag_sequences.get(uniprot_id, None)
                         if not uniprot_id_matching_tags:
                             uniprot_id_matching_tags = \
-                                utils.ProteinExpression.find_matching_expression_tags(uniprot_id=uniprot_id)
+                                ProteinExpression.find_matching_expression_tags(uniprot_id=uniprot_id)
                             tag_sequences[uniprot_id] = uniprot_id_matching_tags
 
                         if uniprot_id_matching_tags:
@@ -2321,10 +2317,10 @@ def main():
                                     break
                             except ValueError:
                                 selected_tag = \
-                                    utils.ProteinExpression.select_tags_for_sequence(sequence_id,
-                                                                                     uniprot_id_matching_tags,
-                                                                                     preferred=args.preferred_tag,
-                                                                                     **termini_availability)
+                                    ProteinExpression.select_tags_for_sequence(sequence_id,
+                                                                               uniprot_id_matching_tags,
+                                                                               preferred=args.preferred_tag,
+                                                                               **termini_availability)
                                 break
                             iteration += 1
 
@@ -2337,8 +2333,8 @@ def main():
                 if number_of_tags is not None:
                     number_of_found_tags = len(des_dir.pose.entities) - sum(missing_tags[(des_dir, design)])
                     if number_of_tags > number_of_found_tags:
-                        print('There were %d requested tags for design %s and %d were found'
-                              % (number_of_tags, des_dir, number_of_found_tags))
+                        print(f'There were {number_of_tags} requested tags for design {des_dir} and '
+                              f'{number_of_found_tags} were found')
                         current_tag_options = \
                             '\n\t'.join([f'{i} - {entity_name}\n'
                                          f'\tAvailable Termini: {entity_termini_availability[entity_name]}'
@@ -2358,7 +2354,7 @@ def main():
                         while number_of_tags != number_of_found_tags:
                             if iteration_idx == len(missing_tags[(des_dir, design)]):
                                 print(f'You have seen all options, but the number of requested tags ({number_of_tags}) '
-                                      f'doesn\'t equal the number selected ({number_of_found_tags})')
+                                      f"doesn't equal the number selected ({number_of_found_tags})")
                                 satisfied = input('If you are satisfied with this, enter "continue", otherwise enter '
                                                   'anything and you can view all remaining options starting from the '
                                                   f'first entity{input_string}')
@@ -2389,11 +2385,11 @@ def main():
                                                           f'below options.\n\t%s\n{input_string}' %
                                                           '\n\t'.join([f'{i} - {tag}'
                                                                        for i, tag in enumerate(
-                                                                        utils.ProteinExpression.expression_tags, 1)]))
+                                                                        ProteinExpression.expression_tags, 1)]))
                                         if tag_input.isdigit():
                                             tag_input = int(tag_input)
-                                            if tag_input <= len(utils.ProteinExpression.expression_tags):
-                                                tag = list(utils.ProteinExpression.expression_tags.keys())[tag_input - 1]
+                                            if tag_input <= len(ProteinExpression.expression_tags):
+                                                tag = list(ProteinExpression.expression_tags.keys())[tag_input - 1]
                                                 break
                                         print("Input doesn't match available options. Please try again")
                                     while True:
@@ -2407,12 +2403,12 @@ def main():
                                 selected_entity = list(sequences_and_tags.keys())[idx]
                                 if termini == 'n':
                                     new_tag_sequence = \
-                                        utils.ProteinExpression.expression_tags[tag] + 'SG' \
+                                        ProteinExpression.expression_tags[tag] + 'SG' \
                                         + sequences_and_tags[selected_entity]['sequence'][:12]
                                 else:  # termini == 'c'
                                     new_tag_sequence = \
                                         sequences_and_tags[selected_entity]['sequence'][-12:] \
-                                        + 'GS' + utils.ProteinExpression.expression_tags[tag]
+                                        + 'GS' + ProteinExpression.expression_tags[tag]
                                 sequences_and_tags[selected_entity]['tag'] = {'name': tag, 'sequence': new_tag_sequence}
                                 missing_tags[(des_dir, design)][idx] = 0
                                 break
@@ -2439,7 +2435,7 @@ def main():
                                     selected_entity = list(sequences_and_tags.keys())[tag_input - 1]
                                     sequences_and_tags[selected_entity]['tag'] = \
                                         {'name': None, 'termini': None, 'sequence': None}
-                                    # tag = list(utils.ProteinExpression.expression_tags.keys())[tag_input - 1]
+                                    # tag = list(ProteinExpression.expression_tags.keys())[tag_input - 1]
                                     break
                                 else:
                                     print("Input doesn't match an integer from the available options. Please try again")
@@ -2455,9 +2451,9 @@ def main():
                 for idx, (design_string, sequence_tag) in enumerate(sequences_and_tags.items()):
                     tag, sequence = sequence_tag['tag'], sequence_tag['sequence']
                     # print('TAG:\n', tag.get('sequence'), '\nSEQUENCE:\n', sequence)
-                    design_sequence = utils.ProteinExpression.add_expression_tag(tag.get('sequence'), sequence)
+                    design_sequence = ProteinExpression.add_expression_tag(tag.get('sequence'), sequence)
                     if tag.get('sequence') and design_sequence == sequence:  # tag exists and no tag added
-                        tag_sequence = utils.ProteinExpression.expression_tags[tag.get('name')]
+                        tag_sequence = ProteinExpression.expression_tags[tag.get('name')]
                         if tag.get('termini') == 'n':
                             if design_sequence[0] == 'M':  # remove existing Met to append tag to n-term
                                 design_sequence = design_sequence[1:]
@@ -2493,7 +2489,7 @@ def main():
                                     break
                                 else:
                                     print(f"{new_amino_acid} doesn't match a single letter canonical amino acid. "
-                                          f"Please try again")
+                                          "Please try again")
 
                     # For a final manual check of sequence generation, find sequence additions compared to the design
                     # model and save to view where additions lie on sequence. Cross these additions with design
@@ -2509,8 +2505,8 @@ def main():
                     if args.nucleotide:
                         try:
                             nucleotide_sequence = \
-                                utils.ProteinExpression.optimize_protein_sequence(design_sequence,
-                                                                                  species=args.optimize_species)
+                                ProteinExpression.optimize_protein_sequence(design_sequence,
+                                                                            species=args.optimize_species)
                         except NoSolutionError:  # add the protein sequence?
                             logger.warning(f'Optimization of {design_string} was not successful!')
                             codon_optimization_errors[design_string] = design_sequence
@@ -2537,26 +2533,26 @@ def main():
         seq_file = utils.write_sequence_file(final_sequences, csv=args.csv,
                                              file_name=os.path.join(outdir,
                                                                     f'{args.prefix}SelectedSequences{args.suffix}'))
-        logger.info(f'Final Design protein sequences written to {seq_file}')
+        logger.info(f'Final Design protein sequences written to: {seq_file}')
         seq_comparison_file = \
             utils.write_sequence_file(inserted_sequences, csv=args.csv,
                                       file_name=os.path.join(outdir,
                                                              f'{args.prefix}SelectedSequencesExpressionAdditions'
                                                              f'{args.suffix}'))
-        logger.info(f'Final Expression sequence comparison to Design sequence written to {seq_comparison_file}')
+        logger.info(f'Final Expression sequence comparison to Design sequence written to: {seq_comparison_file}')
         # check for protein or nucleotide output
         if args.nucleotide:
             nucleotide_sequence_file = \
                 utils.write_sequence_file(nucleotide_sequences, csv=args.csv,
                                           file_name=os.path.join(outdir, f'{args.prefix}SelectedSequencesNucleotide'
                                                                          f'{args.suffix}'))
-            logger.info(f'Final Design nucleotide sequences written to {nucleotide_sequence_file}')
+            logger.info(f'Final Design nucleotide sequences written to: {nucleotide_sequence_file}')
     # ---------------------------------------------------
     # Tools are found below here
     # ---------------------------------------------------
     elif args.module == putils.multicistronic:
         # if not args.multicistronic_intergenic_sequence:
-        #     args.multicistronic_intergenic_sequence = utils.ProteinExpression.default_multicistronic_sequence
+        #     args.multicistronic_intergenic_sequence = ProteinExpression.default_multicistronic_sequence
 
         file = args.file[0]  # since args.file is collected with nargs='*', select the first
         if file.endswith('.csv'):
@@ -2573,13 +2569,12 @@ def main():
         design_sequences = [str(seq_record.seq) for seq_record in design_sequences]
         nucleotide_sequences = {}
         for idx, group_start_idx in enumerate(list(range(len(design_sequences)))[::args.number_of_genes], 1):
-            cistronic_sequence = \
-                utils.ProteinExpression.optimize_protein_sequence(design_sequences[group_start_idx],
-                                                                  species=args.optimize_species)
+            cistronic_sequence = ProteinExpression.optimize_protein_sequence(design_sequences[group_start_idx],
+                                                                             species=args.optimize_species)
             for protein_sequence in design_sequences[group_start_idx + 1: group_start_idx + args.number_of_genes]:
                 cistronic_sequence += args.multicistronic_intergenic_sequence
-                cistronic_sequence += utils.ProteinExpression.optimize_protein_sequence(protein_sequence,
-                                                                                        species=args.optimize_species)
+                cistronic_sequence += ProteinExpression.optimize_protein_sequence(protein_sequence,
+                                                                                  species=args.optimize_species)
             new_name = f'{design_sequences[group_start_idx].id}_cistronic'
             nucleotide_sequences[new_name] = cistronic_sequence
             logger.info(f'Finished sequence {idx} - {new_name}')
@@ -2595,9 +2590,9 @@ def main():
         nucleotide_sequence_file = \
             utils.write_sequence_file(nucleotide_sequences, csv=args.csv,
                                       file_name=os.path.join(os.getcwd(),
-                                                               f'{args.prefix}MulticistronicNucleotideSequences'
-                                                               f'{args.suffix}'))
-        logger.info(f'Multicistronic nucleotide sequences written to {nucleotide_sequence_file}')
+                                                             f'{args.prefix}MulticistronicNucleotideSequences'
+                                                             f'{args.suffix}'))
+        logger.info(f'Multicistronic nucleotide sequences written to: {nucleotide_sequence_file}')
     # # ---------------------------------------------------
     # elif args.module == 'status':  # -n number, -s stage, -u update
     #     if args.update:
@@ -2621,7 +2616,7 @@ def main():
 
         # if 'escher' in sys.argv[1]:
         if not args.directory:
-            exit('A directory with the desired designs must be specified using -d/--directory!')
+            exit(f'A directory with the desired designs must be specified using -d/--{flags.directory}')
 
         if ':' in args.directory:  # args.file  Todo location
             print('Starting the data transfer from remote source now...')
@@ -2666,8 +2661,8 @@ def main():
                 try:
                     args.dataframe = df_glob[0]
                 except IndexError:
-                    raise IndexError(f"There was no --dataframe specified and one couldn't be located in {location}. "
-                                     f'Initialize again with the path to the relevant dataframe')
+                    raise IndexError(f"There was no --{flags.dataframe} specified and one couldn't be located in "
+                                     f'{location}. Initialize again with the path to the relevant dataframe')
 
             df = pd.read_csv(args.dataframe, index_col=0, header=[0])
             print('INDICES:\n %s' % df.index.to_list()[:4])
@@ -2682,7 +2677,7 @@ def main():
             files = ordered_files
 
         if not files:
-            exit(f'No .pdb files found in {location}. Are you sure this is correct?')
+            exit(f'No .pdb files found at "{location}". Are you sure this is correct?')
 
         # if len(sys.argv) > 2:
         #     low, high = map(float, sys.argv[2].split('-'))
