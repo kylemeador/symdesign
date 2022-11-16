@@ -603,7 +603,7 @@ def get_perturb_matrices(rotation_degrees: float, number: int = 10) -> np.ndarra
     """Using a sampled degree of rotation, create z-axis rotation matrices in equal increments between +/- rotation_degrees/2
 
     Args:
-        rotation_degrees: The number of degrees to slice
+        rotation_degrees: The range of degrees to create matrices for. Will be centered at the identity perturbation
         number: The number of steps to take
     Returns:
         A 3D numpy array where each subsequent rotation is along axis=0,
@@ -779,15 +779,17 @@ def create_perturbation_transformations(sym_entry: SymEntry, number: int = 10,
     # translation_range = 0.5  # Angstroms
 
     if rotation_range is None:
+        # Default rotation range is 1 degree
         rotation_range = tuple(repeat(1., sym_entry.number_of_groups))
     if translation_range is None:
+        # Default translation range is 0.5 Angstroms
         translation_range = tuple(repeat(.5, sym_entry.number_of_groups))
 
     perturbation_mapping = {}
     for idx, group in enumerate(sym_entry.groups, idx):
         group_idx = idx + 1
         if getattr(sym_entry, f'is_internal_rot{group_idx}'):
-            rotation_step = rotation_range[idx] * 2
+            rotation_step = rotation_range[idx]  # * 2
             perturb_matrices = get_perturb_matrices(rotation_step, number=number)
             # Repeat the matrices according to the number of perturbations raised to the power of the
             # remaining dof (remaining_dof), then tile that by how many dof have been seen (seen_dof)
@@ -1295,6 +1297,7 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
                 log.warning(f"Specified rotation_step{idx} was ignored. Oligomer {idx} doesn't have rotational DOF")
             rotation_step = 1  # Set rotation step to 1
 
+        rotation_steps[idx - 1] = rotation_step
         degeneracy_matrices = getattr(sym_entry, f'degeneracy_matrices{idx}')
         # Todo make reliant on scipy...Rotation
         # rotation_matrix = scipy.spatial.transform.Rotation.from_euler('Z', [step * rotation_step for step in range(number_of_steps)], degrees=True).as_matrix()
