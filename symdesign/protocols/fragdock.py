@@ -4373,15 +4373,16 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
                 scores_df[f'entity_{idx}_percent_mutations'] = \
                     scores_df[f'entity_{idx}_number_of_mutations'] \
                     / scores_df[f'entity_{idx}_number_of_residues']
-        else:
-            per_residue_background_frequencies = per_residue_collapse_df = pd.DataFrame()
+            per_residue_df = per_residue_df.join([per_residue_sequence_df, per_residue_background_frequencies,
+                                                  per_residue_collapse_df])
+            # per_residue_df = pd.merge(residue_df, per_residue_df, left_index=True, right_index=True)
+
+        # else:
+        #     per_residue_sequence_df = per_residue_background_frequencies = per_residue_collapse_df = pd.DataFrame()
 
         # Construct per_residue_df
         per_residue_df = pd.concat({design_id: pd.DataFrame(data, index=residue_numbers)
                                     for design_id, data in per_residue_data.items()}).unstack().swaplevel(0, 1, axis=1)
-        per_residue_df = \
-            per_residue_df.join([per_residue_sequence_df, per_residue_background_frequencies, per_residue_collapse_df])
-        # per_residue_df = pd.merge(residue_df, per_residue_df, left_index=True, right_index=True)
 
         if job.design.structures:
             scores_df['interface_local_density'] = pd.Series(interface_local_density)
