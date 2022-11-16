@@ -6344,14 +6344,15 @@ class Pose(SymmetricModel):
             if entity1 == entity2:  # We don't want symmetry interactions with the asu model or intra-oligomeric models
                 if entity1.is_oligomeric():  # Remove oligomeric protomers (contains asu)
                     remove_indices = self.get_oligomeric_atom_indices(entity1)
-                    self.log.info('Removing indices from models %s due to detected oligomer'
-                                  % ', '.join(map(str, self.oligomeric_model_indices.get(entity1))))
+                    self.log.info(f'Removing indices from models '
+                                  f'{", ".join(map(str, self.oligomeric_model_indices.get(entity1)))} '
+                                  f'due to specified oligomer')
                     self.log.debug(f'Removing {len(remove_indices)} indices from symmetric query due to oligomer')
                 else:  # Just remove asu
                     remove_indices = self.get_asu_atom_indices()
-                self.log.debug(f'Number of indices before removal of "self" indices: {len(entity2_indices)}')
+                # self.log.debug(f'Number of indices before removal of "self" indices: {len(entity2_indices)}')
                 entity2_indices = list(set(entity2_indices).difference(remove_indices))
-                self.log.debug(f'Final indices remaining after removing "self": {len(entity2_indices)}')
+                # self.log.debug(f'Final indices remaining after removing "self": {len(entity2_indices)}')
             entity2_coords = self.symmetric_coords[entity2_indices]  # get the symmetric indices from Entity 2
             sym_string = 'symmetric '
         elif entity1 == entity2:
@@ -6375,8 +6376,8 @@ class Pose(SymmetricModel):
         entity2_query = entity1_tree.query_radius(entity2_coords, distance)
 
         # Return residue numbers of identified coordinates
-        self.log.info(f'Querying {len(entity1_indices)} CB residues in Entity {entity1.name} versus, '
-                      f'{len(entity2_indices)} CB residues in {sym_string}Entity {entity2.name}')
+        self.log.debug(f'Querying {len(entity1_indices)} CB residues in Entity {entity1.name} versus, '
+                       f'{len(entity2_indices)} CB residues in {sym_string}Entity {entity2.name}')
 
         coords_indexed_residues = self.coords_indexed_residues
         # Get the modulus of the number_of_atoms to account for symmetry if used
