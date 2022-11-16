@@ -845,8 +845,8 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
                    high_quality_match_value: float = .5, initial_z_value: float = 1., log: Logger = logger,
                    job: symjob.JobResources = None, fragment_db: db.FragmentDatabase | str = putils.biological_interfaces,
                    clash_dist: float = 2.2, write_frags_only: bool = False,
-                   same_component_filter: bool = True,
                    **kwargs):
+    #                same_component_filter: bool = True,
     """
     Perform the fragment docking routine described in Laniado, Meador, & Yeates, PEDS. 2021
 
@@ -866,10 +866,10 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
         log: The logger to keep track of program messages
         clash_dist: The distance to measure for clashing atoms
         write_frags_only: Whether to write fragment information to a file (useful for fragment based docking w/o Nanohedra)
-        same_component_filter: Whether to use the overlap potential on the same component to filter ghost fragments
     Returns:
         None
     """
+    #   dock_continuous_ghost: Whether to use the overlap potential on the same component to filter ghost fragments
     # Todo ensure that msa is loaded upon docking initialization
     # Create symjob.JobResources for all flags
     if job is None:
@@ -891,7 +891,7 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
     low_quality_match_value = .2  # sets the lower bounds on an acceptable match, was upper bound of 2 using z-score
     cb_distance = 9.  # change to 8.?
     # Testing if this is too strict when strict overlaps are used
-    cluster_transforms = not same_component_filter  # True
+    cluster_transforms = not job.dock_continuous_ghost  # True
     # Todo set below as parameters?
 
     if job.design.perturb_dof:
@@ -1037,7 +1037,7 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
     ghost_residue_numbers1 = np.array([ghost_frag.number for ghost_frag in complete_ghost_frags1])
     ghost_j_indices1 = np.array([ghost_frag.j_type for ghost_frag in complete_ghost_frags1])
 
-    if same_component_filter:
+    if job.dock_continuous_ghost:
         # Identify surface/ghost frag overlap originating from the same oligomer
         # Set up the output array with the number of residues by the length of the max number of ghost fragments
         max_ghost_frags = max([len(ghost_frags) for ghost_frags in ghost_frags_by_residue1])

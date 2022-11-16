@@ -32,6 +32,7 @@ nstruct = 20
 method = 'method'
 dock_only = 'dock_only'
 dock_proteinmpnn = 'dock_proteinmpnn'
+dock_continuous_ghost = 'dock_continuous_ghost'
 cluster_map = 'cluster_map'
 specification_file_ = 'specification_file'
 pose_file_ = 'pose_file'
@@ -474,6 +475,9 @@ nanohedra_arguments = {
                               help='Whether docking should be performed without sequence design'),
     (f'--{dock_proteinmpnn}',): dict(action=argparse.BooleanOptionalAction, default=False,
                                      help='Whether docking fit should be measured using ProteinMPNN'),
+    (f'--{dock_continuous_ghost}',): dict(action=argparse.BooleanOptionalAction, default=False,
+                                          help='Whether to prioritize docking with ghost fragments that form continuous'
+                                               ' segments on a single component'),
     (f'--{perturb_dof}',): dict(action=argparse.BooleanOptionalAction, default=False,
                                 help='Whether the degrees of freedom should be finely sampled in subsequent docking '
                                      'iterations'),
