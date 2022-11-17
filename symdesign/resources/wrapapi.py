@@ -209,7 +209,7 @@ class PDBDataStore(DataStore):
         # putils.make_path(pdb_assembly_api)
 
     def is_thermophilic(self, name: str = None, **kwargs) -> bool:
-        """Return whether the entity json entry in question is thermophilic"""
+        """Return whether the entity json entry in question is thermophilic. If no data is found, also returns False"""
         data = self.retrieve_entity_data(name=name)
         if data is None:
             return False
