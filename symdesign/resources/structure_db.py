@@ -335,8 +335,11 @@ class StructureDatabase(Database):
                 orient_file = self.oriented.retrieve_file(name=structure_identifier)
                 pose = model.Pose.from_file(orient_file, name=structure_identifier, **pose_kwargs)
                 # Write out the Pose ASU
-                pose.file_path = pose.write(out_path=self.oriented_asu.path_to(name=structure_identifier))
-                # save Stride results
+                assembly_integer = '' if pose.biological_assembly is None else pose.biological_assembly
+                pose.file_path = pose.write(out_path=os.path.join(self.oriented_asu.location,
+                                                                  f'{structure_identifier}' f'.pdb{assembly_integer}'))
+                # pose.file_path = pose.write(out_path=self.oriented_asu.path_to(name=structure_identifier))
+                # Save Stride results
                 for entity in pose.entities:
                     entity.stride(to_file=self.stride.path_to(name=entity.name))
 
