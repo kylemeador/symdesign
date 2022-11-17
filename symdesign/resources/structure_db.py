@@ -132,6 +132,7 @@ def orient_structure_files(files: Iterable[AnyStr], log: Logger = logger, symmet
         else:  # This could be mmcif
             output_extension = '.pdb'
 
+        # Todo refactor this file_path resolution as not very precise for mmcif files...
         oriented_file_path = os.path.join(out_dir, f'{model_name}{output_extension}')  # .pdb')
         if not os.path.exists(oriented_file_path):
             # Must load entities to solve multi-component orient problem
@@ -266,12 +267,12 @@ class StructureDatabase(Database):
         """
         if not structure_identifiers:
             return []
-        # using Pose enables simple ASU writing
+        # Using Pose enables simple ASU writing
         # Pose isn't the best for orient since the structure isn't oriented the symmetry wouldn't work
         # It could still happen, but we certainly shouldn't pass sym_entry to it
         self.oriented.make_path()
         orient_dir = self.oriented.location
-        models_dir = os.path.dirname(orient_dir)  # this is the case because it was specified this way, but not required
+        models_dir = os.path.dirname(orient_dir)  # This is the case because it was specified this way, but not required
         self.oriented_asu.make_path()
         self.stride.make_path()
         # orient_logger = start_log(name='orient', handler=1)
@@ -285,15 +286,14 @@ class StructureDatabase(Database):
             logger.info(f'The requested {"files" if by_file else "IDs"} are being checked for proper orientation '
                         f'with symmetry {symmetry}: {", ".join(structure_identifiers)}')
             if by_file:
-                oriented_filepaths = \
-                    orient_structure_files(structure_identifiers, log=orient_logger, symmetry=symmetry, out_dir=orient_dir)
+                oriented_filepaths = orient_structure_files(structure_identifiers, log=orient_logger,
+                                                            symmetry=symmetry, out_dir=orient_dir)
                 # Pull out the structure names and use below to retrieve the oriented file
                 structure_identifiers = \
                     list(map(os.path.basename, [os.path.splitext(file)[0]
                                                 for file in filter(None, oriented_filepaths)]))
         else:  # This is only possible if symmetry directly passed as None, in which case we should treat as C1 anyway
             symmetry = 'C1'
-            # sym_entry = None
             sym_entry = utils.SymEntry.parse_symmetry_to_sym_entry(symmetry=symmetry)
             logger.info(f'The requested {"files" if by_file else "IDs"} are being set up into the DataBase: '
                         f'{", ".join(structure_identifiers)}')
@@ -307,12 +307,11 @@ class StructureDatabase(Database):
                     model.file_path = self.oriented_asu.path_to(name=model.name)
                     model.symmetry = symmetry
                     with open(model.file_path, 'w') as f:
-                        # model.write_header(f)
                         f.write(model.format_header())
                         for entity in model.entities:
-                            # write each Entity to asu
+                            # Write each Entity to asu
                             entity.write(file_handle=f)
-                            # save Stride results
+                            # Save Stride results
                             entity.stride(to_file=self.stride.path_to(name=entity.name))
                     structure_identifiers_.append(model.name)
 
@@ -352,7 +351,7 @@ class StructureDatabase(Database):
             # Use entry_entity only if not processed before
             else:  # they are missing, retrieve the proper files using PDB ID's
                 entry = structure_identifier.split('_')
-                # in case entry_entity is coming from a new SymDesign Directory the entity name is probably 1ABC_1
+                # In case entry_entity is coming from a new SymDesign Directory the entity name is probably 1ABC_1
                 if len(entry) == 2:
                     entry, entity = entry
                     entry_entity = structure_identifier
@@ -370,7 +369,7 @@ class StructureDatabase(Database):
                     # asu = True <- NOT NECESSARILY A MONOMERIC FILE!
                 else:
                     assembly = query_qs_bio(entry)
-                # get the specified file_path for the assembly state of interest
+                # Get the specified file_path for the assembly state of interest
                 file_path = fetch_pdb_file(entry, assembly=assembly, asu=asu, out_dir=models_dir)
 
                 if not file_path:
@@ -379,10 +378,10 @@ class StructureDatabase(Database):
                     # Todo
                     raise NotImplementedError("This functionality hasn't been written yet. Use the canonical_pdb1/2 "
                                               'attribute of PoseDirectory to pull the pdb file source.')
-                # remove any PDB Database mirror specific naming from fetch_pdb_file such as pdb1ABC.ent
+                # Remove any PDB Database mirror specific naming from fetch_pdb_file such as pdb1ABC.ent
                 file_name = os.path.splitext(os.path.basename(file_path))[0].replace('pdb', '')
                 model = structure.model.Model.from_pdb(file_path, name=file_name)  # , sym_entry=sym_entry
-                if entity:  # replace Structure from fetched file with the Entity Structure
+                if entity:  # Replace Structure from fetched file with the Entity Structure
                     # entry_entity will be formatted the exact same as the desired EntityID if it was provided correctly
                     entity = model.entity(entry_entity)
                     if entity:
@@ -399,7 +398,7 @@ class StructureDatabase(Database):
                     else:  # Write out the entity as parsed. Since this is an assembly, we should get the correct state
                         entity_file_path = model.write(oligomer=True, out_path=entity_out_path)
 
-                    try:  # orient the Structure
+                    try:  # Orient the Structure
                         model.orient(symmetry=symmetry)
                     except (ValueError, RuntimeError) as err:
                         orient_logger.error(str(err))
@@ -409,11 +408,11 @@ class StructureDatabase(Database):
                     orient_file = model.write(oligomer=True, out_path=self.oriented.path_to(name=entry_entity))
                     # Write out ASU file for the oriented_asu database
                     model.file_path = model.write(out_path=self.oriented_asu.path_to(name=entry_entity))
-                    # save Stride results
+                    # Save Stride results
                     model.stride(to_file=self.stride.path_to(name=entry_entity))
 
-                else:  # orient the whole set of chains based on orient() multicomponent solution
-                    try:  # orient the Structure
+                else:  # Orient the whole set of chains based on orient() multicomponent solution
+                    try:  # Orient the Structure
                         model.orient(symmetry=symmetry)
                     except (ValueError, RuntimeError) as err:
                         orient_logger.error(str(err))
@@ -429,7 +428,7 @@ class StructureDatabase(Database):
                         for entity in model.entities:
                             # write each Entity to asu
                             entity.write(file_handle=f)
-                            # save Stride results
+                            # Save Stride results
                             entity.stride(to_file=self.stride.path_to(name=entity.name))
 
                 orient_logger.info(f'Oriented: {orient_file}')
@@ -441,8 +440,8 @@ class StructureDatabase(Database):
         if non_viable_structures:
             non_str = ', '.join(non_viable_structures)
             orient_logger.error(f'The Model'
-                             f'{f"s {non_str} were" if len(non_viable_structures) > 1 else f" {non_str} was"} '
-                             f'unable to be oriented properly')
+                                f'{f"s {non_str} were" if len(non_viable_structures) > 1 else f" {non_str} was"} '
+                                f'unable to be oriented properly')
         return all_structures
 
     def preprocess_structures_for_design(self, structures: list[structure.base.Structure],
