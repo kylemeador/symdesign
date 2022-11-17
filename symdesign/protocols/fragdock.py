@@ -2406,7 +2406,7 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
                               sym_entry=sym_entry, surrounding_uc=job.output_surrounding_uc,
                               fragment_db=job.fragment_db,
                               # uc_dimensions=uc_dimensions,
-                              pose_format=True,
+                              pose_format=True,  # Todo remove this flag
                               ignore_clashes=True, rename_chains=True)
 
     # Calculate metrics on input Pose before any manipulation
@@ -2938,7 +2938,7 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
     # Get all rotations in terms of the degree of rotation along the z-axis
     rotation_degrees1 = rotations1.as_rotvec(degrees=True)[:, -1]
     rotation_degrees2 = rotations2.as_rotvec(degrees=True)[:, -1]
-    # Todo get the degenercy_degrees
+    # Todo get the degeneracy_degrees
     # degeneracy_degrees1 = rotations1.as_rotvec(degrees=True)[:, :-1]
     # degeneracy_degrees2 = rotations2.as_rotvec(degrees=True)[:, :-1]
     if sym_entry.is_internal_tx1:
@@ -2959,24 +2959,25 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
     #     full_ext_tx2 = full_ext_tx2[:]
     #     full_ext_tx_sum = full_ext_tx2 - full_ext_tx1
     pose_transformations = {}
-    pose_ids = []
     for idx in range(number_of_transforms):
-        pose_id = create_pose_id(idx)
-        pose_ids.append(pose_id)
         external_translation1_x, external_translation1_y, external_translation1_z = full_ext_tx1[idx]
         external_translation2_x, external_translation2_y, external_translation2_z = full_ext_tx2[idx]
-        pose_transformations[pose_id] = dict(rotation1=rotation_degrees1[idx],
-                                             internal_translation1=z_heights1[idx],
-                                             setting_matrix1=set_mat1_number,
-                                             external_translation1_x=external_translation1_x,
-                                             external_translation1_y=external_translation1_y,
-                                             external_translation1_z=external_translation1_z,
-                                             rotation2=rotation_degrees2[idx],
-                                             internal_translation2=z_heights2[idx],
-                                             setting_matrix2=set_mat2_number,
-                                             external_translation2_x=external_translation2_x,
-                                             external_translation2_y=external_translation2_y,
-                                             external_translation2_z=external_translation2_z)
+        pose_transformations[create_pose_id(idx)] = \
+            dict(rotation1=rotation_degrees1[idx],
+                 internal_translation1=z_heights1[idx],
+                 setting_matrix1=set_mat1_number,
+                 external_translation1_x=external_translation1_x,
+                 external_translation1_y=external_translation1_y,
+                 external_translation1_z=external_translation1_z,
+                 rotation2=rotation_degrees2[idx],
+                 internal_translation2=z_heights2[idx],
+                 setting_matrix2=set_mat2_number,
+                 external_translation2_x=external_translation2_x,
+                 external_translation2_y=external_translation2_y,
+                 external_translation2_z=external_translation2_z)
+
+    # Capture all the pose_ids from the transformation dictionary
+    pose_ids = list(pose_transformations.keys())
 
     # Check output setting. Should interface design, metrics be performed?
     proteinmpnn_used = False
@@ -3147,6 +3148,11 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
         # once, twice = False, False
 
         # Set up Pose parameters
+        # Todo remove this debugging
+        pose_id = pose_ids[-1]
+        output_pose(os.path.join(root_out_dir, pose_id), pose_id)
+        log.critical(f'Pose debug written to {os.path.join(root_out_dir, pose_id)}')
+        # Todo remove this debugging
         parameters = pose.get_proteinmpnn_params()
         # Todo
         #  Must calculate randn individually if using some feature to describe order
