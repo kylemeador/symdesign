@@ -3219,7 +3219,7 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
         """
         if tolerance > 1:
             raise ValueError(f"{self._get_entity_info_from_atoms.__name__} tolerance={tolerance}. Can't be > 1")
-        entity_idx = 1
+        entity_idx = 0
         # Get rid of any information already acquired
         self.entity_info = {}
         # self.entity_info = {f'{self.name}_{entity_idx}':
@@ -3239,14 +3239,14 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
                 #      data['chains'].append(chain)
                 #      new_entity = False  # The entity is not unique, do not add
                 #      break
-                # check if the sequence associated with the Chain is in entity_info
+                # Check if the sequence associated with the Chain is in entity_info
                 sequence = data['sequence']
                 if chain.sequence == sequence:
                     score = len(chain.sequence)
                 else:
                     alignment = generate_alignment(chain.sequence, sequence, local=True)
                     # alignment = pairwise2.align.localxx(chain.sequence, sequence)
-                    score = alignment[2]  # grab score value
+                    score = alignment[2]  # Grab score value
                 # Use which ever sequence is greater as the max
                 seq_len, chain_seq_len = len(sequence), len(chain.sequence)
                 large_sequence_length = max(seq_len, chain_seq_len)
@@ -3257,13 +3257,13 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
                                f'and {length_proportion:.2f} length difference')
                 if match_score >= tolerance and length_proportion <= 1-tolerance:
                     self.log.debug(f'Chain {chain.name} matches Entity {entity_name}')
-                    # if number of sequence matches is > tolerance, and the length difference < tolerance
+                    # If number of sequence matches is > tolerance, and the length difference < tolerance
                     # the current chain is the same as the Entity, add to chains, and move on to the next chain
                     data['chains'].append(chain)
                     new_entity = False  # The entity is not unique, do not add
                     break
 
-            if new_entity:  # no existing entity matches, add new entity
+            if new_entity:  # No existing entity matches, add new entity
                 entity_idx += 1
                 self.entity_info[f'{self.name}_{entity_idx}'] = dict(chains=[chain], sequence=chain.sequence)
         self.log.debug(f'Entity information was solved by {method} match')
