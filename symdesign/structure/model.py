@@ -3100,14 +3100,17 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
                         else:  # if we didn't satisfy a cluster, report and move to the next
                             self.log.error('Unable to find the chains corresponding from entity (%s) to assembly (%s)'
                                            % (entity_name, self.api_entry.get('assembly', {})))
-                else:
+                else:  # We can't be certain of the requested biological assembly
                     for entity_name, data in self.api_entry.get('entity', {}).items():
                         self.entity_info[entity_name] = data
                 # Todo this was commented out because nucleotides can't be parsed. This issue still needs solving
                 # Check to see that the entity_info is in line with the number of chains already parsed
-                # found_entity_chains = [chain for info in self.entity_info for chain in info.get('chains', [])]
-                # if len(self.chain_ids) != len(found_entity_chains):
-                #     self._get_entity_info_from_atoms(**kwargs)
+                found_entity_chains = [chain for data in self.entity_info.values() for chain in data.get('chains', [])]
+                if len(self.chain_ids) != len(found_entity_chains):
+                    if self.nucleotides_present:
+                        raise NotImplementedError(f"The parsing and integration of nucleotides hasn't been worked out")
+                    # We didn't get this correct, so use the Structure attributes only
+                    self._get_entity_info_from_atoms(**kwargs)
             else:  # Still nothing, the API didn't work for self.name. Solve by atom information
                 self._get_entity_info_from_atoms(**kwargs)
                 if query_by_sequence and entity_names is None:
