@@ -18,7 +18,10 @@ from .coords import Coords, superposition3d
 from . import fragment, utils as stutils
 from .utils import protein_letters_alph1, protein_letters_1to3, protein_letters_3to1_extended
 from symdesign import utils
-from symdesign.third_party.pdbecif.src.pdbecif.mmcif_io import CifFileReader
+# from symdesign.third_party.pdbecif.src.pdbecif.mmcif_io import CifFileReader
+# Before use, need to fix the issue with pdbecif not referring to itself within symdesign.third_party....
+#   File "/home/kmeador/symdesign/symdesign/third_party/pdbecif/src/pdbecif/mmcif_io.py", line 7, in <module>
+#     from pdbecif.globalphasing.startools import StarTokeniser
 
 # globals
 logger = logging.getLogger(__name__)
@@ -2667,7 +2670,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
     def from_mmcif(cls, file: AnyStr, **kwargs):
         """Create a new Structure from a .cif formatted file"""
         raise NotImplementedError(mmcif_error)
-        data = CifFileReader().read(file)
+        # data = CifFileReader().read(file)
         return cls(data)
         # return cls(file_path=file, **read_mmcif_file(file, **kwargs))
 
