@@ -3182,9 +3182,9 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
             #                             'api_entry=%s, original_chain_ids=%s'
             #                             % (self.name, self._create_entities.__name__, self.entity_info,
             #                             self.biological_assembly, self.api_entry, self.original_chain_ids))
-            dbref = data.get('dbref')
-            if dbref is None:
-                dbref = {}
+            dbref = data.get('dbref', None)
+            # if dbref is None:
+            #     dbref = {}
             entity_data['dbref'] = data['dbref'] = dbref
             # data['chains'] = [chain for chain in chains if chain]  # remove any missing chains
             #                                               generated from a PDB API sequence search v
@@ -3221,6 +3221,7 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
             raise ValueError(f"{self._get_entity_info_from_atoms.__name__} tolerance={tolerance}. Can't be > 1")
         entity_idx = 0
         # Get rid of any information already acquired
+        existing_entity_info = self.entity_info
         self.entity_info = {}
         # self.entity_info = {f'{self.name}_{entity_idx}':
         #                     dict(chains=[self.chains[0]], sequence=self.chains[0].sequence)}
@@ -3266,7 +3267,17 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
             if new_entity:  # No existing entity matches, add new entity
                 entity_idx += 1
                 self.entity_info[f'{self.name}_{entity_idx}'] = dict(chains=[chain], sequence=chain.sequence)
+
         self.log.debug(f'Entity information was solved by {method} match')
+
+        # Check if information was found from PDB API, but was not accurate with regard to chains. Add existing info
+        if existing_entity_info:
+            for entity_name, data in self.entity_info.items():
+                original_entity_data = existing_entity_info.get(entity_name)
+                if original_entity_data:
+                    original_entity_data.pop('chains', None)
+                    original_entity_data.pop('sequence', None)
+                    data.update(original_entity_data)
 
     def entity_from_chain(self, chain_id: str) -> Entity | None:
         """Return the entity associated with a particular chain id"""
