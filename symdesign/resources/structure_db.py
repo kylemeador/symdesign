@@ -126,8 +126,13 @@ def orient_structure_files(files: Iterable[AnyStr], log: Logger = logger, symmet
     """
     file_paths = []
     for file in files:
-        model_name = os.path.splitext(os.path.basename(file))[0]
-        oriented_file_path = os.path.join(out_dir, f'{model_name}.pdb')
+        model_name, extension = os.path.splitext(os.path.basename(file))
+        if '.pdb' in extension:  # Use the original extension which may have an assembly provided
+            output_extension = extension
+        else:  # This could be mmcif
+            output_extension = '.pdb'
+
+        oriented_file_path = os.path.join(out_dir, f'{model_name}{output_extension}')  # .pdb')
         if not os.path.exists(oriented_file_path):
             # Must load entities to solve multi-component orient problem
             model = structure.model.Model.from_file(file, log=log)
