@@ -1127,6 +1127,7 @@ class Atoms:
 class ContainsAtomsMixin(StructureBase):
     # _atom_indices: list[int]
     _atoms: Atoms
+    _inverse_number_atoms: np.ndarray
     _indices_attributes: set[str] = {'_backbone_and_cb_indices', '_backbone_indices', '_ca_indices', '_cb_indices',
                                      '_heavy_indices', '_side_chain_indices'}
     # _coords: Coords
@@ -1221,8 +1222,13 @@ class ContainsAtomsMixin(StructureBase):
     @property
     def center_of_mass(self) -> np.ndarray:
         """The center of mass for the StructureBase coordinates"""
-        number_of_atoms = self.number_of_atoms
-        return np.matmul(np.full(number_of_atoms, 1 / number_of_atoms), self.coords)
+        try:
+            return np.matmul(self._inverse_number_atoms, self.coords)
+        except AttributeError:
+            number_of_atoms = self.number_of_atoms
+            self._inverse_number_atoms = np.full(number_of_atoms, 1 / number_of_atoms)
+            return np.matmul(self._inverse_number_atoms, self.coords)
+
         # try:
         #     return self._center_of_mass
         # except AttributeError:
