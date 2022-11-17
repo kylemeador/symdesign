@@ -31,9 +31,31 @@ mutation_directives: tuple[directives, ...] = get_args(directives)
 atom_or_residue = Literal['atom', 'residue']
 structure_container_types = Literal['atoms', 'residues', 'chains', 'entities']
 termini_literal = Literal['n', 'c']
-# protein_backbone_atom_types = {'N', 'CA', 'O'}  # 'C', Removing 'C' for fragment library guide atoms...
 protein_backbone_atom_types = {'N', 'CA', 'C', 'O'}
 protein_backbone_and_cb_atom_types = {'N', 'CA', 'C', 'O', 'CB'}
+phosphate_backbone_atom_types = {'P', 'OP1', 'OP2'}
+# P, OP1, OP2,
+dna_sugar_atom_types = {"O5'", "C5'", "C4'", "O4'", "C3'", "O3'", "C2'", "C1'"}
+# O5', C5', C4', O4', C3', O3', C2', O2', C1'  # RNA only
+rna_sugar_atom_types = dna_sugar_atom_types | {"O2'"}
+# O5', C5', C4', O4', C3', O3', C2', C1'  # DNA only
+# For A, i.e. adenosine
+# N9, C8, N7, C5, C6, N6, N1, C2, N3, C4
+# For DA, i.e. deoxyadenosine
+# N9, C8, N7, C5, C6, N6, N1, C2, N3, C4
+# For C, i.e. cytosine
+# N1, C2, O2, N3, C4, N4, C5, C6
+# For DC, i.e. deoxycytosine
+# N1, C2, O2, N3, C4, N4, C5, C6
+# For G i.e. guanosine
+# N9, C8, N7, C5, C6, O6, N1, C2, N2, N3, C4
+# For DG i.e. deoxyguanosine
+# N9, C8, N7, C5, C6, O6, N1, C2, N2, N3, C4
+# For U i.e. urosil
+# N1, C2, O2, N3, C4, O4, C5, C6
+# For DT, i.e. deoxythymidine
+# N1, C2, O2, N3, C4, O4, C5, C7, C6
+
 # mutation_directives = \
 #     ['special', 'same', 'different', 'charged', 'polar', 'hydrophobic', 'aromatic', 'hbonding', 'branched']
 residue_properties = {'ALA': {'hydrophobic', 'apolar'},
@@ -86,6 +108,7 @@ def unknown_index():
 
 polarity_types_literal = Literal['apolar', 'polar']
 polarity_types: tuple[polarity_types_literal, ...] = get_args(polarity_types_literal)
+# Todo add nucleotide polarities to this table. The atom types are located above. Polarities in freesasa-2.0.config
 atomic_polarity_table = {  # apolar = 0, polar = 1
     'ALA': defaultdict(unknown_index, {'N': 1, 'CA': 0, 'C': 0, 'O': 1, 'CB': 0}),
     'ARG': defaultdict(unknown_index, {'N': 1, 'CA': 0, 'C': 0, 'O': 1, 'CB': 0, 'CG': 0, 'CD': 0, 'NE': 1, 'CZ': 0,
@@ -2548,6 +2571,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
     biomt_header: str
     file_path: AnyStr | None
     name: str
+    nucleotides_present: bool
     secondary_structure: str | None
     sasa: float | None
     structure_containers: list | list[str]
@@ -2585,6 +2609,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         self.biomt_header = biomt_header if biomt_header else ''  # str with already formatted header
         self.file_path = file_path
         self.name = name if name not in [None, False] else f'nameless_{type(self).__name__}'
+        self.nucleotides_present = False
         self.secondary_structure = None
         self.sasa = None
         self.structure_containers = []
@@ -3322,13 +3347,15 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         current_residue_number = atoms[0].residue_number
         start_atom_index = idx = 0
         for idx, atom in enumerate(atoms):
-            # if the current residue number is the same as the prior number and the atom.type is not already present
+            # If the current residue number is the same as the prior number and the atom.type is not already present
             # We get rid of alternate conformations upon PDB load, so must be a new residue with bad numbering
             if atom.residue_number == current_residue_number and atom.type not in found_types:
                 # atom_indices.append(idx)
                 found_types.add(atom.type)
             else:
                 if protein_backbone_atom_types.difference(found_types):  # Not an empty set, remove [start_idx:idx]
+                    if dna_sugar_atom_types.intersection(found_types):
+                        self.nucleotides_present = True
                     remove_atom_indices.extend(range(start_atom_index, idx))
                 else:  # proper format
                     new_residues.append(Residue(atom_indices=list(range(start_atom_index, idx)), parent=self))
