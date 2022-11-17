@@ -2783,8 +2783,9 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
         #     full_ext_tx1 = full_ext_tx1[passing_symmetric_clash_indices_perturb]
         #     full_ext_tx2 = full_ext_tx2[passing_symmetric_clash_indices_perturb]
         #     # full_ext_tx_sum = full_ext_tx2 - full_ext_tx1
-    # else:
-    #     number_of_transforms = full_rotation1.shape[0]
+    else:
+        total_number_of_perturbations = number_of_transforms
+        total_perturbation_size = 1
 
     # Define functions for outputting docked poses
     def create_pose_id(_idx: int) -> str:
@@ -2796,13 +2797,13 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
             The PoseID with format building_blocks-degeneracy-rotation-transform-perturb if perturbation used
                 Ex: '****_#-****_#-d_#_#-r_#_#-t_#-p_#' OR '****_#-****_#-d_#_#-r_#_#-t_#' (no perturbation)
         """
-        transform_idx = _idx // total_number_of_perturbations
+        transform_idx = _idx // total_perturbation_size
         _pose_id = f'd_{"_".join(map(str, degen_counts[transform_idx]))}' \
                    f'-r_{"_".join(map(str, rot_counts[transform_idx]))}' \
                    f'-t_{tx_counts[transform_idx]}'  # translation idx
-        if total_number_of_perturbations > 1:
-            # perturb_idx = idx % total_number_of_perturbations
-            _pose_id = f'{_pose_id}-p_{_idx%total_number_of_perturbations + 1}'
+        if total_perturbation_size > 1:
+            # perturb_idx = idx % total_perturbation_size
+            _pose_id = f'{_pose_id}-p_{_idx%total_perturbation_size + 1}'
 
         return f'{building_blocks}-{_pose_id}'
 
@@ -2987,7 +2988,7 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
         #     update_pose_coords(idx)
         #
         #     if job.write_fragments:
-        #         # if total_number_of_perturbations > 1:
+        #         # if total_perturbation_size > 1:
         #         add_fragments_to_pose()  # <- here generating fresh
         #         # else:
         #         #     # Here, loading fragments. No self-symmetric interactions found
@@ -4090,7 +4091,7 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
         # Add the next set of coordinates
         update_pose_coords(idx)
 
-        # if total_number_of_perturbations > 1:
+        # if total_perturbation_size > 1:
         add_fragments_to_pose()  # <- here generating fresh
         # else:
         #     # Here, loading fragments. No self-symmetric interactions will be generated!
