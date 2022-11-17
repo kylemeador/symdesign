@@ -18,6 +18,7 @@ from .coords import Coords, superposition3d
 from . import fragment, utils as stutils
 from .utils import protein_letters_alph1, protein_letters_1to3, protein_letters_3to1_extended
 from symdesign import utils
+from symdesign.third_party.pdbecif.src.pdbecif.mmcif_io import CifFileReader
 
 # globals
 logger = logging.getLogger(__name__)
@@ -2641,7 +2642,9 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
     def from_mmcif(cls, file: AnyStr, **kwargs):
         """Create a new Structure from a .cif formatted file"""
         raise NotImplementedError(mmcif_error)
-        return cls(file_path=file, **read_mmcif_file(file, **kwargs))
+        data = CifFileReader().read(file)
+        return cls(data)
+        # return cls(file_path=file, **read_mmcif_file(file, **kwargs))
 
     @classmethod
     def from_residues(cls, residues: list[Residue] | Residues = None, **kwargs):
