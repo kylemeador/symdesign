@@ -4126,8 +4126,6 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
                 pass
 
         # Calculate pose metrics
-        for entity in pose.entities:
-            print('entity.uniprot_id', entity.uniprot_id)
         interface_metrics[pose_id] = pose.interface_metrics()
         # _interface_metrics = pose.interface_metrics()
 
