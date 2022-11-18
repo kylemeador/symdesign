@@ -5535,7 +5535,7 @@ class Pose(SymmetricModel):
             self.find_and_split_interface(**kwargs)
 
             # Add all interface + required residues
-            design_residues = [residue.number-zero_offset for residue in self.design_residues]
+            design_residues = [residue.index for residue in self.design_residues]
         else:
             design_residues = list(range(self.number_of_residues))
 
