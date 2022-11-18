@@ -108,14 +108,15 @@ def get_perturb_matrices(rotation_degrees: float, number: int = 10) -> np.ndarra
     return np.array(perturb_matrices)
 
 
-def create_perturbation_transformations(sym_entry: SymEntry, number: int = 10,
+def create_perturbation_transformations(sym_entry: SymEntry, rotation_number: int = 1, translation_number: int = 1,
                                         rotation_range: Iterable[float] = None,
                                         translation_range: Iterable[float] = None) -> dict[str, np.ndarray]:
     """From a specified SymEntry and sampling schedule, create perturbations to degrees of freedom for each available
 
     Args:
         sym_entry: The SymEntry whose degrees of freedom should be expanded
-        number: The number of times to sample from the allowed transformation space
+        rotation_number: The number of times to sample from the allowed rotation space. 1 means no perturbation
+        translation_number: The number of times to sample from the allowed translation space. 1 means no perturbation
         rotation_range: The range to sample rotations +/- the identified rotation in degrees.
             Expected type is an iterable of length comparable to the number of rotational degrees of freedom
         translation_range: The range to sample translations +/- the identified translation in Angstroms
@@ -124,78 +125,139 @@ def create_perturbation_transformations(sym_entry: SymEntry, number: int = 10,
         A mapping between the perturbation type and the corresponding transformations
     """
     # Get the perturbation parameters
-    # Total number of perturbations using the desired number and the total_dof possible in the symmetry
-    total_dof = sym_entry.total_dof
+    # Total number of perturbations desired using the total_dof possible in the symmetry and those requested
+    target_dof = total_dof = sym_entry.total_dof
+    rotational_dof = sym_entry.number_dof_rotation
+    translational_dof = sym_entry.number_dof_translation
+    n_dof_external = sym_entry.number_dof_external
+
+    if rotation_number < 1:
+        raise ValueError(f"Can't create perturbation transformations with rotation_number of {rotation_number}")
+    elif rotation_number == 1:
+        target_dof -= rotational_dof
+
+    if translation_number < 1:
+        raise ValueError(f"Can't create perturbation transformations with translation_number of {translation_number}")
+    elif translation_number == 1:
+        target_dof -= translational_dof
+
+    # # Make a vector of the perturbation number [1, 2, 2, 3, 3, 1] with 1 as constants on each end
+    # dof_number_perturbations = [1] \
+    #     + [rotation_number for dof in rotational_dof] \
+    # Make a vector of the perturbation number [2, 2, 3, 3]
+    dof_number_perturbations = \
+        [rotation_number for dof in rotational_dof] \
+        + [translation_number for dof in translational_dof] \
+        # + [1]
+    # translation_stack_size = translation_number**translational_dof
+    # stack_size = rotation_number**rotational_dof * translation_stack_size
+    # number = rotation_number + translation_number
+
+    stack_size = prod(dof_number_perturbations)
     # Initialize a translation grid for any translational degrees of freedom
-    translation_grid = np.zeros((number**total_dof, 3), dtype=float)
-    # Begin with total dof minus 1
-    remaining_dof = total_dof - 1
-    # Begin with 0
-    seen_dof = 0
-    idx = 0
-    # Translation params
-    # translation_range = 0.5  # Angstroms
+    translation_grid = np.zeros((stack_size, 3), dtype=float)
+    # # Begin with total dof minus 1
+    # remaining_dof = total_dof - 1
+    # # Begin with 0
+    # seen_dof = 0
+    dof_idx = 0
 
     if rotation_range is None:
-        # Default rotation range is 1 degree
+        # Default rotation range is 1. degree
         rotation_range = tuple(repeat(1., sym_entry.number_of_groups))
     if translation_range is None:
         # Default translation range is 0.5 Angstroms
         translation_range = tuple(repeat(.5, sym_entry.number_of_groups))
+        if n_dof_external:
+            ext_translation_range = tuple(repeat(.5, n_dof_external))
+    else:
+        ext_translation_range = tuple(repeat(.5, n_dof_external))
 
     perturbation_mapping = {}
-    for idx, group in enumerate(sym_entry.groups, idx):
+    for idx, group in enumerate(sym_entry.groups):
         group_idx = idx + 1
         if getattr(sym_entry, f'is_internal_rot{group_idx}'):
             rotation_step = rotation_range[idx]  # * 2
-            perturb_matrices = get_perturb_matrices(rotation_step, number=number)
-            # Repeat the matrices according to the number of perturbations raised to the power of the
-            # remaining dof (remaining_dof), then tile that by how many dof have been seen (seen_dof)
-            perturb_matrices = np.tile(np.tile(perturb_matrices, (number**remaining_dof, 1, 1)),
-                                       (number**seen_dof, 1, 1))
-            remaining_dof -= 1
-            seen_dof += 1
-        else:  # np.tile the identity matrix to make equally sized
-            perturb_matrices = np.tile(identity_matrix, (number**total_dof, 1, 1))
+            perturb_matrices = get_perturb_matrices(rotation_step, number=rotation_number)
+            # Repeat (tile then reshape) the matrices according to the number of perturbations raised to the power of
+            # the remaining dof (remaining_dof), then tile that by how many dof have been seen (seen_dof)
+            # perturb_matrices = \
+            #     np.tile(np.tile(perturb_matrices,
+            #                     (1, 1, rotation_number**remaining_dof * translation_stack_size)).reshape(-1, 3, 3),
+            #             (number**seen_dof, 1, 1))
+            # remaining_dof -= 1
+            # seen_dof += 1
+            # Get the product of the number of perturbations before and after the current index
+            repeat_number = prod(dof_number_perturbations[dof_idx + 1:])
+            tile_number = prod(dof_number_perturbations[:dof_idx])
+            # Repeat (tile then reshape) the matrices according to the product of the remaining dof,
+            # number of perturbations, then tile by the product of how many perturbations have been seen
+            perturb_matrices = np.tile(np.tile(perturb_matrices, (1, 1, repeat_number)).reshape(-1, 3, 3),
+                                       (tile_number, 1, 1))
+            # Increment the dof seen
+            dof_idx += 1
+        else:
+            # This is a requirement as currently, all SymEntry are assumed to have rotations
+            # np.tile the identity matrix to make equally sized.
+            perturb_matrices = np.tile(identity_matrix, (stack_size, 1, 1))
+
         perturbation_mapping[f'rotation{group_idx}'] = perturb_matrices
 
+    for idx, group in enumerate(sym_entry.groups):
+        group_idx = idx + 1
         if getattr(sym_entry, f'is_internal_tx{group_idx}'):
             # Repeat the translation according to the number of perturbations raised to the power of the
             # remaining dof (remaining_dof), then tile that by how many dof have been seen (seen_dof)
             internal_translation_grid = copy.copy(translation_grid)
-
-            translation_perturb_vector = np.linspace(-translation_range[idx], translation_range[idx], number)
-            internal_translation_grid[:, 2] = np.repeat(np.repeat(translation_perturb_vector, number**remaining_dof),
-                                                        number**seen_dof)
-            remaining_dof -= 1
-            seen_dof += 1
+            translation_perturb_vector = \
+                np.linspace(-translation_range[idx], translation_range[idx], translation_number)
+            # internal_translation_grid[:, 2] = np.tile(np.repeat(translation_perturb_vector, number**remaining_dof),
+            #                                           number**seen_dof)
+            # remaining_dof -= 1
+            # seen_dof += 1
+            # Get the product of the number of perturbations before and after the current index
+            repeat_number = prod(dof_number_perturbations[dof_idx + 1:])
+            tile_number = prod(dof_number_perturbations[:dof_idx])
+            internal_translation_grid[:, 2] = np.tile(np.repeat(translation_perturb_vector, repeat_number),
+                                                      tile_number)
+            # Increment the dof seen
+            dof_idx += 1
             perturbation_mapping[f'translation{group_idx}'] = internal_translation_grid
 
-    if sym_entry.unit_cell:
-        # sym_entry.n_dof_external are included in the sym_entry.total_dof calculation
+    if n_dof_external:
+        # sym_entry.number_dof_external are included in the sym_entry.total_dof calculation
         # Need to perturb this many dofs. Each additional ext DOF increments e, f, g.
-        # So 2 n_dof_external gives e, f. 3 gives e, f, g. This way the correct number of axis can be perturbed...
-        n_dof_external = sym_entry.n_dof_external
-        # ext_dof_perturbs = np.zeros_like(ext_dof_shifts)
-        # ext_dof_perturbs = np.zeros((ext_dof_shifts.shape[0], 3), dtype=float)
+        # So 2 number_dof_external gives e, f. 3 gives e, f, g. This way the correct number of axis can be perturbed...
         # This solution doesn't vary the translation_grid in all dofs
-        # ext_dof_perturbs[:, :n_dof_external] = np.tile(translation_grid, (n_dof_external, 1)).T
+        # ext_dof_perturbs[:, :number_dof_external] = np.tile(translation_grid, (number_dof_external, 1)).T
         # This solution iterates over the translation_grid, adding a new grid over all remaining dofs
         external_translation_grid = copy.copy(translation_grid)
-        for idx, ext_idx in enumerate(range(n_dof_external), idx + 1):
-            # ext_dof_perturbs[:, ext_idx] = np.tile(np.repeat(translation_grid,
-            translation_perturb_vector = np.linspace(-translation_range[idx], translation_range[idx], number)
-            external_translation_grid[:, ext_idx] = np.tile(np.repeat(translation_perturb_vector,
-                                                                      (number**remaining_dof, 1, 1)),
-                                                            (number**seen_dof, 1, 1))
-            remaining_dof -= 1
-            seen_dof += 1
+        for idx, ext_idx in enumerate(range(n_dof_external)):
+            translation_perturb_vector = \
+                np.linspace(-ext_translation_range[idx], ext_translation_range[idx], translation_number)
+            # external_translation_grid[:, ext_idx] = np.tile(np.repeat(translation_perturb_vector,
+            #                                                           number**remaining_dof),
+            #                                                 number**seen_dof)
+            # remaining_dof -= 1
+            # seen_dof += 1
+            # Get the product of the number of perturbations before and after the current index
+            repeat_number = prod(dof_number_perturbations[dof_idx + 1:])
+            tile_number = prod(dof_number_perturbations[:dof_idx])
+            external_translation_grid[:, ext_idx] = np.tile(np.repeat(translation_perturb_vector, repeat_number),
+                                                            tile_number)
+            # Increment the dof seen
+            dof_idx += 1
 
         perturbation_mapping['external_translations'] = external_translation_grid
 
-    if remaining_dof + 1 != 0 and seen_dof != total_dof:
-        logger.critical(f'The number of perturbations is unstable! {remaining_dof + 1} != 0 and '
-                        f'{seen_dof} != {total_dof} total_dof')
+    # if remaining_dof + 1 != 0 and seen_dof != total_dof:
+    #     logger.critical(f'The number of perturbations is unstable! {remaining_dof + 1} != 0 and '
+    #                     f'{seen_dof} != {total_dof} total_dof')
+    if dof_idx != target_dof:
+        logger.critical(f'The number of perturbations is unstable! '
+                        f'perturbed dof used {dof_idx} != {target_dof} the targeted dof to perturb resulting from '
+                        f'{total_dof} total_dof, {rotational_dof} rotational_dof, '
+                        f'and {translational_dof} translational_dof')
 
     return perturbation_mapping
 
@@ -227,7 +289,7 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
     Returns:
         None
     """
-    #   dock_continuous_ghost: Whether to use the overlap potential on the same component to filter ghost fragments
+    #   contiguous_ghosts: Whether to use the overlap potential on the same component to filter ghost fragments
     # Create symjob.JobResources for all flags
     if job is None:
         job = symjob.job_resources_factory.get(program_root=root_out_dir, **kwargs)
@@ -246,19 +308,15 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
     low_quality_match_value = .2  # sets the lower bounds on an acceptable match, was upper bound of 2 using z-score
     cb_distance = 9.  # change to 8.?
     # Testing if this is too strict when strict overlaps are used
-    cluster_transforms = not job.dock_continuous_ghost  # True
+    cluster_transforms = not job.dock.contiguous_ghosts  # True
     # Todo set below as parameters?
     translation_epsilon = 1  # 1 seems to work well at recapitulating the results without it. More stringent -> 0.75
     high_quality_z_value = z_value_from_match_score(high_quality_match_value)
     low_quality_z_value = z_value_from_match_score(low_quality_match_value)
 
-    if job.design.perturb_dof:
-        number_of_perturbation_steps = job.design.perturb_dof_steps
+    if job.dock.perturb_dof_tx:
         if sym_entry.unit_cell:
-            raise NotImplementedError(f"{create_perturbation_transformations.__name__} isn't working for "
-                                      f"lattice symmetries")
-    else:
-        number_of_perturbation_steps = 1
+            logger.critical(f"{create_perturbation_transformations.__name__} hasn't been tested for lattice symmetries")
 
     # Get Building Blocks in pose format to remove need for fragments to use chain info
     if not isinstance(model1, Structure):
@@ -294,17 +352,18 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
     else:
         raise NotImplementedError('Must provide a root_out_dir!')
 
-    # Setup logger
-    if logger is None:
-        log_file_path = os.path.join(root_out_dir, f'{building_blocks}_log.txt')
-    else:
-        try:
-            log_file_path = getattr(logger.handlers[0], 'baseFilename', None)
-        except IndexError:  # No handler attached to this logger. Probably passing to a parent logger
-            log_file_path = None
-
-    if log_file_path:  # Start logging to a file in addition
-        logger = start_log(name=building_blocks, handler=2, location=log_file_path, format_log=False, propagate=True)
+    # Todo reimplement this feature to write a log to the Project directory
+    # # Setup logger
+    # if logger is None:
+    #     log_file_path = os.path.join(root_out_dir, f'{building_blocks}_log.txt')
+    # else:
+    #     try:
+    #         log_file_path = getattr(logger.handlers[0], 'baseFilename', None)
+    #     except IndexError:  # No handler attached to this logger. Probably passing to a parent logger
+    #         log_file_path = None
+    #
+    # if log_file_path:  # Start logging to a file in addition
+    #     logger = start_log(name=building_blocks, handler=2, location=log_file_path, format_log=False, propagate=True)
 
     for model in models:
         model.log = logger
@@ -387,7 +446,7 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
     ghost_residue_numbers1 = np.array([ghost_frag.number for ghost_frag in complete_ghost_frags1])
     ghost_j_indices1 = np.array([ghost_frag.j_type for ghost_frag in complete_ghost_frags1])
 
-    if job.dock_continuous_ghost:
+    if job.dock.contiguous_ghosts:
         # Identify surface/ghost frag overlap originating from the same oligomer
         # Set up the output array with the number of residues by the length of the max number of ghost fragments
         max_ghost_frags = max([len(ghost_frags) for ghost_frags in ghost_frags_by_residue1])
@@ -1068,14 +1127,14 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
                 # For a single DOF, multiplication won't matter as only one matrix element will be available
                 #
                 # Must find positive indices before external_dof1 multiplication in case negatives there
-                positive_indices = np.flatnonzero(np.all(transform_passing_shifts[:, :sym_entry.n_dof_external] >= 0,
+                positive_indices = np.flatnonzero(np.all(transform_passing_shifts[:, :sym_entry.number_dof_external] >= 0,
                                                          axis=1))
                 number_passing_shifts = positive_indices.shape[0]
                 optimal_ext_dof_shifts = np.zeros((number_passing_shifts, 3), dtype=float)
-                optimal_ext_dof_shifts[:, :sym_entry.n_dof_external] = \
-                    transform_passing_shifts[positive_indices, :sym_entry.n_dof_external]
+                optimal_ext_dof_shifts[:, :sym_entry.number_dof_external] = \
+                    transform_passing_shifts[positive_indices, :sym_entry.number_dof_external]
                 # optimal_ext_dof_shifts = np.hstack((optimal_ext_dof_shifts,) +
-                #                                    (blank_vector,) * (3-sym_entry.n_dof_external))
+                #                                    (blank_vector,) * (3-sym_entry.number_dof_external))
                 # ^ I think for the sake of cleanliness, I need to make this matrix
 
                 full_optimal_ext_dof_shifts.append(optimal_ext_dof_shifts)
@@ -1094,19 +1153,19 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
             # Stack each internal parameter along with a blank vector, this isolates the tx vector along z axis
             if full_int_tx1 is not None:
                 # stacked_internal_tx_vectors1 = np.zeros((number_passing_shifts, 3), dtype=float)
-                # stacked_internal_tx_vectors1[:, -1] = transform_passing_shifts[:, sym_entry.n_dof_external]
-                # internal_tx_params1 = transform_passing_shifts[:, None, sym_entry.n_dof_external]
+                # stacked_internal_tx_vectors1[:, -1] = transform_passing_shifts[:, sym_entry.number_dof_external]
+                # internal_tx_params1 = transform_passing_shifts[:, None, sym_entry.number_dof_external]
                 # stacked_internal_tx_vectors1 = np.hstack((blank_vector, blank_vector, internal_tx_params1))
                 # Store transformation parameters, indexing only those that are positive in the case of lattice syms
-                full_int_tx1.extend(transform_passing_shifts[positive_indices, sym_entry.n_dof_external].tolist())
+                full_int_tx1.extend(transform_passing_shifts[positive_indices, sym_entry.number_dof_external].tolist())
 
             if full_int_tx2 is not None:
                 # stacked_internal_tx_vectors2 = np.zeros((number_passing_shifts, 3), dtype=float)
-                # stacked_internal_tx_vectors2[:, -1] = transform_passing_shifts[:, sym_entry.n_dof_external + 1]
-                # internal_tx_params2 = transform_passing_shifts[:, None, sym_entry.n_dof_external + 1]
+                # stacked_internal_tx_vectors2[:, -1] = transform_passing_shifts[:, sym_entry.number_dof_external + 1]
+                # internal_tx_params2 = transform_passing_shifts[:, None, sym_entry.number_dof_external + 1]
                 # stacked_internal_tx_vectors2 = np.hstack((blank_vector, blank_vector, internal_tx_params2))
                 # Store transformation parameters, indexing only those that are positive in the case of lattice syms
-                full_int_tx2.extend(transform_passing_shifts[positive_indices, sym_entry.n_dof_external + 1].tolist())
+                full_int_tx2.extend(transform_passing_shifts[positive_indices, sym_entry.number_dof_external + 1].tolist())
 
             # full_int_tx1.append(stacked_internal_tx_vectors1[positive_indices])
             # full_int_tx2.append(stacked_internal_tx_vectors2[positive_indices])
@@ -1941,11 +2000,11 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
         full_uc_dimensions = sym_entry.get_uc_dimensions(full_optimal_ext_dof_shifts)
 
     number_of_transforms = passing_transforms_indices.shape[0]
-    if job.design.perturb_dof:
-        # Define a function to stack the transforms
+    if job.dock.perturb_dof_rot or job.dock.perturb_dof_tx:
         perturb_rotation1, perturb_rotation2, perturb_int_tx1, perturb_int_tx2, perturb_optimal_ext_dof_shifts = \
             [], [], [], [], []
 
+        # Define a function to stack the transforms
         def stack_viable_transforms(passing_indices: np.ndarray | list[int]):
             """From indices with viable transformations, stack there corresponding transformations into full
             perturbation transformations
@@ -1972,8 +2031,8 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
         # Expand successful poses from coarse search of transformational space to randomly perturbed offset
         # By perturbing the transformation a random small amount, we generate transformational diversity from
         # the already identified solutions.
-        # THIS IS NEW
-        perturbations = create_perturbation_transformations(sym_entry, number=number_of_perturbation_steps,
+        perturbations = create_perturbation_transformations(sym_entry, rotation_number=job.dock.perturb_dof_steps_rot,
+                                                            translation_number=job.dock.perturb_dof_steps_tx,
                                                             rotation_range=rotation_steps)
         # Extract perturbation parameters and set the original transformation parameters to a new variable
         # if sym_entry.is_internal_rot1:
@@ -2303,7 +2362,7 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
         # # return terminate()  # End of docking run
     # ------------------ TERM ------------------------
     # elif job.design.sequences:  # We perform sequence design
-    elif job.dock_proteinmpnn or job.design.sequences:  # Initialize proteinmpnn for dock/design
+    elif job.dock.proteinmpnn_score or job.design.sequences:  # Initialize proteinmpnn for dock/design
         proteinmpnn_used = True
         # Load profiles of interest into the analysis
         profile_background = {}
@@ -3286,7 +3345,7 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
         # probabilities = np.empty((size, number_of_residues, mpnn_alphabet_length, dtype=np.float32))
         # Include design indices in both dock and design
         per_residue_design_indices = np.zeros((size, pose_length), dtype=bool)
-        if job.dock_proteinmpnn:
+        if job.dock.proteinmpnn_score:
             # Set up ProteinMPNN output data structures
             # To use torch.nn.NLLL() must use dtype Long -> np.int64, not Int -> np.int32
             # generated_sequences = np.empty((size, pose_length), dtype=np.int64)
@@ -3311,7 +3370,7 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
                               }
 
         # Perform the calculation
-        if job.dock_proteinmpnn and job.design.sequences:
+        if job.dock.proteinmpnn_score and job.design.sequences:
             # This is used for October 2022 working dock/design protocol
             calculation_method = 'docking analysis/sequence design'
             dock_design_returns = {**dock_returns, **design_returns}
@@ -3328,7 +3387,7 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
             generated_sequences = sequences_and_scores['sequences']
             per_residue_complex_sequence_loss = sequences_and_scores['complex_sequence_loss']
             per_residue_unbound_sequence_loss = sequences_and_scores['unbound_sequence_loss']
-        elif job.dock_proteinmpnn:
+        elif job.dock.proteinmpnn_score:
             calculation_method = 'docking analysis'
             # This is used for understanding dock fit only
             dock_fit_parameters = check_dock_for_designability(**proteinmpnn_kwargs,
@@ -3439,7 +3498,7 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
             #  design_profile_array = pssm_as_array(pose.profile)
             #  # else:
             #  #     pose.log.info('Design has no fragment information')
-            if job.dock_proteinmpnn:
+            if job.dock.proteinmpnn_score:
                 # dock_per_residue_evolution_cross_entropy = per_residue_evolution_cross_entropy[idx]
                 # dock_per_residue_fragment_cross_entropy = per_residue_fragment_cross_entropy[idx]
                 # dock_per_residue_design_indices = per_residue_design_indices[idx]
@@ -3736,7 +3795,7 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
         #                                       'evolution': 'evolution_sequence_loss',
         #                                       'fragment': 'fragment_sequence_loss',
         #                                       'designed': 'designed_residues_total'})
-        if job.dock_proteinmpnn:
+        if job.dock.proteinmpnn_score:
             scores_df['proteinmpnn_v_evolution_cross_entropy_designed_mean'] = \
                 scores_df['proteinmpnn_v_evolution_cross_entropy'] / scores_df['designed_residues_total']
             try:

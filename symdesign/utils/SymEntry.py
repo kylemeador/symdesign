@@ -268,6 +268,9 @@ class SymEntry:
     _external_dof: np.ndarray
     _group_subunit_numbers: list[int]
     _int_dof_groups: list[str]
+    _number_dof_external: int
+    _number_dof_rotation: int
+    _number_dof_translation: int
     _ref_frame_tx_dof: list[str]
     _setting_matrices: list[np.ndarray]
     _setting_matrices_numbers: list[int]
@@ -275,7 +278,6 @@ class SymEntry:
     dimension: int
     entry_number: int
     groups: list[str]
-    n_dof_external: int
     point_group_symmetry: str
     resulting_symmetry: str
     sym_map: list[str]
@@ -372,7 +374,6 @@ class SymEntry:
         #     #  (^).sum(axis=-1)) = [-1, 0, 0]
         #     self.ext_dof = difference_matrix[np.nonzero(difference_matrix.sum(axis=-1))]
 
-        self.n_dof_external = self.external_dof.shape[0]
         # Check construction is valid
         if self.point_group_symmetry not in valid_symmetries:
             raise utils.SymmetryInputError(f'Invalid point group symmetry {self.point_group_symmetry}')
@@ -478,19 +479,42 @@ class SymEntry:
         return self._setting_matrices[2]
 
     @property
+    def number_dof_rotation(self) -> int:
+        """Return the number of internal rotational degrees of freedom"""
+        try:
+            return self._number_dof_rotation
+        except AttributeError:
+            self._number_dof_rotation = sum([getattr(self, f'is_internal_rot{idx}') for idx in enumerate(self.groups)])
+            return self._number_dof_rotation
+
+    @property
     def is_internal_rot1(self) -> bool:
+        """Whether there are rotational degrees of freedom for group 1"""
         return 'r:<0,0,1,a>' in self._int_dof_groups[0]
 
     @property
     def is_internal_rot2(self) -> bool:
+        """Whether there are rotational degrees of freedom for group 2"""
         return 'r:<0,0,1,c>' in self._int_dof_groups[1]
 
     @property
+    def number_dof_translation(self) -> int:
+        """Return the number of internal translational degrees of freedom"""
+        try:
+            return self._number_dof_translation
+        except AttributeError:
+            self._number_dof_translation = \
+                sum([getattr(self, f'is_internal_tx{idx}') for idx in enumerate(self.groups)])
+            return self._number_dof_translation
+
+    @property
     def is_internal_tx1(self) -> bool:
+        """Whether there are internal translational degrees of freedom for group 1"""
         return 't:<0,0,b>' in self._int_dof_groups[0]
 
     @property
     def is_internal_tx2(self) -> bool:
+        """Whether there are internal translational degrees of freedom for group 2"""
         return 't:<0,0,d>' in self._int_dof_groups[1]
 
     @property
@@ -507,6 +531,15 @@ class SymEntry:
     def is_ref_frame_tx_dof3(self) -> bool:
         return self._ref_frame_tx_dof[2] != ['0', '0', '0']
         # return self._ref_frame_tx_dof[1] != '<0,0,0>'
+
+    @property
+    def number_dof_external(self) -> int:
+        """Return the number of external degrees of freedom"""
+        try:
+            return self._number_dof_external
+        except AttributeError:
+            self._number_dof_external = self.external_dof.shape[0]
+            return self._number_dof_external
 
     @property
     def external_dof(self) -> np.ndarray:

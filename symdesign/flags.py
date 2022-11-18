@@ -31,9 +31,13 @@ from symdesign.utils.path import submodule_guide, submodule_help, force_flags, s
 nstruct = 20
 method = 'method'
 dock_only = 'dock_only'
-dock_proteinmpnn = 'dock_proteinmpnn'
-dock_continuous_ghost = 'dock_continuous_ghost'
+proteinmpnn_score = 'proteinmpnn_score'
+contiguous_ghosts = 'contiguous_ghosts'
 perturb_dof_steps = 'perturb_dof_steps'
+perturb_dof_rot = 'perturb_dof_rot'
+perturb_dof_tx = 'perturb_dof_tx'
+perturb_dof_steps_rot = 'perturb_dof_steps_rot'
+perturb_dof_steps_tx = 'perturb_dof_steps_tx'
 cluster_map = 'cluster_map'
 specification_file_ = 'specification_file'
 pose_file_ = 'pose_file'
@@ -42,7 +46,11 @@ dataframe = 'dataframe'
 design_arguments = {
     ignore_clashes, ignore_pose_clashes, ignore_symmetric_clashes, method, evolution_constraint, hbnet,
     number_of_trajectories, structure_background, scout, term_constraint, consensus, ca_only, temperatures,
-    sequences, structures, perturb_dof, perturb_dof_steps
+    sequences, structures
+}
+dock_arguments = {
+    proteinmpnn_score, contiguous_ghosts, perturb_dof, perturb_dof_rot, perturb_dof_tx,
+    perturb_dof_steps, perturb_dof_steps_rot, perturb_dof_steps_tx,
 }
 
 
@@ -74,9 +82,13 @@ specification_file = format_for_cmdline(specification_file_)
 pose_file = format_for_cmdline(pose_file_)
 sym_entry = format_for_cmdline(sym_entry)
 dock_only = format_for_cmdline(dock_only)
-dock_proteinmpnn = format_for_cmdline(dock_proteinmpnn)
-dock_continuous_ghost = format_for_cmdline(dock_continuous_ghost)
+proteinmpnn_score = format_for_cmdline(proteinmpnn_score)
+contiguous_ghosts = format_for_cmdline(contiguous_ghosts)
 perturb_dof_steps = format_for_cmdline(perturb_dof_steps)
+perturb_dof_rot = format_for_cmdline(perturb_dof_rot)
+perturb_dof_tx = format_for_cmdline(perturb_dof_tx)
+perturb_dof_steps_rot = format_for_cmdline(perturb_dof_steps_rot)
+perturb_dof_steps_tx = format_for_cmdline(perturb_dof_steps_tx)
 ca_only = format_for_cmdline(ca_only)
 perturb_dof = format_for_cmdline(perturb_dof)
 force_flags = format_for_cmdline(force_flags)
@@ -473,21 +485,32 @@ refine_arguments = {
 # ---------------------------------------------------
 nanohedra_help = f'Run {nanohedra.title()}.py'
 parser_nanohedra = {nanohedra: dict(description=nanohedra_help, help=nanohedra_help)}
+default_perturbation_steps = 3
 nanohedra_arguments = {
     (f'--{dock_only}',): dict(action=argparse.BooleanOptionalAction, default=False,
                               help='Whether docking should be performed without sequence design'),
-    (f'--{dock_proteinmpnn}',): dict(action=argparse.BooleanOptionalAction, default=False,
-                                     help='Whether docking fit should be measured using ProteinMPNN'),
-    (f'--{dock_continuous_ghost}',): dict(action=argparse.BooleanOptionalAction, default=False,
-                                          help='Whether to prioritize docking with ghost fragments that form continuous'
-                                               '\nsegments on a single component'),
+    (f'--{proteinmpnn_score}',): dict(action=argparse.BooleanOptionalAction, default=False,
+                                      help='Whether docking fit should be measured using ProteinMPNN'),
+    (f'--{contiguous_ghosts}',): dict(action=argparse.BooleanOptionalAction, default=False,
+                                      help='Whether to prioritize docking with ghost fragments that form continuous'
+                                           '\nsegments on a single component'),
     (f'--{perturb_dof}',): dict(action=argparse.BooleanOptionalAction, default=False,
-                                help='Whether the degrees of freedom should be finely sampled in\nsubsequent docking '
-                                     'iterations'),
-    (f'--{perturb_dof_steps}',): dict(type=int, default=3, metavar='INT',
+                                help='Whether the degrees of freedom should be finely sampled during\n by perturbing '
+                                     'found transformations and repeating docking iterations'),
+    (f'--{perturb_dof_rot}',): dict(action=argparse.BooleanOptionalAction, default=False,
+                                    help='Whether the rotational degrees of freedom should be finely sampled in\n'
+                                         'subsequent docking iterations'),
+    (f'--{perturb_dof_tx}',): dict(action=argparse.BooleanOptionalAction, default=False,
+                                   help='Whether the translational degrees of freedom should be finely sampled in\n'
+                                        'subsequent docking iterations'),
+    (f'--{perturb_dof_steps}',): dict(type=int, default=default_perturbation_steps, metavar='INT',
                                       help='How many dof steps should be used during subsequent docking iterations.\n'
                                            f'For each DOF, a total of --{perturb_dof_steps} will be sampled during '
                                            f'perturbation'),
+    (f'--{perturb_dof_steps_rot}', ): dict(type=int, default=default_perturbation_steps, metavar='INT',
+                                           help='How many rotational dof steps should be used during perturbations\n'),
+    (f'--{perturb_dof_steps_tx}',): dict(type=int, default=default_perturbation_steps, metavar='INT',
+                                         help='How many translational dof steps should be used during perturbations\n'),
     ('-mv', '--match-value'): dict(type=float, default=0.5, dest='high_quality_match_value',
                                    help='What is the minimum match score required for a high quality fragment?'),
     ('-iz', '--initial-z-value'): dict(type=float, default=1.,
@@ -1172,3 +1195,17 @@ for group in parser._action_groups:
 
         elif arg.dest in design_arguments:
             design[arg.dest] = arg.default
+
+dock = {}
+"""Contains all the arguments used in docking and their default parameters"""
+for group in parser._action_groups:
+    for arg in group._group_actions:
+        if isinstance(arg, argparse._SubParsersAction):  # we have a sup parser, recurse
+            for name, sub_parser in arg.choices.items():
+                for sub_group in sub_parser._action_groups:
+                    for arg in sub_group._group_actions:
+                        if arg.dest in dock_arguments:
+                            dock[arg.dest] = arg.default
+
+        elif arg.dest in design_arguments:
+            dock[arg.dest] = arg.default
