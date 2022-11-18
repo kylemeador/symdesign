@@ -90,7 +90,7 @@ def nanohedra_command_concise(path1: Union[str, bytes], path2: Union[str, bytes]
     os.makedirs(nano_out_dir, exist_ok=True)
     os.makedirs(script_out_dir, exist_ok=True)
 
-    cmd = ['python', putils.nanohedra_dock_file, '-dock', '-entry', entry, putils.nano_entity_flag1, path1,
+    cmd = ['python', putils.nanohedra_exe, '-dock', '-entry', entry, putils.nano_entity_flag1, path1,
            putils.nano_entity_flag2, path2, '-outdir', nano_out_dir]
     #        ['rot_step1', rotation1, '-rot_step2', rotation2, '-min_matched']
     cmd.extend(chain.from_iterable([['-%s' % key, str(value)] for key, value in kwargs]))
@@ -120,7 +120,7 @@ def nanohedra_command(entry, path1, path2, out_dir=None, suffix=None, initial=Fa
             pass
 
     script_out_dir = os.path.join(nano_out_dir, 'job_scripts')
-    program = putils.nanohedra_main
+    program = putils.nanohedra_exe
     if os.path.splitext(path1)[1] == '':  # check if path1 is directory
         if os.path.splitext(path2)[1] == '':  # check if path2 is directory
             # both are directories
@@ -135,7 +135,7 @@ def nanohedra_command(entry, path1, path2, out_dir=None, suffix=None, initial=Fa
                                                os.path.splitext(os.path.basename(path2))[0])
             name = 'nanohedra_%s' % building_block_string
             script_out_dir = os.path.join(nano_out_dir, building_block_string)
-            program = putils.nanohedra_dock_file
+            program = putils.nanohedra_exe
 
     if not os.path.exists(script_out_dir):
         os.makedirs(script_out_dir)

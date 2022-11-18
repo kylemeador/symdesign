@@ -120,7 +120,13 @@ class JobResources:
         # self.proteinmpnn_score: bool = kwargs.get('proteinmpnn_score', False)
         # self.contiguous_ghosts: bool = kwargs.get('contiguous_ghosts', False)
 
+        self.only_write_frag_info: bool = kwargs.get('only_write_frag_info', False)
         self.dock_only: bool = kwargs.get('dock_only', False)
+        self.rotation_step1: bool = kwargs.get('rotation_step1', False)
+        self.rotation_step2: bool = kwargs.get('rotation_step2', False)
+        self.min_matched: bool = kwargs.get('min_matched', False)
+        self.match_value: bool = kwargs.get('match_value', False)
+        self.initial_z_value: bool = kwargs.get('initial_z_value', False)
         self.log_level: bool = kwargs.get('log_level', flags.default_logging_level)
         self.force_flags: bool = kwargs.get(putils.force_flags, False)
         self.fuse_chains: list[tuple[str]] = [tuple(pair.split(':')) for pair in kwargs.get('fuse_chains', [])]
