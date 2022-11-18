@@ -1065,8 +1065,8 @@ def parse_symmetry_to_sym_entry(sym_entry: int = None, symmetry: str = None, sym
                     sym_map = f'{sym_str1} C{sym_str2} C{sym_str3}'.split()
                     logger.error(f'Symmetry specification "{symmetry}" is not understood, trying to solve anyway\n\n')
             elif symmetry in valid_symmetries:
-                logger.critical(f'{parse_symmetry_to_sym_entry.__name__}: The functionality of passing symmetry as '
-                                f"{symmetry} hasn't been tested thoroughly yet!")
+                logger.debug(f'{parse_symmetry_to_sym_entry.__name__}: The functionality of passing symmetry as '
+                             f"{symmetry} hasn't been tested thoroughly yet!")
                 sym_map = [symmetry, symmetry, None]  # specified as [result, entity1, no other entities]
             elif len(symmetry) == 3 and symmetry[1].isdigit() and symmetry[2].isdigit():  # like I32, O43 format
                 sym_map = [*symmetry]
