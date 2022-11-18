@@ -105,7 +105,7 @@ def batch_calculation(size: int, batch_length: int, setup: Callable = None,
                     #                 f'\nmemory_reserved: {torch.cuda.memory_reserved()}')
                     setup_start = time.time()
                     setup_returns = _setup(_batch_length, *setup_args, **setup_kwargs)
-                    logger.debug(f'{batch_calculation} setup function took {time.time() - setup_start:8f}s')
+                    logger.debug(f'{batch_calculation.__name__} setup function took {time.time() - setup_start:8f}s')
                     # logger.critical(f'After SETUP\nmemory_allocated: {torch.cuda.memory_allocated()}'
                     #                 f'\nmemory_reserved: {torch.cuda.memory_reserved()}')
                     batch_start = time.time()
