@@ -2045,28 +2045,28 @@ def nanohedra_dock(sym_entry: SymEntry, job: symjob.JobResources,
         original_rotation1 = full_rotation1
         rotation_perturbations1 = perturbations['rotation1']
         total_perturbation_size, *_ = rotation_perturbations1.shape
-        logger.debug(f'rotation_perturbations1.shape: {rotation_perturbations1.shape}')
-        logger.debug(f'rotation_perturbations1[:5]: {rotation_perturbations1[:5]}')
+        # logger.debug(f'rotation_perturbations1.shape: {rotation_perturbations1.shape}')
+        # logger.debug(f'rotation_perturbations1[:5]: {rotation_perturbations1[:5]}')
 
         # if sym_entry.is_internal_rot2:
         original_rotation2 = full_rotation2
         rotation_perturbations2 = perturbations['rotation2']
-        logger.debug(f'rotation_perturbations2.shape: {rotation_perturbations2.shape}')
-        logger.debug(f'rotation_perturbations2[:5]: {rotation_perturbations2[:5]}')
+        # logger.debug(f'rotation_perturbations2.shape: {rotation_perturbations2.shape}')
+        # logger.debug(f'rotation_perturbations2[:5]: {rotation_perturbations2[:5]}')
         # blank_parameter = list(repeat([None, None, None], number_of_transforms))
         if sym_entry.is_internal_tx1:
             original_int_tx1 = full_int_tx1
             translation_perturbations1 = perturbations['translation1']
-            logger.debug(f'translation_perturbations1.shape: {translation_perturbations1.shape}')
-            logger.debug(f'translation_perturbations1[:5]: {translation_perturbations1[:5]}')
+            # logger.debug(f'translation_perturbations1.shape: {translation_perturbations1.shape}')
+            # logger.debug(f'translation_perturbations1[:5]: {translation_perturbations1[:5]}')
         # else:
         #     translation_perturbations1 = blank_parameter
 
         if sym_entry.is_internal_tx2:
             original_int_tx2 = full_int_tx2
             translation_perturbations2 = perturbations['translation2']
-            logger.debug(f'translation_perturbations2.shape: {translation_perturbations2.shape}')
-            logger.debug(f'translation_perturbations2[:5]: {translation_perturbations2[:5]}')
+            # logger.debug(f'translation_perturbations2.shape: {translation_perturbations2.shape}')
+            # logger.debug(f'translation_perturbations2[:5]: {translation_perturbations2[:5]}')
         # else:
         #     translation_perturbations2 = blank_parameter
 
