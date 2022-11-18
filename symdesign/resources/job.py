@@ -164,7 +164,9 @@ class JobResources:
 
         if self.write_structures or self.output_assembly or self.output_surrounding_uc or self.write_fragments \
                 or self.write_oligomers or self.write_trajectory:
-            self.output: bool = kwargs.get(putils.output_fragments, False)
+            self.output: bool = True
+        else:
+            self.output: bool = False
 
         if self.nanohedra_output:
             self.construct_pose: bool = kwargs.get('construct_pose', True)  # Whether to construct the PoseDirectory
