@@ -143,11 +143,11 @@ def create_perturbation_transformations(sym_entry: SymEntry, rotation_number: in
 
     # # Make a vector of the perturbation number [1, 2, 2, 3, 3, 1] with 1 as constants on each end
     # dof_number_perturbations = [1] \
-    #     + [rotation_number for dof in rotational_dof] \
+    #     + [rotation_number for dof in range(rotational_dof)] \
     # Make a vector of the perturbation number [2, 2, 3, 3]
     dof_number_perturbations = \
-        [rotation_number for dof in rotational_dof] \
-        + [translation_number for dof in translational_dof] \
+        [rotation_number for dof in range(rotational_dof)] \
+        + [translation_number for dof in range(translational_dof)] \
         # + [1]
     # translation_stack_size = translation_number**translational_dof
     # stack_size = rotation_number**rotational_dof * translation_stack_size
@@ -562,10 +562,12 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
         # Measure where greater than 0 as a value of 1 was included to mark viable fragment indices
         fragment_overlap_counts = \
             same_component_overlapping_ghost_frags[np.nonzero(same_component_overlapping_ghost_frags)]
-        logger.debug('fragment_overlap_counts.shape', fragment_overlap_counts.shape)
+        # logger.debug(f'fragment_overlap_counts.shape: {fragment_overlap_counts.shape}')
         viable_same_component_overlapping_ghost_frags = np.flatnonzero(fragment_overlap_counts > 1)
-        logger.debug('viable_same_component_overlapping_ghost_frags.shape', viable_same_component_overlapping_ghost_frags.shape)
-        logger.debug('viable_same_component_overlapping_ghost_frags[:10]', viable_same_component_overlapping_ghost_frags[:10])
+        # logger.debug(f'viable_same_component_overlapping_ghost_frags.shape: '
+        #              f'{viable_same_component_overlapping_ghost_frags.shape}')
+        # logger.debug(f'viable_same_component_overlapping_ghost_frags[:10]: '
+        #              f'{viable_same_component_overlapping_ghost_frags[:10]}')
         # Prioritize search at those fragments which have same component, ghost fragment overlap
         initial_ghost_frags1 = \
             [complete_ghost_frags1[idx] for idx in viable_same_component_overlapping_ghost_frags.tolist()]
