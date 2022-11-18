@@ -110,6 +110,7 @@ class JobResources:
         self.dock = Dock.from_flags(**kwargs)
         if self.dock.perturb_dof:
             self.dock.perturb_dof_rot = self.dock.perturb_dof_tx = True
+            self.dock.perturb_dof_steps_rot = self.dock.perturb_dof_steps_tx = self.dock.perturb_dof_steps
         else:  # Set the unavailable dof to 1 step
             if not self.dock.perturb_dof_rot:
                 self.dock.perturb_dof_steps_rot = 1
