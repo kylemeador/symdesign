@@ -192,7 +192,7 @@ def create_perturbation_transformations(sym_entry: SymEntry, rotation_number: in
             tile_number = prod(dof_number_perturbations[:dof_idx])
             # Repeat (tile then reshape) the matrices according to the product of the remaining dof,
             # number of perturbations, then tile by the product of how many perturbations have been seen
-            perturb_matrices = np.tile(np.tile(perturb_matrices, (1, 1, repeat_number)).reshape(-1, 3, 3),
+            perturb_matrices = np.tile(np.tile(perturb_matrices, (1, repeat_number, 1)).reshape(-1, 3, 3),
                                        (tile_number, 1, 1))
             # Increment the dof seen
             dof_idx += 1
