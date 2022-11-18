@@ -1480,8 +1480,7 @@ def main():
             if args.multi_processing:
                 zipped_args = zip(repeat(sym_entry), repeat(job.output_directory), *zip(*structure_pairs),
                                   repeat(args.rotation_step1), repeat(args.rotation_step2), repeat(args.min_matched),
-                                  repeat(args.high_quality_match_value), repeat(args.initial_z_value),
-                                  repeat(bb_logger), repeat(job))
+                                  repeat(args.high_quality_match_value), repeat(args.initial_z_value), repeat(job))
                 results = utils.mp_starmap(fragdock.nanohedra_dock, zipped_args, processes=cores)
             else:  # using combinations of directories with .pdb files
                 for model1, model2 in structure_pairs:
