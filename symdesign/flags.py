@@ -16,7 +16,7 @@ from symdesign.utils import handle_errors, pretty_format_table, clean_comma_sepa
 from symdesign.utils.ProteinExpression import expression_tags
 # These shouldn't be moved here
 from symdesign.utils.path import fragment_dbs, biological_interfaces, default_logging_level
-from symdesign.utils.path import submodule_guide, submodule_help, force_flags, sym_entry, program_output, \
+from symdesign.utils.path import submodule_guide, submodule_help, force_flags, sym_entry, program_output, projects, \
     interface_metrics, nano_entity_flag1, nano_entity_flag2, data, multi_processing, residue_selector, options, \
     cluster_poses, orient, default_clustered_pose_file, interface_design, evolution_constraint, hbnet, term_constraint,\
     number_of_trajectories, refine, structure_background, scout, design_profile, evolutionary_profile, \
@@ -501,13 +501,30 @@ nanohedra_help = f'Run {nanohedra.title()}.py'
 parser_nanohedra = {nanohedra: dict(description=nanohedra_help, help=nanohedra_help)}
 default_perturbation_steps = 3
 nanohedra_arguments = {
-    (f'--{dock_only}',): dict(action=argparse.BooleanOptionalAction, default=False,
-                              help='Whether docking should be performed without sequence design'),
-    (f'--{proteinmpnn_score}',): dict(action=argparse.BooleanOptionalAction, default=False,
-                                      help='Whether docking fit should be measured using ProteinMPNN'),
     (f'--{contiguous_ghosts}',): dict(action=argparse.BooleanOptionalAction, default=False,
                                       help='Whether to prioritize docking with ghost fragments that form continuous'
                                            '\nsegments on a single component'),
+    (f'--{dock_only}',): dict(action=argparse.BooleanOptionalAction, default=False,
+                              help='Whether docking should be performed without sequence design'),
+    ('-iz', f'--{initial_z_value}'): dict(type=float, default=1.,
+                                          help='The acceptable standard deviation z score for initial fragment overlap '
+                                               'identification.\nSmaller values lead to more stringent matching '
+                                               'criteria\nDefault=%(default)s'),
+    ('-mv', f'--{match_value}'):
+        dict(type=float, default=0.5, dest='match_value',
+             help='What is the minimum match score required for a high quality fragment?'),
+    ('-m', f'--{min_matched}'): dict(type=int, default=3,
+                                     help='How many high quality fragment pairs should be present before a pose is '
+                                          'identified?\nDefault=%(default)s'),
+    (f'--{only_write_frag_info}',): dict(action=argparse.BooleanOptionalAction, default=False,
+                                         help='Used to write fragment information to a directory for C1 based docking'),
+    output_directory_args:
+        dict(type=os.path.abspath, default=None,
+             help='Where should the output be written?\nDefault=%s'
+             % ex_path(program_output, projects, 'NanohedraEntry[ENTRYNUMBER]DockedPoses')),
+    ('-Os', f'--{output_surrounding_uc}'):
+        dict(action=argparse.BooleanOptionalAction, default=False,
+             help='Whether the surrounding unit cells should be output?\nOnly for infinite materials'),
     (f'--{perturb_dof}',): dict(action=argparse.BooleanOptionalAction, default=False,
                                 help='Whether the degrees of freedom should be finely sampled during\n by perturbing '
                                      'found transformations and repeating docking iterations'),
@@ -521,35 +538,18 @@ nanohedra_arguments = {
                                       help='How many dof steps should be used during subsequent docking iterations.\n'
                                            f'For each DOF, a total of --{perturb_dof_steps} will be sampled during '
                                            f'perturbation'),
-    (f'--{perturb_dof_steps_rot}', ): dict(type=int, default=default_perturbation_steps, metavar='INT',
-                                           help='How many rotational dof steps should be used during perturbations\n'),
+    (f'--{perturb_dof_steps_rot}',): dict(type=int, default=default_perturbation_steps, metavar='INT',
+                                          help='How many rotational dof steps should be used during perturbations\n'),
     (f'--{perturb_dof_steps_tx}',): dict(type=int, default=default_perturbation_steps, metavar='INT',
                                          help='How many translational dof steps should be used during perturbations\n'),
-    ('-mv', f'--{match_value}'):
-        dict(type=float, default=0.5, dest='match_value',
-             help='What is the minimum match score required for a high quality fragment?'),
-    ('-iz', f'--{initial_z_value}'): dict(type=float, default=1.,
-                                          help='The acceptable standard deviation z score for initial fragment overlap '
-                                               'identification.\nSmaller values lead to more stringent matching '
-                                               'criteria\nDefault=%(default)s'),
-    ('-m', f'--{min_matched}'): dict(type=int, default=3,
-                                     help='How many high quality fragment pairs should be present before a pose is '
-                                          'identified?\nDefault=%(default)s'),
-    (f'--{only_write_frag_info}',): dict(action=argparse.BooleanOptionalAction, default=False,
-                                         help='Used to write fragment information to a directory for C1 based docking'),
-    output_directory_args:
-        dict(type=os.path.abspath, default=None,
-             help='Where should the output from commands be written?\nDefault=%s'
-             % ex_path(program_output, data.title(), 'NanohedraEntry[ENTRYNUMBER]DockedPoses')),
+    (f'--{proteinmpnn_score}',): dict(action=argparse.BooleanOptionalAction, default=False,
+                                      help='Whether docking fit should be measured using ProteinMPNN'),
     ('-r1', f'--{rotation_step1}'): dict(type=float, default=3.,
                                          help='The number of degrees to increment the rotational degrees of freedom '
                                               'search\nDefault=%(default)s'),
     ('-r2', f'--{rotation_step2}'): dict(type=float, default=3.,
                                          help='The number of degrees to increment the rotational degrees of freedom '
                                               'search\nDefault=%(default)s'),
-    ('-Os', f'--{output_surrounding_uc}'):
-        dict(action=argparse.BooleanOptionalAction, default=False,
-             help='Whether the surrounding unit cells should be output?\nOnly for infinite materials')
 }
 parser_nanohedra_run_type_mutual_group = dict()  # required=True <- adding below to different parsers depending on need
 nanohedra_run_type_mutual_arguments = {
