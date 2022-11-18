@@ -8,7 +8,8 @@ from symdesign.protocols.fragdock import nanohedra_dock
 # from resources.EulerLookup import euler_factory
 from symdesign import utils
 
-
+raise NotImplementedError(f'This tool has been depreciated. '
+                          f'Use "{utils.path.program_command} nanohedra --only-write-frag-info" instead')
 print('USAGE:\nNavigate to a directory with the ".pdb" files of interest to generate fragment indices for and execute:'
       f'\npython {os.path.abspath(__file__)} file_name_for_ghost_fragments.pdb directory_for_output')
 

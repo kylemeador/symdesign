@@ -116,7 +116,6 @@ class PoseDirectory:
     frag_file: str | Path
     initial_model: Model | None
     initialized: bool
-    job_resources: JobResources
     name: str
     pose: Pose | None
     # pose_id: str
@@ -140,9 +139,9 @@ class PoseDirectory:
     def from_pose_id(cls, design_path: str, root: AnyStr = None, **kwargs):
         return cls(design_path, pose_id=True, root=root, **kwargs)
 
-    def __init__(self, design_path: AnyStr, job_resources: JobResources = None, pose_id: bool = False,
+    def __init__(self, design_path: AnyStr, job: JobResources = None, pose_id: bool = False,
                  root: AnyStr = None, **kwargs):
-        self.job = job_resources if job_resources else job_resources_factory.get(program_root=root, **kwargs)
+        self.job = job if job else job_resources_factory.get(program_root=root, **kwargs)
         # PoseDirectory flags
         self.log: Logger | None = None
         if pose_id:

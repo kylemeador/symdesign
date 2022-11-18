@@ -1175,7 +1175,8 @@ def main():
         # Todo make current with sql ambitions
         # Make master output directory. sym_entry is required, so this won't fail v
         if args.output_directory is None:
-            job.output_directory = os.path.join(job.projects, f'NanohedraEntry{sym_entry.entry_number}DockedPoses')
+            # job.output_directory = os.path.join(job.projects, f'NanohedraEntry{sym_entry.entry_number}DockedPoses')
+            job.output_directory = job.projects
             os.makedirs(job.output_directory, exist_ok=True)
         # Transform input entities to canonical orientation and return their ASU
         all_structures = []
@@ -1445,10 +1446,11 @@ def main():
     elif args.module == putils.nanohedra:  # -o1 oligomer1, -o2 oligomer2, -e entry, -o outdir
         # Initialize docking procedure
         if args.distribute_work:  # Write all commands to a file and use sbatch
+            raise NotImplementedError(f'Distribution has been modified significantly')
             design_source = f'Entry{sym_entry.entry_number}'  # used for terminate()
             # script_out_dir = os.path.join(job.output_directory, putils.scripts)
             # os.makedirs(script_out_dir, exist_ok=True)
-            cmd = ['python', putils.nanohedra_dock_file, '-dock']
+            cmd = ['python', putils.nanohedra_exe]  # , '-dock']
             kwargs = dict(outdir=job.output_directory, entry=sym_entry.entry_number, rot_step1=args.rotation_step1,
                           rot_step2=args.rotation_step2, min_matched=args.min_matched,
                           high_quality_match_value=args.high_quality_match_value, initial_z_value=args.initial_z_value)
@@ -1478,18 +1480,21 @@ def main():
                                                        args.rotation_step2, sym_entry, job.output_directory,
                                                        log=master_logger)
             if args.multi_processing:
-                zipped_args = zip(repeat(sym_entry), repeat(job.output_directory), *zip(*structure_pairs),
-                                  repeat(args.rotation_step1), repeat(args.rotation_step2), repeat(args.min_matched),
-                                  repeat(args.high_quality_match_value), repeat(args.initial_z_value), repeat(job))
+                zipped_args = zip(repeat(sym_entry), repeat(job), *zip(*structure_pairs),
+                                  # repeat(args.rotation_step1), repeat(args.rotation_step2), repeat(args.min_matched),
+                                  # repeat(args.high_quality_match_value), repeat(args.initial_z_value)
+                                  )
                 results = utils.mp_starmap(fragdock.nanohedra_dock, zipped_args, processes=cores)
             else:  # using combinations of directories with .pdb files
                 for model1, model2 in structure_pairs:
                     # result = None
-                    fragdock.nanohedra_dock(sym_entry, job.output_directory, model1, model2,
-                                            rotation_step1=args.rotation_step1, rotation_step2=args.rotation_step2,
-                                            min_matched=args.min_matched,
-                                            high_quality_match_value=args.high_quality_match_value,
-                                            initial_z_value=args.initial_z_value, job=job)  # log=bb_logger,
+                    fragdock.nanohedra_dock(sym_entry, job, model1, model2,
+                                            # rotation_step1=args.rotation_step1,
+                                            # rotation_step2=args.rotation_step2,
+                                            # min_matched=args.min_matched,
+                                            # high_quality_match_value=args.high_quality_match_value,
+                                            # initial_z_value=args.initial_z_value
+                                            )
                     # results.append(result)  # DONT need. Results uses pose_directories. There are none and no output
             terminate(results=results, output=False)
 

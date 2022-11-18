@@ -31,6 +31,12 @@ from symdesign.utils.path import submodule_guide, submodule_help, force_flags, s
 nstruct = 20
 method = 'method'
 dock_only = 'dock_only'
+rotation_step1 = 'rotation_step1'
+rotation_step2 = 'rotation_step2'
+min_matched = 'min_matched'
+match_value = 'match_value'
+initial_z_value = 'initial_z_value'
+only_write_frag_info = 'only_write_frag_info'
 proteinmpnn_score = 'proteinmpnn_score'
 contiguous_ghosts = 'contiguous_ghosts'
 perturb_dof_steps = 'perturb_dof_steps'
@@ -43,6 +49,7 @@ specification_file_ = 'specification_file'
 pose_file_ = 'pose_file'
 directory = 'directory'
 dataframe = 'dataframe'
+fragment_database = 'fragment_database'
 design_arguments = {
     ignore_clashes, ignore_pose_clashes, ignore_symmetric_clashes, method, evolution_constraint, hbnet,
     number_of_trajectories, structure_background, scout, term_constraint, consensus, ca_only, temperatures,
@@ -60,6 +67,7 @@ def format_for_cmdline(flag: str):
 
 cluster_poses = format_for_cmdline(cluster_poses)
 generate_fragments = format_for_cmdline(generate_fragments)
+fragment_database = format_for_cmdline(fragment_database)
 interface_metrics = format_for_cmdline(interface_metrics)
 optimize_designs = format_for_cmdline(optimize_designs)
 interface_design = format_for_cmdline(interface_design)
@@ -82,6 +90,12 @@ specification_file = format_for_cmdline(specification_file_)
 pose_file = format_for_cmdline(pose_file_)
 sym_entry = format_for_cmdline(sym_entry)
 dock_only = format_for_cmdline(dock_only)
+rotation_step1 = format_for_cmdline(rotation_step1)
+rotation_step2 = format_for_cmdline(rotation_step2)
+min_matched = format_for_cmdline(min_matched)
+match_value = format_for_cmdline(match_value)
+initial_z_value = format_for_cmdline(initial_z_value)
+only_write_frag_info = format_for_cmdline(only_write_frag_info)
 proteinmpnn_score = format_for_cmdline(proteinmpnn_score)
 contiguous_ghosts = format_for_cmdline(contiguous_ghosts)
 perturb_dof_steps = format_for_cmdline(perturb_dof_steps)
@@ -368,10 +382,10 @@ options_arguments = {
     #                                          help='Generate interface fragment observations for poses of interest'
     #                                               '\nDefault=%(default)s'),
     guide_args: guide_kwargs,
-    ('-i', '--fragment-database'): dict(type=str.lower, choices=fragment_dbs, default=biological_interfaces,
-                                        metavar='STR',
-                                        help='Database to match fragments for interface specific scoring matrices'
-                                             '\nChoices=%(choices)s\nDefault=%(default)s'),
+    ('-i', f'--{fragment_database}'): dict(type=str.lower, choices=fragment_dbs, default=biological_interfaces,
+                                           metavar='STR',
+                                           help='Database to match fragments for interface specific scoring matrices'
+                                                '\nChoices=%(choices)s\nDefault=%(default)s'),
     # ('-ic', f'--{ignore_clashes}'): dict(action=argparse.BooleanOptionalAction, default=False,
     ('-ic', f'--{ignore_clashes}'):
         dict(action='store_true',
@@ -511,25 +525,28 @@ nanohedra_arguments = {
                                            help='How many rotational dof steps should be used during perturbations\n'),
     (f'--{perturb_dof_steps_tx}',): dict(type=int, default=default_perturbation_steps, metavar='INT',
                                          help='How many translational dof steps should be used during perturbations\n'),
-    ('-mv', '--match-value'): dict(type=float, default=0.5, dest='high_quality_match_value',
-                                   help='What is the minimum match score required for a high quality fragment?'),
-    ('-iz', '--initial-z-value'): dict(type=float, default=1.,
-                                       help='The acceptable standard deviation z score for initial fragment overlap '
-                                            'identification.\nSmaller values lead to more stringent matching criteria'
-                                            '\nDefault=%(default)s'),
-    ('-m', '--min-matched'): dict(type=int, default=3,
-                                  help='How many high quality fragment pairs should be present before a pose is '
-                                       'identified?\nDefault=%(default)s'),
+    ('-mv', f'--{match_value}'):
+        dict(type=float, default=0.5, dest='match_value',
+             help='What is the minimum match score required for a high quality fragment?'),
+    ('-iz', f'--{initial_z_value}'): dict(type=float, default=1.,
+                                          help='The acceptable standard deviation z score for initial fragment overlap '
+                                               'identification.\nSmaller values lead to more stringent matching '
+                                               'criteria\nDefault=%(default)s'),
+    ('-m', f'--{min_matched}'): dict(type=int, default=3,
+                                     help='How many high quality fragment pairs should be present before a pose is '
+                                          'identified?\nDefault=%(default)s'),
+    (f'--{only_write_frag_info}',): dict(action=argparse.BooleanOptionalAction, default=False,
+                                         help='Used to write fragment information to a directory for C1 based docking'),
     output_directory_args:
         dict(type=os.path.abspath, default=None,
              help='Where should the output from commands be written?\nDefault=%s'
              % ex_path(program_output, data.title(), 'NanohedraEntry[ENTRYNUMBER]DockedPoses')),
-    ('-r1', '--rotation-step1'): dict(type=float, default=3.,
-                                      help='The number of degrees to increment the rotational degrees of freedom '
-                                           'search\nDefault=%(default)s'),
-    ('-r2', '--rotation-step2'): dict(type=float, default=3.,
-                                      help='The number of degrees to increment the rotational degrees of freedom '
-                                           'search\nDefault=%(default)s'),
+    ('-r1', f'--{rotation_step1}'): dict(type=float, default=3.,
+                                         help='The number of degrees to increment the rotational degrees of freedom '
+                                              'search\nDefault=%(default)s'),
+    ('-r2', f'--{rotation_step2}'): dict(type=float, default=3.,
+                                         help='The number of degrees to increment the rotational degrees of freedom '
+                                              'search\nDefault=%(default)s'),
     ('-Os', f'--{output_surrounding_uc}'):
         dict(action=argparse.BooleanOptionalAction, default=False,
              help='Whether the surrounding unit cells should be output?\nOnly for infinite materials')

@@ -262,50 +262,70 @@ def create_perturbation_transformations(sym_entry: SymEntry, rotation_number: in
     return perturbation_mapping
 
 
-def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure | AnyStr, model2: Structure | AnyStr,
-                   rotation_step1: float = 3., rotation_step2: float = 3., min_matched: int = 3,
-                   high_quality_match_value: float = .5, initial_z_value: float = 1., job: symjob.JobResources = None,
-                   fragment_db: db.FragmentDatabase | str = putils.biological_interfaces, clash_dist: float = 2.2,
-                   write_frags_only: bool = False, **kwargs):
-    #                same_component_filter: bool = True,
+def nanohedra_dock(sym_entry: SymEntry, job: symjob.JobResources,
+                   model1: Structure | AnyStr, model2: Structure | AnyStr, **kwargs):
     """
     Perform the fragment docking routine described in Laniado, Meador, & Yeates, PEDS. 2021
 
     Args:
         sym_entry: The SymmetryEntry object describing the material
-        root_out_dir: The object to issue outputs to
+        job: The JobResources object describing the program operations
         model1: The first Structure to be used in docking
         model2: The second Structure to be used in docking
-        fragment_db: The FragmentDatabase object used for finding fragment pairs
-        rotation_step1: The number of degrees to increment the rotational degrees of freedom search
-        rotation_step2: The number of degrees to increment the rotational degrees of freedom search
-        min_matched: How many high quality fragment pairs should be present before a pose is identified?
-        high_quality_match_value: The value to exceed before a high quality fragment is matched
-            When z-value was used this was 1.0, however 0.5 when match score is used
-        initial_z_value: The acceptable standard deviation z score for initial fragment overlap identification.
-            Smaller values lead to more stringent matching criteria
-        clash_dist: The distance to measure for clashing atoms
-        write_frags_only: Whether to write fragment information to a file (useful for fragment based docking w/o Nanohedra)
     Returns:
         None
     """
-    #   contiguous_ghosts: Whether to use the overlap potential on the same component to filter ghost fragments
-    # Create symjob.JobResources for all flags
-    if job is None:
-        job = symjob.job_resources_factory.get(program_root=root_out_dir, **kwargs)
+    #  rotation_step1: The number of degrees to increment the rotational degrees of freedom search
+    #  rotation_step2: The number of degrees to increment the rotational degrees of freedom search
+    #  min_matched: How many high quality fragment pairs should be present before a pose is identified?
+    #  high_quality_match_value: The value to exceed before a high quality fragment is matched
+    #      When z-value was used this was 1.0, however 0.5 when match score is used
+    #  initial_z_value: The acceptable standard deviation z score for initial fragment overlap identification.
+    #      Smaller values lead to more stringent matching criteria
+    #  clash_dist: The distance to measure for clashing atoms
+    #  write_frags_only: Whether to write fragment information to a file (useful for fragment based docking w/o Nanohedra)
+    #  contiguous_ghosts: Whether to use the overlap potential on the same component to filter ghost fragments
+    frag_dock_time_start = time.time()
 
-    # Create FragmentDatabase for all ijk cluster representatives
-    if isinstance(fragment_db, db.FragmentDatabase):
-        job.fragment_db = fragment_db
-    else:
-        job.fragment_db = db.fragment_factory(source=fragment_db)
+    # # Create FragmentDatabase for all ijk cluster representatives
+    # if isinstance(fragment_db, db.FragmentDatabase):
+    #     job.fragment_db = fragment_db
+    # else:
+    #     job.fragment_db = db.fragment_factory(source=fragment_db)
+
+    # Get Building Blocks in pose format to remove need for fragments to use chain info
+    if not isinstance(model1, Structure):
+        model1 = Model.from_file(model1)
+    if not isinstance(model2, Structure):
+        model2 = Model.from_file(model2)
+
+    models = [model1, model2]
+
+    # Set up output mechanism
+    entry_string = f'NanohedraEntry{sym_entry.entry_number}DockedPoses'
+    building_blocks = '-'.join(model.name for model in models)
+    # # Create symjob.JobResources for all flags
+    # if job is None:
+    #     out_dir = os.path.join(os.getcwd(), entry_string)
+    #     putils.make_path(out_dir)
+    #     job = symjob.job_resources_factory.get(program_root=out_dir, **kwargs)
+    #     out_dir = os.path.join(out_dir, building_blocks)
+    # else:
+    entry_and_building_blocks = f'{entry_string}-{building_blocks}'
+    out_dir = os.path.join(job.projects, entry_and_building_blocks)
+    putils.make_path(out_dir)
 
     euler_lookup = job.fragment_db.euler_lookup
-    frag_dock_time_start = time.time()
     # This is used in clustering algorithms to define an observation outside the found clusters
     outlier = -1
+    initial_z_value = job.initial_z_value
+    min_matched = job.min_matched
+    high_quality_match_value = job.match_value
+    rotation_step1 = job.rotation_step1
+    rotation_step2 = job.rotation_step2
     # Todo set below as parameters?
     low_quality_match_value = .2  # sets the lower bounds on an acceptable match, was upper bound of 2 using z-score
+    clash_dist: float = 2.2
     cb_distance = 9.  # change to 8.?
     # Testing if this is too strict when strict overlaps are used
     cluster_transforms = not job.dock.contiguous_ghosts  # True
@@ -318,15 +338,8 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
         if sym_entry.unit_cell:
             logger.critical(f"{create_perturbation_transformations.__name__} hasn't been tested for lattice symmetries")
 
-    # Get Building Blocks in pose format to remove need for fragments to use chain info
-    if not isinstance(model1, Structure):
-        model1 = Model.from_file(model1, fragment_db=job.fragment_db)  # , pose_format=True)
-    if not isinstance(model2, Structure):
-        model2 = Model.from_file(model2, fragment_db=job.fragment_db)  # , pose_format=True)
-
-    # Get model with entity oligomers via make_oligomer
+    # Ensure models are oligomeric with make_oligomer()
     entity_count = count(1)
-    models = [model1, model2]
     for idx, (model, symmetry) in enumerate(zip(models, sym_entry.groups)):
         for entity in model.entities:
             # Precompute reference sequences if available
@@ -340,22 +353,16 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
                 # Todo remove able to take more than 2 Entity
                 raise NotImplementedError(f"Can't dock 2 Models with > 2 total Entity instances")
         # Make, then save a new model based on the symmetric version of each Entity in the Model
-        models[idx] = Model.from_chains([chain for entity in model.entities for chain in entity.chains],
+        _model = Model.from_chains([chain for entity in model.entities for chain in entity.chains],
                                         name=model.name, pose_format=True)
-        models[idx].file_path = model.file_path
-
-    # Set up output mechanism
-    if isinstance(root_out_dir, str):
-        building_blocks = '-'.join(model.name for model in models)
-        root_out_dir = os.path.join(root_out_dir, building_blocks)
-        os.makedirs(root_out_dir, exist_ok=True)
-    else:
-        raise NotImplementedError('Must provide a root_out_dir!')
+        _model.file_path = model.file_path
+        _model.fragment_db = job.fragment_db
+        models[idx] = _model
 
     # Todo reimplement this feature to write a log to the Project directory
     # # Setup logger
     # if logger is None:
-    #     log_file_path = os.path.join(root_out_dir, f'{building_blocks}_log.txt')
+    #     log_file_path = os.path.join(out_dir, f'{building_blocks}_log.txt')
     # else:
     #     try:
     #         log_file_path = getattr(logger.handlers[0], 'baseFilename', None)
@@ -591,26 +598,26 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
                 f'(took {time.time() - get_complete_ghost_frags1_time_start:8f}s)')
 
     #################################
-    if write_frags_only:  # implemented for Todd to work on C1 instances
-        guide_file_ghost = os.path.join(root_out_dir, f'{model1.name}_ghost_coords.txt')
+    if job.only_write_frag_info:  # Implemented for Todd to work on C1 instances
+        guide_file_ghost = os.path.join(out_dir, f'{model1.name}_ghost_coords.txt')
         with open(guide_file_ghost, 'w') as f:
             for coord_group in ghost_guide_coords1.tolist():
                 f.write('%s\n' % ' '.join('%f,%f,%f' % tuple(coords) for coords in coord_group))
-        guide_file_ghost_idx = os.path.join(root_out_dir, f'{model1.name}_ghost_coords_index.txt')
+        guide_file_ghost_idx = os.path.join(out_dir, f'{model1.name}_ghost_coords_index.txt')
         with open(guide_file_ghost_idx, 'w') as f:
             f.write('%s\n' % '\n'.join(map(str, ghost_j_indices1.tolist())))
-        guide_file_ghost_res_num = os.path.join(root_out_dir, f'{model1.name}_ghost_coords_residue_number.txt')
+        guide_file_ghost_res_num = os.path.join(out_dir, f'{model1.name}_ghost_coords_residue_number.txt')
         with open(guide_file_ghost_res_num, 'w') as f:
             f.write('%s\n' % '\n'.join(map(str, ghost_residue_numbers1.tolist())))
 
-        guide_file_surf = os.path.join(root_out_dir, f'{model2.name}_surf_coords.txt')
+        guide_file_surf = os.path.join(out_dir, f'{model2.name}_surf_coords.txt')
         with open(guide_file_surf, 'w') as f:
             for coord_group in surf_guide_coords2.tolist():
                 f.write('%s\n' % ' '.join('%f,%f,%f' % tuple(coords) for coords in coord_group))
-        guide_file_surf_idx = os.path.join(root_out_dir, f'{model2.name}_surf_coords_index.txt')
+        guide_file_surf_idx = os.path.join(out_dir, f'{model2.name}_surf_coords_index.txt')
         with open(guide_file_surf_idx, 'w') as f:
             f.write('%s\n' % '\n'.join(map(str, surf_i_indices2.tolist())))
-        guide_file_surf_res_num = os.path.join(root_out_dir, f'{model2.name}_surf_coords_residue_number.txt')
+        guide_file_surf_res_num = os.path.join(out_dir, f'{model2.name}_surf_coords_residue_number.txt')
         with open(guide_file_surf_res_num, 'w') as f:
             f.write('%s\n' % '\n'.join(map(str, surf_residue_numbers2.tolist())))
 
@@ -627,12 +634,12 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
                 residue_number = frags[0].number
                 write_fragment_pairs_as_accumulating_states(
                     ghost_frags_by_residue1[idx][start_slice:number_of_fragments:step_size],
-                    os.path.join(root_out_dir, f'{model1.name}_{residue_number}_paired_frags_'
-                                               f'{start_slice}:{number_of_fragments}:{visualize_number}.pdb'))
+                    os.path.join(out_dir, f'{model1.name}_{residue_number}_paired_frags_'
+                                          f'{start_slice}:{number_of_fragments}:{visualize_number}.pdb'))
         # write_fragment_pairs_as_accumulating_states(ghost_frags_by_residue1[3][20:40],
-        #                                             os.path.join(root_out_dir, f'{model1.name}_frags4_{20}:{40}.pdb'))
+        #                                             os.path.join(out_dir, f'{model1.name}_frags4_{20}:{40}.pdb'))
         # write_fragment_pairs_as_accumulating_states(ghost_frags_by_residue1[5][20:40],
-        #                                             os.path.join(root_out_dir, f'{model1.name}_frags6_{20}:{40}.pdb'))
+        #                                             os.path.join(out_dir, f'{model1.name}_frags6_{20}:{40}.pdb'))
         raise RuntimeError(f'Suspending operation of {model1.name}/{model2.name} after write')
 
     ij_type_match_lookup_table = compute_ij_type_lookup(ghost_j_indices1, surf_i_indices2)
@@ -2230,7 +2237,7 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
             _pose_id: The particular identifier for the pose
             uc_dimensions: If this is a lattice, the crystal dimensions
         """
-        os.makedirs(out_path, exist_ok=True)
+        putils.make_path(out_path)
 
         # Set the ASU, then write to a file
         pose.set_contacting_asu(distance=cb_distance)
@@ -2276,7 +2283,7 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
         if job.write_fragments:
             # Make directories to output matched fragment files
             matching_fragments_dir = os.path.join(out_path, putils.frag_dir)
-            os.makedirs(matching_fragments_dir, exist_ok=True)
+            putils.make_path(matching_fragments_dir)
             # high_qual_match for fragments that were matched with z values <= 1, otherwise, low_qual_match
             # high_quality_matches_dir = os.path.join(matching_fragments_dir, 'high_qual_match')
             # low_quality_matches_dir = os.path.join(matching_fragments_dir, 'low_qual_match')
@@ -2290,7 +2297,7 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
             if sym_entry.unit_cell:
                 logger.warning('No unit cell dimensions applicable to the trajectory file.')
 
-            models.write(out_path=os.path.join(root_out_dir, 'trajectory_oligomeric_models.pdb'),
+            models.write(out_path=os.path.join(out_dir, 'trajectory_oligomeric_models.pdb'),
                          oligomer=True)
 
     # From here out, the transforms used should be only those of interest for outputting/sequence design
@@ -2366,7 +2373,7 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
         #         #                           all_passing_z_scores[idx])
         #     # pose_id = create_pose_id(idx)
         #     # Todo replace with PoseDirectory? Path object?
-        #     output_pose(os.path.join(root_out_dir, pose_id), pose_id)
+        #     output_pose(os.path.join(out_dir, pose_id), pose_id)
         #
         # # logger.info(f'Total {building_blocks} dock trajectory took {time.time() - frag_dock_time_start:.2f}s')
         # # return terminate()  # End of docking run
@@ -2520,8 +2527,8 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
         # Set up Pose parameters
         # Todo remove this debugging
         pose_id = pose_ids[-1]
-        output_pose(os.path.join(root_out_dir, pose_id), pose_id)
-        logger.critical(f'Pose debug written to {os.path.join(root_out_dir, pose_id)}')
+        output_pose(os.path.join(out_dir, pose_id), pose_id)
+        logger.critical(f'Pose debug written to {os.path.join(out_dir, pose_id)}')
         # Todo remove this debugging
         parameters = pose.get_proteinmpnn_params()
         # Todo
@@ -3330,19 +3337,19 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
 
             # return {
             _return = {
-                    # The below structures have a shape (batch_length, number_of_temperatures, pose_length)
-                    'sequences':
-                        np.concatenate(batch_sequences, axis=1).reshape(actual_batch_length, number_of_temps,
-                                                                         pose_length),
-                    'complex_sequence_loss':
-                        np.concatenate(_per_residue_complex_sequence_loss, axis=1).reshape(actual_batch_length,
-                                                                                           number_of_temps,
-                                                                                           pose_length),
-                    'unbound_sequence_loss':
-                        np.concatenate(_per_residue_unbound_sequence_loss, axis=1).reshape(actual_batch_length,
-                                                                                           number_of_temps,
-                                                                                           pose_length),
-                    }
+                # The below structures have a shape (batch_length, number_of_temperatures, pose_length)
+                'sequences':
+                    np.concatenate(batch_sequences, axis=1).reshape(actual_batch_length, number_of_temps,
+                                                                    pose_length),
+                'complex_sequence_loss':
+                    np.concatenate(_per_residue_complex_sequence_loss, axis=1).reshape(actual_batch_length,
+                                                                                       number_of_temps,
+                                                                                       pose_length),
+                'unbound_sequence_loss':
+                    np.concatenate(_per_residue_unbound_sequence_loss, axis=1).reshape(actual_batch_length,
+                                                                                       number_of_temps,
+                                                                                       pose_length),
+            }
             dock_fit_parameters.update(_return)
 
             return dock_fit_parameters
@@ -3472,7 +3479,7 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
         # Todo reinstate after alphafold integration?
         # Todo replace with PoseDirectory? Path object?
         if job.output:
-            output_pose(os.path.join(root_out_dir, pose_id), pose_id)
+            output_pose(os.path.join(out_dir, pose_id), pose_id)
 
         # Reset the fragment_map and fragment_profile for each Entity before calculate_fragment_profile
         for entity in pose.entities:
@@ -3660,7 +3667,7 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
                         # 'fsp': 0., 'cst': 0.,
                         # 'type': protein_letters_3to1.get(residue.type),
                         # 'hbond': 0
-                        }
+                    }
             else:
                 for temp_idx, design_idx in enumerate(range(idx * number_of_temperatures,
                                                             (idx+1) * number_of_temperatures)):
@@ -3914,76 +3921,76 @@ def nanohedra_dock(sym_entry: SymEntry, root_out_dir: AnyStr, model1: Structure 
     # return pose_s
 
 
-if __name__ == '__main__':
-    if len(sys.argv) > 1:
-        # Parsing Command Line Input
-        sym_entry_number, model1_path, model2_path, rot_step_deg1, rot_step_deg2, master_outdir, output_assembly, \
-            output_surrounding_uc, min_matched, timer, initial, debug, high_quality_match_value, initial_z_value,\
-            extra_args = nanohedra.cmdline.get_docking_parameters(sys.argv)
-
-        extra_kwargs = dict(zip(extra_args, repeat(True)))
-        logger.debug(f'Generated extra keyword args: {extra_kwargs}')
-
-        # Master Log File
-        master_log_filepath = os.path.join(master_outdir, putils.master_log)
-        if debug:
-            # Root logs to stream with level debug
-            logger = start_log(level=1)
-            set_logging_to_level()
-            bb_logger = logger
-            logger.debug('Debug mode. Generates verbose output. No writing to .log files will occur')
-        else:
-            # Set all modules to propagate logs to write to master logger file
-            set_loggers_to_propagate()
-            set_logging_to_level(handler_level=2)  # 3) Todo add back after testing
-            # Root logger logs all emissions to a single file with level 'info'
-            start_log(handler=2, location=master_log_filepath)
-            # FragDock main logs to stream with level info
-            logger = start_log(name=os.path.basename(__file__), propagate=True)
-        # SymEntry Parameters
-        symmetry_entry = symmetry_factory.get(sym_entry_number)  # sym_map inclusion?
-
-        if initial:
-            # make master output directory
-            os.makedirs(master_outdir, exist_ok=True)
-            logger.info('Nanohedra\nMODE: DOCK\n')
-            nanohedra.general.write_docking_parameters(model1_path, model2_path, rot_step_deg1, rot_step_deg2,
-                                                       symmetry_entry, master_outdir, log=logger)
-        else:  # for parallel runs, ensure that the first file was able to write before adding below logger
-            time.sleep(1)
-        # rot_step_deg1, rot_step_deg2 = \
-        #     get_rotation_step(symmetry_entry, rot_step_deg1, rot_step_deg2, logger=logger)
-
-        model1_name = os.path.basename(os.path.splitext(model1_path)[0])
-        model2_name = os.path.basename(os.path.splitext(model2_path)[0])
-
-        try:
-            # Output Directory  # Todo PoseDirectory
-            building_blocks = f'{model1_name}_{model2_name}'
-            # outdir = os.path.join(master_outdir, building_blocks)
-            # if not os.path.exists(outdir):
-            #     os.makedirs(outdir)
-
-            # log_file_path = os.path.join(outdir, '%s_log.txt' % building_blocks)
-            # if os.path.exists(log_file_path):
-            #     resume = True
-            # else:
-            #     resume = False
-            # bb_logger = start_log(name=building_blocks, handler=2, location=log_file_path, format_log=False)
-            # bb_logger.info('Found a prior incomplete run! Resuming from last sampled transformation.\n') \
-            #     if resume else None
-
-            # Write to Logfile
-            # if not resume:
-            #     bb_logger.info('DOCKING %s TO %s' % (model1_name, model2_name))
-            #     bb_logger.info('Oligomer 1 Path: %s\nOligomer 2 Path: %s\n' % (model1_path, model2_path))
-
-            nanohedra_dock(symmetry_entry, master_outdir, model1_path, model2_path,
-                           rotation_step1=rot_step_deg1, rotation_step2=rot_step_deg2, min_matched=min_matched,
-                           high_quality_match_value=high_quality_match_value, initial_z_value=initial_z_value,
-                           **extra_kwargs)
-            logger.info(f'COMPLETE ==> {os.path.join(master_outdir, building_blocks)}\n\n')
-
-        except KeyboardInterrupt:
-            print('\nRun Ended By KeyboardInterrupt\n')
-            exit(2)
+# if __name__ == '__main__':
+#     if len(sys.argv) > 1:
+#         # Parsing Command Line Input
+#         sym_entry_number, model1_path, model2_path, rot_step_deg1, rot_step_deg2, master_outdir, output_assembly, \
+#             output_surrounding_uc, min_matched, timer, initial, debug, high_quality_match_value, initial_z_value,\
+#             extra_args = nanohedra.cmdline.get_docking_parameters(sys.argv)
+#
+#         extra_kwargs = dict(zip(extra_args, repeat(True)))
+#         logger.debug(f'Generated extra keyword args: {extra_kwargs}')
+#
+#         # Master Log File
+#         master_log_filepath = os.path.join(master_outdir, putils.master_log)
+#         if debug:
+#             # Root logs to stream with level debug
+#             logger = start_log(level=1)
+#             set_logging_to_level()
+#             bb_logger = logger
+#             logger.debug('Debug mode. Generates verbose output. No writing to .log files will occur')
+#         else:
+#             # Set all modules to propagate logs to write to master logger file
+#             set_loggers_to_propagate()
+#             set_logging_to_level(handler_level=2)  # 3) Todo add back after testing
+#             # Root logger logs all emissions to a single file with level 'info'
+#             start_log(handler=2, location=master_log_filepath)
+#             # FragDock main logs to stream with level info
+#             logger = start_log(name=os.path.basename(__file__), propagate=True)
+#         # SymEntry Parameters
+#         symmetry_entry = symmetry_factory.get(sym_entry_number)  # sym_map inclusion?
+#
+#         if initial:
+#             # make master output directory
+#             putils.make_path(master_outdir)
+#             logger.info('Nanohedra\nMODE: DOCK\n')
+#             nanohedra.general.write_docking_parameters(model1_path, model2_path, rot_step_deg1, rot_step_deg2,
+#                                                        symmetry_entry, master_outdir, log=logger)
+#         else:  # for parallel runs, ensure that the first file was able to write before adding below logger
+#             time.sleep(1)
+#         # rot_step_deg1, rot_step_deg2 = \
+#         #     get_rotation_step(symmetry_entry, rot_step_deg1, rot_step_deg2, logger=logger)
+#
+#         model1_name = os.path.basename(os.path.splitext(model1_path)[0])
+#         model2_name = os.path.basename(os.path.splitext(model2_path)[0])
+#
+#         try:
+#             # Output Directory  # Todo PoseDirectory
+#             building_blocks = f'{model1_name}-{model2_name}'
+#             # outdir = os.path.join(master_outdir, building_blocks)
+#             # if not os.path.exists(outdir):
+#             #     os.makedirs(outdir)
+#
+#             # log_file_path = os.path.join(outdir, '%s_log.txt' % building_blocks)
+#             # if os.path.exists(log_file_path):
+#             #     resume = True
+#             # else:
+#             #     resume = False
+#             # bb_logger = start_log(name=building_blocks, handler=2, location=log_file_path, format_log=False)
+#             # bb_logger.info('Found a prior incomplete run! Resuming from last sampled transformation.\n') \
+#             #     if resume else None
+#
+#             # Write to Logfile
+#             # if not resume:
+#             #     bb_logger.info('DOCKING %s TO %s' % (model1_name, model2_name))
+#             #     bb_logger.info('Oligomer 1 Path: %s\nOligomer 2 Path: %s\n' % (model1_path, model2_path))
+#
+#             nanohedra_dock(symmetry_entry, master_outdir, model1_path, model2_path,
+#             #                rotation_step1=rot_step_deg1, rotation_step2=rot_step_deg2, min_matched=min_matched,
+#             #                high_quality_match_value=high_quality_match_value, initial_z_value=initial_z_value,
+#                            **extra_kwargs)
+#             logger.info(f'COMPLETE ==> {os.path.join(master_outdir, building_blocks)}\n\n')
+#
+#         except KeyboardInterrupt:
+#             print('\nRun Ended By KeyboardInterrupt\n')
+#             exit(2)

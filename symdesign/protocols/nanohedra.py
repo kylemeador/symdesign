@@ -154,10 +154,11 @@ if __name__ == '__main__':
                 #     bb_logger.info('DOCKING %s TO %s\nOligomer 1 Path: %s\nOligomer 2 Path: %s\n\n'
                 #                    % (model1_name, model2_name, pdb1_path, pdb2_path))
 
-                nanohedra_dock(sym_entry, master_outdir, pdb1_path, pdb2_path,
-                               rotation_step1=rot_step_deg1, rotation_step2=rot_step_deg2, min_matched=min_matched,
-                               high_quality_match_value=high_quality_match_value, initial_z_value=initial_z_value,
-                               output_assembly=output_assembly, output_surrounding_uc=output_surrounding_uc)
+                nanohedra_dock(sym_entry, job, pdb1_path, pdb2_path,
+                               # rotation_step1=rot_step_deg1, rotation_step2=rot_step_deg2, min_matched=min_matched,
+                               # high_quality_match_value=high_quality_match_value, initial_z_value=initial_z_value,
+                               # output_assembly=output_assembly, output_surrounding_uc=output_surrounding_uc
+                               )
 
                 # with open(master_log_filepath, 'a+') as master_log_file:
                 master_logger.info('COMPLETE ==> %s' % os.path.join(master_outdir, building_blocks))
