@@ -21,11 +21,21 @@ def from_flags(cls, **kwargs):
                   if key in inspect.signature(cls).parameters})
 
 
+# These dataclasses help simplify the use of flags into namespaces
+# The commented out versions below had poor implementations
+#  self.design = DesignFlags(*[kwargs.get(argument_name) for argument_name in design_args.keys()])
+#  self.design = types.SimpleNamespace(**{flag: kwargs.get(flag, default) for flag, default in flags.design})
+#  self.design = types.SimpleNamespace(**{flag: kwargs.get(flag, default) for flag, default in flags.design})
 Design = make_dataclass('Design',
                         [(flag, eval(type(default).__name__), field(default=default))
                          for flag, default in flags.design.items()],
                         namespace={'from_flags': classmethod(from_flags)})
 #                         frozen=True)
+Dock = make_dataclass('Dock',
+                      [(flag, eval(type(default).__name__), field(default=default))
+                       for flag, default in flags.dock.items()],
+                      namespace={'from_flags': classmethod(from_flags)})
+#                       frozen=True)
 
 
 class JobResources:
@@ -82,39 +92,39 @@ class JobResources:
         # putils.make_path(self.pdb_entity_api)
         # putils.make_path(self.pdb_assembly_api)
         putils.make_path(self.uniprot_api)
-        # sequence database specific
-        # self.make_path(self.sequence_info)
-        # self.make_path(self.sequences)
-        # self.make_path(self.profiles)
-        # structure database specific
-        # self.make_path(self.pdbs)
-        # self.make_path(self.orient_dir)
-        # self.make_path(self.orient_asu_dir)
-        # self.make_path(self.refine_dir)
-        # self.make_path(self.full_model_dir)
-        # self.make_path(self.stride_dir)
         self.reduce_memory = False
         self.api_db = wrapapi.api_database_factory.get(source=self.data)
         self.structure_db = structure_db.structure_database_factory.get(source=self.data)
-        # self.symmetry_factory = symmetry_factory
         self.fragment_db: 'db.FragmentDatabase' | None = None
+
+        # Development Flags
+        self.command_only: bool = kwargs.get('command_only', False)
+        """Whether to reissue commands, only if distribute_work=False"""
+        self.development: bool = kwargs.get(putils.development, False)
 
         # Program flags
         # self.consensus: bool = kwargs.get(consensus, False)  # Whether to run consensus
         self.design_selector: dict[str, dict[str, dict[str, set[int] | set[str]]]] | dict = \
             kwargs.get('design_selector', {})
         self.debug: bool = kwargs.get('debug', False)
+        self.dock = Dock.from_flags(**kwargs)
+        if self.dock.perturb_dof:
+            self.dock.perturb_dof_rot = self.dock.perturb_dof_tx = True
+        else:  # Set the unavailable dof to 1 step
+            if not self.dock.perturb_dof_rot:
+                self.dock.perturb_dof_steps_rot = 1
+            elif not self.dock.perturb_dof_tx:
+                self.dock.perturb_dof_steps_tx = 1
+            else:
+                self.dock.perturb_dof_steps_rot = self.dock.perturb_dof_steps_tx = 1
+        # self.proteinmpnn_score: bool = kwargs.get('proteinmpnn_score', False)
+        # self.contiguous_ghosts: bool = kwargs.get('contiguous_ghosts', False)
+
         self.dock_only: bool = kwargs.get('dock_only', False)
-        self.dock_proteinmpnn: bool = kwargs.get('dock_proteinmpnn', False)
-        self.dock_continuous_ghost: bool = kwargs.get('dock_continuous_ghost', False)
         self.log_level: bool = kwargs.get('log_level', flags.default_logging_level)
         self.force_flags: bool = kwargs.get(putils.force_flags, False)
         self.fuse_chains: list[tuple[str]] = [tuple(pair.split(':')) for pair in kwargs.get('fuse_chains', [])]
-        # self.design = DesignFlags(*[kwargs.get(argument_name) for argument_name in design_args.keys()])
-        # self.design = types.SimpleNamespace(**{flag: kwargs.get(flag, default) for flag, default in flags.design})
         self.design = Design.from_flags(**kwargs)
-        # self.design = types.SimpleNamespace(**{flag: kwargs.get(flag, default) for flag, default in flags.design})
-        # self.design.ignore_clashes: bool = kwargs.get(ignore_clashes, False)
         # self.ignore_clashes: bool = kwargs.get(ignore_clashes, False)
         if self.design.ignore_clashes:
             self.design.ignore_pose_clashes = self.design.ignore_symmetric_clashes = True
@@ -129,11 +139,6 @@ class JobResources:
         # self.hbnet: bool = kwargs.get(hbnet, False)
         # self.term_constraint: bool = kwargs.get(term_constraint, False)
         # self.number_of_trajectories: int = kwargs.get(number_of_trajectories, flags.nstruct)
-        self.overwrite: bool = kwargs.get('overwrite', False)
-        self.output_directory: AnyStr | None = kwargs.get(putils.output_directory, None)
-        self.output_to_directory: bool = True if self.output_directory else False
-        self.output_assembly: bool = kwargs.get(putils.output_assembly, False)
-        self.output_surrounding_uc: bool = kwargs.get(putils.output_surrounding_uc, False)
         self.distribute_work: bool = kwargs.get(putils.distribute_work, False)
         if self.mpi > 0:
             self.distribute_work = True
@@ -144,6 +149,11 @@ class JobResources:
         self.specific_protocol: str = kwargs.get('specific_protocol', False)
         # self.structure_background: bool = kwargs.get(structure_background, False)
         self.sym_entry: SymEntry.SymEntry | None = kwargs.get(putils.sym_entry, None)
+        self.overwrite: bool = kwargs.get('overwrite', False)
+        self.output_directory: AnyStr | None = kwargs.get(putils.output_directory, None)
+        self.output_to_directory: bool = True if self.output_directory else False
+        self.output_assembly: bool = kwargs.get(putils.output_assembly, False)
+        self.output_surrounding_uc: bool = kwargs.get(putils.output_surrounding_uc, False)
         self.write_fragments: bool = kwargs.get(putils.output_fragments, False)
         self.write_oligomers: bool = kwargs.get(putils.output_oligomers, False)
         self.write_structures: bool = kwargs.get(putils.output_structures, True)
@@ -151,10 +161,6 @@ class JobResources:
         self.skip_logging: bool = kwargs.get(putils.skip_logging, False)
         self.nanohedra_output: bool = kwargs.get('nanohedra_output', False)
         self.nanohedra_root: str | None = None
-        # Development Flags
-        # Whether to reissue commands, only if distribute_work=False
-        self.command_only: bool = kwargs.get('command_only', False)
-        self.development: bool = kwargs.get(putils.development, False)
 
         if self.write_structures or self.output_assembly or self.output_surrounding_uc or self.write_fragments \
                 or self.write_oligomers or self.write_trajectory:
@@ -176,17 +182,6 @@ class JobResources:
             self.design.evolution_constraint = False
             self.design.hbnet = False
             self.design.term_constraint = False
-
-    # @staticmethod
-    # def make_path(path: AnyStr, condition: bool = True):
-    #     """Make all required directories in specified path if it doesn't exist, and optional condition is True
-    #
-    #     Args:
-    #         path: The path to create
-    #         condition: A condition to check before the path production is executed
-    #     """
-    #     if condition:
-    #         os.makedirs(path, exist_ok=True)
 
 
 class JobResourcesFactory:
