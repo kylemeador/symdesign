@@ -353,8 +353,7 @@ def nanohedra_dock(sym_entry: SymEntry, job: symjob.JobResources,
                 # Todo remove able to take more than 2 Entity
                 raise NotImplementedError(f"Can't dock 2 Models with > 2 total Entity instances")
         # Make, then save a new model based on the symmetric version of each Entity in the Model
-        _model = Model.from_chains([chain for entity in model.entities for chain in entity.chains],
-                                        name=model.name, pose_format=True)
+        _model = Model.from_chains([chain for entity in model.entities for chain in entity.chains], name=model.name)
         _model.file_path = model.file_path
         _model.fragment_db = job.fragment_db
         models[idx] = _model
@@ -1820,9 +1819,7 @@ def nanohedra_dock(sym_entry: SymEntry, job: symjob.JobResources,
     pose = Pose.from_entities([entity for model in models for entity in model.entities],
                               entity_info=entity_info, entity_names=entity_names, name='asu', log=logger,
                               sym_entry=sym_entry, surrounding_uc=job.output_surrounding_uc,
-                              fragment_db=job.fragment_db,
-                              # pose_format=True,  # Todo remove this flag
-                              ignore_clashes=True, rename_chains=True)
+                              fragment_db=job.fragment_db, ignore_clashes=True, rename_chains=True)
 
     # Calculate metrics on input Pose before any manipulation
     pose_length = pose.number_of_residues
