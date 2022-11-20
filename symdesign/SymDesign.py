@@ -2076,7 +2076,7 @@ def main():
             #     pass
 
         # Check if sequences should be generated
-        if args.skip_sequence_generation:
+        if job.skip_sequence_generation:
             terminate(output=False)
         else:
             # Format sequences for expression
