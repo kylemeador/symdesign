@@ -27,6 +27,7 @@ from matplotlib.ticker import MultipleLocator
 # from mpl_toolkits.mplot3d import Axes3D
 from scipy.spatial.distance import pdist, cdist
 
+from symdesign import flags
 from symdesign.metrics import read_scores, interface_composition_similarity, unnecessary, necessary_metrics, \
     rosetta_terms, columns_to_new_column, division_pairs, delta_pairs, dirty_hbond_processing, significance_columns, \
     df_permutation_test, clean_up_intermediate_columns, protocol_specific_columns, rank_dataframe_by_metric_weights, \
@@ -102,10 +103,6 @@ class PoseProtocol:
 
 
 class PoseDirectory:
-    _design_profile: np.ndarry | None
-    _evolutionary_profile: np.ndarry | None
-    _fragment_profile: np.ndarry | None
-    _fragment_source: str | None
     _symmetry_definition_files: list[AnyStr]
     composition: str | None
     directives: list[dict[int, str]]
@@ -138,6 +135,21 @@ class PoseDirectory:
     @classmethod
     def from_pose_id(cls, design_path: str, root: AnyStr = None, **kwargs):
         return cls(design_path, pose_id=True, root=root, **kwargs)
+
+    def directory_string_to_path(self, root: AnyStr, pose_id: str):
+        """Set self.path to the root/poseID where the poseID is converted from dash "-" separation to path separators"""
+        if root is None:
+            raise ValueError("No 'root' argument was passed. Can't use a pose_id without a root directory")
+
+        if self.job.nanohedra_output:
+            self.path = os.path.join(root, pose_id.replace('-', os.sep))
+        else:
+            # Dev only
+            if '_Designs-' in pose_id:
+                self.path = os.path.join(root, 'Projects', pose_id.replace('_Designs-', f'_Designs{os.sep}'))
+            else:
+                self.path = os.path.join(root, 'Projects', pose_id.replace(f'_{putils.pose_directory}-',
+                                                                           f'_{putils.pose_directory}{os.sep}'))
 
     def __init__(self, design_path: AnyStr, job: JobResources = None, pose_id: bool = False,
                  root: AnyStr = None, **kwargs):
@@ -176,6 +188,10 @@ class PoseDirectory:
 
         # Design attributes
         self.background_profile: str = kwargs.get('background_profile', putils.design_profile)
+        """The type of position specific profile (per-residue amino acid frequencies) to utilize as the design 
+        background profile. 
+        Choices include putils.design_profile, putils.evolutionary_profile, and putils.fragment_profile
+        """
         self.directives = kwargs.get('directives', [])
         if self.job.design_selector:
             # self.info['design_selector'] = self.design_selector = self.job.design_selector
@@ -366,6 +382,17 @@ class PoseDirectory:
             self.entity_names = self.info.get('entity_names', [])  # set so that DataBase set up works
 
     # Decorator static methods: These must be declared above their usage, but made static after each declaration
+    def remove_structure_memory(func):
+        """Decorator to remove large memory attributes from the instance after processing is complete"""
+        @functools.wraps(func)
+        def wrapped(self, *args, **kwargs):
+            func_return = func(self, *args, **kwargs)
+            if self.job.reduce_memory:
+                self.pose = None
+                self.entities.clear()
+            return func_return
+        return wrapped
+    #
     # def handle_design_errors(errors: tuple = (Exception,)) -> Callable:
     #     """Decorator to wrap a method with try: ... except errors: and log errors to the PoseDirectory
     #
@@ -396,17 +423,6 @@ class PoseDirectory:
     #             handler.close()
     #         return func_return
     #     return wrapped
-
-    def remove_structure_memory(func):
-        """Decorator to remove large memory attributes from the instance after processing is complete"""
-        @functools.wraps(func)
-        def wrapped(self, *args, **kwargs):
-            func_return = func(self, *args, **kwargs)
-            if self.job.reduce_memory:
-                self.pose = None
-                self.entities.clear()
-            return func_return
-        return wrapped
 
     # SymEntry object attributes
     @property
@@ -497,104 +513,6 @@ class PoseDirectory:
     # def design_sequences(self) -> AnyStr:
     #     return os.path.join(self.job.all_scores, f'{self}_Sequences.pkl')
 
-    # SequenceProfile based attributes
-    @property
-    def background_profile(self) -> dict:
-        """Return the amino acid frequencies utilized as the PoseDirectory background frequencies"""
-        try:
-            return getattr(self, self._background_profile)
-        except AttributeError:
-            self.log.error(f"For the {self.background_profile.__name__}, couldn't locate the profile "
-                           f'"{self._background_profile}". Using "design_profile" by default')
-            return self.design_profile
-
-    @background_profile.setter
-    def background_profile(self, background: str):
-        self._background_profile = background
-
-    @property
-    def design_profile(self) -> np.ndarray | None:  # dict:
-        """Returns the amino acid frequencies observed for each residue's design profile which is a specific mix of
-        evolution and fragment frequency information
-
-        Returns:
-            The numerically encoded design pssm where each entry along axis 0 is the position, and the entries on axis 1
-                are the frequency data at every indexed amino acid. Indices are according to the 1 letter alphabetical
-                amino acid, i.e array([[0.1, 0.01, 0.12, ...], ...])
-        """
-        try:
-            return self._design_profile
-        except AttributeError:
-            try:
-                self._design_profile = pssm_as_array(parse_pssm(self.design_profile_file))
-            except FileNotFoundError:
-                self._design_profile = None
-            return self._design_profile
-
-    @property
-    def evolutionary_profile(self) -> np.ndarray | None:  # dict:
-        """Returns the amino acid frequencies observed for each residue's evolutionary alignment
-
-        Returns:
-            The numerically encoded evolutionary pssm where each entry along axis 0 is the position, and the entries on
-                axis 1 are the frequency data at every indexed amino acid. Indices are according to the 1 letter
-                alphabetical amino acid, i.e array([[0.1, 0.01, 0.12, ...], ...])
-        """
-        try:
-            return self._evolutionary_profile
-        except AttributeError:
-            try:
-                self._evolutionary_profile = pssm_as_array(parse_pssm(self.evolutionary_profile_file))
-            except FileNotFoundError:
-                self._evolutionary_profile = None
-            return self._evolutionary_profile
-
-    @property
-    def fragment_profile(self) -> np.ndarray | None:  # dict:
-        """Returns the amino acid frequencies observed for each residue's fragment observations
-
-        Returns:
-            The numerically encoded fragment pssm where each entry along axis 0 is the position, and the entries on
-                axis 1 are the frequency data at every indexed amino acid. Indices are according to the 1 letter
-                alphabetical amino acid, i.e array([[0.1, 0.01, 0.12, ...], ...])
-        """
-        try:
-            return self._fragment_profile
-        except AttributeError:
-            try:
-                self._fragment_profile = pssm_as_array(parse_pssm(self.fragment_profile_file))
-            except FileNotFoundError:
-                self._fragment_profile = None
-            return self._fragment_profile
-
-    # @property
-    # def fragment_data(self) -> dict:
-    #     """Returns only the entries in the fragment_profile which are populated"""
-    #     try:
-    #         return self._fragment_data
-    #     except AttributeError:
-    #         try:
-    #             frag_pkl = os.path.join(self.data, f'{self.fragment_source}_{putils.fragment_profile}.pkl')
-    #             self._fragment_data = self.info['fragment_data'] if 'fragment_data' in self.info else unpickle(frag_pkl)
-    #         except FileNotFoundError:
-    #             # fragment_profile is removed of all entries that are not fragment populated.
-    #             self._fragment_data = {residue: data for residue, data in self.fragment_profile.items()
-    #                                    if data.get('stats', (None,))[0]}  # [0] must contain a fragment observation
-    #         return self._fragment_data
-
-    @property
-    def fragment_source(self) -> str:
-        """The identity of the fragment database used in design fragment decoration"""
-        try:
-            return self._fragment_source
-        except AttributeError:
-            try:
-                self._fragment_source = self.info['fragment_source'] if 'fragment_source' in self.info \
-                    else self.job.fragment_db.source
-            except AttributeError:  # there is not fragment_db attached
-                self._fragment_source = None
-            return self._fragment_source
-
     @property
     def number_of_fragments(self) -> int:
         return len(self.fragment_observations) if self.fragment_observations else 0
@@ -682,21 +600,6 @@ class PoseDirectory:
         else:  # f'{__name__}.{self}'
             self.log = start_log(name=f'pose.{self}', handler=handler, level=level, location=self.log_path,
                                  no_log_name=no_log_name)  # propagate=propagate,
-
-    def directory_string_to_path(self, root: AnyStr, pose_id: str):
-        """Set self.path to the root/poseID where the poseID is converted from dash "-" separation to path separators"""
-        if root is None:
-            raise ValueError("No 'root' argument was passed. Can't use a pose_id without a root directory")
-
-        if self.job.nanohedra_output:
-            self.path = os.path.join(root, pose_id.replace('-', os.sep))
-        else:
-            # Dev only
-            if '_Designs-' in pose_id:
-                self.path = os.path.join(root, 'Projects', pose_id.replace('_Designs-', f'_Designs{os.sep}'))
-            else:
-                self.path = os.path.join(root, 'Projects', pose_id.replace(f'_{putils.pose_directory}-',
-                                                                           f'_{putils.pose_directory}{os.sep}'))
 
     @handle_design_errors(errors=(FileNotFoundError, ValueError))
     @close_logs
@@ -872,7 +775,7 @@ class PoseDirectory:
         """
         if design_type is None:
             design_type = ''
-        return sorted(glob(os.path.join(self.designs, f'*{design_type}*.pdb')))
+        return sorted(glob(os.path.join(self.designs, f'*{design_type}*.pdb*')))
 
     def pickle_info(self):
         """Write any design attributes that should persist over program run time to serialized file"""
@@ -1064,8 +967,6 @@ class PoseDirectory:
         if self.pose.is_symmetric():
             if self.job.write_oligomers:  # Write out new oligomers to the PoseDirectory
                 for idx, entity in enumerate(self.pose.entities):
-                    # if entity.number_of_symmetry_mates != self.sym_entry.group_subunit_numbers[idx]:
-                    #     entity.make_oligomer(symmetry=self.sym_entry.groups[idx], **self.pose.entity_transformations[idx])
                     entity.write(oligomer=True, out_path=os.path.join(self.path, f'{entity.name}_oligomer.pdb'))
 
         # Then modify numbering to ensure standard and accurate use during protocols
@@ -1176,9 +1077,9 @@ class PoseDirectory:
             if self.job.design.ignore_symmetric_clashes:
                 self.log.critical(f'The Symmetric Assembly contains clashes! {self.source} is not viable')
             else:
-                raise ClashError(f'The Symmetric Assembly contains clashes! Design won\'t be considered. If you '
-                                 f'would like to generate the Assembly anyway, re-submit the command with '
-                                 f'--{putils.ignore_symmetric_clashes}')
+                raise ClashError("The Symmetric Assembly contains clashes! Design won't be considered. If you "
+                                 'would like to generate the Assembly anyway, re-submit the command with '
+                                 f'--{flags.ignore_symmetric_clashes}')
 
     def prepare_rosetta_flags(self, symmetry_protocol: str = None, sym_def_file: str = None, pdb_out_path: str = None,
                               out_dir: AnyStr = os.getcwd()) -> str:
@@ -1275,6 +1176,7 @@ class PoseDirectory:
         flags.append(f'-in:file:native {self.refined_pdb}')
         flags.append(f'-parser:script_vars {" ".join(f"{var}={val}" for var, val in variables)}')
 
+        putils.make_path(out_dir)
         out_file = os.path.join(out_dir, 'flags')
         with open(out_file, 'w') as f:
             f.write('%s\n' % '\n'.join(flags))
@@ -1294,7 +1196,6 @@ class PoseDirectory:
         if len(self.entity_names) == 1:  # there is no unbound state to query as only one entity
             return []
         if len(self.symmetry_definition_files) != len(self.entity_names) or self.job.force_flags:
-            self.load_pose()  # Need to initialize the pose so each entity can get sdf created
             for entity in self.pose.entities:
                 if entity.is_oligomeric():  # make symmetric energy in line with SymDesign energies v
                     entity.make_sdf(out_path=self.data,
@@ -1329,10 +1230,10 @@ class PoseDirectory:
         """
         main_cmd = copy(CommandDistributer.script_cmd)
         protocol = putils.refine
-        if self.interface_residue_numbers is False or self.interface_design_residue_numbers is False:
-            self.identify_interface()
-        else:  # We only need to load pose as we already calculated interface
-            self.load_pose()
+        # if self.interface_residue_numbers is False or self.interface_design_residue_numbers is False:
+        self.identify_interface()
+        # else:  # We only need to load pose as we already calculated interface
+        #     self.load_pose()
 
         # nullify -native from flags v
         # native is here to block flag file version, not actually useful for refine
@@ -1358,7 +1259,6 @@ class PoseDirectory:
 
         flags = os.path.join(flag_dir, 'flags')
         if not os.path.exists(flags) or self.job.force_flags:
-            putils.make_path(flag_dir)
             self.prepare_rosetta_flags(pdb_out_path=pdb_out_path, out_dir=flag_dir)
             self.log.debug(f'Pose flags written to: {flags}')
             putils.make_path(pdb_out_path)
@@ -1485,14 +1385,13 @@ class PoseDirectory:
         raise DesignError('This module is outdated, please update it to use')  # Todo reflect modern metrics collection
         cmd = copy(CommandDistributer.script_cmd)
         script_name = os.path.splitext(os.path.basename(script))[0]
-        if self.interface_residue_numbers is False or self.interface_design_residue_numbers is False:
-            self.identify_interface()
-        else:  # We only need to load pose as we already calculated interface
-            self.load_pose()
+        # if self.interface_residue_numbers is False or self.interface_design_residue_numbers is False:
+        self.identify_interface()
+        # else:  # We only need to load pose as we already calculated interface
+        #     self.load_pose()
 
         flags = os.path.join(self.scripts, 'flags')
         if not os.path.exists(self.flags) or self.job.force_flags:
-            putils.make_path(self.scripts)
             self.prepare_rosetta_flags(out_dir=self.scripts)
             self.log.debug('Pose flags written to: %s' % flags)
 
@@ -1569,14 +1468,13 @@ class PoseDirectory:
         # metrics_flags = 'repack=yes'
         protocol = putils.interface_metrics
         main_cmd = copy(CommandDistributer.script_cmd)
-        if self.interface_residue_numbers is False or self.interface_design_residue_numbers is False:
-            self.identify_interface()
-        else:  # We only need to load pose as we already calculated interface
-            self.load_pose()
+        # if self.interface_residue_numbers is False or self.interface_design_residue_numbers is False:
+        self.identify_interface()
+        # else:  # We only need to load pose as we already calculated interface
+        #     self.load_pose()
 
         # interface_secondary_structure
         if not os.path.exists(self.flags) or self.job.force_flags:
-            putils.make_path(self.scripts)
             self.prepare_rosetta_flags(out_dir=self.scripts)
             self.log.debug(f'Pose flags written to: {self.flags}')
 
@@ -1693,8 +1591,8 @@ class PoseDirectory:
             # self.clear_pose_transformation()
             for entity in model.entities:
                 entity.remove_mate_chains()
-            # save the asu
-            # self.load_pose(source=orient_file)
+
+            # Load the pose and save the asu
             self.load_pose(entities=model.entities)
         else:
             raise SymmetryError(warn_missing_symmetry % self.orient.__name__)
@@ -1728,16 +1626,17 @@ class PoseDirectory:
                 self.load_pose(source=self.assembly_path)
             else:
                 self.load_pose()
-            # self.save_asu()  # force saving the Pose.asu
         else:
-            self.load_pose()
-            raise DesignError('This might cause issues')
+            raise NotImplementedError('Not sure if asu format matches pose.get_contacting_asu standard with no symmetry'
+                                      '. This might cause issues')
+            # Todo ensure asu format matches pose.get_contacting_asu standard
             # pdb = Model.from_file(self.source, log=self.log)
             # asu = pdb.return_asu()
-            # Todo ensure asu format matches pose.get_contacting_asu standard
+            self.load_pose()
             # asu.update_attributes_from_pdb(pdb)
-            # asu_path.write(out_path=self.asu_path)
-        self.save_asu()  # force saving the Pose.asu
+
+        # Save the Pose.asu
+        self.save_asu()
 
     @handle_design_errors(errors=(DesignError, AssertionError))
     @close_logs
@@ -1749,8 +1648,7 @@ class PoseDirectory:
 
         Reports on clash testing
         """
-        if not self.pose:
-            self.load_pose()
+        self.load_pose()
         if self.symmetric:
             self.symmetric_assembly_is_clash()
             self.pose.write(assembly=True, out_path=self.assembly_path, increment_chains=self.job.increment_chains)
@@ -1766,13 +1664,15 @@ class PoseDirectory:
         """For the design info given by a PoseDirectory source, initialize the Pose then generate interfacial fragment
         information between Entities. Aware of symmetry and design_selectors in fragment generation file
         """
-        if self.interface_residue_numbers is False or self.interface_design_residue_numbers is False:
-            self.identify_interface()
-        else:  # We only need to load pose as we already calculated interface
-            self.load_pose()
+        # if self.interface_residue_numbers is False or self.interface_design_residue_numbers is False:
+        self.identify_interface()
+        # else:  # We only need to load pose as we already calculated interface
+        #     self.load_pose()
 
         putils.make_path(self.frags, condition=self.job.write_fragments)
-        self.pose.generate_interface_fragments(out_path=self.frags, write_fragments=self.job.write_fragments)
+        self.pose.generate_interface_fragments()
+        if self.job.write_fragments:
+            self.pose.write_fragment_pairs(out_path=self.frags)
         self.info['fragments'] = self.fragment_observations = self.pose.get_fragment_observations()
         self.info['fragment_source'] = self.fragment_source
         self.pickle_info()  # Todo remove once PoseDirectory state can be returned to the SymDesign dispatch w/ MP
@@ -1785,106 +1685,89 @@ class PoseDirectory:
         interfacial redesign between Pose Entities. Aware of symmetry, design_selectors, fragments, and
         evolutionary information in interface design
         """
-        if self.job.command_only and not self.job.distribute_work:  # Just reissue the commands
-            pass
-        else:
-            if self.interface_residue_numbers is False or self.interface_design_residue_numbers is False:
-                self.identify_interface()
-            else:  # We only need to load pose as we already calculated interface
-                self.load_pose()
+        # if self.job.command_only and not self.job.distribute_work:  # Just reissue the commands
+        #     pass
+        # else:
+        # if self.interface_residue_numbers is False or self.interface_design_residue_numbers is False:
+        self.identify_interface()
+        # else:  # We only need to load pose as we already calculated interface
+        #     self.load_pose()
 
-            # if self.job.generate_fragments:
-            #     putils.make_path(self.frags, condition=self.job.write_fragments)
-            # elif self.fragment_observations or self.fragment_observations == list():
-            #     pass  # fragment generation was run and maybe succeeded. If not ^
-            # elif os.path.exists(self.frag_file):
-            #     self.retrieve_fragment_info_from_file()
-            # # else:  # self.job.generate_fragments:
-            # # self.generate_interface_fragments()
-            #     # raise DesignError(f'Fragments were specified during design, but observations have not been yet been '
-            #     #                   f'generated for this Design! Try with the flag --{putils.generate_fragments}')
-            putils.make_path(self.data)  # Todo consolidate this check with pickle_info()
-            # Create all files which store the evolutionary_profile and/or fragment_profile -> design_profile
-            if self.job.generate_fragments:
-                putils.make_path(self.frags, condition=self.job.write_fragments)
-                self.pose.generate_interface_fragments(out_path=self.frags, write_fragments=self.job.write_fragments)
-                if self.job.design.method == putils.rosetta_str:
-                    self.pose.calculate_fragment_profile(evo_fill=True)
-                    # for query_pair, fragment_info in self.pose.fragment_queries.items():
-                    #     self.log.debug(f'Query Pair: {query_pair[0].name}, {query_pair[1].name}'
-                    #                    f'\n\tFragment Info:{fragment_info}')
-                    #     for query_idx, entity in enumerate(query_pair):
-                    #         entity.add_fragments_to_profile(fragments=fragment_info,
-                    #                                         alignment_type=alignment_types[query_idx])
-                    favor_fragments = True
-                else:
-                    favor_fragments = False
-                    self.pose.calculate_fragment_profile(evo_fill=False)
-            elif self.fragment_observations or self.fragment_observations == list():
-                pass  # fragment generation was run and maybe succeeded. If not ^
-            # elif os.path.exists(self.frag_file):
-            #     self.retrieve_fragment_info_from_file()
+        putils.make_path(self.data)  # Todo consolidate this check with pickle_info()
+        # Create all files which store the evolutionary_profile and/or fragment_profile -> design_profile
+        favor_fragments = evo_fill = False
+        if self.job.generate_fragments:
+            self.pose.generate_interface_fragments()
+            if self.job.write_fragments:
+                self.pose.write_fragment_pairs(out_path=self.frags)
+            if self.job.design.method == putils.rosetta_str:
+                favor_fragments = evo_fill = True
+            self.pose.calculate_fragment_profile(evo_fill=evo_fill)
+        elif self.fragment_observations or self.fragment_observations == list():
+            pass  # fragment generation was run and maybe succeeded. If not ^
+        # elif os.path.exists(self.frag_file):
+        #     self.retrieve_fragment_info_from_file()
 
-            if self.job.design.evolution_constraint:
-                for entity in self.pose.entities:
-                    if entity not in self.pose.active_entities:  # We shouldn't design, add a null profile instead
-                        entity.add_profile(null=True)
-                    else:  # Add a real profile
-                        # entity.add_profile(evolution=self.job.design.evolution_constraint,
-                        #                    fragments=self.job.generate_fragments,
-                        #                    out_dir=self.job.api_db.hhblits_profiles.location)
-                        entity.sequence_file = self.job.api_db.sequences.retrieve_file(name=entity.name)
-                        entity.evolutionary_profile = self.job.api_db.hhblits_profiles.retrieve_data(name=entity.name)
-                        if not entity.evolutionary_profile:
-                            entity.add_evolutionary_profile(out_dir=self.job.api_db.hhblits_profiles.location)
-                        else:  # ensure the file is attached as well
-                            entity.pssm_file = self.job.api_db.hhblits_profiles.retrieve_file(name=entity.name)
+        if self.job.design.evolution_constraint:
+            for entity in self.pose.entities:
+                if entity not in self.pose.active_entities:  # We shouldn't design, add a null profile instead
+                    entity.add_profile(null=True)
+                else:  # Add a real profile
+                    # entity.add_profile(evolution=self.job.design.evolution_constraint,
+                    #                    fragments=self.job.generate_fragments,
+                    #                    out_dir=self.job.api_db.hhblits_profiles.location)
+                    entity.sequence_file = self.job.api_db.sequences.retrieve_file(name=entity.name)
+                    entity.evolutionary_profile = self.job.api_db.hhblits_profiles.retrieve_data(name=entity.name)
+                    if not entity.evolutionary_profile:
+                        entity.add_evolutionary_profile(out_dir=self.job.api_db.hhblits_profiles.location)
+                    else:  # ensure the file is attached as well
+                        entity.pssm_file = self.job.api_db.hhblits_profiles.retrieve_file(name=entity.name)
 
-                        if not entity.pssm_file:  # still no file found. this is likely broken
-                            raise DesignError(f'{entity.name} has no profile generated. To proceed with this design/'
-                                              f'protocol you must generate the profile!')
+                    if not entity.pssm_file:  # still no file found. this is likely broken
+                        raise DesignError(f'{entity.name} has no profile generated. To proceed with this design/'
+                                          f'protocol you must generate the profile!')
 
-                        if not entity.verify_evolutionary_profile():
-                            entity.fit_evolutionary_profile_to_structure()
+                    if not entity.verify_evolutionary_profile():
+                        entity.fit_evolutionary_profile_to_structure()
 
-                        if not entity.sequence_file:
-                            entity.write_sequence_to_fasta('reference', out_dir=self.job.api_db.sequences.location)
+                    if not entity.sequence_file:
+                        entity.write_sequence_to_fasta('reference', out_dir=self.job.api_db.sequences.location)
 
-                self.pose.evolutionary_profile = \
-                    concatenate_profile([entity.evolutionary_profile for entity in self.pose.entities])
-            # else:
-            #     self.pose.add_profile(null=True)
+            self.pose.evolutionary_profile = \
+                concatenate_profile([entity.evolutionary_profile for entity in self.pose.entities])
+        # else:
+        #     self.pose.add_profile(null=True)
 
-            # if self.job.design.method == putils.rosetta_str:
-            #     self.pose.pssm_file = \
-            #         write_pssm_file(self.pose.evolutionary_profile, file_name=self.evolutionary_profile_file)
+        # if self.job.design.method == putils.rosetta_str:
+        #     self.pose.pssm_file = \
+        #         write_pssm_file(self.pose.evolutionary_profile, file_name=self.evolutionary_profile_file)
 
-            # self.pose.combine_sequence_profiles()
-            # I could also add the combined profile here instead of at each Entity
-            self.pose.add_profile(evolution=self.job.design.evolution_constraint,
-                                  fragments=self.job.generate_fragments, favor_fragments=favor_fragments,
-                                  out_dir=self.job.api_db.hhblits_profiles.location)
-            # if self.job.design.method == putils.rosetta_str:
-            #     write_pssm_file(self.pose.profile, file_name=self.design_profile_file)
-            # Update PoseDirectory with design information
-            # if self.job.generate_fragments:  # Set pose.fragment_profile by combining fragment profiles
-            #     self.pose.fragment_profile = \
-            #         concatenate_profile([entity.fragment_profile for entity in self.pose.entities], start_at=0)
-            #     write_pssm_file(self.pose.fragment_profile, file_name=self.fragment_profile_file)
+        # self.pose.combine_sequence_profiles()
+        # I could also add the combined profile here instead of at each Entity
+        self.pose.add_profile(evolution=self.job.design.evolution_constraint,
+                              fragments=self.job.generate_fragments, favor_fragments=favor_fragments,
+                              out_dir=self.job.api_db.hhblits_profiles.location)
+        # if self.job.design.method == putils.rosetta_str:
+        #     write_pssm_file(self.pose.profile, file_name=self.design_profile_file)
+        # Update PoseDirectory with design information
+        # if self.job.generate_fragments:  # Set pose.fragment_profile by combining fragment profiles
+        #     self.pose.fragment_profile = \
+        #         concatenate_profile([entity.fragment_profile for entity in self.pose.entities], start_at=0)
+        #     write_pssm_file(self.pose.fragment_profile, file_name=self.fragment_profile_file)
 
-            # if self.job.design.evolution_constraint:  # Set pose.evolutionary_profile by combining evolution profiles
-            #     self.pose.evolutionary_profile = \
-            #         concatenate_profile([entity.evolutionary_profile for entity in self.pose.entities])
-            #     self.pose.pssm_file = \
-            #         write_pssm_file(self.pose.evolutionary_profile, file_name=self.evolutionary_profile_file)
+        # if self.job.design.evolution_constraint:  # Set pose.evolutionary_profile by combining evolution profiles
+        #     self.pose.evolutionary_profile = \
+        #         concatenate_profile([entity.evolutionary_profile for entity in self.pose.entities])
+        #     self.pose.pssm_file = \
+        #         write_pssm_file(self.pose.evolutionary_profile, file_name=self.evolutionary_profile_file)
 
-            # self.pose.profile = concatenate_profile([entity.profile for entity in self.pose.entities])
-            # write_pssm_file(self.pose.profile, file_name=self.design_profile_file)
-            # -------------------------------------------------------------------------
-            # Todo self.solve_consensus()
-            # -------------------------------------------------------------------------
-            self.info['fragments'] = self.fragment_observations = self.pose.get_fragment_observations()
-            self.info['fragment_source'] = self.fragment_source
+        # self.pose.profile = concatenate_profile([entity.profile for entity in self.pose.entities])
+        # write_pssm_file(self.pose.profile, file_name=self.design_profile_file)
+        # -------------------------------------------------------------------------
+        # Todo self.solve_consensus()
+        # -------------------------------------------------------------------------
+        self.info['fragments'] = self.fragment_observations = self.pose.get_fragment_observations()
+        self.info['fragment_source'] = self.job.fragment_db.source
 
         if not self.pre_refine and not os.path.exists(self.refined_pdb):
             self._refine()
@@ -1961,7 +1844,6 @@ class PoseDirectory:
         main_cmd = copy(CommandDistributer.script_cmd)
         main_cmd += ['-symmetry_definition', 'CRYST1'] if self.design_dimension > 0 else []
         if not os.path.exists(self.flags) or self.job.force_flags:
-            putils.make_path(self.scripts)
             self.prepare_rosetta_flags(out_dir=self.scripts)
             self.log.debug(f'Pose flags written to: {self.flags}')
 
@@ -2127,21 +2009,21 @@ class PoseDirectory:
             raise RuntimeError('IMPOSSIBLE')
             specific_design = self.specific_design_path
 
-        self.load_pose()
+        self.identify_interface()  # self.load_pose()
         # for design_path in self.specific_designs_file_paths
         #     self.load_pose(source=design_path)
+        #     self.identify_interface()
 
         # format all amino acids in self.interface_design_residue_numbers with frequencies above the threshold to a set
         # Todo, make threshold and return set of strings a property of a profile object
-        # background = \
-        #     {self.pose.residue(residue_number):
-        #      {protein_letters_1to3.get(aa) for aa in protein_letters_1to3 if fields.get(aa, -1) > threshold}
-        #      for residue_number, fields in self.background_profile.items() if residue_number in self.interface_design_residue_numbers}
+        # Locate the desired background profile from the pose
+        background_profile = getattr(self.pose, self.background_profile)
+        raise NotImplementedError("background_profile doesn't account for residue.index versus residue.number")
         background = {residue: {protein_letters_1to3.get(aa) for aa in protein_letters_1to3
                                 if self.background_profile[residue.number].get(aa, -1) > threshold}
                       for residue in self.pose.get_residues(self.interface_design_residue_numbers)}
         # include the wild-type residue from PoseDirectory Pose source and the residue identity of the selected design
-        wt = {residue: {self.background_profile[residue.number].get('type'), protein_letters_3to1[residue.type]}
+        wt = {residue: {background_profile[residue.number].get('type'), protein_letters_3to1[residue.type]}
               for residue in background}
         directives = dict(zip(background.keys(), repeat(None)))
         # directives.update({self.pose.residue(residue_number): directive
@@ -2162,7 +2044,6 @@ class PoseDirectory:
         main_cmd = copy(CommandDistributer.script_cmd)
         main_cmd += ['-symmetry_definition', 'CRYST1'] if self.design_dimension > 0 else []
         if not os.path.exists(self.flags) or self.job.force_flags:
-            putils.make_path(self.scripts)
             self.prepare_rosetta_flags(out_dir=self.scripts)
             self.log.debug(f'Pose flags written to: {self.flags}')
 
@@ -2249,33 +2130,32 @@ class PoseDirectory:
         Returns:
             Series containing summary metrics for all designs in the design directory
         """
-        if self.interface_residue_numbers is False or self.interface_design_residue_numbers is False:
-            self.identify_interface()
-        else:  # We only need to load pose as we already calculated interface
-            self.load_pose()
+        # if self.interface_residue_numbers is False or self.interface_design_residue_numbers is False:
+        self.identify_interface()
+        # else:  # We only need to load pose as we already calculated interface
+        #     self.load_pose()
 
-        self.log.debug(f'Found design residues: {", ".join(map(str, sorted(self.interface_design_residue_numbers)))}')
         if self.job.generate_fragments and not self.pose.fragment_queries:
-            putils.make_path(self.frags, condition=self.job.write_fragments)
-            self.pose.generate_interface_fragments(write_fragments=self.job.write_fragments, out_path=self.frags)
+            self.pose.generate_interface_fragments()
+            if self.job.write_fragments:
+                self.pose.write_fragment_pairs(out_path=self.frags)  # Todo PoseDirectory(.path)
 
         # Gather miscellaneous pose specific metrics
         other_pose_metrics = self.pose.interface_metrics()
-        # other_pose_metrics = self.pose_metrics()
 
         # Find all designs files Todo fold these into Model(s) and attack metrics from Pose objects?
         if design_poses is None:
-            design_poses = []
-            for file in self.get_designs():
-                # pose format should already be the case, but let's make sure
-                #   pass names if available v
-                # api_db=self.job.api_db,
-                pose = Pose.from_file(file, entity_names=self.entity_names, log=self.log, pose_format=True,
-                                      sym_entry=self.sym_entry, fragment_db=self.job.fragment_db,
-                                      design_selector=self.job.design_selector,
-                                      ignore_clashes=self.job.design.ignore_pose_clashes)
-                # Todo use PoseDirectory self.info.design_selector
-                design_poses.append(pose)
+            # Todo use PoseDirectory self.info.design_selector   # Todo PoseDirectory(.path)
+            # # pose format should already be the case, but let's make sure
+            pose_kwargs = dict(
+                entity_names=self.entity_names,  # Todo PoseDirectory(.path)
+                log=self.pose.log,
+                sym_entry=self.pose.sym_entry, fragment_db=self.pose.fragment_db,
+                design_selector=self.pose.design_selector,
+                ignore_clashes=self.job.design.ignore_pose_clashes
+            )
+            # api_db=self.job.api_db,
+            design_poses = [Pose.from_file(file, **pose_kwargs) for file in self.get_designs()]  # Todo PoseDirectory(.path)
 
         # Assumes each structure is the same length
         pose_length = self.pose.number_of_residues
@@ -2297,8 +2177,8 @@ class PoseDirectory:
         residue_info = {putils.pose_source: pose_source_residue_info}
         job_key = 'no_energy'
         stat_s, sim_series = pd.Series(dtype=float), []
-        if os.path.exists(self.scores_file):  # Rosetta scores file is present
-            self.log.debug(f'Found design scores in file: {self.scores_file}')
+        if os.path.exists(self.scores_file):  # Rosetta scores file is present  # Todo PoseDirectory(.path)
+            self.log.debug(f'Found design scores in file: {self.scores_file}')  # Todo PoseDirectory(.path)
             design_was_performed = True
             # Get the scores from the score file on design trajectory metrics
             source_df = pd.DataFrame({putils.pose_source: {putils.groups: job_key}}).T
@@ -2325,7 +2205,7 @@ class PoseDirectory:
             source_df['shape_complementarity'] = 0
             source_df['solvation_energy'] = 0
             source_df['solvation_energy_complex'] = 0
-            all_design_scores = read_scores(self.scores_file)
+            all_design_scores = read_scores(self.scores_file)  # Todo PoseDirectory(.path)
             self.log.debug(f'All designs with scores: {", ".join(all_design_scores.keys())}')
             # Remove designs with scores but no structures
             all_viable_design_scores = {}
@@ -2422,7 +2302,7 @@ class PoseDirectory:
             #     {entity: {design: sequence[entity.n_terminal_residue.number - 1:entity.c_terminal_residue.number]
             #               for design, sequence in pose_sequences.items()} for entity in self.pose.entities}
         else:
-            self.log.debug(f'Missing design scores file at {self.scores_file}')
+            self.log.debug(f'Missing design scores file at {self.scores_file}')  # Todo PoseDirectory(.path)
             design_was_performed = False
             # Todo add relevant missing scores such as those specified as 0 below
             # Todo may need to put source_df in scores file alternative
@@ -2517,20 +2397,13 @@ class PoseDirectory:
         # As the pose source assumes no legit interface present while designs have an interface
         # per_residue_sasa_unbound_apolar, per_residue_sasa_unbound_polar, per_residue_sasa_unbound_relative = [], [], []
         # source_errat_accuracy, source_errat, source_contact_order, inverse_residue_contact_order_z = [], [], [], []
-        source_errat, source_contact_order = [], []
+        source_contact_order = []
         for idx, entity in enumerate(self.pose.entities):
             # Contact order is the same for every design in the Pose and not dependent on pose
             source_contact_order.append(entity.contact_order)
-            if design_was_performed:  # we should respect input structure was not meant to be together
-                # oligomer_errat_accuracy, oligomeric_errat = entity_oligomer.errat(out_path=self.data)
-                # source_errat_accuracy.append(oligomer_errat_accuracy)
-                # Todo when Entity.oligomer works
-                #  _, oligomeric_errat = entity.oligomer.errat(out_path=self.data)
-                entity_oligomer = Model.from_chains(entity.chains, log=self.log, entities=False)
-                _, oligomeric_errat = entity_oligomer.errat(out_path=self.data)
-                source_errat.append(oligomeric_errat[:entity.number_of_residues])
 
-        per_residue_data = {putils.pose_source: self.pose.get_per_residue_interface_metrics()}
+        per_residue_data: dict[str, dict[str, Any]] = \
+            {putils.pose_source: self.pose.get_per_residue_interface_metrics()}
         pose_source_contact_order_s = \
             pd.Series(np.concatenate(source_contact_order), index=residue_numbers, name='contact_order')
         per_residue_data[putils.pose_source]['contact_order'] = pose_source_contact_order_s
@@ -2540,12 +2413,12 @@ class PoseDirectory:
             source_errat = []
             for idx, entity in enumerate(self.pose.entities):
                 # Replace 'errat_deviation' measurement with uncomplexed entities
-                # oligomer_errat_accuracy, oligomeric_errat = entity_oligomer.errat(out_path=self.data)
+                # oligomer_errat_accuracy, oligomeric_errat = entity_oligomer.errat(out_path=os.path.devnull)
                 # source_errat_accuracy.append(oligomer_errat_accuracy)
                 # Todo when Entity.oligomer works
-                #  _, oligomeric_errat = entity.oligomer.errat(out_path=self.data)
-                entity_oligomer = Model.from_chains(entity.chains, log=self.log, entities=False)
-                _, oligomeric_errat = entity_oligomer.errat(out_path=self.data)
+                #  _, oligomeric_errat = entity.oligomer.errat(out_path=os.path.devnull)
+                entity_oligomer = Model.from_chains(entity.chains, log=self.pose.log, entities=False)
+                _, oligomeric_errat = entity_oligomer.errat(out_path=os.path.devnull)
                 source_errat.append(oligomeric_errat[:entity.number_of_residues])
             # atomic_deviation[putils.pose_source] = sum(source_errat_accuracy) / float(number_of_entities)
             pose_source_errat_s = pd.Series(np.concatenate(source_errat), index=residue_numbers)
@@ -2553,7 +2426,7 @@ class PoseDirectory:
             pose_assembly_minimally_contacting = self.pose.assembly_minimally_contacting
             # atomic_deviation[putils.pose_source], pose_per_residue_errat = \
             _, pose_per_residue_errat = \
-                pose_assembly_minimally_contacting.errat(out_path=self.data)
+                pose_assembly_minimally_contacting.errat(out_path=os.path.devnull)
             pose_source_errat_s = pose_per_residue_errat[:pose_length]
 
         per_residue_data[putils.pose_source]['errat_deviation'] = pose_source_errat_s
@@ -3017,10 +2890,11 @@ class PoseDirectory:
             residue_energy_pc = res_pca.fit_transform(residue_energy_np)
 
             seq_pca = skl.decomposition.PCA(variance)
-            designed_sequence_modifications = [''.join(info['type'] for residue, info in residues_info.items()
-                                                       if residue in self.interface_design_residue_numbers)
+            designed_sequence_modifications = [''.join(info['type'] for residue_number, info in residues_info.items()
+                                                       if residue_number in index_residues)
                                                for design, residues_info in residue_info.items()]
-            pairwise_sequence_diff_np = scaler.fit_transform(all_vs_all(designed_sequence_modifications, sequence_difference))
+            pairwise_sequence_diff_np = scaler.fit_transform(all_vs_all(designed_sequence_modifications,
+                                                                        sequence_difference))
             seq_pc = seq_pca.fit_transform(pairwise_sequence_diff_np)
             # Make principal components (PC) DataFrame
             residue_energy_pc_df = pd.DataFrame(residue_energy_pc, index=residue_energy_df.index,
@@ -3191,9 +3065,9 @@ class PoseDirectory:
                 trajectory_df = pd.concat([trajectory_df], axis=1, keys=['metrics'])
                 trajectory_df = pd.merge(trajectory_df, per_residue_df, left_index=True, right_index=True)
             else:
-                per_residue_df.to_csv(self.residues)
-            trajectory_df.to_csv(self.trajectories)
-            pickle_object(entity_sequences, self.design_sequences, out_path='')
+                per_residue_df.to_csv(self.residues)  # Todo PoseDirectory(.path)
+            trajectory_df.to_csv(self.trajectories)  # Todo PoseDirectory(.path)
+            pickle_object(entity_sequences, self.design_sequences, out_path='')  # Todo PoseDirectory(.path)
 
         # Create figures
         if figures:  # for plotting collapse profile, errat data, contact order
@@ -3353,7 +3227,7 @@ class PoseDirectory:
             plt.legend(handles, labels, loc='upper center', bbox_to_anchor=(0.5, -1.), ncol=3)  # , mode='expand')
             #            bbox_transform=plt.gcf().transFigure)  # , bbox_transform=collapse_ax.transAxes)
             fig.tight_layout()
-            fig.savefig(os.path.join(self.data, 'DesignMetricsPerResidues.png'))
+            fig.savefig(os.path.join(self.data, 'DesignMetricsPerResidues.png'))  # Todo PoseDirectory(.path)
 
         # After parsing data sources
         interface_metrics_s = pd.concat([interface_metrics_s], keys=[('dock', 'pose')])
@@ -3549,13 +3423,13 @@ def interface_design_analysis(pose: Pose, design_poses: Iterable[Pose] = None, s
     #  self.design_sequences
     #  self.data
     job = job_resources_factory.get(**kwargs)
-    if pose.interface_residue_numbers is False or pose.interface_design_residue_numbers is False:
-        pose.find_and_split_interface()
+    # if pose.interface_residue_numbers is False or pose.interface_design_residue_numbers is False:
+    pose.find_and_split_interface()
 
-    pose.log.debug(f'Found design residues: {", ".join(map(str, sorted(pose.interface_design_residue_numbers)))}')
     if job.generate_fragments and not pose.fragment_queries:
         pose.generate_interface_fragments()
-
+        if job.write_fragments:
+            pose.write_fragment_pairs(out_path=pose.path.frags)
     # Gather miscellaneous pose specific metrics
     other_pose_metrics = pose.interface_metrics()
 
@@ -3603,7 +3477,7 @@ def interface_design_analysis(pose: Pose, design_poses: Iterable[Pose] = None, s
         source_df['interface_energy_complex'] = 0
         source_df['interaction_energy_complex'] = 0
         source_df['interaction_energy_per_residue'] = \
-            source_df['interaction_energy_complex'] / len(pose.interface_design_residue_numbers)
+            source_df['interaction_energy_complex'] / len(pose.interface_residues)
         source_df['interface_separation'] = 0
         source_df['number_hbonds'] = 0
         source_df['rmsd_complex'] = 0  # Todo calculate this here instead of Rosetta using superposition3d

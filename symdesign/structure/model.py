@@ -5434,7 +5434,7 @@ class Pose(SymmetricModel):
         try:
             return self._design_residues
         except AttributeError:
-            self.log.debug('The design_residues includes interface_residues')
+            self.log.debug('The design_residues include interface_residues')
             self._design_residues = self.required_residues + self.interface_residues
             return self._design_residues
 
@@ -6490,7 +6490,8 @@ class Pose(SymmetricModel):
         for entity1, entity2 in self.interface_residues_by_entity_pair:
             atoms_indices1, atoms_indices2 = \
                 split_number_pairs_and_sort(self._find_interface_atom_pairs(entity1=entity1, entity2=entity2))
-            interface_indices1.extend(atoms_indices1), interface_indices2.extend(atoms_indices2)
+            interface_indices1.extend(atoms_indices1)
+            interface_indices2.extend(atoms_indices2)
 
         if not interface_indices1 and not interface_indices2:
             self.log.warning(f'No interface atoms located during {self.local_density_interface.__name__}')
@@ -6644,25 +6645,11 @@ class Pose(SymmetricModel):
         """
         self.log.debug('Find and split interface using active_entities: '
                        f'{", ".join(entity.name for entity in self.active_entities)}')
+        entity_pair: tuple[Entity, Entity]
         for entity_pair in combinations_with_replacement(self.active_entities, 2):
             self.find_interface_residues(*entity_pair, **kwargs)
 
         self.check_interface_topology()
-
-        # self.interface_design_residue_numbers = set()  # Replace set(). Add new residues
-        # for number, residues_entities in self.split_interface_residues.items():
-        #     self.interface_design_residue_numbers.update([residue.number for residue, _ in residues_entities])
-        #
-        # self.interface_residue_numbers = set()  # Replace set(). Add new residues
-        # for entity in self.entities:
-        #     # Todo v clean as it is redundant with analysis and falls out of scope
-        #     entity_oligomer = Model.from_chains(entity.chains, log=entity.log, entities=False)
-        #     # entity.oligomer.get_sasa()
-        #     # Must get_residues by number as the Residue instance will be different in entity_oligomer
-        #     for residue in entity_oligomer.get_residues(self.interface_design_residue_numbers):
-        #         if residue.sasa > 0:
-        #             # Using set ensures that if we have repeats they won't be unique if Entity is symmetric
-        #             self.interface_residue_numbers.add(residue.number)
 
     def check_interface_topology(self):
         """From each pair of entities that share an interface, split the identified residues into two distinct groups.
@@ -6776,7 +6763,7 @@ class Pose(SymmetricModel):
                              "Check that your input has an interface or your flags aren't too stringent")
         else:
             self.log.debug('The interface is split as:\n\tInterface 1: %s\n\tInterface 2: %s'
-                           % tuple(','.join('%d%s' % (res.number, ent.chain_id) for res, ent in residues_entities)
+                           % tuple(','.join(f'{res.number}{ent.chain_id}' for res, ent in residues_entities)
                                    for residues_entities in self.split_interface_residues.values()))
 
     def interface_secondary_structure(self):
@@ -7162,12 +7149,9 @@ class Pose(SymmetricModel):
 
         return parsed_design_residues
 
-    def generate_interface_fragments(self, write_fragments: bool = False, out_path: AnyStr = None, **kwargs):
+    def generate_interface_fragments(self, **kwargs):
         """Generate fragments between the Pose interface(s). Finds interface(s) if not already available
 
-        Args:
-            write_fragments: Whether to write the located fragments
-            out_path: The location to write each fragment file
         Keyword Args:
             distance: (float) = 8. - The distance to measure Residues across an interface
         """
@@ -7180,9 +7164,6 @@ class Pose(SymmetricModel):
                            f'for interface fragments')
             self.query_interface_for_fragments(*entity_pair)
 
-        if write_fragments:
-            self.write_fragment_pairs(out_path=out_path)
-
     def write_fragment_pairs(self, ghost_mono_frag_pairs: list[tuple[GhostFragment, Fragment, float]] = None,
                              out_path: AnyStr = os.getcwd()):
         """Write the fragments associated with the pose to disk
@@ -7191,8 +7172,7 @@ class Pose(SymmetricModel):
             ghost_mono_frag_pairs: Optional, the specified fragment pairs with associated match score
             out_path: The path to the directory to output files to
         """
-        ghost_frag: GhostFragment
-        surface_frag: Fragment
+        putils.make_path(out_path)
         frag_file = os.path.join(out_path, putils.frag_text_file)
         if os.path.exists(frag_file):
             os.system(f'rm {frag_file}')  # ensure old file is removed before new write
@@ -7200,6 +7180,8 @@ class Pose(SymmetricModel):
         if ghost_mono_frag_pairs is None:
             ghost_mono_frag_pairs = self.fragment_pairs
 
+        ghost_frag: GhostFragment
+        surface_frag: Fragment
         for match_count, (ghost_frag, surface_frag, match_score) in enumerate(ghost_mono_frag_pairs, 1):
             i, j, k = ijk = ghost_frag.ijk
             fragment_pdb, _ = ghost_frag.fragment_db.paired_frags[ijk]

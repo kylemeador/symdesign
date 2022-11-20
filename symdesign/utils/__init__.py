@@ -15,7 +15,7 @@ from functools import reduce, wraps
 from glob import glob
 from itertools import repeat
 from logging import Logger, DEBUG, INFO, WARNING, ERROR, CRITICAL, getLogger, StreamHandler, FileHandler, NullHandler, \
-    Formatter, root
+    Formatter, root as root_logger
 from string import digits
 from typing import Any, Callable, Union, Iterable, List, Tuple, AnyStr, Dict, DefaultDict, Sequence, Iterator, \
     Literal, Type
@@ -206,8 +206,8 @@ def set_logging_to_level(level: logging_levels = None, handler_level: logging_le
         _level = log_level[1]
         set_level_func = Logger.setLevel
 
-    # print(root.manager.loggerDict)
-    for logger_name in root.manager.loggerDict:
+    # print(root_logger.manager.loggerDict)
+    for logger_name in root_logger.manager.loggerDict:
         _logger = getLogger(logger_name)
         set_level_func(_logger, _level)
         # _logger.setLevel(_level)
@@ -215,7 +215,7 @@ def set_logging_to_level(level: logging_levels = None, handler_level: logging_le
 
 def set_loggers_to_propagate():
     """For each Logger in current run time, set the Logger to propagate"""
-    for logger_name in root.manager.loggerDict:
+    for logger_name in root_logger.manager.loggerDict:
         _logger = getLogger(logger_name)
         _logger.propagate = True
 
@@ -1183,7 +1183,7 @@ def rmsd_z_score(coords1: float | np.ndarray = None, coords2: float | np.ndarray
 
 # @njit mean doesn't take arguments
 def rmsd(coords1: float | np.ndarray = None, coords2: float | np.ndarray = None) -> float | np.ndarray:
-    """Calculate the root mean square deviation (RMSD). Arguments can be single vectors or array-like
+    """Calculate the root-mean-square deviation (RMSD). Arguments can be single vectors or array-like
 
     If calculation is over two sets of numpy.arrays. The first axis (0) contains instances of coordinate sets,
     the second axis (1) contains a set of coordinates, and the third axis (2) contains the x, y, z coordinates

@@ -1849,10 +1849,10 @@ def nanohedra_dock(sym_entry: SymEntry, job: symjob.JobResources,
             # Contact order is the same for every design in the Pose and not dependent on pose
             source_contact_order.append(entity.contact_order)
             # Replace 'errat_deviation' measurement with uncomplexed entities
-            # oligomer_errat_accuracy, oligomeric_errat = entity_oligomer.errat(out_path=self.data)
+            # oligomer_errat_accuracy, oligomeric_errat = entity_oligomer.errat(out_path=os.path.devnull)
             # Todo translate the source pose
             # Todo when Entity.oligomer works
-            #  _, oligomeric_errat = entity.oligomer.errat(out_path=self.data)
+            #  _, oligomeric_errat = entity.oligomer.errat(out_path=os.path.devnull)
             entity_oligomer = Model.from_chains(entity.chains, log=logger, entities=False)
             _, oligomeric_errat = entity_oligomer.errat(out_path=os.devnull)
             source_errat.append(oligomeric_errat[:entity.number_of_residues])
@@ -2194,7 +2194,7 @@ def nanohedra_dock(sym_entry: SymEntry, job: symjob.JobResources,
             # Remove old fragments
             pose.fragment_queries = {}
             # Query fragments
-            pose.generate_interface_fragments()  # write_fragments=job.write_fragments)
+            pose.generate_interface_fragments()
         else:  # Process with provided data
             # Return the indices sorted by z_value in ascending order, truncated at the number of passing
             sorted_match_scores = match_score_from_z_value(sorted_z_scores)
