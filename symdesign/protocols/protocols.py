@@ -104,7 +104,6 @@ class PoseProtocol:
 
 class PoseDirectory:
     _symmetry_definition_files: list[AnyStr]
-    composition: str | None
     directives: list[dict[int, str]]
     entities: list[Entity]
     entity_names: list[str]
@@ -123,10 +122,6 @@ class PoseDirectory:
     source_path: str
     specific_designs: list
     specific_designs_file_paths: list[AnyStr]
-
-    @classmethod
-    def from_nanohedra(cls, design_path: str, root: AnyStr = None, nanohedra_output: bool = True, **kwargs):
-        return cls(design_path, root=root, nanohedra_output=nanohedra_output, **kwargs)
 
     @classmethod
     def from_file(cls, design_path: str, root: AnyStr = None, **kwargs):
@@ -205,10 +200,10 @@ class PoseDirectory:
         if entity_names:
             self.info['entity_names'] = entity_names
         self.initial_model = None  # used if the pose structure has never been initialized previously
-        self.interface_design_residue_numbers: set[int] | bool = False  # The residue numbers in the pose interface
-        self.interface_residue_ids: dict[str, str] = {}
+        # self.interface_design_residue_numbers: set[int] | bool = False  # The residue numbers in the pose interface
+        # self.interface_residue_ids: dict[str, str] = {}
         # {'interface1': '23A,45A,46A,...' , 'interface2': '234B,236B,239B,...'}
-        self.interface_residue_numbers: set[int] | bool = False  # The interface residues which are surface accessable
+        # self.interface_residue_numbers: set[int] | bool = False  # The interface residues which are surface accessable
         # self.oligomer_names: list[str] = self.info.get('oligomer_names', [])
         self.entities = []
         self.pose = None  # contains the design's Pose object
@@ -686,9 +681,9 @@ class PoseDirectory:
         self.design_selector = self.info.get('design_selector', self.design_selector)
         self.pose_transformation = self.info.get('pose_transformation', [])  # {})
         self.fragment_observations = self.info.get('fragments', None)  # None signifies query wasn't attempted
-        self.interface_design_residue_numbers = self.info.get('interface_design_residues', False)  # (set[int])
-        self.interface_residue_ids = self.info.get('interface_residue_ids', {})
-        self.interface_residue_numbers = self.info.get('interface_residues', False)  # (set[int])
+        # self.interface_design_residue_numbers = self.info.get('interface_design_residues', False)  # (set[int])
+        # self.interface_residue_ids = self.info.get('interface_residue_ids', {})
+        # self.interface_residue_numbers = self.info.get('interface_residues', False)  # (set[int])
         self.entity_names = self.info.get('entity_names', [])
         self.pre_refine = self.info.get('pre_refine', True)
         self.pre_loop_model = self.info.get('pre_loop_model', True)
@@ -976,16 +971,6 @@ class PoseDirectory:
             self.log.info(f'Input Entities: {", ".join(self.entity_names)}')
             self.info['entity_names'] = self.entity_names
 
-        # Add previously identified state information to the pose
-        if self.interface_residue_numbers:  # or self.interface_design_residue_numbers is False:
-            # Add interface_residues to the pose
-            self.pose.interface_residue_numbers = self.interface_residue_numbers
-        # if self.fragment_observations is not None:  # or self.interface_design_residue_numbers is False:
-        #     # Todo distinguish between entities that are involved
-        #     self.pose.fragment_metrics = self.fragment_observations
-        #     # These are not used...
-        #     # self.pose.interface_design_residue_numbers = self.interface_design_residue_numbers
-
         # Save renumbered PDB to clean_asu.pdb
         if not self.asu_path or not os.path.exists(self.asu_path):
             if not self.job.construct_pose:  # This is only true when self.job.nanohedra_output is True
@@ -1027,15 +1012,15 @@ class PoseDirectory:
 
     def identify_interface(self):  # Todo to PoseProtocols?
         """Find the interface(s) between each Entity in the Pose. Handles symmetric clash testing, writing the assembly
-
-        Sets:
-            self.interface_residue_ids (dict[str, str]):
-                Map each interface to the corresponding residue/chain pairs
-            self.interface_design_residue_numbers (set[int]):
-                The residues in proximity of the interface, including buried residues
-            self.interface_residue_numbers (set[int]):
-                The residues in contact across the interface
         """
+        #         Sets:
+        #             self.interface_residue_ids (dict[str, str]):
+        #                 Map each interface to the corresponding residue/chain pairs
+        #             self.interface_design_residue_numbers (set[int]):
+        #                 The residues in proximity of the interface, including buried residues
+        #             self.interface_residue_numbers (set[int]):
+        #                 The residues in contact across the interface
+
         self.load_pose()
         if self.symmetric:
             self.symmetric_assembly_is_clash()
@@ -1044,30 +1029,32 @@ class PoseDirectory:
                 self.log.info(f'Symmetric assembly written to: "{self.assembly_path}"')
 
         self.pose.find_and_split_interface()
-        # self.interface_design_residue_numbers = self.pose.interface_design_residue_numbers
-        # self.interface_residue_numbers = self.pose.interface_residue_numbers
-        self.interface_design_residue_numbers = set()  # Replace set(). Add new residues
-        for number, residues_entities in self.pose.split_interface_residues.items():
-            self.interface_design_residue_numbers.update([residue.number for residue, _ in residues_entities])
 
-        self.interface_residue_numbers = set()  # Replace set(). Add new residues
-        for entity in self.pose.entities:
-            # Todo v clean as it is redundant with analysis and falls out of scope
-            entity_oligomer = Model.from_chains(entity.chains, log=entity.log, entities=False)
-            # entity.oligomer.get_sasa()
-            # Must get_residues by number as the Residue instance will be different in entity_oligomer
-            for residue in entity_oligomer.get_residues(self.interface_design_residue_numbers):
-                if residue.sasa > 0:
-                    # Using set ensures that if we have repeats they won't be unique if Entity is symmetric
-                    self.interface_residue_numbers.add(residue.number)
+        # self.interface_design_residue_numbers = set()  # Replace set(). Add new residues
+        # for number, residues_entities in self.pose.split_interface_residues.items():
+        #     self.interface_design_residue_numbers.update([residue.number for residue, _ in residues_entities])
+        # self.log.debug(f'Found interface design residues: '
+        #                f'{", ".join(map(str, sorted(self.interface_design_residue_numbers)))}')
 
-        for number, residues_entities in self.pose.split_interface_residues.items():
-            self.interface_residue_ids[f'interface{number}'] = \
-                ','.join(f'{residue.number}{entity.chain_id}' for residue, entity in residues_entities)
+        # self.interface_residue_numbers = set()  # Replace set(). Add new residues
+        # for entity in self.pose.entities:
+        #     # Todo v clean as it is redundant with analysis and falls out of scope
+        #     entity_oligomer = Model.from_chains(entity.chains, log=entity.log, entities=False)
+        #     # entity.oligomer.get_sasa()
+        #     # Must get_residues by number as the Residue instance will be different in entity_oligomer
+        #     for residue in entity_oligomer.get_residues(self.interface_design_residue_numbers):
+        #         if residue.sasa > 0:
+        #             # Using set ensures that if we have repeats they won't be unique if Entity is symmetric
+        #             self.interface_residue_numbers.add(residue.number)
+        # self.log.debug(f'Found interface residues: {", ".join(map(str, sorted(self.interface_residue_numbers)))}')
 
-        self.info['interface_design_residues'] = self.interface_design_residue_numbers
-        self.info['interface_residues'] = self.interface_residue_numbers
-        self.info['interface_residue_ids'] = self.interface_residue_ids
+        # for number, residues_entities in self.pose.split_interface_residues.items():
+        #     self.interface_residue_ids[f'interface{number}'] = \
+        #         ','.join(f'{residue.number}{entity.chain_id}' for residue, entity in residues_entities)
+
+        # self.info['interface_design_residues'] = self.interface_design_residue_numbers
+        # self.info['interface_residues'] = self.interface_residue_numbers
+        # self.info['interface_residue_ids'] = self.interface_residue_ids
 
     def symmetric_assembly_is_clash(self):  # Todo to PoseProtocols?
         """Wrapper around the Pose symmetric_assembly_is_clash() to check at the Pose level for clashes and raise
@@ -1150,8 +1137,14 @@ class PoseDirectory:
         else:
             variables.append(('symmetry', symmetry_protocol))
             out_of_bounds_residue = number_of_residues + 1
+
+        interface_residue_ids = {}
+        for number, residues_entities in self.pose.split_interface_residues.items():
+            interface_residue_ids[f'interface{number}'] = \
+                ','.join(f'{residue.number}{entity.chain_id}' for residue, entity in residues_entities)
+        # self.info['interface_residue_ids'] = self.interface_residue_ids
         variables.extend([(interface, residues) if residues else (interface, out_of_bounds_residue)
-                          for interface, residues in self.interface_residue_ids.items()])
+                          for interface, residues in interface_residue_ids.items()])
 
         # Assign any additional designable residues
         if self.pose.required_residues:
@@ -2014,8 +2007,8 @@ class PoseDirectory:
         background_profile = getattr(self.pose, self.background_profile)
         raise NotImplementedError("background_profile doesn't account for residue.index versus residue.number")
         background = {residue: {protein_letters_1to3.get(aa) for aa in protein_letters_1to3
-                                if self.background_profile[residue.number].get(aa, -1) > threshold}
-                      for residue in self.pose.get_residues(self.interface_design_residue_numbers)}
+                                if background_profile[residue.number].get(aa, -1) > threshold}
+                      for residue in self.pose.interface_residues}
         # include the wild-type residue from PoseDirectory Pose source and the residue identity of the selected design
         wt = {residue: {background_profile[residue.number].get('type'), protein_letters_3to1[residue.type]}
               for residue in background}
@@ -2182,7 +2175,7 @@ class PoseDirectory:
             # source_df['interface_energy_complex'] = 0
             source_df['interaction_energy_complex'] = 0
             source_df['interaction_energy_per_residue'] = \
-                source_df['interaction_energy_complex'] / len(self.interface_design_residue_numbers)
+                source_df['interaction_energy_complex'] / len(self.pose.interface_residues)
             source_df['interface_separation'] = 0
             source_df['number_hbonds'] = 0
             source_df['rmsd_complex'] = 0  # Todo calculate this here instead of Rosetta using superposition3d
@@ -2312,7 +2305,7 @@ class PoseDirectory:
             scores_df['interface_energy_complex'] = 0
             scores_df['interaction_energy_complex'] = 0
             scores_df['interaction_energy_per_residue'] = \
-                scores_df['interaction_energy_complex'] / len(self.interface_design_residue_numbers)
+                scores_df['interaction_energy_complex'] / len(self.pose.interface_residues)
             scores_df['interface_separation'] = 0
             scores_df['number_hbonds'] = 0
             scores_df['rmsd_complex'] = 0  # Todo calculate this here instead of Rosetta using superposition3d
@@ -2509,7 +2502,7 @@ class PoseDirectory:
         # returns multi-index column with residue number as first (top) column index, metric as second index
         # during residue_df unstack, all residues with missing dicts are copied as nan
         # Merge interface design specific residue metrics with total per residue metrics
-        index_residues = list(self.interface_design_residue_numbers)
+        index_residues = [residue.number for residue in self.pose.interface_residues]
         per_residue_df = pd.merge(residue_df.loc[:, idx_slice[index_residues, :]],
                                   per_residue_df.loc[:, idx_slice[index_residues, :]],
                                   left_index=True, right_index=True)
@@ -2575,7 +2568,7 @@ class PoseDirectory:
                     protocol_alignment = MultipleSequenceAlignment.from_dictionary({design: pose_sequences[design]
                                                                                     for design in designs})
                     # protocol_mutation_freq = filter_dictionary_keys(protocol_alignment.frequencies,
-                    #                                                 self.interface_design_residue_numbers)
+                    #                                                 self.pose.interface_residues)
                     # protocol_mutation_freq = protocol_alignment.frequencies
                     protocol_divergence = {f'divergence_{profile}':
                                            position_specific_divergence(protocol_alignment.frequencies,
@@ -2976,7 +2969,7 @@ class PoseDirectory:
             # sim_series = [protocol_sig_s, similarity_sum_s, sim_measures_s, sim_stdev_s]
             sim_series = [protocol_sig_s, similarity_sum_s, sim_measures_s]
 
-            # if figures:  # Todo ensure output is as expected then move below
+            # if self.job.figures:  # Todo ensure output is as expected then move below
             #     protocols_by_design = {design: protocol for protocol, designs in designs_by_protocol.items()
             #                            for design in designs}
             #     _path = os.path.join(self.job.all_scores, str(self))
