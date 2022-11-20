@@ -262,19 +262,18 @@ def create_perturbation_transformations(sym_entry: SymEntry, rotation_number: in
     return perturbation_mapping
 
 
-def nanohedra_dock(sym_entry: SymEntry, job: symjob.JobResources,
-                   model1: Structure | AnyStr, model2: Structure | AnyStr, **kwargs):
+def nanohedra_dock(job: symjob.JobResources, model1: Structure | AnyStr, model2: Structure | AnyStr, **kwargs):
     """
     Perform the fragment docking routine described in Laniado, Meador, & Yeates, PEDS. 2021
 
     Args:
-        sym_entry: The SymmetryEntry object describing the material
         job: The JobResources object describing the program operations
         model1: The first Structure to be used in docking
         model2: The second Structure to be used in docking
     Returns:
         None
     """
+    #  sym_entry: The SymmetryEntry object describing the material
     #  rotation_step1: The number of degrees to increment the rotational degrees of freedom search
     #  rotation_step2: The number of degrees to increment the rotational degrees of freedom search
     #  min_matched: How many high quality fragment pairs should be present before a pose is identified?
@@ -302,6 +301,7 @@ def nanohedra_dock(sym_entry: SymEntry, job: symjob.JobResources,
     models = [model1, model2]
 
     # Set up output mechanism
+    sym_entry: SymEntry = job.sym_entry
     entry_string = f'NanohedraEntry{sym_entry.entry_number}DockedPoses'
     building_blocks = '-'.join(model.name for model in models)
     # # Create symjob.JobResources for all flags
@@ -318,11 +318,11 @@ def nanohedra_dock(sym_entry: SymEntry, job: symjob.JobResources,
     euler_lookup = job.fragment_db.euler_lookup
     # This is used in clustering algorithms to define an observation outside the found clusters
     outlier = -1
-    initial_z_value = job.initial_z_value
-    min_matched = job.min_matched
-    high_quality_match_value = job.match_value
-    rotation_step1 = job.rotation_step1
-    rotation_step2 = job.rotation_step2
+    initial_z_value = job.dock.initial_z_value
+    min_matched = job.dock.min_matched
+    high_quality_match_value = job.dock.match_value
+    rotation_step1 = job.dock.rotation_step1
+    rotation_step2 = job.dock.rotation_step2
     # Todo set below as parameters?
     low_quality_match_value = .2  # sets the lower bounds on an acceptable match, was upper bound of 2 using z-score
     clash_dist: float = 2.2

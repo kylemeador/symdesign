@@ -123,11 +123,11 @@ class JobResources:
 
         self.only_write_frag_info: bool = kwargs.get('only_write_frag_info', False)
         self.dock_only: bool = kwargs.get('dock_only', False)
-        self.rotation_step1: bool = kwargs.get('rotation_step1', False)
-        self.rotation_step2: bool = kwargs.get('rotation_step2', False)
-        self.min_matched: bool = kwargs.get('min_matched', False)
-        self.match_value: bool = kwargs.get('match_value', False)
-        self.initial_z_value: bool = kwargs.get('initial_z_value', False)
+        # self.rotation_step1: bool = kwargs.get('rotation_step1', False)
+        # self.rotation_step2: bool = kwargs.get('rotation_step2', False)
+        # self.min_matched: bool = kwargs.get('min_matched', False)
+        # self.match_value: bool = kwargs.get('match_value', False)
+        # self.initial_z_value: bool = kwargs.get('initial_z_value', False)
         self.log_level: bool = kwargs.get('log_level', flags.default_logging_level)
         self.force_flags: bool = kwargs.get(putils.force_flags, False)
         self.fuse_chains: list[tuple[str]] = [tuple(pair.split(':')) for pair in kwargs.get('fuse_chains', [])]
@@ -152,6 +152,8 @@ class JobResources:
         # self.pre_refine: bool = kwargs.get('pre_refine', True)
         # self.pre_loop_model: bool = kwargs.get('pre_loop_model', True)
         self.generate_fragments: bool = kwargs.get(putils.generate_fragments, True)
+        self.interface_to_alanine: bool = kwargs.get('interface_to_alanine', True)
+        self.gather_metrics: bool = kwargs.get('gather_metrics', True)
         # self.scout: bool = kwargs.get(scout, False)
         self.specific_protocol: str = kwargs.get('specific_protocol', False)
         # self.structure_background: bool = kwargs.get(structure_background, False)
@@ -166,6 +168,10 @@ class JobResources:
         self.write_structures: bool = kwargs.get(putils.output_structures, True)
         self.write_trajectory: bool = kwargs.get(putils.output_trajectory, False)
         self.skip_logging: bool = kwargs.get(putils.skip_logging, False)
+        self.merge: bool = kwargs.get('merge', False)
+        self.save: bool = kwargs.get('save', False)
+        self.figures: bool = kwargs.get('figures', False)
+        self.skip_sequence_generation: bool = kwargs.get('skip_sequence_generation', False)
         self.nanohedra_output: bool = kwargs.get('nanohedra_output', False)
         self.nanohedra_root: str | None = None
 
@@ -177,9 +183,6 @@ class JobResources:
 
         if self.nanohedra_output:
             self.construct_pose: bool = kwargs.get('construct_pose', True)  # Whether to construct the PoseDirectory
-            if not self.construct_pose:  # no construction specific flags
-                self.write_fragments = False
-                self.write_oligomers = False
         else:
             self.construct_pose = True
 
@@ -191,6 +194,19 @@ class JobResources:
             self.design.evolution_constraint = False
             self.design.hbnet = False
             self.design.term_constraint = False
+
+    @property
+    def construct_pose(self):
+        return self._construct_pose
+
+    @construct_pose.setter
+    def construct_pose(self, value: bool):
+        self._construct_pose = value
+        if self._construct_pose:
+            pass
+        else:  # No construction specific flags
+            self.write_fragments = False
+            self.write_oligomers = False
 
 
 class JobResourcesFactory:
