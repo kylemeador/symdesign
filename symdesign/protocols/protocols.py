@@ -1218,13 +1218,12 @@ class PoseDirectory:
 
         return entity_metric_commands
 
-    def _refine(self, to_pose_directory: bool = True, interface_to_alanine: bool = False,
-                refine_sequences: Iterable[Sequence] = None, gather_metrics: bool = False):
+    def _refine(self, to_pose_directory: bool = True, refine_sequences: Iterable[Sequence] = None,
+                gather_metrics: bool = False):
         """Refine the source PDB using self.symmetry to specify any symmetry
 
         Args:
             to_pose_directory: Whether the refinement should be saved to the PoseDirectory
-            interface_to_alanine: Whether the identified interface residues should be mutated to Alanine
             refine_sequences: The sequence to mutate the pose to and have it built using Rosetta FastRelax
             gather_metrics: Whether metrics should be calculated for the Pose
         """
@@ -1264,7 +1263,7 @@ class PoseDirectory:
             putils.make_path(pdb_out_path)
 
         # Assign designable residues to interface1/interface2 variables, not necessary for non-complexed PDB jobs
-        if interface_to_alanine:  # Mutate all design positions to Ala before the Refinement
+        if self.job.interface_to_alanine:  # Mutate all design positions to Ala before the Refinement
             for entity_pair, interface_residue_sets in self.pose.interface_residues_by_entity_pair.items():
                 if interface_residue_sets[0]:  # Check that there are residues present
                     for idx, interface_residue_set in enumerate(interface_residue_sets):
@@ -1329,7 +1328,7 @@ class PoseDirectory:
              '-parser:script_vars', f'switch={protocol}']
         self.log.info(f'{protocol.title()} Command: {list2cmdline(relax_cmd)}')
 
-        if gather_metrics:
+        if gather_metrics or self.job.gather_metrics:
             main_cmd += metrics_pdb
             main_cmd += [f'@{flags}', '-out:file:score_only', self.scores_file,
                          '-no_nstruct_label', 'true', '-parser:protocol']
@@ -1600,18 +1599,13 @@ class PoseDirectory:
     @handle_design_errors(errors=(DesignError, AssertionError))
     @close_logs
     @remove_structure_memory
-    def refine(self, to_pose_directory: bool = True, interface_to_alanine: bool = False,
-               refine_sequences: Iterable[Sequence] = None, gather_metrics: bool = False):
+    def refine(self, refine_sequences: Iterable[Sequence] = None):
         """Refine the source PDB using self.symmetry to specify any symmetry
 
         Args:
-            to_pose_directory: Whether the refinement should be saved to the PoseDirectory
-            interface_to_alanine: Whether the identified interface residues should be mutated to Alanine
             refine_sequences: The sequence to mutate the pose to and have it built using Rosetta FastRelax
-            gather_metrics: Whether metrics should be calculated for the Pose
         """
-        self._refine(to_pose_directory=to_pose_directory, interface_to_alanine=interface_to_alanine,
-                     refine_sequences=refine_sequences, gather_metrics=gather_metrics)
+        self._refine(refine_sequences=refine_sequences)
 
     @handle_design_errors(errors=(DesignError, AssertionError, FileNotFoundError))
     @close_logs
@@ -2103,30 +2097,21 @@ class PoseDirectory:
     @handle_design_errors(errors=(DesignError, AssertionError))
     @close_logs
     @remove_structure_memory
-    def interface_design_analysis(self, design_poses: Iterable[Pose] = None, merge_residue_data: bool = False,
-                                  save_metrics: bool = True, figures: bool = False) -> pd.Series:
+    def interface_design_analysis(self, design_poses: Iterable[Pose] = None) -> pd.Series:
         """Retrieve all score information from a PoseDirectory and write results to .csv file
 
         Args:
             design_poses: The subsequent designs to perform analysis on
-            merge_residue_data: Whether to incorporate residue data into Pose DataFrame
-            save_metrics: Whether to save trajectory and residue DataFrames
-            figures: Whether to make and save pose figures
         Returns:
             Series containing summary metrics for all designs in the design directory
         """
-        return self._interface_design_analysis(design_poses=design_poses, merge_residue_data=merge_residue_data,
-                                               save_metrics=save_metrics, figures=figures)
+        return self._interface_design_analysis(design_poses=design_poses)
 
-    def _interface_design_analysis(self, design_poses: Iterable[Pose] = None, merge_residue_data: bool = False,
-                                   save_metrics: bool = True, figures: bool = False) -> pd.Series:
+    def _interface_design_analysis(self, design_poses: Iterable[Pose] = None) -> pd.Series:
         """Retrieve all score information from a PoseDirectory and write results to .csv file
 
         Args:
             design_poses: The subsequent designs to perform analysis on
-            merge_residue_data: Whether to incorporate residue data into Pose DataFrame
-            save_metrics: Whether to save trajectory and residue DataFrames
-            figures: Whether to make and save pose figures
         Returns:
             Series containing summary metrics for all designs in the design directory
         """
@@ -3053,15 +3038,14 @@ class PoseDirectory:
             #     plt.savefig('%s_res_energy_pca.png' % _path)
 
         # Format output and save Trajectory, Residue DataFrames, and PDB Sequences
-        if save_metrics:
+        if self.job.save:
             trajectory_df.sort_index(inplace=True, axis=1)
             per_residue_df = per_residue_df.loc[:, idx_slice[index_residues, :]]
             per_residue_df.sort_index(inplace=True)
             per_residue_df.sort_index(level=0, axis=1, inplace=True, sort_remaining=False)
             per_residue_df[(putils.groups, putils.groups)] = protocol_s
             # per_residue_df.sort_index(inplace=True, key=lambda x: x.str.isdigit())  # put wt entry first
-            putils.make_path(self.job.all_scores)
-            if merge_residue_data:
+            if self.job.merge:
                 trajectory_df = pd.concat([trajectory_df], axis=1, keys=['metrics'])
                 trajectory_df = pd.merge(trajectory_df, per_residue_df, left_index=True, right_index=True)
             else:
@@ -3070,7 +3054,7 @@ class PoseDirectory:
             pickle_object(entity_sequences, self.design_sequences, out_path='')  # Todo PoseDirectory(.path)
 
         # Create figures
-        if figures:  # for plotting collapse profile, errat data, contact order
+        if self.job.figures:  # for plotting collapse profile, errat data, contact order
             # Plot: Format the collapse data with residues as index and each design as column
             # collapse_graph_df = pd.DataFrame(per_residue_data['hydrophobic_collapse'])
             collapse_graph_df = per_residue_df.loc[:, idx_slice[:, 'hydrophobic_collapse']].droplevel(-1, axis=1)
@@ -3402,18 +3386,14 @@ class PoseDirectory:
 # @handle_design_errors(errors=(DesignError, AssertionError))
 # @close_logs
 # @remove_structure_memory
-def interface_design_analysis(pose: Pose, design_poses: Iterable[Pose] = None, scores_file: AnyStr = None,
-                              merge_residue_data: bool = False, save_metrics: bool = True,
-                              figures: bool = False, **kwargs) -> pd.Series:
+def interface_design_analysis(pose: Pose, design_poses: Iterable[Pose] = None, scores_file: AnyStr = None, **kwargs) \
+        -> pd.Series:
     """Retrieve all score information from a PoseDirectory and write results to .csv file
 
     Args:
         pose: The Pose to perform the analysis on
         design_poses: The subsequent designs to perform analysis on
         scores_file: A file that contains a JSON formatting metrics file with key, value paired metrics
-        merge_residue_data: Whether to incorporate residue data into Pose DataFrame
-        save_metrics: Whether to save trajectory and residue DataFrames
-        figures: Whether to make and save pose figures
     Returns:
         Series containing summary metrics for all designs in the design directory
     """
@@ -4221,7 +4201,7 @@ def interface_design_analysis(pose: Pose, design_poses: Iterable[Pose] = None, s
         # sim_series = [protocol_sig_s, similarity_sum_s, sim_measures_s, sim_stdev_s]
         sim_series = [protocol_sig_s, similarity_sum_s, sim_measures_s]
 
-        # if figures:  # Todo ensure output is as expected then move below
+        # if self.job.figures:  # Todo ensure output is as expected then move below
         #     protocols_by_design = {design: protocol for protocol, designs in designs_by_protocol.items()
         #                            for design in designs}
         #     _path = os.path.join(job.all_scores, str(pose))
@@ -4283,13 +4263,13 @@ def interface_design_analysis(pose: Pose, design_poses: Iterable[Pose] = None, s
         #     plt.savefig('%s_res_energy_pca.png' % _path)
 
     # Format output and save Trajectory, Residue DataFrames, and PDB Sequences
-    if save_metrics:
+    if job.save:
         trajectory_df.sort_index(inplace=True, axis=1)
         residue_df.sort_index(inplace=True)
         residue_df.sort_index(level=0, axis=1, inplace=True, sort_remaining=False)
         residue_df[(putils.groups, putils.groups)] = protocol_s
         # residue_df.sort_index(inplace=True, key=lambda x: x.str.isdigit())  # put wt entry first
-        if merge_residue_data:
+        if job.merge:
             trajectory_df = pd.concat([trajectory_df], axis=1, keys=['metrics'])
             trajectory_df = pd.merge(trajectory_df, residue_df, left_index=True, right_index=True)
         else:
@@ -4298,7 +4278,7 @@ def interface_design_analysis(pose: Pose, design_poses: Iterable[Pose] = None, s
         pickle_object(entity_sequences, self.design_sequences, out_path='')
 
     # Create figures
-    if figures:  # for plotting collapse profile, errat data, contact order
+    if job.figures:  # for plotting collapse profile, errat data, contact order
         # Plot: Format the collapse data with residues as index and each design as column
         # collapse_graph_df = pd.DataFrame(per_residue_data['hydrophobic_collapse'])
         collapse_graph_df = per_residue_df.loc[:, idx_slice[:, 'hydrophobic_collapse']].droplevel(-1, axis=1)
