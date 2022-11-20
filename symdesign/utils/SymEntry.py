@@ -20,7 +20,6 @@ __copyright__ = "Copyright 2020, Nanohedra"
 __version__ = "1.0"
 
 logger = logging.getLogger(__name__)
-null_log = utils.start_log(name='null', handler=3)
 symmetry_combination_format = 'ResultingSymmetry:{Component1Symmetry}{Component2Symmetry}{...}'
 # SYMMETRY COMBINATION MATERIAL TABLE (T.O.Y and J.L, 2020)
 # Guide to table interpretation

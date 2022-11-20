@@ -98,7 +98,7 @@ class JobResources:
         self.fragment_db: 'db.FragmentDatabase' | None = None
 
         # Development Flags
-        self.command_only: bool = kwargs.get('command_only', False)
+        # self.command_only: bool = kwargs.get('command_only', False)
         """Whether to reissue commands, only if distribute_work=False"""
         self.development: bool = kwargs.get(putils.development, False)
 
