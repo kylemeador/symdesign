@@ -5385,8 +5385,8 @@ class Pose(SymmetricModel):
     fragment_pairs: list[tuple[GhostFragment, Fragment, float]] | list
     fragment_queries: dict[tuple[Entity, Entity], list[fragment_info_type]]
     ignore_clashes: bool
-    interface_design_residue_numbers: set[int]  # set[Residue]
-    interface_residue_numbers: set[int]
+    # interface_design_residue_numbers: set[int]  # set[Residue]
+    # interface_residue_numbers: set[int]
     interface_residues_by_entity_pair: dict[tuple[Entity, Entity], tuple[list[Residue], list[Residue]]]
     required_indices: set[int]
     required_residues: list[Residue]
@@ -5416,8 +5416,8 @@ class Pose(SymmetricModel):
         self.fragment_pairs = []
         self.fragment_queries = {}
         self.ignore_clashes = ignore_clashes
-        self.interface_design_residue_numbers = set()
-        self.interface_residue_numbers = set()
+        # self.interface_design_residue_numbers = set()
+        # self.interface_residue_numbers = set()
         self.interface_residues_by_entity_pair = {}
         self.required_indices = set()
         self.required_residues = []
@@ -5449,7 +5449,7 @@ class Pose(SymmetricModel):
 
     @property
     def interface_residues(self) -> list[Residue]:
-        """The Residue instances identified in interfaces in the Pose"""
+        """The Residue instances identified in interfaces in the Pose. May be buried depending on interface distance"""
         try:
             return self._interface_residues
         except AttributeError:
@@ -5457,6 +5457,20 @@ class Pose(SymmetricModel):
             for number, residues_entities in self.split_interface_residues.items():
                 self._interface_residues.extend([residue for residue, _ in residues_entities])
             return self._interface_residues
+
+        # This finds only those residues actively contributing to the interface
+        # self._interface_residues_only = set()
+        # for entity in self.pose.entities:
+        #     # Todo v clean as it is expensive
+        #     entity_oligomer = Model.from_chains(entity.chains, log=entity.log, entities=False)
+        #     # entity.oligomer.get_sasa()
+        #     # Must get_residues by number as the Residue instance will be different in entity_oligomer
+        #     for residue in entity_oligomer.get_residues(self._interface_residues):
+        #         if residue.sasa > 0:
+        #             # Using set ensures that if we have repeats they won't be unique if Entity is symmetric
+        #             self._interface_residues_only.add(residue)
+        # interface_residue_numbers = [residue.number for residue in self._interface_residues_only]
+        # self.log.debug(f'Found interface residues: {", ".join(map(str, sorted(interface_residue_numbers)))}')
 
     @property
     def design_residues(self) -> list[Residue]:  # Todo make function to include interface_residues or not
@@ -6887,7 +6901,7 @@ class Pose(SymmetricModel):
         """Return the fragment observations identified on the pose regardless of Entity binding
 
         Returns:
-            The fragment observations formatted as [{'mapped': int, 'paired': int,
+            The fragment observations formatted as [{'mapped': index (int), 'paired': index (int),
                                                      'cluster': tuple(int, int, int), 'match': float}, ...]
         """
         observations = []

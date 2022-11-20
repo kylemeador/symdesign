@@ -950,7 +950,7 @@ def main():
                 if not sym_entry:  # get from the Nanohedra output
                     sym_entry = get_sym_entry_from_nanohedra_directory(job.nanohedra_root)
                     queried_flags[putils.sym_entry] = sym_entry
-                pose_directories = [protocols.PoseDirectory.from_nanohedra(pose, **queried_flags)
+                pose_directories = [protocols.PoseDirectory.from_file(pose, **queried_flags)
                                     for pose in all_poses[low_range:high_range]]
                 # copy the master nanohedra log
                 project_designs = \
