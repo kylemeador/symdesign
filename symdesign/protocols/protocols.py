@@ -1161,18 +1161,18 @@ class PoseDirectory:
         else:  # Get an out-of-bounds index
             variables.extend([('core_residues', out_of_bounds_residue)])
 
-        flags = copy(CommandDistributer.rosetta_flags)
+        rosetta_flags = copy(CommandDistributer.rosetta_flags)
         if pdb_out_path:
-            flags.extend([f'-out:path:pdb {pdb_out_path}', f'-scorefile {self.scores_file}'])
+            rosetta_flags.extend([f'-out:path:pdb {pdb_out_path}', f'-scorefile {self.scores_file}'])
         else:
-            flags.extend([f'-out:path:pdb {self.designs}', f'-scorefile {self.scores_file}'])
-        flags.append(f'-in:file:native {self.refined_pdb}')
-        flags.append(f'-parser:script_vars {" ".join(f"{var}={val}" for var, val in variables)}')
+            rosetta_flags.extend([f'-out:path:pdb {self.designs}', f'-scorefile {self.scores_file}'])
+        rosetta_flags.append(f'-in:file:native {self.refined_pdb}')
+        rosetta_flags.append(f'-parser:script_vars {" ".join(f"{var}={val}" for var, val in variables)}')
 
         putils.make_path(out_dir)
         out_file = os.path.join(out_dir, 'flags')
         with open(out_file, 'w') as f:
-            f.write('%s\n' % '\n'.join(flags))
+            f.write('%s\n' % '\n'.join(rosetta_flags))
 
         return out_file
 
@@ -1227,8 +1227,7 @@ class PoseDirectory:
         # else:  # We only need to load pose as we already calculated interface
         #     self.load_pose()
 
-        # nullify -native from flags v
-        # native is here to block flag file version, not actually useful for refine
+        # -in:file:native is here to block flags_file version, not actually useful for refine
         infile = []
         if to_pose_directory:  # Original protocol to refine a pose as provided from Nanohedra
             flag_dir = self.scripts
@@ -1249,10 +1248,10 @@ class PoseDirectory:
             generate_files_cmd = null_cmd
             # generate_files_cmdline = []
 
-        flags = os.path.join(flag_dir, 'flags')
-        if not os.path.exists(flags) or self.job.force_flags:
+        flags_file = os.path.join(flag_dir, 'flags_file')
+        if not os.path.exists(flags_file) or self.job.force_flags:
             self.prepare_rosetta_flags(pdb_out_path=pdb_out_path, out_dir=flag_dir)
-            self.log.debug(f'Pose flags written to: {flags}')
+            self.log.debug(f'Pose flags written to: {flags_file}')
             putils.make_path(pdb_out_path)
 
         # Assign designable residues to interface1/interface2 variables, not necessary for non-complexed PDB jobs
@@ -1317,13 +1316,13 @@ class PoseDirectory:
         # '-no_nstruct_label', 'true' comes from v
         relax_cmd = main_cmd + CommandDistributer.relax_flags_cmdline + additional_flags + \
             (['-symmetry_definition', 'CRYST1'] if self.design_dimension > 0 else []) + infile + \
-            [f'@{flags}', '-parser:protocol', os.path.join(putils.rosetta_scripts_dir, f'refine.xml'),  # f'{protocol}.xml')
+            [f'@{flags_file}', '-parser:protocol', os.path.join(putils.rosetta_scripts_dir, f'refine.xml'),  # f'{protocol}.xml')
              '-parser:script_vars', f'switch={protocol}']
         self.log.info(f'{protocol.title()} Command: {list2cmdline(relax_cmd)}')
 
         if gather_metrics or self.job.gather_metrics:
             main_cmd += metrics_pdb
-            main_cmd += [f'@{flags}', '-out:file:score_only', self.scores_file,
+            main_cmd += [f'@{flags_file}', '-out:file:score_only', self.scores_file,
                          '-no_nstruct_label', 'true', '-parser:protocol']
             if self.job.mpi > 0:
                 main_cmd = CommandDistributer.run_cmds[putils.rosetta_extras] + [str(self.job.mpi)] + main_cmd
@@ -1342,8 +1341,8 @@ class PoseDirectory:
         # Create executable/Run FastRelax on Clean ASU with RosettaScripts
         if self.job.distribute_work:
             analysis_cmd = ['python', putils.program_exe, putils.analysis, '--single', self.path, '--no-output',
-                            '--output_file', os.path.join(self.job.all_scores,
-                                                          putils.default_analysis_file % (starttime, protocol))]
+                            f'--{flags.output_file}', os.path.join(self.job.all_scores, putils.default_analysis_file
+                                                                   .format(starttime, protocol))]
             write_shell_script(list2cmdline(relax_cmd), name=protocol, out_path=flag_dir,
                                additional=[list2cmdline(generate_files_cmd)] +
                                           [list2cmdline(command) for command in metric_cmds] +
@@ -1364,7 +1363,7 @@ class PoseDirectory:
         # # Todo this isn't working right now with mutations to structure
         if not self.job.distribute_work:
             pose_s = self._interface_design_analysis()
-            out_path = os.path.join(self.job.all_scores, putils.default_analysis_file % (starttime, 'All'))
+            out_path = os.path.join(self.job.all_scores, putils.default_analysis_file.format(starttime, 'All'))
             if os.path.exists(out_path):
                 header = False
             else:
@@ -1382,10 +1381,9 @@ class PoseDirectory:
         # else:  # We only need to load pose as we already calculated interface
         #     self.load_pose()
 
-        flags = os.path.join(self.scripts, 'flags')
         if not os.path.exists(self.flags) or self.job.force_flags:
             self.prepare_rosetta_flags(out_dir=self.scripts)
-            self.log.debug('Pose flags written to: %s' % flags)
+            self.log.debug(f'Pose flags written to: {self.flags}')
 
         cmd += ['-symmetry_definition', 'CRYST1'] if self.design_dimension > 0 else []
 
@@ -1405,7 +1403,7 @@ class PoseDirectory:
         #     suffix = ['-out:suffix', '_%s' % suffix]
         # if isinstance(suffix, bool):
         if suffix:
-            suffix = ['-out:suffix', '_%s' % script_name]
+            suffix = ['-out:suffix', f'_{script_name}']
         else:
             suffix = []
 
@@ -1427,8 +1425,8 @@ class PoseDirectory:
         else:
             variables = []
 
-        cmd += ['@%s' % flags, '-in:file:%s' % ('l' if file_list else 's'), pdb_input, '-in:file:native', native] + \
-            score + suffix + trajectories + ['-parser:protocol', script] + variables
+        cmd += [f'@{flags_file}', f'-in:file:{"l" if file_list else "s"}', pdb_input, '-in:file:native', native] \
+            + score + suffix + trajectories + ['-parser:protocol', script] + variables
         if self.job.mpi > 0:
             cmd = CommandDistributer.run_cmds[putils.rosetta_extras] + [str(self.job.mpi)] + cmd
 
@@ -1440,12 +1438,13 @@ class PoseDirectory:
 
         # Todo  + [list2cmdline(analysis_cmd)])
         #  analysis_cmd = ['python', putils.program_exe, putils.analysis, '--single', self.path, '--no-output',
-        #                 '--output_file', os.path.join(self.job.all_scores, putils.default_analysis_file % (starttime, protocol))]
+        #                 f'--{flags.output_file}', os.path.join(self.job.all_scores, putils.default_analysis_file
+        #                                                        .format(starttime, protocol))]
 
         # ANALYSIS: each output from the Design process based on score, Analyze Sequence Variation
         if not self.job.distribute_work:
             pose_s = self._interface_design_analysis()
-            out_path = os.path.join(self.job.all_scores, putils.default_analysis_file % (starttime, 'All'))
+            out_path = os.path.join(self.job.all_scores, putils.default_analysis_file.format(starttime, 'All'))
             if os.path.exists(out_path):
                 header = False
             else:
@@ -1474,7 +1473,7 @@ class PoseDirectory:
                                     f'design_files{f"_{self.job.specific_protocol}" if self.job.specific_protocol else ""}.txt')
         generate_files_cmd = ['python', putils.list_pdb_files, '-d', self.designs, '-o', design_files] + \
             (['-s', self.job.specific_protocol] if self.job.specific_protocol else [])
-        main_cmd += ['@%s' % self.flags, '-in:file:l', design_files,
+        main_cmd += [f'@{self.flags}', '-in:file:l', design_files,
                      # TODO out:file:score_only file is not respected if out:path:score_file given
                      #  -run:score_only true?
                      '-out:file:score_only', self.scores_file, '-no_nstruct_label', 'true', '-parser:protocol']
@@ -1492,8 +1491,8 @@ class PoseDirectory:
         # Create executable to gather interface Metrics on all Designs
         if self.job.distribute_work:
             analysis_cmd = ['python', putils.program_exe, putils.analysis, '--single', self.path, '--no-output',
-                            '--output_file', os.path.join(self.job.all_scores,
-                                                          putils.default_analysis_file % (starttime, protocol))]
+                            f'--{flags.output_file}', os.path.join(self.job.all_scores, putils.default_analysis_file
+                                                                   .format(starttime, protocol))]
             write_shell_script(list2cmdline(generate_files_cmd), name=putils.interface_metrics, out_path=self.scripts,
                                additional=[list2cmdline(command) for command in metric_cmds] +
                                           [list2cmdline(analysis_cmd)])
@@ -1507,7 +1506,7 @@ class PoseDirectory:
         # ANALYSIS: each output from the Design process based on score, Analyze Sequence Variation
         if not self.job.distribute_work:
             pose_s = self._interface_design_analysis()
-            out_path = os.path.join(self.job.all_scores, putils.default_analysis_file % (starttime, 'All'))
+            out_path = os.path.join(self.job.all_scores, putils.default_analysis_file.format(starttime, 'All'))
             if os.path.exists(out_path):
                 header = False
             else:
@@ -1837,7 +1836,7 @@ class PoseDirectory:
         if self.job.design.consensus:  # Todo add consensus sbatch generator to SymDesign main
             if self.job.generate_fragments:  # design_with_fragments
                 consensus_cmd = main_cmd + CommandDistributer.relax_flags_cmdline + \
-                    [f'@%{self.flags}', '-in:file:s', self.consensus_pdb,
+                    [f'@{self.flags}', '-in:file:s', self.consensus_pdb,
                      # '-in:file:native', self.refined_pdb,
                      '-parser:protocol', os.path.join(putils.rosetta_scripts_dir, f'{putils.consensus}.xml'),
                      '-parser:script_vars', f'switch={putils.consensus}']
@@ -1849,7 +1848,7 @@ class PoseDirectory:
                     consensus_process.communicate()
             else:
                 self.log.critical(f'Cannot run consensus design without fragment info and none was found.'
-                                  f' Did you mean to include --{putils.term_constraint} as '
+                                  f' Did you mean to include --{flags.term_constraint} as '
                                   f'{self.job.design.term_constraint}?')
         # DESIGN: Prepare command and flags file
         # Todo must set up a blank -in:file:pssm in case the evolutionary matrix is not used. Design will fail!!
@@ -1885,8 +1884,8 @@ class PoseDirectory:
         # Create executable/Run FastDesign on Refined ASU with RosettaScripts. Then, gather Metrics
         if self.job.distribute_work:
             analysis_cmd = ['python', putils.program_exe, putils.analysis, '--single', self.path, '--no-output',
-                            '--output_file', os.path.join(self.job.all_scores,
-                                                          putils.default_analysis_file % (starttime, protocol))]
+                            f'--{flags.output_file}', os.path.join(self.job.all_scores, putils.default_analysis_file
+                                                                   .format(starttime, protocol))]
             write_shell_script(list2cmdline(design_cmd), name=protocol, out_path=self.scripts,
                                additional=[list2cmdline(command) for command in additional_cmds] +
                                           [list2cmdline(generate_files_cmd)] +
@@ -1905,7 +1904,7 @@ class PoseDirectory:
         # ANALYSIS: each output from the Design process based on score, Analyze Sequence Variation
         if not self.job.distribute_work:
             pose_s = self._interface_design_analysis()
-            out_path = os.path.join(self.job.all_scores, putils.default_analysis_file % (starttime, 'All'))
+            out_path = os.path.join(self.job.all_scores, putils.default_analysis_file.format(starttime, 'All'))
             if os.path.exists(out_path):
                 header = False
             else:
@@ -2062,8 +2061,8 @@ class PoseDirectory:
         # Create executable/Run FastDesign on Refined ASU with RosettaScripts. Then, gather Metrics
         if self.job.distribute_work:
             analysis_cmd = ['python', putils.program_exe, putils.analysis, '--single', self.path, '--no-output',
-                            '--output_file', os.path.join(self.job.all_scores,
-                                                          putils.default_analysis_file % (starttime, protocol))]
+                            f'--{flags.output_file}', os.path.join(self.job.all_scores, putils.default_analysis_file
+                                                                   .format(starttime, protocol))]
             write_shell_script(list2cmdline(design_cmd), name=protocol, out_path=self.scripts,
                                additional=[list2cmdline(generate_files_cmd)] +
                                           [list2cmdline(command) for command in metric_cmds] +
@@ -2080,7 +2079,7 @@ class PoseDirectory:
         # ANALYSIS: each output from the Design process based on score, Analyze Sequence Variation
         if not self.job.distribute_work:
             pose_s = self._interface_design_analysis()
-            out_path = os.path.join(self.job.all_scores, putils.default_analysis_file % (starttime, 'All'))
+            out_path = os.path.join(self.job.all_scores, putils.default_analysis_file.format(starttime, 'All'))
             if os.path.exists(out_path):
                 header = False
             else:

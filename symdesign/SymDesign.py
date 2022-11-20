@@ -443,41 +443,66 @@ def main():
         if success and output:
             nonlocal design_source
             job_paths = job.job_paths
-            putils.make_path(job_paths)
+
             if low and high:
                 design_source = f'{design_source}-{low:.2f}-{high:.2f}'
-            # Make single file with names of each directory where all_docked_poses can be found
-            # project_string = os.path.basename(pose_directories[0].project_designs)
+
+            # Format the output file depending on specified name and module type
             default_output_tuple = (utils.starttime, args.module, design_source)
             output_analysis = True
-            if args.output_file and args.module not in [putils.analysis, putils.cluster_poses]:
-                # Set the designs_file to the provided args.output_file
-                designs_file = args.output_file
+            designs_file = None
+            if args.output_file:
+                # if args.module not in [putils.analysis, putils.cluster_poses]:
+                #     designs_file = args.output_file
+                if args.module == putils.analysis:
+                    if len(args.output_file.split(os.sep)) <= 1:
+                        # The path isn't an absolute or relative path, so prepend the job.all_scores location
+                        args.output_file = os.path.join(job.all_scores, args.output_file)
+                    if not args.output_file.endswith('.csv'):
+                        args.output_file = f'{args.output_file}.csv'
+                    if not args.output:  # No output is specified
+                        output_analysis = False
+                elif args.module == putils.cluster_poses:
+                    if len(args.output_file.split(os.sep)) <= 1:
+                        # The path isn't an absolute or relative path, so prepend the job.all_scores location
+                        args.output_file = os.path.join(job.clustered_poses, args.output_file)
+                    # pose_cluster_file is now results
+                    args.output_file = utils.pickle_object(results, args.output_file, out_path='')
+                else:
+                    # Set the designs_file to the provided args.output_file
+                    designs_file = args.output_file
             else:  # Remove possible multiple instances of _pose from location in default_output_tuple
-                scratch_designs = os.path.join(job_paths, putils.default_path_file % default_output_tuple).split(
-                    '_pose')
-                designs_file = f'{scratch_designs[0]}_pose{scratch_designs[-1]}'
-                if args.module in putils.analysis and not args.output:
-                    output_analysis = False
+                # For certain modules, use the default file type
+                if args.module == putils.analysis:
+                    args.output_file = putils.default_analysis_file.format(utils.starttime, design_source)
+                elif args.module == putils.cluster_poses:
+                    args.output_file = utils.pickle_object(pose_cluster_map,
+                                                           putils.default_clustered_pose_file.format(utils.starttime,
+                                                                                                     location),
+                                                           out_path=job.clustered_poses)
+                else:  # We don't have a default output specified
+                    pass
 
+            # Make single file with names of each directory where all_docked_poses can be found
             if pose_directories and output_analysis:  # pose_directories is empty list when nanohedra
+                if designs_file is None:
+                    # def default_designs_file():
+                    putils.make_path(job_paths)
+                    scratch_designs = os.path.join(job_paths,
+                                                   putils.default_path_file.format(default_output_tuple)).split(
+                        '_pose')
+                    #     return f'{scratch_designs[0]}_pose{scratch_designs[-1]}'
+                    designs_file = f'{scratch_designs[0]}_pose{scratch_designs[-1]}'
+
                 with open(designs_file, 'w') as f:
                     f.write('%s\n' % '\n'.join(design.path for design in success))
-                logger.critical(
-                    f'The file "{designs_file}" contains the locations of every pose that passed checks/'
-                    f'filters for this job. Utilize this file to input these poses in future {putils.program_name} '
-                    f'commands such as:\n\t{putils.program_command} MODULE --file {designs_file} ...')
+                logger.critical(f'The file "{designs_file}" contains the locations of every pose that passed checks/'
+                                f'filters for this job. Utilize this file to input these poses in future '
+                                f'{putils.program_name} commands such as:'
+                                f'\n\t{putils.program_command} MODULE --file {designs_file} ...')
 
+            # Output any additional files for the module
             if args.module == putils.analysis:
-                all_scores = job.all_scores
-                if args.output_file is None:
-                    args.output_file = putils.default_analysis_file.format(utils.starttime, design_source)
-                if len(args.output_file.split(os.sep)) <= 1:
-                    # The path isn't an absolute or relative path, so prepend the job.all_scores location
-                    args.output_file = os.path.join(job.all_scores, args.output_file)
-                if not args.output_file.endswith('.csv'):
-                    args.output_file = f'{args.output_file}.csv'
-
                 # Save Design DataFrame
                 design_df = pd.DataFrame([result for result in results if not isinstance(result, BaseException)])
                 if args.output:  # Create a new file
@@ -489,14 +514,13 @@ def main():
 
                 logger.info(f'Analysis of all poses written to {args.output_file}')
                 if args.save:
-                    logger.info(f'Analysis of all Trajectories and Residues written to {all_scores}')
+                    logger.info(f'Analysis of all Trajectories and Residues written to {job.all_scores}')
             elif args.module == putils.cluster_poses:
                 logger.info('Clustering analysis results in the following similar poses:\nRepresentatives\n\tMembers\n')
                 for representative, members, in results.items():
                     print(f'{representative}\n\t%s' % '\n\t'.join(map(str, members)))
-                logger.info(
-                    f'Found {len(pose_cluster_map)} unique clusters from {len(pose_directories)} pose inputs. All '
-                    f'clusters stored in {pose_cluster_file}')
+                logger.info(f'Found {len(pose_cluster_map)} unique clusters from {len(pose_directories)} pose inputs. '
+                            f'All clusters stored in {args.output_file}')
                 logger.info('Each cluster above has one representative which identifies with each of the members. If '
                             'clustering was performed by entity_transformations or interface_residues, then the '
                             'representative is the most similar to all members. If clustering was performed by ialign, '
@@ -523,6 +547,7 @@ def main():
                     exit(exit_code)
 
                 putils.make_path(job.sbatch_scripts)
+                putils.make_path(job_paths)
                 if pose_directories:
                     command_file = utils.write_commands([os.path.join(des.scripts, f'{stage}.sh') for des in success],
                                                         out_path=job_paths, name='_'.join(default_output_tuple))
@@ -535,6 +560,7 @@ def main():
                     sbatch_file = utils.CommandDistributer.distribute(file=command_file, out_path=job.sbatch_scripts,
                                                                       scale=args.module, number_of_commands=len(success))
                 logger.critical(sbatch_warning)
+
                 global initial_refinement
                 if args.module == putils.interface_design and initial_refinement:  # True, should refine before design
                     refine_file = utils.write_commands([os.path.join(design.scripts, f'{putils.refine}.sh')
@@ -548,7 +574,7 @@ def main():
                 else:
                     logger.info(f'Once you are satisfied, enter the following to distribute:\n\tsbatch {sbatch_file}')
 
-        # # test for the size of each of the designdirectories
+        # # test for the size of each of the PoseDirectory instances
         # if pose_directories:
         #     print('Average_design_directory_size equals %f' %
         #           (float(psutil.virtual_memory().used) / len(pose_directories)))
@@ -1674,7 +1700,7 @@ def main():
                 design_source = f'top_{args.metric}'
                 default_output_tuple = (utils.starttime, args.module, design_source)
                 putils.make_path(job.job_paths)
-                designs_file = os.path.join(job.job_paths, '%s_%s_%s_pose.scores' % default_output_tuple)
+                designs_file = os.path.join(job.job_paths, '{}_{}_{}_pose.scores'.format(*default_output_tuple))
                 with open(designs_file, 'w') as f:
                     f.write(top_designs_string % '\n\t'.join(results_strings))
                 logger.info(f'Stdout performed a cutoff of ranked Designs at ranking 500. See the output design file '
@@ -1708,7 +1734,7 @@ def main():
             cluster_map = args.cluster_map
         else:
             cluster_map = os.path.join(job.clustered_poses,
-                                       putils.default_clustered_pose_file % (utils.starttime, location))
+                                       putils.default_clustered_pose_file.format(utils.starttime, location))
 
         if os.path.exists(cluster_map):
             pose_cluster_map = utils.unpickle(cluster_map)

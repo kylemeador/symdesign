@@ -594,10 +594,10 @@ cluster_poses_arguments = {
                                 '\nChoices=%(choices)s\nDefault=%(default)s'),
     ('--as-objects',): dict(action='store_true', help='Whether to store the resulting pose cluster file as '
                                                       'PoseDirectory objects\nDefault stores as pose IDs'),
-    output_file_args: dict(type=str, default=default_clustered_pose_file,
+    output_file_args: dict(type=str,
                            help='Name of the output .pkl file containing pose clusters. Will be saved to the'
                                 f' {data.title()} folder of the output.'
-                                f'\nDefault={default_clustered_pose_file % ("TIMESTAMP", "LOCATION")}')
+                                f'\nDefault={default_clustered_pose_file.format("TIMESTAMP", "LOCATION")}')
 }
 # ---------------------------------------------------
 interface_design_help = 'Gather poses of interest and format for design using sequence constraints in Rosetta/' \
@@ -688,7 +688,7 @@ analysis_arguments = {
     ('--output',): dict(action=argparse.BooleanOptionalAction, default=True,
                         help=f'Whether to output the --{output_file}?{boolean_positional_prevent_msg("output")}'),
     #                          '\nDefault=%(default)s'),
-    output_file_args: dict(type=str, default=None,  # default_analysis_file
+    output_file_args: dict(type=str,
                            help='Name of the output .csv file containing pose metrics.\nWill be saved to the '
                                 f'{all_scores} folder of the output'
                                 f'\nDefault={default_analysis_file.format("TIMESTAMP", "LOCATION")}'),
@@ -929,9 +929,8 @@ output_arguments = {
         dict(type=os.path.abspath, default=None,
              help='If provided, the name of the directory to output all created files.\nOtherwise, one will be '
                   'generated based on the time, input, and module'),
-    output_file_args: dict(type=str,  # default=default_path_file,
-                           help='If provided, the name of the output pose file.\nOtherwise, one will be '
-                                'generated based on the time, input, and module'),
+    output_file_args: dict(type=str, help='If provided, the name of the output pose file.\nOtherwise, one will be '
+                                          'generated based on the time, input, and module'),
     ('-OF', f'--{output_fragments}'):
         dict(action=argparse.BooleanOptionalAction, default=False,
              help='For any fragments generated, write them along with the Pose'),
