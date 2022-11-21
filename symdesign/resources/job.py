@@ -110,6 +110,13 @@ class JobResources:
 
         # Program flags
         # self.consensus: bool = kwargs.get(consensus, False)  # Whether to run consensus
+        self.as_objects: bool = kwargs.get('as_objects', False)
+        self.mode: bool = kwargs.get('mode', False)
+        self.background_profile: str = kwargs.get('background_profile', putils.design_profile)
+        """The type of position specific profile (per-residue amino acid frequencies) to utilize as the design 
+        background profile. 
+        Choices include putils.design_profile, putils.evolutionary_profile, and putils.fragment_profile
+        """
         self.design_selector: dict[str, dict[str, dict[str, set[int] | set[str]]]] | dict = \
             kwargs.get('design_selector', {})
         self.debug: bool = kwargs.get('debug', False)
