@@ -5,7 +5,6 @@ SLURM computational clusters, analysis of designed poses, and sequence selection
 """
 from __future__ import annotations
 
-import copy
 # import logging
 import logging.config
 import os
@@ -19,8 +18,6 @@ from typing import Any, AnyStr
 
 import pandas as pd
 import psutil
-from Bio.Seq import Seq
-from Bio.SeqRecord import SeqRecord
 
 import symdesign.utils.path as putils
 # logging.config.fileConfig(putils.logging_cfg_file)
@@ -405,7 +402,9 @@ sbatch_warning = 'Ensure the SBATCH script(s) below are correct. Specifically, c
 
 def main():
     """Run the SymDesign program"""
-
+    # -----------------------------------------------------------------------------------------------------------------
+    #  Initialize local functions
+    # -----------------------------------------------------------------------------------------------------------------
     def terminate(results: list[Any] | dict = None, output: bool = True, **kwargs):
         """Format designs passing output parameters and report program exceptions
 
@@ -413,7 +412,7 @@ def main():
             results: The returned results from the module run. By convention contains results and exceptions
             output: Whether the module used requires a file to be output
         """
-        # save any information found during the design command to it's serialized state
+        # Save any information found during the command to it's serialized state
         for design in pose_directories:
             design.pickle_info()
 
@@ -433,11 +432,9 @@ def main():
         exit_code = 0
         if exceptions:
             print('\n')
-            logger.warning(
-                f'Exceptions were thrown for {len(exceptions)} designs. Check their logs for further details\n\t'
-                f'%s' % '\n\t'.join(f'{design.path}: {_error}' for design, _error in exceptions))
+            logger.warning(f'Exceptions were thrown for {len(exceptions)} designs. Check their logs for further details'
+                           '\n\t%s' % '\n\t'.join(f'{design.path}: {_error}' for design, _error in exceptions))
             print('\n')
-            # exit_code = 1
 
         if success and output:
             nonlocal design_source
@@ -616,15 +613,6 @@ def main():
 
         return df
 
-    # def generate_sequence_template(pdb_file):
-    #     pdb = Model.from_file(pdb_file, entities=False)
-    #     sequence = SeqRecord(Seq(''.join(chain.sequence for chain in pdb.chains), 'Protein'), id=pdb.file_path)
-    #     sequence_mask = copy.copy(sequence)
-    #     sequence_mask.id = 'residue_selector'
-    #     sequences = [sequence, sequence_mask]
-    #     raise NotImplementedError('This write_fasta call needs to have its keyword arguments refactored')
-    #     return write_fasta(sequences, file_name=f'{os.path.splitext(pdb.file_path)[0]}_residue_selector_sequence')
-
     def get_sym_entry_from_nanohedra_directory(nanohedra_dir: AnyStr) -> utils.SymEntry.SymEntry:
         """Handles extraction of Symmetry info from Nanohedra outputs.
 
@@ -651,12 +639,12 @@ def main():
     resubmit_command_message = f'After completion of sbatch script(s), re-submit your {putils.program_name} ' \
                                f'command:\n\tpython {" ".join(sys.argv)}'
     # -----------------------------------------------------------------------------------------------------------------
-    # Process optional program flags
+    #  Process optional program flags
     # -----------------------------------------------------------------------------------------------------------------
     # ensure module specific arguments are collected and argument help is printed in full
     args, additional_args = flags.argparsers[flags.parser_guide].parse_known_args()
     # -----------------------------------------------------------------------------------------------------------------
-    # Display the program guide if requested
+    #  Display the program guide if requested
     # -----------------------------------------------------------------------------------------------------------------
     if args.guide:  # or not args.module:
         if args.module == putils.analysis:
@@ -694,8 +682,9 @@ def main():
         #           % (SDUtils.ex_path('pymol'), putils.program_command.replace('python ', ''),
         #              SDUtils.ex_path('pose_directory'), SDUtils.ex_path('DataFrame.csv'),
         #              SDUtils.ex_path('design.paths')))
-        else:  # print the full program readme
+        else:  # Print the full program readme and exit
             guide.print_guide()
+            exit()
     elif args.setup:
         guide.setup_instructions()
         exit()
@@ -710,6 +699,15 @@ def main():
     #     utils.CommandDistributer.distribute(**vars(args))
     # ---------------------------------------------------
     # elif args.residue_selector:  # Todo
+    #     def generate_sequence_template(pdb_file):
+    #         pdb = Model.from_file(pdb_file, entities=False)
+    #         sequence = SeqRecord(Seq(''.join(chain.sequence for chain in pdb.chains), 'Protein'), id=pdb.file_path)
+    #         sequence_mask = copy.copy(sequence)
+    #         sequence_mask.id = 'residue_selector'
+    #         sequences = [sequence, sequence_mask]
+    #         raise NotImplementedError('This write_fasta call needs to have its keyword arguments refactored')
+    #         return write_fasta(sequences, file_name=f'{os.path.splitext(pdb.file_path)[0]}_residue_selector_sequence')
+    #
     #     if not args.single:
     #         raise SDUtils.DesignError('You must pass a single pdb file to %s. Ex:\n\t%s --single my_pdb_file.pdb '
     #                                   'residue_selector' % (putils.program_name, putils.program_command))
@@ -721,19 +719,21 @@ def main():
     #                 '\n>pdb_template_sequence\nMAGHALKMLV...\n>design_mask\nMAGH----LV\n'
     #                 % fasta_file)
     # -----------------------------------------------------------------------------------------------------------------
-    # Initialize program with provided flags and arguments
+    #  Initialize program with provided flags and arguments
     # -----------------------------------------------------------------------------------------------------------------
-    # parse arguments for the actual runtime which accounts for differential argument ordering from standard argparse
+    # Parse arguments for the actual runtime which accounts for differential argument ordering from standard argparse
     args, additional_args = flags.argparsers[flags.parser_module].parse_known_args()
     if args.module == putils.nanohedra:
         if args.query:  # We need to submit before we check for additional_args as query comes with additional args
             nanohedra.cmdline.query_mode([__file__, '-query'] + additional_args)
             exit()
-        else:  # we need to add a dummy input for argparse to happily continue with required args
+        else:  # We need to add a dummy input for argparse to happily continue with required args
             additional_args.extend(['--file', 'dummy'])
 
+    # Check the provided flags against the full SymDesign entire_parser to print any help
     entire_parser = flags.argparsers[flags.parser_entire]
     _args, _additional_args = entire_parser.parse_known_args()
+    # Parse the provided flags
     for argparser in [flags.parser_options, flags.parser_residue_selector, flags.parser_output, flags.parser_input]:
         args, additional_args = flags.argparsers[argparser].parse_known_args(args=additional_args, namespace=args)
 
@@ -749,7 +749,7 @@ def main():
         args.module = args.module.replace('-', '_')
         queried_flags = vars(args)
     # -----------------------------------------------------------------------------------------------------------------
-    # Find base symdesign_directory and check for proper set up of program i/o
+    #  Find base symdesign_directory and check for proper set up of program i/o
     # -----------------------------------------------------------------------------------------------------------------
     # Check if output already exists  # or provide --overwrite
     if args.output_file and os.path.exists(args.output_file) and args.module not in putils.analysis \
@@ -766,7 +766,7 @@ def main():
             symdesign_directory = None
         else:
             queried_flags['output_directory'] = symdesign_directory = args.output_directory
-            os.makedirs(symdesign_directory, exist_ok=True)
+            putils.make_path(symdesign_directory)
             # Set queried_flags to True so it is known that output is not typical SymDesignOutput directory structure
             # queried_flags['output_to_directory'] = True
     else:
@@ -791,9 +791,9 @@ def main():
                     # Design names may be the same, so we have to take the full file path as the name to discriminate
                     # between separate files
 
-        os.makedirs(symdesign_directory, exist_ok=True)
+        putils.make_path(symdesign_directory)
     # -----------------------------------------------------------------------------------------------------------------
-    # Start Logging - Root logs to stream with level warning
+    #  Start Logging - Root logs to stream with level warning
     # -----------------------------------------------------------------------------------------------------------------
     if args.log_level == 1:  # Debugging
         # Root logs to stream with level debug
@@ -816,19 +816,11 @@ def main():
         # SymDesign main logs to stream with level info and propagates to main log
         # logger = utils.start_log(name=putils.program_name, propagate=True)
 
-        # def emit_info_and_lower(record) -> int:
-        #     if record.levelno < 21:  # logging.INFO and logging.DEBUG
-        #         return 1
-        #     else:
-        #         return 0
-        # # Reject any message that is warning or greater to let root handle
-        # logger.handlers[0].addFilter(emit_info_and_lower)
-
         # All Designs will log to specific file with level info unless skip_logging is passed
     # -----------------------------------------------------------------------------------------------------------------
-    # Process flags, job information which is necessary for processing and i/o
+    #  Process flags and job information which is necessary for processing and i/o
     # -----------------------------------------------------------------------------------------------------------------
-    # process design_selectors
+    # Process design_selectors
     queried_flags['design_selector'] = flags.process_design_selector_flags(queried_flags)
     # process symmetry
     user_sym_entry = queried_flags.get(putils.sym_entry)
@@ -847,6 +839,18 @@ def main():
 
     # Create JobResources which holds shared program objects and options
     job = job_resources_factory.get(program_root=symdesign_directory, **queried_flags)
+    # ---------------------------------------------------
+    #  Check for tool request
+    # ---------------------------------------------------
+    decoy_modules = ['input', 'output', 'options', 'residue_selector']
+    symdesign_tools = [flags.multicistronic] + decoy_modules
+    #     flags.input, flags.output, flags.options, flags.residue_selector]
+    if job.module in symdesign_tools:
+        if job.module == flags.multicistronic:
+            ProteinExpression.create_mulitcistronic_sequences(args)
+        else:  # if job.module in decoy_modules:
+            pass  # exit()
+        exit()
 
     # Set up module specific arguments
     # Todo we should run this check before every module used as in the case of universal protocols
@@ -875,57 +879,47 @@ def main():
         if args.module == putils.select_sequences and args.select_number == sys.maxsize and not args.total:
             # Change default number to a single sequence/pose when not doing a total selection
             args.select_number = 1
-    else:  # [putils.nanohedra, putils.multicistronic,
-        #     putils.input, putils.output, putils.options, putils.residue_selector]
-        decoy_modules = {'input', 'output', 'options', 'residue_selector'}
-        if args.module == putils.nanohedra:
-            if not sym_entry:
-                raise RuntimeError(f'When running {putils.nanohedra}, the argument -e/--entry/--{flags.sym_entry} is '
-                                   'required')
-        elif args.module in [putils.multicistronic]:
-            pass
-        elif args.module in decoy_modules:
-            exit()
-        else:  # We have no module passed. Print the guide
-            guide.print_guide()
+    elif job.module == flags.nanohedra:
         initialize = False
+        if not sym_entry:
+            raise RuntimeError(f'When running {flags.nanohedra}, the argument -e/--entry/--{flags.sym_entry} is '
+                               'required')
+    else:  # We have no module passed. Print the guide and exit
+        guide.print_guide()
+        exit()
     # -----------------------------------------------------------------------------------------------------------------
-    #  report options
+    #  Report options now that parsing is complete
     # -----------------------------------------------------------------------------------------------------------------
-    if args.module in [putils.multicistronic]:  # putils.tools
-        # Todo should multicistronic be a tool? module->tools->parse others like list_overlap, flags, residue_selector
-        pass
-    else:  # display flags
-        formatted_queried_flags = queried_flags.copy()
-        # where input values should be reported instead of processed version, or the argument is not important
-        for flag in ['design_selector', 'construct_pose']:
-            formatted_queried_flags.pop(flag, None)
-            # get all the default program args and compare them to the provided values
-        reported_args = {}
-        for group in entire_parser._action_groups:
-            for arg in group._group_actions:
-                if isinstance(arg, _SubParsersAction):  # we have a sup parser, recurse
-                    for name, sub_parser in arg.choices.items():
-                        for sub_group in sub_parser._action_groups:
-                            for arg in sub_group._group_actions:
-                                value = formatted_queried_flags.pop(arg.dest, None)  # get the parsed flag value
-                                if value is not None and value != arg.default:  # compare it to the default
-                                    reported_args[arg.dest] = value  # add it to reported args if not the default
-                else:
-                    value = formatted_queried_flags.pop(arg.dest, None)  # get the parsed flag value
-                    if value is not None and value != arg.default:  # compare it to the default
-                        reported_args[arg.dest] = value  # add it to reported args if not the default
+    formatted_queried_flags = queried_flags.copy()
+    # where input values should be reported instead of processed version, or the argument is not important
+    for flag in ['design_selector', 'construct_pose']:
+        formatted_queried_flags.pop(flag, None)
+        # get all the default program args and compare them to the provided values
+    reported_args = {}
+    for group in entire_parser._action_groups:
+        for arg in group._group_actions:
+            if isinstance(arg, _SubParsersAction):  # we have a sup parser, recurse
+                for name, sub_parser in arg.choices.items():
+                    for sub_group in sub_parser._action_groups:
+                        for arg in sub_group._group_actions:
+                            value = formatted_queried_flags.pop(arg.dest, None)  # get the parsed flag value
+                            if value is not None and value != arg.default:  # compare it to the default
+                                reported_args[arg.dest] = value  # add it to reported args if not the default
+            else:
+                value = formatted_queried_flags.pop(arg.dest, None)  # get the parsed flag value
+                if value is not None and value != arg.default:  # compare it to the default
+                    reported_args[arg.dest] = value  # add it to reported args if not the default
 
-        # custom removal/formatting for all remaining
-        for custom_arg in list(formatted_queried_flags.keys()):
-            value = formatted_queried_flags.pop(custom_arg, None)
-            if value is not None:
-                reported_args[custom_arg] = value
+    # Custom removal/formatting for all remaining
+    for custom_arg in list(formatted_queried_flags.keys()):
+        value = formatted_queried_flags.pop(custom_arg, None)
+        if value is not None:
+            reported_args[custom_arg] = value
 
-        flags_sym_entry = reported_args.pop(putils.sym_entry, None)
-        if flags_sym_entry:
-            reported_args[putils.sym_entry] = flags_sym_entry.entry_number
-        logger.info('Starting with options:\n\t%s' % '\n\t'.join(utils.pretty_format_table(reported_args.items())))
+    flags_sym_entry = reported_args.pop(putils.sym_entry, None)
+    if flags_sym_entry:
+        reported_args[putils.sym_entry] = flags_sym_entry.entry_number
+    logger.info('Starting with options:\n\t%s' % '\n\t'.join(utils.pretty_format_table(reported_args.items())))
 
     # Set up Databases
     logger.info(f'Using resources in Database located at "{job.data}"')
@@ -942,7 +936,7 @@ def main():
     job.fragment_db = fragment_db
     # job.euler_lookup = euler_lookup
     # -----------------------------------------------------------------------------------------------------------------
-    # Grab all Designs (PoseDirectory) to be processed from either database, directory, project name, or file
+    #  Grab all Poses (PoseDirectory instance) from either database, directory, project, single, or file
     # -----------------------------------------------------------------------------------------------------------------
     all_poses: list[AnyStr] | None = None
     pose_directories: list[protocols.PoseDirectory] = []
@@ -973,9 +967,8 @@ def main():
                 else:
                     job.nanohedra_root = f'{os.sep}{os.path.join(*first_pose_path.split(os.sep)[:-4])}'
                 if not sym_entry:  # get from the Nanohedra output
-                    sym_entry = get_sym_entry_from_nanohedra_directory(job.nanohedra_root)
-                    queried_flags[putils.sym_entry] = sym_entry
-                pose_directories = [protocols.PoseDirectory.from_file(pose, **queried_flags)
+                    job.sym_entry = sym_entry = get_sym_entry_from_nanohedra_directory(job.nanohedra_root)
+                pose_directories = [protocols.PoseDirectory.from_file(pose)
                                     for pose in all_poses[low_range:high_range]]
                 # copy the master nanohedra log
                 project_designs = \
@@ -991,7 +984,7 @@ def main():
             #  this works for file locations as well! should I have a separate mechanism for each?
             design_specification = utils.PoseSpecification(args.specification_file)
             pose_directories = [protocols.PoseDirectory.from_pose_id(pose, root=args.directory, specific_design=design,
-                                                                     directives=directives, **queried_flags)
+                                                                     directives=directives)
                                 for pose, design, directives in design_specification.get_directives()]
             location = args.specification_file
         else:
@@ -1005,10 +998,10 @@ def main():
                                                f'--{flags.directory} was passed. Please resubmit with '
                                                f'--{flags.directory} and use --{flags.pose_file}/'
                                                f'--{flags.specification_file} with pose IDs')
-                    pose_directories = [protocols.PoseDirectory.from_pose_id(pose, root=args.directory, **queried_flags)
+                    pose_directories = [protocols.PoseDirectory.from_pose_id(pose, root=args.directory)
                                         for pose in all_poses[low_range:high_range]]
                 else:
-                    pose_directories = [protocols.PoseDirectory.from_file(pose, **queried_flags)
+                    pose_directories = [protocols.PoseDirectory.from_file(pose)
                                         for pose in all_poses[low_range:high_range]]
         if not pose_directories:
             raise utils.InputError(f'No {putils.program_name} directories found within "{location}"! Please ensure '
@@ -1604,7 +1597,7 @@ def main():
             df = load_total_dataframe(pose=True)
             selected_poses_df = prioritize_design_indices(df.loc[loc_result, :], filter=args.filter, weight=args.weight,
                                                           protocol=args.protocol, function=args.weight_function)
-            # remove excess pose instances
+            # Remove excess pose instances
             number_chosen = 0
             selected_indices, selected_poses = [], set()
             for pose_directory, design in selected_poses_df.index.to_list():
@@ -1615,8 +1608,8 @@ def main():
                     if number_chosen == args.select_number:
                         break
 
-            # specify the result order according to any filtering and weighting
-            # drop the specific design for the dataframe. If they want the design, they should run select_sequences
+            # Specify the result order according to any filtering and weighting
+            # Drop the specific design for the dataframe. If they want the design, they should run select_sequences
             save_poses_df = \
                 selected_poses_df.loc[selected_indices, :].droplevel(-1)  # .droplevel(0, axis=1).droplevel(0, axis=1)
             # # convert selected_poses to PoseDirectory objects
@@ -1632,7 +1625,7 @@ def main():
             # Figure out designs from dataframe, filters, and weights
             selected_poses_df = prioritize_design_indices(df, filter=args.filter, weight=args.weight,
                                                           protocol=args.protocol, function=args.weight_function)
-            # remove excess pose instances
+            # Remove excess pose instances
             number_chosen = 0
             selected_indices, selected_poses = [], set()
             for pose_directory, design in selected_poses_df.index.to_list():
@@ -1643,8 +1636,8 @@ def main():
                     if number_chosen == args.select_number:
                         break
 
-            # specify the result order according to any filtering and weighting
-            # drop the specific design for the dataframe. If they want the design, they should run select_sequences
+            # Specify the result order according to any filtering and weighting
+            # Drop the specific design for the dataframe. If they want the design, they should run select_sequences
             save_poses_df = \
                 selected_poses_df.loc[selected_indices, :].droplevel(-1)  # .droplevel(0, axis=1).droplevel(0, axis=1)
             # # convert selected_poses to PoseDirectory objects
@@ -1661,11 +1654,11 @@ def main():
             df.replace({False: 0, True: 1, 'False': 0, 'True': 1}, inplace=True)
             selected_poses_df = prioritize_design_indices(df, filter=args.filter, weight=args.weight,
                                                           protocol=args.protocol, function=args.weight_function)
-            # only drop excess columns as there is no MultiIndex, so no design in the index
+            # Only drop excess columns as there is no MultiIndex, so no design in the index
             save_poses_df = selected_poses_df.droplevel(0, axis=1).droplevel(0, axis=1)
-            selected_poses = [protocols.PoseDirectory.from_pose_id(pose, root=program_root, **queried_flags)
+            selected_poses = [protocols.PoseDirectory.from_pose_id(pose, root=program_root)
                               for pose in save_poses_df.index.to_list()]
-        else:  # generate design metrics on the spot
+        else:  # Generate design metrics on the spot
             raise NotImplementedError('This functionality is currently broken')
             selected_poses, selected_poses_df, df = [], pd.DataFrame(), pd.DataFrame()
             logger.debug('Collecting designs to sort')
