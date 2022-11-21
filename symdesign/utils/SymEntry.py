@@ -14,13 +14,11 @@ from symdesign.utils.symmetry import valid_subunit_number, space_group_symmetry_
     point_group_symmetry_operators, all_sym_entry_dict, rotation_range, setting_matrices, identity_matrix, \
     sub_symmetries, flip_y_matrix, max_sym, valid_symmetries
 
-# Copyright 2020 Joshua Laniado and Todd O. Yeates.
 __author__ = "Joshua Laniado and Todd O. Yeates"
 __copyright__ = "Copyright 2020, Nanohedra"
 __version__ = "1.0"
 
 logger = logging.getLogger(__name__)
-null_log = utils.start_log(name='null', handler=3)
 symmetry_combination_format = 'ResultingSymmetry:{Component1Symmetry}{Component2Symmetry}{...}'
 # SYMMETRY COMBINATION MATERIAL TABLE (T.O.Y and J.L, 2020)
 # Guide to table interpretation
@@ -216,10 +214,12 @@ symmetry_combinations = {
 
 custom_entries = list(symmetry_combinations.keys())
 symmetry_combinations.update(nanohedra_symmetry_combinations)
-# reformat the symmetry_combinations to account for groups and results separately
-parsed_symmetry_combinations: dict[int, tuple[list[tuple[str, list | int | str]], str | int]] = \
+# Reformat the symmetry_combinations to account for groups and results separately
+parsed_symmetry_combinations: dict[int, tuple[list[tuple[str, list | int | str]], list[str | int]]] = \
     {entry_number: ([(entry[0], entry[1:4]), (entry[4], entry[5:8])], entry[-6:])
      for entry_number, entry in symmetry_combinations.items()}
+# Set the special CRYST1 Record symmetry combination
+parsed_symmetry_combinations[0] = ([], [])
 space_group_to_sym_entry = {}
 # ROTATION SETTING MATRICES - All descriptions are with view on the positive side of respective axis
 # These specify combinations of symmetric point groups which can be used to construct a larger point group
@@ -271,7 +271,8 @@ class SymEntry:
     _number_dof_external: int
     _number_dof_rotation: int
     _number_dof_translation: int
-    _ref_frame_tx_dof: list[str]
+    _ref_frame_tx_dof: list[list[str]]
+    _rotation_range: list[int]
     _setting_matrices: list[np.ndarray]
     _setting_matrices_numbers: list[int]
     cycle_size: int
@@ -282,31 +283,43 @@ class SymEntry:
     resulting_symmetry: str
     sym_map: list[str]
     total_dof: int
-    unit_cell: list[list[str], list[str]]
+    unit_cell: tuple[list[str], list[str]]
     expand_matrices: np.ndarray
 
-    def __init__(self, entry: int, sym_map: list[str] = None):
+    @classmethod
+    def from_cryst(cls, symmetry: str, **kwargs):  # uc_dimensions: Iterable[float],
+        """Create a SymEntry from a specified symmetry in Hermain-Manguin notation and the unit-cell dimensions"""
+        # return cls(symmetry, uc_dimensions, **kwargs)
+        return cls(0, resulting_symmetry=symmetry, **kwargs)
+
+    def __init__(self, entry: int, sym_map: list[str] = None, **kwargs):
         try:
-            # group1, self.int_dof_group1, self.rot_set_group1, self.ref_frame_tx_dof1, \
-            #     group2, self.int_dof_group2, self.rot_set_group2, self.ref_frame_tx_dof2, \
-            #     self.point_group_symmetry, self.resulting_symmetry, self.dimension, self.unit_cell, self.tot_dof, \
-            #     self.cycle_size = nanohedra_symmetry_combinations.get(entry)
-            group_info, result_info = parsed_symmetry_combinations.get(entry)
+            group_info, result_info = parsed_symmetry_combinations[entry]
             # returns
             #  {'group1': [self.int_dof_group1, self.rot_set_group1, self.ref_frame_tx_dof1],
             #   'group2': [self.int_dof_group2, self.rot_set_group2, self.ref_frame_tx_dof2],
             #   ...},
             #  [point_group_symmetry, resulting_symmetry, dimension, unit_cell, tot_dof, cycle_size]
-            self.point_group_symmetry, self.resulting_symmetry, self.dimension, self.unit_cell, self.total_dof, \
-                self.cycle_size = result_info
         except KeyError:
             raise ValueError(f'Invalid symmetry entry "{entry}". Supported values are Nanohedra entries: '
                              f'{1}-{len(nanohedra_symmetry_combinations)} and custom entries: '
                              f'{", ".join(map(str, custom_entries))}')
+
+        try:  # To unpack the result_info. This will fail if a CRYST1 record placeholder
+            self.point_group_symmetry, self.resulting_symmetry, self.dimension, self.unit_cell, self.total_dof, \
+                self.cycle_size = result_info
+        except ValueError:  # Not enough values to unpack
+            group_info = []
+            self.point_group_symmetry = None
+            self.resulting_symmetry = kwargs.get('resulting_symmetry', None)
+            self.dimension = 2 if self.resulting_symmetry in utils.symmetry.layer_group_cryst1_fmt_dict else 3
+            self.unit_cell = 'N/A'
+            self.total_dof = self.cycle_size = 0
+
         self.entry_number = entry
         entry_groups = [group_name for group_name, group_params in group_info if group_name]  # Ensure not None
         # group1, group2, *extra = entry_groups
-        if not sym_map:  # Assume standard SymEntry
+        if sym_map is None:  # Assume standard SymEntry
             # Assumes 2 component symmetry. index with only 2 options
             self.groups = entry_groups
             self.sym_map = [self.resulting_symmetry] + self.groups
@@ -331,7 +344,8 @@ class SymEntry:
                                                        f'{", ".join(viable_groups)}.')
                 self.groups.append(group)
 
-        self._int_dof_groups, self._setting_matrices, self._setting_matrices_numbers, self._ref_frame_tx_dof, self.__external_dof = [], [], [], [], []
+        self._int_dof_groups, self._setting_matrices, self._setting_matrices_numbers, self._ref_frame_tx_dof, \
+            self.__external_dof = [], [], [], [], []
         for group_idx, group_symmetry in enumerate(self.groups, 1):
             for entry_group_symmetry, (int_dof, set_mat_number, ext_dof) in group_info:
                 if group_symmetry == entry_group_symmetry:
@@ -376,7 +390,10 @@ class SymEntry:
 
         # Check construction is valid
         if self.point_group_symmetry not in valid_symmetries:
-            raise utils.SymmetryInputError(f'Invalid point group symmetry {self.point_group_symmetry}')
+            if self.entry_number == 0:
+                pass
+            else:
+                raise utils.SymmetryInputError(f'Invalid point group symmetry {self.point_group_symmetry}')
         try:
             if self.dimension == 0:
                 self.expand_matrices = point_group_symmetry_operators[self.resulting_symmetry]
@@ -387,7 +404,7 @@ class SymEntry:
         except KeyError:
             raise utils.SymmetryInputError(f'The symmetry result "{self.resulting_symmetry}" is not allowed')
         self.unit_cell = None if self.unit_cell == 'N/A' else \
-            [dim.strip('()').replace(' ', '').split(',') for dim in self.unit_cell.split('), ')]
+            tuple(dim.strip('()').replace(' ', '').split(',') for dim in self.unit_cell.split('), '))
 
     @property
     def number_of_operations(self) -> int:
@@ -412,7 +429,8 @@ class SymEntry:
         return f'{self.resulting_symmetry}{"".join(self.groups)}'
 
     @property
-    def uc_specification(self):
+    def uc_specification(self) -> tuple[list[str], list[str]]:
+        """The external dof and angle parameters which constitute a viable lattice"""
         return self.unit_cell
 
     @property
@@ -690,7 +708,7 @@ class SymEntry:
         Returns:
             The Unit Cell dimensions for each optimal shift vector passed
         """
-        if not self.unit_cell:
+        if self.unit_cell is None:
             return None
         string_lengths, string_angles = self.unit_cell
         # for entry 6 - string_vector is 4*e, 4*e, 4*e
@@ -724,7 +742,7 @@ class SymEntry:
         Returns:
             The optimal shifts in each direction a, b, and c if they are allowed
         """
-        if not self.unit_cell:
+        if self.unit_cell is None:
             return None
         string_lengths, string_angles = self.unit_cell
         # uc_mat = construct_uc_matrix(string_lengths) * optimal_shift_vec[:, :, None]  # <- expands axis so mult accurate
@@ -767,6 +785,59 @@ class SymEntry:
         raise FileNotFoundError(f"Couldn't locate correct symmetry definition file at '{putils.symmetry_def_files}' "
                                 f'for SymEntry: {self.entry_number}')
 
+    def log_parameters(self):
+        """Log the SymEntry Parameters"""
+        #                pdb1_path, pdb2_path, master_outdir
+        # log.info('NANOHEDRA PROJECT INFORMATION')
+        # log.info(f'Oligomer 1 Input: {pdb1_path}')
+        # log.info(f'Oligomer 2 Input: {pdb2_path}')
+        # log.info(f'Master Output Directory: {master_outdir}\n')
+        logger.info('SYMMETRY COMBINATION MATERIAL INFORMATION')
+        logger.info(f'Nanohedra Entry Number: {self.entry_number}')
+        logger.info(f'Oligomer 1 Point Group Symmetry: {self.group1}')
+        logger.info(f'Oligomer 2 Point Group Symmetry: {self.group2}')
+        logger.info(f'SCM Point Group Symmetry: {self.point_group_symmetry}')
+        # logger.debug(f'Oligomer 1 Internal ROT DOF: {self.is_internal_rot1}')
+        # logger.debug(f'Oligomer 2 Internal ROT DOF: {self.is_internal_rot2}')
+        # logger.debug(f'Oligomer 1 Internal Tx DOF: {self.is_internal_tx1}')
+        # logger.debug(f'Oligomer 2 Internal Tx DOF: {self.is_internal_tx2}')
+        # Todo textwrap.textwrapper() prettify these matrices
+        logger.debug(f'Oligomer 1 Setting Matrix: {self.setting_matrix1.tolist()}')
+        logger.debug(f'Oligomer 2 Setting Matrix: {self.setting_matrix2.tolist()}')
+        # logger.debug('Oligomer 1 Reference Frame Tx DOF: '
+        #              f'{self.ref_frame_tx_dof1 if self.is_ref_frame_tx_dof1 else None}')
+        # logger.debug('Oligomer 2 Reference Frame Tx DOF: '
+        #              f'{self.ref_frame_tx_dof2 if self.is_ref_frame_tx_dof2 else None}')
+        logger.info(f'Resulting SCM Symmetry: {self.resulting_symmetry}')
+        logger.info(f'SCM Dimension: {self.dimension}')
+        logger.info(f'SCM Unit Cell Specification: {self.uc_specification}\n')
+        # rot_step_deg1, rot_step_deg2 = get_rotation_step(self, rot_step_deg1, rot_step_deg2, initial=True, log=logger)
+        logger.info('ROTATIONAL SAMPLING INFORMATION')
+        logger.info(f'Oligomer 1 ROT Sampling Range: '
+                    f'{self.rotation_range1 if self.is_internal_rot1 else None}')
+        logger.info('Oligomer 2 ROT Sampling Range: '
+                    f'{self.rotation_range2 if self.is_internal_rot2 else None}')
+        # logger.info('Oligomer 1 ROT Sampling Step: '
+        #             f'{rot_step_deg1 if self.is_internal_rot1 else None}')
+        # logger.info('Oligomer 2 ROT Sampling Step: '
+        #             f'{rot_step_deg2 if self.is_internal_rot2 else None}\n')
+        # Get Degeneracy Matrices
+        logger.info('Searching For Possible Degeneracies')
+        if self.degeneracy_matrices1 is None:
+            logger.info('No Degeneracies Found for Oligomer 1')
+        elif len(self.degeneracy_matrices1) == 1:
+            logger.info('1 Degeneracy Found for Oligomer 1')
+        else:
+            logger.info(f'{len(self.degeneracy_matrices1)} Degeneracies Found for Oligomer 1')
+        if self.degeneracy_matrices2 is None:
+            logger.info('No Degeneracies Found for Oligomer 2\n')
+        elif len(self.degeneracy_matrices2) == 1:
+            logger.info('1 Degeneracy Found for Oligomer 2\n')
+        else:
+            logger.info(f'{len(self.degeneracy_matrices2)} Degeneracies Found for Oligomer 2\n')
+
+CRYST = SymEntry.from_cryst(symmetry='P1')
+
 
 class SymEntryFactory:
     """Return a SymEntry instance by calling the Factory instance with the SymEntry entry number and symmetry map
@@ -787,10 +858,10 @@ class SymEntryFactory:
         Returns:
             The instance of the specified SymEntry
         """
-        if sym_map is not None:
-            sym_map_string = '|'.join('None' if sym is None else sym for sym in sym_map)
-        else:
+        if sym_map is None:
             sym_map_string = 'None'
+        else:
+            sym_map_string = '|'.join('None' if sym is None else sym for sym in sym_map)
 
         entry_key = f'{entry}|{sym_map_string}'
         symmetry = self._entries.get(entry_key)
@@ -1050,7 +1121,7 @@ def parse_symmetry_to_sym_entry(sym_entry: int = None, symmetry: str = None, sym
         An instance of the SymEntry
     """
     if sym_map is None:  # Find sym_map from symmetry
-        if symmetry:
+        if symmetry is not None:
             symmetry = symmetry.strip()
             if symmetry in space_group_symmetry_operators:  # space_group_symmetry_operators in Hermann-Mauguin notation
                 # We only have the resulting symmetry, set it and then solve by lookup_sym_entry_by_symmetry_combination
@@ -1072,17 +1143,19 @@ def parse_symmetry_to_sym_entry(sym_entry: int = None, symmetry: str = None, sym
                 sym_map = [*symmetry]
             else:  # C35
                 raise ValueError(f'{symmetry} is not a supported symmetry! {highest_point_group_msg}')
+        elif sym_entry is not None:
+            return symmetry_factory.get(sym_entry)
         else:
             raise utils.SymmetryInputError(f"{parse_symmetry_to_sym_entry.__name__}: "
                                            f"Can't initialize without symmetry or sym_map!")
 
-    if not sym_entry:
-        try:
+    if sym_entry is None:
+        try:  # To lookup in the all_sym_entry_dict
             sym_entry = utils.dictionary_lookup(all_sym_entry_dict, sym_map)
             if not isinstance(sym_entry, int):
                 raise TypeError
-        except (KeyError, TypeError):  # when the entry is not specified in the all_sym_entry_dict
-            # the prescribed symmetry is a point, plane, or space group that isn't in nanohedra. try a custom input
+        except (KeyError, TypeError):
+            # The prescribed symmetry is a point, plane, or space group that isn't in nanohedra. Try a custom input
             sym_entry = lookup_sym_entry_by_symmetry_combination(*sym_map)
 
     return symmetry_factory.get(sym_entry, sym_map=sym_map)

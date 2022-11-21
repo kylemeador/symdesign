@@ -3747,10 +3747,10 @@ class SymmetricModel(Models):
     _symmetric_coords_split: list[np.ndarray]
     _symmetric_coords_split_by_entity: list[list[np.ndarray]]
     _uc_dimensions: tuple[float, float, float, float, float, float] | None
-    deorthogonalization_matrix: np.ndarray
+    deorthogonalization_matrix: np.ndarray = utils.symmetry.identity_matrix
     expand_matrices: np.ndarray | list[list[float]] | None
     expand_translations: np.ndarray | list[float] | None
-    orthogonalization_matrix: np.ndarray
+    orthogonalization_matrix: np.ndarray = utils.symmetry.identity_matrix
     state_attributes: set[str] = Models.state_attributes | \
         {'_assembly', '_assembly_minimally_contacting', '_assembly_tree', '_asu_indices', '_asu_model_idx',
          '_center_of_mass_symmetric_entities', '_center_of_mass_symmetric_models',
@@ -3825,25 +3825,28 @@ class SymmetricModel(Models):
             uc_dimensions: Whether the symmetric coords should be generated from the ASU coords
             expand_matrices: A set of custom expansion matrices
         """
-        # try to solve for symmetry as we want uc_dimensions if available for cryst ops
-        if self.cryst_record:  # was populated from file parsing
-            if not uc_dimensions and not symmetry:  # only if user didn't provide either
+        # Try to solve for symmetry as we want uc_dimensions if available for cryst ops
+        if self.cryst_record:  # Was populated from file parsing
+            if uc_dimensions is None and symmetry is None:  # Only if user didn't provide either
                 uc_dimensions, symmetry = parse_cryst_record(self.cryst_record)
 
-        if symmetry:  # ensure conversion to Hermann–Mauguin notation. ex: P23 not P 2 3
+        if symmetry is not None:  # Ensure conversion to Hermann–Mauguin notation. ex: P23 not P 2 3
             symmetry = ''.join(symmetry.split())
 
-        if sym_entry:
-            if isinstance(sym_entry, utils.SymEntry.SymEntry):  # attach if SymEntry class set up
-                self.sym_entry = sym_entry
-            else:  # try to solv using integer and any info in symmetry. Fails upon non Nanohedra chiral space-group...
+        if sym_entry is not None:
+            if isinstance(sym_entry, utils.SymEntry.SymEntry):
+                if sym_entry.entry_number == 0:  # Unique key specifying use of the CRYST1 record. Replace with relevant info
+                    self.sym_entry = utils.SymEntry.SymEntry.from_cryst(symmetry=symmetry)
+                else:
+                    self.sym_entry = sym_entry  # Attach as this is set up properly
+            else:  # Try to solve using integer and any info in symmetry. Fails upon non Nanohedra chiral space-group...
                 self.sym_entry = utils.SymEntry.parse_symmetry_to_sym_entry(sym_entry=sym_entry, symmetry=symmetry)
-        elif symmetry:  # either provided or solved from cryst_record
-            # existing sym_entry takes precedence since the user specified it
+        elif symmetry:  # Either provided or solved from cryst_record
+            # Existing sym_entry takes precedence since the user specified it
             try:  # Fails upon non Nanohedra chiral space-group...
                 if not self.sym_entry:  # ensure conversion to Hermann–Mauguin notation. ex: P23 not P 2 3
                     self.sym_entry = utils.SymEntry.parse_symmetry_to_sym_entry(symmetry=symmetry)
-            except ValueError as error:  # let's print the error and move on since this is likely just parsed
+            except ValueError as error:  # Let's print the error and move on since this is likely just parsed
                 logger.warning(str(error))
                 self.symmetry = symmetry
                 # not sure if cryst record can differentiate between 2D and 3D. 3D will be wrong if actually 2D
@@ -3869,17 +3872,17 @@ class SymmetricModel(Models):
             #     raise utils.DesignError('Symmetry %s is not available yet! Get the canonical symm operators from %s '
             #                             'and add to the pickled operators if this displeases you!'
             #                             % (symmetry, putils.orient_dir))
-        else:  # no symmetry was provided
-            # since this is now subclassed by Pose, lets ignore this error since self.symmetry is explicitly False
-            return
+        else:  # No symmetry was provided
+            # Since this is now subclassed by Pose, lets ignore this error since self.symmetry is explicitly False
             # raise utils.SymmetryError('A SymmetricModel was initiated without any symmetry! Ensure you specify the
             #                           'symmetry upon class initialization by passing symmetry=, or sym_entry=')
+            return
 
-        # set the uc_dimensions if they were parsed or provided
+        # Set the uc_dimensions if they were parsed or provided
         if uc_dimensions is not None and self.dimension > 0:
             self.uc_dimensions = uc_dimensions
 
-        if expand_matrices is not None:  # perhaps these would be from a fiber or some sort of BIOMT?
+        if expand_matrices is not None:  # Perhaps these would be from a fiber or some sort of BIOMT?
             if isinstance(expand_matrices, tuple) and len(expand_matrices) == 2:
                 self.log.critical('Providing expansion matrices may result in program crash if you '
                                   'don\'t work on the SymmetricModel class! Proceed with caution')
@@ -3887,8 +3890,8 @@ class SymmetricModel(Models):
                 self.expand_translations = \
                     np.ndarray(expand_translations) if not isinstance(expand_translations, np.ndarray) \
                     else expand_translations
-                # lets assume expand_matrices were provided in a standard orientation and transpose
-                # using .swapaxes(-2, -1) call instead of .transpose() for safety
+                # Let's assume expand_matrices were provided in a standard orientation and transpose
+                # Using .swapaxes(-2, -1) call here instead of .transpose() for safety
                 self.expand_matrices = \
                     np.ndarray(expand_matrices).swapaxes(-2, -1) if not isinstance(expand_matrices, np.ndarray) \
                     else expand_matrices
@@ -3944,14 +3947,17 @@ class SymmetricModel(Models):
     def sym_entry(self, sym_entry: utils.SymEntry.SymEntry | int):
         if isinstance(sym_entry, utils.SymEntry.SymEntry):
             self._sym_entry = sym_entry
-        else:  # try to convert
+        else:  # Try to convert
             self._sym_entry = utils.SymEntry.symmetry_factory.get(sym_entry)
 
         symmetry_state = ['_symmetry',
                           '_point_group_symmetry',
                           '_dimension',
                           '_cryst_record',
-                          '_number_of_symmetry_mates']
+                          '_number_of_symmetry_mates',
+                          'uc_volume',
+                          'orthogonalization_matrix',
+                          'deorthogonalization_matrix']
         for attribute in symmetry_state:
             try:
                 delattr(self, attribute)
@@ -4061,11 +4067,13 @@ class SymmetricModel(Models):
     @property
     def cryst_record(self) -> str | None:
         """Return the symmetry parameters as a CRYST1 entry"""
-        # Todo should we always use a generated _cryst_record? If read from file, but a Nanohedra based cryst was made
-        #  then it would be wrong since it wouldn't be used
         try:
+            # Todo
+            #  If read from entity file for example, but a Nanohedra cryst was provided, then Nanohedra wouldn't be used
             return self._cryst_record
-        except AttributeError:  # for now don't use if the structure wasn't symmetric and no attribute was parsed
+        except AttributeError:  # As of now, don't use if the structure wasn't symmetric and no attribute was parsed
+            # Todo
+            #  Should we always generate _cryst_record?
             self._cryst_record = None if not self.is_symmetric() or self.dimension == 0 \
                 else utils.symmetry.generate_cryst1_record(self.uc_dimensions, self.symmetry)
             return self._cryst_record
@@ -5385,8 +5393,8 @@ class Pose(SymmetricModel):
     fragment_pairs: list[tuple[GhostFragment, Fragment, float]] | list
     fragment_queries: dict[tuple[Entity, Entity], list[fragment_info_type]]
     ignore_clashes: bool
-    interface_design_residue_numbers: set[int]  # set[Residue]
-    interface_residue_numbers: set[int]
+    # interface_design_residue_numbers: set[int]  # set[Residue]
+    # interface_residue_numbers: set[int]
     interface_residues_by_entity_pair: dict[tuple[Entity, Entity], tuple[list[Residue], list[Residue]]]
     required_indices: set[int]
     required_residues: list[Residue]
@@ -5416,8 +5424,8 @@ class Pose(SymmetricModel):
         self.fragment_pairs = []
         self.fragment_queries = {}
         self.ignore_clashes = ignore_clashes
-        self.interface_design_residue_numbers = set()
-        self.interface_residue_numbers = set()
+        # self.interface_design_residue_numbers = set()
+        # self.interface_residue_numbers = set()
         self.interface_residues_by_entity_pair = {}
         self.required_indices = set()
         self.required_residues = []
@@ -5449,7 +5457,7 @@ class Pose(SymmetricModel):
 
     @property
     def interface_residues(self) -> list[Residue]:
-        """The Residue instances identified in interfaces in the Pose"""
+        """The Residue instances identified in interfaces in the Pose. May be buried depending on interface distance"""
         try:
             return self._interface_residues
         except AttributeError:
@@ -5458,13 +5466,27 @@ class Pose(SymmetricModel):
                 self._interface_residues.extend([residue for residue, _ in residues_entities])
             return self._interface_residues
 
+        # This finds only those residues actively contributing to the interface
+        # self._interface_residues_only = set()
+        # for entity in self.pose.entities:
+        #     # Todo v clean as it is expensive
+        #     entity_oligomer = Model.from_chains(entity.chains, log=entity.log, entities=False)
+        #     # entity.oligomer.get_sasa()
+        #     # Must get_residues by number as the Residue instance will be different in entity_oligomer
+        #     for residue in entity_oligomer.get_residues(self._interface_residues):
+        #         if residue.sasa > 0:
+        #             # Using set ensures that if we have repeats they won't be unique if Entity is symmetric
+        #             self._interface_residues_only.add(residue)
+        # interface_residue_numbers = [residue.number for residue in self._interface_residues_only]
+        # self.log.debug(f'Found interface residues: {", ".join(map(str, sorted(interface_residue_numbers)))}')
+
     @property
     def design_residues(self) -> list[Residue]:  # Todo make function to include interface_residues or not
         """The Residue instances identified for design in the Pose. Includes interface_residues"""
         try:
             return self._design_residues
         except AttributeError:
-            self.log.debug('The design_residues includes interface_residues')
+            self.log.debug('The design_residues include interface_residues')
             self._design_residues = self.required_residues + self.interface_residues
             return self._design_residues
 
@@ -6519,7 +6541,8 @@ class Pose(SymmetricModel):
         for entity1, entity2 in self.interface_residues_by_entity_pair:
             atoms_indices1, atoms_indices2 = \
                 split_number_pairs_and_sort(self._find_interface_atom_pairs(entity1=entity1, entity2=entity2))
-            interface_indices1.extend(atoms_indices1), interface_indices2.extend(atoms_indices2)
+            interface_indices1.extend(atoms_indices1)
+            interface_indices2.extend(atoms_indices2)
 
         if not interface_indices1 and not interface_indices2:
             self.log.warning(f'No interface atoms located during {self.local_density_interface.__name__}')
@@ -6671,27 +6694,17 @@ class Pose(SymmetricModel):
             self.split_interface_residues (dict[int, list[tuple[Residue, Entity]]]): Residue/Entity id of each residue
                 at the interface identified by interface id as split by topology
         """
+        if self.split_interface_residues:
+            # Todo this needs to be removed if they have been set and modified. reset_state()
+            return
+
         self.log.debug('Find and split interface using active_entities: '
                        f'{", ".join(entity.name for entity in self.active_entities)}')
+        entity_pair: tuple[Entity, Entity]
         for entity_pair in combinations_with_replacement(self.active_entities, 2):
             self.find_interface_residues(*entity_pair, **kwargs)
 
         self.check_interface_topology()
-
-        # self.interface_design_residue_numbers = set()  # Replace set(). Add new residues
-        # for number, residues_entities in self.split_interface_residues.items():
-        #     self.interface_design_residue_numbers.update([residue.number for residue, _ in residues_entities])
-        #
-        # self.interface_residue_numbers = set()  # Replace set(). Add new residues
-        # for entity in self.entities:
-        #     # Todo v clean as it is redundant with analysis and falls out of scope
-        #     entity_oligomer = Model.from_chains(entity.chains, log=entity.log, entities=False)
-        #     # entity.oligomer.get_sasa()
-        #     # Must get_residues by number as the Residue instance will be different in entity_oligomer
-        #     for residue in entity_oligomer.get_residues(self.interface_design_residue_numbers):
-        #         if residue.sasa > 0:
-        #             # Using set ensures that if we have repeats they won't be unique if Entity is symmetric
-        #             self.interface_residue_numbers.add(residue.number)
 
     def check_interface_topology(self):
         """From each pair of entities that share an interface, split the identified residues into two distinct groups.
@@ -6804,7 +6817,7 @@ class Pose(SymmetricModel):
                              "Check that your input has an interface or your flags aren't too stringent")
         else:
             self.log.debug('The interface is split as:\n\tInterface 1: %s\n\tInterface 2: %s'
-                           % tuple(','.join('%d%s' % (res.number, ent.chain_id) for res, ent in residues_entities)
+                           % tuple(','.join(f'{res.number}{ent.chain_id}' for res, ent in residues_entities)
                                    for residues_entities in self.split_interface_residues.values()))
 
     def interface_secondary_structure(self):
@@ -6900,7 +6913,7 @@ class Pose(SymmetricModel):
         """Return the fragment observations identified on the pose regardless of Entity binding
 
         Returns:
-            The fragment observations formatted as [{'mapped': int, 'paired': int,
+            The fragment observations formatted as [{'mapped': index (int), 'paired': index (int),
                                                      'cluster': tuple(int, int, int), 'match': float}, ...]
         """
         observations = []
@@ -7190,12 +7203,9 @@ class Pose(SymmetricModel):
 
         return parsed_design_residues
 
-    def generate_interface_fragments(self, write_fragments: bool = False, out_path: AnyStr = None, **kwargs):
+    def generate_interface_fragments(self, **kwargs):
         """Generate fragments between the Pose interface(s). Finds interface(s) if not already available
 
-        Args:
-            write_fragments: Whether to write the located fragments
-            out_path: The location to write each fragment file
         Keyword Args:
             distance: (float) = 8. - The distance to measure Residues across an interface
         """
@@ -7208,9 +7218,6 @@ class Pose(SymmetricModel):
                            f'for interface fragments')
             self.query_interface_for_fragments(*entity_pair)
 
-        if write_fragments:
-            self.write_fragment_pairs(out_path=out_path)
-
     def write_fragment_pairs(self, ghost_mono_frag_pairs: list[tuple[GhostFragment, Fragment, float]] = None,
                              out_path: AnyStr = os.getcwd()):
         """Write the fragments associated with the pose to disk
@@ -7219,8 +7226,7 @@ class Pose(SymmetricModel):
             ghost_mono_frag_pairs: Optional, the specified fragment pairs with associated match score
             out_path: The path to the directory to output files to
         """
-        ghost_frag: GhostFragment
-        surface_frag: Fragment
+        putils.make_path(out_path)
         frag_file = os.path.join(out_path, putils.frag_text_file)
         if os.path.exists(frag_file):
             os.system(f'rm {frag_file}')  # ensure old file is removed before new write
@@ -7228,6 +7234,8 @@ class Pose(SymmetricModel):
         if ghost_mono_frag_pairs is None:
             ghost_mono_frag_pairs = self.fragment_pairs
 
+        ghost_frag: GhostFragment
+        surface_frag: Fragment
         for match_count, (ghost_frag, surface_frag, match_score) in enumerate(ghost_mono_frag_pairs, 1):
             i, j, k = ijk = ghost_frag.ijk
             fragment_pdb, _ = ghost_frag.fragment_db.paired_frags[ijk]

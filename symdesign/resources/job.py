@@ -9,7 +9,7 @@ from typing import Annotated, AnyStr
 from symdesign.resources import structure_db, wrapapi
 from symdesign.structure.fragment import db
 from symdesign import flags
-from symdesign.utils import SymEntry, path as putils
+from symdesign.utils import calculate_mp_cores, SymEntry, path as putils
 
 logger = logging.getLogger(__name__)
 # DesignFlags = collections.namedtuple('DesignFlags', design_args.keys(), defaults=design_args.values())
@@ -92,18 +92,38 @@ class JobResources:
         # putils.make_path(self.pdb_entity_api)
         # putils.make_path(self.pdb_assembly_api)
         putils.make_path(self.uniprot_api)
+        self.module: str = kwargs.get(flags.module, False)
         self.reduce_memory = False
         self.api_db = wrapapi.api_database_factory.get(source=self.data)
         self.structure_db = structure_db.structure_database_factory.get(source=self.data)
         self.fragment_db: 'db.FragmentDatabase' | None = None
 
-        # Development Flags
-        self.command_only: bool = kwargs.get('command_only', False)
-        """Whether to reissue commands, only if distribute_work=False"""
+        # Computing environment and development Flags
+        self.cores: int = kwargs.get('cores', 0)
+        self.distribute_work: bool = kwargs.get(putils.distribute_work, False)
+        self.mpi: int = kwargs.get('mpi', 0)
+        self.multi_processing: int = kwargs.get(putils.multi_processing, 0)
+        if self.multi_processing:
+            # Calculate the number of cores to use depending on computer resources
+            self.cores = calculate_mp_cores(cores=self.cores)  # mpi=self.mpi, Todo
+        else:
+            self.cores = 1
+
+        if self.mpi > 0:
+            self.distribute_work = True
         self.development: bool = kwargs.get(putils.development, False)
+        # self.command_only: bool = kwargs.get('command_only', False)
+        """Whether to reissue commands, only if distribute_work=False"""
 
         # Program flags
         # self.consensus: bool = kwargs.get(consensus, False)  # Whether to run consensus
+        self.as_objects: bool = kwargs.get('as_objects', False)
+        self.mode: bool = kwargs.get('mode', False)
+        self.background_profile: str = kwargs.get('background_profile', putils.design_profile)
+        """The type of position specific profile (per-residue amino acid frequencies) to utilize as the design 
+        background profile. 
+        Choices include putils.design_profile, putils.evolutionary_profile, and putils.fragment_profile
+        """
         self.design_selector: dict[str, dict[str, dict[str, set[int] | set[str]]]] | dict = \
             kwargs.get('design_selector', {})
         self.debug: bool = kwargs.get('debug', False)
@@ -121,41 +141,50 @@ class JobResources:
         # self.proteinmpnn_score: bool = kwargs.get('proteinmpnn_score', False)
         # self.contiguous_ghosts: bool = kwargs.get('contiguous_ghosts', False)
 
-        self.only_write_frag_info: bool = kwargs.get('only_write_frag_info', False)
-        self.dock_only: bool = kwargs.get('dock_only', False)
-        self.rotation_step1: bool = kwargs.get('rotation_step1', False)
-        self.rotation_step2: bool = kwargs.get('rotation_step2', False)
-        self.min_matched: bool = kwargs.get('min_matched', False)
-        self.match_value: bool = kwargs.get('match_value', False)
-        self.initial_z_value: bool = kwargs.get('initial_z_value', False)
+        # self.rotation_step1: bool = kwargs.get('rotation_step1', False)
+        # self.rotation_step2: bool = kwargs.get('rotation_step2', False)
+        # self.min_matched: bool = kwargs.get('min_matched', False)
+        # self.match_value: bool = kwargs.get('match_value', False)
+        # self.initial_z_value: bool = kwargs.get('initial_z_value', False)
         self.log_level: bool = kwargs.get('log_level', flags.default_logging_level)
-        self.force_flags: bool = kwargs.get(putils.force_flags, False)
+        self.force: bool = kwargs.get(putils.force, False)
         self.fuse_chains: list[tuple[str]] = [tuple(pair.split(':')) for pair in kwargs.get('fuse_chains', [])]
         self.design = Design.from_flags(**kwargs)
         # self.ignore_clashes: bool = kwargs.get(ignore_clashes, False)
         if self.design.ignore_clashes:
             self.design.ignore_pose_clashes = self.design.ignore_symmetric_clashes = True
+        self.dock_only: bool = kwargs.get('dock_only', False)
         if self.dock_only:
             self.design.sequences = self.design.structures = False
+        self.only_write_frag_info: bool = kwargs.get('only_write_frag_info', False)
         # else:
         #     self.ignore_pose_clashes: bool = kwargs.get(ignore_pose_clashes, False)
         #     self.ignore_symmetric_clashes: bool = kwargs.get(ignore_symmetric_clashes, False)
         self.increment_chains: bool = kwargs.get('increment_chains', False)
-        self.mpi: int = kwargs.get('mpi', 0)
         # self.evolution_constraint: bool = kwargs.get(evolution_constraint, False)
         # self.hbnet: bool = kwargs.get(hbnet, False)
         # self.term_constraint: bool = kwargs.get(term_constraint, False)
         # self.number_of_trajectories: int = kwargs.get(number_of_trajectories, flags.nstruct)
-        self.distribute_work: bool = kwargs.get(putils.distribute_work, False)
-        if self.mpi > 0:
-            self.distribute_work = True
         # self.pre_refine: bool = kwargs.get('pre_refine', True)
         # self.pre_loop_model: bool = kwargs.get('pre_loop_model', True)
         self.generate_fragments: bool = kwargs.get(putils.generate_fragments, True)
+        self.interface_to_alanine: bool = kwargs.get('interface_to_alanine', True)
+        self.gather_metrics: bool = kwargs.get('gather_metrics', True)
         # self.scout: bool = kwargs.get(scout, False)
         self.specific_protocol: str = kwargs.get('specific_protocol', False)
         # self.structure_background: bool = kwargs.get(structure_background, False)
-        self.sym_entry: SymEntry.SymEntry | None = kwargs.get(putils.sym_entry, None)
+        # Process symmetry
+        sym_entry = kwargs.get(putils.sym_entry, None)
+        symmetry = kwargs.get('symmetry', None)
+        if sym_entry is None and symmetry is None:
+            self.sym_entry: SymEntry.SymEntry | str | None = None
+        else:
+            if symmetry and 'cryst' in symmetry.lower():
+                # Later, symmetry information will be retrieved from the file header
+                self.sym_entry = SymEntry.CRYST  # 'cryst'
+            else:
+                self.sym_entry = SymEntry.parse_symmetry_to_sym_entry(sym_entry=sym_entry, symmetry=symmetry)
+
         self.overwrite: bool = kwargs.get('overwrite', False)
         self.output_directory: AnyStr | None = kwargs.get(putils.output_directory, None)
         self.output_to_directory: bool = True if self.output_directory else False
@@ -166,8 +195,10 @@ class JobResources:
         self.write_structures: bool = kwargs.get(putils.output_structures, True)
         self.write_trajectory: bool = kwargs.get(putils.output_trajectory, False)
         self.skip_logging: bool = kwargs.get(putils.skip_logging, False)
-        self.nanohedra_output: bool = kwargs.get('nanohedra_output', False)
-        self.nanohedra_root: str | None = None
+        self.merge: bool = kwargs.get('merge', False)
+        self.save: bool = kwargs.get('save', False)
+        self.figures: bool = kwargs.get('figures', False)
+        self.skip_sequence_generation: bool = kwargs.get('skip_sequence_generation', False)
 
         if self.write_structures or self.output_assembly or self.output_surrounding_uc or self.write_fragments \
                 or self.write_oligomers or self.write_trajectory:
@@ -175,11 +206,10 @@ class JobResources:
         else:
             self.output: bool = False
 
+        self.nanohedra_output: bool = kwargs.get('nanohedra_output', False)
+        self.nanohedra_root: str | None = None
         if self.nanohedra_output:
             self.construct_pose: bool = kwargs.get('construct_pose', True)  # Whether to construct the PoseDirectory
-            if not self.construct_pose:  # no construction specific flags
-                self.write_fragments = False
-                self.write_oligomers = False
         else:
             self.construct_pose = True
 
@@ -190,7 +220,21 @@ class JobResources:
         if self.design.structure_background:
             self.design.evolution_constraint = False
             self.design.hbnet = False
+            self.design.scout = False
             self.design.term_constraint = False
+
+    @property
+    def construct_pose(self):
+        return self._construct_pose
+
+    @construct_pose.setter
+    def construct_pose(self, value: bool):
+        self._construct_pose = value
+        if self._construct_pose:
+            pass
+        else:  # No construction specific flags
+            self.write_fragments = False
+            self.write_oligomers = False
 
 
 class JobResourcesFactory:

@@ -4,11 +4,9 @@ import copy
 import logging
 import math
 import os
-import sys
 import time
 from collections.abc import Iterable
 from itertools import repeat, count
-from logging import Logger
 from math import prod
 from typing import AnyStr, Container
 
@@ -21,7 +19,7 @@ from sklearn.cluster import DBSCAN
 from sklearn.neighbors import BallTree
 from sklearn.neighbors._ball_tree import BinaryTree  # This typing implementation supports BallTree or KDTree
 
-from symdesign import flags, resources
+from symdesign import flags, resources, protocols
 from symdesign.metrics import calculate_collapse_metrics, calculate_residue_surface_area, errat_1_sigma, errat_2_sigma,\
     multiple_sequence_alignment_dependent_metrics, profile_dependent_metrics, columns_to_new_column, \
     delta_pairs, division_pairs, interface_composition_similarity, clean_up_intermediate_columns, \
@@ -29,15 +27,14 @@ from symdesign.metrics import calculate_collapse_metrics, calculate_residue_surf
 from symdesign.resources import ml, job as symjob
 from symdesign.structure.base import Structure, Residue
 from symdesign.structure.coords import transform_coordinate_sets
-from symdesign.structure.fragment import db, GhostFragment
+from symdesign.structure.fragment import GhostFragment
 from symdesign.structure.fragment.visuals import write_fragment_pairs_as_accumulating_states
 from symdesign.structure.model import Pose, Model, get_matching_fragment_pairs_info, Models
 from symdesign.structure.sequence import generate_mutations_from_reference, numeric_to_sequence, concatenate_profile, \
     pssm_as_array, MultipleSequenceAlignment
 from symdesign.structure.utils import chain_id_generator
-from symdesign.utils import start_log, set_logging_to_level, set_loggers_to_propagate, cluster, nanohedra, \
-    z_score, rmsd_z_score, z_value_from_match_score, match_score_from_z_value, path as putils
-from symdesign.utils.SymEntry import SymEntry, get_rot_matrices, make_rotations_degenerate, symmetry_factory
+from symdesign.utils import z_score, rmsd_z_score, z_value_from_match_score, match_score_from_z_value, path as putils
+from symdesign.utils.SymEntry import SymEntry, get_rot_matrices, make_rotations_degenerate
 from symdesign.utils.symmetry import generate_cryst1_record, identity_matrix
 
 # Globals
@@ -262,19 +259,17 @@ def create_perturbation_transformations(sym_entry: SymEntry, rotation_number: in
     return perturbation_mapping
 
 
-def nanohedra_dock(sym_entry: SymEntry, job: symjob.JobResources,
-                   model1: Structure | AnyStr, model2: Structure | AnyStr, **kwargs):
+def nanohedra_dock(model1: Structure | AnyStr, model2: Structure | AnyStr, **kwargs):
     """
     Perform the fragment docking routine described in Laniado, Meador, & Yeates, PEDS. 2021
 
     Args:
-        sym_entry: The SymmetryEntry object describing the material
-        job: The JobResources object describing the program operations
         model1: The first Structure to be used in docking
         model2: The second Structure to be used in docking
     Returns:
         None
     """
+    #  sym_entry: The SymmetryEntry object describing the material
     #  rotation_step1: The number of degrees to increment the rotational degrees of freedom search
     #  rotation_step2: The number of degrees to increment the rotational degrees of freedom search
     #  min_matched: How many high quality fragment pairs should be present before a pose is identified?
@@ -283,15 +278,10 @@ def nanohedra_dock(sym_entry: SymEntry, job: symjob.JobResources,
     #  initial_z_value: The acceptable standard deviation z score for initial fragment overlap identification.
     #      Smaller values lead to more stringent matching criteria
     #  clash_dist: The distance to measure for clashing atoms
-    #  write_frags_only: Whether to write fragment information to a file (useful for fragment based docking w/o Nanohedra)
+    #  write_frags_only: Whether to write fragment information to a directory
+    #      (useful for fragment based docking w/o Nanohedra)
     #  contiguous_ghosts: Whether to use the overlap potential on the same component to filter ghost fragments
     frag_dock_time_start = time.time()
-
-    # # Create FragmentDatabase for all ijk cluster representatives
-    # if isinstance(fragment_db, db.FragmentDatabase):
-    #     job.fragment_db = fragment_db
-    # else:
-    #     job.fragment_db = db.fragment_factory(source=fragment_db)
 
     # Get Building Blocks in pose format to remove need for fragments to use chain info
     if not isinstance(model1, Structure):
@@ -302,15 +292,11 @@ def nanohedra_dock(sym_entry: SymEntry, job: symjob.JobResources,
     models = [model1, model2]
 
     # Set up output mechanism
+    # Retrieve symjob.JobResources for all flags
+    job = symjob.job_resources_factory.get()
+    sym_entry: SymEntry = job.sym_entry
     entry_string = f'NanohedraEntry{sym_entry.entry_number}DockedPoses'
     building_blocks = '-'.join(model.name for model in models)
-    # # Create symjob.JobResources for all flags
-    # if job is None:
-    #     out_dir = os.path.join(os.getcwd(), entry_string)
-    #     putils.make_path(out_dir)
-    #     job = symjob.job_resources_factory.get(program_root=out_dir, **kwargs)
-    #     out_dir = os.path.join(out_dir, building_blocks)
-    # else:
     entry_and_building_blocks = f'{entry_string}-{building_blocks}'
     out_dir = os.path.join(job.projects, entry_and_building_blocks)
     putils.make_path(out_dir)
@@ -318,11 +304,11 @@ def nanohedra_dock(sym_entry: SymEntry, job: symjob.JobResources,
     euler_lookup = job.fragment_db.euler_lookup
     # This is used in clustering algorithms to define an observation outside the found clusters
     outlier = -1
-    initial_z_value = job.initial_z_value
-    min_matched = job.min_matched
-    high_quality_match_value = job.match_value
-    rotation_step1 = job.rotation_step1
-    rotation_step2 = job.rotation_step2
+    initial_z_value = job.dock.initial_z_value
+    min_matched = job.dock.min_matched
+    high_quality_match_value = job.dock.match_value
+    rotation_step1 = job.dock.rotation_step1
+    rotation_step2 = job.dock.rotation_step2
     # Todo set below as parameters?
     low_quality_match_value = .2  # sets the lower bounds on an acceptable match, was upper bound of 2 using z-score
     clash_dist: float = 2.2
@@ -1341,15 +1327,19 @@ def nanohedra_dock(sym_entry: SymEntry, job: symjob.JobResources,
         clustering_start = time.time()
         # Must add a new axis to translations so the operations are broadcast together in transform_coordinate_sets()
         transform_neighbor_tree, transform_cluster = \
-            cluster.cluster_transformation_pairs(dict(rotation=full_rotation1,
-                                                      translation=None if full_int_tx1 is None else full_int_tx1[:, None, :],
-                                                      rotation2=set_mat1,
-                                                      translation2=None if full_ext_tx1 is None else full_ext_tx1[:, None, :]),
-                                                 dict(rotation=full_rotation2,
-                                                      translation=None if full_int_tx2 is None else full_int_tx2[:, None, :],
-                                                      rotation2=set_mat2,
-                                                      translation2=None if full_ext_tx2 is None else full_ext_tx2[:, None, :]),
-                                                 minimum_members=min_matched)
+            protocols.cluster.cluster_transformation_pairs(dict(rotation=full_rotation1,
+                                                                translation=None if full_int_tx1 is None
+                                                                else full_int_tx1[:, None, :],
+                                                                rotation2=set_mat1,
+                                                                translation2=None if full_ext_tx1 is None
+                                                                else full_ext_tx1[:, None, :]),
+                                                           dict(rotation=full_rotation2,
+                                                                translation=None if full_int_tx2 is None
+                                                                else full_int_tx2[:, None, :],
+                                                                rotation2=set_mat2,
+                                                                translation2=None if full_ext_tx2 is None
+                                                                else full_ext_tx2[:, None, :]),
+                                                           minimum_members=min_matched)
         # cluster_representative_indices, cluster_labels = \
         #     find_cluster_representatives(transform_neighbor_tree, transform_cluster)
         # representative_labels = cluster_labels[cluster_representative_indices]
@@ -1849,10 +1839,10 @@ def nanohedra_dock(sym_entry: SymEntry, job: symjob.JobResources,
             # Contact order is the same for every design in the Pose and not dependent on pose
             source_contact_order.append(entity.contact_order)
             # Replace 'errat_deviation' measurement with uncomplexed entities
-            # oligomer_errat_accuracy, oligomeric_errat = entity_oligomer.errat(out_path=self.data)
+            # oligomer_errat_accuracy, oligomeric_errat = entity_oligomer.errat(out_path=os.path.devnull)
             # Todo translate the source pose
             # Todo when Entity.oligomer works
-            #  _, oligomeric_errat = entity.oligomer.errat(out_path=self.data)
+            #  _, oligomeric_errat = entity.oligomer.errat(out_path=os.path.devnull)
             entity_oligomer = Model.from_chains(entity.chains, log=logger, entities=False)
             _, oligomeric_errat = entity_oligomer.errat(out_path=os.devnull)
             source_errat.append(oligomeric_errat[:entity.number_of_residues])
@@ -2194,7 +2184,7 @@ def nanohedra_dock(sym_entry: SymEntry, job: symjob.JobResources,
             # Remove old fragments
             pose.fragment_queries = {}
             # Query fragments
-            pose.generate_interface_fragments()  # write_fragments=job.write_fragments)
+            pose.generate_interface_fragments()
         else:  # Process with provided data
             # Return the indices sorted by z_value in ascending order, truncated at the number of passing
             sorted_match_scores = match_score_from_z_value(sorted_z_scores)
@@ -3901,9 +3891,9 @@ def nanohedra_dock(sym_entry: SymEntry, job: symjob.JobResources,
     pose_df.sort_index(level=0, axis=1, inplace=True, sort_remaining=False)  # ascending=False
     pose_df.name = str(building_blocks)
 
-    putils.make_path(job.all_scores)
     save = True
     if save:
+        putils.make_path(job.all_scores)
         trajectory_metrics_csv = os.path.join(job.all_scores, f'{building_blocks}_docked_poses_Trajectories.csv')
         pose_df.to_csv(trajectory_metrics_csv)
         logger.info(f'Wrote trajectory metrics to {trajectory_metrics_csv}')
@@ -3916,78 +3906,3 @@ def nanohedra_dock(sym_entry: SymEntry, job: symjob.JobResources,
 
     return terminate()  # End of docking run
     # return pose_s
-
-
-# if __name__ == '__main__':
-#     if len(sys.argv) > 1:
-#         # Parsing Command Line Input
-#         sym_entry_number, model1_path, model2_path, rot_step_deg1, rot_step_deg2, master_outdir, output_assembly, \
-#             output_surrounding_uc, min_matched, timer, initial, debug, high_quality_match_value, initial_z_value,\
-#             extra_args = nanohedra.cmdline.get_docking_parameters(sys.argv)
-#
-#         extra_kwargs = dict(zip(extra_args, repeat(True)))
-#         logger.debug(f'Generated extra keyword args: {extra_kwargs}')
-#
-#         # Master Log File
-#         master_log_filepath = os.path.join(master_outdir, putils.master_log)
-#         if debug:
-#             # Root logs to stream with level debug
-#             logger = start_log(level=1)
-#             set_logging_to_level()
-#             bb_logger = logger
-#             logger.debug('Debug mode. Generates verbose output. No writing to .log files will occur')
-#         else:
-#             # Set all modules to propagate logs to write to master logger file
-#             set_loggers_to_propagate()
-#             set_logging_to_level(handler_level=2)  # 3) Todo add back after testing
-#             # Root logger logs all emissions to a single file with level 'info'
-#             start_log(handler=2, location=master_log_filepath)
-#             # FragDock main logs to stream with level info
-#             logger = start_log(name=os.path.basename(__file__), propagate=True)
-#         # SymEntry Parameters
-#         symmetry_entry = symmetry_factory.get(sym_entry_number)  # sym_map inclusion?
-#
-#         if initial:
-#             # make master output directory
-#             putils.make_path(master_outdir)
-#             logger.info('Nanohedra\nMODE: DOCK\n')
-#             nanohedra.general.write_docking_parameters(model1_path, model2_path, rot_step_deg1, rot_step_deg2,
-#                                                        symmetry_entry, master_outdir, log=logger)
-#         else:  # for parallel runs, ensure that the first file was able to write before adding below logger
-#             time.sleep(1)
-#         # rot_step_deg1, rot_step_deg2 = \
-#         #     get_rotation_step(symmetry_entry, rot_step_deg1, rot_step_deg2, logger=logger)
-#
-#         model1_name = os.path.basename(os.path.splitext(model1_path)[0])
-#         model2_name = os.path.basename(os.path.splitext(model2_path)[0])
-#
-#         try:
-#             # Output Directory  # Todo PoseDirectory
-#             building_blocks = f'{model1_name}-{model2_name}'
-#             # outdir = os.path.join(master_outdir, building_blocks)
-#             # if not os.path.exists(outdir):
-#             #     os.makedirs(outdir)
-#
-#             # log_file_path = os.path.join(outdir, '%s_log.txt' % building_blocks)
-#             # if os.path.exists(log_file_path):
-#             #     resume = True
-#             # else:
-#             #     resume = False
-#             # bb_logger = start_log(name=building_blocks, handler=2, location=log_file_path, format_log=False)
-#             # bb_logger.info('Found a prior incomplete run! Resuming from last sampled transformation.\n') \
-#             #     if resume else None
-#
-#             # Write to Logfile
-#             # if not resume:
-#             #     bb_logger.info('DOCKING %s TO %s' % (model1_name, model2_name))
-#             #     bb_logger.info('Oligomer 1 Path: %s\nOligomer 2 Path: %s\n' % (model1_path, model2_path))
-#
-#             nanohedra_dock(symmetry_entry, master_outdir, model1_path, model2_path,
-#             #                rotation_step1=rot_step_deg1, rotation_step2=rot_step_deg2, min_matched=min_matched,
-#             #                high_quality_match_value=high_quality_match_value, initial_z_value=initial_z_value,
-#                            **extra_kwargs)
-#             logger.info(f'COMPLETE ==> {os.path.join(master_outdir, building_blocks)}\n\n')
-#
-#         except KeyboardInterrupt:
-#             print('\nRun Ended By KeyboardInterrupt\n')
-#             exit(2)

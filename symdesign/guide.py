@@ -1,7 +1,7 @@
 from symdesign.metrics import master_metrics, rosetta_required_metrics
 from symdesign.utils import pretty_format_table
 from symdesign.utils.path import term_constraint, evolution_constraint, hbnet, scout, program_command, \
-    select_sequences, program_name, structure_background, current_energy_function, number_of_trajectories, force_flags, \
+    select_sequences, program_name, structure_background, current_energy_function, number_of_trajectories, force, \
     interface_design, select_poses, analysis, protocol, select_designs, nanohedra, nano_publication, interface_metrics, \
     cluster_poses, optimize_designs, readme
 
@@ -10,7 +10,7 @@ module_help_string = f'"{program_command} MODULE --help" will direct you towards
 help_sentence = ' If you need guidance on structuring your job submission, include --help in any command.'
 general_rosetta_module_flags = \
     f'If the script should be run multiple times, include the flag "--{number_of_trajectories}" INT. ' \
-    f'If the specific flags should be generated fresh use "--{force_flags}"'
+    f'If any program files should be generated fresh, say because of modified arguments, use "--{force}"'
 select_advice =\
     f'It\'s recommended that %s is performed after {select_poses} as typically, many of the designs ' \
     f'from a single pose will have similar characteristics. Given that the degrees of freedom between a pose and each' \
@@ -191,10 +191,9 @@ additional = \
 
 
 def print_guide():
-    """Print the SymDesign guide and exit"""
+    """Print the SymDesign guide"""
     with open(readme, 'r') as f:
         print(f.read(), end='')
-    exit()
 
 
 def setup_instructions():
