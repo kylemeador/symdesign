@@ -1759,7 +1759,7 @@ def main():
         terminate(results=pose_directories)
     # ---------------------------------------------------
     elif job.module == flags.cluster_poses:
-        results = protocols.cluster.run()
+        results = protocols.cluster.cluster_poses()
         terminate(results=results)
     # ---------------------------------------------------
     elif job.module == flags.select_sequences:

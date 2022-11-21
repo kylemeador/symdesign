@@ -20,8 +20,8 @@ from symdesign import utils
 logger = logging.getLogger(__name__)
 
 
-def run(pose_directories: list[protocols.PoseDirectory]) -> \
-        dict[str | protocols.PoseDirectory, list[str | protocols.PoseDirectory]] | None:
+def cluster_poses(pose_directories: list[PoseDirectory]) -> \
+        dict[str | PoseDirectory, list[str | PoseDirectory]] | None:
     job = job_resources_factory.get()
     pose_cluster_map: dict[str | PoseDirectory, list[str | PoseDirectory]] = {}
     """Mapping which takes the format:
