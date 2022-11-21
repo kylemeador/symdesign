@@ -10,10 +10,10 @@ import subprocess
 from itertools import repeat, chain
 from typing import AnyStr
 
-from symdesign import utils
-from symdesign.utils.path import sbatch_template_dir, nanohedra, rosetta_main, rosetta_extras, dalphaball, \
-    submodule_help, program_name, interface_design, interface_metrics, optimize_designs, refine, rosetta_scripts_dir, \
-    sym_weights, solvent_weights_sym, solvent_weights, scout, consensus, hbnet_design_profile, structure_background
+from symdesign import flags, utils
+from symdesign.utils.path import sbatch_template_dir, rosetta_main, rosetta_extras, dalphaball, submodule_help, \
+    program_name, rosetta_scripts_dir, sym_weights, solvent_weights_sym, solvent_weights, hbnet_design_profile, \
+    hhblits
 
 # Globals
 cmd_dist = os.path.abspath(__file__)
@@ -69,68 +69,52 @@ rosetta_variables = [('scripts', rosetta_scripts_dir), ('sym_score_patch', sym_w
                      ('solvent_score_patch', solvent_weights)]
 # Those jobs having a scale of 2 utilize two threads. Therefore, two commands are selected from a supplied commands list
 # and are launched inside a python environment once the SLURM controller starts a SBATCH array job
-stage = {1: refine, 2: interface_design, 3: 'metrics', 4: 'analysis', 5: consensus,
-         6: 'rmsd_calculation', 7: 'all_to_all', 8: 'rmsd_clustering', 9: 'rmsd_to_cluster', 10: 'rmsd',
-         11: 'all_to_cluster', 12: scout, 13: hbnet_design_profile, 14: structure_background}
-process_scale = {refine: 2, interface_design: 2, stage[3]: 2, consensus: 2, nanohedra: 2,
-                 stage[6]: 1, stage[7]: 1, stage[8]: 1, stage[9]: 1, stage[10]: 1,
-                 stage[11]: 1, stage[12]: 2, stage[13]: 2, optimize_designs: 2,
-                 'metrics_bound': 2, interface_metrics: 2, 'hhblits': 1, 'bmdca': 2}
+process_scale = {
+    flags.refine: 2, flags.interface_design: 2, 'metrics': 2, flags.consensus: 2, flags.nanohedra: 2,
+    'rmsd_calculation': 1, 'all_to_all': 1, 'rmsd_clustering': 1, 'rmsd_to_cluster': 1, 'rmsd': 1, 'all_to_cluster': 1,
+    flags.scout: 2, hbnet_design_profile: 2, flags.optimize_designs: 2, 'metrics_bound': 2, flags.interface_metrics: 2,
+    hhblits: 1, 'bmdca': 2}
 # Cluster Dependencies and Multiprocessing
-sbatch_templates = {refine: os.path.join(sbatch_template_dir, refine),
-                    interface_design: os.path.join(sbatch_template_dir, interface_design),
-                    scout: os.path.join(sbatch_template_dir, interface_design),
-                    stage[3]: os.path.join(sbatch_template_dir, interface_design),
-                    stage[4]: os.path.join(sbatch_template_dir, refine),
-                    consensus: os.path.join(sbatch_template_dir, refine),
-                    nanohedra: os.path.join(sbatch_template_dir, nanohedra),
-                    stage[6]: os.path.join(sbatch_template_dir, stage[6]),
-                    stage[7]: os.path.join(sbatch_template_dir, stage[6]),
-                    stage[8]: os.path.join(sbatch_template_dir, stage[6]),
-                    stage[9]: os.path.join(sbatch_template_dir, stage[6]),
-                    'metrics_bound': os.path.join(sbatch_template_dir, interface_design),
-                    interface_metrics: os.path.join(sbatch_template_dir, interface_design),
-                    optimize_designs: os.path.join(sbatch_template_dir, 'hhblits'),
-                    'hhblits': os.path.join(sbatch_template_dir, 'hhblits'),
+sbatch_templates = {flags.refine: os.path.join(sbatch_template_dir, flags.refine),
+                    flags.interface_design: os.path.join(sbatch_template_dir, flags.interface_design),
+                    flags.scout: os.path.join(sbatch_template_dir, flags.interface_design),
+                    'metrics': os.path.join(sbatch_template_dir, flags.interface_design),
+                    flags.analysis: os.path.join(sbatch_template_dir, flags.refine),
+                    flags.consensus: os.path.join(sbatch_template_dir, flags.refine),
+                    flags.nanohedra: os.path.join(sbatch_template_dir, flags.nanohedra),
+                    'rmsd_calculation': os.path.join(sbatch_template_dir, 'rmsd_calculation'),
+                    'all_to_all': os.path.join(sbatch_template_dir, 'rmsd_calculation'),
+                    'rmsd_clustering': os.path.join(sbatch_template_dir, 'rmsd_calculation'),
+                    'rmsd_to_cluster': os.path.join(sbatch_template_dir, 'rmsd_calculation'),
+                    'metrics_bound': os.path.join(sbatch_template_dir, flags.interface_design),
+                    flags.interface_metrics: os.path.join(sbatch_template_dir, flags.interface_design),
+                    flags.optimize_designs: os.path.join(sbatch_template_dir, hhblits),
+                    'hhblits': os.path.join(sbatch_template_dir, hhblits),
                     'bmdca': os.path.join(sbatch_template_dir, 'bmdca')
                     }
 
 
-class GracefulKiller:
-    kill_now = False
-
-    def __init__(self):
-        signal.signal(signal.SIGINT, self.exit_gracefully)
-        signal.signal(signal.SIGTERM, self.exit_gracefully)
-
-    def exit_gracefully(self, signum, frame):
-        self.kill_now = True
-        with open(args.failure_file, 'a') as f:
-            for i, pose in enumerate(command_paths):
-                f.write('%s\n' % pose)
-
-        # Append SLURM output to log_file(s)
-        job_id = int(os.environ.get('SLURM_JOB_ID'))
-        file = 'output%s%s_%s.out' % (os.sep, job_id, array_task_number)
-        for i, task_id in enumerate(range(cmd_start_slice, cmd_end_slice)):
-            # file = '%s_%s.out' % (job_id, task_id)
-            run(file, log_files[i], program='cat')
-            # run(file, '/dev/null', program='rm')
-        return None
-
-
-def exit_gracefully(signum, frame):
-    with open(args.failure_file, 'a') as f:
-        for pose in command_paths:
-            f.write('%s\n' % pose)
-
-    # Append SLURM output to log_file(s)
-    job_id = int(os.environ.get('SLURM_JOB_ID'))
-    file = 'output%s%s_%s.out' % (os.sep, job_id, array_task_number)
-    for i, task_id in enumerate(range(cmd_start_slice, cmd_end_slice)):
-        # file = '%s_%s.out' % (job_id, task_id)
-        run(file, log_files[i], program='cat')
-        # run(file, '/dev/null', program='rm')
+# class GracefulKiller:
+#     kill_now = False
+#
+#     def __init__(self):
+#         signal.signal(signal.SIGINT, self.exit_gracefully)
+#         signal.signal(signal.SIGTERM, self.exit_gracefully)
+#
+#     def exit_gracefully(self, signum, frame):
+#         self.kill_now = True
+#         with open(args.failure_file, 'a') as f:
+#             for i, pose in enumerate(command_paths):
+#                 f.write('%s\n' % pose)
+#
+#         # Append SLURM output to log_file(s)
+#         job_id = int(os.environ.get('SLURM_JOB_ID'))
+#         file = 'output%s%s_%s.out' % (os.sep, job_id, array_task_number)
+#         for i, task_id in enumerate(range(cmd_start_slice, cmd_end_slice)):
+#             # file = '%s_%s.out' % (job_id, task_id)
+#             run(file, log_files[i], program='cat')
+#             # run(file, '/dev/null', program='rm')
+#         return None
 
 
 def create_file(file: AnyStr = None):
@@ -191,12 +175,12 @@ def distribute(file: AnyStr = None, out_path: AnyStr = os.getcwd(), scale: str =
     # If the commands are provided as a list of raw commands and not a command living in a PoseDirectory, the argument
     #     number_of_commands should be used! It will skip checking for the presence of commands in the corresponding
     #     PoseDirectory
-    if not scale:
+    if scale is None:
         # elif process_scale: Todo in order to make stage unnecessary, would need to provide scale and template
         #                      Could add a hyperthreading=True parameter to remove process scale
         #     command_divisor = process_scale
         # else:
-        raise utils.InputError('Required flag --stage not specified')
+        raise utils.InputError('Required argument "stage" not specified')
 
     script_or_command = \
         '{} is malformed at line {}. All commands should match.\n* * *\n{}\n* * *' \
@@ -279,17 +263,16 @@ def update_status(serialized_info: AnyStr, stage: str, mode: str = 'check'):
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='%s\nGather commands set up by %s and distribute to computational '
-                                                 'nodes for Rosetta processing.'
-                                                 % (os.path.basename(__file__), program_name))
+    parser = argparse.ArgumentParser(description=f'{os.path.basename(__file__)}\nGather commands set up by '
+                                                 f'{program_name} and distribute to computational nodes for processing')
     parser.add_argument('--stage', choices=tuple(process_scale.keys()),
-                        help='The stage of design to be distributed. Each stage has optimal computing requirements to'
-                             ' maximally utilize computers . One of %s' % ', '.join(list(process_scale.keys())))
+                        help='The stage of design to be distributed. Each stage has optimal computing requirements to '
+                             f'maximally utilize computers. One of {", ".join(list(process_scale.keys()))}')
     subparsers = parser.add_subparsers(title='SubModules', dest='module',
                                        description='These are the different modes that designs are processed',
                                        help='Chose one of the SubModules followed by SubModule specific flags. To get '
-                                            'help on a SubModule such as specific commands and flags enter: \n%s\n\nAny'
-                                            'SubModule help can be accessed in this way' % submodule_help)
+                                            'help on a SubModule such as specific commands and flags enter: \n'
+                                            f"{submodule_help}\n\nAny module's help can be accessed in this way")
     # ---------------------------------------------------
     parser_distribute = subparsers.add_parser('distribute', help='Submit a job to SLURM for processing')
     parser_distribute.add_argument('-f', '--command_file',
@@ -348,7 +331,7 @@ if __name__ == '__main__':
             log_files = [args.log_file for _ in specific_commands]
         elif program == 'bash':
             # v this overlaps with len(specific_commands[0].split()) > 1 as only shell scripts really satisfy this
-            log_files = ['%s.log' % os.path.splitext(shell_path)[0] for shell_path in specific_commands]
+            log_files = [f'{os.path.splitext(shell_path)[0]}.log' for shell_path in specific_commands]
         else:
             log_files = [None for shell_path in specific_commands]
 
@@ -361,15 +344,29 @@ if __name__ == '__main__':
         # while not complete:
         #     allocation = ['srun', '-c', 1, '-p', 'long', '--mem-per-cpu', CUtils.memory_scale[args.stage]]
         #     allocation = None
-        #     zipped_commands = zip(command_paths, log_files, repeat(allocation))
+        #     zipped_commands = zip(specific_commands, log_files, repeat(allocation))
         # print('Running command:\n', subprocess.list2cmdline(specific_commands[0]))
         zipped_commands = zip(specific_commands, log_files, repeat(program))
 
-        # Ensure all log files exist
+        # Ensure all log and reporting files exist
         for log_file in log_files:
             create_file(log_file)
         create_file(args.success_file)
         create_file(args.failure_file)
+
+        def exit_gracefully(signum, frame):
+            with open(args.failure_file, 'a') as f:
+                f.write('%s\n' % '\n'.join(specific_commands))
+
+            # Handle SLURM output
+            job_id = os.environ.get('SLURM_JOB_ID')
+            file = f'output{os.sep}{job_id}_{array_task_number}.out'
+            # for idx, task_id in enumerate(range(cmd_start_slice, cmd_end_slice)):
+            for log_file in log_files:
+                # Append SLURM output to log_file(s)
+                run(file, log_file, program='cat')
+                # # Remove SLURM output
+                # run(file, '/dev/null', program='rm')
 
         # Run commands in parallel
         # monitor = GracefulKiller()  # TODO solution to SIGTERM. TEST shows this doesn't appear to be possible...
