@@ -35,11 +35,11 @@ from symdesign.metrics import read_scores, interface_composition_similarity, unn
     process_residue_info, collapse_significance_threshold, calculate_collapse_metrics, errat_1_sigma, errat_2_sigma, \
     calculate_residue_surface_area, position_specific_divergence, calculate_sequence_observations_and_divergence, \
     incorporate_mutation_info, residue_classification, sum_per_residue_metrics
-from symdesign.resources.job import JobResources, job_resources_factory
-from symdesign.structure.base import Structure  # , Structures
+from symdesign.resources.job import job_resources_factory
+from symdesign.structure.base import Structure
 from symdesign.structure.fragment.db import FragmentDatabase
 from symdesign.structure.model import Pose, MultiModel, Models, Model, Entity
-from symdesign.structure.sequence import parse_pssm, generate_mutations_from_reference, \
+from symdesign.structure.sequence import generate_mutations_from_reference, \
     sequence_difference, MultipleSequenceAlignment, pssm_as_array, concatenate_profile, write_pssm_file
 from symdesign.structure.utils import protein_letters_3to1, protein_letters_1to3, DesignError, ClashError, SymmetryError
 from symdesign.utils import large_color_array, starttime, start_log, unpickle, pickle_object, index_intersection, \
@@ -49,7 +49,7 @@ from symdesign.utils.nanohedra.general import get_components_from_nanohedra_dock
 
 # Globals
 logger = logging.getLogger(__name__)
-pose_logger = start_log(name='pose', handler_level=3, propagate=True)
+# pose_logger = start_log(name='pose', handler_level=3, propagate=True)
 zero_offset = 1
 idx_slice = pd.IndexSlice
 # design_directory_modes = [putils.interface_design, 'dock', 'filter']
@@ -593,6 +593,8 @@ class PoseDirectory:
         if self.job.skip_logging or not self.job.construct_pose:  # Set up null_logger
             self.log = logging.getLogger('null')
         else:  # f'{__name__}.{self}'
+            if self.job.force:
+                os.system(f'rm {self.log_path}')
             self.log = start_log(name=f'pose.{self}', handler=handler, level=level, location=self.log_path,
                                  no_log_name=no_log_name)  # propagate=propagate,
 
@@ -972,7 +974,7 @@ class PoseDirectory:
             self.info['entity_names'] = self.entity_names
 
         # Save renumbered PDB to clean_asu.pdb
-        if not self.asu_path or not os.path.exists(self.asu_path):
+        if not self.asu_path or not os.path.exists(self.asu_path) or self.job.force:
             if not self.job.construct_pose:  # This is only true when self.job.nanohedra_output is True
                 return
             # elif self.job.output_to_directory:
@@ -1188,7 +1190,7 @@ class PoseDirectory:
         # self.entity_names not dependent on Pose load
         if len(self.entity_names) == 1:  # there is no unbound state to query as only one entity
             return []
-        if len(self.symmetry_definition_files) != len(self.entity_names) or self.job.force_flags:
+        if len(self.symmetry_definition_files) != len(self.entity_names) or self.job.force:
             for entity in self.pose.entities:
                 if entity.is_oligomeric():  # make symmetric energy in line with SymDesign energies v
                     entity.make_sdf(out_path=self.data,
@@ -1249,7 +1251,7 @@ class PoseDirectory:
             # generate_files_cmdline = []
 
         flags_file = os.path.join(flag_dir, 'flags_file')
-        if not os.path.exists(flags_file) or self.job.force_flags:
+        if not os.path.exists(flags_file) or self.job.force:
             self.prepare_rosetta_flags(pdb_out_path=pdb_out_path, out_dir=flag_dir)
             self.log.debug(f'Pose flags written to: {flags_file}')
             putils.make_path(pdb_out_path)
@@ -1381,7 +1383,7 @@ class PoseDirectory:
         # else:  # We only need to load pose as we already calculated interface
         #     self.load_pose()
 
-        if not os.path.exists(self.flags) or self.job.force_flags:
+        if not os.path.exists(self.flags) or self.job.force:
             self.prepare_rosetta_flags(out_dir=self.scripts)
             self.log.debug(f'Pose flags written to: {self.flags}')
 
@@ -1465,7 +1467,7 @@ class PoseDirectory:
         #     self.load_pose()
 
         # interface_secondary_structure
-        if not os.path.exists(self.flags) or self.job.force_flags:
+        if not os.path.exists(self.flags) or self.job.force:
             self.prepare_rosetta_flags(out_dir=self.scripts)
             self.log.debug(f'Pose flags written to: {self.flags}')
 
@@ -1829,7 +1831,7 @@ class PoseDirectory:
 
         main_cmd = copy(CommandDistributer.script_cmd)
         main_cmd += ['-symmetry_definition', 'CRYST1'] if self.design_dimension > 0 else []
-        if not os.path.exists(self.flags) or self.job.force_flags:
+        if not os.path.exists(self.flags) or self.job.force:
             self.prepare_rosetta_flags(out_dir=self.scripts)
             self.log.debug(f'Pose flags written to: {self.flags}')
 
@@ -2029,7 +2031,7 @@ class PoseDirectory:
 
         main_cmd = copy(CommandDistributer.script_cmd)
         main_cmd += ['-symmetry_definition', 'CRYST1'] if self.design_dimension > 0 else []
-        if not os.path.exists(self.flags) or self.job.force_flags:
+        if not os.path.exists(self.flags) or self.job.force:
             self.prepare_rosetta_flags(out_dir=self.scripts)
             self.log.debug(f'Pose flags written to: {self.flags}')
 

@@ -1528,13 +1528,13 @@ def main():
     # elif job.module == 'custom_script':
     #     # Start pose processing and preparation for Rosetta
     #     if args.multi_processing:
-    #         zipped_args = zip(pose_directories, repeat(args.script), repeat(args.force_flags),
+    #         zipped_args = zip(pose_directories, repeat(args.script), repeat(args.force),
     #                           repeat(args.file_list), repeat(args.native), repeat(args.suffix), repeat(args.score_only),
     #                           repeat(args.variables))
     #         results = utils.mp_starmap(PoseDirectory.custom_rosetta_script, zipped_args, processes=cores)
     #     else:
     #         for design in pose_directories:
-    #             results.append(design.custom_rosetta_script(args.script, force_flags=args.force_flags,
+    #             results.append(design.custom_rosetta_script(args.script, force=args.force,
     #                                                         file_list=args.file_list, native=args.native,
     #                                                         suffix=args.suffix, score_only=args.score_only,
     #                                                         variables=args.variables))

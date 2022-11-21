@@ -140,7 +140,7 @@ class JobResources:
         # self.match_value: bool = kwargs.get('match_value', False)
         # self.initial_z_value: bool = kwargs.get('initial_z_value', False)
         self.log_level: bool = kwargs.get('log_level', flags.default_logging_level)
-        self.force_flags: bool = kwargs.get(putils.force_flags, False)
+        self.force: bool = kwargs.get(putils.force, False)
         self.fuse_chains: list[tuple[str]] = [tuple(pair.split(':')) for pair in kwargs.get('fuse_chains', [])]
         self.design = Design.from_flags(**kwargs)
         # self.ignore_clashes: bool = kwargs.get(ignore_clashes, False)
