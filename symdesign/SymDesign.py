@@ -1038,7 +1038,7 @@ def main():
                 logger.critical('The requested poses require structural preprocessing before design modules should be '
                                 'used')
                 # Collect all entities required for processing the given commands
-                required_entities = list(map(set, list(zip(*[design.entity_names for design in pose_directories]))))
+                required_entities = list(map(set, list(zip(*[pose.entity_names for pose in pose_directories]))))
                 # Select entities, orient them, then load each entity to all_structures for further database processing
                 symmetry_map = job.sym_entry.groups if job.sym_entry else repeat(None)
                 for symmetry, entities in zip(symmetry_map, required_entities):
