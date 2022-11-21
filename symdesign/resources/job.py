@@ -97,10 +97,16 @@ class JobResources:
         self.structure_db = structure_db.structure_database_factory.get(source=self.data)
         self.fragment_db: 'db.FragmentDatabase' | None = None
 
-        # Development Flags
+        # Computing environment and development Flags
+        self.cores: int = kwargs.get('cores', 0)
+        self.distribute_work: bool = kwargs.get(putils.distribute_work, False)
+        self.mpi: int = kwargs.get('mpi', 0)
+        self.multi_processing: int = kwargs.get(putils.multi_processing, 0)
+        if self.mpi > 0:
+            self.distribute_work = True
+        self.development: bool = kwargs.get(putils.development, False)
         # self.command_only: bool = kwargs.get('command_only', False)
         """Whether to reissue commands, only if distribute_work=False"""
-        self.development: bool = kwargs.get(putils.development, False)
 
         # Program flags
         # self.consensus: bool = kwargs.get(consensus, False)  # Whether to run consensus
@@ -121,8 +127,6 @@ class JobResources:
         # self.proteinmpnn_score: bool = kwargs.get('proteinmpnn_score', False)
         # self.contiguous_ghosts: bool = kwargs.get('contiguous_ghosts', False)
 
-        self.only_write_frag_info: bool = kwargs.get('only_write_frag_info', False)
-        self.dock_only: bool = kwargs.get('dock_only', False)
         # self.rotation_step1: bool = kwargs.get('rotation_step1', False)
         # self.rotation_step2: bool = kwargs.get('rotation_step2', False)
         # self.min_matched: bool = kwargs.get('min_matched', False)
@@ -135,20 +139,18 @@ class JobResources:
         # self.ignore_clashes: bool = kwargs.get(ignore_clashes, False)
         if self.design.ignore_clashes:
             self.design.ignore_pose_clashes = self.design.ignore_symmetric_clashes = True
+        self.dock_only: bool = kwargs.get('dock_only', False)
         if self.dock_only:
             self.design.sequences = self.design.structures = False
+        self.only_write_frag_info: bool = kwargs.get('only_write_frag_info', False)
         # else:
         #     self.ignore_pose_clashes: bool = kwargs.get(ignore_pose_clashes, False)
         #     self.ignore_symmetric_clashes: bool = kwargs.get(ignore_symmetric_clashes, False)
         self.increment_chains: bool = kwargs.get('increment_chains', False)
-        self.mpi: int = kwargs.get('mpi', 0)
         # self.evolution_constraint: bool = kwargs.get(evolution_constraint, False)
         # self.hbnet: bool = kwargs.get(hbnet, False)
         # self.term_constraint: bool = kwargs.get(term_constraint, False)
         # self.number_of_trajectories: int = kwargs.get(number_of_trajectories, flags.nstruct)
-        self.distribute_work: bool = kwargs.get(putils.distribute_work, False)
-        if self.mpi > 0:
-            self.distribute_work = True
         # self.pre_refine: bool = kwargs.get('pre_refine', True)
         # self.pre_loop_model: bool = kwargs.get('pre_loop_model', True)
         self.generate_fragments: bool = kwargs.get(putils.generate_fragments, True)
@@ -172,8 +174,6 @@ class JobResources:
         self.save: bool = kwargs.get('save', False)
         self.figures: bool = kwargs.get('figures', False)
         self.skip_sequence_generation: bool = kwargs.get('skip_sequence_generation', False)
-        self.nanohedra_output: bool = kwargs.get('nanohedra_output', False)
-        self.nanohedra_root: str | None = None
 
         if self.write_structures or self.output_assembly or self.output_surrounding_uc or self.write_fragments \
                 or self.write_oligomers or self.write_trajectory:
@@ -181,6 +181,8 @@ class JobResources:
         else:
             self.output: bool = False
 
+        self.nanohedra_output: bool = kwargs.get('nanohedra_output', False)
+        self.nanohedra_root: str | None = None
         if self.nanohedra_output:
             self.construct_pose: bool = kwargs.get('construct_pose', True)  # Whether to construct the PoseDirectory
         else:
@@ -193,6 +195,7 @@ class JobResources:
         if self.design.structure_background:
             self.design.evolution_constraint = False
             self.design.hbnet = False
+            self.design.scout = False
             self.design.term_constraint = False
 
     @property
