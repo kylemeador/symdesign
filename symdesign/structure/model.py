@@ -3747,10 +3747,10 @@ class SymmetricModel(Models):
     _symmetric_coords_split: list[np.ndarray]
     _symmetric_coords_split_by_entity: list[list[np.ndarray]]
     _uc_dimensions: tuple[float, float, float, float, float, float] | None
-    deorthogonalization_matrix: np.ndarray
+    deorthogonalization_matrix: np.ndarray = utils.symmetry.identity_matrix
     expand_matrices: np.ndarray | list[list[float]] | None
     expand_translations: np.ndarray | list[float] | None
-    orthogonalization_matrix: np.ndarray
+    orthogonalization_matrix: np.ndarray = utils.symmetry.identity_matrix
     state_attributes: set[str] = Models.state_attributes | \
         {'_assembly', '_assembly_minimally_contacting', '_assembly_tree', '_asu_indices', '_asu_model_idx',
          '_center_of_mass_symmetric_entities', '_center_of_mass_symmetric_models',
@@ -3954,7 +3954,10 @@ class SymmetricModel(Models):
                           '_point_group_symmetry',
                           '_dimension',
                           '_cryst_record',
-                          '_number_of_symmetry_mates']
+                          '_number_of_symmetry_mates',
+                          'uc_volume',
+                          'orthogonalization_matrix',
+                          'deorthogonalization_matrix']
         for attribute in symmetry_state:
             try:
                 delattr(self, attribute)
