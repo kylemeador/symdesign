@@ -515,7 +515,7 @@ def main():
                 logger.info('Clustering analysis results in the following similar poses:\nRepresentatives\n\tMembers\n')
                 for representative, members, in results.items():
                     print(f'{representative}\n\t%s' % '\n\t'.join(map(str, members)))
-                logger.info(f'Found {len(pose_cluster_map)} unique clusters from {len(pose_directories)} pose inputs. '
+                logger.info(f'Found {len(results)} unique clusters from {len(pose_directories)} pose inputs. '
                             f'All clusters stored in {args.output_file}')
                 logger.info('Each cluster above has one representative which identifies with each of the members. If '
                             'clustering was performed by entity_transformations or interface_residues, then the '
