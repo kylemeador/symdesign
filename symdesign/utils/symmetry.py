@@ -38,17 +38,18 @@ space_group_cryst1_fmt_dict = {
     'P23': 'P 2 3', 'F23': 'F 2 3', 'I23': 'I 2 3', 'P213': 'P 21 3', 'I213': 'I 21 3', 'P432': 'P 4 3 2',
     'P4232': 'P 42 3 2', 'F432': 'F 4 3 2', 'F4132': 'F 41 3 2', 'I432': 'I 4 3 2', 'P4332': 'P 43 3 2',
     'P4132': 'P 41 3 2', 'I4132': 'I 41 3 2'}  # CUBIC
-layer_groups = {
+layer_groups = [
+    'p1'
+    'p2', 'p21', 'pg', 'p222', 'p2221', 'p22121',
+    'c222',
+    'p3', 'p312', 'p321',
+    'p4', 'p422', 'p4212',
+    'p6', 'p622'
+]
+nanohedra_layer_groups = ['p222', 'c222', 'p3', 'p312', 'p321', 'p4', 'p422', 'p4212', 'p6', 'p622']
+layer_group_cryst1_fmt_dict = {
     'p1': 'P 1',
     'p2': 'P 2', 'p21': 'P 21', 'pg': 'C 2', 'p222': 'P 2 2 2', 'p2221': 'P 2 2 21', 'p22121': 'P 2 21 21',
-    'c222': 'C 2 2 2',
-    'p3': 'P 3', 'p312': 'P 3 1 2', 'p321': 'P 3 2 1',
-    'p4': 'P 4', 'p422': 'P 4 2 2', 'p4212': 'P 4 21 2',
-    'p6': 'P 6', 'p622': 'P 6 2 2'
-}
-nanohedra_layer_groups = ['p222', 'c222', 'p3', 'p312', 'p321', 'p4', 'p422', 'p4212', 'p6', 'p622']
-layer_group_cryst1_fmt_dict = {  # MISSING 7 OF THESE
-    'p222': 'P 2 2 2',
     'c222': 'C 2 2 2',
     'p3': 'P 3', 'p312': 'P 3 1 2', 'p321': 'P 3 2 1',
     'p4': 'P 4', 'p422': 'P 4 2 2', 'p4212': 'P 4 21 2',
@@ -172,8 +173,9 @@ def multicomponent_by_number(number):
 
 
 # Todo make dynamic based on max_sym
-valid_subunit_number = {'C1': 1, 'C2': 2, 'C3': 3, 'C4': 4, 'C5': 5, 'C6': 6, 'D2': 4, 'D3': 6, 'D4': 8, 'D5': 10,
-                        'D6': 12, 'T': 12, 'O': 24, 'I': 60}
+valid_subunit_number = {'C1': 1, 'C2': 2, 'C3': 3, 'C4': 4, 'C5': 5, 'C6': 6,
+                        'D2': 4, 'D3': 6, 'D4': 8, 'D5': 10, 'D6': 12,
+                        'T': 12, 'O': 24, 'I': 60}
 valid_symmetries = list(valid_subunit_number.keys())
 multicomponent_valid_subunit_number = \
     {sym: multicomponent_by_number(copy_number) for sym, copy_number in valid_subunit_number.items()}
