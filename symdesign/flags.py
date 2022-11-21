@@ -589,7 +589,7 @@ cluster_poses_help = 'Cluster all poses by their spatial or interfacial similari
                      'conformationally flexible docked configurations'
 parser_cluster = {cluster_poses: dict(description=cluster_poses_help, help=cluster_poses_help)}
 cluster_poses_arguments = {
-    ('-m', '--mode'): dict(type=str.lower, choices=['transform', 'ialign'], metavar='', default='transform',
+    ('-m', '--mode'): dict(type=str.lower, choices=['ialign', 'rmsd', 'transform'], metavar='', default='transform',
                            help='Which type of clustering should be performed?'
                                 '\nChoices=%(choices)s\nDefault=%(default)s'),
     ('--as-objects',): dict(action='store_true', help='Whether to store the resulting pose cluster file as '

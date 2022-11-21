@@ -3,8 +3,8 @@ from __future__ import annotations
 import logging
 import os
 import subprocess
-from itertools import combinations
-from typing import Iterable, Any
+from itertools import combinations, repeat
+from typing import Iterable, Any, AnyStr
 from warnings import catch_warnings, simplefilter
 
 import numpy as np
@@ -12,6 +12,7 @@ import pandas as pd
 import sklearn
 
 from symdesign import utils
+from symdesign.utils import path as putils
 from symdesign.metrics import prioritize_design_indices, nanohedra_metrics  # query_user_for_metrics,
 from symdesign.protocols.protocols import PoseDirectory
 from symdesign.structure.coords import superposition3d, transform_coordinate_sets
@@ -72,39 +73,8 @@ logger = logging.getLogger(__name__)
 #             pose_map[protein_path] = {str(singlets[protein_pair]): {str(singlets[protein_pair]): 0.0}}
 #
 #     return pose_map
-
-
-def pose_pair_rmsd(pair: tuple[PoseDirectory, PoseDirectory]) -> float:
-    """Calculate the rmsd between pairs of Poses using CB coordinates. Must be the same length pose
-
-    Args:
-        pair: Paired PoseDirectory objects from pose processing directories
-    Returns:
-        RMSD value
-    """
-    #  using the intersecting residues at the interface of each pose
-
-    # # protein_pair_path = pair[0].composition
-    # # Grab designed resides from the pose_directory
-    # design_residues = [set(pose.interface_design_residue_numbers) for pose in pair]
-    #
-    # # Set up the list of residues undergoing design (interface) on each pair. Return the intersection
-    # # could use the union as well...?
-    # des_residue_set = index_intersection(design_residues)
-    # if not des_residue_set:  # when the two structures are not overlapped
-    #     return np.nan
-    # else:
-    #     # pdb_parser = PDBParser(QUIET=True)
-    #     # pair_structures = [pdb_parser.get_structure(str(pose), pose.asu) for pose in pair]
-    #     # rmsd_residue_list = [[residue for residue in structure.residues  # residue.get_id()[1] is res number
-    #     #                       if residue.get_id()[1] in des_residue_set] for structure in pair_structures]
-    #     # pair_atom_list = [[atom for atom in unfold_entities(entity_list, 'A') if atom.get_id() == 'CA']
-    #     #                   for entity_list in rmsd_residue_list]
-    #     #
-    #     # return superimpose(pair_atom_list)
-    return superposition3d(*[pose.pose.cb_coords for pose in pair])[0]
-
-
+#
+#
 # def pose_rmsd_s(all_des_dirs):
 #     pose_map = {}
 #     for pair in combinations(all_des_dirs, 2):
@@ -123,8 +93,8 @@ def pose_pair_rmsd(pair: tuple[PoseDirectory, PoseDirectory]) -> float:
 #             #     # pdb = parser.get_structure(pdb_name, filepath)
 #             #     pair_structures = [pdb_parser.get_structure(str(pose), pose.asu) for pose in pair]
 #             #     # returns a list with all ca atoms from a structure
-#             #     # pair_atoms = SDUtils.get_rmsd_atoms([pair[0].asu, pair[1].asu], SDUtils.get_biopdb_ca)
-#             #     # pair_atoms = SDUtils.get_rmsd_atoms([pair[0].path, pair[1].path], SDUtils.get_biopdb_ca)
+#             #     # pair_atoms = utils.get_rmsd_atoms([pair[0].asu, pair[1].asu], utils.get_biopdb_ca)
+#             #     # pair_atoms = utils.get_rmsd_atoms([pair[0].path, pair[1].path], utils.get_biopdb_ca)
 #             #
 #             #     # pair should be a structure...
 #             #     # for structure in pair_structures:
@@ -142,10 +112,10 @@ def pose_pair_rmsd(pair: tuple[PoseDirectory, PoseDirectory]) -> float:
 #             #     pair_atom_list = [[atom for atom in unfold_entities(entity_list, 'A') if atom.get_id() == 'CA']
 #             #                       for entity_list in rmsd_residue_list]
 #             #     # [atom for atom in structure.get_atoms if atom.get_id() == 'CA']
-#             #     # pair_atom_list = SDUtils.get_rmsd_atoms(rmsd_residue_list, SDUtils.get_biopdb_ca)
-#             #     # pair_rmsd = SDUtils.superimpose(pair_atoms, threshold)
+#             #     # pair_atom_list = utils.get_rmsd_atoms(rmsd_residue_list, utils.get_biopdb_ca)
+#             #     # pair_rmsd = utils.superimpose(pair_atoms, threshold)
 #             #
-#             #     pair_rmsd = SDUtils.superimpose(pair_atom_list)  # , threshold)
+#             #     pair_rmsd = utils.superimpose(pair_atom_list)  # , threshold)
 #             # if not pair_rmsd:
 #             #     continue
 #             if protein_pair_path in pose_map:
@@ -170,26 +140,56 @@ def pose_pair_rmsd(pair: tuple[PoseDirectory, PoseDirectory]) -> float:
 #
 #     return pose_map
 
+def pose_pair_rmsd(pair: tuple[PoseDirectory, PoseDirectory]) -> float:
+    """Calculate the rmsd between pairs of Poses using CB coordinates. Must be the same length pose
 
-def ialign(pdb_file1, pdb_file2, chain1=None, chain2=None, out_path=os.path.join(os.getcwd(), 'ialign')):
-    """Run non-sequential iAlign on two .pdb files
+    Args:
+        pair: Paired PoseDirectory objects from pose processing directories
+    Returns:
+        RMSD value
+    """
+    # This focuses on all residues, not any particular set of residues
+    return superposition3d(*[pose.pose.cb_coords for pose in pair])[0]
+
+
+def pose_pair_by_rmsd(compositions: Iterable[tuple[PoseDirectory, PoseDirectory]]) \
+        -> dict[str | PoseDirectory, list[str | PoseDirectory]]:
+    """Perform rmsd comparison for a set of identified compositions
+
+    Args:
+        compositions:
 
     Returns:
-        (float): The IS score from Mu & Skolnic 2010
-    """
-    # example command
-    # perl ../bin/ialign.pl -w output -s -a 0 1lyl.pdb AC 12as.pdb AB | grep "IS-score = "
-    # output
-    # IS-score = 0.38840, P-value = 0.3808E-003, Z-score =  7.873
-    # chains = []
-    # if chain1:
-    #     chains += ['-c1', chain1]
-    # if chain2:
-    #     chains += ['-c2', chain2]
 
-    if not chain1:
+    """
+    for pose_directories in compositions:
+        # Make all pose_directory combinations for this pair
+        pose_dir_pairs = list(combinations(pose_directories, 2))
+        results = [pose_pair_rmsd(pair) for pair in pose_dir_pairs]
+        # Add all identical comparison results (all rmsd are 0 as they are with themselves
+        results.extend(list(repeat(0, len(pose_directories))))
+        # Add all identical pose_directory combinations to pose_dir_pairs
+        pose_dir_pairs.extend(list(zip(pose_directories, pose_directories)))
+
+        return cluster_poses_by_value(pose_dir_pairs, results)
+
+
+def ialign(pdb_file1: AnyStr, pdb_file2: AnyStr, chain1: str = None, chain2: str = None,
+           out_path: AnyStr = os.path.join(os.getcwd(), 'ialign')) -> float:
+    """Run non-sequential iAlign on two .pdb files
+
+    Args:
+        pdb_file1:
+        pdb_file2:
+        chain1:
+        chain2:
+        out_path: The path to write iAlign results to
+    Returns:
+        The IS score from Mu & Skolnic 2010
+    """
+    if chain1 is None:
         chain1 = 'AB'
-    if not chain2:
+    if chain2 is None:
         chain2 = 'AB'
     chains = ['-c1', chain1, '-c2', chain2]
 
@@ -197,33 +197,34 @@ def ialign(pdb_file1, pdb_file2, chain1=None, chain2=None, out_path=os.path.join
                                   os.path.basename(pdb_file1.translate(utils.digit_translate_table)))
     temp_pdb_file2 = os.path.join(os.getcwd(), 'temp',
                                   os.path.basename(pdb_file2.translate(utils.digit_translate_table)))
-    os.system('scp %s %s' % (pdb_file1, temp_pdb_file1))
-    os.system('scp %s %s' % (pdb_file2, temp_pdb_file2))
-    # cmd = ['perl', utils.path.ialign_exe_path, '-s', '-w', out_path, '-p1', pdb_file1, '-p2', pdb_file2] + chains
-    cmd = ['perl', utils.path.ialign_exe_path, '-s', '-w', out_path, '-p1', temp_pdb_file1, '-p2', temp_pdb_file2]\
-          + chains
-    logger.debug('iAlign command: %s' % subprocess.list2cmdline(cmd))
+    # Move the desired files to a temporary file location
+    os.system(f'scp {pdb_file1} {temp_pdb_file1}')
+    os.system(f'scp {pdb_file2} {temp_pdb_file2}')
+    # Perform the iAlign process
+    # Example: perl ../bin/ialign.pl -w output -s -a 0 1lyl.pdb AC 12as.pdb AB | grep "IS-score = "
+    cmd = ['perl', putils.ialign_exe_path, '-s', '-w', out_path, '-p1', temp_pdb_file1, '-p2', temp_pdb_file2] + chains
+    logger.debug(f'iAlign command: {subprocess.list2cmdline(cmd)}')
     ialign_p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     ialign_out, ialign_err = ialign_p.communicate()
+    # Format the output
+    # Example: IS-score = 0.38840, P-value = 0.3808E-003, Z-score =  7.873
     grep_p = subprocess.Popen(['grep', 'IS-score = '], stdin=subprocess.PIPE, stdout=subprocess.PIPE)
     ialign_is_score, err = grep_p.communicate(input=ialign_out)
-
     ialign_is_score = ialign_is_score.decode()
+    logger.debug(f'iAlign interface alignment: {ialign_is_score.strip()}')
+    is_score, pvalue, z_score = [score.split('=')[-1].strip() for score in ialign_is_score.split(',')]
     try:
-        is_score, pvalue, z_score = [score.split('=')[-1].strip() for score in ialign_is_score.split(',')]
-        logger.info('iAlign interface alignment: %s' % ialign_is_score.strip())
-        return float(is_score)
-        # return float(is_score), \
-        #     os.path.splitext(os.path.basename(pdb_file1))[0], os.path.splitext(os.path.basename(pdb_file2))[0]
-    except ValueError:
-        logger.info('No significiant interface found')
-        pass
-    return 0.0
-    # return 0.0, \
+        is_score = float(is_score)
+    except ValueError:  # is_score isn't a number
+        logger.debug('No significant interface found')
+        is_score = 0.
+
+    return is_score
+    # return 0., \
     #     os.path.splitext(os.path.basename(pdb_file1))[0], os.path.splitext(os.path.basename(pdb_file2))[0]
 
 
-def cluster_poses(identifier_pairs: Iterable[tuple[Any, Any]], values: Iterable[float], epsilon: float = 1.) -> \
+def cluster_poses_by_value(identifier_pairs: Iterable[tuple[Any, Any]], values: Iterable[float], epsilon: float = 1.) -> \
         dict[str | PoseDirectory, list[str | PoseDirectory]]:
     """Take pairs of identifiers and a computed value (such as RMSD) and cluster using DBSCAN algorithm
 
@@ -234,7 +235,7 @@ def cluster_poses(identifier_pairs: Iterable[tuple[Any, Any]], values: Iterable[
     Returns:
         {PoseDirectory representative: [PoseDirectory members], ... }
     """
-    # BELOW IS THE INPUT FORMAT I WANT FOR cluster_poses()
+    # BELOW IS THE INPUT FORMAT I WANT FOR cluster_poses_by_value()
     # index = list(combinations(pose_directories, 2)) + list(zip(pose_directories, pose_directories))
     # values = values + tuple(repeat(0, len(pose_directories)))
     # pd.Series(values, index=pd.MultiIndex.from_tuples(index)).unstack()
@@ -255,10 +256,10 @@ def cluster_poses(identifier_pairs: Iterable[tuple[Any, Any]], values: Iterable[
     # find the cluster representative by minimizing the cluster mean
     cluster_ids = set(dbscan.labels_)
     # print(dbscan.labels_)
-    # use of dbscan.core_sample_indices_ returns all core_samples which is not a nearest neighbors mean index
+    # Use of dbscan.core_sample_indices_ returns all core_samples which is not a nearest neighbors mean index
     # print(dbscan.core_sample_indices_)
     try:
-        cluster_ids.remove(-1)  # remove outlier label, will add all these later
+        cluster_ids.remove(-1)  # Remove outlier label, will add all these later
     except KeyError:
         pass
 
@@ -458,7 +459,7 @@ def find_cluster_representatives(transform_tree: sklearn.neighbors._unsupervised
 
 # @handle_design_errors(errors=(DesignError, AssertionError))
 # @handle_errors(errors=(DesignError, ))
-def cluster_designs(compositions: list[PoseDirectory]) -> dict[str | PoseDirectory, list[str | PoseDirectory]]:
+def cluster_transformations(compositions: list[PoseDirectory]) -> dict[str | PoseDirectory, list[str | PoseDirectory]]:
     """From a group of poses with matching protein composition, cluster the designs according to transformational
     parameters to identify the unique poses in each composition
 
