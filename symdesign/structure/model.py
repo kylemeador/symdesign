@@ -3832,10 +3832,13 @@ class SymmetricModel(Models):
         if symmetry:  # ensure conversion to Hermann–Mauguin notation. ex: P23 not P 2 3
             symmetry = ''.join(symmetry.split())
 
-        if sym_entry:
-            if isinstance(sym_entry, utils.SymEntry.SymEntry):  # attach if SymEntry class set up
-                self.sym_entry = sym_entry
-            else:  # try to solv using integer and any info in symmetry. Fails upon non Nanohedra chiral space-group...
+        if sym_entry is not None:
+            if isinstance(sym_entry, utils.SymEntry.SymEntry):
+                if sym_entry.number == 0:  # Unique key specifying use of the CRYST1 record. Replace with relevant info
+                    self.sym_entry = utils.SymEntry.SymEntry.from_cryst(symmetry=symmetry)
+                else:
+                    self.sym_entry = sym_entry  # Attach as this is set up properly
+            else:  # Try to solve using integer and any info in symmetry. Fails upon non Nanohedra chiral space-group...
                 self.sym_entry = utils.SymEntry.parse_symmetry_to_sym_entry(sym_entry=sym_entry, symmetry=symmetry)
         elif symmetry:  # either provided or solved from cryst_record
             # existing sym_entry takes precedence since the user specified it
