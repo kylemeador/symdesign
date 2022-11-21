@@ -1116,14 +1116,11 @@ class PoseDirectory:
                     self.symmetry_protocol (str)
                     self.sym_def_file (AnyStr)
                 """
-                if self.design_dimension is None:  # asymmetric
+                if self.sym_entry is None:  # asymmetric
                     self.symmetry_protocol = 'asymmetric'
                     # self.sym_def_file = sdf_lookup()
-                    self.log.critical(
-                        "No symmetry invoked during design. Rosetta will still design your PDB, however, if it's"
-                        ' an ASU it may be missing crucial interface contacts. Is this what you want?')
+                    self.log.debug('No symmetry invoked during design')
                 else:  # Symmetric
-                    # self.log.debug(f'Design has Symmetry Entry Number: {self.sym_entry.entry_number} (Laniado & Yeates, 2020)')
                     self.symmetry_protocol = symmetry_protocols[self.design_dimension]
                     self.sym_def_file = self.sym_entry.sdf_lookup()
                 self.log.info(f'Symmetry Option: {self.symmetry_protocol}')

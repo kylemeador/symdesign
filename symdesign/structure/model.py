@@ -3824,12 +3824,12 @@ class SymmetricModel(Models):
             uc_dimensions: Whether the symmetric coords should be generated from the ASU coords
             expand_matrices: A set of custom expansion matrices
         """
-        # try to solve for symmetry as we want uc_dimensions if available for cryst ops
-        if self.cryst_record:  # was populated from file parsing
-            if not uc_dimensions and not symmetry:  # only if user didn't provide either
+        # Try to solve for symmetry as we want uc_dimensions if available for cryst ops
+        if self.cryst_record:  # Was populated from file parsing
+            if uc_dimensions is None and symmetry is None:  # Only if user didn't provide either
                 uc_dimensions, symmetry = parse_cryst_record(self.cryst_record)
 
-        if symmetry:  # ensure conversion to Hermann–Mauguin notation. ex: P23 not P 2 3
+        if symmetry is not None:  # Ensure conversion to Hermann–Mauguin notation. ex: P23 not P 2 3
             symmetry = ''.join(symmetry.split())
 
         if sym_entry is not None:
@@ -3840,12 +3840,12 @@ class SymmetricModel(Models):
                     self.sym_entry = sym_entry  # Attach as this is set up properly
             else:  # Try to solve using integer and any info in symmetry. Fails upon non Nanohedra chiral space-group...
                 self.sym_entry = utils.SymEntry.parse_symmetry_to_sym_entry(sym_entry=sym_entry, symmetry=symmetry)
-        elif symmetry:  # either provided or solved from cryst_record
-            # existing sym_entry takes precedence since the user specified it
+        elif symmetry:  # Either provided or solved from cryst_record
+            # Existing sym_entry takes precedence since the user specified it
             try:  # Fails upon non Nanohedra chiral space-group...
                 if not self.sym_entry:  # ensure conversion to Hermann–Mauguin notation. ex: P23 not P 2 3
                     self.sym_entry = utils.SymEntry.parse_symmetry_to_sym_entry(symmetry=symmetry)
-            except ValueError as error:  # let's print the error and move on since this is likely just parsed
+            except ValueError as error:  # Let's print the error and move on since this is likely just parsed
                 logger.warning(str(error))
                 self.symmetry = symmetry
                 # not sure if cryst record can differentiate between 2D and 3D. 3D will be wrong if actually 2D
@@ -3871,17 +3871,17 @@ class SymmetricModel(Models):
             #     raise utils.DesignError('Symmetry %s is not available yet! Get the canonical symm operators from %s '
             #                             'and add to the pickled operators if this displeases you!'
             #                             % (symmetry, putils.orient_dir))
-        else:  # no symmetry was provided
-            # since this is now subclassed by Pose, lets ignore this error since self.symmetry is explicitly False
-            return
+        else:  # No symmetry was provided
+            # Since this is now subclassed by Pose, lets ignore this error since self.symmetry is explicitly False
             # raise utils.SymmetryError('A SymmetricModel was initiated without any symmetry! Ensure you specify the
             #                           'symmetry upon class initialization by passing symmetry=, or sym_entry=')
+            return
 
-        # set the uc_dimensions if they were parsed or provided
+        # Set the uc_dimensions if they were parsed or provided
         if uc_dimensions is not None and self.dimension > 0:
             self.uc_dimensions = uc_dimensions
 
-        if expand_matrices is not None:  # perhaps these would be from a fiber or some sort of BIOMT?
+        if expand_matrices is not None:  # Perhaps these would be from a fiber or some sort of BIOMT?
             if isinstance(expand_matrices, tuple) and len(expand_matrices) == 2:
                 self.log.critical('Providing expansion matrices may result in program crash if you '
                                   'don\'t work on the SymmetricModel class! Proceed with caution')
@@ -3889,8 +3889,8 @@ class SymmetricModel(Models):
                 self.expand_translations = \
                     np.ndarray(expand_translations) if not isinstance(expand_translations, np.ndarray) \
                     else expand_translations
-                # lets assume expand_matrices were provided in a standard orientation and transpose
-                # using .swapaxes(-2, -1) call instead of .transpose() for safety
+                # Let's assume expand_matrices were provided in a standard orientation and transpose
+                # Using .swapaxes(-2, -1) call here instead of .transpose() for safety
                 self.expand_matrices = \
                     np.ndarray(expand_matrices).swapaxes(-2, -1) if not isinstance(expand_matrices, np.ndarray) \
                     else expand_matrices
@@ -3946,7 +3946,7 @@ class SymmetricModel(Models):
     def sym_entry(self, sym_entry: utils.SymEntry.SymEntry | int):
         if isinstance(sym_entry, utils.SymEntry.SymEntry):
             self._sym_entry = sym_entry
-        else:  # try to convert
+        else:  # Try to convert
             self._sym_entry = utils.SymEntry.symmetry_factory.get(sym_entry)
 
         symmetry_state = ['_symmetry',
@@ -4063,11 +4063,13 @@ class SymmetricModel(Models):
     @property
     def cryst_record(self) -> str | None:
         """Return the symmetry parameters as a CRYST1 entry"""
-        # Todo should we always use a generated _cryst_record? If read from file, but a Nanohedra based cryst was made
-        #  then it would be wrong since it wouldn't be used
         try:
+            # Todo
+            #  If read from entity file for example, but a Nanohedra cryst was provided, then Nanohedra wouldn't be used
             return self._cryst_record
-        except AttributeError:  # for now don't use if the structure wasn't symmetric and no attribute was parsed
+        except AttributeError:  # As of now, don't use if the structure wasn't symmetric and no attribute was parsed
+            # Todo
+            #  Should we always generate _cryst_record?
             self._cryst_record = None if not self.is_symmetric() or self.dimension == 0 \
                 else utils.symmetry.generate_cryst1_record(self.uc_dimensions, self.symmetry)
             return self._cryst_record
