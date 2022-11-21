@@ -3388,11 +3388,7 @@ def interface_design_analysis(pose: Pose, design_poses: Iterable[Pose] = None, s
     Returns:
         Series containing summary metrics for all designs in the design directory
     """
-    # Todo find parameters for
-    #  self.residues
-    #  self.trajectories
-    #  self.design_sequences
-    #  self.data
+    # Todo move PoseDirectory to pose.path attribute
     job = job_resources_factory.get(**kwargs)
     # if pose.interface_residue_numbers is False or pose.interface_design_residue_numbers is False:
     pose.find_and_split_interface()
@@ -4264,9 +4260,9 @@ def interface_design_analysis(pose: Pose, design_poses: Iterable[Pose] = None, s
             trajectory_df = pd.concat([trajectory_df], axis=1, keys=['metrics'])
             trajectory_df = pd.merge(trajectory_df, residue_df, left_index=True, right_index=True)
         else:
-            residue_df.to_csv(self.residues)
-        trajectory_df.to_csv(self.trajectories)
-        pickle_object(entity_sequences, self.design_sequences, out_path='')
+            residue_df.to_csv(pose.path.residues)
+        trajectory_df.to_csv(pose.path.trajectories)
+        pickle_object(entity_sequences, pose.path.design_sequences, out_path='')
 
     # Create figures
     if job.figures:  # for plotting collapse profile, errat data, contact order
@@ -4426,7 +4422,7 @@ def interface_design_analysis(pose: Pose, design_poses: Iterable[Pose] = None, s
         plt.legend(handles, labels, loc='upper center', bbox_to_anchor=(0.5, -1.), ncol=3)  # , mode='expand')
         #            bbox_transform=plt.gcf().transFigure)  # , bbox_transform=collapse_ax.transAxes)
         fig.tight_layout()
-        fig.savefig(os.path.join(self.data, 'DesignMetricsPerResidues.png'))
+        fig.savefig(os.path.join(pose.path.data, 'DesignMetricsPerResidues.png'))
 
     # After parsing data sources
     interface_metrics_s = pd.concat([interface_metrics_s], keys=[('dock', 'pose')])
