@@ -3834,7 +3834,7 @@ class SymmetricModel(Models):
 
         if sym_entry is not None:
             if isinstance(sym_entry, utils.SymEntry.SymEntry):
-                if sym_entry.number == 0:  # Unique key specifying use of the CRYST1 record. Replace with relevant info
+                if sym_entry.entry_number == 0:  # Unique key specifying use of the CRYST1 record. Replace with relevant info
                     self.sym_entry = utils.SymEntry.SymEntry.from_cryst(symmetry=symmetry)
                 else:
                     self.sym_entry = sym_entry  # Attach as this is set up properly

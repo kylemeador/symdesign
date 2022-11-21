@@ -405,6 +405,20 @@ def main():
     # -----------------------------------------------------------------------------------------------------------------
     #  Initialize local functions
     # -----------------------------------------------------------------------------------------------------------------
+    def parse_protocol_results(_results: list[Any] | dict = None, **kwargs):
+        """For a multi-module protocol, filter out any exceptions before proceeding to the next module
+
+        Returns:
+            Tuple of passing PoseDirectories and Exceptions
+        """
+        _pose_directories = \
+            [pose_directories[idx] for idx, result in enumerate(_results) if
+             not isinstance(result, BaseException)]
+        _exceptions = \
+            [(pose_directories[idx], exception) for idx, exception in enumerate(_results)
+             if isinstance(exception, BaseException)]
+        return _pose_directories, _exceptions
+
     def terminate(results: list[Any] | dict = None, output: bool = True, **kwargs):
         """Format designs passing output parameters and report program exceptions
 
@@ -745,7 +759,7 @@ def main():
     if args.module == flags.nanohedra:  # Remove the dummy input
         del args.file
 
-    queried_flags = vars(args)
+    queried_flags = vars(args).copy()
     # -----------------------------------------------------------------------------------------------------------------
     #  Find base symdesign_directory and check for proper set up of program i/o
     # -----------------------------------------------------------------------------------------------------------------
