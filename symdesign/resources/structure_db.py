@@ -531,7 +531,7 @@ class StructureDatabase(Database):
                                              name=f'{utils.starttime}-refine_entities')
                     refine_sbatch = \
                         utils.CommandDistributer.distribute(file=commands_file, out_path=script_out_path,
-                                                            scale=putils.refine,
+                                                            scale=flags.refine,
                                                             log_file=os.path.join(refine_dir,
                                                                                   f'{putils.refine}.log'),
                                                             max_jobs=int(len(refine_cmds) / 2 + 0.5),
@@ -622,7 +622,7 @@ class StructureDatabase(Database):
                                              out_path=full_model_dir)
                     loop_model_sbatch = \
                         utils.CommandDistributer.distribute(file=loop_cmds_file, out_path=script_out_path,
-                                                            scale=putils.refine,
+                                                            scale=flags.refine,
                                                             log_file=os.path.join(full_model_dir, 'loop_model.log'),
                                                             max_jobs=int(len(loop_model_cmds) / 2 + 0.5),
                                                             number_of_commands=len(loop_model_cmds))
