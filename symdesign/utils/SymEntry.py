@@ -294,16 +294,18 @@ class SymEntry:
 
     def __init__(self, entry: int, sym_map: list[str] = None, **kwargs):
         try:
-            # group1, self.int_dof_group1, self.rot_set_group1, self.ref_frame_tx_dof1, \
-            #     group2, self.int_dof_group2, self.rot_set_group2, self.ref_frame_tx_dof2, \
-            #     self.point_group_symmetry, self.resulting_symmetry, self.dimension, self.unit_cell, self.tot_dof, \
-            #     self.cycle_size = nanohedra_symmetry_combinations.get(entry)
-            group_info, result_info = parsed_symmetry_combinations.get(entry)
+            group_info, result_info = parsed_symmetry_combinations[entry]
             # returns
             #  {'group1': [self.int_dof_group1, self.rot_set_group1, self.ref_frame_tx_dof1],
             #   'group2': [self.int_dof_group2, self.rot_set_group2, self.ref_frame_tx_dof2],
             #   ...},
             #  [point_group_symmetry, resulting_symmetry, dimension, unit_cell, tot_dof, cycle_size]
+        except KeyError:
+            raise ValueError(f'Invalid symmetry entry "{entry}". Supported values are Nanohedra entries: '
+                             f'{1}-{len(nanohedra_symmetry_combinations)} and custom entries: '
+                             f'{", ".join(map(str, custom_entries))}')
+
+        try:  # To unpack the result_info. This will fail if a CRYST1 record placeholder
             self.point_group_symmetry, self.resulting_symmetry, self.dimension, self.unit_cell, self.total_dof, \
                 self.cycle_size = result_info
         except ValueError:  # Not enough values to unpack
