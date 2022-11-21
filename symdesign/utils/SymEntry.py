@@ -219,6 +219,8 @@ symmetry_combinations.update(nanohedra_symmetry_combinations)
 parsed_symmetry_combinations: dict[int, tuple[list[tuple[str, list | int | str]], str | int]] = \
     {entry_number: ([(entry[0], entry[1:4]), (entry[4], entry[5:8])], entry[-6:])
      for entry_number, entry in symmetry_combinations.items()}
+# Set the special CRYST1 Record symmetry combination
+parsed_symmetry_combinations[0] = ([], [])
 space_group_to_sym_entry = {}
 # ROTATION SETTING MATRICES - All descriptions are with view on the positive side of respective axis
 # These specify combinations of symmetric point groups which can be used to construct a larger point group
