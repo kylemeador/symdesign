@@ -287,7 +287,7 @@ class SymEntry:
     expand_matrices: np.ndarray
 
     @classmethod
-    def from_cryst(cls, symmetry: str, uc_dimensions: Iterable[float], **kwargs):
+    def from_cryst(cls, symmetry: str, **kwargs):  # uc_dimensions: Iterable[float],
         """Create a SymEntry from a specified symmetry in Hermain-Manguin notation and the unit-cell dimensions"""
         # return cls(symmetry, uc_dimensions, **kwargs)
         return cls(0, resulting_symmetry=symmetry, **kwargs)
@@ -1143,6 +1143,8 @@ def parse_symmetry_to_sym_entry(sym_entry: int = None, symmetry: str = None, sym
                 sym_map = [*symmetry]
             else:  # C35
                 raise ValueError(f'{symmetry} is not a supported symmetry! {highest_point_group_msg}')
+        elif sym_entry is not None:
+            return symmetry_factory.get(sym_entry)
         else:
             raise utils.SymmetryInputError(f"{parse_symmetry_to_sym_entry.__name__}: "
                                            f"Can't initialize without symmetry or sym_map!")
