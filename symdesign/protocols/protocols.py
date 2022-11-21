@@ -182,11 +182,11 @@ class PoseDirectory:
         # self.uc_dimensions = None
 
         # Design attributes
-        self.background_profile: str = kwargs.get('background_profile', putils.design_profile)
-        """The type of position specific profile (per-residue amino acid frequencies) to utilize as the design 
-        background profile. 
-        Choices include putils.design_profile, putils.evolutionary_profile, and putils.fragment_profile
-        """
+        # self.background_profile: str = kwargs.get('background_profile', putils.design_profile)
+        # """The type of position specific profile (per-residue amino acid frequencies) to utilize as the design
+        # background profile.
+        # Choices include putils.design_profile, putils.evolutionary_profile, and putils.fragment_profile
+        # """
         self.directives = kwargs.get('directives', [])
         if self.job.design_selector:
             # self.info['design_selector'] = self.design_selector = self.job.design_selector
@@ -2003,7 +2003,7 @@ class PoseDirectory:
         # format all amino acids in self.interface_design_residue_numbers with frequencies above the threshold to a set
         # Todo, make threshold and return set of strings a property of a profile object
         # Locate the desired background profile from the pose
-        background_profile = getattr(self.pose, self.background_profile)
+        background_profile = getattr(self.pose, self.job.background_profile)
         raise NotImplementedError("background_profile doesn't account for residue.index versus residue.number")
         background = {residue: {protein_letters_1to3.get(aa) for aa in protein_letters_1to3
                                 if background_profile[residue.number].get(aa, -1) > threshold}
