@@ -1,14 +1,17 @@
 """Add expression tags onto the termini of specific designs"""
 import csv
 import logging
+import os
 
 # from itertools import chain as iter_chain  # combinations,
 import numpy as np
+from Bio.Seq import Seq
+from Bio.SeqRecord import SeqRecord
 
 from symdesign import utils
 # EnforceMeltingTemperature
 from symdesign.resources import query
-from symdesign.structure.sequence import generate_alignment
+from symdesign.structure.sequence import generate_alignment, read_fasta_file
 from symdesign.structure.utils import protein_letters_alph1
 from symdesign.third_party.DnaChisel.dnachisel import DnaOptimizationProblem, CodonOptimize, reverse_translate, \
     AvoidHairpins, EnforceGCContent, AvoidPattern, AvoidRareCodons, UniquifyAllKmers, EnforceTranslation
@@ -645,3 +648,47 @@ def optimize_protein_sequence(sequence: str, species: str = 'e_coli') -> str:
     # final_record = problem.to_record(with_sequence_edits=True)
 
     return final_sequence
+
+
+def create_mulitcistronic_sequences(args):
+    # if not args.multicistronic_intergenic_sequence:
+    #     args.multicistronic_intergenic_sequence = ProteinExpression.default_multicistronic_sequence
+
+    file = args.file[0]  # since args.file is collected with nargs='*', select the first
+    if file.endswith('.csv'):
+        with open(file) as f:
+            design_sequences = [SeqRecord(Seq(sequence), annotations={'molecule_type': 'Protein'}, id=name)
+                                for name, sequence in csv.reader(f)]
+    elif file.endswith('.fasta'):
+        design_sequences = list(read_fasta_file(file))
+    else:
+        raise NotImplementedError(f'Sequence file with extension {os.path.splitext(file)[-1]} is not supported!')
+
+    # Convert the SeqRecord to a plain sequence
+    design_sequences = [str(seq_record.seq) for seq_record in design_sequences]
+    nucleotide_sequences = {}
+    for idx, group_start_idx in enumerate(list(range(len(design_sequences)))[::args.number_of_genes], 1):
+        cistronic_sequence = optimize_protein_sequence(design_sequences[group_start_idx],
+                                                       species=args.optimize_species)
+        for protein_sequence in design_sequences[group_start_idx + 1: group_start_idx + args.number_of_genes]:
+            cistronic_sequence += args.multicistronic_intergenic_sequence
+            cistronic_sequence += optimize_protein_sequence(protein_sequence,
+                                                            species=args.optimize_species)
+        new_name = f'{design_sequences[group_start_idx].id}_cistronic'
+        nucleotide_sequences[new_name] = cistronic_sequence
+        logger.info(f'Finished sequence {idx} - {new_name}')
+
+    location = file
+    if not args.prefix:
+        args.prefix = f'{os.path.basename(os.path.splitext(location)[0])}_'
+    else:
+        args.prefix = f'{args.prefix}_'
+    if args.suffix:
+        args.suffix = f'_{args.suffix}'
+
+    nucleotide_sequence_file = \
+        utils.write_sequence_file(nucleotide_sequences, csv=args.csv,
+                                  file_name=os.path.join(os.getcwd(),
+                                                         f'{args.prefix}MulticistronicNucleotideSequences'
+                                                         f'{args.suffix}'))
+    logger.info(f'Multicistronic nucleotide sequences written to: {nucleotide_sequence_file}')
