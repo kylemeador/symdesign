@@ -1517,21 +1517,12 @@ def main():
                                                        args.rotation_step2, sym_entry, job.output_directory,
                                                        log=master_logger)
             if args.multi_processing:
-                zipped_args = zip(repeat(job), *zip(*structure_pairs),
-                                  # repeat(args.rotation_step1), repeat(args.rotation_step2), repeat(args.min_matched),
-                                  # repeat(args.high_quality_match_value), repeat(args.initial_z_value)
-                                  )
+                zipped_args = zip(*zip(*structure_pairs))
                 results = utils.mp_starmap(fragdock.nanohedra_dock, zipped_args, processes=cores)
             else:  # using combinations of directories with .pdb files
                 for model1, model2 in structure_pairs:
                     # result = None
-                    fragdock.nanohedra_dock(job, model1, model2,
-                                            # rotation_step1=args.rotation_step1,
-                                            # rotation_step2=args.rotation_step2,
-                                            # min_matched=args.min_matched,
-                                            # high_quality_match_value=args.high_quality_match_value,
-                                            # initial_z_value=args.initial_z_value
-                                            )
+                    fragdock.nanohedra_dock(model1, model2)
                     # results.append(result)  # DONT need. Results uses pose_directories. There are none and no output
             terminate(results=results, output=False)
     # ---------------------------------------------------

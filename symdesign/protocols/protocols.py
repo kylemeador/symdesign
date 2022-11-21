@@ -146,9 +146,9 @@ class PoseDirectory:
                 self.path = os.path.join(root, 'Projects', pose_id.replace(f'_{putils.pose_directory}-',
                                                                            f'_{putils.pose_directory}{os.sep}'))
 
-    def __init__(self, design_path: AnyStr, job: JobResources = None, pose_id: bool = False,
-                 root: AnyStr = None, **kwargs):
-        self.job = job if job else job_resources_factory.get(program_root=root, **kwargs)
+    def __init__(self, design_path: AnyStr, pose_id: bool = False, root: AnyStr = None, **kwargs):
+        # self.job = job if job else job_resources_factory.get(program_root=root, **kwargs)
+        self.job = job_resources_factory.get()
         # PoseDirectory flags
         self.log: Logger | None = None
         if pose_id:

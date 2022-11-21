@@ -89,7 +89,7 @@ sbatch_templates = {flags.refine: os.path.join(sbatch_template_dir, flags.refine
                     'metrics_bound': os.path.join(sbatch_template_dir, flags.interface_design),
                     flags.interface_metrics: os.path.join(sbatch_template_dir, flags.interface_design),
                     flags.optimize_designs: os.path.join(sbatch_template_dir, hhblits),
-                    'hhblits': os.path.join(sbatch_template_dir, hhblits),
+                    hhblits: os.path.join(sbatch_template_dir, hhblits),
                     'bmdca': os.path.join(sbatch_template_dir, 'bmdca')
                     }
 
