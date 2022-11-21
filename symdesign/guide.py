@@ -191,10 +191,9 @@ additional = \
 
 
 def print_guide():
-    """Print the SymDesign guide and exit"""
+    """Print the SymDesign guide"""
     with open(readme, 'r') as f:
         print(f.read(), end='')
-    exit()
 
 
 def setup_instructions():

@@ -182,6 +182,13 @@ def start_log(name: str = '', handler: int = 1, level: logging_levels = 2, locat
 
 
 # logger = start_log(name=__name__)
+# def emit_info_and_lower(record) -> int:
+#     if record.levelno < 21:  # logging.INFO and logging.DEBUG
+#         return 1
+#     else:
+#         return 0
+# # Reject any message that is warning or greater to let root handle
+# logger.handlers[0].addFilter(emit_info_and_lower)
 
 
 def set_logging_to_level(level: logging_levels = None, handler_level: logging_levels = None):
