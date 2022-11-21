@@ -1366,7 +1366,52 @@ def main():
     results, success = [], []
     # exceptions = []
     # ---------------------------------------------------
-    if args.module == putils.orient:
+    if job.module == flags.protocol:
+        allowed_for = [
+            # 'find_asu',
+            flags.orient,
+            flags.expand_asu,
+            flags.rename_chains,
+            flags.check_clashes,
+            flags.generate_fragments,
+            flags.nanohedra,
+            flags.interface_metrics,
+            flags.optimize_designs,
+            flags.refine,
+            flags.interface_design,
+            flags.analysis,
+
+        ]
+        disallowed_for = [
+            # 'custom_script',
+            flags.cluster_poses,
+            flags.select_poses,
+            flags.select_sequences,
+            flags.select_designs,  # As alias for select_sequences with --skip-sequence-generation
+        ]
+        terminate_options = dict(
+            # analysis=dict(output_analysis=args.output),  # Replaced with args.output in terminate()
+
+        )
+        # Universal protocol runner
+        terminate_kwargs = {}
+        exceptions = []
+        for protocol_name in args.modules:
+            protocol = getattr(protocols, protocol_name)
+            if job.multi_processing:
+                results = utils.mp_map(protocol, pose_directories, processes=job.cores)
+            else:
+                for pose_dir in pose_directories:
+                    results.append(protocol(pose_dir))
+
+            # Update the current state of protocols and exceptions
+            terminate_kwargs.update(terminate_options.get(protocol_name))
+            pose_directories, additional_exceptions = parse_protocol_results(results)
+            exceptions.extend(additional_exceptions)
+
+        terminate(results=results, **terminate_kwargs, exceptions=exceptions)
+    # ---------------------------------------------------
+    if job.module == flags.orient:
         if args.multi_processing:
             results = utils.mp_map(PoseDirectory.orient, pose_directories, processes=job.cores)
         else:
@@ -1375,14 +1420,14 @@ def main():
 
         terminate(results=results)
     # ---------------------------------------------------
-    elif job.module == 'find_asu':
-        if args.multi_processing:
-            results = utils.mp_map(PoseDirectory.find_asu, pose_directories, processes=job.cores)
-        else:
-            for design_dir in pose_directories:
-                results.append(design_dir.find_asu())
-
-        terminate(results=results)
+    # elif job.module == 'find_asu':
+    #     if args.multi_processing:
+    #         results = utils.mp_map(PoseDirectory.find_asu, pose_directories, processes=job.cores)
+    #     else:
+    #         for design_dir in pose_directories:
+    #             results.append(design_dir.find_asu())
+    #
+    #     terminate(results=results)
     # ---------------------------------------------------
     elif job.module == 'find_transforms':
         # if args.multi_processing:
