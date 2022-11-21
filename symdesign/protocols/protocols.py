@@ -1660,7 +1660,7 @@ class PoseDirectory:
         if self.job.write_fragments:
             self.pose.write_fragment_pairs(out_path=self.frags)
         self.info['fragments'] = self.fragment_observations = self.pose.get_fragment_observations()
-        self.info['fragment_source'] = self.fragment_source
+        self.info['fragment_source'] = self.job.fragment_db.source
         self.pickle_info()  # Todo remove once PoseDirectory state can be returned to the SymDesign dispatch w/ MP
 
     @handle_design_errors(errors=(DesignError, AssertionError))
@@ -1684,6 +1684,8 @@ class PoseDirectory:
         favor_fragments = evo_fill = False
         if self.job.generate_fragments:
             self.pose.generate_interface_fragments()
+            self.info['fragments'] = self.fragment_observations = self.pose.get_fragment_observations()
+            self.info['fragment_source'] = self.job.fragment_db.source
             if self.job.write_fragments:
                 self.pose.write_fragment_pairs(out_path=self.frags)
             if self.job.design.method == putils.rosetta_str:
@@ -1752,8 +1754,6 @@ class PoseDirectory:
         # -------------------------------------------------------------------------
         # Todo self.solve_consensus()
         # -------------------------------------------------------------------------
-        self.info['fragments'] = self.fragment_observations = self.pose.get_fragment_observations()
-        self.info['fragment_source'] = self.job.fragment_db.source
 
         if not self.pre_refine and not os.path.exists(self.refined_pdb):
             self._refine()
