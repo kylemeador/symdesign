@@ -766,6 +766,57 @@ class SymEntry:
         raise FileNotFoundError(f"Couldn't locate correct symmetry definition file at '{putils.symmetry_def_files}' "
                                 f'for SymEntry: {self.entry_number}')
 
+    def log_parameters(self):
+        """Log the SymEntry Parameters"""
+        #                pdb1_path, pdb2_path, master_outdir
+        # log.info('NANOHEDRA PROJECT INFORMATION')
+        # log.info(f'Oligomer 1 Input: {pdb1_path}')
+        # log.info(f'Oligomer 2 Input: {pdb2_path}')
+        # log.info(f'Master Output Directory: {master_outdir}\n')
+        logger.info('SYMMETRY COMBINATION MATERIAL INFORMATION')
+        logger.info(f'Nanohedra Entry Number: {self.entry_number}')
+        logger.info(f'Oligomer 1 Point Group Symmetry: {self.group1}')
+        logger.info(f'Oligomer 2 Point Group Symmetry: {self.group2}')
+        logger.info(f'SCM Point Group Symmetry: {self.point_group_symmetry}')
+        # logger.debug(f'Oligomer 1 Internal ROT DOF: {self.is_internal_rot1}')
+        # logger.debug(f'Oligomer 2 Internal ROT DOF: {self.is_internal_rot2}')
+        # logger.debug(f'Oligomer 1 Internal Tx DOF: {self.is_internal_tx1}')
+        # logger.debug(f'Oligomer 2 Internal Tx DOF: {self.is_internal_tx2}')
+        # Todo textwrap.textwrapper() prettify these matrices
+        logger.debug(f'Oligomer 1 Setting Matrix: {self.setting_matrix1.tolist()}')
+        logger.debug(f'Oligomer 2 Setting Matrix: {self.setting_matrix2.tolist()}')
+        # logger.debug('Oligomer 1 Reference Frame Tx DOF: '
+        #              f'{self.ref_frame_tx_dof1 if self.is_ref_frame_tx_dof1 else None}')
+        # logger.debug('Oligomer 2 Reference Frame Tx DOF: '
+        #              f'{self.ref_frame_tx_dof2 if self.is_ref_frame_tx_dof2 else None}')
+        logger.info(f'Resulting SCM Symmetry: {self.resulting_symmetry}')
+        logger.info(f'SCM Dimension: {self.dimension}')
+        logger.info(f'SCM Unit Cell Specification: {self.uc_specification}\n')
+        # rot_step_deg1, rot_step_deg2 = get_rotation_step(self, rot_step_deg1, rot_step_deg2, initial=True, log=logger)
+        logger.info('ROTATIONAL SAMPLING INFORMATION')
+        logger.info(f'Oligomer 1 ROT Sampling Range: '
+                    f'{self.rotation_range1 if self.is_internal_rot1 else None}')
+        logger.info('Oligomer 2 ROT Sampling Range: '
+                    f'{self.rotation_range2 if self.is_internal_rot2 else None}')
+        # logger.info('Oligomer 1 ROT Sampling Step: '
+        #             f'{rot_step_deg1 if self.is_internal_rot1 else None}')
+        # logger.info('Oligomer 2 ROT Sampling Step: '
+        #             f'{rot_step_deg2 if self.is_internal_rot2 else None}\n')
+        # Get Degeneracy Matrices
+        logger.info('Searching For Possible Degeneracies')
+        if self.degeneracy_matrices1 is None:
+            logger.info('No Degeneracies Found for Oligomer 1')
+        elif len(self.degeneracy_matrices1) == 1:
+            logger.info('1 Degeneracy Found for Oligomer 1')
+        else:
+            logger.info(f'{len(self.degeneracy_matrices1)} Degeneracies Found for Oligomer 1')
+        if self.degeneracy_matrices2 is None:
+            logger.info('No Degeneracies Found for Oligomer 2\n')
+        elif len(self.degeneracy_matrices2) == 1:
+            logger.info('1 Degeneracy Found for Oligomer 2\n')
+        else:
+            logger.info(f'{len(self.degeneracy_matrices2)} Degeneracies Found for Oligomer 2\n')
+
 
 class SymEntryFactory:
     """Return a SymEntry instance by calling the Factory instance with the SymEntry entry number and symmetry map

@@ -8,7 +8,7 @@ from symdesign.resources.structure_db import orient_structure_files
 from symdesign.utils import start_log, set_logging_to_level, get_directory_file_paths, set_loggers_to_propagate, path as putils
 from symdesign.utils.SymEntry import symmetry_factory
 from symdesign.utils.nanohedra.cmdline import get_docking_parameters, query_mode, postprocess_mode
-from symdesign.utils.nanohedra.general import write_docking_parameters
+# from symdesign.utils.nanohedra.general import write_docking_parameters
 from symdesign.utils.nanohedra.manual import print_usage
 
 # Copyright 2020 Joshua Laniado and Todd O. Yeates.
@@ -61,9 +61,9 @@ if __name__ == '__main__':
             # SymEntry Parameters
             sym_entry = symmetry_factory.get(sym_entry_number)  # sym_map inclusion?
 
-            # initialize the main Nanohedra log
-            write_docking_parameters(pdb1_path, pdb2_path, rot_step_deg1, rot_step_deg2, sym_entry, master_outdir,
-                                     log=master_logger)
+            # # Initialize the main Nanohedra log
+            # write_docking_parameters(pdb1_path, pdb2_path, rot_step_deg1, rot_step_deg2, sym_entry, master_outdir,
+            #                          log=master_logger)
 
             # Get PDB1 and PDB2 File paths
             # with open(master_log_filepath, 'a+') as master_log_file:
