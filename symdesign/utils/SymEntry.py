@@ -284,7 +284,13 @@ class SymEntry:
     unit_cell: list[list[str], list[str]]
     expand_matrices: np.ndarray
 
-    def __init__(self, entry: int, sym_map: list[str] = None):
+    @classmethod
+    def from_cryst(cls, symmetry: str, uc_dimensions: Iterable[float], **kwargs):
+        """Create a SymEntry from a specified symmetry in Hermain-Manguin notation and the unit-cell dimensions"""
+        # return cls(symmetry, uc_dimensions, **kwargs)
+        return cls(0, resulting_symmetry=symmetry, **kwargs)
+
+    def __init__(self, entry: int, sym_map: list[str] = None, **kwargs):
         try:
             # group1, self.int_dof_group1, self.rot_set_group1, self.ref_frame_tx_dof1, \
             #     group2, self.int_dof_group2, self.rot_set_group2, self.ref_frame_tx_dof2, \
@@ -298,10 +304,14 @@ class SymEntry:
             #  [point_group_symmetry, resulting_symmetry, dimension, unit_cell, tot_dof, cycle_size]
             self.point_group_symmetry, self.resulting_symmetry, self.dimension, self.unit_cell, self.total_dof, \
                 self.cycle_size = result_info
-        except KeyError:
-            raise ValueError(f'Invalid symmetry entry "{entry}". Supported values are Nanohedra entries: '
-                             f'{1}-{len(nanohedra_symmetry_combinations)} and custom entries: '
-                             f'{", ".join(map(str, custom_entries))}')
+        except ValueError:  # Not enough values to unpack
+            group_info = []
+            self.point_group_symmetry = None
+            self.resulting_symmetry = kwargs.get('resulting_symmetry', None)
+            self.dimension = 2 if self.resulting_symmetry in utils.symmetry.layer_group_cryst1_fmt_dict else 3
+            self.unit_cell = 'N/A'
+            self.total_dof = self.cycle_size = 0
+
         self.entry_number = entry
         entry_groups = [group_name for group_name, group_params in group_info if group_name]  # Ensure not None
         # group1, group2, *extra = entry_groups
@@ -375,7 +385,10 @@ class SymEntry:
 
         # Check construction is valid
         if self.point_group_symmetry not in valid_symmetries:
-            raise utils.SymmetryInputError(f'Invalid point group symmetry {self.point_group_symmetry}')
+            if self.entry_number == 0:
+                pass
+            else:
+                raise utils.SymmetryInputError(f'Invalid point group symmetry {self.point_group_symmetry}')
         try:
             if self.dimension == 0:
                 self.expand_matrices = point_group_symmetry_operators[self.resulting_symmetry]
@@ -816,6 +829,8 @@ class SymEntry:
             logger.info('1 Degeneracy Found for Oligomer 2\n')
         else:
             logger.info(f'{len(self.degeneracy_matrices2)} Degeneracies Found for Oligomer 2\n')
+
+CRYST = SymEntry.from_cryst(symmetry='P1')
 
 
 class SymEntryFactory:
