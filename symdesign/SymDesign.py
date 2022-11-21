@@ -877,7 +877,9 @@ def main():
             args.select_number = 1
     elif job.module == flags.nanohedra:
         initialize = False
-        if not sym_entry:
+        if job.sym_entry:
+            job.sym_entry.log_parameters()
+        else:
             raise RuntimeError(f'When running {flags.nanohedra}, the argument -e/--entry/--{flags.sym_entry} is '
                                'required')
     else:  # We have no module passed. Print the guide and exit
@@ -912,9 +914,8 @@ def main():
         if value is not None:
             reported_args[custom_arg] = value
 
-    flags_sym_entry = reported_args.pop(putils.sym_entry, None)
-    if flags_sym_entry:
-        reported_args[putils.sym_entry] = flags_sym_entry.entry_number
+    if job.sym_entry:
+        reported_args[putils.sym_entry] = job.sym_entry.entry_number
     logger.info('Starting with options:\n\t%s' % '\n\t'.join(utils.pretty_format_table(reported_args.items())))
 
     # Set up Databases
@@ -955,8 +956,8 @@ def main():
                     job.nanohedra_root = args.directory
                 else:
                     job.nanohedra_root = f'{os.sep}{os.path.join(*first_pose_path.split(os.sep)[:-4])}'
-                if not sym_entry:  # get from the Nanohedra output
-                    job.sym_entry = sym_entry = get_sym_entry_from_nanohedra_directory(job.nanohedra_root)
+                if not job.sym_entry:  # Get from the Nanohedra output
+                    job.sym_entry = get_sym_entry_from_nanohedra_directory(job.nanohedra_root)
                 pose_directories = [PoseDirectory.from_file(pose) for pose in all_poses[low_range:high_range]]
                 # copy the master nanohedra log
                 project_designs = \
@@ -1038,7 +1039,7 @@ def main():
                 # Collect all entities required for processing the given commands
                 required_entities = list(map(set, list(zip(*[design.entity_names for design in pose_directories]))))
                 # Select entities, orient them, then load each entity to all_structures for further database processing
-                symmetry_map = sym_entry.groups if sym_entry else repeat(None)
+                symmetry_map = job.sym_entry.groups if job.sym_entry else repeat(None)
                 for symmetry, entities in zip(symmetry_map, required_entities):
                     if not entities:  # useful in a case where symmetry groups are the same or group is None
                         continue
@@ -1228,7 +1229,7 @@ def main():
             raise RuntimeError('This should be impossible with mutually exclusive argparser group')
 
         all_structures.extend(job.structure_db.orient_structures(structure_names1,
-                                                                 symmetry=sym_entry.group1,
+                                                                 symmetry=job.sym_entry.group1,
                                                                  by_file=by_file1))
         single_component_design = False
         if args.oligomer2:
@@ -1262,7 +1263,7 @@ def main():
             single_component_design = True
         # Select entities, orient them, then load each Structure to all_structures for further database processing
         all_structures.extend(job.structure_db.orient_structures(structure_names2,
-                                                                 symmetry=sym_entry.group2,
+                                                                 symmetry=job.sym_entry.group2,
                                                                  by_file=by_file2))
         if by_file1:
             structure_names1 = eventual_structure_names1
@@ -1464,11 +1465,11 @@ def main():
         # Initialize docking procedure
         if args.distribute_work:  # Write all commands to a file and use sbatch
             raise NotImplementedError(f'Distribution has been modified significantly')
-            design_source = f'Entry{sym_entry.entry_number}'  # used for terminate()
+            design_source = f'Entry{job.sym_entry.entry_number}'  # used for terminate()
             # script_out_dir = os.path.join(job.output_directory, putils.scripts)
             # os.makedirs(script_out_dir, exist_ok=True)
             cmd = ['python', putils.nanohedra_exe]  # , '-dock']
-            kwargs = dict(outdir=job.output_directory, entry=sym_entry.entry_number, rot_step1=args.rotation_step1,
+            kwargs = dict(outdir=job.output_directory, entry=job.sym_entry.entry_number, rot_step1=args.rotation_step1,
                           rot_step2=args.rotation_step2, min_matched=args.min_matched,
                           high_quality_match_value=args.high_quality_match_value, initial_z_value=args.initial_z_value)
             cmd.extend(chain.from_iterable([[f'-{key}', str(value)] for key, value in kwargs.items()]))
@@ -1483,18 +1484,6 @@ def main():
                         + (['-initial'] if idx == 0 else []) for idx, (model1, model2) in enumerate(structure_pairs)]
             terminate(results=commands)
         else:
-            if job.debug:
-                # Root logs to stream with level debug according to prior logging initialization
-                master_logger = logger
-            else:
-                master_logger = utils.start_log(name=f'{putils.program_name.lower()}.{flags.nanohedra.title()}')
-                # master_log_filepath = os.path.join(job.output_directory, putils.master_log)
-                # master_logger = utils.start_log(name=flags.nanohedra.title(), handler=2, location=master_log_filepath,
-                #                                 propagate=True, no_log_name=True)
-            master_logger.info('MODE: DOCK')
-            nanohedra.general.write_docking_parameters(args.oligomer1, args.oligomer2, args.rotation_step1,
-                                                       args.rotation_step2, sym_entry, job.output_directory,
-                                                       log=master_logger)
             if args.multi_processing:
                 zipped_args = zip(*zip(*structure_pairs))
                 results = utils.mp_starmap(protocols.fragdock.nanohedra_dock, zipped_args, processes=cores)
