@@ -14,7 +14,6 @@ from symdesign.utils.symmetry import valid_subunit_number, space_group_symmetry_
     point_group_symmetry_operators, all_sym_entry_dict, rotation_range, setting_matrices, identity_matrix, \
     sub_symmetries, flip_y_matrix, max_sym, valid_symmetries
 
-# Copyright 2020 Joshua Laniado and Todd O. Yeates.
 __author__ = "Joshua Laniado and Todd O. Yeates"
 __copyright__ = "Copyright 2020, Nanohedra"
 __version__ = "1.0"
@@ -215,8 +214,8 @@ symmetry_combinations = {
 
 custom_entries = list(symmetry_combinations.keys())
 symmetry_combinations.update(nanohedra_symmetry_combinations)
-# reformat the symmetry_combinations to account for groups and results separately
-parsed_symmetry_combinations: dict[int, tuple[list[tuple[str, list | int | str]], str | int]] = \
+# Reformat the symmetry_combinations to account for groups and results separately
+parsed_symmetry_combinations: dict[int, tuple[list[tuple[str, list | int | str]], list[str | int]]] = \
     {entry_number: ([(entry[0], entry[1:4]), (entry[4], entry[5:8])], entry[-6:])
      for entry_number, entry in symmetry_combinations.items()}
 # Set the special CRYST1 Record symmetry combination
@@ -272,7 +271,8 @@ class SymEntry:
     _number_dof_external: int
     _number_dof_rotation: int
     _number_dof_translation: int
-    _ref_frame_tx_dof: list[str]
+    _ref_frame_tx_dof: list[list[str]]
+    _rotation_range: list[int]
     _setting_matrices: list[np.ndarray]
     _setting_matrices_numbers: list[int]
     cycle_size: int
@@ -283,7 +283,7 @@ class SymEntry:
     resulting_symmetry: str
     sym_map: list[str]
     total_dof: int
-    unit_cell: list[list[str], list[str]]
+    unit_cell: tuple[list[str], list[str]]
     expand_matrices: np.ndarray
 
     @classmethod
@@ -317,7 +317,7 @@ class SymEntry:
         self.entry_number = entry
         entry_groups = [group_name for group_name, group_params in group_info if group_name]  # Ensure not None
         # group1, group2, *extra = entry_groups
-        if not sym_map:  # Assume standard SymEntry
+        if sym_map is None:  # Assume standard SymEntry
             # Assumes 2 component symmetry. index with only 2 options
             self.groups = entry_groups
             self.sym_map = [self.resulting_symmetry] + self.groups
@@ -342,7 +342,8 @@ class SymEntry:
                                                        f'{", ".join(viable_groups)}.')
                 self.groups.append(group)
 
-        self._int_dof_groups, self._setting_matrices, self._setting_matrices_numbers, self._ref_frame_tx_dof, self.__external_dof = [], [], [], [], []
+        self._int_dof_groups, self._setting_matrices, self._setting_matrices_numbers, self._ref_frame_tx_dof, \
+            self.__external_dof = [], [], [], [], []
         for group_idx, group_symmetry in enumerate(self.groups, 1):
             for entry_group_symmetry, (int_dof, set_mat_number, ext_dof) in group_info:
                 if group_symmetry == entry_group_symmetry:
@@ -401,7 +402,7 @@ class SymEntry:
         except KeyError:
             raise utils.SymmetryInputError(f'The symmetry result "{self.resulting_symmetry}" is not allowed')
         self.unit_cell = None if self.unit_cell == 'N/A' else \
-            [dim.strip('()').replace(' ', '').split(',') for dim in self.unit_cell.split('), ')]
+            tuple(dim.strip('()').replace(' ', '').split(',') for dim in self.unit_cell.split('), '))
 
     @property
     def number_of_operations(self) -> int:
@@ -426,7 +427,8 @@ class SymEntry:
         return f'{self.resulting_symmetry}{"".join(self.groups)}'
 
     @property
-    def uc_specification(self):
+    def uc_specification(self) -> tuple[list[str], list[str]]:
+        """The external dof and angle parameters which constitute a viable lattice"""
         return self.unit_cell
 
     @property
@@ -704,7 +706,7 @@ class SymEntry:
         Returns:
             The Unit Cell dimensions for each optimal shift vector passed
         """
-        if not self.unit_cell:
+        if self.unit_cell is None:
             return None
         string_lengths, string_angles = self.unit_cell
         # for entry 6 - string_vector is 4*e, 4*e, 4*e
@@ -738,7 +740,7 @@ class SymEntry:
         Returns:
             The optimal shifts in each direction a, b, and c if they are allowed
         """
-        if not self.unit_cell:
+        if self.unit_cell is None:
             return None
         string_lengths, string_angles = self.unit_cell
         # uc_mat = construct_uc_matrix(string_lengths) * optimal_shift_vec[:, :, None]  # <- expands axis so mult accurate
@@ -854,10 +856,10 @@ class SymEntryFactory:
         Returns:
             The instance of the specified SymEntry
         """
-        if sym_map is not None:
-            sym_map_string = '|'.join('None' if sym is None else sym for sym in sym_map)
-        else:
+        if sym_map is None:
             sym_map_string = 'None'
+        else:
+            sym_map_string = '|'.join('None' if sym is None else sym for sym in sym_map)
 
         entry_key = f'{entry}|{sym_map_string}'
         symmetry = self._entries.get(entry_key)
@@ -1117,7 +1119,7 @@ def parse_symmetry_to_sym_entry(sym_entry: int = None, symmetry: str = None, sym
         An instance of the SymEntry
     """
     if sym_map is None:  # Find sym_map from symmetry
-        if symmetry:
+        if symmetry is not None:
             symmetry = symmetry.strip()
             if symmetry in space_group_symmetry_operators:  # space_group_symmetry_operators in Hermann-Mauguin notation
                 # We only have the resulting symmetry, set it and then solve by lookup_sym_entry_by_symmetry_combination
@@ -1143,13 +1145,13 @@ def parse_symmetry_to_sym_entry(sym_entry: int = None, symmetry: str = None, sym
             raise utils.SymmetryInputError(f"{parse_symmetry_to_sym_entry.__name__}: "
                                            f"Can't initialize without symmetry or sym_map!")
 
-    if not sym_entry:
-        try:
+    if sym_entry is None:
+        try:  # To lookup in the all_sym_entry_dict
             sym_entry = utils.dictionary_lookup(all_sym_entry_dict, sym_map)
             if not isinstance(sym_entry, int):
                 raise TypeError
-        except (KeyError, TypeError):  # when the entry is not specified in the all_sym_entry_dict
-            # the prescribed symmetry is a point, plane, or space group that isn't in nanohedra. try a custom input
+        except (KeyError, TypeError):
+            # The prescribed symmetry is a point, plane, or space group that isn't in nanohedra. Try a custom input
             sym_entry = lookup_sym_entry_by_symmetry_combination(*sym_map)
 
     return symmetry_factory.get(sym_entry, sym_map=sym_map)
