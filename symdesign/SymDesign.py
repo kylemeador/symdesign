@@ -888,29 +888,29 @@ def main():
     # -----------------------------------------------------------------------------------------------------------------
     #  Report options now that parsing is complete
     # -----------------------------------------------------------------------------------------------------------------
-    formatted_queried_flags = queried_flags.copy()
-    # where input values should be reported instead of processed version, or the argument is not important
+    # Where input values should be reported instead of processed version, or the argument is not important
     for flag in ['design_selector', 'construct_pose']:
-        formatted_queried_flags.pop(flag, None)
-        # get all the default program args and compare them to the provided values
+        queried_flags.pop(flag, None)
+
+    # Get all the default program args and compare them to the provided values
     reported_args = {}
     for group in entire_parser._action_groups:
         for arg in group._group_actions:
-            if isinstance(arg, _SubParsersAction):  # We have a sup parser, recurse
+            if isinstance(arg, _SubParsersAction):  # We have a subparser, recurse
                 for name, sub_parser in arg.choices.items():
                     for sub_group in sub_parser._action_groups:
                         for arg in sub_group._group_actions:
-                            value = formatted_queried_flags.pop(arg.dest, None)  # get the parsed flag value
-                            if value is not None and value != arg.default:  # compare it to the default
-                                reported_args[arg.dest] = value  # add it to reported args if not the default
+                            value = queried_flags.pop(arg.dest, None)  # Get the parsed flag value
+                            if value is not None and value != arg.default:  # Compare it to the default
+                                reported_args[arg.dest] = value  # Add it to reported args if not the default
             else:
-                value = formatted_queried_flags.pop(arg.dest, None)  # get the parsed flag value
-                if value is not None and value != arg.default:  # compare it to the default
-                    reported_args[arg.dest] = value  # add it to reported args if not the default
+                value = queried_flags.pop(arg.dest, None)  # Get the parsed flag value
+                if value is not None and value != arg.default:  # Compare it to the default
+                    reported_args[arg.dest] = value  # Add it to reported args if not the default
 
     # Custom removal/formatting for all remaining
-    for custom_arg in list(formatted_queried_flags.keys()):
-        value = formatted_queried_flags.pop(custom_arg, None)
+    for custom_arg in list(queried_flags.keys()):
+        value = queried_flags.pop(custom_arg, None)
         if value is not None:
             reported_args[custom_arg] = value
 
