@@ -1247,7 +1247,7 @@ class PoseDirectory:
             generate_files_cmd = null_cmd
             # generate_files_cmdline = []
 
-        flags_file = os.path.join(flag_dir, 'flags_file')
+        flags_file = os.path.join(flag_dir, 'flags')
         if not os.path.exists(flags_file) or self.job.force:
             self.prepare_rosetta_flags(pdb_out_path=pdb_out_path, out_dir=flag_dir)
             self.log.debug(f'Pose flags written to: {flags_file}')
