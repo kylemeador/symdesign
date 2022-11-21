@@ -1739,22 +1739,23 @@ def main():
             # OLD -> {composition: {pose_string: cluster_representative}, ...}
 
             if bool_d[confirm.lower()] or confirm.isspace():  # the user wants to separate poses
-                compositions: dict[tuple[str, ...], list[protocols.PoseDirectory]] = \
-                    utils.cluster.group_compositions(selected_poses)
+                compositions: dict[tuple[str, ...], list[PoseDirectory]] = \
+                    protocols.cluster.group_compositions(selected_poses)
                 if args.multi_processing:
-                    mp_results = utils.mp_map(utils.cluster.cluster_transformations, compositions.values(), processes=cores)
+                    mp_results = utils.mp_map(protocols.cluster.cluster_transformations, compositions.values(),
+                                              processes=cores)
                     for result in mp_results:
                         pose_cluster_map.update(result.items())
                 else:
                     for composition_group in compositions.values():
-                        pose_cluster_map.update(utils.cluster.cluster_transformations(composition_group))
+                        pose_cluster_map.update(protocols.cluster.cluster_transformations(composition_group))
 
                 pose_cluster_file = utils.pickle_object(pose_cluster_map, name=cluster_map, out_path='')
                 logger.info(f'Found {len(pose_cluster_map)} unique clusters from {len(pose_directories)} pose inputs. '
                             f'All clusters stored in {pose_cluster_file}')
 
         if pose_cluster_map:
-            pose_cluster_membership_map = utils.cluster.invert_cluster_map(pose_cluster_map)
+            pose_cluster_membership_map = protocols.cluster.invert_cluster_map(pose_cluster_map)
             pose_clusters_found, pose_not_found = {}, []
             # convert all of the selected poses to their string representation
             for idx, pose_directory in enumerate(map(str, selected_poses)):

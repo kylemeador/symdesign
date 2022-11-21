@@ -21,7 +21,7 @@ from sklearn.cluster import DBSCAN
 from sklearn.neighbors import BallTree
 from sklearn.neighbors._ball_tree import BinaryTree  # This typing implementation supports BallTree or KDTree
 
-from symdesign import flags, resources
+from symdesign import flags, resources, protocols
 from symdesign.metrics import calculate_collapse_metrics, calculate_residue_surface_area, errat_1_sigma, errat_2_sigma,\
     multiple_sequence_alignment_dependent_metrics, profile_dependent_metrics, columns_to_new_column, \
     delta_pairs, division_pairs, interface_composition_similarity, clean_up_intermediate_columns, \
@@ -29,15 +29,14 @@ from symdesign.metrics import calculate_collapse_metrics, calculate_residue_surf
 from symdesign.resources import ml, job as symjob
 from symdesign.structure.base import Structure, Residue
 from symdesign.structure.coords import transform_coordinate_sets
-from symdesign.structure.fragment import db, GhostFragment
+from symdesign.structure.fragment import GhostFragment
 from symdesign.structure.fragment.visuals import write_fragment_pairs_as_accumulating_states
 from symdesign.structure.model import Pose, Model, get_matching_fragment_pairs_info, Models
 from symdesign.structure.sequence import generate_mutations_from_reference, numeric_to_sequence, concatenate_profile, \
     pssm_as_array, MultipleSequenceAlignment
 from symdesign.structure.utils import chain_id_generator
-from symdesign.utils import start_log, set_logging_to_level, set_loggers_to_propagate, cluster, nanohedra, \
-    z_score, rmsd_z_score, z_value_from_match_score, match_score_from_z_value, path as putils
-from symdesign.utils.SymEntry import SymEntry, get_rot_matrices, make_rotations_degenerate, symmetry_factory
+from symdesign.utils import z_score, rmsd_z_score, z_value_from_match_score, match_score_from_z_value, path as putils
+from symdesign.utils.SymEntry import SymEntry, get_rot_matrices, make_rotations_degenerate
 from symdesign.utils.symmetry import generate_cryst1_record, identity_matrix
 
 # Globals
@@ -1330,15 +1329,19 @@ def nanohedra_dock(model1: Structure | AnyStr, model2: Structure | AnyStr, **kwa
         clustering_start = time.time()
         # Must add a new axis to translations so the operations are broadcast together in transform_coordinate_sets()
         transform_neighbor_tree, transform_cluster = \
-            cluster.cluster_transformation_pairs(dict(rotation=full_rotation1,
-                                                      translation=None if full_int_tx1 is None else full_int_tx1[:, None, :],
-                                                      rotation2=set_mat1,
-                                                      translation2=None if full_ext_tx1 is None else full_ext_tx1[:, None, :]),
-                                                 dict(rotation=full_rotation2,
-                                                      translation=None if full_int_tx2 is None else full_int_tx2[:, None, :],
-                                                      rotation2=set_mat2,
-                                                      translation2=None if full_ext_tx2 is None else full_ext_tx2[:, None, :]),
-                                                 minimum_members=min_matched)
+            protocols.cluster.cluster_transformation_pairs(dict(rotation=full_rotation1,
+                                                                translation=None if full_int_tx1 is None
+                                                                else full_int_tx1[:, None, :],
+                                                                rotation2=set_mat1,
+                                                                translation2=None if full_ext_tx1 is None
+                                                                else full_ext_tx1[:, None, :]),
+                                                           dict(rotation=full_rotation2,
+                                                                translation=None if full_int_tx2 is None
+                                                                else full_int_tx2[:, None, :],
+                                                                rotation2=set_mat2,
+                                                                translation2=None if full_ext_tx2 is None
+                                                                else full_ext_tx2[:, None, :]),
+                                                           minimum_members=min_matched)
         # cluster_representative_indices, cluster_labels = \
         #     find_cluster_representatives(transform_neighbor_tree, transform_cluster)
         # representative_labels = cluster_labels[cluster_representative_indices]
