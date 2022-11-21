@@ -16,7 +16,7 @@ from symdesign.utils import handle_errors, pretty_format_table, clean_comma_sepa
 from symdesign.utils.ProteinExpression import expression_tags
 # These shouldn't be moved here
 from symdesign.utils.path import fragment_dbs, biological_interfaces, default_logging_level
-from symdesign.utils.path import submodule_guide, submodule_help, force_flags, sym_entry, program_output, projects, \
+from symdesign.utils.path import submodule_guide, submodule_help, force, sym_entry, program_output, projects, \
     interface_metrics, nano_entity_flag1, nano_entity_flag2, data, multi_processing, residue_selector, options, \
     cluster_poses, orient, default_clustered_pose_file, interface_design, evolution_constraint, hbnet, term_constraint,\
     number_of_trajectories, refine, structure_background, scout, design_profile, evolutionary_profile, \
@@ -109,7 +109,6 @@ perturb_dof_steps_rot = format_for_cmdline(perturb_dof_steps_rot)
 perturb_dof_steps_tx = format_for_cmdline(perturb_dof_steps_tx)
 ca_only = format_for_cmdline(ca_only)
 perturb_dof = format_for_cmdline(perturb_dof)
-force_flags = format_for_cmdline(force_flags)
 distribute_work = format_for_cmdline(distribute_work)
 multi_processing = format_for_cmdline(multi_processing)
 output_assembly = format_for_cmdline(output_assembly)
@@ -383,8 +382,7 @@ options_arguments = {
     ('-D', f'--{distribute_work}'): dict(action='store_true',
                                          help="Should commands be distributed to a cluster?\nIn most cases, this will "
                                               'maximize computational resources\nDefault=%(default)s'),
-    ('-F', f'--{force_flags}'): dict(action='store_true',
-                                     help='Force generation of a new flags file to update script parameters'),
+    ('-F', f'--{force}'): dict(action='store_true', help='Force generation of new files for existing projects'),
     # ('-gf', f'--{generate_fragments}'): dict(action='store_true',
     #                                          help='Generate interface fragment observations for poses of interest'
     #                                               '\nDefault=%(default)s'),
