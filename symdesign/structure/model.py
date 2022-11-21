@@ -6657,6 +6657,10 @@ class Pose(SymmetricModel):
             self.split_interface_residues (dict[int, list[tuple[Residue, Entity]]]): Residue/Entity id of each residue
                 at the interface identified by interface id as split by topology
         """
+        if self.split_interface_residues:
+            # Todo this needs to be removed if they have been set and modified. reset_state()
+            return
+
         self.log.debug('Find and split interface using active_entities: '
                        f'{", ".join(entity.name for entity in self.active_entities)}')
         entity_pair: tuple[Entity, Entity]
