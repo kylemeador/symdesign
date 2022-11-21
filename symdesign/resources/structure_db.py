@@ -12,7 +12,7 @@ from typing import Iterable, Annotated, AnyStr
 from .database import Database, DataStore
 from .query.utils import boolean_choice
 from symdesign import utils, structure
-from symdesign.utils import path as putils
+from symdesign.utils import rosetta, path as putils
 
 # Todo adjust the logging level for this module?
 logger = logging.getLogger(__name__)
@@ -508,10 +508,10 @@ class StructureDatabase(Database):
                 # Generate sbatch refine command
                 flags_file = os.path.join(refine_dir, 'refine_flags')
                 # if not os.path.exists(flags_file):
-                flags = copy(utils.CommandDistributer.rosetta_flags) + utils.CommandDistributer.relax_flags
+                flags = copy(rosetta.rosetta_flags) + rosetta.relax_flags
                 flags.extend([f'-out:path:pdb {refine_dir}', '-no_scorefile true'])
                 flags.remove('-output_only_asymmetric_unit true')  # want full oligomers
-                variables = copy(utils.CommandDistributer.rosetta_variables)
+                variables = copy(rosetta.rosetta_variables)
                 variables.append(('dist', 0))  # Todo modify if not point groups used
                 flags.append('-parser:script_vars %s' % ' '.join(f'{var}={val}' for var, val in variables))
 
@@ -520,7 +520,7 @@ class StructureDatabase(Database):
 
                 refine_cmd = [f'@{flags_file}', '-parser:protocol',
                               os.path.join(putils.rosetta_scripts_dir, f'{putils.refine}.xml')]
-                refine_cmds = [utils.CommandDistributer.script_cmd + refine_cmd
+                refine_cmds = [rosetta.script_cmd + refine_cmd
                                + ['-in:file:s', structure.file_path, '-parser:script_vars']
                                + [f'sdf={sym_def_files[structure.symmetry]}',
                                   f'symmetry={"make_point_group" if structure.symmetry != "C1" else "asymmetric"}']
@@ -574,7 +574,7 @@ class StructureDatabase(Database):
                 # if not os.path.exists(flags_file):
                 loop_model_flags = ['-remodel::save_top 0', '-run:chain A', '-remodel:num_trajectory 1']
                 #                   '-remodel:run_confirmation true', '-remodel:quick_and_dirty',
-                flags = copy(utils.CommandDistributer.rosetta_flags) + loop_model_flags
+                flags = copy(rosetta.rosetta_flags) + loop_model_flags
                 # flags.extend(['-out:path:pdb %s' % full_model_dir, '-no_scorefile true'])
                 flags.extend(['-no_scorefile true', '-no_nstruct_label true'])
                 variables = [('script_nstruct', '100')]  # generate 100 trial loops, 500 is typically sufficient
@@ -600,7 +600,7 @@ class StructureDatabase(Database):
                                                      out_path=full_model_dir))
                         continue
                     structure_blueprint = structure.make_blueprint_file(out_path=full_model_dir)
-                    structure_cmd = utils.CommandDistributer.script_cmd + loop_model_cmd + \
+                    structure_cmd = rosetta.script_cmd + loop_model_cmd + \
                         [f'blueprint={structure_blueprint}', f'loop_file={structure_loop_file}',
                          '-in:file:s', self.refined.path_to(structure.name), '-out:path:pdb', structure_out_path] + \
                         (['-symmetry:symmetry_definition', sym_def_files[structure.symmetry]]

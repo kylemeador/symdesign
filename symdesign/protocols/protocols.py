@@ -43,7 +43,7 @@ from symdesign.structure.sequence import generate_mutations_from_reference, \
     sequence_difference, MultipleSequenceAlignment, pssm_as_array, concatenate_profile, write_pssm_file
 from symdesign.structure.utils import protein_letters_3to1, protein_letters_1to3, DesignError, ClashError, SymmetryError
 from symdesign.utils import large_color_array, starttime, start_log, unpickle, pickle_object, index_intersection, \
-    write_shell_script, all_vs_all, sym, condensed_to_square, CommandDistributer, path as putils
+    write_shell_script, all_vs_all, sym, condensed_to_square, rosetta, path as putils
 from symdesign.utils.SymEntry import SymEntry, symmetry_factory
 from symdesign.utils.nanohedra.general import get_components_from_nanohedra_docking
 
@@ -53,7 +53,7 @@ logger = logging.getLogger(__name__)
 zero_offset = 1
 idx_slice = pd.IndexSlice
 # design_directory_modes = [putils.interface_design, 'dock', 'filter']
-cst_value = round(0.2 * CommandDistributer.reference_average_residue_weight, 2)
+cst_value = round(0.2 * rosetta.reference_average_residue_weight, 2)
 mean, std = 'mean', 'std'
 stats_metrics = [mean, std]
 variance = 0.8
@@ -1100,7 +1100,7 @@ class PoseDirectory:
             constraint_percent = 0.5
             free_percent = 1 - constraint_percent
 
-        variables = CommandDistributer.rosetta_variables \
+        variables = rosetta.rosetta_variables \
                     + [('dist', distance), ('repack', 'yes'),
                        ('constrained_percent', constraint_percent), ('free_percent', free_percent)]
         variables.extend([(putils.design_profile, self.design_profile_file)]
@@ -1160,7 +1160,7 @@ class PoseDirectory:
         else:  # Get an out-of-bounds index
             variables.extend([('core_residues', out_of_bounds_residue)])
 
-        rosetta_flags = copy(CommandDistributer.rosetta_flags)
+        rosetta_flags = copy(rosetta.rosetta_flags)
         if pdb_out_path:
             rosetta_flags.extend([f'-out:path:pdb {pdb_out_path}', f'-scorefile {self.scores_file}'])
         else:
@@ -1219,7 +1219,7 @@ class PoseDirectory:
             refine_sequences: The sequence to mutate the pose to and have it built using Rosetta FastRelax
             gather_metrics: Whether metrics should be calculated for the Pose
         """
-        main_cmd = copy(CommandDistributer.script_cmd)
+        main_cmd = copy(rosetta.script_cmd)
         protocol = putils.refine
         # if self.interface_residue_numbers is False or self.interface_design_residue_numbers is False:
         self.identify_interface()
@@ -1313,7 +1313,7 @@ class PoseDirectory:
 
         # RELAX: Prepare command
         # '-no_nstruct_label', 'true' comes from v
-        relax_cmd = main_cmd + CommandDistributer.relax_flags_cmdline + additional_flags + \
+        relax_cmd = main_cmd + rosetta.relax_flags_cmdline + additional_flags + \
             (['-symmetry_definition', 'CRYST1'] if self.design_dimension > 0 else []) + infile + \
             [f'@{flags_file}', '-parser:protocol', os.path.join(putils.rosetta_scripts_dir, f'refine.xml'),  # f'{protocol}.xml')
              '-parser:script_vars', f'switch={protocol}']
@@ -1324,7 +1324,7 @@ class PoseDirectory:
             main_cmd += [f'@{flags_file}', '-out:file:score_only', self.scores_file,
                          '-no_nstruct_label', 'true', '-parser:protocol']
             if self.job.mpi > 0:
-                main_cmd = CommandDistributer.run_cmds[putils.rosetta_extras] + [str(self.job.mpi)] + main_cmd
+                main_cmd = rosetta.run_cmds[putils.rosetta_extras] + [str(self.job.mpi)] + main_cmd
 
             metric_cmd_bound = main_cmd + (['-symmetry_definition', 'CRYST1'] if self.design_dimension > 0 else []) + \
                 [os.path.join(putils.rosetta_scripts_dir, f'{putils.interface_metrics}'
@@ -1373,7 +1373,7 @@ class PoseDirectory:
                               score_only=None, variables=None, **kwargs):
         """Generate a custom script to dispatch to the design using a variety of parameters"""
         raise DesignError('This module is outdated, please update it to use')  # Todo reflect modern metrics collection
-        cmd = copy(CommandDistributer.script_cmd)
+        cmd = copy(rosetta.script_cmd)
         script_name = os.path.splitext(os.path.basename(script))[0]
         # if self.interface_residue_numbers is False or self.interface_design_residue_numbers is False:
         self.identify_interface()
@@ -1427,7 +1427,7 @@ class PoseDirectory:
         cmd += [f'@{flags_file}', f'-in:file:{"l" if file_list else "s"}', pdb_input, '-in:file:native', native] \
             + score + suffix + trajectories + ['-parser:protocol', script] + variables
         if self.job.mpi > 0:
-            cmd = CommandDistributer.run_cmds[putils.rosetta_extras] + [str(self.job.mpi)] + cmd
+            cmd = rosetta.run_cmds[putils.rosetta_extras] + [str(self.job.mpi)] + cmd
 
         if self.job.distribute_work:
             write_shell_script(list2cmdline(generate_files_cmd), name=script_name, out_path=self.scripts,
@@ -1457,7 +1457,7 @@ class PoseDirectory:
         """Generate a script capable of running Rosetta interface metrics analysis on the bound and unbound states"""
         # metrics_flags = 'repack=yes'
         protocol = putils.interface_metrics
-        main_cmd = copy(CommandDistributer.script_cmd)
+        main_cmd = copy(rosetta.script_cmd)
         # if self.interface_residue_numbers is False or self.interface_design_residue_numbers is False:
         self.identify_interface()
         # else:  # We only need to load pose as we already calculated interface
@@ -1478,7 +1478,7 @@ class PoseDirectory:
                      '-out:file:score_only', self.scores_file, '-no_nstruct_label', 'true', '-parser:protocol']
         #              '-in:file:native', self.refined_pdb,
         if self.job.mpi > 0:
-            main_cmd = CommandDistributer.run_cmds[putils.rosetta_extras] + [str(self.job.mpi)] + main_cmd
+            main_cmd = rosetta.run_cmds[putils.rosetta_extras] + [str(self.job.mpi)] + main_cmd
 
         metric_cmd_bound = main_cmd + (['-symmetry_definition', 'CRYST1'] if self.design_dimension > 0 else []) + \
             [os.path.join(putils.rosetta_scripts_dir, f'{protocol}{"_DEV" if self.job.development else ""}.xml')]
@@ -1826,7 +1826,7 @@ class PoseDirectory:
             #      [os.path.join(self.data, 'hbnet_selected.tags')]
             #     ]
 
-        main_cmd = copy(CommandDistributer.script_cmd)
+        main_cmd = copy(rosetta.script_cmd)
         main_cmd += ['-symmetry_definition', 'CRYST1'] if self.design_dimension > 0 else []
         if not os.path.exists(self.flags) or self.job.force:
             self.prepare_rosetta_flags(out_dir=self.scripts)
@@ -1834,8 +1834,8 @@ class PoseDirectory:
 
         if self.job.design.consensus:  # Todo add consensus sbatch generator to SymDesign main
             if self.job.generate_fragments:  # design_with_fragments
-                consensus_cmd = main_cmd + CommandDistributer.relax_flags_cmdline + \
-                    [f'@{self.flags}', '-in:file:s', self.consensus_pdb,
+                consensus_cmd = main_cmd + rosetta.relax_flags_cmdline + \
+                                [f'@{self.flags}', '-in:file:s', self.consensus_pdb,
                      # '-in:file:native', self.refined_pdb,
                      '-parser:protocol', os.path.join(putils.rosetta_scripts_dir, f'{putils.consensus}.xml'),
                      '-parser:script_vars', f'switch={putils.consensus}']
@@ -1868,13 +1868,13 @@ class PoseDirectory:
 
         # METRICS: Can remove if SimpleMetrics adopts pose metric caching and restoration
         # Assumes all entity chains are renamed from A to Z for entities (1 to n)
-        entity_cmd = CommandDistributer.script_cmd + metrics_pdb + \
+        entity_cmd = rosetta.script_cmd + metrics_pdb + \
             [f'@{self.flags}', '-out:file:score_only', self.scores_file, '-no_nstruct_label', 'true',
              '-parser:protocol', os.path.join(putils.rosetta_scripts_dir, 'metrics_entity.xml')]
 
         if self.job.mpi > 0 and not self.job.design.scout:
-            design_cmd = CommandDistributer.run_cmds[putils.rosetta_extras] + [str(self.job.mpi)] + design_cmd
-            entity_cmd = CommandDistributer.run_cmds[putils.rosetta_extras] + [str(self.job.mpi)] + entity_cmd
+            design_cmd = rosetta.run_cmds[putils.rosetta_extras] + [str(self.job.mpi)] + design_cmd
+            entity_cmd = rosetta.run_cmds[putils.rosetta_extras] + [str(self.job.mpi)] + entity_cmd
 
         self.log.info(f'{self.rosetta_interface_design.__name__} command: {list2cmdline(design_cmd)}')
         metric_cmds = []
@@ -2026,7 +2026,7 @@ class PoseDirectory:
         generate_files_cmd = \
             ['python', putils.list_pdb_files, '-d', self.designs, '-o', design_list_file, '-s', '_' + protocol]
 
-        main_cmd = copy(CommandDistributer.script_cmd)
+        main_cmd = copy(rosetta.script_cmd)
         main_cmd += ['-symmetry_definition', 'CRYST1'] if self.design_dimension > 0 else []
         if not os.path.exists(self.flags) or self.job.force:
             self.prepare_rosetta_flags(out_dir=self.scripts)
@@ -2050,8 +2050,8 @@ class PoseDirectory:
              '-parser:protocol', os.path.join(putils.rosetta_scripts_dir, 'metrics_entity.xml')]
 
         if self.job.mpi > 0:
-            design_cmd = CommandDistributer.run_cmds[putils.rosetta_extras] + [str(self.job.mpi)] + design_cmd
-            entity_cmd = CommandDistributer.run_cmds[putils.rosetta_extras] + [str(self.job.mpi)] + entity_cmd
+            design_cmd = rosetta.run_cmds[putils.rosetta_extras] + [str(self.job.mpi)] + design_cmd
+            entity_cmd = rosetta.run_cmds[putils.rosetta_extras] + [str(self.job.mpi)] + entity_cmd
 
         self.log.info(f'{self.optimize_designs.__name__} command: {list2cmdline(design_cmd)}')
         metric_cmds = []
