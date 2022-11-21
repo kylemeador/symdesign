@@ -29,6 +29,8 @@ from symdesign.utils.path import submodule_guide, submodule_help, force, sym_ent
     perturb_dof
 
 nstruct = 20
+modules = 'modules'
+module = 'module'
 method = 'method'
 dock_only = 'dock_only'
 rotation_step1 = 'rotation_step1'
@@ -487,6 +489,12 @@ residue_selector_arguments = {
 # Set Up SubModule Parsers
 # ---------------------------------------------------
 # module_parser = argparse.ArgumentParser(add_help=False)  # usage=usage_str,
+# ---------------------------------------------------
+protocol_help = 'Perform a series of modules in a specified order'
+parser_protocol = {protocol: dict(description=protocol_help, help=protocol_help)}
+protocol_arguments = {
+    ('-m', f'--{modules}'): dict(nargs='*', help='The modules to run in order'),
+}
 # ---------------------------------------------------
 orient_help = 'Orient a symmetric assembly in a canonical orientation at the origin'
 parser_orient = {orient: dict(description=orient_help, help=orient_help)}
