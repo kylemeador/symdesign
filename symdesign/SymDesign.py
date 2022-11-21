@@ -416,18 +416,19 @@ def main():
         for design in pose_directories:
             design.pickle_info()
 
+        exceptions = kwargs.get('exceptions', [])
         if results:
             if pose_directories:  # pose_directories is empty list when nanohedra
                 success = \
                     [pose_directories[idx] for idx, result in enumerate(results) if
                      not isinstance(result, BaseException)]
-                exceptions = \
-                    [(pose_directories[idx], result) for idx, result in enumerate(results)
-                     if isinstance(result, BaseException)]
-            else:
-                success, exceptions = results, []
+                exceptions += \
+                    [(pose_directories[idx], exception) for idx, exception in enumerate(results)
+                     if isinstance(exception, BaseException)]
+            else:  # Set nanohedra results as success
+                success = results
         else:
-            success, exceptions = [], []
+            success = []
 
         exit_code = 0
         if exceptions:
@@ -1164,8 +1165,8 @@ def main():
             job.structure_db.load_all_data()
             job.api_db.load_all_data()
             # Todo tweak behavior of these two parameters. Need Queue based PoseDirectory
-            # utils.mp_map(PoseDirectory.setup, pose_directories, processes=cores)
-            # utils.mp_map(PoseDirectory.link_master_database, pose_directories, processes=cores)
+            # utils.mp_map(PoseDirectory.setup, pose_directories, processes=job.cores)
+            # utils.mp_map(PoseDirectory.link_master_database, pose_directories, processes=job.cores)
         # Set up in series
         for pose in pose_directories:
             pose.setup(pre_refine=not initial_refinement, pre_loop_model=not initial_loop_model)
@@ -1321,14 +1322,18 @@ def main():
         else:
             logger.info("Modeling will occur in this process, ensure you don't lose connection to the shell!")
 
-    if args.multi_processing:
-        # Calculate the number of cores to use depending on computer resources
-        cores = utils.calculate_mp_cores(cores=args.cores)  # mpi=args.mpi, Todo
-        logger.info(f'Starting multiprocessing using {cores} cores')
+    if job.multi_processing:
+        logger.info(f'Starting multiprocessing using {job.cores} cores')
     else:
-        cores = 1
         logger.info(f'Starting processing. To increase processing speed, '
                     f'use --{flags.multi_processing} during submission')
+    # if args.mpi:  # Todo implement
+    #     # extras = ' mpi %d' % CommmandDistributer.mpi
+    #     logger.info(
+    #         'Setting job up for submission to MPI capable computer. Pose trajectories run in parallel,'
+    #         ' %s at a time. This will speed up pose processing ~%f-fold.' %
+    #         (CommmandDistributer.mpi - 1, flags.nstruct / (CommmandDistributer.mpi - 1)))
+    #     queried_flags.update({'mpi': True, 'script': True})
 
     # Format memory requirements with module dependencies
     if job.module == flags.nanohedra:  # Todo
@@ -1358,11 +1363,12 @@ def main():
     # Parse SubModule specific commands and performs the protocol specified.
     # Finally, run terminate(). This formats output parameters and reports on exceptions
     # -----------------------------------------------------------------------------------------------------------------
-    results, success, exceptions = [], [], []
+    results, success = [], []
+    # exceptions = []
     # ---------------------------------------------------
     if args.module == putils.orient:
         if args.multi_processing:
-            results = utils.mp_map(PoseDirectory.orient, pose_directories, processes=cores)
+            results = utils.mp_map(PoseDirectory.orient, pose_directories, processes=job.cores)
         else:
             for design_dir in pose_directories:
                 results.append(design_dir.orient())  # to_pose_directory=args.to_pose_directory))
@@ -1371,7 +1377,7 @@ def main():
     # ---------------------------------------------------
     elif job.module == 'find_asu':
         if args.multi_processing:
-            results = utils.mp_map(PoseDirectory.find_asu, pose_directories, processes=cores)
+            results = utils.mp_map(PoseDirectory.find_asu, pose_directories, processes=job.cores)
         else:
             for design_dir in pose_directories:
                 results.append(design_dir.find_asu())
@@ -1380,7 +1386,7 @@ def main():
     # ---------------------------------------------------
     elif job.module == 'find_transforms':
         # if args.multi_processing:
-        #     results = SDUtils.mp_map(PoseDirectory.find_transforms, pose_directories, processes=cores)
+        #     results = SDUtils.mp_map(PoseDirectory.find_transforms, pose_directories, processes=job.cores)
         # else:
         stacked_transforms = [pose_directory.pose.entity_transformations for pose_directory in pose_directories]
         trans1_rot1, trans1_tx1, trans1_rot2, trans1_tx2 = zip(*[transform[0].values()
@@ -1401,7 +1407,7 @@ def main():
     # ---------------------------------------------------
     elif job.module == flags.expand_asu:
         if args.multi_processing:
-            results = utils.mp_map(PoseDirectory.expand_asu, pose_directories, processes=cores)
+            results = utils.mp_map(PoseDirectory.expand_asu, pose_directories, processes=job.cores)
         else:
             for design_dir in pose_directories:
                 results.append(design_dir.expand_asu())
@@ -1410,7 +1416,7 @@ def main():
     # ---------------------------------------------------
     elif job.module == flags.rename_chains:
         if args.multi_processing:
-            results = utils.mp_map(PoseDirectory.rename_chains, pose_directories, processes=cores)
+            results = utils.mp_map(PoseDirectory.rename_chains, pose_directories, processes=job.cores)
         else:
             for design_dir in pose_directories:
                 results.append(design_dir.rename_chains())
@@ -1420,7 +1426,7 @@ def main():
     # elif job.module == 'check_unmodelled_clashes':  # Todo
     #     if args.multi_processing:
     #         results = SDUtils.mp_map(PoseDirectory.check_unmodelled_clashes, pose_directories,
-    #                                  processes=cores)
+    #                                  processes=job.cores)
     #     else:
     #         for design_dir in pose_directories:
     #             results.append(design_dir.check_unmodelled_clashes())
@@ -1429,7 +1435,7 @@ def main():
     # ---------------------------------------------------
     elif job.module == flags.check_clashes:
         if args.multi_processing:
-            results = utils.mp_map(PoseDirectory.check_clashes, pose_directories, processes=cores)
+            results = utils.mp_map(PoseDirectory.check_clashes, pose_directories, processes=job.cores)
         else:
             for design_dir in pose_directories:
                 results.append(design_dir.check_clashes())
@@ -1440,7 +1446,7 @@ def main():
         # job.write_fragments = True
         if args.multi_processing:
             results = utils.mp_map(PoseDirectory.generate_interface_fragments, pose_directories,
-                                   processes=cores)
+                                   processes=job.cores)
         else:
             for design in pose_directories:
                 results.append(design.generate_interface_fragments())
@@ -1472,7 +1478,7 @@ def main():
         else:
             if args.multi_processing:
                 zipped_args = zip(*zip(*structure_pairs))
-                results = utils.mp_starmap(protocols.fragdock.nanohedra_dock, zipped_args, processes=cores)
+                results = utils.mp_starmap(protocols.fragdock.nanohedra_dock, zipped_args, processes=job.cores)
             else:  # using combinations of directories with .pdb files
                 for model1, model2 in structure_pairs:
                     # result = None
@@ -1483,7 +1489,7 @@ def main():
     elif job.module == flags.interface_metrics:
         # Start pose processing and preparation for Rosetta
         if args.multi_processing:
-            results = utils.mp_map(PoseDirectory.interface_metrics, pose_directories, processes=cores)
+            results = utils.mp_map(PoseDirectory.interface_metrics, pose_directories, processes=job.cores)
         else:
             for design in pose_directories:
                 results.append(design.interface_metrics())
@@ -1493,7 +1499,7 @@ def main():
     elif job.module == flags.optimize_designs:
         # Start pose processing and preparation for Rosetta
         if args.multi_processing:
-            results = utils.mp_map(PoseDirectory.optimize_designs, pose_directories, processes=cores)
+            results = utils.mp_map(PoseDirectory.optimize_designs, pose_directories, processes=job.cores)
         else:
             for design in pose_directories:
                 results.append(design.optimize_designs())
@@ -1506,7 +1512,7 @@ def main():
     #         zipped_args = zip(pose_directories, repeat(args.script), repeat(args.force),
     #                           repeat(args.file_list), repeat(args.native), repeat(args.suffix), repeat(args.score_only),
     #                           repeat(args.variables))
-    #         results = utils.mp_starmap(PoseDirectory.custom_rosetta_script, zipped_args, processes=cores)
+    #         results = utils.mp_starmap(PoseDirectory.custom_rosetta_script, zipped_args, processes=job.cores)
     #     else:
     #         for design in pose_directories:
     #             results.append(design.custom_rosetta_script(args.script, force=args.force,
@@ -1519,8 +1525,8 @@ def main():
     elif job.module == flags.refine:
         if args.multi_processing:
             # zipped_args = zip(pose_directories, repeat(args.interface_to_alanine), repeat(args.gather_metrics))
-            # results = utils.mp_starmap(PoseDirectory.refine, zipped_args, processes=cores)
-            results = utils.mp_map(PoseDirectory.refine, pose_directories, processes=cores)
+            # results = utils.mp_starmap(PoseDirectory.refine, zipped_args, processes=job.cores)
+            results = utils.mp_map(PoseDirectory.refine, pose_directories, processes=job.cores)
         else:
             for design in pose_directories:
                 results.append(design.refine())
@@ -1530,7 +1536,7 @@ def main():
     elif job.module == flags.interface_design:
         # Start pose processing and preparation for Rosetta
         if args.multi_processing:
-            results = utils.mp_map(PoseDirectory.interface_design, pose_directories, processes=cores)
+            results = utils.mp_map(PoseDirectory.interface_design, pose_directories, processes=job.cores)
         else:
             for design in pose_directories:
                 results.append(design.interface_design())
@@ -1541,8 +1547,8 @@ def main():
         # Start pose analysis of all designed files
         if args.multi_processing:
             # zipped_args = zip(pose_directories, repeat(args.save), repeat(args.figures))
-            # results = utils.mp_starmap(PoseDirectory.interface_design_analysis, zipped_args, processes=cores)
-            results = utils.mp_map(PoseDirectory.interface_design_analysis, pose_directories, processes=cores)
+            # results = utils.mp_starmap(PoseDirectory.interface_design_analysis, zipped_args, processes=job.cores)
+            results = utils.mp_map(PoseDirectory.interface_design_analysis, pose_directories, processes=job.cores)
         else:
             # @profile  # memory_profiler
             # def run_single_analysis():
@@ -1704,7 +1710,7 @@ def main():
                     protocols.cluster.group_compositions(selected_poses)
                 if args.multi_processing:
                     mp_results = utils.mp_map(protocols.cluster.cluster_transformations, compositions.values(),
-                                              processes=cores)
+                                              processes=job.cores)
                     for result in mp_results:
                         pose_cluster_map.update(result.items())
                 else:
@@ -1847,8 +1853,8 @@ def main():
                 #                     'int_energy_res_summary_delta': 0.25}
                 zipped_args = zip(pose_directories, repeat(sequence_filters), repeat(sequence_weights),
                                   repeat(args.designs_per_pose), repeat(args.protocol))
-                # result_mp = zip(*SDUtils.mp_starmap(Ams.select_sequences, zipped_args, processes=cores))
-                result_mp = utils.mp_starmap(PoseDirectory.select_sequences, zipped_args, processes=cores)
+                # result_mp = zip(*SDUtils.mp_starmap(Ams.select_sequences, zipped_args, processes=job.cores))
+                result_mp = utils.mp_starmap(PoseDirectory.select_sequences, zipped_args, processes=job.cores)
                 # results - contains tuple of (PoseDirectory, design index) for each sequence
                 # could simply return the design index then zip with the directory
                 results = {pose_dir: designs for pose_dir, designs in zip(pose_directories, result_mp)}
@@ -1856,7 +1862,7 @@ def main():
                 results = {pose_dir: pose_dir.select_sequences(filters=sequence_filters, weights=sequence_weights,
                                                                number=args.designs_per_pose, protocols=args.protocol)
                            for pose_dir in pose_directories}
-            # Todo there is no sort, here so the select_number isn't really doing anything
+            # Todo there is no sort here so the select_number isn't really doing anything
             results = {pose_dir: designs for pose_dir, designs in list(results.items())[:args.select_number]}
             loc_result = [(pose_dir, design) for pose_dir, designs in results.items() for design in designs]
             # selected_poses_df = load_total_dataframe()
@@ -1874,7 +1880,7 @@ def main():
             args.suffix = f'_{args.suffix}'
         outdir = os.path.join(os.path.dirname(program_root), f'{args.prefix}SelectedDesigns{args.suffix}')
         # outdir_traj, outdir_res = os.path.join(outdir, 'Trajectories'), os.path.join(outdir, 'Residues')
-        os.makedirs(outdir, exist_ok=True)  # , os.makedirs(outdir_traj), os.makedirs(outdir_res)
+        putils.make_path(outdir)  # , os.makedirs(outdir_traj), os.makedirs(outdir_res)
         if args.total and args.save_total:
             total_df = os.path.join(outdir, 'TotalPosesTrajectoryMetrics.csv')
             df.to_csv(total_df)
@@ -1891,12 +1897,13 @@ def main():
 
         logger.info(f'Relevant design files are being copied to the new directory: {outdir}')
         # Create new output of designed PDB's  # TODO attach the state to these files somehow for further SymDesign use
+        exceptions = []
         for pose_dir, designs in results.items():
             for design in designs:
                 file_path = os.path.join(pose_dir.designs, f'*{design}*')
                 file = sorted(glob(file_path))
                 if not file:  # add to exceptions
-                    exceptions.append((pose_dir.path, f'No file found for "{file_path}"'))
+                    exceptions.append((pose_dir, f'No file found for "{file_path}"'))
                     continue
                 out_path = os.path.join(outdir, f'{pose_dir}_design_{design}.pdb')
                 if not os.path.exists(out_path):
@@ -1913,7 +1920,7 @@ def main():
 
         # Check if sequences should be generated
         if job.skip_sequence_generation:
-            terminate(output=False)
+            terminate(exceptions=exceptions, output=False)
         else:
             # Format sequences for expression
             args.output_file = os.path.join(outdir, f'{args.prefix}SelectedDesigns{args.suffix}.paths')
@@ -1921,7 +1928,7 @@ def main():
             with open(args.output_file, 'w') as f:
                 f.write('%s\n' % '\n'.join(pose_dir.path for pose_dir in list(results.keys())))
 
-        # use one directory as indication of entity specification for them all. Todo modify for different length inputs
+        # Use one directory as indication of entity specification for them all. Todo modify for different length inputs
         representative_pose_directory.load_pose()
         if args.tag_entities:
             if args.tag_entities == 'all':

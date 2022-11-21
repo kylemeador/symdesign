@@ -9,7 +9,7 @@ from typing import Annotated, AnyStr
 from symdesign.resources import structure_db, wrapapi
 from symdesign.structure.fragment import db
 from symdesign import flags
-from symdesign.utils import SymEntry, path as putils
+from symdesign.utils import calculate_mp_cores, SymEntry, path as putils
 
 logger = logging.getLogger(__name__)
 # DesignFlags = collections.namedtuple('DesignFlags', design_args.keys(), defaults=design_args.values())
@@ -102,6 +102,12 @@ class JobResources:
         self.distribute_work: bool = kwargs.get(putils.distribute_work, False)
         self.mpi: int = kwargs.get('mpi', 0)
         self.multi_processing: int = kwargs.get(putils.multi_processing, 0)
+        if self.multi_processing:
+            # Calculate the number of cores to use depending on computer resources
+            self.cores = calculate_mp_cores(cores=self.cores)  # mpi=self.mpi, Todo
+        else:
+            self.cores = 1
+
         if self.mpi > 0:
             self.distribute_work = True
         self.development: bool = kwargs.get(putils.development, False)
