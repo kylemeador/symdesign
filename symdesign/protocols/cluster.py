@@ -11,7 +11,6 @@ import numpy as np
 import pandas as pd
 import sklearn
 
-from symdesign.protocols import protocols
 from symdesign.protocols.protocols import PoseDirectory
 from symdesign.resources.job import job_resources_factory
 from symdesign.structure.coords import superposition3d, transform_coordinate_sets
@@ -24,7 +23,7 @@ logger = logging.getLogger(__name__)
 def run(pose_directories: list[protocols.PoseDirectory]) -> \
         dict[str | protocols.PoseDirectory, list[str | protocols.PoseDirectory]] | None:
     job = job_resources_factory.get()
-    pose_cluster_map: dict[str | protocols.PoseDirectory, list[str | protocols.PoseDirectory]] = {}
+    pose_cluster_map: dict[str | PoseDirectory, list[str | PoseDirectory]] = {}
     """Mapping which takes the format:
     {pose_string: [pose_string, ...]} where keys are representatives, values are matching designs
     """
@@ -86,7 +85,7 @@ def run(pose_directories: list[protocols.PoseDirectory]) -> \
         os.chdir(prior_directory)
     elif job.mode == 'transform':
         # First, identify the same compositions
-        compositions: dict[tuple[str, ...], list[protocols.PoseDirectory]] = \
+        compositions: dict[tuple[str, ...], list[PoseDirectory]] = \
             group_compositions(pose_directories)
         if job.multi_processing:
             results = utils.mp_map(cluster_transformations, compositions.values(), processes=job.cores)
@@ -100,7 +99,7 @@ def run(pose_directories: list[protocols.PoseDirectory]) -> \
     elif job.mode == 'rmsd':
         logger.critical(f"The mode {job.mode} hasn't been thoroughly debugged")
         # First, identify the same compositions
-        compositions: dict[tuple[str, ...], list[protocols.PoseDirectory]] = \
+        compositions: dict[tuple[str, ...], list[PoseDirectory]] = \
             group_compositions(pose_directories)
         # pairs_to_process = [grouping for entity_tuple, pose_directories in compositions.items()
         #                     for grouping in combinations(pose_directories, 2)]

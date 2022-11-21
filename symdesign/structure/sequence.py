@@ -24,7 +24,7 @@ from symdesign.metrics import hydrophobic_collapse_index
 from .fragment import info
 from .fragment.db import alignment_types_literal, alignment_types, fragment_info_type
 from symdesign import utils as sdutils
-from symdesign.utils import CommandDistributer, path as putils
+from symdesign.utils import path as putils
 
 # import dependencies.bmdca as bmdca
 
@@ -1531,7 +1531,7 @@ class SequenceProfile(ABC):
 
         if favor_fragments:
             boltzman_energy = 1
-            favor_seqprofile_score_modifier = 0.2 * CommandDistributer.reference_average_residue_weight
+            favor_seqprofile_score_modifier = 0.2 * utils.rosetta.reference_average_residue_weight
             database_bkgnd_aa_freq = self._fragment_db.aa_frequencies
 
             null_residue = get_lod(database_bkgnd_aa_freq, database_bkgnd_aa_freq, as_int=False)
