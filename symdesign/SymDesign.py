@@ -29,7 +29,7 @@ logger = logging.getLogger(putils.program_name.lower())  # __name__)
 # logger.info('Starting logger')
 # logger.warning('Starting logger')
 # input('WHY LOGGING')
-from symdesign import flags, guide, utils
+from symdesign import flags, guide, utils, protocols
 from symdesign.metrics import prioritize_design_indices, query_user_for_metrics
 from symdesign.protocols import fragdock, protocols
 from symdesign.resources.job import job_resources_factory
@@ -1790,144 +1790,9 @@ def main():
         # write out the chosen poses to a pose.paths file
         terminate(results=pose_directories)
     # ---------------------------------------------------
-    elif args.module == putils.cluster_poses:
-        pose_cluster_map: dict[str | protocols.PoseDirectory, list[str | protocols.PoseDirectory]] = {}
-        # This takes the format
-        # {pose_string: [pose_string, ...]} where key is representative, values are matching designs
-        if args.mode == 'ialign':  # interface_residues, tranformation
-            is_threshold = 0.4  # 0.5  # TODO
-            # measure the alignment of all selected pose_directories
-            # all_files = [design.source_file for design in pose_directories]
-
-            # need to change directories to prevent issues with the path length being passed to ialign
-            prior_directory = os.getcwd()
-            os.chdir(job.data)  # os.path.join(job.data, 'ialign_output'))
-            temp_file_dir = os.path.join(os.getcwd(), 'temp')
-            if not os.path.exists(temp_file_dir):
-                os.makedirs(temp_file_dir)
-
-            # save the interface for each design to the temp directory
-            design_interfaces = []
-            for design in pose_directories:
-                design.identify_interface()  # calls design.load_pose()
-                interface = design.pose.get_interface()  # Todo this doesn't work for asymmetric Poses
-                design_interfaces.append(
-                    # interface.write(out_path=os.path.join(temp_file_dir, f'{design.name}_interface.pdb')))  # Todo reinstate
-                    interface.write(out_path=os.path.join(temp_file_dir, f'{design.name}.pdb')))
-
-            design_directory_pairs = list(combinations(pose_directories, 2))
-            pose_pairs = []
-            if args.multi_processing:
-                # zipped_args = zip(combinations(design_interfaces, 2))
-                design_scores = utils.mp_starmap(utils.cluster.ialign, combinations(design_interfaces, 2), processes=cores)
-
-                for idx, is_score in enumerate(design_scores):
-                    if is_score > is_threshold:
-                        pose_pairs.append(set(design_directory_pairs[idx]))
-            else:
-                # for design1, design2 in combinations(pose_directories, 2):  # all_files
-                for idx, (interface_file1, interface_file2) in enumerate(combinations(design_interfaces, 2)):  # all_files
-                    # is_score = utils.cluster.ialign(design1.source, design2.source, out_path='ialign')
-                    is_score = utils.cluster.ialign(interface_file1, interface_file2)
-                    #                   out_path=os.path.join(job.data, 'ialign_output'))
-                    if is_score > is_threshold:
-                        pose_pairs.append(set(design_directory_pairs[idx]))
-                        # pose_pairs.append({design1, design2})
-            # now return to prior directory
-            os.chdir(prior_directory)
-
-            # cluster all those designs together that are in alignment
-            if pose_pairs:
-                # add both orientations to the pose_cluster_map
-                for pose1, pose2 in pose_pairs:
-                    cluster1 = pose_cluster_map.get(pose1)
-                    try:
-                        cluster1.append(pose2)
-                    except AttributeError:
-                        pose_cluster_map[pose1] = [pose2]
-
-                    cluster2 = pose_cluster_map.get(pose2)
-                    try:
-                        cluster2.append(pose1)
-                    except AttributeError:
-                        pose_cluster_map[pose2] = [pose1]
-        elif args.mode == 'transform':
-            # First, identify the same compositions
-            compositions: dict[tuple[str, ...], list[protocols.PoseDirectory]] = \
-                utils.cluster.group_compositions(pose_directories)
-            if args.multi_processing:
-                results = utils.mp_map(utils.cluster.cluster_designs, compositions.values(), processes=cores)
-                for result in results:
-                    pose_cluster_map.update(result.items())
-            else:
-                for composition_group in compositions.values():
-                    pose_cluster_map.update(utils.cluster.cluster_designs(composition_group))
-        elif args.mode == 'rmsd':
-            # First, identify the same compositions
-            compositions: dict[tuple[str, ...], list[protocols.PoseDirectory]] = \
-                utils.cluster.group_compositions(pose_directories)
-            # pairs_to_process = [grouping for entity_tuple, pose_directories in compositions.items()
-            #                     for grouping in combinations(pose_directories, 2)]
-            # composition_pairings = [combinations(pose_directories, 2) for entity_tuple, pose_directories in compositions.items()]
-            # find the rmsd between a pair of poses.  multiprocessing to increase throughput
-            entity_pose_dir_pairs = []
-            results = []
-            if args.multi_processing:
-                # Todo this doesn't seem very MP usefull if compositions aren't deep
-                for entity_tuple, pose_directories in compositions.items():
-                    # make all pose_directory combinations for this pair
-                    pose_dir_pairs = combinations(pose_directories, 2)
-                    # run the calculation
-                    results.append(utils.mp_map(utils.cluster.pose_pair_rmsd, pose_dir_pairs, processes=cores)
-                                   # add all identical comparison results (all are 0 as they are with themselves
-                                   + list(repeat(0, len(pose_directories))))
-                    # add all pose_directory combinations for this pair to total pairs
-                    entity_pose_dir_pairs.append(list(pose_dir_pairs)
-                                                 # add all identical comparisons
-                                                 + list(zip(pose_directories, pose_directories)))
-                    # pose_df = pd.Series(results, index=pd.MultiIndex.from_tuples(entity_pose_dir_pairs)).unstack()
-            else:
-                # raise NotImplementError('Use the --multiprocessing version of this mode. Single wasn\'t implemented '
-                #                         'fully')
-                for entity_tuple, pose_directories in compositions.items():
-                    # make all pose_directory combinations for this pair
-                    pose_dir_pairs = list(combinations(pose_directories, 2))
-                    # run the calculation
-                    _results = [utils.cluster.pose_pair_rmsd(pose_dir_pair) for pose_dir_pair in pose_dir_pairs]
-                    results.append(_results
-                                   # add all identical comparison results (all are 0 as they are with themselves
-                                   + list(repeat(0, len(pose_directories))))
-                    # add all pose_directory combinations for this pair to total pairs
-                    entity_pose_dir_pairs.append(pose_dir_pairs
-                                                 # add all identical comparisons
-                                                 + list(zip(pose_directories, pose_directories)))
-            # add each composition_pairing to the pose_cluster_map
-            for composition_pairs in entity_pose_dir_pairs:
-                pose_cluster_map.update(utils.cluster.cluster_poses(composition_pairs, results))
-        else:
-            exit(f"{args.mode} isn't a viable mode!")
-
-        if pose_cluster_map:
-            if args.as_objects:
-                pass  # they are objects right now
-            else:
-                for representative in copy.copy(pose_cluster_map.keys()):
-                    # remove old entry and convert all arguments to pose_id strings, saving as pose_id strings
-                    pose_cluster_map[str(representative)] = \
-                        [str(member) for member in pose_cluster_map.pop(representative)]
-
-            if args.output_file:
-                pose_cluster_file = utils.pickle_object(pose_cluster_map, args.output_file, out_path='')
-            else:
-                pose_cluster_file = \
-                    utils.pickle_object(pose_cluster_map, putils.default_clustered_pose_file % (utils.starttime,
-                                                                                                location),
-                                        out_path=job.clustered_poses)
-            logger.info(f'Cluster map written to {pose_cluster_file}')
-        else:
-            logger.info('No significant clusters were located. Clustering ended')
-
-        terminate(results=pose_cluster_map)
+    elif job.module == flags.cluster_poses:
+        results = protocols.cluster.run()
+        terminate(results=results)
     # ---------------------------------------------------
     elif args.module == putils.select_sequences:  # -p protocol, -f filters, -w weights, -ns number_sequences
         program_root = job.program_root
