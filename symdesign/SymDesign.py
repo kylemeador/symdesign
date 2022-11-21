@@ -1742,12 +1742,12 @@ def main():
                 compositions: dict[tuple[str, ...], list[protocols.PoseDirectory]] = \
                     utils.cluster.group_compositions(selected_poses)
                 if args.multi_processing:
-                    mp_results = utils.mp_map(utils.cluster.cluster_designs, compositions.values(), processes=cores)
+                    mp_results = utils.mp_map(utils.cluster.cluster_transformations, compositions.values(), processes=cores)
                     for result in mp_results:
                         pose_cluster_map.update(result.items())
                 else:
                     for composition_group in compositions.values():
-                        pose_cluster_map.update(utils.cluster.cluster_designs(composition_group))
+                        pose_cluster_map.update(utils.cluster.cluster_transformations(composition_group))
 
                 pose_cluster_file = utils.pickle_object(pose_cluster_map, name=cluster_map, out_path='')
                 logger.info(f'Found {len(pose_cluster_map)} unique clusters from {len(pose_directories)} pose inputs. '
