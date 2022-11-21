@@ -3186,6 +3186,7 @@ class PoseDirectory:
             per_residue_df.sort_index(level=0, axis=1, inplace=True, sort_remaining=False)
             per_residue_df[(putils.groups, putils.groups)] = protocol_s
             # per_residue_df.sort_index(inplace=True, key=lambda x: x.str.isdigit())  # put wt entry first
+            putils.make_path(self.job.all_scores)
             if merge_residue_data:
                 trajectory_df = pd.concat([trajectory_df], axis=1, keys=['metrics'])
                 trajectory_df = pd.merge(trajectory_df, per_residue_df, left_index=True, right_index=True)
