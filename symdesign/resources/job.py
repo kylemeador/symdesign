@@ -92,6 +92,7 @@ class JobResources:
         # putils.make_path(self.pdb_entity_api)
         # putils.make_path(self.pdb_assembly_api)
         putils.make_path(self.uniprot_api)
+        self.module: str = kwargs.get(flags.module, False)
         self.reduce_memory = False
         self.api_db = wrapapi.api_database_factory.get(source=self.data)
         self.structure_db = structure_db.structure_database_factory.get(source=self.data)
