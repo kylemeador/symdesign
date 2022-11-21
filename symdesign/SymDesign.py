@@ -818,20 +818,6 @@ def main():
     # -----------------------------------------------------------------------------------------------------------------
     # Process design_selectors
     queried_flags['design_selector'] = flags.process_design_selector_flags(queried_flags)
-    # process symmetry
-    user_sym_entry = queried_flags.get(putils.sym_entry)
-    user_symmetry = queried_flags.get('symmetry')
-    if user_symmetry:
-        if user_symmetry.lower()[:5] == 'cryst':  # the symmetry information is in the file header
-            queried_flags['symmetry'] = 'cryst'
-        queried_flags[putils.sym_entry] = utils.SymEntry.parse_symmetry_to_sym_entry(sym_entry=user_sym_entry,
-                                                                                     symmetry=user_symmetry)
-    elif user_sym_entry:
-        queried_flags[putils.sym_entry] = utils.SymEntry.symmetry_factory.get(user_sym_entry)
-
-    sym_entry: utils.SymEntry.SymEntry | None = queried_flags[putils.sym_entry]
-    if not isinstance(sym_entry, utils.SymEntry.SymEntry):  # remove if not an actual SymEntry
-        queried_flags.pop(putils.sym_entry)
 
     # Create JobResources which holds shared program objects and options
     job = job_resources_factory.get(program_root=symdesign_directory, **queried_flags)

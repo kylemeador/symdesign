@@ -166,7 +166,18 @@ class JobResources:
         # self.scout: bool = kwargs.get(scout, False)
         self.specific_protocol: str = kwargs.get('specific_protocol', False)
         # self.structure_background: bool = kwargs.get(structure_background, False)
-        self.sym_entry: SymEntry.SymEntry | None = kwargs.get(putils.sym_entry, None)
+        # Process symmetry
+        sym_entry = kwargs.get(putils.sym_entry, None)
+        symmetry = kwargs.get('symmetry', None)
+        if sym_entry is None and symmetry is None:
+            self.sym_entry: SymEntry.SymEntry | str | None = None
+        else:
+            if symmetry and 'cryst' in symmetry.lower():
+                # Later, symmetry information will be retrieved from the file header
+                self.sym_entry = SymEntry.CRYST  # 'cryst'
+            else:
+                self.sym_entry = SymEntry.parse_symmetry_to_sym_entry(sym_entry=sym_entry, symmetry=symmetry)
+
         self.overwrite: bool = kwargs.get('overwrite', False)
         self.output_directory: AnyStr | None = kwargs.get(putils.output_directory, None)
         self.output_to_directory: bool = True if self.output_directory else False
