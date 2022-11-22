@@ -17,7 +17,6 @@ from subprocess import list2cmdline
 from typing import Any, AnyStr
 
 import pandas as pd
-import psutil
 
 import symdesign.utils.path as putils
 # logging.config.fileConfig(putils.logging_cfg_file)
@@ -38,7 +37,7 @@ from symdesign.resources.query.utils import input_string, bool_d, boolean_choice
     validate_input_return_response_value
 from symdesign.structure.fragment.db import fragment_factory, euler_factory
 from symdesign.structure.model import Model
-from symdesign.structure.sequence import generate_mutations, find_orf_offset
+from symdesign.structure.sequence import generate_mutations, find_orf_offset, write_sequences
 from symdesign.third_party.DnaChisel.dnachisel.DnaOptimizationProblem.NoSolutionError import NoSolutionError
 from symdesign.utils import ProteinExpression, nanohedra
 
@@ -2331,27 +2330,25 @@ def main():
         if codon_optimization_errors:
             # Todo utilize errors
             error_file = \
-                utils.write_sequence_file(codon_optimization_errors, csv=args.csv,
-                                          file_name=os.path.join(outdir,
-                                                                 f'{args.prefix}OptimizationErrorProteinSequences'
-                                                                 f'{args.suffix}'))
+                write_sequences(codon_optimization_errors, csv=args.csv,
+                                file_name=os.path.join(outdir, f'{args.prefix}OptimizationErrorProteinSequences'
+                                                               f'{args.suffix}'))
         # Write output sequences to fasta file
-        seq_file = utils.write_sequence_file(final_sequences, csv=args.csv,
-                                             file_name=os.path.join(outdir,
-                                                                    f'{args.prefix}SelectedSequences{args.suffix}'))
+        seq_file = write_sequences(final_sequences, csv=args.csv,
+                                   file_name=os.path.join(outdir, f'{args.prefix}SelectedSequences{args.suffix}'))
         logger.info(f'Final Design protein sequences written to: {seq_file}')
         seq_comparison_file = \
-            utils.write_sequence_file(inserted_sequences, csv=args.csv,
-                                      file_name=os.path.join(outdir,
-                                                             f'{args.prefix}SelectedSequencesExpressionAdditions'
-                                                             f'{args.suffix}'))
+            write_sequences(inserted_sequences, csv=args.csv,
+                            file_name=os.path.join(outdir,
+                                                   f'{args.prefix}SelectedSequencesExpressionAdditions'
+                                                   f'{args.suffix}'))
         logger.info(f'Final Expression sequence comparison to Design sequence written to: {seq_comparison_file}')
         # check for protein or nucleotide output
         if args.nucleotide:
             nucleotide_sequence_file = \
-                utils.write_sequence_file(nucleotide_sequences, csv=args.csv,
-                                          file_name=os.path.join(outdir, f'{args.prefix}SelectedSequencesNucleotide'
-                                                                         f'{args.suffix}'))
+                write_sequences(nucleotide_sequences, csv=args.csv,
+                                file_name=os.path.join(outdir, f'{args.prefix}SelectedSequencesNucleotide'
+                                                               f'{args.suffix}'))
             logger.info(f'Final Design nucleotide sequences written to: {nucleotide_sequence_file}')
     # # ---------------------------------------------------
     # elif job.module == 'status':  # -n number, -s stage, -u update

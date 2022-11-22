@@ -39,8 +39,8 @@ from symdesign.resources.job import job_resources_factory
 from symdesign.structure.base import Structure
 from symdesign.structure.fragment.db import FragmentDatabase
 from symdesign.structure.model import Pose, MultiModel, Models, Model, Entity
-from symdesign.structure.sequence import generate_mutations_from_reference, \
-    sequence_difference, MultipleSequenceAlignment, pssm_as_array, concatenate_profile, write_pssm_file
+from symdesign.structure.sequence import generate_mutations_from_reference, sequence_difference, \
+    MultipleSequenceAlignment, pssm_as_array, concatenate_profile, write_pssm_file, read_fasta_file, write_sequences
 from symdesign.structure.utils import protein_letters_3to1, protein_letters_1to3, DesignError, ClashError, SymmetryError
 from symdesign.utils import large_color_array, starttime, start_log, unpickle, pickle_object, index_intersection, \
     write_shell_script, all_vs_all, sym, condensed_to_square, rosetta, path as putils
@@ -103,6 +103,7 @@ class PoseProtocol:
 
 
 class PoseDirectory:
+    _designed_sequences = list[Sequence]
     _symmetry_definition_files: list[AnyStr]
     directives: list[dict[int, str]]
     entities: list[Entity]
@@ -367,7 +368,7 @@ class PoseDirectory:
         # These files are used as output from analysis protocols
         self.trajectories = os.path.join(self.job.all_scores, f'{self}_Trajectories.csv')
         self.residues = os.path.join(self.job.all_scores, f'{self}_Residues.csv')
-        self.design_sequences = os.path.join(self.job.all_scores, f'{self}_Sequences.pkl')
+        self.designed_sequences_file = os.path.join(self.job.all_scores, f'{self}_Sequences.pkl')
 
         if not self.initialized and 'entity_names' not in self.info:
             # None were provided at start up, find them
@@ -375,6 +376,15 @@ class PoseDirectory:
             self.find_entity_names()
         else:
             self.entity_names = self.info.get('entity_names', [])  # set so that DataBase set up works
+
+    @property
+    def design_sequences(self) -> list[Sequence]:
+        """Return the designed sequences for the entire Pose associated with the PoseDirectory"""
+        try:
+            return self._designed_sequences
+        except AttributeError:
+            self._designed_sequences = [seq_record.seq for seq_record in read_fasta_file(self.designed_sequences_file)]
+            return self._designed_sequences
 
     # Decorator static methods: These must be declared above their usage, but made static after each declaration
     def remove_structure_memory(func):
@@ -504,9 +514,6 @@ class PoseDirectory:
     # def residue_metrics_file(self) -> AnyStr:
     #     return os.path.join(self.job.all_scores, f'{self}_Residues.csv')
     #
-    # @property
-    # def design_sequences(self) -> AnyStr:
-    #     return os.path.join(self.job.all_scores, f'{self}_Sequences.pkl')
 
     @property
     def number_of_fragments(self) -> int:
@@ -1964,6 +1971,7 @@ class PoseDirectory:
         designs = [f'{self.name}_{protocol}{seq_idx:04d}'
                    for seq_idx in range(len(sequences_and_scores['sequences']))]
         write_per_residue_scores(designs, sequences_and_scores)
+        write_sequences(sequences_and_scores['sequences'], file_name=self.designed_sequences_file)
 
     @handle_design_errors(errors=(DesignError, AssertionError))
     @close_logs
@@ -2481,8 +2489,8 @@ class PoseDirectory:
                                    f'{", ".join(profile_dependent_metrics)}')
         # Include the pose_source in the measured designs
         contact_order_per_res_z, reference_collapse, collapse_profile = self.pose.get_folding_metrics()
-        folding_and_collapse = calculate_collapse_metrics(list(zip(*[list(design_sequences.values())
-                                                                     for design_sequences in entity_sequences])),
+        folding_and_collapse = calculate_collapse_metrics(list(zip(*[list(designed_sequences.values())
+                                                                     for designed_sequences in entity_sequences])),
                                                           contact_order_per_res_z, reference_collapse, collapse_profile)
         # pose_collapse_df = pd.DataFrame(folding_and_collapse).T
         per_residue_collapse_df = pd.concat({design_id: pd.DataFrame(data, index=residue_numbers)
@@ -2612,10 +2620,10 @@ class PoseDirectory:
         # entity_alignment = multi_chain_alignment(entity_sequences)
         # INSTEAD OF USING BELOW, split Pose.MultipleSequenceAlignment at entity.chain_break...
         # entity_alignments = \
-        #     {idx: MultipleSequenceAlignment.from_dictionary(design_sequences)
-        #      for idx, design_sequences in entity_sequences.items()}
+        #     {idx: MultipleSequenceAlignment.from_dictionary(designed_sequences)
+        #      for idx, designed_sequences in entity_sequences.items()}
         # entity_alignments = \
-        #     {idx: msa_from_dictionary(design_sequences) for idx, design_sequences in entity_sequences.items()}
+        #     {idx: msa_from_dictionary(designed_sequences) for idx, designed_sequences in entity_sequences.items()}
         # pose_collapse_ = pd.concat(pd.DataFrame(folding_and_collapse), axis=1, keys=[('sequence_design', 'pose')])
         dca_design_residues_concat = []
         dca_succeed = True
@@ -3044,7 +3052,8 @@ class PoseDirectory:
             else:
                 per_residue_df.to_csv(self.residues)  # Todo PoseDirectory(.path)
             trajectory_df.to_csv(self.trajectories)  # Todo PoseDirectory(.path)
-            pickle_object(entity_sequences, self.design_sequences, out_path='')  # Todo PoseDirectory(.path)
+            # pickle_object(pose_sequences, self.designed_sequences_file, out_path='')  # Todo PoseDirectory(.path)
+            write_sequences(pose_sequences, file_name=self.designed_sequences_file)
 
         # Create figures
         if self.job.figures:  # for plotting collapse profile, errat data, contact order
@@ -3273,17 +3282,19 @@ class PoseDirectory:
             #
             # chain_sequences = SDUtils.unpickle(sequences_pickle[0])
             # {chain: {name: sequence, ...}, ...}
-            design_sequences_by_entity: list[dict[str, str]] = unpickle(self.design_sequences)
-            entity_sequences = list(zip(*[list(design_sequences.values())
-                                          for design_sequences in design_sequences_by_entity]))
-            concatenated_sequences = [''.join(entity_sequence) for entity_sequence in entity_sequences]
-            self.log.debug(f'The final concatenated sequences are:\n{concatenated_sequences}')
+            # designed_sequences_by_entity: list[dict[str, str]] = unpickle(self.designed_sequences)
+            # designed_sequences_by_entity: list[dict[str, str]] = self.designed_sequences
+            # entity_sequences = list(zip(*[list(designed_sequences.values())
+            #                               for designed_sequences in designed_sequences_by_entity]))
+            # concatenated_sequences = [''.join(entity_sequence) for entity_sequence in entity_sequences]
+            pose_sequences = self.designed_sequences
+            self.log.debug(f'The final concatenated sequences are:\n{pose_sequences}')
 
             # pairwise_sequence_diff_np = SDUtils.all_vs_all(concatenated_sequences, sequence_difference)
             # Using concatenated sequences makes the values very similar and inflated as most residues are the same
             # doing min/max normalization to see variation
             pairwise_sequence_diff_l = [sequence_difference(*seq_pair)
-                                        for seq_pair in combinations(concatenated_sequences, 2)]
+                                        for seq_pair in combinations(pose_sequences, 2)]
             pairwise_sequence_diff_np = np.array(pairwise_sequence_diff_l)
             _min = min(pairwise_sequence_diff_l)
             # _max = max(pairwise_sequence_diff_l)
@@ -3744,8 +3755,8 @@ def interface_design_analysis(pose: Pose, design_poses: Iterable[Pose] = None, s
 
     # Include the putils.pose_source in the measured designs
     contact_order_per_res_z, reference_collapse, collapse_profile = pose.get_folding_metrics()
-    folding_and_collapse = calculate_collapse_metrics(list(zip(*[list(design_sequences.values())
-                                                                 for design_sequences in entity_sequences])),
+    folding_and_collapse = calculate_collapse_metrics(list(zip(*[list(designed_sequences.values())
+                                                                 for designed_sequences in entity_sequences])),
                                                       contact_order_per_res_z, reference_collapse, collapse_profile)
     # pose_collapse_df = pd.DataFrame(folding_and_collapse).T
     per_residue_collapse_df = pd.concat({design_id: pd.DataFrame(data, index=residue_numbers)
@@ -3871,10 +3882,10 @@ def interface_design_analysis(pose: Pose, design_poses: Iterable[Pose] = None, s
     # entity_alignment = multi_chain_alignment(entity_sequences)
     # INSTEAD OF USING BELOW, split Pose.MultipleSequenceAlignment at entity.chain_break...
     # entity_alignments = \
-    #     {idx: MultipleSequenceAlignment.from_dictionary(design_sequences)
-    #      for idx, design_sequences in entity_sequences.items()}
+    #     {idx: MultipleSequenceAlignment.from_dictionary(designed_sequences)
+    #      for idx, designed_sequences in entity_sequences.items()}
     # entity_alignments = \
-    #     {idx: msa_from_dictionary(design_sequences) for idx, design_sequences in entity_sequences.items()}
+    #     {idx: msa_from_dictionary(designed_sequences) for idx, designed_sequences in entity_sequences.items()}
     # pose_collapse_ = pd.concat(pd.DataFrame(folding_and_collapse), axis=1, keys=[('sequence_design', 'pose')])
     dca_design_residues_concat = []
     dca_succeed = True
@@ -4264,8 +4275,8 @@ def interface_design_analysis(pose: Pose, design_poses: Iterable[Pose] = None, s
         else:
             residue_df.to_csv(pose.path.residues)
         trajectory_df.to_csv(pose.path.trajectories)
-        pickle_object(entity_sequences, pose.path.design_sequences, out_path='')
-
+        # pickle_object(pose_sequences, pose.path.designed_sequence_file, out_path='')
+        write_sequences(pose_sequences, file_name=pose.path.designed_sequences_file)
     # Create figures
     if job.figures:  # for plotting collapse profile, errat data, contact order
         # Plot: Format the collapse data with residues as index and each design as column

@@ -2951,7 +2951,7 @@ def generate_sequences(wild_type_sequences, all_design_mutations):
 
 
 @sdutils.handle_errors(errors=(FileNotFoundError,))
-def read_fasta_file(file_name: AnyStr, **kwargs) -> Iterator[SeqRecord]:
+def read_fasta_file(file_name: AnyStr, **kwargs) -> Iterable[SeqRecord]:
     """Opens a fasta file and return a parser object to load the sequences to SeqRecords
 
     Args:
@@ -3032,3 +3032,59 @@ def concatenate_fasta_files(file_names: Iterable[AnyStr], out_path: str = 'conca
     for file in file_names:
         seq_records.extend(list(read_fasta_file(file)))
     return write_fasta(seq_records, out_dir=out_path)
+
+
+def write_sequences(sequences: Sequence | dict[str, Sequence], names: Sequence = None,
+                    out_path: AnyStr = os.getcwd(), file_name: AnyStr = None, csv: bool = False) -> AnyStr:
+    """Write a fasta file from sequence(s)
+
+    Args:
+        sequences: If a list, can be list of tuples(name, sequence), or list[sequence] where names contain the
+            corresponding sequence names. If dict, uses key as name, value as sequence. If str, treats as the sequence
+        names: The name or names of the sequence record(s). If a single name, will be used as the default file_name
+            base name if file_name not provided. Otherwise, will be used iteratively
+        out_path: The location on disk to output file
+        file_name: The explicit name of the file
+        csv: Whether the file should be written as a .csv. Default is .fasta
+    Returns:
+        The name of the output file
+    """
+    if not file_name and isinstance(names, str):
+        file_name = os.path.join(out_path, names)
+    else:
+        raise ValueError(f'Must provide argument file_name or "names" as a str to {write_sequences.__name__}')
+
+    if csv:
+        start, sep = '', ','
+        extension = '.csv'
+    else:
+        start, sep = '>', '\n'
+        extension = '.fasta'
+
+    if not file_name.endswith(extension):
+        file_name = f'{file_name}{extension}'
+
+    with open(file_name, 'a') as outfile:
+        if isinstance(sequences, list):
+            if isinstance(sequences[0], tuple):  # where seq[0] is name, seq[1] is seq
+                formatted_sequence_gen = (f'{start}{name}{sep}{seq}' for name, seq, *_ in sequences)
+            elif isinstance(names, Iterable):
+                formatted_sequence_gen = (f'{start}{name}{sep}{seq}' for name, seq in zip(names, sequences))
+            # elif isinstance(sequences[0], list):  # where interior list is alphabet (AA or DNA)
+            #     for idx, seq in enumerate(sequences):
+            #         outfile.write(f'>{name}_{idx}\n')  # write header
+            #         # Check if alphabet is 3 letter protein
+            #         outfile.write(f'{" ".join(seq)}\n' if len(seq[0]) == 3 else f'{"".join(seq)}\n')
+            # elif isinstance(sequences[0], str):  # likely 3 aa format...
+            #     outfile.write(f'>{name}\n{" ".join(sequences)}\n')
+            else:
+                raise TypeError(f'{write_sequences.__name__} Cannot parse data to make fasta')
+        elif isinstance(sequences, dict):
+            formatted_sequence_gen = (f'{start}{name}{sep}{"".join(seq)}' for name, seq in sequences.items())
+        elif isinstance(names, str):  # assume sequences is a str or tuple
+            formatted_sequence_gen = (f'{start}{names}{sep}{"".join(sequences)}\n',)
+        else:
+            raise TypeError(f'{write_sequences.__name__} Cannot parse data to make fasta')
+        outfile.write('%s\n' % '\n'.join(formatted_sequence_gen))
+
+    return file_name

@@ -11,7 +11,7 @@ from Bio.SeqRecord import SeqRecord
 from symdesign import utils
 # EnforceMeltingTemperature
 from symdesign.resources import query
-from symdesign.structure.sequence import generate_alignment, read_fasta_file
+from symdesign.structure.sequence import generate_alignment, read_fasta_file, write_sequences
 from symdesign.structure.utils import protein_letters_alph1
 from symdesign.third_party.DnaChisel.dnachisel import DnaOptimizationProblem, CodonOptimize, reverse_translate, \
     AvoidHairpins, EnforceGCContent, AvoidPattern, AvoidRareCodons, UniquifyAllKmers, EnforceTranslation
@@ -665,14 +665,15 @@ def create_mulitcistronic_sequences(args):
         raise NotImplementedError(f'Sequence file with extension {os.path.splitext(file)[-1]} is not supported!')
 
     # Convert the SeqRecord to a plain sequence
-    design_sequences = [str(seq_record.seq) for seq_record in design_sequences]
+    # design_sequences = [str(seq_record.seq) for seq_record in design_sequences]
     nucleotide_sequences = {}
     for idx, group_start_idx in enumerate(list(range(len(design_sequences)))[::args.number_of_genes], 1):
-        cistronic_sequence = optimize_protein_sequence(design_sequences[group_start_idx],
+        # Call attribute .seq to get the sequence
+        cistronic_sequence = optimize_protein_sequence(design_sequences[group_start_idx].seq,
                                                        species=args.optimize_species)
         for protein_sequence in design_sequences[group_start_idx + 1: group_start_idx + args.number_of_genes]:
             cistronic_sequence += args.multicistronic_intergenic_sequence
-            cistronic_sequence += optimize_protein_sequence(protein_sequence,
+            cistronic_sequence += optimize_protein_sequence(protein_sequence.seq,
                                                             species=args.optimize_species)
         new_name = f'{design_sequences[group_start_idx].id}_cistronic'
         nucleotide_sequences[new_name] = cistronic_sequence
@@ -686,9 +687,8 @@ def create_mulitcistronic_sequences(args):
     if args.suffix:
         args.suffix = f'_{args.suffix}'
 
-    nucleotide_sequence_file = \
-        utils.write_sequence_file(nucleotide_sequences, csv=args.csv,
-                                  file_name=os.path.join(os.getcwd(),
-                                                         f'{args.prefix}MulticistronicNucleotideSequences'
-                                                         f'{args.suffix}'))
+    nucleotide_sequence_file = write_sequences(nucleotide_sequences, csv=args.csv,
+                                               file_name=os.path.join(os.getcwd(),
+                                                                      f'{args.prefix}MulticistronicNucleotideSequences'
+                                                                      f'{args.suffix}'))
     logger.info(f'Multicistronic nucleotide sequences written to: {nucleotide_sequence_file}')
