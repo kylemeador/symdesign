@@ -1333,6 +1333,9 @@ def nanohedra_dock(model1: Structure | AnyStr, model2: Structure | AnyStr, **kwa
 
     if cluster_transforms:
         clustering_start = time.time()
+        # Todo tune DBSCAN epsilon (distance) to be reflective of the data, should be related to radius in
+        #  NearestNeighbors but smaller by some amount. Ideal amount would be the distance between two transformed
+        #  guide coordinate sets of a similar tx and a 3 degree step of rotation.
         # Must add a new axis to translations so the operations are broadcast together in transform_coordinate_sets()
         transform_neighbor_tree, transform_cluster = \
             protocols.cluster.cluster_transformation_pairs(dict(rotation=full_rotation1,
@@ -1350,6 +1353,7 @@ def nanohedra_dock(model1: Structure | AnyStr, model2: Structure | AnyStr, **kwa
                                                            minimum_members=min_matched)
         # cluster_representative_indices, cluster_labels = \
         #     find_cluster_representatives(transform_neighbor_tree, transform_cluster)
+        del transform_neighbor_tree
         # representative_labels = cluster_labels[cluster_representative_indices]
         # Todo?
         #  _, cluster_labels = find_cluster_representatives(transform_neighbor_tree, transform_cluster)
@@ -2521,11 +2525,6 @@ def nanohedra_dock(model1: Structure | AnyStr, model2: Structure | AnyStr, **kwa
         # once, twice = False, False
 
         # Set up Pose parameters
-        # Todo remove this debugging
-        pose_id = pose_ids[-1]
-        output_pose(os.path.join(out_dir, pose_id), pose_id)
-        logger.critical(f'Pose debug written to {os.path.join(out_dir, pose_id)}')
-        # Todo remove this debugging
         parameters = pose.get_proteinmpnn_params()
         # Todo
         #  Must calculate randn individually if using some feature to describe order

@@ -6542,10 +6542,11 @@ class Pose(SymmetricModel):
             return
 
         entity1_residues, entity2_residues = self.interface_residues_by_entity_pair.get((entity1, entity2))
-        # because the way self.interface_residues_by_entity_pair is set, when there is not interface, a check on entity1_residues is
-        # sufficient, however entity2_residues is empty with an interface present across a non-oligomeric dimeric 2-fold
+        # Because of the way self.interface_residues_by_entity_pair is set, when there is not interface, a check on
+        # entity1_residues is sufficient, however entity2_residues is empty with an interface present across a
+        # non-oligomeric dimeric 2-fold
         if not entity1_residues:  # or not entity2_residues:
-            self.log.info(f'No residues at the {entity1.name} | {entity2.name} interface. Fragments not available')
+            self.log.debug(f'No residues at the {entity1.name} | {entity2.name} interface. Fragments not available')
             self.fragment_queries[(entity1, entity2)] = []
             return
 
@@ -7019,7 +7020,7 @@ class Pose(SymmetricModel):
                 metric_d['nanohedra_score_center_normalized'] = \
                     metric_d['nanohedra_score_center']/metric_d['number_fragment_residues_center']
             except ZeroDivisionError:
-                self.log.warning(f'{self.name}: No fragment residues were found. Is there an interface in your design?')
+                self.log.debug(f'{self.name}: No fragment residues were found')
                 metric_d['nanohedra_score_normalized'] = metric_d['nanohedra_score_center_normalized'] = 0.
 
         else:  # For the entire Pose?

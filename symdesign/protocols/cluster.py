@@ -301,18 +301,15 @@ def cluster_transformation_pairs(transform1: dict[str, np.ndarray], transform2: 
         The sklearn tree with the calculated nearest neighbors, the DBSCAN clustering object
         Representative indices, DBSCAN cluster membership indices
     """
-    # Todo tune DBSCAN distance (epsilon) to be reflective of the data, should be related to radius in NearestNeighbors
-    #  but smaller by some amount. Ideal amount would be the distance between two transformed guide coordinate sets of
-    #  a similar tx and a 3 degree step of rotation.
     transformed_guide_coords = return_transform_pair_as_guide_coordinate_pair(transform1, transform2)
 
-    # create a tree structure describing the distances of all transformed points relative to one another
+    # Create a tree structure describing the distances of all transformed points relative to one another
     nearest_neightbors_ball_tree = sklearn.neighbors.NearestNeighbors(algorithm='ball_tree', radius=distance)
     nearest_neightbors_ball_tree.fit(transformed_guide_coords)
-    #                                sort_results returns only non-zero entries and provides the smallest distance first
-    distance_graph = nearest_neightbors_ball_tree.radius_neighbors_graph(mode='distance', sort_results=True)  # <- sort doesn't work?
-    #                                                      X=transformed_guide_coords is implied
-    # because this doesn't work to sort_results and pull out indices, I have to do another step 'radius_neighbors'
+    # sort_results only returns non-zero entries with the smallest distance first, however it doesn't seem to work...?
+    distance_graph = nearest_neightbors_ball_tree.radius_neighbors_graph(mode='distance', sort_results=True)
+    #                                                                    X=transformed_guide_coords is implied
+    # Because this doesn't work to sort_results and pull out indices, I have to do another step 'radius_neighbors'
     dbscan_cluster: sklearn.cluster.DBSCAN = \
         sklearn.cluster.DBSCAN(eps=distance, min_samples=minimum_members, metric='precomputed').fit(distance_graph)
     #                                         sample_weight=A WEIGHT?
