@@ -7,8 +7,8 @@ from typing import AnyStr
 
 # Project strings and file names
 utils_dir = os.path.dirname(os.path.realpath(__file__))  # reveals utils subdirectory
-python_source = os.path.dirname(utils_dir)  # reveals master symdesign directory
-git_source = os.path.dirname(python_source)  # reveals master symdesign directory
+python_source = os.path.dirname(utils_dir)  # reveals the root symdesign directory with python code
+git_source = os.path.dirname(python_source)  # reveals the root symdesign directory for git
 try:
     p = subprocess.Popen(['git', '--git-dir', os.path.join(git_source, '.git'), 'rev-parse', '--short', 'HEAD'],
                          stdout=subprocess.PIPE)
@@ -18,7 +18,8 @@ except subprocess.CalledProcessError:
     program_version = 'unknown'
 
 program_name = 'SymDesign'
-program_exe = os.path.join(git_source, program_name.lower())
+program_exe = git_source
+# program_exe = os.path.join(git_source, program_name.lower())
 logging_cfg_file = os.path.join(python_source, 'logging.cfg')
 config_file = os.path.join(python_source, 'cfg.json')
 third_party_dir = os.path.join(python_source, 'third_party')
@@ -51,6 +52,7 @@ orient = 'orient'
 refine = 'refine'
 residue_selector = 'residue_selector'
 multicistronic = 'multicistronic'
+predict_structure = 'predict_structure'
 interface_design = 'interface_design'
 interface_metrics = 'interface_metrics'
 optimize_designs = 'optimize_designs'
