@@ -1503,7 +1503,7 @@ class PoseDirectory:
                 header = True
             pose_s.to_csv(out_path, mode='a', header=header)
 
-    @handle_design_errors(errors=(DesignError, AssertionError))
+    @handle_design_errors(errors=(DesignError,))
     @close_logs
     @remove_structure_memory
     def interface_metrics(self):
@@ -1641,7 +1641,7 @@ class PoseDirectory:
         else:
             raise SymmetryError(warn_missing_symmetry % self.orient.__name__)
 
-    @handle_design_errors(errors=(DesignError, AssertionError))
+    @handle_design_errors(errors=(DesignError,))
     @close_logs
     @remove_structure_memory
     def refine(self, refine_sequences: Iterable[Sequence] = None):
@@ -1652,7 +1652,7 @@ class PoseDirectory:
         """
         self._refine(refine_sequences=refine_sequences)
 
-    @handle_design_errors(errors=(DesignError, AssertionError, FileNotFoundError))
+    @handle_design_errors(errors=(DesignError, FileNotFoundError))
     @close_logs
     @remove_structure_memory
     def find_asu(self):
@@ -1677,7 +1677,7 @@ class PoseDirectory:
         # Save the Pose.asu
         self.save_asu()
 
-    @handle_design_errors(errors=(DesignError, AssertionError))
+    @handle_design_errors(errors=(DesignError,))
     @close_logs
     @remove_structure_memory
     def expand_asu(self):
@@ -1696,7 +1696,7 @@ class PoseDirectory:
             raise SymmetryError(warn_missing_symmetry % self.expand_asu.__name__)
         self.pickle_info()  # Todo remove once PoseDirectory state can be returned to the SymDesign dispatch w/ MP
 
-    @handle_design_errors(errors=(DesignError, AssertionError))
+    @handle_design_errors(errors=(DesignError,))
     @close_logs
     @remove_structure_memory
     def generate_interface_fragments(self):
@@ -1716,7 +1716,7 @@ class PoseDirectory:
         self.info['fragment_source'] = self.job.fragment_db.source
         self.pickle_info()  # Todo remove once PoseDirectory state can be returned to the SymDesign dispatch w/ MP
 
-    @handle_design_errors(errors=(DesignError, AssertionError))
+    @handle_design_errors(errors=(DesignError,))
     @close_logs
     @remove_structure_memory
     def interface_design(self):
@@ -2014,7 +2014,7 @@ class PoseDirectory:
         write_per_residue_scores(designs, sequences_and_scores)
         write_sequences(sequences_and_scores['sequences'], file_name=self.designed_sequences_file)
 
-    @handle_design_errors(errors=(DesignError, AssertionError))
+    @handle_design_errors(errors=(DesignError,))
     @close_logs
     @remove_structure_memory
     def optimize_designs(self, threshold: float = 0.):
@@ -2134,7 +2134,7 @@ class PoseDirectory:
                 header = True
             pose_s.to_csv(out_path, mode='a', header=header)
 
-    @handle_design_errors(errors=(DesignError, AssertionError))
+    @handle_design_errors(errors=(DesignError,))
     @close_logs
     @remove_structure_memory
     def interface_design_analysis(self, design_poses: Iterable[Pose] = None) -> pd.Series:
@@ -3268,7 +3268,7 @@ class PoseDirectory:
 
         return pose_s
 
-    @handle_design_errors(errors=(DesignError, AssertionError))
+    @handle_design_errors(errors=(DesignError,))
     @close_logs
     # @remove_structure_memory  # structures not used in this protocol
     def select_sequences(self, filters: dict = None, weights: dict = None, number: int = 1, protocols: list[str] = None,
@@ -3426,7 +3426,7 @@ class PoseDirectory:
             return self.path.replace(f'{self.projects}{os.sep}', '').replace(os.sep, '-')
 
 
-# @handle_design_errors(errors=(DesignError, AssertionError))
+# @handle_design_errors(errors=(DesignError,))
 # @close_logs
 # @remove_structure_memory
 def interface_design_analysis(pose: Pose, design_poses: Iterable[Pose] = None, scores_file: AnyStr = None, **kwargs) \
