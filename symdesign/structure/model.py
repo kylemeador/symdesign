@@ -6866,6 +6866,8 @@ class Pose(SymmetricModel):
             if entity.fragment_map:
                 entity.simplify_fragment_profile(**kwargs)
                 fragments_available = True
+            else:
+                entity.fragment_profile = entity.create_null_profile(zero_index=True)
 
         if fragments_available:
             self.fragment_profile = concatenate_profile([entity.fragment_profile for entity in self.entities],
