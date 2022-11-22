@@ -265,7 +265,6 @@ class JobResources:
         # self.number_of_trajectories: int = kwargs.get(number_of_trajectories, flags.nstruct)
         # self.pre_refine: bool = kwargs.get('pre_refine', True)
         # self.pre_loop_model: bool = kwargs.get('pre_loop_model', True)
-        self.generate_fragments: bool = kwargs.get(putils.generate_fragments, True)
         self.interface_to_alanine: bool = kwargs.get('interface_to_alanine')
         self.gather_metrics: bool = kwargs.get('gather_metrics')
         # self.scout: bool = kwargs.get(scout, False)
@@ -286,6 +285,7 @@ class JobResources:
         self.overwrite: bool = kwargs.get('overwrite')
         self.output_directory: AnyStr | None = kwargs.get(putils.output_directory)
         self.output_to_directory: bool = True if self.output_directory else False
+        """Set so it is known that output is not typical SymDesignOutput directory structure"""
         self.output_assembly: bool = kwargs.get(putils.output_assembly)
         self.output_surrounding_uc: bool = kwargs.get(putils.output_surrounding_uc)
         self.write_fragments: bool = kwargs.get(putils.output_fragments)
@@ -293,10 +293,10 @@ class JobResources:
         self.write_structures: bool = kwargs.get(putils.output_structures)
         self.write_trajectory: bool = kwargs.get(putils.output_trajectory)
         self.skip_logging: bool = kwargs.get(putils.skip_logging)
-        self.merge: bool = kwargs.get('merge', False)
-        self.save: bool = kwargs.get('save', False)
-        self.figures: bool = kwargs.get('figures', False)
-        self.skip_sequence_generation: bool = kwargs.get('skip_sequence_generation', False)
+        self.merge: bool = kwargs.get('merge')
+        self.save: bool = kwargs.get('save')
+        self.figures: bool = kwargs.get('figures')
+        self.skip_sequence_generation: bool = kwargs.get('skip_sequence_generation')
 
         if self.write_structures or self.output_assembly or self.output_surrounding_uc or self.write_fragments \
                 or self.write_oligomers or self.write_trajectory:
@@ -304,16 +304,18 @@ class JobResources:
         else:
             self.output: bool = False
 
-        self.nanohedra_output: bool = kwargs.get('nanohedra_output', False)
+        self.nanohedra_output: bool = kwargs.get(flags.nanohedra_output)
         self.nanohedra_root: str | None = None
         if self.nanohedra_output:
-            self.construct_pose: bool = kwargs.get('construct_pose', True)  # Whether to construct the PoseDirectory
+            self.construct_pose: bool = kwargs.get('construct_pose', True)
         else:
             self.construct_pose = True
 
         # Handle protocol specific flags
         if not self.design.term_constraint:
-            self.generate_fragments = False
+            self.generate_fragments: bool = False
+        else:
+            self.generate_fragments = True
 
         if self.design.structure_background:
             self.design.evolution_constraint = False
@@ -323,6 +325,7 @@ class JobResources:
 
     @property
     def construct_pose(self):
+        """Whether to construct the PoseDirectory"""
         return self._construct_pose
 
     @construct_pose.setter
@@ -331,8 +334,7 @@ class JobResources:
         if self._construct_pose:
             pass
         else:  # No construction specific flags
-            self.write_fragments = False
-            self.write_oligomers = False
+            self.write_fragments = self.write_oligomers = False
 
     def calculate_memory_requirements(self, number_jobs: int):
         """Format memory requirements with module dependencies and set self.reduce_memory"""
