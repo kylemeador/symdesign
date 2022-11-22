@@ -2188,7 +2188,8 @@ def nanohedra_dock(model1: Structure | AnyStr, model2: Structure | AnyStr, **kwa
 
         If no arguments are passed, the fragment observations will be generated new
         """
-        # First, force identify interface of the current pose
+        # First, clear any pose information and force identification of the interface
+        pose.split_interface_residues = {}
         pose.find_and_split_interface(distance=cb_distance)
 
         # Next, set the interface fragment info for gathering of interface metrics
