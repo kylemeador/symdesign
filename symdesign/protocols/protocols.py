@@ -172,6 +172,8 @@ class PoseDirectory:
             self.sym_entry = self.job.sym_entry
         self.sym_def_file: str | None = None  # The symmetry definition file for the entire Pose
         self.symmetry_protocol: str | None = None
+        self.protocol: str | None = None
+        """The name of the currently utilized protocol for file naming and metric results"""
         # Todo figure out how to handle non-symmetric systems with CRYST1 info. Users might want either mechanism...
         # if symmetry:
         #     if symmetry == 'cryst':
@@ -1227,7 +1229,6 @@ class PoseDirectory:
             gather_metrics: Whether metrics should be calculated for the Pose
         """
         main_cmd = copy(rosetta.script_cmd)
-        protocol = putils.refine
         # if self.interface_residue_numbers is False or self.interface_design_residue_numbers is False:
         self.identify_interface()
         # else:  # We only need to load pose as we already calculated interface
@@ -1309,9 +1310,9 @@ class PoseDirectory:
                            '-in:file:native', self.source,
                            # -in:file:native is here to block flag file version, not actually useful for refine
                            ])
-            designed_files = os.path.join(self.scripts, f'design_files_{protocol}.txt')
+            designed_files = os.path.join(self.scripts, f'design_files_{self.protocol}.txt')
             generate_files_cmd = \
-                ['python', putils.list_pdb_files, '-d', self.designs, '-o', designed_files, '-s', '_' + protocol]
+                ['python', putils.list_pdb_files, '-d', self.designs, '-o', designed_files, '-s', '_' + self.protocol]
             metrics_pdb = ['-in:file:l', designed_files, '-in:file:native', self.source]
             # generate_files_cmdline = [list2cmdline(generate_files_cmd)]
         else:
@@ -1348,8 +1349,8 @@ class PoseDirectory:
         if self.job.distribute_work:
             analysis_cmd = ['python', putils.program_exe, putils.analysis, '--single', self.path, '--no-output',
                             f'--{flags.output_file}', os.path.join(self.job.all_scores, putils.default_analysis_file
-                                                                   .format(starttime, protocol))]
-            write_shell_script(list2cmdline(relax_cmd), name=protocol, out_path=flag_dir,
+                                                                   .format(starttime, self.protocol))]
+            write_shell_script(list2cmdline(relax_cmd), name=self.protocol, out_path=flag_dir,
                                additional=[list2cmdline(generate_files_cmd)] +
                                           [list2cmdline(command) for command in metric_cmds] +
                                           [list2cmdline(analysis_cmd)])
@@ -1445,7 +1446,7 @@ class PoseDirectory:
         # Todo  + [list2cmdline(analysis_cmd)])
         #  analysis_cmd = ['python', putils.program_exe, putils.analysis, '--single', self.path, '--no-output',
         #                 f'--{flags.output_file}', os.path.join(self.job.all_scores, putils.default_analysis_file
-        #                                                        .format(starttime, protocol))]
+        #                                                        .format(starttime, self.protocol))]
 
         # ANALYSIS: each output from the Design process based on score, Analyze Sequence Variation
         if not self.job.distribute_work:
@@ -1463,7 +1464,7 @@ class PoseDirectory:
     def interface_metrics(self):
         """Generate a script capable of running Rosetta interface metrics analysis on the bound and unbound states"""
         # metrics_flags = 'repack=yes'
-        protocol = putils.interface_metrics
+        self.protocol = putils.interface_metrics
         main_cmd = copy(rosetta.script_cmd)
         # if self.interface_residue_numbers is False or self.interface_design_residue_numbers is False:
         self.identify_interface()
@@ -1489,7 +1490,7 @@ class PoseDirectory:
             main_cmd = rosetta.run_cmds[putils.rosetta_extras] + [str(self.job.mpi)] + main_cmd
 
         metric_cmd_bound = main_cmd + (['-symmetry_definition', 'CRYST1'] if self.design_dimension > 0 else []) + \
-            [os.path.join(putils.rosetta_scripts_dir, f'{protocol}{"_DEV" if self.job.development else ""}.xml')]
+            [os.path.join(putils.rosetta_scripts_dir, f'{self.protocol}{"_DEV" if self.job.development else ""}.xml')]
         entity_cmd = main_cmd + [os.path.join(putils.rosetta_scripts_dir,
                                               f'metrics_entity{"_DEV" if self.job.development else ""}.xml')]
         metric_cmds = [metric_cmd_bound]
@@ -1499,7 +1500,7 @@ class PoseDirectory:
         if self.job.distribute_work:
             analysis_cmd = ['python', putils.program_exe, putils.analysis, '--single', self.path, '--no-output',
                             f'--{flags.output_file}', os.path.join(self.job.all_scores, putils.default_analysis_file
-                                                                   .format(starttime, protocol))]
+                                                                   .format(starttime, self.protocol))]
             write_shell_script(list2cmdline(generate_files_cmd), name=putils.interface_metrics, out_path=self.scripts,
                                additional=[list2cmdline(command) for command in metric_cmds] +
                                           [list2cmdline(analysis_cmd)])
@@ -1774,9 +1775,9 @@ class PoseDirectory:
                 write_pssm_file(self.pose.profile, file_name=self.design_profile_file)
                 raise NotImplementedError('Writing fragment_profile needs work to convert np.nan')
                 write_pssm_file(self.pose.fragment_profile, file_name=self.fragment_profile_file)
-                self.rosetta_interface_design()
+                self.rosetta_interface_design()  # Sets self.protocol
             case putils.proteinmpnn:
-                self.proteinmpnn_interface_design()
+                self.proteinmpnn_interface_design()  # Sets self.protocol
             case other:
                 raise ValueError(f"The method '{self.job.design.method}' isn't available")
         self.pickle_info()  # Todo remove once PoseDirectory state can be returned to the SymDesign dispatch w/ MP
@@ -1790,35 +1791,35 @@ class PoseDirectory:
         """
         # Set up the command base (rosetta bin and database paths)
         if self.job.design.scout:
-            protocol = protocol_xml1 = putils.scout
+            self.protocol = protocol_xml1 = putils.scout
             nstruct_instruct = ['-no_nstruct_label', 'true']
             generate_files_cmd, metrics_pdb = null_cmd, ['-in:file:s', self.scouted_pdb]
             # metrics_flags = 'repack=no'
             additional_cmds, out_file = [], []
         elif self.job.design.structure_background:
-            protocol = protocol_xml1 = putils.structure_background
+            self.protocol = protocol_xml1 = putils.structure_background
             nstruct_instruct = ['-nstruct', str(self.job.design.number_of_trajectories)]
-            design_files = os.path.join(self.scripts, f'design_files_{protocol}.txt')
+            design_files = os.path.join(self.scripts, f'design_files_{self.protocol}.txt')
             generate_files_cmd = \
-                ['python', putils.list_pdb_files, '-d', self.designs, '-o', design_files, '-s', '_' + protocol]
+                ['python', putils.list_pdb_files, '-d', self.designs, '-o', design_files, '-s', '_' + self.protocol]
             metrics_pdb = ['-in:file:l', design_files]  # self.pdb_list]
             # metrics_flags = 'repack=yes'
             additional_cmds, out_file = [], []
         elif not self.job.design.hbnet:  # Run the legacy protocol
-            protocol = protocol_xml1 = putils.interface_design
+            self.protocol = protocol_xml1 = putils.interface_design
             nstruct_instruct = ['-nstruct', str(self.job.design.number_of_trajectories)]
-            design_files = os.path.join(self.scripts, f'design_files_{protocol}.txt')
+            design_files = os.path.join(self.scripts, f'design_files_{self.protocol}.txt')
             generate_files_cmd = \
-                ['python', putils.list_pdb_files, '-d', self.designs, '-o', design_files, '-s', '_' + protocol]
+                ['python', putils.list_pdb_files, '-d', self.designs, '-o', design_files, '-s', '_' + self.protocol]
             metrics_pdb = ['-in:file:l', design_files]  # self.pdb_list]
             # metrics_flags = 'repack=yes'
             additional_cmds, out_file = [], []
         else:  # Run hbnet_design_profile protocol
-            protocol, protocol_xml1 = putils.hbnet_design_profile, 'hbnet_scout'
+            self.protocol, protocol_xml1 = putils.hbnet_design_profile, 'hbnet_scout'
             nstruct_instruct = ['-no_nstruct_label', 'true']
-            design_files = os.path.join(self.scripts, f'design_files_{protocol}.txt')
+            design_files = os.path.join(self.scripts, f'design_files_{self.protocol}.txt')
             generate_files_cmd = \
-                ['python', putils.list_pdb_files, '-d', self.designs, '-o', design_files, '-s', '_' + protocol]
+                ['python', putils.list_pdb_files, '-d', self.designs, '-o', design_files, '-s', '_' + self.protocol]
             metrics_pdb = ['-in:file:l', design_files]  # self.pdb_list]
             # metrics_flags = 'repack=yes'
             out_file = ['-out:file:silent', os.path.join(self.data, 'hbnet_silent.o'),
@@ -1865,15 +1866,16 @@ class PoseDirectory:
         design_cmd = main_cmd + profile_cmd + \
             [f'@{self.flags}', '-in:file:s', self.scouted_pdb if os.path.exists(self.scouted_pdb) else self.refined_pdb,
              '-parser:protocol', os.path.join(putils.rosetta_scripts_dir, f'{protocol_xml1}.xml'),
-             '-out:suffix', f'_{protocol}'] + (['-overwrite'] if self.job.overwrite else []) \
+             '-out:suffix', f'_{self.protocol}'] + (['-overwrite'] if self.job.overwrite else []) \
             + out_file + nstruct_instruct
         if additional_cmds:  # this is where hbnet_design_profile.xml is set up, which could be just design_profile.xml
             additional_cmds.append(
                 main_cmd + profile_cmd +
                 ['-in:file:silent', os.path.join(self.data, 'hbnet_selected.o'), f'@{self.flags}',
                  '-in:file:silent_struct_type', 'binary',
-                 # '-out:suffix', '_%s' % protocol,  adding no_nstruct_label true as only hbnet uses this mechanism
-                 '-parser:protocol', os.path.join(putils.rosetta_scripts_dir, f'{protocol}.xml')] + nstruct_instruct)
+                 # '-out:suffix', f'_{self.protocol}',  adding no_nstruct_label true as only hbnet uses this mechanism
+                 '-parser:protocol', os.path.join(putils.rosetta_scripts_dir, f'{self.protocol}.xml')]
+                + nstruct_instruct)
 
         # METRICS: Can remove if SimpleMetrics adopts pose metric caching and restoration
         # Assumes all entity chains are renamed from A to Z for entities (1 to n)
@@ -1893,8 +1895,8 @@ class PoseDirectory:
         if self.job.distribute_work:
             analysis_cmd = ['python', putils.program_exe, putils.analysis, '--single', self.path, '--no-output',
                             f'--{flags.output_file}', os.path.join(self.job.all_scores, putils.default_analysis_file
-                                                                   .format(starttime, protocol))]
-            write_shell_script(list2cmdline(design_cmd), name=protocol, out_path=self.scripts,
+                                                                   .format(starttime, self.protocol))]
+            write_shell_script(list2cmdline(design_cmd), name=self.protocol, out_path=self.scripts,
                                additional=[list2cmdline(command) for command in additional_cmds] +
                                           [list2cmdline(generate_files_cmd)] +
                                           [list2cmdline(command) for command in metric_cmds] +
@@ -1920,6 +1922,7 @@ class PoseDirectory:
             pose_s.to_csv(out_path, mode='a', header=header)
 
     def proteinmpnn_interface_design(self):
+        self.protocol = 'proteinmpnn'
         sequences_and_scores: dict[str, np.ndarray | list] = \
             self.pose.design_sequences(number=self.job.design.number_of_trajectories,
                                        ca_only=self.job.design.ca_only,
@@ -1943,8 +1946,9 @@ class PoseDirectory:
         #                                  for temperature in self.job.design.temperatures]
         # trajectories_temperatures_ids = [{'temperature': temperature} for idx in self.job.design.number_of_trajectories
         #                                  for temperature in self.job.design.temperatures]
+        protocol = 'proteinmpnn'
         sequences_and_scores['protocol'] = \
-            repeat('proteinmpnn', len(self.job.design.number_of_trajectories * self.job.design.temperatures))
+            repeat(protocol, len(self.job.design.number_of_trajectories * self.job.design.temperatures))
         sequences_and_scores['temperature'] = [temperature for temperature in self.job.design.temperatures
                                                for _ in range(self.job.design.number_of_trajectories)]
 
@@ -2028,13 +2032,12 @@ class PoseDirectory:
 
         res_file = self.pose.make_resfile(directives, out_path=self.data, include=wt, background=background)
 
-        protocol = putils.optimize_designs
-        protocol_xml1 = protocol
+        self.protocol = protocol_xml1 = putils.optimize_designs
         # nstruct_instruct = ['-no_nstruct_label', 'true']
         nstruct_instruct = ['-nstruct', str(self.job.design.number_of_trajectories)]
-        design_list_file = os.path.join(self.scripts, f'design_files_{protocol}.txt')
+        design_list_file = os.path.join(self.scripts, f'design_files_{self.protocol}.txt')
         generate_files_cmd = \
-            ['python', putils.list_pdb_files, '-d', self.designs, '-o', design_list_file, '-s', '_' + protocol]
+            ['python', putils.list_pdb_files, '-d', self.designs, '-o', design_list_file, '-s', '_' + self.protocol]
 
         main_cmd = copy(rosetta.script_cmd)
         main_cmd += ['-symmetry_definition', 'CRYST1'] if self.design_dimension > 0 else []
@@ -2048,7 +2051,7 @@ class PoseDirectory:
             if os.path.exists(self.evolutionary_profile_file) else []
         design_cmd = main_cmd + profile_cmd \
             + ['-in:file:s', specific_design if specific_design else self.refined_pdb,
-               f'@{self.flags}', '-out:suffix', f'_{protocol}', '-packing:resfile', res_file,
+               f'@{self.flags}', '-out:suffix', f'_{self.protocol}', '-packing:resfile', res_file,
                '-parser:protocol', os.path.join(putils.rosetta_scripts_dir, f'{protocol_xml1}.xml')] + nstruct_instruct
 
         # metrics_pdb = ['-in:file:l', design_list_file]  # self.pdb_list]
@@ -2071,8 +2074,8 @@ class PoseDirectory:
         if self.job.distribute_work:
             analysis_cmd = ['python', putils.program_exe, putils.analysis, '--single', self.path, '--no-output',
                             f'--{flags.output_file}', os.path.join(self.job.all_scores, putils.default_analysis_file
-                                                                   .format(starttime, protocol))]
-            write_shell_script(list2cmdline(design_cmd), name=protocol, out_path=self.scripts,
+                                                                   .format(starttime, self.protocol))]
+            write_shell_script(list2cmdline(design_cmd), name=self.protocol, out_path=self.scripts,
                                additional=[list2cmdline(generate_files_cmd)] +
                                           [list2cmdline(command) for command in metric_cmds] +
                                           [list2cmdline(analysis_cmd)])
