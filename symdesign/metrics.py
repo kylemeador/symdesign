@@ -17,7 +17,7 @@ from symdesign.resources.query.utils import input_string, validate_type, verify_
 from symdesign.structure.utils import protein_letters_literal, alphabet_types, create_translation_tables, DesignError
 from symdesign.utils import handle_errors, pretty_format_table, index_intersection, digit_translate_table, \
     z_score
-from symdesign.utils.path import groups, reference_name, structure_background, design_profile, hbnet_design_profile
+from symdesign.utils.path import protocol, reference_name, structure_background, design_profile, hbnet_design_profile
 
 # Globals
 logger = logging.getLogger(__name__)
@@ -438,7 +438,7 @@ master_metrics = {
     'pose_thermophilicity':
         dict(description='The extent to which the entities in the pose are thermophilic',
              direction=_max, function=rank, filter=True),
-    groups:
+    protocol:
         dict(description='Protocols utilized to search sequence space given fragment and/or evolutionary '
                          'constraint information',
              direction=None, function=None, filter=False),
@@ -613,7 +613,7 @@ necessary_metrics = {'buns_complex', 'buns_1_unbound', 'contact_count', 'coordin
                      'interface_connectivity_1',
                      'interface_separation',
                      # 'interface_energy_1_bound', 'interface_energy_1_unbound',  'interface_energy_complex',
-                     'interaction_energy_complex', groups, 'rosetta_reference_energy', 'shape_complementarity',
+                     'interaction_energy_complex', protocol, 'rosetta_reference_energy', 'shape_complementarity',
                      # 'sasa_hydrophobic_complex', 'sasa_polar_complex', 'sasa_total_complex',
                      # 'sasa_hydrophobic_1_bound', 'sasa_polar_1_bound', 'sasa_total_1_bound',
                      # 'solvation_energy_complex', 'solvation_energy_1_bound', 'solvation_energy_1_unbound'
@@ -668,9 +668,9 @@ columns_to_rename = {'shape_complementarity_median_dist': 'interface_separation'
                      'shape_complementarity_core_median_dist': 'interface_core_separation',
                      'ref': 'rosetta_reference_energy',
                      'interaction_energy_density_filter': 'interaction_energy_per_residue'
-                     # 'relax_switch': groups, 'no_constraint_switch': groups, 'limit_to_profile_switch': groups,
-                     # 'combo_profile_switch': groups, 'design_profile_switch': groups,
-                     # 'favor_profile_switch': groups, 'consensus_design_switch': groups,
+                     # 'relax_switch': protocol, 'no_constraint_switch': protocol, 'limit_to_profile_switch': protocol,
+                     # 'combo_profile_switch': protocol, 'design_profile_switch': protocol,
+                     # 'favor_profile_switch': protocol, 'consensus_design_switch': protocol,
                      # 'interface_energy_res_summary_complex': 'interface_energy_complex',
                      # 'interface_energy_res_summary_1_bound': 'interface_energy_1_bound',
                      # 'interface_energy_res_summary_2_bound': 'interface_energy_2_bound',
