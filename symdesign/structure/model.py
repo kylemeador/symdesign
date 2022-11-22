@@ -6375,7 +6375,7 @@ class Pose(SymmetricModel):
                            f'selection = {before}. Number after = {len(entity1_indices) + len(entity2_indices)}')
 
         if not entity1_indices or not entity2_indices:
-            return
+            return None
 
         if self.is_symmetric():  # Get the symmetric indices of interest
             entity2_indices = self.make_indices_symmetric(entity2_indices)
@@ -6411,7 +6411,7 @@ class Pose(SymmetricModel):
         entity1_coords = self.coords[entity1_indices]  # Only get the coordinates we specified
         entity1_tree = BallTree(entity1_coords)
         if len(entity2_coords) == 0:  # Ensure the array is not empty
-            return
+            return None
         entity2_query = entity1_tree.query_radius(entity2_coords, distance)
 
         # Return residue numbers of identified coordinates

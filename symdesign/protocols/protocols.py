@@ -1468,8 +1468,9 @@ class PoseDirectory:
             self.prepare_rosetta_flags(out_dir=self.scripts)
             self.log.debug(f'Pose flags written to: {self.flags}')
 
-        design_files = os.path.join(self.scripts,
-                                    f'design_files{f"_{self.job.specific_protocol}" if self.job.specific_protocol else ""}.txt')
+        design_files = \
+            os.path.join(self.scripts, f'design_files'
+                                       f'{f"_{self.job.specific_protocol}" if self.job.specific_protocol else ""}.txt')
         generate_files_cmd = ['python', putils.list_pdb_files, '-d', self.designs, '-o', design_files] + \
             (['-s', self.job.specific_protocol] if self.job.specific_protocol else [])
         main_cmd += [f'@{self.flags}', '-in:file:l', design_files,
