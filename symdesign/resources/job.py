@@ -8,14 +8,104 @@ from typing import Annotated, AnyStr
 
 import psutil
 
+from symdesign.structure.sequence import read_fasta_file  # Todo refactor to structure.utils?
 from symdesign.resources import structure_db, wrapapi
 from symdesign.structure.fragment import db
 from symdesign import flags
-from symdesign.utils import calculate_mp_cores, CommandDistributer, SymEntry, path as putils
+from symdesign.utils import calculate_mp_cores, clean_comma_separated_string, CommandDistributer, format_index_string,\
+    SymEntry, path as putils
 
 logger = logging.getLogger(__name__)
-# DesignFlags = collections.namedtuple('DesignFlags', design_args.keys(), defaults=design_args.values())
-# DesignFlags = types.SimpleNamespace(**design_args)
+
+
+def generate_sequence_mask(fasta_file: AnyStr) -> list[int]:
+    """From a sequence with a design_selector, grab the residue indices that should be designed in the target
+    structural calculation
+
+    Args:
+        fasta_file: The path to a file with fasta information
+    Returns:
+        The residue numbers (in pose format) that should be ignored in design
+    """
+    sequence_and_mask = list(read_fasta_file(fasta_file))
+    # sequences = sequence_and_mask
+    sequence, mask, *_ = sequence_and_mask
+    if not len(sequence) == len(mask):
+        raise ValueError('The sequence and design_selector are different lengths! Please correct the alignment and '
+                         'lengths before proceeding.')
+
+    return [idx for idx, aa in enumerate(mask, 1) if aa != '-']
+
+
+def generate_chain_mask(chains: str) -> set[str]:
+    """From a string with a design_selection, format the chains provided
+
+    Args:
+        chains: The specified chains separated by commas to split
+    Returns:
+        The provided chain ids in pose format
+    """
+    return set(clean_comma_separated_string(chains))
+
+
+def process_design_selector_flags(
+        select_designable_residues_by_sequence,
+        select_designable_residues_by_pdb_number,
+        select_designable_residues_by_pose_number,
+        select_designable_chains,
+        mask_designable_residues_by_sequence,
+        mask_designable_residues_by_pdb_number,
+        mask_designable_residues_by_pose_number,
+        mask_designable_chains,
+        require_design_by_pdb_number,
+        require_design_by_pose_number,
+        require_design_by_chain,
+        **kwargs: dict[str]) -> dict[str, dict[str, set | set[int] | set[str]]]:
+    # Todo move to a verify design_selectors function inside of Pose? Own flags module?
+    #  Pull mask_design_using_sequence out of flags
+    # -------------------
+    entity_select, chain_select, residue_select, residue_pdb_select = set(), set(), set(), set()
+    if select_designable_residues_by_sequence is not None:
+        residue_select = residue_select.union(generate_sequence_mask(select_designable_residues_by_sequence))
+
+    if select_designable_residues_by_pdb_number is not None:
+        residue_pdb_select = residue_pdb_select.union(format_index_string(select_designable_residues_by_pdb_number))
+
+    if select_designable_residues_by_pose_number is not None:
+        residue_select = residue_select.union(format_index_string(select_designable_residues_by_pose_number))
+
+    if select_designable_chains is not None:
+        chain_select = chain_select.union(generate_chain_mask(select_designable_chains))
+    # -------------------
+    entity_mask, chain_mask, residue_mask, residue_pdb_mask = set(), set(), set(), set()
+    if mask_designable_residues_by_sequence is not None:
+        residue_mask = residue_mask.union(generate_sequence_mask(mask_designable_residues_by_sequence))
+
+    if mask_designable_residues_by_pdb_number is not None:
+        residue_pdb_mask = residue_pdb_mask.union(format_index_string(mask_designable_residues_by_pdb_number))
+
+    if mask_designable_residues_by_pose_number is not None:
+        residue_mask = residue_mask.union(format_index_string(mask_designable_residues_by_pose_number))
+
+    if mask_designable_chains is not None:
+        chain_mask = chain_mask.union(generate_chain_mask(mask_designable_chains))
+    # -------------------
+    entity_req, chain_req, residues_req, residues_pdb_req = set(), set(), set(), set()
+    if require_design_by_pdb_number is not None:
+        residues_pdb_req = residues_pdb_req.union(format_index_string(require_design_by_pdb_number))
+
+    if require_design_by_pose_number is not None:
+        residues_req = residues_req.union(format_index_string(require_design_by_pose_number))
+
+    if require_design_by_chain is not None:
+        chain_req = chain_req.union(generate_chain_mask(require_design_by_chain))
+
+    return dict(selection=dict(entities=entity_select, chains=chain_select, residues=residue_select,
+                               pdb_residues=residue_pdb_select),
+                mask=dict(entities=entity_mask, chains=chain_mask, residues=residue_mask,
+                          pdb_residues=residue_pdb_mask),
+                required=dict(entities=entity_req, chains=chain_req, residues=residues_req,
+                              pdb_residues=residues_pdb_req))
 
 
 def from_flags(cls, **kwargs):
@@ -25,14 +115,16 @@ def from_flags(cls, **kwargs):
 
 # These dataclasses help simplify the use of flags into namespaces
 # The commented out versions below had poor implementations
-#  self.design = DesignFlags(*[kwargs.get(argument_name) for argument_name in design_args.keys()])
-#  self.design = types.SimpleNamespace(**{flag: kwargs.get(flag, default) for flag, default in flags.design})
-#  self.design = types.SimpleNamespace(**{flag: kwargs.get(flag, default) for flag, default in flags.design})
+# DesignFlags = collections.namedtuple('DesignFlags', design_args.keys(), defaults=design_args.values())
+# DesignFlags = types.SimpleNamespace(**design_args)
 Design = make_dataclass('Design',
                         [(flag, eval(type(default).__name__), field(default=default))
                          for flag, default in flags.design.items()],
                         namespace={'from_flags': classmethod(from_flags)})
 #                         frozen=True)
+#  self.design = DesignFlags(*[kwargs.get(argument_name) for argument_name in design_args.keys()])
+#  self.design = types.SimpleNamespace(**{flag: kwargs.get(flag, default) for flag, default in flags.design})
+#  self.design = types.SimpleNamespace(**{flag: kwargs.get(flag, default) for flag, default in flags.design})
 Dock = make_dataclass('Dock',
                       [(flag, eval(type(default).__name__), field(default=default))
                        for flag, default in flags.dock.items()],
@@ -128,9 +220,10 @@ class JobResources:
         background profile. 
         Choices include putils.design_profile, putils.evolutionary_profile, and putils.fragment_profile
         """
+        # Process design_selector
         self.design_selector: dict[str, dict[str, dict[str, set[int] | set[str]]]] | dict = \
-            kwargs.get('design_selector', {})
-        self.debug: bool = kwargs.get('debug', False)
+            process_design_selector_flags(**kwargs)
+        # self.design_selector = kwargs.get('design_selector', {})
         self.dock = Dock.from_flags(**kwargs)
         if self.dock.perturb_dof:
             self.dock.perturb_dof_rot = self.dock.perturb_dof_tx = True
@@ -151,7 +244,8 @@ class JobResources:
         # self.match_value: bool = kwargs.get('match_value', False)
         # self.initial_z_value: bool = kwargs.get('initial_z_value', False)
         self.log_level: bool = kwargs.get('log_level')
-        self.force: bool = kwargs.get(putils.force, False)
+        self.debug: bool = True if self.log_level == 1 else False
+        self.force: bool = kwargs.get(putils.force)
         self.fuse_chains: list[tuple[str]] = [tuple(pair.split(':')) for pair in kwargs.get('fuse_chains', [])]
         self.design = Design.from_flags(**kwargs)
         # self.ignore_clashes: bool = kwargs.get(ignore_clashes, False)

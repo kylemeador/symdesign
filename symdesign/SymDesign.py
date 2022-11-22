@@ -758,8 +758,6 @@ def main():
 
     if args.module == flags.nanohedra:  # Remove the dummy input
         del args.file
-
-    queried_flags = vars(args).copy()
     # -----------------------------------------------------------------------------------------------------------------
     #  Find base symdesign_directory and check for proper set up of program i/o
     # -----------------------------------------------------------------------------------------------------------------
@@ -776,10 +774,8 @@ def main():
                  f'your old data! Please specify a new name with with -Od/--{flags.output_directory}, '
                  '--prefix or --suffix, or append --overwrite to your command')
         else:
-            queried_flags['output_directory'] = symdesign_directory = args.output_directory
+            symdesign_directory = args.output_directory
             putils.make_path(symdesign_directory)
-            # Set queried_flags to True so it is known that output is not typical SymDesignOutput directory structure
-            # queried_flags['output_to_directory'] = True
     else:
         symdesign_directory = utils.get_base_symdesign_dir(
             (args.directory or (args.project or args.single or [None])[0] or os.getcwd()))
@@ -804,15 +800,20 @@ def main():
 
         putils.make_path(symdesign_directory)
     # -----------------------------------------------------------------------------------------------------------------
+    #  Process flags to JobResources
+    # -----------------------------------------------------------------------------------------------------------------
+    queried_flags = vars(args).copy()
+    # Create JobResources which holds shared program objects and options
+    job = job_resources_factory.get(program_root=symdesign_directory, **queried_flags)
+    # -----------------------------------------------------------------------------------------------------------------
     #  Start Logging - Root logs to stream with level warning
     # -----------------------------------------------------------------------------------------------------------------
     if args.log_level == 1:  # Debugging
         # Root logs to stream with level debug
-        # logger = utils.start_log(level=args.log_level)
-        # utils.start_log(level=args.log_level)
+        # logger = utils.start_log(level=job.log_level)
+        # utils.start_log(level=job.log_level)
         # utils.set_loggers_to_propagate()
-        utils.set_logging_to_level(args.log_level)
-        queried_flags['debug'] = True
+        utils.set_logging_to_level(job.log_level)
         logger.warning('Debug mode. Generates verbose output. No writing to *.log files will occur')
     else:
         # # Root logger logs to stream with level 'warning'
@@ -820,22 +821,16 @@ def main():
         # # Stream above still emits at 'warning'
         # Set all modules to propagate logs to write to master log file
         utils.set_loggers_to_propagate()
-        utils.set_logging_to_level(level=args.log_level)  # 3)
-        # utils.set_logging_to_level(handler_level=args.log_level)  # 3)
+        utils.set_logging_to_level(level=job.log_level)  # 3)
+        # utils.set_logging_to_level(handler_level=job.log_level)  # 3)
         # # Root logger logs to a single file with level 'info'
         # utils.start_log(handler=2, location=os.path.join(symdesign_directory, putils.program_name))
         # SymDesign main logs to stream with level info and propagates to main log
         # logger = utils.start_log(name=putils.program_name, propagate=True)
-
         # All Designs will log to specific file with level info unless skip_logging is passed
     # -----------------------------------------------------------------------------------------------------------------
-    #  Process flags and job information which is necessary for processing and i/o
+    #  Process job information which is necessary for processing and i/o
     # -----------------------------------------------------------------------------------------------------------------
-    # Process design_selectors
-    queried_flags['design_selector'] = flags.process_design_selector_flags(queried_flags)
-
-    # Create JobResources which holds shared program objects and options
-    job = job_resources_factory.get(program_root=symdesign_directory, **queried_flags)
     # ---------------------------------------------------
     #  Check for tool request
     # ---------------------------------------------------
