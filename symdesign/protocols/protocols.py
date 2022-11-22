@@ -1964,19 +1964,23 @@ class PoseDirectory:
                                        ca_only=self.job.design.ca_only,
                                        temperatures=self.job.design.temperatures,
                                        )
-
-        self.output_proteinmpnn_scores(sequences_and_scores)
+        design_names = [f'{self.name}_{self.protocol}{seq_idx:04d}'
+                        for seq_idx in range(len(sequences_and_scores['sequences']))]
+        self.output_proteinmpnn_scores(design_names, sequences_and_scores)
+        write_sequences(sequences_and_scores['sequences'], file_name=self.designed_sequences_file)
         if self.job.design.structures:
-            # Todo
-            #  if job.design.alphafold:
-            #      self.predict_structure()
-            #  else:
-            self._refine(refine_sequences=sequences_and_scores['sequences'], gather_metrics=True)
+            self.predict_structure()
 
-    def output_proteinmpnn_scores(self, sequences_and_scores: dict[str, np.ndarray | list]):
+    def output_proteinmpnn_scores(self, design_ids: Sequence[str], sequences_and_scores: dict[str, np.ndarray | list]):
+        """Given the results of a ProteinMPNN design trajectory, format the sequences and scores for the PoseDirectory
+
+        Args:
+            sequences_and_scores: The mapping of ProteinMPNN score type to it's corresponding data
+        """
         # Convert each numpy array into a list for output
-        for score_type, score in sequences_and_scores.items():
-            sequences_and_scores[score_type] = score.tolist()
+        for score_type, data in sequences_and_scores.items():
+            # if isinstance(data, np.ndarray):
+            sequences_and_scores[score_type] = data.tolist()
 
         # trajectories_temperatures_ids = [f'temp{temperature}' for idx in self.job.design.number_of_trajectories
         #                                  for temperature in self.job.design.temperatures]
@@ -1988,31 +1992,27 @@ class PoseDirectory:
         sequences_and_scores['temperature'] = [temperature for temperature in self.job.design.temperatures
                                                for _ in range(self.job.design.number_of_trajectories)]
 
-        def write_per_residue_scores(designs: Sequence[str], scores: dict[str, np.ndarray]) -> AnyStr:
+        def write_per_residue_scores(design_ids: Sequence[str], scores: dict[str, list]) -> AnyStr:
             """"""
-            # json_scores = {score_type: score.tolist() for score_type, score in scores}
-            design_scores = {design: {'decoy': design} for design in designs}
-            for score_type, score in scores.items():
-                # score_list = score.tolist()
-                for design, score in zip(designs, score):
-                    design_scores[design].update({score_type: score})
+            # Create an initial score dictionary
+            design_scores = {design_id: {'decoy': design_id} for design_id in design_ids}
+            # For each score type unpack the data
+            for score_type, design_scores in scores.items():
+                # For each score's data, update the dictionary of the corresponding design_id
+                for design_id, design_score in zip(design_ids, design_scores):
+                    design_scores[design_id].update({score_type: design_score})
 
-            for design, _scores in design_scores.items():
+            for design_id, scores in design_scores.items():
                 # write_json(_scores, self.scores_file)
                 with open(self.scores_file, 'a') as f_save:
-                    json.dump(_scores, f_save)  # , **kwargs)
+                    json.dump(scores, f_save)  # , **kwargs)
+                    # Ensure JSON lines are separated by newline
                     f_save.write('\n')
 
-            return self.scores_file
             # return write_json(design_scores, self.scores_file)
+            return self.scores_file
 
-        # Todo make a job variable...
-        protocol = 'thread'
-        # designs = [os.path.join(self.data, f'{self.name}_{protocol}{seq_idx:04d}.pdb')
-        designs = [f'{self.name}_{protocol}{seq_idx:04d}'
-                   for seq_idx in range(len(sequences_and_scores['sequences']))]
-        write_per_residue_scores(designs, sequences_and_scores)
-        write_sequences(sequences_and_scores['sequences'], file_name=self.designed_sequences_file)
+        write_per_residue_scores(design_ids, sequences_and_scores)
 
     @handle_design_errors(errors=(DesignError,))
     @close_logs
