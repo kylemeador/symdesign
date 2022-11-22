@@ -11,7 +11,7 @@ import psutil
 from symdesign.resources import structure_db, wrapapi
 from symdesign.structure.fragment import db
 from symdesign import flags
-from symdesign.utils import calculate_mp_cores, SymEntry, path as putils
+from symdesign.utils import calculate_mp_cores, CommandDistributer, SymEntry, path as putils
 
 logger = logging.getLogger(__name__)
 # DesignFlags = collections.namedtuple('DesignFlags', design_args.keys(), defaults=design_args.values())
