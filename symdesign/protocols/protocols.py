@@ -989,7 +989,7 @@ class PoseDirectory:
 
             self.save_asu()
 
-    def save_asu(self):    # Todo to PoseProtocols? # , rename_chains=False
+    def save_asu(self):  # Todo to PoseProtocols? # , rename_chains=False
         """Save a new Structure from multiple Chain or Entity objects including the Pose symmetry"""
         if self.job.fuse_chains:
             # try:
@@ -1844,9 +1844,10 @@ class PoseDirectory:
             if self.job.generate_fragments:  # design_with_fragments
                 consensus_cmd = main_cmd + rosetta.relax_flags_cmdline + \
                                 [f'@{self.flags}', '-in:file:s', self.consensus_pdb,
-                     # '-in:file:native', self.refined_pdb,
-                     '-parser:protocol', os.path.join(putils.rosetta_scripts_dir, f'{putils.consensus}.xml'),
-                     '-parser:script_vars', f'switch={putils.consensus}']
+                                 # '-in:file:native', self.refined_pdb,
+                                 '-parser:protocol', os.path.join(putils.rosetta_scripts_dir,
+                                                                  f'{putils.consensus}.xml'),
+                                 '-parser:script_vars', f'switch={putils.consensus}']
                 self.log.info(f'Consensus command: {list2cmdline(consensus_cmd)}')
                 if self.job.distribute_work:
                     write_shell_script(list2cmdline(consensus_cmd), name=putils.consensus, out_path=self.scripts)
