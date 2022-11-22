@@ -4936,7 +4936,7 @@ class SymmetricModel(Models):
         transform_solutions = []
         asu_indices = []
         for group_idx, sym_group in enumerate(self.sym_entry.groups):
-            # find groups for which the oligomeric parameters do not apply or exist by nature of orientation [T, O, I]
+            # Find groups for which the oligomeric parameters do not apply or exist by nature of orientation [T, O, I]
             if sym_group == self.symmetry:  # molecule should be oriented already and expand matrices handle oligomers
                 transform_solutions.append(dict())  # rotation=rot, translation=tx
                 asu_indices.append(list(range(len(center_of_mass_symmetric_entities[group_idx]))))
@@ -4945,8 +4945,8 @@ class SymmetricModel(Models):
                 transform_solutions.append(dict())  # rotation=rot, translation=tx
                 asu_indices.append(list(range(len(center_of_mass_symmetric_entities[group_idx]))))
                 continue
-            # search through the sub_symmetry group setting matrices that make up the resulting point group symmetry
-            # apply setting matrix to the entity centers of mass indexed to the proper group number
+            # Search through the sub_symmetry group setting matrices that make up the resulting point group symmetry
+            # Apply setting matrix to the entity centers of mass indexed to the proper group number
             internal_tx = None
             setting_matrix = None
             entity_asu_indices = None
@@ -4958,7 +4958,7 @@ class SymmetricModel(Models):
                 temp_model_coms = np.matmul(center_of_mass_symmetric_entities[group_idx],
                                             np.transpose(utils.symmetry.inv_setting_matrices[setting_matrix_idx]))
                 # self.log.critical('temp_model_coms = %s' % temp_model_coms)
-                # find groups of COMs with equal z heights
+                # Find groups of COMs with equal z heights
                 possible_height_groups = {}
                 for idx, com in enumerate(temp_model_coms.round(decimals=2)):  # 2 decimals may be required precision
                     z_coord = com[-1]
@@ -4966,8 +4966,8 @@ class SymmetricModel(Models):
                         possible_height_groups[z_coord].append(idx)
                     else:
                         possible_height_groups[z_coord] = [idx]
-                # find the most centrally disposed, COM grouping with the correct number of COMs in the group
-                # not necessarily positive...
+                # Find the most centrally disposed, COM grouping with the correct number of COMs in the group
+                # ot necessarily positive...
                 centrally_disposed_group_height = None
                 minimal_central_offset = float('inf')
                 for height, indices in possible_height_groups.items():
@@ -4986,17 +4986,17 @@ class SymmetricModel(Models):
                             # self.log.debug('centrally_disposed_group_height = %d' % centrally_disposed_group_height)
                         else:  # The central offset is larger
                             pass
-                # if a viable group was found save the group COM as an internal_tx and setting_matrix used to find it
+                # If a viable group was found save the group COM as an internal_tx and setting_matrix used to find it
                 if centrally_disposed_group_height is not None:
                     if setting_matrix is not None and internal_tx is not None:
                         # There is an alternative solution. Is it better? Or is it a degeneracy?
                         if minimal_central_offset < current_best_minimal_central_offset:
-                            # the new one if it is less offset
+                            # The new one if it is less offset
                             entity_asu_indices = possible_height_groups[centrally_disposed_group_height]
                             internal_tx = temp_model_coms[entity_asu_indices].mean(axis=-2)
                             setting_matrix = utils.symmetry.setting_matrices[setting_matrix_idx]
                         elif minimal_central_offset == current_best_minimal_central_offset:
-                            # chose the positive one in the case that there are degeneracies (most likely)
+                            # Chose the positive one in the case that there are degeneracies (most likely)
                             self.log.info('There are multiple pose transformation solutions for the symmetry group '
                                           '%s (specified in position {%d} of %s). The solution with a positive '
                                           'translation was chosen by convention. This may result in inaccurate behavior'
@@ -5007,12 +5007,12 @@ class SymmetricModel(Models):
                                 setting_matrix = utils.symmetry.setting_matrices[setting_matrix_idx]
                         else:  # The central offset is larger
                             pass
-                    else:  # these were not set yet
+                    else:  # These were not set yet
                         entity_asu_indices = possible_height_groups[centrally_disposed_group_height]
                         internal_tx = temp_model_coms[entity_asu_indices].mean(axis=-2)
                         setting_matrix = utils.symmetry.setting_matrices[setting_matrix_idx]
                         current_best_minimal_central_offset = minimal_central_offset
-                else:  # no viable group probably because the setting matrix was wrong. Continue with next
+                else:  # No viable group probably because the setting matrix was wrong. Continue with next
                     pass
 
             if entity_asu_indices is not None:

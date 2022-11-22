@@ -3811,7 +3811,7 @@ def nanohedra_dock(model1: Structure | AnyStr, model2: Structure | AnyStr, **kwa
         designed_df = per_residue_df.loc[:, idx_slice[:, 'designed_residues_total']].droplevel(1, axis=1)
 
         if job.design.sequences:
-            scores_df[putils.groups] = 'proteinmpnn'
+            scores_df[putils.protocol] = 'proteinmpnn'
             scores_df['proteinmpnn_score_complex'] = \
                 scores_df['interface_energy_complex'] / scores_df['pose_length']
             scores_df['proteinmpnn_score_unbound'] = \

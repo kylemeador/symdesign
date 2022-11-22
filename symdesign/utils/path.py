@@ -77,7 +77,6 @@ sequences = 'sequences'
 structures = 'structures'
 temperatures = 'temperatures'
 protocol = 'protocol'
-groups = protocol
 number_of_trajectories = 'number_of_trajectories'
 force = 'force'
 current_energy_function = 'REF2015'

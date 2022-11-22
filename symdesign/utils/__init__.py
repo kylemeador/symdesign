@@ -340,13 +340,13 @@ def pickle_object(target_object: Any, name: str = None, out_path: Union[str, byt
     Returns:
         The pickled filename
     """
-    if name:
-        file_name = os.path.join(out_path, name)
-    else:
+    if name is None:
         file_name = out_path
+    else:
+        file_name = os.path.join(out_path, name)
 
     if not file_name.endswith('.pkl'):
-        file_name = '%s.pkl' % file_name
+        file_name = f'{file_name}.pkl'
 
     with open(file_name, 'wb') as f:
         pickle.dump(target_object, f, protocol)

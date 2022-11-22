@@ -807,7 +807,7 @@ def main():
     # Create JobResources which holds shared program objects and options
     job = job_resources_factory.get(program_root=symdesign_directory, **queried_flags)
     # -----------------------------------------------------------------------------------------------------------------
-    #  Start Logging - Root logs to stream with level warning
+    #  Start Logging
     # -----------------------------------------------------------------------------------------------------------------
     if args.log_level == 1:  # Debugging
         # Root logs to stream with level debug
@@ -818,12 +818,12 @@ def main():
         logger.warning('Debug mode. Generates verbose output. No writing to *.log files will occur')
     else:
         # # Root logger logs to stream with level 'warning'
-        # utils.start_log(handler_level=args.log_level)  # 3)
+        # utils.start_log(handler_level=args.log_level)
         # # Stream above still emits at 'warning'
         # Set all modules to propagate logs to write to master log file
         utils.set_loggers_to_propagate()
-        utils.set_logging_to_level(level=job.log_level)  # 3)
-        # utils.set_logging_to_level(handler_level=job.log_level)  # 3)
+        utils.set_logging_to_level(level=job.log_level)
+        # utils.set_logging_to_level(handler_level=job.log_level)
         # # Root logger logs to a single file with level 'info'
         # utils.start_log(handler=2, location=os.path.join(symdesign_directory, putils.program_name))
         # SymDesign main logs to stream with level info and propagates to main log

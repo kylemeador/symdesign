@@ -1300,7 +1300,7 @@ class PoseDirectory:
 
             infile.extend(['-in:file:l', design_files_file,
                            '-in:file:native', self.source,
-                           # native is here to block flag file version, not actually useful for refine
+                           # -in:file:native is here to block flag file version, not actually useful for refine
                            ])
             designed_files = os.path.join(self.scripts, f'design_files_{protocol}.txt')
             generate_files_cmd = \
@@ -2158,7 +2158,7 @@ class PoseDirectory:
             self.log.debug(f'Found design scores in file: {self.scores_file}')  # Todo PoseDirectory(.path)
             design_was_performed = True
             # Get the scores from the score file on design trajectory metrics
-            source_df = pd.DataFrame({putils.pose_source: {putils.groups: job_key}}).T
+            source_df = pd.DataFrame({putils.pose_source: {putils.protocol: job_key}}).T
             for idx, entity in enumerate(self.pose.entities, 1):
                 source_df[f'buns_{idx}_unbound'] = 0
                 source_df[f'interface_energy_{idx}_bound'] = 0
@@ -2241,12 +2241,12 @@ class PoseDirectory:
 
             # Drop designs where required data isn't present
             # Format protocol columns
-            missing_group_indices = scores_df[putils.groups].isna()
+            missing_group_indices = scores_df[putils.protocol].isna()
             # Todo remove not DEV
             scout_indices = [idx for idx in scores_df[missing_group_indices].index if 'scout' in idx]
-            scores_df.loc[scout_indices, putils.groups] = putils.scout
+            scores_df.loc[scout_indices, putils.protocol] = putils.scout
             structure_bkgnd_indices = [idx for idx in scores_df[missing_group_indices].index if 'no_constraint' in idx]
-            scores_df.loc[structure_bkgnd_indices, putils.groups] = putils.structure_background
+            scores_df.loc[structure_bkgnd_indices, putils.protocol] = putils.structure_background
             # Todo Done remove
             # protocol_s.replace({'combo_profile': putils.design_profile}, inplace=True)  # ensure proper profile name
 
@@ -2283,8 +2283,8 @@ class PoseDirectory:
             design_was_performed = False
             # Todo add relevant missing scores such as those specified as 0 below
             # Todo may need to put source_df in scores file alternative
-            source_df = pd.DataFrame({putils.pose_source: {putils.groups: job_key}}).T
-            scores_df = pd.DataFrame({pose.name: {putils.groups: job_key} for pose in design_poses}).T
+            source_df = pd.DataFrame({putils.pose_source: {putils.protocol: job_key}}).T
+            scores_df = pd.DataFrame({pose.name: {putils.protocol: job_key} for pose in design_poses}).T
             scores_df = pd.concat([source_df, scores_df])
             for idx, entity in enumerate(self.pose.entities, 1):
                 source_df[f'buns_{idx}_unbound'] = 0
@@ -2337,7 +2337,7 @@ class PoseDirectory:
         #                         for chain, named_sequences in entity_sequences.items()}
 
         # Find protocols for protocol specific data processing removing from scores_df
-        protocol_s = scores_df.pop(putils.groups).copy()
+        protocol_s = scores_df.pop(putils.protocol).copy()
         designs_by_protocol = protocol_s.groupby(protocol_s).groups
         # remove refine and consensus if present as there was no design done over multiple protocols
         unique_protocols = list(designs_by_protocol.keys())
@@ -2773,7 +2773,7 @@ class PoseDirectory:
             scores_df.drop('repacking', axis=1, inplace=True)
 
         # Process dataframes for missing values and drop refine trajectory if present
-        # refine_index = scores_df[scores_df[putils.groups] == putils.refine].index
+        # refine_index = scores_df[scores_df[putils.protocol] == putils.refine].index
         # scores_df.drop(refine_index, axis=0, inplace=True, errors='ignore')
         # per_residue_df.drop(refine_index, axis=0, inplace=True, errors='ignore')
         # residue_info.pop(putils.refine, None)  # Remove refine from analysis
@@ -2793,8 +2793,8 @@ class PoseDirectory:
             scores_df.drop([putils.pose_source, putils.refine, putils.consensus], axis=0, errors='ignore').sort_index()
 
         # Get total design statistics for every sequence in the pose and every protocol specifically
-        scores_df[putils.groups] = protocol_s
-        protocol_groups = scores_df.groupby(putils.groups)
+        scores_df[putils.protocol] = protocol_s
+        protocol_groups = scores_df.groupby(putils.protocol)
         # numerics = ['int16', 'int32', 'int64', 'float16', 'float32', 'float64']
         # print(trajectory_df.select_dtypes(exclude=numerics))
 
@@ -2884,12 +2884,12 @@ class PoseDirectory:
 
             # Merge PC DataFrames with labels
             # seq_pc_df = pd.merge(protocol_s, seq_pc_df, left_index=True, right_index=True)
-            seq_pc_df[putils.groups] = protocol_s
+            seq_pc_df[putils.protocol] = protocol_s
             # residue_energy_pc_df = pd.merge(protocol_s, residue_energy_pc_df, left_index=True, right_index=True)
-            residue_energy_pc_df[putils.groups] = protocol_s
+            residue_energy_pc_df[putils.protocol] = protocol_s
             # Next group the labels
-            sequence_groups = seq_pc_df.groupby(putils.groups)
-            residue_energy_groups = residue_energy_pc_df.groupby(putils.groups)
+            sequence_groups = seq_pc_df.groupby(putils.protocol)
+            residue_energy_groups = residue_energy_pc_df.groupby(putils.protocol)
             # Measure statistics for each group
             # All protocol means have pairwise distance measured to access similarity
             # Gather protocol similarity/distance metrics
@@ -2992,8 +2992,8 @@ class PoseDirectory:
             #                          edgecolor='k')
             #     # handles, labels = scatter.legend_elements()
             #     # # print(labels)  # ['$\\mathdefault{0}$', '$\\mathdefault{1}$', '$\\mathdefault{2}$']
-            #     # ax.legend(handles, labels, loc='upper right', title=groups)
-            #     # # ax.legend(handles, [integer_map[label] for label in labels], loc="upper right", title=groups)
+            #     # ax.legend(handles, labels, loc='upper right', title=protocol)
+            #     # # ax.legend(handles, [integer_map[label] for label in labels], loc="upper right", title=protocol)
             #     # # plt.axis('equal') # not possible with 3D graphs
             #     # plt.legend()  # No handles with labels found to put in legend.
             #     colors = [scatter.cmap(scatter.norm(i)) for i in integer_map.keys()]
@@ -3035,7 +3035,7 @@ class PoseDirectory:
             per_residue_df = per_residue_df.loc[:, idx_slice[index_residues, :]]
             per_residue_df.sort_index(inplace=True)
             per_residue_df.sort_index(level=0, axis=1, inplace=True, sort_remaining=False)
-            per_residue_df[(putils.groups, putils.groups)] = protocol_s
+            per_residue_df[(putils.protocol, putils.protocol)] = protocol_s
             # per_residue_df.sort_index(inplace=True, key=lambda x: x.str.isdigit())  # put wt entry first
             putils.make_path(self.job.all_scores)
             if self.job.merge:
@@ -3212,7 +3212,7 @@ class PoseDirectory:
         # CONSTRUCT: Create pose series and format index names
         pose_s = pd.concat([interface_metrics_s, stat_s, divergence_s] + sim_series).swaplevel(0, 1)
         # Remove pose specific metrics from pose_s, sort, and name protocol_mean_df
-        pose_s.drop([putils.groups], level=2, inplace=True, errors='ignore')
+        pose_s.drop([putils.protocol], level=2, inplace=True, errors='ignore')
         pose_s.sort_index(level=2, inplace=True, sort_remaining=False)  # ascending=True, sort_remaining=True)
         pose_s.sort_index(level=1, inplace=True, sort_remaining=False)  # ascending=True, sort_remaining=True)
         pose_s.sort_index(level=0, inplace=True, sort_remaining=False)  # ascending=False
@@ -3431,7 +3431,7 @@ def interface_design_analysis(pose: Pose, design_poses: Iterable[Pose] = None, s
         pose.log.debug(f'Found design scores in file: {scores_file}')
         design_was_performed = True
         # Get the scores from the score file on design trajectory metrics
-        source_df = pd.DataFrame({putils.pose_source: {putils.groups: job_key}}).T
+        source_df = pd.DataFrame({putils.pose_source: {putils.protocol: job_key}}).T
         for idx, entity in enumerate(pose.entities, 1):
             source_df[f'buns_{idx}_unbound'] = 0
             source_df[f'interface_energy_{idx}_bound'] = 0
@@ -3504,12 +3504,12 @@ def interface_design_analysis(pose: Pose, design_poses: Iterable[Pose] = None, s
 
         # Drop designs where required data isn't present
         # Format protocol columns
-        missing_group_indices = scores_df[putils.groups].isna()
+        missing_group_indices = scores_df[putils.protocol].isna()
         # Todo remove not DEV
         scout_indices = [idx for idx in scores_df[missing_group_indices].index if 'scout' in idx]
-        scores_df.loc[scout_indices, putils.groups] = putils.scout
+        scores_df.loc[scout_indices, putils.protocol] = putils.scout
         structure_bkgnd_indices = [idx for idx in scores_df[missing_group_indices].index if 'no_constraint' in idx]
-        scores_df.loc[structure_bkgnd_indices, putils.groups] = putils.structure_background
+        scores_df.loc[structure_bkgnd_indices, putils.protocol] = putils.structure_background
         # Todo Done remove
         # protocol_s.replace({'combo_profile': putils.design_profile}, inplace=True)  # ensure proper profile name
 
@@ -3545,8 +3545,8 @@ def interface_design_analysis(pose: Pose, design_poses: Iterable[Pose] = None, s
         design_was_performed = False
         # Todo add relevant missing scores such as those specified as 0 below
         # Todo may need to put source_df in scores file alternative
-        source_df = pd.DataFrame({putils.pose_source: {putils.groups: job_key}}).T
-        scores_df = pd.DataFrame({pose.name: {putils.groups: job_key} for pose in design_poses}).T
+        source_df = pd.DataFrame({putils.pose_source: {putils.protocol: job_key}}).T
+        scores_df = pd.DataFrame({pose.name: {putils.protocol: job_key} for pose in design_poses}).T
         scores_df = pd.concat([source_df, scores_df])
         for idx, entity in enumerate(pose.entities, 1):
             source_df[f'buns_{idx}_unbound'] = 0
@@ -3599,7 +3599,7 @@ def interface_design_analysis(pose: Pose, design_poses: Iterable[Pose] = None, s
     #                         for chain, named_sequences in entity_sequences.items()}
 
     # Find protocols for protocol specific data processing removing from scores_df
-    protocol_s = scores_df.pop(putils.groups).copy()
+    protocol_s = scores_df.pop(putils.protocol).copy()
     designs_by_protocol = protocol_s.groupby(protocol_s).groups
     # remove refine and consensus if present as there was no design done over multiple protocols
     unique_protocols = list(designs_by_protocol.keys())
@@ -4000,7 +4000,7 @@ def interface_design_analysis(pose: Pose, design_poses: Iterable[Pose] = None, s
         scores_df.drop('repacking', axis=1, inplace=True)
 
     # Process dataframes for missing values and drop refine trajectory if present
-    # refine_index = scores_df[scores_df[putils.groups] == putils.refine].index
+    # refine_index = scores_df[scores_df[putils.protocol] == putils.refine].index
     # scores_df.drop(refine_index, axis=0, inplace=True, errors='ignore')
     # residue_df.drop(refine_index, axis=0, inplace=True, errors='ignore')
     # residue_info.pop(putils.refine, None)  # Remove refine from analysis
@@ -4022,8 +4022,8 @@ def interface_design_analysis(pose: Pose, design_poses: Iterable[Pose] = None, s
         scores_df.drop([putils.pose_source, putils.refine, putils.consensus], axis=0, errors='ignore').sort_index()
 
     # Get total design statistics for every sequence in the pose and every protocol specifically
-    scores_df[putils.groups] = protocol_s
-    protocol_groups = scores_df.groupby(putils.groups)
+    scores_df[putils.protocol] = protocol_s
+    protocol_groups = scores_df.groupby(putils.protocol)
     # numerics = ['int16', 'int32', 'int64', 'float16', 'float32', 'float64']
     # print(trajectory_df.select_dtypes(exclude=numerics))
 
@@ -4106,12 +4106,12 @@ def interface_design_analysis(pose: Pose, design_poses: Iterable[Pose] = None, s
 
         # Merge PC DataFrames with labels
         # seq_pc_df = pd.merge(protocol_s, seq_pc_df, left_index=True, right_index=True)
-        seq_pc_df[putils.groups] = protocol_s
+        seq_pc_df[putils.protocol] = protocol_s
         # residue_energy_pc_df = pd.merge(protocol_s, residue_energy_pc_df, left_index=True, right_index=True)
-        residue_energy_pc_df[putils.groups] = protocol_s
+        residue_energy_pc_df[putils.protocol] = protocol_s
         # Next group the labels
-        sequence_groups = seq_pc_df.groupby(putils.groups)
-        residue_energy_groups = residue_energy_pc_df.groupby(putils.groups)
+        sequence_groups = seq_pc_df.groupby(putils.protocol)
+        residue_energy_groups = residue_energy_pc_df.groupby(putils.protocol)
         # Measure statistics for each group
         # All protocol means have pairwise distance measured to access similarity
         # Gather protocol similarity/distance metrics
@@ -4214,8 +4214,8 @@ def interface_design_analysis(pose: Pose, design_poses: Iterable[Pose] = None, s
         #                          edgecolor='k')
         #     # handles, labels = scatter.legend_elements()
         #     # # print(labels)  # ['$\\mathdefault{0}$', '$\\mathdefault{1}$', '$\\mathdefault{2}$']
-        #     # ax.legend(handles, labels, loc='upper right', title=groups)
-        #     # # ax.legend(handles, [integer_map[label] for label in labels], loc="upper right", title=groups)
+        #     # ax.legend(handles, labels, loc='upper right', title=protocol)
+        #     # # ax.legend(handles, [integer_map[label] for label in labels], loc="upper right", title=protocol)
         #     # # plt.axis('equal') # not possible with 3D graphs
         #     # plt.legend()  # No handles with labels found to put in legend.
         #     colors = [scatter.cmap(scatter.norm(i)) for i in integer_map.keys()]
@@ -4256,7 +4256,7 @@ def interface_design_analysis(pose: Pose, design_poses: Iterable[Pose] = None, s
         trajectory_df.sort_index(inplace=True, axis=1)
         residue_df.sort_index(inplace=True)
         residue_df.sort_index(level=0, axis=1, inplace=True, sort_remaining=False)
-        residue_df[(putils.groups, putils.groups)] = protocol_s
+        residue_df[(putils.protocol, putils.protocol)] = protocol_s
         # residue_df.sort_index(inplace=True, key=lambda x: x.str.isdigit())  # put wt entry first
         if job.merge:
             trajectory_df = pd.concat([trajectory_df], axis=1, keys=['metrics'])
@@ -4432,7 +4432,7 @@ def interface_design_analysis(pose: Pose, design_poses: Iterable[Pose] = None, s
     # CONSTRUCT: Create pose series and format index names
     pose_s = pd.concat([interface_metrics_s, stat_s, divergence_s] + sim_series).swaplevel(0, 1)
     # Remove pose specific metrics from pose_s, sort, and name protocol_mean_df
-    pose_s.drop([putils.groups], level=2, inplace=True, errors='ignore')
+    pose_s.drop([putils.protocol], level=2, inplace=True, errors='ignore')
     pose_s.sort_index(level=2, inplace=True, sort_remaining=False)  # ascending=True, sort_remaining=True)
     pose_s.sort_index(level=1, inplace=True, sort_remaining=False)  # ascending=True, sort_remaining=True)
     pose_s.sort_index(level=0, inplace=True, sort_remaining=False)  # ascending=False
