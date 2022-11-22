@@ -3520,7 +3520,7 @@ def nanohedra_dock(model1: Structure | AnyStr, model2: Structure | AnyStr, **kwa
 
             if job.design.sequences:
                 dock_per_residue_design_indices = per_residue_design_indices[idx]
-                design_sequences = generated_sequences[idx]
+                designed_sequences = generated_sequences[idx]
                 dock_per_residue_complex_sequence_loss = per_residue_complex_sequence_loss[idx]
                 dock_per_residue_unbound_sequence_loss = per_residue_unbound_sequence_loss[idx]
 
@@ -3577,7 +3577,7 @@ def nanohedra_dock(model1: Structure | AnyStr, model2: Structure | AnyStr, **kwa
                     # Calculate sequence statistics
                     # Todo get the below mechanism clean
                     # Before calculation, we must set this (v) to get the correct values from the profile
-                    pose._sequence_numeric = design_sequences[temp_idx]
+                    pose._sequence_numeric = designed_sequences[temp_idx]
                     # Todo these are not Softmax probabilities
                     try:
                         fragment_profile_frequencies.append(

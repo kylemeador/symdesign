@@ -128,7 +128,7 @@ log_level = {1: DEBUG, 2: INFO, 3: WARNING, 4: ERROR, 5: CRITICAL,
 logging_levels: Literal[1, 2, 3, 4, 5, 10, 20, 30, 40, 50]
 
 
-def start_log(name: str = '', handler: int = 1, level: logging_levels = 2, location: Union[str, bytes] = os.getcwd(),
+def start_log(name: str = '', handler: int = 1, level: logging_levels = 2, location: AnyStr = os.getcwd(),
               propagate: bool = False, format_log: bool = True, no_log_name: bool = False,
               handler_level: logging_levels = None) -> Logger:
     """Create a logger to handle program messages
@@ -315,7 +315,7 @@ def write_json(data: Any, file_name: AnyStr, **kwargs) -> AnyStr:
 
 
 # @handle_errors(errors=(FileNotFoundError,))
-def unpickle(file_name: Union[str, bytes]) -> Any:  # , protocol=pickle.HIGHEST_PROTOCOL):
+def unpickle(file_name: AnyStr) -> Any:  # , protocol=pickle.HIGHEST_PROTOCOL):
     """Unpickle (deserialize) and return a python object located at filename"""
     if '.pkl' not in file_name and '.pickle' not in file_name:
         file_name = '%s.pkl' % file_name
@@ -328,8 +328,8 @@ def unpickle(file_name: Union[str, bytes]) -> Any:  # , protocol=pickle.HIGHEST_
     return new_object
 
 
-def pickle_object(target_object: Any, name: str = None, out_path: Union[str, bytes] = os.getcwd(),
-                  protocol: int = pickle.HIGHEST_PROTOCOL) -> Union[str, bytes]:
+def pickle_object(target_object: Any, name: str = None, out_path: AnyStr = os.getcwd(),
+                  protocol: int = pickle.HIGHEST_PROTOCOL) -> AnyStr:
     """Pickle (serialize) an object into a file named "out_path/name.pkl". Automatically adds extension
 
     Args:
@@ -544,8 +544,8 @@ def remove_duplicates(_iter: Iterable) -> List:
     return [x for x in _iter if not (x in seen or seen_add(x))]
 
 
-def write_shell_script(command: str, name: str = 'script', out_path: Union[str, bytes] = os.getcwd(),
-                       additional: List = None, shell: str = 'bash', status_wrap: str = None) -> Union[str, bytes]:
+def write_shell_script(command: str, name: str = 'script', out_path: AnyStr = os.getcwd(),
+                       additional: List = None, shell: str = 'bash', status_wrap: str = None) -> AnyStr:
     """Take a command and write to a name.sh script. By default, bash is used as the shell interpreter
 
     Args:
@@ -576,8 +576,7 @@ def write_shell_script(command: str, name: str = 'script', out_path: Union[str, 
     return file_name
 
 
-def write_commands(commands: Iterable[str], name: str = 'all_commands', out_path: Union[str, bytes] = os.getcwd()) \
-        -> Union[str, bytes]:
+def write_commands(commands: Iterable[str], name: str = 'all_commands', out_path: AnyStr = os.getcwd()) -> AnyStr:
     """Write a list of commands out to a file
 
     Args:
@@ -659,63 +658,6 @@ def write_commands(commands: Iterable[str], name: str = 'all_commands', out_path
 #         f.seek(0)
 #         f.write('\n'.join(dumps(score) for score in scores))
 #         f.truncate()
-
-
-def write_sequence_file(sequences: Sequence | dict[str, Sequence], names: Sequence = None,
-                        out_path: AnyStr = os.getcwd(), file_name: AnyStr = None, csv: bool = False) \
-        -> AnyStr:
-    """Write a fasta file from sequence(s)
-
-    Args:
-        sequences: If a list, can be list of tuples(name, sequence), or list[sequence] where names contain the
-            corresponding sequence names. If dict, uses key as name, value as sequence. If str, treats as the sequence
-        names: The name or names of the sequence record(s). If a single name, will be used as the default file_name
-            base name if file_name not provided. Otherwise, will be used iteratively
-        out_path: The location on disk to output file
-        file_name: The explicit name of the file
-        csv: Whether the file should be written as a .csv. Default is .fasta
-    Returns:
-        The name of the output file
-    """
-    if not file_name and isinstance(names, str):
-        file_name = os.path.join(out_path, names)
-    else:
-        raise ValueError(f'Must provide argument file_name or "names" as a str to {write_sequence_file.__name__}')
-
-    if csv:
-        start, sep = '', ','
-        extension = '.csv'
-    else:
-        start, sep = '>', '\n'
-        extension = '.fasta'
-
-    if not file_name.endswith(extension):
-        file_name = f'{file_name}{extension}'
-
-    with open(file_name, 'w') as outfile:
-        if isinstance(sequences, list):
-            if isinstance(sequences[0], tuple):  # where seq[0] is name, seq[1] is seq
-                formatted_sequence_gen = (f'{start}{name}{sep}{seq}' for name, seq, *_ in sequences)
-            elif isinstance(names, Iterable):
-                formatted_sequence_gen = (f'{start}{name}{sep}{seq}' for name, seq in zip(names, sequences))
-            # elif isinstance(sequences[0], list):  # where interior list is alphabet (AA or DNA)
-            #     for idx, seq in enumerate(sequences):
-            #         outfile.write(f'>{name}_{idx}\n')  # write header
-            #         # Check if alphabet is 3 letter protein
-            #         outfile.write(f'{" ".join(seq)}\n' if len(seq[0]) == 3 else f'{"".join(seq)}\n')
-            # elif isinstance(sequences[0], str):  # likely 3 aa format...
-            #     outfile.write(f'>{name}\n{" ".join(sequences)}\n')
-            else:
-                raise TypeError(f'{write_sequence_file.__name__} Cannot parse data to make fasta')
-        elif isinstance(sequences, dict):
-            formatted_sequence_gen = (f'{start}{name}{sep}{"".join(seq)}' for name, seq in sequences.items())
-        elif isinstance(names, str):  # assume sequences is a str or tuple
-            formatted_sequence_gen = (f'{start}{names}{sep}{"".join(sequences)}\n',)
-        else:
-            raise TypeError(f'{write_sequence_file.__name__} Cannot parse data to make fasta')
-        outfile.write('%s\n' % '\n'.join(formatted_sequence_gen))
-
-    return file_name
 
 
 ####################
@@ -1070,7 +1012,7 @@ class PoseSpecification(Dialect):
     def __init__(self, file):
         super().__init__()
         self.directive_delimiter: str = ':'
-        self.file: Union[str, bytes] = file
+        self.file: AnyStr = file
         self.directives: List[Dict[int, str]] = []
 
         all_poses, design_names, all_design_directives, = [], [], []
