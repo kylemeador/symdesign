@@ -780,6 +780,7 @@ def main():
         symdesign_directory = utils.get_base_symdesign_dir(
             (args.directory or (args.project or args.single or [None])[0] or os.getcwd()))
 
+    root = None
     if symdesign_directory is None:  # Check if there is a file and see if we can solve there
         # By default, assume new input and make in the current directory
         symdesign_directory = os.path.join(os.getcwd(), putils.program_output)
@@ -793,10 +794,10 @@ def main():
                     if file_directory is not None:
                         symdesign_directory = file_directory
                 else:
-                    # Set file basename as "root" keyword argument. Designs are being integrated for the first time
-                    queried_flags['root'] = os.path.splitext(os.path.basename(args.file))[0]
-                    # Design names may be the same, so we have to take the full file path as the name to discriminate
-                    # between separate files
+                    # Set file basename as "root". Designs are being integrated for the first time
+                    # In this case, design names might be the same, so we have to take the full file path as the name
+                    # to discriminate between separate files
+                    root = os.path.splitext(os.path.basename(args.file))[0]
 
         putils.make_path(symdesign_directory)
     # -----------------------------------------------------------------------------------------------------------------
@@ -954,7 +955,8 @@ def main():
                     job.nanohedra_root = f'{os.sep}{os.path.join(*first_pose_path.split(os.sep)[:-4])}'
                 if not job.sym_entry:  # Get from the Nanohedra output
                     job.sym_entry = get_sym_entry_from_nanohedra_directory(job.nanohedra_root)
-                pose_directories = [PoseDirectory.from_file(pose) for pose in all_poses[low_range:high_range]]
+                pose_directories = [PoseDirectory.from_file(pose, root=root)
+                                    for pose in all_poses[low_range:high_range]]
                 # copy the master nanohedra log
                 project_designs = \
                     os.path.join(job.projects, f'{os.path.basename(job.nanohedra_root)}_{putils.pose_directory}')
@@ -986,7 +988,8 @@ def main():
                     pose_directories = [PoseDirectory.from_pose_id(pose, root=args.directory)
                                         for pose in all_poses[low_range:high_range]]
                 else:
-                    pose_directories = [PoseDirectory.from_file(pose) for pose in all_poses[low_range:high_range]]
+                    pose_directories = [PoseDirectory.from_file(pose, root=root)
+                                        for pose in all_poses[low_range:high_range]]
         if not pose_directories:
             raise utils.InputError(f'No {putils.program_name} directories found within "{location}"! Please ensure '
                                    f'correct location')
