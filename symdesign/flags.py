@@ -1096,8 +1096,7 @@ entire_argparser = dict(fromfile_prefix_chars='@', allow_abbrev=False,  # exit_o
                         formatter_class=Formatter, usage=usage_str,
                         parents=[argparsers.get(parser)
                                  for parser in [parser_module, parser_options, parser_residue_selector, parser_output]])
-# Todo
-#  argparsers[parser_entire] = ArgumentParser(**entire_argparser)
+
 argparsers[parser_entire] = argparse.ArgumentParser(**entire_argparser)
 parser = argparsers[parser_entire]
 # Can't set up parser_input via a parent due to mutually_exclusive groups formatting messed up in help.
