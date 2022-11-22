@@ -1790,53 +1790,56 @@ class PoseDirectory:
         on the PoseDirectory
         """
         # Set up the command base (rosetta bin and database paths)
-        if self.job.design.scout:
-            self.protocol = protocol_xml1 = putils.scout
-            nstruct_instruct = ['-no_nstruct_label', 'true']
-            generate_files_cmd, metrics_pdb = null_cmd, ['-in:file:s', self.scouted_pdb]
-            # metrics_flags = 'repack=no'
-            additional_cmds, out_file = [], []
-        elif self.job.design.structure_background:
-            self.protocol = protocol_xml1 = putils.structure_background
-            nstruct_instruct = ['-nstruct', str(self.job.design.number_of_trajectories)]
-            design_files = os.path.join(self.scripts, f'design_files_{self.protocol}.txt')
-            generate_files_cmd = \
-                ['python', putils.list_pdb_files, '-d', self.designs, '-o', design_files, '-s', '_' + self.protocol]
-            metrics_pdb = ['-in:file:l', design_files]  # self.pdb_list]
-            # metrics_flags = 'repack=yes'
-            additional_cmds, out_file = [], []
-        elif not self.job.design.hbnet:  # Run the legacy protocol
-            self.protocol = protocol_xml1 = putils.interface_design
-            nstruct_instruct = ['-nstruct', str(self.job.design.number_of_trajectories)]
-            design_files = os.path.join(self.scripts, f'design_files_{self.protocol}.txt')
-            generate_files_cmd = \
-                ['python', putils.list_pdb_files, '-d', self.designs, '-o', design_files, '-s', '_' + self.protocol]
-            metrics_pdb = ['-in:file:l', design_files]  # self.pdb_list]
-            # metrics_flags = 'repack=yes'
-            additional_cmds, out_file = [], []
-        else:  # Run hbnet_design_profile protocol
-            self.protocol, protocol_xml1 = putils.hbnet_design_profile, 'hbnet_scout'
-            nstruct_instruct = ['-no_nstruct_label', 'true']
-            design_files = os.path.join(self.scripts, f'design_files_{self.protocol}.txt')
-            generate_files_cmd = \
-                ['python', putils.list_pdb_files, '-d', self.designs, '-o', design_files, '-s', '_' + self.protocol]
-            metrics_pdb = ['-in:file:l', design_files]  # self.pdb_list]
-            # metrics_flags = 'repack=yes'
-            out_file = ['-out:file:silent', os.path.join(self.data, 'hbnet_silent.o'),
-                        '-out:file:silent_struct_type', 'binary']
-            additional_cmds = \
-                [[putils.hbnet_sort, os.path.join(self.data, 'hbnet_silent.o'),
-                  str(self.job.design.number_of_trajectories)]]
-            # silent_file = os.path.join(self.data, 'hbnet_silent.o')
-            # additional_commands = \
-            #     [
-            #      # ['grep', '^SCORE', silent_file, '>', os.path.join(self.data, 'hbnet_scores.sc')],
-            #      main_cmd + [os.path.join(self.data, 'hbnet_selected.o')]
-            #      [os.path.join(self.data, 'hbnet_selected.tags')]
-            #     ]
-
         main_cmd = copy(rosetta.script_cmd)
         main_cmd += ['-symmetry_definition', 'CRYST1'] if self.design_dimension > 0 else []
+        # Todo must set up a blank -in:file:pssm in case the evolutionary matrix is not used. Design will fail!!
+        profile_cmd = ['-in:file:pssm', self.evolutionary_profile_file] \
+            if os.path.exists(self.evolutionary_profile_file) else []
+
+        additional_cmds = out_file = []
+        if self.job.design.scout:
+            self.protocol = protocol_xml1 = putils.scout
+            generate_files_cmd = null_cmd
+            metrics_pdb = ['-in:file:s', self.scouted_pdb]
+            # metrics_flags = 'repack=no'
+            nstruct_instruct = ['-no_nstruct_label', 'true']
+        else:
+            design_files = os.path.join(self.scripts, f'design_files_{self.protocol}.txt')
+            generate_files_cmd = \
+                ['python', putils.list_pdb_files, '-d', self.designs, '-o', design_files, '-s', '_' + self.protocol]
+            metrics_pdb = ['-in:file:l', design_files]
+            # metrics_flags = 'repack=yes'
+            if self.job.design.structure_background:
+                self.protocol = protocol_xml1 = putils.structure_background
+                nstruct_instruct = ['-nstruct', str(self.job.design.number_of_trajectories)]
+            elif self.job.design.hbnet:  # Run hbnet_design_profile protocol
+                self.protocol, protocol_xml1 = putils.hbnet_design_profile, 'hbnet_scout'
+                nstruct_instruct = ['-no_nstruct_label', 'true']
+                # Set up an additional command to perform interface design on hydrogen bond network from hbnet_scout
+                additional_cmds = \
+                    [[putils.hbnet_sort, os.path.join(self.data, 'hbnet_silent.o'),
+                      str(self.job.design.number_of_trajectories)]] + main_cmd + profile_cmd \
+                    + ['-in:file:silent', os.path.join(self.data, 'hbnet_selected.o'), f'@{self.flags}',
+                       '-in:file:silent_struct_type', 'binary',
+                       # '-out:suffix', f'_{self.protocol}',  adding no_nstruct_label true as only hbnet uses this mechanism
+                       # hbnet_design_profile.xml could be just design_profile.xml
+                       '-parser:protocol', os.path.join(putils.rosetta_scripts_dir, f'{self.protocol}.xml')] \
+                    + nstruct_instruct
+                # Set up additional out_file
+                out_file = ['-out:file:silent', os.path.join(self.data, 'hbnet_silent.o'),
+                            '-out:file:silent_struct_type', 'binary']
+                # silent_file = os.path.join(self.data, 'hbnet_silent.o')
+                # additional_commands = \
+                #     [
+                #      # ['grep', '^SCORE', silent_file, '>', os.path.join(self.data, 'hbnet_scores.sc')],
+                #      main_cmd + [os.path.join(self.data, 'hbnet_selected.o')]
+                #      [os.path.join(self.data, 'hbnet_selected.tags')]
+                #     ]
+            else:  # Run the legacy protocol
+                self.protocol = protocol_xml1 = putils.interface_design
+                nstruct_instruct = ['-nstruct', str(self.job.design.number_of_trajectories)]
+
+        # DESIGN: Prepare command and flags file
         if not os.path.exists(self.flags) or self.job.force:
             self.prepare_rosetta_flags(out_dir=self.scripts)
             self.log.debug(f'Pose flags written to: {self.flags}')
@@ -1857,25 +1860,13 @@ class PoseDirectory:
                     consensus_process.communicate()
             else:
                 self.log.critical(f'Cannot run consensus design without fragment info and none was found.'
-                                  f' Did you mean to include --{flags.term_constraint} as '
-                                  f'{self.job.design.term_constraint}?')
-        # DESIGN: Prepare command and flags file
-        # Todo must set up a blank -in:file:pssm in case the evolutionary matrix is not used. Design will fail!!
-        profile_cmd = ['-in:file:pssm', self.evolutionary_profile_file] \
-            if os.path.exists(self.evolutionary_profile_file) else []
+                                  f' Did you mean to include --no-{flags.term_constraint}')
+                #                   f'as {self.job.design.term_constraint}?')
         design_cmd = main_cmd + profile_cmd + \
             [f'@{self.flags}', '-in:file:s', self.scouted_pdb if os.path.exists(self.scouted_pdb) else self.refined_pdb,
              '-parser:protocol', os.path.join(putils.rosetta_scripts_dir, f'{protocol_xml1}.xml'),
              '-out:suffix', f'_{self.protocol}'] + (['-overwrite'] if self.job.overwrite else []) \
             + out_file + nstruct_instruct
-        if additional_cmds:  # this is where hbnet_design_profile.xml is set up, which could be just design_profile.xml
-            additional_cmds.append(
-                main_cmd + profile_cmd +
-                ['-in:file:silent', os.path.join(self.data, 'hbnet_selected.o'), f'@{self.flags}',
-                 '-in:file:silent_struct_type', 'binary',
-                 # '-out:suffix', f'_{self.protocol}',  adding no_nstruct_label true as only hbnet uses this mechanism
-                 '-parser:protocol', os.path.join(putils.rosetta_scripts_dir, f'{self.protocol}.xml')]
-                + nstruct_instruct)
 
         # METRICS: Can remove if SimpleMetrics adopts pose metric caching and restoration
         # Assumes all entity chains are renamed from A to Z for entities (1 to n)
