@@ -10,7 +10,6 @@ import logging.config
 import os
 import shutil
 import sys
-from argparse import _SubParsersAction
 from glob import glob
 from itertools import repeat, product, combinations, chain
 from subprocess import list2cmdline
@@ -800,11 +799,9 @@ def main():
 
         putils.make_path(symdesign_directory)
     # -----------------------------------------------------------------------------------------------------------------
-    #  Process flags to JobResources
+    #  Process JobResources which holds shared program objects and command-line arguments
     # -----------------------------------------------------------------------------------------------------------------
-    queried_flags = vars(args).copy()
-    # Create JobResources which holds shared program objects and options
-    job = job_resources_factory.get(program_root=symdesign_directory, **queried_flags)
+    job = job_resources_factory.get(program_root=symdesign_directory, arguments=args)
     # -----------------------------------------------------------------------------------------------------------------
     #  Start Logging
     # -----------------------------------------------------------------------------------------------------------------
@@ -873,48 +870,18 @@ def main():
             args.select_number = 1
     elif job.module == flags.nanohedra:
         initialize = False
-        if job.sym_entry:
-            job.sym_entry.log_parameters()
-        else:
+        if not job.sym_entry:
             raise RuntimeError(f'When running {flags.nanohedra}, the argument -e/--entry/--{flags.sym_entry} is '
                                'required')
     else:  # We have no module passed. Print the guide and exit
         guide.print_guide()
         exit()
     # -----------------------------------------------------------------------------------------------------------------
-    #  Report options now that parsing is complete
+    #  Report options and Set up Databases
     # -----------------------------------------------------------------------------------------------------------------
-    # Where input values should be reported instead of processed version, or the argument is not important
-    for flag in ['design_selector', 'construct_pose']:
-        queried_flags.pop(flag, None)
-
-    # Get all the default program args and compare them to the provided values
-    reported_args = {}
-    for group in entire_parser._action_groups:
-        for arg in group._group_actions:
-            if isinstance(arg, _SubParsersAction):  # We have a subparser, recurse
-                for name, sub_parser in arg.choices.items():
-                    for sub_group in sub_parser._action_groups:
-                        for arg in sub_group._group_actions:
-                            value = queried_flags.pop(arg.dest, None)  # Get the parsed flag value
-                            if value is not None and value != arg.default:  # Compare it to the default
-                                reported_args[arg.dest] = value  # Add it to reported args if not the default
-            else:
-                value = queried_flags.pop(arg.dest, None)  # Get the parsed flag value
-                if value is not None and value != arg.default:  # Compare it to the default
-                    reported_args[arg.dest] = value  # Add it to reported args if not the default
-
-    # Custom removal/formatting for all remaining
-    for custom_arg in list(queried_flags.keys()):
-        value = queried_flags.pop(custom_arg, None)
-        if value is not None:
-            reported_args[custom_arg] = value
-
-    if job.sym_entry:
-        reported_args[putils.sym_entry] = job.sym_entry.entry_number
+    reported_args = job.report_specified_arguments(args)
     logger.info('Starting with options:\n\t%s' % '\n\t'.join(utils.pretty_format_table(reported_args.items())))
 
-    # Set up Databases
     logger.info(f'Using resources in Database located at "{job.data}"')
     if job.module in [flags.nanohedra, flags.generate_fragments, flags.interface_design, flags.analysis]:
         if job.design.term_constraint:
@@ -1315,6 +1282,7 @@ def main():
 
         location = args.oligomer1
         design_source = os.path.splitext(os.path.basename(location))[0]
+        job.sym_entry.log_parameters()
     else:
         # This logic is possible with job.module as select_poses with --metric or --dataframe
         # job.structure_db = None

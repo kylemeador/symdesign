@@ -1,10 +1,11 @@
 from __future__ import annotations
 
+import argparse
 import logging
 import inspect
 import os
 from dataclasses import make_dataclass, field
-from typing import Annotated, AnyStr
+from typing import Annotated, AnyStr, Any
 
 import psutil
 
@@ -49,17 +50,17 @@ def generate_chain_mask(chains: str) -> set[str]:
 
 
 def process_design_selector_flags(
-        select_designable_residues_by_sequence,
-        select_designable_residues_by_pdb_number,
-        select_designable_residues_by_pose_number,
-        select_designable_chains,
-        mask_designable_residues_by_sequence,
-        mask_designable_residues_by_pdb_number,
-        mask_designable_residues_by_pose_number,
-        mask_designable_chains,
-        require_design_by_pdb_number,
-        require_design_by_pose_number,
-        require_design_by_chain,
+        select_designable_residues_by_sequence: str = None,
+        select_designable_residues_by_pdb_number: str = None,
+        select_designable_residues_by_pose_number: str = None,
+        select_designable_chains: str = None,
+        mask_designable_residues_by_sequence: str = None,
+        mask_designable_residues_by_pdb_number: str = None,
+        mask_designable_residues_by_pose_number: str = None,
+        mask_designable_chains: str = None,
+        require_design_by_pdb_number: str = None,
+        require_design_by_pose_number: str = None,
+        require_design_by_chain: str = None,
         **kwargs: dict[str]) -> dict[str, dict[str, set | set[int] | set[str]]]:
     # Todo move to a verify design_selectors function inside of Pose? Own flags module?
     #  Pull mask_design_using_sequence out of flags
@@ -133,13 +134,18 @@ Dock = make_dataclass('Dock',
 
 
 class JobResources:
-    """The intention of JobResources is to serve as a singular source of design info which is common accross all
-    designs. This includes common paths, databases, and design flags which should only be set once in program operation,
+    """The intention of JobResources is to serve as a singular source of design info which is common across all
+    jobs. This includes common paths, databases, and design flags which should only be set once in program operation,
     then shared across all member designs"""
     reduce_memory: bool = False
 
-    def __init__(self, program_root: AnyStr = None, **kwargs):
-        """For common resources for all SymDesign outputs, ensure paths to these resources are available attributes"""
+    def __init__(self, program_root: AnyStr = None, arguments: argparse.Namespace = None, **kwargs):
+        """Parse the program operation location, ensure paths to these resources are available, and parse arguments
+
+        Args:
+            program_root:
+            arguments:
+        """
         try:
             if os.path.exists(program_root):
                 self.program_root = program_root
@@ -147,6 +153,10 @@ class JobResources:
                 raise FileNotFoundError(f"Path doesn't exist!\n\t{program_root}")
         except TypeError:
             raise TypeError(f"Can't initialize {JobResources.__name__} without parameter 'program_root'")
+
+        # Format argparse.Namespace arguments
+        if arguments is not None:
+            kwargs.update(vars(arguments))
 
         # program_root subdirectories
         self.data = os.path.join(self.program_root, putils.data.title())
@@ -335,6 +345,47 @@ class JobResources:
             pass
         else:  # No construction specific flags
             self.write_fragments = self.write_oligomers = False
+
+    def report_specified_arguments(self, arguments: argparse.Namespace) -> dict[str, Any]:
+        """Filter all flags for only those that were specified as different on the command line
+
+        Args:
+            arguments: The arguments as parsed from the command-line argparse namespace
+        Returns:
+            Arguments specified during program execution
+        """
+        arguments = vars(arguments).copy()
+
+        # Get all the default program args and compare them to the provided values
+        reported_args = {}
+        entire_parser = flags.argparsers[flags.parser_entire]
+        for group in entire_parser._action_groups:
+            for arg in group._group_actions:
+                if isinstance(arg, argparse._SubParsersAction):  # We have a subparser, recurse
+                    for name, sub_parser in arg.choices.items():
+                        for sub_group in sub_parser._action_groups:
+                            for arg in sub_group._group_actions:
+                                value = arguments.pop(arg.dest, None)  # Get the parsed flag value
+                                if value is not None and value != arg.default:  # Compare it to the default
+                                    reported_args[arg.dest] = value  # Add it to reported args if not the default
+                else:
+                    value = arguments.pop(arg.dest, None)  # Get the parsed flag value
+                    if value is not None and value != arg.default:  # Compare it to the default
+                        reported_args[arg.dest] = value  # Add it to reported args if not the default
+
+        # Custom removal/formatting for all remaining
+        for custom_arg in list(arguments.keys()):
+            value = arguments.pop(custom_arg, None)
+            if value is not None:
+                reported_args[custom_arg] = value
+
+        # Where input values should be reported instead of processed version, or the argument is not important, format
+        if self.sym_entry:
+            reported_args[putils.sym_entry] = self.sym_entry.entry_number
+        # if self.design_selector:
+        #     reported_args.pop('design_selector', None)
+
+        return reported_args
 
     def calculate_memory_requirements(self, number_jobs: int):
         """Format memory requirements with module dependencies and set self.reduce_memory"""
