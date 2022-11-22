@@ -26,6 +26,7 @@ from symdesign.utils.path import submodule_guide, submodule_help, force, sym_ent
     perturb_dof
 
 nstruct = 20
+nanohedra_output = 'nanohedra_output'
 modules = 'modules'
 module = 'module'
 method = 'method'
@@ -793,7 +794,8 @@ input_arguments = {
                              help='The name of a pair of chains to fuse during design.\nPaired chains should be '
                                   'separated by a colon, with the n-terminal\npreceding the c-terminal chain. Fusion '
                                   'instances should be\nseparated by a space\nEx --fuse-chains A:B C:D'),
-    ('-N', f'--{nanohedra}-output'): dict(action='store_true', help='Is the input a V1 Nanohedra docking output?'),
+    ('-N', f'--{nanohedra}v1-output'): dict(action='store_true', dest=nanohedra_output,
+                                            help='Is the input a Nanohedra wersion 1 docking output?'),
     ('-pf', f'--{pose_file}'): dict(type=str, dest=specification_file_,
                                     metavar=ex_path('pose_design_specifications.csv'),
                                     help=f'If pose IDs are specified in a file, say as the result of\n{select_poses}'

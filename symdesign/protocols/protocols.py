@@ -222,7 +222,7 @@ class PoseDirectory:
         self.serialized_info = os.path.join(self.source_path, f'{output_identifier}{putils.data}', putils.state_file)
         self.initialized = True if os.path.exists(self.serialized_info) else False
         if self.initialized:
-            self.source = None  # will be set to self.asu_path later
+            self.source = None  # Will be set to self.asu_path later
             if self.job.output_to_directory:
                 self.projects = ''
                 self.project_designs = ''
@@ -232,13 +232,13 @@ class PoseDirectory:
                 self.project_designs = os.path.dirname(self.path)
                 self.projects = os.path.dirname(self.project_designs)
         else:
-            path_components = os.path.splitext(self.source_path)[0].split(os.sep)
             # Save job variables to the state during initialization
             if self.sym_entry:
                 self.info['sym_entry_specification'] = self.sym_entry.entry_number, self.sym_entry.sym_map
             if self.design_selector:
                 self.info['design_selector'] = self.design_selector
 
+            path_components = os.path.splitext(self.source_path)[0].split(os.sep)
             if self.job.nanohedra_output:
                 # path_components = self.source_path.split(os.sep)
                 # design_symmetry (P432)
