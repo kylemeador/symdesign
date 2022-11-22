@@ -6,6 +6,8 @@ import os
 from dataclasses import make_dataclass, field
 from typing import Annotated, AnyStr
 
+import psutil
+
 from symdesign.resources import structure_db, wrapapi
 from symdesign.structure.fragment import db
 from symdesign import flags
@@ -42,6 +44,8 @@ class JobResources:
     """The intention of JobResources is to serve as a singular source of design info which is common accross all
     designs. This includes common paths, databases, and design flags which should only be set once in program operation,
     then shared across all member designs"""
+    reduce_memory: bool = False
+
     def __init__(self, program_root: AnyStr = None, **kwargs):
         """For common resources for all SymDesign outputs, ensure paths to these resources are available attributes"""
         try:
@@ -235,6 +239,35 @@ class JobResources:
         else:  # No construction specific flags
             self.write_fragments = False
             self.write_oligomers = False
+
+    def calculate_memory_requirements(self, number_jobs: int):
+        """Format memory requirements with module dependencies and set self.reduce_memory"""
+        if self.module == flags.nanohedra:  # Todo
+            required_memory = putils.baseline_program_memory + putils.nanohedra_memory  # 30 GB ?
+        elif self.module == flags.analysis:
+            required_memory = (putils.baseline_program_memory +
+                               number_jobs * putils.approx_ave_design_directory_memory_w_assembly) * 1.2
+        else:
+            required_memory = (putils.baseline_program_memory +
+                               number_jobs * putils.approx_ave_design_directory_memory_w_pose) * 1.2
+
+        available_memory = psutil.virtual_memory().available
+        logger.debug(f'Available memory: {available_memory:f}')
+        logger.debug(f'Required memory: {required_memory:f}')
+        if available_memory < required_memory:
+            self.reduce_memory = True
+        logger.debug(f'Reduce job memory?: {self.reduce_memory}')
+
+        # Run specific checks
+        if self.module == flags.interface_design and self.design.evolution_constraint:  # hhblits to run
+            if psutil.virtual_memory().available <= required_memory + CommandDistributer.hhblits_memory_threshold:
+                logger.critical(f'The amount of memory for the computer is insufficient to run {putils.hhblits} '
+                                '(required for designing with evolution)! Please allocate the job to a computer with '
+                                f'more memory or the process will fail. '
+                                f'Otherwise, submit job with --no-{flags.evolution_constraint}')
+                exit(1)
+            putils.make_path(self.sequences)
+            putils.make_path(self.profiles)
 
 
 class JobResourcesFactory:

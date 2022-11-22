@@ -1329,9 +1329,11 @@ def main():
     # Set up Job specific details and resources
     # -----------------------------------------------------------------------------------------------------------------
     # Format computational requirements
-    if job.module in [flags.nanohedra, flags.refine, flags.interface_design, flags.interface_metrics,
-                      flags.optimize_designs]:
-        if args.distribute_work:
+    distribute_modules = [
+        flags.nanohedra, flags.refine, flags.interface_design, flags.interface_metrics, flags.optimize_designs
+    ]
+    if job.module in distribute_modules:
+        if job.distribute_work:
             logger.info('Writing modeling commands out to file, no modeling will occur until commands are executed')
         else:
             logger.info("Modeling will occur in this process, ensure you don't lose connection to the shell!")
@@ -1349,30 +1351,7 @@ def main():
     #         (CommmandDistributer.mpi - 1, flags.nstruct / (CommmandDistributer.mpi - 1)))
     #     queried_flags.update({'mpi': True, 'script': True})
 
-    # Format memory requirements with module dependencies
-    if job.module == flags.nanohedra:  # Todo
-        required_memory = putils.baseline_program_memory + putils.nanohedra_memory  # 30 GB ?
-    elif job.module == flags.analysis:
-        required_memory = (putils.baseline_program_memory +
-                           len(pose_directories) * putils.approx_ave_design_directory_memory_w_assembly) * 1.2
-    else:
-        required_memory = (putils.baseline_program_memory +
-                           len(pose_directories) * putils.approx_ave_design_directory_memory_w_pose) * 1.2
-
-    job.reduce_memory = True if psutil.virtual_memory().available < required_memory else False
-    # logger.info('Available: %f' % psutil.virtual_memory().available)
-    # logger.info('Requried: %f' % required_memory)
-    # logger.info('Reduce Memory?: %s', job.reduce_memory)
-
-    # Run specific checks
-    if job.module == flags.interface_design and job.design.evolution_constraint:  # hhblits to run
-        if psutil.virtual_memory().available <= required_memory + utils.CommandDistributer.hhblits_memory_threshold:
-            logger.critical(f'The amount of memory for the computer is insufficient to run {putils.hhblits} (required '
-                            'for designing with evolution)! Please allocate the job to a computer with more memory or '
-                            f'the process will fail. Otherwise, select --no-{flags.evolution_constraint}')
-            exit(1)
-        putils.make_path(job.sequences)
-        putils.make_path(job.profiles)
+    job.calculate_memory_requirements(len(pose_directories))
     # -----------------------------------------------------------------------------------------------------------------
     # Parse SubModule specific commands and performs the protocol specified.
     # Finally, run terminate(). This formats output parameters and reports on exceptions
