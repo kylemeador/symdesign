@@ -34,11 +34,12 @@ hhblits_threads = 2
 zero_offset = 1
 sequence_type_literal = Literal['reference', 'structure']
 sequence_types: tuple[sequence_type_literal, ...] = get_args(sequence_type_literal)
-aa_counts = dict(zip(utils.protein_letters_alph1, repeat(0)))
+# aa_counts = dict(zip(utils.protein_letters_alph1, repeat(0)))
+aa_counts_alph3 = dict(zip(utils.protein_letters_alph3, repeat(0)))
 aa_nan_counts = dict(zip(utils.protein_letters_alph1, repeat(np.nan)))
 """{protein_letters_alph1, repeat(numpy.nan))}"""  # , 'stats'=(0, 1))
 # blank_profile_entry = aa_nan_counts.copy()
-# blank_profile_entry.update({'lod': aa_counts, 'type': 'X', 'info': 0., 'weight': 0.})
+# blank_profile_entry.update({'lod': aa_counts_alph3, 'type': 'X', 'info': 0., 'weight': 0.})
 # """{utils.profile_keys, repeat(numpy.nan))}"""  # , 'stats'=(0, 1))
 # aa_nan_counts.update({'stats': (0, 1)})
 aa_weighted_counts: info.aa_weighted_counts_type = dict(zip(utils.protein_letters_alph1, repeat(0)))
@@ -139,8 +140,8 @@ class MultipleSequenceAlignment:
             if count_gaps:
                 self.observations = [self.number_of_sequences for _ in range(self.length)]
             else:
-                # gap_observations = [aa_counts['-'] for aa_counts in self.counts]  # list[dict]
-                # gap_observations = [aa_counts[0] for aa_counts in self.counts]  # list[list]
+                # gap_observations = [_aa_counts['-'] for _aa_counts in self.counts]  # list[dict]
+                # gap_observations = [_aa_counts[0] for _aa_counts in self.counts]  # list[list]
                 # self.observations = [counts - gap for counts, gap in zip(self.observations, gap_observations)]
                 # Find where gaps and unknown start. They are always at the end
                 if 'gapped' in self.alphabet_type:
@@ -176,7 +177,7 @@ class MultipleSequenceAlignment:
                         self._counts[i][utils.numerical_translation_alph1_gapped[aa]] += 1
                         # self.counts[i][aa] += 1
                 print('OLD self._counts', self._counts)
-                self._observations = [sum(aa_counts[:self._gap_index]) for aa_counts in self._counts]  # list[list]
+                self._observations = [sum(_aa_counts[:self._gap_index]) for _aa_counts in self._counts]  # list[list]
 
                 sequence_weights_ = weight_sequences(self._counts, self.alignment, self._observations)
                 print('OLD sequence_weights_', sequence_weights_)
@@ -401,7 +402,8 @@ def numeric_to_sequence(numeric_sequence: np.ndarray, alphabet_order: int = 1) -
         raise ValueError(f"The alphabet_order {alphabet_order} isn't valid. Choose from either 1 or 3")
 
 
-def pssm_as_array(pssm: profile_dictionary, alphabet: str = utils.protein_letters_alph1, lod: bool = False) -> np.ndarray:
+def pssm_as_array(pssm: profile_dictionary, alphabet: str = utils.protein_letters_alph1, lod: bool = False) \
+        -> np.ndarray:
     """Convert a position specific profile matrix into a numeric array
 
     Args:
@@ -838,11 +840,11 @@ class SequenceProfile(ABC):
             Ex: {1: {'A': 0, 'R': 0, ..., 'lod': {'A': -5, 'R': -5, ...}, 'type': 'W', 'info': 3.20, 'weight': 0.73},
                  2: {}, ...}
         """
-        evolutionary_profile = populate_design_dictionary(self.number_of_residues, utils.protein_letters_alph3, **kwargs)
-        for residue_type, residue_data in zip(self.sequence, evolutionary_profile.values()):
-            residue_data.update({'lod': copy(aa_counts), 'type': residue_type, 'info': 0., 'weight': 0.})
+        profile = populate_design_dictionary(self.number_of_residues, utils.protein_letters_alph3, **kwargs)
+        for residue_type, residue_data in zip(self.sequence, profile.values()):
+            residue_data.update({'lod': aa_counts_alph3.copy(), 'type': residue_type, 'info': 0., 'weight': 0.})
 
-        return evolutionary_profile
+        return profile
 
     def fit_evolutionary_profile_to_structure(self):
         """From an evolutionary profile generated according to a reference sequence, align the profile to the Structure
@@ -949,7 +951,7 @@ class SequenceProfile(ABC):
             line_data = line.strip().split()
             if len(line_data) == 44:
                 residue_number = int(line_data[0])
-                self.evolutionary_profile[residue_number] = copy(aa_counts)
+                self.evolutionary_profile[residue_number] = copy(aa_counts_alph3)
                 for i, aa in enumerate(utils.protein_letters_alph3, 22):  # pose_dict[residue_number], 22):
                     # Get normalized counts for pose_dict
                     self.evolutionary_profile[residue_number][aa] = (int(line_data[i]) / 100.0)
@@ -1334,7 +1336,7 @@ class SequenceProfile(ABC):
                     # Check if weights are associated with observations. If not, side chain isn't significant
                     observed_aas = {}
                     if total_obs_weight > 0:
-                        observed_aas.update(**aa_counts)  # {'A': 0, 'C': 0, ...}  # NO -> 'stats': [0, 1]}
+                        observed_aas.update(**aa_counts_alph3)  # {'A': 0, RC': 0, ...}  # NO -> 'stats': [0, 1]}
                         observed_aas['weight'] = total_obs_weight
                         total_fragment_weight += total_obs_weight
                         for observation in observations:
@@ -1357,10 +1359,11 @@ class SequenceProfile(ABC):
                     self.fragment_profile[residue_index][index] = observed_aas
 
             # Combine all index observations into one residue frequency distribution
-            # residue_frequencies: dict[utils.profile_keys, str | lod_dictionary | float | list[float]] = copy(aa_counts)
+            # residue_frequencies: dict[utils.profile_keys, str | lod_dictionary | float | list[float]] = \
+            #     aa_counts_alph3.copy()
             residue_frequencies = {}
             if total_fragment_weight > 0:
-                residue_frequencies.update(**aa_counts)  # {'A': 0, 'C': 0, ...}  # NO -> 'stats': [0, 1]}
+                residue_frequencies.update(**aa_counts_alph3)  # {'A': 0, 'R': 0, ...}  # NO -> 'stats': [0, 1]}
                 for observation_frequencies in self.fragment_profile[residue_index]:
                     if observation_frequencies:
                         # index_weight = observation_frequencies.pop('weight')  # total_obs_weight from above
@@ -1380,7 +1383,7 @@ class SequenceProfile(ABC):
             # Add results to final fragment_profile residue position
             self.fragment_profile[residue_index] = residue_frequencies
             # Since we either copy from self.evolutionary_profile or remove, an empty dictionary is fine here
-            # If this changes, maybe the == 0 condition needs a copy(aa_counts) instead of {}
+            # If this changes, maybe the == 0 condition needs an aa_counts_alph3.copy() instead of {}
 
         if keep_extras:
             if evo_fill and self.evolutionary_profile:
@@ -2109,7 +2112,7 @@ def parse_pssm(file: AnyStr, **kwargs) -> dict[int, dict[str, str | float | int 
             pose_dict[residue_number] = \
                 dict(zip(utils.protein_letters_alph3,
                          [x / 100. for x in map(int, line_data[22:len(utils.protein_letters_alph3) + 22])]))
-            # pose_dict[residue_number] = copy(aa_counts)
+            # pose_dict[residue_number] = aa_counts_alph3.copy()
             # for i, aa in enumerate(utils.protein_letters_alph3, 22):
             #     # Get normalized counts for pose_dict
             #     pose_dict[residue_number][aa] = int(line_data[i]) / 100.
