@@ -3,16 +3,13 @@ from __future__ import annotations
 import argparse
 import os
 import sys
-from typing import AnyStr
 
 from psutil import cpu_count
 
 from symdesign.metrics import metric_weight_functions
 from symdesign.resources.query.utils import input_string, confirmation_string, bool_d, invalid_string, header_string, \
     format_string
-from symdesign.structure.sequence import read_fasta_file  # Todo refactor to structure.utils?
-from symdesign.utils import handle_errors, pretty_format_table, clean_comma_separated_string, format_index_string, \
-    ex_path
+from symdesign.utils import handle_errors, pretty_format_table, ex_path
 from symdesign.utils.ProteinExpression import expression_tags
 # These shouldn't be moved here
 from symdesign.utils.path import fragment_dbs, biological_interfaces, default_logging_level
@@ -136,65 +133,6 @@ gather_metrics = format_for_cmdline(gather_metrics)
 increment_chains = format_for_cmdline(increment_chains)
 
 
-def process_design_selector_flags(flags: dict[str]) -> dict[str, dict[str, set | set[int] | set[str]]]:
-    # Todo move to a verify design_selectors function inside of Pose? Own flags module?
-    #  Pull mask_design_using_sequence out of flags
-    # -------------------
-    entity_select, chain_select, residue_select, residue_pdb_select = set(), set(), set(), set()
-    select_residues_by_sequence = flags.get('select_designable_residues_by_sequence')
-    if select_residues_by_sequence:
-        residue_select = residue_select.union(generate_sequence_mask(select_residues_by_sequence))
-
-    select_residues_by_pdb_number = flags.get('select_designable_residues_by_pdb_number')
-    if select_residues_by_pdb_number:
-        residue_pdb_select = residue_pdb_select.union(format_index_string(select_residues_by_pdb_number))
-
-    select_residues_by_pose_number = flags.get('select_designable_residues_by_pose_number')
-    if select_residues_by_pose_number:
-        residue_select = residue_select.union(format_index_string(select_residues_by_pose_number))
-
-    select_chains = flags.get('select_designable_chains')
-    if select_chains:
-        chain_select = chain_select.union(generate_chain_mask(select_chains))
-    # -------------------
-    entity_mask, chain_mask, residue_mask, residue_pdb_mask = set(), set(), set(), set()
-    mask_residues_by_sequence = flags.get('mask_designable_residues_by_sequence')
-    if mask_residues_by_sequence:
-        residue_mask = residue_mask.union(generate_sequence_mask(mask_residues_by_sequence))
-
-    mask_residues_by_pdb_number = flags.get('mask_designable_residues_by_pdb_number')
-    if mask_residues_by_pdb_number:
-        residue_pdb_mask = residue_pdb_mask.union(format_index_string(mask_residues_by_pdb_number))
-
-    mask_residues_by_pose_number = flags.get('mask_designable_residues_by_pose_number')
-    if mask_residues_by_pose_number:
-        residue_mask = residue_mask.union(format_index_string(mask_residues_by_pose_number))
-
-    mask_chains = flags.get('mask_designable_chains')
-    if mask_chains:
-        chain_mask = chain_mask.union(generate_chain_mask(mask_chains))
-    # -------------------
-    entity_req, chain_req, residues_req, residues_pdb_req = set(), set(), set(), set()
-    require_residues_by_pdb_number = flags.get('require_design_at_pdb_residues')
-    if require_residues_by_pdb_number:
-        residues_pdb_req = residues_pdb_req.union(format_index_string(require_residues_by_pdb_number))
-
-    require_residues_by_pose_number = flags.get('require_design_at_residues')
-    if require_residues_by_pose_number:
-        residues_req = residues_req.union(format_index_string(require_residues_by_pose_number))
-
-    require_residues_by_chain = flags.get('require_design_at_chains')
-    if require_residues_by_chain:
-        chain_req = chain_req.union(generate_chain_mask(require_residues_by_chain))
-
-    return dict(selection=dict(entities=entity_select, chains=chain_select, residues=residue_select,
-                               pdb_residues=residue_pdb_select),
-                mask=dict(entities=entity_mask, chains=chain_mask, residues=residue_mask,
-                          pdb_residues=residue_pdb_mask),
-                required=dict(entities=entity_req, chains=chain_req, residues=residues_req,
-                              pdb_residues=residues_pdb_req))
-
-
 # def return_default_flags():
 #     # mode_flags = flags.get(mode, design_flags)
 #     # if mode_flags:
@@ -280,36 +218,6 @@ def query_user_for_flags(mode=interface_design, template=False):
 def load_flags(file):
     with open(file, 'r') as f:
         return {dict(tuple(flag.lstrip('-').split())) for flag in f.readlines()}
-
-
-def generate_sequence_mask(fasta_file: AnyStr) -> list[int]:
-    """From a sequence with a design_selector, grab the residue indices that should be designed in the target
-    structural calculation
-
-    Args:
-        fasta_file: The path to a file with fasta information
-    Returns:
-        The residue numbers (in pose format) that should be ignored in design
-    """
-    sequence_and_mask = list(read_fasta_file(fasta_file))
-    # sequences = sequence_and_mask
-    sequence, mask, *_ = sequence_and_mask
-    if not len(sequence) == len(mask):
-        raise ValueError('The sequence and design_selector are different lengths! Please correct the alignment and '
-                         'lengths before proceeding.')
-
-    return [idx for idx, aa in enumerate(mask, 1) if aa != '-']
-
-
-def generate_chain_mask(chains: str) -> set[str]:
-    """From a string with a design_selection, format the chains provided
-
-    Args:
-        chains: The specified chains separated by commas to split
-    Returns:
-        The provided chain ids in pose format
-    """
-    return set(clean_comma_separated_string(chains))
 
 
 # ---------------------------------------------------
