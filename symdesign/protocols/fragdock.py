@@ -259,7 +259,8 @@ def create_perturbation_transformations(sym_entry: SymEntry, rotation_number: in
     return perturbation_mapping
 
 
-def nanohedra_dock(model1: Structure | AnyStr, model2: Structure | AnyStr, **kwargs):
+def nanohedra_dock(model1: Structure | AnyStr, model2: Structure | AnyStr, **kwargs) \
+        -> list[protocols.PoseDirectory] | list:
     """
     Perform the fragment docking routine described in Laniado, Meador, & Yeates, PEDS. 2021
 
@@ -1231,8 +1232,15 @@ def nanohedra_dock(model1: Structure | AnyStr, model2: Structure | AnyStr, **kwa
     full_rotation1 = np.concatenate(full_rotation1, axis=0)
     full_rotation2 = np.concatenate(full_rotation2, axis=0)
     starting_transforms = full_rotation1.shape[0]
-    logger.info(f'Initial optimal translation search found {starting_transforms} total transforms '
-                f'({time.time() - init_translation_time_start:8f}s)')
+
+    if not starting_transforms:  # There were no successful transforms
+        logger.warning(f'No optimal translations found. Terminating {building_blocks} docking')
+        return []
+        # ------------------ TERM ------------------------
+    else:
+        logger.info(f'Initial optimal translation search found {starting_transforms} total transforms '
+                    f'in {time.time() - init_translation_time_start:8f}s')
+
     if sym_entry.is_internal_tx1:
         stacked_internal_tx_vectors1 = np.zeros((starting_transforms, 3), dtype=float)
         # Add the translation to Z (axis=1)
@@ -1356,7 +1364,7 @@ def nanohedra_dock(model1: Structure | AnyStr, model2: Structure | AnyStr, **kwa
                     f'remain ({time.time() - clustering_start:8f}s)')
         if not number_of_dense_transforms:  # There were no successful transforms
             logger.warning(f'No viable transformations found. Terminating {building_blocks} docking')
-            return
+            return []
         # ------------------ TERM ------------------------
         # Update the transformation array and counts with the sufficiently_dense_indices
         # Remove non-viable transforms by indexing sufficiently_dense_indices
@@ -1529,7 +1537,7 @@ def nanohedra_dock(model1: Structure | AnyStr, model2: Structure | AnyStr, **kwa
 
     if not number_non_clashing_transforms:  # There were no successful asus that don't clash
         logger.warning(f'No viable asymmetric units. Terminating {building_blocks} docking')
-        return
+        return []
     # ------------------ TERM ------------------------
     # Remove non-viable transforms by indexing asu_is_viable_indices
     remove_non_viable_indices_inverse(asu_is_viable_indices)
@@ -1789,7 +1797,7 @@ def nanohedra_dock(model1: Structure | AnyStr, model2: Structure | AnyStr, **kwa
     number_viable_pose_interfaces = len(interface_is_viable)
     if number_viable_pose_interfaces == 0:  # There were no successful transforms
         logger.warning(f'No interfaces have enough fragment matches. Terminating {building_blocks} docking')
-        return
+        return []
     # ------------------ TERM ------------------------
     logger.info(f'Found {number_viable_pose_interfaces} poses with viable interfaces')
     # Generate the Pose for output handling
@@ -1969,7 +1977,7 @@ def nanohedra_dock(model1: Structure | AnyStr, model2: Structure | AnyStr, **kwa
 
         if number_passing_symmetric_clashes == 0:  # There were no successful transforms
             logger.warning(f'No viable poses without symmetric clashes. Terminating {building_blocks} docking')
-            return
+            return []
         # ------------------ TERM ------------------------
         # Update the passing_transforms
         # passing_transforms contains all the transformations that are still passing
@@ -2278,6 +2286,8 @@ def nanohedra_dock(model1: Structure | AnyStr, model2: Structure | AnyStr, **kwa
 
         logger.info(f'\tSUCCESSFUL DOCKED POSE: {out_path}')
 
+        return out_path
+
     def terminate():
         """Finalize any remaining work and return to the caller"""
         if job.write_trajectory:
@@ -2359,12 +2369,11 @@ def nanohedra_dock(model1: Structure | AnyStr, model2: Structure | AnyStr, **kwa
         #         #                           all_passing_surf_indices[idx],
         #         #                           all_passing_z_scores[idx])
         #     # pose_id = create_pose_id(idx)
-        #     # Todo replace with PoseDirectory? Path object?
-        #     output_pose(os.path.join(out_dir, pose_id), pose_id)
+        #     pose_paths.append(output_pose(os.path.join(out_dir, pose_id), pose_id))
         #
         # # logger.info(f'Total {building_blocks} dock trajectory took {time.time() - frag_dock_time_start:.2f}s')
-        # # return terminate()  # End of docking run
-    # ------------------ TERM ------------------------
+        # # terminate()  # End of docking run
+        # # return pose_paths
     # elif job.design.sequences:  # We perform sequence design
     elif job.dock.proteinmpnn_score or job.design.sequences:  # Initialize proteinmpnn for dock/design
         proteinmpnn_used = True
@@ -3449,6 +3458,7 @@ def nanohedra_dock(model1: Structure | AnyStr, model2: Structure | AnyStr, **kwa
     # all_pose_divergence = []
     # all_probabilities = {}
     fragment_profile_frequencies = []
+    pose_paths = []
     nan_blank_data = list(repeat(np.nan, pose_length))
     for idx, pose_id in enumerate(pose_ids):  # range(number_of_transforms):
         # Add the next set of coordinates
@@ -3463,10 +3473,8 @@ def nanohedra_dock(model1: Structure | AnyStr, model2: Structure | AnyStr, **kwa
         #                           all_passing_surf_indices[idx],
         #                           all_passing_z_scores[idx])
 
-        # Todo reinstate after alphafold integration?
-        # Todo replace with PoseDirectory? Path object?
         if job.output:
-            output_pose(os.path.join(out_dir, pose_id), pose_id)
+            pose_paths.append(output_pose(os.path.join(out_dir, pose_id), pose_id))
 
         # Reset the fragment_map and fragment_profile for each Entity before calculate_fragment_profile
         for entity in pose.entities:
@@ -3902,7 +3910,9 @@ def nanohedra_dock(model1: Structure | AnyStr, model2: Structure | AnyStr, **kwa
             per_residue_df.to_csv(residue_metrics_csv)
             logger.info(f'Wrote per residue metrics to {residue_metrics_csv}')
 
+    # Finalize docking run
+    terminate()
     logger.info(f'Total {building_blocks} dock trajectory took {time.time() - frag_dock_time_start:.2f}s')
 
-    return terminate()  # End of docking run
-    # return pose_s
+    return [PoseDirectory.from_file(file) for file in pose_paths]
+    # ------------------ TERM ------------------------
