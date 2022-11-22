@@ -1270,6 +1270,7 @@ class SequenceProfile(ABC):
         # observation is created for that fragment index.
         # try:
         for fragment in fragments:
+            # Offset the specified fragment index to the overall index in the Structure
             residue_index = fragment[alignment_type] - self.offset_index
             # Retrieve the amino acid frequencies for this fragment cluster, for this alignment side
             aa_freq = getattr(self._fragment_db.info[fragment['cluster']], alignment_type)
@@ -1673,7 +1674,7 @@ dtype_literals = Literal['list', 'set', 'tuple', 'float', 'int']
 def populate_design_dictionary(n: int, alphabet: Sequence, zero_index: bool = False, dtype: dtype_literals = 'int') \
         -> dict[int, dict[int | str, Any]]:
     """Return a dictionary with n elements, each integer key containing another dictionary with the items in
-    alphabet as keys. By default, one-indexed, and data inside the alphabet dictionary is a dictionary.
+    alphabet as keys. By default, one-indexed, and data inside the alphabet dictionary is 0 (integer).
     dtype can be any viable type [list, set, tuple, int, etc.]. If dtype is int or float, 0 will be initial value
 
     Args:
