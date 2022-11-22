@@ -17,7 +17,7 @@ from symdesign.utils.path import submodule_guide, submodule_help, force, sym_ent
     interface_metrics, nano_entity_flag1, nano_entity_flag2, data, multi_processing, residue_selector, options, \
     cluster_poses, orient, default_clustered_pose_file, interface_design, evolution_constraint, hbnet, term_constraint,\
     number_of_trajectories, refine, structure_background, scout, design_profile, evolutionary_profile, \
-    fragment_profile, all_scores, default_analysis_file, select_sequences, program_name, nanohedra, \
+    fragment_profile, all_scores, default_analysis_file, select_sequences, program_name, nanohedra, predict_structure, \
     program_command, analysis, select_poses, output_fragments, output_oligomers, protocol, current_energy_function, \
     ignore_clashes, ignore_pose_clashes, ignore_symmetric_clashes, select_designs, output_structures, rosetta_str, \
     proteinmpnn, output_trajectory, development, consensus, ca_only, sequences, structures, temperatures, \
@@ -71,6 +71,7 @@ def format_for_cmdline(flag: str):
     return flag.replace('_', '-')
 
 
+predict_structure = format_for_cmdline(predict_structure)
 cluster_poses = format_for_cmdline(cluster_poses)
 generate_fragments = format_for_cmdline(generate_fragments)
 fragment_database = format_for_cmdline(fragment_database)
@@ -176,7 +177,7 @@ def query_user_for_flags(mode=interface_design, template=False):
         for idx, flag in enumerate(chosen_flags):
             valid = False
             while not valid:
-                arg_value = input('\tFor \'%s\' what %s value should be used? Default is \'%s\'%s'
+                arg_value = input('\tFor "%s" what %s value should be used? Default is "%s"%s'
                                   % (flag, design_flags[flag]['type'], design_flags[flag]['default'], input_string))
                 if design_flags[flag]['type'] == bool:
                     if arg_value == '':
@@ -255,7 +256,7 @@ class Formatter(argparse.RawTextHelpFormatter, argparse.RawDescriptionHelpFormat
 #  {'refine': ArgumentParser(prog='python SymDesign.py module [module_arguments] [input_arguments]'
 #                                 '[optional_arguments] refine'
 
-boolean_positional_prevent_msg = ' Use --no-{} to prevent'.format
+boolean_positional_prevent_msg = 'Use --no-{} to prevent'.format
 """Use this message in all help keyword arguments using argparse.BooleanOptionalAction with default=True to specify the
  --no- prefix when the argument should be False
 """
@@ -280,8 +281,8 @@ sym_entry_kwargs = dict(type=int, default=None, metavar='INT',
                         help=f'The entry number of {nanohedra.title()} docking combinations to use.\n'
                              f'See {nanohedra} --query for possible symmetries')
 # ---------------------------------------------------
-options_help = f'Additional options control symmetry, the extent of file output, various {program_name} runtime ' \
-               'considerations,\nand programmatic options for determining design outcomes'
+options_help = f'Additional options control symmetry, the extent of file output,\nvarious runtime ' \
+               'considerations, and miscellaneous programmatic options'
 parser_options = {options: dict(description=options_help, help=options_help)}
 parser_options_group = dict(title=f'{"_" * len(optional_title)}\n{optional_title}',
                             description=f'\n{options_help}')
@@ -324,7 +325,7 @@ options_arguments = {
     setup_args: setup_kwargs,
     # Todo move to only design protocols...
     (f'--{sequences}',): dict(action=argparse.BooleanOptionalAction, default=True,  # action='store_true',
-                              help='For the protocol, create new sequences for each pose?'
+                              help='For the protocol, create new sequences for each pose?\n'
                                    f'{boolean_positional_prevent_msg(sequences)}'),
     (f'--{structures}',): dict(action='store_true',
                                help='Whether the structure of each new sequence should be calculated'),
@@ -403,6 +404,14 @@ protocol_help = 'Perform a series of modules in a specified order'
 parser_protocol = {protocol: dict(description=protocol_help, help=protocol_help)}
 protocol_arguments = {
     ('-m', f'--{modules}'): dict(nargs='*', help='The modules to run in order'),
+}
+# ---------------------------------------------------
+predict_structure_help = 'Predict the 3D structure from specified sequence(s)'
+parser_predict_structure = \
+    {predict_structure: dict(description=predict_structure_help, help=predict_structure_help)}
+predict_structure_arguments = {
+    ('-m', f'--{method}'): dict(choices={'thread'}, default='thread',
+                                help=f'The method utilized to {predict_structure}'),
 }
 # ---------------------------------------------------
 orient_help = 'Orient a symmetric assembly in a canonical orientation at the origin'
@@ -512,18 +521,18 @@ cluster_poses_arguments = {
                                 f'\nDefault={default_clustered_pose_file.format("TIMESTAMP", "LOCATION")}')
 }
 # ---------------------------------------------------
-interface_design_help = 'Gather poses of interest and format for design using sequence constraints in Rosetta/' \
-                        'ProteinMPNN.\nConstrain using evolutionary profiles of homologous sequences and/or fragment ' \
-                        'profiles\nextracted from the PDB or neither'
+interface_design_help = 'Gather poses of interest and format for design using Rosetta/' \
+                        'ProteinMPNN.\nConstrain using evolutionary profiles of homologous sequences\nand/or fragment' \
+                        ' profiles extracted from the PDB or neither'
 parser_design = {interface_design: dict(description=interface_design_help, help=interface_design_help)}
 interface_design_arguments = {
     ('-ec', f'--{evolution_constraint}'):
         dict(action=argparse.BooleanOptionalAction, default=True,
-             help='Whether to include evolutionary constraints during design.'
+             help='Whether to include evolutionary constraints during design.\n'
                   f'{boolean_positional_prevent_msg(evolution_constraint)}'),
     ('-hb', f'--{hbnet}'):
         dict(action=argparse.BooleanOptionalAction, default=True,
-             help=f'Whether to include hydrogen bond networks in the design.{boolean_positional_prevent_msg(hbnet)}'),
+             help=f'Whether to include hydrogen bond networks in the design.\n{boolean_positional_prevent_msg(hbnet)}'),
     ('-m', f'--{method}'):
         dict(type=str.lower, default=proteinmpnn, choices={proteinmpnn, rosetta_str}, metavar='',
              help='Which design method should be used?\nChoices=%(choices)s\nDefault=%(default)s'),
@@ -539,7 +548,7 @@ interface_design_arguments = {
              help='Whether to set up a low resolution scouting protocol to survey designability'),
     ('-tc', f'--{term_constraint}'):
         dict(action=argparse.BooleanOptionalAction, default=True,
-             help='Whether to include tertiary motif constraints during design.'
+             help='Whether to include tertiary motif constraints during design.\n'
                   f'{boolean_positional_prevent_msg(term_constraint)}'),
 }
 # ---------------------------------------------------
@@ -554,7 +563,7 @@ interface_metrics_arguments = {
 optimize_designs_help = f'Optimize and touch up designs after running {interface_design}. Useful for reverting\n' \
                         'unnecessary mutations to wild-type, directing exploration of troublesome areas,\nstabilizing '\
                         'an entire design based on evolution, increasing solubility, or modifying\nsurface charge. ' \
-                        'Optimization is based on amino acid frequency profiles. Use with a --specification-file is ' \
+                        'Optimization is based on amino acid frequency profiles.\nUse with a --specification-file is ' \
                         'suggested'
 parser_optimize_designs = {optimize_designs: dict(description=optimize_designs_help, help=optimize_designs_help)}
 optimize_designs_arguments = {
@@ -598,14 +607,14 @@ analysis_arguments = {
                          help='Create figures for all poses?'),
     ('--merge',): dict(action='store_true', help='Whether to merge Trajectory and Residue Dataframes'),
     ('--output',): dict(action=argparse.BooleanOptionalAction, default=True,
-                        help=f'Whether to output the --{output_file}?{boolean_positional_prevent_msg("output")}'),
+                        help=f'Whether to output the --{output_file}?\n{boolean_positional_prevent_msg("output")}'),
     #                          '\nDefault=%(default)s'),
     output_file_args: dict(type=str,
                            help='Name of the output .csv file containing pose metrics.\nWill be saved to the '
                                 f'{all_scores} folder of the output'
                                 f'\nDefault={default_analysis_file.format("TIMESTAMP", "LOCATION")}'),
     ('--save', ): dict(action=argparse.BooleanOptionalAction, default=True,
-                       help=f'Save Trajectory and Residues dataframes?{boolean_positional_prevent_msg("save")}')
+                       help=f'Save Trajectory and Residues dataframes?\n{boolean_positional_prevent_msg("save")}')
 }
 # ---------------------------------------------------
 # Common selection arguments
@@ -794,7 +803,7 @@ input_arguments = {
                              help='The name of a pair of chains to fuse during design.\nPaired chains should be '
                                   'separated by a colon, with the n-terminal\npreceding the c-terminal chain. Fusion '
                                   'instances should be\nseparated by a space\nEx --fuse-chains A:B C:D'),
-    ('-N', f'--{nanohedra}v1-output'): dict(action='store_true', dest=nanohedra_output,
+    ('-N', f'--{nanohedra}V1-output'): dict(action='store_true', dest=nanohedra_output,
                                             help='Is the input a Nanohedra wersion 1 docking output?'),
     ('-pf', f'--{pose_file}'): dict(type=str, dest=specification_file_,
                                     metavar=ex_path('pose_design_specifications.csv'),
@@ -805,7 +814,8 @@ input_arguments = {
                                         f'{current_energy_function}\nenergy function and/or missing loops\n'),
     ('-r', '--range'): dict(type=float, default=None, metavar='int-int',
                             help='The range of poses to process from a larger specification.\n'
-                                 'Specify a % between 0 and 100, separating the range by "-"\n'
+                                 'Specify a %% between 0 and 100, separating the range by "-"\n'
+                            # %% is required ^ for format
                                  'Ex: 0-25'),
     ('-sf', f'--{specification_file}'): dict(type=str, metavar=ex_path('pose_design_specifications.csv'),
                                              help='Name of comma separated file with each line formatted:\nposeID, '
@@ -840,7 +850,7 @@ parser_output_group = dict(title=f'{"_" * len(output_title)}\n{output_title}',
 output_arguments = {
     (f'--{increment_chains}',): dict(action='store_true',
                                      help='Whether resulting assembly files should output with chain IDs alphabetically'
-                                          ' incremented or in "Multimodel" format. Multimodel format is useful for '
+                                          '\nincremented or in "Multimodel" format. Multimodel format is useful for\n'
                                           'PyMol visualization with the command "set all_states, on"'),
     ('-Oa', f'--{output_assembly}'):
         dict(action=argparse.BooleanOptionalAction, default=False,
@@ -859,7 +869,7 @@ output_arguments = {
              help='For any oligomers generated, write them along with the Pose'),
     ('-Os', f'--{output_structures}'):
         dict(action=argparse.BooleanOptionalAction, default=True,
-             help=f'For any structures generated, write them.{boolean_positional_prevent_msg(output_structures)}'),
+             help=f'For any structures generated, write them.\n{boolean_positional_prevent_msg(output_structures)}'),
     ('-Ou', f'--{output_surrounding_uc}'):
         dict(action=argparse.BooleanOptionalAction, default=False,
              help='Whether the surrounding unit cells should be output?\nOnly for infinite materials'),
@@ -899,6 +909,8 @@ module_parsers = {
     'input_mutual': parser_input_mutual_group,
     output: parser_output,
     options: parser_options,
+    predict_structure: parser_predict_structure,
+    protocol: parser_protocol,
     residue_selector: parser_residue_selector,
     # residue_selector: parser_residue_selector
 }
@@ -927,6 +939,8 @@ parser_arguments = {
     input_: input_arguments,
     'input_mutual': input_mutual_arguments,  # add_mutually_exclusive_group
     output: output_arguments,
+    predict_structure: predict_structure_arguments,
+    protocol: protocol_arguments,
     # custom_script_arguments: parser_custom_script_arguments,
     # select_poses_mutual_arguments: parser_select_poses_mutual_arguments, # mutually_exclusive_group
     # flags_arguments: parser_flags_arguments,
@@ -1074,11 +1088,11 @@ entire_argparser = dict(fromfile_prefix_chars='@', allow_abbrev=False,  # exit_o
                                     '\n  3. Interface design using constrained residue profiles and various design '
                                     'algorithms'
                                     '\n  4. Analysis of all design metrics'
-                                    '\n  5. Selection of designs by prioritization of calculated metrics and sequence '
-                                    'formatting for biochemical characterization\n\n'
-                                    f"If you're a first time user, try '{program_command} --guide'"
-                                    '\nAll jobs have built in features for command monitoring and distribution to '
-                                    'computational clusters for parallel processing',
+                                    '\n  5. Selection of designs by prioritization of calculated metrics'
+                                    '\n  6. Sequence formatting for biochemical characterization\n\n'
+                                    f"If you're a first time user, try:\n{program_command} --guide"
+                                    '\nMost modules have features for command monitoring, parallel processing, and '
+                                    'distribution to computational clusters',
                         formatter_class=Formatter, usage=usage_str,
                         parents=[argparsers.get(parser)
                                  for parser in [parser_module, parser_options, parser_residue_selector, parser_output]])
