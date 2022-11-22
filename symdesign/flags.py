@@ -49,12 +49,14 @@ perturb_dof_steps_tx = 'perturb_dof_steps_tx'
 cluster_map = 'cluster_map'
 specification_file_ = 'specification_file'
 pose_file_ = 'pose_file'
+specific_protocol = 'specific_protocol'
 directory = 'directory'
 dataframe = 'dataframe'
 fragment_database = 'fragment_database'
 skip_sequence_generation = 'skip_sequence_generation'
 interface_to_alanine = 'interface_to_alanine'
 gather_metrics = 'gather_metrics'
+increment_chains = 'increment_chains'
 design_arguments = {
     ignore_clashes, ignore_pose_clashes, ignore_symmetric_clashes, method, evolution_constraint, hbnet,
     number_of_trajectories, structure_background, scout, term_constraint, consensus, ca_only, temperatures,
@@ -94,6 +96,7 @@ structure_background = format_for_cmdline(structure_background)
 cluster_map = format_for_cmdline(cluster_map)
 specification_file = format_for_cmdline(specification_file_)
 pose_file = format_for_cmdline(pose_file_)
+specific_protocol = format_for_cmdline(specific_protocol)
 sym_entry = format_for_cmdline(sym_entry)
 dock_only = format_for_cmdline(dock_only)
 rotation_step1 = format_for_cmdline(rotation_step1)
@@ -130,6 +133,7 @@ skip_logging = format_for_cmdline(skip_logging)
 skip_sequence_generation = format_for_cmdline(skip_sequence_generation)
 interface_to_alanine = format_for_cmdline(interface_to_alanine)
 gather_metrics = format_for_cmdline(gather_metrics)
+increment_chains = format_for_cmdline(increment_chains)
 
 
 def process_design_selector_flags(flags: dict[str]) -> dict[str, dict[str, set | set[int] | set[str]]]:
@@ -407,11 +411,7 @@ options_arguments = {
     ('--mpi',): dict(type=int, default=0, metavar='INT',
                      help='If commands should be run as MPI parallel processes, how many '
                           'processes\nshould be invoked for each job?\nDefault=%(default)s'),
-    ('-M', f'--{multi_processing}'): dict(action='store_true',
-                                          help='Should job be run with multiple processors?'),
-    ('-P', '--preprocessed'): dict(action='store_true',
-                                   help=f'Whether the designs of interest have been preprocessed for the '
-                                        f'{current_energy_function}\nenergy function and/or missing loops\n'),
+    ('-M', f'--{multi_processing}'): dict(action='store_true', help='Should job be run with multiple processors?'),
     setup_args: setup_kwargs,
     # Todo move to only design protocols...
     (f'--{sequences}',): dict(action=argparse.BooleanOptionalAction, default=True,  # action='store_true',
@@ -535,9 +535,6 @@ nanohedra_arguments = {
         dict(type=os.path.abspath, default=None,
              help='Where should the output be written?\nDefault=%s'
              % ex_path(program_output, projects, 'NanohedraEntry[ENTRYNUMBER]DockedPoses')),
-    ('-Os', f'--{output_surrounding_uc}'):
-        dict(action=argparse.BooleanOptionalAction, default=False,
-             help='Whether the surrounding unit cells should be output?\nOnly for infinite materials'),
     (f'--{perturb_dof}',): dict(action=argparse.BooleanOptionalAction, default=False,
                                 help='Whether the degrees of freedom should be finely sampled during\n by perturbing '
                                      'found transformations and repeating docking iterations'),
@@ -640,9 +637,9 @@ interface_design_arguments = {
 interface_metrics_help = 'Analyze interface metrics from a pose'
 parser_metrics = {interface_metrics: dict(description=interface_metrics_help, help=interface_metrics_help)}
 interface_metrics_arguments = {
-    ('-sp', '--specific-protocol'): dict(type=str, metavar='PROTOCOL',
-                                         help='A specific type of design protocol to perform metrics on. If not '
-                                              'provided, capture all design protocols')
+    ('-sp', f'--{specific_protocol}'): dict(type=str, metavar='PROTOCOL', default=None,
+                                            help='A specific type of design protocol to perform metrics on. If not '
+                                                 'provided, capture all design protocols')
 }
 # ---------------------------------------------------
 optimize_designs_help = f'Optimize and touch up designs after running {interface_design}. Useful for reverting\n' \
@@ -888,14 +885,17 @@ input_arguments = {
                              help='The name of a pair of chains to fuse during design.\nPaired chains should be '
                                   'separated by a colon, with the n-terminal\npreceding the c-terminal chain. Fusion '
                                   'instances should be\nseparated by a space\nEx --fuse-chains A:B C:D'),
-    ('-N', f'--{nanohedra}-output'): dict(action='store_true', help='Is the input a Nanohedra docking output?'),
+    ('-N', f'--{nanohedra}-output'): dict(action='store_true', help='Is the input a V1 Nanohedra docking output?'),
     ('-pf', f'--{pose_file}'): dict(type=str, dest=specification_file_,
                                     metavar=ex_path('pose_design_specifications.csv'),
                                     help=f'If pose IDs are specified in a file, say as the result of\n{select_poses}'
                                          f' or {select_designs}'),
+    ('-P', '--preprocessed'): dict(action='store_true',
+                                   help=f'Whether the designs of interest have been preprocessed for the '
+                                        f'{current_energy_function}\nenergy function and/or missing loops\n'),
     ('-r', '--range'): dict(type=float, default=None, metavar='int-int',
                             help='The range of poses to process from a larger specification.\n'
-                                 'Specify a %% between 0 and 100, separating the range by "-"\n'
+                                 'Specify a % between 0 and 100, separating the range by "-"\n'
                                  'Ex: 0-25'),
     ('-sf', f'--{specification_file}'): dict(type=str, metavar=ex_path('pose_design_specifications.csv'),
                                              help='Name of comma separated file with each line formatted:\nposeID, '
@@ -928,6 +928,10 @@ parser_output = {output: dict(description=output_help)}  # , help=output_help
 parser_output_group = dict(title=f'{"_" * len(output_title)}\n{output_title}',
                            description='\nSpecify where output should be written')
 output_arguments = {
+    (f'--{increment_chains}',): dict(action='store_true',
+                                     help='Whether resulting assembly files should output with chain IDs alphabetically'
+                                          ' incremented or in "Multimodel" format. Multimodel format is useful for '
+                                          'PyMol visualization with the command "set all_states, on"'),
     ('-Oa', f'--{output_assembly}'):
         dict(action=argparse.BooleanOptionalAction, default=False,
              help='Whether the assembly should be output? Infinite materials are output in a unit cell'),
@@ -946,11 +950,13 @@ output_arguments = {
     ('-Os', f'--{output_structures}'):
         dict(action=argparse.BooleanOptionalAction, default=True,
              help=f'For any structures generated, write them.{boolean_positional_prevent_msg(output_structures)}'),
+    ('-Ou', f'--{output_surrounding_uc}'):
+        dict(action=argparse.BooleanOptionalAction, default=False,
+             help='Whether the surrounding unit cells should be output?\nOnly for infinite materials'),
     ('-Ot', f'--{output_trajectory}'):
         dict(action=argparse.BooleanOptionalAction, default=False,
              help=f'For all structures generated, write them as a single multimodel file'),
-    ('--overwrite',): dict(action='store_true',
-                           help='Whether to overwrite existing structures upon job fulfillment'),
+    ('--overwrite',): dict(action='store_true', help='Whether to overwrite existing structures upon job fulfillment'),
     ('--prefix',): dict(type=str, metavar='string', help='String to prepend to output name'),
     ('--suffix',): dict(type=str, metavar='string', help='String to append to output name'),
 }

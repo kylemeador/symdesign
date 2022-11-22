@@ -96,17 +96,17 @@ class JobResources:
         # putils.make_path(self.pdb_entity_api)
         # putils.make_path(self.pdb_assembly_api)
         putils.make_path(self.uniprot_api)
-        self.module: str = kwargs.get(flags.module, False)
-        self.reduce_memory = False
+        self.module: str = kwargs.get(flags.module)
+        # self.reduce_memory = False
         self.api_db = wrapapi.api_database_factory.get(source=self.data)
         self.structure_db = structure_db.structure_database_factory.get(source=self.data)
         self.fragment_db: 'db.FragmentDatabase' | None = None
 
         # Computing environment and development Flags
         self.cores: int = kwargs.get('cores', 0)
-        self.distribute_work: bool = kwargs.get(putils.distribute_work, False)
+        self.distribute_work: bool = kwargs.get(putils.distribute_work)
         self.mpi: int = kwargs.get('mpi', 0)
-        self.multi_processing: int = kwargs.get(putils.multi_processing, 0)
+        self.multi_processing: int = kwargs.get(putils.multi_processing)
         if self.multi_processing:
             # Calculate the number of cores to use depending on computer resources
             self.cores = calculate_mp_cores(cores=self.cores)  # mpi=self.mpi, Todo
@@ -115,14 +115,14 @@ class JobResources:
 
         if self.mpi > 0:
             self.distribute_work = True
-        self.development: bool = kwargs.get(putils.development, False)
+        self.development: bool = kwargs.get(putils.development)
         # self.command_only: bool = kwargs.get('command_only', False)
         """Whether to reissue commands, only if distribute_work=False"""
 
         # Program flags
         # self.consensus: bool = kwargs.get(consensus, False)  # Whether to run consensus
-        self.as_objects: bool = kwargs.get('as_objects', False)
-        self.mode: bool = kwargs.get('mode', False)
+        self.as_objects: bool = kwargs.get('as_objects')
+        self.mode: bool = kwargs.get('mode')
         self.background_profile: str = kwargs.get('background_profile', putils.design_profile)
         """The type of position specific profile (per-residue amino acid frequencies) to utilize as the design 
         background profile. 
@@ -150,21 +150,21 @@ class JobResources:
         # self.min_matched: bool = kwargs.get('min_matched', False)
         # self.match_value: bool = kwargs.get('match_value', False)
         # self.initial_z_value: bool = kwargs.get('initial_z_value', False)
-        self.log_level: bool = kwargs.get('log_level', flags.default_logging_level)
+        self.log_level: bool = kwargs.get('log_level')
         self.force: bool = kwargs.get(putils.force, False)
         self.fuse_chains: list[tuple[str]] = [tuple(pair.split(':')) for pair in kwargs.get('fuse_chains', [])]
         self.design = Design.from_flags(**kwargs)
         # self.ignore_clashes: bool = kwargs.get(ignore_clashes, False)
         if self.design.ignore_clashes:
             self.design.ignore_pose_clashes = self.design.ignore_symmetric_clashes = True
-        self.dock_only: bool = kwargs.get('dock_only', False)
+        self.dock_only: bool = kwargs.get('dock_only')
         if self.dock_only:
             self.design.sequences = self.design.structures = False
-        self.only_write_frag_info: bool = kwargs.get('only_write_frag_info', False)
+        self.only_write_frag_info: bool = kwargs.get('only_write_frag_info')
         # else:
         #     self.ignore_pose_clashes: bool = kwargs.get(ignore_pose_clashes, False)
         #     self.ignore_symmetric_clashes: bool = kwargs.get(ignore_symmetric_clashes, False)
-        self.increment_chains: bool = kwargs.get('increment_chains', False)
+        self.increment_chains: bool = kwargs.get('increment_chains')
         # self.evolution_constraint: bool = kwargs.get(evolution_constraint, False)
         # self.hbnet: bool = kwargs.get(hbnet, False)
         # self.term_constraint: bool = kwargs.get(term_constraint, False)
@@ -175,11 +175,11 @@ class JobResources:
         self.interface_to_alanine: bool = kwargs.get('interface_to_alanine')
         self.gather_metrics: bool = kwargs.get('gather_metrics')
         # self.scout: bool = kwargs.get(scout, False)
-        self.specific_protocol: str = kwargs.get('specific_protocol', False)
+        self.specific_protocol: str = kwargs.get('specific_protocol')
         # self.structure_background: bool = kwargs.get(structure_background, False)
         # Process symmetry
-        sym_entry = kwargs.get(putils.sym_entry, None)
-        symmetry = kwargs.get('symmetry', None)
+        sym_entry = kwargs.get(putils.sym_entry)
+        symmetry = kwargs.get('symmetry')
         if sym_entry is None and symmetry is None:
             self.sym_entry: SymEntry.SymEntry | str | None = None
         else:
@@ -189,16 +189,16 @@ class JobResources:
             else:
                 self.sym_entry = SymEntry.parse_symmetry_to_sym_entry(sym_entry=sym_entry, symmetry=symmetry)
 
-        self.overwrite: bool = kwargs.get('overwrite', False)
-        self.output_directory: AnyStr | None = kwargs.get(putils.output_directory, None)
+        self.overwrite: bool = kwargs.get('overwrite')
+        self.output_directory: AnyStr | None = kwargs.get(putils.output_directory)
         self.output_to_directory: bool = True if self.output_directory else False
-        self.output_assembly: bool = kwargs.get(putils.output_assembly, False)
-        self.output_surrounding_uc: bool = kwargs.get(putils.output_surrounding_uc, False)
-        self.write_fragments: bool = kwargs.get(putils.output_fragments, False)
-        self.write_oligomers: bool = kwargs.get(putils.output_oligomers, False)
-        self.write_structures: bool = kwargs.get(putils.output_structures, True)
-        self.write_trajectory: bool = kwargs.get(putils.output_trajectory, False)
-        self.skip_logging: bool = kwargs.get(putils.skip_logging, False)
+        self.output_assembly: bool = kwargs.get(putils.output_assembly)
+        self.output_surrounding_uc: bool = kwargs.get(putils.output_surrounding_uc)
+        self.write_fragments: bool = kwargs.get(putils.output_fragments)
+        self.write_oligomers: bool = kwargs.get(putils.output_oligomers)
+        self.write_structures: bool = kwargs.get(putils.output_structures)
+        self.write_trajectory: bool = kwargs.get(putils.output_trajectory)
+        self.skip_logging: bool = kwargs.get(putils.skip_logging)
         self.merge: bool = kwargs.get('merge', False)
         self.save: bool = kwargs.get('save', False)
         self.figures: bool = kwargs.get('figures', False)
