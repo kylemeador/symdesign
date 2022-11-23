@@ -1630,8 +1630,8 @@ def main():
             if len(pose_directories) > 500:
                 design_source = f'top_{args.metric}'
                 default_output_tuple = (utils.starttime, job.module, design_source)
-                putils.make_path(job.job_paths)
-                designs_file = os.path.join(job.job_paths, '{}_{}_{}_pose.scores'.format(*default_output_tuple))
+                putils.make_path(job.all_scores)
+                designs_file = os.path.join(job.all_scores, '{}_{}_{}_pose.scores'.format(*default_output_tuple))
                 with open(designs_file, 'w') as f:
                     f.write(top_designs_string % '\n\t'.join(results_strings))
                 logger.info(f'Stdout performed a cutoff of ranked Designs at ranking 500. See the output design file '
