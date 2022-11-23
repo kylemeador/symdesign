@@ -3053,10 +3053,11 @@ def write_sequences(sequences: Sequence | dict[str, Sequence], names: Sequence =
     Returns:
         The name of the output file
     """
-    if file_name is None or isinstance(names, str):
-        file_name = os.path.join(out_path, names)
-    else:
-        raise ValueError(f'Must provide argument "file_name" or "names" as a str to {write_sequences.__name__}')
+    if file_name is None:
+        isinstance(names, str):
+            file_name = os.path.join(out_path, names)
+        else:
+            raise ValueError(f'Must provide argument "file_name" or "names" as a str to {write_sequences.__name__}')
 
     if csv:
         start, sep = '', ','
