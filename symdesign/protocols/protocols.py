@@ -37,8 +37,8 @@ from symdesign.metrics import read_scores, interface_composition_similarity, unn
     incorporate_mutation_info, residue_classification, sum_per_residue_metrics
 from symdesign.resources.job import job_resources_factory
 from symdesign.structure.base import Structure
-from symdesign.structure.fragment.db import FragmentDatabase
-from symdesign.structure.model import Pose, MultiModel, Models, Model, Entity
+from symdesign.structure.fragment.db import FragmentDatabase, fragment_info_type
+from symdesign.structure.model import Pose, MultiModel, Models, Model, Entity, transformation_mapping
 from symdesign.structure.sequence import generate_mutations_from_reference, sequence_difference, \
     MultipleSequenceAlignment, pssm_as_array, concatenate_profile, write_pssm_file, read_fasta_file, write_sequences
 from symdesign.structure.utils import protein_letters_3to1, protein_letters_1to3, DesignError, ClashError, SymmetryError
@@ -103,7 +103,10 @@ class PoseProtocol:
 
 
 class PoseDirectory:
+    _design_selector = dict[str, dict[str, dict[str, set[int] | set[str]]]] | dict
     _designed_sequences = list[Sequence]
+    _fragment_observations = list[fragment_info_type]
+    _pose_transformation = list[transformation_mapping]
     _symmetry_definition_files: list[AnyStr]
     directives: list[dict[int, str]]
     entities: list[Entity]
@@ -174,15 +177,6 @@ class PoseDirectory:
         self.symmetry_protocol: str | None = None
         self.protocol: str | None = None
         """The name of the currently utilized protocol for file naming and metric results"""
-        # Todo figure out how to handle non-symmetric systems with CRYST1 info. Users might want either mechanism...
-        # if symmetry:
-        #     if symmetry == 'cryst':
-        #         raise DesignError('This functionality is not possible yet. Please pass --symmetry by Symmetry Entry'
-        #                           ' Number instead (See Laniado & Yeates, 2020).')
-        #         cryst_record_d = PDB.get_cryst_record(
-        #             self.source)  # must get self.source before attempt this call
-        #         self.sym_entry = space_group_to_sym_entry[cryst_record_d['space_group']]
-        # self.uc_dimensions = None
 
         # Design attributes
         # self.background_profile: str = kwargs.get('background_profile', putils.design_profile)
@@ -191,25 +185,21 @@ class PoseDirectory:
         # Choices include putils.design_profile, putils.evolutionary_profile, and putils.fragment_profile
         # """
         self.directives = kwargs.get('directives', [])
-        if self.job.design_selector:
-            # self.info['design_selector'] = self.design_selector = self.job.design_selector
-            self.design_selector = self.job.design_selector
-        else:
-            self.design_selector = {}
-        self.fragment_observations = None  # [{'cluster': (1, 2, 24), 'mapped': 78, 'paired': 87, 'match':0.46843}, ...]
-        self.info: dict = {}  # internal state info
-        self._info: dict = {}  # internal state info at load time
+        self.info: dict = {}
+        """Internal state info"""
+        self._info: dict = {}
+        """Internal state info at load time"""
         entity_names = kwargs.get('entity_names', [])
         if entity_names:
-            self.info['entity_names'] = entity_names
-        self.initial_model = None  # used if the pose structure has never been initialized previously
+            self.info['entity_names'] = self.entity_names = entity_names
         # self.interface_design_residue_numbers: set[int] | bool = False  # The residue numbers in the pose interface
         # self.interface_residue_ids: dict[str, str] = {}
         # {'interface1': '23A,45A,46A,...' , 'interface2': '234B,236B,239B,...'}
         # self.interface_residue_numbers: set[int] | bool = False  # The interface residues which are surface accessable
         # self.oligomer_names: list[str] = self.info.get('oligomer_names', [])
         self.entities = []
-        self.pose = None  # contains the design's Pose object
+        self.pose = None
+        """Contains the design's Pose object"""
         # self.pose_id = None
         # self.pre_refine = self.info.get('pre_refine', True)
         # self.pre_loop_model = self.info.get('pre_loop_model', True)
@@ -238,8 +228,10 @@ class PoseDirectory:
             # Save job variables to the state during initialization
             if self.sym_entry:
                 self.info['sym_entry_specification'] = self.sym_entry.entry_number, self.sym_entry.sym_map
-            if self.design_selector:
-                self.info['design_selector'] = self.design_selector
+            if self.job.design_selector:
+                self.design_selector = self.job.design_selector
+            else:
+                self.design_selector = {}
 
             path_components = os.path.splitext(self.source_path)[0].split(os.sep)
             if self.job.nanohedra_output:
@@ -373,12 +365,54 @@ class PoseDirectory:
         self.residues = os.path.join(self.job.all_scores, f'{self}_Residues.csv')
         self.designed_sequences_file = os.path.join(self.job.all_scores, f'{self}_Sequences.pkl')
 
-        if not self.initialized and 'entity_names' not in self.info:
+        self.initial_model = None
+        """Used if the pose structure has never been initialized previously"""
+        if not self.initialized and not self.entity_names:
             # None were provided at start up, find them
             # Starts self.log if not self.job.nanohedra_output
-            self.find_entity_names()
+            self.find_entity_names()  # Sets self.entity_names
         else:
-            self.entity_names = self.info.get('entity_names', [])  # set so that DataBase set up works
+            self.entity_names = self.info.get('entity_names', [])  # Set so that DataBase set up works
+
+        # Configure standard pose loading mechanism with self.source
+        if self.specific_designs:
+            # Introduce flag handling current inability of specific_designs to handle iteration
+            self._lock_optimize_designs = True
+            self.specific_designs_file_paths = []
+            for design in self.specific_designs:
+                matching_path = os.path.join(self.designs, f'*{design}.pdb')
+                matching_designs = sorted(glob(matching_path))
+                if matching_designs:
+                    for matching_design in matching_designs:
+                        if os.path.exists(matching_design):
+                            # self.specific_design_path = matching_design
+                            self.specific_designs_file_paths.append(matching_design)
+                    if len(matching_designs) > 1:
+                        self.log.warning(f'Found {len(matching_designs)} matching designs to your specified design '
+                                         f'using {matching_path}. Choosing the first {matching_designs[0]}')
+                else:
+                    raise DesignError(f"Couldn't locate a specific_design matching the name '{matching_path}'")
+                # format specific_designs to a pose ID compatible format
+            self.specific_designs = [f'{self.name}_{design}' for design in self.specific_designs]
+            # self.source = specific_designs_file_paths  # Todo?
+            # self.source = self.specific_design_path
+        elif self.source is None:
+            if os.path.exists(self.asu_path):  # Standard mechanism of loading the pose
+                self.source = self.asu_path
+            else:
+                try:
+                    glob_target = os.path.join(self.path, f'{self.name}*.pdb')
+                    source = sorted(glob(glob_target))
+                    if len(source) == 1:
+                        self.source = source[0]
+                    else:
+                        raise ValueError(f'Found {len(source)} files matching the path "{glob_target}". '
+                                         f'Only 1 expected')
+                except IndexError:  # glob found no files
+                    self.source = None
+        else:  # If the PoseDirectory was loaded as .pdb/mmCIF, the source should be loaded already
+            # self.source = self.initial_model
+            pass
 
     @property
     def designed_sequences(self) -> list[Sequence]:
@@ -539,51 +573,72 @@ class PoseDirectory:
     #     except AttributeError:
     #         pass
 
-    # @property
-    # def pose_transformation(self) -> list[dict[str, np.ndarray]]:
-    #     """Provide the transformation parameters for the design in question
-    #
-    #     Returns:
-    #         [{'rotation': np.ndarray, 'translation': np.ndarray, 'rotation2': np.ndarray,
-    #           'translation2': np.ndarray}, ...]
-    #         A list with the transformations of each Entity in the Pose according to the symmetry
-    #     """
-    #     self.log.critical('PoseDirectory.pose_transformation was accessed!')
-    #     try:
-    #         return self._pose_transformation
-    #     except AttributeError:
-    #         if self.symmetric:
-    #             try:  # To retrieve from Nanohedra output
-    #                 self._pose_transformation = retrieve_pose_transformation_from_nanohedra_docking(self.pose_file)
-    #             except (FileNotFoundError, NotADirectoryError):
-    #                 try:
-    #                     self._pose_transformation = self.pose._assign_pose_transformation()
-    #                 except DesignError:
-    #                     # Todo this is something outside of the realm of possibilities of Nanohedra symmetry groups
-    #                     #  Perhaps we need to get the parameters for oligomer generation from PISA or other source
-    #                     self.log.critical(f'There was no pose transformation file specified at {self.pose_file} and no'
-    #                                       ' transformation found from routine search of Nanohedra docking parameters. '
-    #                                       'Is this pose from the PDB? You may need to utilize PISA to accurately deduce'
-    #                                       ' the locations of pose transformations to make the correct oligomers. For '
-    #                                       'now, using null transformation which is likely not what you want...')
-    #                     self._pose_transformation = \
-    #                         [dict(rotation=identity_matrix, translation=None) for _ in self.pose.entities]
-    #         else:
-    #             # Todo would have to measure the transformation from the standard Database orientation to the pose
-    #             #  orientation. This is useful if the design files are not written and the design was loaded from a
-    #             #  file originally, but accessing after it is loaded from the database and using a ._pose_transformation
-    #             self._pose_transformation = []
-    #         # set the transformation to the pose state
-    #         self.info['pose_transformation'] = self._pose_transformation
-    #         return self._pose_transformation
+    @property
+    def pose_transformation(self) -> list[dict[str, np.ndarray]]:
+        """Provide the transformation parameters for the design in question
 
-    # @pose_transformation.setter
-    # def pose_transformation(self, transform):
-    #     if isinstance(transform, list):
-    #         self._pose_transformation = transform
-    #         self.info['pose_transformation'] = self._pose_transformation
-    #     else:
-    #         raise ValueError(f'The attribute pose_transformation must be a list, not {type(transform)}')
+        Returns:
+            [{'rotation': np.ndarray, 'translation': np.ndarray, 'rotation2': np.ndarray,
+              'translation2': np.ndarray}, ...]
+            A list with the transformations of each Entity in the Pose according to the symmetry
+        """
+        # self.log.critical('PoseDirectory.pose_transformation was accessed!')
+        try:
+            return self._pose_transformation
+        except AttributeError:
+            # Get the transformation from the pose state
+            self._pose_transformation = self.info.get('pose_transformation', [])
+            return self._pose_transformation
+
+    @pose_transformation.setter
+    def pose_transformation(self, transform: list[transformation_mapping]):
+        if isinstance(transform, list):
+            self._pose_transformation = self.info['pose_transformation'] = transform
+        else:
+            raise ValueError(f'The attribute pose_transformation must be a list, not {type(transform)}')
+
+    @property
+    def design_selector(self) -> dict[str, dict[str, dict[str, set[int] | set[str]]]] | dict:
+        """Provide the design_selector parameters for the design in question
+
+        Returns:
+            {}, A mapping of the selection criteria in the Pose according to set up
+        """
+        try:
+            return self._design_selector
+        except AttributeError:
+            # Get the design_selector from the pose state
+            self._design_selector = self.info.get('design_selector', {})
+            return self._design_selector
+
+    @design_selector.setter
+    def design_selector(self, design_selector: dict):
+        if isinstance(design_selector, dict):
+            self._design_selector = self.info['design_selector'] = design_selector
+        else:
+            raise ValueError(f'The attribute design_selector must be a dict, not {type(design_selector)}')
+
+    @property
+    def fragment_observations(self) -> list | None:
+        """Provide the observed fragments as measured from the Pose
+
+        Returns:
+            The fragment instances observed from the pose
+                Ex: [{'cluster': (1, 2, 24), 'mapped': 78, 'paired': 287, 'match':0.46843}, ...]
+        """
+        try:
+            return self._fragment_observations
+        except AttributeError:
+            # Get the fragment_observations from the pose state
+            self._fragment_observations = self.info.get('fragments', None)  # None signifies query wasn't attempted
+            return self._fragment_observations
+
+    @fragment_observations.setter
+    def fragment_observations(self, fragment_observations: list):
+        if isinstance(fragment_observations, list):
+            self._fragment_observations = self.info['fragments'] = fragment_observations
+        else:
+            raise ValueError(f'The attribute fragment_observations must be a list, not {type(fragment_observations)}')
 
     @close_logs
     def find_entity_names(self):
@@ -651,7 +706,6 @@ class PoseDirectory:
             #         getattr(self.info.get('fragment_database'), 'source', putils.biological_interfaces)
             #     self.pickle_info()  # save immediately so we don't have this issue with reading again!
             # Todo Remove Above this line to Dev branch only
-            self._info = self.info.copy()  # create a copy of the state upon initialization
             # # These statements are a temporary patch Todo remove for SymDesign master branch
             # # if not self.sym_entry:  # none was provided at initiation or in state
             # if putils.sym_entry in self.info:
@@ -692,16 +746,16 @@ class PoseDirectory:
             #     if isinstance(self._pose_transformation, dict):  # old format
             #         del self._pose_transformation
             # self.pickle_info()
-        else:  # we haven't initialized this PoseDirectory before
+        else:  # We haven't initialized this PoseDirectory before
             # __init__ assumes structures have been refined so these only act to set false
             if pre_refine is not None:  # either True or False
                 self.info['pre_refine'] = pre_refine  # this may have just been set
             if pre_loop_model is not None:  # either True or False
                 self.info['pre_loop_model'] = pre_loop_model
 
-        self.design_selector = self.info.get('design_selector', self.design_selector)
-        self.pose_transformation = self.info.get('pose_transformation', [])  # {})
-        self.fragment_observations = self.info.get('fragments', None)  # None signifies query wasn't attempted
+        # self.design_selector = self.info.get('design_selector', self.design_selector)
+        # self.pose_transformation = self.info.get('pose_transformation', [])
+        # self.fragment_observations = self.info.get('fragments', None)  # None signifies query wasn't attempted
         # self.interface_design_residue_numbers = self.info.get('interface_design_residues', False)  # (set[int])
         # self.interface_residue_ids = self.info.get('interface_residue_ids', {})
         # self.interface_residue_numbers = self.info.get('interface_residues', False)  # (set[int])
@@ -715,9 +769,9 @@ class PoseDirectory:
                 shutil.copy(self.frag_file, self.path)
             # self.info['oligomer_names'] = self.oligomer_names
             # self.info['entity_names'] = self.entity_names
-            self.pickle_info()  # save this info on the first copy so that we don't have to construct again
+            self.pickle_info()  # Save this info on the first copy so that we don't have to construct again
 
-        # check if the source of the pdb files was refined upon loading
+        # Check if the source of the pdb files was refined upon loading
         if self.pre_refine:
             self.refined_pdb = self.asu_path
             self.scouted_pdb = os.path.join(self.designs,
@@ -730,41 +784,45 @@ class PoseDirectory:
         # # Check if the source of the pdb files was loop modelled upon loading
         # if self.pre_loop_model:
 
-        # Configure standard pose loading mechanism with self.source
-        if self.specific_designs:
-            self._lock_optimize_designs = True
-            self.specific_designs_file_paths = []
-            for design in self.specific_designs:
-                matching_path = os.path.join(self.designs, f'*{design}.pdb')
-                matching_designs = sorted(glob(matching_path))
-                if matching_designs:
-                    for matching_design in matching_designs:
-                        if os.path.exists(matching_design):
-                            # self.specific_design_path = matching_design
-                            self.specific_designs_file_paths.append(matching_design)
-                    if len(matching_designs) > 1:
-                        self.log.warning(f'Found {len(matching_designs)} matching designs to your specified design '
-                                         f'using {matching_path}. Choosing the first {matching_designs[0]}')
-                else:
-                    raise DesignError(f'Couldn\'t locate a specific_design matching the name "{matching_path}"')
-                # format specific_designs to a pose ID compatible format
-            self.specific_designs = [f'{self.name}_{design}' for design in self.specific_designs]
-            # self.source = specific_designs_file_paths  # Todo?
-            # self.source = self.specific_design_path
-        elif not self.source:
-            if os.path.exists(self.asu_path):  # standard mechanism of loading the pose
-                self.source = self.asu_path
-            else:
-                try:
-                    self.source = sorted(glob(os.path.join(self.path, f'{self.name}.pdb')))
-                    if len(self.source) > 1:
-                        raise ValueError(f'Found {len(self.source)} files matching the path '
-                                         f'{os.path.join(self.path, f"{self.name}.pdb")} while 1 was expected')
-                except IndexError:  # glob found no files
-                    self.source = None
-        else:  # if the PoseDirectory was loaded as .pdb/mmCIF, the source should be loaded already
-            # self.source = self.initial_model
-            pass
+        # # Configure standard pose loading mechanism with self.source
+        # if self.specific_designs:
+        #     # Introduce flag handling current inability of specific_designs to handle iteration
+        #     self._lock_optimize_designs = True
+        #     self.specific_designs_file_paths = []
+        #     for design in self.specific_designs:
+        #         matching_path = os.path.join(self.designs, f'*{design}.pdb')
+        #         matching_designs = sorted(glob(matching_path))
+        #         if matching_designs:
+        #             for matching_design in matching_designs:
+        #                 if os.path.exists(matching_design):
+        #                     # self.specific_design_path = matching_design
+        #                     self.specific_designs_file_paths.append(matching_design)
+        #             if len(matching_designs) > 1:
+        #                 self.log.warning(f'Found {len(matching_designs)} matching designs to your specified design '
+        #                                  f'using {matching_path}. Choosing the first {matching_designs[0]}')
+        #         else:
+        #             raise DesignError(f"Couldn't locate a specific_design matching the name '{matching_path}'")
+        #         # format specific_designs to a pose ID compatible format
+        #     self.specific_designs = [f'{self.name}_{design}' for design in self.specific_designs]
+        #     # self.source = specific_designs_file_paths  # Todo?
+        #     # self.source = self.specific_design_path
+        # elif self.source is None:
+        #     if os.path.exists(self.asu_path):  # Standard mechanism of loading the pose
+        #         self.source = self.asu_path
+        #     else:
+        #         try:
+        #             glob_target = os.path.join(self.path, f'{self.name}*.pdb')
+        #             self.source = sorted(glob(glob_target))
+        #             if len(self.source) == 1:
+        #                 self.source = self.source[0]
+        #             else:
+        #                 raise ValueError(f'Found {len(self.source)} files matching the path "{glob_target}". '
+        #                                  f'Only 1 expected')
+        #         except IndexError:  # glob found no files
+        #             self.source = None
+        # else:  # If the PoseDirectory was loaded as .pdb/mmCIF, the source should be loaded already
+        #     # self.source = self.initial_model
+        #     pass
 
     @property
     def symmetry_definition_files(self) -> list[AnyStr]:
@@ -975,7 +1033,7 @@ class PoseDirectory:
                 for idx, entity in enumerate(self.pose.entities):
                     entity.write(oligomer=True, out_path=os.path.join(self.path, f'{entity.name}_oligomer.pdb'))
             if not self.pose_transformation:  # If an empty list, save the value identified
-                self.pose_transformation = self.info['pose_transformation'] = self.pose.entity_transformations
+                self.pose_transformation = self.pose.entity_transformations
         # Then modify numbering to ensure standard and accurate use during protocols
         # self.pose.pose_numbering()
         if not self.entity_names:  # Store the entity names if they were never generated
@@ -1097,7 +1155,7 @@ class PoseDirectory:
         self.log.info(f'Total number of residues in Pose: {number_of_residues}')
 
         # Get ASU distance parameters
-        if self.design_dimension:  # check for None and dimension 0 simultaneously
+        if self.design_dimension:  # Check for None and dimension 0 simultaneously
             # The furthest point from the ASU COM + the max individual Entity radius
             distance = self.pose.radius + max([entity.radius for entity in self.pose.entities])  # all the radii
             self.log.info(f'Expanding ASU into symmetry group by {distance:.2f} Angstroms')
@@ -1111,8 +1169,8 @@ class PoseDirectory:
             free_percent = 1 - constraint_percent
 
         variables = rosetta.rosetta_variables \
-                    + [('dist', distance), ('repack', 'yes'),
-                       ('constrained_percent', constraint_percent), ('free_percent', free_percent)]
+            + [('dist', distance), ('repack', 'yes'),
+               ('constrained_percent', constraint_percent), ('free_percent', free_percent)]
         variables.extend([(putils.design_profile, self.design_profile_file)]
                          if os.path.exists(self.design_profile_file) else [])
         variables.extend([(putils.fragment_profile, self.fragment_profile_file)]
@@ -1714,7 +1772,7 @@ class PoseDirectory:
         self.pose.generate_interface_fragments()
         if self.job.write_fragments:
             self.pose.write_fragment_pairs(out_path=self.frags)
-        self.info['fragments'] = self.fragment_observations = self.pose.get_fragment_observations()
+        self.fragment_observations = self.pose.get_fragment_observations()
         self.info['fragment_source'] = self.job.fragment_db.source
         self.pickle_info()  # Todo remove once PoseDirectory state can be returned to the SymDesign dispatch w/ MP
 
