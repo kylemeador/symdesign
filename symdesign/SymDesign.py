@@ -437,13 +437,27 @@ def main():
     #  Initialize program with provided flags and arguments
     # -----------------------------------------------------------------------------------------------------------------
     # Parse arguments for the actual runtime which accounts for differential argument ordering from standard argparse
-    args, additional_args = flags.argparsers[flags.parser_module].parse_known_args()
+    module_parser = flags.argparsers[flags.parser_module]
+    args, additional_args = module_parser.parse_known_args()
+    remove_dummy = False
     if args.module == flags.nanohedra:
         if args.query:  # We need to submit before we check for additional_args as query comes with additional args
             nanohedra.cmdline.query_mode([__file__, '-query'] + additional_args)
             exit()
         else:  # We need to add a dummy input for argparse to happily continue with required args
             additional_args.extend(['--file', 'dummy'])
+            remove_dummy = True
+    elif args.module == flags.protocol:
+        # We need to add a dummy input for argparse to happily continue with required args
+        if flags.nanohedra in args.modules:
+            additional_args.extend(['--file', 'dummy'])
+            remove_dummy = True
+        # Parse all options for every module provided
+        for module in args.modules:
+            additional_args = [module] + additional_args
+            args, additional_args = module_parser.parse_known_args(args=additional_args, namespace=args)
+        # Set the module to flags.protocol again after parsing
+        args.module = flags.protocol
 
     # Check the provided flags against the full SymDesign entire_parser to print any help
     entire_parser = flags.argparsers[flags.parser_entire]
@@ -456,7 +470,7 @@ def main():
         exit(f'\nSuspending run. Found flag(s) that are not recognized program wide: {", ".join(additional_args)}\n'
              'Please correct (try adding --help if unsure), and resubmit your command\n')
 
-    if args.module == flags.nanohedra:  # Remove the dummy input
+    if remove_dummy:  # Remove the dummy input
         del args.file
     # -----------------------------------------------------------------------------------------------------------------
     #  Find base symdesign_directory and check for proper set up of program i/o
@@ -504,6 +518,9 @@ def main():
     #  Process JobResources which holds shared program objects and command-line arguments
     # -----------------------------------------------------------------------------------------------------------------
     job = job_resources_factory.get(program_root=symdesign_directory, arguments=args)
+    if args.module == flags.protocol:
+        # Set the first module as the program module to allow initialization
+        job.module = args.modules[0]
     # -----------------------------------------------------------------------------------------------------------------
     #  Start Logging
     # -----------------------------------------------------------------------------------------------------------------
@@ -1029,10 +1046,10 @@ def main():
     results, success = [], []
     # exceptions = []
     # ---------------------------------------------------
-    if job.module == flags.protocol:
-        terminate_options = dict(
-            # analysis=dict(output_analysis=args.output),  # Replaced with args.output in terminate()
-        )
+    if args.module == flags.protocol:
+        # terminate_options = dict(
+        #     # analysis=dict(output_analysis=args.output),  # Replaced with args.output in terminate()
+        # )
         # Universal protocol runner
         terminate_kwargs = {}
         exceptions = []
@@ -1044,8 +1061,9 @@ def main():
                 for pose_dir in pose_directories:
                     results.append(protocol(pose_dir))
 
+            # # Retrieve any program flags necessary for termination
+            # terminate_kwargs.update(**terminate_options.get(protocol_name, {}))
             # Update the current state of protocols and exceptions
-            terminate_kwargs.update(terminate_options.get(protocol_name))
             pose_directories, additional_exceptions = parse_protocol_results(pose_directories, results)
             exceptions.extend(additional_exceptions)
 
