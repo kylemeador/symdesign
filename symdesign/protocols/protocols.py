@@ -111,7 +111,6 @@ class PoseDirectory:
     _symmetry_definition_files: list[AnyStr]
     directives: list[dict[int, str]]
     entities: list[Entity]
-    entity_names: list[str]
     fragment_db: FragmentDatabase
     fragment_observations: list[dict] | None
     frag_file: str | Path
@@ -371,6 +370,7 @@ class PoseDirectory:
             self.find_entity_names()  # Sets self.entity_names
         else:
             self.entity_names = self.info.get('entity_names', [])  # Set so that DataBase set up works
+            input(f'Stopped here with: {self.entity_names}')
 
         # Configure standard pose loading mechanism with self.source
         if self.specific_designs:
