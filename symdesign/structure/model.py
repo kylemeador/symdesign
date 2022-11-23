@@ -10,7 +10,7 @@ from itertools import chain as iter_chain, combinations_with_replacement, combin
 from logging import Logger
 from pathlib import Path
 from random import random
-from typing import Iterable, IO, Any, Sequence, AnyStr, Generator, Literal
+from typing import Iterable, IO, Any, Sequence, AnyStr, Generator, Literal, Type
 
 import numpy as np
 # from numba import njit, jit
@@ -38,7 +38,7 @@ from symdesign.utils import path as putils
 logger = logging.getLogger(__name__)
 zero_offset = 1
 seq_res_len = 52
-transformation_mapping: dict[str, list[float] | list[list[float]] | np.ndarray]
+transformation_mapping: Type[dict[str, list[float] | list[list[float]] | np.ndarray]]
 
 
 def softmax(x: np.ndarray) -> np.ndarray:
