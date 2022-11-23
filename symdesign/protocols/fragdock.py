@@ -2227,26 +2227,29 @@ def nanohedra_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[proto
     if job.write_trajectory:
         models = Models()
 
-    def output_pose(out_path: AnyStr, _pose_id: AnyStr, uc_dimensions: np.ndarray = None):
+    def output_pose(_out_dir: AnyStr, _pose_id: AnyStr, uc_dimensions: np.ndarray = None):
         """Format the current Pose for output using the job parameters
 
         Args:
-            out_path: Where to write files
+            _out_dir: The directory to write files
             _pose_id: The particular identifier for the pose
             uc_dimensions: If this is a lattice, the crystal dimensions
         """
+        out_path = os.path.join(_out_dir, _pose_id)
         putils.make_path(out_path)
 
         # Set the ASU, then write to a file
         pose.set_contacting_asu(distance=cb_distance)
         if sym_entry.unit_cell:  # 2, 3 dimensions
-            # asu = get_central_asu(asu, uc_dimensions, sym_entry.dimension)
             cryst_record = generate_cryst1_record(uc_dimensions, sym_entry.resulting_symmetry)
         else:
             cryst_record = None
 
         if job.write_structures:
-            pose.write(out_path=os.path.join(out_path, putils.asu_file_name), header=cryst_record)
+            pose_path = os.path.join(out_path, putils.asu)
+            pose.write(out_path=pose_path, header=cryst_record)
+        else:
+            pose_path = None
 
         if job.write_trajectory:
             nonlocal idx
@@ -2269,11 +2272,11 @@ def nanohedra_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[proto
         if job.output_assembly:
             if sym_entry.unit_cell:  # 2, 3 dimensions
                 if job.output_surrounding_uc:
-                    assembly_path = os.path.join(out_path, 'surrounding_unit_cells.pdb')
+                    assembly_path = os.path.join(out_path, f'{_pose_id}_{putils.surrounding_unit_cells}')
                 else:
-                    assembly_path = os.path.join(out_path, 'central_uc.pdb')
+                    assembly_path = os.path.join(out_path, f'{_pose_id}_{putils.assembly}')
             else:  # 0 dimension
-                assembly_path = os.path.join(out_path, 'expanded_assembly.pdb')
+                assembly_path = os.path.join(out_path, f'{_pose_id}_{putils.assembly}')
             pose.write(assembly=True, out_path=assembly_path, header=cryst_record,
                        surrounding_uc=job.output_surrounding_uc)
 
@@ -2289,7 +2292,7 @@ def nanohedra_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[proto
 
         logger.info(f'\tSUCCESSFUL DOCKED POSE: {out_path}')
 
-        return out_path
+        return pose_path
 
     def terminate():
         """Finalize any remaining work and return to the caller"""
@@ -3472,7 +3475,7 @@ def nanohedra_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[proto
         #                           all_passing_z_scores[idx])
 
         if job.output:
-            pose_paths.append(output_pose(os.path.join(out_dir, pose_id), pose_id))
+            pose_paths.append(output_pose(out_dir, pose_id))
 
         # Reset the fragment_map and fragment_profile for each Entity before calculate_fragment_profile
         for entity in pose.entities:

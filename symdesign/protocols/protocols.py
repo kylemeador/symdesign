@@ -522,6 +522,15 @@ class PoseDirectory:
     def number_of_fragments(self) -> int:
         return len(self.fragment_observations) if self.fragment_observations else 0
 
+    @property
+    def pose_kwargs(self) -> dict[str, Any]:
+        """Returns the kwargs necessary to initialize the Pose"""
+        return dict(sym_entry=self.sym_entry, log=self.log, design_selector=self.design_selector,
+                    entity_names=self.entity_names, transformations=self.pose_transformation,
+                    # pass names ^ if available
+                    ignore_clashes=self.job.design.ignore_pose_clashes, fragment_db=self.job.fragment_db)
+        #             api_db=self.job.api_db,
+
     # def clear_pose_transformation(self):
     #     """Remove any pose transformation data from the Pose"""
     #     try:
@@ -585,7 +594,7 @@ class PoseDirectory:
             self.start_log()
             self.initial_model = Model.from_file(self.source_path, log=self.log)
             entity_names = [entity.name for entity in self.initial_model.entities]
-        # self.entity_names = [entity.name for entity in self.initial_model.entities]
+
         self.entity_names = self.info['entity_names'] = entity_names
 
     def start_log(self, level: int = 2):
@@ -933,51 +942,40 @@ class PoseDirectory:
             source: The file path to a source file
             entities: The Entities desired in the Pose
         """
-        if self.pose and not source and not entities:  # pose is already loaded and nothing new provided
+        if self.pose and not source and not entities:
+            # Pose is already loaded and nothing new provided
             return
 
-        # rename_chains = True  # because the result of entities, we should rename
-        if not entities and not self.source or not os.path.exists(self.source):  # minimize I/O with transform... Todo
-            # in case we initialized design without a .pdb or clean_asu.pdb (Nanohedra)
+        # rename_chains = True  # Because the result of entities, we should rename
+        if not entities and not self.source or not os.path.exists(self.source):
+            # In case we initialized design without a .pdb or clean_asu.pdb (Nanohedra)
             self.log.info(f'No source file found. Fetching source from {type(self.job.structure_db).__name__} and '
                           f'transforming to Pose')
+            # Minimize I/O with transform...
             self.transform_entities_to_pose()
             entities = self.entities
             # entities = []
             # for entity in self.entities:
             #     entities.extend(entity.entities)
-            # # because the file wasn't specified on the way in, no chain names should be binding
+            # # Because the file wasn't specified on the way in, no chain names should be binding
             # # rename_chains = True
 
-        # if entities:
-        #     pdb = Model.from_entities(entities, log=self.log, rename_chains=rename_chains)
-        #     #                         name='%s-asu' % str(self)
-        # elif self.initial_model:  # this is a fresh pose, and we already loaded so reuse
-        #     # careful, if some processing to the pdb has since occurred then this will be wrong!
-        #     pdb = self.initial_model
-        # else:
-        #     pdb = Model.from_file(source if source else self.source, entity_names=self.entity_names, log=self.log)
-        #     #                                pass names if available ^
-
         # Initialize the Pose with the pdb in PDB numbering so that residue_selectors are respected
-        pose_kwargs = dict(name=f'{self}-asu' if self.sym_entry else str(self), sym_entry=self.sym_entry, log=self.log,
-                           transformations=self.pose_transformation, design_selector=self.design_selector,
-                           ignore_clashes=self.job.design.ignore_pose_clashes, fragment_db=self.job.fragment_db)
-        #                    api_db=self.job.api_db,
-
+        name = f'{self}-asu' if self.sym_entry else str(self)
         if entities:
-            self.pose = Pose.from_entities(entities, entity_names=[entity.name for entity in entities], **pose_kwargs)
-        elif self.initial_model:  # this is a fresh Model, and we already loaded so reuse
-            # careful, if processing has occurred then this may be wrong!
-            self.pose = Pose.from_model(self.initial_model, entity_names=self.entity_names, **pose_kwargs)
+            self.pose = Pose.from_entities(entities, name=name, **self.pose_kwargs)
+        elif self.initial_model:  # This is a fresh Model, and we already loaded so reuse
+            # Careful, if processing has occurred then this may be wrong!
+            self.pose = Pose.from_model(self.initial_model, name=name, **self.pose_kwargs)
         else:
-            self.pose = Pose.from_file(source if source else self.source, entity_names=self.entity_names, **pose_kwargs)
-            #                                     pass names if available ^
+            self.pose = Pose.from_file(source if source else self.source, name=name, **self.pose_kwargs)
+
         if self.pose.is_symmetric():
             if self.job.write_oligomers:  # Write out new oligomers to the PoseDirectory
                 for idx, entity in enumerate(self.pose.entities):
                     entity.write(oligomer=True, out_path=os.path.join(self.path, f'{entity.name}_oligomer.pdb'))
-
+            if not self.pose_transformation:  # If an empty list, save the value identified
+                self.pose_transformation = self.info['pose_transformation'] = self.pose.entity_transformations
         # Then modify numbering to ensure standard and accurate use during protocols
         # self.pose.pose_numbering()
         if not self.entity_names:  # Store the entity names if they were never generated
@@ -1635,12 +1633,13 @@ class PoseDirectory:
 
             orient_file = model.write(out_path=out_path)
             self.log.info(f'The oriented file was saved to {orient_file}')
-            # self.clear_pose_transformation()
             for entity in model.entities:
                 entity.remove_mate_chains()
+                self.entity_names.append(entity.name)
 
             # Load the pose and save the asu
-            self.load_pose(entities=model.entities)
+            self.initial_model = model
+            self.load_pose()  # entities=model.entities)
         else:
             raise SymmetryError(warn_missing_symmetry % self.orient.__name__)
 
@@ -2173,17 +2172,7 @@ class PoseDirectory:
 
         # Find all designs files Todo fold these into Model(s) and attack metrics from Pose objects?
         if design_poses is None:
-            # Todo use PoseDirectory self.info.design_selector   # Todo PoseDirectory(.path)
-            # # pose format should already be the case, but let's make sure
-            pose_kwargs = dict(
-                entity_names=self.entity_names,  # Todo PoseDirectory(.path)
-                log=self.pose.log,
-                sym_entry=self.pose.sym_entry, fragment_db=self.pose.fragment_db,
-                design_selector=self.pose.design_selector,
-                ignore_clashes=self.job.design.ignore_pose_clashes
-            )
-            # api_db=self.job.api_db,
-            design_poses = [Pose.from_file(file, **pose_kwargs) for file in self.get_designs()]  # Todo PoseDirectory(.path)
+            design_poses = [Pose.from_file(file, **self.pose_kwargs) for file in self.get_designs()]  # Todo PoseDirectory(.path)
 
         # Assumes each structure is the same length
         pose_length = self.pose.number_of_residues
