@@ -11,8 +11,8 @@ from symdesign.resources.query.utils import input_string, confirmation_string, b
     format_string
 from symdesign.utils import handle_errors, pretty_format_table, ex_path
 from symdesign.utils.ProteinExpression import expression_tags
-# These shouldn't be moved here
 from symdesign.utils.path import fragment_dbs, biological_interfaces, default_logging_level
+# These attributes ^ shouldn't be moved here. Below should be with proper handling of '-' vs. '_'
 from symdesign.utils.path import submodule_guide, submodule_help, force, sym_entry, program_output, projects, \
     interface_metrics, nano_entity_flag1, nano_entity_flag2, data, multi_processing, residue_selector, options, \
     cluster_poses, orient, default_clustered_pose_file, interface_design, evolution_constraint, hbnet, term_constraint,\

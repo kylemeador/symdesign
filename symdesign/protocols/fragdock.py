@@ -316,7 +316,7 @@ def nanohedra_dock(model1: Structure | AnyStr, model2: Structure | AnyStr, **kwa
     cb_distance = 9.  # change to 8.?
     # Testing if this is too strict when strict overlaps are used
     cluster_transforms = not job.dock.contiguous_ghosts  # True
-    # Todo set below as parameters?
+    # Todo set above as parameters?
     translation_epsilon = 1  # 1 seems to work well at recapitulating the results without it. More stringent -> 0.75
     high_quality_z_value = z_value_from_match_score(high_quality_match_value)
     low_quality_z_value = z_value_from_match_score(low_quality_match_value)

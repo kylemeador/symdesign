@@ -40,307 +40,6 @@ from symdesign.structure.sequence import generate_mutations, find_orf_offset, wr
 from symdesign.third_party.DnaChisel.dnachisel.DnaOptimizationProblem.NoSolutionError import NoSolutionError
 from symdesign.utils import ProteinExpression, nanohedra
 
-# def rename(des_dir, increment=putils.nstruct):
-#     """Rename the decoy numbers in a PoseDirectory by a specified increment
-#
-#     Args:
-#         des_dir (PoseDirectory): A PoseDirectory object
-#     Keyword Args:
-#         increment=putils.nstruct (int): The number to increment by
-#     """
-#     for pdb in os.listdir(des_dir.designs):
-#         if os.path.splitext(pdb)[0][-1].isdigit():
-#             SDUtils.change_filename(os.path.join(des_dir.designs, pdb), increment=increment)
-#     SDUtils.modify_decoys(os.path.join(des_dir.scores, putils.scores_file), increment=increment)
-
-
-# def pair_directories(dirs2, dirs1):
-#     """Pair directories with the same pose name, returns source (dirs2) first, destination (dirs1) second
-#     Args:
-#         dirs2 (list): List of PoseDirectory objects
-#         dirs1 (list): List of PoseDirectory objects
-#     Returns:
-#         (list), (list): [(source, destination), ...], [directories missing a pair, ...]
-#     """
-#     success, pairs = [], []
-#     for dir1 in dirs1:
-#         for dir2 in dirs2:
-#             if str(dir1) == str(dir2):
-#                 pairs.append((dir2, dir1))
-#                 success.append(dir1)
-#                 dirs2.remove(dir2)
-#                 break
-#
-#     return pairs, list(set(dirs1) - set(success))
-#
-#
-# def pair_dock_directories(dirs):
-#     """Specific function for the DEGEN merging in the design recapitulation experiments.
-#     Can this be used in the future?
-#     Assumes that dir.path is equal to /Nanohedra_input/NanohedraEntry*DockedPoses/1abc_2xyz
-#     """
-#     merge_pairs = []
-#     flipped_sufffix = '_flipped_180y'
-#     destination_string = 'DEGEN_1_2'
-#     origin_string = 'DEGEN_1_1'
-#     for _dir in dirs:
-#         # remove the flipped suffix from the dirname
-#         new_dir = os.path.dirname(_dir.path)[:-len(flipped_sufffix)]
-#         # where the link will live
-#         destination = os.path.join(os.path.abspath(new_dir), os.path.basename(_dir.path), destination_string)
-#         # where the link will attach too. Adding the flipped suffix to the composition name
-#         original_dir = os.path.join(os.path.abspath(_dir.path) + flipped_sufffix, origin_string)
-#         merge_pairs.append((original_dir, destination))
-#
-#     return merge_pairs, list()
-#
-#
-# def merge_docking_pair(pair, force=False):
-#     """Combine docking files of one docking combination with another
-#
-#     Args:
-#         pair (tuple): source directory, destination directory (link)
-#     Keyword Args:
-#         force=False (bool): Whether to remove links before creation
-#     """
-#     if force:
-#         os.remove(pair[1])
-#     os.symlink(pair[0], pair[1], target_is_directory=True)
-#     # else:
-#     #     exit('Functionality does not yet exist')
-#
-#
-# def merge_design_pair(pair):
-#     """Combine Rosetta design files of one pose with the files of a second pose
-#
-#     Args:
-#         pair (tuple): source directory, destination directory
-#     """
-#     def merge_scores():
-#         with open(os.path.join(pair[1].scores, putils.scores_file), 'a') as f1:
-#             f1.write('\n')  # first ensure a new line at the end of first file
-#             with open(os.path.join(pair[0].scores, putils.scores_file), 'r') as f2:
-#                 lines = [loads(line) for line in f2.readlines()]
-#             f1.write('\n'.join(dumps(line) for line in lines))
-#             f1.write('\n')  # first a new line at the end of the combined file
-#
-#     def merge_designs():
-#         for pdb in os.listdir(pair[0].designs):
-#             shutil.copy(os.path.join(pair[0].designs, pdb), os.path.join(pair[1].designs, pdb))
-#     merge_scores()
-#     merge_designs()
-
-
-# def rsync_dir(des_dir):
-#     """Takes a DEGEN_1_1 specific formatted list of directories and finds the DEGEN_1_2 directories to condense down to
-#     a single DEGEEN_1_2 directory making hard links for every file in a DEGEN_1_2 and higher directory to DEGEN_1_1"""
-#
-#     raise RuntimeError('The function %s is no longer operational as of 5/13/22' % 'get_building_block_dir')
-#     for s, sym_dir in enumerate(des_dir.program_root):
-#         if '_flipped_180y' in sym_dir:
-#             for bb_dir in des_dir.composition[s]:
-#                 building_block_dir = os.path.join(des_dir.get_building_block_dir(bb_dir))
-#                 destination = os.path.join(building_block_dir, 'DEGEN_1_1%s' % os.sep)
-#
-#                 p = {}  # make a dict for all the processes
-#                 for k, entry in enumerate(os.scandir(building_block_dir)):
-#                     if entry.is_dir() and 'DEGEN_1_' in entry.name and entry.name != "DEGEN_1_1":
-#                         abs_entry_path = os.path.join(building_block_dir, entry.name)
-#                         cmd = ['rsync', '-a', '--link-dest=%s%s' % (abs_entry_path, os.sep), #  '--remove-source-files',
-#                                '%s%s' % (abs_entry_path, os.sep), destination]
-#                         #          ^ requires '/' - os.sep
-#                         logger.debug('Performing transfer: %s' % list2cmdline(cmd))
-#                         p[abs_entry_path] = Popen(cmd)
-#                 # Check to see if all processes are done, then move on.
-#                 for entry in p:
-#                     p[entry].communicate()
-#
-#                 # # Remove all empty subdirectories from the now empty DEGEN_1_2 and higher directory
-#                 # p2 = {}
-#                 # for l, entry in enumerate(p):
-#                 #     find_cmd = ['find', '%s%s' % (entry, os.sep), '-type', 'd', '-empty', '-delete']
-#                 #     # rm_cmd = ['rm', '-r', entry]
-#                 #     logger.debug('Removing empty directories: %s' % list2cmdline(find_cmd))
-#                 #     p2[l] = Popen(find_cmd)
-#                 # # Check for the last command, then move on
-#                 # for m, process in enumerate(p2):
-#                 #     p2[m].communicate()
-#
-#                 logger.info('%s has been consolidated' % building_block_dir)
-#
-#     return des_dir.path
-
-
-# def status(all_design_directories, _stage, number=None, active=True, inactive_time=30 * 60):  # 30 minutes
-#     complete, running, incomplete = [], [], []
-#     if _stage == 'rmsd':
-#         # Relies on the assumption that each docked dir has only one set of building blocks making up its constituent files
-#         start = datetime.datetime(2020, 11, 3, 0, 0)  # when the most recent set of results was started
-#         all_to_all_start = datetime.datetime(2020, 11, 12, 0, 0)
-#
-#         def _rmsd_dir(des_dir_symmetry):
-#             return os.path.join(des_dir_symmetry, 'rmsd_calculation')
-#         outcome_strings_d = {0: 'rmsd_to_cluster.sh', 1: 'all_to_cluster.sh', 2: 'rmsd_clustering.sh'}
-#         rmsd, all_to_all, clustering_files = [], [], []
-#         for des_dir in all_design_directories:
-#             rmsd_file, all_to_all_file, final_clustering_file = None, None, None
-#             rmsd_dir = _rmsd_dir(des_dir.program_root[0])
-#             try:
-#                 rmsd_file = sorted(glob(os.path.join(rmsd_dir, 'crystal_vs_docked_irmsd.txt')))[0]
-#                 # ensure that RMSD files were created for the most recent set of results using 'start'
-#                 if int(time.time()) - int(os.path.getmtime(rmsd_file)) > start.now().timestamp() - start.timestamp():
-#                     rmsd_file = None
-#                 all_to_all_file = sorted(glob(os.path.join(rmsd_dir, 'top*_all_to_all_docked_poses_irmsd.txt')))[0]
-#                 final_clustering_file = sorted(glob(os.path.join(rmsd_dir, '*_clustered.txt')))[0]
-#                 if int(time.time()) - int(os.path.getmtime(final_clustering_file)) > \
-#                         all_to_all_start.now().timestamp() - all_to_all_start.timestamp():
-#                     final_clustering_file = None
-#             except IndexError:
-#                 incomplete.append(rmsd_dir)
-#             rmsd.append(rmsd_file)
-#             all_to_all.append(all_to_all_file)
-#             clustering_files.append(final_clustering_file)
-#
-#         # report all designs which are done, return all commands for designs which need to be completed.
-#         for k, results in enumerate(zip(rmsd, all_to_all, clustering_files)):
-#             _status = True
-#             # _status = results[2]
-#             for r, stage in enumerate(results):
-#                 if not stage:
-#                     _status = False
-#                     # _status = os.path.join(_rmsd_dir(pose_directories[k], outcome_strings_d[r]))
-#                     running.append(os.path.join(_rmsd_dir(pose_directories[k].symmetry[0]), outcome_strings_d[r]))
-#                     break
-#             if _status:
-#                 complete.append(sorted(glob(os.path.join(_rmsd_dir(all_design_directories[k].program_root[0]),
-#                                                          '*_clustered.txt')))[0])
-#     # KM removed 7/1/22
-#     # elif _stage == putils.nanohedra:
-#     #     from classes import get_last_sampling_state
-#     #     # observed_building_blocks = []
-#     #     for des_dir in all_design_directories:
-#     #         # if os.path.basename(des_dir.composition) in observed_building_blocks:
-#     #         #     continue
-#     #         # else:
-#     #         #     observed_building_blocks.append(os.path.basename(des_dir.composition))
-#     #         # f_degen1, f_degen2, f_rot1, f_rot2 = get_last_sampling_state('%s_log.txt' % des_dir.composition)
-#     #         # degens, rotations = \
-#     #         # SDUtils.degen_and_rotation_parameters(SDUtils.gather_docking_metrics(des_dir.program_root))
-#     #         #
-#     #         # dock_dir = PoseDirectory(path, auto_structure=False)
-#     #         # dock_dir.program_root = glob(os.path.join(path, 'NanohedraEntry*DockedPoses'))
-#     #         # dock_dir.composition = [next(os.walk(dir))[1] for dir in dock_dir.program_root]
-#     #         # dock_dir.log = [os.path.join(_sym, 'master_log.txt') for _sym in dock_dir.program_root]
-#     #         # dock_dir.building_block_logs = [os.path.join(_sym, bb_dir, 'bb_dir_log.txt') for sym in dock_dir.composition
-#     #         #                                 for bb_dir in sym]
-#     #
-#     #         # docking_file = glob(
-#     #         #     os.path.join(des_dir + '_flipped_180y', '%s*_log.txt' % os.path.basename(des_dir)))
-#     #         # if len(docking_file) != 1:
-#     #         #     incomplete.append(des_dir)
-#     #         #     continue
-#     #         # else:
-#     #         #     log_file = docking_file[0]
-#     #         for sym_idx, building_blocks in enumerate(des_dir.building_block_logs):  # Added from dock_dir patch
-#     #             for bb_idx, log_file in enumerate(building_blocks):  # Added from dock_dir patch
-#     #                 f_degen1, f_degen2, f_rot1, f_rot2 = get_last_sampling_state(log_file, zero=False)
-#     #                 # degens, rotations = Pose.degen_and_rotation_parameters(
-#     #                 #     Pose.gather_docking_metrics(des_dir.log[sym_idx]))
-#     #                 raise DesignError('This functionality has been removed "des_dir.gather_docking_metrics()"')
-#     #                 des_dir.gather_docking_metrics()  # log[sym_idx]))
-#     #                 degens, rotations = des_dir.degen_and_rotation_parameters()
-#     #                 degen1, degen2 = tuple(degens)
-#     #                 last_rot1, last_rot2 = des_dir.compute_last_rotation_state()
-#     #                 # last_rot1, last_rot2 = Pose.compute_last_rotation_state(*rotations)
-#     #                 # REMOVE after increment gone
-#     #                 f_degen1, f_degen2 = 1, 1
-#     #                 if f_rot2 > last_rot2:
-#     #                     f_rot2 = int(f_rot2 % last_rot2)
-#     #                     if f_rot2 == 0:
-#     #                         f_rot2 = last_rot2
-#     #                 # REMOVE
-#     #                 logger.info('Last State:', f_degen1, f_degen2, f_rot1, f_rot2)
-#     #                 logger.info('Expected:', degen1, degen2, last_rot1, last_rot2)
-#     #                 logger.info('From log: %s' % log_file)
-#     #                 if f_degen1 == degen1 and f_degen2 == degen2 and f_rot1 == last_rot1 and f_rot2 == last_rot2:
-#     #                     complete.append(os.path.join(des_dir.program_root[sym_idx], des_dir.composition[sym_idx][bb_idx]))
-#     #                     # complete.append(des_dir)
-#     #                     # complete.append(des_dir.program_root)
-#     #                 else:
-#     #                     if active:
-#     #                         if int(time.time()) - int(os.path.getmtime(log_file)) < inactive_time:
-#     #                             running.append(os.path.join(des_dir.program_root[sym_idx],
-#     #                                                         des_dir.composition[sym_idx][bb_idx]))
-#     #                     incomplete.append(os.path.join(des_dir.program_root[sym_idx],
-#     #                                                    des_dir.composition[sym_idx][bb_idx]))
-#     #                     # incomplete.append(des_dir)
-#     #                     # incomplete.append(des_dir.program_root)
-#     #     complete = map(os.path.dirname, complete)  # can remove if building_block name is removed
-#     #     running = list(map(os.path.dirname, running))  # can remove if building_block name is removed
-#     #     incomplete = map(os.path.dirname, incomplete)  # can remove if building_block name is removed
-#     else:
-#         if not number:
-#             number = putils.stage_f[_stage]['len']
-#             if not number:
-#                 return False
-#
-#         for des_dir in pose_directories:
-#             files = des_dir.get_designs(design_type=putils.stage_f[_stage]['path'])
-#             if number >= len(files):
-#                 complete.append(des_dir.path)
-#             else:
-#                 incomplete.append(des_dir.path)
-#
-#     if active:
-#         active_path = os.path.join(args.directory, 'running_%s_pose_status' % _stage)
-#         with open(active_path, 'w') as f_act:
-#             f_act.write('\n'.join(r for r in running))
-#         incomplete = list(set(incomplete) - set(running))
-#
-#     complete_path = os.path.join(args.directory, 'complete_%s_pose_status' % _stage)
-#     with open(complete_path, 'w') as f_com:
-#         f_com.write('\n'.join(c for c in complete))
-#
-#     incomplete_path = os.path.join(args.directory, 'incomplete_%s_pose_status' % _stage)
-#     with open(incomplete_path, 'w') as f_in:
-#         f_in.write('\n'.join(n for n in incomplete))
-#
-#     return True
-
-
-# def fix_files_mp(des_dir):
-#     with open(os.path.join(des_dir.scores, putils.scores_file), 'r+') as f1:
-#         lines = f1.readlines()
-#
-#         # Remove extra newlines from file
-#         # clean_lines = []
-#         # for line in lines:
-#         #     if line == '\n':
-#         #         continue
-#         #     clean_lines.append(line.strip())
-#
-#         # Take multi-entry '{}{}' json record and make multi-line
-#         # new_line = {}
-#         # for z, line in enumerate(lines):
-#         #     if len(line.split('}{')) == 2:
-#         #         sep = line.find('}{') + 1
-#         #         new_line[z] = line[sep:]
-#         #         lines[z] = line[:sep]
-#         # for error_idx in new_line:
-#         #     lines.insert(error_idx, new_line[error_idx])
-#
-#         # f1.seek(0)
-#         # f1.write('\n'.join(clean_lines))
-#         # f1.write('\n')
-#         # f1.truncate()
-#
-#         if lines[-1].startswith('{"decoy":"clean_asu_for_consenus"'):
-#             j = True
-#         else:
-#             j = False
-#
-#     return j, None
-
 
 # def format_additional_flags(flags):
 #     """Takes non-argparse specified flags and returns them into a dictionary compatible with argparse style.
@@ -608,9 +307,9 @@ def main():
 
         if pose:
             for idx, df in enumerate(all_dfs):
-                # get rid of all individual trajectories and std, not mean
+                # Get rid of all individual trajectories and std, not mean
                 design_name = pose_directories[idx].name
-                df.fillna(0., inplace=True)  # shouldn't be necessary if saved files were formatted correctly
+                df.fillna(0., inplace=True)  # Shouldn't be necessary if saved files were formatted correctly
                 # try:
                 df.drop([index for index in df.index.to_list() if isinstance(index, float)], inplace=True)
                 df.drop([index for index in df.index.to_list() if design_name in index or 'std' in index], inplace=True)
@@ -619,10 +318,11 @@ def main():
                 #         print(index, type(index))
         else:  # designs
             for idx, df in enumerate(all_dfs):
-                # get rid of all statistic entries, mean, std, etc.
+                # Get rid of all statistic entries, mean, std, etc.
                 design_name = pose_directories[idx].name
                 df.drop([index for index in df.index.to_list() if design_name not in index], inplace=True)
-        # add pose directory str as MultiIndex
+
+        # Add pose directory str as MultiIndex
         df = pd.concat(all_dfs, keys=[str(pose_dir) for pose_dir in pose_directories])
         df.replace({False: 0, True: 1, 'False': 0, 'True': 1}, inplace=True)
 
@@ -656,7 +356,7 @@ def main():
     # -----------------------------------------------------------------------------------------------------------------
     #  Process optional program flags
     # -----------------------------------------------------------------------------------------------------------------
-    # ensure module specific arguments are collected and argument help is printed in full
+    # Ensure module specific arguments are collected and argument help is printed in full
     args, additional_args = flags.argparsers[flags.parser_guide].parse_known_args()
     # -----------------------------------------------------------------------------------------------------------------
     #  Display the program guide if requested
@@ -894,7 +594,10 @@ def main():
     #  Grab all Poses (PoseDirectory instance) from either database, directory, project, single, or file
     # -----------------------------------------------------------------------------------------------------------------
     all_poses: list[AnyStr] | None = None
-    pose_directories: list[PoseDirectory] = []
+    # pose_directories hold jobs with specific poses
+    # list[PoseDirectory] for an establishes pose
+    # list[tuple[Structure, Structure]] for a nanohedra docking job
+    pose_directories: list[PoseDirectory] | list[tuple[Any, Any]] = []
     location: str | None = None
     low = high = low_range = high_range = None
     initial_refinement = initial_loop_model = None  # set below if needed
@@ -962,7 +665,6 @@ def main():
                                    f'correct location')
         representative_pose_directory = next(iter(pose_directories))
         design_source = os.path.splitext(os.path.basename(location))[0]
-        default_output_tuple = (utils.starttime, job.module, design_source)
 
         # Todo logic error when initialization occurs with module that doesn't call this, subsequent runs are missing
         #  directories/resources that haven't been made
