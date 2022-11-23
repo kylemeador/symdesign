@@ -3067,7 +3067,7 @@ def write_sequences(sequences: Sequence | dict[str, Sequence], names: Sequence =
         extension = '.fasta'
 
     if not file_name.endswith(extension):
-        file_name = f'{file_name}{extension}'
+        file_name = f'{os.path.splitext(file_name)[0]}{extension}'
 
     with open(file_name, 'a') as outfile:
         if isinstance(sequences, list):
