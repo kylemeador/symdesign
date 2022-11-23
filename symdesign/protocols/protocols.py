@@ -1804,8 +1804,12 @@ class PoseDirectory:
             if self.job.design.method == putils.rosetta_str:
                 favor_fragments = evo_fill = True
             self.pose.calculate_fragment_profile(evo_fill=evo_fill)
-        elif self.fragment_observations or self.fragment_observations == list():
-            pass  # fragment generation was run and maybe succeeded. If not ^
+        elif isinstance(self.fragment_observations, list):
+            raise NotImplementedError(f"Can't put fragment observations taken away from the pose onto the pose due to "
+                                      f"entities")
+            self.pose.fragment_pairs = self.fragment_observations
+            self.pose.calculate_fragment_profile(evo_fill=evo_fill)
+
         # elif os.path.exists(self.frag_file):
         #     self.retrieve_fragment_info_from_file()
 

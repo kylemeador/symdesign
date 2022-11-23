@@ -2252,6 +2252,7 @@ def nanohedra_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[proto
             pose_path = None
 
         if job.write_trajectory:
+            raise NotImplementedError('make more reliable!!')
             nonlocal idx
             if idx % 2 == 0:
                 new_pose = copy.copy(pose)
