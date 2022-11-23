@@ -103,11 +103,11 @@ class PoseProtocol:
 
 
 class PoseDirectory:
-    _design_selector = dict[str, dict[str, dict[str, set[int] | set[str]]]] | dict
-    _designed_sequences = list[Sequence]
-    _entity_names = list[str]
-    _fragment_observations = list[fragment_info_type]
-    _pose_transformation = list  # list[transformation_mapping]):  # Todo why won't this import
+    _design_selector: dict[str, dict[str, dict[str, set[int] | set[str]]]] | dict
+    _designed_sequences: list[Sequence]
+    _entity_names: list[str]
+    _fragment_observations: list[fragment_info_type]
+    _pose_transformation: list  # list[transformation_mapping]):  # Todo why won't this import
     _symmetry_definition_files: list[AnyStr]
     directives: list[dict[int, str]]
     entities: list[Entity]
@@ -369,8 +369,8 @@ class PoseDirectory:
             # Starts self.log if not self.job.nanohedra_output
             self.find_entity_names()  # Sets self.entity_names
         else:
-            input(f'Stopped here with: self.initialized({self.initialized}) self.entity_names({self.entity_names})'
-                  f'bool? {not self.initialized and not self.entity_names}')
+            # input(f'Stopped here with: self.initialized({self.initialized}) self.entity_names({self.entity_names})'
+            #       f'bool? {not self.initialized and not self.entity_names}')
             self.entity_names = self.info.get('entity_names', [])  # Set so that DataBase set up works
 
         # Configure standard pose loading mechanism with self.source
