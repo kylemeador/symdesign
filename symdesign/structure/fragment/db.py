@@ -314,12 +314,11 @@ class FragmentDatabaseFactory:
         elif source == utils.path.biological_interfaces:
             if token == RELOAD_DB:
                 return None
-            logger.info(f'Initializing {source} {FragmentDatabase.__name__}')
             self._databases[source] = utils.unpickle(utils.path.biological_fragment_db_pickle)
         else:
-            logger.info(f'Initializing {source} {FragmentDatabase.__name__}')
             self._databases[source] = FragmentDatabase(source=source, **kwargs)
 
+        logger.info(f'Initializing {FragmentDatabase.__name__}({source})')
         # Attach the euler_lookup class
         self._databases[source].euler_lookup = euler_factory()
 
