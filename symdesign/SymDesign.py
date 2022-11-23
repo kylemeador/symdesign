@@ -1187,10 +1187,10 @@ def main():
             terminate(results=commands)
         else:
             if args.multi_processing:
-                results = utils.mp_starmap(protocols.fragdock.nanohedra_dock, pose_directories, processes=job.cores)
+                results = utils.mp_map(protocols.fragdock.nanohedra_dock, pose_directories, processes=job.cores)
             else:
                 for pair in pose_directories:
-                    protocols.fragdock.nanohedra_dock(*pair)
+                    protocols.fragdock.nanohedra_dock(pair)
                     # results.append(result)  # DONT need. Results uses pose_directories. There are none and no output
             terminate(results=results, output=False)
     # ---------------------------------------------------
