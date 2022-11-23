@@ -2062,9 +2062,9 @@ class PoseDirectory:
             # Create an initial score dictionary
             design_scores = {design_id: {'decoy': design_id} for design_id in design_ids}
             # For each score type unpack the data
-            for score_type, design_scores in scores.items():
+            for score_type, score in scores.items():
                 # For each score's data, update the dictionary of the corresponding design_id
-                for design_id, design_score in zip(design_ids, design_scores):
+                for design_id, design_score in zip(design_ids, score):
                     design_scores[design_id].update({score_type: design_score})
 
             for design_id, scores in design_scores.items():
