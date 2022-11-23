@@ -1047,6 +1047,7 @@ def main():
     # exceptions = []
     # ---------------------------------------------------
     if args.module == flags.protocol:
+        returns_pose_directories = (flags.nanohedra,)
         # terminate_options = dict(
         #     # analysis=dict(output_analysis=args.output),  # Replaced with args.output in terminate()
         # )
@@ -1063,6 +1064,12 @@ def main():
 
             # # Retrieve any program flags necessary for termination
             # terminate_kwargs.update(**terminate_options.get(protocol_name, {}))
+            # Handle any returns that require particular treatment
+            if protocol_name in returns_pose_directories:
+                _results = []
+                for result_list in results:
+                    _results.extend(result_list)
+                pose_directories = _results
             # Update the current state of protocols and exceptions
             pose_directories, additional_exceptions = parse_protocol_results(pose_directories, results)
             exceptions.extend(additional_exceptions)
