@@ -269,6 +269,18 @@ class JobResources:
         # self.ignore_clashes: bool = kwargs.get(ignore_clashes, False)
         if self.design.ignore_clashes:
             self.design.ignore_pose_clashes = self.design.ignore_symmetric_clashes = True
+        # Handle protocol specific flags
+        if not self.design.term_constraint:
+            self.generate_fragments: bool = False
+        else:
+            self.generate_fragments = True
+
+        if self.design.structure_background:
+            self.design.evolution_constraint = False
+            self.design.hbnet = False
+            self.design.scout = False
+            self.design.term_constraint = False
+
         self.dock_only: bool = kwargs.get('dock_only')
         if self.dock_only:
             self.design.sequences = self.design.structures = False

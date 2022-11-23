@@ -73,9 +73,9 @@ def handle_design_errors(errors: tuple[Type[Exception], ...] = (Exception,)) -> 
     Returns:
         Function return upon proper execution, else is error if exception raised, else None
     """
-    def wrapper(func: Callable) -> Any:
+    def wrapper(func: Callable) -> Callable:
         @functools.wraps(func)
-        def wrapped(self, *args, **kwargs):
+        def wrapped(self, *args, **kwargs) -> Any:
             try:
                 return func(self, *args, **kwargs)
             except errors as error:
@@ -381,7 +381,7 @@ class PoseDirectory:
             self.entity_names = self.info.get('entity_names', [])  # set so that DataBase set up works
 
     @property
-    def design_sequences(self) -> list[Sequence]:
+    def designed_sequences(self) -> list[Sequence]:
         """Return the designed sequences for the entire Pose associated with the PoseDirectory"""
         try:
             return self._designed_sequences
@@ -1422,6 +1422,9 @@ class PoseDirectory:
                 header = True
             pose_s.to_csv(out_path, mode='a', header=header)
 
+    @handle_design_errors(errors=(DesignError,))
+    @close_logs
+    @remove_structure_memory
     def custom_rosetta_script(self, script, file_list=None, native=None, suffix=None,
                               score_only=None, variables=None, **kwargs):
         """Generate a custom script to dispatch to the design using a variety of parameters"""
