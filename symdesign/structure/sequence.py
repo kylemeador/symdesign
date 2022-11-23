@@ -3083,12 +3083,21 @@ def write_sequences(sequences: Sequence | dict[str, Sequence], names: Sequence =
     if not file_name.endswith(extension) or provided_extension != extension:
         file_name = f'{os.path.splitext(file_name)[0]}{extension}'
 
+    def data_dump():
+        return f'names={names}, sequences={sequences}, extension={extension}, out_path={out_path}, ' \
+               f'file_name={file_name}'
+
     with open(file_name, 'a') as outfile:
         if isinstance(sequences, list):
             if isinstance(sequences[0], tuple):  # where seq[0] is name, seq[1] is seq
                 formatted_sequence_gen = (f'{start}{name}{sep}{seq}' for name, seq, *_ in sequences)
-            elif isinstance(names, Iterable):
-                formatted_sequence_gen = (f'{start}{name}{sep}{seq}' for name, seq in zip(names, sequences))
+            elif isinstance(names, Sequence):
+                if isinstance(sequences[0], str):
+                    formatted_sequence_gen = (f'{start}{name}{sep}{seq}' for name, seq in zip(names, sequences))
+                elif isinstance(sequences[0], Sequence):
+                    formatted_sequence_gen = (f'{start}{name}{sep}{"".join(seq)}' for name, seq in zip(names, sequences))
+                else:
+                    raise TypeError(f"{write_sequences.__name__} Can't parse data to make fasta\n{data_dump()}")
             # elif isinstance(sequences[0], list):  # where interior list is alphabet (AA or DNA)
             #     for idx, seq in enumerate(sequences):
             #         outfile.write(f'>{name}_{idx}\n')  # write header
@@ -3097,13 +3106,13 @@ def write_sequences(sequences: Sequence | dict[str, Sequence], names: Sequence =
             # elif isinstance(sequences[0], str):  # likely 3 aa format...
             #     outfile.write(f'>{name}\n{" ".join(sequences)}\n')
             else:
-                raise TypeError(f"{write_sequences.__name__} Can't parse data to make fasta")
+                raise TypeError(f"{write_sequences.__name__} Can't parse data to make fasta\n{data_dump()}")
         elif isinstance(sequences, dict):
             formatted_sequence_gen = (f'{start}{name}{sep}{"".join(seq)}' for name, seq in sequences.items())
         elif isinstance(names, str):  # assume sequences is a str or tuple
             formatted_sequence_gen = (f'{start}{names}{sep}{"".join(sequences)}\n',)
         else:
-            raise TypeError(f"{write_sequences.__name__} Can't parse data to make fasta")
+            raise TypeError(f"{write_sequences.__name__} Can't parse data to make fasta\n{data_dump()}")
         outfile.write('%s\n' % '\n'.join(formatted_sequence_gen))
 
     return file_name

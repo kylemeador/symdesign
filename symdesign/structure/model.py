@@ -5886,8 +5886,6 @@ class Pose(SymmetricModel):
                                                              # 'design_indices': design_indices
                                                              }
                                           )
-            self.log.critical(f'Pose: Found pose_length with shape {pose_length}')
-            self.log.critical(f'Pose: Found sequences with shape {sequences_and_scores["sequences"].shape}')
 
             sequences_and_scores['sequences'] = numeric_to_sequence(sequences_and_scores['sequences'])
             # Format returns to have shape (temperaturesxsize, pose_length) where the temperatures vary slower
