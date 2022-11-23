@@ -2058,7 +2058,7 @@ class PoseDirectory:
                                        )
         design_names = [f'{self.name}_{self.protocol}{seq_idx:04d}'
                         for seq_idx in range(len(sequences_and_scores['sequences']))]
-        # sequences_and_scores['sequences'] = sequences_and_scores['sequences']
+        self.log.critical(f'Found sequences with shape {sequences_and_scores["sequences"].shape}')
         putils.make_path(self.designs)
         self.output_proteinmpnn_scores(design_names, sequences_and_scores)
         putils.make_path(self.data)
