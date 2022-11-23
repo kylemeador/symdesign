@@ -2966,6 +2966,19 @@ def read_fasta_file(file_name: AnyStr, **kwargs) -> Iterable[SeqRecord]:
     return SeqIO.parse(file_name, 'fasta')
 
 
+# @sdutils.handle_errors(errors=(FileNotFoundError,))
+def read_sequence_file(file_name: AnyStr, **kwargs) -> Iterable[SeqRecord]:
+    """Opens a fasta file and return a parser object to load the sequences to SeqRecords
+
+    Args:
+        file_name: The location of the file on disk
+    Returns:
+        An iterator of the sequences in the file [record1, record2, ...]
+    """
+    raise NotImplementedError()
+    return SeqIO.parse(file_name, 'csv')
+
+
 @sdutils.handle_errors(errors=(FileNotFoundError,))
 def read_alignment(file_name: AnyStr, alignment_type: str = 'fasta', **kwargs) -> MultipleSeqAlignment:
     """Open an alignment file and parse the alignment to a Biopython MultipleSeqAlignment
@@ -3054,7 +3067,7 @@ def write_sequences(sequences: Sequence | dict[str, Sequence], names: Sequence =
         The name of the output file
     """
     if file_name is None:
-        if isinstance(names, str):
+        if isinstance(names, str):  # Not an iterable
             file_name = os.path.join(out_path, names)
         else:
             raise ValueError(f'Must provide argument "file_name" or "names" as a str to {write_sequences.__name__}')

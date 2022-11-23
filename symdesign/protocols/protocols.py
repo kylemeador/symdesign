@@ -361,7 +361,7 @@ class PoseDirectory:
         self.trajectories = os.path.join(self.job.all_scores, f'{self}_Trajectories.csv')
         self.residues = os.path.join(self.job.all_scores, f'{self}_Residues.csv')
         # self.designed_sequences_file = os.path.join(self.job.all_scores, f'{self}_Sequences.pkl')
-        self.designed_sequences_file = os.path.join(self.designs, f'{self}_sequences.csv')
+        self.designed_sequences_file = os.path.join(self.designs, f'{self}_sequences.fasta')
 
         self.initial_model = None
         """Used if the pose structure has never been initialized previously"""
