@@ -132,6 +132,12 @@ Dock = make_dataclass('Dock',
                       namespace={'from_flags': classmethod(from_flags)})
 #                       frozen=True)
 
+Predict = make_dataclass('Predict',
+                         [(flag, eval(type(default).__name__), field(default=default))
+                          for flag, default in flags.predict.items()],
+                         namespace={'from_flags': classmethod(from_flags)})
+#                          frozen=True)
+
 
 class JobResources:
     """The intention of JobResources is to serve as a singular source of design info which is common across all
@@ -321,17 +327,7 @@ class JobResources:
         else:
             self.construct_pose = True
 
-        # Handle protocol specific flags
-        if not self.design.term_constraint:
-            self.generate_fragments: bool = False
-        else:
-            self.generate_fragments = True
-
-        if self.design.structure_background:
-            self.design.evolution_constraint = False
-            self.design.hbnet = False
-            self.design.scout = False
-            self.design.term_constraint = False
+        self.predict = Predict.from_flags(**kwargs)
 
     @property
     def construct_pose(self):

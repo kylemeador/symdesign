@@ -65,6 +65,9 @@ dock_arguments = {
     perturb_dof_steps, perturb_dof_steps_rot, perturb_dof_steps_tx, initial_z_value, match_value, min_matched,
     rotation_step1, rotation_step2
 }
+predict_arguments = {
+    method
+}
 
 
 def format_for_cmdline(flag: str):
@@ -1140,28 +1143,26 @@ for parser_name, parser_kwargs in input_parsers.items():
 # Separate the provided arguments for modules or overall program arguments to into flags namespaces
 design = {}
 """Contains all the arguments used in design and their default parameters"""
+dock = {}
+"""Contains all the arguments used in docking and their default parameters"""
+predict = {}
+"""Contains all the arguments used in structure prediction and their default parameters"""
 for group in parser._action_groups:
     for arg in group._group_actions:
-        if isinstance(arg, argparse._SubParsersAction):  # we have a sup parser, recurse
+        if isinstance(arg, argparse._SubParsersAction):  # We have a sup parser, recurse
             for name, sub_parser in arg.choices.items():
                 for sub_group in sub_parser._action_groups:
                     for arg in sub_group._group_actions:
                         if arg.dest in design_arguments:
                             design[arg.dest] = arg.default
+                        elif arg.dest in dock_arguments:
+                            dock[arg.dest] = arg.default
+                        elif arg.dest in predict_arguments:
+                            predict[arg.dest] = arg.default
 
         elif arg.dest in design_arguments:
             design[arg.dest] = arg.default
-
-dock = {}
-"""Contains all the arguments used in docking and their default parameters"""
-for group in parser._action_groups:
-    for arg in group._group_actions:
-        if isinstance(arg, argparse._SubParsersAction):  # we have a sup parser, recurse
-            for name, sub_parser in arg.choices.items():
-                for sub_group in sub_parser._action_groups:
-                    for arg in sub_group._group_actions:
-                        if arg.dest in dock_arguments:
-                            dock[arg.dest] = arg.default
-
-        elif arg.dest in design_arguments:
+        elif arg.dest in dock_arguments:
             dock[arg.dest] = arg.default
+        elif arg.dest in predict_arguments:
+            predict[arg.dest] = arg.default
