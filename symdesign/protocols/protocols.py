@@ -693,6 +693,8 @@ class PoseDirectory:
             except pickle.UnpicklingError as error:
                 print(f'ERROR {self.name}: There was an issue retrieving design state from binary file...')
                 raise error
+            # Make a copy for the checking of current state
+            self._info = self.info.copy()
             # Dev branch only
             # except ModuleNotFoundError as error:
             #     self.log.error('%s: There was an issue retrieving design state from binary file...' % self.name)
