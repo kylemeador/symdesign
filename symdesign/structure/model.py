@@ -4461,39 +4461,64 @@ class SymmetricModel(Models):
             epsilon: The distance measurement tolerance to find similar symmetric models to the oligomer
         """
         # number_of_atoms = self.number_of_atoms
-        for entity_symmetric_centers_of_mass, entity in zip(self.center_of_mass_symmetric_entities, self.entities):
+        for entity, entity_symmetric_centers_of_mass in zip(self.entities, self.center_of_mass_symmetric_entities):
             if not entity.is_oligomeric():
                 self._oligomeric_model_indices[entity] = []
                 continue
-            # need to slice through the specific Entity coords once we have the model
+            # Need to slice through the specific Entity coords once we have the model
             # entity_indices = entity.atom_indices
             # entity_start, entity_end = entity_indices[0], entity_indices[-1]
             # entity_length = entity.number_of_atoms
             # entity_center_of_mass_divisor = np.full(entity_length, 1 / entity_length)
             equivalent_models = []
             for chain in entity.chains:
-                # chain_length = chain.number_of_atoms
-                # chain_center_of_mass = np.matmul(np.full(chain_length, 1 / chain_length), chain.coords)
                 chain_center_of_mass = chain.center_of_mass
-                # print('Chain', chain_center_of_mass.astype(int))
                 for model_idx, sym_model_center_of_mass in enumerate(entity_symmetric_centers_of_mass):
                     # sym_model_center_of_mass = \
                     #     np.matmul(entity_center_of_mass_divisor,
                     #               self.symmetric_coords[model_idx*number_of_atoms + entity_start:
                     #                                     model_idx*number_of_atoms + entity_end + 1])
                     # #                                             have to add 1 for slice ^
-                    # print('Sym Model', sym_model_center_of_mass)
-                    # if np.allclose(chain_center_of_mass.astype(int), sym_model_center_of_mass.astype(int)):
-                    # if np.allclose(chain_center_of_mass, sym_model_center_of_mass):  # using np.rint()
                     if np.linalg.norm(chain_center_of_mass - sym_model_center_of_mass) < epsilon:
                         equivalent_models.append(model_idx)
                         break
+                    else:
+                        self.log.debug(f'Entity.chain/Sym-model{model_idx} center of mass overlap: '
+                                       f'{np.linalg.norm(chain_center_of_mass - sym_model_center_of_mass)}')
+                        self.log.debug(f'Entity.chain com: {chain_center_of_mass.astype(int)}')
+                        self.log.debug(f'Sym-model com: {sym_model_center_of_mass}')
 
             if len(equivalent_models) != len(entity.chains):
                 raise SymmetryError(f'The number of equivalent models ({len(equivalent_models)}) '
                                     f'!= the number of chains ({len(entity.chains)})')
 
             self._oligomeric_model_indices[entity] = equivalent_models
+            self.log.info(f'Masking {entity.name} coordinates from models '
+                          f'{",".join(map(str, equivalent_models))} due to specified oligomer')
+
+        # Todo
+        #  This version is viable for asymmetric coordinate, symmetric models
+        # number_of_atoms = self.number_of_atoms
+        # for entity in zip(self.entities):
+        #     if not entity.is_oligomeric():
+        #         self._oligomeric_model_indices[entity] = []
+        #         continue
+        #
+        #     # Prepare slice variables for Entity
+        #     entity_indices = entity.atom_indices
+        #     entity_start, entity_end = entity_indices[0], entity_indices[-1]
+        #     entity_length = entity.number_of_atoms
+        #     entity_center_of_mass_divisor = np.full(entity_length, 1 / entity_length)
+        #     equivalent_models = []
+        #     for chain in entity.chains:
+        #         chain_center_of_mass = chain.center_of_mass
+        #         # Slice through the symmetric coords for that coordinate representation of the Entity
+        #         for model_idx in range(self.number_symmetry_mates):
+        #             sym_model_center_of_mass = \
+        #                 np.matmul(entity_center_of_mass_divisor,
+        #                           self.symmetric_coords[model_idx*number_of_atoms + entity_start:
+        #                                                 1 + model_idx*number_of_atoms + entity_end])
+        #             #                                             have to add 1 for slice ^
 
     def get_asu_interaction_model_indices(self, calculate_contacts: bool = True, distance: float = 8., **kwargs) ->\
             list[int]:
@@ -6362,7 +6387,8 @@ class Pose(SymmetricModel):
         Returns:
             A list of interface residue numbers across the interface
         """
-        self.log.debug(f'Entity {entity1.name} | Entity {entity2.name} interface query')
+        entity1_name = entity1.name
+        self.log.debug(f'Entity {entity1_name} | Entity {entity2.name} interface query')
         # Get CB Atom Coordinates including CA coordinates for Gly residues
         entity1_indices = entity1.cb_indices
         entity2_indices = entity2.cb_indices
@@ -6383,9 +6409,6 @@ class Pose(SymmetricModel):
             if entity1 == entity2:  # We don't want symmetry interactions with the asu model or intra-oligomeric models
                 if entity1.is_oligomeric():  # Remove oligomeric protomers (contains asu)
                     remove_indices = self.get_oligomeric_atom_indices(entity1)
-                    self.log.info(f'Removing indices from models '
-                                  f'{", ".join(map(str, self.oligomeric_model_indices.get(entity1)))} '
-                                  f'due to specified oligomer')
                     self.log.debug(f'Removing {len(remove_indices)} indices from symmetric query due to oligomer')
                 else:  # Just remove asu
                     remove_indices = self.get_asu_atom_indices()
