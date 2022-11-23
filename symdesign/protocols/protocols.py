@@ -3286,7 +3286,7 @@ class PoseDirectory:
             number: The number of sequences to consider for each design
             protocols: Whether particular design protocol(s) should be chosen
         Returns:
-            The selected sequences found
+            The selected designs for the Pose trajectories
         """
         # Load relevant data from the design directory
         trajectory_df = pd.read_csv(self.trajectories, index_col=0, header=[0])
@@ -3308,15 +3308,12 @@ class PoseDirectory:
             self.log.info(f'Using filter parameters: {filters}')
             # Filter the DataFrame to include only those values which are le/ge the specified filter
             filtered_designs = index_intersection(filter_df_for_index_by_value(df, filters).values())
-            df = trajectory_df.loc[filtered_designs, :]
+            df = df.loc[filtered_designs, :]
 
         if weights:
             # No filtering of protocol/indices to use as poses should have similar protocol scores coming in
             self.log.info(f'Using weighting parameters: {weights}')
-            design_list = rank_dataframe_by_metric_weights(df, weights=weights, **kwargs).index.to_list()
-            self.log.info(f'Final ranking of trajectories:\n{", ".join(pose for pose in design_list)}')
-
-            return design_list[:number]
+            designs = rank_dataframe_by_metric_weights(df, weights=weights, **kwargs).index.to_list()
         else:
             # sequences_pickle = glob(os.path.join(self.job.all_scores, '%s_Sequences.pkl' % str(self)))
             # assert len(sequences_pickle) == 1, 'Couldn\'t find files for %s' % \
@@ -3396,13 +3393,15 @@ class PoseDirectory:
 
             # If final designs contains more sequences than specified, find the one with the lowest energy
             if len(final_designs) > number:
-                energy_s = trajectory_df.loc[final_designs.keys(), 'interface_energy']
+                energy_s = df.loc[final_designs.keys(), 'interface_energy']
                 energy_s.sort_values(inplace=True)
-                final_seqs = energy_s.index.to_list()[:number]
+                designs = energy_s.index.to_list()
             else:
-                final_seqs = list(final_designs.keys())
+                designs = list(final_designs.keys())
 
-            return final_seqs
+        designs = designs[:number]
+        self.log.info(f'Final ranking of trajectories:\n{", ".join(design for design in designs)}')
+        return designs
 
     # handle_design_errors = staticmethod(handle_design_errors)
     # close_logs = staticmethod(close_logs)
