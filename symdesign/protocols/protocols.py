@@ -1305,12 +1305,14 @@ class PoseDirectory:
         match self.job.predict.method:
             case 'thread':
                 self.thread_sequences_to_backbone()  # self.designed_sequences)
+            case 'proteinmpnn':
+                self.thread_sequences_to_backbone()  # self.designed_sequences)
             # Todo
             #  case 'alphafold':
             #      self.run_alphafold()
             case other:
                 raise NotImplementedError(f"For {self.predict_structure.__name__}, the method {self.job.predict.method}"
-                                          f"isn't implemented yet")
+                                          " isn't implemented yet")
 
     def thread_sequences_to_backbone(self, sequences: dict[str, str] = None):
         """From the starting Pose, thread sequences onto the backbone, modifying relevant side chains i.e., mutate the
