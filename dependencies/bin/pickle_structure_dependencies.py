@@ -18,7 +18,7 @@ def create_fragment_db_from_raw_files(source: AnyStr) -> FragmentDatabase:
         The loaded FragmentDatabase
     """
     fragment_db = FragmentDatabase(source=source, fragment_length=5)  # Todo dynamic...
-    logger.info(f'Initializing {source} FragmentDatabase from disk at {fragment_db.cluster_representatives_path}. '
+    logger.info(f'Initializing FragmentDatabase({source}) from disk at {fragment_db.cluster_representatives_path}. '
                 f'This may take awhile...')
     # self.get_monofrag_cluster_rep_dict()
     fragment_db.representatives = \
