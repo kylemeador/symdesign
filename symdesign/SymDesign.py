@@ -403,19 +403,18 @@ def main():
     # -----------------------------------------------------------------------------------------------------------------
     #  Initialize local functions
     # -----------------------------------------------------------------------------------------------------------------
-    def parse_protocol_results(_results: list[Any] | dict = None, **kwargs):
-        """For a multi-module protocol, filter out any exceptions before proceeding to the next module
+    def parse_protocol_results(jobs: list[Any] = None, _results: list[Any] | dict = None, **kwargs):
+        """For a multimodule protocol, filter out any exceptions before proceeding to the next module
 
+        Args:
+            jobs: Separate items of work to undertake
+            _results: The returned values from the jobs
         Returns:
             Tuple of passing PoseDirectories and Exceptions
         """
-        _pose_directories = \
-            [pose_directories[idx] for idx, result in enumerate(_results) if
-             not isinstance(result, BaseException)]
-        _exceptions = \
-            [(pose_directories[idx], exception) for idx, exception in enumerate(_results)
-             if isinstance(exception, BaseException)]
-        return _pose_directories, _exceptions
+        _exceptions = [(jobs.pop(idx), _results[idx]) for idx, exception in enumerate(_results)
+                       if isinstance(exception, BaseException)]
+        return jobs, _exceptions
 
     def terminate(results: list[Any] | dict = None, output: bool = True, **kwargs):
         """Format designs passing output parameters and report program exceptions
@@ -1365,7 +1364,7 @@ def main():
 
             # Update the current state of protocols and exceptions
             terminate_kwargs.update(terminate_options.get(protocol_name))
-            pose_directories, additional_exceptions = parse_protocol_results(results)
+            pose_directories, additional_exceptions = parse_protocol_results(pose_directories, results)
             exceptions.extend(additional_exceptions)
 
         terminate(results=results, **terminate_kwargs, exceptions=exceptions)
