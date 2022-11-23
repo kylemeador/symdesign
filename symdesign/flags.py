@@ -986,25 +986,25 @@ module_subargparser = dict(title=f'{"_" * len(module_title)}\n{module_title}', d
                                        f'\n{submodule_guide}\n\nTo get help with Module arguments enter:'
                                        f'\n{submodule_help}')
 module_required = ['nanohedra_mutual1']
-# for all parsing of module arguments
+# For all parsing of module arguments
 subparsers = argparsers[parser_module].add_subparsers(**module_subargparser)  # required=True,
-# for parsing of guide info
+# For parsing of guide info
 argparsers[parser_guide].add_argument(*guide_args, **guide_kwargs)
 argparsers[parser_guide].add_argument(*setup_args, **setup_kwargs)
 guide_subparsers = argparsers[parser_guide].add_subparsers(**module_subargparser)
 module_suparsers: dict[str, argparse.ArgumentParser] = {}
 for parser_name, parser_kwargs in module_parsers.items():
     arguments = parser_arguments.get(parser_name, {})
-    # has args as dictionary key (flag names) and keyword args as dictionary values (flag params)
-    if 'mutual' in parser_name:  # we must create a mutually_exclusive_group from already formed subparser
+    # Has args as dictionary key (flag names) and keyword args as dictionary values (flag params)
+    if 'mutual' in parser_name:  # We must create a mutually_exclusive_group from already formed subparser
         # Remove indication to "mutual" of the argparse group by removing any string after "_mutual"
         exclusive_parser = module_suparsers[parser_name[:parser_name.find('_mutual')]].\
             add_mutually_exclusive_group(**parser_kwargs, **(dict(required=True) if parser_name in module_required
                                                              else {}))
-        # add the key word argument "required" to mutual parsers that use it ^
+        # Add the key word argument "required" to mutual parsers that use it ^
         for args, kwargs in arguments.items():
             exclusive_parser.add_argument(*args, **kwargs)
-    else:  # save the subparser in a dictionary to access with mutual groups
+    else:  # Save the subparser in a dictionary to access with mutual groups
         module_suparsers[parser_name] = subparsers.add_parser(prog=module_usage_str % parser_name,
                                                               # prog=f'python SymDesign.py %(name) '
                                                               #      f'[input_arguments] [optional_arguments]',
@@ -1012,7 +1012,7 @@ for parser_name, parser_kwargs in module_parsers.items():
                                                               name=parser_name, **parser_kwargs[parser_name])
         for args, kwargs in arguments.items():
             module_suparsers[parser_name].add_argument(*args, **kwargs)
-        # add each subparser to a guide_subparser as well
+        # Add each subparser to a guide_subparser as well
         guide_subparser = guide_subparsers.add_parser(name=parser_name, add_help=False, **parser_kwargs[parser_name])
         guide_subparser.add_argument(*guide_args, **guide_kwargs)
 
@@ -1028,9 +1028,9 @@ option_group = None
 for parser_name, parser_kwargs in option_parsers.items():
     arguments = parser_arguments.get(parser_name, {})
     if arguments:
-        # has args as dictionary key (flag names) and keyword args as dictionary values (flag params)
+        # Has args as dictionary key (flag names) and keyword args as dictionary values (flag params)
         # There are no 'mutual' right now
-        if 'mutual' in parser_name:  # only has a dictionary as parser_arguments
+        if 'mutual' in parser_name:  # Only has a dictionary as parser_arguments
             exclusive_parser = option_group.add_mutually_exclusive_group(**parser_kwargs)
             for args, kwargs in arguments.items():
                 exclusive_parser.add_argument(*args, **kwargs)
@@ -1044,9 +1044,9 @@ residue_selector_group = None
 for parser_name, parser_kwargs in residue_selector_parsers.items():
     arguments = parser_arguments.get(parser_name, {})
     if arguments:
-        # has args as dictionary key (flag names) and keyword args as dictionary values (flag params)
+        # Has args as dictionary key (flag names) and keyword args as dictionary values (flag params)
         # There are no 'mutual' right now
-        if 'mutual' in parser_name:  # only has a dictionary as parser_arguments
+        if 'mutual' in parser_name:  # Only has a dictionary as parser_arguments
             exclusive_parser = residue_selector_group.add_mutually_exclusive_group(**parser_kwargs)
             for args, kwargs in arguments.items():
                 exclusive_parser.add_argument(*args, **kwargs)
@@ -1056,10 +1056,10 @@ for parser_name, parser_kwargs in residue_selector_parsers.items():
 
 # Set up input ArgumentParser with input arguments
 parser = argparsers[parser_input]
-input_group = None  # must get added before mutual groups can be added
+input_group = None  # Must get added before mutual groups can be added
 for parser_name, parser_kwargs in input_parsers.items():
     arguments = parser_arguments.get(parser_name, {})
-    if 'mutual' in parser_name:  # only has a dictionary as parser_arguments
+    if 'mutual' in parser_name:  # Only has a dictionary as parser_arguments
         exclusive_parser = input_group.add_mutually_exclusive_group(required=True, **parser_kwargs)
         for args, kwargs in arguments.items():
             exclusive_parser.add_argument(*args, **kwargs)
