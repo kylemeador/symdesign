@@ -2050,8 +2050,9 @@ class PoseDirectory:
                                        )
         design_names = [f'{self.name}_{self.protocol}{seq_idx:04d}'
                         for seq_idx in range(len(sequences_and_scores['sequences']))]
+        # sequences_and_scores['sequences'] = sequences_and_scores['sequences']
         self.output_proteinmpnn_scores(design_names, sequences_and_scores)
-        write_sequences(sequences_and_scores['sequences'], file_name=self.designed_sequences_file)
+        write_sequences(sequences_and_scores['sequences'], names=design_names, file_name=self.designed_sequences_file)
         if self.job.design.structures:
             self.predict_structure()
 
