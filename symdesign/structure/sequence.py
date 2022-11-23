@@ -3083,13 +3083,13 @@ def write_sequences(sequences: Sequence | dict[str, Sequence], names: Sequence =
             # elif isinstance(sequences[0], str):  # likely 3 aa format...
             #     outfile.write(f'>{name}\n{" ".join(sequences)}\n')
             else:
-                raise TypeError(f'{write_sequences.__name__} Cannot parse data to make fasta')
+                raise TypeError(f"{write_sequences.__name__} Can't parse data to make fasta")
         elif isinstance(sequences, dict):
             formatted_sequence_gen = (f'{start}{name}{sep}{"".join(seq)}' for name, seq in sequences.items())
         elif isinstance(names, str):  # assume sequences is a str or tuple
             formatted_sequence_gen = (f'{start}{names}{sep}{"".join(sequences)}\n',)
         else:
-            raise TypeError(f'{write_sequences.__name__} Cannot parse data to make fasta')
+            raise TypeError(f"{write_sequences.__name__} Can't parse data to make fasta")
         outfile.write('%s\n' % '\n'.join(formatted_sequence_gen))
 
     return file_name
