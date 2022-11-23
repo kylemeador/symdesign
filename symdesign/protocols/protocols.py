@@ -420,6 +420,8 @@ class PoseDirectory:
         try:
             return self._designed_sequences
         except AttributeError:
+            # Todo
+            #  self._designed_sequences = {seq.id: seq.seq for seq in read_fasta_file(self.designed_sequences_file)}
             self._designed_sequences = [seq_record.seq for seq_record in read_fasta_file(self.designed_sequences_file)]
             return self._designed_sequences
 
@@ -1898,6 +1900,7 @@ class PoseDirectory:
             self._refine()
 
         putils.make_path(self.designs)
+        # putils.make_path(self.data)
         match self.job.design.method:
             case putils.rosetta_str:
                 # Write generated files
@@ -2053,7 +2056,9 @@ class PoseDirectory:
         design_names = [f'{self.name}_{self.protocol}{seq_idx:04d}'
                         for seq_idx in range(len(sequences_and_scores['sequences']))]
         # sequences_and_scores['sequences'] = sequences_and_scores['sequences']
+        putils.make_path(self.designs)
         self.output_proteinmpnn_scores(design_names, sequences_and_scores)
+        putils.make_path(self.data)
         write_sequences(sequences_and_scores['sequences'], names=design_names, file_name=self.designed_sequences_file)
         if self.job.design.structures:
             self.predict_structure()

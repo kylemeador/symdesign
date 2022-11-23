@@ -2954,7 +2954,7 @@ def generate_sequences(wild_type_sequences, all_design_mutations):
     return mutated_sequences
 
 
-@sdutils.handle_errors(errors=(FileNotFoundError,))
+# @sdutils.handle_errors(errors=(FileNotFoundError,))
 def read_fasta_file(file_name: AnyStr, **kwargs) -> Iterable[SeqRecord]:
     """Opens a fasta file and return a parser object to load the sequences to SeqRecords
 
