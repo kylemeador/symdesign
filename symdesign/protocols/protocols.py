@@ -168,7 +168,7 @@ class PoseDirectory:
         # Symmetry attributes
         # self.cryst_record = None
         # self.expand_matrices = None
-        self.pose_transformation = None
+        # self.pose_transformation = None
         # Todo monitor if Rosetta energy mechanisms are modified for crystal set ups and adjust parameter accordingly
         # If a new sym_entry is provided it wouldn't be saved to the state
         if self.job.sym_entry is not None:
