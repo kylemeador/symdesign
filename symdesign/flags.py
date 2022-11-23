@@ -1166,3 +1166,5 @@ for group in parser._action_groups:
             dock[arg.dest] = arg.default
         elif arg.dest in predict_arguments:
             predict[arg.dest] = arg.default
+
+predict[method] = design[method]  # Also in design...
