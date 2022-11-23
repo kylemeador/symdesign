@@ -369,8 +369,9 @@ class PoseDirectory:
             # Starts self.log if not self.job.nanohedra_output
             self.find_entity_names()  # Sets self.entity_names
         else:
+            input(f'Stopped here with: self.initialized({self.initialized}) self.entity_names({self.entity_names})'
+                  f'bool? {not self.initialized and not self.entity_names}')
             self.entity_names = self.info.get('entity_names', [])  # Set so that DataBase set up works
-            input(f'Stopped here with: {self.entity_names}')
 
         # Configure standard pose loading mechanism with self.source
         if self.specific_designs:
