@@ -451,8 +451,8 @@ nanohedra_arguments = {
                                          help='Used to write fragment information to a directory for C1 based docking'),
     output_directory_args:
         dict(type=os.path.abspath, default=None,
-             help='Where should the output be written?\nDefault=%s'
-             % ex_path(program_output, projects, 'NanohedraEntry[ENTRYNUMBER]DockedPoses')),
+             help='Where should the output be written?\nDefault='
+                  f'{ex_path(program_output, projects, "NanohedraEntry[ENTRYNUMBER]_[BUILDING-BLOCKS]_Poses")}'),
     (f'--{perturb_dof}',): dict(action=argparse.BooleanOptionalAction, default=False,
                                 help='Whether the degrees of freedom should be finely sampled during\n by perturbing '
                                      'found transformations and repeating docking iterations'),

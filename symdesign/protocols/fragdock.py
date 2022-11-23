@@ -298,7 +298,7 @@ def nanohedra_dock(model1: Structure | AnyStr, model2: Structure | AnyStr, **kwa
     sym_entry: SymEntry = job.sym_entry
     entry_string = f'NanohedraEntry{sym_entry.entry_number}'
     building_blocks = '-'.join(model.name for model in models)
-    entry_and_building_blocks = f'{entry_string}-{building_blocks}_{putils.pose_directory}'
+    entry_and_building_blocks = f'{entry_string}_{building_blocks}_{putils.pose_directory}'
     out_dir = os.path.join(job.projects, entry_and_building_blocks)
     putils.make_path(out_dir)
 
