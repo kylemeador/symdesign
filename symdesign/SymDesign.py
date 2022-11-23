@@ -1161,7 +1161,7 @@ def main():
         # Todo make current with sql ambitions
         # Make master output directory. sym_entry is required, so this won't fail v
         if args.output_directory is None:
-            # job.output_directory = os.path.join(job.projects, f'NanohedraEntry{sym_entry.entry_number}DockedPoses')
+            # job.output_directory = os.path.join(job.projects, f'NanohedraEntry{sym_entry.entry_number}_BUILDING-BLOCKS_Poses')
             job.output_directory = job.projects
             os.makedirs(job.output_directory, exist_ok=True)
         # Transform input entities to canonical orientation and return their ASU
@@ -1328,31 +1328,8 @@ def main():
     # exceptions = []
     # ---------------------------------------------------
     if job.module == flags.protocol:
-        allowed_for = [
-            # 'find_asu',
-            flags.orient,
-            flags.expand_asu,
-            flags.rename_chains,
-            flags.check_clashes,
-            flags.generate_fragments,
-            flags.nanohedra,
-            flags.interface_metrics,
-            flags.optimize_designs,
-            flags.refine,
-            flags.interface_design,
-            flags.analysis,
-
-        ]
-        disallowed_for = [
-            # 'custom_script',
-            flags.cluster_poses,
-            flags.select_poses,
-            flags.select_sequences,
-            flags.select_designs,  # As alias for select_sequences with --skip-sequence-generation
-        ]
         terminate_options = dict(
             # analysis=dict(output_analysis=args.output),  # Replaced with args.output in terminate()
-
         )
         # Universal protocol runner
         terminate_kwargs = {}
