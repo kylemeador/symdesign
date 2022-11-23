@@ -105,6 +105,7 @@ class PoseProtocol:
 class PoseDirectory:
     _design_selector = dict[str, dict[str, dict[str, set[int] | set[str]]]] | dict
     _designed_sequences = list[Sequence]
+    _entity_names = list[str]
     _fragment_observations = list[fragment_info_type]
     _pose_transformation = list  # list[transformation_mapping]):  # Todo why won't this import
     _symmetry_definition_files: list[AnyStr]
@@ -189,9 +190,6 @@ class PoseDirectory:
         """Internal state info"""
         self._info: dict = {}
         """Internal state info at load time"""
-        entity_names = kwargs.get('entity_names', [])
-        if entity_names:
-            self.info['entity_names'] = self.entity_names = entity_names
         # self.interface_design_residue_numbers: set[int] | bool = False  # The residue numbers in the pose interface
         # self.interface_residue_ids: dict[str, str] = {}
         # {'interface1': '23A,45A,46A,...' , 'interface2': '234B,236B,239B,...'}
@@ -572,6 +570,23 @@ class PoseDirectory:
     #         self.info.pop('pose_transformation')
     #     except AttributeError:
     #         pass
+
+    @property
+    def entity_names(self) -> list[str]:
+        """Provide the names of all Entity instances in the PoseDirectory"""
+        try:
+            return self._entity_names
+        except AttributeError:
+            # Get the names from the pose state
+            self._entity_names = self.info.get('entity_names', [])
+            return self._entity_names
+
+    @entity_names.setter
+    def entity_names(self, names: list):  # list[transformation_mapping]):  # Todo why won't this import
+        if isinstance(names, list):
+            self._entity_names = self.info['entity_names'] = names
+        else:
+            raise ValueError(f'The attribute entity_names must be a list, not {type(names)}')
 
     @property
     def pose_transformation(self) -> list[dict[str, np.ndarray]]:
