@@ -894,7 +894,6 @@ def main():
     all_poses: list[AnyStr] | None = None
     pose_directories: list[PoseDirectory] = []
     location: str | None = None
-    structure_pairs = None  # all_dock_directories
     low = high = low_range = high_range = None
     initial_refinement = initial_loop_model = None  # set below if needed
     # Start with the assumption that we aren't loading resources
@@ -1254,16 +1253,18 @@ def main():
         # for entity in [entity for structure in all_structures for entity in structure.entities]:
         #     entity.make_oligomer(symmetry=entity.symmetry)
 
-        # Make all possible structure_pairs given input entities by finding entities from entity_names
+        # Make all possible structure pairs given input entities by finding entities from entity_names
         structures1 = []
         for structure_name in structure_names1:
             for structure in all_structures:
                 if structure_name in structure.name:
                     structures1.append(structure)
+
+        # Using combinations of directories with .pdb files
         if single_component_design:
             # structures1 = [entity for entity in all_entities if entity.name in structures1]
             # ^ doesn't work as entity_id is set in orient_structures, but structure name is entry_id
-            structure_pairs = list(combinations(structures1, 2))
+            pose_directories = list(combinations(structures1, 2))
         else:
             structures2 = []
             for structure_name in structure_names2:
@@ -1274,9 +1275,9 @@ def main():
             # v doesn't work as entity_id is set in orient_structures, but structure name is entry_id
             # structures1 = [entity for entity in all_entities if entity.name in structures1]
             # structures2 = [entity for entity in all_entities if entity.name in structures2]
-            structure_pairs = list(product(structures1, structures2))
+            pose_directories = list(product(structures1, structures2))
 
-        if not structure_pairs:  # No pairs were located
+        if not pose_directories:  # No pairs were located
             exit('No docking pairs were located from your input. Please ensure that your input flags are as intended! '
                  f'{putils.issue_submit_warning}')
 
@@ -1476,16 +1477,14 @@ def main():
 
             commands = [cmd + [f'-{putils.nano_entity_flag1}', model1.file_path,
                                f'-{putils.nano_entity_flag2}', model2.file_path]
-                        + (['-initial'] if idx == 0 else []) for idx, (model1, model2) in enumerate(structure_pairs)]
+                        + (['-initial'] if idx == 0 else []) for idx, (model1, model2) in enumerate(pose_directories)]
             terminate(results=commands)
         else:
             if args.multi_processing:
-                zipped_args = zip(*zip(*structure_pairs))
-                results = utils.mp_starmap(protocols.fragdock.nanohedra_dock, zipped_args, processes=job.cores)
-            else:  # using combinations of directories with .pdb files
-                for model1, model2 in structure_pairs:
-                    # result = None
-                    protocols.fragdock.nanohedra_dock(model1, model2)
+                results = utils.mp_starmap(protocols.fragdock.nanohedra_dock, pose_directories, processes=job.cores)
+            else:
+                for pair in pose_directories:
+                    protocols.fragdock.nanohedra_dock(*pair)
                     # results.append(result)  # DONT need. Results uses pose_directories. There are none and no output
             terminate(results=results, output=False)
     # ---------------------------------------------------
