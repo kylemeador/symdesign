@@ -13,8 +13,8 @@ from symdesign.structure.sequence import read_fasta_file  # Todo refactor to str
 from symdesign.resources import structure_db, wrapapi
 from symdesign.structure.fragment import db
 from symdesign import flags
-from symdesign.utils import calculate_mp_cores, clean_comma_separated_string, CommandDistributer, format_index_string,\
-    SymEntry, path as putils
+from symdesign.utils import calculate_mp_cores, clean_comma_separated_string, CommandDistributer, format_index_string, \
+    SymEntry, InputError, path as putils
 
 logger = logging.getLogger(__name__)
 
@@ -205,6 +205,8 @@ class JobResources:
         # putils.make_path(self.pdb_assembly_api)
         putils.make_path(self.uniprot_api)
         self.module: str = kwargs.get(flags.module)
+        self.modules: str = kwargs.get(flags.modules)
+        self.check_module_arguments()
         # self.reduce_memory = False
         self.api_db = wrapapi.api_database_factory.get(source=self.data)
         self.structure_db = structure_db.structure_database_factory.get(source=self.data)
@@ -341,6 +343,56 @@ class JobResources:
             pass
         else:  # No construction specific flags
             self.write_fragments = self.write_oligomers = False
+
+    def check_module_arguments(self):
+        """Given provided modules for the 'protocol' module, check to ensure the work is adequate
+
+        Raises:
+            InputError if the inputs are found to be incompatible
+        """
+        if self.module == flags.protocol:
+            allowed_modules = [
+                # 'find_asu',
+                flags.orient,
+                flags.expand_asu,
+                flags.rename_chains,
+                flags.check_clashes,
+                flags.generate_fragments,
+                flags.nanohedra,
+                flags.interface_metrics,
+                flags.optimize_designs,
+                flags.refine,
+                flags.interface_design,
+                flags.analysis,
+
+            ]
+            disallowed_modules = [
+                # 'custom_script',
+                flags.cluster_poses,
+                flags.select_poses,
+                flags.select_sequences,
+                flags.select_designs,  # As alias for select_sequences with --skip-sequence-generation
+            ]
+            problematic_modules = []
+            not_recognized_modules = []
+            for idx, module in enumerate(self.modules):
+                if module in disallowed_modules:
+                    problematic_modules.append(module)
+                elif module in allowed_modules:
+                    if idx > 0 and module == flags.nanohedra:
+                        raise InputError(f"For {flags.protocol} module, {flags.nanohedra} can only be run as module 1")
+                else:
+                    not_recognized_modules.append(module)
+
+            if not_recognized_modules:
+                raise InputError(f'For {flags.protocol} module, the --{flags.modules} '
+                                 f'{", ".join(not_recognized_modules)} are not recognized modules. See'
+                                 f'\n{putils.symdesign_help}\nfor available module names')
+
+            if problematic_modules:
+                raise InputError(f'For {flags.protocol} module, the --{flags.modules} '
+                                 f'{", ".join(problematic_modules)} are not possible modules\n'
+                                 f'Allowed modules are {", ".join(allowed_modules)}')
 
     def report_specified_arguments(self, arguments: argparse.Namespace) -> dict[str, Any]:
         """Filter all flags for only those that were specified as different on the command line
