@@ -1304,6 +1304,9 @@ class PoseDirectory:
     @remove_structure_memory
     def predict_structure(self):
         """From a sequence input, predict the structure using one of various structure prediction pipelines"""
+        self._predict_structure()
+
+    def _predict_structure(self):
         match self.job.predict.method:
             case 'thread':
                 self.thread_sequences_to_backbone()  # self.designed_sequences)
@@ -1358,7 +1361,7 @@ class PoseDirectory:
         else:
             raise DesignError(f'No designed sequences were provided to {self.thread_sequences_to_backbone.__name__}')
 
-        self._refine(in_file_list=design_files_file)
+        self._refine(in_file_list=design_files_file, gather_metrics=True)
 
     def _refine(self, to_pose_directory: bool = True, gather_metrics: bool = False, in_file_list: AnyStr = None):
         """Refine the source PDB using self.symmetry to specify any symmetry
@@ -2061,7 +2064,7 @@ class PoseDirectory:
         putils.make_path(self.data)
         write_sequences(sequences_and_scores['sequences'], names=design_names, file_name=self.designed_sequences_file)
         if self.job.design.structures:
-            self.predict_structure()
+            self._predict_structure()
 
     def output_proteinmpnn_scores(self, design_ids: Sequence[str], sequences_and_scores: dict[str, np.ndarray | list]):
         """Given the results of a ProteinMPNN design trajectory, format the sequences and scores for the PoseDirectory

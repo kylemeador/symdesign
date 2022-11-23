@@ -199,7 +199,7 @@ def main():
                     # def default_designs_file():
                     putils.make_path(job_paths)
                     scratch_designs = os.path.join(job_paths,
-                                                   putils.default_path_file.format(default_output_tuple)).split(
+                                                   putils.default_path_file.format(*default_output_tuple)).split(
                         '_pose')
                     #     return f'{scratch_designs[0]}_pose{scratch_designs[-1]}'
                     designs_file = f'{scratch_designs[0]}_pose{scratch_designs[-1]}'
