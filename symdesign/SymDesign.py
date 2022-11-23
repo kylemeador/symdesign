@@ -424,20 +424,23 @@ def main():
             output: Whether the module used requires a file to be output
         """
         # Save any information found during the command to it's serialized state
-        for design in pose_directories:
-            design.pickle_info()
+        try:
+            for design in pose_directories:
+                design.pickle_info()
+        except AttributeError:  # This isn't a PoseDirectory. Likely is a nanohedra job
+            pass
 
         exceptions = kwargs.get('exceptions', [])
         if results:
-            if pose_directories:  # pose_directories is empty list when nanohedra
-                success = \
-                    [pose_directories[idx] for idx, result in enumerate(results) if
-                     not isinstance(result, BaseException)]
-                exceptions += \
-                    [(pose_directories[idx], exception) for idx, exception in enumerate(results)
-                     if isinstance(exception, BaseException)]
-            else:  # Set nanohedra results as success
-                success = results
+            # if pose_directories:  # pose_directories is empty list when nanohedra
+            success = \
+                [pose_directories[idx] for idx, result in enumerate(results) if
+                 not isinstance(result, BaseException)]
+            exceptions += \
+                [(pose_directories[idx], exception) for idx, exception in enumerate(results)
+                 if isinstance(exception, BaseException)]
+            # else:  # Set nanohedra results as success
+            #     success = results
         else:
             success = []
 
@@ -492,7 +495,7 @@ def main():
                     pass
 
             # Make single file with names of each directory where all_docked_poses can be found
-            if pose_directories and output_analysis:  # pose_directories is empty list when nanohedra
+            if output_analysis:
                 if designs_file is None:
                     # def default_designs_file():
                     putils.make_path(job_paths)
@@ -557,17 +560,17 @@ def main():
 
                 putils.make_path(job.sbatch_scripts)
                 putils.make_path(job_paths)
-                if pose_directories:
-                    command_file = utils.write_commands([os.path.join(des.scripts, f'{stage}.sh') for des in success],
-                                                        out_path=job_paths, name='_'.join(default_output_tuple))
-                    sbatch_file = utils.CommandDistributer.distribute(file=command_file, out_path=job.sbatch_scripts,
-                                                                      scale=job.module)
-                    #                                                                        ^ for sbatch template
-                else:  # pose_directories is empty list when nanohedra, use success as the commands holder
-                    command_file = utils.write_commands([list2cmdline(cmd) for cmd in success], out_path=job_paths,
-                                                        name='_'.join(default_output_tuple))
-                    sbatch_file = utils.CommandDistributer.distribute(file=command_file, out_path=job.sbatch_scripts,
-                                                                      scale=job.module, number_of_commands=len(success))
+                # if pose_directories:
+                command_file = utils.write_commands([os.path.join(des.scripts, f'{stage}.sh') for des in success],
+                                                    out_path=job_paths, name='_'.join(default_output_tuple))
+                sbatch_file = utils.CommandDistributer.distribute(file=command_file, out_path=job.sbatch_scripts,
+                                                                  scale=job.module)
+                #                                                                        ^ for sbatch template
+                # else:  # pose_directories is empty list when nanohedra, use success as the commands holder
+                #     command_file = utils.write_commands([list2cmdline(cmd) for cmd in success], out_path=job_paths,
+                #                                         name='_'.join(default_output_tuple))
+                #     sbatch_file = utils.CommandDistributer.distribute(file=command_file, out_path=job.sbatch_scripts,
+                #                                                       scale=job.module, number_of_commands=len(success))
                 logger.critical(sbatch_warning)
 
                 global initial_refinement
