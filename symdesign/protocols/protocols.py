@@ -38,7 +38,7 @@ from symdesign.metrics import read_scores, interface_composition_similarity, unn
 from symdesign.resources.job import job_resources_factory
 from symdesign.structure.base import Structure
 from symdesign.structure.fragment.db import FragmentDatabase, fragment_info_type
-from symdesign.structure.model import Pose, MultiModel, Models, Model, Entity, transformation_mapping
+from symdesign.structure.model import Pose, MultiModel, Models, Model, Entity  # Todo no import transformation_mapping ?
 from symdesign.structure.sequence import generate_mutations_from_reference, sequence_difference, \
     MultipleSequenceAlignment, pssm_as_array, concatenate_profile, write_pssm_file, read_fasta_file, write_sequences
 from symdesign.structure.utils import protein_letters_3to1, protein_letters_1to3, DesignError, ClashError, SymmetryError
@@ -106,7 +106,7 @@ class PoseDirectory:
     _design_selector = dict[str, dict[str, dict[str, set[int] | set[str]]]] | dict
     _designed_sequences = list[Sequence]
     _fragment_observations = list[fragment_info_type]
-    _pose_transformation = list[transformation_mapping]
+    _pose_transformation = list  # list[transformation_mapping]):  # Todo why won't this import
     _symmetry_definition_files: list[AnyStr]
     directives: list[dict[int, str]]
     entities: list[Entity]
@@ -591,7 +591,7 @@ class PoseDirectory:
             return self._pose_transformation
 
     @pose_transformation.setter
-    def pose_transformation(self, transform: list[transformation_mapping]):
+    def pose_transformation(self, transform: list):  # list[transformation_mapping]):  # Todo why won't this import
         if isinstance(transform, list):
             self._pose_transformation = self.info['pose_transformation'] = transform
         else:
