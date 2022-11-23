@@ -259,17 +259,17 @@ def create_perturbation_transformations(sym_entry: SymEntry, rotation_number: in
     return perturbation_mapping
 
 
-def nanohedra_dock(model1: Structure | AnyStr, model2: Structure | AnyStr, **kwargs) \
-        -> list[protocols.PoseDirectory] | list:
-    """
-    Perform the fragment docking routine described in Laniado, Meador, & Yeates, PEDS. 2021
+def nanohedra_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protocols.PoseDirectory] | list:
+    # model1: Structure | AnyStr, model2: Structure | AnyStr,
+    """Perform the fragment docking routine described in Laniado, Meador, & Yeates, PEDS. 2021
 
     Args:
-        model1: The first Structure to be used in docking
-        model2: The second Structure to be used in docking
+        models: The Structures to be used in docking
     Returns:
         The resulting Poses satisfying docking criteria
     """
+    #  model1: The first Structure to be used in docking
+    #  model2: The second Structure to be used in docking
     #  sym_entry: The SymmetryEntry object describing the material
     #  rotation_step1: The number of degrees to increment the rotational degrees of freedom search
     #  rotation_step2: The number of degrees to increment the rotational degrees of freedom search
@@ -285,12 +285,10 @@ def nanohedra_dock(model1: Structure | AnyStr, model2: Structure | AnyStr, **kwa
     frag_dock_time_start = time.time()
 
     # Get Building Blocks in pose format to remove need for fragments to use chain info
-    if not isinstance(model1, Structure):
-        model1 = Model.from_file(model1)
-    if not isinstance(model2, Structure):
-        model2 = Model.from_file(model2)
-
-    models = [model1, model2]
+    models = list(models)
+    for idx, model in enumerate(models):
+        if not isinstance(model, Structure):
+            models[idx] = Model.from_file(model)
 
     # Set up output mechanism
     # Retrieve symjob.JobResources for all flags
