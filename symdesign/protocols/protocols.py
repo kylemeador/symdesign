@@ -243,7 +243,7 @@ class PoseDirectory:
                 # design_symmetry/building_blocks (P432/4ftd_5tch)
                 # path/to/[design_symmetry]/building_blocks/degen/rot/tx
                 root = path_components[-5] if root is None else root
-                self.source = os.path.join(self.source_path, putils.asu_file_name)
+                self.source = os.path.join(self.source_path, putils.asu)
             else:  # Set up PoseDirectory initially from input file
                 # path_components = path.splitext(self.source_path)[0].split(os.sep)
                 try:
@@ -336,7 +336,7 @@ class PoseDirectory:
         # /root/Projects/project_Poses/design/data/name.sc
         self.serialized_info: str | Path = os.path.join(self.data, putils.state_file)
         # /root/Projects/project_Poses/design/data/info.pkl
-        self.asu_path: str | Path = os.path.join(self.path, f'{self.name}_{putils.clean_asu}')
+        self.asu_path: str | Path = os.path.join(self.path, f'{self.name}_{putils.asu}')
         # /root/Projects/project_Poses/design/design_name_clean_asu.pdb
         self.assembly_path: str | Path = os.path.join(self.path, f'{self.name}_{putils.assembly}')
         # /root/Projects/project_Poses/design/design_name_assembly.pdb
@@ -1259,7 +1259,7 @@ class PoseDirectory:
             for entity in self.pose.entities:
                 if entity.is_oligomeric():  # make symmetric energy in line with SymDesign energies v
                     entity.make_sdf(out_path=self.data,
-                                    modify_sym_energy_for_cryst=True if self.design_dimension in [2, 3] else False)
+                                    modify_sym_energy_for_cryst=True if self.sym_entry.dimension in [2, 3] else False)
                 else:
                     shutil.copy(os.path.join(putils.symmetry_def_files, 'C1.sym'),
                                 os.path.join(self.data, f'{entity.name}.sdf'))
@@ -1794,15 +1794,16 @@ class PoseDirectory:
 
         putils.make_path(self.data)  # Todo consolidate this check with pickle_info()
         # Create all files which store the evolutionary_profile and/or fragment_profile -> design_profile
-        favor_fragments = evo_fill = False
+        if self.job.design.method == putils.rosetta_str:
+            favor_fragments = evo_fill = True
+        else:
+            favor_fragments = evo_fill = False
         if self.job.generate_fragments:
             self.pose.generate_interface_fragments()
-            self.info['fragments'] = self.fragment_observations = self.pose.get_fragment_observations()
+            self.fragment_observations = self.pose.get_fragment_observations()
             self.info['fragment_source'] = self.job.fragment_db.source
             if self.job.write_fragments:
                 self.pose.write_fragment_pairs(out_path=self.frags)
-            if self.job.design.method == putils.rosetta_str:
-                favor_fragments = evo_fill = True
             self.pose.calculate_fragment_profile(evo_fill=evo_fill)
         elif isinstance(self.fragment_observations, list):
             raise NotImplementedError(f"Can't put fragment observations taken away from the pose onto the pose due to "

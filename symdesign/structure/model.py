@@ -4889,7 +4889,7 @@ class SymmetricModel(Models):
                 #     #     dummy = True
 
     @property
-    def entity_transformations(self) -> list[dict]:
+    def entity_transformations(self) -> list[transformation_mapping]:
         """The transformation parameters for each Entity in the SymmetricModel. Each entry has the
         transformation_mapping type
         """
