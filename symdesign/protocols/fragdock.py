@@ -268,7 +268,7 @@ def nanohedra_dock(model1: Structure | AnyStr, model2: Structure | AnyStr, **kwa
         model1: The first Structure to be used in docking
         model2: The second Structure to be used in docking
     Returns:
-        None
+        The resulting Poses satisfying docking criteria
     """
     #  sym_entry: The SymmetryEntry object describing the material
     #  rotation_step1: The number of degrees to increment the rotational degrees of freedom search
@@ -296,9 +296,9 @@ def nanohedra_dock(model1: Structure | AnyStr, model2: Structure | AnyStr, **kwa
     # Retrieve symjob.JobResources for all flags
     job = symjob.job_resources_factory.get()
     sym_entry: SymEntry = job.sym_entry
-    entry_string = f'NanohedraEntry{sym_entry.entry_number}DockedPoses'
+    entry_string = f'NanohedraEntry{sym_entry.entry_number}'
     building_blocks = '-'.join(model.name for model in models)
-    entry_and_building_blocks = f'{entry_string}-{building_blocks}'
+    entry_and_building_blocks = f'{entry_string}-{building_blocks}_{putils.pose_directory}'
     out_dir = os.path.join(job.projects, entry_and_building_blocks)
     putils.make_path(out_dir)
 
@@ -3914,5 +3914,5 @@ def nanohedra_dock(model1: Structure | AnyStr, model2: Structure | AnyStr, **kwa
     terminate()
     logger.info(f'Total {building_blocks} dock trajectory took {time.time() - frag_dock_time_start:.2f}s')
 
-    return [PoseDirectory.from_file(file) for file in pose_paths]
+    return [protocols.PoseDirectory.from_file(file, entity_names=entity_names) for file in pose_paths]
     # ------------------ TERM ------------------------
