@@ -1350,6 +1350,7 @@ class PoseDirectory:
             design_files.append(self.pose.write(out_path=pre_threaded_file))
 
         design_files_file = os.path.join(self.scripts, f'files_{self.protocol}.txt')
+        putils.make_path(self.scripts)
         # generate_files_file_cmd = \
         #     ['python', putils.list_pdb_files, '-d', self.data, '-o', design_files_file, '-s', '_' + self.protocol]
         # list_all_files_process = Popen(generate_files_file_cmd)
@@ -2058,7 +2059,6 @@ class PoseDirectory:
                                        )
         design_names = [f'{self.name}_{self.protocol}{seq_idx:04d}'
                         for seq_idx in range(len(sequences_and_scores['sequences']))]
-        self.log.critical(f'Found sequences with shape {sequences_and_scores["sequences"].shape}')
         putils.make_path(self.designs)
         self.output_proteinmpnn_scores(design_names, sequences_and_scores)
         putils.make_path(self.data)
