@@ -6051,29 +6051,72 @@ class Pose(SymmetricModel):
 
         return contact_order_z, hydrophobic_collapse, hydrophobic_collapse_profile
 
-    def interface_metrics(self) -> dict:
+    def interface_metrics(self) -> dict[str, Any]:
         """Gather all metrics relating to the Pose and the interfaces within the Pose
 
-        Calls get_fragment_metrics(), interface_secondary_structure()
+        Calls self.get_fragment_metrics(), self.interface_secondary_structure()
 
         Returns:
-            {'nanohedra_score_normalized': , 'nanohedra_score_center_normalized':,
-             'nanohedra_score': , 'nanohedra_score_center': , 'number_fragment_residues_total': ,
-             'number_fragment_residues_center': , 'multiple_fragment_ratio': ,
-             'percent_fragment_interface': ,
-             'percent_fragment_helix': , 'percent_fragment_strand': , 'percent_fragment_coil': ,
-             'number_of_fragments': , 'total_interface_residues': ,
-             'percent_residues_fragment_interface_total': , 'percent_residues_fragment_interface_center': }
+            Metrics measured as:
+            {'nanohedra_score_normalized',
+             'nanohedra_score_center_normalized',
+             'nanohedra_score',
+             'nanohedra_score_center',
+             'number_fragment_residues_total',
+             'number_fragment_residues_center',
+             'multiple_fragment_ratio',
+             'percent_fragment_interface',
+             'percent_fragment_helix',
+             'percent_fragment_strand',
+             'percent_fragment_coil',
+             'number_of_fragments',
+             'total_interface_residues',
+             'percent_residues_fragment_interface_total',
+             'percent_residues_fragment_interface_center'
+             'pose_length',
+             'minmum_radius',
+             'maxmum_radius',
+             'interface_b_factor_per_residue',
+             'interface_secondary_structure_fragment_topology_#',
+             'interface_secondary_structure_topology_#',
+             'interface_secondary_structure_fragment_topology',
+             'interface_secondary_structure_fragment_count',
+             'interface_secondary_structure_topology',
+             'interface_secondary_structure_count',
+             'design_dimension',
+             'symmetry_group_#',
+             'entity_#_radius',
+             'entity_#_min_radius',
+             'entity_#_max_radius',
+             'entity_#_number_of_residues',
+             'entity_#_symmetry',
+             'entity_#_name',
+             'entity_#_number_of_residues',
+             'entity_#_radius',
+             'entity_#_min_radius',
+             'entity_#_n_terminal_helix',
+             'entity_#_c_terminal_helix',
+             'entity_#_n_terminal_orientation',
+             'entity_#_c_terminal_orientation',
+             'entity_#_thermophile',
+             'entity_radius_ratio_#v#',
+             'entity_min_radius_ratio_#v#',
+             'entity_max_radius_ratio_#v#',
+             'entity_number_of_residues_ratio_#v#',
+             'entity_radius_average_deviation',
+             'entity_min_radius_average_deviation',
+             'entity_max_radius_average_deviation',
+             'entity_number_of_residues_average_deviation'
+             }
         """
-        frag_metrics = self.get_fragment_metrics(total_interface=True)
+        metrics = frag_metrics = self.get_fragment_metrics(total_interface=True)
         self.center_residue_indices = frag_metrics.get('center_indices', [])
         total_interface_residues = len(self.interface_residues)
         total_non_fragment_interface_residues = \
             max(total_interface_residues - frag_metrics['number_fragment_residues_center'], 0)
         # Remove these two from further analysis
-        frag_metrics.pop('total_indices')
-        frag_metrics.pop('center_indices')
-        metrics = frag_metrics
+        metrics.pop('total_indices')
+        metrics.pop('center_indices')
         # Interface B Factor
         int_b_factor = sum(residue.b_factor for residue in self.interface_residues)
         try:  # If interface_distance is different from interface query and fragment generation these can be < 0 or > 1
@@ -6191,7 +6234,7 @@ class Pose(SymmetricModel):
         metrics['pose_length'] = \
             sum(metrics[f'entity_{idx + 1}_number_of_residues'] for idx in range(self.number_of_entities))
 
-        radius_ratio_sum, min_ratio_sum, max_ratio_sum, residue_ratio_sum = 0, 0, 0, 0
+        radius_ratio_sum = min_ratio_sum = max_ratio_sum = residue_ratio_sum = 0
         counter = 1
         for counter, (entity_idx1, entity_idx2) in enumerate(combinations(range(1, self.number_of_entities + 1),
                                                                           2), counter):

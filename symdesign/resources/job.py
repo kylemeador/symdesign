@@ -244,9 +244,15 @@ class JobResources:
         # self.design_selector = kwargs.get('design_selector', {})
         self.dock = Dock.from_flags(**kwargs)
         if self.dock.perturb_dof:
-            self.dock.perturb_dof_rot = self.dock.perturb_dof_tx = True
-            self.dock.perturb_dof_steps_rot = self.dock.perturb_dof_steps_tx = self.dock.perturb_dof_steps
-        else:  # Set the unavailable dof to 1 step
+            if not self.dock.perturb_dof_rot and not self.dock.perturb_dof_tx:
+                # Set all perturb_dof on and set to the provided default
+                self.dock.perturb_dof_rot = self.dock.perturb_dof_tx = True
+                self.dock.perturb_dof_steps_rot = self.dock.perturb_dof_steps_tx = self.dock.perturb_dof_steps
+            else:  # Use provided values
+                pass
+        elif self.dock.perturb_dof_rot or self.dock.perturb_dof_tx:
+            self.dock.perturb_dof = True
+        else:  # None provided, set the unavailable dof to 1 step
             if not self.dock.perturb_dof_rot:
                 self.dock.perturb_dof_steps_rot = 1
             elif not self.dock.perturb_dof_tx:

@@ -41,12 +41,12 @@ request_types = {'group': 'Results must satisfy a group of requirements', 'termi
 request_type_examples = {'group': '"type": "group", "logical_operator": "and", "nodes": [%s]',
                          'terminal': '"type": "terminal", "service": "text", "parameters":{%s}'}
 # replacing the group %s with a request_type_examples['terminal'], or the terminal %s with a parameter_query
-return_types = {'entry': 'PDB ID\'s',
-                'polymer_entity': 'PDB ID\'s appened with entityID - \'[pdb_id]_[entity_id] for macromolecules',
-                'non_polymer_entity': 'PDB ID\'s appened with entityID - \'[pdb_id]_[entity_id] for '
+return_types = {'entry': "PDB ID's",
+                'polymer_entity': "PDB ID's appended with entityID - '[pdb_id]_[entity_id]' for macromolecules",
+                'non_polymer_entity': "PDB ID's appended with entityID - '[pdb_id]_[entity_id]' for "
                                       'non-polymers',
-                'polymer_instance': 'PDB ID\'s appened with asymID\'s (chains) - \'[pdb_id]_[asym_id]',
-                'assembly': 'PDB ID\'s appened with biological assemblyID\'s - \'[pdb_id]-[assembly_id]'}
+                'polymer_instance': "PDB ID's appended with asymID's (chains) - '[pdb_id]_[asym_id]'",
+                'assembly': "PDB ID's appended with biological assemblyID's - '[pdb_id]-[assembly_id]'"}
 services = {'text': 'linguistic searches against textual annotations associated with PDB structures',
             'sequence': 'employs the MMseqs2 software and performs fast sequence matching searches (BLAST-like)'
                         ' based on a user-provided FASTA sequence',
@@ -142,7 +142,7 @@ def parse_pdb_response_for_score(response) -> list[float] | list:
         return []
 
 
-def query_pdb(_query) -> dict[str, Any]:
+def query_pdb(_query) -> dict[str, Any] | None:
     """Take a JSON formatted PDB API query and return the results
 
     PDB response can look like:
@@ -179,7 +179,7 @@ def query_pdb(_query) -> dict[str, Any]:
                 logger.debug('Too many requests, pausing momentarily')
                 time.sleep(2)
             else:
-                logger.debug('Your query returned an unrecognized status code (%d)' % query_response.status_code)
+                logger.debug(f'Your query returned an unrecognized status code ({query_response.status_code})')
                 time.sleep(1)
                 iteration += 1
         except requests.exceptions.ConnectionError:
@@ -189,11 +189,11 @@ def query_pdb(_query) -> dict[str, Any]:
 
         if iteration > 5:
             logger.error('The maximum number of resource fetch attempts was made with no resolution. '
-                         'Offending request %s' % getattr(query_response, 'url', pdb_query_url))  # todo format url
+                         f'Offending request {getattr(query_response, "url", pdb_query_url)}')  # Todo format url
             break
             # raise DesignError('The maximum number of resource fetch attempts was made with no resolution. '
             #                   'Offending request %s' % getattr(query_response, 'url', pdb_query_url))
-    return
+    return None
 
 
 def generate_parameters(attribute=None, operator=None, negation=None, value=None, sequence=None, **kwargs):  # Todo set up by kwargs
@@ -371,10 +371,10 @@ def retrieve_pdb_entries_by_advanced_query(save: bool = True, return_results: bo
     # Start the user input routine -------------------------------------------------------------------------------------
     schema = get_rcsb_metadata_schema(force_update=force_schema_update)
     print(f'\n{header_string % "PDB API Advanced Query"}\n'
-          f'This prompt will walk you through generating an advanced search query and retrieving the matching'
-          ' set of entry ID\'s from the PDB. This automatically parses the ID\'s of interest for downstream use, which'
-          ' can save you some headache. If you want to take advantage of the PDB webpage GUI to perform the advanced '
-          f'search, visit:\n{pdb_advanced_search_url}\tThen enter "json" in the prompt below and follow those '
+          f'This prompt will walk you through generating an advanced search query and retrieving the matching '
+          "set of entry ID's from the PDB. This automatically parses the ID's of interest for downstream use, which "
+          'can save you some headache. If you want to take advantage of the PDB webpage GUI to perform the advanced '
+          f'search, visit:\n\t{pdb_advanced_search_url}\nThen enter "json" in the prompt below and follow those '
           'instructions.\n\n'
           'Otherwise, this command line prompt takes advantage of the same GUI functionality. If you have a '
           'search specified from a prior query that you want to process again, using "json" will be useful as well. '
@@ -393,27 +393,30 @@ def retrieve_pdb_entries_by_advanced_query(save: bool = True, return_results: bo
             return_type = 'Structures'  # 'entry'
 
         return_type_prompt = f'At the bottom left of the dialog, there is a drop down menu next to "Return". ' \
-                             f'Choose {return_type} '
+                             f'Choose {return_type}'
         print('DETAILS: To save time formatting and immediately move to your design pipeline, build your Query with the'
               ' PDB webpage GUI, then save the resulting JSON text to a file. To do this, first build your full query '
-              f'on the advanced search page,{return_type_prompt}then click the Search button (magnifying glass icon). '
-              f'After the page loads, a new section of the search page should appear above the Advanced Search Query '
-              f'Builder dialog. There, click the JSON|->| button to open a new page with an automatically built JSON '
-              f'representation of your query. Save the entirety of this JSON formatted query to a file to return your '
-              f'chosen ID\'s\n')
+              f'on the advanced search page, {return_type_prompt} then click the Search button (magnifying glass icon).'
+              ' After the page loads, a new section of the search page should appear above the Advanced Search Query '
+              'Builder dialog. There, click the JSON|->| button to open a new page with an automatically built JSON '
+              'representation of your query. Save the entirety of this JSON formatted query to a file to return your '
+              "chosen ID's\n")
         # ('Paste your JSON object below. IMPORTANT select from the opening \'{\' to '
         #  '\'"return_type": "entry"\' and paste. Before hitting enter, add a closing \'}\'. This hack '
         #  'ensures ALL results are retrieved with no sorting or pagination applied\n\n%s' %
         #  input_string)
-        prior_query = input('Please specify the path where the JSON query file is located%s' % input_string)
+        prior_query = input(f'Please specify the path where the JSON query file is located{input_string}')
         while not os.path.exists(prior_query):
-            prior_query = input(f'The specified path "{prior_query}" doesn\'t exist! Please try again{input_string}')
+            prior_query = input(f"The specified path '{prior_query}' doesn't exist! Please try again{input_string}")
 
         with open(prior_query, 'r') as f:
             json_input = load(f)
 
         # remove any paginate instructions from the json_input
         json_input['request_options'].pop('paginate', None)
+        # if all_matching:
+        # Ensure we get all matching
+        json_input['request_options'].update({'return_all_hits': True})
         response_d = query_pdb(json_input)
     # elif program_start.lower() == 'previous':
     #     while True:
@@ -447,12 +450,11 @@ def retrieve_pdb_entries_by_advanced_query(save: bool = True, return_results: bo
             # query_builder_service_string = '\nWhat type of search method would you like to use?%s%s' % \
             #                                (user_input_format % '\n'.join(format_string % item
             #                                                               for item in services.items()), input_string)
-            query_builder_attribute_string = '\nWhat type of attribute would you like to use? Examples include:%s' \
-                                             '\n\nFor a more thorough list indicate "s" for search.\nAlternatively, you' \
-                                             f' can browse {attribute_url}\nEnsure that your spelling' \
-                                             f' is exact if you want your query to succeed!{input_string}' % \
-                                             user_input_format % '\n'.join(format_string.format(value, key)
-                                                                           for key, value in attributes.items())
+            query_builder_attribute_string = \
+                '\nWhat type of attribute would you like to use? Examples include:\n\t%s\n\n' \
+                f'For a more thorough list indicate "s" for search.\nAlternatively, you can browse {attribute_url}\n' \
+                f'Ensure that your spelling is exact if you want your query to succeed!{input_string}' % \
+                '\n\t'.join(utils.pretty_format_table(attributes.items(), header=('Option', 'Description')))
             query_builder_operator_string = '\nWhat operator would you like to use?\nPossible operators include:' \
                                             '\n\t%s\nIf you would like to negate the operator, on input type "not" ' \
                                             f'after your selection. Ex: equals not{input_string}'
@@ -480,10 +482,10 @@ def retrieve_pdb_entries_by_advanced_query(save: bool = True, return_results: bo
                                                     in search_schema(search_term)))
                         if attribute != 's':
                             break
-                    if attribute in schema:  # confirm the user wants to go forward with this
+                    if attribute in schema:  # Confirm the user wants to go forward with this
                         break
                     else:
-                        print('ERROR: %s was not found in PDB schema!' % attribute)
+                        print(f'***ERROR: {attribute} was not found in PDB schema***')
                         # while True:  # confirm that the confirmation input is valid
                         #     confirmation = input('ERROR: %s was not found in PDB schema! If you proceed, your search is'
                         #                          ' almost certain to fail.\nProceed anyway? [y/n]%s' %
@@ -495,18 +497,18 @@ def retrieve_pdb_entries_by_advanced_query(save: bool = True, return_results: bo
                         # if bool_d[confirmation.lower()] or confirmation.isspace():  # break the attribute routine on y or ''
                         #     break
 
-                while True:  # retrieve the operator for the search
-                    while True:  # check if the operator should be negated
+                while True:  # Retrieve the operator for the search
+                    while True:  # Check if the operator should be negated
                         operator = input(query_builder_operator_string % ', '.join(schema[attribute]['operators']))
                         if len(operator.split()) > 1:
                             negation = operator.split()[1]
                             operator = operator.split()[0]
-                            if negation.lower() == 'not':  # can negate any search
+                            if negation.lower() == 'not':  # Can negate any search
                                 negate = True
                                 break
                             else:
-                                print('%s %s is not a recognized negation!\n Try \'%s not\' instead or remove extra '
-                                      'input' % (invalid_string, negation, operator))
+                                print(f"{invalid_string} {negation} is not a recognized negation!\n "
+                                      f"Try '{operator} not' instead or remove extra input")
                         else:
                             negate = False
                             break
@@ -516,14 +518,14 @@ def retrieve_pdb_entries_by_advanced_query(save: bool = True, return_results: bo
                         print('%s %s is not a valid operator!' % invalid_string, operator)
 
                 op_in = True
-                while op_in:  # check if operator is 'in'
+                while op_in:  # Check if operator is 'in'
                     if operator == 'in':
-                        print('\nThe \'in\' operator can take multiple values. If you want multiple values, specify '
-                              'each as a separate input.')
+                        print("\nThe 'in' operator can take multiple values. If you want multiple values, specify "
+                              'each as a separate input')
                     else:
                         op_in = False
 
-                    while True:  # retrieve the value for the search
+                    while True:  # Retrieve the value for the search
                         value = input(query_builder_value_string % (operator.upper(), instance_d[schema[attribute]['dtype']]
                                                                     , ('\nPossible choices:\n\t%s' %
                                                                        ', '.join(schema[attribute]['choices'])

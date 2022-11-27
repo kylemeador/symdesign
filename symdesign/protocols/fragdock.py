@@ -1966,7 +1966,7 @@ def nanohedra_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[proto
     passing_transforms_indices = sufficiently_dense_indices[asu_is_viable_indices[interface_is_viable]]
 
     if job.design.ignore_symmetric_clashes:
-        logger.warning(f'Not checking for symmetric clashes as per requested flag --{flags.ignore_symmetric_clashes}')
+        logger.warning(f'Not checking for symmetric clashes per requested flag --{flags.ignore_symmetric_clashes}')
     else:
         if sym_entry.unit_cell:
             # Calculate the vectorized uc_dimensions
@@ -2044,6 +2044,7 @@ def nanohedra_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[proto
         # if sym_entry.is_internal_rot1:
         original_rotation1 = full_rotation1
         rotation_perturbations1 = perturbations['rotation1']
+        # Compute the length of each perturbation to separate into unique perturbation spaces
         total_perturbation_size, *_ = rotation_perturbations1.shape
         # logger.debug(f'rotation_perturbations1.shape: {rotation_perturbations1.shape}')
         # logger.debug(f'rotation_perturbations1[:5]: {rotation_perturbations1[:5]}')
@@ -2339,6 +2340,7 @@ def nanohedra_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[proto
     #     full_ext_tx1 = full_ext_tx1[:]
     #     full_ext_tx2 = full_ext_tx2[:]
     #     full_ext_tx_sum = full_ext_tx2 - full_ext_tx1
+    # Save all pose transformation information
     pose_transformations = {}
     for idx in range(number_of_transforms):
         external_translation1_x, external_translation1_y, external_translation1_z = full_ext_tx1[idx]
@@ -2381,7 +2383,6 @@ def nanohedra_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[proto
         # # logger.info(f'Total {building_blocks} dock trajectory took {time.time() - frag_dock_time_start:.2f}s')
         # # terminate()  # End of docking run
         # # return pose_paths
-    # elif job.design.sequences:  # We perform sequence design
     elif job.dock.proteinmpnn_score or job.design.sequences:  # Initialize proteinmpnn for dock/design
         proteinmpnn_used = True
         # Load profiles of interest into the analysis
@@ -3605,7 +3606,6 @@ def nanohedra_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[proto
                     #                                                    profile_background,
                     #                                                    interface_indexer)
                     # # Get pose sequence divergence
-                    # # Todo remove as not useful!
                     # divergence_s = pd.Series({f'{divergence_type}_per_residue': _divergence.mean()
                     #                           for divergence_type, _divergence in divergence.items()},
                     #                          name=pose_id)
