@@ -904,7 +904,7 @@ def main():
         elif args.pdb_codes1:
             # Collect all provided codes required for component 1 processing
             structure_names1 = set(utils.to_iterable(args.pdb_codes1, ensure_file=True))
-        elif args.query_codes:
+        elif args.query_codes1:
             args.save_query = validate_input_return_response_value(
                 'Do you want to save your PDB query to a local file?', {'y': True, 'n': False})
 
@@ -939,7 +939,9 @@ def main():
         elif args.pdb_codes2:
             # Collect all provided codes required for component 2 processing
             structure_names2 = set(utils.to_iterable(args.pdb_codes2, ensure_file=True))
-        elif args.query_codes:
+        elif args.query_codes2:
+            args.save_query = validate_input_return_response_value(
+                'Do you want to save your PDB query to a local file?', {'y': True, 'n': False})
             print('\nStarting PDB query for component 2\n')
             structure_names2 = retrieve_pdb_entries_by_advanced_query(save=args.save_query, entity=True)
         else:

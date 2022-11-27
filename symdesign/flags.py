@@ -26,6 +26,8 @@ from symdesign.utils.path import submodule_guide, submodule_help, force, sym_ent
     perturb_dof
 
 nstruct = 20
+query_codes1 = 'query_codes1'
+query_codes2 = 'query_codes2'
 nanohedra_output = 'nanohedra_output'
 modules = 'modules'
 module = 'module'
@@ -74,6 +76,8 @@ def format_for_cmdline(flag: str):
     return flag.replace('_', '-')
 
 
+query_codes1 = format_for_cmdline(query_codes1)
+query_codes2 = format_for_cmdline(query_codes2)
 predict_structure = format_for_cmdline(predict_structure)
 cluster_poses = format_for_cmdline(cluster_poses)
 generate_fragments = format_for_cmdline(generate_fragments)
@@ -482,6 +486,7 @@ nanohedra_arguments = {
                                          help='The number of degrees to increment the rotational degrees of freedom '
                                               'search\nDefault=%(default)s'),
 }
+query_codes_kwargs = dict(action='store_true', help='Query the PDB API for corresponding codes')
 parser_nanohedra_run_type_mutual_group = dict()  # required=True <- adding below to different parsers depending on need
 nanohedra_run_type_mutual_arguments = {
     sym_entry_args: sym_entry_kwargs,
@@ -497,7 +502,7 @@ nanohedra_mutual1_arguments = {
     ('-o1', f'-{nano_entity_flag1}', f'--{nano_entity_flag1}'):
         dict(type=os.path.abspath, default=None,
              help=f'Disk location where {nanohedra} component 1 file(s) are located'),
-    ('-Q', '--query-codes'): dict(action='store_true', help='Query the PDB API for corresponding codes')
+    ('-Q1', f'--{query_codes1}'): query_codes_kwargs
 }
 # parser_dock_mutual2 = parser_dock.add_mutually_exclusive_group()
 parser_nanohedra_mutual2_group = dict()  # required=False
@@ -507,6 +512,7 @@ nanohedra_mutual2_arguments = {
     ('-o2', f'-{nano_entity_flag2}', f'--{nano_entity_flag2}'):
         dict(type=os.path.abspath, default=None,
              help=f'Disk location where {nanohedra} component 2 file(s) are located'),
+    ('-Q2', f'--{query_codes2}'): query_codes_kwargs
 }
 # ---------------------------------------------------
 cluster_poses_help = 'Cluster all poses by their spatial or interfacial similarity. This is\nuseful to identify ' \

@@ -132,16 +132,31 @@ def cluster_poses(pose_directories: list[PoseDirectory]) -> \
         return None
 
 
-def pose_pair_rmsd(pair: tuple[PoseDirectory, PoseDirectory]) -> float:
+# Used with single argment for mp_map
+# def pose_pair_rmsd(pair: tuple[PoseDirectory, PoseDirectory]) -> float:
+#     """Calculate the rmsd between pairs of Poses using CB coordinates. Must be the same length pose
+#
+#     Args:
+#         pair: Paired PoseDirectory objects from pose processing directories
+#     Returns:
+#         RMSD value
+#     """
+#     # This focuses on all residues, not any particular set of residues
+#     return superposition3d(*[pose.pose.cb_coords for pose in pair])[0]
+
+
+def pose_pair_rmsd(pose1: PoseDirectory, pose2: PoseDirectory) -> float:
     """Calculate the rmsd between pairs of Poses using CB coordinates. Must be the same length pose
 
     Args:
-        pair: Paired PoseDirectory objects from pose processing directories
+        pose1: First PoseDirectory object
+        pose2: Second PoseDirectory object
     Returns:
         RMSD value
     """
     # This focuses on all residues, not any particular set of residues
-    return superposition3d(*[pose.pose.cb_coords for pose in pair])[0]
+    rmsd, rot, tx = superposition3d(pose1.pose.cb_coords, pose2.pose.cb_coords)
+    return rmsd
 
 
 def pose_pair_by_rmsd(compositions: Iterable[tuple[PoseDirectory, PoseDirectory]]) \
@@ -157,7 +172,7 @@ def pose_pair_by_rmsd(compositions: Iterable[tuple[PoseDirectory, PoseDirectory]
     for pose_directories in compositions:
         # Make all pose_directory combinations for this pair
         pose_dir_pairs = list(combinations(pose_directories, 2))
-        results = [pose_pair_rmsd(pair) for pair in pose_dir_pairs]
+        results = [pose_pair_rmsd(*pair) for pair in pose_dir_pairs]
         # Add all identical comparison results (all rmsd are 0 as they are with themselves
         results.extend(list(repeat(0, len(pose_directories))))
         # Add all identical pose_directory combinations to pose_dir_pairs
@@ -218,7 +233,7 @@ def ialign(pdb_file1: AnyStr, pdb_file2: AnyStr, chain1: str = None, chain2: str
 
 def cluster_poses_by_value(identifier_pairs: Iterable[tuple[Any, Any]], values: Iterable[float], epsilon: float = 1.) -> \
         dict[str | PoseDirectory, list[str | PoseDirectory]]:
-    """Take pairs of identifiers and a computed value (such as RMSD) and cluster using DBSCAN algorithm
+    """Take pairs of identifiers and a precomputed distance metric (such as RMSD) and cluster using DBSCAN algorithm
 
     Args:
         identifier_pairs: The identifiers for each pair measurement
@@ -250,8 +265,9 @@ def cluster_poses_by_value(identifier_pairs: Iterable[tuple[Any, Any]], values: 
     # print(dbscan.labels_)
     # Use of dbscan.core_sample_indices_ returns all core_samples which is not a nearest neighbors mean index
     # print(dbscan.core_sample_indices_)
+    outlier = -1
     try:
-        cluster_ids.remove(-1)  # Remove outlier label, will add all these later
+        cluster_ids.remove(outlier)  # Remove outlier label, will add all these later
     except KeyError:
         pass
 
@@ -268,7 +284,7 @@ def cluster_poses_by_value(identifier_pairs: Iterable[tuple[Any, Any]], values: 
         clustered_poses[pair_df.index[cluster_representative_idx]] = pair_df.index[iloc_indices].to_list()
 
     # Add all outliers to the clustered poses as a representative
-    outlier_poses = pair_df.index[np.where(dbscan.labels_ == -1)]
+    outlier_poses = pair_df.index[np.where(dbscan.labels_ == outlier)]
     clustered_poses.update(dict(zip(outlier_poses, outlier_poses)))
 
     return clustered_poses
@@ -373,12 +389,13 @@ def cluster_transformations(compositions: list[PoseDirectory]) -> dict[str | Pos
     trans2_rot1, trans2_tx1, trans2_rot2, trans2_tx2 = zip(*[transform[1].values()
                                                              for transform in stacked_transforms])
 
-    # must add a new axis to translations so the operations are broadcast together in transform_coordinate_sets()
+    # Must add a new axis to translations so the operations are broadcast together in transform_coordinate_sets()
     transformation1 = {'rotation': np.array(trans1_rot1), 'translation': np.array(trans1_tx1)[:, np.newaxis, :],
                        'rotation2': np.array(trans1_rot2), 'translation2': np.array(trans1_tx2)[:, np.newaxis, :]}
     transformation2 = {'rotation': np.array(trans2_rot1), 'translation': np.array(trans2_tx1)[:, np.newaxis, :],
                        'rotation2': np.array(trans2_rot2), 'translation2': np.array(trans2_tx2)[:, np.newaxis, :]}
 
+    # Find the representatives of the cluster based on minimal distance of each point to its nearest neighbors
     # This section could be added to the Nanohedra docking routine
     cluster_representative_indices, cluster_labels = \
         find_cluster_representatives(*cluster_transformation_pairs(transformation1, transformation2))

@@ -227,8 +227,8 @@ def set_loggers_to_propagate():
         _logger.propagate = True
 
 
-def pretty_format_table(data: Iterable, justification: Iterable = None, header: Iterable = None,
-                        header_justification: Iterable = None) -> List[str]:
+def pretty_format_table(data: Iterable, justification: Sequence = None, header: Sequence = None,
+                        header_justification: Sequence = None) -> List[str]:
     """Present a table in readable format by sizing and justifying columns in a nested data structure
     i.e. [row1[column1, column2, ...], row2[], ...]
 
@@ -243,35 +243,39 @@ def pretty_format_table(data: Iterable, justification: Iterable = None, header: 
     """
     justification_d = {'l': str.ljust, 'r': str.rjust, 'c': str.center,
                        'left': str.ljust, 'right': str.rjust, 'center': str.center}
-    if isinstance(data, dict):  # incase data is pased as a dictionary, we should turn into an iterator of key, value
+    # Incase data is passed as a dictionary, we should turn into an iterator of key, value
+    if isinstance(data, dict):
         data = data.items()
 
-    widths = get_table_column_widths(data)
-    row_length = len(widths)
+    column_widths = get_table_column_widths(data)
+    number_columns = len(column_widths)
     if not justification:
-        justifications = list(str.ljust for _ in range(row_length))
-    elif len(justification) == row_length:
+        justifications = list(str.ljust for _ in range(number_columns))
+    elif len(justification) == number_columns:
         justifications = [justification_d.get(key.lower(), str.ljust) for key in justification]
     else:
         raise RuntimeError(f"The justification length ({len(justification)}) doesn't match the "
-                           f"number of columns ({row_length})")
-    if header:
-        if len(header) == row_length:
-            data = [[column for column in row] for row in data]  # format as list so can insert
+                           f"number of columns ({number_columns})")
+    if header is not None:
+        if len(header) == number_columns:
+            # Format data as list so we can insert header
+            data = [[column for column in row] for row in data]
             data.insert(0, list(header))
-            if not header_justification:
-                header_justification = list(str.center for _ in range(row_length))
-            elif len(header_justification) == row_length:
+            if header_justification is None:
+                header_justification = list(str.center for _ in range(number_columns))
+            elif len(header_justification) == number_columns:
                 header_justification = [justification_d.get(key.lower(), str.center) for key in header_justification]
             else:
                 raise RuntimeError(f"The header_justification length ({len(header_justification)}) doesn't match the "
-                                   f"number of columns ({row_length})")
+                                   f"number of columns ({number_columns})")
         else:
             raise RuntimeError(f"The header length ({len(header)}) doesn't match the "
-                               f"number of columns ({row_length})")
+                               f"number of columns ({number_columns})")
 
-    return [' '.join(header_justification[idx](str(col), width) if not idx and header else justifications[idx](str(col), width)
-                     for idx, (col, width) in enumerate(zip(row, widths))) for row in data]
+    return [' '.join(header_justification[idx](column, column_widths[idx]) if row_idx == 0 and header is not None
+                     else justifications[idx](column, column_widths[idx])
+                     for idx, column in enumerate(map(str, row_entry)))
+            for row_idx, row_entry in enumerate(data)]
 
 
 def get_table_column_widths(data: Iterable) -> Tuple[int]:
