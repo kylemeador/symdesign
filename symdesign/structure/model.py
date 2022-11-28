@@ -770,7 +770,6 @@ class State(Structures):
     #         return self._ca_indices
     #
 
-    # Todo implement
     def write(self, increment_chains: bool = False, **kwargs) -> str | None:
         """Write Structures to a file specified by out_path or with a passed file_handle.
 
@@ -781,6 +780,7 @@ class State(Structures):
         Returns:
             The name of the written file if out_path is used
         """
+        # Todo implement
         raise NotImplementedError('The ability to write States to file has not been thoroughly debugged')
         warning = 'If your State consists of various types of Structure containers (Models, Structures) check your ' \
                   'file is as expected before preceeding'
@@ -1770,8 +1770,8 @@ class Entity(Chain, ContainsChainsMixin):
             # length alone is inaccurate if chain is missing first residue and self is missing it's last...
             _, rot, tx = superposition3d(orient_fixed_struct.cb_coords, moving_struct.cb_coords)
         else:  # do an alignment, get selective indices, then follow with superposition
-            self.log.warning(f'{moving_struct.chain_id} and {orient_fixed_struct.chain_id} require alignment to '
-                             f'{self.orient.__name__}')
+            self.log.warning(f'Chain {moving_struct.chain_id} and Oriented Chain {orient_fixed_struct.chain_id} require'
+                             f' alignment to {self.orient.__name__}')
             fixed_indices, moving_indices = get_equivalent_indices(orient_fixed_seq, moving_seq)
             _, rot, tx = superposition3d(orient_fixed_struct.cb_coords[fixed_indices],
                                          moving_struct.cb_coords[moving_indices])

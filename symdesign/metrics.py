@@ -1366,12 +1366,14 @@ def calculate_residue_surface_area(per_residue_df: pd.DataFrame) -> pd.DataFrame
 
 
 def sum_per_residue_metrics(per_residue_df: pd.DataFrame) -> pd.DataFrame:
-    """From a DataFrame with per residue values, tabulate the values relating to interfacial energy and solvation energy
+    """From a DataFrame with per residue values, tabulate all values across each residue.
+
+    Renames specific values relating to interfacial energy and solvation energy
 
     Args:
-        per_residue_df: The DataFrame with MultiIndex columns where level1=residue_numbers, level0=residue_metric
+        per_residue_df: The DataFrame with MultiIndex columns where level0=residue_number, level1=metric
     Returns:
-        A new DataFrame with the summation of all residue_numbers in the per_residue columns
+        A new DataFrame with the summation of each metric from all residue_numbers in the per_residue columns
     """
     # Group by the columns according to the metrics (level=-1). Upper level(s) are residue identifiers
     summed_scores_df = per_residue_df.groupby(axis=1, level=-1).sum()

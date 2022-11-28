@@ -522,7 +522,7 @@ class JobResources:
 
         if hhblits_cmds:
             if not os.access(putils.hhblits_exe, os.X_OK):
-                print(f"Couldn't locate the {putils.hhblits} executable. Ensure the executable file referenced by"
+                print(f"Couldn't locate the {putils.hhblits} executable. Ensure the executable file referenced by "
                       f'{putils.hhblits_exe} exists then try your job again. Otherwise, use the argument'
                       f'--no-{flags.evolution_constraint}')
                 exit()
