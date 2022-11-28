@@ -16,7 +16,13 @@ from symdesign.utils import rosetta, path as putils
 
 # Todo adjust the logging level for this module?
 logger = logging.getLogger(__name__)
-qsbio_confirmed = utils.unpickle(putils.qs_bio)
+qsbio_confirmed: Annotated[dict[str, list[int]],
+                           'PDB EntryID mapped to the correct biological assemblies as specified by a QSBio confidence'\
+                           " of high or very high. Lowercase EntryID keys are mapped to a list of integer values"] = \
+    utils.unpickle(putils.qs_bio)
+"""PDB EntryID mapped to the correct biological assemblies as specified by a QSBio confidence of high or very high.
+Lowercase EntryID keys are mapped to a list of integer values
+"""
 
 
 def _fetch_pdb_from_api(pdb_codes: str | list, assembly: int = 1, asu: bool = False, out_dir: AnyStr = os.getcwd(),
@@ -157,12 +163,13 @@ def query_qs_bio(pdb_entry_id: str) -> int:
     Returns:
         The integer of the corresponding PDB Assembly ID according to the QSBio assembly
     """
-    biological_assemblies = qsbio_confirmed.get(pdb_entry_id)
-    if biological_assemblies:  # first   v   assembly in matching oligomers
+    biological_assemblies = qsbio_confirmed.get(pdb_entry_id.lower())
+    if biological_assemblies:
+        # Get the first assembly in matching oligomers
         assembly = biological_assemblies[0]
     else:
         assembly = 1
-        logger.warning(f'No confirmed biological assembly for entry {pdb_entry_id},'
+        logger.warning(f'No confirmed biological assembly for entry {pdb_entry_id.lower()},'
                        f' using PDB default assembly {assembly}')
     return assembly
 
@@ -205,23 +212,23 @@ class StructureDatabase(Database):
             entry = structure_identifier.split('_')
             if len(entry) == 2:
                 entry, entity = entry
-                entry_entity = structure_identifier
                 logger.debug(f'Fetching entry {entry}, entity {entity} from PDB')
             else:
-                entry = entry_entity = structure_identifier
+                entry = structure_identifier
                 entity = None
                 logger.debug(f'Fetching entry {entry} from PDB')
 
+            asu = False
             # if symmetry == 'C1':
             #     # Todo modify if monomers are removed from qs_bio
             #     assembly = query_qs_bio(entry)
             #     # assembly = None  # 1 is the default
-            #     asu = True
+            #     # asu = True <- NOT NECESSARILY A MONOMERIC FILE!
             # else:
             #     asu = False
             assembly = query_qs_bio(entry)
             # Get the specified file_path for the assembly state of interest
-            file_path = fetch_pdb_file(entry, assembly=assembly, asu=False, out_dir=out_dir)
+            file_path = fetch_pdb_file(entry, assembly=assembly, asu=asu, out_dir=out_dir)
 
             if not file_path:
                 logger.warning(f"Couldn't locate the file '{file_path}', there may have been an issue "
@@ -229,17 +236,18 @@ class StructureDatabase(Database):
                 # Todo
                 raise NotImplementedError("This functionality hasn't been written yet. Use the canonical_pdb1/2 "
                                           'attribute of PoseDirectory to pull the pdb file source.')
-            # remove any PDB Database mirror specific naming from fetch_pdb_file such as pdb1ABC.ent
+            # Remove any PDB Database mirror specific naming from fetch_pdb_file such as pdb1ABC.ent
             file_name = os.path.splitext(os.path.basename(file_path))[0].replace('pdb', '')
             model = structure.model.Model.from_pdb(file_path, name=file_name)
-            # entity_out_path = os.path.join(out_dir, f'{entry_entity}.pdb')
-            if entity:  # replace Structure from fetched file with the Entity Structure
-                # entry_entity will be formatted the exact same as the desired EntityID if it was provided correctly
-                entity = model.entity(entry_entity)
+            # entity_out_path = os.path.join(out_dir, f'{structure_identifier}.pdb')
+            if entity:  # Replace Structure from fetched file with the Entity Structure
+                # structure_identifier will be formatted the exact same as the desired EntityID
+                # if it was provided correctly
+                entity = model.entity(structure_identifier)
                 if entity:
                     model = entity
                 else:  # We couldn't find the specified EntityID
-                    logger.warning(f"For {entry_entity}, couldn't locate the specified Entity '{entity}'. The"
+                    logger.warning(f"For {structure_identifier}, couldn't locate the specified Entity '{entity}'. The"
                                    f' available Entities are {", ".join(entity.name for entity in model.entities)}')
                     continue
             #
@@ -349,84 +357,97 @@ class StructureDatabase(Database):
                 model.name = structure_identifier
                 model.file_path = pose.file_path
             # Use entry_entity only if not processed before
-            else:  # they are missing, retrieve the proper files using PDB ID's
-                entry = structure_identifier.split('_')
-                # In case entry_entity is coming from a new SymDesign Directory the entity name is probably 1ABC_1
-                if len(entry) == 2:
-                    entry, entity = entry
-                    entry_entity = structure_identifier
-                    logger.debug(f'Fetching entry {entry}, entity {entity} from PDB')
-                else:
-                    entry = entry_entity = structure_identifier
-                    entity = None
-                    logger.debug(f'Fetching entry {entry} from PDB')
+            else:  # They are missing, retrieve the proper files using PDB ID's
+                # entry = structure_identifier.split('_')
+                # # In case entry_entity is coming from a new SymDesign Directory the entity name is probably 1ABC_1
+                # if len(entry) == 2:
+                #     entry, entity = entry
+                #     # entry_entity = structure_identifier
+                #     logger.debug(f'Fetching entry {entry}, entity {entity} from PDB')
+                # else:
+                #     entry = structure_identifier
+                #     entity = None
+                #     logger.debug(f'Fetching entry {entry} from PDB')
+                #
+                # asu = False
+                # # if symmetry == 'C1':
+                # #     # Todo modify if monomers are removed from qs_bio
+                # #     assembly = query_qs_bio(entry)
+                # #     # assembly = None  # 1 is the default
+                # #     # asu = True <- NOT NECESSARILY A MONOMERIC FILE!
+                # # else:
+                # assembly = query_qs_bio(entry)
+                # # Get the specified file_path for the assembly state of interest
+                # file_path = fetch_pdb_file(entry, assembly=assembly, asu=asu, out_dir=models_dir)
+                #
+                # if not file_path:
+                #     logger.warning(f"Couldn't locate the file '{file_path}', there may have been an issue "
+                #                    'downloading it from the PDB. Attempting to copy from job data source...')
+                #     # Todo
+                #     raise NotImplementedError("This functionality hasn't been written yet. Use the canonical_pdb1/2 "
+                #                               'attribute of PoseDirectory to pull the pdb file source.')
+                # # Remove any PDB Database mirror specific naming from fetch_pdb_file such as pdb1ABC.ent
+                # file_name = os.path.splitext(os.path.basename(file_path))[0].replace('pdb', '')
+                # model = structure.model.Model.from_pdb(file_path, name=file_name)  # , sym_entry=sym_entry
+                # if entity:  # Replace Structure from fetched file with the Entity Structure
+                #     # structure_identifier will be formatted the exact same as the desired EntityID
+                #     # if it was provided correctly
+                #     entity = model.entity(structure_identifier)
+                #     if entity:
+                #         model = entity
+                #     else:  # we couldn't find the specified EntityID
+                #         logger.warning(f"For {structure_identifier}, couldn't locate the specified Entity '{entity}'. The "
+                #                        f'available Entities are {", ".join(entity.name for entity in model.entities)}')
+                #         continue
 
-                asu = False
-                if symmetry == 'C1':
-                    # Todo modify if monomers are removed from qs_bio
-                    assembly = query_qs_bio(entry)
-                    # assembly = None  # 1 is the default
-                    # asu = True <- NOT NECESSARILY A MONOMERIC FILE!
-                else:
-                    assembly = query_qs_bio(entry)
-                # Get the specified file_path for the assembly state of interest
-                file_path = fetch_pdb_file(entry, assembly=assembly, asu=asu, out_dir=models_dir)
+                model, *_ = self.download_structures([structure_identifier])
+                try:  # Orient the Structure
+                    model.orient(symmetry=symmetry)
+                except AttributeError:  # model is likely empty list
+                    non_viable_structures.append(structure_identifier)
+                    continue
+                except (ValueError, RuntimeError) as error:
+                    orient_logger.error(str(error))
+                    non_viable_structures.append(structure_identifier)
+                    continue
 
-                if not file_path:
-                    logger.warning(f"Couldn't locate the file '{file_path}', there may have been an issue "
-                                   'downloading it from the PDB. Attempting to copy from job data source...')
-                    # Todo
-                    raise NotImplementedError("This functionality hasn't been written yet. Use the canonical_pdb1/2 "
-                                              'attribute of PoseDirectory to pull the pdb file source.')
-                # Remove any PDB Database mirror specific naming from fetch_pdb_file such as pdb1ABC.ent
-                file_name = os.path.splitext(os.path.basename(file_path))[0].replace('pdb', '')
-                model = structure.model.Model.from_pdb(file_path, name=file_name)  # , sym_entry=sym_entry
-                if entity:  # Replace Structure from fetched file with the Entity Structure
-                    # entry_entity will be formatted the exact same as the desired EntityID if it was provided correctly
-                    entity = model.entity(entry_entity)
-                    if entity:
-                        model = entity
-                    else:  # we couldn't find the specified EntityID
-                        logger.warning(f"For {entry_entity}, couldn't locate the specified Entity '{entity}'. The "
-                                       f'available Entities are {", ".join(entity.name for entity in model.entities)}')
-                        continue
+                if isinstance(model, structure.model.Entity):
+                    entity_out_path = os.path.join(models_dir, f'{structure_identifier}.pdb')
+                    # Write out only the entity that was extracted to the full structure_db directory
+                    # Todo should we delete the source file?
+                    # if symmetry == 'C1':
+                    #     entity_file_path = model.write(out_path=entity_out_path)
+                    # else:  # Write out the entity as parsed. Since this is an assembly, we should get the correct state
+                    model.write(oligomer=True, out_path=entity_out_path)
 
-                    entity_out_path = os.path.join(models_dir, f'{entry_entity}.pdb')
-                    if symmetry == 'C1':  # Write out only the entity that was extracted
-                        # Todo should we delete the source file?
-                        entity_file_path = model.write(out_path=entity_out_path)
-                    else:  # Write out the entity as parsed. Since this is an assembly, we should get the correct state
-                        entity_file_path = model.write(oligomer=True, out_path=entity_out_path)
-
-                    try:  # Orient the Structure
-                        model.orient(symmetry=symmetry)
-                    except (ValueError, RuntimeError) as err:
-                        orient_logger.error(str(err))
-                        non_viable_structures.append(entry_entity)
-                        continue
+                    # try:  # Orient the Structure
+                    #     model.orient(symmetry=symmetry)
+                    # except (ValueError, RuntimeError) as err:
+                    #     orient_logger.error(str(err))
+                    #     non_viable_structures.append(structure_identifier)
+                    #     continue
                     # Write out oligomer file for the orient database
-                    orient_file = model.write(oligomer=True, out_path=self.oriented.path_to(name=entry_entity))
+                    orient_file = model.write(oligomer=True, out_path=self.oriented.path_to(name=structure_identifier))
                     # Write out ASU file for the oriented_asu database
-                    model.file_path = model.write(out_path=self.oriented_asu.path_to(name=entry_entity))
+                    model.file_path = model.write(out_path=self.oriented_asu.path_to(name=structure_identifier))
                     # Save Stride results
-                    model.stride(to_file=self.stride.path_to(name=entry_entity))
-
+                    model.stride(to_file=self.stride.path_to(name=structure_identifier))
                 else:  # Orient the whole set of chains based on orient() multicomponent solution
-                    try:  # Orient the Structure
-                        model.orient(symmetry=symmetry)
-                    except (ValueError, RuntimeError) as err:
-                        orient_logger.error(str(err))
-                        non_viable_structures.append(entry_entity)
-                        continue
+                    # try:  # Orient the Structure
+                    #     model.orient(symmetry=symmetry)
+                    # except (ValueError, RuntimeError) as err:
+                    #     orient_logger.error(str(err))
+                    #     non_viable_structures.append(structure_identifier)
+                    #     continue
                     # Write out file for the orient database
-                    orient_file = model.write(out_path=self.oriented.path_to(name=entry_entity))
+                    orient_file = model.write(out_path=self.oriented.path_to(name=structure_identifier))
                     # Extract ASU from the Structure, save the file as .file_path for preprocess_structures_for_design
-                    model.file_path = self.oriented_asu.path_to(name=entry_entity)
+                    model.file_path = self.oriented_asu.path_to(name=structure_identifier)
                     with open(model.file_path, 'w') as f:
                         # model.write_header(f)
                         f.write(model.format_header())
                         for entity in model.entities:
-                            # write each Entity to asu
+                            # Write each Entity to asu
                             entity.write(file_handle=f)
                             # Save Stride results
                             entity.stride(to_file=self.stride.path_to(name=entity.name))
