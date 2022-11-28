@@ -122,6 +122,7 @@ def main():
             results: The returned results from the module run. By convention contains results and exceptions
             output: Whether the module used requires a file to be output
         """
+        output_analysis = True
         # Save any information found during the command to it's serialized state
         try:
             for design in pose_directories:
@@ -131,15 +132,17 @@ def main():
 
         exceptions = kwargs.get('exceptions', [])
         if results:
-            # if pose_directories:  # pose_directories is empty list when nanohedra
-            success = \
-                [pose_directories[idx] for idx, result in enumerate(results) if
-                 not isinstance(result, BaseException)]
-            exceptions += \
-                [(pose_directories[idx], exception) for idx, exception in enumerate(results)
-                 if isinstance(exception, BaseException)]
-            # else:  # Set nanohedra results as success
-            #     success = results
+            if job.module == flags.nanohedra:  # pose_directories is empty list when nanohedra
+                success = results
+                if job.distribute_work:
+                    output_analysis = False
+            else:
+                success = \
+                    [pose_directories[idx] for idx, result in enumerate(results) if
+                     not isinstance(result, BaseException)]
+                exceptions += \
+                    [(pose_directories[idx], exception) for idx, exception in enumerate(results)
+                     if isinstance(exception, BaseException)]
         else:
             success = []
 
@@ -159,7 +162,6 @@ def main():
 
             # Format the output file depending on specified name and module type
             default_output_tuple = (utils.starttime, job.module, design_source)
-            output_analysis = True
             designs_file = None
             if args.output_file:
                 # if job.module not in [flags.analysis, flags.cluster_poses]:
@@ -192,9 +194,6 @@ def main():
                                                            out_path=job.clustered_poses)
                 else:  # We don't have a default output specified
                     pass
-
-            if job.module == flags.nanohedra and job.distribute_work:
-                output_analysis = False
 
             # Make single file with names of each directory where all_docked_poses can be found
             if output_analysis:
@@ -955,12 +954,24 @@ def main():
             # script_out_dir = os.path.join(job.output_directory, putils.scripts)
             # os.makedirs(script_out_dir, exist_ok=True)
             possible_input_args = [arg for args in flags.nanohedra_mutual1_arguments.keys() for arg in args] \
-                                  + [arg for args in flags.nanohedra_mutual2_arguments.keys() for arg in args]
+                + [arg for args in flags.nanohedra_mutual2_arguments.keys() for arg in args]
+                # + list(flags.distribute_args)
             submitted_args = sys.argv[1:]
             print('submitted_args', submitted_args)
             for input_arg in possible_input_args:
                 try:
                     pop_index = submitted_args.index(input_arg)
+                except ValueError:  # Not in list
+                    continue
+                submitted_args.pop(pop_index)
+                if input_arg in ('-Q1', f'--{flags.query_codes1}', '-Q2', f'--{flags.query_codes2}'):
+                    continue
+                else:  # Pop the index twice if the argument requires an input
+                    submitted_args.pop(pop_index)
+
+            for arg in flags.distribute_args:
+                try:
+                    pop_index = submitted_args.index(arg)
                 except ValueError:  # Not in list
                     continue
                 submitted_args.pop(pop_index)

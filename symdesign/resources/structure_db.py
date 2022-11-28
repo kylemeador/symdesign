@@ -455,7 +455,6 @@ class StructureDatabase(Database):
                 orient_logger.info(f'Oriented: {orient_file}')
 
             # For every variation, set .symmetry to ensure preprocess_structures_for_design has attribute available
-            print('model.file_path', model.file_path)
             model.symmetry = symmetry
             all_structures.append(model)
 
