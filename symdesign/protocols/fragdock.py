@@ -2365,8 +2365,8 @@ def nanohedra_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[proto
     # Check output setting. Should interface design, metrics be performed?
     proteinmpnn_used = False
     if job.dock_only:  # Only get pose outputs, no sequences or metrics
-        pass
-        # for idx, pose_id in enumerate(pose_ids):  # range(number_of_transforms):
+        design_ids = pose_ids
+        # for idx, design_id in enumerate(pose_ids):  # range(number_of_transforms):
         #     update_pose_coords(idx)
         #
         #     if job.write_fragments:
@@ -2377,8 +2377,8 @@ def nanohedra_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[proto
         #         #     add_fragments_to_pose(all_passing_ghost_indices[idx],
         #         #                           all_passing_surf_indices[idx],
         #         #                           all_passing_z_scores[idx])
-        #     # pose_id = create_pose_id(idx)
-        #     pose_paths.append(output_pose(os.path.join(out_dir, pose_id), pose_id))
+        #     # design_id = create_pose_id(idx)
+        #     pose_paths.append(output_pose(os.path.join(out_dir, design_id), design_id))
         #
         # # logger.info(f'Total {building_blocks} dock trajectory took {time.time() - frag_dock_time_start:.2f}s')
         # # terminate()  # End of docking run
@@ -3445,6 +3445,13 @@ def nanohedra_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[proto
         # Create design_ids for each of the pose_ids plus the identified sequence
         design_ids = [f'{pose_id}-design{design_idx:04d}' for pose_id in pose_ids
                       for design_idx in range(1, 1 + number_of_temperatures)]
+        # pose_ids, design_ids = list(zip(*[(pose_id, f'{pose_id}-design{design_idx:04d}') for pose_id in pose_ids
+        #                                   for design_idx in range(1, 1 + number_of_temperatures)]))
+        design_id_iterator = iter(design_ids)
+        for pose_id in pose_ids:
+            _pose_transformation = pose_transformations.pop(pose_id)
+            for design_idx in range(1, 1 + number_of_temperatures):
+                pose_transformations[next(design_id_iterator)] = _pose_transformation
         # sequences = numeric_to_sequence(generated_sequences)
         # # Format the sequences from design with shape (size, number_of_temperatures, pose_length)
         # # to (size * number_of_temperatures, pose_length)
@@ -3463,7 +3470,7 @@ def nanohedra_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[proto
     fragment_profile_frequencies = []
     pose_paths = []
     nan_blank_data = list(repeat(np.nan, pose_length))
-    for idx, pose_id in enumerate(pose_ids):  # range(number_of_transforms):
+    for idx, design_id in enumerate(design_ids):  # range(number_of_transforms):
         # Add the next set of coordinates
         update_pose_coords(idx)
 
@@ -3477,7 +3484,7 @@ def nanohedra_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[proto
         #                           all_passing_z_scores[idx])
 
         if job.output:
-            pose_paths.append(output_pose(out_dir, pose_id))
+            pose_paths.append(output_pose(out_dir, design_id))
 
         # Reset the fragment_map and fragment_profile for each Entity before calculate_fragment_profile
         for entity in pose.entities:
@@ -3500,7 +3507,7 @@ def nanohedra_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[proto
                 pass
 
         # Calculate pose metrics
-        interface_metrics[pose_id] = pose.interface_metrics()
+        interface_metrics[design_id] = pose.interface_metrics()
         # _interface_metrics = pose.interface_metrics()
 
         # if job.design.sequences:
@@ -3549,7 +3556,7 @@ def nanohedra_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[proto
                     else:
                         per_res_interface_metrics = {}
                     # For each Pose, save each sequence design data such as energy # probabilites
-                    # all_probabilities[pose_id] = probabilities[idx]
+                    # all_probabilities[design_id] = probabilities[idx]
                     # Todo process the all_probabilities to a DataFrame?
                     #  The probabilities are the actual probabilities at each residue for each AA
                     #  These differ from the log_probabilities in that those are scaled by the log()
@@ -3608,15 +3615,15 @@ def nanohedra_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[proto
                     # # Get pose sequence divergence
                     # divergence_s = pd.Series({f'{divergence_type}_per_residue': _divergence.mean()
                     #                           for divergence_type, _divergence in divergence.items()},
-                    #                          name=pose_id)
+                    #                          name=design_id)
                     # all_pose_divergence.append(divergence_s)
                     # Todo extract the observed values out of the observed dictionary
                     #  Each Pose only has one trajectory, so measurement of divergence is pointless (no distribution)
                     # observed_dfs = []
-                    # # Todo must ensure the observed_values is the length of the pose_ids
+                    # # Todo must ensure the observed_values is the length of the design_ids
                     # # for profile, observed_values in observed.items():
                     # #     scores_df[f'observed_{profile}'] = observed_values.mean(axis=1)
-                    # #     observed_dfs.append(pd.DataFrame(data=observed_values, index=pose_id,
+                    # #     observed_dfs.append(pd.DataFrame(data=observed_values, index=design_id,
                     # #                                      columns=pd.MultiIndex.from_product([residue_numbers,
                     # #                                                                          [f'observed_{profile}']]))
                     # #                         )
