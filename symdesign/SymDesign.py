@@ -820,12 +820,16 @@ def main():
         elif args.pdb_codes1:
             # Collect all provided codes required for component 1 processing
             structure_names1 = set(utils.to_iterable(args.pdb_codes1, ensure_file=True))
+            # Make all names lowercase
+            structure_names1 = list(map(str.lower, structure_names1))
         elif args.query_codes1:
             args.save_query = validate_input_return_response_value(
                 'Do you want to save your PDB query to a local file?', {'y': True, 'n': False})
 
             print('\nStarting PDB query for component 1\n')
             structure_names1 = retrieve_pdb_entries_by_advanced_query(save=args.save_query, entity=True)
+            # Make all names lowercase
+            structure_names1 = list(map(str.lower, structure_names1))
         else:
             raise RuntimeError('This should be impossible with mutually exclusive argparser group')
 
@@ -833,6 +837,7 @@ def main():
                                                                  symmetry=job.sym_entry.group1,
                                                                  by_file=by_file1))
         single_component_design = False
+        structure_names2 = []
         if args.oligomer2:
             if args.oligomer1 != args.oligomer2:  # See if they are the same input
                 by_file2 = True
@@ -849,20 +854,20 @@ def main():
                 eventual_structure_names2 = \
                     list(map(os.path.basename, [os.path.splitext(file)[0] for file in pdb2_filepaths]))
             else:  # The entities are the same symmetry, or we have single component and bad input
-                structure_names2 = []
-                logger.info('No additional entities requested for docking, treating as single component')
                 single_component_design = True
         elif args.pdb_codes2:
             # Collect all provided codes required for component 2 processing
             structure_names2 = set(utils.to_iterable(args.pdb_codes2, ensure_file=True))
+            # Make all names lowercase
+            structure_names2 = list(map(str.lower, structure_names2))
         elif args.query_codes2:
             args.save_query = validate_input_return_response_value(
                 'Do you want to save your PDB query to a local file?', {'y': True, 'n': False})
             print('\nStarting PDB query for component 2\n')
             structure_names2 = retrieve_pdb_entries_by_advanced_query(save=args.save_query, entity=True)
+            # Make all names lowercase
+            structure_names2 = list(map(str.lower, structure_names2))
         else:
-            structure_names2 = []
-            logger.info('No additional entities requested for docking, treating as single component')
             single_component_design = True
         # Select entities, orient them, then load each Structure to all_structures for further database processing
         all_structures.extend(job.structure_db.orient_structures(structure_names2,
@@ -922,6 +927,7 @@ def main():
 
         # Using combinations of directories with .pdb files
         if single_component_design:
+            logger.info('No additional entities requested for docking, treating as single component')
             # structures1 = [entity for entity in all_entities if entity.name in structures1]
             # ^ doesn't work as entity_id is set in orient_structures, but structure name is entry_id
             pose_directories = list(combinations(structures1, 2))

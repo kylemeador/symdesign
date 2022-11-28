@@ -4,10 +4,10 @@ import argparse
 import os
 from copy import copy
 
-from symdesign.interface_analysis.ParsePisa import retrieve_pisa_file_path, get_complex_interfaces
-from symdesign.structure.model import Model, Chain
 from symdesign import utils
-from symdesign.resources import query
+from symdesign.interface_analysis.ParsePisa import retrieve_pisa_file_path, get_complex_interfaces
+from symdesign.resources import query, structure_db
+from symdesign.structure.model import Model, Chain
 
 
 def pisa_polymer_interface(interface):
@@ -391,14 +391,13 @@ if __name__ == '__main__':
         pdbs_of_interest = utils.to_iterable(all_protein_file, ensure_file=True)
 
     # Retrieve the verified set of biological assemblies
-    # qsbio_file_name = utils.path.qs_bio
-    # qsbio_file = os.path.join(current_interface_file_path, qsbio_file_name)
-    # qsbio_confirmed_d = utils.unpickle(qsbio_file)
     # qsbio_monomers_file_name = 'QSbio_Monomers.csv'
     # qsbio_monomers_file = os.path.join(current_interface_file_path, qsbio_monomers_file_name)
     # qsbio_monomers = utils.to_iterable(qsbio_monomers_file)
     # TODO add the list of QSBio confirmed hetero oligomers
-    qsbio_confirmed_d = utils.unpickle(utils.path.qs_bio)  # Todo make each list of interface ids a set()
+    # Todo make each list of interface ids a set()
+    # qsbio_confirmed = utils.unpickle(utils.path.qs_bio)
+    qsbio_confirmed = structure_db.qsbio_confirmed
     qsbio_monomers = utils.to_iterable(utils.path.qs_bio_monomers_file, ensure_file=True)  # Todo remove monomers from confirmed assemblies in source
     qsbio_monomers_d = {}
     for pdb_assembly in qsbio_monomers:
@@ -415,11 +414,11 @@ if __name__ == '__main__':
     # remove monomeric assemblies from qsbio_confirmed_oligomers
     for pdb, assemblies in qsbio_monomers_d.items():
         for assembly in assemblies:
-            if pdb in qsbio_confirmed_d:
-                if assembly in qsbio_confirmed_d[pdb]:
-                    qsbio_confirmed_d[pdb].remove(assembly)
-        if not qsbio_confirmed_d[pdb]:  # if the values list is now empty, remove the pdb from the dictionary
-            qsbio_confirmed_d.pop(pdb)
+            if pdb in qsbio_confirmed:
+                if assembly in qsbio_confirmed[pdb]:
+                    qsbio_confirmed[pdb].remove(assembly)
+        if not qsbio_confirmed[pdb]:  # if the values list is now empty, remove the pdb from the dictionary
+            qsbio_confirmed.pop(pdb)
 
     # Current, DEPRECIATE!
     interfaces_dir = '/yeates1/kmeador/fragment_database/all_interfaces'
@@ -459,8 +458,8 @@ if __name__ == '__main__':
                     pdb_interface_d[pdb_code] = polymer_interface_ids
 
                     assembly = None
-                    if pdb_code in qsbio_confirmed_d:
-                        assembly = qsbio_confirmed_d[pdb_code]
+                    if pdb_code in qsbio_confirmed:
+                        assembly = qsbio_confirmed[pdb_code]
                     interface_sort_d[pdb_code] = sort_pdb_interfaces_by_contact_type(pisa_d, polymer_interface_ids,
                                                                                      assembly_confirmed=assembly)
                 else:
@@ -492,7 +491,7 @@ if __name__ == '__main__':
     #     if pisa_path:
     #         pisa_d = utils.unpickle(pisa_path)
     #         interface_sort_d[pdb_code] = sort_pdb_interfaces_by_contact_type(pisa_d, pdb_interface_d[pdb_code],
-    #                                                                          set(qsbio_confirmed_d[pdb_code]))
+    #                                                                          set(qsbio_confirmed[pdb_code]))
     #     else:
     #         missing_pisa_paths.append(pdb_code)
     # sorted_interfaces_file = utils.pickle_object(interface_sort_d, sorted_interfaces_file, out_path='')
@@ -541,7 +540,7 @@ if __name__ == '__main__':
     # all_missing_biological = set(interface_sort_d) - \
     #                          {pdb for pdb in interface_sort_d if interface_sort_d[pdb]['homo'] != set()}  # all_biological
     # proposed_qsbio_monomer_set = list(qsbio_monomers_d.keys())
-    # {pdb for pdb in all_missing_biological if pdb in qsbio_confirmed_d}
+    # {pdb for pdb in all_missing_biological if pdb in qsbio_confirmed}
     # assert len(proposed_qsbio_monomer_set - qsbio_monomers) == 0, 'The set of proposed monomers has PDB\'s that are '\
     #                                                               'not monomers!'
 
