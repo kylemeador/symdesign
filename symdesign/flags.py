@@ -165,11 +165,10 @@ def query_user_for_flags(mode=interface_design, template=False):
     flags_description = list((flag, values['default'], values['description']) for flag, values in design_flags.items())
     while not write_file:
         flags_table = pretty_format_table(flags_header + flags_description)
-        # logger.info('Starting with options:\n\t%s' % '\n\t'.join(options_table))
         print('For a %s run, the following flags can be used to customize the design. You can include these in'
-              ' a flags file\nsuch as \'my_design.flags\' specified on the command line like \'@my_design.flags\' or '
-              'manually by typing them in.\nTo automatically generate a flags file template, run \'%s flags --template'
-              '\' then modify the defaults.\nAlternatively, input the number(s) corresponding to the flag(s) of '
+              ' a flags file\nsuch as "my_design.flags" specified on the command line like "@my_design.flags" or '
+              'manually by typing them in.\nTo automatically generate a flags file template, run "%s flags --template"'
+              ' then modify the defaults.\nAlternatively, input the number(s) corresponding to the flag(s) of '
               'interest from the table below to automatically\ngenerate this file. PDB numbering is defined here as an'
               ' input file with residue numbering reset at each chain. Pose\nnumbering is defined here as input file '
               'with residue numbering incrementing from 1 to N without resetting at chain breaks\n%s'

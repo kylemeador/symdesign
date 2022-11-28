@@ -6,7 +6,7 @@ from symdesign.structure import base, model
 from symdesign.structure.fragment.db import FragmentDatabase, Representative, RELOAD_DB
 from symdesign import utils
 
-logger = utils.start_log(name=__name__)
+logger = utils.start_log(name=__name__, no_log_name=True)
 
 
 def create_fragment_db_from_raw_files(source: AnyStr) -> FragmentDatabase:

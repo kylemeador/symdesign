@@ -29,7 +29,7 @@ class Representative:
         for idx, index in enumerate(range(*fragment_db.fragment_range)):
             if index == 0:
                 representative_residue_idx = list(range(fragment_db.fragment_length))[idx]
-                logger.critical(f'Found the representative residue index {representative_residue_idx}')
+                logger.info(f'Found the representative residue index {representative_residue_idx}')
                 self.backbone_coords = struct.residues[representative_residue_idx].backbone_coords
                 break
         else:

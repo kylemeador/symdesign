@@ -443,11 +443,11 @@ class JobResources:
                     if value is not None and value != arg.default:  # Compare it to the default
                         reported_args[arg.dest] = value  # Add it to reported args if not the default
 
-        # Custom removal/formatting for all remaining
-        for custom_arg in list(arguments.keys()):
-            value = arguments.pop(custom_arg, None)
-            if value is not None:
-                reported_args[custom_arg] = value
+        # # Custom removal/formatting for all remaining
+        # for custom_arg in list(arguments.keys()):
+        #     value = arguments.pop(custom_arg, None)
+        #     if value is not None:
+        #         reported_args[custom_arg] = value
 
         # Where input values should be reported instead of processed version, or the argument is not important, format
         if self.sym_entry:

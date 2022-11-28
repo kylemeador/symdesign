@@ -900,7 +900,7 @@ def main():
         if load_resources or job.initial_refinement or job.initial_loop_model:
             if info_messages:
                 logger.critical(sbatch_warning)
-                for message in info_messages + preprocess_instructions:
+                for message in info_messages:
                     logger.info(message)
                 print('\n')
                 logger.info(resubmit_command_message)
