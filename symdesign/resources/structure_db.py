@@ -445,8 +445,7 @@ class StructureDatabase(Database):
         return all_structures
 
     def preprocess_structures_for_design(self, structures: list[structure.base.Structure],
-                                         script_out_path: AnyStr = os.getcwd(),
-                                         load_resources: bool = False, batch_commands: bool = True) -> \
+                                         script_out_path: AnyStr = os.getcwd(), batch_commands: bool = True) -> \
             tuple[list, bool, bool]:
         """Assess whether Structure objects require any processing prior to design calculations.
         Processing includes relaxation "refine" into the energy function and/or modelling missing segments "loop model"
@@ -455,7 +454,6 @@ class StructureDatabase(Database):
             structures: An iterable of Structure objects of interest with the following attributes:
                 file_path, symmetry, name, make_loop_file(), make_blueprint_file()
             script_out_path: Where should Entity processing commands be written?
-            load_resources: Whether resources have been specified to be loaded already
             batch_commands: Whether commands should be made for batch submission
         Returns:
             Any instructions, then booleans for whether designs need to be refined (True) and loop_modelled
@@ -536,14 +534,12 @@ class StructureDatabase(Database):
                                                                                   f'{putils.refine}.log'),
                                                             max_jobs=int(len(refine_cmds) / 2 + 0.5),
                                                             number_of_commands=len(refine_cmds))
-                    refine_sbatch_message = \
-                        'Once you are satisfied%snter the following to distribute refine jobs:\n\tsbatch %s' \
-                        % (', you can run this script at any time. E' if load_resources else ', e', refine_sbatch)
+                    refine_sbatch_message = f'Once you are satisfied, run the following to distribute refine jobs:' \
+                                            f'\n\tsbatch {refine_sbatch}'
                     info_messages.append(refine_sbatch_message)
                 else:
                     raise NotImplementedError("Currently, refinement can't be run in the shell. "
                                               'Implement this if you would like this feature')
-                load_resources = True
             else:
                 pre_refine = True
 
@@ -626,10 +622,10 @@ class StructureDatabase(Database):
                                                             log_file=os.path.join(full_model_dir, 'loop_model.log'),
                                                             max_jobs=int(len(loop_model_cmds) / 2 + 0.5),
                                                             number_of_commands=len(loop_model_cmds))
-                    loop_model_sbatch_message = \
-                        'Once you are satisfied%snter the following to distribute loop_modeling jobs:\n\tsbatch %s' \
-                        % (', run this script AFTER completion of the Entity refinement script. E' if load_resources
-                           else ', e', loop_model_sbatch)
+                    multi_script_warning = "\n***Run this script AFTER completion of the refinement script***\n" \
+                        if info_messages else ""
+                    loop_model_sbatch_message = 'Once you are satisfied, run the following to distribute loop_modeling'\
+                                                f' jobs:{multi_script_warning}\n\tsbatch {loop_model_sbatch}'
                     info_messages.append(loop_model_sbatch_message)
                 else:
                     raise NotImplementedError("Currently, loop modeling can't be run in the shell. "
