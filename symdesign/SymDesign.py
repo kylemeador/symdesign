@@ -259,8 +259,8 @@ def main():
                     exit_code = 1
                     exit(exit_code)
 
-                putils.make_path(job.sbatch_scripts)
                 putils.make_path(job_paths)
+                putils.make_path(job.sbatch_scripts)
                 if job.module == flags.nanohedra:
                     command_file = utils.write_commands([list2cmdline(cmd) for cmd in success], out_path=job_paths,
                                                         name='_'.join(default_output_tuple))
@@ -976,7 +976,7 @@ def main():
                     continue
                 submitted_args.pop(pop_index)
 
-            cmd = ['python', putils.program_exe, flags.nanohedra] + submitted_args
+            cmd = ['python', putils.program_exe] + submitted_args
             # kwargs = dict(outdir=job.output_directory, entry=job.sym_entry.entry_number,
             #               rot_step1=args.rotation_step1,
             #               rot_step2=args.rotation_step2, min_matched=args.min_matched,

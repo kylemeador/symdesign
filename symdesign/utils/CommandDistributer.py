@@ -11,9 +11,8 @@ from itertools import repeat
 from typing import AnyStr
 
 from symdesign import flags, utils
-from symdesign.utils.path import sbatch_template_dir, submodule_help, \
-    program_name, hbnet_design_profile, \
-    hhblits
+from symdesign.utils.path import sbatch_template_dir, submodule_help, program_name, hbnet_design_profile, hhblits, \
+    make_path
 
 # Globals
 cmd_dist = os.path.abspath(__file__)
@@ -142,7 +141,7 @@ def distribute(file: AnyStr = None, out_path: AnyStr = os.getcwd(), scale: str =
         #                      Could add a hyperthreading=True parameter to remove process scale
         #     command_divisor = process_scale
         # else:
-        raise utils.InputError('Required argument "stage" not specified')
+        raise utils.InputError('Required argument "scale" not specified')
 
     script_or_command = \
         '{} is malformed at line {}. All commands should match.\n* * *\n{}\n* * *' \
@@ -181,7 +180,7 @@ def distribute(file: AnyStr = None, out_path: AnyStr = os.getcwd(), scale: str =
     if failure_file is None:
         failure_file = os.path.join(out_path, f'{name}-{sbatch}.failures')
     output = os.path.join(out_path, 'sbatch_output')
-    os.makedirs(output, exist_ok=True)
+    make_path(output)
 
     # Make sbatch file from template, array details, and command distribution script
     filename = os.path.join(out_path, f'{name}_{sbatch}.sh')
@@ -196,9 +195,8 @@ def distribute(file: AnyStr = None, out_path: AnyStr = os.getcwd(), scale: str =
         new_f.write(f'{sb_flag}{out}\n')
         array = f'array=1-{int(len(directives) / process_scale[scale] + 0.5)}%{max_jobs}'
         new_f.write(f'{sb_flag}{array}\n\n')
-        new_f.write(f'python {cmd_dist} --stage {scale} distribute %s'
-                    f'--success_file {success_file} --failure_file {failure_file} --command_file {file}\n'
-                    % f'--log_file {log_file} ' if log_file else '')
+        new_f.write(f'python {cmd_dist} --stage {scale} distribute {f"--log_file {log_file} " if log_file else ""}'
+                    f'--success_file {success_file} --failure_file {failure_file} --command_file {file}\n')
         if finishing_commands:
             new_f.write('# Wait for all to complete\nwait\n\n# Then execute\n%s\n' % '\n'.join(finishing_commands))
 
