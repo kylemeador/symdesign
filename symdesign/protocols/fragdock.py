@@ -2491,7 +2491,7 @@ def nanohedra_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[proto
             entity_unbound_coords[idx] = coord_func(coords + unbound_transform*idx)
 
         device = mpnn_model.device
-        if device == 'cpu':
+        if device.type == 'cpu':
             mpnn_memory_constraint = psutil.virtual_memory().available
             logger.debug(f'The available cpu memory is: {mpnn_memory_constraint}')
         else:
@@ -3758,6 +3758,8 @@ def nanohedra_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[proto
             # Calculate mutational content
             all_mutations = \
                 generate_mutations_from_reference(pose.sequence, pose_sequences, zero_index=True, return_to=True)
+            all_mutations.pop('reference', None)  # Throw the reference away for now
+            # s = pd.Series({design: len(mutations) for design, mutations in all_mutations.items()})
             scores_df['number_of_mutations'] = \
                 pd.Series({design: len(mutations) for design, mutations in all_mutations.items()})
             scores_df['percent_mutations'] = \
