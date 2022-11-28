@@ -955,7 +955,11 @@ def main():
                                   + [arg for args in flags.nanohedra_mutual2_arguments.keys() for arg in args]
             submitted_args = sys.argv[1:]
             for input_arg in possible_input_args:
-                submitted_args.pop(input_arg)
+                try:
+                    pop_index = submitted_args.index(input_arg)
+                except ValueError:  # Not in list
+                    continue
+                submitted_args.pop(pop_index)
 
             cmd = ['python', putils.program_exe, flags.nanohedra] + submitted_args
             # kwargs = dict(outdir=job.output_directory, entry=job.sym_entry.entry_number,
