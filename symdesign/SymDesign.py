@@ -957,6 +957,7 @@ def main():
             possible_input_args = [arg for args in flags.nanohedra_mutual1_arguments.keys() for arg in args] \
                                   + [arg for args in flags.nanohedra_mutual2_arguments.keys() for arg in args]
             submitted_args = sys.argv[1:]
+            print('submitted_args', submitted_args)
             for input_arg in possible_input_args:
                 try:
                     pop_index = submitted_args.index(input_arg)
@@ -980,7 +981,7 @@ def main():
             commands = [cmd.copy() + [f'--{putils.nano_entity_flag1}', model1.file_path,
                                       f'--{putils.nano_entity_flag2}', model2.file_path]
                         for idx, (model1, model2) in enumerate(pose_directories)]
-            print(list2cmdline(cmd) for cmd in commands)
+            print([list2cmdline(cmd) for cmd in commands])
             # utils.write_shell_script(list2cmdline(commands), name=flags.nanohedra, out_path=job.job_paths)
             terminate(results=commands)
 
