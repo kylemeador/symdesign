@@ -281,11 +281,11 @@ module_usage_str = f'\n      python {program_name}.py %s [{input_title.lower()}]
 evolution_constraint_args = ('-ec', f'--{evolution_constraint}')
 evolution_constraint_kwargs = dict(action=argparse.BooleanOptionalAction, default=True,
                                    help='Whether to include evolutionary constraints during design.\n'
-                                        f'{boolean_positional_prevent_msg(evolution_constraint)}'),
+                                        f'{boolean_positional_prevent_msg(evolution_constraint)}')
 term_constraint_args = ('-tc', f'--{term_constraint}')
 term_constraint_kwargs = dict(action=argparse.BooleanOptionalAction, default=True,
                               help='Whether to include tertiary motif constraints during design.\n'
-                                   f'{boolean_positional_prevent_msg(term_constraint)}'),
+                                   f'{boolean_positional_prevent_msg(term_constraint)}')
 guide_args = ('--guide',)
 guide_kwargs = dict(action='store_true', help=f'Display the {program_name}/module specific guide\nEx:'
                                               f' "{program_command} --guide"\nor "{submodule_guide}"')
