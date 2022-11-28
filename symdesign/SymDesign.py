@@ -252,24 +252,24 @@ def main():
                             # custom_script: os.path.splitext(os.path.basename(getattr(args, 'script', 'c/custom')))[0],
                             }
             stage = module_files.get(job.module)
-            if stage and args.distribute_work:
+            if stage and job.distribute_work:
                 if len(success) == 0:
                     exit_code = 1
                     exit(exit_code)
 
                 putils.make_path(job.sbatch_scripts)
                 putils.make_path(job_paths)
-                # if pose_directories:
-                command_file = utils.write_commands([os.path.join(des.scripts, f'{stage}.sh') for des in success],
-                                                    out_path=job_paths, name='_'.join(default_output_tuple))
-                sbatch_file = utils.CommandDistributer.distribute(file=command_file, out_path=job.sbatch_scripts,
-                                                                  scale=job.module)
-                #                                                                        ^ for sbatch template
-                # else:  # pose_directories is empty list when nanohedra, use success as the commands holder
-                #     command_file = utils.write_commands([list2cmdline(cmd) for cmd in success], out_path=job_paths,
-                #                                         name='_'.join(default_output_tuple))
-                #     sbatch_file = utils.CommandDistributer.distribute(file=command_file, out_path=job.sbatch_scripts,
-                #                                                       scale=job.module, number_of_commands=len(success))
+                if job.module == flags.nanohedra:
+                    command_file = utils.write_commands([list2cmdline(cmd) for cmd in success], out_path=job_paths,
+                                                        name='_'.join(default_output_tuple))
+                    sbatch_file = utils.CommandDistributer.distribute(file=command_file, out_path=job.sbatch_scripts,
+                                                                      scale=job.module, number_of_commands=len(success))
+                else:
+                    command_file = utils.write_commands([os.path.join(des.scripts, f'{stage}.sh') for des in success],
+                                                        out_path=job_paths, name='_'.join(default_output_tuple))
+                    sbatch_file = utils.CommandDistributer.distribute(file=command_file, out_path=job.sbatch_scripts,
+                                                                      scale=job.module)
+                    #                                                                        ^ for sbatch template
                 logger.critical(sbatch_warning)
 
                 if job.module == flags.interface_design and job.initial_refinement:  # True, should refine before design
@@ -946,6 +946,36 @@ def main():
         if not pose_directories:  # No pairs were located
             exit('No docking pairs were located from your input. Please ensure that your input flags are as intended! '
                  f'{putils.issue_submit_warning}')
+        elif job.distribute_work:
+            # Write all commands to a file and use sbatch
+            design_source = f'Entry{job.sym_entry.entry_number}'  # used for terminate()
+            # script_out_dir = os.path.join(job.output_directory, putils.scripts)
+            # os.makedirs(script_out_dir, exist_ok=True)
+            possible_input_args = [arg for args in flags.nanohedra_mutual1_arguments.keys() for arg in args] \
+                                  + [arg for args in flags.nanohedra_mutual2_arguments.keys() for arg in args]
+            submitted_args = sys.argv[1:]
+            for input_arg in possible_input_args:
+                submitted_args.pop(input_arg)
+
+            cmd = ['python', putils.program_exe, flags.nanohedra] + submitted_args
+            # kwargs = dict(outdir=job.output_directory, entry=job.sym_entry.entry_number,
+            #               rot_step1=args.rotation_step1,
+            #               rot_step2=args.rotation_step2, min_matched=args.min_matched,
+            #               high_quality_match_value=args.high_quality_match_value,
+            #               initial_z_value=args.initial_z_value)
+            # cmd.extend(chain.from_iterable([[f'-{key}', str(value)] for key, value in kwargs.items()]))
+
+            # if args.output_assembly:
+            #     cmd.append(f'-{putils.output_assembly}')
+            # if args.output_surrounding_uc:
+            #     cmd.append(f'-{putils.output_surrounding_uc}')
+
+            commands = [cmd.copy() + [f'--{putils.nano_entity_flag1}', model1.file_path,
+                                      f'--{putils.nano_entity_flag2}', model2.file_path]
+                        for idx, (model1, model2) in enumerate(pose_directories)]
+            print(list2cmdline(cmd) for cmd in commands)
+            # utils.write_shell_script(list2cmdline(commands), name=flags.nanohedra, out_path=job.job_paths)
+            terminate(results=commands)
 
         location = args.oligomer1
         design_source = os.path.splitext(os.path.basename(location))[0]
@@ -1108,36 +1138,13 @@ def main():
 
         terminate(results=results)
     # ---------------------------------------------------
-    elif job.module == flags.nanohedra:  # -o1 oligomer1, -o2 oligomer2, -e entry, -o outdir
-        # Initialize docking procedure
-        if args.distribute_work:  # Write all commands to a file and use sbatch
-            raise NotImplementedError(f'Distribution has been modified significantly')
-            design_source = f'Entry{job.sym_entry.entry_number}'  # used for terminate()
-            # script_out_dir = os.path.join(job.output_directory, putils.scripts)
-            # os.makedirs(script_out_dir, exist_ok=True)
-            cmd = ['python', putils.nanohedra_exe]  # , '-dock']
-            kwargs = dict(outdir=job.output_directory, entry=job.sym_entry.entry_number, rot_step1=args.rotation_step1,
-                          rot_step2=args.rotation_step2, min_matched=args.min_matched,
-                          high_quality_match_value=args.high_quality_match_value, initial_z_value=args.initial_z_value)
-            cmd.extend(chain.from_iterable([[f'-{key}', str(value)] for key, value in kwargs.items()]))
-
-            if args.output_assembly:
-                cmd.append(f'-{putils.output_assembly}')
-            if args.output_surrounding_uc:
-                cmd.append(f'-{putils.output_surrounding_uc}')
-
-            commands = [cmd + [f'-{putils.nano_entity_flag1}', model1.file_path,
-                               f'-{putils.nano_entity_flag2}', model2.file_path]
-                        + (['-initial'] if idx == 0 else []) for idx, (model1, model2) in enumerate(pose_directories)]
-            terminate(results=commands)
+    elif job.module == flags.nanohedra:
+        if args.multi_processing:
+            results = utils.mp_map(protocols.fragdock.nanohedra_dock, pose_directories, processes=job.cores)
         else:
-            if args.multi_processing:
-                results = utils.mp_map(protocols.fragdock.nanohedra_dock, pose_directories, processes=job.cores)
-            else:
-                for pair in pose_directories:
-                    protocols.fragdock.nanohedra_dock(pair)
-                    # results.append(result)  # DONT need. Results uses pose_directories. There are none and no output
-            terminate(results=results, output=False)
+            for pair in pose_directories:
+                results.append(protocols.fragdock.nanohedra_dock(pair))
+        terminate(results=results, output=False)
     # ---------------------------------------------------
     elif job.module == flags.interface_metrics:
         # Start pose processing and preparation for Rosetta
