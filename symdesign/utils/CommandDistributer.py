@@ -31,7 +31,7 @@ sb_flag = '#SBATCH --'
 # Those jobs having a scale of 2 utilize two threads. Therefore, two commands are selected from a supplied commands list
 # and are launched inside a python environment once the SLURM controller starts a SBATCH array job
 process_scale = {
-    flags.refine: 2, flags.interface_design: 2, 'metrics': 2, flags.consensus: 2, flags.nanohedra: 2,
+    flags.refine: 2, flags.interface_design: 2, 'metrics': 2, flags.consensus: 2, flags.nanohedra: 1,  # 2,
     'rmsd_calculation': 1, 'all_to_all': 1, 'rmsd_clustering': 1, 'rmsd_to_cluster': 1, 'rmsd': 1, 'all_to_cluster': 1,
     flags.scout: 2, hbnet_design_profile: 2, flags.optimize_designs: 2, 'metrics_bound': 2, flags.interface_metrics: 2,
     hhblits: 1, 'bmdca': 2}
@@ -275,9 +275,9 @@ if __name__ == '__main__':
             if cmd_start_slice > len(all_commands):
                 exit()
             cmd_end_slice = cmd_start_slice + number_of_processes
-        else:  # not in SLURM, use multiprocessing
+        else:  # Not in SLURM, use multiprocessing
             cmd_start_slice, cmd_end_slice = None, None
-        # set the type for below if the specific command can be split further
+        # Set the type for below if the specific command can be split further
         specific_commands: list[str] | list[list[str]] = list(map(str.strip, all_commands[cmd_start_slice:cmd_end_slice]))
 
         # Prepare Commands
