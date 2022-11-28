@@ -193,9 +193,12 @@ def main():
                 else:  # We don't have a default output specified
                     pass
 
+            if job.module == flags.nanohedra and job.distribute_work:
+                output_analysis = False
+
             # Make single file with names of each directory where all_docked_poses can be found
             if output_analysis:
-                if designs_file is None:
+                if designs_file is None:  # Make a default file name
                     # def default_designs_file():
                     putils.make_path(job_paths)
                     scratch_designs = os.path.join(job_paths,
