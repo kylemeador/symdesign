@@ -277,6 +277,7 @@ module_usage_str = f'\n      python {program_name}.py %s [{input_title.lower()}]
                    f'[{output_title.lower()}][{design_selector_title.lower()}][{optional_title.lower()}]'
 
 # Reused arguments
+distribute_args = ('-D', f'--{distribute_work}')
 evolution_constraint_args = ('-ec', f'--{evolution_constraint}')
 evolution_constraint_kwargs = dict(action=argparse.BooleanOptionalAction, default=True,
                                    help='Whether to include evolutionary constraints during design.\n'
@@ -311,7 +312,7 @@ options_arguments = {
                             help='Whether a minimal CA variant of the protein should be used for design calculations'),
     (f'--{development}',): dict(action='store_true',
                                 help='Run in development mode. This should only be used for active development'),
-    ('-D', f'--{distribute_work}'): dict(action='store_true',
+    distribute_args: dict(action='store_true',
                                          help="Should commands be distributed to a cluster?\nIn most cases, this will "
                                               'maximize computational resources\nDefault=%(default)s'),
     ('-F', f'--{force}'): dict(action='store_true', help='Force generation of new files for existing projects'),
