@@ -5,16 +5,17 @@ import logging
 import inspect
 import os
 from dataclasses import make_dataclass, field
-from typing import Annotated, AnyStr, Any
+from subprocess import list2cmdline
+from typing import Annotated, AnyStr, Any, Iterable
 
 import psutil
 
-from symdesign.structure.sequence import read_fasta_file  # Todo refactor to structure.utils?
+from symdesign import flags, utils
 from symdesign.resources import structure_db, wrapapi
 from symdesign.structure.fragment import db
-from symdesign import flags
-from symdesign.utils import calculate_mp_cores, clean_comma_separated_string, CommandDistributer, format_index_string, \
-    SymEntry, InputError, path as putils
+from symdesign.structure.model import Entity
+from symdesign.structure.sequence import read_fasta_file  # Todo refactor to structure.utils?
+from symdesign.utils import CommandDistributer, SymEntry, InputError, path as putils
 
 logger = logging.getLogger(__name__)
 
@@ -46,7 +47,7 @@ def generate_chain_mask(chains: str) -> set[str]:
     Returns:
         The provided chain ids in pose format
     """
-    return set(clean_comma_separated_string(chains))
+    return set(utils.clean_comma_separated_string(chains))
 
 
 def process_design_selector_flags(
@@ -70,10 +71,11 @@ def process_design_selector_flags(
         residue_select = residue_select.union(generate_sequence_mask(select_designable_residues_by_sequence))
 
     if select_designable_residues_by_pdb_number is not None:
-        residue_pdb_select = residue_pdb_select.union(format_index_string(select_designable_residues_by_pdb_number))
+        residue_pdb_select = \
+            residue_pdb_select.union(utils.format_index_string(select_designable_residues_by_pdb_number))
 
     if select_designable_residues_by_pose_number is not None:
-        residue_select = residue_select.union(format_index_string(select_designable_residues_by_pose_number))
+        residue_select = residue_select.union(utils.format_index_string(select_designable_residues_by_pose_number))
 
     if select_designable_chains is not None:
         chain_select = chain_select.union(generate_chain_mask(select_designable_chains))
@@ -83,20 +85,20 @@ def process_design_selector_flags(
         residue_mask = residue_mask.union(generate_sequence_mask(mask_designable_residues_by_sequence))
 
     if mask_designable_residues_by_pdb_number is not None:
-        residue_pdb_mask = residue_pdb_mask.union(format_index_string(mask_designable_residues_by_pdb_number))
+        residue_pdb_mask = residue_pdb_mask.union(utils.format_index_string(mask_designable_residues_by_pdb_number))
 
     if mask_designable_residues_by_pose_number is not None:
-        residue_mask = residue_mask.union(format_index_string(mask_designable_residues_by_pose_number))
+        residue_mask = residue_mask.union(utils.format_index_string(mask_designable_residues_by_pose_number))
 
     if mask_designable_chains is not None:
         chain_mask = chain_mask.union(generate_chain_mask(mask_designable_chains))
     # -------------------
     entity_req, chain_req, residues_req, residues_pdb_req = set(), set(), set(), set()
     if require_design_by_pdb_number is not None:
-        residues_pdb_req = residues_pdb_req.union(format_index_string(require_design_by_pdb_number))
+        residues_pdb_req = residues_pdb_req.union(utils.format_index_string(require_design_by_pdb_number))
 
     if require_design_by_pose_number is not None:
-        residues_req = residues_req.union(format_index_string(require_design_by_pose_number))
+        residues_req = residues_req.union(utils.format_index_string(require_design_by_pose_number))
 
     if require_design_by_chain is not None:
         chain_req = chain_req.union(generate_chain_mask(require_design_by_chain))
@@ -212,6 +214,8 @@ class JobResources:
         self.structure_db = structure_db.structure_database_factory.get(source=self.data)
         self.fragment_db: 'db.FragmentDatabase' | None = None
 
+        # Setup Flags
+        self.initial_refinement = self.initial_loop_model = None
         # Computing environment and development Flags
         self.cores: int = kwargs.get('cores', 0)
         self.distribute_work: bool = kwargs.get(putils.distribute_work)
@@ -219,7 +223,7 @@ class JobResources:
         self.multi_processing: int = kwargs.get(putils.multi_processing)
         if self.multi_processing:
             # Calculate the number of cores to use depending on computer resources
-            self.cores = calculate_mp_cores(cores=self.cores)  # mpi=self.mpi, Todo
+            self.cores = utils.calculate_mp_cores(cores=self.cores)  # mpi=self.mpi, Todo
         else:
             self.cores = 1
 
@@ -481,6 +485,106 @@ class JobResources:
                 exit(1)
             putils.make_path(self.sequences)
             putils.make_path(self.profiles)
+
+    def setup_evolution_constraint(self, all_entities: Iterable[Entity]) -> list[str]:
+        """Format the job with evolutionary constraint options
+
+        Args:
+            all_entities: A list of the Entity instances initialized for the Job
+        Returns:
+            A list evolutionary setup instructions
+        """
+        info_messages = []
+        hhblits_cmds, bmdca_cmds = [], []
+        # Set up sequence data using hhblits and profile bmDCA for each input entity
+        putils.make_path(self.sequences)
+        for entity in all_entities:
+            entity.sequence_file = self.api_db.sequences.retrieve_file(name=entity.name)
+            if not entity.sequence_file:
+                entity.write_sequence_to_fasta('reference', out_dir=self.sequences)
+                # entity.add_evolutionary_profile(out_dir=self.api_db.hhblits_profiles.location)
+            else:
+                entity.evolutionary_profile = self.api_db.hhblits_profiles.retrieve_data(name=entity.name)
+                # entity.h_fields = self.api_db.bmdca_fields.retrieve_data(name=entity.name)
+                # TODO reinstate entity.j_couplings = self.api_db.bmdca_couplings.retrieve_data(name=entity.name)
+            if not entity.evolutionary_profile:
+                # To generate in current runtime
+                # entity.add_evolutionary_profile(out_dir=self.api_db.hhblits_profiles.location)
+                # To generate in a sbatch script
+                # profile_cmds.append(entity.hhblits(out_dir=self.profiles, return_command=True))
+                hhblits_cmds.append(entity.hhblits(out_dir=self.profiles, return_command=True))
+            # TODO reinstate
+            # before this is run, hhblits must be run and the file located at profiles/entity-name.fasta contains
+            # the multiple sequence alignment in .fasta format
+            #  if not entity.j_couplings:
+            #    bmdca_cmds.append([putils.bmdca_exe_path, '-i', os.path.join(self.profiles, f'{entity.name}.fasta'),
+            #                       '-d', os.path.join(self.profiles, f'{entity.name}_bmDCA')])
+
+        if hhblits_cmds:
+            if not os.access(putils.hhblits_exe, os.X_OK):
+                print(f"Couldn't locate the {putils.hhblits} executable. Ensure the executable file referenced by"
+                      f'{putils.hhblits_exe} exists then try your job again. Otherwise, use the argument'
+                      f'--no-{flags.evolution_constraint}')
+                exit()
+            putils.make_path(self.profiles)
+            putils.make_path(self.sbatch_scripts)
+            # Prepare files for running hhblits commands
+            instructions = 'Please follow the instructions below to generate sequence profiles for input proteins'
+            info_messages.append(instructions)
+            # hhblits_cmds, reformat_msa_cmds = zip(*profile_cmds)
+            # hhblits_cmds, _ = zip(*hhblits_cmds)
+            reformat_msa_cmd1 = [putils.reformat_msa_exe_path, 'a3m', 'sto',
+                                 f"'{os.path.join(self.profiles, '*.a3m')}'", '.sto', '-num', '-uc']
+            reformat_msa_cmd2 = [putils.reformat_msa_exe_path, 'a3m', 'fas',
+                                 f"'{os.path.join(self.profiles, '*.a3m')}'", '.fasta', '-M', 'first', '-r']
+            hhblits_cmd_file = utils.write_commands(hhblits_cmds, name=f'{utils.starttime}-{putils.hhblits}',
+                                                    out_path=self.profiles)
+            hhblits_sbatch = \
+                CommandDistributer.distribute(file=hhblits_cmd_file, out_path=self.sbatch_scripts,
+                                              scale=putils.hhblits, max_jobs=len(hhblits_cmds),
+                                              number_of_commands=len(hhblits_cmds),
+                                              log_file=os.path.join(self.profiles, 'generate_profiles.log'),
+                                              finishing_commands=[list2cmdline(reformat_msa_cmd1),
+                                                                  list2cmdline(reformat_msa_cmd2)])
+            hhblits_sbatch_message = \
+                f'Enter the following to distribute {putils.hhblits} jobs:\n\tsbatch {hhblits_sbatch}'
+            info_messages.append(hhblits_sbatch_message)
+        # else:
+        #     hhblits_sbatch = None
+
+        if bmdca_cmds:
+            putils.make_path(self.profiles)
+            putils.make_path(self.sbatch_scripts)
+            # bmdca_cmds = \
+            #     [list2cmdline([putils.bmdca_exe_path, '-i', os.path.join(self.profiles, '%s.fasta' % entity.name),
+            #                   '-d', os.path.join(self.profiles, '%s_bmDCA' % entity.name)])
+            #      for entity in all_entities.values()]
+            bmdca_cmd_file = \
+                utils.write_commands(bmdca_cmds, name=f'{utils.starttime}-bmDCA', out_path=self.profiles)
+            bmdca_sbatch = utils.CommandDistributer.distribute(file=bmdca_cmd_file, out_path=self.sbatch_scripts,
+                                                               scale='bmdca', max_jobs=len(bmdca_cmds),
+                                                               number_of_commands=len(bmdca_cmds),
+                                                               log_file=os.path.join(self.profiles,
+                                                                                     'generate_couplings.log'))
+            # reformat_msa_cmd_file = \
+            #     SDUtils.write_commands(reformat_msa_cmds, name='%s-reformat_msa' % SDUtils.starttime,
+            #                            out_path=self.profiles)
+            # reformat_sbatch = distribute(file=reformat_msa_cmd_file, out_path=self.program_root,
+            #                              scale='script', max_jobs=len(reformat_msa_cmds),
+            #                              log_file=os.path.join(self.profiles, 'generate_profiles.log'),
+            #                              number_of_commands=len(reformat_msa_cmds))
+            print('\n' * 2)
+            # Todo add bmdca_sbatch to hhblits_cmds finishing_commands kwarg
+            bmdca_sbatch_message = \
+                'Once you are satisfied, enter the following to distribute jobs:\n\tsbatch %s' \
+                % bmdca_sbatch if not info_messages else 'ONCE this job is finished, to calculate evolutionary ' \
+                                                         'couplings i,j for each amino acid in the multiple ' \
+                                                         f'sequence alignment, enter:\n\tsbatch {bmdca_sbatch}'
+            info_messages.append(bmdca_sbatch_message)
+        # else:
+        #     bmdca_sbatch = reformat_sbatch = None
+
+        return info_messages
 
 
 class JobResourcesFactory:

@@ -276,6 +276,16 @@ usage_str = f'\n      python {program_name}.py module [{module_title.lower()}][{
                f'[{output_title.lower()}][{design_selector_title.lower()}][{optional_title.lower()}]'
 module_usage_str = f'\n      python {program_name}.py %s [{input_title.lower()}]' \
                    f'[{output_title.lower()}][{design_selector_title.lower()}][{optional_title.lower()}]'
+
+# Reused arguments
+evolution_constraint_args = ('-ec', f'--{evolution_constraint}')
+evolution_constraint_kwargs = dict(action=argparse.BooleanOptionalAction, default=True,
+                                   help='Whether to include evolutionary constraints during design.\n'
+                                        f'{boolean_positional_prevent_msg(evolution_constraint)}'),
+term_constraint_args = ('-tc', f'--{term_constraint}')
+term_constraint_kwargs = dict(action=argparse.BooleanOptionalAction, default=True,
+                              help='Whether to include tertiary motif constraints during design.\n'
+                                   f'{boolean_positional_prevent_msg(term_constraint)}'),
 guide_args = ('--guide',)
 guide_kwargs = dict(action='store_true', help=f'Display the {program_name}/module specific guide\nEx:'
                                               f' "{program_command} --guide"\nor "{submodule_guide}"')
@@ -444,6 +454,7 @@ nanohedra_arguments = {
                                            '\nsegments on a single component'),
     (f'--{dock_only}',): dict(action=argparse.BooleanOptionalAction, default=False,
                               help='Whether docking should be performed without sequence design'),
+    evolution_constraint_args: evolution_constraint_kwargs,
     ('-iz', f'--{initial_z_value}'): dict(type=float, default=1.,
                                           help='The acceptable standard deviation z score for initial fragment overlap '
                                                'identification.\nSmaller values lead to more stringent matching '
@@ -535,10 +546,7 @@ interface_design_help = 'Gather poses of interest and format for design using Ro
                         ' profiles extracted from the PDB or neither'
 parser_design = {interface_design: dict(description=interface_design_help, help=interface_design_help)}
 interface_design_arguments = {
-    ('-ec', f'--{evolution_constraint}'):
-        dict(action=argparse.BooleanOptionalAction, default=True,
-             help='Whether to include evolutionary constraints during design.\n'
-                  f'{boolean_positional_prevent_msg(evolution_constraint)}'),
+    evolution_constraint_args: evolution_constraint_kwargs,
     ('-hb', f'--{hbnet}'):
         dict(action=argparse.BooleanOptionalAction, default=True,
              help=f'Whether to include hydrogen bond networks in the design.\n{boolean_positional_prevent_msg(hbnet)}'),
@@ -555,10 +563,7 @@ interface_design_arguments = {
     ('-sc', f'--{scout}'):
         dict(action=argparse.BooleanOptionalAction, default=False,
              help='Whether to set up a low resolution scouting protocol to survey designability'),
-    ('-tc', f'--{term_constraint}'):
-        dict(action=argparse.BooleanOptionalAction, default=True,
-             help='Whether to include tertiary motif constraints during design.\n'
-                  f'{boolean_positional_prevent_msg(term_constraint)}'),
+    term_constraint_args: term_constraint_kwargs
 }
 # ---------------------------------------------------
 interface_metrics_help = 'Analyze interface metrics from a pose'
