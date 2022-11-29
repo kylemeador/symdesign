@@ -1325,16 +1325,15 @@ class PoseDirectory:
 
         Args:
             sequences: The sequences to thread
-        Returns:
-
         """
-        if sequences is None:  # Gather already designed sequences
+        if sequences is None:  # Gather all already designed sequences
             # refine_sequences = unpickle(self.designed_sequences_file)
             sequences = {seq.id: seq.seq for seq in read_fasta_file(self.designed_sequences_file)}
 
         # if self.protocol is not None:  # This hasn't been set yet
         self.protocol = 'thread'
 
+        # Write each "threaded" structure out for further processing
         number_of_residues = self.pose.number_of_residues
         design_files = []
         for sequence_id, sequence in sequences.items():
@@ -1351,6 +1350,19 @@ class PoseDirectory:
 
         design_files_file = os.path.join(self.scripts, f'files_{self.protocol}.txt')
         putils.make_path(self.scripts)
+
+        # Modify each sequence score to reflect the new "decoy" name
+        sequence_ids = sequences.keys()
+        design_scores = read_scores(self.scores_file)
+        for design, scores in design_scores.items():
+            if design in sequence_ids:  # We saved data, copy to new identifier as it will be threaded
+                scores['decoy'] = f'{design}_{self.protocol}'
+                # write_json(_scores, self.scores_file)
+                with open(self.scores_file, 'a') as f_save:
+                    json.dump(scores, f_save)  # , **kwargs)
+                    # Ensure JSON lines are separated by newline
+                    f_save.write('\n')
+
         # generate_files_file_cmd = \
         #     ['python', putils.list_pdb_files, '-d', self.data, '-o', design_files_file, '-s', '_' + self.protocol]
         # list_all_files_process = Popen(generate_files_file_cmd)
@@ -1360,7 +1372,7 @@ class PoseDirectory:
             with open(design_files_file, 'w') as f:
                 f.write('%s\n' % '\n'.join(design_files))
         else:
-            raise DesignError(f'No designed sequences were provided to {self.thread_sequences_to_backbone.__name__}')
+            raise DesignError(f'{self.thread_sequences_to_backbone.__name__}: No designed sequences were located')
 
         self._refine(in_file_list=design_files_file, gather_metrics=True)
 
