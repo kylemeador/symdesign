@@ -1147,10 +1147,10 @@ def main():
     # ---------------------------------------------------
     elif job.module == flags.nanohedra:
         if args.multi_processing:
-            results = utils.mp_map(protocols.fragdock.nanohedra_dock, pose_directories, processes=job.cores)
+            results = utils.mp_map(protocols.fragdock.fragment_dock, pose_directories, processes=job.cores)
         else:
             for pair in pose_directories:
-                results.append(protocols.fragdock.nanohedra_dock(pair))
+                results.append(protocols.fragdock.fragment_dock(pair))
         terminate(results=results, output=False)
     # ---------------------------------------------------
     elif job.module == flags.interface_metrics:
