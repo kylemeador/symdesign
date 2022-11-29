@@ -457,6 +457,47 @@ class JobResources:
 
         return reported_args
 
+    def report_unspecified_arguments(self, arguments: argparse.Namespace) -> dict[str, Any]:
+        """Filter all flags for only those that were specified as different on the command line
+
+        Args:
+            arguments: The arguments as parsed from the command-line argparse namespace
+        Returns:
+            Arguments specified during program execution
+        """
+        arguments = vars(arguments).copy()
+
+        # Get all the default program args and compare them to the provided values
+        reported_args = {}
+        entire_parser = flags.argparsers[flags.parser_entire]
+        for group in entire_parser._action_groups:
+            for arg in group._group_actions:
+                if isinstance(arg, argparse._SubParsersAction):  # We have a subparser, recurse
+                    for name, sub_parser in arg.choices.items():
+                        for sub_group in sub_parser._action_groups:
+                            for arg in sub_group._group_actions:
+                                value = arguments.pop(arg.dest, None)  # Get the parsed flag value
+                                if value is not None:  # Compare it to the default
+                                    reported_args[arg.dest] = value  # Add it to reported args if not the default
+                else:
+                    value = arguments.pop(arg.dest, None)  # Get the parsed flag value
+                    if value is not None:  # Compare it to the default
+                        reported_args[arg.dest] = value  # Add it to reported args if not the default
+
+        # # Custom removal/formatting for all remaining
+        # for custom_arg in list(arguments.keys()):
+        #     value = arguments.pop(custom_arg, None)
+        #     if value is not None:
+        #         reported_args[custom_arg] = value
+
+        # Where input values should be reported instead of processed version, or the argument is not important, format
+        if self.sym_entry:
+            reported_args[putils.sym_entry] = self.sym_entry.entry_number
+        # if self.design_selector:
+        #     reported_args.pop('design_selector', None)
+
+        return reported_args
+
     def calculate_memory_requirements(self, number_jobs: int):
         """Format memory requirements with module dependencies and set self.reduce_memory"""
         if self.module == flags.nanohedra:  # Todo

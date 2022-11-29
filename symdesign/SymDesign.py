@@ -601,6 +601,8 @@ def main():
     # -----------------------------------------------------------------------------------------------------------------
     reported_args = job.report_specified_arguments(args)
     logger.info('Starting with options:\n\t%s' % '\n\t'.join(utils.pretty_format_table(reported_args.items())))
+    if job.debug:
+        reported_args = job.report_unspecified_arguments(args)
 
     logger.info(f'Using resources in Database located at "{job.data}"')
     if job.module in [flags.nanohedra, flags.generate_fragments, flags.interface_design, flags.analysis]:
