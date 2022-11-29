@@ -955,9 +955,8 @@ def main():
             # os.makedirs(script_out_dir, exist_ok=True)
             possible_input_args = [arg for args in flags.nanohedra_mutual1_arguments.keys() for arg in args] \
                 + [arg for args in flags.nanohedra_mutual2_arguments.keys() for arg in args]
-                # + list(flags.distribute_args)
+            #     + list(flags.distribute_args)
             submitted_args = sys.argv[1:]
-            print('submitted_args', submitted_args)
             for input_arg in possible_input_args:
                 try:
                     pop_index = submitted_args.index(input_arg)
@@ -976,23 +975,12 @@ def main():
                     continue
                 submitted_args.pop(pop_index)
 
+            # Format commands
             cmd = ['python', putils.program_exe] + submitted_args
-            # kwargs = dict(outdir=job.output_directory, entry=job.sym_entry.entry_number,
-            #               rot_step1=args.rotation_step1,
-            #               rot_step2=args.rotation_step2, min_matched=args.min_matched,
-            #               high_quality_match_value=args.high_quality_match_value,
-            #               initial_z_value=args.initial_z_value)
-            # cmd.extend(chain.from_iterable([[f'-{key}', str(value)] for key, value in kwargs.items()]))
-
-            # if args.output_assembly:
-            #     cmd.append(f'-{putils.output_assembly}')
-            # if args.output_surrounding_uc:
-            #     cmd.append(f'-{putils.output_surrounding_uc}')
-
             commands = [cmd.copy() + [f'--{putils.nano_entity_flag1}', model1.file_path,
                                       f'--{putils.nano_entity_flag2}', model2.file_path]
                         for idx, (model1, model2) in enumerate(pose_directories)]
-            print([list2cmdline(cmd) for cmd in commands])
+            # logger.debug([list2cmdline(cmd) for cmd in commands])
             # utils.write_shell_script(list2cmdline(commands), name=flags.nanohedra, out_path=job.job_paths)
             terminate(results=commands)
 

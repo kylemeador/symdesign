@@ -335,10 +335,12 @@ if __name__ == '__main__':
         signal.signal(signal.SIGTERM, exit_gracefully)
         # while not monitor.kill_now:
 
-        number_of_commands = len(specific_commands)  # different from process scale as this could reflect edge cases
-        if number_of_commands > 1:  # set by process_scale
-            processes = utils.calculate_mp_cores(cores=number_of_commands, jobs=args.jobs)
-            results = utils.mp_starmap(run, zipped_commands, processes=processes)
+        # number_of_commands is different from process scale and could reflect edge cases
+        number_of_commands = len(specific_commands)
+        if number_of_commands > 1:
+            # The args.jobs was set by the process_scale dictionary
+            results = utils.mp_starmap(run, zipped_commands,
+                                       processes=utils.calculate_mp_cores(cores=number_of_commands, jobs=args.jobs))
         else:
             results = [run(*command) for command in zipped_commands]
         #    iteration += 1

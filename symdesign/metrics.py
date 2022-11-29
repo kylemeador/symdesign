@@ -803,15 +803,15 @@ def read_scores(file: AnyStr, key: str = 'decoy') -> dict[str, dict[str, str]]:
         file: Location on disk of scorefile
         key: Name of the json key to use as outer dictionary identifier
     Returns:
-        {design_name: {metric_key: metric_value, ...}, ...}
+        The parsed scorefile
+            Ex {'design_identifier1': {'metric_key': metric_value, ...}, 'design_identifier2': {}, ...}
     """
     with open(file, 'r') as f:
         scores = {}
         for json_entry in f.readlines():
-            # entry = loads(json_entry)
             formatted_scores = {}
             for score, value in loads(json_entry).items():
-                if score.startswith('per_res_'):  # there are a lot of these scores in particular
+                if score.startswith('per_res_'):  # There are a lot of these scores in particular
                     formatted_scores[score] = value
                 elif score.startswith('R_'):
                     formatted_scores[score.replace('R_', '').replace('S_', '')] = value
@@ -824,9 +824,9 @@ def read_scores(file: AnyStr, key: str = 'decoy') -> dict[str, dict[str, str]]:
             if design not in scores:
                 scores[design] = formatted_scores
             else:
-                # # to ensure old trajectories don't have lingering protocol info
+                # # To ensure old trajectories don't have lingering protocol info
                 # for protocol in protocols:
-                #     if protocol in entry:  # ensure that the new scores has a protocol before removing the old one.
+                #     if protocol in entry:  # Ensure that the new scores has a protocol before removing the old one.
                 #         for rm_protocol in protocols:
                 #             scores[design].pop(rm_protocol, None)
                 scores[design].update(formatted_scores)
