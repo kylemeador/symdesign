@@ -30,6 +30,7 @@ query_codes1 = 'query_codes1'
 query_codes2 = 'query_codes2'
 nanohedra_output = 'nanohedra_output'
 modules = 'modules'
+score = 'score'
 module = 'module'
 method = 'method'
 dock_only = 'dock_only'
@@ -65,7 +66,7 @@ design_arguments = {
 dock_arguments = {
     proteinmpnn_score, contiguous_ghosts, perturb_dof, perturb_dof_rot, perturb_dof_tx,
     perturb_dof_steps, perturb_dof_steps_rot, perturb_dof_steps_tx, initial_z_value, match_value, min_matched,
-    rotation_step1, rotation_step2
+    rotation_step1, rotation_step2, score
 }
 predict_arguments = {
     method
@@ -464,6 +465,8 @@ nanohedra_arguments = {
     ('-m', f'--{min_matched}'): dict(type=int, default=3,
                                      help='How many high quality fragment pairs should be present before a pose is '
                                           'identified?\nDefault=%(default)s'),
+    (f'--{score}',): dict(type=str, default='nanohedra', choices={'nanohedra', 'proteinmpnn'},
+                          help='Which metric should be used to rank output poses?\nDefault=%(default)s'),
     (f'--{only_write_frag_info}',): dict(action=argparse.BooleanOptionalAction, default=False,
                                          help='Used to write fragment information to a directory for C1 based docking'),
     output_directory_args:

@@ -2094,7 +2094,42 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
         # total_number_of_perturbations = number_of_transforms
         total_perturbation_size = 1
 
-    # Define functions for outputting docked poses
+    # From here out, the transforms used should be only those of interest for outputting/sequence design
+    # remove_non_viable_indices() <- This is done above
+    # Format pose transformations for output
+    blank_parameter = list(repeat([None, None, None], number_of_transforms))
+    full_ext_tx1 = blank_parameter if full_ext_tx1 is None else full_ext_tx1.squeeze()
+    full_ext_tx2 = blank_parameter if full_ext_tx2 is None else full_ext_tx2.squeeze()
+
+    set_mat1_number, set_mat2_number, *_extra = sym_entry.setting_matrices_numbers
+    rotations1 = scipy.spatial.transform.Rotation.from_matrix(full_rotation1)
+    rotations2 = scipy.spatial.transform.Rotation.from_matrix(full_rotation2)
+    # Get all rotations in terms of the degree of rotation along the z-axis
+    rotation_degrees1 = rotations1.as_rotvec(degrees=True)[:, -1]
+    rotation_degrees2 = rotations2.as_rotvec(degrees=True)[:, -1]
+    # Todo get the degeneracy_degrees
+    # degeneracy_degrees1 = rotations1.as_rotvec(degrees=True)[:, :-1]
+    # degeneracy_degrees2 = rotations2.as_rotvec(degrees=True)[:, :-1]
+    if sym_entry.is_internal_tx1:
+        if full_int_tx1.shape[0] > 1:
+            full_int_tx1 = full_int_tx1.squeeze()
+        z_heights1 = full_int_tx1[:, -1]
+    else:
+        z_heights1 = blank_parameter
+
+    if sym_entry.is_internal_tx2:
+        if full_int_tx2.shape[0] > 1:
+            full_int_tx2 = full_int_tx2.squeeze()
+        z_heights2 = full_int_tx2[:, -1]
+    else:
+        z_heights2 = blank_parameter
+    # if sym_entry.unit_cell:
+    #     full_uc_dimensions = full_uc_dimensions[passing_symmetric_clash_indices_perturb]
+    #     full_ext_tx1 = full_ext_tx1[:]
+    #     full_ext_tx2 = full_ext_tx2[:]
+    #     full_ext_tx_sum = full_ext_tx2 - full_ext_tx1
+
+    # Save all pose transformation information
     def create_pose_id(_idx: int) -> str:
         """Create a PoseID from the sampling conditions
 
@@ -2113,6 +2148,28 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
             _pose_id = f'{_pose_id}-p_{_idx%total_perturbation_size + 1}'
 
         return f'{building_blocks}-{_pose_id}'
+
+    # Todo move after job.dock.score tabulation
+    pose_transformations = {}
+    for idx in range(number_of_transforms):
+        external_translation1_x, external_translation1_y, external_translation1_z = full_ext_tx1[idx]
+        external_translation2_x, external_translation2_y, external_translation2_z = full_ext_tx2[idx]
+        pose_transformations[create_pose_id(idx)] = \
+            dict(rotation1=rotation_degrees1[idx],
+                 internal_translation1=z_heights1[idx],
+                 setting_matrix1=set_mat1_number,
+                 external_translation1_x=external_translation1_x,
+                 external_translation1_y=external_translation1_y,
+                 external_translation1_z=external_translation1_z,
+                 rotation2=rotation_degrees2[idx],
+                 internal_translation2=z_heights2[idx],
+                 setting_matrix2=set_mat2_number,
+                 external_translation2_x=external_translation2_x,
+                 external_translation2_y=external_translation2_y,
+                 external_translation2_z=external_translation2_z)
+
+    # Capture all the pose_ids from the transformation dictionary
+    pose_ids = list(pose_transformations.keys())
 
     def add_fragments_to_pose(overlap_ghosts: list[int] = None, overlap_surf: list[int] = None,
                               sorted_z_scores: np.ndarray = None):
@@ -2157,143 +2214,6 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
             # These two pose attributes must be set
             pose.fragment_queries = {entity_tuple: frag_match_info}
             pose.fragment_metrics = {entity_tuple: fragment_metrics}
-
-    # Create a Models instance to collect each model
-    if job.write_trajectory:
-        models = Models()
-
-    def output_pose(_out_dir: AnyStr, _pose_id: AnyStr, uc_dimensions: np.ndarray = None):
-        """Format the current Pose for output using the job parameters
-
-        Args:
-            _out_dir: The directory to write files
-            _pose_id: The particular identifier for the pose
-            uc_dimensions: If this is a lattice, the crystal dimensions
-        """
-        out_path = os.path.join(_out_dir, _pose_id)
-        putils.make_path(out_path)
-
-        # Set the ASU, then write to a file
-        pose.set_contacting_asu(distance=cb_distance)
-        if sym_entry.unit_cell:  # 2, 3 dimensions
-            cryst_record = generate_cryst1_record(uc_dimensions, sym_entry.resulting_symmetry)
-        else:
-            cryst_record = None
-
-        if job.write_structures:
-            pose_path = os.path.join(out_path, putils.asu)
-            pose.write(out_path=pose_path, header=cryst_record)
-        else:
-            pose_path = None
-
-        if job.write_trajectory:
-            raise NotImplementedError('make more reliable!!')
-            nonlocal idx
-            if idx % 2 == 0:
-                new_pose = copy.copy(pose)
-                # new_pose = copy.copy(pose.models[0])
-                for entity in new_pose.chains[1:]:  # new_pose.entities[1:]:
-                    entity.chain_id = 'D'
-                    # Todo make more reliable
-                    # Todo NEED TO MAKE SymmetricModel copy .entities and .chains correctly!
-                models.append_model(new_pose)
-
-        # Todo group by input model... not entities
-        # Write Model1, Model2
-        if job.write_oligomers:
-            for entity in pose.entities:
-                entity.write(oligomer=True, out_path=os.path.join(out_path, f'{entity.name}_{_pose_id}.pdb'))
-
-        # Write assembly files
-        if job.output_assembly:
-            if sym_entry.unit_cell:  # 2, 3 dimensions
-                if job.output_surrounding_uc:
-                    assembly_path = os.path.join(out_path, f'{_pose_id}_{putils.surrounding_unit_cells}')
-                else:
-                    assembly_path = os.path.join(out_path, f'{_pose_id}_{putils.assembly}')
-            else:  # 0 dimension
-                assembly_path = os.path.join(out_path, f'{_pose_id}_{putils.assembly}')
-            pose.write(assembly=True, out_path=assembly_path, header=cryst_record,
-                       surrounding_uc=job.output_surrounding_uc)
-
-        # Write fragment files
-        if job.write_fragments:
-            # Make directories to output matched fragment files
-            matching_fragments_dir = os.path.join(out_path, putils.frag_dir)
-            putils.make_path(matching_fragments_dir)
-            # high_qual_match for fragments that were matched with z values <= 1, otherwise, low_qual_match
-            # high_quality_matches_dir = os.path.join(matching_fragments_dir, 'high_qual_match')
-            # low_quality_matches_dir = os.path.join(matching_fragments_dir, 'low_qual_match')
-            pose.write_fragment_pairs(out_path=matching_fragments_dir)
-
-        logger.info(f'\tSUCCESSFUL DOCKED POSE: {out_path}')
-
-        return pose_path
-
-    def terminate():
-        """Finalize any remaining work and return to the caller"""
-        if job.write_trajectory:
-            if sym_entry.unit_cell:
-                logger.warning('No unit cell dimensions applicable to the trajectory file.')
-
-            models.write(out_path=os.path.join(out_dir, 'trajectory_oligomeric_models.pdb'),
-                         oligomer=True)
-
-    # From here out, the transforms used should be only those of interest for outputting/sequence design
-    # remove_non_viable_indices() <- This is done above
-    # Format pose transformations for output
-    blank_parameter = list(repeat([None, None, None], number_of_transforms))
-    full_ext_tx1 = blank_parameter if full_ext_tx1 is None else full_ext_tx1.squeeze()
-    full_ext_tx2 = blank_parameter if full_ext_tx2 is None else full_ext_tx2.squeeze()
-
-    set_mat1_number, set_mat2_number, *_extra = sym_entry.setting_matrices_numbers
-    rotations1 = scipy.spatial.transform.Rotation.from_matrix(full_rotation1)
-    rotations2 = scipy.spatial.transform.Rotation.from_matrix(full_rotation2)
-    # Get all rotations in terms of the degree of rotation along the z-axis
-    rotation_degrees1 = rotations1.as_rotvec(degrees=True)[:, -1]
-    rotation_degrees2 = rotations2.as_rotvec(degrees=True)[:, -1]
-    # Todo get the degeneracy_degrees
-    # degeneracy_degrees1 = rotations1.as_rotvec(degrees=True)[:, :-1]
-    # degeneracy_degrees2 = rotations2.as_rotvec(degrees=True)[:, :-1]
-    if sym_entry.is_internal_tx1:
-        if full_int_tx1.shape[0] > 1:
-            full_int_tx1 = full_int_tx1.squeeze()
-        z_heights1 = full_int_tx1[:, -1]
-    else:
-        z_heights1 = blank_parameter
-    if sym_entry.is_internal_tx2:
-        if full_int_tx2.shape[0] > 1:
-            full_int_tx2 = full_int_tx2.squeeze()
-        z_heights2 = full_int_tx2[:, -1]
-    else:
-        z_heights2 = blank_parameter
-    # if sym_entry.unit_cell:
-    #     full_uc_dimensions = full_uc_dimensions[passing_symmetric_clash_indices_perturb]
-    #     full_ext_tx1 = full_ext_tx1[:]
-    #     full_ext_tx2 = full_ext_tx2[:]
-    #     full_ext_tx_sum = full_ext_tx2 - full_ext_tx1
-
-    # Save all pose transformation information
-    pose_transformations = {}
-    for idx in range(number_of_transforms):
-        external_translation1_x, external_translation1_y, external_translation1_z = full_ext_tx1[idx]
-        external_translation2_x, external_translation2_y, external_translation2_z = full_ext_tx2[idx]
-        pose_transformations[create_pose_id(idx)] = \
-            dict(rotation1=rotation_degrees1[idx],
-                 internal_translation1=z_heights1[idx],
-                 setting_matrix1=set_mat1_number,
-                 external_translation1_x=external_translation1_x,
-                 external_translation1_y=external_translation1_y,
-                 external_translation1_z=external_translation1_z,
-                 rotation2=rotation_degrees2[idx],
-                 internal_translation2=z_heights2[idx],
-                 setting_matrix2=set_mat2_number,
-                 external_translation2_x=external_translation2_x,
-                 external_translation2_y=external_translation2_y,
-                 external_translation2_z=external_translation2_z)
-
-    # Capture all the pose_ids from the transformation dictionary
-    pose_ids = list(pose_transformations.keys())
 
     # Should interface metrics be performed to inform on docking success?
     proteinmpnn_used = False
@@ -2876,7 +2796,6 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
             #  MUST reinstate the removal from scope after finished with this batch
             # decoding_order = pose.generate_proteinmpnn_decode_order(to_device=device)
             # decoding_order.repeat(actual_batch_length, 1)
-            # TODO ________________ END HERE _______________
             # with torch.no_grad():  # Ensure no gradients are produced
             # Unpack constant parameters and slice reused parameters only once
             # X_unbound = batch_parameters.pop('X')  # Remove once batch_calculation()
@@ -2917,7 +2836,6 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
             mpnn_null_idx = resources.ml.MPNN_NULL_IDX
             # This parameter is pass as X for compatibility reasons
             # X_unbound = X
-            # TODO _______________ START HERE ______________
             # Initialize pose data structures for interface design
             residue_mask_cpu = np.zeros((actual_batch_length, pose_length),
                                         dtype=np.int32)  # (batch, number_of_residues)
@@ -3003,7 +2921,6 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
             #  MUST reinstate the removal from scope after finished with this batch
             # decoding_order = pose.generate_proteinmpnn_decode_order(to_device=device)
             # decoding_order.repeat(actual_batch_length, 1)
-            # TODO ________________ END HERE _______________
             # with torch.no_grad():  # Ensure no gradients are produced
             # Unpack constant parameters and slice reused parameters only once
             # X_unbound = batch_parameters.pop('X')  # Remove once batch_calculation()
@@ -3042,9 +2959,6 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
             chain_residue_mask = chain_mask * residue_mask
 
             decoding_order = ml.create_decoding_order(randn, chain_mask, tied_pos=tied_pos, to_device=device)
-            # Todo _______________ START HERE ______________
-            #  dock_fit_parameters = check_dock_for_designability()
-            #  def check_dock_for_designability():
             # See if the pose is useful to design based on constraints of collapse
 
             # Measure the conditional amino acid probabilities at each residue to see
@@ -3178,9 +3092,6 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
                 'design_indices': _residue_indices_of_interest,
                 'collapse_violation': _poor_collapse,
             }
-            # Todo check_dock_for_designability END
-            #  return dock_fit_parameters
-            # TODO ________________ END HERE _______________
 
             batch_sequences = []
             _per_residue_complex_sequence_loss = []
@@ -3273,7 +3184,6 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
             return dock_fit_parameters
 
         # Initialize correct data for the calculation
-        # Todo perhaps can put some things in here that are relevant
         proteinmpnn_kwargs = dict(pose_length=pose_length,
                                   temperatures=job.design.temperatures)
         number_of_temperatures = len(job.design.temperatures)
@@ -3293,6 +3203,8 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
                             'collapse_z': per_residue_batch_collapse_z,
                             'design_indices': per_residue_design_indices,
                             'collapse_violation': collapse_violation}
+        else:
+            dock_returns = {}
 
         if job.design.sequences:
             generated_sequences = np.empty((size, number_of_temperatures, pose_length), dtype=np.int64)
@@ -3303,6 +3215,8 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
                               'unbound_sequence_loss': per_residue_unbound_sequence_loss,
                               'design_indices': per_residue_design_indices
                               }
+        else:
+            design_returns = {}
 
         # Perform the calculation
         if job.dock.proteinmpnn_score and job.design.sequences:
@@ -3325,16 +3239,16 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
         elif job.dock.proteinmpnn_score:
             calculation_method = 'docking analysis'
             # This is used for understanding dock fit only
-            dock_fit_parameters = check_dock_for_designability(**proteinmpnn_kwargs,
-                                                               return_containers=dock_returns,
-                                                               setup_args=(device,),
-                                                               setup_kwargs=parameters)
+            sequences_and_scores = check_dock_for_designability(**proteinmpnn_kwargs,
+                                                                return_containers=dock_returns,
+                                                                setup_args=(device,),
+                                                                setup_kwargs=parameters)
 
-            per_residue_evolution_cross_entropy = dock_fit_parameters['evolution_cross_entropy']
-            per_residue_fragment_cross_entropy = dock_fit_parameters['fragment_cross_entropy']
-            per_residue_batch_collapse_z = dock_fit_parameters['collapse_z']
-            per_residue_design_indices = dock_fit_parameters['design_indices']
-            collapse_violation = dock_fit_parameters['collapse_violation']
+            per_residue_evolution_cross_entropy = sequences_and_scores['evolution_cross_entropy']
+            per_residue_fragment_cross_entropy = sequences_and_scores['fragment_cross_entropy']
+            per_residue_batch_collapse_z = sequences_and_scores['collapse_z']
+            per_residue_design_indices = sequences_and_scores['design_indices']
+            collapse_violation = sequences_and_scores['collapse_violation']
             generated_sequences = per_residue_complex_sequence_loss = per_residue_unbound_sequence_loss = None
         elif job.design.sequences:  # This is used for design only
             calculation_method = 'sequence design'
@@ -3378,6 +3292,117 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
         # # per_residue_complex_sequence_loss = per_residue_complex_sequence_loss.reshape(-1, pose_length)
         # # per_residue_unbound_sequence_loss = per_residue_unbound_sequence_loss.reshape(-1, pose_length)
         # sequences = sequences.reshape(-1, pose_length)
+    else:
+        design_ids = pose_ids
+
+    # Sort cluster members by the highest metric and take some highest number of members
+    # Todo filter by score for the best
+    #  Collect scores according to job.dock.score
+    #
+    if job.dock.score:
+        metric = sequences_and_scores.get(job.dock.score)
+        if metric is None:
+            raise ValueError(f"The metric {job.dock.score} wasn't collected and therefore, can't be selected")
+
+        # The use of perturbation is inherently handled. Don't need check
+        # if job.dock.perturb_dof:
+        number_of_chosen_hits = math.sqrt(total_perturbation_size)
+        number_of_transform_seeds = int(number_of_transforms // total_perturbation_size)
+        perturb_passing_indices = []
+        for idx in range(number_of_transform_seeds):
+            # Slice the chosen metric along the local perturbation
+            perturb_metric = metric[idx * total_perturbation_size: (idx+1) * total_perturbation_size]
+            # Sort the slice and take the top number of hits
+            top_candidate_indices = perturb_metric.argsort()[:number_of_chosen_hits]
+            # perturb_metric[top_candidate_indices]
+            # Scale the selected indices into the transformation indices reference
+            perturb_passing_indices.extend((top_candidate_indices + idx*total_perturbation_size).tolist())
+
+        remove_non_viable_indices(perturb_passing_indices)
+    else:  # Output all
+        design_ids = pose_ids
+
+    # Create a Models instance to collect each model
+    if job.write_trajectory:
+        trajectory_models = Models()
+
+    # Define functions for outputting docked poses
+    def output_pose(_out_dir: AnyStr, _pose_id: AnyStr, uc_dimensions: np.ndarray = None):
+        """Format the current Pose for output using the job parameters
+
+        Args:
+            _out_dir: The directory to write files
+            _pose_id: The particular identifier for the pose
+            uc_dimensions: If this is a lattice, the crystal dimensions
+        """
+        out_path = os.path.join(_out_dir, _pose_id)
+        putils.make_path(out_path)
+
+        # Set the ASU, then write to a file
+        pose.set_contacting_asu(distance=cb_distance)
+        if sym_entry.unit_cell:  # 2, 3 dimensions
+            cryst_record = generate_cryst1_record(uc_dimensions, sym_entry.resulting_symmetry)
+        else:
+            cryst_record = None
+
+        if job.write_structures:
+            pose_path = os.path.join(out_path, putils.asu)
+            pose.write(out_path=pose_path, header=cryst_record)
+        else:
+            pose_path = None
+
+        if job.write_trajectory:
+            raise NotImplementedError('make more reliable!!')
+            nonlocal idx
+            if idx % 2 == 0:
+                new_pose = copy.copy(pose)
+                # new_pose = copy.copy(pose.models[0])
+                for entity in new_pose.chains[1:]:  # new_pose.entities[1:]:
+                    entity.chain_id = 'D'
+                    # Todo make more reliable
+                    # Todo NEED TO MAKE SymmetricModel copy .entities and .chains correctly!
+                trajectory_models.append_model(new_pose)
+
+        # Todo group by input model... not entities
+        # Write Model1, Model2
+        if job.write_oligomers:
+            for entity in pose.entities:
+                entity.write(oligomer=True, out_path=os.path.join(out_path, f'{entity.name}_{_pose_id}.pdb'))
+
+        # Write assembly files
+        if job.output_assembly:
+            if sym_entry.unit_cell:  # 2, 3 dimensions
+                if job.output_surrounding_uc:
+                    assembly_path = os.path.join(out_path, f'{_pose_id}_{putils.surrounding_unit_cells}')
+                else:
+                    assembly_path = os.path.join(out_path, f'{_pose_id}_{putils.assembly}')
+            else:  # 0 dimension
+                assembly_path = os.path.join(out_path, f'{_pose_id}_{putils.assembly}')
+            pose.write(assembly=True, out_path=assembly_path, header=cryst_record,
+                       surrounding_uc=job.output_surrounding_uc)
+
+        # Write fragment files
+        if job.write_fragments:
+            # Make directories to output matched fragment files
+            matching_fragments_dir = os.path.join(out_path, putils.frag_dir)
+            putils.make_path(matching_fragments_dir)
+            # high_qual_match for fragments that were matched with z values <= 1, otherwise, low_qual_match
+            # high_quality_matches_dir = os.path.join(matching_fragments_dir, 'high_qual_match')
+            # low_quality_matches_dir = os.path.join(matching_fragments_dir, 'low_qual_match')
+            pose.write_fragment_pairs(out_path=matching_fragments_dir)
+
+        logger.info(f'\tSUCCESSFUL DOCKED POSE: {out_path}')
+
+        return pose_path
+
+    def terminate():
+        """Finalize any remaining work and return to the caller"""
+        if job.write_trajectory:
+            if sym_entry.unit_cell:
+                logger.warning('No unit cell dimensions applicable to the trajectory file.')
+
+            trajectory_models.write(out_path=os.path.join(out_dir, 'trajectory_oligomeric_models.pdb'),
+                                    oligomer=True)
 
     # Get metrics for each Pose
     # Set up data structures
