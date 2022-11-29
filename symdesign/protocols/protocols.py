@@ -1388,7 +1388,6 @@ class PoseDirectory:
         """
         main_cmd = copy(rosetta.script_cmd)
 
-        # -in:file:native is here to block flags_file version, not actually useful for refine
         infile = []
         if to_pose_directory:  # Original protocol to refine a pose as provided from Nanohedra
             flag_dir = self.scripts
@@ -1403,8 +1402,8 @@ class PoseDirectory:
             refined_pdb = os.path.join(pdb_out_path, refine_pdb)
             additional_flags = ['-no_scorefile', 'true']
             infile.extend(['-in:file:s', refine_pdb,
-                           '-in:file:native', refine_pdb,
-                           ])
+                           # -in:file:native is here to block flag file version, not actually useful for refine
+                           '-in:file:native', refine_pdb])
 
         flags_file = os.path.join(flag_dir, 'flags')
         if not os.path.exists(flags_file) or self.job.force:
@@ -1417,13 +1416,16 @@ class PoseDirectory:
             possible_refine_protocols = ['refine', 'thread']
             if self.protocol in possible_refine_protocols:
                 switch = self.protocol
+            elif self.protocol is None:
+                switch = putils.refine
             else:
                 switch = putils.refine
+                self.log.warning(f'The requested protocol {self.protocol}, was not recognized by '
+                                 f'{self._refine.__name__} and is being treated as the standard "{switch}" protocol')
 
             infile.extend(['-in:file:l', in_file_list,
-                           '-in:file:native', self.source,
                            # -in:file:native is here to block flag file version, not actually useful for refine
-                           ])
+                           '-in:file:native', self.source])
             designed_files = os.path.join(self.scripts, f'design_files_{self.protocol}.txt')
             generate_files_cmd = \
                 ['python', putils.list_pdb_files, '-d', self.designs, '-o', designed_files, '-s', '_' + self.protocol]
@@ -1447,16 +1449,15 @@ class PoseDirectory:
                                     self.pose.mutate_residue(residue=residue, to='A')
                 # Change the name to reflect mutation so we don't overwrite the self.source
                 refine_pdb = f'{os.path.splitext(refine_pdb)[0]}_ala_mutant.pdb'
-
             # else:  # Do dothing and refine the source
             #     pass
             #     # raise ValueError(f"For {self.refine.__name__}, must pass interface_to_alanine")
+
             self.pose.write(out_path=refine_pdb)
             self.log.debug(f'Cleaned PDB for {self.protocol}: "{refine_pdb}"')
             infile.extend(['-in:file:s', refine_pdb,
-                           '-in:file:native', refine_pdb,
                            # -in:file:native is here to block flag file version, not actually useful for refine
-                           ])
+                           '-in:file:native', refine_pdb])
             generate_files_cmd = null_cmd
             # generate_files_cmdline = []
             metrics_pdb = ['-in:file:s', refined_pdb, '-in:file:native', refine_pdb]
@@ -1746,13 +1747,9 @@ class PoseDirectory:
     @handle_design_errors(errors=(DesignError,))
     @close_logs
     @remove_structure_memory
-    def refine(self, refine_sequences: Iterable[Sequence] = None):
-        """Refine the source PDB using self.symmetry to specify any symmetry
-
-        Args:
-            refine_sequences: The sequence to mutate the pose to and have it built using Rosetta FastRelax
-        """
-        self._refine(refine_sequences=refine_sequences)
+    def refine(self):
+        """Refine the source Pose"""
+        self._refine()
 
     @handle_design_errors(errors=(DesignError, FileNotFoundError))
     @close_logs
@@ -2085,6 +2082,7 @@ class PoseDirectory:
         """Given the results of a ProteinMPNN design trajectory, format the sequences and scores for the PoseDirectory
 
         Args:
+            design_ids: The associated design identifier for each corresponding entry in sequences_and_scores
             sequences_and_scores: The mapping of ProteinMPNN score type to it's corresponding data
         """
         # Convert each numpy array into a list for output
@@ -2097,19 +2095,19 @@ class PoseDirectory:
         # trajectories_temperatures_ids = [{'temperature': temperature} for idx in self.job.design.number_of_trajectories
         #                                  for temperature in self.job.design.temperatures]
         protocol = 'proteinmpnn'
-        sequences_and_scores['protocol'] = \
+        sequences_and_scores[putils.protocol] = \
             repeat(protocol, len(self.job.design.number_of_trajectories * self.job.design.temperatures))
         sequences_and_scores['temperature'] = [temperature for temperature in self.job.design.temperatures
                                                for _ in range(self.job.design.number_of_trajectories)]
 
-        def write_per_residue_scores(design_ids: Sequence[str], scores: dict[str, list]) -> AnyStr:
+        def write_per_residue_scores(_design_ids: Sequence[str], scores: dict[str, list]) -> AnyStr:
             """"""
             # Create an initial score dictionary
-            design_scores = {design_id: {'decoy': design_id} for design_id in design_ids}
+            design_scores = {design_id: {'decoy': design_id} for design_id in _design_ids}
             # For each score type unpack the data
             for score_type, score in scores.items():
                 # For each score's data, update the dictionary of the corresponding design_id
-                for design_id, design_score in zip(design_ids, score):
+                for design_id, design_score in zip(_design_ids, score):
                     design_scores[design_id].update({score_type: design_score})
 
             for design_id, scores in design_scores.items():
@@ -2330,13 +2328,13 @@ class PoseDirectory:
             source_df['shape_complementarity'] = 0
             source_df['solvation_energy'] = 0
             source_df['solvation_energy_complex'] = 0
-            all_design_scores = read_scores(self.scores_file)  # Todo PoseDirectory(.path)
-            self.log.debug(f'All designs with scores: {", ".join(all_design_scores.keys())}')
+            design_scores = read_scores(self.scores_file)  # Todo PoseDirectory(.path)
+            self.log.debug(f'All designs with scores: {", ".join(design_scores.keys())}')
             # Remove designs with scores but no structures
             all_viable_design_scores = {}
             for pose in design_poses:
                 try:
-                    all_viable_design_scores[pose.name] = all_design_scores.pop(pose.name)
+                    all_viable_design_scores[pose.name] = design_scores.pop(pose.name)
                 except KeyError:  # structure wasn't scored, we will remove this later
                     pass
 
@@ -2463,8 +2461,8 @@ class PoseDirectory:
             remove_columns = rosetta_terms + unnecessary
             residue_info.update({struct_name: pose_source_residue_info for struct_name in scores_df.index.to_list()})
             # Todo generate energy scores internally which matches output from residue_processing
-            # interface_hbonds = dirty_hbond_processing(all_design_scores)
-            # residue_info = self.pose.rosetta_residue_processing(all_design_scores)
+            # interface_hbonds = dirty_hbond_processing(design_scores)
+            # residue_info = self.pose.rosetta_residue_processing(design_scores)
             # residue_info = process_residue_info(residue_info, simplify_mutation_dict(all_mutations),
             #                                     hbonds=interface_hbonds)
             viable_designs = [pose.name for pose in design_poses]
@@ -3603,13 +3601,13 @@ def interface_design_analysis(pose: Pose, design_poses: Iterable[Pose] = None, s
         source_df['shape_complementarity'] = 0
         source_df['solvation_energy'] = 0
         source_df['solvation_energy_complex'] = 0
-        all_design_scores = read_scores(scores_file)
-        pose.log.debug(f'All designs with scores: {", ".join(all_design_scores.keys())}')
+        design_scores = read_scores(scores_file)
+        pose.log.debug(f'All designs with scores: {", ".join(design_scores.keys())}')
         # Remove designs with scores but no structures
         all_viable_design_scores = {}
         for pose in design_poses:
             try:
-                all_viable_design_scores[pose.name] = all_design_scores.pop(pose.name)
+                all_viable_design_scores[pose.name] = design_scores.pop(pose.name)
             except KeyError:  # structure wasn't scored, we will remove this later
                 pass
         # Create protocol dataframe
@@ -3726,8 +3724,8 @@ def interface_design_analysis(pose: Pose, design_poses: Iterable[Pose] = None, s
         remove_columns = rosetta_terms + unnecessary
         residue_info.update({struct_name: pose_source_residue_info for struct_name in scores_df.index.to_list()})
         # Todo generate energy scores internally which matches output from residue_processing
-        # interface_hbonds = dirty_hbond_processing(all_design_scores)
-        # residue_info = pose.rosetta_residue_processing(all_design_scores)
+        # interface_hbonds = dirty_hbond_processing(design_scores)
+        # residue_info = pose.rosetta_residue_processing(design_scores)
         # residue_info = process_residue_info(residue_info, simplify_mutation_dict(all_mutations),
         #                                     hbonds=interface_hbonds)
         viable_designs = [pose.name for pose in design_poses]
