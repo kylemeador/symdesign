@@ -158,17 +158,20 @@ def create_perturbation_transformations(sym_entry: SymEntry, rotation_number: in
     # # Begin with 0
     # seen_dof = 0
     dof_idx = 0
+    # Default rotation range is 1. degree
+    default_rotation = 1.
+    # Default translation range is 0.5 Angstroms
+    default_translation = .5
 
     if rotation_range is None:
-        # Default rotation range is 1. degree
-        rotation_range = tuple(repeat(1., sym_entry.number_of_groups))
+        rotation_range = tuple(repeat(default_rotation, sym_entry.number_of_groups))
+
     if translation_range is None:
-        # Default translation range is 0.5 Angstroms
-        translation_range = tuple(repeat(.5, sym_entry.number_of_groups))
-        if n_dof_external:
-            ext_translation_range = tuple(repeat(.5, n_dof_external))
+        translation_range = tuple(repeat(default_translation, sym_entry.number_of_groups))
+        ext_translation_range = tuple(repeat(default_translation, n_dof_external))
     else:
-        ext_translation_range = tuple(repeat(.5, n_dof_external))
+        logger.warning(f'Currently using the default value of {default_translation} for external translation range')
+        ext_translation_range = tuple(repeat(default_translation, n_dof_external))
 
     perturbation_mapping = {}
     for idx, group in enumerate(sym_entry.groups):
@@ -221,31 +224,31 @@ def create_perturbation_transformations(sym_entry: SymEntry, rotation_number: in
             dof_idx += 1
             perturbation_mapping[f'translation{group_idx}'] = internal_translation_grid
 
-    if n_dof_external:
-        # sym_entry.number_dof_external are included in the sym_entry.total_dof calculation
-        # Need to perturb this many dofs. Each additional ext DOF increments e, f, g.
-        # So 2 number_dof_external gives e, f. 3 gives e, f, g. This way the correct number of axis can be perturbed...
-        # This solution doesn't vary the translation_grid in all dofs
-        # ext_dof_perturbs[:, :number_dof_external] = np.tile(translation_grid, (number_dof_external, 1)).T
-        # This solution iterates over the translation_grid, adding a new grid over all remaining dofs
-        external_translation_grid = copy.copy(translation_grid)
-        for idx, ext_idx in enumerate(range(n_dof_external)):
-            translation_perturb_vector = \
-                np.linspace(-ext_translation_range[idx], ext_translation_range[idx], translation_number)
-            # external_translation_grid[:, ext_idx] = np.tile(np.repeat(translation_perturb_vector,
-            #                                                           number**remaining_dof),
-            #                                                 number**seen_dof)
-            # remaining_dof -= 1
-            # seen_dof += 1
-            # Get the product of the number of perturbations before and after the current index
-            repeat_number = prod(dof_number_perturbations[dof_idx + 1:])
-            tile_number = prod(dof_number_perturbations[:dof_idx])
-            external_translation_grid[:, ext_idx] = np.tile(np.repeat(translation_perturb_vector, repeat_number),
-                                                            tile_number)
-            # Increment the dof seen
-            dof_idx += 1
+    # if n_dof_external:
+    #     # sym_entry.number_dof_external are included in the sym_entry.total_dof calculation
+    #     # Need to perturb this many dofs. Each additional ext DOF increments e, f, g.
+    #     # So 2 number_dof_external gives e, f. 3 gives e, f, g. This way the correct number of axis can be perturbed..
+    #     # This solution doesn't vary the translation_grid in all dofs
+    #     # ext_dof_perturbs[:, :number_dof_external] = np.tile(translation_grid, (number_dof_external, 1)).T
+    # This solution iterates over the translation_grid, adding a new grid over all remaining dofs
+    external_translation_grid = copy.copy(translation_grid)
+    for idx, ext_idx in enumerate(range(n_dof_external)):
+        translation_perturb_vector = \
+            np.linspace(-ext_translation_range[idx], ext_translation_range[idx], translation_number)
+        # external_translation_grid[:, ext_idx] = np.tile(np.repeat(translation_perturb_vector,
+        #                                                           number**remaining_dof),
+        #                                                 number**seen_dof)
+        # remaining_dof -= 1
+        # seen_dof += 1
+        # Get the product of the number of perturbations before and after the current index
+        repeat_number = prod(dof_number_perturbations[dof_idx + 1:])
+        tile_number = prod(dof_number_perturbations[:dof_idx])
+        external_translation_grid[:, ext_idx] = np.tile(np.repeat(translation_perturb_vector, repeat_number),
+                                                        tile_number)
+        # Increment the dof seen
+        dof_idx += 1
 
-        perturbation_mapping['external_translations'] = external_translation_grid
+    perturbation_mapping['external_translations'] = external_translation_grid
 
     # if remaining_dof + 1 != 0 and seen_dof != total_dof:
     #     logger.critical(f'The number of perturbations is unstable! {remaining_dof + 1} != 0 and '
@@ -259,7 +262,7 @@ def create_perturbation_transformations(sym_entry: SymEntry, rotation_number: in
     return perturbation_mapping
 
 
-def nanohedra_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protocols.PoseDirectory] | list:
+def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protocols.PoseDirectory] | list:
     # model1: Structure | AnyStr, model2: Structure | AnyStr,
     """Perform the fragment docking routine described in Laniado, Meador, & Yeates, PEDS. 2021
 
@@ -268,24 +271,10 @@ def nanohedra_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[proto
     Returns:
         The resulting Poses satisfying docking criteria
     """
-    #  model1: The first Structure to be used in docking
-    #  model2: The second Structure to be used in docking
-    #  sym_entry: The SymmetryEntry object describing the material
-    #  rotation_step1: The number of degrees to increment the rotational degrees of freedom search
-    #  rotation_step2: The number of degrees to increment the rotational degrees of freedom search
-    #  min_matched: How many high quality fragment pairs should be present before a pose is identified?
-    #  high_quality_match_value: The value to exceed before a high quality fragment is matched
-    #      When z-value was used this was 1.0, however 0.5 when match score is used
-    #  initial_z_value: The acceptable standard deviation z score for initial fragment overlap identification.
-    #      Smaller values lead to more stringent matching criteria
-    #  clash_dist: The distance to measure for clashing atoms
-    #  write_frags_only: Whether to write fragment information to a directory
-    #      (useful for fragment based docking w/o Nanohedra)
-    #  contiguous_ghosts: Whether to use the overlap potential on the same component to filter ghost fragments
     frag_dock_time_start = time.time()
-
     # Get Building Blocks in pose format to remove need for fragments to use chain info
     models = list(models)
+    """The Structure instances to be used in docking"""
     for idx, model in enumerate(models):
         if not isinstance(model, Structure):
             models[idx] = Model.from_file(model)
@@ -294,6 +283,7 @@ def nanohedra_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[proto
     # Retrieve symjob.JobResources for all flags
     job = symjob.job_resources_factory.get()
     sym_entry: SymEntry = job.sym_entry
+    """The SymmetryEntry object describing the material"""
     entry_string = f'NanohedraEntry{sym_entry.entry_number}'
     building_blocks = '-'.join(model.name for model in models)
     entry_and_building_blocks = f'{entry_string}_{building_blocks}_{putils.pose_directory}'
@@ -304,14 +294,24 @@ def nanohedra_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[proto
     # This is used in clustering algorithms to define an observation outside the found clusters
     outlier = -1
     initial_z_value = job.dock.initial_z_value
+    """The acceptable standard deviation z score for initial fragment overlap identification. Smaller values lead to 
+    more stringent matching criteria
+    """
     min_matched = job.dock.min_matched
+    """How many high quality fragment pairs should be present before a pose is identified?"""
     high_quality_match_value = job.dock.match_value
+    """The value to exceed before a high quality fragment is matched. When z-value was used this was 1.0, however, 0.5
+    when match score is used
+    """
     rotation_step1 = job.dock.rotation_step1
     rotation_step2 = job.dock.rotation_step2
     # Todo set below as parameters?
-    low_quality_match_value = .2  # sets the lower bounds on an acceptable match, was upper bound of 2 using z-score
+    low_quality_match_value = .2
+    """The lower bounds on an acceptable match. Was upper bound of 2 using z-score"""
     clash_dist: float = 2.2
+    """The distance to measure for clashing atoms"""
     cb_distance = 9.  # change to 8.?
+    """The distance to measure for interface atoms"""
     # Testing if this is too strict when strict overlaps are used
     cluster_transforms = not job.dock.contiguous_ghosts  # True
     # Todo set above as parameters?
@@ -388,9 +388,8 @@ def nanohedra_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[proto
     logger.debug(f'Found surface indices {idx} with shape {surf_i_indices2.shape}')
     logger.debug(f'Found {init_surf_residue_numbers2.shape[0]} initial surface {idx} fragments with type: {initial_surf_type2}')
 
-    # logger.debug('Found oligomer 2 fragment content: %s' % fragment_content2)
-    logger.info(f'Getting Oligomer 2 Surface Fragments and Guides Using COMPLETE Fragment Database (took '
-                f'{time.time() - get_complete_surf_frags2_time_start:8f}s)')
+    logger.info(f'Retrieved oligomer {idx} surface fragments and guide coordinates took '
+                f'{time.time() - get_complete_surf_frags2_time_start:8f}s')
 
     # logger.debug('init_surf_frag_indices2: %s' % slice_variable_for_log(init_surf_frag_indices2))
     # logger.debug('init_surf_guide_coords2: %s' % slice_variable_for_log(init_surf_guide_coords2))
@@ -419,8 +418,8 @@ def nanohedra_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[proto
     # logger.debug('init_surf_guide_coords1: %s' % slice_variable_for_log(init_surf_guide_coords1))
     # logger.debug('init_surf_residue_numbers1: %s' % slice_variable_for_log(init_surf_residue_numbers1))
 
-    logger.info(f'Getting Oligomer {idx} Surface Fragments and Guides Using COMPLETE Fragment Database (took '
-                f'{time.time() - get_complete_surf_frags1_time_start:8f}s)')
+    logger.info(f'Retrieved oligomer {idx} surface fragments and guide coordinates took '
+                f'{time.time() - get_complete_surf_frags1_time_start:8f}s')
 
     #################################
     # Get component 1 ghost fragments and associated data from complete fragment database
@@ -437,6 +436,7 @@ def nanohedra_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[proto
     ghost_residue_numbers1 = np.array([ghost_frag.number for ghost_frag in complete_ghost_frags1])
     ghost_j_indices1 = np.array([ghost_frag.j_type for ghost_frag in complete_ghost_frags1])
 
+    # Whether to use the overlap potential on the same component to filter ghost fragments
     if job.dock.contiguous_ghosts:
         # Identify surface/ghost frag overlap originating from the same oligomer
         # Set up the output array with the number of residues by the length of the max number of ghost fragments
@@ -459,16 +459,18 @@ def nanohedra_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[proto
         # ghost_guide_coords_by_residue1 = np.array([[ghost.guide_coords for ghost in residue_ghosts]
         #                                            for residue_ghosts in ghost_frags_by_residue1], dtype=object)
         # surface_frag_residue_numbers = [residue.number for residue in surf_frags1]
-        surface_frag_residue_indices = list(range(number_or_surface_frags))
+
         # Query for residue-residue distances for each surface fragment
         # surface_frag_cb_coords = np.concatenate([residue.cb_coords for residue in surf_frags1], axis=0)
         surface_frag_cb_coords = np.array([residue.cb_coords for residue in surf_frags1])
         model1_surface_cb_ball_tree = BallTree(surface_frag_cb_coords)
         residue_contact_query: list[list[int]] = \
             model1_surface_cb_ball_tree.query_radius(surface_frag_cb_coords, cb_distance)
+        surface_frag_residue_indices = list(range(number_or_surface_frags))
         contacting_residue_pairs: list[tuple[int, int]] = \
             [(surface_frag_residue_indices[idx1], surface_frag_residue_indices[idx2])
              for idx2 in range(residue_contact_query.size) for idx1 in residue_contact_query[idx2]]
+
         # Separate residue-residue contacts into a unique set of residue pairs
         asymmetric_contacting_residue_pairs, found_pairs = [], []
         for residue_idx1, residue_idx2 in contacting_residue_pairs:
@@ -572,17 +574,19 @@ def nanohedra_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[proto
         # init_ghost_residue_numbers1: np.ndarray = ghost_residue_numbers1[init_ghost_frag_indices1]
 
     idx = 1
-    logger.debug(f'Found ghost guide coordinates {idx} with shape {ghost_guide_coords1.shape}')
-    logger.debug(f'Found ghost residue numbers {idx} with shape {ghost_residue_numbers1.shape}')
-    logger.debug(f'Found ghost indices {idx} with shape {ghost_j_indices1.shape}')
-    logger.debug(f'Found ghost rmsds {idx} with shape {ghost_rmsds1.shape}')
-    logger.debug(f'Found {init_ghost_guide_coords1.shape[0]} initial ghost {idx} fragments with type {initial_surf_type2}')
+    logger.debug(f'Found ghost guide coordinates {idx} with shape: {ghost_guide_coords1.shape}')
+    logger.debug(f'Found ghost residue numbers {idx} with shape: {ghost_residue_numbers1.shape}')
+    logger.debug(f'Found ghost indices {idx} with shape: {ghost_j_indices1.shape}')
+    logger.debug(f'Found ghost rmsds {idx} with shape: {ghost_rmsds1.shape}')
+    logger.debug(f'Found {init_ghost_guide_coords1.shape[0]} initial ghost {idx} fragments with type:'
+                 f' {initial_surf_type2}')
 
-    logger.info(f'Getting {model1.name} Oligomer {idx} Ghost Fragments and Guides Using COMPLETE Fragment Database '
-                f'(took {time.time() - get_complete_ghost_frags1_time_start:8f}s)')
-
+    logger.info(f'Retrieved oligomer {idx}, {model1.name} ghost fragments and guide coordinates '
+                f'took {time.time() - get_complete_ghost_frags1_time_start:8f}s')
     #################################
-    if job.only_write_frag_info:  # Implemented for Todd to work on C1 instances
+    # Implemented for Todd to work on C1 instances
+    if job.only_write_frag_info:
+        # Whether to write fragment information to a directory (useful for fragment based docking w/o Nanohedra)
         guide_file_ghost = os.path.join(out_dir, f'{model1.name}_ghost_coords.txt')
         with open(guide_file_ghost, 'w') as f:
             for coord_group in ghost_guide_coords1.tolist():
@@ -639,15 +643,15 @@ def nanohedra_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[proto
     #  # transpose to index the first axis (axis=0) along the 1D row indices
     #  ij_matching_ghost1_indices = row_indices[ij_type_match_lookup_table.T]
     #  ij_matching_surf2_indices = column_indices[ij_type_match_lookup_table]
-    #  >>> j = np.ones(23)
-    #  >>> k = np.array([[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]])
+    #  >>> j = np.ones(22)
+    #  >>> k = np.array([[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]])
     #  >>> k.shape
-    #  (2, 23)
+    #  (2, 22)
     #  >>> j[k]
     #  array([[1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1.,
-    #          1., 1., 1., 1., 1., 1., 1.],
+    #          1., 1., 1., 1., 1., 1.],
     #         [1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1.,
-    #          1., 1., 1., 1., 1., 1., 1.]])
+    #          1., 1., 1., 1., 1., 1.]])
     #  This will allow pulling out the indices where there is overlap which may be useful
     #  for limiting scope of overlap checks
 
@@ -677,12 +681,13 @@ def nanohedra_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[proto
     # surface1_residue_array = np.tile(init_surf_residue_numbers1, len(init_ghost_residue_numbers2))
     # surface2_residue_array = np.tile(init_surf_residue_numbers2, len(init_ghost_residue_numbers1))
 
-    logger.info(f'Getting {model2.name} Oligomer 2 Ghost Fragments and Guides Using COMPLETE Fragment Database '
-                f'(took {time.time() - get_complete_ghost_frags2_time_start:8f}s)')
+    logger.info(f'Retrieved oligomer {idx}, {model2.name} ghost fragments and guide coordinates '
+                f'took {time.time() - get_complete_ghost_frags2_time_start:8f}s')
 
-    logger.info('Obtaining Rotation/Degeneracy Matrices\n')
+    logger.info('Obtaining rotation/degeneracy matrices\n')
 
     rotation_steps = [rotation_step1, rotation_step2]
+    """The number of degrees to increment the rotational degrees of freedom search for each model"""
     number_of_degens = []
     number_of_rotations = []
     rotation_matrices = []
@@ -700,8 +705,14 @@ def nanohedra_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[proto
         rotation_steps[idx - 1] = rotation_step
         degeneracy_matrices = getattr(sym_entry, f'degeneracy_matrices{idx}')
         # Todo make reliant on scipy...Rotation
-        # rotation_matrix = scipy.spatial.transform.Rotation.from_euler('Z', [step * rotation_step for step in range(number_of_steps)], degrees=True).as_matrix()
-        # rotations = scipy.spatial.transform.Rotation.from_euler('Z', np.linspace(0, getattr(sym_entry, f'rotation_range{idx}'), number_of_steps), degrees=True).as_matrix()
+        # rotation_matrix = \
+        #     scipy.spatial.transform.Rotation.from_euler('Z', [step * rotation_step
+        #                                                       for step in range(number_of_steps)],
+        #                                                 degrees=True).as_matrix()
+        # rotations = \
+        #     scipy.spatial.transform.Rotation.from_euler('Z', np.linspace(0, getattr(sym_entry, f'rotation_range{idx}'),
+        #                                                                  number_of_steps),
+        #                                                 degrees=True).as_matrix()
         # rot_degen_matrices = []
         # for idx in range(degeneracy_matrices):
         #    rot_degen_matrices = rotations * degeneracy_matrices[idx]
@@ -837,8 +848,7 @@ def nanohedra_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[proto
     #         if mismatch:
     #             investigate_mismatch()
 
-    # skip_transformation = kwargs.get('skip_transformation')
-    # if skip_transformation:
+    # if job.skip_transformation:
     #     transformation1 = unpickle(kwargs.get('transformation_file1'))
     #     full_rotation1, full_int_tx1, full_setting1, full_ext_tx1 = transformation1.values()
     #     transformation2 = unpickle(kwargs.get('transformation_file2'))
@@ -851,7 +861,7 @@ def nanohedra_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[proto
 
     # Set up internal translation parameters
     # zshift1/2 must be 2d array, thus the , 2:3].T instead of , 2].T
-    # Also, [:, None, 2] would work
+    # [:, None, 2] would also work
     if sym_entry.is_internal_tx1:  # add the translation to Z (axis=1)
         full_int_tx1 = []
         zshift1 = set_mat1[:, None, 2].T
@@ -867,7 +877,9 @@ def nanohedra_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[proto
     # Set up external translation parameters
     if sym_entry.unit_cell:
         full_optimal_ext_dof_shifts = []
+        positive_indices = None
     else:
+        full_optimal_ext_dof_shifts = []
         # Ensure we slice by nothing, as None alone creates a new axis
         positive_indices = slice(None)
 
@@ -885,7 +897,7 @@ def nanohedra_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[proto
     rotation_matrices1, rotation_matrices2 = rotation_matrices
     rotation_matrices_len1, rotation_matrices_len2 = rotation_matrices1.shape[0], rotation_matrices2.shape[0]
     number_of_rotations1, number_of_rotations2 = number_of_rotations
-    number_of_degens1, number_of_degens2 = number_of_degens
+    # number_of_degens1, number_of_degens2 = number_of_degens
 
     # Perform Euler integer extraction for all rotations
     init_translation_time_start = time.time()
@@ -940,15 +952,14 @@ def nanohedra_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[proto
         rotations_to_perform2 = rotation_matrices2.shape[0]
 
     # Todo resolve. Below uses eulerints
-    # Get rotated Oligomer1 Ghost Fragment, Oligomer2 Surface Fragment guide coodinate pairs
-    # in the same Euler rotational space bucket
+    # Get rotated oligomer1 ghost fragment, oligomer2 surface fragment guide coodinate pairs in the same Euler space
     for idx1 in range(rotations_to_perform1):
         rot1_count = idx1%number_of_rotations1 + 1
         degen1_count = idx1//number_of_rotations1 + 1
         rot_mat1 = rotation_matrices1[idx1]
         rotation_ghost_euler_ints1 = stacked_ghost_euler_int1[idx1]
         for idx2 in range(rotations_to_perform2):
-            # Rotate Oligomer2 Surface and Ghost Fragment Guide Coordinates using rot_mat2 and set_mat2
+            # Rotate oligomer2 surface and ghost fragment guide coordinates using rot_mat2 and set_mat2
             rot2_count = idx2%number_of_rotations2 + 1
             degen2_count = idx2//number_of_rotations2 + 1
             rot_mat2 = rotation_matrices2[idx2]
@@ -968,53 +979,60 @@ def nanohedra_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[proto
             euler_matched_surf_indices2, euler_matched_ghost_indices1 = \
                 euler_lookup.lookup_by_euler_integers_as_array(stacked_surf_euler_int2[idx2],
                                                                rotation_ghost_euler_ints1)
-            # # euler_lookup.lookup_by_euler_integers_as_array(eulerint_ghost_component2.reshape((number_of_rotations2, 1, 3)),
-            # #                                                eulerint_surf_component1.reshape((number_of_rotations1, 1, 3)))
+            # # euler_lookup.lookup_by_euler_integers_as_array(eulerint_ghost_component2.reshape(number_of_rotations2,
+            # #                                                                                  1, 3),
+            # #                                                eulerint_surf_component1.reshape(number_of_rotations1,
+            # #                                                                                 1, 3))
             # Todo resolve. eulerints
 
-     # Todo resolve. Below uses guide coords
-     # # for idx1 in range(rotation_matrices):
-     # # Iterating over more than 2 rotation matrix sets becomes hard to program dynamically owing to the permutations
-     # # of the rotations and the application of the rotation/setting to each set of fragment information. It would be a
-     # # bit easier if the same logic that is applied to the following routines, (similarity matrix calculation) putting
-     # # the rotation of the second set of fragment information into the setting of the first by applying the inverse
-     # # rotation and setting matrices to the second (or third...) set of fragments. Forget about this for now
-     # init_time_start = time.time()
-     # for idx1 in range(rotation_matrices1.shape[0]):  # min(rotation_matrices1.shape[0], 5)):  # Todo remove min
-     #     # Rotate Oligomer1 Surface and Ghost Fragment Guide Coordinates using rot_mat1 and set_mat1
-     #     rot1_count = idx1 % number_of_rotations1 + 1
-     #     degen1_count = idx1 // number_of_rotations1 + 1
-     #     rot_mat1 = rotation_matrices1[idx1]
-     #     ghost_guide_coords_rot_and_set1 = \
-     #         transform_coordinate_sets(init_ghost_guide_coords1, rotation=rot_mat1, rotation2=set_mat1)
-     #     # surf_guide_coords_rot_and_set1 = \
-     #     #     transform_coordinate_sets(init_surf_guide_coords1, rotation=rot_mat1, rotation2=set_mat1)
-     #
-     #     for idx2 in range(rotation_matrices2.shape[0]):  # min(rotation_matrices2.shape[0], 5)):  # Todo remove min
-     #         # Rotate Oligomer2 Surface and Ghost Fragment Guide Coordinates using rot_mat2 and set_mat2
-     #         rot2_count = idx2 % number_of_rotations2 + 1
-     #         degen2_count = idx2 // number_of_rotations2 + 1
-     #         rot_mat2 = rotation_matrices2[idx2]
-     #         surf_guide_coords_rot_and_set2 = \
-     #             transform_coordinate_sets(init_surf_guide_coords2, rotation=rot_mat2, rotation2=set_mat2)
-     #         # ghost_guide_coords_rot_and_set2 = \
-     #         #     transform_coordinate_sets(init_ghost_guide_coords2, rotation=rot_mat2, rotation2=set_mat2)
-     #
-     #         logger.info(f'***** OLIGOMER 1: Degeneracy {degen1_count} Rotation {rot1_count} | '
-     #                     f'OLIGOMER 2: Degeneracy {degen2_count} Rotation {rot2_count} *****')
-     #
-     #         euler_start = time.time()
-     #         # First returned variable has indices increasing 0,0,0,0,1,1,1,1,1,2,2,2,3,...
-     #         # Second returned variable has indices increasing 2,3,4,14,...
-     #         euler_matched_surf_indices2, euler_matched_ghost_indices1 = \
-     #             euler_lookup.check_lookup_table(surf_guide_coords_rot_and_set2,
-     #                                             ghost_guide_coords_rot_and_set1)
-     #         # euler_matched_ghost_indices_rev2, euler_matched_surf_indices_rev1 = \
-     #         #     euler_lookup.check_lookup_table(ghost_guide_coords_rot_and_set2,
-     #         #                                     surf_guide_coords_rot_and_set1)
-     # Todo resolve. guide coords
-
-            logger.debug(f'\tEuler Search Took: {time.time() - euler_start:8f}s for '
+    # Todo resolve. Below uses guide coords
+    # # for idx1 in range(rotation_matrices):
+    # # Iterating over more than 2 rotation matrix sets becomes hard to program dynamically owing to the permutations
+    # # of the rotations and the application of the rotation/setting to each set of fragment information. It would be a
+    # # bit easier if the same logic that is applied to the following routines, (similarity matrix calculation) putting
+    # # the rotation of the second set of fragment information into the setting of the first by applying the inverse
+    # # rotation and setting matrices to the second (or third...) set of fragments. Forget about this for now
+    # init_time_start = time.time()
+    # for idx1 in range(rotation_matrices1.shape[0]):  # min(rotation_matrices1.shape[0], 5)):  # Todo remove min
+    #     # Rotate Oligomer1 Surface and Ghost Fragment Guide Coordinates using rot_mat1 and set_mat1
+    #     rot1_count = idx1 % number_of_rotations1 + 1
+    #     degen1_count = idx1 // number_of_rotations1 + 1
+    #     rot_mat1 = rotation_matrices1[idx1]
+    #     ghost_guide_coords_rot_and_set1 = \
+    #         transform_coordinate_sets(init_ghost_guide_coords1, rotation=rot_mat1, rotation2=set_mat1)
+    #     # surf_guide_coords_rot_and_set1 = \
+    #     #     transform_coordinate_sets(init_surf_guide_coords1, rotation=rot_mat1, rotation2=set_mat1)
+    #
+    #     for idx2 in range(rotation_matrices2.shape[0]):  # min(rotation_matrices2.shape[0], 5)):  # Todo remove min
+    #         # Rotate Oligomer2 Surface and Ghost Fragment Guide Coordinates using rot_mat2 and set_mat2
+    #         rot2_count = idx2 % number_of_rotations2 + 1
+    #         degen2_count = idx2 // number_of_rotations2 + 1
+    #         rot_mat2 = rotation_matrices2[idx2]
+    #         surf_guide_coords_rot_and_set2 = \
+    #             transform_coordinate_sets(init_surf_guide_coords2, rotation=rot_mat2, rotation2=set_mat2)
+    #         # ghost_guide_coords_rot_and_set2 = \
+    #         #     transform_coordinate_sets(init_ghost_guide_coords2, rotation=rot_mat2, rotation2=set_mat2)
+    #
+    #         logger.info(f'***** OLIGOMER 1: Degeneracy {degen1_count} Rotation {rot1_count} | '
+    #                     f'OLIGOMER 2: Degeneracy {degen2_count} Rotation {rot2_count} *****')
+    #
+    #         euler_start = time.time()
+    #         # First returned variable has indices increasing 0,0,0,0,1,1,1,1,1,2,2,2,3,...
+    #         # Second returned variable has indices increasing 2,3,4,14,...
+    #         euler_matched_surf_indices2, euler_matched_ghost_indices1 = \
+    #             euler_lookup.check_lookup_table(surf_guide_coords_rot_and_set2,
+    #                                             ghost_guide_coords_rot_and_set1)
+    #         # euler_matched_ghost_indices_rev2, euler_matched_surf_indices_rev1 = \
+    #         #     euler_lookup.check_lookup_table(ghost_guide_coords_rot_and_set2,
+    #         #                                     surf_guide_coords_rot_and_set1)
+    # Todo resolve. guide coords
+    #  Timings on these from improved protocola shows about similar times to euler_lookup and calculate_overlap
+    #  even with vastly different scales of the arrays. This ignores the fact that calculate_overlap uses a
+    #  number of indexing steps including making the ij_match array formation, indexing against the ghost and
+    #  surface arrays, the rmsd_reference construction
+    #  Given the lookups sort of irrelevance to the scoring (given very poor alignment), I could remove that
+    #  step if it interfered with differentiability
+            logger.debug(f'\tEuler search took {time.time() - euler_start:8f}s for '
                          f'{total_ghost_surf_combinations} ghost/surf pairs')
 
             # Ensure pairs are similar between euler_matched_surf_indices2 and euler_matched_ghost_indices_rev2
@@ -1095,13 +1113,12 @@ def nanohedra_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[proto
 
             pre_cluster_passing_shifts = transform_passing_shifts.shape[0]
             if pre_cluster_passing_shifts == 0:
-                # logger.debug('Length %d' % len(optimal_shifts))
-                # logger.debug('Shape %d' % transform_passing_shifts.shape[0])
+                # logger.debug(f'optimal_shifts length: {len(optimal_shifts)}')
+                # logger.debug(f'transform_passing_shifts shape: {transform_passing_shifts.shape[0]}')
                 logger.info(f'\tNo transforms were found passing optimal shift criteria '
                             f'(took {optimal_shifts_time:8f}s)')
                 continue
             elif cluster_transforms:
-            # else:
                 cluster_time_start = time.time()
                 translation_cluster = \
                     DBSCAN(eps=translation_epsilon, min_samples=min_matched).fit(transform_passing_shifts)
@@ -1111,7 +1128,6 @@ def nanohedra_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[proto
             # else:  # Use all translations
             #     pass
 
-            # blank_vector = np.zeros((number_passing_shifts, 1), dtype=float)
             if sym_entry.unit_cell:
                 # Must take the optimal_ext_dof_shifts and multiply the column number by the corresponding row
                 # in the sym_entry.external_dof#
@@ -1126,16 +1142,13 @@ def nanohedra_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[proto
                 optimal_ext_dof_shifts = np.zeros((number_passing_shifts, 3), dtype=float)
                 optimal_ext_dof_shifts[:, :sym_entry.number_dof_external] = \
                     transform_passing_shifts[positive_indices, :sym_entry.number_dof_external]
-                # optimal_ext_dof_shifts = np.hstack((optimal_ext_dof_shifts,) +
-                #                                    (blank_vector,) * (3-sym_entry.number_dof_external))
                 # ^ I think for the sake of cleanliness, I need to make this matrix
 
                 full_optimal_ext_dof_shifts.append(optimal_ext_dof_shifts)
             else:
                 number_passing_shifts = transform_passing_shifts.shape[0]
 
-            # logger.debug(f'\tFound {number_passing_shifts} transforms'
-            #              'after clustering from '
+            # logger.debug(f'\tFound {number_passing_shifts} transforms after clustering from '
             #              f'{pre_cluster_passing_shifts} possible transforms (took '
             #              f'{time.time() - cluster_time_start:8f}s)')
 
@@ -1150,7 +1163,8 @@ def nanohedra_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[proto
                 # internal_tx_params1 = transform_passing_shifts[:, None, sym_entry.number_dof_external]
                 # stacked_internal_tx_vectors1 = np.hstack((blank_vector, blank_vector, internal_tx_params1))
                 # Store transformation parameters, indexing only those that are positive in the case of lattice syms
-                full_int_tx1.extend(transform_passing_shifts[positive_indices, sym_entry.number_dof_external].tolist())
+                full_int_tx1.extend(transform_passing_shifts[positive_indices,
+                                                             sym_entry.number_dof_external].tolist())
 
             if full_int_tx2 is not None:
                 # stacked_internal_tx_vectors2 = np.zeros((number_passing_shifts, 3), dtype=float)
@@ -1158,7 +1172,8 @@ def nanohedra_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[proto
                 # internal_tx_params2 = transform_passing_shifts[:, None, sym_entry.number_dof_external + 1]
                 # stacked_internal_tx_vectors2 = np.hstack((blank_vector, blank_vector, internal_tx_params2))
                 # Store transformation parameters, indexing only those that are positive in the case of lattice syms
-                full_int_tx2.extend(transform_passing_shifts[positive_indices, sym_entry.number_dof_external + 1].tolist())
+                full_int_tx2.extend(transform_passing_shifts[positive_indices,
+                                                             sym_entry.number_dof_external + 1].tolist())
 
             # full_int_tx1.append(stacked_internal_tx_vectors1[positive_indices])
             # full_int_tx2.append(stacked_internal_tx_vectors2[positive_indices])
@@ -1168,10 +1183,11 @@ def nanohedra_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[proto
             degen_counts.extend([(degen1_count, degen2_count) for _ in range(number_passing_shifts)])
             rot_counts.extend([(rot1_count, rot2_count) for _ in range(number_passing_shifts)])
             tx_counts.extend(list(range(1, number_passing_shifts + 1)))
-            logger.debug(f'\tOptimal Shift Search Took: {optimal_shifts_time:8f}s for '
+            logger.debug(f'\tOptimal shift search took {optimal_shifts_time:8f}s for '
                          f'{euler_matched_ghost_indices1.shape[0]} guide coordinate pairs')
             logger.info(f'\t{number_passing_shifts if number_passing_shifts else "No"} initial interface '
-                        f'match{"es" if number_passing_shifts != 1 else ""} found (took {time.time() - euler_start:8f}s)')
+                        f'match{"es" if number_passing_shifts != 1 else ""} found '
+                        f'(took {time.time() - euler_start:8f}s)')
 
             # # Todo remove debug
             # # tx_param_list = []
@@ -1187,7 +1203,7 @@ def nanohedra_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[proto
             #         #              f'{init_pass_surf_numbers[index]}')
             #         fragment_pairs.append((init_pass_ghost_numbers[index], init_pass_surf_numbers[index],
             #                                initial_ghost_frags1[possible_ghost_frag_indices[index]].guide_coords))
-            #         all_optimal_shifts = o.get_all_optimal_shifts()  # [OptimalExternalDOFShifts, OptimalInternalDOFShifts]
+            #         all_optimal_shifts = o.get_all_optimal_shifts()  # [OptimalExtDOFShifts, OptimalIntDOFShifts]
             #         tx_param_list.append(all_optimal_shifts)
             #
             # logger.info(f'\t{len(tx_param_list) if tx_param_list else "No"} Initial Interface Fragment '
@@ -1222,7 +1238,6 @@ def nanohedra_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[proto
         # stacked_external_tx1, stacked_external_tx2 = None, None
         full_ext_tx1 = full_ext_tx2 = full_optimal_ext_dof_shifts = None
         # full_optimal_ext_dof_shifts = list(repeat(None, number_passing_shifts))
-        external_tx1 = external_tx2 = uc_dimensions = None
         full_ext_tx_sum = None
 
     # fragment_pairs = np.array(fragment_pairs)
@@ -1256,23 +1271,31 @@ def nanohedra_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[proto
     # full_int_tx1 = np.concatenate(full_int_tx1, axis=0)
     # full_int_tx2 = np.concatenate(full_int_tx2, axis=0)
     # starting_transforms = len(full_int_tx1)
-    # logger.debug(f'shape of full_rotation1 {full_rotation1.shape}')
-    # logger.debug(f'shape of full_rotation2 {full_rotation2.shape}')
-    # logger.debug(f'shape of full_int_tx1 {full_int_tx1.shape}')
-    # logger.debug(f'shape of full_int_tx2 {full_int_tx2.shape}')
+    # logger.debug(f'Shape of full_rotation1: {full_rotation1.shape}')
+    # logger.debug(f'Shape of full_rotation2: {full_rotation2.shape}')
+    # logger.debug(f'Shape of full_int_tx1: {full_int_tx1.shape}')
+    # logger.debug(f'Shape of full_int_tx2: {full_int_tx2.shape}')
 
     # Make inverted transformations
     inv_setting1 = np.linalg.inv(set_mat1)
     full_inv_rotation1 = np.linalg.inv(full_rotation1)
     _full_rotation2 = full_rotation2.copy()
     if sym_entry.is_internal_tx1:
-        full_int_tx_inv1 = full_int_tx1 * -1  # Invert by multiplying by -1
+        # Invert by multiplying by -1
+        full_int_tx_inv1 = full_int_tx1 * -1
+    else:
+        full_int_tx_inv1 = None
     if sym_entry.is_internal_tx2:
         _full_int_tx2 = full_int_tx2.copy()
+    else:
+        _full_int_tx2 = None
 
     # Define functions for removing indices from the active transformation arrays
 
     def remove_non_viable_indices_inverse(passing_indices: np.ndarray | list[int]):
+        """Responsible for updating docking intermediate transformation parameters for inverse transform operations
+        These include: full_inv_rotation1, _full_rotation2, full_int_tx_inv1, _full_int_tx2, and full_ext_tx_sum
+        """
         nonlocal full_inv_rotation1, _full_rotation2, full_int_tx_inv1, _full_int_tx2, full_ext_tx_sum
         full_inv_rotation1 = full_inv_rotation1[passing_indices]
         _full_rotation2 = _full_rotation2[passing_indices]
@@ -1284,6 +1307,10 @@ def nanohedra_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[proto
             full_ext_tx_sum = full_ext_tx_sum[passing_indices]
 
     def remove_non_viable_indices(passing_indices: np.ndarray | list[int]):
+        """Responsible for updating docking transformation parameters for transform operations. These include:
+        full_rotation1, full_rotation2, full_int_tx1, full_int_tx2, full_optimal_ext_dof_shifts, full_ext_tx1, and
+        full_ext_tx2
+        """
         nonlocal full_rotation1, full_rotation2, full_int_tx1, full_int_tx2
         full_rotation1 = full_rotation1[passing_indices]
         full_rotation2 = full_rotation2[passing_indices]
@@ -1295,39 +1322,14 @@ def nanohedra_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[proto
         if sym_entry.unit_cell:
             nonlocal full_optimal_ext_dof_shifts, full_ext_tx1, full_ext_tx2
             full_optimal_ext_dof_shifts = full_optimal_ext_dof_shifts[passing_indices]
-            # full_uc_dimensions = full_uc_dimensions[passing_indices]
             full_ext_tx1 = full_ext_tx1[passing_indices]
             full_ext_tx2 = full_ext_tx2[passing_indices]
 
-    # tile_transform1 = {'rotation': full_rotation2,
-    #                    'translation': None if full_int_tx2 is None else full_int_tx2[:, None, :],
-    #                    'rotation2': set_mat2,
-    #                    'translation2': full_ext_tx_sum[:, None, :] if sym_entry.unit_cell is not None else None}
-    # tile_transform2 = {'rotation': inv_setting1,
-    #                    'translation': None if full_int_tx1 is None else full_int_tx1[:, None, :] * -1,
-    #                    'rotation2': full_inv_rotation1,
-    #                    'translation2': None}
     # Find the clustered transformations to expedite search of ASU clashing
     # Todo
-    #  can I use cluster.cluster_transformation_pairs distance graph to provide feedback on other aspects of the dock?
+    #  Can I use cluster.cluster_transformation_pairs distance graph to provide feedback on other aspects of the dock?
     #  seems that I could use the distances to expedite clashing checks, especially for more time consuming expansion
     #  checks such as the full material...
-    #  At some point, extracting the exact rotation degree from the rotation matrix and extracting translation params
-    #  will provide the bounds around, what I believe will appear as docking "islands" where docks are possible,
-    #  likely, and preferred. Searching these docks is far more important than just outputting the possible docks and
-    #  their scores. These docking islands can subsequently be used to define a design potential that could be explored
-    #  during design and can be minimized
-    #  |
-    #  Look at rmsd_z_score function output from T33 docks to see about timeing. Could the euler lookup be skipped
-    #  if calculate overlap time is multiplied by the number of possible?
-    #  UPDATE: It seems that skipping is slower for the number of fragments queried... Below measurement was wrong
-    #  ||
-    #  Timings on these from my improvement protocol shows about similar times to euler lookup and calculate overlap
-    #  even with vastly different scales of the arrays. This ignores the fact that the overlap time uses a number of
-    #  indexing steps including making the ij_match array formation, indexing against the ghost and surface arrays, the
-    #  rmsd_reference construction
-    #  Given the lookups sort of irrelevance to the scoring (given very poor alignment), I could remove that step
-    #  if it interferes with differentiability
 
     if cluster_transforms:
         clustering_start = time.time()
@@ -1356,14 +1358,14 @@ def nanohedra_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[proto
         # Todo?
         #  _, cluster_labels = find_cluster_representatives(transform_neighbor_tree, transform_cluster)
         cluster_labels = transform_cluster.labels_
-        # logger.debug(f'shape of cluster_labels: {cluster_labels.shape}')
+        # logger.debug(f'Shape of cluster_labels: {cluster_labels.shape}')
         passing_transforms = cluster_labels != -1
         sufficiently_dense_indices = np.flatnonzero(passing_transforms)
         number_of_dense_transforms = len(sufficiently_dense_indices)
 
-        logger.info(f'After clustering, {starting_transforms - number_of_dense_transforms} are missing the minimum number'
-                    f' of close transforms to be viable. {number_of_dense_transforms} transforms '
-                    f'remain ({time.time() - clustering_start:8f}s)')
+        logger.info(f'After clustering, {starting_transforms - number_of_dense_transforms} are missing the minimum '
+                    f'number of close transforms to be viable. {number_of_dense_transforms} transforms '
+                    f'remain (took {time.time() - clustering_start:8f}s)')
         if not number_of_dense_transforms:  # There were no successful transforms
             logger.warning(f'No viable transformations found. Terminating {building_blocks} docking')
             return []
@@ -1377,7 +1379,6 @@ def nanohedra_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[proto
 
     # Transform coords to query for clashes
     # Set up chunks of coordinate transforms for clash testing
-    # Todo make a function to wrap memory errors into chunks
     check_clash_coords_start = time.time()
     memory_constraint = psutil.virtual_memory().available
     # Assume each element is np.float64
@@ -1392,14 +1393,14 @@ def nanohedra_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[proto
     clash_vect = [clash_dist]
     # The batch_length indicates how many models could fit in the allocated memory. Using floor division to get integer
     # Reduce scale by factor of divisor to be safe
-    start_divisor = divisor = 16
+    start_divisor = 16
     batch_length = int(number_of_elements_available // model_elements // start_divisor)
 
-    # Create the balltree clash check as a batched function
-    # Specify that setup must be performed before the function should be executed
+    # Setup function that must be performed before the function isexecuted
     def np_tile_wrap(length: int, coords: np.ndarray, *args, **kwargs):
         return dict(query_points=np.tile(coords, (length, 1, 1)))
 
+    # Create the balltree clash check as a batched function
     @resources.ml.batch_calculation(size=number_of_dense_transforms, batch_length=batch_length, setup=np_tile_wrap,
                                     compute_failure_exceptions=(np.core._exceptions._ArrayMemoryError,))
     def check_tree_for_query_overlap(batch_slice: slice,
@@ -1457,10 +1458,6 @@ def nanohedra_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[proto
 
         return {'overlap_counts': overlap_counts}
 
-    # resources.ml.batch_calculation(number_of_dense_transforms, batch_length,
-    #                                function=check_tree_for_query_overlap,
-    #                                function_kwargs=ball_tree_kwargs,
-    #                                return_containers=(asu_clash_counts,), setup=np_tile_wrap)
     # Using the inverse transform of the model2 backbone and cb (surface fragment) coordinates, check for clashes
     # with the model1 backbone and cb coordinates BinaryTree
     ball_tree_kwargs = dict(binarytree=oligomer1_backbone_cb_tree,
@@ -1468,63 +1465,12 @@ def nanohedra_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[proto
                             rotation2=set_mat2, translation2=full_ext_tx_sum,
                             rotation3=inv_setting1, translation3=full_int_tx_inv1,
                             rotation4=full_inv_rotation1)
-    # batch_calculate = True
-    # if batch_calculate:
-    # asu_clash_counts, *_ = check_tree_for_query_overlap(**ball_tree_kwargs,
+
     overlap_return = check_tree_for_query_overlap(**ball_tree_kwargs,
                                                   return_containers={'overlap_counts': asu_clash_counts},
                                                   setup_args=(bb_cb_coords2,))
     # Extract the data
     asu_clash_counts = overlap_return['overlap_counts']
-
-    # while True:
-    #     size = number_of_dense_transforms
-    #     try:  # The next batch_length
-    #         # The number_of_batches indicates how many iterations are needed to exhaust all models
-    #         # chunk_size = model_elements * batch_length
-    #         number_of_batches = int(ceil(size/batch_length) or 1)  # Select at least 1
-    #         tiled_coords2 = np.tile(bb_cb_coords2, (batch_length, 1, 1))
-    #         for batch in range(number_of_batches):
-    #             # Find the upper slice limit
-    #             batch_slice = slice(batch * batch_length, (batch+1) * batch_length)
-    #             # actual_batch_length = batch_slice.stop - batch_slice.start
-    #             _full_rotation2_ = _full_rotation2[batch_slice]
-    #             actual_batch_length = _full_rotation2_.shape[0]
-    #             # Transform the coordinates
-    #             inverse_transformed_model2_tiled_coords = \
-    #                 transform_coordinate_sets(
-    #                     transform_coordinate_sets(tiled_coords2[:actual_batch_length],  # Slice ensures same size
-    #                                               rotation=_full_rotation2_,
-    #                                               translation=None if full_int_tx2 is None
-    #                                               else _full_int_tx2[batch_slice, None, :],
-    #                                               rotation2=set_mat2,
-    #                                               translation2=None if sym_entry.unit_cell is None
-    #                                               else full_ext_tx_sum[batch_slice, None, :]),
-    #                     rotation=inv_setting1,
-    #                     translation=None if full_int_tx1 is None else full_int_tx_inv1[batch_slice, None, :],
-    #                     rotation2=full_inv_rotation1[batch_slice])
-    #             # Check each transformed oligomer 2 coordinate set for clashing against oligomer 1
-    #             asu_clash_counts[batch_slice] = \
-    #                 [oligomer1_backbone_cb_tree.two_point_correlation(
-    #                     inverse_transformed_model2_tiled_coords[idx],
-    #                     clash_vect)[0] for idx in range(actual_batch_length)]
-    #             # Save memory by dereferencing the arry before the next calculation
-    #             del inverse_transformed_model2_tiled_coords
-    #
-    #         logger.critical(f'Successful execution with {divisor} using available memory of '
-    #                         f'{memory_constraint} and batch_length of {batch_length}')
-    #         # # This is the number of total guide coordinates allowed in memory at this point...
-    #         # # Given calculation constraints, this will need to be reduced by at least 4 fold
-    #         # euler_divisor = 4
-    #         # euler_lookup_size_threshold = int(chunk_size / guide_coords_elements // coords_multiplier // euler_divisor)
-    #         # logger.info(f'Given memory, the euler_lookup_size_threshold is: {euler_lookup_size_threshold}')
-    #         break
-    #     except np.core._exceptions._ArrayMemoryError:
-    #         batch_length -= 1
-    #         # batch_length = int(number_of_elements_available // model_elements // divisor)
-
-    # asu_is_viable_indices = np.where(asu_clash_counts.flatten() == 0)  # , True, False)
-    # asu_is_viable_indices = np.where(np.array(asu_clash_counts) == 0)
     # Find those indices where the asu_clash_counts is not zero (inverse of nonzero by using the array == 0)
     asu_is_viable_indices = np.flatnonzero(asu_clash_counts == 0)
     number_non_clashing_transforms = asu_is_viable_indices.shape[0]
@@ -1533,9 +1479,8 @@ def nanohedra_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[proto
     # index the previously passing indices (sufficiently_dense_indices) by new pasing indices (asu_is_viable_indices)
     # and set each of these indices to 1 (True)
     # passing_transforms[sufficiently_dense_indices[asu_is_viable_indices]] = 1
-    logger.info(f'Clash testing for All Oligomer1 and Oligomer2 (took {time.time() - check_clash_coords_start:8f}s) '
-                f"found {number_non_clashing_transforms} viable ASU's out of {number_of_dense_transforms}")
-    # input_ = input('Please confirm to continue protocol')
+    logger.info(f"Clash testing for identified poses found {number_non_clashing_transforms} viable ASU's out of "
+                f'{number_of_dense_transforms} (took {time.time() - check_clash_coords_start:8f}s)')
 
     if not number_non_clashing_transforms:  # There were no successful asus that don't clash
         logger.warning(f'No viable asymmetric units. Terminating {building_blocks} docking')
@@ -1556,7 +1501,7 @@ def nanohedra_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[proto
     # alternative route to measure clashes of each transform. Move copies of component2 to interact with model1 ORIGINAL
     int_cb_and_frags_start = time.time()
     # Transform the CB coords of oligomer 2 to each identified transformation
-    # Transforming only surface frags will have large speed gains from not having to transform all ghosts
+    # Transforming only surface frags has large speed benefits from not having to transform all ghosts
     inverse_transformed_model2_tiled_cb_coords = \
         transform_coordinate_sets(transform_coordinate_sets(np.tile(model2.cb_coords,
                                                                     (number_non_clashing_transforms, 1, 1)),
@@ -1584,7 +1529,7 @@ def nanohedra_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[proto
                                   translation=None if full_int_tx1 is None else full_int_tx_inv1[:, None, None, :],
                                   rotation2=full_inv_rotation1[:, None, :, :])
 
-    logger.info(f'\tTransformation of all viable Oligomer 2 CB atoms and surface fragments took '
+    logger.info(f'\tTransformation of viable oligomer 2 CB atoms and surface fragments took '
                 f'{time.time() - int_cb_and_frags_start:8f}s')
 
     # Todo if using individual Poses
@@ -1612,13 +1557,12 @@ def nanohedra_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[proto
     model2_cb_indices = model2.cb_indices
     model2_coords_indexed_residues = model2.coords_indexed_residues
     zero_counts = []
-    # Whether the protocol should separate the expansion of coordinates and the measurement of fragment matches
-    # overlap_only = True  # False  #
+
     # Save all the indices were matching fragments are identified
     interface_is_viable = []
-    all_passing_ghost_indices = []
-    all_passing_surf_indices = []
-    all_passing_z_scores = []
+    # all_passing_ghost_indices = []
+    # all_passing_surf_indices = []
+    # all_passing_z_scores = []
     # Get residue number for all model1, model2 CB Pairs that interact within cb_distance
     for idx in range(number_non_clashing_transforms):
         # query/contact pairs/isin  - 0.028367  <- I predict query is about 0.015
@@ -1673,12 +1617,12 @@ def nanohedra_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[proto
         # unique_interface_frag_count_model1, unique_interface_frag_count_model2 = \
         #     ghost_indices_in_interface1.shape[0], surf_indices_in_interface2.shape[0]
         # get_int_frags_time = time.time() - int_frags_time_start
-        # Todo reinstate this logging?
-        # logger.info(f'\tNewly formed interface contains {unique_interface_frag_count_model1} unique Fragments on Oligomer '
-        #             f'1 from {len(interface_residue_numbers1)} Residues and '
-        #             f'{unique_interface_frag_count_model2} on Oligomer 2 from {len(interface_residue_numbers2)} Residues '
-        #             f'\n\t(took {get_int_frags_time:8f}s to to get interface fragments, including '
-        #             f'{model1_cb_balltree_time:8f}s to query distances, {is_in_index_time:8f}s to index residue numbers)')
+        # logger.debug(f'\tNewly formed interface contains {unique_interface_frag_count_model1} unique Fragments on '
+        #              f'Oligomer 1 from {len(interface_residue_numbers1)} Residues and '
+        #              f'{unique_interface_frag_count_model2} on Oligomer 2 from {len(interface_residue_numbers2)} '
+        #              f'Residues\n\t(took {get_int_frags_time:8f}s to get interface fragments, including '
+        #              f'{model1_cb_balltree_time:8f}s to query distances, '
+        #              f'{is_in_index_time:8f}s to index residue numbers)')
 
         int_surf_shape = surf_indices_in_interface2.shape[0]
         int_ghost_shape = ghost_indices_in_interface1.shape[0]
@@ -1744,7 +1688,7 @@ def nanohedra_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[proto
         # all_fragment_match = calculate_match(ghost_guide_coords1[passing_ghost_indices],
         #                                      inverse_transformed_surf_frags2_guide_coords[idx, passing_surf_indices],
         #                                      ghost_rmsds1[passing_ghost_indices])
-        logger.info(
+        logger.debug(
             # f'\tEuler Lookup found {int_euler_matching_ghost_indices1.shape[0]} passing overlaps '
             #      f'(took {eul_lookup_time:8f}s) for '
             #      f'{unique_interface_frag_count_model1 * unique_interface_frag_count_model2} fragment pairs and '
@@ -1763,8 +1707,8 @@ def nanohedra_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[proto
         high_qual_match_count = len(high_qual_match_indices)
         all_fragment_match_time = time.time() - all_fragment_match_time_start
         if high_qual_match_count < min_matched:
-            logger.debug(f'\t{high_qual_match_count} < {min_matched} Which is Set as the Minimal Required Amount of '
-                         f'High Quality Fragment Matches (took {all_fragment_match_time:8f}s)')
+            logger.debug(f'\t{high_qual_match_count} < {min_matched}, the minimal high quality fragment matches '
+                         f'(took {all_fragment_match_time:8f}s)')
             # Debug. Why are there no matches... cb_distance?
             if high_qual_match_count == 0:
                 zero_counts.append(1)
@@ -1774,26 +1718,24 @@ def nanohedra_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[proto
             # passing_overlaps_indices = np.flatnonzero(all_fragment_match >= low_quality_match_value)
             passing_overlaps_indices = np.flatnonzero(all_fragment_z_score <= low_quality_z_value)
             number_passing_overlaps = passing_overlaps_indices.shape[0]
-            logger.info(f'\t{high_qual_match_count} High Quality Fragments Out of {number_passing_overlaps} Matches Found'
-                        f' in Complete Fragment Library (took {all_fragment_match_time:8f}s)')
+            logger.info(f'\t{high_qual_match_count} high quality fragments out of {number_passing_overlaps} matches '
+                        f'found (took {all_fragment_match_time:8f}s)')
             # Return the indices sorted by z_value in ascending order, truncated at the number of passing
-            sorted_fragment_indices = np.argsort(all_fragment_z_score)[:number_passing_overlaps]
+            # sorted_fragment_indices = np.argsort(all_fragment_z_score)[:number_passing_overlaps]
             # sorted_match_scores = match_score_from_z_value(sorted_z_values)
             # logger.debug('Overlapping Match Scores: %s' % sorted_match_scores)
             # sorted_overlap_indices = passing_overlaps_indices[sorted_fragment_indices]
-            # interface_ghost_frags = complete_ghost_frags1[interface_ghost_indices1][passing_ghost_indices[sorted_overlap_indices]]
-            # interface_surf_frags = complete_surf_frags2[surf_indices_in_interface2][passing_surf_indices[sorted_overlap_indices]]
+            # interface_ghost_frags = \
+            #     complete_ghost_frags1[interface_ghost_indices1][passing_ghost_indices[sorted_overlap_indices]]
+            # interface_surf_frags = \
+            #     complete_surf_frags2[surf_indices_in_interface2][passing_surf_indices[sorted_overlap_indices]]
             # overlap_passing_ghosts = passing_ghost_indices[sorted_fragment_indices]
-            all_passing_ghost_indices.append(passing_ghost_indices[sorted_fragment_indices])
-            all_passing_surf_indices.append(passing_surf_indices[sorted_fragment_indices])
-            all_passing_z_scores.append(all_fragment_z_score[sorted_fragment_indices])
+            # all_passing_ghost_indices.append(passing_ghost_indices[sorted_fragment_indices])
+            # all_passing_surf_indices.append(passing_surf_indices[sorted_fragment_indices])
+            # all_passing_z_scores.append(all_fragment_z_score[sorted_fragment_indices])
             interface_is_viable.append(idx)
-            logger.debug(f'\tInterface fragment search time took {time.time() - int_frags_time_start:8f}')
+            # logger.debug(f'\tInterface fragment search time took {time.time() - int_frags_time_start:8f}')
             continue
-        # else:
-        #     write_and_quit = False
-        #     report_residue_numbers = False
-        #     update_pose_coords()
 
     logger.debug(f'Found {len(zero_counts)} zero counts')
     number_viable_pose_interfaces = len(interface_is_viable)
@@ -1809,7 +1751,7 @@ def nanohedra_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[proto
     entity_idx = count(0)
     transform_indices = {next(entity_idx): transform_idx
                          for transform_idx, model in enumerate(models)
-                         for entity in model.entities}
+                         for _ in model.entities}
     entity_info = {entity_name: data for model in models
                    for entity_name, data in model.entity_info.items()}
     chain_gen = chain_id_generator()
@@ -1860,7 +1802,6 @@ def nanohedra_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[proto
         pose_source_contact_order_s = pd.Series(np.concatenate(source_contact_order), index=residue_numbers)
         pose_source_errat_s = pd.Series(np.concatenate(source_errat), index=residue_numbers)
 
-        # per_residue_data = {}  # pose_source: pose.get_per_residue_interface_metrics()}
         per_residue_data = {putils.pose_source: {
             # 'type': list(pose.sequence),
             'contact_order': pose_source_contact_order_s,
@@ -1890,10 +1831,11 @@ def nanohedra_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[proto
         if sym_entry.unit_cell:
             external_tx1 = full_ext_tx1[idx]
             external_tx2 = full_ext_tx2[idx]
-            # asu.space_group = sym_entry.resulting_symmetry
-            uc_dimensions = full_uc_dimensions[idx]
+            # uc_dimensions = full_uc_dimensions[idx]
+            # Set the next unit cell dimensions
+            pose.uc_dimensions = full_uc_dimensions[idx]
         else:
-            external_tx1 = external_tx2 = uc_dimensions = None
+            external_tx1 = external_tx2 = None
 
         specific_transformation1 = dict(rotation=full_rotation1[idx], translation=internal_tx_param1,
                                         rotation2=set_mat1, translation2=external_tx1)
@@ -1901,10 +1843,7 @@ def nanohedra_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[proto
                                         rotation2=set_mat2, translation2=external_tx2)
         specific_transformations = [specific_transformation1, specific_transformation2]
 
-        # Set the next unit cell dimensions
-        pose.uc_dimensions = uc_dimensions
         # Transform each starting coords to the candidate pose coords then update the Pose coords
-        # logger.debug(f'Transforming pose coordinates to the current docked configuration')
         new_coords = []
         for entity_idx, entity in enumerate(pose.entities):
             # logger.debug(f'transform_indices[entity_idx]={transform_indices[entity_idx]}'
@@ -1920,7 +1859,6 @@ def nanohedra_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[proto
 
         logger.debug(f'\tCopy and Transform Oligomer1 and Oligomer2 (took {time.time() - copy_model_start:8f}s)')
 
-    # def find_viable_symmetric_indices(viable_pose_length: int) -> np.ndarray:
     def find_viable_symmetric_indices(viable_pose_indices: list[int]) -> np.ndarray:
         """Using the nonlocal Pose and transformation indices, check each transformation index for symmetric viability
 
@@ -1929,10 +1867,6 @@ def nanohedra_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[proto
         Returns:
             An array with the transformation indices that passed clash testing
         """
-        # number_viable_pose_interfaces_range = range(viable_pose_length)
-        # number_viable_pose_interfaces_range = range(len(viable_pose_indices))
-        # _passing_symmetric_clashes = [0 for _ in number_viable_pose_interfaces_range]
-        # for idx in number_viable_pose_interfaces_range:
         # Assume the pose will fail the clash test (0), otherwise, (1) for passing
         _passing_symmetric_clashes = [0 for _ in range(len(viable_pose_indices))]
         for result_idx, transform_idx in enumerate(viable_pose_indices):
@@ -1946,14 +1880,12 @@ def nanohedra_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[proto
             # else:
             #     logger.info(f'\tBackbone Clash when pose is expanded (took '
             #                 f'{time.time() - exp_des_clash_time_start:8f}s)')
-            #     _passing_symmetric_clashes[idx] = 0
 
         return np.flatnonzero(_passing_symmetric_clashes)
 
     # Make the indices into an array
     interface_is_viable = np.array(interface_is_viable, dtype=int)
-    # Todo
-    #  Turn the degen_counts into indices... These will be used for rotation slicing?
+
     # Update the passing_transforms
     # passing_transforms contains all the transformations that are still passing
     # index the previously passing indices (sufficiently_dense_indices) and (asu_is_viable_indices)
@@ -2005,6 +1937,7 @@ def nanohedra_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[proto
         # Calculate the vectorized uc_dimensions
         full_uc_dimensions = sym_entry.get_uc_dimensions(full_optimal_ext_dof_shifts)
 
+    # Perform perturbations to the allowed degrees of freedom
     number_of_transforms = passing_transforms_indices.shape[0]
     if job.dock.perturb_dof_rot or job.dock.perturb_dof_tx:
         perturb_rotation1, perturb_rotation2, perturb_int_tx1, perturb_int_tx2, perturb_optimal_ext_dof_shifts = \
@@ -2225,6 +2158,7 @@ def nanohedra_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[proto
             pose.fragment_queries = {entity_tuple: frag_match_info}
             pose.fragment_metrics = {entity_tuple: fragment_metrics}
 
+    # Create a Models instance to collect each model
     if job.write_trajectory:
         models = Models()
 
@@ -2308,10 +2242,8 @@ def nanohedra_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[proto
     # From here out, the transforms used should be only those of interest for outputting/sequence design
     # remove_non_viable_indices() <- This is done above
     # Format pose transformations for output
-    # full_rotation1 = full_rotation1
     blank_parameter = list(repeat([None, None, None], number_of_transforms))
     full_ext_tx1 = blank_parameter if full_ext_tx1 is None else full_ext_tx1.squeeze()
-    # full_rotation2 = full_rotation2
     full_ext_tx2 = blank_parameter if full_ext_tx2 is None else full_ext_tx2.squeeze()
 
     set_mat1_number, set_mat2_number, *_extra = sym_entry.setting_matrices_numbers
@@ -2340,6 +2272,7 @@ def nanohedra_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[proto
     #     full_ext_tx1 = full_ext_tx1[:]
     #     full_ext_tx2 = full_ext_tx2[:]
     #     full_ext_tx_sum = full_ext_tx2 - full_ext_tx1
+
     # Save all pose transformation information
     pose_transformations = {}
     for idx in range(number_of_transforms):
@@ -2362,27 +2295,13 @@ def nanohedra_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[proto
     # Capture all the pose_ids from the transformation dictionary
     pose_ids = list(pose_transformations.keys())
 
-    # Check output setting. Should interface design, metrics be performed?
+    # Should interface metrics be performed to inform on docking success?
     proteinmpnn_used = False
     if job.dock_only:  # Only get pose outputs, no sequences or metrics
         design_ids = pose_ids
-        # for idx, design_id in enumerate(pose_ids):  # range(number_of_transforms):
-        #     update_pose_coords(idx)
-        #
-        #     if job.write_fragments:
-        #         # if total_perturbation_size > 1:
-        #         add_fragments_to_pose()  # <- here generating fresh
-        #         # else:
-        #         #     # Here, loading fragments. No self-symmetric interactions found
-        #         #     add_fragments_to_pose(all_passing_ghost_indices[idx],
-        #         #                           all_passing_surf_indices[idx],
-        #         #                           all_passing_z_scores[idx])
-        #     # design_id = create_pose_id(idx)
-        #     pose_paths.append(output_pose(os.path.join(out_dir, design_id), design_id))
-        #
-        # # logger.info(f'Total {building_blocks} dock trajectory took {time.time() - frag_dock_time_start:.2f}s')
-        # # terminate()  # End of docking run
-        # # return pose_paths
+        # logger.info(f'Total {building_blocks} dock trajectory took {time.time() - frag_dock_time_start:.2f}s')
+        # terminate()  # End of docking run
+        # return pose_paths
     elif job.dock.proteinmpnn_score or job.design.sequences:  # Initialize proteinmpnn for dock/design
         proteinmpnn_used = True
         # Load profiles of interest into the analysis
@@ -3799,12 +3718,14 @@ def nanohedra_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[proto
                 scores_df['interface_area_polar'] + scores_df['interface_area_hydrophobic']
             # Find the proportion of the residue surface area that is solvent accessible versus buried in the interface
             scores_df['interface_area_to_residue_surface_ratio'] = \
-                (bsa_assembly_df / (bsa_assembly_df+scores_df['sasa_total_complex']))  # / scores_df['total_interface_residues']
+                (bsa_assembly_df / (bsa_assembly_df+scores_df['sasa_total_complex']))
+            #      / scores_df['total_interface_residues']
 
             # Make scores_df errat_deviation that takes into account the pose_source sequence errat_deviation
             # This overwrites the sum_per_residue_metrics() value
             # Include in errat_deviation if errat score is < 2 std devs and isn't 0 to begin with
-            source_errat_inclusion_boolean = np.logical_and(pose_source_errat_s < errat_2_sigma, pose_source_errat_s != 0.)
+            source_errat_inclusion_boolean = \
+                np.logical_and(pose_source_errat_s < errat_2_sigma, pose_source_errat_s != 0.)
             errat_df = per_residue_df.loc[:, idx_slice[:, 'errat_deviation']].droplevel(-1, axis=1)
             # find where designs deviate above wild-type errat scores
             errat_sig_df = errat_df.sub(pose_source_errat_s, axis=1) > errat_1_sigma  # axis=1 Series is column oriented
@@ -3879,7 +3800,7 @@ def nanohedra_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[proto
         scores_df.drop(clean_up_intermediate_columns, axis=1, inplace=True, errors='ignore')
     # else:  # Get metrics and output
     #     # Generate placeholder all_mutations which only contains "reference"
-    #     # all_mutations = generate_mutations_from_reference(pose.sequence, pose_sequences, return_to=True)  # , zero_index=True)
+    #     # all_mutations = generate_mutations_from_reference(pose.sequence, pose_sequences, return_to=True)
     #     # per_residue_sequence_df = per_residue_background_frequencies = per_residue_collapse_df = pd.DataFrame()
     #     # all_pose_divergence_df = pd.DataFrame()
     #     # residue_df = pd.DataFrame()

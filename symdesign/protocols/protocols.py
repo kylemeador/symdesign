@@ -714,7 +714,7 @@ class PoseDirectory:
                 raise error
             # Make a copy for the checking of current state
             self._info = self.info.copy()
-            # Dev branch only
+            # # Dev branch only
             # except ModuleNotFoundError as error:
             #     self.log.error('%s: There was an issue retrieving design state from binary file...' % self.name)
             #     self.log.critical('Removing %s' % self.serialized_info)
@@ -1309,9 +1309,9 @@ class PoseDirectory:
     def _predict_structure(self):
         match self.job.predict.method:
             case 'thread':
-                self.thread_sequences_to_backbone()  # self.designed_sequences)
+                self.thread_sequences_to_backbone()
             case 'proteinmpnn':
-                self.thread_sequences_to_backbone()  # self.designed_sequences)
+                self.thread_sequences_to_backbone()
             # Todo
             #  case 'alphafold':
             #      self.run_alphafold()
@@ -1321,7 +1321,7 @@ class PoseDirectory:
 
     def thread_sequences_to_backbone(self, sequences: dict[str, str] = None):
         """From the starting Pose, thread sequences onto the backbone, modifying relevant side chains i.e., mutate the
-        Pose and build/pack using Rosetta FastRelax
+        Pose and build/pack using Rosetta FastRelax. If no sequences are provided, will use self.designed_sequences
 
         Args:
             sequences: The sequences to thread
@@ -1341,8 +1341,6 @@ class PoseDirectory:
                 raise DesignError(f'The length of the sequence {len(sequence)} != {number_of_residues}, '
                                   f'the number of residues in the pose')
             for res_idx, residue_type in enumerate(sequence):
-                # self.log.debug(f'Mutating {res_idx + 1}{residue_type}')
-                # if residue_type != 'GLY':  # No mutation from GLY to ALA as Rosetta would build a CB
                 self.pose.mutate_residue(index=res_idx, to=residue_type)
             # pre_threaded_file = os.path.join(self.data, f'{self.name}_{self.protocol}{seq_idx:04d}.pdb')
             pre_threaded_file = os.path.join(self.data, f'{sequence_id}.pdb')
@@ -1355,7 +1353,8 @@ class PoseDirectory:
         sequence_ids = sequences.keys()
         design_scores = read_scores(self.scores_file)
         for design, scores in design_scores.items():
-            if design in sequence_ids:  # We saved data, copy to new identifier as it will be threaded
+            if design in sequence_ids:
+                # We previously saved data. Copy to the identifier that is present after threading
                 scores['decoy'] = f'{design}_{self.protocol}'
                 # write_json(_scores, self.scores_file)
                 with open(self.scores_file, 'a') as f_save:
@@ -1363,11 +1362,6 @@ class PoseDirectory:
                     # Ensure JSON lines are separated by newline
                     f_save.write('\n')
 
-        # generate_files_file_cmd = \
-        #     ['python', putils.list_pdb_files, '-d', self.data, '-o', design_files_file, '-s', '_' + self.protocol]
-        # list_all_files_process = Popen(generate_files_file_cmd)
-        # list_all_files_process.communicate()
-        # get_directory_file_paths(self.data)
         if design_files:
             with open(design_files_file, 'w') as f:
                 f.write('%s\n' % '\n'.join(design_files))
