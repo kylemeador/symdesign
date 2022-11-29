@@ -1374,14 +1374,16 @@ class PoseDirectory:
         else:
             raise DesignError(f'{self.thread_sequences_to_backbone.__name__}: No designed sequences were located')
 
-        self._refine(in_file_list=design_files_file, gather_metrics=True)
+        self._refine(in_file_list=design_files_file)
 
-    def _refine(self, to_pose_directory: bool = True, gather_metrics: bool = False, in_file_list: AnyStr = None):
-        """Refine the source PDB using self.symmetry to specify any symmetry
+    def _refine(self, to_pose_directory: bool = True, metrics: bool = True, in_file_list: AnyStr = None):
+        """Refine the source Pose
+
+        Will append the suffix "_refine" or that given by f'_{self.protocol}' if in_file_list is passed
 
         Args:
             to_pose_directory: Whether the refinement should be saved to the PoseDirectory
-            gather_metrics: Whether metrics should be calculated for the Pose
+            metrics: Whether metrics should be calculated for the Pose
             in_file_list: A list of files to perform refinement on
         """
         main_cmd = copy(rosetta.script_cmd)
@@ -1467,7 +1469,8 @@ class PoseDirectory:
              '-out:suffix', f'_{switch}', '-parser:script_vars', f'switch={switch}']
         self.log.info(f'{self.protocol.title()} Command: {list2cmdline(relax_cmd)}')
 
-        if gather_metrics or self.job.gather_metrics:
+        if metrics or self.job.metrics:
+            metrics = True
             main_cmd += metrics_pdb
             main_cmd += [f'@{flags_file}', '-out:file:score_only', self.scores_file,
                          '-no_nstruct_label', 'true', '-parser:protocol']
@@ -1500,7 +1503,7 @@ class PoseDirectory:
             relax_process.communicate()  # wait for command to complete
             list_all_files_process = Popen(generate_files_cmd)
             list_all_files_process.communicate()
-            if gather_metrics:
+            if metrics:
                 for metric_cmd in metric_cmds:
                     metrics_process = Popen(metric_cmd)
                     metrics_process.communicate()
@@ -1913,7 +1916,7 @@ class PoseDirectory:
         # -------------------------------------------------------------------------
 
         if not self.pre_refine and not os.path.exists(self.refined_pdb):
-            self._refine()
+            self._refine(metrics=False)
 
         putils.make_path(self.designs)
         # putils.make_path(self.data)
