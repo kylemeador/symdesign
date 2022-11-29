@@ -1203,8 +1203,6 @@ def main():
     # ---------------------------------------------------
     elif job.module == flags.refine:
         if args.multi_processing:
-            # zipped_args = zip(pose_directories, repeat(args.interface_to_alanine), repeat(args.gather_metrics))
-            # results = utils.mp_starmap(PoseDirectory.refine, zipped_args, processes=job.cores)
             results = utils.mp_map(PoseDirectory.refine, pose_directories, processes=job.cores)
         else:
             for design in pose_directories:

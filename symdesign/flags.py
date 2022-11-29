@@ -55,7 +55,7 @@ dataframe = 'dataframe'
 fragment_database = 'fragment_database'
 skip_sequence_generation = 'skip_sequence_generation'
 interface_to_alanine = 'interface_to_alanine'
-gather_metrics = 'gather_metrics'
+metrics = 'metrics'
 increment_chains = 'increment_chains'
 design_arguments = {
     ignore_clashes, ignore_pose_clashes, ignore_symmetric_clashes, method, evolution_constraint, hbnet,
@@ -138,7 +138,6 @@ nano_entity_flag2 = format_for_cmdline(nano_entity_flag2)
 skip_logging = format_for_cmdline(skip_logging)
 skip_sequence_generation = format_for_cmdline(skip_sequence_generation)
 interface_to_alanine = format_for_cmdline(interface_to_alanine)
-gather_metrics = format_for_cmdline(gather_metrics)
 increment_chains = format_for_cmdline(increment_chains)
 
 
@@ -440,9 +439,9 @@ refine_arguments = {
     ('-ala', f'--{interface_to_alanine}'): dict(action=argparse.BooleanOptionalAction, default=False,
                                                 help='Whether to mutate all interface residues to alanine before '
                                                      'refinement'),
-    ('-met', f'--{gather_metrics}'): dict(action=argparse.BooleanOptionalAction, default=False,
-                                          help='Whether to gather interface metrics for contained interfaces after '
-                                               'refinement')
+    ('-met', f'--{metrics}'): dict(action=argparse.BooleanOptionalAction, default=True,
+                                   help='Whether to calculate metrics for contained interfaces after refinement\n'
+                                        f'{boolean_positional_prevent_msg(metrics)}')
 }
 # ---------------------------------------------------
 nanohedra_help = f'Run {nanohedra.title()}.py'
