@@ -5868,22 +5868,23 @@ class Pose(SymmetricModel):
 
         return sequences_and_scores
 
-    def combine_sequence_profiles(self):
-        """Using each Entity in the Pose, combine individual Entity SequenceProfiles into a Pose SequenceProfile
-
-        Sets:
-            self.evolutionary_profile (profile_dictionary)
-            self.fragment_profile (profile_dictionary)
-            self.profile (profile_dictionary)
-        """
-        # Ensure each Entity has the evolutionary_profile fit to the structure sequence before concatenation
-        for entity in self.entities:
-            if not entity.verify_evolutionary_profile():
-                entity.fit_evolutionary_profile_to_structure()
-
-        self.evolutionary_profile = concatenate_profile([entity.evolutionary_profile for entity in self.entities])
-        self.fragment_profile = concatenate_profile([entity.fragment_profile for entity in self.entities], start_at=0)
-        self.profile = concatenate_profile([entity.profile for entity in self.entities])
+    # def combine_sequence_profiles(self):
+    #     """Using each Entity in the Pose, combine individual Entity SequenceProfiles into a Pose SequenceProfile
+    #
+    #     Sets:
+    #         self.evolutionary_profile (profile_dictionary)
+    #         self.fragment_profile (profile_dictionary)
+    #         self.profile (profile_dictionary)
+    #     """
+    #     # Ensure each Entity has the evolutionary_profile fit to the structure sequence before concatenation
+    #     for entity in self.entities:
+    #         if not entity.verify_evolutionary_profile():
+    #             entity.fit_evolutionary_profile_to_structure()
+    #
+    #     self.evolutionary_profile = concatenate_profile([entity.evolutionary_profile for entity in self.entities])
+    #     # Todo assumes all values are present
+    #     self.fragment_profile = concatenate_profile([entity.fragment_profile for entity in self.entities], start_at=0)
+    #     self.profile = concatenate_profile([entity.profile for entity in self.entities])
 
     def get_termini_accessibility(self, entity: Entity = None, report_if_helix: bool = False) -> \
             dict[str, bool]:
@@ -6947,7 +6948,7 @@ class Pose(SymmetricModel):
                 self.alpha.extend(entity.alpha)
             self._alpha = entity._alpha  # Logic enforces entity is always referenced here
         else:
-            self.alpha = [0 for residue in self.residues]  # Reset the data
+            self.alpha = [0 for _ in self.residues]  # Reset the data
             self.fragment_profile = self.create_null_profile(zero_index=True)
             # self.fragment_profile = {residue_index: [[] for _ in range(self._fragment_db.fragment_length)]
             #                          for residue_index in range(self.number_of_residues)}

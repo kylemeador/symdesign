@@ -650,16 +650,18 @@ def proteinmpnn_batch_design(batch_slice: slice, proteinmpnn: ProteinMPNN,
 
 def sequence_nllloss(sequence: torch.Tensor, log_probs: torch.Tensor,
                      mask: torch.Tensor = None, per_residue: bool = True) -> torch.Tensor:
-    """Score ProteinMPNN sequences using the Negative log likelihood loss function
+    """Score designed sequences using the Negative log likelihood loss function
 
     Args:
         sequence: The sequence tensor
-        log_probs: The logarithmic probabilities as found by a forward pass through ProteinMPNN
+        log_probs: The logarithmic probabilities at each residue for every amino acid.
+            This may be found by an evolutionary profile or a forward pass through ProteinMPNN
         mask: Any positions that are masked in the design task
         per_residue: Whether to return scores per residue
     Returns:
         The loss calculated over the log probabilities compared to the sequence tensor.
-            If per_residue=True, the returned Tensor is the same shape as S, otherwise, it is the length of S
+            If per_residue=True, the returned Tensor is the same shape as sequence (i.e. (batch, length)),
+            otherwise, it is just the length of sequence as calculated by the average loss over every residue
     """
     criterion = torch.nn.NLLLoss(reduction='none')
     # Measure log_probs loss with respect to the sequence. Make each sequence and log probs stacked along axis=0

@@ -628,25 +628,26 @@ class SequenceProfile(ABC):
             self._hydrophobic_collapse = hydrophobic_collapse_index(self.sequence)
             return self._hydrophobic_collapse
 
-    def get_sequence_probabilities_from_profile(self, dtype: profile_types = '', precomputed: numerical_profile = None)\
+    def get_sequence_probabilities_from_profile(self, dtype: profile_types = None, precomputed: numerical_profile = None)\
             -> numerical_profile:
         """Extract the values from a profile corresponding to the amino acid type of each residue in the sequence
 
         Args:
-            dtype: The profile type to sample from
+            dtype: The profile type to sample from. Can be one of 'evolutionary', 'fragment', or None which
+                combines 'evolutionary' and 'fragment'
             precomputed: If the profile is precomputed, pass as precomputed=profile_variable
         Returns:
             The array with shape (number_of_sequences, length) with the value for each amino acid index in profile
         """
-        if precomputed is not None:
-            profile_of_interest = precomputed
-        else:
-            if dtype == '':
+        if precomputed is None:
+            if dtype is None:
                 profile_of_interest = self.profile
             else:
                 profile_of_interest = getattr(self, f'{dtype}_profile')
 
             profile_of_interest = pssm_as_array(profile_of_interest)
+        else:
+            profile_of_interest = precomputed
 
         # return profile_of_interest[:, self.sequence_numeric]
         try:
@@ -830,13 +831,13 @@ class SequenceProfile(ABC):
         getattr(self, f'parse_{profile_source}_pssm')()
 
     def create_null_profile(self, **kwargs) -> profile_dictionary:
-        """Make a blank evolutionary_profile
+        """Make a blank profile
 
         Keyword Args:
             zero_index: bool = False - If True, return the dictionary with zero indexing
             dtype: dtype_literals = 'int' - The type of object present in the interior dictionary
         Returns:
-            Dictionary containing residue indexed profile information
+            Dictionary containing profile information with keys as the index (zero or one-indexed), values as PSSM
             Ex: {1: {'A': 0, 'R': 0, ..., 'lod': {'A': -5, 'R': -5, ...}, 'type': 'W', 'info': 3.20, 'weight': 0.73},
                  2: {}, ...}
         """
@@ -1232,8 +1233,8 @@ class SequenceProfile(ABC):
             alignment_type: Either 'mapped' or 'paired' indicating how the fragment observation was generated relative
                 to this Structure. Is it mapped to this Structure or was it paired to it?
         Sets:
-            # self.fragment_map (dict[int, list[dict[str, str | float]]]):
-            #     {1: [{'source': 'mapped', 'cluster': '1_2_123', 'match': 0.61}, ...], ...}
+            self.fragment_map (dict[int, list[dict[str, str | float]]]):
+                {1: [{'source': 'mapped', 'cluster': '1_2_123', 'match': 0.61}, ...], ...}
             self.fragment_profile ():
                 {1: [[{'A': 0.23, 'C': 0.01, ..., 'stats': [12, 0.37], 'match': 0.6}, ...], [], ...],
                  2: [[{}, ...], ...], ...}
@@ -1438,7 +1439,7 @@ class SequenceProfile(ABC):
         bounded_floor = 0.2
         fragment_stats = self._fragment_db.statistics
         # self.alpha.clear()  # Reset the data
-        self.alpha = [0 for residue in self.residues]  # Reset the data
+        self.alpha = [0 for _ in self.residues]  # Reset the data
         for entry, data in self.fragment_profile.items():
             # Can't use the match count as the fragment index may have no useful residue information
             # Instead use number of fragments with SC interactions count from the frequency map

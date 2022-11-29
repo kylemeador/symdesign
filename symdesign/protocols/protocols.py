@@ -2269,22 +2269,24 @@ class PoseDirectory:
 
         # Gather miscellaneous pose specific metrics
         other_pose_metrics = self.pose.interface_metrics()
+        # CAUTION: Assumes each structure is the same length
+        pose_length = self.pose.number_of_residues
+        residue_numbers = list(range(1, pose_length + 1))
 
-        # Find all designs files Todo fold these into Model(s) and attack metrics from Pose objects?
+        # Find all designs files
+        # Todo fold these into Model(s) and attack metrics from Pose objects?
         if design_poses is None:
             design_poses = [Pose.from_file(file, **self.pose_kwargs) for file in self.get_designs()]  # Todo PoseDirectory(.path)
 
-        # Assumes each structure is the same length
-        pose_length = self.pose.number_of_residues
-        residue_numbers = list(range(1, pose_length + 1))
+        # Todo handle design sequences from a read_fasta_file?
         pose_sequences = {putils.pose_source: self.pose.sequence}
         # Todo implement reference sequence from included file(s) or as with self.pose.sequence below
         pose_sequences.update({putils.reference_name: self.pose.sequence})
         pose_sequences.update({pose.name: pose.sequence for pose in design_poses})
-        all_mutations = generate_mutations_from_reference(self.pose.sequence, pose_sequences, return_to=True)  # , zero_index=True)
-        #    generate_mutations_from_reference(''.join(self.pose.atom_sequences.values()), pose_sequences)
+        all_mutations = generate_mutations_from_reference(self.pose.sequence, pose_sequences, return_to=True)
+        # generate_mutations_from_reference(''.join(self.pose.atom_sequences.values()), pose_sequences)
 
-        entity_energies = [0. for ent in self.pose.entities]
+        entity_energies = [0. for _ in self.pose.entities]
         pose_source_residue_info = \
             {residue.number: {'complex': 0., 'bound': copy(entity_energies), 'unbound': copy(entity_energies),
                               'solv_complex': 0., 'solv_bound': copy(entity_energies),
@@ -3558,7 +3560,7 @@ def interface_design_analysis(pose: Pose, design_poses: Iterable[Pose] = None, s
     all_mutations = generate_mutations_from_reference(pose.sequence, pose_sequences, return_to=True)  # , zero_index=True)
     #    generate_mutations_from_reference(''.join(pose.atom_sequences.values()), pose_sequences)
 
-    entity_energies = tuple(0. for ent in pose.entities)
+    entity_energies = [0. for _ in pose.entities]
     pose_source_residue_info = \
         {residue.number: {'complex': 0., 'bound': copy(entity_energies), 'unbound': copy(entity_energies),
                           'solv_complex': 0., 'solv_bound': copy(entity_energies),
