@@ -1770,7 +1770,7 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
     # model_tuple = tuple(models)
 
     # residue_numbers = [residue.number for residue in pose.residues]
-    # entity_energies = tuple(0. for ent in pose.entities)
+    # entity_energies = tuple(0. for _ in pose.entities)
     # pose_source_residue_info = \
     #     {residue.number: {'complex': 0.,
     #                       # 'bound': 0.,  # copy(entity_energies),
@@ -2456,8 +2456,7 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
 
             # Format the bb coords for ProteinMPNN
             if pose.is_symmetric():
-                # Make each set of coordinates "symmetric"
-                # Todo - This uses starting coords to symmetrize... Crystalline won't be right with external_translation
+                # Make each set of coordinates symmetric. Lattice cases have uc_dimensions passed in update_pose_coords
                 _perturbed_bb_coords = []
                 for idx in range(perturbed_bb_coords.shape[0]):
                     _perturbed_bb_coords.append(pose.return_symmetric_coords(perturbed_bb_coords[idx]))
@@ -2762,8 +2761,7 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
 
             # Format the bb coords for ProteinMPNN
             if pose.is_symmetric():
-                # Make each set of coordinates "symmetric"
-                # Todo - This uses starting coords to symmetrize... Crystalline won't be right with external_translation
+                # Make each set of coordinates symmetric. Lattice cases have uc_dimensions passed in update_pose_coords
                 _perturbed_bb_coords = []
                 for idx in range(perturbed_bb_coords.shape[0]):
                     _perturbed_bb_coords.append(pose.return_symmetric_coords(perturbed_bb_coords[idx]))
@@ -2888,8 +2886,7 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
 
             # Format the bb coords for ProteinMPNN
             if pose.is_symmetric():
-                # Make each set of coordinates "symmetric"
-                # Todo - This uses starting coords to symmetrize... Crystalline won't be right with external_translation
+                # Make each set of coordinates symmetric. Lattice cases have uc_dimensions passed in update_pose_coords
                 _perturbed_bb_coords = []
                 for idx in range(perturbed_bb_coords.shape[0]):
                     _perturbed_bb_coords.append(pose.return_symmetric_coords(perturbed_bb_coords[idx]))
@@ -3414,7 +3411,7 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
     fragment_profile_frequencies = []
     pose_paths = []
     nan_blank_data = list(repeat(np.nan, pose_length))
-    for idx, design_id in enumerate(design_ids):  # range(number_of_transforms):
+    for idx, design_id in enumerate(design_ids):
         # Add the next set of coordinates
         update_pose_coords(idx)
 
@@ -3452,7 +3449,6 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
 
         # Calculate pose metrics
         interface_metrics[design_id] = pose.interface_metrics()
-        # _interface_metrics = pose.interface_metrics()
 
         # if job.design.sequences:
         if proteinmpnn_used:
@@ -3547,7 +3543,7 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
                     except IndexError as error:  # We are missing fragments for this Pose!
                         # raise NotImplementedError(f"We currently don't have a solution for this...{error}")
                         logger.warning(f"We didn't find any fragment information... due to: {error}"
-                                       f"\nSetting the pose.fragment_profile = {'{}'}")
+                                       "\nSetting the pose.fragment_profile = {}")
                         raise IndexError(f'With new updates to calculate_fragment_profile this code should be '
                                          f'unreachable. Original error:\n{error}')
                         pose.fragment_profile = {}
@@ -3620,6 +3616,7 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
                 for temp_idx, design_idx in enumerate(range(idx * number_of_temperatures,
                                                             (idx+1) * number_of_temperatures)):
                     per_residue_data[design_ids[design_idx]] = design_dock_params
+
     # Todo get the keys right here
     # all_pose_divergence_df = pd.DataFrame()
     # all_pose_divergence_df = pd.concat(all_pose_divergence, keys=[('sequence', 'pose')], axis=1)
