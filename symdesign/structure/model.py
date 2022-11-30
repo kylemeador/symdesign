@@ -27,8 +27,9 @@ from .fragment import GhostFragment, Fragment, write_frag_match_info_file
 from .fragment.db import FragmentDatabase, alignment_types, fragment_info_type, EulerLookup
 from .fragment.metrics import fragment_metric_template
 from .sequence import SequenceProfile, generate_alignment, get_equivalent_indices, \
-    pssm_as_array, generate_mutations, concatenate_profile, numeric_to_sequence
-from .utils import protein_letters_3to1_extended, protein_letters_1to3_extended, chain_id_generator
+    pssm_as_array, generate_mutations, numeric_to_sequence, Profile
+from .utils import DesignError, SymmetryError, ClashError, protein_letters_3to1_extended, \
+    protein_letters_1to3_extended, chain_id_generator
 from symdesign import flags
 from symdesign import utils
 from symdesign.utils import path as putils
@@ -1690,13 +1691,13 @@ class Entity(Chain, ContainsChainsMixin):
 
             return out_path
 
-    def orient(self, symmetry: str = None, log: AnyStr = None):  # similar function in Model
-        """Orient a symmetric PDB at the origin with its symmetry axis canonically set on axes defined by symmetry
-        file. Automatically produces files in PDB numbering for proper orient execution
+    def orient(self, symmetry: str = None):  # similar function in Model
+        """Orient a symmetric Structure at the origin with symmetry axis set on canonical axes defined by symmetry file
+
+        Returns the same Structure, just oriented. Therefore, all member chains will be their original parsed lengths
 
         Args:
-            symmetry: What is the symmetry of the specified PDB?
-            log: If there is a log specific for orienting
+            symmetry: The symmetry of the Structure
         """
         # orient_oligomer.f program notes
         # C		Will not work in any of the infinite situations where a PDB file is f***ed up,
@@ -1714,8 +1715,8 @@ class Entity(Chain, ContainsChainsMixin):
                            f'Please try one of: {", ".join(utils.symmetry.valid_symmetries)}')
             return
 
-        if not log:
-            log = self.log
+        # if not log:
+        #     log = self.log
 
         if self.file_path:
             file_name = os.path.basename(self.file_path)
@@ -1725,7 +1726,7 @@ class Entity(Chain, ContainsChainsMixin):
 
         number_of_subunits = self.number_of_chains
         if symmetry == 'C1':
-            log.debug('C1 symmetry doesn\'t have a cannonical orientation')
+            self.log.debug("C1 symmetry doesn't have a canonical orientation")
             self.translate(-self.center_of_mass)
             return
         elif number_of_subunits > 1:
@@ -1751,14 +1752,14 @@ class Entity(Chain, ContainsChainsMixin):
                              stderr=subprocess.PIPE, cwd=putils.orient_dir)
         in_symm_file = os.path.join(putils.orient_dir, 'symm_files', symmetry)
         stdout, stderr = p.communicate(input=in_symm_file.encode('utf-8'))
-        log.info(file_name + stdout.decode()[28:])
-        log.info(stderr.decode()) if stderr else None
+        self.log.info(file_name + stdout.decode()[28:])
+        self.log.info(stderr.decode()) if stderr else None
         if not orient_output.exists() or orient_output.stat().st_size == 0:
-            log_file = getattr(log.handlers[0], 'baseFilename', None)
+            log_file = getattr(self.log.handlers[0], 'baseFilename', None)
             log_message = f'. Check {log_file} for more information' if log_file else ''
             raise RuntimeError(f'orient_oligomer could not orient {file_name}{log_message}')
 
-        oriented_pdb = Entity.from_file(str(orient_output), name=self.name, log=log)
+        oriented_pdb = Entity.from_file(str(orient_output), name=self.name, log=self.log)
         orient_fixed_struct = oriented_pdb.chains[0]
         moving_struct = self
 
@@ -1941,7 +1942,7 @@ class Entity(Chain, ContainsChainsMixin):
         if os.path.exists(struct_file):
             os.system(f'rm {struct_file}')
         if p.returncode != 0:
-            raise utils.DesignError(f'Symmetry definition file creation failed for {self.name}')
+            raise DesignError(f'Symmetry definition file creation failed for {self.name}')
 
         self.format_sdf(out.decode('utf-8').split('\n')[:-1], to_file=out_file, **kwargs)
         #                 modify_sym_energy_for_cryst=False, energy=2)
@@ -2738,13 +2739,13 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
     #     self.log.debug(f'Model is writing')
     #     return super().write(**kwargs)
 
-    def orient(self, symmetry: str = None, log: AnyStr = None):  # similar function in Entity
-        """Orient a symmetric PDB at the origin with its symmetry axis canonically set on axes defined by symmetry
-        file. Automatically produces files in PDB numbering for proper orient execution
+    def orient(self, symmetry: str = None):  # similar function in Entity
+        """Orient a symmetric Structure at the origin with symmetry axis set on canonical axes defined by symmetry file
+
+        Returns the same Structure, just oriented. Therefore, all member chains will be their original parsed lengths
 
         Args:
-            symmetry: What is the symmetry of the specified PDB?
-            log: If there is a log specific for orienting
+            symmetry: The symmetry of the Structure
         """
         # orient_oligomer.f program notes
         # C		Will not work in any of the infinite situations where a PDB file is f***ed up,
@@ -2761,8 +2762,8 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
                            f'Please try one of: {", ".join(utils.symmetry.valid_symmetries)}')
             return
 
-        if not log:
-            log = self.log
+        # if not log:
+        #     log = self.log
 
         if self.file_path:
             file_name = os.path.basename(self.file_path)
@@ -2773,7 +2774,7 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
         number_of_subunits = self.number_of_chains
         multicomponent = False
         if symmetry == 'C1':
-            log.debug('C1 symmetry doesn\'t have a cannonical orientation')
+            self.log.debug("C1 symmetry doesn't have a canonical orientation")
             self.translate(-self.center_of_mass)
             return
         elif number_of_subunits > 1:
@@ -2805,14 +2806,14 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
                              stderr=subprocess.PIPE, cwd=putils.orient_dir)
         in_symm_file = os.path.join(putils.orient_dir, 'symm_files', symmetry)
         stdout, stderr = p.communicate(input=in_symm_file.encode('utf-8'))
-        log.info(file_name + stdout.decode()[28:])
-        log.info(stderr.decode()) if stderr else None
+        self.log.info(file_name + stdout.decode()[28:])
+        self.log.info(stderr.decode()) if stderr else None
         if not orient_output.exists() or orient_output.stat().st_size == 0:
-            log_file = getattr(log.handlers[0], 'baseFilename', None)
+            log_file = getattr(self.log.handlers[0], 'baseFilename', None)
             log_message = f'. Check {log_file} for more information' if log_file else ''
             raise RuntimeError(f'orient_oligomer could not orient {file_name}{log_message}')
 
-        oriented_pdb = Model.from_file(str(orient_output), name=self.name, entities=False, log=log)
+        oriented_pdb = Model.from_file(str(orient_output), name=self.name, entities=False, log=self.log)
         orient_fixed_struct = oriented_pdb.chains[0]
         if multicomponent:
             moving_struct = self.entities[0]
@@ -3796,13 +3797,13 @@ class SymmetricModel(Models):
             number_of_entities = self.number_of_entities
             # number_of_chains = self.number_of_chains
             if number_of_entities != self.sym_entry.number_of_groups:
-                raise utils.SymmetryError(f'The {type(self).__name__} has {self.number_of_entities} symmetric entities,'
-                                          f' but {self.sym_entry.number_of_groups} were expected')
+                raise SymmetryError(f'The {type(self).__name__} has {self.number_of_entities} symmetric entities,'
+                                    f' but {self.sym_entry.number_of_groups} were expected')
 
             # Ensure the Model is an asu
             if number_of_entities != self.number_of_chains:
                 self.set_contacting_asu()
-            elif self.symmetric_coords is None:
+            if self.symmetric_coords is None:
                 # We need to generate the symmetric coords
                 self.log.debug('Generating symmetric coords')
                 self.generate_symmetric_coords(surrounding_uc=surrounding_uc)  # default has surrounding_uc=True
@@ -3895,9 +3896,9 @@ class SymmetricModel(Models):
                     np.ndarray(expand_matrices).swapaxes(-2, -1) if not isinstance(expand_matrices, np.ndarray) \
                     else expand_matrices
             else:
-                raise utils.SymmetryError(f'The expand matrix form {expand_matrices} is not supported! Must provide a'
-                                          ' tuple of array like objects with the form (expand_matrix(s), '
-                                          'expand_translation(s))')
+                raise SymmetryError(f'The expand matrix form {expand_matrices} is not supported! Must provide a'
+                                    ' tuple of array like objects with the form (expand_matrix(s), '
+                                    'expand_translation(s))')
         else:
             if self.dimension == 0:
                 self.expand_matrices, self.expand_translations = \
@@ -4099,9 +4100,9 @@ class SymmetricModel(Models):
         try:
             return utils.symmetry.space_group_number_operations[self.symmetry]
         except KeyError:
-            raise utils.SymmetryError(f'The symmetry "{self.symmetry}" is not an available unit cell at this time. If '
-                                      'this is a point group, adjust your code, otherwise, help expand the code to '
-                                      'include the symmetry operators for this symmetry group')
+            raise SymmetryError(f'The symmetry "{self.symmetry}" is not an available unit cell at this time. If '
+                                'this is a point group, adjust your code, otherwise, help expand the code to '
+                                'include the symmetry operators for this symmetry group')
 
     # @number_of_uc_symmetry_mates.setter
     # def number_of_uc_symmetry_mates(self, number_of_uc_symmetry_mates):
@@ -4307,7 +4308,7 @@ class SymmetricModel(Models):
                 elif self.dimension == 2:
                     z_shifts, uc_number = [0.], 9
                 else:
-                    raise utils.SymmetryError(f'The specified dimension "{self.dimension}" is not crystalline')
+                    raise SymmetryError(f'The specified dimension "{self.dimension}" is not crystalline')
 
                 # set the number_of_symmetry_mates to account for the unit cell number
                 self.number_of_symmetry_mates = self.number_of_uc_symmetry_mates * uc_number
@@ -4386,8 +4387,8 @@ class SymmetricModel(Models):
         if not self.is_symmetric():
             # self.log.critical('%s: No symmetry set for %s! Cannot get symmetry mates'  # Todo
             #                   % (self.generate_assembly_symmetry_models.__name__, self.name))
-            raise utils.SymmetryError(f'{self.generate_assembly_symmetry_models.__name__}: No symmetry set for '
-                                      f'{self.name}. Cannot get symmetry mates')
+            raise SymmetryError(f'{self.generate_assembly_symmetry_models.__name__}: No symmetry set for '
+                                f'{self.name}. Cannot get symmetry mates')
         # if return_side_chains:  # get different function calls depending on the return type
         #     extract_pdb_atoms = getattr(PDB, 'atoms')
         # else:
@@ -4488,8 +4489,8 @@ class SymmetricModel(Models):
                         self.log.debug(f'Sym-model com: {sym_model_center_of_mass}')
 
             if len(equivalent_models) != len(entity.chains):
-                raise utils.SymmetryError(f'The number of equivalent models ({len(equivalent_models)}) '
-                                          f'!= the number of chains ({len(entity.chains)})')
+                raise SymmetryError(f'The number of equivalent models ({len(equivalent_models)}) '
+                                    f'!= the number of chains ({len(entity.chains)})')
 
             self._oligomeric_model_indices[entity] = equivalent_models
             self.log.info(f'Masking {entity.name} coordinates from models '
@@ -4672,7 +4673,7 @@ class SymmetricModel(Models):
                 elif self.dimension == 2:
                     z_shifts, uc_number = [0.], 9
                 else:
-                    raise utils.SymmetryError(f'The specified dimension "{self.dimension}" is not crystalline')
+                    raise SymmetryError(f'The specified dimension "{self.dimension}" is not crystalline')
 
                 number_of_symmetry_mates = self.number_of_uc_symmetry_mates * uc_number
                 uc_frac_coords = self.return_unit_cell_coords(structure.coords, fractional=True)
@@ -4690,8 +4691,8 @@ class SymmetricModel(Models):
             sym_mates.append(symmetry_mate)
 
         if len(sym_mates) != uc_number * self.number_of_symmetry_mates:
-            raise utils.SymmetryError(f'Number of models ({len(sym_mates)}) is incorrect! Should be '
-                                      f'{uc_number * self.number_of_uc_symmetry_mates}')
+            raise SymmetryError(f'Number of models ({len(sym_mates)}) is incorrect! Should be'
+                                f' {uc_number * self.number_of_uc_symmetry_mates}')
         return sym_mates
 
     def return_symmetric_coords(self, coords: list | np.ndarray, surrounding_uc: bool = True) -> np.ndarray:
@@ -4719,7 +4720,7 @@ class SymmetricModel(Models):
                 elif self.dimension == 2:
                     z_shifts = [0.]
                 else:
-                    raise utils.SymmetryError(f'The specified dimension "{self.dimension}" is not crystalline')
+                    raise SymmetryError(f'The specified dimension "{self.dimension}" is not crystalline')
 
                 uc_frac_coords = self.return_unit_cell_coords(coords, fractional=True)
                 surrounding_frac_coords = \
@@ -4761,7 +4762,7 @@ class SymmetricModel(Models):
         attribute"""
         raise NotImplementedError('Cannot assign entities to sub symmetry yet! Need to debug this function')
         if not self.is_symmetric():
-            raise utils.SymmetryError('Must set a global symmetry to assign entities to sub symmetry!')
+            raise SymmetryError('Must set a global symmetry to assign entities to sub symmetry!')
 
         # Get the rotation matrices for each group then orient along the setting matrix "axis"
         if self.sym_entry.group1 in ['D2', 'D3', 'D4', 'D6'] or self.sym_entry.group2 in ['D2', 'D3', 'D4', 'D6']:
@@ -4775,9 +4776,8 @@ class SymmetricModel(Models):
             rotation_matrices_group2 = utils.SymEntry.make_rotations_degenerate(rotation_matrices_only2, flip_x)
             # group_set_rotation_matrices = {1: np.matmul(degen_rot_mat_1, np.transpose(set_mat1)),
             #                                2: np.matmul(degen_rot_mat_2, np.transpose(set_mat2))}
-            raise utils.DesignError('Using dihedral symmetry has not been implemented yet! It is required to change '
-                                    'the code before continuing with design of symmetry entry '
-                                    f'{self.sym_entry.entry_number}!')
+            raise SymmetryError('Using dihedral symmetry has not been implemented yet! It is required to change the '
+                                f'code before continuing with design of symmetry entry {self.sym_entry.entry_number}!')
         else:
             group1 = self.sym_entry.group1
             group2 = self.sym_entry.group2
@@ -4932,7 +4932,7 @@ class SymmetricModel(Models):
             The specific entity_transformations dictionaries which place each Entity with proper symmetry axis in the Pose
         """
         if not self.is_symmetric():
-            raise utils.SymmetryError(f'Must set a global symmetry to {self._assign_pose_transformation.__name__}')
+            raise SymmetryError(f'Must set a global symmetry to {self._assign_pose_transformation.__name__}')
 
         self.log.debug(f'Searching for transformation parameters for the Pose {self.name}')
         # Get optimal external translation
@@ -5224,23 +5224,46 @@ class SymmetricModel(Models):
         if self.number_of_entities * number_of_symmetry_mates == self.number_of_chains:
             self.log.critical(f'Setting the {type(self).__name__} to an ASU from a symmetric representation. '
                               f'This method has not been thoroughly debugged')
-            # Remove extra chains. Both from self and from entities
-            self.chains = self.chains[:number_of_symmetry_mates]
-            for entity in self.entities:
-                entity.remove_mate_chains()
-            # Set the symmetric coords according to existing coords
-            self._models_coords = self._coords
-            # Set the base Structure attributes
+            # Set base Structure attributes
+            # Can't do this as they may not be symmetric!
+            # # Set the symmetric coords according to existing coords
+            # self._models_coords = self._coords
             number_of_atoms = self.number_of_atoms
-            desired_number_of_atoms = number_of_atoms / number_of_symmetry_mates
-            self._coords = Coords(self.coords[:desired_number_of_atoms])
-            self._atom_indices = list(range(len(self._coords)))
-            self._atoms.delete(list(range(desired_number_of_atoms, number_of_atoms)))
+            desired_number_of_atoms, remainder = divmod(number_of_atoms, number_of_symmetry_mates)
+            # if remainder > 0:
+            #     raise SymmetryError(f"Couldn't split assembly into an even asymmetric unit: number_of_atoms "
+            #                         f"({number_of_atoms}), number_of_symmetry_mates ({number_of_symmetry_mates})")
+            # self._coords = Coords(self.coords[:desired_number_of_atoms])
+            # Must solve for the chains that are in the ASU
+            total_atom_increment = last_atom_increment = chain_idx = 0
+            for chain_idx, chain in enumerate(self.chains, chain_idx):
+                total_atom_increment += chain.number_of_atoms
+                if total_atom_increment > desired_number_of_atoms:
+                    increment_offset = total_atom_increment - desired_number_of_atoms
+                    last_increment_offset = desired_number_of_atoms - last_atom_increment
+                    if last_increment_offset < increment_offset:
+                        # desired_number_of_atoms is closer to the last chain number_of_atoms. Use it as the ASU boundary
+                        total_atom_increment -= chain.number_of_atoms
+                        chain_idx -= 1
+                    break  # End the search
+                else:
+                    last_atom_increment = total_atom_increment
+
+            # self.coords = self.coords[:total_atom_increment]
+            self._coords = Coords(self.coords[:total_atom_increment])
+            self._atom_indices = list(range(total_atom_increment))
+            self._atoms.delete(list(range(total_atom_increment + 1, number_of_atoms)))
             number_of_residues = self.number_of_residues
-            desired_number_of_residues = self.number_of_residues / number_of_symmetry_mates
-            self._residue_indices = list(range(int(number_of_residues / number_of_symmetry_mates)))
-            self._residues.delete(list(range(desired_number_of_residues, number_of_residues)))
+            # desired_number_of_residues, remainder = divmod(number_of_residues, number_of_symmetry_mates)
+            desired_number_of_residues = self.chains[chain_idx].c_terminal_residue.index + 1
+            self._residue_indices = list(range(desired_number_of_residues))
+            self._residues.delete(list(range(desired_number_of_residues + 1, number_of_residues)))
             self._set_coords_indexed()
+
+            # Remove extra chains. Both from self and from entities
+            self.chains = self.chains[:chain_idx + 1]  # Add 1 for the slice operation to get all desired indices
+            # for entity in self.entities:
+            #     entity.remove_mate_chains()
         else:
             self.log.debug(f'Setting {type(self).__name__} ASU to the ASU with the most contacting interface')
             entities = self.find_contacting_asu(**kwargs)
@@ -5276,7 +5299,7 @@ class SymmetricModel(Models):
             True if the symmetric assembly clashes with the asu, False otherwise
         """
         if not self.is_symmetric():
-            raise utils.SymmetryError('Cannot check if the assembly is clashing as it has no symmetry!')
+            raise SymmetryError("Can't check if the assembly is clashing as it has no symmetry")
 
         clashes = self.assembly_tree.two_point_correlation(self.coords[self.backbone_and_cb_indices], [distance])
         if clashes[0] > 0:
@@ -5300,14 +5323,21 @@ class SymmetricModel(Models):
             # Last, we take out those indices that are inclusive of the model_asu_indices like below
             return self._assembly_tree
 
-    def orient(self, symmetry: str = None, log: AnyStr = None):  # similar function in Entity
-        """Orient is not available for SymmetricModel"""
+    def orient(self, symmetry: str = None):  # similar function in Entity
+        """Orient is not available for SymmetricModel!
+        Orient a symmetric Structure at the origin with symmetry axis set on canonical axes defined by symmetry file
+
+        Returns the same Structure, just oriented. Therefore, all member chains will be their original parsed lengths
+
+        Args:
+            symmetry: The symmetry of the Structure
+        """
         if self.is_symmetric():
             raise NotImplementedError(f'{self.orient.__name__} is not available for {type(self).__name__}')
             # Todo is this method at all useful? Could there be a situation where the symmetry is right,
             #  but the axes aren't in their canonical locations?
         else:
-            super().orient(symmetry=symmetry, log=log)
+            super().orient(symmetry=symmetry)
 
     def format_biomt(self, **kwargs) -> str:
         """Return the SymmetricModel expand_matrices as a BIOMT record
@@ -5431,7 +5461,7 @@ class Pose(SymmetricModel):
 
         try:
             self.is_clash(warn=not self.ignore_clashes)
-        except utils.ClashError as error:
+        except ClashError as error:
             if self.ignore_clashes:
                 pass
             else:
@@ -5882,8 +5912,10 @@ class Pose(SymmetricModel):
     #             entity.fit_evolutionary_profile_to_structure()
     #
     #     self.evolutionary_profile = concatenate_profile([entity.evolutionary_profile for entity in self.entities])
-    #     # Todo assumes all values are present
-    #     self.fragment_profile = concatenate_profile([entity.fragment_profile for entity in self.entities], start_at=0)
+    #     fragment_profile = []
+    #     for entity in self.entities:
+    #         fragment_profile.extend(entity.fragment_profile)
+    #     self.fragment_profile = Profile(fragment_profile, dtype='fragment')
     #     self.profile = concatenate_profile([entity.profile for entity in self.entities])
 
     def get_termini_accessibility(self, entity: Entity = None, report_if_helix: bool = False) -> \
@@ -6532,9 +6564,8 @@ class Pose(SymmetricModel):
             try:
                 residues1, residues2 = self.interface_residues_by_entity_pair[(entity1, entity2)]
             except KeyError:
-                raise utils.DesignError(f"{self._find_interface_atom_pairs.__name__} can't access interface_residues as "
-                                        f"the Entity pair {entity1.name}, {entity2.name} hasn't located "
-                                        "interface_residues")
+                raise DesignError(f"{self._find_interface_atom_pairs.__name__} can't access interface_residues as "
+                                  f"the Entity pair {entity1.name}, {entity2.name} hasn't located interface_residues")
 
         if not residues1:
             return
@@ -6841,8 +6872,7 @@ class Pose(SymmetricModel):
                                             for interface_entities in interface.values()),
                                  'Symmetry was set which may have influenced this unfeasible topology, you can try to '
                                  'set it False. ' if self.is_symmetric() else ''))
-            raise utils.DesignError('The specified interfaces generated a topologically disallowed combination! Check '
-                                    'the log for more information.')
+            raise DesignError('The specified interfaces generated a topologically disallowed combination')
 
         for key, entity_residues in interface.items():
             all_residues = [(residue, entity) for entity, residues in entity_residues.items() for residue in residues]
@@ -6911,11 +6941,11 @@ class Pose(SymmetricModel):
         """Take the fragment_profile from each member Entity. Overwrites SequenceProfile method for Pose profiles
 
         Keyword Args:
-            keep_extras: bool = True - Whether to keep values for all that are missing data
             evo_fill: bool = False - Whether to fill missing positions with evolutionary profile values
             alpha: float = 0.5 - The maximum contribution of the fragment profile to use, bounded between (0, 1].
                 0 means no use of fragments in the .profile, while 1 means only use fragments
         """
+        #   keep_extras: bool = True - Whether to keep values for all that are missing data
         for query_pair, fragment_info in self.fragment_queries.items():
             self.log.debug(f'Query Pair: {query_pair[0].name}, {query_pair[1].name}'
                            f'\n\tFragment Info:{fragment_info}')
@@ -6932,21 +6962,24 @@ class Pose(SymmetricModel):
                 entity.simplify_fragment_profile(**kwargs)
                 fragments_available = True
             else:
-                entity.fragment_profile = entity.create_null_profile(zero_index=True)
-
+                entity.fragment_profile = Profile(list(entity.create_null_profile(nan=True, zero_index=True).values()),
+                                                  dtype='fragment')
         if fragments_available:
-            self.fragment_profile = concatenate_profile([entity.fragment_profile for entity in self.entities],
-                                                        start_at=0)
+            # # This assumes all values are present. What if they are not?
+            # self.fragment_profile = concatenate_profile([entity.fragment_profile for entity in self.entities],
+            #                                             start_at=0)
             # self.alpha = concatenate_profile([entity.alpha for entity in self.entities])
+            fragment_profile = []
             self.alpha = []
             for entity in self.entities:
+                fragment_profile.extend(entity.fragment_profile)
                 self.alpha.extend(entity.alpha)
+            self.fragment_profile = Profile(fragment_profile, dtype='fragment')
             self._alpha = entity._alpha  # Logic enforces entity is always referenced here
         else:
             self.alpha = [0 for _ in self.residues]  # Reset the data
-            self.fragment_profile = self.create_null_profile(zero_index=True)
-            # self.fragment_profile = {residue_index: [[] for _ in range(self._fragment_db.fragment_length)]
-            #                          for residue_index in range(self.number_of_residues)}
+            self.fragment_profile = Profile(list(self.create_null_profile(nan=True, zero_index=True).values()),
+                                            dtype='fragment')
 
     def get_fragment_observations(self) -> list[dict[str, str | int | float]] | list:
         """Return the fragment observations identified on the pose regardless of Entity binding

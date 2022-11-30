@@ -5,7 +5,7 @@ import os
 import subprocess
 import time
 from abc import ABC
-from collections import namedtuple
+from collections import namedtuple, UserList
 from copy import deepcopy, copy
 from itertools import repeat, count
 from logging import Logger
@@ -35,12 +35,15 @@ sequence_type_literal = Literal['reference', 'structure']
 sequence_types: tuple[sequence_type_literal, ...] = get_args(sequence_type_literal)
 # aa_counts = dict(zip(utils.protein_letters_alph1, repeat(0)))
 aa_counts_alph3 = dict(zip(utils.protein_letters_alph3, repeat(0)))
-aa_nan_counts = dict(zip(utils.protein_letters_alph1, repeat(np.nan)))
-"""{protein_letters_alph1, repeat(numpy.nan))}"""  # , 'stats'=(0, 1))
-# blank_profile_entry = aa_nan_counts.copy()
-# blank_profile_entry.update({'lod': aa_counts_alph3, 'type': 'X', 'info': 0., 'weight': 0.})
-# """{utils.profile_keys, repeat(numpy.nan))}"""  # , 'stats'=(0, 1))
-# aa_nan_counts.update({'stats': (0, 1)})
+blank_profile_entry = aa_counts_alph3.copy()
+"""{utils.profile_keys, repeat(0))}"""
+blank_profile_entry.update({'lod': aa_counts_alph3.copy(), 'info': 0., 'weight': 0.})
+aa_nan_counts_alph3 = dict(zip(utils.protein_letters_alph3, repeat(np.nan)))
+"""{protein_letters_alph3, repeat(numpy.nan))}"""
+nan_profile_entry = aa_nan_counts_alph3.copy()
+"""{utils.profile_keys, repeat(numpy.nan))}"""
+nan_profile_entry.update({'lod': aa_nan_counts_alph3.copy(), 'info': 0., 'weight': 0.})  # 'type': residue_type,
+
 aa_weighted_counts: info.aa_weighted_counts_type = dict(zip(utils.protein_letters_alph1, repeat(0)))
 """{protein_letters_alph1, repeat(0), 'stats'=(0, 1)}"""
 aa_weighted_counts.update({'stats': (0, 1)})
@@ -502,13 +505,165 @@ def write_pssm_file(pssm: profile_dictionary, file_name: AnyStr = None, name: st
 
 lod_dictionary: dict[utils.protein_letters_literal, int]
 profile_values: float | str | lod_dictionary
-profile_dictionary: dict[int, dict[utils.profile_keys, profile_values]]
+profile_entry: Type[dict[utils.profile_keys, profile_values]]
+profile_dictionary: Type[dict[int, dict[utils.profile_keys, profile_values]]]
 """{1: {'A': 0.04, 'C': 0.12, ..., 'lod': {'A': -5, 'C': -9, ...},
         'type': 'W', 'info': 0.00, 'weight': 0.00}, {...}}
 """
 alignment_programs_literal = Literal['hhblits', 'psiblast']
 alignment_programs: tuple[str, ...] = get_args(alignment_programs_literal)
 profile_types = Literal['evolutionary', 'fragment', '']
+
+
+class Profile(UserList):
+    data: list[profile_entry]
+    """[{'A': 0, 'R': 0, ..., 'lod': {'A': -5, 'R': -5, ...},
+         'type': 'W', 'info': 3.20, 'weight': 0.73},
+        {}, ...]
+    """
+    def __init__(self, profile: list[profile_entry] = None, dtype: str = None, **kwargs):
+        # Todo?
+        if profile is None:
+            profile = []
+        elif isinstance(profile, list):
+            try:
+                self.available_keys = tuple(profile[0].keys())
+            except IndexError:  # No values in list
+                pass
+
+        super().__init__(initlist=profile, **kwargs)  # initlist sets UserList.data to profile_dictionary
+
+        self.dtype = 'profile' if dtype is None else dtype
+        if not self.data:  # Set up an empty Profile
+            self.available_keys = tuple()
+            self.lods = self.types = self.weights = self.info = None
+        else:
+            if 'lod' in self.available_keys:
+                self.lods = [position_info['lod'] for position_info in self]
+            if 'type' in self.available_keys:
+                self.types = [position_info['type'] for position_info in self]
+            if 'weight' in self.available_keys:
+                self.weights = [position_info['weight'] for position_info in self]
+            if 'info' in self.available_keys:
+                self.info = [position_info['info'] for position_info in self]
+
+    def as_array(self, alphabet: str = utils.protein_letters_alph1, lod: bool = False) -> np.ndarray:
+        """Convert the Profile into a numeric array
+
+        Args:
+            alphabet: The amino acid alphabet to use. Array values will be returned in this order
+            lod: Whether to return the array for the log of odds values
+        Returns:
+            The numerically encoded pssm where each entry along axis 0 is the position, and the entries on axis 1 are
+            the frequency data at every indexed amino acid. Indices are according to the specified amino acid alphabet,
+                i.e array([[0.1, 0.01, 0.12, ...], ...])
+        """
+        if lod:
+            return np.array([[position_info['lod'][aa] for aa in alphabet]
+                             for position_info in self], dtype=np.float32)
+        else:
+            return np.array([[position_info[aa] for aa in alphabet]
+                             for position_info in self], dtype=np.float32)
+
+    def write(self, file_name: AnyStr = None, name: str = None, out_dir: AnyStr = os.getcwd()) -> AnyStr | None:
+        """Create a PSI-BLAST format PSSM file from a PSSM dictionary. Assumes residue numbering is 1 to last entry
+
+        Args:
+            file_name: The explicit name of the file
+            name: The name of the file. Will be used as the default file_name base name if file_name not provided
+            out_dir: The location on disk to output the file. Only used if file_name not explicitly provided
+        Returns:
+            Disk location of newly created .pssm file
+        """
+        # Format the Profile according to the write_pssm_file mechanism
+        # This takes the shape of 1 to the last entry
+        if self.dtype in putils.fragment_profile:
+            # Need to convert np.nan to zeros
+            logger.warning(f'Converting {self.dtype} type Profile np.nan values to 0.0')
+            data = np.nan_to_num([[position_info[aa] for aa in utils.protein_letters_alph3]
+                                  for position_info in self]).tolist()
+        else:
+            data = [[position_info[aa] for aa in utils.protein_letters_alph3] for position_info in self]
+
+        # Find out if the pssm has values expressed as frequencies (percentages) or as counts and modify accordingly
+        if isinstance(self.lods[0]['A'], float):
+            separation1 = " " * 4
+        else:
+            separation1 = " " * 3
+            # lod_freq = True
+        # if type(pssm[first_key]['A']) == float:
+        #     counts_freq = True
+
+        if file_name is None:
+            if name is None:
+                raise ValueError(f'Must provide argument "file_name" or "name" as a str to {write_sequences.__name__}')
+            else:
+                file_name = os.path.join(out_dir, name)
+
+        if os.path.splitext(file_name)[-1] == '':  # No extension
+            file_name = f'{file_name}.pssm'
+
+        with open(file_name, 'w') as f:
+            f.write(f'\n\n{" " * 12}{separation1.join(utils.protein_letters_alph3)}'
+                    f'{separation1}{(" " * 3).join(utils.protein_letters_alph3)}\n')
+            for residue_number, (entry, lod, _type, info, weight) in enumerate(
+                    zip(data, self.lods, self.types, self.info, self.weights), 1):
+                if isinstance(lod['A'], float):  # relevant for favor_fragment
+                    lod_string = \
+                        ' '.join(f'{lod[aa]:>4.2f}' for aa in utils.protein_letters_alph3) + ' '
+                else:
+                    lod_string = \
+                        ' '.join(f'{lod[aa]:>3d}' for aa in utils.protein_letters_alph3) + ' '
+
+                if isinstance(entry[0], float):  # relevant for freq calculations
+                    counts_string = ' '.join(f'{floor(value * 100):>3.0f}' for value in entry) + ' '
+                else:
+                    counts_string = ' '.join(f'{value:>3d}' for value in entry) + ' '
+
+                f.write(f'{residue_number:>5d} {_type:1s}   {lod_string:80s} {counts_string:80s} '
+                        f'{round(info, 4):4.2f} {round(weight, 4):4.2f}\n')
+
+        return file_name
+
+
+# class Profile(UserDict):
+#     data: profile_dictionary
+#     """{1: {'A': 0, 'R': 0, ..., 'lod': {'A': -5, 'R': -5, ...},
+#            'type': 'W', 'info': 3.20, 'weight': 0.73},
+#         2: {}, ...}
+#     """
+#     def __init__(self, profile: profile_dictionary, dtype: str = None, **kwargs):
+#         super().__init__(initialdata=profile, **kwargs)  # initialdata sets UserDict.data to profile_dictionary
+#
+#         self.dtype = 'profile' if dtype is None else dtype
+#         if not self.data:  # Set up an empty Profile
+#             self.available_keys = tuple()
+#         else:
+#             self.available_keys = tuple(next(iter(self.values())).keys())
+#             if 'lod' in self.available_keys:
+#                 self.lods = {position: position_info['lod'] for position, position_info in self.items()}
+#             if 'weight' in self.available_keys:
+#                 self.weights = {position: position_info['weight'] for position, position_info in self.items()}
+#             if 'info' in self.available_keys:
+#                 self.info = {position: position_info['info'] for position, position_info in self.items()}
+#
+#     def as_array(self, alphabet: str = utils.protein_letters_alph1, lod: bool = False) -> np.ndarray:
+#         """Convert the Profile into a numeric array
+#
+#         Args:
+#             alphabet: The amino acid alphabet to use. Array values will be returned in this order
+#             lod: Whether to return the array for the log of odds values
+#         Returns:
+#             The numerically encoded pssm where each entry along axis 0 is the position, and the entries on axis 1 are
+#             the frequency data at every indexed amino acid. Indices are according to the specified amino acid alphabet,
+#                 i.e array([[0.1, 0.01, 0.12, ...], ...])
+#         """
+#         if lod:
+#             return np.array([[position_info['lod'][aa] for aa in alphabet]
+#                              for position_info in self.values()], dtype=np.float32)
+#         else:
+#             return np.array([[position_info[aa] for aa in alphabet]
+#                              for position_info in self.values()], dtype=np.float32)
 
 
 class SequenceProfile(ABC):
@@ -519,7 +674,7 @@ class SequenceProfile(ABC):
     _alpha: float
     _collapse_profile: np.ndarray  # pd.DataFrame
     _fragment_db: info.FragmentInfo | None
-    fragment_db: info.FragmentInfo | None
+    _fragment_profile: list[list[list]] | list[profile_entry]
     _hydrophobic_collapse: np.ndarray
     _msa: MultipleSequenceAlignment | None
     _sequence_numeric: np.ndarray
@@ -532,7 +687,7 @@ class SequenceProfile(ABC):
     """{1: {-2: [{'source': 'mapped', 'cluster': (1, 2, 123), 'match': 0.6}, ...], -1: [], ...},
         2: {}, ...}
     """
-    fragment_profile: dict | profile_dictionary
+    fragment_profile: Profile | None  # | profile_dictionary
     h_fields: np.ndarray | None
     j_couplings: np.ndarray | None
     log: Logger
@@ -557,12 +712,12 @@ class SequenceProfile(ABC):
         # Using .profile as attribute instead
         # self.design_profile = {}  # design specific scoring matrix
         self.evolutionary_profile = {}  # position specific scoring matrix
-        self.fragment_map = {}  # fragment specific scoring matrix
-        self.fragment_profile = {}
+        self.fragment_map = {}  # fragment information
+        self.fragment_profile = None  # fragment specific scoring matrix
         self.h_fields = None
         self.j_couplings = None
         self.msa_file = None
-        self.profile = {}  # structure specific scoring matrix
+        self.profile = {}  # design/structure specific scoring matrix
         self.pssm_file = None
         self.sequence_file = None
 
@@ -672,7 +827,8 @@ class SequenceProfile(ABC):
         """
         if null or (not evolution and not fragments):
             self.profile = self.evolutionary_profile = self.create_null_profile()
-            self.fragment_profile = self.create_null_profile(zero_index=True)
+            self.fragment_profile = Profile(list(self.create_null_profile(nan=True, zero_index=True).values()),
+                                            dtype='fragment')
             return
             # evolution = fragments = False
             # self.add_evolutionary_profile(null=null, **kwargs)
@@ -819,20 +975,28 @@ class SequenceProfile(ABC):
         # These functions set self.evolutionary_profile
         getattr(self, f'parse_{profile_source}_pssm')()
 
-    def create_null_profile(self, **kwargs) -> profile_dictionary:
+    def create_null_profile(self, nan: bool = True, zero_index: bool = False, **kwargs) -> profile_dictionary:
         """Make a blank profile
 
-        Keyword Args:
+        Args:
+            nan: Whether to fill the null profile with np.nan
             zero_index: bool = False - If True, return the dictionary with zero indexing
-            dtype: dtype_literals = 'int' - The type of object present in the interior dictionary
         Returns:
             Dictionary containing profile information with keys as the index (zero or one-indexed), values as PSSM
             Ex: {1: {'A': 0, 'R': 0, ..., 'lod': {'A': -5, 'R': -5, ...}, 'type': 'W', 'info': 3.20, 'weight': 0.73},
                  2: {}, ...}
         """
-        profile = populate_design_dictionary(self.number_of_residues, utils.protein_letters_alph3, **kwargs)
-        for residue_type, residue_data in zip(self.sequence, profile.values()):
-            residue_data.update({'lod': aa_counts_alph3.copy(), 'type': residue_type, 'info': 0., 'weight': 0.})
+        offset = 0 if zero_index else zero_offset
+
+        if nan:
+            profile = {residue: nan_profile_entry.copy()
+                       for residue in range(offset, self.number_of_residues + offset)}
+        else:
+            profile = {residue: blank_profile_entry.copy()
+                       for residue in range(offset, self.number_of_residues + offset)}
+
+        for residue_data, residue_type in zip(profile.values(), self.sequence):
+            residue_data['type'] = residue_type
 
         return profile
 
@@ -1224,9 +1388,10 @@ class SequenceProfile(ABC):
         Sets:
             self.fragment_map (dict[int, list[dict[str, str | float]]]):
                 {1: [{'source': 'mapped', 'cluster': '1_2_123', 'match': 0.61}, ...], ...}
-            self.fragment_profile ():
-                {1: [[{'A': 0.23, 'C': 0.01, ..., 'stats': [12, 0.37], 'match': 0.6}, ...], [], ...],
-                 2: [[{}, ...], ...], ...}
+            self._fragment_profile (profile_dictionary):
+                [[[{'A': 0.23, 'C': 0.01, ..., 'stats': [12, 0.37], 'match': 0.6}, ...], [], ...],
+                 [[{}, ...], ...],
+                 ...]
                 Where the keys (first index) are residue numbers (residue index) and each list holds the fragment
                 indices for that residue, where each index in the indices (list in list) can have multiple observations
         """
@@ -1251,9 +1416,11 @@ class SequenceProfile(ABC):
         #     #                       for fragments in residue_indices.values() for fragment in fragments]
         #     # self.fragment_db.load_cluster_info(ids=retrieve_fragments)
 
-        if not self.fragment_profile:
-            self.fragment_profile = {residue_index: [[] for _ in range(self._fragment_db.fragment_length)]
-                                     for residue_index in range(self.number_of_residues)}
+        if not self._fragment_profile:
+            # self._fragment_profile = {residue_index: [[] for _ in range(self._fragment_db.fragment_length)]
+            #                           for residue_index in range(self.number_of_residues)}
+            self._fragment_profile = [[[] for _ in range(self._fragment_db.fragment_length)]
+                                      for _ in range(self.number_of_residues)]
 
         # Add frequency information to the fragment profile using parsed cluster information. Frequency information is
         # added in a fragment index dependent manner. If multiple fragment indices are present in a single residue, a new
@@ -1269,12 +1436,12 @@ class SequenceProfile(ABC):
                 self.fragment_map[residue_index + frag_idx][frag_idx].append({'source': alignment_type,
                                                                               'cluster': fragment['cluster'],
                                                                               'match': fragment['match']})
-                self.fragment_profile[residue_index + frag_idx][idx].append(dict(match=fragment['match'],
-                                                                                 **frequencies))
+                self._fragment_profile[residue_index + frag_idx][idx].append(dict(match=fragment['match'],
+                                                                                  **frequencies))
         # except KeyError:
         #     self.log.critical(f'KeyError at {residue_index + frag_idx} with {frag_idx}. Fragment info is {fragment}.'
         #                       f'len(fragment_map)={len(self.fragment_map)} which are mapped to the index. '
-        #                       f'len(self.fragment_profile)={len(self.fragment_profile)}'
+        #                       f'len(self._fragment_profile)={len(self._fragment_profile)}'
         #                       f'offset_index={self.offset_index}')
         #     raise RuntimeError('Need to fix this')
 
@@ -1292,11 +1459,11 @@ class SequenceProfile(ABC):
             alpha: float = 0.5 - The maximum contribution of the fragment profile to use, bounded between (0, 1].
                 0 means no use of fragments in the .profile, while 1 means only use fragments
         Sets:
-            self.fragment_profile (profile_dictionary)
-                {0: {'A': 0.23, 'C': 0.01, ..., stats': (1, 0.37)}, 1: {...}, ...}
-                profile_dictionary that combines all fragment information at a single residue using a weighted average.
-                'stats'[0] is number of fragment observations at each residue, and 'stats'[1] is the total fragment
-                weight over the entire residue
+            self.fragment_profile (Profile)
+                [{'A': 0.23, 'C': 0.01, ..., stats': (1, 0.37)}, {...}, ...]
+                list of profile_entry that combines all fragment information at a single residue using a weighted
+                average. 'stats'[0] is number of fragment observations at each residue, and 'stats'[1] is the total
+                fragment weight over the entire residue
         """
         # keep_extras: Whether to keep values for all positions that are missing data
         if not self.fragment_map:  # We need this for _calculate_alpha()
@@ -1310,7 +1477,7 @@ class SequenceProfile(ABC):
         #  captures disorder specific evolutionary signals that could be important in the calculation of profiles
         sequence = self.sequence
         no_design = []
-        for residue_index, indexed_observations in self.fragment_profile.items():
+        for residue_index, indexed_observations in enumerate(self._fragment_profile):
             total_fragment_observations, total_fragment_weight = 0, 0
             for index, observations in enumerate(indexed_observations):
                 if observations:  # If not, will be an empty list
@@ -1321,7 +1488,7 @@ class SequenceProfile(ABC):
                         observation_weight = observation['stats'][1]
                         total_obs_weight += observation_weight
                         total_obs_x_match_weight += observation_weight * observation['match']
-                        # total_match_weight += self.fragment_profile[residue_index][index][obs]['match']
+                        # total_match_weight += self._fragment_profile[residue_index][index][obs]['match']
 
                     # Combine all observations at each index
                     # Check if weights are associated with observations. If not, side chain isn't significant
@@ -1333,8 +1500,8 @@ class SequenceProfile(ABC):
                         for observation in observations:
                             # Use pop to access and simultaneously remove from observation for the iteration below
                             obs_x_match_weight = observation.pop('stats')[1] * observation.pop('match')
-                            # match_weight = self.fragment_profile[residue_index][index][obs]['match']
-                            # obs_weight = self.fragment_profile[residue_index][index][obs]['stats'][1]
+                            # match_weight = self._fragment_profile[residue_index][index][obs]['match']
+                            # obs_weight = self._fragment_profile[residue_index][index][obs]['stats'][1]
                             scaled_obs_weight = obs_x_match_weight / total_obs_x_match_weight
                             for aa, frequency in observation.items():
                                 # if aa not in ['stats', 'match']:
@@ -1347,7 +1514,7 @@ class SequenceProfile(ABC):
                                 observed_aas[aa] += frequency * scaled_obs_weight
 
                     # Add results to intermediate fragment_profile residue position index
-                    self.fragment_profile[residue_index][index] = observed_aas
+                    self._fragment_profile[residue_index][index] = observed_aas
 
             # Combine all index observations into one residue frequency distribution
             # residue_frequencies: dict[utils.profile_keys, str | lod_dictionary | float | list[float]] = \
@@ -1355,7 +1522,7 @@ class SequenceProfile(ABC):
             residue_frequencies = {}
             if total_fragment_weight > 0:
                 residue_frequencies.update(**aa_counts_alph3)  # {'A': 0, 'R': 0, ...}  # NO -> 'stats': [0, 1]}
-                for observation_frequencies in self.fragment_profile[residue_index]:
+                for observation_frequencies in self._fragment_profile[residue_index]:
                     if observation_frequencies:
                         # index_weight = observation_frequencies.pop('weight')  # total_obs_weight from above
                         scaled_frag_weight = observation_frequencies.pop('weight') / total_fragment_weight
@@ -1372,27 +1539,32 @@ class SequenceProfile(ABC):
                 no_design.append(residue_index)
 
             # Add results to final fragment_profile residue position
-            self.fragment_profile[residue_index] = residue_frequencies
+            self._fragment_profile[residue_index] = residue_frequencies
             # Since we either copy from self.evolutionary_profile or remove, an empty dictionary is fine here
             # If this changes, maybe the == 0 condition needs an aa_counts_alph3.copy() instead of {}
 
-        if keep_extras:
-            if evo_fill and self.evolutionary_profile:
-                # If not an empty dictionary, add the corresponding value from evolution
-                # For Rosetta, the packer palette is subtractive so the use of an overlapping evolution and
-                # null fragment would result in nothing allowed during design...
-                for residue_index in no_design:
-                    self.fragment_profile[residue_index] = self.evolutionary_profile.get(residue_index + zero_offset)
-            else:  # Add a blank entry
-                null_profile = self.create_null_profile(zero_index=True)
-                for residue_index in no_design:
-                    # self.fragment_profile[residue_index] = copy(aa_nan_counts)
-                    # blank_residue_entry = copy(blank_profile_entry)
-                    # blank_residue_entry['type'] = sequence[residue_index]
-                    self.fragment_profile[residue_index] = null_profile[residue_index]  # blank_residue_entry
-        else:  # Remove missing residues from dictionary
+        # if keep_extras:
+        if evo_fill and self.evolutionary_profile:
+            # If not an empty dictionary, add the corresponding value from evolution
+            # For Rosetta, the packer palette is subtractive so the use of an overlapping evolution and
+            # null fragment would result in nothing allowed during design...
             for residue_index in no_design:
-                self.fragment_profile.pop(residue_index)
+                self._fragment_profile[residue_index] = self.evolutionary_profile.get(residue_index + zero_offset)
+        else:
+            # null_profile = self.create_null_profile(zero_index=True)
+            # for residue_index in no_design:
+            #     self._fragment_profile[residue_index] = null_profile[residue_index]  # blank_residue_entry
+            # Add blank entries where each value is np.nan
+            for residue_index in no_design:
+                new_entry = nan_profile_entry.copy()
+                new_entry['type'] = sequence[residue_index]
+                self._fragment_profile[residue_index] = new_entry
+        # else:  # Remove missing residues from dictionary
+        #     for residue_index in no_design:
+        #         self._fragment_profile.pop(residue_index)
+
+        # Format into fragment_profile Profile object
+        self.fragment_profile = Profile(self._fragment_profile, dtype='fragment')
 
         self._calculate_alpha(**kwargs)
 
@@ -1436,7 +1608,7 @@ class SequenceProfile(ABC):
         fragment_stats = self._fragment_db.statistics
         # self.alpha.clear()  # Reset the data
         self.alpha = [0 for _ in self.residues]  # Reset the data
-        for entry, data in self.fragment_profile.items():
+        for entry, data in enumerate(self.fragment_profile):
             # Can't use the match count as the fragment index may have no useful residue information
             # Instead use number of fragments with SC interactions count from the frequency map
             count, frag_weight = data.get('stats', (None, None))

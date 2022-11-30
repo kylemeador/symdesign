@@ -1897,8 +1897,7 @@ class PoseDirectory:
                 self.pose.pssm_file = \
                     write_pssm_file(self.pose.evolutionary_profile, file_name=self.evolutionary_profile_file)
                 write_pssm_file(self.pose.profile, file_name=self.design_profile_file)
-                raise NotImplementedError('Writing fragment_profile needs work to convert np.nan')
-                write_pssm_file(self.pose.fragment_profile, file_name=self.fragment_profile_file)
+                self.pose.fragment_profile.write(file_name=self.fragment_profile_file)
                 self.rosetta_interface_design()  # Sets self.protocol
             case putils.proteinmpnn:
                 self.proteinmpnn_interface_design()  # Sets self.protocol
@@ -2639,7 +2638,7 @@ class PoseDirectory:
 
         profile_background = {'design': pssm_as_array(self.pose.profile),
                               'evolution': pssm_as_array(self.pose.evolutionary_profile),
-                              'fragment': pssm_as_array(self.pose.fragment_profile)}
+                              'fragment': self.pose.fragment_profile.as_array()}
         # if self.pose.profile:
         # else:
         #     self.log.info('Pose has no profile information')
@@ -3900,7 +3899,7 @@ def interface_design_analysis(pose: Pose, design_poses: Iterable[Pose] = None, s
     # Load profiles of interest into the analysis
     profile_background = {'design': pssm_as_array(pose.profile),
                           'evolution': pssm_as_array(pose.evolutionary_profile),
-                          'fragment': pssm_as_array(pose.fragment_profile)}
+                          'fragment': pose.fragment_profile.as_array()}
     # if pose.profile:
     # else:
     #     pose.log.info('Design has no fragment information')
