@@ -2217,6 +2217,16 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
             pose.fragment_metrics = {entity_tuple: fragment_metrics}
 
     # Should interface metrics be performed to inform on docking success?
+    interface_metrics = {}
+    # # Todo use this to control the output of this section
+    # match job.dock.score:
+    #     case 'proteinmpnn':
+    #         check_dock_for_designability()
+    #     case 'nanohedra':
+    #         # Todo make the below function
+    #         check_dock_for_nanohedra()
+    # # Todo use this to control the output of this section
+
     proteinmpnn_used = False
     if job.dock_only:  # Only get pose outputs, no sequences or metrics
         design_ids = pose_ids
@@ -3294,28 +3304,30 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
     # Todo filter by score for the best
     #  Collect scores according to job.dock.score
     #
-    if job.dock.score:
-        metric = sequences_and_scores.get(job.dock.score)
-        if metric is None:
-            raise ValueError(f"The metric {job.dock.score} wasn't collected and therefore, can't be selected")
+    filter = False
+    if filter:
+        if job.dock.score:
+            metric = sequences_and_scores.get(job.dock.score)
+            if metric is None:
+                raise ValueError(f"The metric {job.dock.score} wasn't collected and therefore, can't be selected")
 
-        # The use of perturbation is inherently handled. Don't need check
-        # if job.dock.perturb_dof:
-        number_of_chosen_hits = math.sqrt(total_perturbation_size)
-        number_of_transform_seeds = int(number_of_transforms // total_perturbation_size)
-        perturb_passing_indices = []
-        for idx in range(number_of_transform_seeds):
-            # Slice the chosen metric along the local perturbation
-            perturb_metric = metric[idx * total_perturbation_size: (idx+1) * total_perturbation_size]
-            # Sort the slice and take the top number of hits
-            top_candidate_indices = perturb_metric.argsort()[:number_of_chosen_hits]
-            # perturb_metric[top_candidate_indices]
-            # Scale the selected indices into the transformation indices reference
-            perturb_passing_indices.extend((top_candidate_indices + idx*total_perturbation_size).tolist())
+            # The use of perturbation is inherently handled. Don't need check
+            # if job.dock.perturb_dof:
+            number_of_chosen_hits = math.sqrt(total_perturbation_size)
+            number_of_transform_seeds = int(number_of_transforms // total_perturbation_size)
+            perturb_passing_indices = []
+            for idx in range(number_of_transform_seeds):
+                # Slice the chosen metric along the local perturbation
+                perturb_metric = metric[idx * total_perturbation_size: (idx+1) * total_perturbation_size]
+                # Sort the slice and take the top number of hits
+                top_candidate_indices = perturb_metric.argsort()[:number_of_chosen_hits]
+                # perturb_metric[top_candidate_indices]
+                # Scale the selected indices into the transformation indices reference
+                perturb_passing_indices.extend((top_candidate_indices + idx*total_perturbation_size).tolist())
 
-        remove_non_viable_indices(perturb_passing_indices)
-    else:  # Output all
-        design_ids = pose_ids
+            remove_non_viable_indices(perturb_passing_indices)
+        else:  # Output all
+            design_ids = pose_ids
 
     # Create a Models instance to collect each model
     if job.write_trajectory:
@@ -3402,7 +3414,6 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
     # Get metrics for each Pose
     # Set up data structures
     idx_slice = pd.IndexSlice
-    interface_metrics = {}
     interface_local_density = {}
     # all_pose_divergence = []
     # all_probabilities = {}
