@@ -2437,7 +2437,6 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
             for batch_idx, transform_idx in enumerate(range(batch_slice.start, batch_slice.stop)):
                 # Get the transformations based on the global index from batch_length
                 update_pose_coords(transform_idx)
-                new_coords[batch_idx] = getattr(pose, coords_type)
 
                 # pose.find_and_split_interface(distance=cb_distance)
                 # This is done in the below call
@@ -2469,6 +2468,10 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
                 # interface_metrics[design_id] = pose.interface_metrics()
                 # # Todo use the below calls to grab fragments and thus nanohedra_score from pose.interface_metrics()
                 pose.calculate_profile()
+                # # Todo if want to throw away missing fragments
+                # if sum(pose.alpha) == 0:  # No useful fragment observations
+                #     actual_batch_length -= 1
+                #     continue
                 design_profiles.append(pssm_as_array(pose.profile))
 
                 # Add all interface residues
@@ -2478,9 +2481,13 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
 
                 # Residues to design are 1, others are 0
                 residue_mask_cpu[batch_idx, design_residues] = 1
+                # Set coords
+                new_coords[batch_idx] = getattr(pose, coords_type)
 
             # If entity_bb_coords are individually transformed, then axis=0 works
             perturbed_bb_coords = np.concatenate(new_coords, axis=0)
+            # # Todo if want to throw away missing fragments
+            # perturbed_bb_coords = np.concatenate(new_coords[:actual_batch_length], axis=0)
 
             # Format the bb coords for ProteinMPNN
             if pose.is_symmetric():
@@ -2912,7 +2919,6 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
             for batch_idx, transform_idx in enumerate(range(batch_slice.start, batch_slice.stop)):
                 # Get the transformations based on the global index from batch_length
                 update_pose_coords(transform_idx)
-                new_coords[batch_idx] = getattr(pose, coords_type)
 
                 # pose.find_and_split_interface(distance=cb_distance)
                 # This is done in the below call
@@ -2944,6 +2950,10 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
                 # interface_metrics[design_id] = pose.interface_metrics()
                 # # Todo use the below calls to grab fragments and thus nanohedra_score from pose.interface_metrics()
                 pose.calculate_profile()
+                # # Todo if want to throw away missing fragments
+                # if sum(pose.alpha) == 0:  # No useful fragment observations
+                #     actual_batch_length -= 1
+                #     continue
                 design_profiles.append(pssm_as_array(pose.profile))
 
                 # Add all interface residues
@@ -2959,9 +2969,13 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
                 #  bias_by_res[batch_idx, fragment_residues] = pose.fragment_profile.as_array()[fragment_residues]
                 #  If tied_beta is modified
                 #  tied_beta[batch_idx] = ...
+                # Set coords
+                new_coords[batch_idx] = getattr(pose, coords_type)
 
             # If entity_bb_coords are individually transformed, then axis=0 works
             perturbed_bb_coords = np.concatenate(new_coords, axis=0)
+            # # Todo if want to throw away missing fragments
+            # perturbed_bb_coords = np.concatenate(new_coords[:actual_batch_length], axis=0)
 
             # Format the bb coords for ProteinMPNN
             if pose.is_symmetric():
