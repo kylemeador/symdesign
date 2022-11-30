@@ -3866,29 +3866,42 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
         #                                       'evolution': 'evolution_sequence_loss',
         #                                       'fragment': 'fragment_sequence_loss',
         #                                       'designed': 'designed_residues_total'})
-        if job.dock.proteinmpnn_score:
-            scores_df['proteinmpnn_v_evolution_cross_entropy_designed_mean'] = \
-                scores_df['proteinmpnn_v_evolution_cross_entropy'] / scores_df['designed_residues_total']
-            try:
-                scores_df['proteinmpnn_v_fragment_cross_entropy_designed_mean'] = \
-                    scores_df['proteinmpnn_v_fragment_cross_entropy'] / scores_df['number_fragment_residues_total']
-            except ZeroDivisionError:
-                scores_df['proteinmpnn_v_fragment_cross_entropy_designed_mean'] = 0.
-
         designed_df = per_residue_df.loc[:, idx_slice[:, 'designed_residues_total']].droplevel(1, axis=1)
+
+        if job.dock.proteinmpnn_score:
+            scores_df['proteinmpnn_v_design_cross_entropy_designed_mean'] = \
+                (per_residue_df.loc[:, idx_slice[:, 'proteinmpnn_v_design_cross_entropy']].droplevel(1, axis=1)
+                 * designed_df).mean(axis=1)
+            # The per designed residue average proteinmpnn versus evolution cross entropy
+            scores_df['proteinmpnn_v_evolution_cross_entropy_designed_mean'] = \
+                (per_residue_df.loc[:, idx_slice[:, 'proteinmpnn_v_evolution_cross_entropy']].droplevel(1, axis=1)
+                 * designed_df).mean(axis=1)
+            # The per designed residue average proteinmpnn versus evolution cross entropy
+            scores_df['proteinmpnn_v_fragment_cross_entropy_designed_mean'] = \
+                (per_residue_df.loc[:, idx_slice[:, 'proteinmpnn_v_fragment_cross_entropy']].droplevel(1, axis=1)
+                 * designed_df).mean(axis=1)
+            # The per designed residue average proteinmpnn versus fragment cross entropy
+            scores_df['proteinmpnn_v_evolution_cross_entropy_per_residue'] = \
+                scores_df['proteinmpnn_v_evolution_cross_entropy'] / scores_df['pose_length']
+            # The per residue average proteinmpnn versus evolution cross entropy in the pose
 
         if job.design.sequences:
             scores_df[putils.protocol] = 'proteinmpnn'
             scores_df['proteinmpnn_score_complex'] = \
                 scores_df['interface_energy_complex'] / scores_df['pose_length']
+            # The per residue average complexed proteinmpnn score in the pose
             scores_df['proteinmpnn_score_unbound'] = \
                 scores_df['interface_energy_unbound'] / scores_df['pose_length']
+            # The per residue average unbound proteinmpnn score in the pose
             scores_df['proteinmpnn_score_designed_complex'] = \
                 (per_residue_df.loc[:, idx_slice[:, 'complex']].droplevel(1, axis=1) * designed_df).mean(axis=1)
+            # The per designed residue average complexed proteinmpnn score in the pose
             scores_df['proteinmpnn_score_designed_unbound'] = \
                 (per_residue_df.loc[:, idx_slice[:, 'unbound']].droplevel(1, axis=1) * designed_df).mean(axis=1)
+            # The per designed residue average unbound proteinmpnn score in the pose
             scores_df['proteinmpnn_score_designed_delta'] = \
                 scores_df['proteinmpnn_score_designed_complex'] - scores_df['proteinmpnn_score_designed_unbound']
+            # The delta between the average complexed and unbound proteinmpnn designed residue score
 
         # # Drop unused particular per_residue_df columns that have been summed
         # per_residue_drop_columns = per_residue_energy_states + energy_metric_names + per_residue_sasa_states \
