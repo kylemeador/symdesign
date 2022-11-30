@@ -6938,7 +6938,7 @@ class Pose(SymmetricModel):
         self.log.debug(f'Found interface secondary structure: {self.split_interface_ss_elements}')
 
     def calculate_fragment_profile(self, **kwargs):  # Todo move to Model
-        """Take the fragment_profile from each member Entity. Overwrites SequenceProfile method for Pose profiles
+        """Take the fragment_profile from each member Entity and combine
 
         Keyword Args:
             evo_fill: bool = False - Whether to fill missing positions with evolutionary profile values
@@ -6950,9 +6950,9 @@ class Pose(SymmetricModel):
             self.log.debug(f'Query Pair: {query_pair[0].name}, {query_pair[1].name}'
                            f'\n\tFragment Info:{fragment_info}')
             if fragment_info:
-                for query_idx, entity in enumerate(query_pair):
+                for alignment_type, entity in zip(alignment_types, query_pair):
                     entity.add_fragments_to_profile(fragments=fragment_info,
-                                                    alignment_type=alignment_types[query_idx])
+                                                    alignment_type=alignment_type)
 
         # The order of this and below could be switched by combining self.fragment_map too
         # Also, need to extract the entity.fragment_map to Pose to SequenceProfile.process_fragment_profile() ...
