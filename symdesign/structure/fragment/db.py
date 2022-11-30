@@ -121,8 +121,8 @@ class FragmentDatabase(structure.fragment.info.FragmentInfo):
             fragment_matches: [{'mapped': entity1_resnum, 'paired': entity2_resnum,
                                 'cluster': tuple(int, int, int), 'match': score_term}, ...]
         Returns:
-            {'mapped': {'center': {'residues': (set[int]), 'score': (float), 'number': (int)},
-                        'total': {'residues': (set[int]), 'score': (float), 'number': (int)},
+            {'mapped': {'center': {'indices': (set[int]), 'score': (float), 'number': (int)},
+                        'total': {'indices': (set[int]), 'score': (float), 'number': (int)},
                         'match_scores': {residue number(int): (list[score (float)]), ...},
                         'index_count': {index (int): count (int), ...},
                         'multiple_ratio': (float)}
