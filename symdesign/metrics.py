@@ -399,9 +399,6 @@ master_metrics = {
     'percent_core':
         dict(description='The percentage of residues which are "core" according to Levy, E. 2010',
              direction=_max, function=normalize, filter=True),
-    'percent_fragment_interface':
-        dict(description='Percent of residues with fragment data out of total residues',
-             direction=_max, function=normalize, filter=True),
     'percent_fragment_coil':
         dict(description='The percentage of fragments represented from coiled SS elements',
              direction=_max, function=normalize, filter=True),
@@ -600,13 +597,12 @@ master_metrics = {
              direction=None, function=None, filter=None)
 }
 filter_df = pd.DataFrame(master_metrics)
-nanohedra_metrics = ['nanohedra_score_normalized', 'nanohedra_score_center_normalized', 'nanohedra_score',
-                     'nanohedra_score_center', 'number_fragment_residues_total', 'number_fragment_residues_center',
-                     'multiple_fragment_ratio', 'percent_fragment_interface', 'percent_fragment_helix',
-                     'percent_fragment_strand', 'percent_fragment_coil', 'number_of_fragments',
-                     'total_interface_residues',
-                     'total_non_fragment_interface_residues', 'percent_residues_fragment_interface_total',
-                     'percent_residues_fragment_interface_center']
+nanohedra_metrics = ['multiple_fragment_ratio', 'nanohedra_score', 'nanohedra_score_center',
+                     'nanohedra_score_normalized', 'nanohedra_score_center_normalized',
+                     'number_fragment_residues_center', 'number_fragment_residues_total', 'number_of_fragments',
+                     'percent_fragment_helix', 'percent_fragment_strand', 'percent_fragment_coil',
+                     'percent_residues_fragment_interface_total', 'percent_residues_fragment_interface_center',
+                     'total_interface_residues', 'total_non_fragment_interface_residues']
 # These metrics are necessary for all calculations performed during the analysis script. If missing, something will fail
 necessary_metrics = {'buns_complex', 'buns_1_unbound', 'contact_count', 'coordinate_constraint',
                      'favor_residue_energy', 'hbonds_res_selection_complex', 'hbonds_res_selection_1_bound',
@@ -643,10 +639,8 @@ final_metrics = {'buried_unsatisfied_hbonds', 'contact_count', 'core', 'coordina
                  'number_hbonds', 'nanohedra_score', 'nanohedra_score_center',
                  'nanohedra_score_per_res', 'nanohedra_score_center_per_res_center',
                  'number_fragment_residues_total', 'number_fragment_residues_central', 'number_of_fragments',
-                 'observations',
-                 'observed_design', 'observed_evolution', 'observed_fragment', 'observed_interface', 'percent_core',
-                 'percent_fragment_interface',
-                 'percent_fragment_coil', 'percent_fragment_helix', 'percent_fragment_strand',
+                 'observations', 'observed_design', 'observed_evolution', 'observed_fragment', 'observed_interface',
+                 'percent_core', 'percent_fragment_coil', 'percent_fragment_helix', 'percent_fragment_strand',
                  'percent_interface_area_hydrophobic', 'percent_interface_area_polar', 'percent_mutations',
                  'percent_residues_fragment_interface_center',
                  'percent_residues_fragment_interface_total', 'percent_rim', 'percent_support',
