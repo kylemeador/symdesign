@@ -3524,14 +3524,6 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
 
         # if job.design.sequences:
         if proteinmpnn_used:
-            # Todo, hook this into analysis
-            #  This assumes that the pose already has .evolutionary_profile and .fragment_profile attributes
-            #  pose.add_profile(evolution=job.design.evolution_constraint,
-            #                   fragments=job.generate_fragments)
-            #  # if pose.profile:
-            #  design_profile_array = pssm_as_array(pose.profile)
-            #  # else:
-            #  #     pose.log.info('Design has no fragment information')
             if job.dock.proteinmpnn_score:
                 # dock_per_residue_design_cross_entropy = per_residue_design_cross_entropy[idx]
                 # dock_per_residue_evolution_cross_entropy = per_residue_evolution_cross_entropy[idx]
@@ -3649,8 +3641,12 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
                     if measure_evolution:
                         per_residue_evolutionary_profile_scores = \
                             ml.sequence_nllloss(torch_numeric, torch_log_evolutionary_profile)
+                        pose.calculate_profile()
+                        design_profile_array = pssm_as_array(pose.profile)
+                        per_residue_design_profile_scores = \
+                            ml.sequence_nllloss(torch_numeric, torch.from_numpy(design_profile_array))
                     else:
-                        per_residue_evolutionary_profile_scores = nan_blank_data
+                        per_residue_evolutionary_profile_scores = per_residue_design_profile_scores = nan_blank_data
 
                     if pose.fragment_profile:
                         # np.log causes -inf at 0, thus we correct these to a very large number
@@ -3674,6 +3670,7 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
                         # 'proteinmpnn_v_evolution_cross_entropy': dock_per_residue_evolution_cross_entropy,
                         # 'proteinmpnn_v_fragment_cross_entropy': dock_per_residue_fragment_cross_entropy,
                         # 'collapse_profile_z': dock_per_residue_batch_collapse_z,
+                        'design_sequence_loss': per_residue_design_profile_scores,
                         'evolution_sequence_loss': per_residue_evolutionary_profile_scores,
                         'fragment_sequence_loss': per_residue_fragment_profile_scores,
                         # 'bound': 0.,  # copy(entity_energies),
@@ -3845,16 +3842,30 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
                 (per_residue_df.loc[:, idx_slice[:, 'proteinmpnn_v_evolution_cross_entropy']].droplevel(1, axis=1)
                  * designed_df).mean(axis=1)
             # The per designed residue average proteinmpnn versus evolution cross entropy
-            scores_df['proteinmpnn_v_fragment_cross_entropy_designed_mean'] = \
-                (per_residue_df.loc[:, idx_slice[:, 'proteinmpnn_v_fragment_cross_entropy']].droplevel(1, axis=1)
-                 * designed_df).mean(axis=1)
-            # The per designed residue average proteinmpnn versus fragment cross entropy
+            # scores_df['proteinmpnn_v_fragment_cross_entropy_designed_mean'] = \
+            #     (per_residue_df.loc[:, idx_slice[:, 'proteinmpnn_v_fragment_cross_entropy']].droplevel(1, axis=1)
+            #      * designed_df).mean(axis=1)
+            scores_df['proteinmpnn_v_fragment_cross_entropy_per_residue'] = \
+                scores_df['proteinmpnn_v_fragment_cross_entropy'] / scores_df['number_fragment_residues_total']
+            # The per fragment residue average proteinmpnn versus fragment cross entropy
+            scores_df['proteinmpnn_v_design_cross_entropy_per_residue'] = \
+                scores_df['proteinmpnn_v_design_cross_entropy'] / scores_df['pose_length']
+            # The per residue average proteinmpnn versus design cross entropy in the pose
             scores_df['proteinmpnn_v_evolution_cross_entropy_per_residue'] = \
                 scores_df['proteinmpnn_v_evolution_cross_entropy'] / scores_df['pose_length']
             # The per residue average proteinmpnn versus evolution cross entropy in the pose
 
         if job.design.sequences:
             scores_df[putils.protocol] = 'proteinmpnn'
+            scores_df['design_sequence_loss_per_residue'] = \
+                scores_df['design_sequence_loss'] / scores_df['pose_length']
+            # The per residue average loss compared to the design profile
+            scores_df['evolution_sequence_loss_per_residue'] = \
+                scores_df['evolution_sequence_loss'] / scores_df['pose_length']
+            # The per residue average loss compared to the evolution profile
+            scores_df['fragment_sequence_loss_per_residue'] = \
+                scores_df['fragment_sequence_loss'] / scores_df['number_fragment_residues_total']
+            # The per residue average loss compared to the fragment profile
             scores_df['proteinmpnn_score_complex'] = \
                 scores_df['interface_energy_complex'] / scores_df['pose_length']
             # The per residue average complexed proteinmpnn score in the pose
