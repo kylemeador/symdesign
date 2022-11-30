@@ -2040,8 +2040,8 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
                 full_ext_tx_sum = full_ext_tx2 - full_ext_tx1
 
             # Check for ASU clashes again
-            # Using the inverse transform of the model2 backbone and cb (surface fragment) coordinates, check for clashes
-            # with the model1 backbone and cb coordinates BallTree
+            # Using the inverse transform of the model2 backbone and cb coordinates, check for clashes with the model1
+            # backbone and cb coordinates BallTree
             ball_tree_kwargs = dict(binarytree=oligomer1_backbone_cb_tree,
                                     rotation=full_rotation2, translation=full_int_tx2,
                                     rotation2=set_mat2, translation2=full_ext_tx_sum,
@@ -2055,13 +2055,14 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
                                                           return_containers={'overlap_counts': asu_clash_counts},
                                                           setup_args=(bb_cb_coords2,))
             logger.debug(f'Perturb clash took {time.time() - clash_time_start:8f}s')
+
             # Extract the data
             asu_clash_counts = overlap_return['overlap_counts']
-            # TODO seems that none of the found parameters don't clash... Perhaps a dof is wacky
             logger.debug(f'Perturb expansion found asu_clash_counts:\n{asu_clash_counts}')
             passing_perturbations = np.flatnonzero(asu_clash_counts == 0)
             # Check for symmetric clashes again
-            passing_symmetric_clash_indices_perturb = find_viable_symmetric_indices(passing_perturbations.tolist())
+            if not job.design.ignore_symmetric_clashes:
+                passing_symmetric_clash_indices_perturb = find_viable_symmetric_indices(passing_perturbations.tolist())
             # Index the passing ASU indices with the passing symmetric indices and keep all viable transforms
             # Stack the viable perturbed transforms
             stack_viable_transforms(passing_perturbations[passing_symmetric_clash_indices_perturb])
