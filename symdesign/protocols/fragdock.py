@@ -2283,7 +2283,6 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
                 profile_background['evolution'] = evolutionary_profile_array = pssm_as_array(pose.evolutionary_profile)
                 batch_evolutionary_profile = torch.from_numpy(np.tile(evolutionary_profile_array,
                                                                       (batch_length, 1, 1)))
-                # log_evolutionary_profile = np.log(evolutionary_profile_array)
                 torch_log_evolutionary_profile = torch.from_numpy(np.log(evolutionary_profile_array))
             # else:
             #     pose.log.info('No evolution information')

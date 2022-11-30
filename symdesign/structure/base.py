@@ -4875,7 +4875,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
 
 
 class Structures(Structure, UserList):
-    # Todo mesh inheritance of both  Structure and UserClass...
+    # Todo mesh inheritance of both Structure and UserClass...
     #  FROM set_residues_attributes in Structure, check all Structure attributes and methods that could be in conflict
     #  are all concatenated Structure methods and attributes accounted for?
     #  ensure UserList .append(), .extend() etc. are allowed and work as intended or overwrite them
@@ -4888,13 +4888,14 @@ class Structures(Structure, UserList):
         dtype: If an empty Structures, tee specific subclass of Structure that Structures contains
     """
     data: list[Structure]
-    dtype: str  # the type of Structure in instance
+    dtype: str
+    """The type of Structure in instance"""
 
     def __init__(self, structures: Iterable[Structure], dtype: str = None, **kwargs):
         super().__init__(initlist=structures, **kwargs)  # initlist sets UserList.data to Iterable[Structure]
 
         # Todo should Structures be allowed to be a parent...
-        if not self.data:  # set up an empty Structures
+        if not self.data:  # Set up an empty Structures
             self.dtype = dtype if dtype else 'Structure'
         elif all([True if isinstance(structure, Structure) else False for structure in self]):
             # self.data = [structure for structure in structures]
@@ -4911,7 +4912,7 @@ class Structures(Structure, UserList):
                              f'{", ".join(type(structure) for structure in self)}, must set with type [Structure, ...]'
                              f'or an empty constructor. Ex: Structures()')
 
-        # overwrite attributes in Structure
+        # Overwrite attributes in Structure
         try:
             self.name = f'{self.parent.name}-{self.dtype}_{Structures.__name__}'
         except AttributeError:  # if not .parent.name
