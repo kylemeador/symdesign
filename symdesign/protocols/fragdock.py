@@ -2431,6 +2431,7 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
                                   dtype=np.float32)  # (batch, number_of_residues, coords_length)
 
             fragment_profiles = []
+            design_profiles = []
             # Use batch_idx to set new numpy arrays, transform_idx (includes perturb_idx) to set coords
             for batch_idx, transform_idx in enumerate(range(batch_slice.start, batch_slice.stop)):
                 # Get the transformations based on the global index from batch_length
@@ -2451,7 +2452,23 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
                 # if pose.fragment_profile:
                 fragment_profiles.append(pose.fragment_profile.as_array())
                 # else:
-                #     fragment_profiles.append(pssm_as_array(pose.fragment_profile))
+                #     fragment_profiles.append(pose.fragment_profile.as_array())
+
+                # # Todo use the below calls to grab fragments and thus nanohedra_score from pose.interface_metrics()
+                # # Remove saved pose attributes from the prior iteration calculations
+                # pose.ss_index_array.clear(), pose.ss_type_array.clear()
+                # pose.fragment_metrics.clear(), pose.fragment_pairs.clear()
+                # for attribute in ['_design_residues', '_interface_residues']:  # _assembly_minimally_contacting
+                #     try:
+                #         delattr(pose, attribute)
+                #     except AttributeError:
+                #         pass
+                #
+                # # Calculate pose metrics
+                # interface_metrics[design_id] = pose.interface_metrics()
+                # # Todo use the below calls to grab fragments and thus nanohedra_score from pose.interface_metrics()
+                pose.calculate_profile()
+                design_profiles.append(pssm_as_array(pose.profile))
 
                 # Add all interface residues
                 design_residues = []
@@ -2630,6 +2647,26 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
                 _per_residue_evolution_cross_entropy = np.empty_like(_per_residue_fragment_cross_entropy)
                 _per_residue_evolution_cross_entropy[:] = np.nan
 
+            if pose.profile:
+                # Process the design_profiles into an array for cross entropy
+                batch_design_profile = torch.from_numpy(np.array(design_profiles))
+                # print('batch_design_profile', batch_design_profile[:, 20:23])
+                # Remove the gaps index from the softmax input -> ... :, :mpnn_null_idx]
+                _per_residue_design_cross_entropy = \
+                    cross_entropy(asu_conditional_softmax_null_seq[:, :, :mpnn_null_idx],
+                                  batch_design_profile,
+                                  per_entry=True)
+                #                 mask=_residue_indices_of_interest,
+                #                 axis=1)
+                # All per_residue metrics look the same. Shape batch_length, number_of_residues
+                # per_residue_evolution_cross_entropy[batch_slice]
+                # [[-3.0685883 -3.575249  -2.967545  ... -3.3111317 -3.1204746 -3.1201541]
+                #  [-3.0685873 -3.5752504 -2.9675443 ... -3.3111336 -3.1204753 -3.1201541]
+                #  [-3.0685952 -3.575687  -2.9675474 ... -3.3111277 -3.1428783 -3.1201544]]
+            else:  # Populate with null data
+                _per_residue_design_cross_entropy = np.empty_like(_per_residue_fragment_cross_entropy)
+                _per_residue_design_cross_entropy[:] = np.nan
+
             if collapse_profile.size:  # Not equal to zero
                 # Take the hydrophobic collapse of the log probs to understand the profiles "folding"
                 _poor_collapse = []
@@ -2701,6 +2738,7 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
 
             return {
                 # The below structures have a shape (batch_length, pose_length)
+                'design_cross_entropy': _per_residue_design_cross_entropy,
                 'evolution_cross_entropy': _per_residue_evolution_cross_entropy,
                 'fragment_cross_entropy': _per_residue_fragment_cross_entropy,
                 'collapse_z': _per_residue_mini_batch_collapse_z,
@@ -2749,7 +2787,21 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
                 # if pose.fragment_profile:
                 fragment_profiles.append(pose.fragment_profile.as_array())
                 # else:
-                #     fragment_profiles.append(pssm_as_array(pose.fragment_profile))
+                #     fragment_profiles.append(pose.fragment_profile.as_array())
+
+                # # Todo use the below calls to grab fragments and thus nanohedra_score from pose.interface_metrics()
+                # # Remove saved pose attributes from the prior iteration calculations
+                # pose.ss_index_array.clear(), pose.ss_type_array.clear()
+                # pose.fragment_metrics.clear(), pose.fragment_pairs.clear()
+                # for attribute in ['_design_residues', '_interface_residues']:  # _assembly_minimally_contacting
+                #     try:
+                #         delattr(pose, attribute)
+                #     except AttributeError:
+                #         pass
+                #
+                # # Calculate pose metrics
+                # interface_metrics[design_id] = pose.interface_metrics()
+                # # Todo use the below calls to grab fragments and thus nanohedra_score from pose.interface_metrics()
 
                 # Add all interface residues
                 design_residues = []
@@ -2854,6 +2906,7 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
                                   dtype=np.float32)  # (batch, number_of_residues, coords_length)
 
             fragment_profiles = []
+            design_profiles = []
             # Use batch_idx to set new numpy arrays, transform_idx (includes perturb_idx) to set coords
             for batch_idx, transform_idx in enumerate(range(batch_slice.start, batch_slice.stop)):
                 # Get the transformations based on the global index from batch_length
@@ -2874,7 +2927,23 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
                 # if pose.fragment_profile:
                 fragment_profiles.append(pose.fragment_profile.as_array())
                 # else:
-                #     fragment_profiles.append(pssm_as_array(pose.fragment_profile))
+                #     fragment_profiles.append(pose.fragment_profile.as_array())
+
+                # # Todo use the below calls to grab fragments and thus nanohedra_score from pose.interface_metrics()
+                # # Remove saved pose attributes from the prior iteration calculations
+                # pose.ss_index_array.clear(), pose.ss_type_array.clear()
+                # pose.fragment_metrics.clear(), pose.fragment_pairs.clear()
+                # for attribute in ['_design_residues', '_interface_residues']:  # _assembly_minimally_contacting
+                #     try:
+                #         delattr(pose, attribute)
+                #     except AttributeError:
+                #         pass
+                #
+                # # Calculate pose metrics
+                # interface_metrics[design_id] = pose.interface_metrics()
+                # # Todo use the below calls to grab fragments and thus nanohedra_score from pose.interface_metrics()
+                pose.calculate_profile()
+                design_profiles.append(pssm_as_array(pose.profile))
 
                 # Add all interface residues
                 design_residues = []
@@ -3037,6 +3106,26 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
                 _per_residue_evolution_cross_entropy = np.empty_like(_per_residue_fragment_cross_entropy)
                 _per_residue_evolution_cross_entropy[:] = np.nan
 
+            if pose.profile:
+                # Process the design_profiles into an array for cross entropy
+                batch_design_profile = torch.from_numpy(np.array(design_profiles))
+                # print('batch_design_profile', batch_design_profile[:, 20:23])
+                # Remove the gaps index from the softmax input -> ... :, :mpnn_null_idx]
+                _per_residue_design_cross_entropy = \
+                    cross_entropy(asu_conditional_softmax_null_seq[:, :, :mpnn_null_idx],
+                                  batch_design_profile,
+                                  per_entry=True)
+                #                 mask=_residue_indices_of_interest,
+                #                 axis=1)
+                # All per_residue metrics look the same. Shape batch_length, number_of_residues
+                # per_residue_evolution_cross_entropy[batch_slice]
+                # [[-3.0685883 -3.575249  -2.967545  ... -3.3111317 -3.1204746 -3.1201541]
+                #  [-3.0685873 -3.5752504 -2.9675443 ... -3.3111336 -3.1204753 -3.1201541]
+                #  [-3.0685952 -3.575687  -2.9675474 ... -3.3111277 -3.1428783 -3.1201544]]
+            else:  # Populate with null data
+                _per_residue_design_cross_entropy = np.empty_like(_per_residue_fragment_cross_entropy)
+                _per_residue_design_cross_entropy[:] = np.nan
+
             if collapse_profile.size:  # Not equal to zero
                 # Take the hydrophobic collapse of the log probs to understand the profiles "folding"
                 _poor_collapse = []
@@ -3091,6 +3180,7 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
 
             dock_fit_parameters = {
                 # The below structures have a shape (batch_length, pose_length)
+                'design_cross_entropy': _per_residue_design_cross_entropy,
                 'evolution_cross_entropy': _per_residue_evolution_cross_entropy,
                 'fragment_cross_entropy': _per_residue_fragment_cross_entropy,
                 'collapse_z': _per_residue_mini_batch_collapse_z,
@@ -3201,9 +3291,11 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
             # generated_sequences = np.empty((size, pose_length), dtype=np.int64)
             per_residue_evolution_cross_entropy = np.empty((size, pose_length), dtype=np.float32)
             per_residue_fragment_cross_entropy = np.empty_like(per_residue_evolution_cross_entropy)
+            per_residue_design_cross_entropy = np.empty_like(per_residue_evolution_cross_entropy)
             per_residue_batch_collapse_z = np.zeros_like(per_residue_evolution_cross_entropy)
             collapse_violation = np.zeros((size,), dtype=bool)
-            dock_returns = {'evolution_cross_entropy': per_residue_evolution_cross_entropy,
+            dock_returns = {'design_cross_entropy': per_residue_design_cross_entropy,
+                            'evolution_cross_entropy': per_residue_evolution_cross_entropy,
                             'fragment_cross_entropy': per_residue_fragment_cross_entropy,
                             'collapse_z': per_residue_batch_collapse_z,
                             'design_indices': per_residue_design_indices,
@@ -3233,6 +3325,7 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
                                                               setup_args=(device,),
                                                               setup_kwargs=parameters
                                                               )
+            per_residue_design_cross_entropy = sequences_and_scores['design_cross_entropy']
             per_residue_evolution_cross_entropy = sequences_and_scores['evolution_cross_entropy']
             per_residue_fragment_cross_entropy = sequences_and_scores['fragment_cross_entropy']
             per_residue_batch_collapse_z = sequences_and_scores['collapse_z']
@@ -3249,6 +3342,7 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
                                                                 setup_args=(device,),
                                                                 setup_kwargs=parameters)
 
+            per_residue_design_cross_entropy = sequences_and_scores['design_cross_entropy']
             per_residue_evolution_cross_entropy = sequences_and_scores['evolution_cross_entropy']
             per_residue_fragment_cross_entropy = sequences_and_scores['fragment_cross_entropy']
             per_residue_batch_collapse_z = sequences_and_scores['collapse_z']
@@ -3266,7 +3360,8 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
             per_residue_complex_sequence_loss = sequences_and_scores['complex_sequence_loss']
             per_residue_unbound_sequence_loss = sequences_and_scores['unbound_sequence_loss']
             per_residue_design_indices = sequences_and_scores['design_indices']
-            per_residue_evolution_cross_entropy = per_residue_fragment_cross_entropy = per_residue_batch_collapse_z = \
+            per_residue_design_cross_entropy = per_residue_evolution_cross_entropy = \
+                per_residue_fragment_cross_entropy = per_residue_batch_collapse_z = \
                 collapse_violation = None
         else:
             raise RuntimeError(f"Logic shouldn't allow this to happen")
@@ -3470,11 +3565,13 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
             #  # else:
             #  #     pose.log.info('Design has no fragment information')
             if job.dock.proteinmpnn_score:
+                # dock_per_residue_design_cross_entropy = per_residue_design_cross_entropy[idx]
                 # dock_per_residue_evolution_cross_entropy = per_residue_evolution_cross_entropy[idx]
                 # dock_per_residue_fragment_cross_entropy = per_residue_fragment_cross_entropy[idx]
                 # dock_per_residue_design_indices = per_residue_design_indices[idx]
                 # dock_per_residue_batch_collapse_z = per_residue_batch_collapse_z[idx]
                 design_dock_params = {
+                    'proteinmpnn_v_design_cross_entropy': per_residue_design_cross_entropy[idx],
                     'proteinmpnn_v_evolution_cross_entropy': per_residue_evolution_cross_entropy[idx],
                     'proteinmpnn_v_fragment_cross_entropy': per_residue_fragment_cross_entropy[idx],
                     'designed_residues_total': per_residue_design_indices[idx],
@@ -3605,6 +3702,7 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
                         'designed_residues_total': dock_per_residue_design_indices,
                         'complex': dock_per_residue_complex_sequence_loss[temp_idx],
                         'unbound': dock_per_residue_unbound_sequence_loss[temp_idx],
+                        # 'proteinmpnn_v_design_cross_entropy': dock_per_residue_design_cross_entropy,
                         # 'proteinmpnn_v_evolution_cross_entropy': dock_per_residue_evolution_cross_entropy,
                         # 'proteinmpnn_v_fragment_cross_entropy': dock_per_residue_fragment_cross_entropy,
                         # 'collapse_profile_z': dock_per_residue_batch_collapse_z,
