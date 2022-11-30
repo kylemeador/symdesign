@@ -41,6 +41,7 @@ from symdesign.utils.symmetry import generate_cryst1_record, identity_matrix
 logger = logging.getLogger(__name__)
 # logger = start_log(name=__name__, format_log=False)
 zero_offset = 1
+zero_probability_frag_value = -20
 
 
 # TODO decrease amount of work by saving each index array and reusing...
@@ -2589,8 +2590,7 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
                 fragment_profile_array = np.array(fragment_profiles)
                 # RuntimeWarning: divide by zero encountered in log
                 # np.log causes -inf at 0, thus we need to correct these to a very large number
-                batch_fragment_profile = torch.from_numpy(np.nan_to_num(fragment_profile_array,
-                                                                        copy=False, nan=np.nan))
+                batch_fragment_profile = torch.from_numpy(np.nan_to_num(fragment_profile_array, copy=False, nan=np.nan))
                 # print('batch_fragment_profile', batch_fragment_profile[:, 20:23])
                 # Remove the gaps index from the softmax input -> ... :, :mpnn_null_idx]
                 _per_residue_fragment_cross_entropy = \
@@ -2997,8 +2997,7 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
                 fragment_profile_array = np.array(fragment_profiles)
                 # RuntimeWarning: divide by zero encountered in log
                 # np.log causes -inf at 0, thus we need to correct these to a very large number
-                batch_fragment_profile = torch.from_numpy(np.nan_to_num(fragment_profile_array,
-                                                                        copy=False, nan=np.nan))
+                batch_fragment_profile = torch.from_numpy(np.nan_to_num(fragment_profile_array, copy=False, nan=np.nan))
                 # print('batch_fragment_profile', batch_fragment_profile[:, 20:23])
                 # Remove the gaps index from the softmax input -> ... :, :mpnn_null_idx]
                 _per_residue_fragment_cross_entropy = \
@@ -3578,10 +3577,9 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
                         per_residue_evolutionary_profile_scores = nan_blank_data
 
                     if pose.fragment_profile:
-                        # Todo
-                        #  RuntimeWarning: divide by zero encountered in log
-                        # np.log causes -inf at 0, thus we need to correct these to a very large number
-                        corrected_frag_array = np.nan_to_num(np.log(fragment_profile_array), copy=False, nan=np.nan)
+                        # np.log causes -inf at 0, thus we correct these to a very large number
+                        corrected_frag_array = np.nan_to_num(np.log(fragment_profile_array), copy=False,
+                                                             nan=np.nan, neginf=zero_probability_frag_value)
                         per_residue_fragment_profile_scores = \
                             ml.sequence_nllloss(torch_numeric, torch.from_numpy(corrected_frag_array))
                         # Find the non-zero sites in the profile
