@@ -1831,6 +1831,7 @@ class PoseDirectory:
             favor_fragments = evo_fill = True
         else:
             favor_fragments = evo_fill = False
+
         if self.job.generate_fragments:
             self.pose.generate_interface_fragments()
             self.fragment_observations = self.pose.get_fragment_observations()
@@ -1874,34 +1875,13 @@ class PoseDirectory:
 
             self.pose.evolutionary_profile = \
                 concatenate_profile([entity.evolutionary_profile for entity in self.pose.entities])
-        # else:
-        #     self.pose.add_profile(null=True)
-
-        # if self.job.design.method == putils.rosetta_str:
-        #     self.pose.pssm_file = \
-        #         write_pssm_file(self.pose.evolutionary_profile, file_name=self.evolutionary_profile_file)
 
         # self.pose.combine_sequence_profiles()
         # I could also add the combined profile here instead of at each Entity
         self.pose.add_profile(evolution=self.job.design.evolution_constraint,
                               fragments=self.job.generate_fragments, favor_fragments=favor_fragments,
                               out_dir=self.job.api_db.hhblits_profiles.location)
-        # if self.job.design.method == putils.rosetta_str:
-        #     write_pssm_file(self.pose.profile, file_name=self.design_profile_file)
-        # Update PoseDirectory with design information
-        # if self.job.generate_fragments:  # Set pose.fragment_profile by combining fragment profiles
-        #     self.pose.fragment_profile = \
-        #         concatenate_profile([entity.fragment_profile for entity in self.pose.entities], start_at=0)
-        #     write_pssm_file(self.pose.fragment_profile, file_name=self.fragment_profile_file)
 
-        # if self.job.design.evolution_constraint:  # Set pose.evolutionary_profile by combining evolution profiles
-        #     self.pose.evolutionary_profile = \
-        #         concatenate_profile([entity.evolutionary_profile for entity in self.pose.entities])
-        #     self.pose.pssm_file = \
-        #         write_pssm_file(self.pose.evolutionary_profile, file_name=self.evolutionary_profile_file)
-
-        # self.pose.profile = concatenate_profile([entity.profile for entity in self.pose.entities])
-        # write_pssm_file(self.pose.profile, file_name=self.design_profile_file)
         # -------------------------------------------------------------------------
         # Todo self.solve_consensus()
         # -------------------------------------------------------------------------
