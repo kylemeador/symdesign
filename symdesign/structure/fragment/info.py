@@ -11,7 +11,8 @@ from symdesign import utils
 
 logger = logging.getLogger(__name__)
 source_literal = Literal['size', 'rmsd', 'rep', 'mapped', 'paired']
-weighted_counts_keys = Literal[protein_letters_literal, 'stats']  # could add 'weight', 'count']
+weighted_counts_keys = Literal[protein_letters_literal, 'stats']
+# Todo add 'weight' instead of 'stats' (0, 1) during creation
 aa_weighted_counts_type: dict[weighted_counts_keys, int | tuple[int, int]]
 
 
@@ -46,6 +47,15 @@ class ClusterInfo:
             self.size = size
             self.rmsd = rmsd
             self.representative_filename = rep  # representative_filename
+            # This is a temporary fix to separate these items
+            # Todo remove once making of fragment_database reflects correct usage
+            for type_idx, fragment_type in enumerate((mapped, paired)):
+                for index, frequencies in fragment_type.items():
+                    frequency_count, frequency_weight = frequencies.pop('stats')
+                    # Don't add the counts now as they are not needed and can be accessed above in self.size
+                    # frequencies['counts'] = frequency_count
+                    frequencies['weight'] = frequency_weight
+
             self.mapped = mapped
             self.paired = paired
 
