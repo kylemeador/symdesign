@@ -2764,7 +2764,7 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
                             **batch_parameters) -> dict[str, np.ndarray]:
             actual_batch_length = batch_slice.stop - batch_slice.start
             # Initialize pose data structures for interface design
-
+            # The below features are different across poses
             residue_mask_cpu = np.zeros((actual_batch_length, pose_length),
                                         dtype=np.int32)  # (batch, number_of_residues)
             bias_by_res = np.zeros((actual_batch_length, pose_length, 21),
@@ -2774,42 +2774,13 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
             new_coords = np.zeros((actual_batch_length, pose_length * num_model_residues, 3),
                                   dtype=np.float32)  # (batch, number_of_residues, coords_length)
 
-            fragment_profiles = []
             # Use batch_idx to set new numpy arrays, transform_idx (includes perturb_idx) to set coords
             for batch_idx, transform_idx in enumerate(range(batch_slice.start, batch_slice.stop)):
                 # Get the transformations based on the global index from batch_length
                 update_pose_coords(transform_idx)
+                # Set coords
                 new_coords[batch_idx] = getattr(pose, coords_type)
-
-                # pose.find_and_split_interface(distance=cb_distance)
-                # This is done in the below call
-                add_fragments_to_pose()  # <- here generating fragments fresh
-                # Reset the fragment_profile and fragment_map for each Entity before calculate_fragment_profile
-                for entity in pose.entities:
-                    entity._fragment_profile = {}
-                    entity.fragment_map = {}
-                    # entity.alpha.clear()
-
-                # Load fragment_profile into the analysis
-                pose.calculate_fragment_profile()
-                # if pose.fragment_profile:
-                fragment_profiles.append(pose.fragment_profile.as_array())
-                # else:
-                #     fragment_profiles.append(pose.fragment_profile.as_array())
-
-                # # Todo use the below calls to grab fragments and thus nanohedra_score from pose.interface_metrics()
-                # # Remove saved pose attributes from the prior iteration calculations
-                # pose.ss_index_array.clear(), pose.ss_type_array.clear()
-                # pose.fragment_metrics.clear(), pose.fragment_pairs.clear()
-                # for attribute in ['_design_residues', '_interface_residues']:  # _assembly_minimally_contacting
-                #     try:
-                #         delattr(pose, attribute)
-                #     except AttributeError:
-                #         pass
-                #
-                # # Calculate pose metrics
-                # interface_metrics[design_id] = pose.interface_metrics()
-                # # Todo use the below calls to grab fragments and thus nanohedra_score from pose.interface_metrics()
+                pose.find_and_split_interface(distance=cb_distance)
 
                 # Add all interface residues
                 design_residues = []
@@ -2853,34 +2824,16 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
             # Update different parameters to the identified device
             batch_parameters.update(ml.proteinmpnn_to_device(device, X=X, chain_M_pos=residue_mask_cpu,
                                                              bias_by_res=bias_by_res))
-            # Different across poses
-            # X = batch_parameters.pop('X')
-            # residue_mask = batch_parameters.get('chain_M_pos', None)
-
-            # # Potentially different across poses
-            # bias_by_res = batch_parameters.get('bias_by_res', None)
+            # Potentially different across poses
             # Todo calculate individually if using some feature to describe order
             #  MUST reinstate the removal from scope after finished with this batch
             # decoding_order = pose.generate_proteinmpnn_decode_order(to_device=device)
             # decoding_order.repeat(actual_batch_length, 1)
-            # with torch.no_grad():  # Ensure no gradients are produced
-            # Unpack constant parameters and slice reused parameters only once
-            # X_unbound = batch_parameters.pop('X')  # Remove once batch_calculation()
-            # chain_mask = batch_parameters.pop('chain_mask')
-            # chain_encoding = batch_parameters.pop('chain_encoding')
-            # residue_idx = batch_parameters.pop('residue_idx')
-            # mask = batch_parameters.pop('mask')
-            # randn = batch_parameters.pop('randn')
 
-            # Todo remove S from above unpacking
-            #
-            return ml.proteinmpnn_batch_design(batch_slice,
-                                               mpnn_model,
-                                               # temperatures=job.design.temperatures,
-                                               pose_length=pose_length,
-                                               # **parameters,  # (randn, S, chain_mask, chain_encoding, residue_idx, mask, temperatures, pose_length, bias_by_res, tied_pos, X_unbound)
-                                               **batch_parameters  # (X, chain_M_pos, bias_by_res)
-                                               )
+            return ml.proteinmpnn_batch_design(batch_slice, mpnn_model, pose_length=pose_length, **batch_parameters)
+            # batch_parameters contains:
+            #  X, chain_M_pos, bias_by_res, randn, S, chain_mask, chain_encoding, residue_idx, mask, temperatures,
+            #  pose_length, bias_by_res, tied_pos, X_unbound)
 
         @torch.no_grad()  # Ensure no gradients are produced
         @resources.ml.batch_calculation(size=size, batch_length=batch_length,
