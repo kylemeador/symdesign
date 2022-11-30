@@ -2431,14 +2431,14 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
                 add_fragments_to_pose()  # <- here generating fragments fresh
                 # Reset the fragment_profile and fragment_map for each Entity before calculate_fragment_profile
                 for entity in pose.entities:
-                    entity.fragment_profile = {}
+                    entity._fragment_profile = {}
                     entity.fragment_map = {}
                     # entity.alpha.clear()
 
                 # Load fragment_profile into the analysis
                 pose.calculate_fragment_profile()
                 # if pose.fragment_profile:
-                fragment_profiles.append(pssm_as_array(pose.fragment_profile))
+                fragment_profiles.append(pose.fragment_profile.as_array())
                 # else:
                 #     fragment_profiles.append(pssm_as_array(pose.fragment_profile))
 
@@ -2730,14 +2730,14 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
                 add_fragments_to_pose()  # <- here generating fragments fresh
                 # Reset the fragment_profile and fragment_map for each Entity before calculate_fragment_profile
                 for entity in pose.entities:
-                    entity.fragment_profile = {}
+                    entity._fragment_profile = {}
                     entity.fragment_map = {}
                     # entity.alpha.clear()
 
                 # Load fragment_profile into the analysis
                 pose.calculate_fragment_profile()
                 # if pose.fragment_profile:
-                fragment_profiles.append(pssm_as_array(pose.fragment_profile))
+                fragment_profiles.append(pose.fragment_profile.as_array())
                 # else:
                 #     fragment_profiles.append(pssm_as_array(pose.fragment_profile))
 
@@ -2749,9 +2749,9 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
                 # Residues to design are 1, others are 0
                 residue_mask_cpu[batch_idx, design_residues] = 1
                 # Todo Should I use this?
-                #  bias_by_res[batch_idx] = pose.fragment_profile
+                #  bias_by_res[batch_idx] = pose.fragment_profile.as_array()
                 #  OR
-                #  bias_by_res[batch_idx, fragment_residues] = pose.fragment_profile[fragment_residues]
+                #  bias_by_res[batch_idx, fragment_residues] = pose.fragment_profile.as_array()[fragment_residues]
                 #  If tied_beta is modified
                 #  tied_beta[batch_idx] = ...
 
@@ -2855,14 +2855,14 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
                 add_fragments_to_pose()  # <- here generating fragments fresh
                 # Reset the fragment_profile and fragment_map for each Entity before calculate_fragment_profile
                 for entity in pose.entities:
-                    entity.fragment_profile = {}
+                    entity._fragment_profile = {}
                     entity.fragment_map = {}
                     # entity.alpha.clear()
 
                 # Load fragment_profile into the analysis
                 pose.calculate_fragment_profile()
                 # if pose.fragment_profile:
-                fragment_profiles.append(pssm_as_array(pose.fragment_profile))
+                fragment_profiles.append(pose.fragment_profile.as_array())
                 # else:
                 #     fragment_profiles.append(pssm_as_array(pose.fragment_profile))
 
@@ -2874,9 +2874,9 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
                 # Residues to design are 1, others are 0
                 residue_mask_cpu[batch_idx, design_residues] = 1
                 # Todo Should I use this?
-                #  bias_by_res[batch_idx] = pose.fragment_profile
+                #  bias_by_res[batch_idx] = pose.fragment_profile.as_array()
                 #  OR
-                #  bias_by_res[batch_idx, fragment_residues] = pose.fragment_profile[fragment_residues]
+                #  bias_by_res[batch_idx, fragment_residues] = pose.fragment_profile.as_array()[fragment_residues]
                 #  If tied_beta is modified
                 #  tied_beta[batch_idx] = ...
 
@@ -3428,14 +3428,14 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
 
         # Reset the fragment_map and fragment_profile for each Entity before calculate_fragment_profile
         for entity in pose.entities:
-            entity.fragment_profile = {}
+            entity._fragment_profile = {}
             entity.fragment_map = {}
             # entity.alpha.clear()
 
         # Load fragment_profile into the analysis
         pose.calculate_fragment_profile()
         # This could be an empty array if no fragments were found
-        fragment_profile_array = pssm_as_array(pose.fragment_profile)
+        fragment_profile_array = pose.fragment_profile.as_array()
 
         # Remove saved pose attributes from the prior iteration calculations
         pose.ss_index_array.clear(), pose.ss_type_array.clear()
@@ -3539,13 +3539,12 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
                     try:
                         fragment_profile_frequencies.append(
                             pose.get_sequence_probabilities_from_profile(precomputed=fragment_profile_array))
-                    except IndexError as error:  # We are missing fragments for this Pose!
-                        # raise NotImplementedError(f"We currently don't have a solution for this...{error}")
-                        logger.warning(f"We didn't find any fragment information... due to: {error}"
-                                       "\nSetting the pose.fragment_profile = {}")
-                        raise IndexError(f'With new updates to calculate_fragment_profile this code should be '
-                                         f'unreachable. Original error:\n{error}')
-                        pose.fragment_profile = {}
+                    except IndexError as error:  # We are missing fragments for this Pose
+                        logger.warning(f"We didn't find any fragment information... due to: {error}")
+                        #                "\nSetting the pose.fragment_profile = None")
+                        # raise IndexError(f'With new updates to calculate_fragment_profile this code should be '
+                        #                  f'unreachable. Original error:\n{error}')
+                        # pose.fragment_profile = None
 
                     # observed, divergence = \
                     #     calculate_sequence_observations_and_divergence(pose_alignment,

@@ -27,7 +27,7 @@ from .fragment import GhostFragment, Fragment, write_frag_match_info_file
 from .fragment.db import FragmentDatabase, alignment_types, fragment_info_type, EulerLookup
 from .fragment.metrics import fragment_metric_template
 from .sequence import SequenceProfile, generate_alignment, get_equivalent_indices, \
-    pssm_as_array, generate_mutations, concatenate_profile, numeric_to_sequence
+    pssm_as_array, generate_mutations, numeric_to_sequence, Profile
 from .utils import DesignError, SymmetryError, ClashError, protein_letters_3to1_extended, \
     protein_letters_1to3_extended, chain_id_generator
 from symdesign import flags
@@ -5912,8 +5912,10 @@ class Pose(SymmetricModel):
     #             entity.fit_evolutionary_profile_to_structure()
     #
     #     self.evolutionary_profile = concatenate_profile([entity.evolutionary_profile for entity in self.entities])
-    #     # Todo assumes all values are present
-    #     self.fragment_profile = concatenate_profile([entity.fragment_profile for entity in self.entities], start_at=0)
+    #     fragment_profile = []
+    #     for entity in self.entities:
+    #         fragment_profile.extend(entity.fragment_profile)
+    #     self.fragment_profile = Profile(fragment_profile, dtype='fragment')
     #     self.profile = concatenate_profile([entity.profile for entity in self.entities])
 
     def get_termini_accessibility(self, entity: Entity = None, report_if_helix: bool = False) -> \
@@ -6939,11 +6941,11 @@ class Pose(SymmetricModel):
         """Take the fragment_profile from each member Entity. Overwrites SequenceProfile method for Pose profiles
 
         Keyword Args:
-            keep_extras: bool = True - Whether to keep values for all that are missing data
             evo_fill: bool = False - Whether to fill missing positions with evolutionary profile values
             alpha: float = 0.5 - The maximum contribution of the fragment profile to use, bounded between (0, 1].
                 0 means no use of fragments in the .profile, while 1 means only use fragments
         """
+        #   keep_extras: bool = True - Whether to keep values for all that are missing data
         for query_pair, fragment_info in self.fragment_queries.items():
             self.log.debug(f'Query Pair: {query_pair[0].name}, {query_pair[1].name}'
                            f'\n\tFragment Info:{fragment_info}')
@@ -6960,21 +6962,24 @@ class Pose(SymmetricModel):
                 entity.simplify_fragment_profile(**kwargs)
                 fragments_available = True
             else:
-                entity.fragment_profile = entity.create_null_profile(zero_index=True)
-
+                entity.fragment_profile = Profile(list(entity.create_null_profile(nan=True, zero_index=True).values()),
+                                                  dtype='fragment')
         if fragments_available:
-            self.fragment_profile = concatenate_profile([entity.fragment_profile for entity in self.entities],
-                                                        start_at=0)
+            # # This assumes all values are present. What if they are not?
+            # self.fragment_profile = concatenate_profile([entity.fragment_profile for entity in self.entities],
+            #                                             start_at=0)
             # self.alpha = concatenate_profile([entity.alpha for entity in self.entities])
+            fragment_profile = []
             self.alpha = []
             for entity in self.entities:
+                fragment_profile.extend(entity.fragment_profile)
                 self.alpha.extend(entity.alpha)
+            self.fragment_profile = Profile(fragment_profile, dtype='fragment')
             self._alpha = entity._alpha  # Logic enforces entity is always referenced here
         else:
             self.alpha = [0 for _ in self.residues]  # Reset the data
-            self.fragment_profile = self.create_null_profile(zero_index=True)
-            # self.fragment_profile = {residue_index: [[] for _ in range(self._fragment_db.fragment_length)]
-            #                          for residue_index in range(self.number_of_residues)}
+            self.fragment_profile = Profile(list(self.create_null_profile(nan=True, zero_index=True).values()),
+                                            dtype='fragment')
 
     def get_fragment_observations(self) -> list[dict[str, str | int | float]] | list:
         """Return the fragment observations identified on the pose regardless of Entity binding
