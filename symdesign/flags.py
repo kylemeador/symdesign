@@ -77,6 +77,10 @@ def format_for_cmdline(flag: str):
     return flag.replace('_', '-')
 
 
+def format_from_cmdline(flag: str):
+    return flag.replace('-', '_')
+
+
 query_codes1 = format_for_cmdline(query_codes1)
 query_codes2 = format_for_cmdline(query_codes2)
 predict_structure = format_for_cmdline(predict_structure)

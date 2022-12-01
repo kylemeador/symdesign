@@ -11,7 +11,7 @@ import symdesign.utils.path as putils
 logger = logging.getLogger(__name__)
 
 
-def select_poses(pose_directories):
+def poses(pose_directories):
     job = job_resources_factory.get()
 
     if job.specification_file:  # Figure out poses from a specification file, filters, and weights
