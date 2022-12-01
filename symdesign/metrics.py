@@ -15,9 +15,8 @@ import torch
 
 from symdesign.resources.query.utils import input_string, validate_type, verify_choice, header_string
 from symdesign.structure.utils import protein_letters_literal, alphabet_types, create_translation_tables, DesignError
-from symdesign.utils import handle_errors, pretty_format_table, index_intersection, digit_translate_table, \
-    z_score
-from symdesign.utils.path import protocol, reference_name, structure_background, design_profile, hbnet_design_profile
+from symdesign import utils
+from symdesign.utils import path as putils
 
 # Globals
 logger = logging.getLogger(__name__)
@@ -435,7 +434,7 @@ master_metrics = {
     'pose_thermophilicity':
         dict(description='The extent to which the entities in the pose are thermophilic',
              direction=_max, function=rank, filter=True),
-    protocol:
+    putils.protocol:
         dict(description='Protocols utilized to search sequence space given fragment and/or evolutionary '
                          'constraint information',
              direction=None, function=None, filter=False),
@@ -609,7 +608,7 @@ necessary_metrics = {'buns_complex', 'buns_1_unbound', 'contact_count', 'coordin
                      'interface_connectivity_1',
                      'interface_separation',
                      # 'interface_energy_1_bound', 'interface_energy_1_unbound',  'interface_energy_complex',
-                     'interaction_energy_complex', protocol, 'rosetta_reference_energy', 'shape_complementarity',
+                     'interaction_energy_complex', putils.protocol, 'rosetta_reference_energy', 'shape_complementarity',
                      # 'sasa_hydrophobic_complex', 'sasa_polar_complex', 'sasa_total_complex',
                      # 'sasa_hydrophobic_1_bound', 'sasa_polar_1_bound', 'sasa_total_1_bound',
                      # 'solvation_energy_complex', 'solvation_energy_1_bound', 'solvation_energy_1_unbound'
@@ -770,7 +769,8 @@ rosetta_terms = ['lk_ball_wtd', 'omega', 'p_aa_pp', 'pro_close', 'rama_prepro', 
 
 # Current protocols in use in interface_design.xml
 protocols = ['design_profile_switch', 'favor_profile_switch', 'limit_to_profile_switch', 'structure_background_switch']
-protocols_of_interest = {design_profile, structure_background, hbnet_design_profile}  # Todo adapt to any user protocol!
+# Todo adapt to any user protocol!
+protocols_of_interest = {putils.design_profile, putils.structure_background, putils.hbnet_design_profile}
 # protocols_of_interest = ['combo_profile', 'limit_to_profile', 'no_constraint']  # Used for P432 models
 
 protocol_column_types = ['mean', 'sequence_design']  # 'stats',
@@ -898,7 +898,7 @@ def hbond_processing(design_scores: dict, columns: list[str]) -> dict[str, set]:
             if column not in scores:
                 continue
             meta_data = column.split('_')  # ['hbonds', 'res', 'selection', 'complex/interface_number', '[unbound]']
-            parsed_hbonds = set(int(hbond.translate(digit_translate_table))
+            parsed_hbonds = set(int(hbond.translate(utils.digit_translate_table))
                                 for hbond in scores.get(column, '').split(',') if hbond != '')  # check if '' in case no hbonds
             if meta_data[3] == 'complex':
                 complex_bonds = parsed_hbonds
@@ -933,7 +933,7 @@ def dirty_hbond_processing(design_scores: dict) -> dict[str, set]:
             if not column.startswith('hbonds_res_selection'):
                 continue
             meta_data = column.split('_')  # ['hbonds', 'res', 'selection', 'complex/interface_number', '[unbound]']
-            parsed_hbonds = set(int(hbond.translate(digit_translate_table))
+            parsed_hbonds = set(int(hbond.translate(utils.digit_translate_table))
                                 for hbond in value.split(',') if hbond != '')  # check if '' in case no hbonds
             # if meta_data[-1] == 'bound' and offset:  # find offset according to chain
             #     res_offset = offset[meta_data[-2]]
@@ -1022,7 +1022,7 @@ def incorporate_mutation_info(design_residue_scores: dict,
                  ...}, ...}
     """
     warn = False
-    reference_data = mutations.get(reference_name)
+    reference_data = mutations.get(putils.reference_name)
     pose_length = len(reference_data)
     for design, residue_info in design_residue_scores.items():
         mutation_data = mutations.get(design)
@@ -1034,7 +1034,7 @@ def incorporate_mutation_info(design_residue_scores: dict,
             try:  # Set residue AA type based on provided mutations
                 data['type'] = mutation_data[residue_number]
             except KeyError:  # Residue is not in mutations, probably missing as it is not a mutation
-                try:  # Fill in with AA from reference_name seq
+                try:  # Fill in with AA from putils.reference_name seq
                     data['type'] = reference_data[residue_number]
                 except KeyError:  # Residue is out of bounds on pose length
                     # Possibly a virtual residue or string that was processed incorrectly from the digit_translate_table
@@ -1122,7 +1122,7 @@ def calculate_collapse_metrics(sequences_of_interest: Iterable[Iterable[Sequence
         collapse_profile_mean = np.nanmean(collapse_profile, axis=-2)
         collapse_profile_std = np.nanstd(collapse_profile, axis=-2)
         # Use only the reference (index=0) hydrophobic_collapse_index to calculate a reference
-        reference_collapse_z_score = z_score(collapse_profile[0], collapse_profile_mean, collapse_profile_std)
+        reference_collapse_z_score = utils.z_score(collapse_profile[0], collapse_profile_mean, collapse_profile_std)
 
     # A measure of the sequential, the local, the global, and the significance all constitute interesting
     # parameters which contribute to the outcome. I can use the measure of each to do a post-hoc solubility
@@ -1169,7 +1169,7 @@ def calculate_collapse_metrics(sequences_of_interest: Iterable[Iterable[Sequence
         # find collapse where: delta above standard collapse, collapsable boolean, and successive number
         # collapse_propensity = np.where(standardized_collapse > 0.43, standardized_collapse - 0.43, 0)
         # scale the collapse propensity by the standard collapse threshold and make z score
-        collapse_propensity_z = z_score(standardized_collapse, collapse_significance_threshold, collapse_reported_std)
+        collapse_propensity_z = utils.z_score(standardized_collapse, collapse_significance_threshold, collapse_reported_std)
         positive_collapse_propensity_z = np.maximum(collapse_propensity_z, 0)
         # ^ [0, 0, 0, 0, 0.04, 0.06, 0, 0, 0.1, 0.07, ...]
 
@@ -1205,7 +1205,7 @@ def calculate_collapse_metrics(sequences_of_interest: Iterable[Iterable[Sequence
 
         if collapse_profile is not None and collapse_profile.size:  # Not equal to zero
             # Compare the measured collapse to the metrics gathered from the collapse_profile
-            z_array = z_score(standardized_collapse, collapse_profile_mean, collapse_profile_std)
+            z_array = utils.z_score(standardized_collapse, collapse_profile_mean, collapse_profile_std)
             # Find indices where the z_array is increased/decreased compared to the reference_collapse_z_score
             # Todo
             #  Test for magnitude and directory of the wt versus profile.
@@ -1742,6 +1742,7 @@ def prioritize_design_indices(df: pd.DataFrame | AnyStr, filter: dict | bool = N
 
     Caution: Expects that provided DataFrame is of particular formatting, i.e. 3 column MultiIndices, 1 index indices.
     If the DF varies from this, this function will likely cause errors
+
     Args:
         df: DataFrame to filter/weight indices
         filter: Whether to remove viable candidates by certain metric values or a mapping of value and filter threshold
@@ -1753,7 +1754,6 @@ def prioritize_design_indices(df: pd.DataFrame | AnyStr, filter: dict | bool = N
         The dataframe of selected designs based on the provided filters and weights. DataFrame contains MultiIndex
             columns with size 3
     """
-    idx_slice = pd.IndexSlice
     # Grab pose info from the DateFrame and drop all classifiers in top two rows.
     if isinstance(df, pd.DataFrame):
         if list(range(3 - df.columns.nlevels)):
@@ -1761,49 +1761,52 @@ def prioritize_design_indices(df: pd.DataFrame | AnyStr, filter: dict | bool = N
     else:
         df = pd.read_csv(df, index_col=0, header=[0, 1, 2])
         df.replace({False: 0, True: 1, 'False': 0, 'True': 1}, inplace=True)
-    logger.info('Number of starting designs: %d' % len(df))
 
-    if protocol:
-        if isinstance(protocol, str):  # treat protocol as a str
+    logger.info(f'Number of starting designs: {len(df)}')
+
+    if protocol is not None:
+        if isinstance(protocol, str):
+            # Add protocol to a list
             protocol = [protocol]
 
         try:
             protocol_df = df.loc[:, idx_slice[protocol, protocol_column_types, :]]
         except KeyError:
-            logger.info('Protocol "%s" was not found in the set of designs...' % protocol)
-            # raise DesignError('The protocol "%s" was not found in the set of designs...')
+            logger.warning(f'Protocol "{protocol}" was not found in the set of designs...')
             available_protocols = df.columns.get_level_values(0).unique()
             while True:
-                protocol = input('What protocol would you like to choose?%s\nAvailable options are: %s%s'
-                                 % (describe_string, ', '.join(available_protocols), input_string))
+                protocol = input(f'What protocol would you like to choose?{describe_string}'
+                                 f'\nAvailable options are: {", ".join(available_protocols)}{input_string}')
                 if protocol in available_protocols:
                     protocol = [protocol]  # todo make multiple protocols available for input ^
                     break
                 elif protocol in describe:
                     describe_data(df=df)
                 else:
-                    print('Invalid protocol %s. Please choose one of %s' % (protocol, ', '.join(available_protocols)))
+                    print(f'Invalid protocol {protocol}. Please choose one of {", ".join(available_protocols)}')
             protocol_df = df.loc[:, idx_slice[protocol, protocol_column_types, :]]
         protocol_df.dropna(how='all', inplace=True, axis=0)  # drop completely empty rows in case of groupby ops
         # ensure 'dock'ing data is present in all protocols
         simple_df = pd.merge(df.loc[:, idx_slice[['pose'], ['dock'], :]], protocol_df, left_index=True, right_index=True)
-        logger.info('Number of designs after protocol selection: %d' % len(simple_df))
+        logger.info(f'Number of designs after protocol selection: {len(simple_df)}')
     else:
         protocol = ['pose']  # Todo change to :?
         simple_df = df.loc[:, idx_slice[protocol, df.columns.get_level_values(1) != 'std', :]]
-    # this is required for a multi-index column where the different protocols are in the top row of the df columns
+
+    # This is required for a multi-index column where the different protocols are in the top row of the df columns
     simple_df = pd.concat([simple_df.loc[:, idx_slice[prot, :, :]].droplevel(0, axis=1).droplevel(0, axis=1)
                            for prot in protocol])
     simple_df.dropna(how='all', inplace=True, axis=0)
     # simple_df = simple_df.droplevel(0, axis=1).droplevel(0, axis=1)  # simplify headers
 
-    if filter:
+    if filter is not None:
         if isinstance(filter, dict):
+            # These were passed as parsed values
             filters = filter
         else:
             available_filters = simple_df.columns.to_list()
             filters = query_user_for_metrics(available_filters, df=simple_df, mode='filter', level='design')
-        logger.info('Using filter parameters: %s' % str(filters))
+        logger.info(f'Using filter parameters:\n%s' % '\n\t'.join(utils.pretty_format_table(filters.items())))
 
         # When df is not ranked by percentage
         # _filters = {metric: {'direction': filter_df.loc['direction', metric], 'value': value}
@@ -1813,22 +1816,24 @@ def prioritize_design_indices(df: pd.DataFrame | AnyStr, filter: dict | bool = N
         filtered_indices = filter_df_for_index_by_value(simple_df, filters)  # **_filters)
         # filtered_indices = {metric: filters_with_idx[metric]['idx'] for metric in filters_with_idx}
         logger.info('Number of designs passing filters:\n\t%s'
-                    % '\n\t'.join('%6d - %s' % (len(indices), metric) for metric, indices in filtered_indices.items()))
-        final_indices = index_intersection(filtered_indices.values())
-        logger.info('Number of designs passing all filters: %d' % len(final_indices))
+                    % '\n\t'.join(f'{len(indices):6d} - {metric}' for metric, indices in filtered_indices.items()))
+        final_indices = utils.index_intersection(filtered_indices.values())
+        logger.info(f'Number of designs passing all filters: {len(final_indices)}')
         if len(final_indices) == 0:
             raise DesignError('There are no poses left after filtering! Try choosing less stringent values or make '
                               'better designs!')
         simple_df = simple_df.loc[final_indices, :]
 
     # {column: {'direction': _min, 'value': 0.3, 'idx_slice': ['0001', '0002', ...]}, ...}
-    if weight:
+    if weight is not None:
         if isinstance(weight, dict):
+            # These were passed as parsed values
             weights = weight
         else:
             available_metrics = simple_df.columns.to_list()
             weights = query_user_for_metrics(available_metrics, df=simple_df, mode='weight', level='design')
-        logger.info('Using weighting parameters: %s' % str(weights))
+
+        logger.info(f'Using weighting parameters:\n%s' % '\n\t'.join(utils.pretty_format_table(weights.items())))
         design_ranking_s = rank_dataframe_by_metric_weights(simple_df, weights=weights, **kwargs)
         design_ranking_s.name = 'selection_weight'
         final_df = pd.merge(design_ranking_s, simple_df, left_index=True, right_index=True)
@@ -1871,7 +1876,7 @@ def describe_data(df=None):
     pd.set_option('display.max_columns', max_columns), pd.set_option('display.max_rows', min_columns)
 
 
-@handle_errors(errors=KeyboardInterrupt)
+@utils.handle_errors(errors=(KeyboardInterrupt,))
 def query_user_for_metrics(available_metrics, df=None, mode=None, level=None):
     """Ask the user for the desired metrics to select indices from a dataframe
 
@@ -1963,7 +1968,7 @@ def query_user_for_metrics(available_metrics, df=None, mode=None, level=None):
             #                                         if mode == 'filter' else '', input_string)))
             #                  for metric in chosen_metrics}
             if metric_values:
-                print('You selected:\n\t%s' % '\n\t'.join(pretty_format_table(metric_values.items())))
+                print('You selected:\n\t%s' % '\n\t'.join(utils.pretty_format_table(metric_values.items())))
             else:
                 # print('No metrics were provided, skipping value input')
                 metric_values = None
