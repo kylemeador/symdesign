@@ -186,10 +186,10 @@ def main():
                 if job.module == flags.analysis:
                     args.output_file = putils.default_analysis_file.format(utils.starttime, design_source)
                 elif job.module == flags.cluster_poses:
-                    args.output_file = utils.pickle_object(pose_cluster_map,
-                                                           putils.default_clustered_pose_file.format(utils.starttime,
-                                                                                                     location),
-                                                           out_path=job.clustered_poses)
+                    args.output_file = \
+                        utils.pickle_object(results,
+                                            putils.default_clustered_pose_file.format(utils.starttime, location),
+                                            out_path=job.clustered_poses)
                 else:  # We don't have a default output specified
                     pass
 

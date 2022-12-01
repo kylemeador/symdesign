@@ -127,9 +127,10 @@ def cluster_poses(pose_directories: list[PoseDirectory]) -> \
                     [str(member) for member in pose_cluster_map.pop(representative)]
 
         return pose_cluster_map
-    else:
-        logger.info('No significant clusters were located. Clustering ended')
-        return None
+
+    logger.warning('No significant clusters were located. Clustering ended')
+    exit()
+    # return None
 
 
 # Used with single argment for mp_map
