@@ -993,23 +993,44 @@ def main():
     # exceptions = []
     # ---------------------------------------------------
     if args.module == flags.protocol:
-        returns_pose_directories = (flags.nanohedra,)
+        run_on_pose_directory = (
+            putils.orient,
+            putils.expand_asu,
+            putils.rename_chains,
+            putils.check_clashes,
+            putils.generate_fragments,
+            putils.interface_metrics,
+            putils.optimize_designs,
+            putils.refine,
+            putils.interface_design,
+            putils.analysis,
+            putils.nanohedra
+        )
+        returns_pose_directories = (
+            putils.nanohedra,
+            putils.select_poses,
+            putils.select_designs,
+            putils.select_sequences
+        )
         # terminate_options = dict(
         #     # analysis=dict(output_analysis=args.output),  # Replaced with args.output in terminate()
         # )
+        # terminate_kwargs = {}
         # Universal protocol runner
-        terminate_kwargs = {}
         exceptions = []
-        for protocol_name in args.modules:
+        for protocol_name in job.modules:
             protocol = getattr(protocols, protocol_name)
-            if job.multi_processing:
-                results = utils.mp_map(protocol, pose_directories, processes=job.cores)
-            else:
-                for pose_dir in pose_directories:
-                    results.append(protocol(pose_dir))
 
-            # # Retrieve any program flags necessary for termination
-            # terminate_kwargs.update(**terminate_options.get(protocol_name, {}))
+            # Figure out how the job should be set up
+            if protocol_name in run_on_pose_directory:  # Single poses
+                if job.multi_processing:
+                    results = utils.mp_map(protocol, pose_directories, processes=job.cores)
+                else:
+                    for pose_dir in pose_directories:
+                        results.append(protocol(pose_dir))
+            else:  # Collection of poses
+                results = protocol(pose_directories)
+
             # Handle any returns that require particular treatment
             if protocol_name in returns_pose_directories:
                 _results = []
@@ -1019,8 +1040,11 @@ def main():
             # Update the current state of protocols and exceptions
             pose_directories, additional_exceptions = parse_protocol_results(pose_directories, results)
             exceptions.extend(additional_exceptions)
-
-        terminate(results=results, **terminate_kwargs, exceptions=exceptions)
+        #     # Retrieve any program flags necessary for termination
+        #     terminate_kwargs.update(**terminate_options.get(protocol_name, {}))
+        #
+        # terminate(results=results, **terminate_kwargs, exceptions=exceptions)
+        terminate(results=results, exceptions=exceptions)
     # ---------------------------------------------------
     if job.module == flags.orient:
         if args.multi_processing:
