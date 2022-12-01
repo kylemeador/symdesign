@@ -216,10 +216,14 @@ class JobResources:
         self.structure_db = structure_db.structure_database_factory.get(source=self.data)
         self.fragment_db: 'db.FragmentDatabase' | None = None
 
-        # Setup Flags
+        # PoseDirectory setup Flags
         self.initial_refinement = self.initial_loop_model = None
+
         # Computing environment and development Flags
+        # self.command_only: bool = kwargs.get('command_only', False)
+        """Whether to reissue commands, only if distribute_work=False"""
         self.cores: int = kwargs.get('cores', 0)
+        self.development: bool = kwargs.get(putils.development)
         self.distribute_work: bool = kwargs.get(putils.distribute_work)
         self.mpi: int = kwargs.get('mpi', 0)
         self.multi_processing: int = kwargs.get(putils.multi_processing)
@@ -231,9 +235,7 @@ class JobResources:
 
         if self.mpi > 0:
             self.distribute_work = True
-        self.development: bool = kwargs.get(putils.development)
-        # self.command_only: bool = kwargs.get('command_only', False)
-        """Whether to reissue commands, only if distribute_work=False"""
+        # self.reduce_memory = False
 
         # Program flags
         # self.consensus: bool = kwargs.get(consensus, False)  # Whether to run consensus
