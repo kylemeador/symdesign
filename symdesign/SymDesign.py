@@ -292,11 +292,12 @@ def main():
         # print('\n')
         exit(exit_code)
 
-    def load_total_dataframe(pose: bool = False) -> pd.DataFrame:
+    def load_total_dataframe(pose_directories: Iterable[PoseDirectory], pose: bool = False) -> pd.DataFrame:
         """Return a pandas DataFrame with the trajectories of every pose_directory loaded and formatted according to the
         design directory and design on the index
 
         Args:
+            pose_directories: The pose_directories for which metrics are desired
             pose: Whether the total dataframe should contain the mean metrics from the pose or each individual design
         """
         # global pose_directories
@@ -1442,9 +1443,9 @@ def main():
         if job.specification_file:
             loc_result = [(pose_directory, design) for pose_directory in pose_directories
                           for design in pose_directory.specific_designs]
-            df = load_total_dataframe()
+            total_df = load_total_dataframe(pose_directories)
             selected_poses_df = \
-                metrics.prioritize_design_indices(df.loc[loc_result, :], filter=job.filter, weight=job.weight,
+                metrics.prioritize_design_indices(total_df.loc[loc_result, :], filter=job.filter, weight=job.weight,
                                                   protocol=job.protocol, function=job.weight_function)
             # Specify the result order according to any filtering, weighting, and select_number
             results = {}
@@ -1459,13 +1460,13 @@ def main():
             # results = {pose_directory: results[str(pose_directory)] for pose_directory in pose_directories
             #            if str(pose_directory) in results}
         elif job.total:
-            df = load_total_dataframe()
+            total_df = load_total_dataframe(pose_directories)
             if job.protocol:
-                group_df = df.groupby('protocol')
+                group_df = total_df.groupby('protocol')
                 df = pd.concat([group_df.get_group(x) for x in group_df.groups], axis=1,
                                keys=list(zip(group_df.groups, repeat('mean'))))
             else:
-                df = pd.concat([df], axis=1, keys=['pose', 'metric'])
+                df = pd.concat([total_df], axis=1, keys=['pose', 'metric'])
             # Figure out designs from dataframe, filters, and weights
             selected_poses_df = metrics.prioritize_design_indices(df, filter=job.filter, weight=job.weight,
                                                                   protocol=job.protocol, function=job.weight_function)
@@ -1541,8 +1542,8 @@ def main():
             # Todo there is no sort here so the select_number isn't really doing anything
             results = {pose_dir: designs for pose_dir, designs in list(results.items())[:job.select_number]}
             loc_result = [(pose_dir, design) for pose_dir, designs in results.items() for design in designs]
-            save_poses_df = \
-                load_total_dataframe().loc[loc_result, :].droplevel(0).droplevel(0, axis=1).droplevel(0, axis=1)
+            total_df = load_total_dataframe(pose_directories)
+            save_poses_df = total_df.loc[loc_result, :].droplevel(0).droplevel(0, axis=1).droplevel(0, axis=1)
 
         # Format selected sequences for output
         if job.prefix == '':
@@ -1552,8 +1553,8 @@ def main():
         putils.make_path(outdir)
 
         if job.total and job.save_total:
-            total_df = os.path.join(outdir, 'TotalPosesTrajectoryMetrics.csv')
-            df.to_csv(total_df)
+            total_df_filename = os.path.join(outdir, 'TotalPosesTrajectoryMetrics.csv')
+            total_df.to_csv(total_df_filename)
             logger.info(f'Total Pose/Designs DataFrame was written to: {total_df}')
 
         logger.info(f'{len(save_poses_df)} poses were selected')
