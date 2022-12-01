@@ -322,6 +322,34 @@ class JobResources:
             else:
                 self.sym_entry = SymEntry.parse_symmetry_to_sym_entry(sym_entry=sym_entry, symmetry=symmetry)
 
+        # Selection flags
+        self.save_total = kwargs.get('save_total')
+        self.total = kwargs.get('total')
+        self.protocol = kwargs.get(putils.protocol)
+        self.filter = kwargs.get('filter')
+        self.weight = kwargs.get('weight')
+        self.weight_function = kwargs.get('weight_function')
+        self.select_number = kwargs.get('select_number')
+        self.designs_per_pose = kwargs.get('designs_per_pose')
+        self.allow_multiple_poses = kwargs.get('allow_multiple_poses')
+        # self.metric = kwargs.get('metric')
+        self.specification_file = kwargs.get('specification_file')
+        self.dataframe = kwargs.get('dataframe')
+        self.cluster_map = kwargs.get('cluster_map')
+
+        # Output flags
+        prefix = kwargs.get('prefix')
+        if prefix:
+            self.prefix = f'{prefix}_'
+        else:
+            self.prefix = ''
+
+        suffix = kwargs.get('suffix')
+        if suffix:
+            self.suffix = f'{suffix}_'
+        else:
+            self.suffix = ''
+
         self.overwrite: bool = kwargs.get('overwrite')
         self.output_directory: AnyStr | None = kwargs.get(putils.output_directory)
         self.output_to_directory: bool = True if self.output_directory else False

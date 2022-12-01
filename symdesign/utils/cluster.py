@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 import sklearn
 
-from symdesign.metrics import prioritize_design_indices, nanohedra_metrics  # query_user_for_metrics,
+from symdesign import metrics  # query_user_for_metrics,
 
 # Globals
 logger = logging.getLogger(__name__)
@@ -162,7 +162,7 @@ def predict_best_pose_from_transformation_cluster(train_trajectories_file, train
     # standard_scale_traj_df[train_traj_df.columns] = standard_scale.transform(train_traj_df)
 
     # select the metrics which the linear model should be trained on
-    nano_traj = train_traj_df.loc[:, nanohedra_metrics]
+    nano_traj = train_traj_df.loc[:, metrics.nanohedra_metrics]
 
     # select the Rosetta metrics to train model on
     # potential_training_metrics = set(train_traj_df.columns).difference(nanohedra_metrics)
@@ -176,7 +176,7 @@ def predict_best_pose_from_transformation_cluster(train_trajectories_file, train
     # assign each metric a weight proportional to it's share of the total weight
     rosetta_select_metrics = {item: 1 / len(rosetta_metrics) for item in rosetta_metrics}
     # weighting scheme inherently standardizes the weights between [0, 1] by taking a linear combination of the metrics
-    targets = prioritize_design_indices(train_trajectories_file, weight=rosetta_select_metrics)  # weight=True)
+    targets = metrics.prioritize_design_indices(train_trajectories_file, weight=rosetta_select_metrics)  # weight=True)
 
     # for proper MultiTask model training, must scale the selected metrics. This is performed on trajectory_df above
     # targets2d = train_traj_df.loc[:, rosetta_select_metrics.keys()]
@@ -218,6 +218,6 @@ def chose_top_pose_from_model(test_trajectories_file, clustered_poses, model):
     test_docking_df = pd.read_csv(test_trajectories_file, index_col=0, header=[0, 1, 2])
 
     for cluster_representative, designs in clustered_poses.items():
-        trajectory_df = test_docking_df.loc[designs, nanohedra_metrics]
+        trajectory_df = test_docking_df.loc[designs, metrics.nanohedra_metrics]
         trajectory_df['model_predict'] = model.predict(trajectory_df)
         trajectory_df.sort_values('model_predict')

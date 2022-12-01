@@ -27,8 +27,7 @@ logger = logging.getLogger(putils.program_name.lower())  # __name__)
 # logger.info('Starting logger')
 # logger.warning('Starting logger')
 # input('WHY LOGGING')
-from symdesign import flags, guide, utils, protocols
-from symdesign.metrics import prioritize_design_indices, query_user_for_metrics
+from symdesign import flags, guide, metrics, protocols, utils
 from symdesign.protocols.protocols import PoseDirectory
 from symdesign.resources.job import job_resources_factory
 from symdesign.resources.query.pdb import retrieve_pdb_entries_by_advanced_query
@@ -295,33 +294,37 @@ def main():
 
     def load_total_dataframe(pose: bool = False) -> pd.DataFrame:
         """Return a pandas DataFrame with the trajectories of every pose_directory loaded and formatted according to the
-        design directory and design on the index"""
-        global pose_directories
+        design directory and design on the index
+
+        Args:
+            pose: Whether the total dataframe should contain the mean metrics from the pose or each individual design
+        """
+        # global pose_directories
         # global results
         all_dfs = []  # None for design in pose_directories]
-        for idx, design in enumerate(pose_directories):
+        for idx, pose_dir in enumerate(pose_directories):
             try:
-                all_dfs.append(pd.read_csv(design.trajectories, index_col=0, header=[0]))
-            except FileNotFoundError as error:
+                all_dfs.append(pd.read_csv(pose_dir.trajectories, index_col=0, header=[0]))
+            except FileNotFoundError:  # as error
                 # results[idx] = error
-                logger.warning(f'{design}: No trajectory analysis found. Skipping')
+                logger.warning(f'{pose_dir}: No trajectory analysis file found. Skipping')
 
         if pose:
             for idx, df in enumerate(all_dfs):
-                # Get rid of all individual trajectories and std, not mean
-                design_name = pose_directories[idx].name
                 df.fillna(0., inplace=True)  # Shouldn't be necessary if saved files were formatted correctly
                 # try:
                 df.drop([index for index in df.index.to_list() if isinstance(index, float)], inplace=True)
-                df.drop([index for index in df.index.to_list() if design_name in index or 'std' in index], inplace=True)
+                # Get rid of all individual trajectories and std, not mean
+                pose_name = pose_directories[idx].name
+                df.drop([index for index in df.index.to_list() if pose_name in index or 'std' in index], inplace=True)
                 # except TypeError:
                 #     for index in df.index.to_list():
                 #         print(index, type(index))
         else:  # designs
             for idx, df in enumerate(all_dfs):
                 # Get rid of all statistic entries, mean, std, etc.
-                design_name = pose_directories[idx].name
-                df.drop([index for index in df.index.to_list() if design_name not in index], inplace=True)
+                pose_name = pose_directories[idx].name
+                df.drop([index for index in df.index.to_list() if pose_name not in index], inplace=True)
 
         # Add pose directory str as MultiIndex
         df = pd.concat(all_dfs, keys=[str(pose_dir) for pose_dir in pose_directories])
@@ -1178,15 +1181,15 @@ def main():
     # elif job.module == 'custom_script':
     #     # Start pose processing and preparation for Rosetta
     #     if args.multi_processing:
-    #         zipped_args = zip(pose_directories, repeat(args.script), repeat(args.force),
-    #                           repeat(args.file_list), repeat(args.native), repeat(args.suffix), repeat(args.score_only),
+    #         zipped_args = zip(pose_directories, repeat(args.script), repeat(args.force), repeat(args.file_list),
+    #                           repeat(args.native), repeat(job.suffix), repeat(args.score_only),
     #                           repeat(args.variables))
     #         results = utils.mp_starmap(PoseDirectory.custom_rosetta_script, zipped_args, processes=job.cores)
     #     else:
     #         for design in pose_directories:
     #             results.append(design.custom_rosetta_script(args.script, force=args.force,
     #                                                         file_list=args.file_list, native=args.native,
-    #                                                         suffix=args.suffix, score_only=args.score_only,
+    #                                                         suffix=job.suffix, score_only=args.score_only,
     #                                                         variables=args.variables))
     #
     #     terminate(results=results)
@@ -1224,13 +1227,18 @@ def main():
             # run_single_analysis()
         terminate(results=results)  # , output_analysis=args.output)
     # ---------------------------------------------------
+    elif job.module == flags.cluster_poses:
+        results = protocols.cluster.cluster_poses()
+        terminate(results=results)
+    # ---------------------------------------------------
     elif job.module == flags.select_poses:
-        if args.specification_file:  # Figure out poses from a specification file, filters, and weights
+        if job.specification_file:  # Figure out poses from a specification file, filters, and weights
             loc_result = [(pose_directory, design) for pose_directory in pose_directories
                           for design in pose_directory.specific_designs]
             df = load_total_dataframe(pose=True)
-            selected_poses_df = prioritize_design_indices(df.loc[loc_result, :], filter=args.filter, weight=args.weight,
-                                                          protocol=args.protocol, function=args.weight_function)
+            selected_poses_df = \
+                metrics.prioritize_design_indices(df.loc[loc_result, :], filter=job.filter, weight=job.weight,
+                                                  protocol=job.protocol, function=job.weight_function)
             # Remove excess pose instances
             number_chosen = 0
             selected_indices, selected_poses = [], set()
@@ -1239,7 +1247,7 @@ def main():
                     selected_poses.add(pose_directory)
                     selected_indices.append((pose_directory, design))
                     number_chosen += 1
-                    if number_chosen == args.select_number:
+                    if number_chosen == job.select_number:
                         break
 
             # Specify the result order according to any filtering and weighting
@@ -1248,17 +1256,17 @@ def main():
                 selected_poses_df.loc[selected_indices, :].droplevel(-1)  # .droplevel(0, axis=1).droplevel(0, axis=1)
             # # convert selected_poses to PoseDirectory objects
             # selected_poses = [pose_directory for pose_directory in pose_directories if pose_dir_name in selected_poses]
-        elif args.total:  # Figure out poses from directory specification, filters, and weights
+        elif job.total:  # Figure out poses from file/directory input, filters, and weights
             df = load_total_dataframe(pose=True)
-            if args.protocol:  # Todo adapt to protocol column not in Trajectories right now...
-                group_df = df.groupby('protocol')
+            if job.protocol:  # Todo adapt to protocol column not in Trajectories right now...
+                group_df = df.groupby(putils.protocol)
                 df = pd.concat([group_df.get_group(x) for x in group_df.groups], axis=1,
                                keys=list(zip(group_df.groups, repeat('mean'))))
             else:
                 df = pd.concat([df], axis=1, keys=['pose', 'metric'])
             # Figure out designs from dataframe, filters, and weights
-            selected_poses_df = prioritize_design_indices(df, filter=args.filter, weight=args.weight,
-                                                          protocol=args.protocol, function=args.weight_function)
+            selected_poses_df = metrics.prioritize_design_indices(df, filter=job.filter, weight=job.weight,
+                                                                  protocol=job.protocol, function=job.weight_function)
             # Remove excess pose instances
             number_chosen = 0
             selected_indices, selected_poses = [], set()
@@ -1267,7 +1275,7 @@ def main():
                     selected_poses.add(pose_directory)
                     selected_indices.append((pose_directory, design))
                     number_chosen += 1
-                    if number_chosen == args.select_number:
+                    if number_chosen == job.select_number:
                         break
 
             # Specify the result order according to any filtering and weighting
@@ -1276,48 +1284,50 @@ def main():
                 selected_poses_df.loc[selected_indices, :].droplevel(-1)  # .droplevel(0, axis=1).droplevel(0, axis=1)
             # # convert selected_poses to PoseDirectory objects
             # selected_poses = [pose_directory for pose_directory in pose_directories if pose_dir_name in selected_poses]
-        elif args.dataframe:  # Figure out poses from a pose dataframe, filters, and weights
-            # program_root = next(iter(pose_directories)).program_root
-            if args.dataframe and not pose_directories:  # not args.directory:
+        elif job.dataframe:  # Figure out poses from a pose dataframe, filters, and weights
+            if not pose_directories:  # not job.directory:
                 logger.critical(f'If using a --{flags.dataframe} for selection, you must include the directory where '
                                 f'the designs are located in order to properly select designs. Please specify '
                                 f'-d/--{flags.directory} with your command')
                 exit(1)
-            program_root = job.program_root
-            df = pd.read_csv(args.dataframe, index_col=0, header=[0, 1, 2])
+
+            df = pd.read_csv(job.dataframe, index_col=0, header=[0, 1, 2])
             df.replace({False: 0, True: 1, 'False': 0, 'True': 1}, inplace=True)
-            selected_poses_df = prioritize_design_indices(df, filter=args.filter, weight=args.weight,
-                                                          protocol=args.protocol, function=args.weight_function)
+
+            selected_poses_df = metrics.prioritize_design_indices(df, filter=job.filter, weight=job.weight,
+                                                                  protocol=job.protocol, function=job.weight_function)
             # Only drop excess columns as there is no MultiIndex, so no design in the index
             save_poses_df = selected_poses_df.droplevel(0, axis=1).droplevel(0, axis=1)
+            program_root = job.program_root
             selected_poses = [PoseDirectory.from_pose_id(pose, root=program_root)
                               for pose in save_poses_df.index.to_list()]
         else:  # Generate design metrics on the spot
             raise NotImplementedError('This functionality is currently broken')
             selected_poses, selected_poses_df, df = [], pd.DataFrame(), pd.DataFrame()
             logger.debug('Collecting designs to sort')
-            if args.metric == 'score':
+            if job.metric == 'score':
                 metric_design_dir_pairs = [(des_dir.score, des_dir.path) for des_dir in pose_directories]
-            elif args.metric == 'fragments_matched':
+            elif job.metric == 'fragments_matched':
                 metric_design_dir_pairs = [(des_dir.number_of_fragments, des_dir.path)
                                            for des_dir in pose_directories]
             else:  # This is impossible with the argparse options
-                raise NotImplementedError(f'The metric "{args.metric}" is not supported!')
+                raise NotImplementedError(f'The metric "{job.metric}" is not supported!')
                 metric_design_dir_pairs = []
 
-            logger.debug(f'Sorting designs according to "{args.metric}"')
+            logger.debug(f'Sorting designs according to "{job.metric}"')
             metric_design_dir_pairs = [(score, path) for score, path in metric_design_dir_pairs if score]
             sorted_metric_design_dir_pairs = sorted(metric_design_dir_pairs, key=lambda pair: (pair[0] or 0),
                                                     reverse=True)
-            top_designs_string = 'Top ranked Designs according to %s:\n\t%s\tDesign\n\t%s'\
-                                 % (args.metric, args.metric.title(), '%s')
+            top_designs_string = \
+                f'Top ranked Designs according to {job.metric}:\n\t{job.metric.title()}\tDesign\n\t%s'
             results_strings = ['%.2f\t%s' % tup for tup in sorted_metric_design_dir_pairs]
             logger.info(top_designs_string % '\n\t'.join(results_strings[:500]))
             if len(pose_directories) > 500:
-                design_source = f'top_{args.metric}'
-                default_output_tuple = (utils.starttime, job.module, design_source)
+                design_source = f'top_{job.metric}'
+                # default_output_tuple = (utils.starttime, job.module, design_source)
                 putils.make_path(job.all_scores)
-                designs_file = os.path.join(job.all_scores, '{}_{}_{}_pose.scores'.format(*default_output_tuple))
+                designs_file = \
+                    os.path.join(job.all_scores, f'{utils.starttime}_{job.module}_{design_source}_pose.scores')
                 with open(designs_file, 'w') as f:
                     f.write(top_designs_string % '\n\t'.join(results_strings))
                 logger.info(f'Stdout performed a cutoff of ranked Designs at ranking 500. See the output design file '
@@ -1330,32 +1340,31 @@ def main():
         #                     'argument' % putils.program_output)
         #     exit()
 
-        if args.total and args.save_total:
+        if job.total and job.save_total:
             total_df = os.path.join(program_root, 'TotalPosesTrajectoryMetrics.csv')
             df.to_csv(total_df)
             logger.info(f'Total Pose/Designs DataFrame was written to: {total_df}')
 
-        if args.filter or args.weight:
-            new_dataframe = os.path.join(program_root, f'{utils.starttime}-{"Filtered" if args.filter else ""}'
-                                                       f'{"Weighted" if args.weight else ""}PoseMetrics.csv')
-        else:
-            new_dataframe = os.path.join(program_root, f'{utils.starttime}-PoseMetrics.csv')
-
-        logger.info(f'{len(selected_poses_df)} poses were selected')
-        if len(selected_poses_df) != len(df):
-            selected_poses_df.to_csv(new_dataframe)
+        logger.info(f'{len(save_poses_df)} poses were selected')
+        if len(save_poses_df) != len(df):
+            if job.filter or job.weight:
+                new_dataframe = os.path.join(program_root, f'{utils.starttime}-{"Filtered" if job.filter else ""}'
+                                                           f'{"Weighted" if job.weight else ""}PoseMetrics.csv')
+            else:
+                new_dataframe = os.path.join(program_root, f'{utils.starttime}-PoseMetrics.csv')
+            save_poses_df.to_csv(new_dataframe)
             logger.info(f'New DataFrame with selected poses was written to: {new_dataframe}')
 
         # Sort results according to clustered poses if clustering exists
-        if args.cluster_map:
-            cluster_map = args.cluster_map
+        if job.cluster_map:
+            cluster_map = job.cluster_map
         else:
-            cluster_map = os.path.join(job.clustered_poses,
-                                       putils.default_clustered_pose_file.format(utils.starttime, location))
+            cluster_map = \
+                os.path.join(job.clustered_poses, putils.default_clustered_pose_file.format(utils.starttime, location))
 
         if os.path.exists(cluster_map):
             pose_cluster_map = utils.unpickle(cluster_map)
-        else:  # try to generate the cluster_map
+        else:  # Try to generate the cluster_map
             logger.info(f'No cluster pose map was found at {cluster_map}. Clustering similar poses may eliminate '
                         f'redundancy from the final design selection. To cluster poses broadly, '
                         f'run "{putils.program_command} {flags.cluster_poses}"')
@@ -1372,10 +1381,10 @@ def main():
             # {pose_string: [pose_string, ...]} where key is representative, values are matching designs
             # OLD -> {composition: {pose_string: cluster_representative}, ...}
 
-            if bool_d[confirm.lower()] or confirm.isspace():  # the user wants to separate poses
+            if bool_d[confirm.lower()] or confirm.isspace():  # The user wants to separate poses
                 compositions: dict[tuple[str, ...], list[PoseDirectory]] = \
                     protocols.cluster.group_compositions(selected_poses)
-                if args.multi_processing:
+                if job.multi_processing:
                     mp_results = utils.mp_map(protocols.cluster.cluster_transformations, compositions.values(),
                                               processes=job.cores)
                     for result in mp_results:
@@ -1391,13 +1400,16 @@ def main():
         if pose_cluster_map:
             pose_cluster_membership_map = protocols.cluster.invert_cluster_map(pose_cluster_map)
             pose_clusters_found, pose_not_found = {}, []
-            # convert all of the selected poses to their string representation
+            # Convert all the selected poses to their string representation
+            # Todo this assumes the pose_cluster_map was not saved with job.as_object
             for idx, pose_directory in enumerate(map(str, selected_poses)):
                 cluster_membership = pose_cluster_membership_map.get(pose_directory, None)
                 if cluster_membership:
-                    if cluster_membership not in pose_clusters_found:  # include as this pose hasn't been identified
+                    if cluster_membership not in pose_clusters_found:
+                        # Include as this pose hasn't been identified
                         pose_clusters_found[cluster_membership] = [pose_directory]
-                    else:  # This cluster has already been found and it was identified again. Report and only
+                    else:
+                        # This cluster has already been found, and it was identified again. Report and only
                         # include the highest ranked pose in the output as it provides info on all occurrences
                         pose_clusters_found[cluster_membership].append(pose_directory)
                 else:
@@ -1415,31 +1427,28 @@ def main():
             logger.info('Grabbing all selected poses')
             final_poses = selected_poses
 
-        if len(final_poses) > args.select_number:
-            final_poses = final_poses[:args.select_number]
+        if len(final_poses) > job.select_number:
+            final_poses = final_poses[:job.select_number]
             logger.info(f'Found {len(final_poses)} poses after applying your select_number selection criteria')
 
-        # Need to initialize pose_directories to terminate()
+        # Need to initialize pose_directories, design_source to terminate()
         pose_directories = final_poses
-        design_source = program_root  # for terminate()
-        # write out the chosen poses to a pose.paths file
+        design_source = program_root
+        # Write out the chosen poses to a pose.paths file
         terminate(results=pose_directories)
-    # ---------------------------------------------------
-    elif job.module == flags.cluster_poses:
-        results = protocols.cluster.cluster_poses()
-        terminate(results=results)
     # ---------------------------------------------------
     elif job.module == flags.select_sequences:
         program_root = job.program_root
-        if args.specification_file:
+        if job.specification_file:
             loc_result = [(pose_directory, design) for pose_directory in pose_directories
                           for design in pose_directory.specific_designs]
             df = load_total_dataframe()
-            selected_poses_df = prioritize_design_indices(df.loc[loc_result, :], filter=args.filter, weight=args.weight,
-                                                          protocol=args.protocol, function=args.weight_function)
-            # specify the result order according to any filtering, weighting, and select_number
+            selected_poses_df = \
+                metrics.prioritize_design_indices(df.loc[loc_result, :], filter=job.filter, weight=job.weight,
+                                                  protocol=job.protocol, function=job.weight_function)
+            # Specify the result order according to any filtering, weighting, and select_number
             results = {}
-            for pose_directory, design in selected_poses_df.index.to_list()[:args.select_number]:
+            for pose_directory, design in selected_poses_df.index.to_list()[:job.select_number]:
                 if pose_directory in results:
                     results[pose_directory].add(design)
                 else:
@@ -1449,77 +1458,77 @@ def main():
             # convert to PoseDirectory objects
             # results = {pose_directory: results[str(pose_directory)] for pose_directory in pose_directories
             #            if str(pose_directory) in results}
-        elif args.total:
+        elif job.total:
             df = load_total_dataframe()
-            if args.protocol:
+            if job.protocol:
                 group_df = df.groupby('protocol')
                 df = pd.concat([group_df.get_group(x) for x in group_df.groups], axis=1,
                                keys=list(zip(group_df.groups, repeat('mean'))))
             else:
                 df = pd.concat([df], axis=1, keys=['pose', 'metric'])
             # Figure out designs from dataframe, filters, and weights
-            selected_poses_df = prioritize_design_indices(df, filter=args.filter, weight=args.weight,
-                                                          protocol=args.protocol, function=args.weight_function)
+            selected_poses_df = metrics.prioritize_design_indices(df, filter=job.filter, weight=job.weight,
+                                                                  protocol=job.protocol, function=job.weight_function)
             selected_designs = selected_poses_df.index.to_list()
-            args.select_number = len(selected_designs) if len(selected_designs) < args.select_number \
-                else args.select_number
-            if args.allow_multiple_poses:
-                logger.info(f'Choosing {args.select_number} designs, from the top ranked designs regardless of pose')
-                loc_result = selected_designs[:args.select_number]
+            job.select_number = \
+                len(selected_designs) if len(selected_designs) < job.select_number else job.select_number
+            if job.allow_multiple_poses:
+                logger.info(f'Choosing {job.select_number} designs, from the top ranked designs regardless of pose')
+                loc_result = selected_designs[:job.select_number]
                 results = {pose_dir: design for pose_dir, design in loc_result}
-            else:  # elif args.designs_per_pose:
-                logger.info(f'Choosing up to {args.select_number} designs, with {args.designs_per_pose} designs per '
-                            'pose')
+            else:  # elif job.designs_per_pose:
+                logger.info(f'Choosing up to {job.select_number} designs, with {job.designs_per_pose} designs per pose')
                 number_chosen = 0
                 selected_poses = {}
                 for pose_directory, design in selected_designs:
                     designs = selected_poses.get(pose_directory, None)
                     if designs:
-                        if len(designs) >= args.designs_per_pose:
-                            continue  # we already have too many, continue with search. No need to check as no addition
+                        if len(designs) >= job.designs_per_pose:
+                            # We already have too many, continue with search. No need to check as no addition
+                            continue
                         selected_poses[pose_directory].add(design)
                     else:
                         selected_poses[pose_directory] = {design}
                     number_chosen += 1
-                    if number_chosen == args.select_number:
+                    if number_chosen == job.select_number:
                         break
 
                 results = selected_poses
                 loc_result = [(pose_dir, design) for pose_dir, designs in selected_poses.items() for design in designs]
 
-            # include only the found index names to the saved dataframe
+            # Include only the found index names to the saved dataframe
             save_poses_df = selected_poses_df.loc[loc_result, :]  # .droplevel(0).droplevel(0, axis=1).droplevel(0, axis=1)
             # convert to PoseDirectory objects
             # results = {pose_directory: results[str(pose_directory)] for pose_directory in pose_directories
             #            if str(pose_directory) in results}
-        else:  # select designed sequences from each pose provided (PoseDirectory)
-            trajectory_df, sequence_metrics = None, None  # Used to get the column headers
+        else:  # Select designed sequences from each pose provided (PoseDirectory)
+            trajectory_df = sequence_metrics = None  # Used to get the column headers
             try:
                 example_trajectory = representative_pose_directory.trajectories
             except AttributeError:
                 raise RuntimeError('Missing the representative_pose_directory. It must be initialized to continue')
                 example_trajectory = None
 
-            if args.filter:
+            if job.filter:
                 trajectory_df = pd.read_csv(example_trajectory, index_col=0, header=[0])
                 sequence_metrics = set(trajectory_df.columns.get_level_values(-1).to_list())
-                sequence_filters = query_user_for_metrics(sequence_metrics, mode='filter', level='sequence')
+                sequence_filters = metrics.query_user_for_metrics(sequence_metrics, mode='filter', level='sequence')
             else:
                 sequence_filters = None
 
-            if args.weight:
+            if job.weight:
                 if not trajectory_df:
                     trajectory_df = pd.read_csv(example_trajectory, index_col=0, header=[0])
                     sequence_metrics = set(trajectory_df.columns.get_level_values(-1).to_list())
-                sequence_weights = query_user_for_metrics(sequence_metrics, mode='weight', level='sequence')
+                sequence_weights = metrics.query_user_for_metrics(sequence_metrics, mode='weight', level='sequence')
             else:
                 sequence_weights = None
 
-            if args.multi_processing:
+            if job.multi_processing:
                 # sequence_weights = {'buns_per_ang': 0.2, 'observed_evolution': 0.3, 'shape_complementarity': 0.25,
                 #                     'int_energy_res_summary_delta': 0.25}
                 zipped_args = zip(pose_directories, repeat(sequence_filters), repeat(sequence_weights),
-                                  repeat(args.designs_per_pose), repeat(args.protocol))
+                                  repeat(job.designs_per_pose), repeat(job.protocol))
                 # result_mp = zip(*SDUtils.mp_starmap(Ams.select_sequences, zipped_args, processes=job.cores))
                 result_mp = utils.mp_starmap(PoseDirectory.select_sequences, zipped_args, processes=job.cores)
                 # results - contains tuple of (PoseDirectory, design index) for each sequence
@@ -1527,40 +1536,35 @@ def main():
                 results = {pose_dir: designs for pose_dir, designs in zip(pose_directories, result_mp)}
             else:
                 results = {pose_dir: pose_dir.select_sequences(filters=sequence_filters, weights=sequence_weights,
-                                                               number=args.designs_per_pose, protocols=args.protocol)
+                                                               number=job.designs_per_pose, protocols=job.protocol)
                            for pose_dir in pose_directories}
             # Todo there is no sort here so the select_number isn't really doing anything
-            results = {pose_dir: designs for pose_dir, designs in list(results.items())[:args.select_number]}
+            results = {pose_dir: designs for pose_dir, designs in list(results.items())[:job.select_number]}
             loc_result = [(pose_dir, design) for pose_dir, designs in results.items() for design in designs]
-            # selected_poses_df = load_total_dataframe()
             save_poses_df = \
                 load_total_dataframe().loc[loc_result, :].droplevel(0).droplevel(0, axis=1).droplevel(0, axis=1)
 
-        logger.info(f'{len(loc_result)} designs were selected')
-
         # Format selected sequences for output
-        if not args.prefix:
-            args.prefix = f'{os.path.basename(os.path.splitext(location)[0])}_'
-        else:
-            args.prefix = f'{args.prefix}_'
-        if args.suffix:
-            args.suffix = f'_{args.suffix}'
-        outdir = os.path.join(os.path.dirname(program_root), f'{args.prefix}SelectedDesigns{args.suffix}')
-        # outdir_traj, outdir_res = os.path.join(outdir, 'Trajectories'), os.path.join(outdir, 'Residues')
-        putils.make_path(outdir)  # , os.makedirs(outdir_traj), os.makedirs(outdir_res)
-        if args.total and args.save_total:
+        if job.prefix == '':
+            job.prefix = f'{os.path.basename(os.path.splitext(location)[0])}_'
+
+        outdir = os.path.join(os.path.dirname(program_root), f'{job.prefix}SelectedDesigns{job.suffix}')
+        putils.make_path(outdir)
+
+        if job.total and job.save_total:
             total_df = os.path.join(outdir, 'TotalPosesTrajectoryMetrics.csv')
             df.to_csv(total_df)
             logger.info(f'Total Pose/Designs DataFrame was written to: {total_df}')
 
-        if save_poses_df is not None:  # Todo make work if DataFrame is empty...
-            if args.filter or args.weight:
-                new_dataframe = os.path.join(outdir, f'{utils.starttime}-{"Filtered" if args.filter else ""}'
-                                                     f'{"Weighted" if args.weight else ""}DesignMetrics.csv')
-            else:
-                new_dataframe = os.path.join(outdir, f'{utils.starttime}-DesignMetrics.csv')
-            save_poses_df.to_csv(new_dataframe)
-            logger.info(f'New DataFrame with selected designs was written to: {new_dataframe}')
+        logger.info(f'{len(save_poses_df)} poses were selected')
+        # if save_poses_df is not None:  # Todo make work if DataFrame is empty...
+        if job.filter or job.weight:
+            new_dataframe = os.path.join(outdir, f'{utils.starttime}-{"Filtered" if job.filter else ""}'
+                                                 f'{"Weighted" if job.weight else ""}DesignMetrics.csv')
+        else:
+            new_dataframe = os.path.join(outdir, f'{utils.starttime}-DesignMetrics.csv')
+        save_poses_df.to_csv(new_dataframe)
+        logger.info(f'New DataFrame with selected designs was written to: {new_dataframe}')
 
         logger.info(f'Relevant design files are being copied to the new directory: {outdir}')
         # Create new output of designed PDB's  # TODO attach the state to these files somehow for further SymDesign use
@@ -1590,7 +1594,7 @@ def main():
             terminate(exceptions=exceptions, output=False)
         else:
             # Format sequences for expression
-            args.output_file = os.path.join(outdir, f'{args.prefix}SelectedDesigns{args.suffix}.paths')
+            args.output_file = os.path.join(outdir, f'{job.prefix}SelectedDesigns{job.suffix}.paths')
             # pose_directories = list(results.keys())
             with open(args.output_file, 'w') as f:
                 f.write('%s\n' % '\n'.join(pose_dir.path for pose_dir in list(results.keys())))
@@ -1963,24 +1967,24 @@ def main():
             # Todo utilize errors
             error_file = \
                 write_sequences(codon_optimization_errors, csv=args.csv,
-                                file_name=os.path.join(outdir, f'{args.prefix}OptimizationErrorProteinSequences'
-                                                               f'{args.suffix}'))
+                                file_name=os.path.join(outdir, f'{job.prefix}OptimizationErrorProteinSequences'
+                                                               f'{job.suffix}'))
         # Write output sequences to fasta file
         seq_file = write_sequences(final_sequences, csv=args.csv,
-                                   file_name=os.path.join(outdir, f'{args.prefix}SelectedSequences{args.suffix}'))
+                                   file_name=os.path.join(outdir, f'{job.prefix}SelectedSequences{job.suffix}'))
         logger.info(f'Final Design protein sequences written to: {seq_file}')
         seq_comparison_file = \
             write_sequences(inserted_sequences, csv=args.csv,
                             file_name=os.path.join(outdir,
-                                                   f'{args.prefix}SelectedSequencesExpressionAdditions'
-                                                   f'{args.suffix}'))
+                                                   f'{job.prefix}SelectedSequencesExpressionAdditions'
+                                                   f'{job.suffix}'))
         logger.info(f'Final Expression sequence comparison to Design sequence written to: {seq_comparison_file}')
         # check for protein or nucleotide output
         if args.nucleotide:
             nucleotide_sequence_file = \
                 write_sequences(nucleotide_sequences, csv=args.csv,
-                                file_name=os.path.join(outdir, f'{args.prefix}SelectedSequencesNucleotide'
-                                                               f'{args.suffix}'))
+                                file_name=os.path.join(outdir, f'{job.prefix}SelectedSequencesNucleotide'
+                                                               f'{job.suffix}'))
             logger.info(f'Final Design nucleotide sequences written to: {nucleotide_sequence_file}')
     # # ---------------------------------------------------
     # elif job.module == 'status':  # -n number, -s stage, -u update
