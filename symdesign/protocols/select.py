@@ -17,9 +17,9 @@ def poses(pose_directories):
     if job.specification_file:  # Figure out poses from a specification file, filters, and weights
         loc_result = [(pose_directory, design) for pose_directory in pose_directories
                       for design in pose_directory.specific_designs]
-        df = protocols.load_total_dataframe(pose=True)
+        total_df = protocols.load_total_dataframe(pose=True)
         selected_poses_df = \
-            metrics.prioritize_design_indices(df.loc[loc_result, :], filter=job.filter, weight=job.weight,
+            metrics.prioritize_design_indices(total_df.loc[loc_result, :], filter=job.filter, weight=job.weight,
                                               protocol=job.protocol, function=job.weight_function)
         # Remove excess pose instances
         number_chosen = 0
@@ -39,13 +39,13 @@ def poses(pose_directories):
         # # convert selected_poses to PoseDirectory objects
         # selected_poses = [pose_directory for pose_directory in pose_directories if pose_dir_name in selected_poses]
     elif job.total:  # Figure out poses from file/directory input, filters, and weights
-        df = protocols.load_total_dataframe(pose=True)
+        total_df = protocols.load_total_dataframe(pose=True)
         if job.protocol:  # Todo adapt to protocol column not in Trajectories right now...
-            group_df = df.groupby(putils.protocol)
+            group_df = total_df.groupby(putils.protocol)
             df = pd.concat([group_df.get_group(x) for x in group_df.groups], axis=1,
                            keys=list(zip(group_df.groups, repeat('mean'))))
         else:
-            df = pd.concat([df], axis=1, keys=['pose', 'metric'])
+            df = pd.concat([total_df], axis=1, keys=['pose', 'metric'])
         # Figure out designs from dataframe, filters, and weights
         selected_poses_df = metrics.prioritize_design_indices(df, filter=job.filter, weight=job.weight,
                                                               protocol=job.protocol, function=job.weight_function)
@@ -73,10 +73,10 @@ def poses(pose_directories):
                             f'-d/--{flags.directory} with your command')
             exit(1)
 
-        df = pd.read_csv(job.dataframe, index_col=0, header=[0, 1, 2])
-        df.replace({False: 0, True: 1, 'False': 0, 'True': 1}, inplace=True)
+        total_df = pd.read_csv(job.dataframe, index_col=0, header=[0, 1, 2])
+        total_df.replace({False: 0, True: 1, 'False': 0, 'True': 1}, inplace=True)
 
-        selected_poses_df = metrics.prioritize_design_indices(df, filter=job.filter, weight=job.weight,
+        selected_poses_df = metrics.prioritize_design_indices(total_df, filter=job.filter, weight=job.weight,
                                                               protocol=job.protocol, function=job.weight_function)
         # Only drop excess columns as there is no MultiIndex, so no design in the index
         save_poses_df = selected_poses_df.droplevel(0, axis=1).droplevel(0, axis=1)
@@ -85,7 +85,7 @@ def poses(pose_directories):
                           for pose in save_poses_df.index.to_list()]
     else:  # Generate design metrics on the spot
         raise NotImplementedError('This functionality is currently broken')
-        selected_poses, selected_poses_df, df = [], pd.DataFrame(), pd.DataFrame()
+        selected_poses, selected_poses_df, total_df = [], pd.DataFrame(), pd.DataFrame()
         logger.debug('Collecting designs to sort')
         if job.metric == 'score':
             metric_design_dir_pairs = [(des_dir.score, des_dir.path) for des_dir in pose_directories]
@@ -123,12 +123,12 @@ def poses(pose_directories):
     #     exit()
 
     if job.total and job.save_total:
-        total_df = os.path.join(program_root, 'TotalPosesTrajectoryMetrics.csv')
-        df.to_csv(total_df)
-        logger.info(f'Total Pose/Designs DataFrame was written to: {total_df}')
+        total_df_filename = os.path.join(program_root, 'TotalPosesTrajectoryMetrics.csv')
+        total_df.to_csv(total_df_filename)
+        logger.info(f'Total Pose/Designs DataFrame was written to: {total_df_filename}')
 
     logger.info(f'{len(save_poses_df)} poses were selected')
-    if len(save_poses_df) != len(df):
+    if len(save_poses_df) != len(total_df):
         if job.filter or job.weight:
             new_dataframe = os.path.join(program_root, f'{utils.starttime}-{"Filtered" if job.filter else ""}'
                                                        f'{"Weighted" if job.weight else ""}PoseMetrics.csv')
