@@ -88,10 +88,10 @@ def cluster_poses(pose_directories: list[PoseDirectory]) -> \
         compositions: dict[tuple[str, ...], list[PoseDirectory]] = \
             group_compositions(pose_directories)
         if job.multi_processing:
-            results = utils.mp_map(cluster_transformations, compositions.values(), processes=job.cores)
+            results = utils.mp_map(cluster_pose_by_transformations, compositions.values(), processes=job.cores)
         else:
             for composition_group in compositions.values():
-                results.append(cluster_transformations(composition_group))
+                results.append(cluster_pose_by_transformations(composition_group))
 
         # Add all clusters to the pose_cluster_map
         for result in results:
@@ -291,34 +291,49 @@ def cluster_poses_by_value(identifier_pairs: Iterable[tuple[Any, Any]], values: 
     return clustered_poses
 
 
-def return_transform_pair_as_guide_coordinate_pair(transform1, transform2):
-    # make a blank set of guide coordinates for each incoming transformation
-    guide_coords = np.tile(np.array([[0., 0., 0.], [1., 0., 0.], [0., 1., 0.]]), (len(transform1['rotation']), 1, 1))
-    transformed_guide_coords1 = transform_coordinate_sets(guide_coords, **transform1)
-    transformed_guide_coords2 = transform_coordinate_sets(guide_coords, **transform2)
+def return_transform_group_as_concatenated_guide_coordinates(*transforms: dict[str: np.ndarray]) -> np.ndarray:
+    """For each incoming transformation, transform guide coordinates according to the specified transformations"""
+    # Make a blank set of guide coordinates for each incoming transformation
+    number_of_coordinate_values = 9
+    guide_coords = np.array([[0., 0., 0.], [1., 0., 0.], [0., 1., 0.]])
+    try:
+        allowed_keys = ['rotation', 'translation']
+        operation_lengths = []
+        for key in allowed_keys:
+            operation = transforms[0].get(key)
+            if operation:
+                operation_lengths.append(len(operation))
+        try:
+            tiled_length = max(operation_lengths)
+        except ValueError:  # operation_lengths is empty
+            raise KeyError(f'Must pass one of the values {" or ".join(allowed_keys)}')
 
-    return np.concatenate([transformed_guide_coords1.reshape(-1, 9), transformed_guide_coords2.reshape(-1, 9)], axis=1)
+        tiled_guide_coords = np.tile(guide_coords, (tiled_length, 1, 1))
+    except IndexError:  # transforms[0] failed
+        raise IndexError(f'No arguments passed for transforms')
+
+    transformed_guide_coords_sets = \
+        [transform_coordinate_sets(tiled_guide_coords, **transform).reshape(-1, number_of_coordinate_values)
+         for transform in transforms]
+
+    return np.concatenate(transformed_guide_coords_sets, axis=1)
 
 
-def cluster_transformation_pairs(transform1: dict[str, np.ndarray], transform2: dict[str, np.ndarray],
-                                 distance: float = 1., minimum_members: int = 2) -> \
-        tuple[sklearn.neighbors._unsupervised.NearestNeighbors, sklearn.cluster._dbscan.DBSCAN]:
-    #                              return_representatives=True):
-    """Cluster Pose conformations according to their specific transformation parameters to find Poses which occupy
-    essentially the same space
+def cluster_transformation_pairs(*transforms: dict[str, np.ndarray], distance: float = 1., minimum_members: int = 2) \
+        -> tuple[sklearn.neighbors._unsupervised.NearestNeighbors, sklearn.cluster._dbscan.DBSCAN]:
+    """Cluster a group of transformation parameters sets to find those which occupy essentially the same space
 
     Args:
-        transform1: First set of rotations/translations to be clustered
-            {'rotation': rot_array, 'translation': tx_array, 'rotation2': rot2_array, 'translation2': tx2_array}
-        transform2: Second set of rotations/translations to be clustered
-            {'rotation': rot_array, 'translation': tx_array, 'rotation2': rot2_array, 'translation2': tx2_array}
+        transforms: Group containing multiple sets of transformation operations where each transformation operation set
+            takes the form {'rotation': rot_array, 'translation': tx_array,
+                            'rotation2': rot2_array, 'translation2': tx2_array}
         distance: The distance to query neighbors in transformational space
         minimum_members: The minimum number of members in each cluster
     Returns:
         The sklearn tree with the calculated nearest neighbors, the DBSCAN clustering object
         Representative indices, DBSCAN cluster membership indices
     """
-    transformed_guide_coords = return_transform_pair_as_guide_coordinate_pair(transform1, transform2)
+    transformed_guide_coords = return_transform_group_as_concatenated_guide_coordinates(*transforms)
 
     # Create a tree structure describing the distances of all transformed points relative to one another
     nearest_neightbors_ball_tree = sklearn.neighbors.NearestNeighbors(algorithm='ball_tree', radius=distance)
@@ -372,23 +387,26 @@ def find_cluster_representatives(transform_tree: sklearn.neighbors._unsupervised
     return representative_transformation_indices, cluster.labels_
 
 
-# @handle_design_errors(errors=(DesignError, AssertionError))
-# @handle_errors(errors=(DesignError, ))
-def cluster_transformations(compositions: list[PoseDirectory]) -> dict[str | PoseDirectory, list[str | PoseDirectory]]:
+def cluster_pose_by_transformations(compositions: list[PoseDirectory], **kwargs) \
+        -> dict[str | PoseDirectory, list[str | PoseDirectory]]:
     """From a group of poses with matching protein composition, cluster the designs according to transformational
     parameters to identify the unique poses in each composition
 
     Args:
         compositions: The group of PoseDirectory objects to pull transformation data from
+    Keyword Args:
+        distance: float = 1. - The distance to query neighbors in transformational space
+        minimum_members: int = 2 - The minimum number of members in each cluster
     Returns:
         Cluster with representative pose as the key and matching poses as the values
     """
-    # format all transforms for the selected compositions
-    stacked_transforms = [pose_directory.pose.entity_transformations for pose_directory in compositions]
-    trans1_rot1, trans1_tx1, trans1_rot2, trans1_tx2 = zip(*[transform[0].values()
-                                                             for transform in stacked_transforms])
-    trans2_rot1, trans2_tx1, trans2_rot2, trans2_tx2 = zip(*[transform[1].values()
-                                                             for transform in stacked_transforms])
+    # Format transforms for the selected compositions
+    stacked_transforms1, stacked_transforms2 = list(zip(pose_directory.pose.entity_transformations
+                                                        for pose_directory in compositions))
+    trans1_rot1, trans1_tx1, trans1_rot2, trans1_tx2 = \
+        zip(*[transform.values() for transform in stacked_transforms1])
+    trans2_rot1, trans2_tx1, trans2_rot2, trans2_tx2 = \
+        zip(*[transform.values() for transform in stacked_transforms2])
 
     # Must add a new axis to translations so the operations are broadcast together in transform_coordinate_sets()
     transformation1 = {'rotation': np.array(trans1_rot1), 'translation': np.array(trans1_tx1)[:, np.newaxis, :],
@@ -397,28 +415,57 @@ def cluster_transformations(compositions: list[PoseDirectory]) -> dict[str | Pos
                        'rotation2': np.array(trans2_rot2), 'translation2': np.array(trans2_tx2)[:, np.newaxis, :]}
 
     # Find the representatives of the cluster based on minimal distance of each point to its nearest neighbors
+    return cluster_by_transformations(compositions, transformation1, transformation2, **kwargs)
+    # cluster_representative_indices, cluster_labels = \
+    #     find_cluster_representatives(*cluster_transformation_pairs(transformation1, transformation2, **kwargs))
+    #
+    # representative_labels = cluster_labels[cluster_representative_indices]
+    #
+    # # Pull out pose's from the input compositions group
+    # outlier = -1
+    # composition_map = \
+    #     {compositions[rep_idx]: [compositions[idx] for idx in np.flatnonzero(cluster_labels == rep_label).tolist()]
+    #      for rep_idx, rep_label in zip(cluster_representative_indices, representative_labels) if rep_label != outlier}
+    # # Add all outliers
+    # composition_map.update({compositions[idx]: [compositions[idx]]
+    #                         for idx in np.flatnonzero(cluster_labels == outlier).tolist()})
+    #
+    # return composition_map
+
+
+def cluster_by_transformations(*transforms: dict[str, np.ndarray], values: list[Any] = None, **kwargs) \
+        -> dict[Any, list[Any]]:
+    """From a set of objects with associated transformational parameters, identify and cluster the unique objects by
+    representatives and members
+
+    Args:
+        transforms: Group containing multiple sets of transformation operations where each transformation operation set
+            takes the form {'rotation': rot_array, 'translation': tx_array,
+                            'rotation2': rot2_array, 'translation2': tx2_array}
+        values: The group of objects to cluster
+    Keyword Args:
+        distance: float = 1. - The distance to query neighbors in transformational space
+        minimum_members: int = 2 - The minimum number of members in each cluster
+    Returns:
+        Clustered objects with representative as the key and members as the values
+    """
+    # Find the representatives of the cluster based on minimal distance of each point to its nearest neighbors
     # This section could be added to the Nanohedra docking routine
     cluster_representative_indices, cluster_labels = \
-        find_cluster_representatives(*cluster_transformation_pairs(transformation1, transformation2))
+        find_cluster_representatives(*cluster_transformation_pairs(*transforms, **kwargs))
 
     representative_labels = cluster_labels[cluster_representative_indices]
-    # pull out pose's from the input composition_designs groups (PoseDirectory)
-    # if return_pose_id:  # convert all DesignDirectories to pose-id's
-    #     # don't add the outliers now (-1 labels)
-    #     composition_map = \
-    #         {str(compositions[rep_idx]):
-    #             [str(compositions[idx]) for idx in np.flatnonzero(cluster_labels == rep_label).tolist()]
-    #          for rep_idx, rep_label in zip(cluster_representative_indices, representative_labels) if rep_label != -1}
-    #     # add the outliers as separate occurrences
-    #     composition_map.update({str(compositions[idx]): []
-    #                             for idx in np.flatnonzero(cluster_labels == -1).tolist()})
-    # else:  # return the PoseDirectory object
-    composition_map = \
-        {compositions[rep_idx]: [compositions[idx] for idx in np.flatnonzero(cluster_labels == rep_label).tolist()]
-         for rep_idx, rep_label in zip(cluster_representative_indices, representative_labels) if rep_label != -1}
-    composition_map.update({compositions[idx]: [] for idx in np.flatnonzero(cluster_labels == -1).tolist()})
 
-    return composition_map
+    # Sort out clustered transform_values from the input transform_values
+    outlier = -1
+    cluster_map = \
+        {values[rep_idx]: [values[idx] for idx in np.flatnonzero(cluster_labels == rep_label).tolist()]
+         for rep_idx, rep_label in zip(cluster_representative_indices, representative_labels)
+         if rep_label != outlier}
+    # Add all outliers
+    cluster_map.update({values[idx]: [values[idx]] for idx in np.flatnonzero(cluster_labels == outlier).tolist()})
+
+    return cluster_map
 
 
 def group_compositions(pose_directories: list[PoseDirectory]) -> dict[tuple[str, ...], list[PoseDirectory]]:
@@ -446,15 +493,16 @@ def group_compositions(pose_directories: list[PoseDirectory]) -> dict[tuple[str,
     return compositions
 
 
-def invert_cluster_map(cluster_map: dict[str | PoseDirectory, list[str | PoseDirectory]]):
+def invert_cluster_map(cluster_map: dict[Any, list[Any]]):
     """Return an inverted cluster map where the cluster members map to the representative
 
     Args:
         cluster_map: The standard pose_cluster_map format
     Returns:
-        An invert pose_cluster_map where the members are keys and the representative is the value
+        An inverted cluster_map where the members are keys and the representative is the value
     """
-    inverted_map = {pose: cluster_rep for cluster_rep, poses in cluster_map.items() for pose in poses}
-    inverted_map.update({cluster_rep: cluster_rep for cluster_rep in cluster_map})  # to add all outliers
+    inverted_map = {member: cluster_rep for cluster_rep, members in cluster_map.items() for member in members}
+    # Add all representatives
+    inverted_map.update({cluster_rep: cluster_rep for cluster_rep in cluster_map})
 
     return inverted_map

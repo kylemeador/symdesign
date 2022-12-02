@@ -230,7 +230,7 @@ def main():
                 for representative, members, in results.items():
                     print(f'{representative}\n\t%s' % '\n\t'.join(map(str, members)))
                 logger.info(f'Found {len(results)} unique clusters from {len(pose_directories)} pose inputs. '
-                            f'All clusters stored in {args.output_file}')
+                            f'All clusters wrote to: {args.output_file}')
                 logger.info('Each cluster above has one representative which identifies with each of the members. If '
                             'clustering was performed by entity_transformations or interface_residues, then the '
                             'representative is the most similar to all members. If clustering was performed by ialign, '
@@ -1211,7 +1211,7 @@ def main():
         terminate(results=results)  # , output_analysis=args.output)
     # ---------------------------------------------------
     elif job.module == flags.cluster_poses:
-        results = protocols.cluster.cluster_poses()
+        results = protocols.cluster.cluster_poses(pose_directories)
         terminate(results=results)
     # ---------------------------------------------------
     elif job.module == flags.select_poses:

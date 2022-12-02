@@ -34,6 +34,7 @@ from symdesign.structure.model import Pose, Model, get_matching_fragment_pairs_i
 from symdesign.structure.sequence import generate_mutations_from_reference, numeric_to_sequence, concatenate_profile, \
     pssm_as_array, MultipleSequenceAlignment
 from symdesign.structure.utils import chain_id_generator
+from symdesign import utils
 from symdesign.utils import z_score, rmsd_z_score, z_value_from_match_score, match_score_from_z_value, path as putils
 from symdesign.utils.SymEntry import SymEntry, get_rot_matrices, make_rotations_degenerate
 from symdesign.utils.symmetry import generate_cryst1_record, identity_matrix
@@ -1292,7 +1293,15 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
     else:
         _full_int_tx2 = None
 
-    # Define functions for removing indices from the active transformation arrays
+    # Define functions for making active transformation arrays and removing indices from them
+    def create_transformation_group() -> tuple[dict, dict]:
+        """Create the transformation mapping for each transformation in the current docking trajectory"""
+        return (
+            dict(rotation=full_rotation1, translation=None if full_int_tx1 is None else full_int_tx1[:, None, :],
+                 rotation2=set_mat1, translation2=None if full_ext_tx1 is None else full_ext_tx1[:, None, :]),
+            dict(rotation=full_rotation2, translation=None if full_int_tx2 is None else full_int_tx2[:, None, :],
+                 rotation2=set_mat2, translation2=None if full_ext_tx2 is None else full_ext_tx2[:, None, :])
+        )
 
     def remove_non_viable_indices_inverse(passing_indices: np.ndarray | list[int]):
         """Responsible for updating docking intermediate transformation parameters for inverse transform operations
@@ -1328,31 +1337,18 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
             full_ext_tx2 = full_ext_tx2[passing_indices]
 
     # Find the clustered transformations to expedite search of ASU clashing
-    # Todo
-    #  Can I use cluster.cluster_transformation_pairs distance graph to provide feedback on other aspects of the dock?
-    #  seems that I could use the distances to expedite clashing checks, especially for more time consuming expansion
-    #  checks such as the full material...
-
     if cluster_transforms:
         clustering_start = time.time()
+        # Todo
+        #  Can I use cluster.cluster_transformation_pairs distance graph to provide feedback on other aspects of the
+        #  dock? Seems that I could use the distances to expedite clashing checks, especially for more time consuming
+        #  expansion checks such as the full material...
         # Todo tune DBSCAN epsilon (distance) to be reflective of the data, should be related to radius in
         #  NearestNeighbors but smaller by some amount. Ideal amount would be the distance between two transformed
         #  guide coordinate sets of a similar tx and a 3 degree step of rotation.
         # Must add a new axis to translations so the operations are broadcast together in transform_coordinate_sets()
         transform_neighbor_tree, transform_cluster = \
-            protocols.cluster.cluster_transformation_pairs(dict(rotation=full_rotation1,
-                                                                translation=None if full_int_tx1 is None
-                                                                else full_int_tx1[:, None, :],
-                                                                rotation2=set_mat1,
-                                                                translation2=None if full_ext_tx1 is None
-                                                                else full_ext_tx1[:, None, :]),
-                                                           dict(rotation=full_rotation2,
-                                                                translation=None if full_int_tx2 is None
-                                                                else full_int_tx2[:, None, :],
-                                                                rotation2=set_mat2,
-                                                                translation2=None if full_ext_tx2 is None
-                                                                else full_ext_tx2[:, None, :]),
-                                                           minimum_members=min_matched)
+            protocols.cluster.cluster_transformation_pairs(*create_transformation_group(), minimum_members=min_matched)
         # cluster_representative_indices, cluster_labels = \
         #     find_cluster_representatives(transform_neighbor_tree, transform_cluster)
         del transform_neighbor_tree
@@ -2173,6 +2169,25 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
 
     # Capture all the pose_ids from the transformation dictionary
     pose_ids = list(pose_transformations.keys())
+    # Cluster by perturbation if perturb_dof:
+    if total_perturbation_size > 1:
+        cluster_type_str = 'ByPerturbation'
+        seed_transforms = utils.remove_duplicates([pose_id.split(perturbation_identifier)[0] for pose_id in pose_ids])
+        cluster_map = {seed_transform: pose_ids[idx * total_perturbation_size:
+                                                (idx+1) * total_perturbation_size]
+                       for idx, seed_transform in enumerate(seed_transforms)}
+        # for pose_id in pose_ids:
+        #     seed_transform, *perturbation = pose_id.split(perturbation_identifier)
+        #     clustered_transformations[seed_transform].append(pose_id)
+    else:
+        cluster_type_str = 'ByTransformation'
+        cluster_map = protocols.cluster.cluster_by_transformations(*create_transformation_group(), values=pose_ids)
+
+    cluster_output_file = utils.pickle_object(cluster_map,
+                                              name=putils.default_clustered_pose_file.format('', cluster_type_str),
+                                              out_path=project_dir)
+    logger.info(f'Found {len(cluster_map)} unique clusters from {len(pose_ids)} pose inputs. '
+                f'All clusters wrote in {cluster_output_file}')
 
     def add_fragments_to_pose(overlap_ghosts: list[int] = None, overlap_surf: list[int] = None,
                               sorted_z_scores: np.ndarray = None):
