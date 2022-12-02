@@ -718,6 +718,7 @@ class SequenceProfile(ABC):
         self.evolutionary_profile = {}  # position specific scoring matrix
         self.fragment_map = {}  # fragment information
         self.fragment_profile = None  # fragment specific scoring matrix
+        self._fragment_profile = []  # hidden fragment specific scoring matrix
         self.h_fields = None
         self.j_couplings = None
         self.msa_file = None
