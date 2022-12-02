@@ -287,11 +287,12 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
     job = symjob.job_resources_factory.get()
     sym_entry: SymEntry = job.sym_entry
     """The SymmetryEntry object describing the material"""
+    program_root = job.program_root
     entry_string = f'NanohedraEntry{sym_entry.entry_number}'
     building_blocks = '-'.join(model.name for model in models)
     entry_and_building_blocks = f'{entry_string}_{building_blocks}_{putils.pose_directory}'
-    out_dir = os.path.join(job.projects, entry_and_building_blocks)
-    putils.make_path(out_dir)
+    project_dir = os.path.join(job.projects, entry_and_building_blocks)
+    putils.make_path(project_dir)
 
     euler_lookup = job.fragment_db.euler_lookup
     # This is used in clustering algorithms to define an observation outside the found clusters
@@ -349,7 +350,7 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
     # Todo reimplement this feature to write a log to the Project directory
     # # Setup logger
     # if logger is None:
-    #     log_file_path = os.path.join(out_dir, f'{building_blocks}_log.txt')
+    #     log_file_path = os.path.join(project_dir, f'{building_blocks}_log.txt')
     # else:
     #     try:
     #         log_file_path = getattr(logger.handlers[0], 'baseFilename', None)
@@ -590,25 +591,25 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
     # Implemented for Todd to work on C1 instances
     if job.only_write_frag_info:
         # Whether to write fragment information to a directory (useful for fragment based docking w/o Nanohedra)
-        guide_file_ghost = os.path.join(out_dir, f'{model1.name}_ghost_coords.txt')
+        guide_file_ghost = os.path.join(project_dir, f'{model1.name}_ghost_coords.txt')
         with open(guide_file_ghost, 'w') as f:
             for coord_group in ghost_guide_coords1.tolist():
                 f.write('%s\n' % ' '.join('%f,%f,%f' % tuple(coords) for coords in coord_group))
-        guide_file_ghost_idx = os.path.join(out_dir, f'{model1.name}_ghost_coords_index.txt')
+        guide_file_ghost_idx = os.path.join(project_dir, f'{model1.name}_ghost_coords_index.txt')
         with open(guide_file_ghost_idx, 'w') as f:
             f.write('%s\n' % '\n'.join(map(str, ghost_j_indices1.tolist())))
-        guide_file_ghost_res_num = os.path.join(out_dir, f'{model1.name}_ghost_coords_residue_number.txt')
+        guide_file_ghost_res_num = os.path.join(project_dir, f'{model1.name}_ghost_coords_residue_number.txt')
         with open(guide_file_ghost_res_num, 'w') as f:
             f.write('%s\n' % '\n'.join(map(str, ghost_residue_numbers1.tolist())))
 
-        guide_file_surf = os.path.join(out_dir, f'{model2.name}_surf_coords.txt')
+        guide_file_surf = os.path.join(project_dir, f'{model2.name}_surf_coords.txt')
         with open(guide_file_surf, 'w') as f:
             for coord_group in surf_guide_coords2.tolist():
                 f.write('%s\n' % ' '.join('%f,%f,%f' % tuple(coords) for coords in coord_group))
-        guide_file_surf_idx = os.path.join(out_dir, f'{model2.name}_surf_coords_index.txt')
+        guide_file_surf_idx = os.path.join(project_dir, f'{model2.name}_surf_coords_index.txt')
         with open(guide_file_surf_idx, 'w') as f:
             f.write('%s\n' % '\n'.join(map(str, surf_i_indices2.tolist())))
-        guide_file_surf_res_num = os.path.join(out_dir, f'{model2.name}_surf_coords_residue_number.txt')
+        guide_file_surf_res_num = os.path.join(project_dir, f'{model2.name}_surf_coords_residue_number.txt')
         with open(guide_file_surf_res_num, 'w') as f:
             f.write('%s\n' % '\n'.join(map(str, surf_residue_numbers2.tolist())))
 
@@ -625,12 +626,12 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
                 residue_number = frags[0].number
                 write_fragment_pairs_as_accumulating_states(
                     ghost_frags_by_residue1[idx][start_slice:number_of_fragments:step_size],
-                    os.path.join(out_dir, f'{model1.name}_{residue_number}_paired_frags_'
-                                          f'{start_slice}:{number_of_fragments}:{visualize_number}.pdb'))
+                    os.path.join(project_dir, f'{model1.name}_{residue_number}_paired_frags_'
+                                              f'{start_slice}:{number_of_fragments}:{visualize_number}.pdb'))
         # write_fragment_pairs_as_accumulating_states(ghost_frags_by_residue1[3][20:40],
-        #                                             os.path.join(out_dir, f'{model1.name}_frags4_{20}:{40}.pdb'))
+        #                                             os.path.join(project_dir, f'{model1.name}_frags4_{20}:{40}.pdb'))
         # write_fragment_pairs_as_accumulating_states(ghost_frags_by_residue1[5][20:40],
-        #                                             os.path.join(out_dir, f'{model1.name}_frags6_{20}:{40}.pdb'))
+        #                                             os.path.join(project_dir, f'{model1.name}_frags6_{20}:{40}.pdb'))
         raise RuntimeError(f'Suspending operation of {model1.name}/{model2.name} after write')
 
     ij_type_match_lookup_table = compute_ij_type_lookup(ghost_j_indices1, surf_i_indices2)
@@ -1252,7 +1253,7 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
     if not starting_transforms:  # There were no successful transforms
         logger.warning(f'No optimal translations found. Terminating {building_blocks} docking')
         return []
-        # ------------------ TERM ------------------------
+        # ------------------ TERMINATE DOCKING ------------------------
     else:
         logger.info(f'Initial optimal translation search found {starting_transforms} total transforms '
                     f'in {time.time() - init_translation_time_start:8f}s')
@@ -1367,7 +1368,7 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
         if not number_of_dense_transforms:  # There were no successful transforms
             logger.warning(f'No viable transformations found. Terminating {building_blocks} docking')
             return []
-        # ------------------ TERM ------------------------
+        # ------------------ TERMINATE DOCKING ------------------------
         # Update the transformation array and counts with the sufficiently_dense_indices
         # Remove non-viable transforms by indexing sufficiently_dense_indices
         remove_non_viable_indices_inverse(sufficiently_dense_indices)
@@ -1483,7 +1484,7 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
     if not number_non_clashing_transforms:  # There were no successful asus that don't clash
         logger.warning(f'No viable asymmetric units. Terminating {building_blocks} docking')
         return []
-    # ------------------ TERM ------------------------
+    # ------------------ TERMINATE DOCKING ------------------------
     # Remove non-viable transforms by indexing asu_is_viable_indices
     remove_non_viable_indices_inverse(asu_is_viable_indices)
 
@@ -1740,7 +1741,7 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
     if number_viable_pose_interfaces == 0:  # There were no successful transforms
         logger.warning(f'No interfaces have enough fragment matches. Terminating {building_blocks} docking')
         return []
-    # ------------------ TERM ------------------------
+    # ------------------ TERMINATE DOCKING ------------------------
     logger.info(f'Found {number_viable_pose_interfaces} poses with viable interfaces')
     # Generate the Pose for output handling
     entity_names = [entity.name for model in models for entity in model.entities]
@@ -1910,7 +1911,7 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
         if number_passing_symmetric_clashes == 0:  # There were no successful transforms
             logger.warning(f'No viable poses without symmetric clashes. Terminating {building_blocks} docking')
             return []
-        # ------------------ TERM ------------------------
+        # ------------------ TERMINATE DOCKING ------------------------
         # Update the passing_transforms
         # passing_transforms contains all the transformations that are still passing
         # index the previously passing indices (sufficiently_dense_indices) and (asu_is_viable_indices) and (interface_is_viable)
@@ -2129,6 +2130,8 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
     #     full_ext_tx_sum = full_ext_tx2 - full_ext_tx1
 
     # Save all pose transformation information
+    perturbation_identifier = '-p_'
+
     def create_pose_id(_idx: int) -> str:
         """Create a PoseID from the sampling conditions
 
@@ -2138,15 +2141,17 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
             The PoseID with format building_blocks-degeneracy-rotation-transform-perturb if perturbation used
                 Ex: '****_#-****_#-d_#_#-r_#_#-t_#-p_#' OR '****_#-****_#-d_#_#-r_#_#-t_#' (no perturbation)
         """
-        transform_idx = _idx // total_perturbation_size
+        transform_idx, perturb_idx = divmod(_idx, total_perturbation_size)
+        if total_perturbation_size > 1:
+            perturb_str = f'-p_{perturb_idx + 1}'  # f'{perturbation_identifier}{perturb_idx + 1}'
+        else:
+            perturb_str = ''
+
         _pose_id = f'd_{"_".join(map(str, degen_counts[transform_idx]))}' \
                    f'-r_{"_".join(map(str, rot_counts[transform_idx]))}' \
                    f'-t_{tx_counts[transform_idx]}'  # translation idx
-        if total_perturbation_size > 1:
-            # perturb_idx = idx % total_perturbation_size
-            _pose_id = f'{_pose_id}-p_{_idx%total_perturbation_size + 1}'
 
-        return f'{building_blocks}-{_pose_id}'
+        return f'{building_blocks}-{_pose_id}{perturb_str}'
 
     # Todo move after job.dock.score tabulation
     pose_transformations = {}
@@ -3413,15 +3418,15 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
         trajectory_models = Models()
 
     # Define functions for outputting docked poses
-    def output_pose(_out_dir: AnyStr, _pose_id: AnyStr, uc_dimensions: np.ndarray = None):
+    def output_pose(_pose_id: AnyStr, uc_dimensions: np.ndarray = None):
         """Format the current Pose for output using the job parameters
 
         Args:
-            _out_dir: The directory to write files
             _pose_id: The particular identifier for the pose
             uc_dimensions: If this is a lattice, the crystal dimensions
         """
-        out_path = os.path.join(_out_dir, _pose_id)
+        # _out_dir: The directory to write files
+        out_path = os.path.join(project_dir, _pose_id)
         putils.make_path(out_path)
 
         # Set the ASU, then write to a file
@@ -3487,7 +3492,7 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
             if sym_entry.unit_cell:
                 logger.warning('No unit cell dimensions applicable to the trajectory file.')
 
-            trajectory_models.write(out_path=os.path.join(out_dir, 'trajectory_oligomeric_models.pdb'),
+            trajectory_models.write(out_path=os.path.join(project_dir, 'trajectory_oligomeric_models.pdb'),
                                     oligomer=True)
 
     # Get metrics for each Pose
@@ -3497,7 +3502,7 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
     # all_pose_divergence = []
     # all_probabilities = {}
     fragment_profile_frequencies = []
-    pose_paths = []
+    # pose_paths = []
     nan_blank_data = list(repeat(np.nan, pose_length))
     for idx, design_id in enumerate(design_ids):
         # Add the next set of coordinates
@@ -3513,7 +3518,8 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
         #                           all_passing_z_scores[idx])
 
         if job.output:
-            pose_paths.append(output_pose(out_dir, design_id))
+            output_pose(design_id)
+            # pose_paths.append(output_pose(design_id))
 
         # Reset the fragment_map and fragment_profile for each Entity before calculate_fragment_profile
         for entity in pose.entities:
