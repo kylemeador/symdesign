@@ -45,12 +45,12 @@ possible_symmetries = {'I32': 'I', 'I52': 'I', 'I53': 'I', 'T32': 'T', 'T33': 'T
 def unpickle(file_name: AnyStr):  # , protocol=pickle.HIGHEST_PROTOCOL):
     """Unpickle (deserialize) and return a python object located at filename"""
     if '.pkl' not in file_name and '.pickle' not in file_name:
-        file_name = '%s.pkl' % file_name
+        file_name = f'{file_name}.pkl'
     try:
         with open(file_name, 'rb') as serial_f:
             new_object = load(serial_f)
     except EOFError as ex:
-        raise ValueError('The object serialized at location %s couldn\'t be accessed. No data present!' % file_name)
+        raise ValueError(f"The object serialized at location {file_name} couldn't be accessed. No data present!")
 
     return new_object
 

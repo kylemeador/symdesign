@@ -271,54 +271,6 @@ class PoseDirectory:
 
             putils.make_path(self.path, condition=self.job.construct_pose)
 
-            # oligomer_names = list(map(str.lower, path_components[-4].split('_')))
-            # self.entity_names = [f'{name}_1' for name in oligomer_names]  # assumes the entity is the first
-
-            # if self.job.construct_pose:
-            #     if not path.exists(path.join(self.path, putils.pose_file)):
-            #         shutil.copy(self.pose_file, self.path)
-            #         shutil.copy(self.frag_file, self.path)
-            #     self.info['nanohedra'] = True
-            #     self.info['sym_entry_specification'] = self.sym_entry.entry_number, self.sym_entry.sym_map
-            #     self.pose_transformation = self.retrieve_pose_metrics_from_file()
-            #     self.info['oligomer_names'] = self.oligomer_names
-            #     self.info['entity_names'] = self.entity_names
-            #     self.pickle_info()  # save this info on the first copy so that we don't have to construct again
-        # else:
-        #     # self.composition = None  # building_blocks (4ftd_5tch)
-        #     # search for serialized_info using the source_path temporarily
-        #     self.initialized = True if path.exists(self.serialized_info) else False
-        #     if self.initialized:  # PoseDirectory already initialized
-        #         self.name = path.splitext(path.basename(self.source_path))[0]
-        #         # self.initialized = True
-        #         self.path = self.source_path
-        #         self.project_designs = path.dirname(self.path)
-        #         self.projects = path.dirname(self.project_designs)
-        #         self.source = None
-        #     else:  # if '.pdb' in self.source_path:  # Set up PoseDirectory from input initially
-        #         # self.initialized = False
-        #         self.source = self.source_path
-        #         if self.job.output_to_directory:
-        #             self.projects = ''
-        #             self.project_designs = ''
-        #             self.path = self.job.program_root  # /output_directory<- self.path /design.pdb
-        #         else:
-        #             self.projects = path.join(self.job.program_root, putils.projects)
-        #             self.project_designs = \
-        #                 path.join(self.projects, f'{self.source_path.split(os.sep)[-2]}_{putils.pose_directory}')
-        #             self.path = path.join(self.project_designs, self.name)
-        #             # ^ /program_root/projects/project/design<- self.path /design.pdb
-        #             # putils.make_path(self.projects)
-        #             # putils.make_path(self.project_designs)
-        #             putils.make_path(self.path)
-        #             # copy the source file to the PoseDirectory for record keeping...
-        #             shutil.copy(self.source_path, self.path)
-        #         # save the SymEntry initialization key in the state
-        #         self.info['sym_entry_specification'] = self.sym_entry.entry_number, self.sym_entry.sym_map
-        #
-        #     self.pose_file = path.join(self.path, putils.pose_file)
-        #     self.frag_file = path.join(self.path, putils.frag_dir, putils.frag_text_file)
-
         # PoseDirectory path attributes. Set after finding correct path
         self.log_path: str | Path = os.path.join(self.path, f'{self.name}.log')
         self.designs: str | Path = os.path.join(self.path, putils.designs)

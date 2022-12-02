@@ -95,8 +95,8 @@ if __name__ == '__main__':
                     print('Failed detection of Rosetta environmental variable = %s' % ', '.join(
                         rosetta_variable_dictionary[i] for i in rosetta_variable_dictionary))
                     print('For setup to be successful, the location of your Rosetta install needs to be accessed. It is'
-                          ' recommended to modify your shell to include an environmental variable \'ROSETTA\' (accessed'
-                          ' by \'$ROSETTA\'), leading to the \'main\' directory of Rosetta.')
+                          ' recommended to modify your shell to include an environmental variable "ROSETTA" (accessed'
+                          ' by "$ROSETTA"), leading to the "main" directory of Rosetta.')
                     choice2 = input('If you have one, please enter it below or reply N to set one up.\nInput:')
                     choice2 = choice2.lstrip('$')
                     if choice2.strip() == 'N':

@@ -345,7 +345,7 @@ class JobResources:
         self.allow_multiple_poses = kwargs.get('allow_multiple_poses')
         self.tag_entities = kwargs.get(putils.tag_entities)
         # self.metric = kwargs.get('metric')
-        self.specification_file = kwargs.get('specification_file')
+        self.specification_file = kwargs.get(putils.specification_file)
         self.dataframe = kwargs.get('dataframe')
 
         # Output flags
@@ -389,6 +389,7 @@ class JobResources:
         else:
             self.construct_pose = True
 
+        # Prediction flags
         self.predict = Predict.from_flags(**kwargs)
 
         # Clustering flags

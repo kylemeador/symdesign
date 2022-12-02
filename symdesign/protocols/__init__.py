@@ -20,7 +20,7 @@ analysis = protocols.PoseDirectory.interface_design_analysis
 nanohedra = fragdock.fragment_dock
 cluster_poses = cluster.cluster_poses
 select_poses = select.poses
-select_sequences = select.sequences
+# select_sequences = select.sequences
 
 
 def load_total_dataframe(pose_directories: Iterable[protocols.PoseDirectory], pose: bool = False) -> pd.DataFrame:
