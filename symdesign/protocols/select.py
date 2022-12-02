@@ -137,80 +137,90 @@ def poses(pose_directories):
         save_poses_df.to_csv(new_dataframe)
         logger.info(f'New DataFrame with selected poses was written to: {new_dataframe}')
 
+    # # Select by clustering analysis
+    # if job.cluster:
     # Sort results according to clustered poses if clustering exists
-    if job.cluster_map:
-        cluster_map = job.cluster_map
-    else:
-        cluster_map = \
-            os.path.join(job.clustered_poses, putils.default_clustered_pose_file.format(utils.starttime, location))
+    if job.cluster.map:
+        if os.path.exists(job.cluster.map):
+            cluster_map = utils.unpickle(job.cluster.map)
+        else:
+            raise FileNotFoundError(f'No --{flags.cluster_map} "{job.cluster.map}" file was found')
 
-    if os.path.exists(cluster_map):
-        pose_cluster_map = utils.unpickle(cluster_map)
-    else:  # Try to generate the cluster_map
-        logger.info(f'No cluster pose map was found at {cluster_map}. Clustering similar poses may eliminate '
-                    f'redundancy from the final design selection. To cluster poses broadly, '
-                    f'run "{putils.program_command} {flags.cluster_poses}"')
-        while True:
-            # Todo add option to provide the path to an existing file
-            confirm = input(f'Would you like to {flags.cluster_poses} on the subset of designs '
-                            f'({len(selected_poses)}) located so far? [y/n]{input_string}')
-            if confirm.lower() in bool_d:
-                break
-            else:
-                print(f'{invalid_string} {confirm} is not a valid choice')
-
-        pose_cluster_map: dict[str | PoseDirectory, list[str | PoseDirectory]] = {}
-        # {pose_string: [pose_string, ...]} where key is representative, values are matching designs
-        # OLD -> {composition: {pose_string: cluster_representative}, ...}
-
-        if bool_d[confirm.lower()] or confirm.isspace():  # The user wants to separate poses
-            compositions: dict[tuple[str, ...], list[PoseDirectory]] = \
-                protocols.cluster.group_compositions(selected_poses)
-            if job.multi_processing:
-                mp_results = utils.mp_map(protocols.cluster.cluster_pose_by_transformations, compositions.values(),
-                                          processes=job.cores)
-                for result in mp_results:
-                    pose_cluster_map.update(result.items())
-            else:
-                for composition_group in compositions.values():
-                    pose_cluster_map.update(protocols.cluster.cluster_pose_by_transformations(composition_group))
-
-            pose_cluster_file = utils.pickle_object(pose_cluster_map, name=cluster_map, out_path='')
-            logger.info(f'Found {len(pose_cluster_map)} unique clusters from {len(pose_directories)} pose inputs. '
-                        f'All clusters stored in {pose_cluster_file}')
-
-    if pose_cluster_map:
-        pose_cluster_membership_map = protocols.cluster.invert_cluster_map(pose_cluster_map)
-        pose_clusters_found, pose_not_found = {}, []
-        # Convert all the selected poses to their string representation
-        # Todo this assumes the pose_cluster_map was not saved with job.as_object
-        for idx, pose_directory in enumerate(map(str, selected_poses)):
-            cluster_membership = pose_cluster_membership_map.get(pose_directory, None)
-            if cluster_membership:
-                if cluster_membership not in pose_clusters_found:
-                    # Include as this pose hasn't been identified
-                    pose_clusters_found[cluster_membership] = [pose_directory]
-                else:
-                    # This cluster has already been found, and it was identified again. Report and only
-                    # include the highest ranked pose in the output as it provides info on all occurrences
-                    pose_clusters_found[cluster_membership].append(pose_directory)
-            else:
-                pose_not_found.append(pose_directory)
-
-        # Todo report the clusters and the number of instances
-        final_poses = [members[0] for members in pose_clusters_found.values()]
-        if pose_not_found:
-            logger.warning(f"Couldn't locate the following poses:\n\t%s\nWas {flags.cluster_poses} only run on a "
-                           'subset of the poses that were selected? Adding all of these to your final poses...'
-                           % '\n\t'.join(pose_not_found))
-            final_poses.extend(pose_not_found)
-        logger.info(f'Found {len(final_poses)} poses after clustering')
-    else:
+        final_poses = select_from_cluster_map(selected_poses, cluster_map, number=job.cluster.number)
+        logger.info(f'Selected {len(final_poses)} poses after clustering')
+    else:  # Try to generate the cluster_map?
+        # raise utils.InputError(f'No --{flags.cluster_map} was provided. To cluster poses, specify:'
+        logger.info(f'No {flags.cluster_map} was provided. To cluster poses, specify:'
+                    f'"{putils.program_command} {flags.cluster_poses}" or '
+                    f'"{putils.program_command} {flags.protocol} '
+                    f'--{flags.modules} {flags.cluster_poses} {flags.select_poses}')
         logger.info('Grabbing all selected poses')
         final_poses = selected_poses
+        # cluster_map: dict[str | protocols.PoseDirectory, list[str | protocols.PoseDirectory]] = {}
+        # # {pose_string: [pose_string, ...]} where key is representative, values are matching designs
+        # # OLD -> {composition: {pose_string: cluster_representative}, ...}
+        # compositions: dict[tuple[str, ...], list[protocols.PoseDirectory]] = \
+        #     protocols.cluster.group_compositions(selected_poses)
+        # if job.multi_processing:
+        #     mp_results = utils.mp_map(protocols.cluster.cluster_pose_by_transformations, compositions.values(),
+        #                               processes=job.cores)
+        #     for result in mp_results:
+        #         cluster_map.update(result.items())
+        # else:
+        #     for composition_group in compositions.values():
+        #         cluster_map.update(protocols.cluster.cluster_pose_by_transformations(composition_group))
+        #
+        # cluster_map_file = \
+        #     os.path.join(job.clustered_poses, putils.default_clustered_pose_file.format(utils.starttime, location))
+        # pose_cluster_file = utils.pickle_object(cluster_map, name=cluster_map_file, out_path='')
+        # logger.info(f'Found {len(cluster_map)} unique clusters from {len(pose_directories)} pose inputs. '
+        #             f'All clusters stored in {pose_cluster_file}')
+    # else:
+    #     logger.info('Grabbing all selected poses')
+    #     final_poses = selected_poses
 
     if len(final_poses) > job.select_number:
         final_poses = final_poses[:job.select_number]
         logger.info(f'Found {len(final_poses)} poses after applying your select_number selection criteria')
 
     return final_poses
+
+
+def select_from_cluster_map(selected_members: Iterable[Any], cluster_map: dict[Any, list[Any]], number: int = 1) \
+        -> list[Any]:
+    """
+
+    Args:
+        cluster_map: A mapping of cluster representatives to their members
+        selected_members: A sorted list of members that are members of the cluster_map
+        number: The number of members to select
+    Returns:
+        The selected_members, trimmed and retrieved according to cluster_map membership
+    """
+    membership_representative_map = protocols.cluster.invert_cluster_map(cluster_map)
+    representative_found: dict[Any, list[Any]] = {}
+    not_found = []
+    for idx, member in enumerate(selected_members):
+        cluster_representative = membership_representative_map.get(member, None)
+        if cluster_representative:
+            if cluster_representative not in representative_found:
+                # Include. This representative hasn't been identified
+                representative_found[cluster_representative] = [member]
+            else:
+                # This cluster has already been found, and it was identified again. Report and only
+                # include the highest ranked pose in the output as it provides info on all occurrences
+                representative_found[cluster_representative].append(member)
+        else:
+            not_found.append(member)
+
+    final_members = []
+    for members in representative_found.values():
+        final_members.extend(members[:number])
+
+    if not_found:
+        logger.warning(f"Couldn't locate the following members:\n\t%s\nAdding all of these to your selection..." %
+                       '\n\t'.join(not_found))
+        # 'Was {flags.cluster_poses} only run on a subset of the poses that were selected?
+        final_members.extend(not_found)
+
+    return final_members

@@ -2213,15 +2213,19 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
         # for pose_id in pose_ids:
         #     seed_transform, *perturbation = pose_id.split(perturbation_identifier)
         #     clustered_transformations[seed_transform].append(pose_id)
+
+        # Set the number of poses to cluster equal to the sqrt of the serach area
+        job.cluster.number = math.sqrt(total_perturbation_size)
     else:
         cluster_type_str = 'ByTransformation'
         cluster_map = protocols.cluster.cluster_by_transformations(*create_transformation_group(), values=pose_ids)
 
-    cluster_output_file = utils.pickle_object(cluster_map,
-                                              name=putils.default_clustered_pose_file.format('', cluster_type_str),
-                                              out_path=project_dir)
+    # cluster_output_file
+    job.cluster.map = utils.pickle_object(cluster_map,
+                                          name=putils.default_clustered_pose_file.format('', cluster_type_str),
+                                          out_path=project_dir)
     logger.info(f'Found {len(cluster_map)} unique clusters from {len(pose_ids)} pose inputs. '
-                f'All clusters wrote in {cluster_output_file}')
+                f'All clusters wrote to {job.cluster.map}')
 
     def add_fragments_to_pose(overlap_ghosts: list[int] = None, overlap_surf: list[int] = None,
                               sorted_z_scores: np.ndarray = None):

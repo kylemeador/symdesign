@@ -58,6 +58,9 @@ skip_sequence_generation = 'skip_sequence_generation'
 interface_to_alanine = 'interface_to_alanine'
 metrics = 'metrics'
 increment_chains = 'increment_chains'
+number = 'number'
+nucleotide = 'nucleotide'
+
 design_arguments = {
     ignore_clashes, ignore_pose_clashes, ignore_symmetric_clashes, method, evolution_constraint, hbnet,
     number_of_trajectories, structure_background, scout, term_constraint, consensus, ca_only, temperatures,
@@ -70,6 +73,9 @@ dock_arguments = {
 }
 predict_arguments = {
     method
+}
+cluster_arguments = {
+    'as_objects', 'map', 'mode', number
 }
 
 
@@ -532,15 +538,22 @@ nanohedra_mutual2_arguments = {
     ('-Q2', f'--{query_codes2}'): query_codes_kwargs
 }
 # ---------------------------------------------------
+cluster_map_args = ('-c', f'--{cluster_map}')
+cluster_map_kwargs = dict(type=os.path.abspath, dest='map', metavar=ex_path('TIMESTAMP-ClusteredPoses-LOCATION.pkl'),
+                          help='The location of a serialized file containing spatially\nor interfacial '
+                               'clustered poses')
+number_args = ('-n', f'--{number}')  # '--select-number')
 cluster_poses_help = 'Cluster all poses by their spatial or interfacial similarity. This is\nuseful to identify ' \
                      'conformationally flexible docked configurations'
 parser_cluster = {cluster_poses: dict(description=cluster_poses_help, help=cluster_poses_help)}
 cluster_poses_arguments = {
-    ('-m', '--mode'): dict(type=str.lower, choices=['ialign', 'rmsd', 'transform'], metavar='', default='transform',
-                           help='Which type of clustering should be performed?'
-                                '\nChoices=%(choices)s\nDefault=%(default)s'),
     ('--as-objects',): dict(action='store_true', help='Whether to store the resulting pose cluster file as '
                                                       'PoseDirectory objects\nDefault stores as pose IDs'),
+    ('--mode',): dict(type=str.lower, choices={'ialign', 'rmsd', 'transform'}, metavar='', default='transform',
+                      help='Which type of clustering should be performed?'
+                           '\nChoices=%(choices)s\nDefault=%(default)s'),
+    number_args + (f'--c-{number}',):
+        dict(type=int, default=1, metavar='int', help='The number of cluster members to return'),
     output_file_args: dict(type=str,
                            help='Name of the output .pkl file containing pose clusters. Will be saved to the'
                                 f' {data.title()} folder of the output.'
@@ -813,9 +826,7 @@ parser_input_group = dict(title=f'{"_" * len(input_title)}\n{input_title}',
                           description=f'\nSpecify where/which poses should be included in processing\n'
                                       f'{directory_needed}')
 input_arguments = {
-    ('-c', f'--{cluster_map}'): dict(type=os.path.abspath, metavar=ex_path('TIMESTAMP-ClusteredPoses-LOCATION.pkl'),
-                                     help='The location of a serialized file containing spatially\nor interfacial '
-                                          'clustered poses'),
+    cluster_map_args: cluster_map_kwargs,
     ('-df', f'--{dataframe}'): dict(type=os.path.abspath, metavar=ex_path('Metrics.csv'),
                                     help=f'A DataFrame created b {program_name} analysis containing\npose info. File is'
                                          ' output in .csv format'),
@@ -1159,11 +1170,13 @@ for parser_name, parser_kwargs in input_parsers.items():
 
 # Separate the provided arguments for modules or overall program arguments to into flags namespaces
 design = {}
-"""Contains all the arguments used in design and their default parameters"""
+"""Contains all the arguments and their default parameters used in design"""
 dock = {}
-"""Contains all the arguments used in docking and their default parameters"""
+"""Contains all the arguments and their default parameters used in docking"""
 predict = {}
-"""Contains all the arguments used in structure prediction and their default parameters"""
+"""Contains all the arguments and their default parameters used in structure prediction"""
+cluster = {}
+"""Contains all the arguments and their default parameters used in clustering Poses"""
 for group in parser._action_groups:
     for arg in group._group_actions:
         if isinstance(arg, argparse._SubParsersAction):  # We have a sup parser, recurse
@@ -1176,6 +1189,8 @@ for group in parser._action_groups:
                             dock[arg.dest] = arg.default
                         elif arg.dest in predict_arguments:
                             predict[arg.dest] = arg.default
+                        elif arg.dest in cluster_arguments:
+                            cluster[arg.dest] = arg.default
 
         elif arg.dest in design_arguments:
             design[arg.dest] = arg.default
@@ -1183,5 +1198,7 @@ for group in parser._action_groups:
             dock[arg.dest] = arg.default
         elif arg.dest in predict_arguments:
             predict[arg.dest] = arg.default
+        elif arg.dest in cluster_arguments:
+            cluster[arg.dest] = arg.default
 
 predict[method] = design[method]  # Also in design...

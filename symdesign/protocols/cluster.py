@@ -15,20 +15,22 @@ from symdesign.protocols.protocols import PoseDirectory
 from symdesign.resources.job import job_resources_factory
 from symdesign.structure.coords import superposition3d, transform_coordinate_sets
 from symdesign.utils import path as putils
-from symdesign import utils
+from symdesign import utils, flags
 
 logger = logging.getLogger(__name__)
 
 
-def cluster_poses(pose_directories: list[PoseDirectory]) -> \
-        dict[str | PoseDirectory, list[str | PoseDirectory]] | None:
+def cluster_poses(pose_directories: list[PoseDirectory]):
+    # -> dict[str | PoseDirectory, list[str | PoseDirectory]] | None
     job = job_resources_factory.get()
     pose_cluster_map: dict[str | PoseDirectory, list[str | PoseDirectory]] = {}
     """Mapping which takes the format:
     {pose_string: [pose_string, ...]} where keys are representatives, values are matching designs
     """
     results = []
-    if job.mode == 'ialign':
+    mode_map_description = 'the representative is the most similar to all members of the cluster'
+    if job.cluster.mode == 'ialign':
+        mode_map_description = 'the representative is randomly chosen amongst the members'
         # Measure the alignment of all selected pose_directories
         # all_files = [design.source_file for design in pose_directories]
 
@@ -83,7 +85,7 @@ def cluster_poses(pose_directories: list[PoseDirectory]) -> \
 
         # Return to prior directory
         os.chdir(prior_directory)
-    elif job.mode == 'transform':
+    elif job.cluster.mode == 'transform':
         # First, identify the same compositions
         compositions: dict[tuple[str, ...], list[PoseDirectory]] = \
             group_compositions(pose_directories)
@@ -96,7 +98,7 @@ def cluster_poses(pose_directories: list[PoseDirectory]) -> \
         # Add all clusters to the pose_cluster_map
         for result in results:
             pose_cluster_map.update(result.items())
-    elif job.mode == 'rmsd':
+    elif job.cluster.mode == 'rmsd':
         logger.critical(f"The mode {job.mode} hasn't been thoroughly debugged")
         # First, identify the same compositions
         compositions: dict[tuple[str, ...], list[PoseDirectory]] = \
@@ -114,19 +116,42 @@ def cluster_poses(pose_directories: list[PoseDirectory]) -> \
         # Add all clusters to the pose_cluster_map
         for result in results:
             pose_cluster_map.update(result.items())
-    else:
-        exit(f"{job.mode} isn't a viable mode")
+    # else:
+    #     exit(f"{job.cluster.mode} isn't a viable mode")
 
     if pose_cluster_map:
-        if job.as_objects:
+        if job.cluster.as_objects:
             pass  # They are by default objects
         else:
             for representative in list(pose_cluster_map.keys()):
-                # remove old entry and convert all arguments to pose_id strings, saving as pose_id strings
+                # Remove old entry and convert all arguments to pose_id strings, saving as pose_id strings
                 pose_cluster_map[str(representative)] = \
                     [str(member) for member in pose_cluster_map.pop(representative)]
 
-        return pose_cluster_map
+        if not job.output_file:
+            job.output_file = putils.default_clustered_pose_file.format(utils.starttime, job.location)
+        #     if len(job.output_file.split(os.sep)) <= 1:
+        #         # The path isn't an absolute or relative path, so prepend the job.clustered_poses location
+        #         job.output_file = os.path.join(job.clustered_poses, job.output_file)
+        # else:
+        # Prepend the job.clustered_poses location
+        job.output_file = os.path.join(job.clustered_poses, job.output_file)
+
+        job.cluster.map = utils.pickle_object(pose_cluster_map, name=job.output_file, out_path='')
+        # elif job.module == flags.cluster_poses:
+        logger.info('Clustering analysis results in the following similar poses:\nRepresentatives\n\tMembers\n')
+        for representative, members, in pose_cluster_map.items():
+            print(f'{representative}\n\t%s' % '\n\t'.join(map(str, members)))
+        logger.info(f'Found {len(pose_cluster_map)} unique clusters from {len(pose_directories)} pose inputs. '
+                    f'All clusters wrote to: {job.cluster.map}')
+        logger.info('Each cluster above has one representative which identifies with each of the members. For '
+                    f'{job.cluster.mode}, {mode_map_description}.')
+        logger.info(f'To utilize the clustering during {flags.select_poses}, provide the option --{flags.cluster_map}. '
+                    'This will apply clustering to poses to select a cluster representative based on the most favorable'
+                    ' cluster member')
+
+        return
+        # return pose_cluster_map
 
     logger.warning('No significant clusters were located. Clustering ended')
     exit()
