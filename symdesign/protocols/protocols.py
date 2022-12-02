@@ -137,8 +137,8 @@ class PoseDirectory:
 
     def directory_string_to_path(self, root: AnyStr, pose_id: str):
         """Set self.path to the root/poseID where the poseID is converted from dash "-" separation to path separators"""
-        if root is None:
-            raise ValueError("No 'root' argument was passed. Can't use a pose_id without a root directory")
+        # if root is None:
+        #     raise ValueError("No 'root' argument was passed. Can't use a pose_id without a root directory")
 
         if self.job.nanohedra_output:
             self.path = os.path.join(root, pose_id.replace('-', os.sep))
@@ -157,7 +157,7 @@ class PoseDirectory:
         self.job = job_resources_factory.get()
         # PoseDirectory flags
         self.log: Logger | None = None
-        if pose_id:
+        if pose_id and root is not None:
             # self.pose_id = pose_id
             self.directory_string_to_path(root, design_path)  # sets self.path
             self.source_path = self.path
@@ -210,7 +210,8 @@ class PoseDirectory:
         # Todo if I use output_identifier for design, it opens up a can of worms.
         #  Maybe it is better to include only for specific modules
         # Set name initially to the basename. This may change later, but we need to check for serialized info
-        self.name = os.path.splitext(os.path.basename(self.source_path))[0]
+        filename, extension = os.path.splitext(self.source_path)
+        self.name = os.path.basename(filename)
         output_identifier = f'{self.name}_' if self.job.output_to_directory else ''
 
         self.serialized_info = os.path.join(self.source_path, f'{output_identifier}{putils.data}', putils.state_file)
@@ -236,18 +237,14 @@ class PoseDirectory:
             if pose_transformation:
                 self.pose_transformation = pose_transformation
 
-            path_components = os.path.splitext(self.source_path)[0].split(os.sep)
+            path_components = filename.split(os.sep)
             if self.job.nanohedra_output:
-                # path_components = self.source_path.split(os.sep)
-                # design_symmetry (P432)
-                # path_components[-4] are the oligomeric names
+                # path/to/design_symmetry/building_blocks/degen/rot/tx
+                # path_components[-4] are the oligomeric (building_blocks) names
                 self.name = '-'.join(path_components[-4:])
-                # self.name = self.pose_id.replace('_DEGEN_', '-DEGEN_').replace('_ROT_', '-ROT_').replace('_TX_', '-tx_')
-                # design_symmetry/building_blocks (P432/4ftd_5tch)
-                # path/to/[design_symmetry]/building_blocks/degen/rot/tx
                 root = path_components[-5] if root is None else root
                 self.source = os.path.join(self.source_path, putils.asu)
-            else:  # Set up PoseDirectory initially from input file
+            elif 'pdb' in extension or 'cif' in extension:  # Set up PoseDirectory initially from input file
                 # path_components = path.splitext(self.source_path)[0].split(os.sep)
                 # This was included to circumvent issues with the exact same name from multiple files,
                 # example "--file file1 file2" like inputs giving /place1/path/to/file.pdb and /place2/path/to/file.pdb
@@ -258,6 +255,10 @@ class PoseDirectory:
                 self.name = '-'.join(path_components[-2:])
                 root = path_components[-2] if root is None else root  # path/to/job/[project_Poses]/design.pdb
                 self.source = self.source_path
+            # elif pose_id and root or extension == '':  # Set up PoseDirectory initially from new nanohedra like output
+            else:
+                self.name = '-'.join(path_components[-1])
+                self.source = None
 
             # Remove a leading '-' character from abspath type results
             self.name = self.name.lstrip('-')
