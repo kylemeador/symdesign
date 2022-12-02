@@ -29,7 +29,7 @@ def poses(pose_directories):
                 selected_poses.add(pose_directory)
                 selected_indices.append((pose_directory, design))
                 number_chosen += 1
-                if number_chosen == job.select_number:
+                if number_chosen == job.number:
                     break
 
         # Specify the result order according to any filtering and weighting
@@ -57,7 +57,7 @@ def poses(pose_directories):
                 selected_poses.add(pose_directory)
                 selected_indices.append((pose_directory, design))
                 number_chosen += 1
-                if number_chosen == job.select_number:
+                if number_chosen == job.number:
                     break
 
         # Specify the result order according to any filtering and weighting
@@ -179,9 +179,9 @@ def poses(pose_directories):
     #     logger.info('Grabbing all selected poses')
     #     final_poses = selected_poses
 
-    if len(final_poses) > job.select_number:
-        final_poses = final_poses[:job.select_number]
-        logger.info(f'Found {len(final_poses)} poses after applying your select_number selection criteria')
+    if len(final_poses) > job.number:
+        final_poses = final_poses[:job.number]
+        logger.info(f'Found {len(final_poses)} poses after applying your number selection criteria')
 
     return final_poses
 

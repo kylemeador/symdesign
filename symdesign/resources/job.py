@@ -340,9 +340,10 @@ class JobResources:
         self.filter = kwargs.get('filter')
         self.weight = kwargs.get('weight')
         self.weight_function = kwargs.get('weight_function')
-        self.select_number = kwargs.get('select_number')
+        self.number = kwargs.get('number')
         self.designs_per_pose = kwargs.get('designs_per_pose')
         self.allow_multiple_poses = kwargs.get('allow_multiple_poses')
+        self.tag_entities = kwargs.get(putils.tag_entities)
         # self.metric = kwargs.get('metric')
         self.specification_file = kwargs.get('specification_file')
         self.dataframe = kwargs.get('dataframe')
@@ -374,7 +375,6 @@ class JobResources:
         self.merge: bool = kwargs.get('merge')
         self.save: bool = kwargs.get('save')
         self.figures: bool = kwargs.get('figures')
-        self.skip_sequence_generation: bool = kwargs.get('skip_sequence_generation')
 
         if self.write_structures or self.output_assembly or self.output_surrounding_uc or self.write_fragments \
                 or self.write_oligomers or self.write_trajectory:
