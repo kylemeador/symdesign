@@ -30,6 +30,7 @@ from symdesign.utils import path as putils
 # Globals
 logger = logging.getLogger(__name__)
 hhblits_threads = 2
+default_fragment_contribution = .5
 zero_offset = 1
 sequence_type_literal = Literal['reference', 'structure']
 sequence_types: tuple[sequence_type_literal, ...] = get_args(sequence_type_literal)
@@ -1575,7 +1576,7 @@ class SequenceProfile(ABC):
 
         self._calculate_alpha(**kwargs)
 
-    def _calculate_alpha(self, alpha: float = .5, **kwargs):
+    def _calculate_alpha(self, alpha: float = default_fragment_contribution, **kwargs):
         """Find fragment contribution to design with a maximum contribution of alpha. Used subsequently to integrate
         fragment profile during combination with evolutionary profile in calculate_profile
 

@@ -27,7 +27,7 @@ from .fragment import GhostFragment, Fragment, write_frag_match_info_file
 from .fragment.db import FragmentDatabase, alignment_types, fragment_info_type, EulerLookup
 from .fragment.metrics import fragment_metric_template
 from .sequence import SequenceProfile, generate_alignment, get_equivalent_indices, \
-    pssm_as_array, generate_mutations, numeric_to_sequence, Profile
+    pssm_as_array, generate_mutations, numeric_to_sequence, Profile, default_fragment_contribution
 from .utils import DesignError, SymmetryError, ClashError, protein_letters_3to1_extended, \
     protein_letters_1to3_extended, chain_id_generator
 from symdesign import flags
@@ -6977,6 +6977,7 @@ class Pose(SymmetricModel):
             self.fragment_profile = Profile(fragment_profile, dtype='fragment')
             self._alpha = entity._alpha  # Logic enforces entity is always referenced here
         else:
+            self._alpha = default_fragment_contribution
             self.alpha = [0 for _ in self.residues]  # Reset the data
             self.fragment_profile = Profile(list(self.create_null_profile(nan=True, zero_index=True).values()),
                                             dtype='fragment')
