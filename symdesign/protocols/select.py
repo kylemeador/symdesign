@@ -167,13 +167,13 @@ def poses(pose_directories):
             compositions: dict[tuple[str, ...], list[PoseDirectory]] = \
                 protocols.cluster.group_compositions(selected_poses)
             if job.multi_processing:
-                mp_results = utils.mp_map(protocols.cluster.cluster_transformations, compositions.values(),
+                mp_results = utils.mp_map(protocols.cluster.cluster_pose_by_transformations, compositions.values(),
                                           processes=job.cores)
                 for result in mp_results:
                     pose_cluster_map.update(result.items())
             else:
                 for composition_group in compositions.values():
-                    pose_cluster_map.update(protocols.cluster.cluster_transformations(composition_group))
+                    pose_cluster_map.update(protocols.cluster.cluster_pose_by_transformations(composition_group))
 
             pose_cluster_file = utils.pickle_object(pose_cluster_map, name=cluster_map, out_path='')
             logger.info(f'Found {len(pose_cluster_map)} unique clusters from {len(pose_directories)} pose inputs. '
