@@ -58,6 +58,7 @@ metrics = 'metrics'
 increment_chains = 'increment_chains'
 number = 'number'
 nucleotide = 'nucleotide'
+as_objects = 'as_objects'
 
 design_arguments = {
     ignore_clashes, ignore_pose_clashes, ignore_symmetric_clashes, method, evolution_constraint, hbnet,
@@ -73,7 +74,7 @@ predict_arguments = {
     method
 }
 cluster_arguments = {
-    'as_objects', 'map', 'mode', number
+    as_objects, 'map', 'mode', number
 }
 
 
@@ -85,6 +86,7 @@ def format_from_cmdline(flag: str):
     return flag.replace('-', '_')
 
 
+as_objects = format_for_cmdline(as_objects)
 query_codes1 = format_for_cmdline(query_codes1)
 query_codes2 = format_for_cmdline(query_codes2)
 predict_structure = format_for_cmdline(predict_structure)
@@ -538,7 +540,8 @@ nanohedra_mutual2_arguments = {
 }
 # ---------------------------------------------------
 cluster_map_args = ('-c', f'--{cluster_map}')
-cluster_map_kwargs = dict(type=os.path.abspath, dest='map', metavar=ex_path('TIMESTAMP-ClusteredPoses-LOCATION.pkl'),
+cluster_map_kwargs = dict(type=os.path.abspath, dest='map',
+                          metavar=ex_path(default_clustered_pose_file.format('TIMESTAMP', 'LOCATION')),
                           help='The location of a serialized file containing spatially\nor interfacial '
                                'clustered poses')
 number_args = ('-n', f'--{number}')  # '--select-number')
@@ -546,11 +549,10 @@ cluster_poses_help = 'Cluster all poses by their spatial or interfacial similari
                      'conformationally flexible docked configurations'
 parser_cluster = {cluster_poses: dict(description=cluster_poses_help, help=cluster_poses_help)}
 cluster_poses_arguments = {
-    ('--as-objects',): dict(action='store_true', help='Whether to store the resulting pose cluster file as '
-                                                      'PoseDirectory objects\nDefault stores as pose IDs'),
-    ('--mode',): dict(type=str.lower, choices={'ialign', 'rmsd', 'transform'}, metavar='', default='transform',
-                      help='Which type of clustering should be performed?'
-                           '\nChoices=%(choices)s\nDefault=%(default)s'),
+    (f'--{as_objects}',): dict(action='store_true', help='Whether to store the resulting pose cluster file as '
+                                                         'PoseDirectory objects\nDefault stores as pose IDs'),
+    ('--mode',): dict(type=str.lower, choices={'ialign', 'rmsd', 'transform'}, default='transform', metavar='',
+                      help='Which type of clustering should be performed?\nChoices=%(choices)s\nDefault=%(default)s'),
     number_args + (f'--c-{number}',):
         dict(type=int, default=1, metavar='int', help='The number of cluster members to return'),
     output_file_args: dict(type=str,
@@ -708,7 +710,7 @@ select_poses_help = 'Select poses based on specific metrics.\nSelection will be 
 parser_select_poses = {select_poses: dict(description=select_poses_help, help=select_poses_help)}
 select_poses_arguments = {
     **select_arguments,
-    number_args: pose_select_number_kwargs,
+    number_args + (f'--s-{number}',): pose_select_number_kwargs,
     total_args: dict(action='store_true',
                      help='Should poses be selected based on their ranking in the total\npose pool? This will select '
                           'the top poses based on the\naverage of all designs in that pose for the metrics specified\n'

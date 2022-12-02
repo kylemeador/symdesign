@@ -120,8 +120,10 @@ def from_flags(cls, **kwargs):
 # The commented out versions below had poor implementations
 # DesignFlags = collections.namedtuple('DesignFlags', design_args.keys(), defaults=design_args.values())
 # DesignFlags = types.SimpleNamespace(**design_args)
+# Due to an error evaluating the singleton eval(type(None).__name__), need to pass a globals argument
+nonetype_map = {'NoneType': None}
 Design = make_dataclass('Design',
-                        [(flag, eval(type(default).__name__), field(default=default))
+                        [(flag, eval(type(default).__name__, nonetype_map), field(default=default))
                          for flag, default in flags.design.items()],
                         namespace={'from_flags': classmethod(from_flags)})
 #                         frozen=True)
@@ -129,19 +131,19 @@ Design = make_dataclass('Design',
 #  self.design = types.SimpleNamespace(**{flag: kwargs.get(flag, default) for flag, default in flags.design})
 #  self.design = types.SimpleNamespace(**{flag: kwargs.get(flag, default) for flag, default in flags.design})
 Dock = make_dataclass('Dock',
-                      [(flag, eval(type(default).__name__), field(default=default))
+                      [(flag, eval(type(default).__name__, nonetype_map), field(default=default))
                        for flag, default in flags.dock.items()],
                       namespace={'from_flags': classmethod(from_flags)})
 #                       frozen=True)
 
 Predict = make_dataclass('Predict',
-                         [(flag, eval(type(default).__name__), field(default=default))
+                         [(flag, eval(type(default).__name__, nonetype_map), field(default=default))
                           for flag, default in flags.predict.items()],
                          namespace={'from_flags': classmethod(from_flags)})
 #                          frozen=True)
 
 Cluster = make_dataclass('Cluster',
-                         [(flag, eval(type(default).__name__), field(default=default))
+                         [(flag, eval(type(default).__name__, nonetype_map), field(default=default))
                           for flag, default in flags.cluster.items()],
                          namespace={'from_flags': classmethod(from_flags)})
 #                          frozen=True)
