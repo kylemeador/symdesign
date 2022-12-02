@@ -1927,6 +1927,7 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
 
     if job.design.ignore_symmetric_clashes:
         logger.warning(f'Not checking for symmetric clashes per requested flag --{flags.ignore_symmetric_clashes}')
+        passing_symmetric_clash_indices_perturb = slice(None)
     else:
         if sym_entry.unit_cell:
             # Calculate the vectorized uc_dimensions
