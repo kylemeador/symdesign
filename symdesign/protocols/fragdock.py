@@ -3540,6 +3540,7 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
     # pose_paths = []
     nan_blank_data = list(repeat(np.nan, pose_length))
     project_str = f'{project}-'
+    # Todo fix all the design_ids -> pose_ids
     for idx, design_id in enumerate(design_ids):
         # Add the next set of coordinates
         update_pose_coords(idx)
@@ -4027,7 +4028,7 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
 
     return [protocols.PoseDirectory.from_pose_id(pose_id, root=program_root, entity_names=entity_names,
                                                  pose_transformation=create_specific_transformation(idx))
-            for idx, pose_id in enumerate(pose_ids)]
+            for idx, pose_id in enumerate(design_ids)]
     # return [protocols.PoseDirectory.from_file(file, entity_names=entity_names,
     #                                           pose_transformation=create_specific_transformation(idx))
     #         for idx, file in enumerate(pose_paths)]

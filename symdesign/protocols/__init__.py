@@ -6,24 +6,25 @@ import pandas as pd
 from . import cluster, fragdock, protocols, select
 # from ..resources.job import JobResources, job_resources_factory
 
+PoseDirectory = protocols.PoseDirectory
 logger = logging.getLogger(__name__)
-orient = protocols.PoseDirectory.orient
-expand_asu = protocols.PoseDirectory.expand_asu
-rename_chains = protocols.PoseDirectory.rename_chains
-check_clashes = protocols.PoseDirectory.check_clashes
-generate_fragments = protocols.PoseDirectory.generate_interface_fragments
-interface_metrics = protocols.PoseDirectory.interface_metrics
-optimize_designs = protocols.PoseDirectory.optimize_designs
-refine = protocols.PoseDirectory.refine
-interface_design = protocols.PoseDirectory.interface_design
-analysis = protocols.PoseDirectory.interface_design_analysis
+orient = PoseDirectory.orient
+expand_asu = PoseDirectory.expand_asu
+rename_chains = PoseDirectory.rename_chains
+check_clashes = PoseDirectory.check_clashes
+generate_fragments = PoseDirectory.generate_interface_fragments
+interface_metrics = PoseDirectory.interface_metrics
+optimize_designs = PoseDirectory.optimize_designs
+refine = PoseDirectory.refine
+interface_design = PoseDirectory.interface_design
+analysis = PoseDirectory.interface_design_analysis
 nanohedra = fragdock.fragment_dock
 cluster_poses = cluster.cluster_poses
 select_poses = select.poses
 # select_sequences = select.sequences
 
 
-def load_total_dataframe(pose_directories: Iterable[protocols.PoseDirectory], pose: bool = False) -> pd.DataFrame:
+def load_total_dataframe(pose_directories: Iterable[PoseDirectory], pose: bool = False) -> pd.DataFrame:
     """Return a pandas DataFrame with the trajectories of every pose_directory loaded and formatted according to the
     design directory and design on the index
 
@@ -72,7 +73,7 @@ def load_total_dataframe(pose_directories: Iterable[protocols.PoseDirectory], po
 #     """Run the orient protocol over the pose_jobs"""
 #     nonlocal pose_jobs, job
 #
-#     _orient = protocols.PoseDirectory.orient
+#     _orient = PoseDirectory.orient
 #     if processes > 1:
 #         results = mp.map(_orient, pose_jobs, processes=processes)
 #     else:
@@ -86,7 +87,7 @@ def load_total_dataframe(pose_directories: Iterable[protocols.PoseDirectory], po
 #     """Run the expand_asu protocol over the pose_jobs"""
 #     nonlocal pose_jobs, job
 #
-#     _expand_asu = protocols.PoseDirectory.expand_asu
+#     _expand_asu = PoseDirectory.expand_asu
 #     if processes > 1:
 #         results = mp.map(_expand_asu, pose_jobs, processes=processes)
 #     else:
@@ -100,7 +101,7 @@ def load_total_dataframe(pose_directories: Iterable[protocols.PoseDirectory], po
 #     """Run the rename_chains protocol over the pose_jobs"""
 #     nonlocal pose_jobs, job
 #
-#     _rename_chains = protocols.PoseDirectory.rename_chains
+#     _rename_chains = PoseDirectory.rename_chains
 #     if processes > 1:
 #         results = mp.map(_rename_chains, pose_jobs, processes=processes)
 #     else:
@@ -114,7 +115,7 @@ def load_total_dataframe(pose_directories: Iterable[protocols.PoseDirectory], po
 #     """Run the check_clashes protocol over the pose_jobs"""
 #     nonlocal pose_jobs, job
 #
-#     _check_clashes = protocols.PoseDirectory.check_clashes
+#     _check_clashes = PoseDirectory.check_clashes
 #     if processes > 1:
 #         results = mp.map(_check_clashes, pose_jobs, processes=processes)
 #     else:
@@ -128,7 +129,7 @@ def load_total_dataframe(pose_directories: Iterable[protocols.PoseDirectory], po
 #     """Run the generate_interface_fragments protocol over the pose_jobs"""
 #     nonlocal pose_jobs, job
 #
-#     _generate_interface_fragments = protocols.PoseDirectory.generate_interface_fragments
+#     _generate_interface_fragments = PoseDirectory.generate_interface_fragments
 #     if processes > 1:
 #         results = mp.map(_generate_interface_fragments, pose_jobs, processes=processes)
 #     else:
@@ -142,7 +143,7 @@ def load_total_dataframe(pose_directories: Iterable[protocols.PoseDirectory], po
 #     """Run the interface_metrics protocol over the pose_jobs"""
 #     nonlocal pose_jobs, job
 #
-#     _interface_metrics = protocols.PoseDirectory.interface_metrics
+#     _interface_metrics = PoseDirectory.interface_metrics
 #     if processes > 1:
 #         results = mp.map(_interface_metrics, pose_jobs, processes=processes)
 #     else:
@@ -156,7 +157,7 @@ def load_total_dataframe(pose_directories: Iterable[protocols.PoseDirectory], po
 #     """Run the optimize_designs protocol over the pose_jobs"""
 #     nonlocal pose_jobs, job
 #
-#     _optimize_designs = protocols.PoseDirectory.optimize_designs
+#     _optimize_designs = PoseDirectory.optimize_designs
 #     if processes > 1:
 #         results = mp.map(_optimize_designs, pose_jobs, processes=processes)
 #     else:
@@ -170,7 +171,7 @@ def load_total_dataframe(pose_directories: Iterable[protocols.PoseDirectory], po
 #     """Run the refine protocol over the pose_jobs"""
 #     nonlocal pose_jobs, job
 #
-#     _refine = protocols.PoseDirectory.refine
+#     _refine = PoseDirectory.refine
 #     if processes > 1:
 #         results = mp.map(_refine, pose_jobs, processes=processes)
 #     else:
@@ -184,7 +185,7 @@ def load_total_dataframe(pose_directories: Iterable[protocols.PoseDirectory], po
 #     """Run the interface_design protocol over the pose_jobs"""
 #     nonlocal pose_jobs, job
 #
-#     _interface_design = protocols.PoseDirectory.interface_design
+#     _interface_design = PoseDirectory.interface_design
 #     if processes > 1:
 #         results = mp.map(_interface_design, pose_jobs, processes=processes)
 #     else:
@@ -198,7 +199,7 @@ def load_total_dataframe(pose_directories: Iterable[protocols.PoseDirectory], po
 #     """Run the interface_design_analysis protocol over the pose_jobs"""
 #     nonlocal pose_jobs, job
 #
-#     _interface_design_analysis = protocols.PoseDirectory.interface_design_analysis
+#     _interface_design_analysis = PoseDirectory.interface_design_analysis
 #     if processes > 1:
 #         results = mp.map(_interface_design_analysis, pose_jobs, processes=processes)
 #     else:
