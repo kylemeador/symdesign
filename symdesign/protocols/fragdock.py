@@ -392,7 +392,7 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
     logger.debug(f'Found surface indices {idx} with shape {surf_i_indices2.shape}')
     logger.debug(f'Found {init_surf_residue_numbers2.shape[0]} initial surface {idx} fragments with type: {initial_surf_type2}')
 
-    logger.info(f'Retrieved oligomer {idx} surface fragments and guide coordinates took '
+    logger.info(f'Retrieved oligomer{idx}-{model2.name} surface fragments and guide coordinates took '
                 f'{time.time() - get_complete_surf_frags2_time_start:8f}s')
 
     # logger.debug('init_surf_frag_indices2: %s' % slice_variable_for_log(init_surf_frag_indices2))
@@ -422,7 +422,7 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
     # logger.debug('init_surf_guide_coords1: %s' % slice_variable_for_log(init_surf_guide_coords1))
     # logger.debug('init_surf_residue_numbers1: %s' % slice_variable_for_log(init_surf_residue_numbers1))
 
-    logger.info(f'Retrieved oligomer {idx} surface fragments and guide coordinates took '
+    logger.info(f'Retrieved oligomer{idx}-{model1.name} surface fragments and guide coordinates took '
                 f'{time.time() - get_complete_surf_frags1_time_start:8f}s')
 
     #################################
@@ -585,7 +585,7 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
     logger.debug(f'Found {init_ghost_guide_coords1.shape[0]} initial ghost {idx} fragments with type:'
                  f' {initial_surf_type2}')
 
-    logger.info(f'Retrieved oligomer {idx}, {model1.name} ghost fragments and guide coordinates '
+    logger.info(f'Retrieved oligomer{idx}-{model1.name} ghost fragments and guide coordinates '
                 f'took {time.time() - get_complete_ghost_frags1_time_start:8f}s')
     #################################
     # Implemented for Todd to work on C1 instances
@@ -685,7 +685,7 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
     # surface1_residue_array = np.tile(init_surf_residue_numbers1, len(init_ghost_residue_numbers2))
     # surface2_residue_array = np.tile(init_surf_residue_numbers2, len(init_ghost_residue_numbers1))
 
-    logger.info(f'Retrieved oligomer {idx}, {model2.name} ghost fragments and guide coordinates '
+    logger.info(f'Retrieved oligomer{idx}-{model2.name} ghost fragments and guide coordinates '
                 f'took {time.time() - get_complete_ghost_frags2_time_start:8f}s')
 
     logger.info('Obtaining rotation/degeneracy matrices\n')
