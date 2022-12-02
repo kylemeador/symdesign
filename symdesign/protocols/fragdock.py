@@ -2227,7 +2227,7 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
                                           name=putils.default_clustered_pose_file.format('', cluster_type_str),
                                           out_path=project_dir)
     logger.info(f'Found {len(cluster_map)} unique clusters from {len(pose_ids)} pose inputs. '
-                f'All clusters wrote to {job.cluster.map}')
+                f'Wrote cluster map to {job.cluster.map}')
 
     def add_fragments_to_pose(overlap_ghosts: list[int] = None, overlap_surf: list[int] = None,
                               sorted_z_scores: np.ndarray = None):
