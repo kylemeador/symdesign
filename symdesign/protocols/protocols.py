@@ -38,7 +38,7 @@ from symdesign.metrics import read_scores, interface_composition_similarity, unn
 from symdesign.resources.job import job_resources_factory
 from symdesign.structure.base import Structure
 from symdesign.structure.fragment.db import FragmentDatabase, fragment_info_type
-from symdesign.structure.model import Pose, MultiModel, Models, Model, Entity  # Todo no import transformation_mapping ?
+from symdesign.structure.model import Pose, MultiModel, Models, Model, Entity, transformation_mapping
 from symdesign.structure.sequence import generate_mutations_from_reference, sequence_difference, \
     MultipleSequenceAlignment, pssm_as_array, concatenate_profile, write_pssm_file, read_fasta_file, write_sequences
 from symdesign.structure.utils import protein_letters_3to1, protein_letters_1to3, DesignError, ClashError, SymmetryError
@@ -107,7 +107,7 @@ class PoseDirectory:
     _designed_sequences: list[Sequence]
     _entity_names: list[str]
     _fragment_observations: list[fragment_info_type]
-    _pose_transformation: list  # list[transformation_mapping]):  # Todo why won't this import
+    _pose_transformation: list[transformation_mapping]
     _symmetry_definition_files: list[AnyStr]
     directives: list[dict[int, str]]
     entities: list[Entity]
@@ -172,7 +172,7 @@ class PoseDirectory:
         # self.expand_matrices = None
         # self.pose_transformation = None
         # Todo monitor if Rosetta energy mechanisms are modified for crystal set ups and adjust parameter accordingly
-        # If a new sym_entry is provided it wouldn't be saved to the state
+        # If a new sym_entry is provided it wouldn't be saved to the state but could be attempted to be used
         if self.job.sym_entry is not None:
             self.sym_entry = self.job.sym_entry
         self.sym_def_file: str | None = None  # The symmetry definition file for the entire Pose
@@ -198,7 +198,6 @@ class PoseDirectory:
         # self.interface_residue_numbers: set[int] | bool = False  # The interface residues which are surface accessable
         # self.oligomer_names: list[str] = self.info.get('oligomer_names', [])
         self.entities = []
-        self.entity_names = kwargs.get('entity_names', [])
         self.pose = None
         """Contains the design's Pose object"""
         # self.pose_id = None
@@ -232,8 +231,10 @@ class PoseDirectory:
                 self.info['sym_entry_specification'] = self.sym_entry.entry_number, self.sym_entry.sym_map
             if self.job.design_selector:
                 self.design_selector = self.job.design_selector
-            else:
-                self.design_selector = {}
+            if entity_names:
+                self.entity_names = entity_names
+            if pose_transformation:
+                self.pose_transformation = pose_transformation
 
             path_components = os.path.splitext(self.source_path)[0].split(os.sep)
             if self.job.nanohedra_output:
@@ -546,13 +547,13 @@ class PoseDirectory:
 
     @entity_names.setter
     def entity_names(self, names: list):
-        if isinstance(names, list):
-            self._entity_names = self.info['entity_names'] = names
+        if isinstance(names, Sequence):
+            self._entity_names = self.info['entity_names'] = list(names)
         else:
-            raise ValueError(f'The attribute entity_names must be a list, not {type(names)}')
+            raise ValueError(f'The attribute entity_names must be a Sequence of str, not {type(names)}')
 
     @property
-    def pose_transformation(self) -> list[dict[str, np.ndarray]]:
+    def pose_transformation(self) -> list[transformation_mapping]:
         """Provide the transformation parameters for the design in question
 
         Returns:
@@ -569,11 +570,16 @@ class PoseDirectory:
             return self._pose_transformation
 
     @pose_transformation.setter
-    def pose_transformation(self, transform: list):  # list[transformation_mapping]):  # Todo why won't this import
-        if isinstance(transform, list):
-            self._pose_transformation = self.info['pose_transformation'] = transform
+    def pose_transformation(self, transform: Sequence[transformation_mapping]):
+        if all(isinstance(operation_set, transformation_mapping) for operation_set in transform):
+            self._pose_transformation = self.info['pose_transformation'] = list(transform)
         else:
-            raise ValueError(f'The attribute pose_transformation must be a list, not {type(transform)}')
+            try:
+                raise ValueError(f'The attribute pose_transformation must be a Sequence of '
+                                 f'{transformation_mapping.__name__}, not {type(transform[0])}')
+            except TypeError:  # Not a Sequence
+                raise TypeError(f'The attribute pose_transformation must be a Sequence of '
+                                f'{transformation_mapping.__name__}, not {type(transform)}')
 
     @property
     def design_selector(self) -> dict[str, dict[str, dict[str, set[int] | set[str]]]] | dict:
@@ -733,13 +739,10 @@ class PoseDirectory:
             if pre_loop_model is not None:  # either True or False
                 self.info['pre_loop_model'] = pre_loop_model
 
-        # self.design_selector = self.info.get('design_selector', self.design_selector)
-        # self.pose_transformation = self.info.get('pose_transformation', [])
         # self.fragment_observations = self.info.get('fragments', None)  # None signifies query wasn't attempted
         # self.interface_design_residue_numbers = self.info.get('interface_design_residues', False)  # (set[int])
         # self.interface_residue_ids = self.info.get('interface_residue_ids', {})
         # self.interface_residue_numbers = self.info.get('interface_residues', False)  # (set[int])
-        # self.entity_names = self.info.get('entity_names', [])
         self.pre_refine = self.info.get('pre_refine', True)
         self.pre_loop_model = self.info.get('pre_loop_model', True)
 
@@ -1019,7 +1022,6 @@ class PoseDirectory:
         if not self.entity_names:  # Store the entity names if they were never generated
             self.entity_names = [entity.name for entity in self.pose.entities]
             self.log.info(f'Input Entities: {", ".join(self.entity_names)}')
-            self.info['entity_names'] = self.entity_names
 
         # Save renumbered PDB to clean_asu.pdb
         if not self.asu_path or not os.path.exists(self.asu_path) or self.job.force:
