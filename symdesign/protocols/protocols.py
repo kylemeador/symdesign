@@ -571,7 +571,7 @@ class PoseDirectory:
 
     @pose_transformation.setter
     def pose_transformation(self, transform: Sequence[transformation_mapping]):
-        if all(isinstance(operation_set, transformation_mapping) for operation_set in transform):
+        if all(isinstance(operation_set, dict) for operation_set in transform):
             self._pose_transformation = self.info['pose_transformation'] = list(transform)
         else:
             try:
