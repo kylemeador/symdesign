@@ -205,6 +205,8 @@ class PoseDirectory:
         # self.pre_loop_model = self.info.get('pre_loop_model', True)
         if specific_designs:
             self.specific_designs = specific_designs
+        else:
+            self.specific_designs = []
         self.specific_designs_file_paths = []
 
         # Todo if I use output_identifier for design, it opens up a can of worms.
@@ -238,45 +240,53 @@ class PoseDirectory:
                 self.pose_transformation = pose_transformation
 
             path_components = filename.split(os.sep)
-            if self.job.nanohedra_output:
-                # path/to/design_symmetry/building_blocks/degen/rot/tx
-                # path_components[-4] are the oligomeric (building_blocks) names
-                self.name = '-'.join(path_components[-4:])
-                root = path_components[-5] if root is None else root
-                self.source = os.path.join(self.source_path, putils.asu)
-            elif 'pdb' in extension or 'cif' in extension:  # Set up PoseDirectory initially from input file
-                # path_components = path.splitext(self.source_path)[0].split(os.sep)
-                # This was included to circumvent issues with the exact same name from multiple files,
-                # example "--file file1 file2" like inputs giving /place1/path/to/file.pdb and /place2/path/to/file.pdb
-                # try:
-                #     index = path_components.index(os.environ['USER'])
-                # except (KeyError, ValueError):  # Missing USER environmental variable, missing in path_components
-                #     index = None
-                self.name = '-'.join(path_components[-2:])
-                root = path_components[-2] if root is None else root  # path/to/job/[project_Poses]/design.pdb
-                self.source = self.source_path
-            # elif pose_id and root or extension == '':  # Set up PoseDirectory initially from new nanohedra like output
-            else:
-                self.name = '-'.join(path_components[-1])
+            if pose_id:  # and root or extension == '':  # Set up PoseDirectory initially from new nanohedra like output
+                self.name = path_components[-1]
                 self.source = None
-
-            # Remove a leading '-' character from abspath type results
-            self.name = self.name.lstrip('-')
-            if self.job.output_to_directory:
-                self.projects = ''
-                self.project_designs = ''
-                self.path = self.job.program_root  # /output_directory<- self.path /design.pdb
+                self.project_designs = os.path.dirname(self.path)
+                self.projects = os.path.dirname(self.project_designs)
             else:
-                self.projects = os.path.join(self.job.program_root, putils.projects)
-                self.project_designs = os.path.join(self.projects, f'{root}_{putils.pose_directory}')
-                self.path = os.path.join(self.project_designs, self.name)
-                # ^ /program_root/projects/project/design<- self.path /design.pdb
+                if self.job.nanohedra_output:
+                    # path/to/design_symmetry/building_blocks/degen/rot/tx
+                    # path_components[-4] are the oligomeric (building_blocks) names
+                    self.name = '-'.join(path_components[-4:])
+                    project = path_components[-5]  # if root is None else root
+                    self.source = os.path.join(self.source_path, putils.asu)
+                elif 'pdb' in extension or 'cif' in extension:  # Set up PoseDirectory initially from input file
+                    # path_components = path.splitext(self.source_path)[0].split(os.sep)
+                    # This was included to circumvent issues with the exact same name from multiple files,
+                    # example "--file file1 file2" like inputs giving
+                    # /place1/path/to/file.pdb and /place2/path/to/file.pdb
+                    # try:
+                    #     index = path_components.index(os.environ['USER'])
+                    # except (KeyError, ValueError):  # Missing USER environmental variable, missing in path_components
+                    #     index = None
+                    self.name = '-'.join(path_components[-2:])
+                    project = path_components[-2]  # if root is None else root  # path/to/job/[project_Poses]/design.pdb
+                    self.source = self.source_path
+                # # elif pose_id or extension == '':  # Set up PoseDirectory initially from new nanohedra like output
+                # else:
+                #     self.name = '-'.join(path_components[-1])
+                #     project = path_components[-2]  # path/to/SymDesignOutput/Projects/[project_Poses]/design.pdb
+                #     self.source = None
 
-                # # copy the source file to the PoseDirectory for record keeping...
-                # # Not using now that pose_format can be disregarded...
-                # shutil.copy(self.source_path, self.path)
+                # Remove a leading '-' character from abspath type results
+                self.name = self.name.lstrip('-')
+                if self.job.output_to_directory:
+                    self.projects = ''
+                    self.project_designs = ''
+                    self.path = self.job.program_root  # /output_directory<- self.path /design.pdb
+                else:
+                    self.projects = os.path.join(self.job.program_root, putils.projects)
+                    self.project_designs = os.path.join(self.projects, f'{project}_{putils.pose_directory}')
+                    self.path = os.path.join(self.project_designs, self.name)
+                    # ^ /program_root/projects/project/design<- self.path /design.pdb
 
-            putils.make_path(self.path, condition=self.job.construct_pose)
+                    # # copy the source file to the PoseDirectory for record keeping...
+                    # # Not using now that pose_format can be disregarded...
+                    # shutil.copy(self.source_path, self.path)
+
+                putils.make_path(self.path, condition=self.job.construct_pose)
 
         # PoseDirectory path attributes. Set after finding correct path
         self.log_path: str | Path = os.path.join(self.path, f'{self.name}.log')
@@ -367,8 +377,7 @@ class PoseDirectory:
                     if len(source) == 1:
                         self.source = source[0]
                     else:
-                        raise ValueError(f'Found {len(source)} files matching the path "{glob_target}". '
-                                         f'Only 1 expected')
+                        raise ValueError(f'Found {len(source)} files matching the path "{glob_target}". 1 expected')
                 except IndexError:  # glob found no files
                     self.source = None
         else:  # If the PoseDirectory was loaded as .pdb/mmCIF, the source should be loaded already
