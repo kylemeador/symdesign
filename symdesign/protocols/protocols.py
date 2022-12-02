@@ -195,6 +195,7 @@ class PoseDirectory:
         # self.interface_residue_numbers: set[int] | bool = False  # The interface residues which are surface accessable
         # self.oligomer_names: list[str] = self.info.get('oligomer_names', [])
         self.entities = []
+        self.entity_names = kwargs.get('entity_names', [])
         self.pose = None
         """Contains the design's Pose object"""
         # self.pose_id = None
@@ -370,10 +371,10 @@ class PoseDirectory:
             # None were provided at start up, find them
             # Starts self.log if not self.job.nanohedra_output
             self.find_entity_names()  # Sets self.entity_names
-        else:
-            # input(f'Stopped here with: self.initialized({self.initialized}) self.entity_names({self.entity_names})'
-            #       f'bool? {not self.initialized and not self.entity_names}')
-            self.entity_names = self.info.get('entity_names', [])  # Set so that DataBase set up works
+        # else:
+        #     # input(f'Stopped here with: self.initialized({self.initialized}) self.entity_names({self.entity_names})'
+        #     #       f'bool? {not self.initialized and not self.entity_names}')
+        #     self.entity_names = self.info.get('entity_names', [])  # Set so that DataBase set up works
 
         # Configure standard pose loading mechanism with self.source
         if self.specific_designs:
@@ -587,7 +588,7 @@ class PoseDirectory:
             return self._entity_names
 
     @entity_names.setter
-    def entity_names(self, names: list):  # list[transformation_mapping]):  # Todo why won't this import
+    def entity_names(self, names: list):
         if isinstance(names, list):
             self._entity_names = self.info['entity_names'] = names
         else:
@@ -670,7 +671,7 @@ class PoseDirectory:
             self.initial_model = Model.from_file(self.source_path, log=self.log)
             entity_names = [entity.name for entity in self.initial_model.entities]
 
-        self.entity_names = self.info['entity_names'] = entity_names
+        self.entity_names = entity_names
 
     def start_log(self, level: int = 2):
         """Initialize the logger for the Pose"""
@@ -781,7 +782,7 @@ class PoseDirectory:
         # self.interface_design_residue_numbers = self.info.get('interface_design_residues', False)  # (set[int])
         # self.interface_residue_ids = self.info.get('interface_residue_ids', {})
         # self.interface_residue_numbers = self.info.get('interface_residues', False)  # (set[int])
-        self.entity_names = self.info.get('entity_names', [])
+        # self.entity_names = self.info.get('entity_names', [])
         self.pre_refine = self.info.get('pre_refine', True)
         self.pre_loop_model = self.info.get('pre_loop_model', True)
 
