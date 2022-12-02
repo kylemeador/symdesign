@@ -598,9 +598,9 @@ def main():
             # Todo, combine this with collect_designs
             #  this works for file locations as well! should I have a separate mechanism for each?
             design_specification = utils.PoseSpecification(args.specification_file)
-            pose_directories = [PoseDirectory.from_pose_id(pose, root=args.directory, specific_design=design,
+            pose_directories = [PoseDirectory.from_pose_id(pose, root=args.directory, specific_designs=designs,
                                                            directives=directives)
-                                for pose, design, directives in design_specification.get_directives()]
+                                for pose, designs, directives in design_specification.get_directives()]
             job.location = args.specification_file
         else:
             all_poses, job.location = utils.collect_designs(files=args.file, directory=args.directory,
