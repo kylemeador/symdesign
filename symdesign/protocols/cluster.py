@@ -367,6 +367,9 @@ def cluster_transformation_pairs(*transforms: dict[str, np.ndarray], distance: f
     distance_graph = nearest_neightbors_ball_tree.radius_neighbors_graph(mode='distance', sort_results=True)
     #                                                                    X=transformed_guide_coords is implied
     # Because this doesn't work to sort_results and pull out indices, I have to do another step 'radius_neighbors'
+    # Todo Why is this happening?
+    # Caution /home/kylemeador/miniconda3/envs/dev/lib/python3.10/site-packages/sklearn/neighbors/_base.py:206:
+    # EfficiencyWarning: Precomputed sparse input was not sorted by data.
     dbscan_cluster: sklearn.cluster.DBSCAN = \
         sklearn.cluster.DBSCAN(eps=distance, min_samples=minimum_members, metric='precomputed').fit(distance_graph)
     #                                         sample_weight=A WEIGHT?
