@@ -201,6 +201,7 @@ class PoseDirectory:
         # self.pre_refine = self.info.get('pre_refine', True)
         # self.pre_loop_model = self.info.get('pre_loop_model', True)
         self.specific_designs = kwargs.get('specific_designs', [])
+        self.pose_transformation = kwargs.get('pose_transformation', [])
         self.specific_designs_file_paths = []
 
         # Todo if I use output_identifier for design, it opens up a can of worms.
