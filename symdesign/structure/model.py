@@ -38,7 +38,7 @@ from symdesign.utils import path as putils
 logger = logging.getLogger(__name__)
 zero_offset = 1
 seq_res_len = 52
-transformation_mapping: Type[dict[str, list[float] | list[list[float]] | np.ndarray]]
+transformation_mapping = Type[dict[str, list[float] | list[list[float]] | np.ndarray]]
 
 
 def softmax(x: np.ndarray) -> np.ndarray:
