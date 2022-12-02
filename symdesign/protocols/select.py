@@ -1,11 +1,12 @@
 import logging
+import os
 from itertools import repeat
+from typing import Any, Iterable
 
 import pandas as pd
 
-from symdesign import flags, metrics, protocols
+from symdesign import flags, metrics, protocols, utils
 from symdesign.resources.job import job_resources_factory
-from symdesign.resources.query.utils import bool_d, invalid_string
 import symdesign.utils.path as putils
 
 logger = logging.getLogger(__name__)

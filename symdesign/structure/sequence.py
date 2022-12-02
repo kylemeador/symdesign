@@ -2172,40 +2172,6 @@ def convert_to_residue_cluster_map(residue_cluster_dict, frag_range):
     return cluster_map
 
 
-# def deconvolve_clusters(cluster_dict, design_dict, cluster_map):
-#     """Add frequency information from a fragment database to a design dictionary
-#
-#     The frequency information is added in a fragment index dependent manner. If multiple fragment indices are present in
-#     a single residue, a new observation is created for that fragment index.
-#
-#     Args:
-#         cluster_dict (dict): {1_1_54: {'mapped': {aa_freq}, 'paired': {aa_freq}}, ...}
-#             mapped/paired aa_freq = {-2: {'A': 0.23, 'C': 0.01, ..., 'stats': [12, 0.37]}, -1: {}, ...}
-#                 Where 'stats'[0] is total fragments in cluster, and 'stats'[1] is weight of fragment index
-#         design_dict (dict): {0: {-2: {'A': 0.0, 'C': 0.0, ...}, -1: {}, ... }, 1: {}, ...}
-#         cluster_map (dict): {48: {'source': 'mapped', 'cluster': [(-2, 1_1_54), ...], 'match': 1.2}, ...}
-#     Returns:
-#         (dict): {0: {-2: {O: {'A': 0.23, 'C': 0.01, ..., 'stats': [12, 0.37], 'match': 1.2}, 1: {}}, -1: {}, ... },
-#                  1: {}, ...}
-#     """
-#
-#     for resi in cluster_map:
-#         dict_type = cluster_map[resi]['source']
-#         observation = {-2: 0, -1: 0, 0: 0, 1: 0, 2: 0}  # counter for each residue obs along the fragment index
-#         for index_cluster_pair in cluster_map[resi]['cluster']:
-#             aa_freq = cluster_dict[index_cluster_pair[1]][dict_type][index_cluster_pair[0]]
-#             # Add the aa_freq from cluster to the residue/frag_index/observation
-#             try:
-#                 design_dict[resi][index_cluster_pair[0]][observation[index_cluster_pair[0]]] = aa_freq
-#                 design_dict[resi][index_cluster_pair[0]][observation[index_cluster_pair[0]]]['match'] = \
-#                     cluster_map[resi]['match']
-#             except KeyError:
-#                 raise RuntimeError(f'Missing residue {resi} in {deconvolve_clusters.__name__}')
-#             observation[index_cluster_pair[0]] += 1
-#
-#     return design_dict
-
-
 # def psiblast(query, outpath=None, remote=False):  # UNUSED
 #     """Generate an position specific scoring matrix using PSI-BLAST subprocess
 #

@@ -9,7 +9,7 @@ from psutil import cpu_count
 from symdesign.metrics import metric_weight_functions
 from symdesign.resources.query.utils import input_string, confirmation_string, bool_d, invalid_string, header_string, \
     format_string
-from symdesign.utils import handle_errors, pretty_format_table, ex_path
+from symdesign.utils import handle_errors, pretty_format_table, ex_path, path as putils
 from symdesign.utils.ProteinExpression import expression_tags
 from symdesign.utils.path import fragment_dbs, biological_interfaces, default_logging_level
 # These attributes ^ shouldn't be moved here. Below should be with proper handling of '-' vs. '_'
@@ -48,7 +48,6 @@ perturb_dof_tx = 'perturb_dof_tx'
 perturb_dof_steps_rot = 'perturb_dof_steps_rot'
 perturb_dof_steps_tx = 'perturb_dof_steps_tx'
 cluster_map = 'cluster_map'
-specification_file_ = 'specification_file'
 pose_file_ = 'pose_file'
 specific_protocol = 'specific_protocol'
 directory = 'directory'
@@ -110,7 +109,7 @@ structure_background = format_for_cmdline(structure_background)
 # evolutionary_profile = format_for_cmdline(evolutionary_profile)
 # fragment_profile = format_for_cmdline(fragment_profile)
 cluster_map = format_for_cmdline(cluster_map)
-specification_file = format_for_cmdline(specification_file_)
+specification_file = format_for_cmdline(putils.specification_file)
 pose_file = format_for_cmdline(pose_file_)
 specific_protocol = format_for_cmdline(specific_protocol)
 sym_entry = format_for_cmdline(sym_entry)
@@ -322,8 +321,8 @@ options_arguments = {
     (f'--{development}',): dict(action='store_true',
                                 help='Run in development mode. This should only be used for active development'),
     distribute_args: dict(action='store_true',
-                                         help="Should commands be distributed to a cluster?\nIn most cases, this will "
-                                              'maximize computational resources\nDefault=%(default)s'),
+                          help="Should commands be distributed to a cluster?\nIn most cases, this will "
+                               'maximize computational resources\nDefault=%(default)s'),
     ('-F', f'--{force}'): dict(action='store_true', help='Force generation of new files for existing projects'),
     # ('-gf', f'--{generate_fragments}'): dict(action='store_true',
     #                                          help='Generate interface fragment observations for poses of interest'
@@ -811,7 +810,6 @@ parser_rename_chains = {rename_chains:
 # }
 # # ---------------------------------------------------
 # parser_residue_selector = {'residue_selector': dict(description='Generate a residue selection for %s' % program_name)}
-# # parser_residue_selector = subparsers.add_parser('residue_selector', description='Generate a residue selection for %s' % program_name)
 # ---------------------------------------------------
 directory_needed = f'To locate poses from a file utilizing pose IDs (-df, -pf, and -sf)' \
                    f'\nprovide your working {program_output} directory with -d/--directory'
@@ -831,7 +829,7 @@ input_arguments = {
                                   'instances should be\nseparated by a space\nEx --fuse-chains A:B C:D'),
     ('-N', f'--{nanohedra}V1-output'): dict(action='store_true', dest=nanohedra_output,
                                             help='Is the input a Nanohedra wersion 1 docking output?'),
-    ('-pf', f'--{pose_file}'): dict(type=str, dest=specification_file_,
+    ('-pf', f'--{pose_file}'): dict(type=str, dest=putils.specification_file,
                                     metavar=ex_path('pose_design_specifications.csv'),
                                     help=f'If pose IDs are specified in a file, say as the result of\n{select_poses}'
                                          f' or {select_designs}'),
@@ -1001,7 +999,7 @@ for argparser_name, argparser_kwargs in argparsers_kwargs.items():
 
 # Set up module ArgumentParser with module arguments
 module_subargparser = dict(title=f'{"_" * len(module_title)}\n{module_title}', dest='module',  # metavar='',
-                           # allow_abbrev=False,  # Not allowed here, but some of the modules try to parse -s as -sc...
+                           # allow_abbrev=False,  # Not allowed here, but some modules try to parse -s as -sc...
                            description='\nThese are the different modes that designs can be processed. They are'
                                        '\npresented in an order which might be utilized along a design workflow,\nwith '
                                        'utility modules listed at the bottom starting with check_clashes.\nTo see '
