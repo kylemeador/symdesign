@@ -245,12 +245,14 @@ class PoseDirectory:
                 self.source = os.path.join(self.source_path, putils.asu)
             else:  # Set up PoseDirectory initially from input file
                 # path_components = path.splitext(self.source_path)[0].split(os.sep)
-                try:
-                    index = path_components.index(os.environ['USER'])
-                except (KeyError, ValueError):  # Missing USER enviromental variable, missing in path_components
-                    index = None
-                self.name = '-'.join(path_components[index:])
-                root = path_components[-2] if root is None else root  # path/to/job/[project]/design.pdb
+                # This was included to circumvent issues with the exact same name from multiple files,
+                # example "--file file1 file2" like inputs giving /place1/path/to/file.pdb and /place2/path/to/file.pdb
+                # try:
+                #     index = path_components.index(os.environ['USER'])
+                # except (KeyError, ValueError):  # Missing USER environmental variable, missing in path_components
+                #     index = None
+                self.name = '-'.join(path_components[-2:])
+                root = path_components[-2] if root is None else root  # path/to/job/[project_Poses]/design.pdb
                 self.source = self.source_path
 
             # Remove a leading '-' character from abspath type results
