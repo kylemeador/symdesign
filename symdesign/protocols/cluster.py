@@ -326,7 +326,7 @@ def return_transform_group_as_concatenated_guide_coordinates(*transforms: dict[s
         operation_lengths = []
         for key in allowed_keys:
             operation = transforms[0].get(key)
-            if operation:
+            if operation is not None:
                 operation_lengths.append(len(operation))
         try:
             tiled_length = max(operation_lengths)
