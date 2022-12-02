@@ -751,7 +751,7 @@ class SymEntry:
         # given the matrix should only ever have one value in each column (max) a sum over the column should produce the
         # desired vector to calculate the optimal shift.
         # There is a possibility of returning inf when we divide 0 by a value so ignore this warning
-        with warnings.catch_warnings() as w:
+        with warnings.catch_warnings():
             # Cause all warnings to always be ignored
             warnings.simplefilter('ignore')
             external_translation_shifts = [a, b, c] / np.abs(uc_mat.sum(axis=-2))

@@ -1470,7 +1470,7 @@ def calculate_sequence_observations_and_divergence(alignment: 'structure.sequenc
 #         except TypeError:  # bgd_frequency is None, therefore the frequencies can't be compared. Should error be raised?
 #             continue
 #         try:
-#             with warnings.catch_warnings() as w:
+#             with warnings.catch_warnings():
 #                 # Cause all warnings to always be ignored
 #                 warnings.simplefilter('ignore')
 #                 try:
@@ -1624,7 +1624,7 @@ def position_specific_divergence(frequencies: np.ndarray, bgd_frequencies: np.nd
         An array of divergences bounded between 0 and 1. 1 indicates frequencies are more divergent from background
     """
     r = (lambda_ * frequencies) + ((1 - lambda_) * bgd_frequencies)
-    with warnings.catch_warnings() as w:
+    with warnings.catch_warnings():
         # Ignore all warnings related to np.nan
         warnings.simplefilter('ignore')
         probs1 = frequencies * np.log2(frequencies / r)
@@ -1651,7 +1651,7 @@ def position_specific_divergence(frequencies: np.ndarray, bgd_frequencies: np.nd
 #         except TypeError:  # bgd_frequency is None, therefore the frequencies can't be compared. Should error be raised?
 #             continue
 #         try:
-#             with warnings.catch_warnings() as w:
+#             with warnings.catch_warnings():
 #                 # Cause all warnings to always be ignored
 #                 warnings.simplefilter('ignore')
 #                 try:

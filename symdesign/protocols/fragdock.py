@@ -5,6 +5,7 @@ import logging
 import math
 import os
 import time
+import warnings
 from collections.abc import Iterable
 from itertools import repeat, count
 from math import prod
@@ -3649,9 +3650,11 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
                         per_residue_evolutionary_profile_scores = per_residue_design_profile_scores = nan_blank_data
 
                     if pose.fragment_profile:
-                        # np.log causes -inf at 0, thus we correct these to a very large number
-                        corrected_frag_array = np.nan_to_num(np.log(fragment_profile_array), copy=False,
-                                                             nan=np.nan, neginf=zero_probability_frag_value)
+                        with warnings.catch_warnings():
+                            # np.log causes -inf at 0, thus we correct these to a very large number
+                            warnings.simplefilter('ignore', category=RuntimeWarning)
+                            corrected_frag_array = np.nan_to_num(np.log(fragment_profile_array), copy=False,
+                                                                 nan=np.nan, neginf=zero_probability_frag_value)
                         per_residue_fragment_profile_scores = \
                             ml.sequence_nllloss(torch_numeric, torch.from_numpy(corrected_frag_array))
                         # Find the non-zero sites in the profile

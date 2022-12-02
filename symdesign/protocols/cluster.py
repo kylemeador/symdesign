@@ -5,7 +5,7 @@ import os
 import subprocess
 from itertools import combinations, repeat
 from typing import Iterable, AnyStr, Any
-from warnings import catch_warnings, simplefilter
+import warnings
 
 import numpy as np
 import pandas as pd
@@ -351,9 +351,9 @@ def find_cluster_representatives(transform_tree: sklearn.neighbors._unsupervised
     # Get the neighbors for each point in the tree according to the fit distance
     tree_distances, tree_indices = transform_tree.radius_neighbors(sort_results=True)
     # Find mean distance to all neighbors for each index
-    with catch_warnings():
+    with warnings.catch_warnings():
         # Empty slices can't compute mean, so catch warning if cluster is an outlier
-        simplefilter('ignore', category=RuntimeWarning)
+        warnings.simplefilter('ignore', category=RuntimeWarning)
         mean_cluster_dist = np.empty(tree_distances.shape[0])
         for idx in range(tree_distances.shape[0]):
             mean_cluster_dist[idx] = tree_distances[idx].mean()
