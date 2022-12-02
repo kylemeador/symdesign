@@ -124,7 +124,7 @@ class PoseDirectory:
     pre_loop_model: bool
     source: str | None
     source_path: str
-    specific_designs: list
+    specific_designs: Sequence[str]
     specific_designs_file_paths: list[AnyStr]
 
     @classmethod
@@ -150,7 +150,9 @@ class PoseDirectory:
                 self.path = os.path.join(root, putils.projects, pose_id.replace(f'_{putils.pose_directory}-',
                                                                                 f'_{putils.pose_directory}{os.sep}'))
 
-    def __init__(self, design_path: AnyStr, pose_id: bool = False, root: AnyStr = None, **kwargs):
+    def __init__(self, design_path: AnyStr, pose_id: bool = False, root: AnyStr = None,
+                 pose_transformation: Sequence[transformation_mapping] = None, entity_names: Sequence[str] = None,
+                 specific_designs: Sequence[str] = None, directives: list[dict[int, str]] = None, **kwargs):
         # self.job = job if job else job_resources_factory.get(program_root=root, **kwargs)
         self.job = job_resources_factory.get()
         # PoseDirectory flags
@@ -184,7 +186,8 @@ class PoseDirectory:
         # background profile.
         # Choices include putils.design_profile, putils.evolutionary_profile, and putils.fragment_profile
         # """
-        self.directives = kwargs.get('directives', [])
+        if directives:
+            self.directives = directives
         self.info: dict = {}
         """Internal state info"""
         self._info: dict = {}
@@ -201,8 +204,8 @@ class PoseDirectory:
         # self.pose_id = None
         # self.pre_refine = self.info.get('pre_refine', True)
         # self.pre_loop_model = self.info.get('pre_loop_model', True)
-        self.specific_designs = kwargs.get('specific_designs', [])
-        self.pose_transformation = kwargs.get('pose_transformation', [])
+        if specific_designs:
+            self.specific_designs = specific_designs
         self.specific_designs_file_paths = []
 
         # Todo if I use output_identifier for design, it opens up a can of worms.
@@ -334,21 +337,21 @@ class PoseDirectory:
         if self.specific_designs:
             # Introduce flag handling current inability of specific_designs to handle iteration
             self._lock_optimize_designs = True
-            self.specific_designs_file_paths = []
+            # self.specific_designs_file_paths = []
             for design in self.specific_designs:
                 matching_path = os.path.join(self.designs, f'*{design}.pdb')
                 matching_designs = sorted(glob(matching_path))
                 if matching_designs:
-                    for matching_design in matching_designs:
-                        if os.path.exists(matching_design):
-                            # self.specific_design_path = matching_design
-                            self.specific_designs_file_paths.append(matching_design)
                     if len(matching_designs) > 1:
                         self.log.warning(f'Found {len(matching_designs)} matching designs to your specified design '
                                          f'using {matching_path}. Choosing the first {matching_designs[0]}')
+                    for matching_design in matching_designs:
+                        if os.path.exists(matching_design):  # Shouldn't be necessary from glob
+                            self.specific_designs_file_paths.append(matching_design)
+                            break
                 else:
                     raise DesignError(f"Couldn't locate a specific_design matching the name '{matching_path}'")
-                # format specific_designs to a pose ID compatible format
+            # Format specific_designs to a pose ID compatible format
             self.specific_designs = [f'{self.name}_{design}' for design in self.specific_designs]
             # self.source = specific_designs_file_paths  # Todo?
             # self.source = self.specific_design_path
@@ -2100,6 +2103,7 @@ class PoseDirectory:
         directives = dict(zip(background.keys(), repeat(None)))
         # directives.update({self.pose.residue(residue_number): directive
         #                    for residue_number, directive in self.directives.items()})
+        # Todo make self.directives iterable list[dict[int, str]]
         directives.update({residue: self.directives[residue.number]
                            for residue in self.pose.get_residues(self.directives.keys())})
 

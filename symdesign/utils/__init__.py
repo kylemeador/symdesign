@@ -1017,11 +1017,11 @@ class PoseSpecification(Dialect):
         super().__init__()
         self.directive_delimiter: str = ':'
         self.file: AnyStr = file
-        self.directives: List[Dict[int, str]] = []
+        self.directives: list[dict[int, str]] = []
 
         all_poses, design_names, all_design_directives, = [], [], []
         with open(self.file) as file:
-            # all_poses, design_names, all_design_directives, *_ = zip(*reader(file, dialect=self))
+            # pose_ids, design_names, all_design_directives, *_ = zip(*reader(file, dialect=self))
             all_info = list(zip(*reader(file, dialect=self)))
 
         for idx in range(len(all_info)):
@@ -1031,9 +1031,11 @@ class PoseSpecification(Dialect):
                 design_names = all_info[idx]
             elif idx == 2:
                 all_design_directives = all_info[idx]
-        self.all_poses, self.design_names = list(map(str.strip, all_poses)), list(map(str.strip, design_names))
 
-        # first split directives by white space, then by directive_delimiter
+        self.pose_ids: list[str] = list(map(str.strip, all_poses))
+        self.design_names: list[str] = list(map(str.strip, design_names))
+
+        # First, split directives by white space, then by directive_delimiter
         # self.directives = \
         #     [dict((residue, directive) for residues_s, directive in [residue_directive.split(self.directive_delimiter)
         #                                                              for residue_directive in design_directives.split()]
@@ -1045,49 +1047,54 @@ class PoseSpecification(Dialect):
             # print('splitting directives', list(map(str.split, design_directives.split(), repeat(self.directive_delimiter))))
             for residues_s, directive in map(str.split, design_directives.split(), repeat(self.directive_delimiter)):
                 # residues_s, directive = _directive.split(self.directive_delimiter)
-                residues = format_index_string(residues_s)
-                residue_directives.extend((residue, directive) for residue in residues)
+                residue_directives.extend([(residue, directive) for residue in format_index_string(residues_s)])
             # print('Residue Directives', residue_directives)
             self.directives.append(dict(residue_directive for residue_directive in residue_directives))
         # print('Total Design Directives', self.directives)
 
-    def get_directives(self) -> Iterator[Tuple[str, str, Dict[int, str]]]:
-        all_poses_len = len(self.all_poses)
-        if self.directives:
-            if all_poses_len == len(self.design_names) == len(self.directives):  # specification file
-                # return zip(self.all_poses, self.design_names, self.directives)
-                design_names, directives = self.design_names, self.directives
-            else:
-                raise ValueError('The inputs to the PoseSpecification have different lengths!')
-        elif self.design_names:
-            if all_poses_len == len(self.design_names):  # pose file
-                # return zip(self.all_poses, self.design_names, self.directives)
-                design_names, directives = self.design_names, list(repeat([], all_poses_len))
-            else:
-                raise ValueError('The inputs to the PoseSpecification have different lengths!')
-        else:  # pose file with possible extra garbage
-            # design_names, directives = repeat(self.design_names), repeat(self.directives)
-            design_names = directives = list(repeat([], all_poses_len))
+    def get_directives(self) -> Iterator[tuple[str, list[str] | None, list[dict[int, str]] | None]]:
+        """Retrieve the parsed PoseID, Design Name, and Mutation Directive information from a Specification file
 
-        # calculate whether there are multiple designs present per pose
+        Returns:
+            An iterator which returns tuples containing the PoseID followed by corresponding
+        """
+        # Calculate whether there are multiple designs present per pose
         found_poses = {}
-        for idx, pose in enumerate(self.all_poses):
+        for idx, pose in enumerate(self.pose_ids):
             if pose in found_poses:
                 found_poses[pose].append(idx)
             else:
                 found_poses[pose] = [idx]
 
-        if len(found_poses) == self.all_poses:
-            return zip(self.all_poses, design_names, directives)
+        number_pose_ids = len(self.pose_ids)
+        if self.directives:  # specification_file
+            if number_pose_ids != len(self.directives):
+                raise ValueError('The inputs to the PoseSpecification have different lengths!')
         else:
-            # _, design_names, directives = list(zip(self.all_poses, design_names, directives))
-            stacked_all_poses, stacked_design_names, stacked_directives = [], [], []
-            for idx, (pose, indices) in enumerate(found_poses.items()):
-                stacked_all_poses.append(pose)
-                stacked_design_names.append([design_names[index] for index in indices])
-                stacked_directives.append([directives[index] for index in indices])
+            directives = list(repeat(None, number_pose_ids))
 
-            return zip(stacked_all_poses, stacked_design_names, stacked_directives)
+        if self.design_names:  # design_file
+            if number_pose_ids != len(self.design_names):
+                raise ValueError('The inputs to the PoseSpecification have different lengths!')
+        else:
+            design_names = list(repeat(None, number_pose_ids))
+
+        if len(found_poses) == number_pose_ids:  # There is one design per pose
+            if self.directives:
+                directives = [[directive] for directive in self.directives]
+            if self.design_names:
+                design_names = [[design_name] for design_name in self.design_names]
+        else:  # More than one
+            if self.directives:
+                directives = []
+                for indices in found_poses.values():
+                    directives.append([self.directives[index] for index in indices])
+            if self.design_names:
+                design_names = []
+                for indices in found_poses.values():
+                    design_names.append([self.design_names[index] for index in indices])
+
+        return zip(self.pose_ids, design_names, directives)
 
 
 ######################
