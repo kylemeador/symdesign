@@ -216,10 +216,12 @@ class JobResources:
         # putils.make_path(self.pdb_assembly_api)
         putils.make_path(self.uniprot_api)
         self.module: str = kwargs.get(flags.module)
-        self.modules: list[str] = kwargs.get(flags.modules)
         # Ensure that the protocol is viable
         if self.module == flags.protocol:
+            self.modules: list[str] = kwargs.get(flags.modules)
             self.check_protocol_module_arguments()
+        else:
+            self.modules = [self.module]
 
         self.api_db = wrapapi.api_database_factory.get(source=self.data)
         self.structure_db = structure_db.structure_database_factory.get(source=self.data)
