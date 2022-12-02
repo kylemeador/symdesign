@@ -23,7 +23,7 @@ from symdesign.utils.path import submodule_guide, submodule_help, force, sym_ent
     proteinmpnn, output_trajectory, development, consensus, ca_only, sequences, structures, temperatures, \
     distribute_work, output_directory, output_surrounding_uc, skip_logging, output_file, multicistronic, \
     generate_fragments, input_, output, output_assembly, expand_asu, check_clashes, rename_chains, optimize_designs, \
-    perturb_dof
+    perturb_dof, tag_entities
 
 nstruct = 20
 query_codes1 = 'query_codes1'
@@ -54,7 +54,6 @@ specific_protocol = 'specific_protocol'
 directory = 'directory'
 dataframe = 'dataframe'
 fragment_database = 'fragment_database'
-skip_sequence_generation = 'skip_sequence_generation'
 interface_to_alanine = 'interface_to_alanine'
 metrics = 'metrics'
 increment_chains = 'increment_chains'
@@ -147,9 +146,9 @@ ignore_symmetric_clashes = format_for_cmdline(ignore_symmetric_clashes)
 nano_entity_flag1 = format_for_cmdline(nano_entity_flag1)
 nano_entity_flag2 = format_for_cmdline(nano_entity_flag2)
 skip_logging = format_for_cmdline(skip_logging)
-skip_sequence_generation = format_for_cmdline(skip_sequence_generation)
 interface_to_alanine = format_for_cmdline(interface_to_alanine)
 increment_chains = format_for_cmdline(increment_chains)
+tag_entities = format_for_cmdline(tag_entities)
 
 
 # def return_default_flags():
@@ -673,9 +672,10 @@ protocol_kwargs = dict(type=str, help='Use specific protocol(s) to filter design
 
 save_total_args = ('--save-total',)
 save_total_kwargs = dict(action='store_false', help='If --total is used, should the total dataframe be saved?')
-select_number_args = ('-s', '--select-number')
+pose_select_number_kwargs = \
+    dict(type=int, default=sys.maxsize, metavar='int', help='Number to return\nDefault=No Limit')
 select_number_kwargs = dict(type=int, default=sys.maxsize, metavar='int',
-                            help='Number of sequences to return\nIf total is True, returns the '
+                            help='Number to return\nIf --total, returns the '
                                  'specified number of sequences (Where Default=No Limit).\nOtherwise the '
                                  'specified number will be selected from each pose (Where Default=1/pose)')
 total_args = ('--total',)
@@ -690,30 +690,36 @@ weight_function_kwargs = dict(type=str.lower, choices=metric_weight_functions, d
                               help='How to standardize metrics during selection weighting'
                                    '\nChoices=%(choices)s\nDefault=%(default)s')
 # ---------------------------------------------------
+select_arguments = {
+    cluster_map_args: cluster_map_kwargs,
+    filter_args: filter_kwargs,
+    number_args + (f'--s-{number}',): select_number_kwargs,
+    protocol_args: protocol_kwargs,
+    save_total_args: save_total_kwargs,
+    total_args: total_kwargs,
+    weight_args: weight_kwargs,
+    weight_function_args: weight_function_kwargs,
+}
+# ---------------------------------------------------
 select_poses_help = 'Select poses based on specific metrics.\nSelection will be the result of a handful of metrics ' \
                     f'combined using --filter and/or --weights.\nFor metric options see {analysis} --guide. If a pose '\
                     "'input option from -d, -f, -p, or -s isn't\nprovided, the flags -sf or -df are possible where -sf"\
                     " takes priority"
 parser_select_poses = {select_poses: dict(description=select_poses_help, help=select_poses_help)}
 select_poses_arguments = {
-    filter_args: filter_kwargs,
-    protocol_args: protocol_kwargs,
-    select_number_args: dict(type=int, default=sys.maxsize, metavar='int',
-                             help='Number of poses to return\nDefault=No Limit'),
-    save_total_args: save_total_kwargs,
+    **select_arguments,
+    number_args: pose_select_number_kwargs,
     total_args: dict(action='store_true',
                      help='Should poses be selected based on their ranking in the total\npose pool? This will select '
                           'the top poses based on the\naverage of all designs in that pose for the metrics specified\n'
                           'unless --protocol is invoked, then the protocol average\nwill be used instead'),
-    weight_args: weight_kwargs,
-    weight_function_args: weight_function_kwargs,
-# }
-# # parser_filter_mutual = parser_select_poses.add_mutually_exclusive_group(required=True)
-# parser_select_poses_mutual_group = dict(required=True)
-# parser_select_poses_mutual_arguments = {
-    ('-m', '--metric'): dict(type=str.lower, choices=['score', 'fragments_matched'], metavar='', default='score',
-                             help='If a single metric is sufficient, which metric to sort by?'
-                                  '\nChoices=%(choices)s\nDefault=%(default)s'),
+    # }
+    # # parser_filter_mutual = parser_select_poses.add_mutually_exclusive_group(required=True)
+    # parser_select_poses_mutual_group = dict(required=True)
+    # parser_select_poses_mutual_arguments = {
+    #     ('-m', '--metric'): dict(type=str.lower, choices=['score', 'fragments_matched'], metavar='', default='score',
+    #                              help='If a single metric is sufficient, which metric to sort by?'
+    #                                   '\nChoices=%(choices)s\nDefault=%(default)s'),
 }
 # ---------------------------------------------------
 intergenic_sequence_args = ('-ms', '--multicistronic-intergenic-sequence')
@@ -722,57 +728,48 @@ intergenic_sequence_kwargs = dict(type=str, help='The sequence to use in the int
 select_sequences_help = 'From the provided poses, generate nucleotide/protein sequences based on specified selection\n'\
                         'criteria and prioritized metrics. Generation of output sequences can take multiple forms\n' \
                         'depending on downstream needs. By default, disordered region insertion,\ntagging for ' \
-                        'expression, and codon optimization (if --nucleotide) are performed'
+                        f'expression, and codon optimization (if --{nucleotide}) are performed'
+multicistronic_args = {
+    csv_args: csv_kwargs,
+    intergenic_sequence_args: intergenic_sequence_kwargs,
+    optimize_species_args: optimize_species_kwargs,
+}
+_select_designs_arguments = {
+    allow_multiple_poses_args: allow_multiple_poses_kwargs,
+    designs_per_pose_args: designs_per_pose_kwargs
+}
 parser_select_sequences = {select_sequences: dict(description=select_sequences_help, help=select_sequences_help)}
 select_sequences_arguments = {
-    allow_multiple_poses_args: allow_multiple_poses_kwargs,
+    **select_arguments,
+    **_select_designs_arguments,
     ('-ath', '--avoid-tagging-helices'):
         dict(action='store_true', help='Should tags be avoided at termini with helices?'),
-    csv_args: csv_kwargs,
-    filter_args: filter_kwargs,
     ('-m', f'--{multicistronic}'):
         dict(action='store_true',
              help='Should nucleotide sequences by output in multicistronic format?\nBy default, uses the pET-Duet '
                   'intergeneic sequence containing\na T7 promoter, LacO, and RBS'),
-    intergenic_sequence_args: intergenic_sequence_kwargs,
-    ('--nucleotide',): dict(action='store_true', help='Whether to output codon optimized nucleotide sequences'),
-    select_number_args: select_number_kwargs,
-    optimize_species_args: optimize_species_kwargs,
+    (f'--{nucleotide}',): dict(action=argparse.BooleanOptionalAction, default=True,
+                               help=f'Whether to output codon optimized nucleotide sequences'
+                                    f'\n{boolean_positional_prevent_msg(nucleotide)}'),
     ('-t', '--preferred-tag'): dict(type=str.lower, choices=expression_tags.keys(), default='his_tag', metavar='',
                                     help='The name of your preferred expression tag'
                                          '\nChoices=%(choices)s\nDefault=%(default)s'),
-    protocol_args: protocol_kwargs,
-    ('-ssg', f'--{skip_sequence_generation}'): dict(action='store_true',
-                                                    help='Should sequence generation be skipped?\nRuns same protocol as'
-                                                         f' {select_designs}'),
-    designs_per_pose_args: designs_per_pose_kwargs,
-    # Todo make work with list... choices=['single', 'all', 'none']
-    ('--tag-entities',): dict(type=str, default='none',
-                              help='If there are specific entities in the designs you want to tag,\nindicate how '
-                                   'tagging should occur. Viable options include:\n\t"single" - a single entity\n\t'
-                                   '"all" - all entities\n\t"none" - no entities\n\tcomma separated list such as '
-                                   '"1,0,1"\n\t\twhere "1" indicates a tag is required\n\t\tand "0" indicates no tag is'
-                                   ' required'),
-    save_total_args: save_total_kwargs,
-    total_args: total_kwargs,
-    weight_args: weight_kwargs,
-    weight_function_args: weight_function_kwargs
+    (f'--{tag_entities}',): dict(type=str,
+                                 help='If there are specific entities in the designs you want to tag,\nindicate how '
+                                      'tagging should occur. Viable options include:\n\t"single" - a single entity\n\t'
+                                      '"all" - all entities\n\t"none" - no entities\n\tcomma separated list such as '
+                                      '"1,0,1"\n\t\twhere "1" indicates a tag is required\n\t\tand "0" indicates no tag'
+                                      ' is required'),
+    **multicistronic_args,
 }
 # ---------------------------------------------------
 select_designs_help = f'From the provided poses, select designs based on specified selection criteria\nusing metrics. '\
                       f'Alias for {select_sequences} with --skip-sequence-generation'
 parser_select_designs = {select_designs: dict(description=select_designs_help, help=select_designs_help)}
 select_designs_arguments = {
-    allow_multiple_poses_args: allow_multiple_poses_kwargs,
-    designs_per_pose_args: designs_per_pose_kwargs,
+    **select_arguments,
+    **_select_designs_arguments,
     csv_args: csv_kwargs,
-    filter_args: filter_kwargs,
-    select_number_args: select_number_kwargs,
-    protocol_args: protocol_kwargs,
-    save_total_args: save_total_kwargs,
-    total_args: total_kwargs,
-    weight_args: weight_kwargs,
-    weight_function_args: weight_function_kwargs
 }
 # ---------------------------------------------------
 multicistronic_help = 'Generate nucleotide sequences for selected designs by codon optimizing protein\nsequences, then'\
@@ -780,11 +777,9 @@ multicistronic_help = 'Generate nucleotide sequences for selected designs by cod
                       '-f/--file argument'
 parser_multicistronic = {multicistronic: dict(description=multicistronic_help, help=multicistronic_help)}
 multicistronic_arguments = {
-    csv_args: csv_kwargs,
-    intergenic_sequence_args: intergenic_sequence_kwargs,
-    ('-n', '--number-of-genes'): dict(type=int, help='The number of protein sequences to concatenate into a '
-                                                     'multicistronic expression output'),
-    optimize_species_args: optimize_species_kwargs,
+    **multicistronic_args,
+    number_args: dict(type=int, help='The number of protein sequences to concatenate into a '
+                                            'multicistronic expression output'),
 }
 # ---------------------------------------------------
 # parser_asu = subparsers.add_parser('find_asu', description='From a symmetric assembly, locate an ASU and save the result.')

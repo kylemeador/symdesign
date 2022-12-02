@@ -517,18 +517,17 @@ def main():
         if job.module == flags.analysis:
             # Ensure analysis write directory exists
             putils.make_path(job.all_scores)
-        # Analysis types can be run from nanohedra_output, so ensure that we don't construct new
-        job.construct_pose = False
-        if job.module == flags.select_designs:  # Alias to module select_sequences with --skip-sequence-generation
-            job.module = flags.select_sequences
-            job.skip_sequence_generation = True
-        if job.module == flags.select_poses:
+        # if job.module == flags.select_designs:  # Alias to module select_sequences with --skip-sequence-generation
+        #     job.module = flags.select_sequences
+        #     job.skip_sequence_generation = True
+        elif job.module == flags.select_poses:
             # When selecting by dataframe or metric, don't initialize, input is handled in module protocol
             if args.dataframe or args.metric:
                 initialize = False
-        if job.module == flags.select_sequences and args.select_number == sys.maxsize and not args.total:
+        elif job.module in [flags.select_designs, flags.select_sequences] \
+                and job.number == sys.maxsize and not args.total:
             # Change default number to a single sequence/pose when not doing a total selection
-            args.select_number = 1
+            job.number = 1
     elif job.module == flags.nanohedra:
         initialize = False
         if not job.sym_entry:
@@ -988,7 +987,7 @@ def main():
             putils.nanohedra,
             putils.select_poses,
             putils.select_designs,
-            putils.select_sequences
+            # putils.select_sequences
         )
         # terminate_options = dict(
         #     # analysis=dict(output_analysis=args.output),  # Replaced with args.output in terminate()
@@ -1202,7 +1201,7 @@ def main():
         # Write out the chosen poses to a pose.paths file
         terminate(results=pose_directories)
     # ---------------------------------------------------
-    elif job.module == flags.select_sequences:
+    elif job.module in [flags.select_designs, flags.select_sequences]:
         program_root = job.program_root
         if job.specification_file:
             loc_result = [(pose_directory, design) for pose_directory in pose_directories
@@ -1211,9 +1210,9 @@ def main():
             selected_poses_df = \
                 metrics.prioritize_design_indices(total_df.loc[loc_result, :], filter=job.filter, weight=job.weight,
                                                   protocol=job.protocol, function=job.weight_function)
-            # Specify the result order according to any filtering, weighting, and select_number
+            # Specify the result order according to any filtering, weighting, and number
             results = {}
-            for pose_directory, design in selected_poses_df.index.to_list()[:job.select_number]:
+            for pose_directory, design in selected_poses_df.index.to_list()[:job.number]:
                 if pose_directory in results:
                     results[pose_directory].add(design)
                 else:
@@ -1235,14 +1234,14 @@ def main():
             selected_poses_df = metrics.prioritize_design_indices(df, filter=job.filter, weight=job.weight,
                                                                   protocol=job.protocol, function=job.weight_function)
             selected_designs = selected_poses_df.index.to_list()
-            job.select_number = \
-                len(selected_designs) if len(selected_designs) < job.select_number else job.select_number
+            job.number = \
+                len(selected_designs) if len(selected_designs) < job.number else job.number
             if job.allow_multiple_poses:
-                logger.info(f'Choosing {job.select_number} designs, from the top ranked designs regardless of pose')
-                loc_result = selected_designs[:job.select_number]
+                logger.info(f'Choosing {job.number} designs, from the top ranked designs regardless of pose')
+                loc_result = selected_designs[:job.number]
                 results = {pose_dir: design for pose_dir, design in loc_result}
             else:  # elif job.designs_per_pose:
-                logger.info(f'Choosing up to {job.select_number} designs, with {job.designs_per_pose} designs per pose')
+                logger.info(f'Choosing up to {job.number} designs, with {job.designs_per_pose} designs per pose')
                 number_chosen = 0
                 selected_poses = {}
                 for pose_directory, design in selected_designs:
@@ -1255,7 +1254,7 @@ def main():
                     else:
                         selected_poses[pose_directory] = {design}
                     number_chosen += 1
-                    if number_chosen == job.select_number:
+                    if number_chosen == job.number:
                         break
 
                 results = selected_poses
@@ -1303,8 +1302,8 @@ def main():
                 results = {pose_dir: pose_dir.select_sequences(filters=sequence_filters, weights=sequence_weights,
                                                                number=job.designs_per_pose, protocols=job.protocol)
                            for pose_dir in pose_directories}
-            # Todo there is no sort here so the select_number isn't really doing anything
-            results = {pose_dir: designs for pose_dir, designs in list(results.items())[:job.select_number]}
+            # Todo there is no sort here so the number isn't really doing anything
+            results = {pose_dir: designs for pose_dir, designs in list(results.items())[:job.number]}
             loc_result = [(pose_dir, design) for pose_dir, designs in results.items() for design in designs]
             total_df = protocols.load_total_dataframe(pose_directories)
             save_poses_df = total_df.loc[loc_result, :].droplevel(0).droplevel(0, axis=1).droplevel(0, axis=1)
@@ -1354,8 +1353,8 @@ def main():
             # except FileExistsError:
             #     pass
 
-        # Check if sequences should be generated
-        if job.skip_sequence_generation:
+        # Check if sequences should be generated. This is True when the job.module == flags.select_sequences
+        if job.module == flags.select_designs:
             terminate(exceptions=exceptions, output=False)
         else:
             # Format sequences for expression
@@ -1364,34 +1363,33 @@ def main():
             with open(job.output_file, 'w') as f:
                 f.write('%s\n' % '\n'.join(pose_dir.path for pose_dir in list(results.keys())))
 
-        # Use one directory as indication of entity specification for them all. Todo modify for different length inputs
-        representative_pose_directory.load_pose()
-        if args.tag_entities:
-            if args.tag_entities == 'all':
-                tag_index = [True for _ in representative_pose_directory.pose.entities]
-                number_of_tags = len(representative_pose_directory.pose.entities)
-            elif args.tag_entities == 'single':
-                tag_index = [True for _ in representative_pose_directory.pose.entities]
-                number_of_tags = 1
-            elif args.tag_entities == 'none':
-                tag_index = [False for _ in representative_pose_directory.pose.entities]
-                number_of_tags = None
+        # Set up mechanism to solve sequence tagging preferences
+        def solve_tags(pose: Pose):
+            if job.tag_entities is None:
+                tag_index = [False for _ in pose.entities]
+            elif job.tag_entities == 'all':
+                tag_index = [True for _ in pose.entities]
+            elif job.tag_entities == 'single':
+                tag_index = [True for _ in pose.entities]
             else:
-                tag_specified_list = list(map(str.translate, set(args.entity_specification.split(',')).difference(['']),
-                                              repeat(utils.digit_translate_table)))
-                for idx, item in enumerate(tag_specified_list):
-                    try:
-                        tag_specified_list[idx] = int(item)
-                    except ValueError:
+                tag_index = []
+                for tag_specification in map(str.strip, job.tag_entities.split(',')):
+                    # Remove non-numeric stuff
+                    if tag_specification == '':  # Probably a trailing ',' ...
                         continue
+                    else:
+                        tag_specification.translate(utils.digit_translate_table)
 
-                for _ in range(len(representative_pose_directory.pose.entities) - len(tag_specified_list)):
-                    tag_specified_list.append(0)
-                tag_index = [True if is_tag else False for is_tag in tag_specified_list]
-                number_of_tags = sum(tag_specified_list)
-        else:
-            tag_index = [False for _ in representative_pose_directory.pose.entities]
-            number_of_tags = None
+                    try:  # To convert to an integer
+                        tag_index.append(True if int(tag_specification) == 1 else False)
+                    except ValueError:  # Not an integer False
+                        tag_index.append(False)
+
+                # Add any missing arguments to the tagging scheme
+                for _ in range(pose.number_of_entities - len(tag_index)):
+                    tag_index.append(False)
+
+            return tag_index
 
         if args.multicistronic or args.multicistronic_intergenic_sequence:
             args.multicistronic = True
@@ -1408,6 +1406,8 @@ def main():
         # for des_dir, design in results:
         for des_dir, designs in results.items():
             des_dir.load_pose()  # source=des_dir.asu_path)
+            tag_index = solve_tags(des_dir.pose)
+            number_of_tags = sum(tag_index)
             des_dir.pose.rename_chains()  # Do I need to modify chains?
             for design in designs:
                 file_glob = f'{des_dir.designs}{os.sep}*{design}*'
@@ -1495,7 +1495,7 @@ def main():
                     logger.debug(f'The open reading frame offset is {offset}')
                     logger.debug(f'The formatted_design sequence is:\n{formatted_design_sequence}')
 
-                    if number_of_tags is None:  # don't solve tags
+                    if number_of_tags == 0:  # Don't solve tags
                         sequences_and_tags[design_string] = {'sequence': formatted_design_sequence, 'tag': {}}
                         continue
 
@@ -1535,8 +1535,8 @@ def main():
                         logger.debug(f'The pre-existing, identified tag is:\n{selected_tag}')
                     sequences_and_tags[design_string] = {'sequence': formatted_design_sequence, 'tag': selected_tag}
 
-                # after selecting all tags, consider tagging the design as a whole
-                if number_of_tags is not None:
+                # After selecting all tags, consider tagging the design as a whole
+                if number_of_tags > 0:
                     number_of_found_tags = len(des_dir.pose.entities) - sum(missing_tags[(des_dir, design)])
                     if number_of_tags > number_of_found_tags:
                         print(f'There were {number_of_tags} requested tags for design {des_dir} and '
