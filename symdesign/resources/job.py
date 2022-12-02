@@ -140,6 +140,12 @@ Predict = make_dataclass('Predict',
                          namespace={'from_flags': classmethod(from_flags)})
 #                          frozen=True)
 
+Cluster = make_dataclass('Cluster',
+                         [(flag, eval(type(default).__name__), field(default=default))
+                          for flag, default in flags.cluster.items()],
+                         namespace={'from_flags': classmethod(from_flags)})
+#                          frozen=True)
+
 
 class JobResources:
     """The intention of JobResources is to serve as a singular source of design info which is common across all
@@ -239,8 +245,6 @@ class JobResources:
 
         # Program flags
         # self.consensus: bool = kwargs.get(consensus, False)  # Whether to run consensus
-        self.as_objects: bool = kwargs.get('as_objects')
-        self.mode: bool = kwargs.get('mode')
         self.background_profile: str = kwargs.get('background_profile', putils.design_profile)
         """The type of position specific profile (per-residue amino acid frequencies) to utilize as the design 
         background profile. 
@@ -339,7 +343,6 @@ class JobResources:
         # self.metric = kwargs.get('metric')
         self.specification_file = kwargs.get('specification_file')
         self.dataframe = kwargs.get('dataframe')
-        self.cluster_map = kwargs.get('cluster_map')
 
         # Output flags
         prefix = kwargs.get('prefix')
@@ -384,6 +387,18 @@ class JobResources:
             self.construct_pose = True
 
         self.predict = Predict.from_flags(**kwargs)
+
+        # Clustering flags
+        # Todo this is pretty sloppy. I should modify this DataClass mechanism...
+        # self.cluster_map = kwargs.get('cluster_map')
+        # self.as_objects: bool = kwargs.get('as_objects')
+        # self.mode: bool = kwargs.get('mode')
+        if flags.cluster_poses in self.modules or 'map' in kwargs:
+            self.cluster = Cluster.from_flags(**kwargs)
+            # self.cluster.map: AnyStr
+            # """The path to a file containing the currently loaded mapping from cluster representatives to members"""
+        else:
+            self.cluster = False
 
     @property
     def construct_pose(self):

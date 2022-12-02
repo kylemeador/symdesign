@@ -109,6 +109,9 @@ def main():
         Returns:
             Tuple of passing PoseDirectories and Exceptions
         """
+        if _results is None:
+            _results = []
+
         _exceptions = [(jobs.pop(idx), _results[idx]) for idx, exception in enumerate(_results)
                        if isinstance(exception, BaseException)]
         return jobs, _exceptions
@@ -172,24 +175,13 @@ def main():
                         args.output_file = f'{args.output_file}.csv'
                     if not args.output:  # No output is specified
                         output_analysis = False
-                elif job.module == flags.cluster_poses:
-                    if len(args.output_file.split(os.sep)) <= 1:
-                        # The path isn't an absolute or relative path, so prepend the job.all_scores location
-                        args.output_file = os.path.join(job.clustered_poses, args.output_file)
-                    # pose_cluster_file is now results
-                    args.output_file = utils.pickle_object(results, args.output_file, out_path='')
                 else:
                     # Set the designs_file to the provided args.output_file
                     designs_file = args.output_file
             else:  # Remove possible multiple instances of _pose from location in default_output_tuple
                 # For certain modules, use the default file type
                 if job.module == flags.analysis:
-                    args.output_file = putils.default_analysis_file.format(utils.starttime, design_source)
-                elif job.module == flags.cluster_poses:
-                    args.output_file = \
-                        utils.pickle_object(results,
-                                            putils.default_clustered_pose_file.format(utils.starttime, location),
-                                            out_path=job.clustered_poses)
+                    job.output_file = putils.default_analysis_file.format(utils.starttime, design_source)
                 else:  # We don't have a default output specified
                     pass
 
@@ -225,19 +217,6 @@ def main():
                 logger.info(f'Analysis of all poses written to {args.output_file}')
                 if args.save:
                     logger.info(f'Analysis of all Trajectories and Residues written to {job.all_scores}')
-            elif job.module == flags.cluster_poses:
-                logger.info('Clustering analysis results in the following similar poses:\nRepresentatives\n\tMembers\n')
-                for representative, members, in results.items():
-                    print(f'{representative}\n\t%s' % '\n\t'.join(map(str, members)))
-                logger.info(f'Found {len(results)} unique clusters from {len(pose_directories)} pose inputs. '
-                            f'All clusters wrote to: {args.output_file}')
-                logger.info('Each cluster above has one representative which identifies with each of the members. If '
-                            'clustering was performed by entity_transformations or interface_residues, then the '
-                            'representative is the most similar to all members. If clustering was performed by ialign, '
-                            'then the representative is randomly chosen.')
-                logger.info(f'To utilize the above clustering during {flags.select_poses}, provide the option '
-                            f'--{flags.cluster_map}. This will apply clustering to poses to select a cluster '
-                            'representative based on the most favorable cluster member')
 
             # Set up sbatch scripts for processed Poses
             design_stage = putils.scout if job.design.scout \
@@ -1037,6 +1016,9 @@ def main():
                 for result_list in results:
                     _results.extend(result_list)
                 pose_directories = _results
+            # elif putils.cluster_poses:  # Returns None
+            #    pass
+
             # Update the current state of protocols and exceptions
             pose_directories, additional_exceptions = parse_protocol_results(pose_directories, results)
             exceptions.extend(additional_exceptions)
@@ -1211,8 +1193,8 @@ def main():
         terminate(results=results)  # , output_analysis=args.output)
     # ---------------------------------------------------
     elif job.module == flags.cluster_poses:
-        results = protocols.cluster.cluster_poses(pose_directories)
-        terminate(results=results)
+        protocols.cluster.cluster_poses(pose_directories)
+        terminate(output=False)
     # ---------------------------------------------------
     elif job.module == flags.select_poses:
         # Need to initialize pose_directories, design_source to terminate()
