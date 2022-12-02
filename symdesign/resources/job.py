@@ -172,6 +172,9 @@ class JobResources:
         if arguments is not None:
             kwargs.update(vars(arguments))
 
+        # Input location and parameters
+        self.location = None
+        self.output_file = kwargs.get(putils.output_file)
         # program_root subdirectories
         self.data = os.path.join(self.program_root, putils.data.title())
         self.projects = os.path.join(self.program_root, putils.projects)
