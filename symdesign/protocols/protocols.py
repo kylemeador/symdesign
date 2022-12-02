@@ -145,10 +145,10 @@ class PoseDirectory:
         else:
             # Dev only
             if '_Designs-' in pose_id:
-                self.path = os.path.join(root, 'Projects', pose_id.replace('_Designs-', f'_Designs{os.sep}'))
+                self.path = os.path.join(root, putils.projects, pose_id.replace('_Designs-', f'_Designs{os.sep}'))
             else:
-                self.path = os.path.join(root, 'Projects', pose_id.replace(f'_{putils.pose_directory}-',
-                                                                           f'_{putils.pose_directory}{os.sep}'))
+                self.path = os.path.join(root, putils.projects, pose_id.replace(f'_{putils.pose_directory}-',
+                                                                                f'_{putils.pose_directory}{os.sep}'))
 
     def __init__(self, design_path: AnyStr, pose_id: bool = False, root: AnyStr = None, **kwargs):
         # self.job = job if job else job_resources_factory.get(program_root=root, **kwargs)
