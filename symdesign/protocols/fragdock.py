@@ -1809,13 +1809,42 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
         per_residue_data = {}
 
     # Define functions for updating the single Pose instance coordinates
+    def create_specific_transformation(idx: int) -> tuple[dict[str, np.ndarray], ...]:
+        """Take the current transformation index and create a mapping of the transformation operations
+
+        Args:
+            idx: The index of the transformation to select
+        Returns:
+            A tuple containing the transformation operations for each model
+        """
+        if sym_entry.is_internal_tx1:
+            internal_tx_param1 = full_int_tx1[idx]
+        else:
+            internal_tx_param1 = None
+
+        if sym_entry.is_internal_tx2:
+            internal_tx_param2 = full_int_tx2[idx]
+        else:
+            internal_tx_param2 = None
+
+        if sym_entry.unit_cell:
+            external_tx1 = full_ext_tx1[idx]
+            external_tx2 = full_ext_tx2[idx]
+        else:
+            external_tx1 = external_tx2 = None
+
+        specific_transformation1 = dict(rotation=full_rotation1[idx], translation=internal_tx_param1,
+                                        rotation2=set_mat1, translation2=external_tx1)
+        specific_transformation2 = dict(rotation=full_rotation2[idx], translation=internal_tx_param2,
+                                        rotation2=set_mat2, translation2=external_tx2)
+        return specific_transformation1, specific_transformation2
+
     def update_pose_coords(idx: int):
         """Take the current transformation index and update the reference coordinates with the provided transforms
 
         Args:
             idx: The index of the transformation to select
         """
-        # Get contacting PDB 1 ASU and PDB 2 ASU
         copy_model_start = time.time()
         if sym_entry.is_internal_tx1:
             internal_tx_param1 = full_int_tx1[idx]
@@ -3989,5 +4018,10 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
     terminate()
     logger.info(f'Total {building_blocks} dock trajectory took {time.time() - frag_dock_time_start:.2f}s')
 
-    return [protocols.PoseDirectory.from_file(file, entity_names=entity_names) for file in pose_paths]
-    # ------------------ TERM ------------------------
+    return [protocols.PoseDirectory.from_pose_id(pose_id, root=program_root, entity_names=entity_names,
+                                                 pose_transformation=create_specific_transformation(idx))
+            for idx, pose_id in enumerate(pose_ids)]
+    # return [protocols.PoseDirectory.from_file(file, entity_names=entity_names,
+    #                                           pose_transformation=create_specific_transformation(idx))
+    #         for idx, file in enumerate(pose_paths)]
+    # ------------------ TERMINATE DOCKING ------------------------
