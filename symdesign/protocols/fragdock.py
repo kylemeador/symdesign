@@ -290,8 +290,8 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
     program_root = job.program_root
     entry_string = f'NanohedraEntry{sym_entry.entry_number}'
     building_blocks = '-'.join(model.name for model in models)
-    entry_and_building_blocks = f'{entry_string}_{building_blocks}_{putils.pose_directory}'
-    project_dir = os.path.join(job.projects, entry_and_building_blocks)
+    project = f'{entry_string}_{building_blocks}_{putils.pose_directory}'
+    project_dir = os.path.join(job.projects, project)
     putils.make_path(project_dir)
 
     euler_lookup = job.fragment_db.euler_lookup
@@ -2181,7 +2181,8 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
                    f'-r_{"_".join(map(str, rot_counts[transform_idx]))}' \
                    f'-t_{tx_counts[transform_idx]}'  # translation idx
 
-        return f'{building_blocks}-{_pose_id}{perturb_str}'
+        # return f'{building_blocks}-{_pose_id}{perturb_str}'
+        return f'{project}-{_pose_id}{perturb_str}'
 
     # Todo move after job.dock.score tabulation
     pose_transformations = {}
@@ -3449,19 +3450,20 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
 
     # Create a Models instance to collect each model
     if job.write_trajectory:
+        raise NotImplementedError('Make iterative saving more reliable. See output_pose()')
         trajectory_models = Models()
 
     # Define functions for outputting docked poses
-    def output_pose(_pose_id: AnyStr, uc_dimensions: np.ndarray = None):
+    def output_pose(pose_name: AnyStr, uc_dimensions: np.ndarray = None):
         """Format the current Pose for output using the job parameters
 
         Args:
-            _pose_id: The particular identifier for the pose
+            pose_name: The particular identifier for the pose
             uc_dimensions: If this is a lattice, the crystal dimensions
         """
         # _out_dir: The directory to write files
-        out_path = os.path.join(project_dir, _pose_id)
-        putils.make_path(out_path)
+        out_dir = os.path.join(project_dir, pose_name)
+        putils.make_path(out_dir)
 
         # Set the ASU, then write to a file
         pose.set_contacting_asu(distance=cb_distance)
@@ -3471,13 +3473,12 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
             cryst_record = None
 
         if job.write_structures:
-            pose_path = os.path.join(out_path, putils.asu)
+            pose_path = os.path.join(out_dir, putils.asu)
             pose.write(out_path=pose_path, header=cryst_record)
         else:
             pose_path = None
 
         if job.write_trajectory:
-            raise NotImplementedError('make more reliable!!')
             nonlocal idx
             if idx % 2 == 0:
                 new_pose = copy.copy(pose)
@@ -3492,31 +3493,31 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
         # Write Model1, Model2
         if job.write_oligomers:
             for entity in pose.entities:
-                entity.write(oligomer=True, out_path=os.path.join(out_path, f'{entity.name}_{_pose_id}.pdb'))
+                entity.write(oligomer=True, out_path=os.path.join(out_dir, f'{entity.name}_{pose_name}.pdb'))
 
         # Write assembly files
         if job.output_assembly:
             if sym_entry.unit_cell:  # 2, 3 dimensions
                 if job.output_surrounding_uc:
-                    assembly_path = os.path.join(out_path, f'{_pose_id}_{putils.surrounding_unit_cells}')
+                    assembly_path = os.path.join(out_dir, f'{pose_name}_{putils.surrounding_unit_cells}')
                 else:
-                    assembly_path = os.path.join(out_path, f'{_pose_id}_{putils.assembly}')
+                    assembly_path = os.path.join(out_dir, f'{pose_name}_{putils.assembly}')
             else:  # 0 dimension
-                assembly_path = os.path.join(out_path, f'{_pose_id}_{putils.assembly}')
+                assembly_path = os.path.join(out_dir, f'{pose_name}_{putils.assembly}')
             pose.write(assembly=True, out_path=assembly_path, header=cryst_record,
                        surrounding_uc=job.output_surrounding_uc)
 
         # Write fragment files
         if job.write_fragments:
             # Make directories to output matched fragment files
-            matching_fragments_dir = os.path.join(out_path, putils.frag_dir)
+            matching_fragments_dir = os.path.join(out_dir, putils.frag_dir)
             putils.make_path(matching_fragments_dir)
             # high_qual_match for fragments that were matched with z values <= 1, otherwise, low_qual_match
             # high_quality_matches_dir = os.path.join(matching_fragments_dir, 'high_qual_match')
             # low_quality_matches_dir = os.path.join(matching_fragments_dir, 'low_qual_match')
             pose.write_fragment_pairs(out_path=matching_fragments_dir)
 
-        logger.info(f'\tSUCCESSFUL DOCKED POSE: {out_path}')
+        logger.info(f'\tSUCCESSFUL DOCKED POSE: {out_dir}')
 
         return pose_path
 
@@ -3538,6 +3539,7 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
     fragment_profile_frequencies = []
     # pose_paths = []
     nan_blank_data = list(repeat(np.nan, pose_length))
+    project_str = f'{project}-'
     for idx, design_id in enumerate(design_ids):
         # Add the next set of coordinates
         update_pose_coords(idx)
@@ -3552,7 +3554,7 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
         #                           all_passing_z_scores[idx])
 
         if job.output:
-            output_pose(design_id)
+            output_pose(design_id.replace(project_str, ''))
             # pose_paths.append(output_pose(design_id))
 
         # Reset the fragment_map and fragment_profile for each Entity before calculate_fragment_profile
