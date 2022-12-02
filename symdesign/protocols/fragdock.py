@@ -3474,6 +3474,7 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
 
         if job.write_structures:
             pose_path = os.path.join(out_dir, putils.asu)
+            # pose_path = os.path.join(out_dir, f'{pose_name}_{putils.asu}.pdb')
             pose.write(out_path=pose_path, header=cryst_record)
         else:
             pose_path = None

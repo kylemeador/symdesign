@@ -304,8 +304,10 @@ class PoseDirectory:
         # /root/Projects/project_Poses/design/data/name.sc
         self.serialized_info: str | Path = os.path.join(self.data, putils.state_file)
         # /root/Projects/project_Poses/design/data/info.pkl
-        self.asu_path: str | Path = os.path.join(self.path, f'{self.name}_{putils.asu}')
-        # /root/Projects/project_Poses/design/design_name_clean_asu.pdb
+        self.asu_path: str | Path = os.path.join(self.path, putils.asu)
+        # /root/Projects/project_Poses/design/asu.pdb
+        # self.asu_path: str | Path = os.path.join(self.path, f'{self.name}_{putils.asu}')
+        # # /root/Projects/project_Poses/design/design_name_asu.pdb
         self.assembly_path: str | Path = os.path.join(self.path, f'{self.name}_{putils.assembly}')
         # /root/Projects/project_Poses/design/design_name_assembly.pdb
         self.refine_pdb: str | Path = os.path.join(self.data, os.path.basename(self.asu_path))
