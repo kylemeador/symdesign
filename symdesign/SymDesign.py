@@ -164,21 +164,21 @@ def main():
             # Format the output file depending on specified name and module type
             default_output_tuple = (utils.starttime, job.module, design_source)
             designs_file = None
-            if args.output_file:
+            if job.output_file:
                 # if job.module not in [flags.analysis, flags.cluster_poses]:
-                #     designs_file = args.output_file
+                #     designs_file = job.output_file
                 if job.module == flags.analysis:
-                    if len(args.output_file.split(os.sep)) <= 1:
+                    if len(job.output_file.split(os.sep)) <= 1:
                         # The path isn't an absolute or relative path, so prepend the job.all_scores location
-                        args.output_file = os.path.join(job.all_scores, args.output_file)
-                    if not args.output_file.endswith('.csv'):
-                        args.output_file = f'{args.output_file}.csv'
+                        job.output_file = os.path.join(job.all_scores, job.output_file)
+                    if not job.output_file.endswith('.csv'):
+                        job.output_file = f'{job.output_file}.csv'
                     if not args.output:  # No output is specified
                         output_analysis = False
                 else:
-                    # Set the designs_file to the provided args.output_file
-                    designs_file = args.output_file
-            else:  # Remove possible multiple instances of _pose from location in default_output_tuple
+                    # Set the designs_file to the provided job.output_file
+                    designs_file = job.output_file
+            else:
                 # For certain modules, use the default file type
                 if job.module == flags.analysis:
                     job.output_file = putils.default_analysis_file.format(utils.starttime, design_source)
@@ -188,12 +188,10 @@ def main():
             # Make single file with names of each directory where all_docked_poses can be found
             if output_analysis:
                 if designs_file is None:  # Make a default file name
-                    # def default_designs_file():
                     putils.make_path(job_paths)
-                    scratch_designs = os.path.join(job_paths,
-                                                   putils.default_path_file.format(*default_output_tuple)).split(
-                        '_pose')
-                    #     return f'{scratch_designs[0]}_pose{scratch_designs[-1]}'
+                    # Remove possible multiple instances of _pose from location in default_output_tuple
+                    scratch_designs = \
+                        os.path.join(job_paths, putils.default_path_file.format(*default_output_tuple)).split('_pose')
                     designs_file = f'{scratch_designs[0]}_pose{scratch_designs[-1]}'
 
                 with open(designs_file, 'w') as f:
@@ -514,6 +512,8 @@ def main():
             job.write_fragments = True
     elif job.module in [flags.analysis, flags.cluster_poses,
                         flags.select_poses, flags.select_designs, flags.select_sequences]:
+        # Analysis types can be run from nanohedra_output, so ensure that we don't construct new
+        job.construct_pose = False
         if job.module == flags.analysis:
             # Ensure analysis write directory exists
             putils.make_path(job.all_scores)
@@ -559,7 +559,6 @@ def main():
     # list[PoseDirectory] for an establishes pose
     # list[tuple[Structure, Structure]] for a nanohedra docking job
     pose_directories: list[PoseDirectory] | list[tuple[Any, Any]] = []
-    location: str | None = None
     low = high = low_range = high_range = None
     # Start with the assumption that we aren't loading resources
     load_resources = False
@@ -576,7 +575,7 @@ def main():
 
         logger.info(f'Setting up input files for {job.module}')
         if args.nanohedra_output:  # Nanohedra directory
-            all_poses, location = utils.collect_nanohedra_designs(files=args.file, directory=args.directory)
+            all_poses, job.location = utils.collect_nanohedra_designs(files=args.file, directory=args.directory)
             if all_poses:
                 first_pose_path = all_poses[0]
                 if first_pose_path.count(os.sep) == 0:
@@ -603,10 +602,10 @@ def main():
             pose_directories = [PoseDirectory.from_pose_id(pose, root=args.directory, specific_design=design,
                                                            directives=directives)
                                 for pose, design, directives in design_specification.get_directives()]
-            location = args.specification_file
+            job.location = args.specification_file
         else:
-            all_poses, location = utils.collect_designs(files=args.file, directory=args.directory,
-                                                        projects=args.project, singles=args.single)
+            all_poses, job.location = utils.collect_designs(files=args.file, directory=args.directory,
+                                                            projects=args.project, singles=args.single)
             if all_poses:
                 if all_poses[0].count(os.sep) == 0:  # check to ensure -f wasn't used when -pf was meant
                     # assume that we have received pose-IDs and process accordingly
@@ -621,10 +620,10 @@ def main():
                     pose_directories = [PoseDirectory.from_file(pose, root=root)
                                         for pose in all_poses[low_range:high_range]]
         if not pose_directories:
-            raise utils.InputError(f'No {putils.program_name} directories found within "{location}"! Please ensure '
+            raise utils.InputError(f'No {putils.program_name} directories found within "{job.location}"! Please ensure '
                                    f'correct location')
         representative_pose_directory = next(iter(pose_directories))
-        design_source = os.path.splitext(os.path.basename(location))[0]
+        design_source = os.path.splitext(os.path.basename(job.location))[0]
 
         # Todo logic error when initialization occurs with module that doesn't call this, subsequent runs are missing
         #  directories/resources that haven't been made
@@ -730,7 +729,7 @@ def main():
         for pose in pose_directories:
             pose.setup(pre_refine=not job.initial_refinement, pre_loop_model=not job.initial_loop_model)
 
-        logger.info(f'{len(pose_directories)} unique poses found in "{location}"')
+        logger.info(f'{len(pose_directories)} unique poses found in "{job.location}"')
         if not job.debug and not job.skip_logging:
             if representative_pose_directory.log_path:
                 logger.info(f'All design specific logs are located in their corresponding directories\n\tEx: '
@@ -927,8 +926,8 @@ def main():
             # utils.write_shell_script(list2cmdline(commands), name=flags.nanohedra, out_path=job.job_paths)
             terminate(results=commands)
 
-        location = args.oligomer1
-        design_source = os.path.splitext(os.path.basename(location))[0]
+        job.location = args.oligomer1
+        design_source = os.path.splitext(os.path.basename(job.location))[0]
         job.sym_entry.log_parameters()
     else:
         # This logic is possible with job.module as select_poses with --metric or --dataframe
@@ -1312,7 +1311,7 @@ def main():
 
         # Format selected sequences for output
         if job.prefix == '':
-            job.prefix = f'{os.path.basename(os.path.splitext(location)[0])}_'
+            job.prefix = f'{os.path.basename(os.path.splitext(job.location)[0])}_'
 
         outdir = os.path.join(os.path.dirname(program_root), f'{job.prefix}SelectedDesigns{job.suffix}')
         putils.make_path(outdir)
@@ -1360,9 +1359,9 @@ def main():
             terminate(exceptions=exceptions, output=False)
         else:
             # Format sequences for expression
-            args.output_file = os.path.join(outdir, f'{job.prefix}SelectedDesigns{job.suffix}.paths')
+            job.output_file = os.path.join(outdir, f'{job.prefix}SelectedDesigns{job.suffix}.paths')
             # pose_directories = list(results.keys())
-            with open(args.output_file, 'w') as f:
+            with open(job.output_file, 'w') as f:
                 f.write('%s\n' % '\n'.join(pose_dir.path for pose_dir in list(results.keys())))
 
         # Use one directory as indication of entity specification for them all. Todo modify for different length inputs
@@ -1777,7 +1776,7 @@ def main():
         if not args.directory:
             exit(f'A directory with the desired designs must be specified using -d/--{flags.directory}')
 
-        if ':' in args.directory:  # args.file  Todo location
+        if ':' in args.directory:  # args.file  Todo job.location
             print('Starting the data transfer from remote source now...')
             os.system(f'scp -r {args.directory} .')
             file_dir = os.path.basename(args.directory)
@@ -1821,7 +1820,7 @@ def main():
                     args.dataframe = df_glob[0]
                 except IndexError:
                     raise IndexError(f"There was no --{flags.dataframe} specified and one couldn't be located in "
-                                     f'{location}. Initialize again with the path to the relevant dataframe')
+                                     f'{job.location}. Initialize again with the path to the relevant dataframe')
 
             df = pd.read_csv(args.dataframe, index_col=0, header=[0])
             print('INDICES:\n %s' % df.index.to_list()[:4])
@@ -1836,7 +1835,7 @@ def main():
             files = ordered_files
 
         if not files:
-            exit(f'No .pdb files found at "{location}". Are you sure this is correct?')
+            exit(f'No .pdb files found at "{job.location}". Are you sure this is correct?')
 
         # if len(sys.argv) > 2:
         #     low, high = map(float, sys.argv[2].split('-'))
