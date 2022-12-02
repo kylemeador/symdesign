@@ -1990,7 +1990,7 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
                 perturb_int_tx2.extend(full_int_tx2[passing_indices, 2])
 
             if sym_entry.unit_cell:
-                nonlocal full_optimal_ext_dof_shifts, full_ext_tx1, full_ext_tx2
+                nonlocal full_optimal_ext_dof_shifts  # , full_ext_tx1, full_ext_tx2
                 perturb_optimal_ext_dof_shifts.append(full_optimal_ext_dof_shifts[passing_indices])
                 # full_uc_dimensions = full_uc_dimensions[passing_indices]
                 # full_ext_tx1 = full_ext_tx1[passing_indices]
@@ -2128,8 +2128,8 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
     # remove_non_viable_indices() <- This is done above
     # Format pose transformations for output
     blank_parameter = list(repeat([None, None, None], number_of_transforms))
-    full_ext_tx1 = blank_parameter if full_ext_tx1 is None else full_ext_tx1.squeeze()
-    full_ext_tx2 = blank_parameter if full_ext_tx2 is None else full_ext_tx2.squeeze()
+    _full_ext_tx1 = blank_parameter if full_ext_tx1 is None else full_ext_tx1.squeeze()
+    _full_ext_tx2 = blank_parameter if full_ext_tx2 is None else full_ext_tx2.squeeze()
 
     set_mat1_number, set_mat2_number, *_extra = sym_entry.setting_matrices_numbers
     rotations1 = scipy.spatial.transform.Rotation.from_matrix(full_rotation1)
@@ -2187,8 +2187,8 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
     # Todo move after job.dock.score tabulation
     pose_transformations = {}
     for idx in range(number_of_transforms):
-        external_translation1_x, external_translation1_y, external_translation1_z = full_ext_tx1[idx]
-        external_translation2_x, external_translation2_y, external_translation2_z = full_ext_tx2[idx]
+        external_translation1_x, external_translation1_y, external_translation1_z = _full_ext_tx1[idx]
+        external_translation2_x, external_translation2_y, external_translation2_z = _full_ext_tx2[idx]
         pose_transformations[create_pose_id(idx)] = \
             dict(rotation1=rotation_degrees1[idx],
                  internal_translation1=z_heights1[idx],
