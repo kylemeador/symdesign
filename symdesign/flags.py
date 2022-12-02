@@ -435,8 +435,9 @@ predict_structure_help = 'Predict the 3D structure from specified sequence(s)'
 parser_predict_structure = \
     {predict_structure: dict(description=predict_structure_help, help=predict_structure_help)}
 predict_structure_arguments = {
-    ('-m', f'--{method}'): dict(choices={'thread'}, default='thread',
-                                help=f'The method utilized to {predict_structure}'),
+    ('-m', f'--{method}'f'--predict-{method}'):
+        dict(choices={'thread'}, default='thread',
+             help=f'The method utilized to {predict_structure}\nChoices=%(choices)s\nDefault=%(default)s'),
 }
 # ---------------------------------------------------
 orient_help = 'Orient a symmetric assembly in a canonical orientation at the origin'
@@ -470,9 +471,9 @@ nanohedra_arguments = {
     ('-mv', f'--{match_value}'):
         dict(type=float, default=0.5, dest='match_value',
              help='What is the minimum match score required for a high quality fragment?'),
-    ('-m', f'--{min_matched}'): dict(type=int, default=3,
-                                     help='How many high quality fragment pairs should be present before a pose is '
-                                          'identified?\nDefault=%(default)s'),
+    (f'--{min_matched}',): dict(type=int, default=3,
+                                help='How many high quality fragment pairs should be present before a pose is '
+                                     'identified?\nDefault=%(default)s'),
     (f'--{score}',): dict(type=str, default='nanohedra', choices={'nanohedra', 'proteinmpnn'},
                           help='Which metric should be used to rank output poses?\nDefault=%(default)s'),
     (f'--{only_write_frag_info}',): dict(action=argparse.BooleanOptionalAction, default=False,
@@ -567,7 +568,7 @@ interface_design_arguments = {
     ('-hb', f'--{hbnet}'):
         dict(action=argparse.BooleanOptionalAction, default=True,
              help=f'Whether to include hydrogen bond networks in the design.\n{boolean_positional_prevent_msg(hbnet)}'),
-    ('-m', f'--{method}'):
+    ('-m', f'--{method}', f'--design-{method}'):
         dict(type=str.lower, default=proteinmpnn, choices={proteinmpnn, rosetta_str}, metavar='',
              help='Which design method should be used?\nChoices=%(choices)s\nDefault=%(default)s'),
     ('-n', f'--{number_of_trajectories}'):
