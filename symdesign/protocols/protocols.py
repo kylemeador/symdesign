@@ -2253,7 +2253,7 @@ class PoseDirectory:
             self.log.debug(f'Found design scores in file: {self.scores_file}')  # Todo PoseDirectory(.path)
             design_was_performed = True
             # Get the scores from the score file on design trajectory metrics
-            source_df = pd.DataFrame({putils.pose_source: {putils.protocol: job_key}}).T
+            source_df = pd.DataFrame.from_dict({putils.pose_source: {putils.protocol: job_key}}, orient='index')
             for idx, entity in enumerate(self.pose.entities, 1):
                 source_df[f'buns_{idx}_unbound'] = 0
                 source_df[f'interface_energy_{idx}_bound'] = 0
@@ -2290,7 +2290,7 @@ class PoseDirectory:
             # Todo these need to be reconciled with taking the rosetta complex and unbound energies
             proteinmpnn_scores = ['sequences', 'complex_sequence_loss', 'unbound_sequence_loss']
             # Create protocol dataframe
-            scores_df = pd.DataFrame(all_viable_design_scores).T
+            scores_df = pd.DataFrame.from_dict(all_viable_design_scores, orient='index')
             scores_df = pd.concat([source_df, scores_df])
             # Gather all columns into specific types for processing and formatting
             per_res_columns, hbonds_columns = [], []
@@ -2378,8 +2378,9 @@ class PoseDirectory:
             design_was_performed = False
             # Todo add relevant missing scores such as those specified as 0 below
             # Todo may need to put source_df in scores file alternative
-            source_df = pd.DataFrame({putils.pose_source: {putils.protocol: job_key}}).T
-            scores_df = pd.DataFrame({pose.name: {putils.protocol: job_key} for pose in design_poses}).T
+            source_df = pd.DataFrame.from_dict({putils.pose_source: {putils.protocol: job_key}}, orient='index')
+            scores_df = pd.DataFrame.from_dict({pose.name: {putils.protocol: job_key} for pose in design_poses},
+                                               orient='index')
             scores_df = pd.concat([source_df, scores_df])
             for idx, entity in enumerate(self.pose.entities, 1):
                 source_df[f'buns_{idx}_unbound'] = 0
@@ -2923,6 +2924,7 @@ class PoseDirectory:
         # this concat ^ puts back putils.pose_source, refine, consensus designs since protocol_stats is calculated on scores_df
         # add all docking and pose information to each trajectory, dropping the pose observations
         interface_metrics_s = pd.Series(other_pose_metrics)
+        # Todo transpose may cause issues. Can this be created with a join and fill? merge?
         pose_metrics_df = pd.concat([interface_metrics_s] * number_of_trajectories, axis=1).T
         trajectory_df = pd.concat([trajectory_df,
                                    pose_metrics_df.rename(index=dict(zip(range(number_of_trajectories),
@@ -3528,7 +3530,7 @@ def interface_design_analysis(pose: Pose, design_poses: Iterable[Pose] = None, s
         pose.log.debug(f'Found design scores in file: {scores_file}')
         design_was_performed = True
         # Get the scores from the score file on design trajectory metrics
-        source_df = pd.DataFrame({putils.pose_source: {putils.protocol: job_key}}).T
+        source_df = pd.DataFrame.from_dict({putils.pose_source: {putils.protocol: job_key}}, orient='index')
         for idx, entity in enumerate(pose.entities, 1):
             source_df[f'buns_{idx}_unbound'] = 0
             source_df[f'interface_energy_{idx}_bound'] = 0
@@ -3642,8 +3644,9 @@ def interface_design_analysis(pose: Pose, design_poses: Iterable[Pose] = None, s
         design_was_performed = False
         # Todo add relevant missing scores such as those specified as 0 below
         # Todo may need to put source_df in scores file alternative
-        source_df = pd.DataFrame({putils.pose_source: {putils.protocol: job_key}}).T
-        scores_df = pd.DataFrame({pose.name: {putils.protocol: job_key} for pose in design_poses}).T
+        source_df = pd.DataFrame.from_dict({putils.pose_source: {putils.protocol: job_key}}, orient='index')
+        scores_df = pd.DataFrame.from_dict({pose.name: {putils.protocol: job_key} for pose in design_poses},
+                                           orient='index')
         scores_df = pd.concat([source_df, scores_df])
         for idx, entity in enumerate(pose.entities, 1):
             source_df[f'buns_{idx}_unbound'] = 0
@@ -4150,6 +4153,7 @@ def interface_design_analysis(pose: Pose, design_poses: Iterable[Pose] = None, s
     # this concat ^ puts back putils.pose_source, refine, consensus designs since protocol_stats is calculated on scores_df
     # add all docking and pose information to each trajectory, dropping the pose observations
     interface_metrics_s = pd.Series(other_pose_metrics)
+    # Todo transpose may cause issues. Can this be created with a join and fill? merge?
     pose_metrics_df = pd.concat([interface_metrics_s] * number_of_trajectories, axis=1).T
     trajectory_df = pd.concat([pose_metrics_df.rename(index=dict(zip(range(number_of_trajectories),
                                                                      final_trajectory_indices)))

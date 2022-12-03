@@ -3752,11 +3752,11 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
     # Todo get the keys right here
     # all_pose_divergence_df = pd.DataFrame()
     # all_pose_divergence_df = pd.concat(all_pose_divergence, keys=[('sequence', 'pose')], axis=1)
-    interface_metrics_df = pd.DataFrame(interface_metrics).T
+    interface_metrics_df = pd.DataFrame.from_dict(interface_metrics, orient='index')
 
     # Initialize the main scoring DataFrame
     # scores_df = pd.DataFrame(pose_transformations).T
-    scores_df = pd.concat([pd.DataFrame(pose_transformations).T, interface_metrics_df], axis=1)
+    scores_df = pd.concat([pd.DataFrame.from_dict(pose_transformations, orient='index'), interface_metrics_df], axis=1)
 
     # Collect sequence metrics on every designed Pose
     if proteinmpnn_used:
