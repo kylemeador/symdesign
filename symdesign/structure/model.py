@@ -6111,21 +6111,21 @@ class Pose(SymmetricModel):
              'entity_number_of_residues_average_deviation'
              }
         """
-        metrics = frag_metrics = self.get_fragment_metrics(total_interface=True)
-        self.center_residue_indices = frag_metrics.get('center_indices', [])
-        total_interface_residues = len(self.interface_residues)
-        total_non_fragment_interface_residues = \
-            max(total_interface_residues - frag_metrics['number_fragment_residues_center'], 0)
+        metrics = self.get_fragment_metrics(total_interface=True)
         # Remove these two from further analysis
         metrics.pop('total_indices')
-        metrics.pop('center_indices')
+        self.center_residue_indices = metrics.pop('center_indices', [])
+
+        total_interface_residues = len(self.interface_residues)
+        total_non_fragment_interface_residues = \
+            max(total_interface_residues - metrics['number_fragment_residues_center'], 0)
         # Interface B Factor
         int_b_factor = sum(residue.b_factor for residue in self.interface_residues)
         try:  # If interface_distance is different from interface query and fragment generation these can be < 0 or > 1
             percent_residues_fragment_interface_center = \
-                min(frag_metrics['number_fragment_residues_center'] / total_interface_residues, 1)
+                min(metrics['number_fragment_residues_center'] / total_interface_residues, 1)
             percent_residues_fragment_interface_total = \
-                min(frag_metrics['number_fragment_residues_total'] / total_interface_residues, 1)
+                min(metrics['number_fragment_residues_total'] / total_interface_residues, 1)
             ave_b_factor = int_b_factor / total_interface_residues
         except ZeroDivisionError:
             self.log.warning(f'{self.name}: No interface residues were found. Is there an interface in your design?')
@@ -7113,16 +7113,15 @@ class Pose(SymmetricModel):
                     + metrics['total']['index_count'][4] + metrics['total']['index_count'][5]
 
             # Finally, tabulate based on the total
+            metric_d['number_fragment_residues_total'] = len(metric_d['total_indices'])
+            metric_d['number_fragment_residues_center'] = len(metric_d['center_indices'])
+            total_observations = metric_d['number_of_fragments'] * 2  # 2x observations in ['total']['index_count']
             try:
-                metric_d['number_fragment_residues_total'] = len(metric_d['total_indices'])
-                metric_d['number_fragment_residues_center'] = len(metric_d['center_indices'])
-                total_observations = metric_d['number_of_fragments'] * 2  # 2x observations in ['total']['index_count']
                 metric_d['percent_fragment_helix'] /= total_observations
                 metric_d['percent_fragment_strand'] /= total_observations
                 metric_d['percent_fragment_coil'] /= total_observations
             except ZeroDivisionError:
-                metric_d['percent_fragment_helix'] = \
-                    metric_d['percent_fragment_strand'] = \
+                metric_d['percent_fragment_helix'] = metric_d['percent_fragment_strand'] = \
                     metric_d['percent_fragment_coil'] = 0.
             try:
                 metric_d['nanohedra_score_normalized'] = \
