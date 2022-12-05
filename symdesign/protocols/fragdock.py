@@ -20,11 +20,11 @@ from sklearn.cluster import DBSCAN
 from sklearn.neighbors import BallTree
 from sklearn.neighbors._ball_tree import BinaryTree  # This typing implementation supports BallTree or KDTree
 
-from symdesign import flags, resources, protocols
-from symdesign.metrics import calculate_collapse_metrics, calculate_residue_surface_area, errat_1_sigma, errat_2_sigma,\
+from symdesign import flags, metrics, protocols, resources
+from symdesign.metrics import calculate_residue_surface_area, errat_1_sigma, errat_2_sigma,\
     multiple_sequence_alignment_dependent_metrics, profile_dependent_metrics, columns_to_new_column, \
     delta_pairs, division_pairs, interface_composition_similarity, clean_up_intermediate_columns, \
-    sum_per_residue_metrics, hydrophobic_collapse_index, cross_entropy, collapse_significance_threshold
+    sum_per_residue_metrics, cross_entropy
 from symdesign.resources import ml, job as symjob
 from symdesign.structure.base import Structure, Residue
 from symdesign.structure.coords import transform_coordinate_sets
@@ -2284,7 +2284,7 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
     #         check_dock_for_nanohedra()
     # # Todo use this to control the output of this section
 
-    proteinmpnn_used = False
+    proteinmpnn_used = measure_evolution = measure_alignment = False
     if job.dock_only:  # Only get pose outputs, no sequences or metrics
         design_ids = pose_ids
         # logger.info(f'Total {building_blocks} dock trajectory took {time.time() - frag_dock_time_start:.2f}s')
@@ -2566,6 +2566,8 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
             logger.debug(f'perturbed_bb_coords.shape: {perturbed_bb_coords.shape}')
             X = perturbed_bb_coords.reshape((actual_batch_length, -1, num_model_residues, 3))
             logger.debug(f'X.shape: {X.shape}')
+            # Save design_indices
+            _residue_indices_of_interest = residue_mask_cpu[:, :pose_length].astype(bool)
 
             # Update different parameters to the identified device
             batch_parameters.update(ml.proteinmpnn_to_device(device, X=X, chain_M_pos=residue_mask_cpu))
@@ -2652,7 +2654,6 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
                 mpnn_model(X, S_design_null, mask, chain_residue_mask, residue_idx, chain_encoding,
                            None,  # This argument is provided but with below args, is not used
                            use_input_decoding_order=True, decoding_order=decoding_order).cpu()
-            _residue_indices_of_interest = residue_mask_cpu[:, :pose_length].astype(bool)
             #  Taking the KL divergence would indicate how divergent the interfaces are from the
             #  surface. This should be simultaneously minimized (i.e. lowest evolutionary divergence)
             #  while the aa frequency distribution cross_entropy compared to the fragment profile is
@@ -2732,82 +2733,144 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
                 _per_residue_design_cross_entropy[:] = np.nan
 
             if collapse_profile.size:  # Not equal to zero
-                # Take the hydrophobic collapse of the log probs to understand the profiles "folding"
-                _poor_collapse = []
-                _per_residue_mini_batch_collapse_z = \
-                    np.empty((actual_batch_length, pose_length), dtype=np.float32)
-                for pose_idx in range(actual_batch_length):
-                    # Only include the residues in the ASU
-                    design_probs_collapse = \
-                        hydrophobic_collapse_index(asu_conditional_softmax_null_seq[pose_idx],
-                                                   # asu_unconditional_softmax,
-                                                   alphabet_type=ml.mpnn_alphabet)
-                    # Todo?
-                    #  design_probs_collapse = \
-                    #      hydrophobic_collapse_index(asu_conditional_softmax,
-                    #                                 alphabet_type=ml.mpnn_alphabet)
-                    # Compare the sequence collapse to the pose collapse
-                    # USE:
-                    #  contact_order_per_res_z, reference_collapse, collapse_profile
-                    # print('HCI profile mean', collapse_profile_mean)
-                    # print('HCI profile std', collapse_profile_std)
-                    _per_residue_mini_batch_collapse_z[pose_idx] = collapse_z = \
-                        z_score(design_probs_collapse, collapse_profile_mean, collapse_profile_std)
-                    # folding_loss = ml.sequence_nllloss(S_sample, design_probs_collapse)  # , mask_for_loss)
-                    pose_idx_residues_of_interest = _residue_indices_of_interest[pose_idx]
-                    designed_indices_collapse_z = collapse_z[pose_idx_residues_of_interest]
-                    # magnitude_of_collapse_z_deviation = np.abs(designed_indices_collapse_z)
-                    # Check if dock has collapse larger than collapse_significance_threshold and increased collapse
-                    if np.any(np.logical_and(design_probs_collapse[pose_idx_residues_of_interest]
-                                             > collapse_significance_threshold,
-                                             designed_indices_collapse_z > 0)):
-                        # Todo save this
-                        print('design_probs_collapse', design_probs_collapse[_residue_indices_of_interest[pose_idx]])
-                        print('designed_indices_collapse_z', designed_indices_collapse_z)
-                        # design_probs_collapse [0.1229698  0.14987233 0.23318215 0.23268045 0.23882663 0.24801936
-                        #  0.25622816 0.44975936 0.43138875 0.3607946  0.3140504  0.28207788
-                        #  0.27033003 0.27388856 0.28031376 0.28897327 0.14254868 0.13711281
-                        #  0.12078322 0.11563808 0.13515363 0.16421124 0.16638894 0.16817969
-                        #  0.16234223 0.19553652 0.20065537 0.1901575  0.17455298 0.17621328
-                        #  0.20747318 0.21465868 0.22461864 0.21520302 0.21346277 0.2054776
-                        #  0.17700449 0.15074518 0.11202089 0.07674509 0.08504518 0.09990609
-                        #  0.16057604 0.14554144 0.14646661 0.15743639 0.2136532  0.23222249
-                        #  0.26718637]
-                        # designed_indices_collapse_z [-0.80368181 -1.2787087   0.71124918  1.04688287  1.26099661 -0.17269616
-                        #  -0.06417628  1.16625098  0.94364294  0.62500235  0.53019078  0.5038286
-                        #   0.59372686  0.82563642  1.12022683  1.1989269  -1.07529947 -1.27769417
-                        #  -1.24323295 -0.95376269  0.55229076  1.05845308  0.62604691  0.20474606
-                        #  -0.20987778 -0.45545679 -0.40602295 -0.54974293 -0.72873982 -0.84489538
-                        #  -0.8104777  -0.80596935 -0.71591074 -0.79774316 -0.75114322 -0.77010185
-                        #  -0.63265472 -0.61240502 -0.69975283 -1.11501543 -0.81130281 -0.64497745
-                        #  -0.10221637 -0.32925792 -0.53646227 -0.54949522 -0.35537453 -0.28560236
-                        #   0.23599237]
-                        # print('magnitude greater than 1', magnitude_of_collapse_z_deviation > 1)
-                        logger.warning(f'***Collapse is larger than one standard deviation.'
-                                       f' Pose is *** being considered')
-                        _poor_collapse.append(1)
-                    else:
-                        _poor_collapse.append(0)
-                    #     logger.critical(
-                    #         f'Total deviation={magnitude_of_collapse_z_deviation.sum()}. '
-                    #         f'Mean={designed_indices_collapse_z.mean()}'
-                    #         f'Standard Deviation={designed_indices_collapse_z.std()}')
-                # _total_collapse_favorability.extend(_poor_collapse)
-                # per_residue_design_indices[batch_slice] = _residue_indices_of_interest
-                # per_residue_batch_collapse_z[batch_slice] = _per_residue_mini_batch_collapse_z
-            else:  # Populate with null data
-                _per_residue_mini_batch_collapse_z = _per_residue_evolution_cross_entropy.copy()
-                _per_residue_mini_batch_collapse_z[:] = np.nan
-                _poor_collapse = _per_residue_mini_batch_collapse_z[:, 0]
+                # Make data structures
+                _per_residue_dock_islands = np.zeros((actual_batch_length, pose_length), dtype=np.float32)
+                _per_residue_dock_island_significance = np.zeros_like(_per_residue_dock_islands)
+                _per_residue_dock_collapse_significance_by_contact_order_z = np.zeros_like(_per_residue_dock_islands)
+                _per_residue_dock_collapse_increase_significance_by_contact_order_z = \
+                    np.zeros_like(_per_residue_dock_islands)
+                _per_residue_dock_collapse_increased_z = np.zeros_like(_per_residue_dock_islands)
+                _per_residue_dock_collapse_deviation_magnitude = np.zeros_like(_per_residue_dock_islands)
+                _per_residue_dock_sequential_peaks_collapse_z = np.zeros_like(_per_residue_dock_islands)
+                _per_residue_dock_collapse_sequential_z = np.zeros_like(_per_residue_dock_islands)
+                # Todo use the real sequence?
+                # Include new axis for the sequence iteration to work on an array... v
+                profile_metrics_by_pose = \
+                    metrics.collapse_per_residue(asu_conditional_softmax_null_seq[:, np.newaxis],
+                                                 contact_order_per_res_z, reference_collapse, collapse_profile,
+                                                 alphabet_type=ml.mpnn_alphabet)
+                for pose_idx, profile_metrics in enumerate(profile_metrics_by_pose):
+                    # Unpack each metric set and add to the batch arrays
+                    _per_residue_dock_islands[pose_idx] = profile_metrics['collapse_new_islands']
+                    _per_residue_dock_island_significance[pose_idx] = \
+                        profile_metrics['collapse_new_island_significance']
+                    _per_residue_dock_collapse_significance_by_contact_order_z[pose_idx] = \
+                        profile_metrics['collapse_significance_by_contact_order_z']
+                    _per_residue_dock_collapse_increase_significance_by_contact_order_z[pose_idx] = \
+                        profile_metrics['collapse_increase_significance_by_contact_order_z']
+                    _per_residue_dock_collapse_increased_z[pose_idx] = profile_metrics['collapse_increased_z']
+                    _per_residue_dock_collapse_deviation_magnitude[pose_idx] = \
+                        profile_metrics['collapse_deviation_magnitude']
+                    _per_residue_dock_sequential_peaks_collapse_z[pose_idx] = \
+                        profile_metrics['collapse_sequential_peaks_z']
+                    _per_residue_dock_collapse_sequential_z[pose_idx] = profile_metrics['collapse_sequential_z']
+
+                number_collapse_new_islands_per_designed = \
+                    _per_residue_dock_islands[_residue_indices_of_interest].sum(axis=-1)
+                # if np.any(np.logical_and(_per_residue_dock_islands[_residue_indices_of_interest],
+                #                          _per_residue_dock_collapse_increased_z[_residue_indices_of_interest])):
+                # _poor_collapse = designed_collapse_new_islands > 0
+                collapse_fit_parameters = {
+                    # The below structures have a shape (batch_length, pose_length)
+                    'collapse_new_islands': _per_residue_dock_islands,
+                    'collapse_new_island_significance': _per_residue_dock_island_significance,
+                    'collapse_significance_by_contact_order_z':
+                        _per_residue_dock_collapse_significance_by_contact_order_z,
+                    'collapse_increase_significance_by_contact_order_z':
+                        _per_residue_dock_collapse_increase_significance_by_contact_order_z,
+                    'collapse_increased_z': _per_residue_dock_collapse_increased_z,
+                    'collapse_deviation_magnitude': _per_residue_dock_collapse_deviation_magnitude,
+                    'collapse_sequential_peaks_z': _per_residue_dock_sequential_peaks_collapse_z,
+                    'collapse_sequential_z': _per_residue_dock_collapse_sequential_z,
+                    # The below structure has shape (batch_length,)
+                    'collapse_violation': number_collapse_new_islands_per_designed > 0
+                }
+            else:
+                # _per_residue_dock_islands = _per_residue_dock_island_significance = \
+                #     _per_residue_dock_collapse_significance_by_contact_order_z = \
+                #     _per_residue_dock_collapse_increase_significance_by_contact_order_z =
+                #     _per_residue_dock_collapse_increased_z = _per_residue_dock_collapse_deviation_magnitude = \
+                #     _per_residue_dock_sequential_peaks_collapse_z = _per_residue_dock_collapse_sequential_z = \
+                #     np.zeros((actual_batch_length, pose_length), dtype=np.float32)
+                # Initialize collapse measurement container
+                # _poor_collapse = [0 for _ in range(actual_batch_length)]
+                collapse_fit_parameters = {}
+
+            # if collapse_profile.size:  # Not equal to zero
+            #     # Take the hydrophobic collapse of the log probs to understand the profiles "folding"
+            #     _poor_collapse = [0 for _ in range(actual_batch_length)]
+            #     _per_residue_mini_batch_collapse_z = \
+            #         np.zeros((actual_batch_length, pose_length), dtype=np.float32)
+            #     for pose_idx in range(actual_batch_length):
+            #         # Only include the residues in the ASU
+            #         design_probs_collapse = \
+            #             hydrophobic_collapse_index(asu_conditional_softmax_null_seq[pose_idx],
+            #                                        # asu_unconditional_softmax,
+            #                                        alphabet_type=ml.mpnn_alphabet)
+            #         # Compare the sequence collapse to the pose collapse
+            #         # USE:
+            #         #  contact_order_per_res_z, reference_collapse, collapse_profile
+            #         # print('HCI profile mean', collapse_profile_mean)
+            #         # print('HCI profile std', collapse_profile_std)
+            #         _per_residue_mini_batch_collapse_z[pose_idx] = collapse_z = \
+            #             z_score(design_probs_collapse, collapse_profile_mean, collapse_profile_std)
+            #         # folding_loss = ml.sequence_nllloss(S_sample, design_probs_collapse)  # , mask_for_loss)
+            #         pose_idx_residues_of_interest = _residue_indices_of_interest[pose_idx]
+            #         designed_indices_collapse_z = collapse_z[pose_idx_residues_of_interest]
+            #         # magnitude_of_collapse_z_deviation = np.abs(designed_indices_collapse_z)
+            #         # Check if dock has collapse larger than collapse_significance_threshold and increased collapse
+            #         if np.any(np.logical_and(design_probs_collapse[pose_idx_residues_of_interest]
+            #                                  > collapse_significance_threshold,
+            #                                  designed_indices_collapse_z > 0)):
+            #             _poor_collapse[pose_idx] = 1
+            #             # logger.warning(f'***Collapse is larger than one standard deviation. '
+            #             #                f'Pose is *** being considered')
+            #             # print('design_probs_collapse', design_probs_collapse[pose_idx_residues_of_interest])
+            #             # This is the collapse value at each residue_of_interest
+            #             # print('designed_indices_collapse_z', designed_indices_collapse_z)
+            #             # This is the collapse z score from the Pose profile at each residue_of_interest
+            #             # design_probs_collapse
+            #             # [0.1229698  0.14987233 0.23318215 0.23268045 0.23882663 0.24801936
+            #             #  0.25622816 0.44975936 0.43138875 0.3607946  0.3140504  0.28207788
+            #             #  0.27033003 0.27388856 0.28031376 0.28897327 0.14254868 0.13711281
+            #             #  0.12078322 0.11563808 0.13515363 0.16421124 0.16638894 0.16817969
+            #             #  0.16234223 0.19553652 0.20065537 0.1901575  0.17455298 0.17621328
+            #             #  0.20747318 0.21465868 0.22461864 0.21520302 0.21346277 0.2054776
+            #             #  0.17700449 0.15074518 0.11202089 0.07674509 0.08504518 0.09990609
+            #             #  0.16057604 0.14554144 0.14646661 0.15743639 0.2136532  0.23222249
+            #             #  0.26718637]
+            #             # designed_indices_collapse_z
+            #             # [-0.80368181 -1.2787087   0.71124918  1.04688287  1.26099661 -0.17269616
+            #             #  -0.06417628  1.16625098  0.94364294  0.62500235  0.53019078  0.5038286
+            #             #   0.59372686  0.82563642  1.12022683  1.1989269  -1.07529947 -1.27769417
+            #             #  -1.24323295 -0.95376269  0.55229076  1.05845308  0.62604691  0.20474606
+            #             #  -0.20987778 -0.45545679 -0.40602295 -0.54974293 -0.72873982 -0.84489538
+            #             #  -0.8104777  -0.80596935 -0.71591074 -0.79774316 -0.75114322 -0.77010185
+            #             #  -0.63265472 -0.61240502 -0.69975283 -1.11501543 -0.81130281 -0.64497745
+            #             #  -0.10221637 -0.32925792 -0.53646227 -0.54949522 -0.35537453 -0.28560236
+            #             #   0.23599237]
+            #         # else:
+            #         #     _poor_collapse.append(0)
+            #         #     logger.critical(
+            #         #         f'Total deviation={magnitude_of_collapse_z_deviation.sum()}. '
+            #         #         f'Mean={designed_indices_collapse_z.mean()}'
+            #         #         f'Standard Deviation={designed_indices_collapse_z.std()}')
+            #     # _total_collapse_favorability.extend(_poor_collapse)
+            #     # per_residue_design_indices[batch_slice] = _residue_indices_of_interest
+            #     # per_residue_batch_collapse_z[batch_slice] = _per_residue_mini_batch_collapse_z
+            # else:  # Populate with null data
+            #     _per_residue_mini_batch_collapse_z = _per_residue_evolution_cross_entropy.copy()
+            #     _per_residue_mini_batch_collapse_z[:] = np.nan
+            #     _poor_collapse = _per_residue_mini_batch_collapse_z[:, 0]
 
             return {
                 # The below structures have a shape (batch_length, pose_length)
+                'design_indices': _residue_indices_of_interest,
                 'design_cross_entropy': _per_residue_design_cross_entropy,
                 'evolution_cross_entropy': _per_residue_evolution_cross_entropy,
                 'fragment_cross_entropy': _per_residue_fragment_cross_entropy,
-                'collapse_z': _per_residue_mini_batch_collapse_z,
-                'design_indices': _residue_indices_of_interest,
-                'collapse_violation': _poor_collapse,
+                # 'collapse_z': _per_residue_mini_batch_collapse_z,
+                # 'collapse_violation': _poor_collapse,
             }
 
         @torch.no_grad()  # Ensure no gradients are produced
@@ -2876,6 +2939,8 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
             logger.debug(f'perturbed_bb_coords.shape: {perturbed_bb_coords.shape}')
             X = perturbed_bb_coords.reshape((actual_batch_length, -1, num_model_residues, 3))
             logger.debug(f'X.shape: {X.shape}')
+            # Save design_indices
+            _residue_indices_of_interest = residue_mask_cpu[:, :pose_length].astype(bool)
 
             # Update different parameters to the identified device
             batch_parameters.update(ml.proteinmpnn_to_device(device, X=X, chain_M_pos=residue_mask_cpu,
@@ -2886,7 +2951,11 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
             # decoding_order = pose.generate_proteinmpnn_decode_order(to_device=device)
             # decoding_order.repeat(actual_batch_length, 1)
 
-            return ml.proteinmpnn_batch_design(batch_slice, mpnn_model, pose_length=pose_length, **batch_parameters)
+            return {
+                # The below data structures have a shape (batch_length, pose_length)
+                'design_indices': _residue_indices_of_interest,
+                **ml.proteinmpnn_batch_design(batch_slice, mpnn_model, pose_length=pose_length, **batch_parameters)
+            }
             # batch_parameters contains:
             #  X, chain_M_pos, bias_by_res, randn, S, chain_mask, chain_encoding, residue_idx, mask, temperatures,
             #  pose_length, bias_by_res, tied_pos, X_unbound)
@@ -3007,6 +3076,8 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
             logger.debug(f'perturbed_bb_coords.shape: {perturbed_bb_coords.shape}')
             X = perturbed_bb_coords.reshape((actual_batch_length, -1, num_model_residues, 3))
             logger.debug(f'X.shape: {X.shape}')
+            # Save design_indices
+            _residue_indices_of_interest = residue_mask_cpu[:, :pose_length].astype(bool)
 
             # Update different parameters to the identified device
             batch_parameters.update(ml.proteinmpnn_to_device(device, X=X, chain_M_pos=residue_mask_cpu,
@@ -3071,7 +3142,6 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
                 mpnn_model(X, S_design_null, mask, chain_residue_mask, residue_idx, chain_encoding,
                            None,  # This argument is provided but with below args, is not used
                            use_input_decoding_order=True, decoding_order=decoding_order).cpu()
-            _residue_indices_of_interest = residue_mask_cpu[:, :pose_length].astype(bool)
             #  Taking the KL divergence would indicate how divergent the interfaces are from the
             #  surface. This should be simultaneously minimized (i.e. lowest evolutionary divergence)
             #  while the aa frequency distribution cross_entropy compared to the fragment profile is
@@ -3151,65 +3221,126 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
                 _per_residue_design_cross_entropy[:] = np.nan
 
             if collapse_profile.size:  # Not equal to zero
-                # Take the hydrophobic collapse of the log probs to understand the profiles "folding"
-                _poor_collapse = []
-                _per_residue_mini_batch_collapse_z = \
-                    np.empty((actual_batch_length, pose_length), dtype=np.float32)
-                for pose_idx in range(actual_batch_length):
-                    # Only include the residues in the ASU
-                    design_probs_collapse = \
-                        hydrophobic_collapse_index(asu_conditional_softmax_null_seq[pose_idx],
-                                                   # asu_unconditional_softmax,
-                                                   alphabet_type=ml.mpnn_alphabet)
-                    # Todo?
-                    #  design_probs_collapse = \
-                    #      hydrophobic_collapse_index(asu_conditional_softmax,
-                    #                                 alphabet_type=ml.mpnn_alphabet)
-                    # Compare the sequence collapse to the pose collapse
-                    # USE:
-                    #  contact_order_per_res_z, reference_collapse, collapse_profile
-                    # print('HCI profile mean', collapse_profile_mean)
-                    # print('HCI profile std', collapse_profile_std)
-                    _per_residue_mini_batch_collapse_z[pose_idx] = collapse_z = \
-                        z_score(design_probs_collapse, collapse_profile_mean, collapse_profile_std)
-                    # folding_loss = ml.sequence_nllloss(S_sample, design_probs_collapse)  # , mask_for_loss)
-                    pose_idx_residues_of_interest = _residue_indices_of_interest[pose_idx]
-                    designed_indices_collapse_z = collapse_z[pose_idx_residues_of_interest]
-                    # magnitude_of_collapse_z_deviation = np.abs(designed_indices_collapse_z)
-                    # Check if dock has collapse larger than collapse_significance_threshold and increased collapse
-                    if np.any(np.logical_and(design_probs_collapse[pose_idx_residues_of_interest]
-                                             > collapse_significance_threshold,
-                                             designed_indices_collapse_z > 0)):
-                        # Todo save this
-                        print('design_probs_collapse', design_probs_collapse[pose_idx_residues_of_interest])
-                        print('designed_indices_collapse_z', designed_indices_collapse_z)
-                        # print('magnitude greater than 1', magnitude_of_collapse_z_deviation > 1)
-                        logger.warning(f'***Collapse is larger than one standard deviation.'
-                                       f' Pose is *** being considered')
-                        _poor_collapse.append(1)
-                    else:
-                        _poor_collapse.append(0)
-                    #     logger.critical(
-                    #         f'Total deviation={magnitude_of_collapse_z_deviation.sum()}. '
-                    #         f'Mean={designed_indices_collapse_z.mean()}'
-                    #         f'Standard Deviation={designed_indices_collapse_z.std()}')
-                # _total_collapse_favorability.extend(_poor_collapse)
-                # per_residue_design_indices[batch_slice] = _residue_indices_of_interest
-                # per_residue_batch_collapse_z[batch_slice] = _per_residue_mini_batch_collapse_z
-            else:  # Populate with null data
-                _per_residue_mini_batch_collapse_z = np.empty_like(_per_residue_evolution_cross_entropy)
-                # _per_residue_mini_batch_collapse_z = _per_residue_evolution_cross_entropy.copy()
-                _per_residue_mini_batch_collapse_z[:] = np.nan
-                _poor_collapse = _per_residue_mini_batch_collapse_z[:, 0]
+                # Make data structures
+                _per_residue_dock_islands = np.zeros((actual_batch_length, pose_length), dtype=np.float32)
+                _per_residue_dock_island_significance = np.zeros_like(_per_residue_dock_islands)
+                _per_residue_dock_collapse_significance_by_contact_order_z = np.zeros_like(_per_residue_dock_islands)
+                _per_residue_dock_collapse_increase_significance_by_contact_order_z = \
+                    np.zeros_like(_per_residue_dock_islands)
+                _per_residue_dock_collapse_increased_z = np.zeros_like(_per_residue_dock_islands)
+                _per_residue_dock_collapse_deviation_magnitude = np.zeros_like(_per_residue_dock_islands)
+                _per_residue_dock_sequential_peaks_collapse_z = np.zeros_like(_per_residue_dock_islands)
+                _per_residue_dock_collapse_sequential_z = np.zeros_like(_per_residue_dock_islands)
+                # Include new axis for the sequence iteration to work on an array... v
+                profile_metrics_by_pose = \
+                    metrics.collapse_per_residue(asu_conditional_softmax_null_seq[:, np.newaxis],
+                                                 contact_order_per_res_z, reference_collapse, collapse_profile,
+                                                 alphabet_type=ml.mpnn_alphabet)
+                for pose_idx, profile_metrics in enumerate(profile_metrics_by_pose):
+                    # Unpack each metric set and add to the batch arrays
+                    _per_residue_dock_islands[pose_idx] = profile_metrics['collapse_new_islands']
+                    _per_residue_dock_island_significance[pose_idx] = \
+                        profile_metrics['collapse_new_island_significance']
+                    _per_residue_dock_collapse_significance_by_contact_order_z[pose_idx] = \
+                        profile_metrics['collapse_significance_by_contact_order_z']
+                    _per_residue_dock_collapse_increase_significance_by_contact_order_z[pose_idx] = \
+                        profile_metrics['collapse_increase_significance_by_contact_order_z']
+                    _per_residue_dock_collapse_increased_z[pose_idx] = profile_metrics['collapse_increased_z']
+                    _per_residue_dock_collapse_deviation_magnitude[pose_idx] = \
+                        profile_metrics['collapse_deviation_magnitude']
+                    _per_residue_dock_sequential_peaks_collapse_z[pose_idx] = \
+                        profile_metrics['collapse_sequential_peaks_z']
+                    _per_residue_dock_collapse_sequential_z[pose_idx] = profile_metrics['collapse_sequential_z']
+
+                number_collapse_new_islands_per_designed = \
+                    _per_residue_dock_islands[_residue_indices_of_interest].sum(axis=-1)
+                # if np.any(np.logical_and(_per_residue_dock_islands[_residue_indices_of_interest],
+                #                          _per_residue_dock_collapse_increased_z[_residue_indices_of_interest])):
+                # _poor_collapse = designed_collapse_new_islands > 0
+                collapse_fit_parameters = {
+                    # The below structures have a shape (batch_length, pose_length)
+                    'collapse_new_islands': _per_residue_dock_islands,
+                    'collapse_new_island_significance': _per_residue_dock_island_significance,
+                    'collapse_significance_by_contact_order_z':
+                        _per_residue_dock_collapse_significance_by_contact_order_z,
+                    'collapse_increase_significance_by_contact_order_z':
+                        _per_residue_dock_collapse_increase_significance_by_contact_order_z,
+                    'collapse_increased_z': _per_residue_dock_collapse_increased_z,
+                    'collapse_deviation_magnitude': _per_residue_dock_collapse_deviation_magnitude,
+                    'collapse_sequential_peaks_z': _per_residue_dock_sequential_peaks_collapse_z,
+                    'collapse_sequential_z': _per_residue_dock_collapse_sequential_z,
+                    # The below structure has shape (batch_length,)
+                    'collapse_violation': number_collapse_new_islands_per_designed > 0
+                }
+            else:
+                # _per_residue_dock_islands = _per_residue_dock_island_significance = \
+                #     _per_residue_dock_collapse_significance_by_contact_order_z = \
+                #     _per_residue_dock_collapse_increase_significance_by_contact_order_z = \
+                #     _per_residue_dock_collapse_increased_z = _per_residue_dock_collapse_deviation_magnitude = \
+                #     _per_residue_dock_sequential_peaks_collapse_z = _per_residue_dock_collapse_sequential_z = \
+                #     np.zeros((actual_batch_length, pose_length), dtype=np.float32)
+                # Initialize collapse measurement container
+                # _poor_collapse = [0 for _ in range(actual_batch_length)]
+                collapse_fit_parameters = {}
+
+            # if collapse_profile.size:  # Not equal to zero
+            #     # Take the hydrophobic collapse of the log probs to understand the profiles "folding"
+            #     _poor_collapse = [0 for _ in range(actual_batch_length)]
+            #     _per_residue_mini_batch_collapse_z = \
+            #         np.zeros((actual_batch_length, pose_length), dtype=np.float32)
+            #     for pose_idx in range(actual_batch_length):
+            #         # Only include the residues in the ASU
+            #         design_probs_collapse = \
+            #             hydrophobic_collapse_index(asu_conditional_softmax_null_seq[pose_idx],
+            #                                        # asu_unconditional_softmax,
+            #                                        alphabet_type=ml.mpnn_alphabet)
+            #         # Todo?
+            #         #  design_probs_collapse = \
+            #         #      hydrophobic_collapse_index(asu_conditional_softmax,
+            #         #                                 alphabet_type=ml.mpnn_alphabet)
+            #         # Compare the sequence collapse to the pose collapse
+            #         # USE:
+            #         #  contact_order_per_res_z, reference_collapse, collapse_profile
+            #         # print('HCI profile mean', collapse_profile_mean)
+            #         # print('HCI profile std', collapse_profile_std)
+            #         _per_residue_mini_batch_collapse_z[pose_idx] = collapse_z = \
+            #             z_score(design_probs_collapse, collapse_profile_mean, collapse_profile_std)
+            #         # folding_loss = ml.sequence_nllloss(S_sample, design_probs_collapse)  # , mask_for_loss)
+            #         pose_idx_residues_of_interest = _residue_indices_of_interest[pose_idx]
+            #         designed_indices_collapse_z = collapse_z[pose_idx_residues_of_interest]
+            #         # magnitude_of_collapse_z_deviation = np.abs(designed_indices_collapse_z)
+            #         # Check if dock has collapse larger than collapse_significance_threshold and increased collapse
+            #         if np.any(np.logical_and(design_probs_collapse[pose_idx_residues_of_interest]
+            #                                  > collapse_significance_threshold,
+            #                                  designed_indices_collapse_z > 0)):
+            #             _poor_collapse[pose_idx] = 1
+            #             # logger.warning(f'***Collapse is larger than one standard deviation. '
+            #             #                f'Pose is *** being considered')
+            #         # else:
+            #         #     _poor_collapse.append(0)
+            #         #     logger.critical(
+            #         #         f'Total deviation={magnitude_of_collapse_z_deviation.sum()}. '
+            #         #         f'Mean={designed_indices_collapse_z.mean()}'
+            #         #         f'Standard Deviation={designed_indices_collapse_z.std()}')
+            #     # _total_collapse_favorability.extend(_poor_collapse)
+            #     # per_residue_design_indices[batch_slice] = _residue_indices_of_interest
+            #     # per_residue_batch_collapse_z[batch_slice] = _per_residue_mini_batch_collapse_z
+            # else:  # Populate with null data
+            #     _per_residue_mini_batch_collapse_z = np.empty_like(_per_residue_evolution_cross_entropy)
+            #     # _per_residue_mini_batch_collapse_z = _per_residue_evolution_cross_entropy.copy()
+            #     _per_residue_mini_batch_collapse_z[:] = np.nan
+            #     _poor_collapse = _per_residue_mini_batch_collapse_z[:, 0]
 
             dock_fit_parameters = {
+                **collapse_fit_parameters,
                 # The below structures have a shape (batch_length, pose_length)
+                'design_indices': _residue_indices_of_interest,
                 'design_cross_entropy': _per_residue_design_cross_entropy,
                 'evolution_cross_entropy': _per_residue_evolution_cross_entropy,
                 'fragment_cross_entropy': _per_residue_fragment_cross_entropy,
-                'collapse_z': _per_residue_mini_batch_collapse_z,
-                'design_indices': _residue_indices_of_interest,
-                'collapse_violation': _poor_collapse,
+                # 'collapse_z': _per_residue_mini_batch_collapse_z,
+                # The below structures have a shape (batch_length,)
+                # 'collapse_violation': _poor_collapse,
             }
 
             batch_sequences = []
@@ -3307,8 +3438,6 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
                                   temperatures=job.design.temperatures)
         number_of_temperatures = len(job.design.temperatures)
         # probabilities = np.empty((size, number_of_residues, mpnn_alphabet_length, dtype=np.float32))
-        # Include design indices in both dock and design
-        per_residue_design_indices = np.zeros((size, pose_length), dtype=bool)
         if job.dock.proteinmpnn_score:
             # Set up ProteinMPNN output data structures
             # To use torch.nn.NLLL() must use dtype Long -> np.int64, not Int -> np.int32
@@ -3316,14 +3445,10 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
             per_residue_evolution_cross_entropy = np.empty((size, pose_length), dtype=np.float32)
             per_residue_fragment_cross_entropy = np.empty_like(per_residue_evolution_cross_entropy)
             per_residue_design_cross_entropy = np.empty_like(per_residue_evolution_cross_entropy)
-            per_residue_batch_collapse_z = np.zeros_like(per_residue_evolution_cross_entropy)
-            collapse_violation = np.zeros((size,), dtype=bool)
             dock_returns = {'design_cross_entropy': per_residue_design_cross_entropy,
                             'evolution_cross_entropy': per_residue_evolution_cross_entropy,
                             'fragment_cross_entropy': per_residue_fragment_cross_entropy,
-                            'collapse_z': per_residue_batch_collapse_z,
-                            'design_indices': per_residue_design_indices,
-                            'collapse_violation': collapse_violation}
+                            }
         else:
             dock_returns = {}
 
@@ -3334,61 +3459,100 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
             design_returns = {'sequences': generated_sequences,
                               'complex_sequence_loss': per_residue_complex_sequence_loss,
                               'unbound_sequence_loss': per_residue_unbound_sequence_loss,
-                              'design_indices': per_residue_design_indices
                               }
         else:
             design_returns = {}
 
+        if collapse_profile.size:
+            per_residue_collapse = np.empty((size, pose_length), dtype=np.float32)
+            # per_residue_dock_island_significance = np.zeros_like(per_residue_collapse)
+            # per_residue_dock_collapse_significance_by_contact_order_z = np.zeros_like(per_residue_collapse)
+            # per_residue_dock_collapse_increase_significance_by_contact_order_z = np.zeros_like(per_residue_collapse)
+            # per_residue_dock_collapse_increased_z = np.zeros_like(per_residue_collapse)
+            # per_residue_dock_collapse_deviation_magnitude = np.zeros_like(per_residue_collapse)
+            # per_residue_dock_sequential_peaks_collapse_z = np.zeros_like(per_residue_collapse)
+            # per_residue_dock_collapse_sequential_z = np.zeros_like(per_residue_collapse)
+            # collapse_violation = np.zeros((size,), dtype=bool)
+            collapse_returns = {'collapse_new_islands': per_residue_collapse,
+                                'collapse_new_island_significance': np.zeros_like(per_residue_collapse),
+                                'collapse_significance_by_contact_order_z': np.zeros_like(per_residue_collapse),
+                                'collapse_increase_significance_by_contact_order_z': np.zeros_like(per_residue_collapse),
+                                'collapse_increased_z': np.zeros_like(per_residue_collapse),
+                                'collapse_deviation_magnitude': np.zeros_like(per_residue_collapse),
+                                'collapse_sequential_peaks_z': np.zeros_like(per_residue_collapse),
+                                'collapse_sequential_z': np.zeros_like(per_residue_collapse),
+                                'collapse_violation': np.zeros((size,), dtype=bool)
+                                }
+        else:
+            collapse_returns = {}
+
         # Perform the calculation
+        all_returns = {
+            # Include design indices in both dock and design
+            'design_indices': np.zeros((size, pose_length), dtype=bool),
+            **dock_returns, **design_returns, **collapse_returns
+        }
         if job.dock.proteinmpnn_score and job.design.sequences:
             # This is used for October 2022 working dock/design protocol
             calculation_method = 'docking analysis/sequence design'
-            dock_design_returns = {**dock_returns, **design_returns}
             sequences_and_scores = pose_batch_to_protein_mpnn(**proteinmpnn_kwargs,
-                                                              return_containers=dock_design_returns,
+                                                              return_containers=all_returns,
                                                               setup_args=(device,),
                                                               setup_kwargs=parameters
                                                               )
-            per_residue_design_cross_entropy = sequences_and_scores['design_cross_entropy']
-            per_residue_evolution_cross_entropy = sequences_and_scores['evolution_cross_entropy']
-            per_residue_fragment_cross_entropy = sequences_and_scores['fragment_cross_entropy']
-            per_residue_batch_collapse_z = sequences_and_scores['collapse_z']
-            per_residue_design_indices = sequences_and_scores['design_indices']
-            collapse_violation = sequences_and_scores['collapse_violation']
-            generated_sequences = sequences_and_scores['sequences']
-            per_residue_complex_sequence_loss = sequences_and_scores['complex_sequence_loss']
-            per_residue_unbound_sequence_loss = sequences_and_scores['unbound_sequence_loss']
         elif job.dock.proteinmpnn_score:
             calculation_method = 'docking analysis'
             # This is used for understanding dock fit only
             sequences_and_scores = check_dock_for_designability(**proteinmpnn_kwargs,
-                                                                return_containers=dock_returns,
+                                                                return_containers=all_returns,
                                                                 setup_args=(device,),
                                                                 setup_kwargs=parameters)
-
-            per_residue_design_cross_entropy = sequences_and_scores['design_cross_entropy']
-            per_residue_evolution_cross_entropy = sequences_and_scores['evolution_cross_entropy']
-            per_residue_fragment_cross_entropy = sequences_and_scores['fragment_cross_entropy']
-            per_residue_batch_collapse_z = sequences_and_scores['collapse_z']
-            per_residue_design_indices = sequences_and_scores['design_indices']
-            collapse_violation = sequences_and_scores['collapse_violation']
-            generated_sequences = per_residue_complex_sequence_loss = per_residue_unbound_sequence_loss = None
         elif job.design.sequences:  # This is used for design only
             calculation_method = 'sequence design'
             sequences_and_scores = fragdock_design(**proteinmpnn_kwargs,
-                                                   return_containers=design_returns,
+                                                   return_containers=all_returns,
                                                    setup_args=(device,),
                                                    setup_kwargs=parameters
                                                    )
+        else:
+            raise RuntimeError(f"Logic shouldn't allow this to happen")
+
+        # Unpack batch arrays
+        per_residue_design_indices = sequences_and_scores['design_indices']
+        if job.dock.proteinmpnn_score:
+            per_residue_design_cross_entropy = sequences_and_scores['design_cross_entropy']
+            per_residue_evolution_cross_entropy = sequences_and_scores['evolution_cross_entropy']
+            per_residue_fragment_cross_entropy = sequences_and_scores['fragment_cross_entropy']
+        else:
+            per_residue_design_cross_entropy = per_residue_evolution_cross_entropy = \
+                per_residue_fragment_cross_entropy = None
+
+        if job.design.sequences:  # This is used for design only
             generated_sequences = sequences_and_scores['sequences']
             per_residue_complex_sequence_loss = sequences_and_scores['complex_sequence_loss']
             per_residue_unbound_sequence_loss = sequences_and_scores['unbound_sequence_loss']
-            per_residue_design_indices = sequences_and_scores['design_indices']
-            per_residue_design_cross_entropy = per_residue_evolution_cross_entropy = \
-                per_residue_fragment_cross_entropy = per_residue_batch_collapse_z = \
-                collapse_violation = None
         else:
-            raise RuntimeError(f"Logic shouldn't allow this to happen")
+            generated_sequences = per_residue_complex_sequence_loss = per_residue_unbound_sequence_loss = None
+
+        if collapse_profile.size:
+            per_residue_dock_islands = sequences_and_scores['collapse_new_islands']
+            per_residue_dock_island_significance = sequences_and_scores['collapse_new_island_significance']
+            per_residue_dock_collapse_significance_by_contact_order_z = \
+                sequences_and_scores['collapse_significance_by_contact_order_z']
+            per_residue_dock_collapse_increase_significance_by_contact_order_z = \
+                sequences_and_scores['collapse_increase_significance_by_contact_order_z']
+            per_residue_dock_collapse_increased_z = sequences_and_scores['collapse_increased_z']
+            per_residue_dock_collapse_deviation_magnitude = sequences_and_scores['collapse_deviation_magnitude']
+            per_residue_dock_sequential_peaks_collapse_z = sequences_and_scores['collapse_sequential_peaks_z']
+            per_residue_dock_collapse_sequential_z = sequences_and_scores['collapse_sequential_z']
+            collapse_violation = sequences_and_scores['collapse_violation']
+        else:
+            per_residue_dock_islands = per_residue_dock_island_significance = \
+                per_residue_dock_collapse_significance_by_contact_order_z = \
+                per_residue_dock_collapse_increase_significance_by_contact_order_z = \
+                per_residue_dock_collapse_increased_z = per_residue_dock_collapse_deviation_magnitude = \
+                per_residue_dock_sequential_peaks_collapse_z = per_residue_dock_collapse_sequential_z = \
+                collapse_violation = None
 
         logger.info(f'ProteinMPNN {calculation_method} took {time.time() - proteinmpnn_time_start:8f}')
 
@@ -3584,23 +3748,34 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
 
         # if job.design.sequences:
         if proteinmpnn_used:
+            design_dock_params = {'designed_residues_total': per_residue_design_indices[idx]}
             if job.dock.proteinmpnn_score:
                 # dock_per_residue_design_cross_entropy = per_residue_design_cross_entropy[idx]
                 # dock_per_residue_evolution_cross_entropy = per_residue_evolution_cross_entropy[idx]
                 # dock_per_residue_fragment_cross_entropy = per_residue_fragment_cross_entropy[idx]
                 # dock_per_residue_design_indices = per_residue_design_indices[idx]
                 # dock_per_residue_batch_collapse_z = per_residue_batch_collapse_z[idx]
-                design_dock_params = {
+                design_dock_params.update({
                     'proteinmpnn_v_design_cross_entropy': per_residue_design_cross_entropy[idx],
                     'proteinmpnn_v_evolution_cross_entropy': per_residue_evolution_cross_entropy[idx],
                     'proteinmpnn_v_fragment_cross_entropy': per_residue_fragment_cross_entropy[idx],
-                    'designed_residues_total': per_residue_design_indices[idx],
-                    'collapse_profile_z': per_residue_batch_collapse_z[idx],
-                }
+                })
                 # 'collapse_profile_z' - The z score for the collapse profile as measured from an evolutionary
                 # collapse profile
-            else:
-                design_dock_params = {}
+            # else:
+            #     design_dock_params = {}
+
+            if collapse_profile.size:
+                design_dock_params.update({
+                    'dock_collapse_new_islands': per_residue_dock_islands[idx],
+                    'dock_collapse_new_island_significance': per_residue_dock_island_significance[idx],
+                    'dock_collapse_significance_by_contact_order_z': per_residue_dock_collapse_significance_by_contact_order_z[idx],
+                    'dock_collapse_increase_significance_by_contact_order_z': per_residue_dock_collapse_increase_significance_by_contact_order_z[idx],
+                    'dock_collapse_increased_z': per_residue_dock_collapse_increased_z[idx],
+                    'dock_collapse_deviation_magnitude': per_residue_dock_collapse_deviation_magnitude[idx],
+                    'dock_collapse_sequential_peaks_z': per_residue_dock_sequential_peaks_collapse_z[idx],
+                    'dock_collapse_sequential_z': per_residue_dock_collapse_sequential_z[idx],
+                })
 
             if job.design.sequences:
                 dock_per_residue_design_indices = per_residue_design_indices[idx]
@@ -3821,10 +3996,10 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
 
             all_sequences_by_entity = list(zip(*all_sequences_split))
             # Todo, should the reference pose be used? -> + [entity.sequence for entity in pose.entities]
-            # Include the pose as the pose_source in the measured designs
-            # contact_order_per_res_z, reference_collapse, collapse_profile = pose.get_folding_metrics()
-            folding_and_collapse = calculate_collapse_metrics(all_sequences_by_entity,
-                                                              contact_order_per_res_z, reference_collapse, collapse_profile)
+            #  Include the pose as the pose_source in the measured designs
+            # Data contact_order_per_res_z, reference_collapse, collapse_profile come from pose.get_folding_metrics()
+            folding_and_collapse = metrics.collapse_per_residue(all_sequences_by_entity, contact_order_per_res_z,
+                                                                reference_collapse, collapse_profile)
             per_residue_collapse_df = pd.concat({design_id: pd.DataFrame(data, index=residue_numbers)
                                                  for design_id, data in zip(design_ids, folding_and_collapse)},
                                                 ).unstack().swaplevel(0, 1, axis=1)
@@ -3896,6 +4071,20 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
         designed_df = per_residue_df.loc[:, idx_slice[:, 'designed_residues_total']].droplevel(1, axis=1)
 
         if job.dock.proteinmpnn_score:
+            # scores_df['collapse_new_islands'] /= scores_df['pose_length']
+            # scores_df['collapse_new_island_significance'] /= scores_df['pose_length']
+            scores_df['dock_collapse_significance_by_contact_order_z'] /= \
+                (per_residue_df.loc[:, idx_slice[:, 'dock_collapse_significance_by_contact_order_z']] != 0).sum(axis=1)
+            if measure_alignment:
+                dock_collapse_increased_df = per_residue_df.loc[:, idx_slice[:, 'dock_collapse_increased_z']]
+                total_increased_collapse = (dock_collapse_increased_df != 0).sum(axis=1)
+                scores_df['dock_collapse_increase_significance_by_contact_order_z'] /= total_increased_collapse
+                scores_df['dock_collapse_increased_z_mean'] = \
+                    dock_collapse_increased_df.sum(axis=1) / total_increased_collapse
+                scores_df['dock_collapse_deviation_magnitude_mean'] /= scores_df['pose_length']
+                scores_df['dock_collapse_sequential_peaks_z'] /= total_increased_collapse
+                scores_df['dock_collapse_sequential_z'] /= total_increased_collapse
+
             scores_df['proteinmpnn_v_design_cross_entropy_designed_mean'] = \
                 (per_residue_df.loc[:, idx_slice[:, 'proteinmpnn_v_design_cross_entropy']].droplevel(1, axis=1)
                  * designed_df).mean(axis=1)
@@ -3918,6 +4107,21 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
             # The per residue average proteinmpnn versus evolution cross entropy in the pose
 
         if job.design.sequences:
+            # scores_df['collapse_new_islands'] /= scores_df['pose_length']
+            # scores_df['collapse_new_island_significance'] /= scores_df['pose_length']
+            scores_df['collapse_significance_by_contact_order_z'] /= \
+                (per_residue_df.loc[:, idx_slice[:, 'collapse_significance_by_contact_order_z']] != 0).sum(axis=1)
+            if measure_alignment:
+                collapse_increased_df = per_residue_df.loc[:, idx_slice[:, 'collapse_increased_z']]
+                total_increased_collapse = (collapse_increased_df != 0).sum(axis=1)
+                scores_df['collapse_increase_significance_by_contact_order_z'] /= total_increased_collapse
+                # scores_df['collapse_increased_z'] /= scores_df['pose_length']
+                scores_df['collapse_increased_z_mean'] = \
+                    collapse_increased_df.sum(axis=1) / total_increased_collapse
+                scores_df['collapse_deviation_magnitude_mean'] /= scores_df['pose_length']
+                scores_df['collapse_sequential_peaks_z'] /= total_increased_collapse
+                scores_df['collapse_sequential_z'] /= total_increased_collapse
+
             scores_df[putils.protocol] = 'proteinmpnn'
             scores_df['design_sequence_loss_per_residue'] = \
                 scores_df['design_sequence_loss'] / scores_df['pose_length']
