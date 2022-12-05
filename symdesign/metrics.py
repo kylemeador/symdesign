@@ -33,9 +33,10 @@ per_residue_sasa_states = ['sasa_hydrophobic_bound', 'sasa_polar_bound', 'sasa_h
                            'sasa_total_bound', 'sasa_total_complex']
 per_residue_intermediate_states = ['bsa_polar', 'bsa_hydrophobic', 'bsa_total']
 sasa_metric_names = ['interface_area_polar', 'interface_area_hydrophobic', 'interface_area_total']
-collapse_metrics = ['new_collapse_islands', 'new_collapse_island_significance', 'contact_order_collapse_significance',
-                    'contact_order_collapse_z_sum', 'global_collapse_z_sum', 'hydrophobicity_deviation_magnitude',
-                    'sequential_collapse_peaks_z_sum', 'sequential_collapse_z_sum']
+collapse_metrics = ['collapse_new_islands', 'collapse_new_island_significance',
+                    'collapse_significance_by_contact_order_z', 'collapse_increase_significance_by_contact_order_z',
+                    'collapse_increased_z', 'collapse_deviation_magnitude', 'collapse_sequential_peaks_z',
+                    'collapse_sequential_z']
 # Only slice the final 3 values
 sasa_metrics_rename_mapping = dict(zip(per_residue_intermediate_states, sasa_metric_names))
 # Based on bsa_total values for highest deviating surface residue of one design from multiple measurements
@@ -114,16 +115,16 @@ master_metrics = {
     'contact_count':
         dict(description='Number of carbon-carbon contacts across interface',
              direction=_max, function=rank, filter=True),
-    'contact_order_collapse_significance':
-        dict(description='Summed significance values taking product of positive collapse and contact order per residue.'
+    'collapse_significance_by_contact_order_z':
+        dict(description='Summed significance values taking product of collapsing and contact order per residue.'
                          ' Positive values indicate collapse in areas with low contact order. Negative, collapse in '
                          'high contact order. A protein fold relying on high contact order may not need as much '
                          'collapse, while without high contact order, the segment should rely on itself to fold',
              direction=_max, function=rank, filter=True),
-    'contact_order_collapse_z_sum':
-        dict(description='Summed contact order z score, scaled proportionally by positions with increased collapse. '
-                         'More negative is more isolated collapse. Positive indicates collapse is occurring in '
-                         'predominantly higher contact order sites',
+    'collapse_increase_significance_by_contact_order_z':
+        dict(description='Summation of positions with increased collapse from reference scaled by contact order z score'
+                         '. More negative is more isolated collapse, while positive indicates collapse occurs in '
+                         'higher contact order sites',
              direction=_min, function=rank, filter=True),
     'core':
         dict(description='The number of "core" residues as classified by E. Levy 2010',
@@ -237,13 +238,13 @@ master_metrics = {
     'interaction_energy_complex':
         dict(description='The two-body (residue-pair) energy of the complexed interface. No solvation '
                          'energies', direction=_min, function=rank, filter=True),
-    'global_collapse_z_sum':
+    'collapse_increased_z':
         dict(description='The sum of all sequence regions z-scores experiencing increased collapse. Measures the '
                          'normalized magnitude of additional hydrophobic collapse',
              direction=_min, function=rank, filter=True),
-    'hydrophobicity_deviation_magnitude':
-        dict(description='The total deviation in the hydrophobic collapse, either more or less collapse '
-                         'prone', direction=_min, function=rank, filter=True),
+    'collapse_deviation_magnitude':
+        dict(description='The total deviation in the hydrophobic collapse. Either more or less collapse prone',
+             direction=_min, function=rank, filter=True),
     'interface_area_hydrophobic':
         dict(description='Total hydrophobic interface buried surface area',
              direction=_min, function=rank, filter=True),
@@ -358,11 +359,11 @@ master_metrics = {
     'nanohedra_score_normalized':
         dict(description='The Nanohedra Score normalized by number of fragment residues',
              direction=_max, function=rank, filter=True),
-    'new_collapse_island_significance':
-        dict(description='The magnitude of the contact_order_collapse_significance (abs(deviation)) for identified '
+    'collapse_new_island_significance':
+        dict(description='The magnitude of the collapse_significance_by_contact_order_z (abs(deviation)) for identified '
                          'new collapse islands',
              direction=_min, function=rank, filter=True),
-    'new_collapse_islands':
+    'collapse_new_islands':
         dict(description='The number of new collapse islands found',
              direction=_min, function=rank, filter=True),
     'number_fragment_residues_total':
@@ -469,12 +470,12 @@ master_metrics = {
         dict(description='Rosetta Energy Term - A metric for the unfolded energy of the protein along with '
                          'sequence fitting corrections',
              direction=_max, function=rank, filter=True),
-    'sequential_collapse_peaks_z_sum':
-        dict(description='The collapse z-score for each residue scaled sequentially by the number of '
+    'collapse_sequential_peaks_z':
+        dict(description='Summation of the collapse z-score for each residue scaled sequentially by the number of '
                          'previously observed collapsable locations',
              direction=_max, function=rank, filter=True),
-    'sequential_collapse_z_sum':
-        dict(description='The collapse z-score for each residue scaled by the proximity to sequence start',
+    'collapse_sequential_z':
+        dict(description='Summation of the collapse z-score for each residue scaled by the proximity to sequence start',
              direction=_max, function=rank, filter=True),
     'shape_complementarity':
         dict(description='Measure of fit between two surfaces from Lawrence and Colman 1993',
@@ -781,8 +782,8 @@ significance_columns = ['buried_unsatisfied_hbonds',
 # sequence_columns = ['divergence_evolution_per_residue', 'divergence_fragment_per_residue',
 #                     'observed_evolution', 'observed_fragment']
 multiple_sequence_alignment_dependent_metrics = \
-    ['global_collapse_z_sum', 'hydrophobicity_deviation_magnitude', 'new_collapse_island_significance',
-     'new_collapse_islands', 'sequential_collapse_peaks_z_sum', 'sequential_collapse_z_sum']
+    ['collapse_increase_significance_by_contact_order_z', 'collapse_increased_z', 'collapse_deviation_magnitude',
+     'collapse_sequential_peaks_z', 'collapse_sequential_z']
 profile_dependent_metrics = ['divergence_evolution_per_residue', 'observed_evolution']
 frag_profile_dependent_metrics = ['divergence_fragment_per_residue', 'observed_fragment']
 # per_res_keys = ['jsd', 'des_jsd', 'int_jsd', 'frag_jsd']
@@ -1094,21 +1095,37 @@ def process_residue_info(design_residue_scores: dict, hbonds: dict = None) -> di
     return design_residue_scores
 
 
-def calculate_collapse_metrics(sequences_of_interest: Iterable[Iterable[Sequence[str]]],
-                               # poses_of_interest: list['structure.model.Pose'],
-                               residue_contact_order_z: np.ndarray, reference_collapse: np.ndarray,
-                               collapse_profile: np.ndarray = None) -> list[dict[str, float]]:
-    """Measure folding metrics from sequences based on reference per residue contact order and hydrophobic collapse
-    parameters
+def collapse_per_residue(sequence_groups: Iterable[Iterable[Sequence[str]]],
+                         # poses_of_interest: list['structure.model.Pose'],
+                         residue_contact_order_z: np.ndarray, reference_collapse: np.ndarray,
+                         collapse_profile: np.ndarray = None, **kwargs) -> list[dict[str, float]]:
+    """Measure per-residue sequence folding metrics based on reference values including contact order z score and
+    hydrophobic collapse
 
     Args:
-        sequences_of_interest:
-        residue_contact_order_z:
-        reference_collapse:
-        collapse_profile:
+        sequence_groups: Groups of sequences, where the outer nest is each sample and the inner nest are unique polymers
+        residue_contact_order_z: The per-residue contact order z score from a reference structure
+        reference_collapse: The per-residue hydrophobic collapse values measured from a reference sequence
+        collapse_profile: The per-residue hydrophobic collapse values measured from a reference SequenceProfile
+    Keyword Args:
+        hydrophobicity: int = 'standard' – The hydrophobicity scale to consider. Either 'standard' (FILV),
+            'expanded' (FMILYVW), or provide one with 'custom' keyword argument
+        custom: mapping[str, float | int] = None – A user defined mapping of amino acid type, hydrophobicity value pairs
+        alphabet_type: alphabet_types = None – The amino acid alphabet if the sequence consists of integer characters
+        lower_window: int = 3 – The smallest window used to measure
+        upper_window: int = 9 – The largest window used to measure
     Returns:
-        The collapse metric dictionary (metric, value pairs) for each concatenated sequence in the provided
-            sequences_of_interest
+        The mapping of collapse metric to per-residue values for the concatenated sequence in each sequence_groups.
+            These include:
+            {'collapse_new_islands',
+             'collapse_new_island_significance',
+             'collapse_significance_by_contact_order_z',
+             'collapse_increase_significance_by_contact_order_z',
+             'collapse_increased_z',
+             'collapse_deviation_magnitude',
+             'collapse_sequential_peaks_z',
+             'collapse_sequential_z',
+             }
     """
     # The contact order is always positive. Negating makes it inverted as to weight more highly contacting poorly
     residue_contact_order_inverted_z = residue_contact_order_z * -1
@@ -1140,13 +1157,13 @@ def calculate_collapse_metrics(sequences_of_interest: Iterable[Iterable[Sequence
     #
     # All possible important aspects measured are:
     # X the sequential collapse (earlier is worse than later as nucleation of core is wrong),
-    #   sequential_collapse_peaks_z_sum, sequential_collapse_z_sum
+    #   collapse_sequential_peaks_z, collapse_sequential_z
     # X the local nature of collapse (is the sequence/structural context amenable to collapse?),
-    #   contact_order_collapse_z_sum
+    #   collapse_increase_significance_by_contact_order_z
     # X the global nature of collapse (how much has collapse increased globally),
-    #   hydrophobicity_deviation_magnitude, global_collapse_z_sum,
+    #   collapse_deviation_magnitude, collapse_increased_z,
     # X the change from "non-collapsing" to "collapsing" where collapse passes a threshold and changes folding
-    #   new_collapse_islands, new_collapse_island_significance
+    #   collapse_new_islands, collapse_new_island_significance
 
     # linearly weight residue by sequence position (early > late) with the halfway position (midpoint)
     # weighted at 1
@@ -1158,21 +1175,25 @@ def calculate_collapse_metrics(sequences_of_interest: Iterable[Iterable[Sequence
     #     for entity_idx, entity in enumerate(pose.entities):
     #         sequence_length = entity.number_of_residues
     #         standardized_collapse.append(entity.hydrophobic_collapse)
-    for pose_idx, sequences in enumerate(sequences_of_interest):
+    for pose_idx, sequences in enumerate(sequence_groups):
         # Gather all the collapse info for the particular sequence group
-        standardized_collapse = [hydrophobic_collapse_index(sequence) for entity_idx, sequence in enumerate(sequences)]
+        standardized_collapse = \
+            np.concatenate([hydrophobic_collapse_index(sequence, **kwargs)
+                            for entity_idx, sequence in enumerate(sequences)])
+        # standardized_collapse = np.concatenate(standardized_collapse)
         # Todo
         #  Calculate two HCI ?at the same time? to benchmark the two hydrophobicity scales
         #   -> observed_collapse, standardized_collapse = hydrophobic_collapse_index(sequence)
-        standardized_collapse = np.concatenate(standardized_collapse)
         sequence_length = standardized_collapse.shape[0]
-        # find collapse where: delta above standard collapse, collapsable boolean, and successive number
+        # Find collapse where: delta above standard collapse, collapsable boolean, and successive number
         # collapse_propensity = np.where(standardized_collapse > 0.43, standardized_collapse - 0.43, 0)
         # scale the collapse propensity by the standard collapse threshold and make z score
-        collapse_propensity_z = utils.z_score(standardized_collapse, collapse_significance_threshold, collapse_reported_std)
+        collapse_propensity_z = \
+            utils.z_score(standardized_collapse, collapse_significance_threshold, collapse_reported_std)
         positive_collapse_propensity_z = np.maximum(collapse_propensity_z, 0)
         # ^ [0, 0, 0, 0, 0.04, 0.06, 0, 0, 0.1, 0.07, ...]
 
+        # Where collapse is occurring
         collapse_bool = positive_collapse_propensity_z != 0  # [0, 0, 0, 0, 1, 1, 0, 0, 1, 1, ...]
         # collapse_bool = np.where(positive_collapse_propensity_z, 1, 0)
         increased_collapse = np.where(collapse_bool - reference_collapse_bool == 1, 1, 0)
@@ -1190,9 +1211,9 @@ def calculate_collapse_metrics(sequences_of_interest: Iterable[Iterable[Sequence
             + new_collapse \
             + [True if increased_collapse[-1] and not reference_collapse[-2] else False]
         new_collapse_peak_start = [0 for _ in range(collapse_bool.shape[0])]  # [0, 0, 0, 1, 0, 0, 0, 0, 0, 0, ...]
-        collapse_peak_start = copy(new_collapse_peak_start)  # [0, 0, 0, 0, 1, 0, 0, 0, 1, 0, ...]
-        sequential_collapse_points = np.zeros_like(collapse_bool)  # [0, 0, 0, 0, 1, 1, 0, 0, 2, 2, ..]
-        collapse_iterator = 0
+        collapse_peak_start = new_collapse_peak_start.copy()  # [0, 0, 0, 0, 1, 0, 0, 0, 1, 0, ...]
+        sequential_collapse_points = np.zeros_like(collapse_bool)  # [-1, -1, -1, -1, 0, 0, 0, 0, 1, 1, ...]
+        collapse_iterator = -1  # Start at -1 so that the first point eventually is equal to a 0 subtraction. Was 0
         for prior_idx, idx in enumerate(range(1, collapse_propensity_z.shape[0])):
             # Check for the new_collapse "islands" and collapse_peak_start index by comparing neighboring residues
             # Both conditions are only True when 0 -> 1 transition occurs
@@ -1203,59 +1224,73 @@ def calculate_collapse_metrics(sequences_of_interest: Iterable[Iterable[Sequence
                 collapse_iterator += 1
             sequential_collapse_points[idx] = collapse_iterator
 
-        if collapse_profile is not None and collapse_profile.size:  # Not equal to zero
-            # Compare the measured collapse to the metrics gathered from the collapse_profile
-            z_array = utils.z_score(standardized_collapse, collapse_profile_mean, collapse_profile_std)
-            # Find indices where the z_array is increased/decreased compared to the reference_collapse_z_score
-            # Todo
-            #  Test for magnitude and directory of the wt versus profile.
-            #  Remove subtraction? It seems useful...
-            difference_collapse_z = z_array - reference_collapse_z_score
-            # Find the indices where the sequence collapse has increased compared to reference collapse_profile
-            global_collapse_z = np.maximum(difference_collapse_z, 0)
-            # Sum the contact order, scaled proportionally by the collapse increase. More negative is more isolated
-            # collapse. Positive indicates poor maintaning of the starting collapse
-            contact_order_collapse_z_sum = np.sum(residue_contact_order_z * global_collapse_z)
-            # The sum of all sequence regions z-scores experiencing increased collapse. Measures the normalized
-            # magnitude of additional hydrophobic collapse
-            global_collapse_z_sum = global_collapse_z.sum()
-            hydrophobicity_deviation_magnitude = np.abs(difference_collapse_z).sum()
-
-            # Reduce sequential_collapse_points iter to only points where collapse_bool is True (1)
-            sequential_collapse_points *= collapse_bool
-            step = 1 / sum(collapse_peak_start)  # This is 1 over the "total_collapse_points"
-            add_step_array = collapse_bool * step
-            # v [0, 0, 0, 0, 2, 2, 0, 0, 1.8, 1.8, ...]
-            sequential_collapse_weights = scale * ((1 - step * sequential_collapse_points) + add_step_array)
-            sequential_collapse_peaks_z_sum = np.sum(sequential_collapse_weights * global_collapse_z)
-            # v [2, 1.98, 1.96, 1.94, 1.92, ...]
-            sequential_weights = scale * (1 - np.arange(sequence_length) / sequence_length)
-            sequential_collapse_z_sum = np.sum(sequential_weights * global_collapse_z)
-        else:
-            hydrophobicity_deviation_magnitude, contact_order_collapse_z_sum, sequential_collapse_peaks_z_sum, \
-                sequential_collapse_z_sum, global_collapse_z_sum = 0., 0., 0., 0., 0.
-
-        # With 'new_collapse_island_significance'
-        #  Use contact order and hci to understand designability of an area and its folding modification
-        #  Indicate the degree to which low contact order segments (+) are reliant on collapse for folding, while
-        #  high contact order (-) use collapse
-
+        # With 'collapse_new_island_significance'
+        #  Use contact order z score and hci to understand designability of an area and its folding modification
         #  For positions experiencing collapse, multiply by inverted contact order
         collapse_significance = residue_contact_order_inverted_z * positive_collapse_propensity_z
         #  Positive values indicate collapse in areas with low contact order
         #  Negative, collapse in high contact order
+        #  Indicates the degree to which low contact order segments (+) may be reliant on collapse for folding,
+        #  while high contact order (-) may use collapse
+        # residue_contact_order_inverted_z = [-1.0, -0.4, 0.8, 0.2, -1.3, -0.2, 0.9, -1.7, ...]
+        # positive_collapse_propensity_z = [0, 0, 0, 0, 0.04, 0.06, 0, 0, 0.1, 0.07, ...]
+
+        if collapse_profile is not None and collapse_profile.size:  # Not equal to zero
+            # Compare the measured collapse to the metrics gathered from the collapse_profile
+            standardized_collapse_z = utils.z_score(standardized_collapse, collapse_profile_mean, collapse_profile_std)
+            # Find the indices where the standardized_collapse_z is increased versus the reference_collapse_z_score
+            # Todo
+            #  Test for magnitude and directory of the wt versus profile.
+            #  Remove subtraction? It seems useful...
+            difference_collapse_z = standardized_collapse_z - reference_collapse_z_score
+            # Find the indices where the sequence collapse has increased compared to reference collapse_profile
+            collapse_increased_z = np.maximum(difference_collapse_z, 0)
+            # Sum the contact order, scaled proportionally by the collapse increase. More negative is more isolated
+            # collapse. Positive indicates poor maintaning of the starting collapse
+            # collapse_increase_significance_by_contact_order_z_sum = \
+            #     np.sum(residue_contact_order_z * collapse_increased_z)
+            collapse_increase_significance_by_contact_order_z = residue_contact_order_z * collapse_increased_z
+            # The sum of all sequence regions z-scores experiencing increased collapse. Measures the normalized
+            # magnitude of additional hydrophobic collapse
+            # collapse_increased_z_sum = collapse_increased_z.sum()
+            # collapse_deviation_magnitude_sum = np.abs(difference_collapse_z).sum()
+            collapse_deviation_magnitude = np.abs(difference_collapse_z)
+
+            step = 1 / sum(collapse_peak_start)  # This is 1 over the "total_collapse_points"
+            # Make array for small adjustment to account for first value equal to scale
+            # add_step_array = collapse_bool * step
+            # v [2.2, 2.2, 2.2, 2.2, 2, 2, 2, 2, 1.8, 1.8, ...]
+            sequential_collapse_weights = scale * (1 - step*sequential_collapse_points)
+            # Make sequential_collapse_weights only useful at points where collapse increased (i.e. collapse_bool is 1)
+            # v [0, 0, 0, 0, 2, 2, 0, 0, 1.8, 1.8, ...]
+            sequential_collapse_weights *= collapse_bool
+            # collapse_sequential_peaks_z_sum = np.sum(sequential_collapse_weights * collapse_increased_z)
+            collapse_sequential_peaks_z = sequential_collapse_weights * collapse_increased_z
+            # v [2, 1.98, 1.96, 1.94, 1.92, ...]
+            sequential_weights = scale * (1 - np.arange(sequence_length)/sequence_length)
+            # collapse_sequential_z_sum = np.sum(sequential_weights * collapse_increased_z)
+            collapse_sequential_z = sequential_weights * collapse_increased_z
+        else:
+            # For per-residue
+            collapse_increase_significance_by_contact_order_z = collapse_increased_z = \
+                collapse_deviation_magnitude = collapse_sequential_peaks_z = collapse_sequential_z = \
+                np.zeros_like(standardized_collapse)
+            # # For summing
+            # collapse_deviation_magnitude_sum = collapse_increase_significance_by_contact_order_z_sum = \
+            #     collapse_sequential_peaks_z_sum = collapse_sequential_z_sum = collapse_increased_z_sum = 0.
 
         # Add the concatenated collapse metrics to total
-        folding_and_collapse.append({'new_collapse_islands': sum(new_collapse_peak_start),
-                                     'new_collapse_island_significance': np.sum(new_collapse_peak_start
-                                                                                * np.abs(collapse_significance)),
-                                     'contact_order_collapse_significance': collapse_significance,
-                                     'contact_order_collapse_z_sum': contact_order_collapse_z_sum,
-                                     'global_collapse_z_sum': global_collapse_z_sum,
-                                     'hydrophobicity_deviation_magnitude': hydrophobicity_deviation_magnitude,
-                                     'sequential_collapse_peaks_z_sum': sequential_collapse_peaks_z_sum,
-                                     'sequential_collapse_z_sum': sequential_collapse_z_sum})
-
+        folding_and_collapse.append({'collapse_new_islands': new_collapse_peak_start,
+                                     'collapse_new_island_significance':
+                                         new_collapse_peak_start * collapse_significance,  # np.abs(collapse_signif.)
+                                     'collapse_significance_by_contact_order_z': collapse_significance,
+                                     'collapse_increase_significance_by_contact_order_z':
+                                         collapse_increase_significance_by_contact_order_z,
+                                     'collapse_increased_z': collapse_increased_z,
+                                     'collapse_deviation_magnitude': collapse_deviation_magnitude,
+                                     'collapse_sequential_peaks_z': collapse_sequential_peaks_z,
+                                     'collapse_sequential_z': collapse_sequential_z
+                                     })
     return folding_and_collapse
 
 
@@ -2138,8 +2173,9 @@ hydrophobicity_scale = \
 
 
 def hydrophobic_collapse_index(sequence: Sequence[str | int] | np.ndarry, hydrophobicity: str = 'standard',
-                               custom: dict[protein_letters_literal, int] = None, alphabet_type: alphabet_types = None,
-                               lower_window: int = 3, upper_window: int = 9) -> np.ndarray:
+                               custom: dict[protein_letters_literal, int | float] = None,
+                               alphabet_type: alphabet_types = None,
+                               lower_window: int = 3, upper_window: int = 9, **kwargs) -> np.ndarray:
     """Calculate hydrophobic collapse index for sequence(s) of interest and return an HCI array
 
     Args:
@@ -2148,8 +2184,8 @@ def hydrophobic_collapse_index(sequence: Sequence[str | int] | np.ndarry, hydrop
             where each character in the alphabet contains a typical distribution of amino acid observations
         hydrophobicity: The hydrophobicity scale to consider. Either 'standard' (FILV), 'expanded' (FMILYVW),
             or provide one with 'custom' keyword argument
-        custom: A user defined dictionary of hydrophobicity key, value (float/int) pairs
-        alphabet_type: The amino acid alphabet used if the sequence consists of integer characters
+        custom: A user defined mapping of amino acid type, hydrophobicity value pairs
+        alphabet_type: The amino acid alphabet if the sequence consists of integer characters
         lower_window: The smallest window used to measure
         upper_window: The largest window used to measure
     Returns:
