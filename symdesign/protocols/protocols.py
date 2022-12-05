@@ -2767,18 +2767,23 @@ class PoseDirectory:
 
         # scores_df['collapse_new_islands'] /= scores_df['pose_length']
         # scores_df['collapse_new_island_significance'] /= scores_df['pose_length']
-        scores_df['collapse_significance_by_contact_order_z'] /= \
+        scores_df['collapse_significance_by_contact_order_z_mean'] = \
+            scores_df['collapse_significance_by_contact_order_z'] / \
             (per_residue_df.loc[:, idx_slice[:, 'collapse_significance_by_contact_order_z']] != 0).sum(axis=1)
         if measure_alignment:
             collapse_increased_df = per_residue_df.loc[:, idx_slice[:, 'collapse_increased_z']]
             total_increased_collapse = (collapse_increased_df != 0).sum(axis=1)
-            scores_df['collapse_increase_significance_by_contact_order_z'] /= total_increased_collapse
+            scores_df['collapse_increase_significance_by_contact_order_z_mean'] = \
+                scores_df['collapse_increase_significance_by_contact_order_z'] / total_increased_collapse
             # scores_df['collapse_increased_z'] /= scores_df['pose_length']
             scores_df['collapse_increased_z_mean'] = \
                 collapse_increased_df.sum(axis=1) / total_increased_collapse
-            scores_df['collapse_deviation_magnitude_mean'] /= scores_df['pose_length']
-            scores_df['collapse_sequential_peaks_z'] /= total_increased_collapse
-            scores_df['collapse_sequential_z'] /= total_increased_collapse
+            scores_df['collapse_deviation_magnitude_mean'] = \
+                scores_df['collapse_deviation_magnitude'] / scores_df['pose_length']
+            scores_df['collapse_sequential_peaks_z_mean'] = \
+                scores_df['collapse_sequential_peaks_z'] / total_increased_collapse
+            scores_df['collapse_sequential_z_mean'] = \
+                scores_df['collapse_sequential_z'] / total_increased_collapse
 
         if self.job.design.structures:
             scores_df['interface_area_total'] = bsa_assembly_df = \
@@ -3865,19 +3870,24 @@ def interface_design_analysis(pose: Pose, design_poses: Iterable[Pose] = None, s
                                      contact_order_per_res_z, reference_collapse, collapse_profile)
     # Todo normalize each of these after summing to per_residue (designed) values
     #  # scores_df['collapse_new_islands'] /= scores_df['pose_length']
-    #         # scores_df['collapse_new_island_significance'] /= scores_df['pose_length']
-    #         scores_df['collapse_significance_by_contact_order_z'] /= \
-    #             (per_residue_df.loc[:, idx_slice[:, 'collapse_significance_by_contact_order_z']] != 0).sum(axis=1)
-    #         if measure_alignment:
-    #             collapse_increased_df = per_residue_df.loc[:, idx_slice[:, 'collapse_increased_z']]
-    #             total_increased_collapse = (collapse_increased_df != 0).sum(axis=1)
-    #             scores_df['collapse_increase_significance_by_contact_order_z'] /= total_increased_collapse
-    #             # scores_df['collapse_increased_z'] /= scores_df['pose_length']
-    #             scores_df['collapse_increased_z_mean'] = \
-    #                 collapse_increased_df.sum(axis=1) / total_increased_collapse
-    #             scores_df['collapse_deviation_magnitude_mean'] /= scores_df['pose_length']
-    #             scores_df['collapse_sequential_peaks_z'] /= total_increased_collapse
-    #             scores_df['collapse_sequential_z'] /= total_increased_collapse
+    #  # scores_df['collapse_new_island_significance'] /= scores_df['pose_length']
+    #  scores_df['collapse_significance_by_contact_order_z_mean'] = \
+    #      scores_df['collapse_significance_by_contact_order_z'] / \
+    #      (per_residue_df.loc[:, idx_slice[:, 'collapse_significance_by_contact_order_z']] != 0).sum(axis=1)
+    #  if measure_alignment:
+    #      collapse_increased_df = per_residue_df.loc[:, idx_slice[:, 'collapse_increased_z']]
+    #      total_increased_collapse = (collapse_increased_df != 0).sum(axis=1)
+    #      scores_df['collapse_increase_significance_by_contact_order_z_mean'] = \
+    #          scores_df['collapse_increase_significance_by_contact_order_z'] / total_increased_collapse
+    #      # scores_df['collapse_increased_z'] /= scores_df['pose_length']
+    #      scores_df['collapse_increased_z_mean'] = \
+    #          collapse_increased_df.sum(axis=1) / total_increased_collapse
+    #      scores_df['collapse_deviation_magnitude_mean'] = \
+    #          scores_df['collapse_deviation_magnitude'] / scores_df['pose_length']
+    #      scores_df['collapse_sequential_peaks_z_mean'] = \
+    #          scores_df['collapse_sequential_peaks_z'] / total_increased_collapse
+    #      scores_df['collapse_sequential_z_mean'] = \
+    #          scores_df['collapse_sequential_z'] / total_increased_collapse
     #
     #
     # pose_collapse_df = pd.DataFrame(folding_and_collapse).T
