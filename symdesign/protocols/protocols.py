@@ -2719,7 +2719,7 @@ class PoseDirectory:
         # dca_background_energies, dca_design_energies = [], []
         dca_background_energies, dca_design_energies = {}, {}
         for idx, entity in enumerate(self.pose.entities):
-            try:  # TODO add these to the analysis
+            try:  # Todo add these to the analysis
                 entity.h_fields = self.job.api_db.bmdca_fields.retrieve_data(name=entity.name)
                 entity.j_couplings = self.job.api_db.bmdca_couplings.retrieve_data(name=entity.name)
                 dca_background_residue_energies = entity.direct_coupling_analysis()
@@ -4015,7 +4015,7 @@ def interface_design_analysis(pose: Pose, design_poses: Iterable[Pose] = None, s
     # dca_background_energies, dca_design_energies = [], []
     dca_background_energies, dca_design_energies = {}, {}
     for idx, entity in enumerate(pose.entities):
-        try:  # TODO add these to the analysis
+        try:  # Todo add these to the analysis
             entity.h_fields = job.api_db.bmdca_fields.retrieve_data(name=entity.name)
             entity.j_couplings = job.api_db.bmdca_couplings.retrieve_data(name=entity.name)
             dca_background_residue_energies = entity.direct_coupling_analysis()
