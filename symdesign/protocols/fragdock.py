@@ -3877,7 +3877,7 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
                         per_residue_evolutionary_profile_scores = \
                             ml.sequence_nllloss(torch_numeric, torch_log_evolutionary_profile)
                         pose.calculate_profile()
-                        design_profile_array = pssm_as_array(pose.profile)
+                        design_profile_array = np.log(pssm_as_array(pose.profile))
                         per_residue_design_profile_scores = \
                             ml.sequence_nllloss(torch_numeric, torch.from_numpy(design_profile_array))
                     else:
