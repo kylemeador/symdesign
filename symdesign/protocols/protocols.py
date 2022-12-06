@@ -16,15 +16,15 @@ from pathlib import Path
 from subprocess import Popen, list2cmdline
 from typing import Callable, Any, Iterable, AnyStr, Type
 
+# from matplotlib.axes import Axes
 import matplotlib.pyplot as plt
+from matplotlib.ticker import MultipleLocator
+# from mpl_toolkits.mplot3d import Axes3D
 import numpy as np
 import pandas as pd
 # import seaborn as sns
 import sklearn as skl
 from cycler import cycler
-# from matplotlib.axes import Axes
-from matplotlib.ticker import MultipleLocator
-# from mpl_toolkits.mplot3d import Axes3D
 from scipy.spatial.distance import pdist, cdist
 
 from symdesign import flags, metrics
@@ -108,6 +108,8 @@ class PoseDirectory:
     _entity_names: list[str]
     _fragment_observations: list[fragment_info_type]
     _pose_transformation: list[transformation_mapping]
+    _pre_refine: bool
+    _pre_loop_model: bool
     _symmetry_definition_files: list[AnyStr]
     directives: list[dict[int, str]]
     entities: list[Entity]
@@ -219,6 +221,19 @@ class PoseDirectory:
         self.serialized_info = os.path.join(self.source_path, f'{output_identifier}{putils.data}', putils.state_file)
         self.initialized = True if os.path.exists(self.serialized_info) else False
         if self.initialized:
+            # Gather state data
+            try:
+                serial_info = unpickle(self.serialized_info)
+                if not self.info:  # Empty dict
+                    self.info = serial_info
+                else:
+                    serial_info.update(self.info)
+                    self.info = serial_info
+            except pickle.UnpicklingError as error:
+                logger.error(f'{self.name}: There was an issue retrieving design state from binary file...')
+                raise error
+            # Make a copy to check for changes to the current state
+            self._info = self.info.copy()
             self.source = None  # Will be set to self.asu_path later
             if self.job.output_to_directory:
                 self.projects = ''
@@ -228,6 +243,7 @@ class PoseDirectory:
                 self.path = self.source_path
                 self.project_designs = os.path.dirname(self.path)
                 self.projects = os.path.dirname(self.project_designs)
+            self.start_log()
         else:
             # Save job variables to the state during initialization
             if self.sym_entry:
@@ -552,8 +568,7 @@ class PoseDirectory:
         """Provide the names of all Entity instances in the PoseDirectory"""
         try:
             return self._entity_names
-        except AttributeError:
-            # Get the names from the pose state
+        except AttributeError:  # Get from the pose state
             self._entity_names = self.info.get('entity_names', [])
             return self._entity_names
 
@@ -576,8 +591,7 @@ class PoseDirectory:
         # self.log.critical('PoseDirectory.pose_transformation was accessed!')
         try:
             return self._pose_transformation
-        except AttributeError:
-            # Get the transformation from the pose state
+        except AttributeError:  # Get from the pose state
             self._pose_transformation = self.info.get('pose_transformation', [])
             return self._pose_transformation
 
@@ -602,8 +616,7 @@ class PoseDirectory:
         """
         try:
             return self._design_selector
-        except AttributeError:
-            # Get the design_selector from the pose state
+        except AttributeError:  # Get from the pose state
             self._design_selector = self.info.get('design_selector', {})
             return self._design_selector
 
@@ -624,8 +637,7 @@ class PoseDirectory:
         """
         try:
             return self._fragment_observations
-        except AttributeError:
-            # Get the fragment_observations from the pose state
+        except AttributeError:  # Get from the pose state
             self._fragment_observations = self.info.get('fragments', None)  # None signifies query wasn't attempted
             return self._fragment_observations
 
@@ -635,6 +647,46 @@ class PoseDirectory:
             self._fragment_observations = self.info['fragments'] = fragment_observations
         else:
             raise ValueError(f'The attribute fragment_observations must be a list, not {type(fragment_observations)}')
+
+    @property
+    def pre_refine(self) -> bool:
+        """Provide the state attribute regarding the source files status as "previously refined"
+
+        Returns:
+            Whether refinement has occurred
+        """
+        try:
+            return self._pre_refine
+        except AttributeError:  # Get from the pose state
+            self._pre_refine = self.info.get('pre_refine', True)
+            return self._pre_refine
+
+    @pre_refine.setter
+    def pre_refine(self, pre_refine: bool):
+        if isinstance(pre_refine, bool):
+            self._pre_refine = self.info['pre_refine'] = pre_refine
+        else:
+            raise ValueError(f'The attribute pre_refine must be a boolean, not {type(pre_refine)}')
+
+    @property
+    def pre_loop_model(self) -> bool:
+        """Provide the state attribute regarding the source files status as "previously loop modeled"
+
+        Returns:
+            Whether loop modeling has occurred
+        """
+        try:
+            return self._pre_loop_model
+        except AttributeError:  # Get from the pose state
+            self._pre_loop_model = self.info.get('pre_loop_model', True)
+            return self._pre_loop_model
+
+    @pre_loop_model.setter
+    def pre_loop_model(self, pre_loop_model: bool):
+        if isinstance(pre_loop_model, bool):
+            self._pre_loop_model = self.info['pre_loop_model'] = pre_loop_model
+        else:
+            raise ValueError(f'The attribute pre_loop_model must be a boolean, not {type(pre_loop_model)}')
 
     @close_logs
     def find_entity_names(self):
@@ -648,6 +700,7 @@ class PoseDirectory:
 
         self.entity_names = entity_names
 
+    @close_logs  # Ensure that we don't have too many open at one time
     def start_log(self, level: int = 2):
         """Initialize the logger for the Pose"""
         if self.log:
@@ -670,95 +723,93 @@ class PoseDirectory:
 
     @handle_design_errors(errors=(FileNotFoundError, ValueError))
     @close_logs
-    def setup(self, pre_refine: bool = None, pre_loop_model: bool = None):
+    def initialize_structure_attributes(self, pre_refine: bool = None, pre_loop_model: bool = None):
         """Prepare output Directory and File locations. Each PoseDirectory always includes this format
 
         Args:
             pre_refine: Whether the Pose has been refined previously (before loading)
             pre_loop_model: Whether the Pose had loops modeled previously (before loading)
         """
-        self.start_log()
-        if self.initialized:  # os.path.exists(self.serialized_info):  # gather state data
-            try:
-                serial_info = unpickle(self.serialized_info)
-                if not self.info:  # empty dict
-                    self.info = serial_info
-                else:
-                    serial_info.update(self.info)
-                    self.info = serial_info
-            except pickle.UnpicklingError as error:
-                print(f'ERROR {self.name}: There was an issue retrieving design state from binary file...')
-                raise error
-            # Make a copy for the checking of current state
-            self._info = self.info.copy()
-            # # Dev branch only
-            # except ModuleNotFoundError as error:
-            #     self.log.error('%s: There was an issue retrieving design state from binary file...' % self.name)
-            #     self.log.critical('Removing %s' % self.serialized_info)
-            #     # raise error
-            #     remove(self.serialized_info)
-            # if stat(self.serialized_info).st_size > 10000:
-            #     print('Found pickled file with huge size %d. fragment_database being removed'
-            #           % stat(self.serialized_info).st_size)
-            #     self.info['fragment_source'] = \
-            #         getattr(self.info.get('fragment_database'), 'source', putils.biological_interfaces)
-            #     self.pickle_info()  # save immediately so we don't have this issue with reading again!
-            # Todo Remove Above this line to Dev branch only
-            # # These statements are a temporary patch Todo remove for SymDesign master branch
-            # # if not self.sym_entry:  # none was provided at initiation or in state
-            # if putils.sym_entry in self.info:
-            #     self.sym_entry = self.info[putils.sym_entry]  # get instance
-            #     self.info.pop(putils.sym_entry)  # remove this object
-            #     self.info['sym_entry_specification'] = self.sym_entry.entry_number, self.sym_entry.sym_map
-            if 'oligomer_names' in self.info:
-                self.info['entity_names'] = [f'{name}_1' for name in self.info['oligomer_names']]
-            # if 'design_residue_ids' in self.info:  # format is old, convert
-            #     try:
-            #         self.info['interface_design_residues'] = self.info.pop('design_residues')
-            #     except KeyError:
-            #         pass
-            #     self.info['interface_residue_ids'] = self.info.pop('design_residue_ids')
-            #     try:
-            #         self.info['interface_residues'] = self.info.pop('interface_residues')
-            #     except KeyError:
-            #         pass
-            # else:  # format is old old, remove all
-            #     for old_element in ['design_residues', 'interface_residues']:
-            #         try:
-            #             self.info.pop(old_element)
-            #         except KeyError:
-            #             pass
-            #
-            # if 'fragment_database' in self.info:
-            #     self.info['fragment_source'] = self.info.get('fragment_database')
-            #     self.info.pop('fragment_database')
-            # fragment_data = self.info.get('fragment_data')
-            # if fragment_data and not isinstance(fragment_data, dict):  # this is a .pkl file
-            #     try:
-            #         self.info['fragment_data'] = unpickle(fragment_data)
-            #         remove(fragment_data)
-            #     except FileNotFoundError:
-            #         self.info.pop('fragment_data')
-            # if 'pose_transformation' in self.info:
-            #     self._pose_transformation = self.info.get('pose_transformation')
-            #     if isinstance(self._pose_transformation, dict):  # old format
-            #         del self._pose_transformation
-            # self.pickle_info()
-        else:  # We haven't initialized this PoseDirectory before
-            # __init__ assumes structures have been refined so these only act to set false
-            if pre_refine is not None:  # either True or False
-                self.info['pre_refine'] = pre_refine  # this may have just been set
-            if pre_loop_model is not None:  # either True or False
-                self.info['pre_loop_model'] = pre_loop_model
+        if self.initialized:
+            return
 
-        # self.fragment_observations = self.info.get('fragments', None)  # None signifies query wasn't attempted
-        # self.interface_design_residue_numbers = self.info.get('interface_design_residues', False)  # (set[int])
-        # self.interface_residue_ids = self.info.get('interface_residue_ids', {})
-        # self.interface_residue_numbers = self.info.get('interface_residues', False)  # (set[int])
-        self.pre_refine = self.info.get('pre_refine', True)
-        self.pre_loop_model = self.info.get('pre_loop_model', True)
+        self.start_log()
+        # if self.initialized:
+        #     # # Gather state data
+        #     # try:
+        #     #     serial_info = unpickle(self.serialized_info)
+        #     #     if not self.info:  # Empty dict
+        #     #         self.info = serial_info
+        #     #     else:
+        #     #         serial_info.update(self.info)
+        #     #         self.info = serial_info
+        #     # except pickle.UnpicklingError as error:
+        #     #     logger.error(f'{self.name}: There was an issue retrieving design state from binary file...')
+        #     #     raise error
+        #     # Make a copy for the checking of current state
+        #     self._info = self.info.copy()
+        #     # # Dev branch only
+        #     # except ModuleNotFoundError as error:
+        #     #     self.log.error('%s: There was an issue retrieving design state from binary file...' % self.name)
+        #     #     self.log.critical('Removing %s' % self.serialized_info)
+        #     #     # raise error
+        #     #     remove(self.serialized_info)
+        #     # if stat(self.serialized_info).st_size > 10000:
+        #     #     print('Found pickled file with huge size %d. fragment_database being removed'
+        #     #           % stat(self.serialized_info).st_size)
+        #     #     self.info['fragment_source'] = \
+        #     #         getattr(self.info.get('fragment_database'), 'source', putils.biological_interfaces)
+        #     #     self.pickle_info()  # save immediately so we don't have this issue with reading again!
+        #     # Todo Remove Above this line to Dev branch only
+        #     # # These statements are a temporary patch Todo remove for SymDesign master branch
+        #     # # if not self.sym_entry:  # none was provided at initiation or in state
+        #     # if putils.sym_entry in self.info:
+        #     #     self.sym_entry = self.info[putils.sym_entry]  # get instance
+        #     #     self.info.pop(putils.sym_entry)  # remove this object
+        #     #     self.info['sym_entry_specification'] = self.sym_entry.entry_number, self.sym_entry.sym_map
+        #     if 'oligomer_names' in self.info:
+        #         self.info['entity_names'] = [f'{name}_1' for name in self.info['oligomer_names']]
+        #     # if 'design_residue_ids' in self.info:  # format is old, convert
+        #     #     try:
+        #     #         self.info['interface_design_residues'] = self.info.pop('design_residues')
+        #     #     except KeyError:
+        #     #         pass
+        #     #     self.info['interface_residue_ids'] = self.info.pop('design_residue_ids')
+        #     #     try:
+        #     #         self.info['interface_residues'] = self.info.pop('interface_residues')
+        #     #     except KeyError:
+        #     #         pass
+        #     # else:  # format is old old, remove all
+        #     #     for old_element in ['design_residues', 'interface_residues']:
+        #     #         try:
+        #     #             self.info.pop(old_element)
+        #     #         except KeyError:
+        #     #             pass
+        #     #
+        #     # if 'fragment_database' in self.info:
+        #     #     self.info['fragment_source'] = self.info.get('fragment_database')
+        #     #     self.info.pop('fragment_database')
+        #     # fragment_data = self.info.get('fragment_data')
+        #     # if fragment_data and not isinstance(fragment_data, dict):  # this is a .pkl file
+        #     #     try:
+        #     #         self.info['fragment_data'] = unpickle(fragment_data)
+        #     #         remove(fragment_data)
+        #     #     except FileNotFoundError:
+        #     #         self.info.pop('fragment_data')
+        #     # if 'pose_transformation' in self.info:
+        #     #     self._pose_transformation = self.info.get('pose_transformation')
+        #     #     if isinstance(self._pose_transformation, dict):  # old format
+        #     #         del self._pose_transformation
+        #     # self.pickle_info()
+        # else:  # We haven't initialized this PoseDirectory before
+        # __init__ assumes structures have been refined so these only act to set false
+        if pre_refine is not None:  # either True or False
+            self.pre_refine = self.info['pre_refine'] = pre_refine  # this may have just been set
+        if pre_loop_model is not None:  # either True or False
+            self.pre_loop_model = self.info['pre_loop_model'] = pre_loop_model
 
         if self.job.nanohedra_output and self.job.construct_pose:
+            raise NotImplementedError('Must extract the oligomer_names and save to entity_names before this is used')
             if not os.path.exists(os.path.join(self.path, putils.pose_file)):
                 shutil.copy(self.pose_file, self.path)
                 shutil.copy(self.frag_file, self.path)
@@ -778,46 +829,6 @@ class PoseDirectory:
 
         # # Check if the source of the pdb files was loop modelled upon loading
         # if self.pre_loop_model:
-
-        # # Configure standard pose loading mechanism with self.source
-        # if self.specific_designs:
-        #     # Introduce flag handling current inability of specific_designs to handle iteration
-        #     self._lock_optimize_designs = True
-        #     self.specific_designs_file_paths = []
-        #     for design in self.specific_designs:
-        #         matching_path = os.path.join(self.designs, f'*{design}.pdb')
-        #         matching_designs = sorted(glob(matching_path))
-        #         if matching_designs:
-        #             for matching_design in matching_designs:
-        #                 if os.path.exists(matching_design):
-        #                     # self.specific_design_path = matching_design
-        #                     self.specific_designs_file_paths.append(matching_design)
-        #             if len(matching_designs) > 1:
-        #                 self.log.warning(f'Found {len(matching_designs)} matching designs to your specified design '
-        #                                  f'using {matching_path}. Choosing the first {matching_designs[0]}')
-        #         else:
-        #             raise DesignError(f"Couldn't locate a specific_design matching the name '{matching_path}'")
-        #         # format specific_designs to a pose ID compatible format
-        #     self.specific_designs = [f'{self.name}_{design}' for design in self.specific_designs]
-        #     # self.source = specific_designs_file_paths  # Todo?
-        #     # self.source = self.specific_design_path
-        # elif self.source is None:
-        #     if os.path.exists(self.asu_path):  # Standard mechanism of loading the pose
-        #         self.source = self.asu_path
-        #     else:
-        #         try:
-        #             glob_target = os.path.join(self.path, f'{self.name}*.pdb')
-        #             self.source = sorted(glob(glob_target))
-        #             if len(self.source) == 1:
-        #                 self.source = self.source[0]
-        #             else:
-        #                 raise ValueError(f'Found {len(self.source)} files matching the path "{glob_target}". '
-        #                                  f'Only 1 expected')
-        #         except IndexError:  # glob found no files
-        #             self.source = None
-        # else:  # If the PoseDirectory was loaded as .pdb/mmCIF, the source should be loaded already
-        #     # self.source = self.initial_model
-        #     pass
 
     @property
     def symmetry_definition_files(self) -> list[AnyStr]:
@@ -926,7 +937,7 @@ class PoseDirectory:
                     try:
                         source = next(source_preference_iter)
                     except StopIteration:
-                        raise DesignError(f'{self.get_entities.__name__}: Couldn\'t locate the required files')
+                        raise DesignError(f"{self.get_entities.__name__}: Couldn't locate the required files")
                     source_datastore = getattr(self.job.structure_db, source, None)
                     if source_datastore is None:  # if source == 'design':
                         search_path = os.path.join(self.path, f'{name}*.pdb*')
@@ -937,13 +948,13 @@ class PoseDirectory:
                                                  f'Using the first')
                             model = Model.from_file(file[0], log=self.log)
                         else:
-                            raise FileNotFoundError(f'Couldn\'t located the specified entity at "{file}"')
+                            raise FileNotFoundError(f"Couldn't located the specified entity at '{file}'")
                     else:
                         model = source_datastore.retrieve_data(name=name)
                         if isinstance(model, Model):
                             self.log.info(f'Found Model at {source} DataStore and loaded into job')
                         else:
-                            self.log.error(f'Couldn\'t locate the Model {name} at the source '
+                            self.log.error(f"Couldn't locate the Model {name} at the source "
                                            f'"{source_datastore.location}"')
 
                 self.entities.extend([entity for entity in model.entities])

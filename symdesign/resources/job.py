@@ -229,7 +229,7 @@ class JobResources:
         self.structure_db = structure_db.structure_database_factory.get(source=self.data)
         self.fragment_db: 'db.FragmentDatabase' | None = None
 
-        # PoseDirectory setup Flags
+        # PoseDirectory initialize Flags
         self.initial_refinement = self.initial_loop_model = None
 
         # Computing environment and development Flags
