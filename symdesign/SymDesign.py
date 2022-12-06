@@ -647,8 +647,8 @@ def main():
                 # Todo save all the Entities to the StructureDatabase
                 #  How to know if Entity is needed or a combo? Need sym map to tell if they are the same length?
             elif initialized and args.update_database:
-                for pose in pose_directories:
-                    pose.setup()
+                # for pose in pose_directories:
+                #     pose.initialize_structure_attributes()
 
                 all_entities, found_entity_names = [], set()
                 for pose in pose_directories:
@@ -718,15 +718,12 @@ def main():
 
         if args.multi_processing:  # and not args.skip_master_db:
             logger.debug('Loading Database for multiprocessing fork')
-            # Todo set up a job based data acquisition as it takes some time and isn't always necessary!
+            # Todo set up a job based data acquisition as this takes some time and loading everythin isn't necessary!
             job.structure_db.load_all_data()
             job.api_db.load_all_data()
-            # Todo tweak behavior of these two parameters. Need Queue based PoseDirectory
-            # utils.mp_map(PoseDirectory.setup, pose_directories, processes=job.cores)
-            # utils.mp_map(PoseDirectory.link_master_database, pose_directories, processes=job.cores)
         # Set up in series
         for pose in pose_directories:
-            pose.setup(pre_refine=not job.initial_refinement, pre_loop_model=not job.initial_loop_model)
+            pose.initialize_structure_attributes(pre_refine=not job.initial_refinement, pre_loop_model=not job.initial_loop_model)
 
         logger.info(f'{len(pose_directories)} unique poses found in "{job.location}"')
         if not job.debug and not job.skip_logging:
