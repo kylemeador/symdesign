@@ -217,6 +217,7 @@ class JobResources:
         # putils.make_path(self.pdb_entity_api)
         # putils.make_path(self.pdb_assembly_api)
         putils.make_path(self.uniprot_api)
+        # Set the module for the current job. This will always be a '-' separated string when more than one name
         self.module: str = kwargs.get(flags.module)
         # Ensure that the protocol is viable
         if self.module == flags.protocol:
@@ -375,6 +376,10 @@ class JobResources:
         self.write_oligomers: bool = kwargs.get(putils.output_oligomers)
         self.write_structures: bool = kwargs.get(putils.output_structures)
         self.write_trajectory: bool = kwargs.get(putils.output_trajectory)
+        # When we are performing expand-asu, make sure we set output_assembly to True
+        if self.module == flags.expand_asu:
+            self.output_assembly = True
+
         self.skip_logging: bool = kwargs.get(putils.skip_logging)
         self.merge: bool = kwargs.get('merge')
         self.save: bool = kwargs.get('save')
