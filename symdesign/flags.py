@@ -3,8 +3,10 @@ from __future__ import annotations
 import argparse
 import os
 import sys
+from typing import Literal
 
 from psutil import cpu_count
+from typing_extensions import get_args
 
 from symdesign.metrics import metric_weight_functions
 from symdesign.resources.query.utils import input_string, confirmation_string, bool_d, invalid_string, header_string, \
@@ -25,6 +27,8 @@ from symdesign.utils.path import submodule_guide, submodule_help, force, sym_ent
     generate_fragments, input_, output, output_assembly, expand_asu, check_clashes, rename_chains, optimize_designs, \
     perturb_dof, tag_entities
 
+design_programs_literal = Literal['proteinmpnn', 'rosetta']
+design_programs: tuple[design_programs_literal] = get_args(design_programs_literal)
 nstruct = 20
 query_codes1 = 'query_codes1'
 query_codes2 = 'query_codes2'
@@ -60,20 +64,21 @@ number = 'number'
 nucleotide = 'nucleotide'
 as_objects = 'as_objects'
 
-design_arguments = {
+# Set up JobResources namespaces for different categories of flags
+design_namespace = {
     ignore_clashes, ignore_pose_clashes, ignore_symmetric_clashes, method, evolution_constraint, hbnet,
     number_of_trajectories, structure_background, scout, term_constraint, consensus, ca_only, temperatures,
     sequences, structures
 }
-dock_arguments = {
+dock_namespace = {
     proteinmpnn_score, contiguous_ghosts, perturb_dof, perturb_dof_rot, perturb_dof_tx,
     perturb_dof_steps, perturb_dof_steps_rot, perturb_dof_steps_tx, initial_z_value, match_value, min_matched,
     rotation_step1, rotation_step2, score
 }
-predict_arguments = {
+predict_namespace = {
     method
 }
-cluster_arguments = {
+cluster_namespace = {
     as_objects, 'map', 'mode', number
 }
 
@@ -1179,22 +1184,22 @@ for group in parser._action_groups:
             for name, sub_parser in arg.choices.items():
                 for sub_group in sub_parser._action_groups:
                     for arg in sub_group._group_actions:
-                        if arg.dest in design_arguments:
+                        if arg.dest in design_namespace:
                             design[arg.dest] = arg.default
-                        elif arg.dest in dock_arguments:
+                        elif arg.dest in dock_namespace:
                             dock[arg.dest] = arg.default
-                        elif arg.dest in predict_arguments:
+                        elif arg.dest in predict_namespace:
                             predict[arg.dest] = arg.default
-                        elif arg.dest in cluster_arguments:
+                        elif arg.dest in cluster_namespace:
                             cluster[arg.dest] = arg.default
 
-        elif arg.dest in design_arguments:
+        elif arg.dest in design_namespace:
             design[arg.dest] = arg.default
-        elif arg.dest in dock_arguments:
+        elif arg.dest in dock_namespace:
             dock[arg.dest] = arg.default
-        elif arg.dest in predict_arguments:
+        elif arg.dest in predict_namespace:
             predict[arg.dest] = arg.default
-        elif arg.dest in cluster_arguments:
+        elif arg.dest in cluster_namespace:
             cluster[arg.dest] = arg.default
 
 predict[method] = design[method]  # Also in design...

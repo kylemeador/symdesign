@@ -471,9 +471,10 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
         residue_contact_query: list[list[int]] = \
             model1_surface_cb_ball_tree.query_radius(surface_frag_cb_coords, cb_distance)
         surface_frag_residue_indices = list(range(number_or_surface_frags))
-        contacting_residue_pairs: list[tuple[int, int]] = \
-            [(surface_frag_residue_indices[idx1], surface_frag_residue_indices[idx2])
-             for idx2 in range(residue_contact_query.size) for idx1 in residue_contact_query[idx2]]
+        contacting_residue_pairs: list[tuple[int, int]] = [(surface_frag_residue_indices[idx1],
+                                                            surface_frag_residue_indices[idx2])
+                                                           for idx2, idx1_contacts in enumerate(residue_contact_query)
+                                                           for idx1 in idx1_contacts]
 
         # Separate residue-residue contacts into a unique set of residue pairs
         asymmetric_contacting_residue_pairs, found_pairs = [], []

@@ -1125,21 +1125,22 @@ class Atoms:
         yield from self.atoms.tolist()
 
 
-class ContainsAtomsMixin(StructureBase):
+class ContainsAtomsMixin(StructureBase, ABC):
     # _atom_indices: list[int]
     _atoms: Atoms
+    # _coords: Coords
     _inverse_number_atoms: np.ndarray
     _indices_attributes: set[str] = {'_backbone_and_cb_indices', '_backbone_indices', '_ca_indices', '_cb_indices',
                                      '_heavy_indices', '_side_chain_indices'}
-    # _coords: Coords
     backbone_and_cb_indices: list[int]
     backbone_indices: list[int]
     ca_indices: list[int]
     cb_indices: list[int]
     heavy_indices: list[int]
+    name: str
     number_of_atoms: int
     side_chain_indices: list[int]
-    # These state_attributes are used by all subclasses despite no usage in this class
+    # These state_attributes are used by all subclasses
     state_attributes: set[str] = StructureBase.state_attributes | _indices_attributes
 
     def __init__(self, atoms: list[Atom] | Atoms = None, **kwargs):
@@ -1156,7 +1157,7 @@ class ContainsAtomsMixin(StructureBase):
         """Return the Atom instances in the Structure"""
         try:
             return self._atoms.atoms[self._atom_indices].tolist()
-        except AttributeError:  # when self._atoms isn't set or is None and doesn't have .atoms
+        except AttributeError:  # When self._atoms isn't set or is None and doesn't have .atoms
             return
 
     # @property
@@ -1465,6 +1466,7 @@ class ContainsAtomsMixin(StructureBase):
 
 
 class Residue(fragment.ResidueFragment, ContainsAtomsMixin):
+    # _atoms: Atoms
     _ca_indices: list[int]
     _cb_indices: list[int]
     _bb_indices: list[int]
@@ -1472,7 +1474,6 @@ class Residue(fragment.ResidueFragment, ContainsAtomsMixin):
     _heavy_atom_indices: list[int]
     _index: int
     _sc_indices: list[int]
-    _atoms: Atoms
     _backbone_indices: list[int]
     _backbone_and_cb_indices: list[int]
     _heavy_indices: list[int]
