@@ -1174,14 +1174,14 @@ def match_score_from_z_value(z_value: float | np.ndarray) -> float | np.ndarray:
 
 # @njit
 def z_score(sample: float | np.ndarray, mean: float | np.ndarray, stdev: float | np.ndarray) -> float | np.ndarray:
-    """From a sample(s), calculate the positional z-score
+    """From sample(s), calculate the positional z-score, i.e. z-score = (sample - mean) / stdev
 
     Args:
         sample: An array with the sample at every position
         mean: An array with the mean at every position
         stdev: An array with the standard deviation at every position
     Returns:
-        An array with the z-score of every position
+        The z-score of every sample
     """
     try:
         return (sample-mean) / stdev

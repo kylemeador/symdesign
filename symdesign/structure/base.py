@@ -1025,7 +1025,7 @@ class Atoms:
         if atoms is None:
             self.atoms = np.array([])
         elif not isinstance(atoms, (np.ndarray, list)):
-            raise TypeError(f'Can\'t initialize {type(self).__name__} with {type(atoms).__name__}. Type must be a '
+            raise TypeError(f"Can't initialize {type(self).__name__} with {type(atoms).__name__}. Type must be a "
                             f'numpy.ndarray or list of {Atom.__name__} instances')
         else:
             self.atoms = np.array(atoms, dtype=np.object_)

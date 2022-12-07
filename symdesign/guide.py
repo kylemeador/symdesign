@@ -1,9 +1,9 @@
 from symdesign.metrics import master_metrics, rosetta_required_metrics
-from symdesign.utils import pretty_format_table
+from symdesign.utils import pretty_format_table, path as putils
 from symdesign.utils.path import term_constraint, evolution_constraint, hbnet, scout, program_command, \
     select_sequences, program_name, structure_background, current_energy_function, number_of_trajectories, force, \
-    interface_design, select_poses, analysis, protocol, select_designs, nanohedra, nano_publication, interface_metrics, \
-    cluster_poses, optimize_designs, readme
+    interface_design, select_poses, analysis, select_designs, nanohedra, nano_publication, \
+    interface_metrics, cluster_poses, optimize_designs, readme
 
 nltb = '\n\t'
 module_help_string = f'"{program_command} MODULE --help" will direct you towards the proper formatting of program flags'
@@ -138,7 +138,7 @@ interface_design_guide = \
     f'are the most advantageous to the design task. After interface_design is completed, use the {analysis} module to' \
     f' prepare metrics for the modules {select_poses} and {select_sequences}. Importantly, {interface_design} can be ' \
     f'undertaken multiple times with different protocols to sample different characteristics of the interface. These ' \
-    f'different protocols can be selected for in later modules using the flag --{protocol}.{help_sentence}'
+    f'different protocols can be selected for in later modules using the flag --{putils.protocol}.{help_sentence}'
 formatted_metrics = \
     pretty_format_table([(metric, attributes['description']) for metric, attributes in sorted(master_metrics.items())])
 analysis_guide = \

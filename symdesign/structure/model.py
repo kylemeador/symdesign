@@ -3629,7 +3629,7 @@ class Models(Model):
         if models is not None:
             for model in models:
                 if not isinstance(model, Model):
-                    raise TypeError(f'Can\'t initialize {type(self).__name__} with a {type(model).__name__}. Must be an'
+                    raise TypeError(f"Can't initialize {type(self).__name__} with a {type(model).__name__}. Must be an"
                                     f' iterable of Model')
             self.models = [model for model in models]
         else:
