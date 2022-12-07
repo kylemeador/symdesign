@@ -19,13 +19,12 @@ from sklearn.cluster import KMeans
 from sklearn.neighbors import BallTree
 from sklearn.neighbors._ball_tree import BinaryTree  # This typing implementation supports BallTree or KDTree
 
-from symdesign import resources, metrics
+from symdesign import metrics, resources
 from symdesign.resources import query
+from . import fragment
 from .base import Structure, Structures, Residue, StructureBase, atom_or_residue
 from .coords import Coords, superposition3d, transform_coordinate_sets
-from .fragment import GhostFragment, Fragment, write_frag_match_info_file
-from .fragment.db import FragmentDatabase, alignment_types, fragment_info_type, EulerLookup
-from .fragment.metrics import fragment_metric_template
+from .fragment.db import FragmentDatabase, alignment_types, fragment_info_type
 from .sequence import SequenceProfile, generate_alignment, get_equivalent_indices, \
     pssm_as_array, generate_mutations, numeric_to_sequence, Profile, default_fragment_contribution, profile_types
 from .utils import DesignError, SymmetryError, ClashError, protein_letters_3to1_extended, \
@@ -57,123 +56,8 @@ def subdirectory(name):
     return name[1:2]
 
 
-# @njit
-def find_fragment_overlap(fragments1: Iterable[Fragment], fragments2: Sequence[Fragment],
-                          clash_coords: np.ndarray = None, min_match_value: float = 2.,  # .2,
-                          euler_lookup: EulerLookup = None) -> list[tuple[GhostFragment, Fragment, float]]:
-    #           entity1, entity2, entity1_interface_residue_numbers, entity2_interface_residue_numbers, max_z_value=2):
-    """From two sets of Residues, score the fragment overlap according to Nanohedra's fragment matching
-
-    Args:
-        fragments1: The Fragment instances that will be used to search for GhostFragment instances
-        fragments2: The Fragment instances to pair against fragments1 GhostFragment instances
-        clash_coords: The coordinates to use for checking for GhostFragment clashes
-        min_match_value: The minimum value which constitutes an acceptable fragment z_score
-        euler_lookup: Reference to the singleton EulerLookup instance if already available. Otherwise, will be retrieved
-    Returns:
-        The GhostFragment, Fragment pairs, along with their match score
-    """
-    # min_match_value: The minimum value which constitutes an acceptable fragment match score
-    # 0.2 with match score, 2 with z_score
-    # Todo memoize this variable into a function default... The load time is kinda significant and shouldn't be used
-    #  until needed. Getting the factory everytime is a small overhead that is really unnecessary. Perhaps this function
-    #  should be refactored to structure.fragment.db or something and imported upon usage...
-
-    # logger.debug('Starting Ghost Frag Lookup')
-    if clash_coords is not None:
-        clash_tree = BallTree(clash_coords)
-    else:
-        clash_tree = None
-
-    ghost_frags1: list[GhostFragment] = []
-    for fragment in fragments1:
-        ghost_frags1.extend(fragment.get_ghost_fragments(clash_tree=clash_tree))
-
-    logger.debug(f'Residues 1 has {len(ghost_frags1)} ghost fragments')
-
-    # Get fragment guide coordinates
-    residue1_ghost_guide_coords = np.array([ghost_frag.guide_coords for ghost_frag in ghost_frags1])
-    residue2_guide_coords = np.array([fragment.guide_coords for fragment in fragments2])
-    # interface_surf_frag_guide_coords = np.array([residue.guide_coords for residue in interface_residues2])
-
-    # Check for matching Euler angles
-    # TODO create a stand alone function
-    # logger.debug('Starting Euler Lookup')
-    if euler_lookup is None:
-        # euler_lookup = euler_factory()
-        euler_lookup = fragments2[0].fragment_db.euler_lookup
-
-    overlapping_ghost_indices, overlapping_frag_indices = \
-        euler_lookup.check_lookup_table(residue1_ghost_guide_coords, residue2_guide_coords)
-    # logger.debug('Finished Euler Lookup')
-    logger.debug(f'Found {len(overlapping_ghost_indices)} overlapping fragments in the same Euler rotational space')
-    # filter array by matching type for surface (i) and ghost (j) frags
-    ghost_type_array = np.array([ghost_frags1[idx].frag_type for idx in overlapping_ghost_indices.tolist()])
-    mono_type_array = np.array([fragments2[idx].frag_type for idx in overlapping_frag_indices.tolist()])
-    ij_type_match = mono_type_array == ghost_type_array
-
-    passing_ghost_indices = overlapping_ghost_indices[ij_type_match]
-    passing_frag_indices = overlapping_frag_indices[ij_type_match]
-    logger.debug(f'Found {len(passing_ghost_indices)} overlapping fragments in the same i/j type')
-
-    passing_ghost_coords = residue1_ghost_guide_coords[passing_ghost_indices]
-    passing_frag_coords = residue2_guide_coords[passing_frag_indices]
-    # # Todo keep without euler_lookup?
-    # ghost_type_array = np.array([ghost_frag.frag_type for ghost_frag in ghost_frags1])
-    # mono_type_array = np.array([residue.frag_type for residue in fragments2])
-    # # Using only ij_type_match, no euler_lookup
-    # int_ghost_shape = len(ghost_frags1)
-    # int_surf_shape = len(fragments2)
-    # # maximum_number_of_pairs = int_ghost_shape*int_surf_shape
-    # ghost_indices_repeated = np.repeat(ghost_type_array, int_surf_shape)
-    # surf_indices_tiled = np.tile(mono_type_array, int_ghost_shape)
-    # # ij_type_match = ij_type_match_lookup_table[ghost_indices_repeated, surf_indices_tiled]
-    # # ij_type_match = np.where(ghost_indices_repeated == surf_indices_tiled, True, False)
-    # # ij_type_match = ghost_indices_repeated == surf_indices_tiled
-    # ij_type_match_lookup_table = (ghost_indices_repeated == surf_indices_tiled).reshape(int_ghost_shape, -1)
-    # ij_type_match = ij_type_match_lookup_table[ghost_indices_repeated, surf_indices_tiled]
-    # # possible_fragments_pairs = ghost_indices_repeated.shape[0]
-    # passing_ghost_indices = ghost_indices_repeated[ij_type_match]
-    # passing_surf_indices = surf_indices_tiled[ij_type_match]
-    # # passing_ghost_coords = residue1_ghost_guide_coords[ij_type_match]
-    # # passing_frag_coords = residue2_guide_coords[ij_type_match]
-    # passing_ghost_coords = residue1_ghost_guide_coords[passing_ghost_indices]
-    # passing_frag_coords = residue2_guide_coords[passing_surf_indices]
-    # Precalculate the reference_rmsds for each ghost fragment
-    reference_rmsds = np.array([ghost_frags1[ghost_idx].rmsd for ghost_idx in passing_ghost_indices.tolist()])
-    # # Todo keep without euler_lookup?
-    # reference_rmsds = np.array([ghost_frag.rmsd for ghost_frag in ghost_frags1])[passing_ghost_indices]
-
-    # logger.debug('Calculating passing fragment overlaps by RMSD')
-    # all_fragment_match = calculate_match(passing_ghost_coords,
-    #                                      passing_frag_coords,
-    #                                      reference_rmsds)
-    # passing_overlaps_indices = np.flatnonzero(all_fragment_match > min_match_value)
-    all_fragment_z_score = utils.rmsd_z_score(passing_ghost_coords,
-                                              passing_frag_coords,
-                                              reference_rmsds)
-    passing_overlaps_indices = np.flatnonzero(all_fragment_z_score < min_match_value)
-    # logger.debug('Finished calculating fragment overlaps')
-    # logger.debug(f'Found {len(passing_overlaps_indices)} overlapping fragments over the {min_match_value} threshold')
-    logger.debug(f'Found {len(passing_overlaps_indices)} overlapping fragments under the {min_match_value} threshold')
-
-    # interface_ghostfrags = [ghost_frags1[idx] for idx in passing_ghost_indices[passing_overlap_indices].tolist()]
-    # interface_monofrags2 = [fragments2[idx] for idx in passing_surf_indices[passing_overlap_indices].tolist()]
-    # passing_z_values = all_fragment_overlap[passing_overlap_indices]
-    # match_scores = utils.match_score_from_z_value(all_fragment_overlap[passing_overlap_indices])
-
-    return list(zip([ghost_frags1[idx] for idx in passing_ghost_indices[passing_overlaps_indices].tolist()],
-                    [fragments2[idx] for idx in passing_frag_indices[passing_overlaps_indices].tolist()],
-                    # all_fragment_match[passing_overlaps_indices].tolist()))
-                    utils.match_score_from_z_value(all_fragment_z_score[passing_overlaps_indices]).tolist()))
-    #
-    # # Todo keep without euler_lookup?
-    # return list(zip([ghost_frags1[idx] for idx in passing_overlaps_indices.tolist()],
-    #                 [fragments2[idx] for idx in passing_overlaps_indices.tolist()],
-    #                 all_fragment_match[passing_overlaps_indices].tolist()))
-
-
-def get_matching_fragment_pairs_info(ghostfrag_frag_pairs: list[tuple[GhostFragment, Fragment, float]]) -> \
+def get_matching_fragment_pairs_info(ghostfrag_frag_pairs:
+                                     list[tuple[fragment.GhostFragment, fragment.Fragment, float]]) -> \
         list[fragment_info_type]:
     """From a ghost fragment/surface fragment pair and corresponding match score, return the pertinent interface
     information
@@ -5415,7 +5299,7 @@ class Pose(SymmetricModel):
     design_selector_entities: set[Entity]
     design_selector_indices: set[int]
     fragment_metrics: dict
-    fragment_pairs: list[tuple[GhostFragment, Fragment, float]] | list
+    fragment_pairs: list[tuple[fragment.GhostFragment, fragment.Fragment, float]] | list
     fragment_queries: dict[tuple[Entity, Entity], list[fragment_info_type]]
     ignore_clashes: bool
     # interface_design_residue_numbers: set[int]  # set[Residue]
@@ -6721,7 +6605,8 @@ class Pose(SymmetricModel):
 
         entity1_coords = entity1.backbone_and_cb_coords  # for clash check, we only want the backbone and CB
         fragment_time_start = time.time()
-        ghostfrag_surfacefrag_pairs = find_fragment_overlap(frag_residues1, frag_residues2, clash_coords=entity1_coords)
+        ghostfrag_surfacefrag_pairs = \
+            fragment.find_fragment_overlap(frag_residues1, frag_residues2, clash_coords=entity1_coords)
         self.log.info(f'Found {len(ghostfrag_surfacefrag_pairs)} overlapping fragment pairs at the {entity1.name} | '
                       f'{entity2.name} interface')
         self.log.debug(f'Took {time.time() - fragment_time_start:.8f}s')
@@ -7069,72 +6954,72 @@ class Pose(SymmetricModel):
                 self.fragment_metrics[query_pair] = self.fragment_db.calculate_match_metrics(fragment_matches)
 
         if by_interface:
-            metric_d = fragment_metric_template
+            metric_d = fragment.metrics.fragment_metric_template
             if entity1 is None or entity2 is None:
                 self.log.error(f"{self.get_fragment_metrics.__name__}: entity1 and entity2 can't be None")
             else:
-                for query_pair, metrics in self.fragment_metrics.items():
+                for query_pair, _metrics in self.fragment_metrics.items():
                     # Check either orientation as the function query could vary from self.fragment_metrics
                     if (entity1, entity2) in query_pair or (entity2, entity1) in query_pair:
-                        if metrics:
-                            metric_d = self.fragment_db.format_fragment_metrics(metrics)
+                        if _metrics:
+                            metric_d = self.fragment_db.format_fragment_metrics(_metrics)
                             break
                 else:
                     self.log.warning(f"Couldn't locate query metrics for Entity pair {entity1.name}, {entity2.name}")
         elif by_entity:
             metric_d = {}
-            for query_pair, metrics in self.fragment_metrics.items():
-                if not metrics:
+            for query_pair, _metrics in self.fragment_metrics.items():
+                if not _metrics:
                     continue
                 for align_type, entity in zip(alignment_types, query_pair):
                     if entity not in metric_d:
-                        metric_d[entity] = fragment_metric_template.copy()
+                        metric_d[entity] = fragment.metrics.fragment_metric_template.copy()
 
-                    metric_d[entity]['center_indices'].update(metrics[align_type]['center']['indices'])
-                    metric_d[entity]['total_indices'].update(metrics[align_type]['total']['indices'])
-                    metric_d[entity]['nanohedra_score'] += metrics[align_type]['total']['score']
-                    metric_d[entity]['nanohedra_score_center'] += metrics[align_type]['center']['score']
-                    metric_d[entity]['multiple_fragment_ratio'] += metrics[align_type]['multiple_ratio']
-                    metric_d[entity]['number_of_fragments'] += metrics['total']['observations']
-                    metric_d[entity]['percent_fragment_helix'] += metrics[align_type]['index_count'][1]
-                    metric_d[entity]['percent_fragment_strand'] += metrics[align_type]['index_count'][2]
-                    metric_d[entity]['percent_fragment_coil'] += metrics[align_type]['index_count'][3] \
-                        + metrics[align_type]['index_count'][4] + metrics[align_type]['index_count'][5]
+                    metric_d[entity]['center_indices'].update(_metrics[align_type]['center']['indices'])
+                    metric_d[entity]['total_indices'].update(_metrics[align_type]['total']['indices'])
+                    metric_d[entity]['nanohedra_score'] += _metrics[align_type]['total']['score']
+                    metric_d[entity]['nanohedra_score_center'] += _metrics[align_type]['center']['score']
+                    metric_d[entity]['multiple_fragment_ratio'] += _metrics[align_type]['multiple_ratio']
+                    metric_d[entity]['number_of_fragments'] += _metrics['total']['observations']
+                    metric_d[entity]['percent_fragment_helix'] += _metrics[align_type]['index_count'][1]
+                    metric_d[entity]['percent_fragment_strand'] += _metrics[align_type]['index_count'][2]
+                    metric_d[entity]['percent_fragment_coil'] += _metrics[align_type]['index_count'][3] \
+                        + _metrics[align_type]['index_count'][4] + _metrics[align_type]['index_count'][5]
 
             # Finally, tabulate based on the total for each Entity
-            for entity, metrics in metric_d.items():
-                metrics['number_fragment_residues_total'] = len(metrics['total_indices'])
-                metrics['number_fragment_residues_center'] = len(metrics['center_indices'])
-                metrics['percent_fragment_helix'] /= metrics['number_of_fragments']
-                metrics['percent_fragment_strand'] /= metrics['number_of_fragments']
-                metrics['percent_fragment_coil'] /= metrics['number_of_fragments']
+            for entity, _metrics in metric_d.items():
+                _metrics['number_fragment_residues_total'] = len(_metrics['total_indices'])
+                _metrics['number_fragment_residues_center'] = len(_metrics['center_indices'])
+                _metrics['percent_fragment_helix'] /= _metrics['number_of_fragments']
+                _metrics['percent_fragment_strand'] /= _metrics['number_of_fragments']
+                _metrics['percent_fragment_coil'] /= _metrics['number_of_fragments']
                 try:
-                    metrics['nanohedra_score_normalized'] = \
-                        metrics['nanohedra_score'] / metrics['number_fragment_residues_total']
-                    metrics['nanohedra_score_center_normalized'] = \
-                        metrics['nanohedra_score_center'] / metrics['number_fragment_residues_center']
+                    _metrics['nanohedra_score_normalized'] = \
+                        _metrics['nanohedra_score'] / _metrics['number_fragment_residues_total']
+                    _metrics['nanohedra_score_center_normalized'] = \
+                        _metrics['nanohedra_score_center'] / _metrics['number_fragment_residues_center']
                 except ZeroDivisionError:
                     self.log.warning(f'{self.name}: No interface residues were found. Is there an interface in your '
                                      f'design?')
                     metrics['nanohedra_score_normalized'] = metrics['nanohedra_score_center_normalized'] = 0.
 
         elif total_interface:  # For the entire interface
-            metric_d = fragment_metric_template.copy()
-            for query_pair, metrics in self.fragment_metrics.items():
-                if not metrics:
+            metric_d = fragment.metrics.fragment_metric_template.copy()
+            for query_pair, _metrics in self.fragment_metrics.items():
+                if not _metrics:
                     continue
                 metric_d['center_indices'].update(
-                    metrics['mapped']['center']['indices'].union(metrics['paired']['center']['indices']))
+                    _metrics['mapped']['center']['indices'].union(_metrics['paired']['center']['indices']))
                 metric_d['total_indices'].update(
-                    metrics['mapped']['total']['indices'].union(metrics['paired']['total']['indices']))
-                metric_d['nanohedra_score'] += metrics['total']['total']['score']
-                metric_d['nanohedra_score_center'] += metrics['total']['center']['score']
-                metric_d['multiple_fragment_ratio'] += metrics['total']['multiple_ratio']
-                metric_d['number_of_fragments'] += metrics['total']['observations']
-                metric_d['percent_fragment_helix'] += metrics['total']['index_count'][1]
-                metric_d['percent_fragment_strand'] += metrics['total']['index_count'][2]
-                metric_d['percent_fragment_coil'] += metrics['total']['index_count'][3] \
-                    + metrics['total']['index_count'][4] + metrics['total']['index_count'][5]
+                    _metrics['mapped']['total']['indices'].union(_metrics['paired']['total']['indices']))
+                metric_d['nanohedra_score'] += _metrics['total']['total']['score']
+                metric_d['nanohedra_score_center'] += _metrics['total']['center']['score']
+                metric_d['multiple_fragment_ratio'] += _metrics['total']['multiple_ratio']
+                metric_d['number_of_fragments'] += _metrics['total']['observations']
+                metric_d['percent_fragment_helix'] += _metrics['total']['index_count'][1]
+                metric_d['percent_fragment_strand'] += _metrics['total']['index_count'][2]
+                metric_d['percent_fragment_coil'] += _metrics['total']['index_count'][3] \
+                    + _metrics['total']['index_count'][4] + _metrics['total']['index_count'][5]
 
             # Finally, tabulate based on the total
             metric_d['number_fragment_residues_total'] = len(metric_d['total_indices'])
@@ -7342,16 +7227,16 @@ class Pose(SymmetricModel):
         if ghost_mono_frag_pairs is None:
             ghost_mono_frag_pairs = self.fragment_pairs
 
-        ghost_frag: GhostFragment
-        surface_frag: Fragment
+        ghost_frag: fragment.GhostFragment
+        surface_frag: fragment.Fragment
         for match_count, (ghost_frag, surface_frag, match_score) in enumerate(ghost_mono_frag_pairs, 1):
             i, j, k = ijk = ghost_frag.ijk
             fragment_pdb, _ = ghost_frag.fragment_db.paired_frags[ijk]
             trnsfmd_fragment = fragment_pdb.get_transformed_copy(*ghost_frag.transformation)
             trnsfmd_fragment.write(out_path=os.path.join(out_path, f'{i}_{j}_{k}_fragment_match_{match_count}.pdb'))
-            write_frag_match_info_file(ghost_frag=ghost_frag, matched_frag=surface_frag,
-                                       overlap_error=utils.z_value_from_match_score(match_score),
-                                       match_number=match_count, out_path=out_path)
+            fragment.write_frag_match_info_file(ghost_frag=ghost_frag, matched_frag=surface_frag,
+                                                overlap_error=utils.z_value_from_match_score(match_score),
+                                                match_number=match_count, out_path=out_path)
 
     def debug_pdb(self, out_dir: AnyStr = os.getcwd(), tag: str = None):
         """Write out all Structure objects for the Pose PDB"""

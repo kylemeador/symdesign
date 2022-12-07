@@ -1,16 +1,21 @@
 from __future__ import annotations
 
+import logging
 import os
 from abc import ABC
+from collections.abc import Iterable
 from itertools import repeat
 from logging import Logger
 from typing import IO, Sequence, AnyStr
 
 import numpy as np
-from sklearn.neighbors._ball_tree import BinaryTree
+from sklearn.neighbors._ball_tree import BinaryTree, BallTree
 
 from symdesign import utils, structure
-from ..fragment import info
+from . import db, info
+
+# Globals
+logger = logging.getLogger(__name__)
 
 
 class GhostFragment:
@@ -21,7 +26,7 @@ class GhostFragment:
     """The Fragment instance that this GhostFragment is aligned too. 
     Must support .chain, .number, .index, .rotation, .translation, and .transformation attributes
     """
-    fragment_db: structure.fragment.db.FragmentDatabase
+    fragment_db: db.FragmentDatabase
     # index: int
     i_type: int
     j_type: int
@@ -154,7 +159,7 @@ class Fragment(ABC):
     _fragment_ca_coords: np.ndarray
     _fragment_coords: np.ndarray | None
     """Holds coordinates (currently backbone) that represent the fragment during spatial transformation"""
-    _fragment_db: structure.fragment.db.FragmentDatabase | None
+    _fragment_db: db.FragmentDatabase | None
     _guide_coords = np.array([[0., 0., 0.], [3., 0., 0.], [0., 3., 0.]])
     chain: str
     frag_lower_range: int
@@ -172,7 +177,7 @@ class Fragment(ABC):
     def __init__(self, fragment_type: int = None,
                  # guide_coords: np.ndarray = None,
                  # fragment_length: int = 5,
-                 fragment_db: structure.fragment.db.FragmentDatabase = None,
+                 fragment_db: db.FragmentDatabase = None,
                  **kwargs):
         self._fragment_coords = None
         self.ghost_fragments = None
@@ -193,12 +198,12 @@ class Fragment(ABC):
     # These property getter and setter exist so that Residue instances can be initialized w/o FragmentDatabase
     # and then provided this argument upon fragment assignment
     @property
-    def fragment_db(self) -> structure.fragment.db.FragmentDatabase:
+    def fragment_db(self) -> db.FragmentDatabase:
         """The FragmentDatabase that the Fragment was created from"""
         return self._fragment_db
 
     @fragment_db.setter
-    def fragment_db(self, fragment_db: structure.fragment.db.FragmentDatabase):
+    def fragment_db(self, fragment_db: db.FragmentDatabase):
         self._fragment_db = fragment_db
         if fragment_db is not None:
             self.frag_lower_range, self.frag_upper_range = fragment_db.fragment_range
@@ -349,7 +354,7 @@ class MonoFragment(Fragment):
     central_residue: 'structure.base.Residue'
 
     def __init__(self, residues: Sequence['structure.base.Residue'],
-                 fragment_db: structure.fragment.db.FragmentDatabase = None,
+                 fragment_db: db.FragmentDatabase = None,
                  **kwargs):
         super().__init__(**kwargs)
         self.central_residue = residues[int(self.fragment_length/2)]
@@ -497,6 +502,122 @@ class ResidueFragment(Fragment, ABC):
     #         aligned chain, aligned residue_number
     #     """
     #     return self.chain, self.number
+
+
+# @njit
+def find_fragment_overlap(fragments1: Iterable[Fragment], fragments2: Sequence[Fragment],
+                          clash_coords: np.ndarray = None, min_match_value: float = 2.,  # .2,
+                          euler_lookup: db.EulerLookup = None, **kwargs) -> list[tuple[GhostFragment, Fragment, float]]:
+    #           entity1, entity2, entity1_interface_residue_numbers, entity2_interface_residue_numbers, max_z_value=2):
+    """From two sets of Residues, score the fragment overlap according to Nanohedra's fragment matching
+
+    Args:
+        fragments1: The Fragment instances that will be used to search for GhostFragment instances
+        fragments2: The Fragment instances to pair against fragments1 GhostFragment instances
+        clash_coords: The coordinates to use for checking for GhostFragment clashes
+        min_match_value: The minimum value which constitutes an acceptable fragment z_score
+        euler_lookup: Reference to the singleton EulerLookup instance if already available. Otherwise, will be retrieved
+    Returns:
+        The GhostFragment, Fragment pairs, along with their match score
+    """
+    # min_match_value: The minimum value which constitutes an acceptable fragment match score
+    # 0.2 with match score, 2 with z_score
+    # Todo memoize this variable into a function default... The load time is kinda significant and shouldn't be used
+    #  until needed. Getting the factory everytime is a small overhead that is really unnecessary. Perhaps this function
+    #  should be refactored to structure.fragment.db or something and imported upon usage...
+
+    # logger.debug('Starting Ghost Frag Lookup')
+    if clash_coords is not None:
+        clash_tree = BallTree(clash_coords)
+    else:
+        clash_tree = None
+
+    ghost_frags1: list[GhostFragment] = []
+    for fragment in fragments1:
+        ghost_frags1.extend(fragment.get_ghost_fragments(clash_tree=clash_tree))
+
+    logger.debug(f'Residues 1 has {len(ghost_frags1)} ghost fragments')
+
+    # Get fragment guide coordinates
+    residue1_ghost_guide_coords = np.array([ghost_frag.guide_coords for ghost_frag in ghost_frags1])
+    residue2_guide_coords = np.array([fragment.guide_coords for fragment in fragments2])
+    # interface_surf_frag_guide_coords = np.array([residue.guide_coords for residue in interface_residues2])
+
+    # Check for matching Euler angles
+    # TODO create a stand alone function
+    # logger.debug('Starting Euler Lookup')
+    if euler_lookup is None:
+        # euler_lookup = euler_factory()
+        euler_lookup = fragments2[0].fragment_db.euler_lookup
+
+    overlapping_ghost_indices, overlapping_frag_indices = \
+        euler_lookup.check_lookup_table(residue1_ghost_guide_coords, residue2_guide_coords)
+    # logger.debug('Finished Euler Lookup')
+    logger.debug(f'Found {len(overlapping_ghost_indices)} overlapping fragments in the same Euler rotational space')
+    # filter array by matching type for surface (i) and ghost (j) frags
+    ghost_type_array = np.array([ghost_frags1[idx].frag_type for idx in overlapping_ghost_indices.tolist()])
+    mono_type_array = np.array([fragments2[idx].frag_type for idx in overlapping_frag_indices.tolist()])
+    ij_type_match = mono_type_array == ghost_type_array
+
+    passing_ghost_indices = overlapping_ghost_indices[ij_type_match]
+    passing_frag_indices = overlapping_frag_indices[ij_type_match]
+    logger.debug(f'Found {len(passing_ghost_indices)} overlapping fragments in the same i/j type')
+
+    passing_ghost_coords = residue1_ghost_guide_coords[passing_ghost_indices]
+    passing_frag_coords = residue2_guide_coords[passing_frag_indices]
+    # # Todo keep without euler_lookup?
+    # ghost_type_array = np.array([ghost_frag.frag_type for ghost_frag in ghost_frags1])
+    # mono_type_array = np.array([residue.frag_type for residue in fragments2])
+    # # Using only ij_type_match, no euler_lookup
+    # int_ghost_shape = len(ghost_frags1)
+    # int_surf_shape = len(fragments2)
+    # # maximum_number_of_pairs = int_ghost_shape*int_surf_shape
+    # ghost_indices_repeated = np.repeat(ghost_type_array, int_surf_shape)
+    # surf_indices_tiled = np.tile(mono_type_array, int_ghost_shape)
+    # # ij_type_match = ij_type_match_lookup_table[ghost_indices_repeated, surf_indices_tiled]
+    # # ij_type_match = np.where(ghost_indices_repeated == surf_indices_tiled, True, False)
+    # # ij_type_match = ghost_indices_repeated == surf_indices_tiled
+    # ij_type_match_lookup_table = (ghost_indices_repeated == surf_indices_tiled).reshape(int_ghost_shape, -1)
+    # ij_type_match = ij_type_match_lookup_table[ghost_indices_repeated, surf_indices_tiled]
+    # # possible_fragments_pairs = ghost_indices_repeated.shape[0]
+    # passing_ghost_indices = ghost_indices_repeated[ij_type_match]
+    # passing_surf_indices = surf_indices_tiled[ij_type_match]
+    # # passing_ghost_coords = residue1_ghost_guide_coords[ij_type_match]
+    # # passing_frag_coords = residue2_guide_coords[ij_type_match]
+    # passing_ghost_coords = residue1_ghost_guide_coords[passing_ghost_indices]
+    # passing_frag_coords = residue2_guide_coords[passing_surf_indices]
+    # Precalculate the reference_rmsds for each ghost fragment
+    reference_rmsds = np.array([ghost_frags1[ghost_idx].rmsd for ghost_idx in passing_ghost_indices.tolist()])
+    # # Todo keep without euler_lookup?
+    # reference_rmsds = np.array([ghost_frag.rmsd for ghost_frag in ghost_frags1])[passing_ghost_indices]
+
+    # logger.debug('Calculating passing fragment overlaps by RMSD')
+    # all_fragment_match = calculate_match(passing_ghost_coords,
+    #                                      passing_frag_coords,
+    #                                      reference_rmsds)
+    # passing_overlaps_indices = np.flatnonzero(all_fragment_match > min_match_value)
+    all_fragment_z_score = utils.rmsd_z_score(passing_ghost_coords,
+                                              passing_frag_coords,
+                                              reference_rmsds)
+    passing_overlaps_indices = np.flatnonzero(all_fragment_z_score < min_match_value)
+    # logger.debug('Finished calculating fragment overlaps')
+    # logger.debug(f'Found {len(passing_overlaps_indices)} overlapping fragments over the {min_match_value} threshold')
+    logger.debug(f'Found {len(passing_overlaps_indices)} overlapping fragments under the {min_match_value} threshold')
+
+    # interface_ghostfrags = [ghost_frags1[idx] for idx in passing_ghost_indices[passing_overlap_indices].tolist()]
+    # interface_monofrags2 = [fragments2[idx] for idx in passing_surf_indices[passing_overlap_indices].tolist()]
+    # passing_z_values = all_fragment_overlap[passing_overlap_indices]
+    # match_scores = utils.match_score_from_z_value(all_fragment_overlap[passing_overlap_indices])
+
+    return list(zip([ghost_frags1[idx] for idx in passing_ghost_indices[passing_overlaps_indices].tolist()],
+                    [fragments2[idx] for idx in passing_frag_indices[passing_overlaps_indices].tolist()],
+                    # all_fragment_match[passing_overlaps_indices].tolist()))
+                    utils.match_score_from_z_value(all_fragment_z_score[passing_overlaps_indices]).tolist()))
+    #
+    # # Todo keep without euler_lookup?
+    # return list(zip([ghost_frags1[idx] for idx in passing_overlaps_indices.tolist()],
+    #                 [fragments2[idx] for idx in passing_overlaps_indices.tolist()],
+    #                 all_fragment_match[passing_overlaps_indices].tolist()))
 
 
 def write_frag_match_info_file(ghost_frag: GhostFragment = None, matched_frag: Fragment = None,
