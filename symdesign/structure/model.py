@@ -7211,7 +7211,25 @@ class Pose(SymmetricModel):
                            f'for interface fragments')
             self.query_interface_for_fragments(*entity_pair)
 
-    def write_fragment_pairs(self, ghost_mono_frag_pairs: list[tuple[GhostFragment, Fragment, float]] = None,
+    def generate_fragments(self, **kwargs):
+        """Generate fragments pairs between every possible Residue instance in the Pose
+
+        Keyword Args:
+            distance: (float) = 8. - The distance to measure Residues across an interface
+        """
+        self.generate_interface_fragments(**kwargs)
+        if not self.interface_residues_by_entity_pair:
+            self.find_and_split_interface(**kwargs)
+
+        for entity in self.active_entities:
+            self.log.debug(f'Querying Entity: {entity} for internal fragments')
+            ghostfrag_surfacefrag_pairs = entity.find_fragments()
+            self.fragment_queries[(entity, entity)] = get_matching_fragment_pairs_info(ghostfrag_surfacefrag_pairs)
+            # Add newly found fragment pairs to the existing fragment observations
+            self.fragment_pairs.extend(ghostfrag_surfacefrag_pairs)
+
+    def write_fragment_pairs(self, ghost_mono_frag_pairs:
+                             list[tuple[fragment.GhostFragment, fragment.Fragment, float]] = None,
                              out_path: AnyStr = os.getcwd()):
         """Write the fragments associated with the pose to disk
 

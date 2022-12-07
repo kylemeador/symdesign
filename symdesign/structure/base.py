@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 import os
 import subprocess
+import time
 from abc import ABC
 from collections import UserList, defaultdict
 from copy import copy
@@ -1157,6 +1158,28 @@ class ContainsAtomsMixin(StructureBase):
             return self._atoms.atoms[self._atom_indices].tolist()
         except AttributeError:  # when self._atoms isn't set or is None and doesn't have .atoms
             return
+
+    # @property
+    def neighboring_atom_indices(self, distance: float = 8., **kwargs) -> list[int]:  # np.ndarray:
+        """Return the Atom instances in the Structure
+
+        Args:
+            distance: The distance to measure neighbors by
+        Returns:
+
+        """
+        parent_coords = self._coords.coords
+        atom_indices = self.atom_indices
+        coords = parent_coords[atom_indices]
+        coords_balltree = BallTree(coords)
+        # Create a mask for the coordinates in the ContainsAtomsMixin
+        not_self_coords_mask = np.ones_like(parent_coords, dtype=bool)
+        not_self_coords_mask[atom_indices] = False
+        not_self_coords = parent_coords[not_self_coords_mask]
+        query = coords_balltree.query_radius(not_self_coords, distance)
+
+        return np.unique(np.concatenate(query)).tolist()
+        # return np.unique(np.concatenate(query))
 
     # @atoms.setter
     # def atoms(self, atoms: Atoms | list[Atom]):
@@ -4540,9 +4563,9 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
             frag_residues = self.get_residues(numbers=[residue_number + i for i in fragment_range])
 
             if len(frag_residues) == fragment_length:
-                fragment = fragment.MonoFragment(residues=frag_residues, fragment_db=fragment_db, **kwargs)
-                if fragment.i_type:
-                    fragments.append(fragment)
+                new_fragment = fragment.MonoFragment(residues=frag_residues, fragment_db=fragment_db, **kwargs)
+                if new_fragment.i_type:
+                    fragments.append(new_fragment)
 
         return fragments
 
@@ -4618,6 +4641,44 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
                 found_fragments.append(residue)
 
         return found_fragments
+
+    def find_fragments(self, fragment_db: fragment.db.FragmentDatabase = None, **kwargs) \
+            -> list[tuple[fragment.GhostFragment, fragment.Fragment, float]]:
+        """Search Residue instances to find Fragment instances that are neighbors, returning all Fragment pairs.
+        By default, returns all Residue instances neighboring FragmentResidue instances
+
+        Args:
+            fragment_db: The FragmentDatabase with representative fragment types to query the Residue against
+        Keyword Args:
+            residues: list[Residue] = None - The specific Residues to search for
+            residue_numbers: list[int] = None - The specific residue numbers to search for
+            rmsd_thresh: float = fragment.Fragment.rmsd_thresh - The threshold for which a rmsd should fail to produce
+                a fragment match
+            distance: float = 8.0 - The distance to query for neighboring fragments
+            min_match_value: float = 2 - The minimum value which constitutes an acceptable fragment z_score
+        Returns:
+            The GhostFragment, Fragment pairs, along with their match score
+        """
+        # fragments1: The Fragment instances that will be used to search for GhostFragment instances
+        # fragments2: The Fragment instances to pair against fragments1 GhostFragment instances
+        # clash_coords: The coordinates to use for checking for GhostFragment clashes
+        if fragment_db is None:
+            fragment_db = self.fragment_db
+
+        fragment_time_start = time.time()
+        frag_residues = self.get_fragment_residues(fragment_db=fragment_db, **kwargs)
+        self.log.info(f'Found {len(frag_residues)} fragments on {self.name}')
+        # backbone_and_cb_coords = self.backbone_and_cb_coords
+        # coords_indexed_residues = self.coords_indexed_residues
+        all_fragment_pairs = []
+        for frag_residue in frag_residues:
+            # frag_neighbors = frag_residue.get_residue_neighbors(**kwargs)
+            frag_neighbors = self.get_residues_by_atom_indices(frag_residue.neighboring_atom_indices(**kwargs))
+            all_fragment_pairs.extend(fragment.find_fragment_overlap([frag_residue], frag_neighbors), **kwargs)
+            #                                                          clash_coords=backbone_and_cb_coords))
+
+        self.log.debug(f'Took {time.time() - fragment_time_start:.8f}s')
+        return all_fragment_pairs
 
     @property
     def contact_order(self) -> np.ndarray:
