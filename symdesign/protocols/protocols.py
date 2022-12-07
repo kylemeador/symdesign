@@ -2591,8 +2591,7 @@ class PoseDirectory:
         folding_and_collapse = \
             metrics.collapse_per_residue(list(zip(*[list(designed_sequences.values())
                                                     for designed_sequences in entity_sequences])),
-                                         contact_order_per_res_z, reference_collapse, collapse_profile)
-        # pose_collapse_df = pd.DataFrame(folding_and_collapse).T
+                                         contact_order_per_res_z, reference_collapse)
         per_residue_collapse_df = pd.concat({design_id: pd.DataFrame(data, index=residue_numbers)
                                              for design_id, data in zip(viable_designs, folding_and_collapse)},
                                             ).unstack().swaplevel(0, 1, axis=1)
@@ -3879,7 +3878,7 @@ def interface_design_analysis(pose: Pose, design_poses: Iterable[Pose] = None, s
     folding_and_collapse = \
         metrics.collapse_per_residue(list(zip(*[list(designed_sequences.values())
                                                 for designed_sequences in entity_sequences])),
-                                     contact_order_per_res_z, reference_collapse, collapse_profile)
+                                     contact_order_per_res_z, reference_collapse)
     # Todo normalize each of these after summing to per_residue (designed) values
     #  # scores_df['collapse_new_islands'] /= scores_df['pose_length']
     #  # scores_df['collapse_new_island_significance'] /= scores_df['pose_length']
@@ -3902,7 +3901,6 @@ def interface_design_analysis(pose: Pose, design_poses: Iterable[Pose] = None, s
     #          scores_df['collapse_sequential_z'] / total_increased_collapse
     #
     #
-    # pose_collapse_df = pd.DataFrame(folding_and_collapse).T
     per_residue_collapse_df = pd.concat({design_id: pd.DataFrame(data, index=residue_numbers)
                                          for design_id, data in zip(viable_designs, folding_and_collapse)},
                                         ).unstack().swaplevel(0, 1, axis=1)
