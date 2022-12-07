@@ -87,7 +87,12 @@ alphabet_to_type = {'ACDEFGHIKLMNPQRSTVWY': protein_letters_alph1,
 
 
 def create_translation_tables(alphabet_type: alphabet_types) -> defaultdict:
-    """Given an amino acid alphabet type, return the corresponding numerical translation table"""
+    """Given an amino acid alphabet type, return the corresponding numerical translation table.
+    If a table is passed, just return it
+
+    Returns:
+        The integer mapping to the sequence of the requested alphabet
+    """
     wrong_alphabet_type = ValueError(f"alphabet_type '{alphabet_type}' isn't viable")
     try:
         match alphabet_type:
