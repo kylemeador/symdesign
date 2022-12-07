@@ -302,41 +302,24 @@ def main():
     #  Display the program guide if requested
     # -----------------------------------------------------------------------------------------------------------------
     if args.guide:
-        if args.module == flags.analysis:
-            print(guide.analysis)
-        elif args.module == flags.cluster_poses:
-            print(guide.cluster_poses)
-        elif args.module == flags.interface_design:
-            print(guide.interface_design)
-        elif args.module == flags.interface_metrics:
-            print(guide.interface_metrics)
-        elif args.module == flags.optimize_designs:
-            print(guide.optimize_designs)
-        elif args.module == flags.refine:
-            print(guide.refine)
-        elif args.module == flags.nanohedra:
-            print(guide.nanohedra)
-        elif args.module == flags.select_poses:
-            print(guide.select_poses)
-        elif args.module == flags.select_designs:
-            print(guide.select_designs)
-        elif args.module == flags.select_sequences:
-            print(guide.select_sequences)
-        elif args.module == flags.expand_asu:
-            print(guide.expand_asu)
-        elif args.module == flags.orient:
-            print(guide.orient)
-        # elif args.module == 'custom_script':
-        #     print()
-        # elif args.module == 'check_clashes':
-        #     print()
-        # elif args.module == 'residue_selector':
-        #     print()
-        # elif args.module == 'visualize':
-        #     print('Usage: %s -r %s -- [-d %s, -df %s, -f %s] visualize --range 0-10'
-        #           % (SDUtils.ex_path('pymol'), putils.program_command.replace('python ', ''),
-        #              SDUtils.ex_path('pose_directory'), SDUtils.ex_path('DataFrame.csv'),
-        #              SDUtils.ex_path('design.paths')))
+        if args.module:
+            try:
+                module_guide = getattr(guide, args.module)
+                print(module_guide)
+            except AttributeError:
+                exit(f'There is no guide created for {args.module} yet. Try --help instead of --guide')
+            # Todo below are known to be missing
+            # refine
+            # expand_asu
+            # orient
+            # custom_script
+            # check_clashes
+            # residue_selector
+            # visualize
+            #     print('Usage: %s -r %s -- [-d %s, -df %s, -f %s] visualize --range 0-10'
+            #           % (SDUtils.ex_path('pymol'), putils.program_command.replace('python ', ''),
+            #              SDUtils.ex_path('pose_directory'), SDUtils.ex_path('DataFrame.csv'),
+            #              SDUtils.ex_path('design.paths')))
         else:  # Print the full program readme and exit
             guide.print_guide()
             exit()
@@ -732,7 +715,8 @@ def main():
                             f'{representative_pose_directory.log_path}')
 
     elif job.module == flags.nanohedra:
-        logger.critical(f'Setting up inputs for {job.module.title()} docking')
+        logger.info(f'Setting up inputs for {job.module.title()} docking')
+        job.sym_entry.log_parameters()
         # Todo make current with sql ambitions
         # Make master output directory. sym_entry is required, so this won't fail v
         if args.output_directory is None:
@@ -924,7 +908,6 @@ def main():
 
         job.location = args.oligomer1
         design_source = os.path.splitext(os.path.basename(job.location))[0]
-        job.sym_entry.log_parameters()
     else:
         # This logic is possible with job.module as select_poses with --metric or --dataframe
         # job.structure_db = None
@@ -992,9 +975,10 @@ def main():
         # terminate_kwargs = {}
         # Universal protocol runner
         exceptions = []
-        for protocol_name in job.modules:
+        for idx, protocol_name in enumerate(job.modules, 1):
             protocol = getattr(protocols, protocol_name)
 
+            logger.info(f'Starting protocol {idx}: {protocol}')
             # Figure out how the job should be set up
             if protocol_name in run_on_pose_directory:  # Single poses
                 if job.multi_processing:
