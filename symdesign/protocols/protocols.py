@@ -1764,11 +1764,8 @@ class PoseDirectory:
 
         Reports on clash testing
         """
-        self.load_pose()
-        if self.symmetric:
-            self.symmetric_assembly_is_clash()
-            self.pose.write(assembly=True, out_path=self.assembly_path, increment_chains=self.job.increment_chains)
-            self.log.info(f'Symmetric assembly written to: "{self.assembly_path}"')
+        if self.is_symmetric():
+            self.load_pose()
         else:
             raise SymmetryError(warn_missing_symmetry % self.expand_asu.__name__)
         self.pickle_info()  # Todo remove once PoseDirectory state can be returned to the SymDesign dispatch w/ MP
