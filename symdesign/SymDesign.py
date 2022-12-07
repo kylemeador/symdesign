@@ -304,14 +304,11 @@ def main():
     if args.guide:
         if args.module:
             try:
-                module_guide = getattr(guide, args.module)
-                print(module_guide)
+                module_guide = getattr(guide, args.module.replace('-', '_'))
+                exit(module_guide)
             except AttributeError:
                 exit(f'There is no guide created for {args.module} yet. Try --help instead of --guide')
-            # Todo below are known to be missing
-            # refine
-            # expand_asu
-            # orient
+            # Tod0 below are known to be missing
             # custom_script
             # check_clashes
             # residue_selector
