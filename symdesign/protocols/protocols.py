@@ -52,7 +52,6 @@ logger = logging.getLogger(__name__)
 # pose_logger = start_log(name='pose', handler_level=3, propagate=True)
 zero_offset = 1
 idx_slice = pd.IndexSlice
-# design_directory_modes = [putils.interface_design, 'dock', 'filter']
 cst_value = round(0.2 * rosetta.reference_average_residue_weight, 2)
 mean, std = 'mean', 'std'
 stats_metrics = [mean, std]
@@ -479,8 +478,7 @@ class PoseDirectory:
     def sym_entry(self, sym_entry: SymEntry):
         self._sym_entry = sym_entry
 
-    @property
-    def symmetric(self) -> bool:
+    def is_symmetric(self) -> bool:
         """Is the PoseDirectory symmetric?"""
         return self.sym_entry is not None
 
@@ -847,7 +845,7 @@ class PoseDirectory:
 
         return wt_file[0]
 
-    def get_designs(self, design_type: str = None) -> list[AnyStr]:  # design_type: str = putils.interface_design
+    def get_designs(self, design_type: str = None) -> list[AnyStr]:
         """Return the paths of all design files in a PoseDirectory
 
         Args:
@@ -1035,6 +1033,11 @@ class PoseDirectory:
             self.pose = Pose.from_file(source if source else self.source, name=name, **self.pose_kwargs)
 
         if self.pose.is_symmetric():
+            self.symmetric_assembly_is_clash()
+            if self.job.output_assembly:
+                self.pose.write(assembly=True, out_path=self.assembly_path,
+                                increment_chains=self.job.increment_chains)
+                self.log.info(f'Symmetric assembly written to: "{self.assembly_path}"')
             if self.job.write_oligomers:  # Write out new oligomers to the PoseDirectory
                 for idx, entity in enumerate(self.pose.entities):
                     entity.write(oligomer=True, out_path=os.path.join(self.path, f'{entity.name}_oligomer.pdb'))
@@ -1097,12 +1100,6 @@ class PoseDirectory:
         #                 The residues in contact across the interface
 
         self.load_pose()
-        if self.symmetric:
-            self.symmetric_assembly_is_clash()
-            if self.job.output_assembly:
-                self.pose.write(assembly=True, out_path=self.assembly_path, increment_chains=self.job.increment_chains)
-                self.log.info(f'Symmetric assembly written to: "{self.assembly_path}"')
-
         self.pose.find_and_split_interface()
 
         # self.interface_design_residue_numbers = set()  # Replace set(). Add new residues
@@ -1113,7 +1110,7 @@ class PoseDirectory:
 
         # self.interface_residue_numbers = set()  # Replace set(). Add new residues
         # for entity in self.pose.entities:
-        #     # Todo v clean as it is redundant with analysis and falls out of scope
+        #     # Tod0 v clean as it is redundant with analysis and falls out of scope
         #     entity_oligomer = Model.from_chains(entity.chains, log=entity.log, entities=False)
         #     # entity.oligomer.get_sasa()
         #     # Must get_residues by number as the Residue instance will be different in entity_oligomer
@@ -1181,7 +1178,7 @@ class PoseDirectory:
         variables.extend([(putils.fragment_profile, self.fragment_profile_file)]
                          if os.path.exists(self.fragment_profile_file) else [])
 
-        if self.symmetric:
+        if self.pose.is_symmetric():
             def prepare_symmetry_for_rosetta():
                 """For the specified design, locate/make the symmetry files necessary for Rosetta input
 
@@ -1270,8 +1267,8 @@ class PoseDirectory:
                                 os.path.join(self.data, f'{entity.name}.sdf'))
 
         entity_metric_commands = []
-        for idx, (entity, name) in enumerate(zip(self.pose.entities, self.entity_names), 1):
-            if self.symmetric:
+        for idx, name in enumerate(self.entity_names, 1):
+            if self.is_symmetric():
                 entity_sdf = f'sdf={os.path.join(self.data, f"{name}.sdf")}'
                 entity_sym = 'symmetry=make_point_group'
             else:
@@ -1737,7 +1734,8 @@ class PoseDirectory:
         ASU will only be a true ASU if the starting PDB contains a symmetric system, otherwise all manipulations find
         the minimal unit of Entities that are in contact
         """
-        if self.symmetric:  # if the symmetry isn't known then this wouldn't be a great option
+        # Check if the symmetry is known, otherwise this wouldn't work without the old, "symmetry-less", protocol
+        if self.is_symmetric():
             if os.path.exists(self.assembly_path):
                 self.load_pose(source=self.assembly_path)
             else:
@@ -1871,7 +1869,7 @@ class PoseDirectory:
             self._refine(metrics=False)
 
         putils.make_path(self.designs)
-        # putils.make_path(self.data)
+        # putils.make_path(self.data)  # Used above
         match self.job.design.method:
             case putils.rosetta_str:
                 # Write generated files
@@ -3443,10 +3441,9 @@ class PoseDirectory:
             # epsilon = math.sqrt(seq_pc_np.myean()) * 0.5
             # epsilon = math.sqrt(pairwise_sequence_diff_np.mean()) * 0.5
 
-            # Find the nearest neighbors for the pairwise distance matrix using the X*X^T (PCA) matrix, linear transform
+            # Find the nearest neighbors for the pairwise-distance matrix using the X*X^T (PCA) matrix, linear transform
             seq_neighbors = skl.neighbors.BallTree(seq_pc_np)
-            seq_neighbor_counts = seq_neighbors.query_radius(seq_pc_np, epsilon,
-                                                             count_only=True)  # , sort_results=True)
+            seq_neighbor_counts = seq_neighbors.query_radius(seq_pc_np, epsilon, count_only=True)  # sort_results=True)
             top_count, top_idx = 0, None
             for count in seq_neighbor_counts:  # idx, enumerate()
                 if count > top_count:

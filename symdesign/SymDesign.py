@@ -1144,7 +1144,6 @@ def main():
         terminate(results=results)
     # ---------------------------------------------------
     elif job.module == flags.interface_design:
-        # Start pose processing and preparation for Rosetta
         if args.multi_processing:
             results = utils.mp_map(PoseDirectory.interface_design, pose_directories, processes=job.cores)
         else:

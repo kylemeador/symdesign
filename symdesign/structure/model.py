@@ -5657,8 +5657,6 @@ class Pose(SymmetricModel):
         else:
             return torch.from_numpy(decode_order).to(dtype=torch.float32, device=to_device)
 
-    design_algorithms_literal = Literal['proteinmpnn', 'rosetta']
-
     @torch.no_grad()  # Ensure no gradients are produced
     def design_sequences(self, number: int = flags.nstruct,
                          method: design_algorithms_literal = putils.proteinmpnn, ca_only: bool = False,
