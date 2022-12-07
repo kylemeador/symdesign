@@ -32,7 +32,7 @@ from symdesign.metrics import read_scores, interface_composition_similarity, unn
     rosetta_terms, columns_to_new_column, division_pairs, delta_pairs, dirty_hbond_processing, significance_columns, \
     df_permutation_test, clean_up_intermediate_columns, protocol_specific_columns, rank_dataframe_by_metric_weights, \
     filter_df_for_index_by_value, multiple_sequence_alignment_dependent_metrics, profile_dependent_metrics, \
-    process_residue_info, collapse_significance_threshold, errat_1_sigma, errat_2_sigma, \
+    process_residue_info, errat_1_sigma, errat_2_sigma, \
     calculate_residue_surface_area, position_specific_divergence, calculate_sequence_observations_and_divergence, \
     incorporate_mutation_info, residue_classification, sum_per_residue_metrics
 from symdesign.resources.job import job_resources_factory
@@ -2588,6 +2588,14 @@ class PoseDirectory:
                                    f'{", ".join(profile_dependent_metrics)}')
         # Include the pose_source in the measured designs
         contact_order_per_res_z, reference_collapse, collapse_profile = self.pose.get_folding_metrics()
+        collapse_significance_threshold = metrics.collapse_thresholds['standard']
+        if collapse_profile.size:  # Not equal to zero, use the profile instead
+            reference_collapse = collapse_profile
+        #     reference_mean = np.nanmean(collapse_profile, axis=-2)
+        #     reference_std = np.nanstd(collapse_profile, axis=-2)
+        # else:
+        #     reference_mean = reference_std = None
+
         folding_and_collapse = \
             metrics.collapse_per_residue(list(zip(*[list(designed_sequences.values())
                                                     for designed_sequences in entity_sequences])),
@@ -2775,8 +2783,8 @@ class PoseDirectory:
         summed_scores_df = sum_per_residue_metrics(per_residue_df)  # .loc[:, idx_slice[index_residues, :]])
         scores_df = scores_df.join(summed_scores_df)
 
-        # scores_df['collapse_new_islands'] /= scores_df['pose_length']
-        # scores_df['collapse_new_island_significance'] /= scores_df['pose_length']
+        # scores_df['collapse_new_positions'] /= scores_df['pose_length']
+        # scores_df['collapse_new_position_significance'] /= scores_df['pose_length']
         scores_df['collapse_significance_by_contact_order_z_mean'] = \
             scores_df['collapse_significance_by_contact_order_z'] / \
             (per_residue_df.loc[:, idx_slice[:, 'collapse_significance_by_contact_order_z']] != 0).sum(axis=1)
@@ -3179,7 +3187,7 @@ class PoseDirectory:
             # Plot: Format the collapse data with residues as index and each design as column
             # collapse_graph_df = pd.DataFrame(per_residue_data['hydrophobic_collapse'])
             collapse_graph_df = per_residue_df.loc[:, idx_slice[:, 'hydrophobic_collapse']].droplevel(-1, axis=1)
-            reference_collapse = [entity.hydrophobic_collapse for entity in self.pose.entities]
+            reference_collapse = [entity.hydrophobic_collapse() for entity in self.pose.entities]
             reference_collapse_concatenated_s = \
                 pd.Series(np.concatenate(reference_collapse), name=putils.reference_name)
             collapse_graph_df[putils.reference_name] = reference_collapse_concatenated_s
@@ -3874,13 +3882,21 @@ def interface_design_analysis(pose: Pose, design_poses: Iterable[Pose] = None, s
 
     # Include the putils.pose_source in the measured designs
     contact_order_per_res_z, reference_collapse, collapse_profile = pose.get_folding_metrics()
+    collapse_significance_threshold = metrics.collapse_thresholds['standard']
+    if collapse_profile.size:  # Not equal to zero, use the profile instead
+        reference_collapse = collapse_profile
+    #     reference_mean = np.nanmean(collapse_profile, axis=-2)
+    #     reference_std = np.nanstd(collapse_profile, axis=-2)
+    # else:
+    #     reference_mean = reference_std = None
+
     folding_and_collapse = \
         metrics.collapse_per_residue(list(zip(*[list(designed_sequences.values())
                                                 for designed_sequences in entity_sequences])),
                                      contact_order_per_res_z, reference_collapse)
     # Todo normalize each of these after summing to per_residue (designed) values
-    #  # scores_df['collapse_new_islands'] /= scores_df['pose_length']
-    #  # scores_df['collapse_new_island_significance'] /= scores_df['pose_length']
+    #  # scores_df['collapse_new_positions'] /= scores_df['pose_length']
+    #  # scores_df['collapse_new_position_significance'] /= scores_df['pose_length']
     #  scores_df['collapse_significance_by_contact_order_z_mean'] = \
     #      scores_df['collapse_significance_by_contact_order_z'] / \
     #      (per_residue_df.loc[:, idx_slice[:, 'collapse_significance_by_contact_order_z']] != 0).sum(axis=1)
@@ -4424,7 +4440,7 @@ def interface_design_analysis(pose: Pose, design_poses: Iterable[Pose] = None, s
         # Plot: Format the collapse data with residues as index and each design as column
         # collapse_graph_df = pd.DataFrame(per_residue_data['hydrophobic_collapse'])
         collapse_graph_df = per_residue_df.loc[:, idx_slice[:, 'hydrophobic_collapse']].droplevel(-1, axis=1)
-        reference_collapse = [entity.hydrophobic_collapse for entity in pose.entities]
+        reference_collapse = [entity.hydrophobic_collapse() for entity in pose.entities]
         reference_collapse_concatenated_s = \
             pd.Series(np.concatenate(reference_collapse), name=putils.reference_name)
         collapse_graph_df[putils.reference_name] = reference_collapse_concatenated_s

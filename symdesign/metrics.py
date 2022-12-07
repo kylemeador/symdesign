@@ -33,7 +33,7 @@ per_residue_sasa_states = ['sasa_hydrophobic_bound', 'sasa_polar_bound', 'sasa_h
                            'sasa_total_bound', 'sasa_total_complex']
 per_residue_intermediate_states = ['bsa_polar', 'bsa_hydrophobic', 'bsa_total']
 sasa_metric_names = ['interface_area_polar', 'interface_area_hydrophobic', 'interface_area_total']
-collapse_metrics = ['collapse_new_islands', 'collapse_new_island_significance',
+collapse_metrics = ['collapse_new_positions', 'collapse_new_position_significance',
                     'collapse_significance_by_contact_order_z', 'collapse_increase_significance_by_contact_order_z',
                     'collapse_increased_z', 'collapse_deviation_magnitude', 'collapse_sequential_peaks_z',
                     'collapse_sequential_z']
@@ -44,7 +44,10 @@ sasa_metrics_rename_mapping = dict(zip(per_residue_intermediate_states, sasa_met
 bsa_tolerance = 0.25
 energy_metrics_rename_mapping = dict(zip(per_residue_energy_states, energy_metric_names))
 errat_1_sigma, errat_2_sigma, errat_3_sigma = 5.76, 11.52, 17.28  # These are approximate magnitude of deviation
-collapse_significance_threshold = 0.43
+collapse_thresholds = {
+    'standard': 0.43,
+    'expanded': 0.48
+}
 collapse_reported_std = .05
 idx_slice = pd.IndexSlice
 master_metrics = {
@@ -359,12 +362,12 @@ master_metrics = {
     'nanohedra_score_normalized':
         dict(description='The Nanohedra Score normalized by number of fragment residues',
              direction=_max, function=rank, filter=True),
-    'collapse_new_island_significance':
-        dict(description='The magnitude of the collapse_significance_by_contact_order_z (abs(deviation)) for identified '
-                         'new collapse islands',
+    'collapse_new_position_significance':
+        dict(description='The magnitude of the collapse_significance_by_contact_order_z (abs(deviation)) for identified'
+                         ' new collapse positions',
              direction=_min, function=rank, filter=True),
-    'collapse_new_islands':
-        dict(description='The number of new collapse islands found',
+    'collapse_new_positions':
+        dict(description='The number of new collapse positions found',
              direction=_min, function=rank, filter=True),
     'number_fragment_residues_total':
         dict(description='The number of residues in the interface with fragment observationsfound',
@@ -1118,11 +1121,11 @@ def collapse_per_residue(sequence_groups: Iterable[Iterable[Sequence[str]]],
     Returns:
         The mapping of collapse metric to per-residue values for the concatenated sequence in each sequence_groups.
             These include:
-            {'collapse_new_islands',
-             'collapse_new_island_significance',
+            {'collapse_new_positions',
+             'collapse_new_position_significance',
              'collapse_significance_by_contact_order_z',
              'collapse_increase_significance_by_contact_order_z',
-             'collapse_increased_z',
+             'increased_collapse_z',
              'collapse_deviation_magnitude',
              'collapse_sequential_peaks_z',
              'collapse_sequential_z',
@@ -1277,17 +1280,17 @@ def collapse_per_residue(sequence_groups: Iterable[Iterable[Sequence[str]]],
         # collapsing_positions_z = [0, 0, 0, 0, 0.04, 0.06, 0, 0, 0.1, 0.07, ...]
 
         # Add the concatenated collapse metrics to total
-        folding_and_collapse.append({'collapse_new_islands': new_collapse_peak_start,
-                                     'collapse_new_island_significance':
-                                         new_collapse_peak_start * collapse_significance,  # np.abs(collapse_signif.)
-                                     'collapse_significance_by_contact_order_z': collapse_significance,
-                                     'collapse_increase_significance_by_contact_order_z':
-                                         collapse_increase_significance_by_contact_order_z,
-                                     'collapse_increased_z': collapse_increased_z,
-                                     'collapse_deviation_magnitude': collapse_deviation_magnitude,
-                                     'collapse_sequential_peaks_z': collapse_sequential_peaks_z,
-                                     'collapse_sequential_z': collapse_sequential_z
-                                     })
+        folding_and_collapse.append({
+            'hydrophobic_collapse': collapse,
+            'collapse_deviation_magnitude': collapse_deviation_magnitude,
+            'collapse_increase_significance_by_contact_order_z': residue_contact_order_z * increased_collapse_z,
+            'collapse_increased_z': increased_collapse_z,
+            'collapse_new_positions': new_collapse_peak_start,
+            'collapse_new_position_significance': new_collapse_peak_start * collapse_significance,
+            'collapse_sequential_peaks_z': collapse_sequential_peaks_z,
+            'collapse_sequential_z': collapse_sequential_z,
+            'collapse_significance_by_contact_order_z': collapse_significance
+        })
     return folding_and_collapse
 
 
@@ -2160,6 +2163,11 @@ def window_function(data: Sequence[int | float], windows: Iterable[int] = None, 
     return window_array
 
 
+np_torch_int_types = (np.int8, np.int16, np.int32, np.int64,
+                      torch.int, torch.int8, torch.int16, torch.int32, torch.int64)
+np_torch_float_types = (np.float16, np.float32, np.float64,
+                        torch.float, torch.float16, torch.float32, torch.float64)
+np_torch_int_float_types = np_torch_int_types + np_torch_float_types
 hydrophobicity_scale = \
     {'expanded': {'A': 0, 'C': 0, 'D': 0, 'E': 0, 'F': 1, 'G': 0, 'H': 0, 'I': 1, 'K': 0, 'L': 1, 'M': 1, 'N': 0,
                   'P': 0, 'Q': 0, 'R': 0, 'S': 0, 'T': 0, 'V': 1, 'W': 1, 'Y': 1, 'B': 0, 'J': 0, 'O': 0, 'U': 0,
@@ -2197,10 +2205,9 @@ def hydrophobic_collapse_index(sequence: Sequence[str | int] | np.ndarry, hydrop
     else:
         hydrophobicity_values = custom
 
-    missing_alphabet = f'Must pass an alphabet type when calculating {hydrophobic_collapse_index.__name__} using ' \
+    missing_alphabet = f'Must pass an alphabet_type when calculating {hydrophobic_collapse_index.__name__} using ' \
                        f'integer sequence values'
     if isinstance(sequence[0], int):  # This is an integer sequence. An alphabet is required
-        print('integer')
         if alphabet_type is None:
             raise ValueError(missing_alphabet)
         else:
@@ -2213,12 +2220,6 @@ def hydrophobic_collapse_index(sequence: Sequence[str | int] | np.ndarry, hydrop
         sequence_array = [hydrophobicity_values.get(aa, 0) for aa in sequence]
         # raise ValueError(f"sequence argument with type {type(sequence).__name__} isn't supported")
     elif isinstance(sequence, (torch.Tensor, np.ndarray)):  # This is an integer sequence. An alphabet is required
-        # if sequence.ndim == 2:
-        np_torch_int_types = (np.int8, np.int16, np.int32, np.int64,
-                              torch.int, torch.int8, torch.int16, torch.int32, torch.int64)
-        np_torch_float_types = (np.float16, np.float32, np.float64,
-                                torch.float, torch.float16, torch.float32, torch.float64)
-        np_torch_int_float_types = np_torch_int_types + np_torch_float_types
         if sequence.dtype in np_torch_int_float_types:
             if alphabet_type is None:
                 raise ValueError(missing_alphabet)
