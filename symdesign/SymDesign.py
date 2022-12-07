@@ -27,7 +27,7 @@ logger = logging.getLogger(putils.program_name.lower())  # __name__)
 # logger.info('Starting logger')
 # logger.warning('Starting logger')
 # input('WHY LOGGING')
-from symdesign import flags, guide, metrics, protocols, utils
+from symdesign import flags, metrics, protocols, utils
 from symdesign.protocols.protocols import PoseDirectory
 from symdesign.resources.job import job_resources_factory
 from symdesign.resources.query.pdb import retrieve_pdb_entries_by_advanced_query
@@ -36,8 +36,7 @@ from symdesign.structure.fragment.db import fragment_factory, euler_factory
 from symdesign.structure.model import Model
 from symdesign.structure.sequence import generate_mutations, find_orf_offset, write_sequences
 from symdesign.third_party.DnaChisel.dnachisel.DnaOptimizationProblem.NoSolutionError import NoSolutionError
-from symdesign.utils import ProteinExpression, nanohedra
-
+from symdesign.utils import guide, nanohedra, ProteinExpression
 
 # def format_additional_flags(flags):
 #     """Takes non-argparse specified flags and returns them into a dictionary compatible with argparse style.
