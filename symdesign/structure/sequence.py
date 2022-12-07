@@ -770,13 +770,22 @@ class SequenceProfile(ABC):
             # self._sequence_numeric = self._sequence_numeric.astype(np.int32)
             return self._sequence_numeric
 
-    @property
-    def hydrophobic_collapse(self) -> np.array:
-        """Return the hydrophobic collapse for the Structure"""
+    # @property
+    def hydrophobic_collapse(self, **kwargs) -> np.array:
+        """Return the hydrophobic collapse for the Sequence
+
+        Keyword Args:
+            hydrophobicity: int = 'standard' – The hydrophobicity scale to consider. Either 'standard' (FILV),
+                'expanded' (FMILYVW), or provide one with 'custom' keyword argument
+            custom: mapping[str, float | int] = None – A user defined mapping of amino acid type, hydrophobicity value pairs
+            alphabet_type: alphabet_types = None – The amino acid alphabet if the sequence consists of integer characters
+            lower_window: int = 3 – The smallest window used to measure
+            upper_window: int = 9 – The largest window used to measure
+        """
         try:
             return self._hydrophobic_collapse
         except AttributeError:
-            self._hydrophobic_collapse = hydrophobic_collapse_index(self.sequence)
+            self._hydrophobic_collapse = hydrophobic_collapse_index(self.sequence, **kwargs)
             return self._hydrophobic_collapse
 
     def get_sequence_probabilities_from_profile(self, dtype: profile_types = None, precomputed: numerical_profile = None)\
@@ -1206,20 +1215,21 @@ class SequenceProfile(ABC):
             except FileNotFoundError:
                 raise FileNotFoundError(f'No multiple sequence alignment exists at {self.msa_file}')
 
-    def collapse_profile(self, msa: AnyStr | MultipleSequenceAlignment = None) -> np.ndarray:
+    def collapse_profile(self, msa: AnyStr | MultipleSequenceAlignment = None, **kwargs) -> np.ndarray:
         """Make a profile out of the hydrophobic collapse index (HCI) for each sequence in a multiple sequence alignment
 
         Takes ~5-10 seconds depending on the size of the msa
 
-        Calculate HCI for each sequence (different lengths) into an array. For each msa sequence, make a gap array
-        (# msa sequences x alignment length) to account for gaps from each individual sequence. Create a map between the
-        gap array and the HCI array
+        Calculate HCI for each sequence in the MSA (which are different lengths). This is the Hydro Collapse array. For
+        each sequence, make a Gap mask (# msa sequences x alignment length) to account for gaps from each individual
+        sequence. Apply the mask using the map between the Gap mask and the Hydro Collapse array. Finally, drop the
+        columns from the array that are gaps in the reference sequence.
 
-        iter array   -   gap mask      -       Hydro Collapse Array     -     Aligned HCI     - -     Final HCI
+        iter array   -   Gap mask      -       Hydro Collapse array     -     Aligned HCI     - -     Final HCI
 
         ------------
 
-        iter - - - - - - 1 is gap    - - - -     compute for each     -     account for gaps   -  (drop col 3, idx 2)
+        iter - - - - - - 0 is gap    - - - -     compute for each     -     account for gaps   -  (drop idx 2)
 
         it 1 2 3 4  - - 0 | 1 | 2 - - - - - - - - - 0 | 1 | 2 - - - - - - - - 0 | 1 | 2 - - - - - - - 0 | 1 | 3 | ... N
 
@@ -1229,18 +1239,28 @@ class SequenceProfile(ABC):
 
         2 0 0 1 2  - - 0 | 1 | 1 - - - -   - - - - 0.3 0.6 0.3 - -   =   - - 0.0 0.3 0.6 -  ->   - - 0.0 0.3 0.4 ... 0.0
 
-        After the addition, the hydro collapse array index that is accessed by the iterator is multiplied by the gap
-        mask to return a null value is there is no value and the hydro collapse value if there is one
-        therefore the element such as 3 in the Aligned HCI would be dropped from the array when the aligned sequence
-        is removed of any gaps and only the iterations will be left, essentially giving the HCI for the sequence
+        After iteration cumulative summation, the Hydro Collapse array index is accessed by the iterator. This is then
+        multiplied by the gap mask to place np.nan value if there is a 0 index (i.e. a gap) and the Hydro Collapse array
+        value otherwise. After, the element at index 2 in the Aligned HCI is dropped from the array when the aligned
+        sequence is removed of gaps and only the iterations will be left, essentially giving the HCI for the sequence
         profile in the native context, however adjusted to the specific context of the protein/design sequence at hand
 
         Args:
             msa: The multiple sequence alignment (file or object) to use for collapse.
                 Will use the instance .msa if not provided
+        Keyword Args:
+            hydrophobicity: int = 'standard' – The hydrophobicity scale to consider. Either 'standard' (FILV),
+                'expanded' (FMILYVW), or provide one with 'custom' keyword argument
+            custom: mapping[str, float | int] = None – A user defined mapping of amino acid type, hydrophobicity value
+                pairs
+            alphabet_type: alphabet_types = None – The amino acid alphabet if the sequence consists of integer
+                characters
+            lower_window: int = 3 – The smallest window used to measure
+            upper_window: int = 9 – The largest window used to measure
         Returns:
-            Array (number_of_sequences, length) containing the hydrophobic collapse values for each residue/sequence
-                in the profile. The "query" sequence from the MultipleSequenceAlignment.query is located on axis=0, index 0
+            Array with shape (number_of_sequences, number_of_residues) containing the hydrophobic collapse values for
+                per-residue, per-sequence in the profile. The "query" sequence from the MultipleSequenceAlignment.query
+                is located at index 0 on axis=0
         """
         try:  # Todo ensure that the file hasn't changed...
             return self._collapse_profile
@@ -1260,7 +1280,7 @@ class SequenceProfile(ABC):
             for idx, record in enumerate(self.msa.alignment):
                 non_gapped_sequence = str(record.seq).replace('-', '')
                 evolutionary_collapse_np[idx, 1:len(non_gapped_sequence) + 1] = \
-                    hydrophobic_collapse_index(non_gapped_sequence)
+                    hydrophobic_collapse_index(non_gapped_sequence, **kwargs)
             # Todo this should be possible now hydrophobic_collapse_index(self.msa.array)
 
             iterator_np = np.cumsum(self.msa.sequence_indices, axis=1) * self.msa.sequence_indices

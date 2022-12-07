@@ -19,7 +19,7 @@ from sklearn.cluster import KMeans
 from sklearn.neighbors import BallTree
 from sklearn.neighbors._ball_tree import BinaryTree  # This typing implementation supports BallTree or KDTree
 
-from symdesign import resources
+from symdesign import resources, metrics
 from symdesign.resources import query
 from .base import Structure, Structures, Residue, StructureBase, atom_or_residue
 from .coords import Coords, superposition3d, transform_coordinate_sets
@@ -27,9 +27,9 @@ from .fragment import GhostFragment, Fragment, write_frag_match_info_file
 from .fragment.db import FragmentDatabase, alignment_types, fragment_info_type, EulerLookup
 from .fragment.metrics import fragment_metric_template
 from .sequence import SequenceProfile, generate_alignment, get_equivalent_indices, \
-    pssm_as_array, generate_mutations, numeric_to_sequence, Profile, default_fragment_contribution
+    pssm_as_array, generate_mutations, numeric_to_sequence, Profile, default_fragment_contribution, profile_types
 from .utils import DesignError, SymmetryError, ClashError, protein_letters_3to1_extended, \
-    protein_letters_1to3_extended, chain_id_generator
+    protein_letters_1to3_extended, chain_id_generator, protein_letters_alph1
 from symdesign import flags
 from symdesign import utils
 from symdesign.utils import path as putils
@@ -5971,86 +5971,114 @@ class Pose(SymmetricModel):
 
         return dict(n=n_term, c=c_term)
 
-    def get_folding_metrics(self) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    def get_folding_metrics(self, profile_type: profile_types = 'evolutionary', **kwargs) \
+            -> tuple[np.ndarray, np.ndarray, np.ndarray]:
         """Calculate metrics relating to the Pose folding, separating calculation for chain breaks. These include
-        contact_order, hydrophobic_collapse, and hydrophobic_collapse_profile (each Entity MUST have a .msa attribute
-        to return the _profile!)
+        contact_order, hydrophobic_collapse, and hydrophobic_collapse_profile (each Entity MUST have a .*_profile
+        attribute to return the hydrophobic collapse profile!)
 
+        Args:
+            profile_type: The type of profile to use to calculate the hydrophobic collapse profile
+        Keyword Args:
+            hydrophobicity: int = 'standard' – The hydrophobicity scale to consider. Either 'standard' (FILV),
+                'expanded' (FMILYVW), or provide one with 'custom' keyword argument
+            custom: mapping[str, float | int] = None – A user defined mapping of amino acid type, hydrophobicity value
+                pairs
+            alphabet_type: alphabet_types = None – The amino acid alphabet if the sequence consists of integer
+                characters
+            lower_window: int = 3 – The smallest window used to measure
+            upper_window: int = 9 – The largest window used to measure
         Returns:
-            A tuple of arrays. A per residue contact_order_z_score (number_of_residues),
-                a per residue hydrophobic_collapse (number_of_residues),
-                and a hydrophobic_collapse profile (msa.number_of_sequences, msa.length) based on Entity.msa instances
+            The per-residue contact_order_z_score (number_of_residues),
+                a per-residue hydrophobic_collapse (number_of_residues),
+                and the hydrophobic_collapse profile (number_of_residues) based on Entity.evolutionary_profile instances
         """
+        #       and the hydrophobic_collapse profile (msa.number_of_sequences, msa.length) based on Entity.msa instances
         # Measure the wild type (reference) entity versus modified entity(ies) to find the hci delta
         # Calculate Reference sequence statistics
         contact_order_z, hydrophobic_collapse, hydrophobic_collapse_profile = [], [], []
         missing = []
         msa_metrics = True
-        # Todo change from the self.pose if reference is provided!
-        for idx, chain in enumerate(self.chains):
-            contact_order = chain.contact_order
+        for idx, entity in enumerate(self.entities):
+            contact_order = entity.contact_order
             # This calculation shouldn't depend on oligomers... Only assumes unfolded -> folded
             # contact_order = entity_oligomer.contact_order[:entity.number_of_residues]
             entity_residue_contact_order_z = utils.z_score(contact_order, contact_order.mean(), contact_order.std())
             # Todo
             #  Using the median may be a better measure of the contact order due to highly skewed data...
-            #  entity_residue_contact_order_z = utils.z_score(contact_order, np.median(contact_order), contact_order.std())
+            #  entity_residue_contact_order_z = \
+            #      utils.z_score(contact_order, np.median(contact_order), contact_order.std())
             contact_order_z.append(entity_residue_contact_order_z)
             # inverse_residue_contact_order_z.append(entity_residue_contact_order_z * -1)
-            hydrophobic_collapse.append(chain.hydrophobic_collapse)
-            # entity = self.structure_db.refined.retrieve_data(name=entity.name))  # Todo always use wild-type?
+            hydrophobic_collapse.append(entity.hydrophobic_collapse(**kwargs))
+            # Tod0 always use wild-type?
+            #  entity = self.structure_db.refined.retrieve_data(name=entity.name))
             # Set the entity.msa which makes a copy and adjusts for any disordered residues
-            if chain.msa and msa_metrics:
-                # TODO must update the collapse profile (Prob SEQRES) to be the same size as the sequence (ATOM)
-                # collapse = chain.collapse_profile()
-                hydrophobic_collapse_profile.append(chain.collapse_profile())
-                # entity_collapse_mean.append(collapse.mean(axis=-2))
-                # entity_collapse_std.append(collapse.std(axis=-2))
-                # reference_collapse_z_score.append(utils.z_score(reference_collapse, entity_collapse_mean[idx],
-                #                                                 entity_collapse_std[idx]))
+            # This method is more accurate as it uses full sequences from MSA. However,
+            # more time consuming and may not matter much
+            # if chain.msa and msa_metrics:
+            #     hydrophobic_collapse_profile.append(chain.collapse_profile(**kwargs))
+            #     collapse = chain.collapse_profile()
+            #     entity_collapse_mean.append(collapse.mean(axis=-2))
+            #     entity_collapse_std.append(collapse.std(axis=-2))
+            #     reference_collapse_z_score.append(utils.z_score(reference_collapse, entity_collapse_mean[idx],
+            #                                                     entity_collapse_std[idx]))
+            if entity.evolutionary_profile and msa_metrics:
+                try:
+                    profile = getattr(entity, f'{profile_type}_profile')
+                    if profile_type == 'fragment':
+                        profile_array = profile.as_array()
+                    else:
+                        profile_array = pssm_as_array(profile)
+                except AttributeError:  # No profile from getattr()
+                    raise ValueError(f"The profile_type '{profile_type}' isn't available on "
+                                     f"{type(entity).__name__} {entity.name}")
+
+                hydrophobic_collapse_profile.append(
+                    metrics.hydrophobic_collapse_index(profile_array, alphabet_type=protein_letters_alph1, **kwargs))
             else:
                 missing.append(1)
                 msa_metrics = False
-            #     # set anything found to null values
-            #     # entity_collapse_mean, entity_collapse_std, reference_collapse_z_score = [], [], []
-            #     continue
 
         contact_order_z = np.concatenate(contact_order_z)
         hydrophobic_collapse = np.concatenate(hydrophobic_collapse)
         if missing:
-            self.log.warning(f'There were missing MultipleSequenceAlignment objects on {sum(missing)} Entity '
+            hydrophobic_collapse_profile = np.empty(0)
+            self.log.warning(f'There were missing SequenceProfile objects on {sum(missing)} Entity '
                              f'instances. The collapse_profile will not be captured for the entire '
                              f'{type(self).__name__}.')
-            hydrophobic_collapse_profile = np.empty(0)
-            # empty_list = []
-            # hydrophobic_collapse_profile = np.ndarray(empty_list)
-            # print('empty_list', empty_list)
-            # _hydrophobic_collapse_profile = np.ndarray([])
-            # print('inside function !', hydrophobic_collapse_profile)  # This was printing 7.0. wtf??
-            # print('inside function _!', _hydrophobic_collapse_profile)  # This was printing 3.5e-323. wtf??
-            # if hydrophobic_collapse_profile is not None and hydrophobic_collapse_profile.size:  # Not equal to zero
-            #     print('collapse_profile', hydrophobic_collapse_profile)
-            #     print('collapse_profile.size', hydrophobic_collapse_profile.size)
-            # >>> empty_list []
-            # >>> inside function ! 7.0
-            # >>> inside function _! 3.5e-323
-            # >>> collapse_profile 7.0
-            # >>> collapse_profile.size 1
+        #     self.log.warning(f'There were missing MultipleSequenceAlignment objects on {sum(missing)} Entity '
+        #                      f'instances. The collapse_profile will not be captured for the entire '
+        #                      f'{type(self).__name__}.')
+        #     # empty_list = []
+        #     # hydrophobic_collapse_profile = np.ndarray(empty_list)
+        #     # print('empty_list', empty_list)
+        #     # _hydrophobic_collapse_profile = np.ndarray([])
+        #     # print('inside function !', hydrophobic_collapse_profile)  # This was printing 7.0. wtf??
+        #     # print('inside function _!', _hydrophobic_collapse_profile)  # This was printing 3.5e-323. wtf??
+        #     # if hydrophobic_collapse_profile is not None and hydrophobic_collapse_profile.size:  # Not equal to zero
+        #     #     print('collapse_profile', hydrophobic_collapse_profile)
+        #     #     print('collapse_profile.size', hydrophobic_collapse_profile.size)
+        #     # >>> empty_list []
+        #     # >>> inside function ! 7.0
+        #     # >>> inside function _! 3.5e-323
+        #     # >>> collapse_profile 7.0
+        #     # >>> collapse_profile.size 1
+        # else:
+        #     # We have to concatenate where the values will be different
+        #     # axis=1 is along the residues, so the result should be the length of the pose
+        #     # axis=0 will be different for each individual entity, so we pad to the maximum for lesser ones
+        #     array_sizes = [array.shape[0] for array in hydrophobic_collapse_profile]
+        #     axis0_max_length = max(array_sizes)
+        #     # full_hydrophobic_collapse_profile = \
+        #     #     np.full((axis0_max_length, self.number_of_residues), np.nan)  # , dtype=np.float32)
+        #     for idx, array in enumerate(hydrophobic_collapse_profile):
+        #         hydrophobic_collapse_profile[idx] = \
+        #             np.pad(array, ((0, axis0_max_length - array_sizes[idx]), (0, 0)), constant_values=np.nan)
+        #
+        #     hydrophobic_collapse_profile = np.concatenate(hydrophobic_collapse_profile, axis=1)
         else:
-            # We have to concatenate where the values will be different
-            # axis=1 is along the residues, so the result should be the length of the pose
-            # axis=0 will be different for each individual entity, so we pad to the maximum for lesser ones
-            array_sizes = [array.shape[0] for array in hydrophobic_collapse_profile]
-            axis0_max_length = max(array_sizes)
-            # full_hydrophobic_collapse_profile = \
-            #     np.full((axis0_max_length, self.number_of_residues), np.nan)  # , dtype=np.float32)
-            for idx, array in enumerate(hydrophobic_collapse_profile):
-                # full_hydrophobic_collapse_profile[:, ] = \
-                hydrophobic_collapse_profile[idx] = \
-                    np.pad(array, ((0, axis0_max_length - array_sizes[idx]), (0, 0)), constant_values=np.nan)
-                # print('hydrophobic_collapse_profile', hydrophobic_collapse_profile[idx].shape, hydrophobic_collapse_profile[idx])
-
-            hydrophobic_collapse_profile = np.concatenate(hydrophobic_collapse_profile, axis=1)
+            hydrophobic_collapse_profile = np.concatenate(hydrophobic_collapse_profile)
 
         return contact_order_z, hydrophobic_collapse, hydrophobic_collapse_profile
 
@@ -6279,7 +6307,6 @@ class Pose(SymmetricModel):
         per_residue_data['sasa_polar_complex'] = [residue.sasa_polar for residue in assembly_asu_residues]
         per_residue_data['sasa_relative_complex'] = [residue.relative_sasa for residue in assembly_asu_residues]
         per_residue_sasa_unbound_apolar, per_residue_sasa_unbound_polar, per_residue_sasa_unbound_relative = [], [], []
-        collapse_concatenated = []
         for entity in self.entities:
             # entity.oligomer.get_sasa()  # Todo when Entity.oligomer works
             entity_oligomer = Model.from_chains(entity.chains, log=self.log, entities=False)
@@ -6288,13 +6315,10 @@ class Pose(SymmetricModel):
             per_residue_sasa_unbound_apolar.extend([residue.sasa_apolar for residue in oligomer_asu_residues])
             per_residue_sasa_unbound_polar.extend([residue.sasa_polar for residue in oligomer_asu_residues])
             per_residue_sasa_unbound_relative.extend([residue.relative_sasa for residue in oligomer_asu_residues])
-            collapse_concatenated.append(entity.hydrophobic_collapse)
 
         per_residue_data['sasa_hydrophobic_bound'] = per_residue_sasa_unbound_apolar
         per_residue_data['sasa_polar_bound'] = per_residue_sasa_unbound_polar
         per_residue_data['sasa_relative_bound'] = per_residue_sasa_unbound_relative
-        per_residue_data['hydrophobic_collapse'] = np.concatenate(collapse_concatenated)
-        # per_residue_data['hydrophobic_collapse'] = pd.Series(np.concatenate(collapse_concatenated))  # , name=self.name)
 
         return per_residue_data
 

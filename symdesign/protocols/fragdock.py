@@ -33,7 +33,7 @@ from symdesign.structure.fragment.visuals import write_fragment_pairs_as_accumul
 from symdesign.structure.model import Pose, Model, get_matching_fragment_pairs_info, Models
 from symdesign.structure.sequence import generate_mutations_from_reference, numeric_to_sequence, concatenate_profile, \
     pssm_as_array, MultipleSequenceAlignment
-from symdesign.structure.utils import chain_id_generator
+from symdesign.structure.utils import chain_id_generator, protein_letters_alph1
 from symdesign import utils
 from symdesign.utils import z_score, rmsd_z_score, z_value_from_match_score, match_score_from_z_value, path as putils
 from symdesign.utils.SymEntry import SymEntry, get_rot_matrices, make_rotations_degenerate
@@ -2361,10 +2361,25 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
             profile_background['interface'] = np.tile(interface_bkgd, (pose.number_of_residues, 1))
 
         # Gather folding metrics for the pose for comparison to the designed sequences
-        contact_order_per_res_z, reference_collapse, collapse_profile = pose.get_folding_metrics()
-        if collapse_profile.size:  # Not equal to zero
-            collapse_profile_mean, collapse_profile_std = \
-                np.nanmean(collapse_profile, axis=-2), np.nanstd(collapse_profile, axis=-2)
+        contact_order_per_res_z, reference_collapse, collapse_profile = \
+            pose.get_folding_metrics(hydrophobicity='expanded')
+        if collapse_profile.size:  # Not equal to zero, use the profile instead
+            reference_collapse = collapse_profile
+        #     reference_mean = np.nanmean(collapse_profile, axis=-2)
+        #     reference_std = np.nanstd(collapse_profile, axis=-2)
+        #     # How different are the collapse of the MSA profile and the mean of the collapse profile?
+        #     reference_collapse = metrics.hydrophobic_collapse_index(evolutionary_profile_array,
+        #                                                             alphabet_type=protein_letters_alph1,
+        #                                                             hydrophobicity='expanded')
+        #     # seq_reference_collapse = reference_collapse
+        #     # reference_difference1 = reference_collapse - seq_reference_collapse
+        #     # logger.critical('Found a collapse difference between the MSA profile and the reference collapse'
+        #     #                 f' of {reference_difference1.sum()}')
+        #     # reference_difference2 = reference_collapse - reference_mean
+        #     # logger.critical('Found a collapse difference between the MSA profile and the mean of the collapse'
+        #                       f'profile of {reference_difference2.sum()}')
+        # else:
+        #     reference_mean = reference_std = None
 
         # Extract parameters to run ProteinMPNN design and modulate memory requirements
         # Retrieve the ProteinMPNN model
@@ -2744,9 +2759,9 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
                                                  hydrophobicity='expanded')
                 for pose_idx, profile_metrics in enumerate(profile_metrics_by_pose):
                     # Unpack each metric set and add to the batch arrays
-                    _per_residue_dock_islands[pose_idx] = profile_metrics['collapse_new_islands']
+                    _per_residue_dock_islands[pose_idx] = profile_metrics['collapse_new_positions']
                     _per_residue_dock_island_significance[pose_idx] = \
-                        profile_metrics['collapse_new_island_significance']
+                        profile_metrics['collapse_new_position_significance']
                     _per_residue_dock_collapse_significance_by_contact_order_z[pose_idx] = \
                         profile_metrics['collapse_significance_by_contact_order_z']
                     _per_residue_dock_collapse_increase_significance_by_contact_order_z[pose_idx] = \
@@ -2758,15 +2773,17 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
                         profile_metrics['collapse_sequential_peaks_z']
                     _per_residue_dock_collapse_sequential_z[pose_idx] = profile_metrics['collapse_sequential_z']
 
-                number_collapse_new_islands_per_designed = \
+                # Check if there are new collapse islands and count
+                # If there are any then there is a collapse violation
+                number_collapse_new_positions_per_designed = \
                     _per_residue_dock_islands[_residue_indices_of_interest].sum(axis=-1)
                 # if np.any(np.logical_and(_per_residue_dock_islands[_residue_indices_of_interest],
                 #                          _per_residue_dock_collapse_increased_z[_residue_indices_of_interest])):
-                # _poor_collapse = designed_collapse_new_islands > 0
+                # _poor_collapse = designed_collapse_new_positions > 0
                 collapse_fit_parameters = {
                     # The below structures have a shape (batch_length, pose_length)
-                    'collapse_new_islands': _per_residue_dock_islands,
-                    'collapse_new_island_significance': _per_residue_dock_island_significance,
+                    'collapse_new_positions': _per_residue_dock_islands,
+                    'collapse_new_position_significance': _per_residue_dock_island_significance,
                     'collapse_significance_by_contact_order_z':
                         _per_residue_dock_collapse_significance_by_contact_order_z,
                     'collapse_increase_significance_by_contact_order_z':
@@ -2776,7 +2793,7 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
                     'collapse_sequential_peaks_z': _per_residue_dock_sequential_peaks_collapse_z,
                     'collapse_sequential_z': _per_residue_dock_collapse_sequential_z,
                     # The below structure has shape (batch_length,)
-                    'collapse_violation': number_collapse_new_islands_per_designed > 0
+                    'collapse_violation': number_collapse_new_positions_per_designed > 0
                 }
             else:
                 # _per_residue_dock_islands = _per_residue_dock_island_significance = \
@@ -2857,6 +2874,7 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
             #     _poor_collapse = _per_residue_mini_batch_collapse_z[:, 0]
 
             return {
+                **collapse_fit_parameters,
                 # The below structures have a shape (batch_length, pose_length)
                 'design_indices': _residue_indices_of_interest,
                 'design_cross_entropy': _per_residue_design_cross_entropy,
@@ -3222,9 +3240,9 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
                                                  hydrophobicity='expanded')
                 for pose_idx, profile_metrics in enumerate(profile_metrics_by_pose):
                     # Unpack each metric set and add to the batch arrays
-                    _per_residue_dock_islands[pose_idx] = profile_metrics['collapse_new_islands']
+                    _per_residue_dock_islands[pose_idx] = profile_metrics['collapse_new_positions']
                     _per_residue_dock_island_significance[pose_idx] = \
-                        profile_metrics['collapse_new_island_significance']
+                        profile_metrics['collapse_new_position_significance']
                     _per_residue_dock_collapse_significance_by_contact_order_z[pose_idx] = \
                         profile_metrics['collapse_significance_by_contact_order_z']
                     _per_residue_dock_collapse_increase_significance_by_contact_order_z[pose_idx] = \
@@ -3236,15 +3254,17 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
                         profile_metrics['collapse_sequential_peaks_z']
                     _per_residue_dock_collapse_sequential_z[pose_idx] = profile_metrics['collapse_sequential_z']
 
-                number_collapse_new_islands_per_designed = \
+                # Check if there are new collapse islands and count
+                # If there are any then there is a collapse violation
+                number_collapse_new_positions_per_designed = \
                     _per_residue_dock_islands[_residue_indices_of_interest].sum(axis=-1)
                 # if np.any(np.logical_and(_per_residue_dock_islands[_residue_indices_of_interest],
                 #                          _per_residue_dock_collapse_increased_z[_residue_indices_of_interest])):
-                # _poor_collapse = designed_collapse_new_islands > 0
+                # _poor_collapse = designed_collapse_new_positions > 0
                 collapse_fit_parameters = {
                     # The below structures have a shape (batch_length, pose_length)
-                    'collapse_new_islands': _per_residue_dock_islands,
-                    'collapse_new_island_significance': _per_residue_dock_island_significance,
+                    'collapse_new_positions': _per_residue_dock_islands,
+                    'collapse_new_position_significance': _per_residue_dock_island_significance,
                     'collapse_significance_by_contact_order_z':
                         _per_residue_dock_collapse_significance_by_contact_order_z,
                     'collapse_increase_significance_by_contact_order_z':
@@ -3254,7 +3274,7 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
                     'collapse_sequential_peaks_z': _per_residue_dock_sequential_peaks_collapse_z,
                     'collapse_sequential_z': _per_residue_dock_collapse_sequential_z,
                     # The below structure has shape (batch_length,)
-                    'collapse_violation': number_collapse_new_islands_per_designed > 0
+                    'collapse_violation': number_collapse_new_positions_per_designed > 0
                 }
             else:
                 # _per_residue_dock_islands = _per_residue_dock_island_significance = \
@@ -3454,8 +3474,8 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
             # per_residue_dock_sequential_peaks_collapse_z = np.zeros_like(per_residue_collapse)
             # per_residue_dock_collapse_sequential_z = np.zeros_like(per_residue_collapse)
             # collapse_violation = np.zeros((size,), dtype=bool)
-            collapse_returns = {'collapse_new_islands': per_residue_collapse,
-                                'collapse_new_island_significance': np.zeros_like(per_residue_collapse),
+            collapse_returns = {'collapse_new_positions': per_residue_collapse,
+                                'collapse_new_position_significance': np.zeros_like(per_residue_collapse),
                                 'collapse_significance_by_contact_order_z': np.zeros_like(per_residue_collapse),
                                 'collapse_increase_significance_by_contact_order_z': np.zeros_like(per_residue_collapse),
                                 'collapse_increased_z': np.zeros_like(per_residue_collapse),
@@ -3516,8 +3536,8 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
             generated_sequences = per_residue_complex_sequence_loss = per_residue_unbound_sequence_loss = None
 
         if collapse_profile.size:
-            per_residue_dock_islands = sequences_and_scores['collapse_new_islands']
-            per_residue_dock_island_significance = sequences_and_scores['collapse_new_island_significance']
+            per_residue_dock_islands = sequences_and_scores['collapse_new_positions']
+            per_residue_dock_island_significance = sequences_and_scores['collapse_new_position_significance']
             per_residue_dock_collapse_significance_by_contact_order_z = \
                 sequences_and_scores['collapse_significance_by_contact_order_z']
             per_residue_dock_collapse_increase_significance_by_contact_order_z = \
@@ -3748,10 +3768,12 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
 
             if collapse_profile.size:
                 design_dock_params.update({
-                    'dock_collapse_new_islands': per_residue_dock_islands[idx],
-                    'dock_collapse_new_island_significance': per_residue_dock_island_significance[idx],
-                    'dock_collapse_significance_by_contact_order_z': per_residue_dock_collapse_significance_by_contact_order_z[idx],
-                    'dock_collapse_increase_significance_by_contact_order_z': per_residue_dock_collapse_increase_significance_by_contact_order_z[idx],
+                    'dock_collapse_new_positions': per_residue_dock_islands[idx],
+                    'dock_collapse_new_position_significance': per_residue_dock_island_significance[idx],
+                    'dock_collapse_significance_by_contact_order_z':
+                        per_residue_dock_collapse_significance_by_contact_order_z[idx],
+                    'dock_collapse_increase_significance_by_contact_order_z':
+                        per_residue_dock_collapse_increase_significance_by_contact_order_z[idx],
                     'dock_collapse_increased_z': per_residue_dock_collapse_increased_z[idx],
                     'dock_collapse_deviation_magnitude': per_residue_dock_collapse_deviation_magnitude[idx],
                     'dock_collapse_sequential_peaks_z': per_residue_dock_sequential_peaks_collapse_z[idx],
@@ -4054,8 +4076,8 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
         designed_df = per_residue_df.loc[:, idx_slice[:, 'designed_residues_total']].droplevel(1, axis=1)
 
         if job.dock.proteinmpnn_score:
-            # scores_df['collapse_new_islands'] /= scores_df['pose_length']
-            # scores_df['collapse_new_island_significance'] /= scores_df['pose_length']
+            # scores_df['collapse_new_positions'] /= scores_df['pose_length']
+            # scores_df['collapse_new_position_significance'] /= scores_df['pose_length']
             scores_df['dock_collapse_significance_by_contact_order_z_mean'] = \
                 scores_df['dock_collapse_significance_by_contact_order_z'] / \
                 (per_residue_df.loc[:, idx_slice[:, 'dock_collapse_significance_by_contact_order_z']] != 0).sum(axis=1)
@@ -4095,8 +4117,8 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
             # The per residue average proteinmpnn versus evolution cross entropy in the pose
 
         if job.design.sequences:
-            # scores_df['collapse_new_islands'] /= scores_df['pose_length']
-            # scores_df['collapse_new_island_significance'] /= scores_df['pose_length']
+            # scores_df['collapse_new_positions'] /= scores_df['pose_length']
+            # scores_df['collapse_new_position_significance'] /= scores_df['pose_length']
             scores_df['collapse_significance_by_contact_order_z_mean'] = \
                 scores_df['collapse_significance_by_contact_order_z'] / \
                 (per_residue_df.loc[:, idx_slice[:, 'collapse_significance_by_contact_order_z']] != 0).sum(axis=1)
