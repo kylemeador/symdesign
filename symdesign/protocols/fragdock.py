@@ -2658,8 +2658,9 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
             #  surface. This should be simultaneously minimized (i.e. lowest evolutionary divergence)
             #  while the aa frequency distribution cross_entropy compared to the fragment profile is
             #  minimized
+            # Remove the gaps index from the softmax input -> ... :, :mpnn_null_idx]
             asu_conditional_softmax_null_seq = \
-                np.exp(conditional_log_probs_null_seq[:, :pose_length])
+                np.exp(conditional_log_probs_null_seq[:, :pose_length, :mpnn_null_idx])
             # asu_conditional_softmax
             # tensor([[[0.0273, 0.0125, 0.0200,  ..., 0.0073, 0.0102, 0.0052],
             #          [0.0273, 0.0125, 0.0200,  ..., 0.0073, 0.0102, 0.0052],
@@ -2683,14 +2684,13 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
                 # RuntimeWarning: divide by zero encountered in log
                 # np.log causes -inf at 0, thus we need to correct these to a very large number
                 batch_fragment_profile = torch.from_numpy(np.nan_to_num(fragment_profile_array, copy=False, nan=np.nan))
-                # print('batch_fragment_profile', batch_fragment_profile[:, 20:23])
-                # Remove the gaps index from the softmax input -> ... :, :mpnn_null_idx]
                 _per_residue_fragment_cross_entropy = \
-                    cross_entropy(asu_conditional_softmax_null_seq[:, :, :mpnn_null_idx],
+                    cross_entropy(asu_conditional_softmax_null_seq,
                                   batch_fragment_profile,
                                   per_entry=True)
                 #                 mask=_residue_indices_of_interest,
                 #                 axis=1)
+                # print('batch_fragment_profile', batch_fragment_profile[:, 20:23])
                 # All per_residue metrics look the same. Shape batch_length, number_of_residues
                 # per_residue_evolution_cross_entropy[batch_slice]
                 # [[-3.0685883 -3.575249  -2.967545  ... -3.3111317 -3.1204746 -3.1201541]
@@ -2701,9 +2701,8 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
                 _per_residue_fragment_cross_entropy[:] = np.nan
 
             if pose.evolutionary_profile:
-                # Remove the gaps index from the softmax input -> ... :, :mpnn_null_idx]
                 _per_residue_evolution_cross_entropy = \
-                    cross_entropy(asu_conditional_softmax_null_seq[:, :, :mpnn_null_idx],
+                    cross_entropy(asu_conditional_softmax_null_seq,
                                   batch_evolutionary_profile[:actual_batch_length],
                                   per_entry=True)
                 #                 mask=_residue_indices_of_interest,
@@ -2715,19 +2714,12 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
             if pose.profile:
                 # Process the design_profiles into an array for cross entropy
                 batch_design_profile = torch.from_numpy(np.array(design_profiles))
-                # print('batch_design_profile', batch_design_profile[:, 20:23])
-                # Remove the gaps index from the softmax input -> ... :, :mpnn_null_idx]
                 _per_residue_design_cross_entropy = \
-                    cross_entropy(asu_conditional_softmax_null_seq[:, :, :mpnn_null_idx],
+                    cross_entropy(asu_conditional_softmax_null_seq,
                                   batch_design_profile,
                                   per_entry=True)
                 #                 mask=_residue_indices_of_interest,
                 #                 axis=1)
-                # All per_residue metrics look the same. Shape batch_length, number_of_residues
-                # per_residue_evolution_cross_entropy[batch_slice]
-                # [[-3.0685883 -3.575249  -2.967545  ... -3.3111317 -3.1204746 -3.1201541]
-                #  [-3.0685873 -3.5752504 -2.9675443 ... -3.3111336 -3.1204753 -3.1201541]
-                #  [-3.0685952 -3.575687  -2.9675474 ... -3.3111277 -3.1428783 -3.1201544]]
             else:  # Populate with null data
                 _per_residue_design_cross_entropy = np.empty_like(_per_residue_fragment_cross_entropy)
                 _per_residue_design_cross_entropy[:] = np.nan
@@ -2747,8 +2739,9 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
                 # Include new axis for the sequence iteration to work on an array... v
                 profile_metrics_by_pose = \
                     metrics.collapse_per_residue(asu_conditional_softmax_null_seq[:, np.newaxis],
-                                                 contact_order_per_res_z, reference_collapse, collapse_profile,
-                                                 alphabet_type=ml.mpnn_alphabet)
+                                                 contact_order_per_res_z, reference_collapse,
+                                                 alphabet_type=protein_letters_alph1,
+                                                 hydrophobicity='expanded')
                 for pose_idx, profile_metrics in enumerate(profile_metrics_by_pose):
                     # Unpack each metric set and add to the batch arrays
                     _per_residue_dock_islands[pose_idx] = profile_metrics['collapse_new_islands']
@@ -2869,8 +2862,6 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
                 'design_cross_entropy': _per_residue_design_cross_entropy,
                 'evolution_cross_entropy': _per_residue_evolution_cross_entropy,
                 'fragment_cross_entropy': _per_residue_fragment_cross_entropy,
-                # 'collapse_z': _per_residue_mini_batch_collapse_z,
-                # 'collapse_violation': _poor_collapse,
             }
 
         @torch.no_grad()  # Ensure no gradients are produced
@@ -3146,8 +3137,9 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
             #  surface. This should be simultaneously minimized (i.e. lowest evolutionary divergence)
             #  while the aa frequency distribution cross_entropy compared to the fragment profile is
             #  minimized
+            # Remove the gaps index from the softmax input -> ... :, :mpnn_null_idx]
             asu_conditional_softmax_null_seq = \
-                np.exp(conditional_log_probs_null_seq[:, :pose_length])
+                np.exp(conditional_log_probs_null_seq[:, :pose_length, :mpnn_null_idx])
             # asu_conditional_softmax
             # tensor([[[0.0273, 0.0125, 0.0200,  ..., 0.0073, 0.0102, 0.0052],
             #          [0.0273, 0.0125, 0.0200,  ..., 0.0073, 0.0102, 0.0052],
@@ -3171,14 +3163,13 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
                 # RuntimeWarning: divide by zero encountered in log
                 # np.log causes -inf at 0, thus we need to correct these to a very large number
                 batch_fragment_profile = torch.from_numpy(np.nan_to_num(fragment_profile_array, copy=False, nan=np.nan))
-                # print('batch_fragment_profile', batch_fragment_profile[:, 20:23])
-                # Remove the gaps index from the softmax input -> ... :, :mpnn_null_idx]
                 _per_residue_fragment_cross_entropy = \
-                    cross_entropy(asu_conditional_softmax_null_seq[:, :, :mpnn_null_idx],
+                    cross_entropy(asu_conditional_softmax_null_seq,
                                   batch_fragment_profile,
                                   per_entry=True)
                 #                 mask=_residue_indices_of_interest,
                 #                 axis=1)
+                # print('batch_fragment_profile', batch_fragment_profile[:, 20:23])
                 # All per_residue metrics look the same. Shape batch_length, number_of_residues
                 # per_residue_evolution_cross_entropy[batch_slice]
                 # [[-3.0685883 -3.575249  -2.967545  ... -3.3111317 -3.1204746 -3.1201541]
@@ -3189,9 +3180,8 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
                 _per_residue_fragment_cross_entropy[:] = np.nan
 
             if pose.evolutionary_profile:
-                # Remove the gaps index from the softmax input -> ... :, :mpnn_null_idx]
                 _per_residue_evolution_cross_entropy = \
-                    cross_entropy(asu_conditional_softmax_null_seq[:, :, :mpnn_null_idx],
+                    cross_entropy(asu_conditional_softmax_null_seq,
                                   batch_evolutionary_profile[:actual_batch_length],
                                   per_entry=True)
                 #                 mask=_residue_indices_of_interest,
@@ -3203,19 +3193,12 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
             if pose.profile:
                 # Process the design_profiles into an array for cross entropy
                 batch_design_profile = torch.from_numpy(np.array(design_profiles))
-                # print('batch_design_profile', batch_design_profile[:, 20:23])
-                # Remove the gaps index from the softmax input -> ... :, :mpnn_null_idx]
                 _per_residue_design_cross_entropy = \
-                    cross_entropy(asu_conditional_softmax_null_seq[:, :, :mpnn_null_idx],
+                    cross_entropy(asu_conditional_softmax_null_seq,
                                   batch_design_profile,
                                   per_entry=True)
                 #                 mask=_residue_indices_of_interest,
                 #                 axis=1)
-                # All per_residue metrics look the same. Shape batch_length, number_of_residues
-                # per_residue_evolution_cross_entropy[batch_slice]
-                # [[-3.0685883 -3.575249  -2.967545  ... -3.3111317 -3.1204746 -3.1201541]
-                #  [-3.0685873 -3.5752504 -2.9675443 ... -3.3111336 -3.1204753 -3.1201541]
-                #  [-3.0685952 -3.575687  -2.9675474 ... -3.3111277 -3.1428783 -3.1201544]]
             else:  # Populate with null data
                 _per_residue_design_cross_entropy = np.empty_like(_per_residue_fragment_cross_entropy)
                 _per_residue_design_cross_entropy[:] = np.nan
@@ -3234,8 +3217,9 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
                 # Include new axis for the sequence iteration to work on an array... v
                 profile_metrics_by_pose = \
                     metrics.collapse_per_residue(asu_conditional_softmax_null_seq[:, np.newaxis],
-                                                 contact_order_per_res_z, reference_collapse, collapse_profile,
-                                                 alphabet_type=ml.mpnn_alphabet)
+                                                 contact_order_per_res_z, reference_collapse,
+                                                 alphabet_type=protein_letters_alph1,
+                                                 hydrophobicity='expanded')
                 for pose_idx, profile_metrics in enumerate(profile_metrics_by_pose):
                     # Unpack each metric set and add to the batch arrays
                     _per_residue_dock_islands[pose_idx] = profile_metrics['collapse_new_islands']
@@ -3338,9 +3322,6 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
                 'design_cross_entropy': _per_residue_design_cross_entropy,
                 'evolution_cross_entropy': _per_residue_evolution_cross_entropy,
                 'fragment_cross_entropy': _per_residue_fragment_cross_entropy,
-                # 'collapse_z': _per_residue_mini_batch_collapse_z,
-                # The below structures have a shape (batch_length,)
-                # 'collapse_violation': _poor_collapse,
             }
 
             batch_sequences = []
@@ -3998,8 +3979,10 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
             # Todo, should the reference pose be used? -> + [entity.sequence for entity in pose.entities]
             #  Include the pose as the pose_source in the measured designs
             # Data contact_order_per_res_z, reference_collapse, collapse_profile come from pose.get_folding_metrics()
+            # contact_order_per_res_z, reference_collapse, collapse_profile = \
+            #     pose.get_folding_metrics(hydrophobicity='standard')
             folding_and_collapse = metrics.collapse_per_residue(all_sequences_by_entity, contact_order_per_res_z,
-                                                                reference_collapse, collapse_profile)
+                                                                reference_collapse)
             per_residue_collapse_df = pd.concat({design_id: pd.DataFrame(data, index=residue_numbers)
                                                  for design_id, data in zip(design_ids, folding_and_collapse)},
                                                 ).unstack().swaplevel(0, 1, axis=1)
