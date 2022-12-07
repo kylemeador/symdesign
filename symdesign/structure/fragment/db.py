@@ -7,6 +7,7 @@ from typing import Annotated, Literal, get_args, Type, Union
 import numpy as np
 
 from symdesign import utils, structure
+from . import info
 
 # Globals
 logger = logging.getLogger(__name__)
@@ -36,7 +37,7 @@ class Representative:
             raise ValueError(f"Couldn't get the representative residue index upon initialization")
 
 
-class FragmentDatabase(structure.fragment.info.FragmentInfo):
+class FragmentDatabase(info.FragmentInfo):
     cluster_representatives_path: str
     cluster_info_path: str
     euler_lookup: EulerLookup
