@@ -25,7 +25,7 @@ from symdesign.utils.path import submodule_guide, submodule_help, force, sym_ent
     proteinmpnn, output_trajectory, development, consensus, ca_only, sequences, structures, temperatures, \
     distribute_work, output_directory, output_surrounding_uc, skip_logging, output_file, multicistronic, \
     generate_fragments, input_, output, output_assembly, expand_asu, check_clashes, rename_chains, optimize_designs, \
-    perturb_dof, tag_entities
+    perturb_dof, tag_entities, design
 
 design_programs_literal = Literal['proteinmpnn', 'rosetta']
 design_programs: tuple[design_programs_literal] = get_args(design_programs_literal)
@@ -566,28 +566,48 @@ cluster_poses_arguments = {
                                 f'\nDefault={default_clustered_pose_file.format("TIMESTAMP", "LOCATION")}')
 }
 # ---------------------------------------------------
-interface_design_help = 'Gather poses of interest and format for design using Rosetta/' \
-                        'ProteinMPNN.\nConstrain using evolutionary profiles of homologous sequences\nand/or fragment' \
-                        ' profiles extracted from the PDB or neither'
-parser_design = {interface_design: dict(description=interface_design_help, help=interface_design_help)}
+design_method_args = ('-m', f'--{method}', f'--design-{method}')
+design_method_kwargs = dict(type=str.lower, default=proteinmpnn, choices=design_programs, metavar='',
+                            help='Which design method should be used?\nChoices=%(choices)s\nDefault=%(default)s')
+hbnet_args = ('-hb', f'--{hbnet}')
+hbnet_kwargs = dict(action=argparse.BooleanOptionalAction, default=True,
+                    help=f'Whether to include hydrogen bond networks in the design.'
+                         f'\n{boolean_positional_prevent_msg(hbnet)}')
+
+structure_background_args = ('-sb', f'--{structure_background}')
+structure_background_kwargs = dict(action=argparse.BooleanOptionalAction, default=False,
+                                   help='Whether to skip all constraints and measure the structure using only the '
+                                        'selected energy function')
+trajectory_args = ('-n', f'--{number_of_trajectories}')
+trajectory_kwargs = dict(type=int, default=nstruct, metavar='INT',
+                         help='How many unique sequences should be generated for each input?\nDefault=%(default)s')
+scout_args = ('-sc', f'--{scout}')
+scout_kwargs = dict(action=argparse.BooleanOptionalAction, default=False,
+                    help='Whether to set up a low resolution scouting protocol to survey designability')
+design_help = 'Gather poses of interest and format for sequence design using Rosetta/ProteinMPNN.' \
+              '\nConstrain using evolutionary profiles of homologous sequences' \
+              '\nand/or fragment profiles extracted from the PDB or neither'
+parser_design = {design: dict(description=design_help, help=design_help)}
+design_arguments = {
+    evolution_constraint_args: evolution_constraint_kwargs,
+    hbnet_args: hbnet_kwargs,
+    design_method_args: design_method_kwargs,
+    trajectory_args: trajectory_kwargs,
+    structure_background_args: structure_background_kwargs,
+    scout_args: scout_kwargs,
+    term_constraint_args: term_constraint_kwargs
+}
+interface_design_help = 'Gather poses of interest and format for interface specific sequence design using' \
+                        '\nRosetta/ProteinMPNN. Constrain using evolutionary profiles of homologous' \
+                        '\nsequences and/or fragment profiles extracted from the PDB, or neither'
+parser_interface_design = {interface_design: dict(description=interface_design_help, help=interface_design_help)}
 interface_design_arguments = {
     evolution_constraint_args: evolution_constraint_kwargs,
-    ('-hb', f'--{hbnet}'):
-        dict(action=argparse.BooleanOptionalAction, default=True,
-             help=f'Whether to include hydrogen bond networks in the design.\n{boolean_positional_prevent_msg(hbnet)}'),
-    ('-m', f'--{method}', f'--design-{method}'):
-        dict(type=str.lower, default=proteinmpnn, choices={proteinmpnn, rosetta_str}, metavar='',
-             help='Which design method should be used?\nChoices=%(choices)s\nDefault=%(default)s'),
-    ('-n', f'--{number_of_trajectories}'):
-        dict(type=int, default=nstruct, metavar='INT',
-             help='How many unique sequences should be generated for each input?\nDefault=%(default)s'),
-    ('-sb', f'--{structure_background}'):
-        dict(action=argparse.BooleanOptionalAction, default=False,
-             help='Whether to skip all constraints and measure the structure using '
-                  'only the selected energy function'),
-    ('-sc', f'--{scout}'):
-        dict(action=argparse.BooleanOptionalAction, default=False,
-             help='Whether to set up a low resolution scouting protocol to survey designability'),
+    hbnet_args: hbnet_kwargs,
+    design_method_args: design_method_kwargs,
+    trajectory_args: trajectory_kwargs,
+    structure_background_args: structure_background_kwargs,
+    scout_args: scout_kwargs,
     term_constraint_args: term_constraint_kwargs
 }
 # ---------------------------------------------------
@@ -922,7 +942,8 @@ module_parsers = {
     'nanohedra_mutual2': parser_nanohedra_mutual2_group,  # _mutual2,
     'nanohedra_mutual_run_type': parser_nanohedra_run_type_mutual_group,  # _mutual,
     cluster_poses: parser_cluster,
-    interface_design: parser_design,
+    design: parser_design,
+    interface_design: parser_interface_design,
     interface_metrics: parser_metrics,
     optimize_designs: parser_optimize_designs,
     # custom_script: parser_custom,
@@ -960,6 +981,7 @@ parser_arguments = {
     'nanohedra_mutual2': nanohedra_mutual2_arguments,  # mutually_exclusive_group
     'nanohedra_mutual_run_type': nanohedra_run_type_mutual_arguments,  # mutually_exclusive
     cluster_poses: cluster_poses_arguments,
+    design: design_arguments,
     interface_design: interface_design_arguments,
     interface_metrics: interface_metrics_arguments,
     optimize_designs: optimize_designs_arguments,
