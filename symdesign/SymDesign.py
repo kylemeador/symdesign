@@ -248,7 +248,8 @@ def main():
                     #                                                                        ^ for sbatch template
                 logger.critical(sbatch_warning)
 
-                if job.module == flags.interface_design and job.initial_refinement:  # True, should refine before design
+                if job.module in [flags.interface_design, flags.design] and job.initial_refinement:
+                    # We should refine before design
                     refine_file = utils.write_commands([os.path.join(design.scripts, f'{flags.refine}.sh')
                                                         for design in success], out_path=job_paths,
                                                        name='_'.join((utils.starttime, flags.refine, design_source)))
@@ -483,7 +484,7 @@ def main():
     # Todo we should run this check before every module used as in the case of universal protocols
     #  See if it can be detached here and made into function in main() scope
     initialize = True
-    if job.module in [flags.interface_design, flags.generate_fragments, flags.orient, flags.expand_asu,
+    if job.module in [flags.interface_design, flags.design, flags.generate_fragments, flags.orient, flags.expand_asu,
                       flags.interface_metrics, flags.refine, flags.optimize_designs, flags.rename_chains,
                       flags.check_clashes]:  # , 'custom_script', 'find_asu', 'status', 'visualize'
         # Set up design directories
@@ -524,7 +525,7 @@ def main():
         reported_args = job.report_unspecified_arguments(args)
 
     logger.info(f'Using resources in Database located at "{job.data}"')
-    if job.module in [flags.nanohedra, flags.generate_fragments, flags.interface_design, flags.analysis]:
+    if job.module in [flags.nanohedra, flags.generate_fragments, flags.interface_design, flags.design, flags.analysis]:
         if job.design.term_constraint:
             job.fragment_db = fragment_factory(source=args.fragment_database)
             # Initialize EulerLookup class
@@ -607,7 +608,7 @@ def main():
         #  directories/resources that haven't been made
         # Check to see that proper files have been created including orient, refinement, loop modeling, hhblits, bmdca?
         initialized = representative_pose_directory.initialized
-        initialize_modules = [flags.interface_design, flags.interface_metrics, flags.optimize_designs]
+        initialize_modules = [flags.interface_design, flags.design, flags.interface_metrics, flags.optimize_designs]
         #      flags.analysis,  # maybe hhblits, bmDCA. Only refine if Rosetta were used, no loop_modelling
         #      flags.refine]  # pre_refine not necessary. maybe hhblits, bmDCA, loop_modelling
         # Todo fix below sloppy logic
@@ -916,7 +917,8 @@ def main():
     # -----------------------------------------------------------------------------------------------------------------
     # Format computational requirements
     distribute_modules = [
-        flags.nanohedra, flags.refine, flags.interface_design, flags.interface_metrics, flags.optimize_designs
+        flags.nanohedra, flags.refine, flags.interface_design, flags.design, flags.interface_metrics,
+        flags.optimize_designs
     ]
     if job.module in distribute_modules:
         if job.distribute_work:
@@ -956,6 +958,7 @@ def main():
             putils.optimize_designs,
             putils.refine,
             putils.interface_design,
+            putils.design,
             putils.analysis,
             putils.nanohedra
         )
@@ -1149,6 +1152,15 @@ def main():
         else:
             for design in pose_directories:
                 results.append(design.interface_design())
+
+        terminate(results=results)
+    # ---------------------------------------------------
+    elif job.module == flags.design:
+        if args.multi_processing:
+            results = utils.mp_map(PoseDirectory.design, pose_directories, processes=job.cores)
+        else:
+            for design in pose_directories:
+                results.append(design.design())
 
         terminate(results=results)
     # ---------------------------------------------------

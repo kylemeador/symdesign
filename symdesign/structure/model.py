@@ -5472,8 +5472,8 @@ class Pose(SymmetricModel):
 
     def get_proteinmpnn_params(self, ca_only: bool = False, pssm_multi: float = 0., pssm_log_odds_flag: bool = False,
                                pssm_bias_flag: bool = False, bias_profile_by_probabilities: bool = False,
-                               interface: bool = True, decode_core_first: bool = False,
-                               **kwargs) -> dict[str, np.ndarray]:
+                               interface: bool = True, **kwargs) -> dict[str, np.ndarray]:
+        # decode_core_first: bool = False
         """
 
         Args:
@@ -5485,12 +5485,12 @@ class Pose(SymmetricModel):
             pssm_bias_flag: Whether to use bias to modulate the residue probabilities designed
             bias_profile_by_probabilities: Whether to produce bias by profile probabilities as opposed to profile lods
             interface: Whether to design the interface only
-            decode_core_first: Whether to decode the interface core first
         Keyword Args:
             distance: (float) = 8. - The distance to measure Residues across an interface
         Returns:
             A mapping of the ProteinMPNN parameter names to their data, typically arrays
         """
+        #   decode_core_first: Whether to decode the interface core first
         # Initialize pose data structures for design
         if interface:
             self.find_and_split_interface(**kwargs)
@@ -5499,6 +5499,13 @@ class Pose(SymmetricModel):
             design_residues = [residue.index for residue in self.design_residues]
         else:
             design_residues = list(range(self.number_of_residues))
+
+        if ca_only:  # self.job.design.ca_only:
+            coords_type = 'ca_coords'
+            num_model_residues = 1
+        else:
+            coords_type = 'backbone_coords'
+            num_model_residues = 4
 
         # Make masks for the sequence design task
         # Residue position mask denotes which residues should be designed. 1 - designed, 0 - known
@@ -5537,7 +5544,7 @@ class Pose(SymmetricModel):
             number_of_symmetry_mates = self.number_of_symmetry_mates
             number_of_residues = self.number_of_residues
             number_of_sym_residues = number_of_residues*number_of_symmetry_mates
-            X = self.return_symmetric_coords(self.backbone_coords)
+            X = self.return_symmetric_coords(getattr(self, coords_type))
             # Should be N, CA, C, O for each residue
             #  v - Residue
             # [[[N  [x, y, z],
@@ -5547,7 +5554,7 @@ class Pose(SymmetricModel):
             #  [[], ...      ]]
             # split the coordinates into those grouped by residues
             # X = np.array(.split(X, self.number_of_residues))
-            X = X.reshape((number_of_sym_residues, 4, 3))  # (number_of_sym_residues, 4, 3)
+            X = X.reshape((number_of_sym_residues, num_model_residues, 3))  # (number_of_sym_residues, 4, 3)
 
             S = np.tile(self.sequence_numeric, number_of_symmetry_mates)  # (number_of_sym_residues,)
             # self.log.info(f'self.sequence_numeric: {self.sequence_numeric}')
@@ -5594,7 +5601,7 @@ class Pose(SymmetricModel):
             tied_pos = [self.make_indices_symmetric([idx], dtype='residue') for idx in design_residues]
             # (design_residues, number_of_symmetry_mates)
         else:
-            X = self.backbone_coords.reshape((self.number_of_residues, 4, 3))  # (number_of_residues, 4, 3)
+            X = getattr(self, coords_type).reshape((self.number_of_residues, num_model_residues, 3))  # (residues, 4, 3)
             S = self.sequence_numeric  # (number_of_residues,)
             mask = np.ones_like(residue_mask)  # (number_of_residues,)
             chain_mask = np.ones_like(residue_mask)  # (number_of_residues,)
@@ -5629,7 +5636,7 @@ class Pose(SymmetricModel):
                     bias_by_res=bias_by_res
                     )
 
-    def generate_proteinmpnn_decode_order(self, to_device: str = None, core_first: bool = False) -> \
+    def generate_proteinmpnn_decode_order(self, to_device: str = None, core_first: bool = False, **kwargs) -> \
             torch.Tensor | np.ndarray:
         """Return the decoding order for ProteinMPNN. Currently just returns an array of random floats
 
@@ -5658,28 +5665,27 @@ class Pose(SymmetricModel):
             return torch.from_numpy(decode_order).to(dtype=torch.float32, device=to_device)
 
     @torch.no_grad()  # Ensure no gradients are produced
-    def design_sequences(self, number: int = flags.nstruct,
-                         method: design_algorithms_literal = putils.proteinmpnn, ca_only: bool = False,
-                         temperatures: Sequence[float] = (0.1,), measure_unbound: bool = True, **kwargs) \
+    def design_sequences(self, method: flags.design_programs_literal = putils.proteinmpnn, number: int = flags.nstruct,
+                         temperatures: Sequence[float] = (0.1,), interface: bool = True, measure_unbound: bool = True,
+                         ca_only: bool = False, **kwargs) \
             -> dict[str, np.ndarray]:
         """Perform sequence design on the Pose
 
         Args:
-            number: The number of sequences to design
             method: Whether to design using ProteinMPNN or Rosetta
-            ca_only: Whether a minimal CA variant of the protein should be used for design calculations
+            number: The number of sequences to design
             temperatures: The temperature to perform design at
+            interface: Whether to design the interface only
             measure_unbound: Whether the protein should be designed with concern for the unbound state
+            ca_only: Whether a minimal CA variant of the protein should be used for design calculations
         Keyword Args:
             model_name: str = 'v_48_020' - The name of the model to use from ProteinMPNN. v_X_Y where X is neighbor distance, and Y is noise
             backbone_noise: float = 0.0 - The amount of backbone noise to add to the pose during design
-            interface: bool = True - Whether to design the interface only
             pssm_log_odds_flag: bool = False - Whether to use log_odds mask to limit the residues designed
             pssm_bias_flag: bool = False - Whether to use bias to modulate the residue probabilites designed
             pssm_multi: float = 0.0 - How much to skew the design probabilities towards the sequence profile.
                 Bounded between [1, 0] where 0 is no sequence profile probability.
                 Only used with pssm_bias_flag
-            interface: bool = True - Whether to design the interface only
             decode_core_first: bool = False - Whether to decode identified fragments (constituting the protein core) first
         Returns:
             A mapping of the design output type to the output.
@@ -5700,7 +5706,7 @@ class Pose(SymmetricModel):
 
             pose_length = self.number_of_residues
             size = number
-            batch_length = 6
+            batch_length = 6  # Todo calculate based on parameters
             # Set up parameters and model sampling type based on symmetry
             if self.is_symmetric():
                 # number_of_symmetry_mates = pose.number_of_symmetry_mates
@@ -5710,7 +5716,7 @@ class Pose(SymmetricModel):
                 # mpnn_sample = proteinmpnn_model.sample
                 number_of_residues = pose_length
 
-            if measure_unbound:
+            if interface and measure_unbound:
                 if ca_only:  # self.job.design.ca_only:
                     coords_type = 'ca_coords'
                     num_model_residues = 1
@@ -5738,9 +5744,9 @@ class Pose(SymmetricModel):
                 parameters = {}
 
             # Set up the inference task
-            parameters.update(**self.get_proteinmpnn_params(ca_only=ca_only))
+            parameters.update(**self.get_proteinmpnn_params(ca_only=ca_only, interface=interface, **kwargs))
             # Solve decoding order
-            parameters['randn'] = self.generate_proteinmpnn_decode_order()  # to_device=device)
+            parameters['randn'] = self.generate_proteinmpnn_decode_order(**kwargs)  # to_device=device)
 
             # # number_of_batches = size // batch_length
             # number_of_batches = int(math.ceil(size/batch_length) or 1)  # Select at least 1

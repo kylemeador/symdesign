@@ -1879,7 +1879,103 @@ class PoseDirectory:
                 self.pose.fragment_profile.write(file_name=self.fragment_profile_file)
                 self.rosetta_interface_design()  # Sets self.protocol
             case putils.proteinmpnn:
-                self.proteinmpnn_interface_design()  # Sets self.protocol
+                self.proteinmpnn_design(interface=True)  # Sets self.protocol
+            case other:
+                raise ValueError(f"The method '{self.job.design.method}' isn't available")
+        self.pickle_info()  # Todo remove once PoseDirectory state can be returned to the SymDesign dispatch w/ MP
+
+    @handle_design_errors(errors=(DesignError,))
+    @close_logs
+    @remove_structure_memory
+    def design(self):
+        """For the design info given by a PoseDirectory source, initialize the Pose then prepare all parameters for
+        sequence design. Aware of symmetry, design_selectors, fragments, and evolutionary information
+        """
+        # if self.job.command_only and not self.job.distribute_work:  # Just reissue the commands
+        #     pass
+        # else:
+        # if self.interface_residue_numbers is False or self.interface_design_residue_numbers is False:
+        #     self.identify_interface()
+        # else:  # We only need to load pose as we already calculated interface
+        self.load_pose()
+
+        putils.make_path(self.data)  # Todo consolidate this check with pickle_info()
+        # Create all files which store the evolutionary_profile and/or fragment_profile -> design_profile
+        if self.job.design.method == putils.rosetta_str:
+            raise NotImplementedError(f"Can't perform design using Rosetta just yet. Try {flags.interface_design}...")
+            favor_fragments = evo_fill = True
+        else:
+            favor_fragments = evo_fill = False
+
+        if self.job.generate_fragments:
+            self.pose.generate_fragments()
+            self.fragment_observations = self.pose.get_fragment_observations()
+            self.info['fragment_source'] = self.job.fragment_db.source
+            if self.job.write_fragments:
+                self.pose.write_fragment_pairs(out_path=self.frags)
+            self.pose.calculate_fragment_profile(evo_fill=evo_fill)
+        elif isinstance(self.fragment_observations, list):
+            raise NotImplementedError(f"Can't put fragment observations taken away from the pose onto the pose due to "
+                                      f"entities")
+            self.pose.fragment_pairs = self.fragment_observations
+            self.pose.calculate_fragment_profile(evo_fill=evo_fill)
+
+        # elif os.path.exists(self.frag_file):
+        #     self.retrieve_fragment_info_from_file()
+
+        if self.job.design.evolution_constraint:
+            for entity in self.pose.entities:
+                if entity not in self.pose.active_entities:  # We shouldn't design, add a null profile instead
+                    entity.add_profile(null=True)
+                else:  # Add a real profile
+                    # entity.add_profile(evolution=self.job.design.evolution_constraint,
+                    #                    fragments=self.job.generate_fragments,
+                    #                    out_dir=self.job.api_db.hhblits_profiles.location)
+                    entity.sequence_file = self.job.api_db.sequences.retrieve_file(name=entity.name)
+                    entity.evolutionary_profile = self.job.api_db.hhblits_profiles.retrieve_data(name=entity.name)
+                    if not entity.evolutionary_profile:
+                        entity.add_evolutionary_profile(out_dir=self.job.api_db.hhblits_profiles.location)
+                    else:  # ensure the file is attached as well
+                        entity.pssm_file = self.job.api_db.hhblits_profiles.retrieve_file(name=entity.name)
+
+                    if not entity.pssm_file:  # still no file found. this is likely broken
+                        raise DesignError(f'{entity.name} has no profile generated. To proceed with this design/'
+                                          f'protocol you must generate the profile!')
+
+                    if not entity.verify_evolutionary_profile():
+                        entity.fit_evolutionary_profile_to_structure()
+
+                    if not entity.sequence_file:
+                        entity.write_sequence_to_fasta('reference', out_dir=self.job.api_db.sequences.location)
+
+            self.pose.evolutionary_profile = \
+                concatenate_profile([entity.evolutionary_profile for entity in self.pose.entities])
+
+        # self.pose.combine_sequence_profiles()
+        # I could also add the combined profile here instead of at each Entity
+        self.pose.add_profile(evolution=self.job.design.evolution_constraint,
+                              fragments=self.job.generate_fragments, favor_fragments=favor_fragments,
+                              out_dir=self.job.api_db.hhblits_profiles.location)
+
+        # -------------------------------------------------------------------------
+        # Todo self.solve_consensus()
+        # -------------------------------------------------------------------------
+
+        if not self.pre_refine and not os.path.exists(self.refined_pdb):
+            self._refine(metrics=False)
+
+        putils.make_path(self.designs)
+        # putils.make_path(self.data)  # Used above
+        match self.job.design.method:
+            case putils.rosetta_str:
+                # Write generated files
+                self.pose.pssm_file = \
+                    write_pssm_file(self.pose.evolutionary_profile, file_name=self.evolutionary_profile_file)
+                write_pssm_file(self.pose.profile, file_name=self.design_profile_file)
+                self.pose.fragment_profile.write(file_name=self.fragment_profile_file)
+                self.rosetta_design()  # Sets self.protocol
+            case putils.proteinmpnn:
+                self.proteinmpnn_design()  # Sets self.protocol
             case other:
                 raise ValueError(f"The method '{self.job.design.method}' isn't available")
         self.pickle_info()  # Todo remove once PoseDirectory state can be returned to the SymDesign dispatch w/ MP
@@ -2014,12 +2110,23 @@ class PoseDirectory:
                 header = True
             pose_s.to_csv(out_path, mode='a', header=header)
 
-    def proteinmpnn_interface_design(self):
+    def proteinmpnn_design(self, interface: bool = False):
+        """Perform design based on the ProteinMPNN graph encoder/decoder network and output sequences and scores to the
+        PoseDirectory scorefile
+
+        Sets:
+            self.protocol = 'proteinmpnn'
+        Args:
+            interface: Whether to only specify the interface as designable, otherwise, use all residues
+        Returns:
+
+        """
         self.protocol = 'proteinmpnn'
         sequences_and_scores: dict[str, np.ndarray | list] = \
             self.pose.design_sequences(number=self.job.design.number_of_trajectories,
                                        ca_only=self.job.design.ca_only,
                                        temperatures=self.job.design.temperatures,
+                                       interface=interface
                                        )
         design_names = [f'{self.name}_{self.protocol}{seq_idx:04d}'
                         for seq_idx in range(len(sequences_and_scores['sequences']))]
