@@ -4,7 +4,6 @@ import logging
 import math
 import operator
 import warnings
-from copy import copy
 from itertools import repeat
 from json import loads
 from typing import Literal, AnyStr, Any, Sequence, Iterable
@@ -50,7 +49,7 @@ collapse_thresholds = {
 }
 collapse_reported_std = .05
 idx_slice = pd.IndexSlice
-master_metrics = {
+metric_config = {
     'average_fragment_z_score':
         dict(description='The average fragment z-value used in docking/design',
              direction=_min, function=normalize, filter=True),
@@ -599,7 +598,7 @@ master_metrics = {
         dict(description='Rosetta Energy Term - favor planarity of tyrosine alcohol hydrogen',
              direction=None, function=None, filter=None)
 }
-filter_df = pd.DataFrame(master_metrics)
+filter_df = pd.DataFrame(metric_config)
 nanohedra_metrics = ['multiple_fragment_ratio', 'nanohedra_score', 'nanohedra_score_center',
                      'nanohedra_score_normalized', 'nanohedra_score_center_normalized',
                      'number_fragment_residues_center', 'number_fragment_residues_total', 'number_of_fragments',
