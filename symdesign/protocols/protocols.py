@@ -27,15 +27,8 @@ import sklearn as skl
 from cycler import cycler
 from scipy.spatial.distance import pdist, cdist
 
-from symdesign import flags, metrics
-from symdesign.metrics import read_scores, interface_composition_similarity, unnecessary, necessary_metrics, \
-    rosetta_terms, columns_to_new_column, division_pairs, delta_pairs, dirty_hbond_processing, significance_columns, \
-    df_permutation_test, clean_up_intermediate_columns, protocol_specific_columns, rank_dataframe_by_metric_weights, \
-    filter_df_for_index_by_value, multiple_sequence_alignment_dependent_metrics, profile_dependent_metrics, \
-    process_residue_info, errat_1_sigma, errat_2_sigma, \
-    calculate_residue_surface_area, position_specific_divergence, calculate_sequence_observations_and_divergence, \
-    incorporate_mutation_info, residue_classification, sum_per_residue_metrics
-from symdesign.resources.job import job_resources_factory
+from symdesign import flags, resources
+from . import metrics
 from symdesign.structure.base import Structure
 from symdesign.structure.fragment.db import FragmentDatabase, fragment_info_type
 from symdesign.structure.model import Pose, MultiModel, Models, Model, Entity, transformation_mapping
@@ -155,7 +148,7 @@ class PoseDirectory:
                  pose_transformation: Sequence[transformation_mapping] = None, entity_names: Sequence[str] = None,
                  specific_designs: Sequence[str] = None, directives: list[dict[int, str]] = None, **kwargs):
         # self.job = job if job else job_resources_factory.get(program_root=root, **kwargs)
-        self.job = job_resources_factory.get()
+        self.job = resources.job.job_resources_factory.get()
         # PoseDirectory flags
         self.log: Logger | None = None
         if pose_id and root is not None:
@@ -1332,7 +1325,7 @@ class PoseDirectory:
 
         # Modify each sequence score to reflect the new "decoy" name
         sequence_ids = sequences.keys()
-        design_scores = read_scores(self.scores_file)
+        design_scores = metrics.read_scores(self.scores_file)
         for design, scores in design_scores.items():
             if design in sequence_ids:
                 # We previously saved data. Copy to the identifier that is present after threading
@@ -2390,7 +2383,7 @@ class PoseDirectory:
             source_df['shape_complementarity'] = 0
             source_df['solvation_energy'] = 0
             source_df['solvation_energy_complex'] = 0
-            design_scores = read_scores(self.scores_file)  # Todo PoseDirectory(.path)
+            design_scores = metrics.read_scores(self.scores_file)  # Todo PoseDirectory(.path)
             self.log.debug(f'All designs with scores: {", ".join(design_scores.keys())}')
             # Remove designs with scores but no structures
             all_viable_design_scores = {}
@@ -2420,17 +2413,18 @@ class PoseDirectory:
                 proteinmpnn_df = scores_df.loc[:, proteinmpnn_columns]
 
             # Check proper input
-            metric_set = necessary_metrics.difference(set(scores_df.columns))
+            metric_set = metrics.necessary_metrics.difference(set(scores_df.columns))
             # self.log.debug('Score columns present before required metric check: %s' % scores_df.columns.to_list())
             if metric_set:
                 raise DesignError(f'Missing required metrics: "{", ".join(metric_set)}"')
 
             # Remove unnecessary (old scores) as well as Rosetta pose score terms besides ref (has been renamed above)
             # TODO learn know how to produce score terms in output score file. Not in FastRelax...
-            remove_columns = per_res_columns + hbonds_columns + rosetta_terms + unnecessary + proteinmpnn_columns
+            remove_columns = metrics.rosetta_terms + metrics.unnecessary \
+                + per_res_columns + hbonds_columns + proteinmpnn_columns
             # TODO remove dirty when columns are correct (after P432)
             #  and column tabulation precedes residue/hbond_processing
-            interface_hbonds = dirty_hbond_processing(all_viable_design_scores)
+            interface_hbonds = metrics.dirty_hbond_processing(all_viable_design_scores)
             # can't use hbond_processing (clean) in the case there is a design without metrics... columns not found!
             # interface_hbonds = hbond_processing(all_viable_design_scores, hbonds_columns)
             number_hbonds_s = \
@@ -2441,8 +2435,8 @@ class PoseDirectory:
             # scores_df = scores_df.assign(number_hbonds=number_hbonds_s)
             # residue_info = {'energy': {'complex': 0., 'unbound': 0.}, 'type': None, 'hbond': 0}
             residue_info.update(self.pose.rosetta_residue_processing(all_viable_design_scores))
-            residue_info = process_residue_info(residue_info, hbonds=interface_hbonds)
-            residue_info = incorporate_mutation_info(residue_info, all_mutations)
+            residue_info = metrics.process_residue_info(residue_info, hbonds=interface_hbonds)
+            residue_info = metrics.incorporate_mutation_info(residue_info, all_mutations)
             # can't use residue_processing (clean) in the case there is a design without metrics... columns not found!
             # residue_info.update(residue_processing(all_viable_design_scores, simplify_mutation_dict(all_mutations),
             #                                        per_res_columns, hbonds=interface_hbonds))
@@ -2521,13 +2515,13 @@ class PoseDirectory:
             scores_df['shape_complementarity'] = 0
             scores_df['solvation_energy'] = 0
             scores_df['solvation_energy_complex'] = 0
-            remove_columns = rosetta_terms + unnecessary
+            remove_columns = metrics.rosetta_terms + metrics.unnecessary
             residue_info.update({struct_name: pose_source_residue_info for struct_name in scores_df.index.to_list()})
             # Todo generate energy scores internally which matches output from residue_processing
-            # interface_hbonds = dirty_hbond_processing(design_scores)
+            # interface_hbonds = metrics.dirty_hbond_processing(design_scores)
             # residue_info = self.pose.rosetta_residue_processing(design_scores)
-            # residue_info = process_residue_info(residue_info, simplify_mutation_dict(all_mutations),
-            #                                     hbonds=interface_hbonds)
+            # residue_info = metrics.process_residue_info(residue_info, simplify_mutation_dict(all_mutations),
+            #                                             hbonds=interface_hbonds)
             viable_designs = [pose.name for pose in design_poses]
 
         scores_df.drop(remove_columns, axis=1, inplace=True, errors='ignore')
@@ -2559,7 +2553,7 @@ class PoseDirectory:
 
         # Replace empty strings with np.nan and convert remaining to float
         scores_df.replace('', np.nan, inplace=True)
-        scores_df.fillna(dict(zip(protocol_specific_columns, repeat(0))), inplace=True)
+        scores_df.fillna(dict(zip(metrics.protocol_specific_columns, repeat(0))), inplace=True)
         scores_df = scores_df.astype(float)  # , copy=False, errors='ignore')
 
         # per residue data includes every residue in the pose
@@ -2643,7 +2637,7 @@ class PoseDirectory:
         #         if not warn:
         #             self.log.info(f'Metrics relying on a multiple sequence alignment are not being collected as '
         #                           f'there is no MSA found. These include: '
-        #                           f'{", ".join(multiple_sequence_alignment_dependent_metrics)}')
+        #                           f'{", ".join(metrics.multiple_sequence_alignment_dependent_metrics)}')
         #             warn = False
         measure_evolution = measure_alignment = True
         warn = False
@@ -2677,17 +2671,20 @@ class PoseDirectory:
 
         if warn:
             if not measure_evolution and not measure_alignment:
+                self.pose.log.info(f'Metrics relying on an evolutionary profile are not being collected as '
+                                   f'there was no profile found. These include: '
+                                   f'{", ".join(metrics.profile_dependent_metrics)}')
                 self.pose.log.info(f'Metrics relying on multiple sequence alignment data are not being collected as'
                                    f' there were none found. These include: '
-                                   f'{", ".join(multiple_sequence_alignment_dependent_metrics)}')
+                                   f'{", ".join(metrics.multiple_sequence_alignment_dependent_metrics)}')
             elif not measure_alignment:
                 self.pose.log.info(f'Metrics relying on a multiple sequence alignment are not being collected as '
                                    f'there was no MSA found. These include: '
-                                   f'{", ".join(multiple_sequence_alignment_dependent_metrics)}')
+                                   f'{", ".join(metrics.multiple_sequence_alignment_dependent_metrics)}')
             else:
                 self.pose.log.info(f'Metrics relying on an evolutionary profile are not being collected as '
                                    f'there was no profile found. These include: '
-                                   f'{", ".join(profile_dependent_metrics)}')
+                                   f'{", ".join(metrics.profile_dependent_metrics)}')
         # Include the pose_source in the measured designs
         contact_order_per_res_z, reference_collapse, collapse_profile = self.pose.get_folding_metrics()
         collapse_significance_threshold = metrics.collapse_thresholds['standard']
@@ -2755,7 +2752,8 @@ class PoseDirectory:
             interface_indexer = [residue.index for residue in self.pose.interface_residues]
             pose_alignment = MultipleSequenceAlignment.from_dictionary(pose_sequences)
             observed, divergence = \
-                calculate_sequence_observations_and_divergence(pose_alignment, profile_background, interface_indexer)
+                metrics.calculate_sequence_observations_and_divergence(pose_alignment, profile_background,
+                                                                       interface_indexer)
 
             observed_dfs = []
             for profile, observed_values in observed.items():
@@ -2787,13 +2785,13 @@ class PoseDirectory:
                     #                                                 self.pose.interface_residues)
                     # protocol_mutation_freq = protocol_alignment.frequencies
                     protocol_divergence = {f'divergence_{profile}':
-                                           position_specific_divergence(protocol_alignment.frequencies,
-                                                                        bgd)[interface_indexer]
+                                           metrics.position_specific_divergence(protocol_alignment.frequencies,
+                                                                                bgd)[interface_indexer]
                                            for profile, bgd in profile_background.items()}
                     # if interface_bkgd is not None:
                     #     protocol_divergence['divergence_interface'] = \
-                    #         position_specific_divergence(protocol_alignment.frequencies[interface_indexer],
-                    #                                      tiled_int_background)
+                    #         metrics.position_specific_divergence(protocol_alignment.frequencies[interface_indexer],
+                    #                                              tiled_int_background)
                     # Get per residue divergence metric by protocol
                     divergence_by_protocol[protocol] = {f'{divergence_type}_per_residue': divergence.mean()
                                                         for divergence_type, divergence in protocol_divergence.items()}
@@ -2876,13 +2874,12 @@ class PoseDirectory:
         if self.job.design.structures:
             scores_df['interface_local_density'] = pd.Series(interface_local_density)
             # Make buried surface area (bsa) columns, and residue classification
-            per_residue_df = calculate_residue_surface_area(per_residue_df)  # .loc[:, idx_slice[index_residues, :]])
-            # # Make buried surface area (bsa) columns
-            # per_residue_df = calculate_residue_surface_area(per_residue_df.loc[:, idx_slice[index_residues, :]])
+            per_residue_df = metrics.calculate_residue_surface_area(per_residue_df)
+            #                                                                     .loc[:, idx_slice[index_residues, :]])
 
         # Calculate new metrics from combinations of other metrics
         # Add design residue information to scores_df such as how many core, rim, and support residues were measured
-        summed_scores_df = sum_per_residue_metrics(per_residue_df)  # .loc[:, idx_slice[index_residues, :]])
+        summed_scores_df = metrics.sum_per_residue_metrics(per_residue_df)  # .loc[:, idx_slice[index_residues, :]])
         scores_df = scores_df.join(summed_scores_df)
 
         # scores_df['collapse_new_positions'] /= scores_df['pose_length']
@@ -2920,12 +2917,12 @@ class PoseDirectory:
             # scores_df['interface_area_total'] = scores_df['interface_area_polar'] + scores_df['interface_area_hydrophobic']
             #
             # Make scores_df errat_deviation that takes into account the pose_source sequence errat_deviation
-            # This overwrites the sum_per_residue_metrics() value
+            # This overwrites the metrics.sum_per_residue_metrics() value
             # Include in errat_deviation if errat score is < 2 std devs and isn't 0 to begin with
-            source_errat_inclusion_boolean = np.logical_and(pose_source_errat_s < errat_2_sigma, pose_source_errat_s != 0.)
+            source_errat_inclusion_boolean = np.logical_and(pose_source_errat_s < metrics.errat_2_sigma, pose_source_errat_s != 0.)
             errat_df = per_residue_df.loc[:, idx_slice[:, 'errat_deviation']].droplevel(-1, axis=1)
             # find where designs deviate above wild-type errat scores
-            errat_sig_df = errat_df.sub(pose_source_errat_s, axis=1) > errat_1_sigma  # axis=1 Series is column oriented
+            errat_sig_df = errat_df.sub(pose_source_errat_s, axis=1) > metrics.errat_1_sigma  # axis=1 Series is column oriented
             # then select only those residues which are expressly important by the inclusion boolean
             scores_df['errat_deviation'] = (errat_sig_df.loc[:, source_errat_inclusion_boolean] * 1).sum(axis=1)
 
@@ -2954,7 +2951,7 @@ class PoseDirectory:
         # interface_residues = set(per_residue_df.columns.levels[0].unique()).difference(interior_residue_numbers)
 
         # Add design residue information to scores_df such as how many core, rim, and support residues were measured
-        # for residue_class in residue_classification:
+        # for residue_class in metrics.residue_classification:
         #     scores_df[residue_class] = per_residue_df.loc[:, idx_slice[:, residue_class]].sum(axis=1)
 
         # Calculate new metrics from combinations of other metrics
@@ -2995,13 +2992,13 @@ class PoseDirectory:
         #     list(filter(re.compile('sasa_hydrophobic_[0-9]+_bound').match, scores_columns)),
         # 'sasa_polar_bound': list(filter(re.compile('sasa_polar_[0-9]+_bound').match, scores_columns)),
         # 'sasa_total_bound': list(filter(re.compile('sasa_total_[0-9]+_bound').match, scores_columns))}
-        scores_df = columns_to_new_column(scores_df, summation_pairs)
-        scores_df = columns_to_new_column(scores_df, delta_pairs, mode='sub')
+        scores_df = metrics.columns_to_new_column(scores_df, metrics.summation_pairs)
+        scores_df = metrics.columns_to_new_column(scores_df, metrics.delta_pairs, mode='sub')
         # add total_interface_residues for div_pairs and int_comp_similarity
         scores_df['total_interface_residues'] = other_pose_metrics.pop('total_interface_residues')
-        scores_df = columns_to_new_column(scores_df, division_pairs, mode='truediv')
-        scores_df['interface_composition_similarity'] = scores_df.apply(interface_composition_similarity, axis=1)
-        scores_df.drop(clean_up_intermediate_columns, axis=1, inplace=True, errors='ignore')
+        scores_df = metrics.columns_to_new_column(scores_df, metrics.division_pairs, mode='truediv')
+        scores_df['interface_composition_similarity'] = scores_df.apply(metrics.interface_composition_similarity, axis=1)
+        scores_df.drop(metrics.clean_up_intermediate_columns, axis=1, inplace=True, errors='ignore')
         repacking = scores_df.get('repacking')
         if repacking is not None:
             # set interface_bound_activation_energy = NaN where repacking is 0
@@ -3087,12 +3084,13 @@ class PoseDirectory:
             for prot1, prot2 in combinations(sorted(similarity_protocols), 2):
                 select_df = \
                     trajectory_df.loc[[design for designs in [designs_by_protocol[prot1], designs_by_protocol[prot2]]
-                                       for design in designs], significance_columns]
+                                       for design in designs], metrics.significance_columns]
                 # prot1/2 pull out means from trajectory_df by using the protocol name
                 difference_s = \
-                    trajectory_df.loc[prot1, significance_columns].sub(trajectory_df.loc[prot2, significance_columns])
-                pvalue_df[(prot1, prot2)] = df_permutation_test(select_df, difference_s, compare='mean',
-                                                                group1_size=len(designs_by_protocol[prot1]))
+                    trajectory_df.loc[prot1, metrics.significance_columns].sub(
+                        trajectory_df.loc[prot2, metrics.significance_columns])
+                pvalue_df[(prot1, prot2)] = metrics.df_permutation_test(select_df, difference_s, compare='mean',
+                                                                        group1_size=len(designs_by_protocol[prot1]))
             pvalue_df = pvalue_df.T  # transpose significance pairs to indices and significance metrics to columns
             trajectory_df = pd.concat([trajectory_df, pd.concat([pvalue_df], keys=['similarity']).swaplevel(0, 1)])
 
@@ -3417,7 +3415,7 @@ class PoseDirectory:
             errat_ax.vlines(index_residues, 0, 0.05, transform=errat_ax.get_xaxis_transform(),
                             label='Design Residues', colors='#f89938', lw=2)  # , orange)
             # Plot horizontal significance
-            errat_ax.hlines([errat_2_sigma], 0, 1, transform=errat_ax.get_yaxis_transform(),
+            errat_ax.hlines([metrics.errat_2_sigma], 0, 1, transform=errat_ax.get_yaxis_transform(),
                             label='Significant Error', colors='#fc554f', linestyle='dotted')  # tomato
             errat_ax.set_xlabel('Residue Number')
             errat_ax.set_ylabel('Errat Score')
@@ -3494,13 +3492,13 @@ class PoseDirectory:
         if filters:
             self.log.info(f'Using filter parameters: {filters}')
             # Filter the DataFrame to include only those values which are le/ge the specified filter
-            filtered_designs = index_intersection(filter_df_for_index_by_value(df, filters).values())
+            filtered_designs = index_intersection(metrics.filter_df_for_index_by_value(df, filters).values())
             df = df.loc[filtered_designs, :]
 
         if weights:
             # No filtering of protocol/indices to use as poses should have similar protocol scores coming in
             self.log.info(f'Using weighting parameters: {weights}')
-            designs = rank_dataframe_by_metric_weights(df, weights=weights, **kwargs).index.to_list()
+            designs = metrics.rank_dataframe_by_metric_weights(df, weights=weights, **kwargs).index.to_list()
         else:
             # sequences_pickle = glob(os.path.join(self.job.all_scores, '%s_Sequences.pkl' % str(self)))
             # assert len(sequences_pickle) == 1, 'Couldn\'t find files for %s' % \
@@ -3629,7 +3627,7 @@ def interface_design_analysis(pose: Pose, design_poses: Iterable[Pose] = None, s
         Series containing summary metrics for all designs in the design directory
     """
     # Todo move PoseDirectory to pose.path attribute
-    job = job_resources_factory.get(**kwargs)
+    job = resources.job.job_resources_factory.get(**kwargs)
     # if pose.interface_residue_numbers is False or pose.interface_design_residue_numbers is False:
     pose.find_and_split_interface()
 
@@ -3692,7 +3690,7 @@ def interface_design_analysis(pose: Pose, design_poses: Iterable[Pose] = None, s
         source_df['shape_complementarity'] = 0
         source_df['solvation_energy'] = 0
         source_df['solvation_energy_complex'] = 0
-        design_scores = read_scores(scores_file)
+        design_scores = metrics.read_scores(scores_file)
         pose.log.debug(f'All designs with scores: {", ".join(design_scores.keys())}')
         # Remove designs with scores but no structures
         all_viable_design_scores = {}
@@ -3706,24 +3704,31 @@ def interface_design_analysis(pose: Pose, design_poses: Iterable[Pose] = None, s
         scores_df = pd.concat([source_df, scores_df])
         # Gather all columns into specific types for processing and formatting
         per_res_columns, hbonds_columns = [], []
+        proteinmpnn_columns = []
         for column in scores_df.columns.to_list():
             if column.startswith('per_res_'):
                 per_res_columns.append(column)
             elif column.startswith('hbonds_res_selection'):
                 hbonds_columns.append(column)
+            elif column in proteinmpnn_scores:
+                proteinmpnn_columns.append(column)
+
+        if proteinmpnn_columns:
+            proteinmpnn_df = scores_df.loc[:, proteinmpnn_columns]
 
         # Check proper input
-        metric_set = necessary_metrics.difference(set(scores_df.columns))
+        metric_set = metrics.necessary_metrics.difference(set(scores_df.columns))
         # pose.log.debug('Score columns present before required metric check: %s' % scores_df.columns.to_list())
         if not metric_set:
             raise DesignError(f'Missing required metrics: "{", ".join(metric_set)}"')
 
         # Remove unnecessary (old scores) as well as Rosetta pose score terms besides ref (has been renamed above)
         # TODO learn know how to produce score terms in output score file. Not in FastRelax...
-        remove_columns = per_res_columns + hbonds_columns + rosetta_terms + unnecessary
+        remove_columns = metrics.rosetta_terms + metrics.unnecessary \
+            + per_res_columns + hbonds_columns + proteinmpnn_columns
         # TODO remove dirty when columns are correct (after P432)
         #  and column tabulation precedes residue/hbond_processing
-        interface_hbonds = dirty_hbond_processing(all_viable_design_scores)
+        interface_hbonds = metrics.dirty_hbond_processing(all_viable_design_scores)
         # can't use hbond_processing (clean) in the case there is a design without metrics... columns not found!
         # interface_hbonds = hbond_processing(all_viable_design_scores, hbonds_columns)
         number_hbonds_s = \
@@ -3734,8 +3739,8 @@ def interface_design_analysis(pose: Pose, design_poses: Iterable[Pose] = None, s
         # scores_df = scores_df.assign(number_hbonds=number_hbonds_s)
         # residue_info = {'energy': {'complex': 0., 'unbound': 0.}, 'type': None, 'hbond': 0}
         residue_info.update(pose.rosetta_residue_processing(all_viable_design_scores))
-        residue_info = process_residue_info(residue_info, hbonds=interface_hbonds)
-        residue_info = incorporate_mutation_info(residue_info, all_mutations)
+        residue_info = metrics.process_residue_info(residue_info, hbonds=interface_hbonds)
+        residue_info = metrics.incorporate_mutation_info(residue_info, all_mutations)
         # can't use residue_processing (clean) in the case there is a design without metrics... columns not found!
         # residue_info.update(residue_processing(all_viable_design_scores, simplify_mutation_dict(all_mutations),
         #                                        per_res_columns, hbonds=interface_hbonds))
@@ -3813,13 +3818,13 @@ def interface_design_analysis(pose: Pose, design_poses: Iterable[Pose] = None, s
         scores_df['shape_complementarity'] = 0
         scores_df['solvation_energy'] = 0
         scores_df['solvation_energy_complex'] = 0
-        remove_columns = rosetta_terms + unnecessary
+        remove_columns = metrics.rosetta_terms + metrics.unnecessary
         residue_info.update({struct_name: pose_source_residue_info for struct_name in scores_df.index.to_list()})
         # Todo generate energy scores internally which matches output from residue_processing
-        # interface_hbonds = dirty_hbond_processing(design_scores)
+        # interface_hbonds = metrics.dirty_hbond_processing(design_scores)
         # residue_info = pose.rosetta_residue_processing(design_scores)
-        # residue_info = process_residue_info(residue_info, simplify_mutation_dict(all_mutations),
-        #                                     hbonds=interface_hbonds)
+        # residue_info = metrics.process_residue_info(residue_info, simplify_mutation_dict(all_mutations),
+        #                                             hbonds=interface_hbonds)
         viable_designs = [pose.name for pose in design_poses]
 
     scores_df.drop(remove_columns, axis=1, inplace=True, errors='ignore')
@@ -3851,7 +3856,7 @@ def interface_design_analysis(pose: Pose, design_poses: Iterable[Pose] = None, s
 
     # Replace empty strings with np.nan and convert remaining to float
     scores_df.replace('', np.nan, inplace=True)
-    scores_df.fillna(dict(zip(protocol_specific_columns, repeat(0))), inplace=True)
+    scores_df.fillna(dict(zip(metrics.protocol_specific_columns, repeat(0))), inplace=True)
     scores_df = scores_df.astype(float)  # , copy=False, errors='ignore')
 
     # per residue data includes every residue in the pose
@@ -3928,10 +3933,10 @@ def interface_design_analysis(pose: Pose, design_poses: Iterable[Pose] = None, s
     # scores_df['errat_accuracy'] = pd.Series(atomic_deviation)
     scores_df['interface_local_density'] = pd.Series(interface_local_density)
     # Include in errat_deviation if errat score is < 2 std devs and isn't 0 to begin with
-    source_errat_inclusion_boolean = np.logical_and(pose_source_errat_s < errat_2_sigma, pose_source_errat_s != 0.)
+    source_errat_inclusion_boolean = np.logical_and(pose_source_errat_s < metrics.errat_2_sigma, pose_source_errat_s != 0.)
     errat_df = per_residue_df.loc[:, idx_slice[:, 'errat_deviation']].droplevel(-1, axis=1)
     # find where designs deviate above wild-type errat scores
-    errat_sig_df = (errat_df.sub(pose_source_errat_s, axis=1)) > errat_1_sigma  # axis=1 Series is column oriented
+    errat_sig_df = (errat_df.sub(pose_source_errat_s, axis=1)) > metrics.errat_1_sigma  # axis=1 Series is column oriented
     # then select only those residues which are expressly important by the inclusion boolean
     scores_df['errat_deviation'] = (errat_sig_df.loc[:, source_errat_inclusion_boolean] * 1).sum(axis=1)
 
@@ -3969,17 +3974,20 @@ def interface_design_analysis(pose: Pose, design_poses: Iterable[Pose] = None, s
 
     if warn:
         if not measure_evolution and not measure_alignment:
+            pose.log.info(f'Metrics relying on an evolutionary profile are not being collected as '
+                          f'there was no profile found. These include: '
+                          f'{", ".join(metrics.profile_dependent_metrics)}')
             pose.log.info(f'Metrics relying on multiple sequence alignment data are not being collected as '
                           f'there were none found. These include: '
-                          f'{", ".join(multiple_sequence_alignment_dependent_metrics)}')
+                          f'{", ".join(metrics.multiple_sequence_alignment_dependent_metrics)}')
         elif not measure_alignment:
             pose.log.info(f'Metrics relying on a multiple sequence alignment are not being collected as '
                           f'there was no MSA found. These include: '
-                          f'{", ".join(multiple_sequence_alignment_dependent_metrics)}')
+                          f'{", ".join(metrics.multiple_sequence_alignment_dependent_metrics)}')
         else:
             pose.log.info(f'Metrics relying on an evolutionary profile are not being collected as '
                           f'there was no profile found. These include: '
-                          f'{", ".join(profile_dependent_metrics)}')
+                          f'{", ".join(metrics.profile_dependent_metrics)}')
 
     # Include the putils.pose_source in the measured designs
     contact_order_per_res_z, reference_collapse, collapse_profile = pose.get_folding_metrics()
@@ -4067,7 +4075,8 @@ def interface_design_analysis(pose: Pose, design_poses: Iterable[Pose] = None, s
         interface_indexer = [residue.index for residue in pose.interface_residues]
         pose_alignment = MultipleSequenceAlignment.from_dictionary(pose_sequences)
         observed, divergence = \
-            calculate_sequence_observations_and_divergence(pose_alignment, profile_background, interface_indexer)
+            metrics.calculate_sequence_observations_and_divergence(pose_alignment, profile_background,
+                                                                   interface_indexer)
 
         observed_dfs = []
         for profile, observed_values in observed.items():
@@ -4099,13 +4108,13 @@ def interface_design_analysis(pose: Pose, design_poses: Iterable[Pose] = None, s
                 #                                                 pose.interface_design_residue_numbers)
                 # protocol_mutation_freq = protocol_alignment.frequencies
                 protocol_divergence = {f'divergence_{profile}':
-                                       position_specific_divergence(protocol_alignment.frequencies,
-                                                                    bgd)[interface_indexer]
+                                       metrics.position_specific_divergence(protocol_alignment.frequencies,
+                                                                            bgd)[interface_indexer]
                                        for profile, bgd in profile_background.items()}
                 # if interface_bkgd is not None:
                 #     protocol_divergence['divergence_interface'] = \
-                #         position_specific_divergence(protocol_alignment.frequencies[interface_indexer],
-                #                                      tiled_int_background)
+                #         metrics.position_specific_divergence(protocol_alignment.frequencies[interface_indexer],
+                #                                              tiled_int_background)
                 # Get per residue divergence metric by protocol
                 divergence_by_protocol[protocol] = {f'{divergence_type}_per_residue': divergence.mean()
                                                     for divergence_type, divergence in protocol_divergence.items()}
@@ -4185,7 +4194,7 @@ def interface_design_analysis(pose: Pose, design_poses: Iterable[Pose] = None, s
     #     residue_df.loc[:, idx_slice[pose.interface_residue_numbers, 'local_density']].mean(axis=1)
 
     # Make buried surface area (bsa) columns
-    residue_df = calculate_residue_surface_area(residue_df.loc[:, idx_slice[index_residues, :]])
+    residue_df = metrics.calculate_residue_surface_area(residue_df.loc[:, idx_slice[index_residues, :]])
 
     scores_df['interface_area_polar'] = residue_df.loc[:, idx_slice[index_residues, 'bsa_polar']].sum(axis=1)
     scores_df['interface_area_hydrophobic'] = \
@@ -4215,7 +4224,7 @@ def interface_design_analysis(pose: Pose, design_poses: Iterable[Pose] = None, s
     # interface_residue_numbers = set(residue_df.columns.levels[0].unique()).difference(interior_residue_numbers)
 
     # Add design residue information to scores_df such as how many core, rim, and support residues were measured
-    for residue_class in residue_classification:
+    for residue_class in metrics.residue_classification:
         scores_df[residue_class] = residue_df.loc[:, idx_slice[:, residue_class]].sum(axis=1)
 
     # Calculate new metrics from combinations of other metrics
@@ -4255,13 +4264,13 @@ def interface_design_analysis(pose: Pose, design_poses: Iterable[Pose] = None, s
     #     list(filter(re.compile('sasa_hydrophobic_[0-9]+_bound').match, scores_columns)),
     # 'sasa_polar_bound': list(filter(re.compile('sasa_polar_[0-9]+_bound').match, scores_columns)),
     # 'sasa_total_bound': list(filter(re.compile('sasa_total_[0-9]+_bound').match, scores_columns))}
-    scores_df = columns_to_new_column(scores_df, summation_pairs)
-    scores_df = columns_to_new_column(scores_df, delta_pairs, mode='sub')
+    scores_df = metrics.columns_to_new_column(scores_df, metrics.summation_pairs)
+    scores_df = metrics.columns_to_new_column(scores_df, metrics.delta_pairs, mode='sub')
     # add total_interface_residues for div_pairs and int_comp_similarity
     scores_df['total_interface_residues'] = other_pose_metrics.pop('total_interface_residues')
-    scores_df = columns_to_new_column(scores_df, division_pairs, mode='truediv')
-    scores_df['interface_composition_similarity'] = scores_df.apply(interface_composition_similarity, axis=1)
-    scores_df.drop(clean_up_intermediate_columns, axis=1, inplace=True, errors='ignore')
+    scores_df = metrics.columns_to_new_column(scores_df, metrics.division_pairs, mode='truediv')
+    scores_df['interface_composition_similarity'] = scores_df.apply(metrics.interface_composition_similarity, axis=1)
+    scores_df.drop(metrics.clean_up_intermediate_columns, axis=1, inplace=True, errors='ignore')
     if scores_df.get('repacking') is not None:
         # set interface_bound_activation_energy = NaN where repacking is 0
         # Currently is -1 for True (Rosetta Filter quirk...)
@@ -4342,12 +4351,13 @@ def interface_design_analysis(pose: Pose, design_poses: Iterable[Pose] = None, s
         for prot1, prot2 in combinations(sorted(similarity_protocols), 2):
             select_df = \
                 trajectory_df.loc[[design for designs in [designs_by_protocol[prot1], designs_by_protocol[prot2]]
-                                   for design in designs], significance_columns]
+                                   for design in designs], metrics.significance_columns]
             # prot1/2 pull out means from trajectory_df by using the protocol name
             difference_s = \
-                trajectory_df.loc[prot1, significance_columns].sub(trajectory_df.loc[prot2, significance_columns])
-            pvalue_df[(prot1, prot2)] = df_permutation_test(select_df, difference_s, compare='mean',
-                                                            group1_size=len(designs_by_protocol[prot1]))
+                trajectory_df.loc[prot1, metrics.significance_columns].sub(
+                    trajectory_df.loc[prot2, metrics.significance_columns])
+            pvalue_df[(prot1, prot2)] = metrics.df_permutation_test(select_df, difference_s, compare='mean',
+                                                                    group1_size=len(designs_by_protocol[prot1]))
         pvalue_df = pvalue_df.T  # transpose significance pairs to indices and significance metrics to columns
         trajectory_df = pd.concat([trajectory_df, pd.concat([pvalue_df], keys=['similarity']).swaplevel(0, 1)])
 
@@ -4669,7 +4679,7 @@ def interface_design_analysis(pose: Pose, design_poses: Iterable[Pose] = None, s
         errat_ax.vlines(index_residues, 0, 0.05, transform=errat_ax.get_xaxis_transform(),
                         label='Design Residues', colors='#f89938', lw=2)  # , orange)
         # Plot horizontal significance
-        errat_ax.hlines([errat_2_sigma], 0, 1, transform=errat_ax.get_yaxis_transform(),
+        errat_ax.hlines([metrics.errat_2_sigma], 0, 1, transform=errat_ax.get_yaxis_transform(),
                         label='Significant Error', colors='#fc554f', linestyle='dotted')  # tomato
         errat_ax.set_xlabel('Residue Number')
         errat_ax.set_ylabel('Errat Score')

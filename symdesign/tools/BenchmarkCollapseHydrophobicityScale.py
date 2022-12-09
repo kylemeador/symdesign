@@ -1,12 +1,9 @@
-import logging
 from typing import Sequence
 
 import matplotlib.pyplot as plt
-import numpy as np
 from matplotlib.ticker import MultipleLocator
 
-from symdesign import metrics
-
+from symdesign.protocols import metrics
 
 # logger = logging.getLogger(__name__)
 # logger.setLevel(10)

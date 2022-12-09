@@ -8,7 +8,7 @@ from typing import Literal
 from psutil import cpu_count
 from typing_extensions import get_args
 
-from symdesign.metrics import metric_weight_functions
+from symdesign.protocols.metrics import metric_weight_functions
 from symdesign.resources.query.utils import input_string, confirmation_string, bool_d, invalid_string, header_string, \
     format_string
 from symdesign.utils import handle_errors, pretty_format_table, ex_path, path as putils

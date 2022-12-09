@@ -20,7 +20,7 @@ from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
 
 from . import utils
-from symdesign.metrics import hydrophobic_collapse_index
+from symdesign.protocols.metrics import hydrophobic_collapse_index
 from .fragment import info
 from .fragment.db import alignment_types_literal, alignment_types, fragment_info_type
 from symdesign import utils as sdutils
