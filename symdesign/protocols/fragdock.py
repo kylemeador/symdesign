@@ -20,11 +20,8 @@ from sklearn.cluster import DBSCAN
 from sklearn.neighbors import BallTree
 from sklearn.neighbors._ball_tree import BinaryTree  # This typing implementation supports BallTree or KDTree
 
-from symdesign import flags, metrics, protocols, resources
-from symdesign.metrics import calculate_residue_surface_area, errat_1_sigma, errat_2_sigma,\
-    multiple_sequence_alignment_dependent_metrics, profile_dependent_metrics, columns_to_new_column, \
-    delta_pairs, division_pairs, interface_composition_similarity, clean_up_intermediate_columns, \
-    sum_per_residue_metrics, cross_entropy
+from symdesign import flags, protocols, resources
+from symdesign.protocols import metrics
 from symdesign.resources import ml, job as symjob
 from symdesign.structure.base import Structure, Residue
 from symdesign.structure.coords import transform_coordinate_sets
@@ -35,7 +32,7 @@ from symdesign.structure.sequence import generate_mutations_from_reference, nume
     pssm_as_array, MultipleSequenceAlignment
 from symdesign.structure.utils import chain_id_generator, protein_letters_alph1
 from symdesign import utils
-from symdesign.utils import z_score, rmsd_z_score, z_value_from_match_score, match_score_from_z_value, path as putils
+from symdesign.utils import rmsd_z_score, z_value_from_match_score, match_score_from_z_value, path as putils
 from symdesign.utils.SymEntry import SymEntry, get_rot_matrices, make_rotations_degenerate
 from symdesign.utils.symmetry import generate_cryst1_record, identity_matrix
 
@@ -2329,17 +2326,20 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
 
             if warn:
                 if not measure_evolution and not measure_alignment:
+                    logger.info(f'Metrics relying on an evolutionary profile are not being collected as '
+                                f'there was no profile found. These include: '
+                                f'{", ".join(metrics.profile_dependent_metrics)}')
                     logger.info(f'Metrics relying on multiple sequence alignment data are not being collected as '
                                 f'there were none found. These include: '
-                                f'{", ".join(multiple_sequence_alignment_dependent_metrics)}')
+                                f'{", ".join(metrics.multiple_sequence_alignment_dependent_metrics)}')
                 elif not measure_alignment:
                     logger.info(f'Metrics relying on a multiple sequence alignment are not being collected as '
                                 f'there was no MSA found. These include: '
-                                f'{", ".join(multiple_sequence_alignment_dependent_metrics)}')
+                                f'{", ".join(metrics.multiple_sequence_alignment_dependent_metrics)}')
                 else:
                     logger.info(f'Metrics relying on an evolutionary profile are not being collected as '
                                 f'there was no profile found. These include: '
-                                f'{", ".join(profile_dependent_metrics)}')
+                                f'{", ".join(metrics.profile_dependent_metrics)}')
 
             if measure_evolution:
                 pose.evolutionary_profile = \
@@ -2701,11 +2701,11 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
                 # np.log causes -inf at 0, thus we need to correct these to a very large number
                 batch_fragment_profile = torch.from_numpy(np.nan_to_num(fragment_profile_array, copy=False, nan=np.nan))
                 _per_residue_fragment_cross_entropy = \
-                    cross_entropy(asu_conditional_softmax_null_seq,
-                                  batch_fragment_profile,
-                                  per_entry=True)
-                #                 mask=_residue_indices_of_interest,
-                #                 axis=1)
+                    metrics.cross_entropy(asu_conditional_softmax_null_seq,
+                                          batch_fragment_profile,
+                                          per_entry=True)
+                #                         mask=_residue_indices_of_interest,
+                #                         axis=1)
                 # print('batch_fragment_profile', batch_fragment_profile[:, 20:23])
                 # All per_residue metrics look the same. Shape batch_length, number_of_residues
                 # per_residue_evolution_cross_entropy[batch_slice]
@@ -2718,11 +2718,11 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
 
             if pose.evolutionary_profile:
                 _per_residue_evolution_cross_entropy = \
-                    cross_entropy(asu_conditional_softmax_null_seq,
-                                  batch_evolutionary_profile[:actual_batch_length],
-                                  per_entry=True)
-                #                 mask=_residue_indices_of_interest,
-                #                 axis=1)
+                    metrics.cross_entropy(asu_conditional_softmax_null_seq,
+                                          batch_evolutionary_profile[:actual_batch_length],
+                                          per_entry=True)
+                #                         mask=_residue_indices_of_interest,
+                #                         axis=1)
             else:  # Populate with null data
                 _per_residue_evolution_cross_entropy = np.empty_like(_per_residue_fragment_cross_entropy)
                 _per_residue_evolution_cross_entropy[:] = np.nan
@@ -2731,11 +2731,11 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
                 # Process the design_profiles into an array for cross entropy
                 batch_design_profile = torch.from_numpy(np.array(design_profiles))
                 _per_residue_design_cross_entropy = \
-                    cross_entropy(asu_conditional_softmax_null_seq,
-                                  batch_design_profile,
-                                  per_entry=True)
-                #                 mask=_residue_indices_of_interest,
-                #                 axis=1)
+                    metrics.cross_entropy(asu_conditional_softmax_null_seq,
+                                          batch_design_profile,
+                                          per_entry=True)
+                #                         mask=_residue_indices_of_interest,
+                #                         axis=1)
             else:  # Populate with null data
                 _per_residue_design_cross_entropy = np.empty_like(_per_residue_fragment_cross_entropy)
                 _per_residue_design_cross_entropy[:] = np.nan
@@ -3183,11 +3183,11 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
                 # np.log causes -inf at 0, thus we need to correct these to a very large number
                 batch_fragment_profile = torch.from_numpy(np.nan_to_num(fragment_profile_array, copy=False, nan=np.nan))
                 _per_residue_fragment_cross_entropy = \
-                    cross_entropy(asu_conditional_softmax_null_seq,
-                                  batch_fragment_profile,
-                                  per_entry=True)
-                #                 mask=_residue_indices_of_interest,
-                #                 axis=1)
+                    metrics.cross_entropy(asu_conditional_softmax_null_seq,
+                                          batch_fragment_profile,
+                                          per_entry=True)
+                #                         mask=_residue_indices_of_interest,
+                #                         axis=1)
                 # print('batch_fragment_profile', batch_fragment_profile[:, 20:23])
                 # All per_residue metrics look the same. Shape batch_length, number_of_residues
                 # per_residue_evolution_cross_entropy[batch_slice]
@@ -3200,11 +3200,11 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
 
             if pose.evolutionary_profile:
                 _per_residue_evolution_cross_entropy = \
-                    cross_entropy(asu_conditional_softmax_null_seq,
-                                  batch_evolutionary_profile[:actual_batch_length],
-                                  per_entry=True)
-                #                 mask=_residue_indices_of_interest,
-                #                 axis=1)
+                    metrics.cross_entropy(asu_conditional_softmax_null_seq,
+                                          batch_evolutionary_profile[:actual_batch_length],
+                                          per_entry=True)
+                #                         mask=_residue_indices_of_interest,
+                #                         axis=1)
             else:  # Populate with null data
                 _per_residue_evolution_cross_entropy = np.empty_like(_per_residue_fragment_cross_entropy)
                 _per_residue_evolution_cross_entropy[:] = np.nan
@@ -3213,11 +3213,11 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
                 # Process the design_profiles into an array for cross entropy
                 batch_design_profile = torch.from_numpy(np.array(design_profiles))
                 _per_residue_design_cross_entropy = \
-                    cross_entropy(asu_conditional_softmax_null_seq,
-                                  batch_design_profile,
-                                  per_entry=True)
-                #                 mask=_residue_indices_of_interest,
-                #                 axis=1)
+                    metrics.cross_entropy(asu_conditional_softmax_null_seq,
+                                          batch_design_profile,
+                                          per_entry=True)
+                #                         mask=_residue_indices_of_interest,
+                #                         axis=1)
             else:  # Populate with null data
                 _per_residue_design_cross_entropy = np.empty_like(_per_residue_fragment_cross_entropy)
                 _per_residue_design_cross_entropy[:] = np.nan
@@ -4037,11 +4037,11 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
         if job.design.structures:
             scores_df['interface_local_density'] = pd.Series(interface_local_density)
             # Make buried surface area (bsa) columns, and residue classification
-            per_residue_df = calculate_residue_surface_area(per_residue_df)  # .loc[:, idx_slice[index_residues, :]])
+            per_residue_df = metrics.calculate_residue_surface_area(per_residue_df)  # .loc[:, idx_slice[index_residues, :]])
 
         # Calculate new metrics from combinations of other metrics
         # Add design residue information to scores_df such as how many core, rim, and support residues were measured
-        summed_scores_df = sum_per_residue_metrics(per_residue_df)  # .loc[:, idx_slice[index_residues, :]])
+        summed_scores_df = metrics.sum_per_residue_metrics(per_residue_df)  # .loc[:, idx_slice[index_residues, :]])
         scores_df = scores_df.join(summed_scores_df)
 
         # scores_df['interface_area_polar'] = per_residue_df.loc[:, idx_slice[:, 'bsa_polar']].sum(axis=1)
@@ -4057,13 +4057,14 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
             #      / scores_df['total_interface_residues']
 
             # Make scores_df errat_deviation that takes into account the pose_source sequence errat_deviation
-            # This overwrites the sum_per_residue_metrics() value
+            # This overwrites the metrics.sum_per_residue_metrics() value
             # Include in errat_deviation if errat score is < 2 std devs and isn't 0 to begin with
             source_errat_inclusion_boolean = \
-                np.logical_and(pose_source_errat_s < errat_2_sigma, pose_source_errat_s != 0.)
+                np.logical_and(pose_source_errat_s < metrics.errat_2_sigma, pose_source_errat_s != 0.)
             errat_df = per_residue_df.loc[:, idx_slice[:, 'errat_deviation']].droplevel(-1, axis=1)
             # find where designs deviate above wild-type errat scores
-            errat_sig_df = errat_df.sub(pose_source_errat_s, axis=1) > errat_1_sigma  # axis=1 Series is column oriented
+            errat_sig_df = errat_df.sub(pose_source_errat_s, axis=1) > metrics.errat_1_sigma
+            # axis=1 Series is column oriented ^
             # then select only those residues which are expressly important by the inclusion boolean
             scores_df['errat_deviation'] = (errat_sig_df.loc[:, source_errat_inclusion_boolean] * 1).sum(axis=1)
 
@@ -4193,12 +4194,13 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
         #     list(filter(re_compile('sasa_hydrophobic_[0-9]+_bound').match, scores_columns)),
         # 'sasa_polar_bound': list(filter(re_compile('sasa_polar_[0-9]+_bound').match, scores_columns)),
         # 'sasa_total_bound': list(filter(re_compile('sasa_total_[0-9]+_bound').match, scores_columns))}
-        # scores_df = columns_to_new_column(scores_df, summation_pairs)
-        scores_df = columns_to_new_column(scores_df, delta_pairs, mode='sub')
-        scores_df = columns_to_new_column(scores_df, division_pairs, mode='truediv')
+        # scores_df = metrics.columns_to_new_column(scores_df, summation_pairs)
+        scores_df = metrics.columns_to_new_column(scores_df, metrics.delta_pairs, mode='sub')
+        scores_df = metrics.columns_to_new_column(scores_df, metrics.division_pairs, mode='truediv')
         if job.design.structures:
-            scores_df['interface_composition_similarity'] = scores_df.apply(interface_composition_similarity, axis=1)
-        scores_df.drop(clean_up_intermediate_columns, axis=1, inplace=True, errors='ignore')
+            scores_df['interface_composition_similarity'] = \
+                scores_df.apply(metrics.interface_composition_similarity, axis=1)
+        scores_df.drop(metrics.clean_up_intermediate_columns, axis=1, inplace=True, errors='ignore')
     # else:  # Get metrics and output
     #     # Generate placeholder all_mutations which only contains "reference"
     #     # all_mutations = generate_mutations_from_reference(pose.sequence, pose_sequences, return_to=True)

@@ -1,5 +1,5 @@
 from symdesign import flags
-from symdesign.metrics import master_metrics, rosetta_required_metrics
+from symdesign.protocols.metrics import master_metrics, rosetta_required_metrics
 from symdesign.utils import pretty_format_table, path as putils
 from symdesign.utils.path import program_command, program_name, current_energy_function, nano_publication, readme
 

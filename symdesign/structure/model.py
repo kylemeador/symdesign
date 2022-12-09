@@ -10,7 +10,7 @@ from itertools import chain as iter_chain, combinations_with_replacement, combin
 from logging import Logger
 from pathlib import Path
 from random import random
-from typing import Iterable, IO, Any, Sequence, AnyStr, Generator, Literal, Type
+from typing import Iterable, IO, Any, Sequence, AnyStr, Generator, Type
 
 import numpy as np
 # from numba import njit, jit
@@ -19,7 +19,8 @@ from sklearn.cluster import KMeans
 from sklearn.neighbors import BallTree
 from sklearn.neighbors._ball_tree import BinaryTree  # This typing implementation supports BallTree or KDTree
 
-from symdesign import metrics, resources
+from symdesign import flags, resources, utils
+from ..protocols import metrics
 from symdesign.resources import query
 from . import fragment
 from .base import Structure, Structures, Residue, StructureBase, atom_or_residue
@@ -29,8 +30,6 @@ from .sequence import SequenceProfile, generate_alignment, get_equivalent_indice
     pssm_as_array, generate_mutations, numeric_to_sequence, Profile, default_fragment_contribution, profile_types
 from .utils import DesignError, SymmetryError, ClashError, protein_letters_3to1_extended, \
     protein_letters_1to3_extended, chain_id_generator, protein_letters_alph1
-from symdesign import flags
-from symdesign import utils
 from symdesign.utils import path as putils
 
 # Globals
@@ -6027,27 +6026,27 @@ class Pose(SymmetricModel):
              'entity_number_of_residues_average_deviation'
              }
         """
-        metrics = self.get_fragment_metrics(total_interface=True)
+        pose_metrics = self.get_fragment_metrics(total_interface=True)
         # Remove these two from further analysis
-        metrics.pop('total_indices')
-        self.center_residue_indices = metrics.pop('center_indices', [])
+        pose_metrics.pop('total_indices')
+        self.center_residue_indices = pose_metrics.pop('center_indices', [])
 
         total_interface_residues = len(self.interface_residues)
         total_non_fragment_interface_residues = \
-            max(total_interface_residues - metrics['number_fragment_residues_center'], 0)
+            max(total_interface_residues - pose_metrics['number_fragment_residues_center'], 0)
         # Interface B Factor
         int_b_factor = sum(residue.b_factor for residue in self.interface_residues)
         try:  # If interface_distance is different from interface query and fragment generation these can be < 0 or > 1
             percent_residues_fragment_interface_center = \
-                min(metrics['number_fragment_residues_center'] / total_interface_residues, 1)
+                min(pose_metrics['number_fragment_residues_center'] / total_interface_residues, 1)
             percent_residues_fragment_interface_total = \
-                min(metrics['number_fragment_residues_total'] / total_interface_residues, 1)
+                min(pose_metrics['number_fragment_residues_total'] / total_interface_residues, 1)
             ave_b_factor = int_b_factor / total_interface_residues
         except ZeroDivisionError:
             self.log.warning(f'{self.name}: No interface residues were found. Is there an interface in your design?')
             ave_b_factor = percent_residues_fragment_interface_center = percent_residues_fragment_interface_total = 0.
 
-        metrics.update({
+        pose_metrics.update({
             'interface_b_factor_per_residue': ave_b_factor,
             # 'nanohedra_score': all_residue_score,
             # 'nanohedra_score_normalized': nanohedra_score_normalized,
@@ -6084,25 +6083,26 @@ class Pose(SymmetricModel):
 
         # total_fragment_elements, total_interface_elements = '', ''
         for number, topology in interface_ss_topology.items():
-            metrics[f'interface_secondary_structure_topology_{number}'] = topology
+            pose_metrics[f'interface_secondary_structure_topology_{number}'] = topology
             # total_interface_elements += topology
-            metrics[f'interface_secondary_structure_fragment_topology_{number}'] = \
+            pose_metrics[f'interface_secondary_structure_fragment_topology_{number}'] = \
                 interface_ss_fragment_topology.get(number, '-')
             # total_fragment_elements += interface_ss_fragment_topology.get(number, '')
 
-        metrics['interface_secondary_structure_fragment_topology'] = ''.join(interface_ss_fragment_topology.values())
-        metrics['interface_secondary_structure_fragment_count'] = \
-            len(metrics['interface_secondary_structure_fragment_topology'])
-        metrics['interface_secondary_structure_topology'] = ''.join(interface_ss_topology.values())
-        metrics['interface_secondary_structure_count'] = \
-            len(metrics['interface_secondary_structure_topology'])
+        pose_metrics['interface_secondary_structure_fragment_topology'] = \
+            ''.join(interface_ss_fragment_topology.values())
+        pose_metrics['interface_secondary_structure_fragment_count'] = \
+            len(pose_metrics['interface_secondary_structure_fragment_topology'])
+        pose_metrics['interface_secondary_structure_topology'] = ''.join(interface_ss_topology.values())
+        pose_metrics['interface_secondary_structure_count'] = \
+            len(pose_metrics['interface_secondary_structure_topology'])
 
         if self.is_symmetric():
-            metrics['design_dimension'] = self.dimension
+            pose_metrics['design_dimension'] = self.dimension
             for idx, group in enumerate(self.sym_entry.groups, 1):
-                metrics[f'symmetry_group_{idx}'] = group
+                pose_metrics[f'symmetry_group_{idx}'] = group
         else:
-            metrics['design_dimension'] = 'asymmetric'
+            pose_metrics['design_dimension'] = 'asymmetric'
 
         try:
             api_db = resources.wrapapi.api_database_factory()
@@ -6131,7 +6131,7 @@ class Pose(SymmetricModel):
             else:
                 thermophile = 1 if is_pdb_thermophile(entity.name) or is_ukb_thermophilic(entity.uniprot_id) else 0
 
-            metrics.update({
+            pose_metrics.update({
                 f'entity_{idx}_symmetry': entity.symmetry if entity.is_oligomeric() else 'asymmetric',
                 f'entity_{idx}_name': entity.name,
                 f'entity_{idx}_number_of_residues': entity.number_of_residues,
@@ -6143,33 +6143,37 @@ class Pose(SymmetricModel):
                 f'entity_{idx}_c_terminal_orientation': entity.termini_proximity_from_reference(termini='c'),
                 f'entity_{idx}_thermophile': thermophile})
 
-        metrics['minimum_radius'] = minimum_radius
-        metrics['maximum_radius'] = maximum_radius
-        metrics['pose_length'] = \
-            sum(metrics[f'entity_{idx + 1}_number_of_residues'] for idx in range(self.number_of_entities))
+        pose_metrics['minimum_radius'] = minimum_radius
+        pose_metrics['maximum_radius'] = maximum_radius
+        pose_metrics['pose_length'] = \
+            sum(pose_metrics[f'entity_{idx + 1}_number_of_residues'] for idx in range(self.number_of_entities))
 
         radius_ratio_sum = min_ratio_sum = max_ratio_sum = residue_ratio_sum = 0
         counter = 1
         for counter, (entity_idx1, entity_idx2) in enumerate(combinations(range(1, self.number_of_entities + 1),
                                                                           2), counter):
-            radius_ratio = metrics[f'entity_{entity_idx1}_radius'] / metrics[f'entity_{entity_idx2}_radius']
-            min_ratio = metrics[f'entity_{entity_idx1}_min_radius'] / metrics[f'entity_{entity_idx2}_min_radius']
-            max_ratio = metrics[f'entity_{entity_idx1}_max_radius'] / metrics[f'entity_{entity_idx2}_max_radius']
-            residue_ratio = metrics[f'entity_{entity_idx1}_number_of_residues'] \
-                / metrics[f'entity_{entity_idx2}_number_of_residues']
+            radius_ratio = \
+                pose_metrics[f'entity_{entity_idx1}_radius'] / pose_metrics[f'entity_{entity_idx2}_radius']
+            min_ratio = \
+                pose_metrics[f'entity_{entity_idx1}_min_radius'] / pose_metrics[f'entity_{entity_idx2}_min_radius']
+            max_ratio = \
+                pose_metrics[f'entity_{entity_idx1}_max_radius'] / pose_metrics[f'entity_{entity_idx2}_max_radius']
+            residue_ratio = \
+                pose_metrics[f'entity_{entity_idx1}_number_of_residues'] \
+                / pose_metrics[f'entity_{entity_idx2}_number_of_residues']
             radius_ratio_sum += abs(1 - radius_ratio)
             min_ratio_sum += abs(1 - min_ratio)
             max_ratio_sum += abs(1 - max_ratio)
             residue_ratio_sum += abs(1 - residue_ratio)
-            metrics.update({f'entity_radius_ratio_{entity_idx1}v{entity_idx2}': radius_ratio,
+            pose_metrics.update({f'entity_radius_ratio_{entity_idx1}v{entity_idx2}': radius_ratio,
                             f'entity_min_radius_ratio_{entity_idx1}v{entity_idx2}': min_ratio,
                             f'entity_max_radius_ratio_{entity_idx1}v{entity_idx2}': max_ratio,
                             f'entity_number_of_residues_ratio_{entity_idx1}v{entity_idx2}': residue_ratio})
-        metrics.update({'entity_radius_average_deviation': radius_ratio_sum/counter,
+        pose_metrics.update({'entity_radius_average_deviation': radius_ratio_sum/counter,
                         'entity_min_radius_average_deviation': min_ratio_sum/counter,
                         'entity_max_radius_average_deviation': max_ratio_sum/counter,
                         'entity_number_of_residues_average_deviation': residue_ratio_sum/counter})
-        return metrics
+        return pose_metrics
 
     def get_per_residue_interface_metrics(self) -> dict[str, list[float]]:
         """Return the per Residue metrics for every Residue in the Pose
