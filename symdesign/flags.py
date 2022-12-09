@@ -8,7 +8,7 @@ from typing import Literal
 from psutil import cpu_count
 from typing_extensions import get_args
 
-from symdesign.protocols.metrics import metric_weight_functions
+from symdesign.protocols import metrics
 from symdesign.resources.query.utils import input_string, confirmation_string, bool_d, invalid_string, header_string, \
     format_string
 from symdesign.utils import handle_errors, pretty_format_table, ex_path, path as putils
@@ -58,7 +58,7 @@ directory = 'directory'
 dataframe = 'dataframe'
 fragment_database = 'fragment_database'
 interface_to_alanine = 'interface_to_alanine'
-metrics = 'metrics'
+_metrics = 'metrics'
 increment_chains = 'increment_chains'
 number = 'number'
 nucleotide = 'nucleotide'
@@ -456,9 +456,9 @@ refine_arguments = {
     ('-ala', f'--{interface_to_alanine}'): dict(action=argparse.BooleanOptionalAction, default=False,
                                                 help='Whether to mutate all interface residues to alanine before '
                                                      'refinement'),
-    ('-met', f'--{metrics}'): dict(action=argparse.BooleanOptionalAction, default=True,
-                                   help='Whether to calculate metrics for contained interfaces after refinement\n'
-                                        f'{boolean_positional_prevent_msg(metrics)}')
+    ('-met', f'--{_metrics}'): dict(action=argparse.BooleanOptionalAction, default=True,
+                                    help='Whether to calculate metrics for contained interfaces after refinement\n'
+                                        f'{boolean_positional_prevent_msg(_metrics)}')
 }
 # ---------------------------------------------------
 nanohedra_help = f'Run {nanohedra.title()}.py'
@@ -713,7 +713,7 @@ total_kwargs = dict(action='store_true',
 weight_args = ('--weight',)
 weight_kwargs = dict(action='store_true', help='Whether to weight selection results using metrics')
 weight_function_args = ('-wf', '--weight-function')
-weight_function_kwargs = dict(type=str.lower, choices=metric_weight_functions, default='normalize', metavar='',
+weight_function_kwargs = dict(type=str.lower, choices=metrics.metric_weight_functions, default='normalize', metavar='',
                               help='How to standardize metrics during selection weighting'
                                    '\nChoices=%(choices)s\nDefault=%(default)s')
 # ---------------------------------------------------

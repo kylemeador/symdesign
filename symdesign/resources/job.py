@@ -322,7 +322,7 @@ class JobResources:
         # self.pre_refine: bool = kwargs.get('pre_refine', True)
         # self.pre_loop_model: bool = kwargs.get('pre_loop_model', True)
         self.interface_to_alanine: bool = kwargs.get('interface_to_alanine')
-        self.metrics: bool = kwargs.get(flags.metrics)
+        self.metrics: bool = kwargs.get(flags._metrics)
         # self.scout: bool = kwargs.get(scout, False)
         self.specific_protocol: str = kwargs.get('specific_protocol')
         # self.structure_background: bool = kwargs.get(structure_background, False)

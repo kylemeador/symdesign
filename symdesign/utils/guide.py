@@ -1,5 +1,5 @@
 from symdesign import flags
-from symdesign.protocols.metrics import master_metrics, rosetta_required_metrics
+from symdesign.protocols.metrics import metric_config, rosetta_required_metrics
 from symdesign.utils import pretty_format_table, path as putils
 from symdesign.utils.path import program_command, program_name, current_energy_function, nano_publication, readme
 
@@ -189,7 +189,7 @@ interface_design = \
     f'{flags.interface_design} can be undertaken multiple times with different protocols to sample different ' \
     f'interface characteristics.{protocol_usage_in_select}.{module_help_string}'
 formatted_metrics = \
-    pretty_format_table([(metric, attributes['description']) for metric, attributes in sorted(master_metrics.items())])
+    pretty_format_table([(metric, attributes['description']) for metric, attributes in sorted(metric_config.items())])
 analysis = \
     f'After running "{program_command} {flags.analysis}", the following metrics will be available for each pose ' \
     f'(unique design configuration) selected for analysis:\n\t{nltb.join(formatted_metrics)}\n\nAdditionally, you' \
