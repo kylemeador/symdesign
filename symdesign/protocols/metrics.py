@@ -117,17 +117,38 @@ metric_config = {
     'contact_count':
         dict(description='Number of carbon-carbon contacts across interface',
              direction=_max, function=rank, filter=True),
+    'collapse_deviation_magnitude':
+        dict(description='The total deviation in the hydrophobic collapse. Either more or less collapse prone',
+             direction=_min, function=rank, filter=True),
+    'collapse_increase_significance_by_contact_order_z':
+        dict(description='Summation of positions with increased collapse from reference scaled by contact order z score'
+                         '. More negative is more isolated collapse, while positive indicates collapse occurs in '
+                         'higher contact order sites',
+             direction=_min, function=rank, filter=True),
+    'collapse_increased_z':
+        dict(description='The sum of all sequence regions z-scores experiencing increased collapse. Measures the '
+                         'normalized magnitude of additional hydrophobic collapse',
+             direction=_min, function=rank, filter=True),
+    'collapse_new_position_significance':
+        dict(description='The magnitude of the collapse_significance_by_contact_order_z (abs(deviation)) for identified'
+                         ' new collapse positions',
+             direction=_min, function=rank, filter=True),
+    'collapse_new_positions':
+        dict(description='The number of new collapse positions found',
+             direction=_min, function=rank, filter=True),
+    'collapse_sequential_peaks_z':
+        dict(description='Summation of the collapse z-score for each residue scaled sequentially by the number of '
+                         'previously observed collapsable locations',
+             direction=_max, function=rank, filter=True),
+    'collapse_sequential_z':
+        dict(description='Summation of the collapse z-score for each residue scaled by the proximity to sequence start',
+             direction=_max, function=rank, filter=True),
     'collapse_significance_by_contact_order_z':
         dict(description='Summed significance values taking product of collapsing and contact order per residue.'
                          ' Positive values indicate collapse in areas with low contact order. Negative, collapse in '
                          'high contact order. A protein fold relying on high contact order may not need as much '
                          'collapse, while without high contact order, the segment should rely on itself to fold',
              direction=_max, function=rank, filter=True),
-    'collapse_increase_significance_by_contact_order_z':
-        dict(description='Summation of positions with increased collapse from reference scaled by contact order z score'
-                         '. More negative is more isolated collapse, while positive indicates collapse occurs in '
-                         'higher contact order sites',
-             direction=_min, function=rank, filter=True),
     'core':
         dict(description='The number of "core" residues as classified by E. Levy 2010',
              direction=_max, function=rank, filter=True),
@@ -240,13 +261,6 @@ metric_config = {
     'interaction_energy_complex':
         dict(description='The two-body (residue-pair) energy of the complexed interface. No solvation '
                          'energies', direction=_min, function=rank, filter=True),
-    'collapse_increased_z':
-        dict(description='The sum of all sequence regions z-scores experiencing increased collapse. Measures the '
-                         'normalized magnitude of additional hydrophobic collapse',
-             direction=_min, function=rank, filter=True),
-    'collapse_deviation_magnitude':
-        dict(description='The total deviation in the hydrophobic collapse. Either more or less collapse prone',
-             direction=_min, function=rank, filter=True),
     'interface_area_hydrophobic':
         dict(description='Total hydrophobic interface buried surface area',
              direction=_min, function=rank, filter=True),
@@ -361,13 +375,6 @@ metric_config = {
     'nanohedra_score_normalized':
         dict(description='The Nanohedra Score normalized by number of fragment residues',
              direction=_max, function=rank, filter=True),
-    'collapse_new_position_significance':
-        dict(description='The magnitude of the collapse_significance_by_contact_order_z (abs(deviation)) for identified'
-                         ' new collapse positions',
-             direction=_min, function=rank, filter=True),
-    'collapse_new_positions':
-        dict(description='The number of new collapse positions found',
-             direction=_min, function=rank, filter=True),
     'number_fragment_residues_total':
         dict(description='The number of residues in the interface with fragment observationsfound',
              direction=_max, function=rank, filter=True),
@@ -471,13 +478,6 @@ metric_config = {
     'rosetta_reference_energy':
         dict(description='Rosetta Energy Term - A metric for the unfolded energy of the protein along with '
                          'sequence fitting corrections',
-             direction=_max, function=rank, filter=True),
-    'collapse_sequential_peaks_z':
-        dict(description='Summation of the collapse z-score for each residue scaled sequentially by the number of '
-                         'previously observed collapsable locations',
-             direction=_max, function=rank, filter=True),
-    'collapse_sequential_z':
-        dict(description='Summation of the collapse z-score for each residue scaled by the proximity to sequence start',
              direction=_max, function=rank, filter=True),
     'shape_complementarity':
         dict(description='Measure of fit between two surfaces from Lawrence and Colman 1993',
@@ -2042,7 +2042,7 @@ def rank_dataframe_by_metric_weights(df: pd.DataFrame, weights: dict[str, float]
             df = pd.concat({metric: df[metric].rank(ascending=sort_direction[parameters['direction']],
                                                     method=parameters['direction'], pct=True) * parameters['value']
                             for metric, parameters in weights.items()}, axis=1)
-        elif function == normalize:  # get the MinMax normalization (df - df.min()) / (df.max() - df.min())
+        elif function == normalize:  # Get the MinMax normalization (df - df.min()) / (df.max() - df.min())
             normalized_metric_df = {}
             for metric, parameters in weights.items():
                 metric_s = df[metric]
@@ -2050,10 +2050,11 @@ def rank_dataframe_by_metric_weights(df: pd.DataFrame, weights: dict[str, float]
                     metric_min, metric_max = metric_s.min(), metric_s.max()
                 else:  # parameters['direction'] == 'min:'
                     metric_min, metric_max = metric_s.max(), metric_s.min()
-                normalized_metric_df[metric] = ((metric_s - metric_min) / (metric_max - metric_min)) * parameters['value']
+                normalized_metric_df[metric] = \
+                    ((metric_s - metric_min) / (metric_max - metric_min)) * parameters['value']
             df = pd.concat(normalized_metric_df, axis=1)
         else:
-            raise ValueError('The value %s is not a viable choice for metric weighting "function"' % function)
+            raise ValueError(f"The value {function} isn't a viable choice for metric weighting 'function'")
 
         return df.sum(axis=1).sort_values(ascending=False)
     else:  # just sort by lowest energy
