@@ -26,6 +26,7 @@ from symdesign.resources import ml, job as symjob
 from symdesign.structure.base import Structure, Residue
 from symdesign.structure.coords import transform_coordinate_sets
 from symdesign.structure.fragment import GhostFragment
+from symdesign.structure.fragment.metrics import rmsd_z_score, z_value_from_match_score, match_score_from_z_value
 from symdesign.structure.fragment.visuals import write_fragment_pairs_as_accumulating_states
 from symdesign.structure.model import Pose, Model, get_matching_fragment_pairs_info, Models
 from symdesign.structure.sequence import generate_mutations_from_reference, numeric_to_sequence, concatenate_profile, \
