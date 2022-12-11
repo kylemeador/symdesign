@@ -3,6 +3,7 @@ import logging
 import os
 
 from symdesign.structure.base import Structure
+import symdesign.structure.fragment.info
 import symdesign.structure.fragment.extraction.FragUtils as Frag
 from symdesign.structure.model import Model
 from symdesign import utils
@@ -52,8 +53,8 @@ def find_interacting_residue_fragments(chain1, chain2, interacting_pairs, frag_l
                               'Residue.get_downstream() and Residue.get_upstream() based on frag_length')
     for residue1, residue2 in interacting_pairs:
         # parameterize fragments based on input length
-        res_nums_pdb1 = set(residue1 + i for i in range(*utils.parameterize_frag_length(frag_length)))
-        res_nums_pdb2 = set(residue2 + i for i in range(*utils.parameterize_frag_length(frag_length)))
+        res_nums_pdb1 = set(residue1 + i for i in range(*symdesign.structure.fragment.info.parameterize_frag_length(frag_length)))
+        res_nums_pdb2 = set(residue2 + i for i in range(*symdesign.structure.fragment.info.parameterize_frag_length(frag_length)))
 
         if same_chain:
             # break iteration if residue 1 succeeds residue 2 or they are sequential, or frag 1 residues are in frag 2

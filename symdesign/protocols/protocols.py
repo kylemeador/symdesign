@@ -3492,7 +3492,7 @@ class PoseDirectory:
         if filters:
             self.log.info(f'Using filter parameters: {filters}')
             # Filter the DataFrame to include only those values which are le/ge the specified filter
-            filtered_designs = index_intersection(metrics.filter_df_for_index_by_value(df, filters).values())
+            filtered_designs = metrics.index_intersection(metrics.filter_df_for_index_by_value(df, filters).values())
             df = df.loc[filtered_designs, :]
 
         if weights:

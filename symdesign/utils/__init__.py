@@ -397,25 +397,6 @@ def remove_interior_keys(dictionary: Dict, keys: Iterable, keep: bool = False) -
         return dictionary
 
 
-def index_intersection(index_groups: Iterable[Iterable]) -> List:
-    """Find the overlap of sets in a dictionary
-
-    Args:
-        index_groups: Groups of indices
-    Returns:
-        The union of all provided indices
-    """
-    final_indices = set()
-    # find all set union
-    for indices in index_groups:
-        final_indices = final_indices.union(indices)
-    # find all set intersection
-    for indices in index_groups:
-        final_indices = final_indices.intersection(indices)
-
-    return list(final_indices)
-
-
 def digit_keeper() -> DefaultDict:
     table = defaultdict(type(None))
     table.update({ord(digit): digit for digit in digits})  # '0123456789'
@@ -1003,6 +984,15 @@ def get_symdesign_dirs(base: str = None, projects: Iterable = None, singles: Ite
     return map(os.path.abspath, paths)
 
 
+def ex_path(*directories: Sequence[str]) -> AnyStr:
+    """Create an example path prepended with /path/to/provided/directories
+
+    Args:
+        directories: Example: ('provided', 'directories')
+    """
+    return os.path.join('path', 'to', *directories)
+
+
 class PoseSpecification(Dialect):
     delimiter = ','
     doublequote = True
@@ -1102,94 +1092,6 @@ class PoseSpecification(Dialect):
 ######################
 
 
-# @njit
-def calculate_match(coords1: float | np.ndarray = None, coords2: float | np.ndarray = None,
-                    coords_rmsd_reference: float | np.ndarray = None) -> float | np.ndarray:
-    """Calculate the match score(s) between two sets of coordinates given a reference rmsd
-
-    Args:
-        coords1: The first set of coordinates
-        coords2: The second set of coordinates
-        coords_rmsd_reference: The reference RMSD to compare each pair of coordinates against
-    Returns:
-        The match score(s)
-    """
-    # rmsds = rmsd(coords1, coords2)
-    # # Calculate Guide Atom Overlap Z-Value
-    # z_values = rmsds / coords_rmsd_reference
-    # # filter z_values by passing threshold
-    return match_score_from_z_value(rmsd(coords1, coords2) / coords_rmsd_reference)
-
-
-# @njit
-def rmsd_z_score(coords1: float | np.ndarray = None, coords2: float | np.ndarray = None,
-                 coords_rmsd_reference: float | np.ndarray = None) -> float | np.ndarray:
-    """Calculate the overlap between two sets of coordinates given a reference rmsd
-
-    Args:
-        coords1: The first set of coordinates
-        coords2: The second set of coordinates
-        coords_rmsd_reference: The reference RMSD to compare each pair of coordinates against
-    Returns:
-        The overlap z-value
-    """
-    #         max_z_value: The z-score deviation threshold of the overlap to be considered a match
-    # Calculate Guide Atom Overlap Z-Value
-    return rmsd(coords1, coords2) / coords_rmsd_reference
-    # z_values = rmsd(coords1, coords2) / coords_rmsd_reference
-    # filter z_values by passing threshold
-    # return np.where(z_values < max_z_value, z_values, False)
-
-
-# @njit mean doesn't take arguments
-def rmsd(coords1: float | np.ndarray = None, coords2: float | np.ndarray = None) -> float | np.ndarray:
-    """Calculate the root-mean-square deviation (RMSD). Arguments can be single vectors or array-like
-
-    If calculation is over two sets of numpy.arrays. The first axis (0) contains instances of coordinate sets,
-    the second axis (1) contains a set of coordinates, and the third axis (2) contains the x, y, z coordinates
-
-    Returns:
-        The RMSD value(s) which is equal to the length of coords1
-    """
-    # difference_squared = (coords1 - coords2) ** 2
-    # # axis 2(-1) gets the sum of the rows 0[1[2[],2[],2[]], 1[2[],2[],2[]], ...]
-    # sum_difference_squared = ((coords1 - coords2) ** 2).sum(axis=-1)  # <- more stable form of indexing axis
-    # # axis 1(-1) gets the mean of the rows 0[1[], 1[], ...]
-    # mean_sum_difference_squared = ((coords1 - coords2) ** 2).sum(axis=-1).mean(axis=-1)  # <- more stable index
-
-    return np.sqrt(((coords1 - coords2) ** 2).sum(axis=-1).mean(axis=-1))  # returns array equal to coords.shape[0]
-
-
-# @njit
-def z_value_from_match_score(match_score: float | np.ndarray) -> float | np.ndarray:
-    """Given a match score, convert to a z-value. sqrt(1/match_score - 1)"""
-    return np.sqrt(1/match_score - 1)
-
-
-# @njit
-def match_score_from_z_value(z_value: float | np.ndarray) -> float | np.ndarray:
-    """Return the match score from a fragment z-value -> 1 / (1 + z_value**2). Bounded between 0 and 1"""
-    return 1 / (1 + z_value**2)
-
-
-# @njit
-def z_score(sample: float | np.ndarray, mean: float | np.ndarray, stdev: float | np.ndarray) -> float | np.ndarray:
-    """From sample(s), calculate the positional z-score, i.e. z-score = (sample - mean) / stdev
-
-    Args:
-        sample: An array with the sample at every position
-        mean: An array with the mean at every position
-        stdev: An array with the standard deviation at every position
-    Returns:
-        The z-score of every sample
-    """
-    try:
-        return (sample-mean) / stdev
-    except ZeroDivisionError:
-        logger.error('The passed standard deviation (stdev) was 0! z-score calculation failed')
-        return 0.
-
-
 def format_guide_coords_as_atom(coordinate_sets: Iterable[np.array]):
     atom_string = 'ATOM  %s {:>4s}{:1s}%s %s%s{:1s}   %s{:6.2f}{:6.2f}          {:>2s}{:2s}'
     alt_location = ''
@@ -1282,35 +1184,3 @@ def condensed_to_square(k, n):
     j = calc_col_idx(k, i, n)
 
     return i, j
-
-
-def ex_path(*directories: Sequence[str]) -> AnyStr:
-    """Create an example path prepended with /path/to/provided/directories
-
-    Args:
-        directories: Example: ('provided', 'directories')
-    """
-    return os.path.join('path', 'to', *directories)
-
-
-def parameterize_frag_length(length: int) -> tuple[int, int]:
-    """Generate fragment length range parameters for use in fragment functions
-
-    Args:
-        length: The length of the fragment
-    Returns:
-        The tuple that provide the range for the specified length centered around 0
-            ex: length=5 -> (-2, 3), length=6 -> (-3, 3)
-    """
-    if length % 2 == 1:  # fragment length is odd
-        index_offset = 1
-        # fragment_range = (0 - _range, 0 + _range + zero_offset)
-        # return 0 - _range, 0 + _range + zero_offset
-    else:  # length is even
-        logger.critical(f'{length} is an even integer which is not symmetric about a single residue. '
-                        'Ensure this is what you want')
-        index_offset = 0
-        # fragment_range = (0 - _range, 0 + _range)
-    _range = math.floor(length / 2)  # get the number of residues extending to each side
-
-    return 0 - _range, 0 + _range + index_offset

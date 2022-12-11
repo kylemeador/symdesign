@@ -5890,7 +5890,7 @@ class Pose(SymmetricModel):
             contact_order = entity.contact_order
             # This calculation shouldn't depend on oligomers... Only assumes unfolded -> folded
             # contact_order = entity_oligomer.contact_order[:entity.number_of_residues]
-            entity_residue_contact_order_z = utils.z_score(contact_order, contact_order.mean(), contact_order.std())
+            entity_residue_contact_order_z = metrics.z_score(contact_order, contact_order.mean(), contact_order.std())
             # Todo
             #  Using the median may be a better measure of the contact order due to highly skewed data...
             #  entity_residue_contact_order_z = \
@@ -7261,7 +7261,7 @@ class Pose(SymmetricModel):
             trnsfmd_fragment = fragment_pdb.get_transformed_copy(*ghost_frag.transformation)
             trnsfmd_fragment.write(out_path=os.path.join(out_path, f'{i}_{j}_{k}_fragment_match_{match_count}.pdb'))
             fragment.write_frag_match_info_file(ghost_frag=ghost_frag, matched_frag=surface_frag,
-                                                overlap_error=utils.z_value_from_match_score(match_score),
+                                                overlap_error=fragment.metrics.z_value_from_match_score(match_score),
                                                 match_number=match_count, out_path=out_path)
 
     def debug_pdb(self, out_dir: AnyStr = os.getcwd(), tag: str = None):

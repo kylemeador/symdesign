@@ -1159,7 +1159,7 @@ def collapse_per_residue(sequence_groups: Iterable[Iterable[Sequence[str]]],
     reference_collapse_bool = (reference_collapse > significance_threshold).astype(int)
     # [False, False, False, False, True, True, False, False, True, True, ...]
     # reference_collapse_z_score = utils.z_score(reference_collapse, reference_mean, reference_std)
-    reference_collapse_z_score = utils.z_score(reference_collapse, significance_threshold, collapse_reported_std)
+    reference_collapse_z_score = z_score(reference_collapse, significance_threshold, collapse_reported_std)
 
     # Linearly weight residue by sequence position (early > late) with the halfway position (midpoint) at .5
     # midpoint = .5
@@ -1176,7 +1176,7 @@ def collapse_per_residue(sequence_groups: Iterable[Iterable[Sequence[str]]],
                                    for entity_idx, sequence in enumerate(sequences)])
         # Scale the collapse by the standard collapse threshold and make z score
         # collapse_z = utils.z_score(collapse, reference_mean, reference_std)
-        collapse_z = utils.z_score(collapse, significance_threshold, collapse_reported_std)
+        collapse_z = z_score(collapse, significance_threshold, collapse_reported_std)
         # Find the difference between the sequence and the reference
         difference_collapse_z = collapse_z - reference_collapse_z_score
         # The sum of all sequence regions z-scores experiencing increased collapse. Measures the normalized
@@ -1851,7 +1851,7 @@ def prioritize_design_indices(df: pd.DataFrame | AnyStr, filter: dict | bool = N
         # filtered_indices = {metric: filters_with_idx[metric]['idx'] for metric in filters_with_idx}
         logger.info('Number of designs passing filters:\n\t%s'
                     % '\n\t'.join(f'{len(indices):6d} - {metric}' for metric, indices in filtered_indices.items()))
-        final_indices = utils.index_intersection(filtered_indices.values())
+        final_indices = index_intersection(filtered_indices.values())
         logger.info(f'Number of designs passing all filters: {len(final_indices)}')
         if len(final_indices) == 0:
             raise DesignError('There are no poses left after filtering! Try choosing less stringent values or make '
@@ -2253,3 +2253,40 @@ def hydrophobic_collapse_index(sequence: Sequence[str | int] | np.ndarry, hydrop
     window_array = window_function(sequence_array, lower=lower_window, upper=upper_window)
 
     return window_array.mean(axis=0)
+
+
+def index_intersection(index_groups: Iterable[Iterable[Any]]) -> list[Any]:
+    """Perform AND logic on objects in multiple containers of objects, where all objects must be present to be included
+
+    Args:
+        index_groups: Groups of indices
+    Returns:
+        The union of all provided indices
+    """
+    final_indices = set()
+    # Find all set union. This grabs every possible index
+    for indices in index_groups:
+        final_indices = final_indices.union(indices)
+    # Find all set intersection. This narrows down to those present only in all
+    for indices in index_groups:
+        final_indices = final_indices.intersection(indices)
+
+    return list(final_indices)
+
+
+# @njit
+def z_score(sample: float | np.ndarray, mean: float | np.ndarray, stdev: float | np.ndarray) -> float | np.ndarray:
+    """From sample(s), calculate the positional z-score, i.e. z-score = (sample - mean) / stdev
+
+    Args:
+        sample: An array with the sample at every position
+        mean: An array with the mean at every position
+        stdev: An array with the standard deviation at every position
+    Returns:
+        The z-score of every sample
+    """
+    try:
+        return (sample-mean) / stdev
+    except ZeroDivisionError:
+        logger.error('The passed standard deviation (stdev) was 0! z-score calculation failed')
+        return 0.

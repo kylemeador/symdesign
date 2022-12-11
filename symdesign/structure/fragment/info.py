@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import math
 import os
 from glob import glob
 from itertools import repeat
@@ -261,3 +262,26 @@ class FragmentInfo:
 
     def start_mysql_connection(self):
         self.fragdb = utils.sql.Mysql(host='cassini-mysql', database='kmeader', user='kmeader', password='km3@d3r')
+
+
+def parameterize_frag_length(length: int) -> tuple[int, int]:
+    """Generate fragment length range parameters for use in fragment functions
+
+    Args:
+        length: The length of the fragment
+    Returns:
+        The tuple that provide the range for the specified length centered around 0
+            ex: length=5 -> (-2, 3), length=6 -> (-3, 3)
+    """
+    if length % 2 == 1:  # fragment length is odd
+        index_offset = 1
+        # fragment_range = (0 - _range, 0 + _range + zero_offset)
+        # return 0 - _range, 0 + _range + zero_offset
+    else:  # length is even
+        logger.critical(f'{length} is an even integer which is not symmetric about a single residue. '
+                        'Ensure this is what you want')
+        index_offset = 0
+        # fragment_range = (0 - _range, 0 + _range)
+    _range = math.floor(length / 2)  # get the number of residues extending to each side
+
+    return 0 - _range, 0 + _range + index_offset
