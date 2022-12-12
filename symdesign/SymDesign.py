@@ -301,8 +301,8 @@ def main():
     # -----------------------------------------------------------------------------------------------------------------
     #  Display the program guide if requested
     # -----------------------------------------------------------------------------------------------------------------
-    if args.guide:
-        if args.module:
+    if args.module:
+        if args.guide:
             try:
                 module_guide = getattr(guide, args.module.replace('-', '_'))
                 exit(module_guide)
@@ -317,12 +317,16 @@ def main():
             #           % (SDUtils.ex_path('pymol'), putils.program_command.replace('python ', ''),
             #              SDUtils.ex_path('pose_directory'), SDUtils.ex_path('DataFrame.csv'),
             #              SDUtils.ex_path('design.paths')))
-        else:  # Print the full program readme and exit
-            guide.print_guide()
-            exit()
+        # else:  # Print the full program readme and exit
+        #     guide.print_guide()
+        #     exit()
     elif args.setup:
         guide.setup_instructions()
         exit()
+    else:  # Print the full program readme and exit
+        guide.print_guide()
+        exit()
+
     # ---------------------------------------------------
     # elif args.flags:  # Todo
     #     if args.template:
@@ -502,7 +506,7 @@ def main():
         #     job.skip_sequence_generation = True
         elif job.module == flags.select_poses:
             # When selecting by dataframe or metric, don't initialize, input is handled in module protocol
-            if args.dataframe or args.metric:
+            if job.dataframe or job.metric:
                 initialize = False
         elif job.module in [flags.select_designs, flags.select_sequences] \
                 and job.number == sys.maxsize and not args.total:
@@ -1184,7 +1188,7 @@ def main():
     # ---------------------------------------------------
     elif job.module == flags.select_poses:
         # Need to initialize pose_directories, design_source to terminate()
-        pose_directories = protocols.select.poses()
+        pose_directories = protocols.select.poses(pose_directories)
         design_source = job.program_root
         # Write out the chosen poses to a pose.paths file
         terminate(results=pose_directories)
@@ -1802,15 +1806,15 @@ def main():
             #             break
             # files = ordered_files
         elif args.order == 'dataframe':
-            if not args.dataframe:
+            if not job.dataframe:
                 df_glob = sorted(glob(os.path.join(file_dir, 'TrajectoryMetrics.csv')))
                 try:
-                    args.dataframe = df_glob[0]
+                    job.dataframe = df_glob[0]
                 except IndexError:
                     raise IndexError(f"There was no --{flags.dataframe} specified and one couldn't be located in "
                                      f'{job.location}. Initialize again with the path to the relevant dataframe')
 
-            df = pd.read_csv(args.dataframe, index_col=0, header=[0])
+            df = pd.read_csv(job.dataframe, index_col=0, header=[0])
             print('INDICES:\n %s' % df.index.to_list()[:4])
             ordered_files = []
             for index in df.index:

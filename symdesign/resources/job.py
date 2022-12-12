@@ -363,6 +363,7 @@ class JobResources:
         # self.metric = kwargs.get('metric')
         self.specification_file = kwargs.get(putils.specification_file)
         self.dataframe = kwargs.get('dataframe')
+        self.metric = kwargs.get('metric')
 
         # Output flags
         prefix = kwargs.get('prefix')

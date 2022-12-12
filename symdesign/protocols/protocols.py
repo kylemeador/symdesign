@@ -35,8 +35,8 @@ from symdesign.structure.model import Pose, MultiModel, Models, Model, Entity, t
 from symdesign.structure.sequence import generate_mutations_from_reference, sequence_difference, \
     MultipleSequenceAlignment, pssm_as_array, concatenate_profile, write_pssm_file, read_fasta_file, write_sequences
 from symdesign.structure.utils import protein_letters_3to1, protein_letters_1to3, DesignError, ClashError, SymmetryError
-from symdesign.utils import large_color_array, starttime, start_log, unpickle, pickle_object, index_intersection, \
-    write_shell_script, all_vs_all, sym, condensed_to_square, rosetta, path as putils
+from symdesign.utils import large_color_array, starttime, start_log, unpickle, pickle_object, write_shell_script, \
+    all_vs_all, sym, condensed_to_square, rosetta, InputError, path as putils
 from symdesign.utils.SymEntry import SymEntry, symmetry_factory
 from symdesign.utils.nanohedra.general import get_components_from_nanohedra_docking
 
@@ -272,6 +272,9 @@ class PoseDirectory:
                     self.name = '-'.join(path_components[-2:])
                     project = path_components[-2]  # if root is None else root  # path/to/job/[project_Poses]/design.pdb
                     self.source = self.source_path
+                else:
+                    raise InputError(f"{type(self).__name__} couldn't load the specified source file: "
+                                     f"'{self.source_path}'")
                 # # elif pose_id or extension == '':  # Set up PoseDirectory initially from new nanohedra like output
                 # else:
                 #     self.name = '-'.join(path_components[-1])
