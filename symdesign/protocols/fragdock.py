@@ -2452,7 +2452,8 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
         # once, twice = False, False
 
         # Set up Pose parameters
-        parameters = pose.get_proteinmpnn_params()
+        interface = False
+        parameters = pose.get_proteinmpnn_params(ca_only=job.design.ca_only)
         # Todo
         #  Must calculate randn individually if using some feature to describe order
         parameters['randn'] = pose.generate_proteinmpnn_decode_order()  # to_device=device)
@@ -2548,9 +2549,12 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
                 design_profiles.append(pssm_as_array(pose.profile))
 
                 # Add all interface residues
-                design_residues = []
-                for number, residues_entities in pose.split_interface_residues.items():
-                    design_residues.extend([residue.index for residue, _ in residues_entities])
+                if interface:
+                    design_residues = []
+                    for number, residues_entities in pose.split_interface_residues.items():
+                        design_residues.extend([residue.index for residue, _ in residues_entities])
+                else:
+                    design_residues = list(range(pose_length))
 
                 # Residues to design are 1, others are 0
                 residue_mask_cpu[batch_idx, design_residues] = 1
@@ -2667,17 +2671,21 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
             # If conditional_probs() are measured, then we need a batched_decoding order
             # conditional_start_time = time.time()
             # Calculations with this are done using cpu memory and numpy
-            conditional_log_probs_null_seq = \
-                mpnn_model(X, S_design_null, mask, chain_residue_mask, residue_idx, chain_encoding,
-                           None,  # This argument is provided but with below args, is not used
-                           use_input_decoding_order=True, decoding_order=decoding_order).cpu()
+            # conditional_log_probs_null_seq = \
+            #     mpnn_model(X, S_design_null, mask, chain_residue_mask, residue_idx, chain_encoding,
+            #                None,  # This argument is provided but with below args, is not used
+            #                use_input_decoding_order=True, decoding_order=decoding_order).cpu()
+            unconditional_log_probs = \
+                mpnn_model.unconditional_probs(X, mask, residue_idx, chain_encoding).cpu()
             #  Taking the KL divergence would indicate how divergent the interfaces are from the
             #  surface. This should be simultaneously minimized (i.e. lowest evolutionary divergence)
             #  while the aa frequency distribution cross_entropy compared to the fragment profile is
             #  minimized
             # Remove the gaps index from the softmax input -> ... :, :mpnn_null_idx]
+            # asu_conditional_softmax_null_seq = \
+            #     np.exp(conditional_log_probs_null_seq[:, :pose_length, :mpnn_null_idx])
             asu_conditional_softmax_null_seq = \
-                np.exp(conditional_log_probs_null_seq[:, :pose_length, :mpnn_null_idx])
+                np.exp(unconditional_log_probs[:, :pose_length, :mpnn_null_idx])
             # asu_conditional_softmax
             # tensor([[[0.0273, 0.0125, 0.0200,  ..., 0.0073, 0.0102, 0.0052],
             #          [0.0273, 0.0125, 0.0200,  ..., 0.0073, 0.0102, 0.0052],
@@ -2913,10 +2921,12 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
                 pose.find_and_split_interface(distance=cb_distance)
 
                 # Add all interface residues
-                design_residues = []
-                for number, residues_entities in pose.split_interface_residues.items():
-                    design_residues.extend([residue.index for residue, _ in residues_entities])
-
+                if interface:
+                    design_residues = []
+                    for number, residues_entities in pose.split_interface_residues.items():
+                        design_residues.extend([residue.index for residue, _ in residues_entities])
+                else:
+                    design_residues = list(range(pose_length))
                 # Residues to design are 1, others are 0
                 residue_mask_cpu[batch_idx, design_residues] = 1
                 # Todo Should I use this?
@@ -3046,10 +3056,12 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
                 design_profiles.append(pssm_as_array(pose.profile))
 
                 # Add all interface residues
-                design_residues = []
-                for number, residues_entities in pose.split_interface_residues.items():
-                    design_residues.extend([residue.index for residue, _ in residues_entities])
-
+                if interface:
+                    design_residues = []
+                    for number, residues_entities in pose.split_interface_residues.items():
+                        design_residues.extend([residue.index for residue, _ in residues_entities])
+                else:
+                    design_residues = list(range(pose_length))
                 # Residues to design are 1, others are 0
                 residue_mask_cpu[batch_idx, design_residues] = 1
                 # Todo Should I use this?
@@ -3149,17 +3161,21 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
             # Calculations with this are done using cpu memory and numpy
             # logger.critical(f'Before model forward pass\nmemory_allocated: {torch.cuda.memory_allocated()}'
             #                 f'\nmemory_reserved: {torch.cuda.memory_reserved()}')
-            conditional_log_probs_null_seq = \
-                mpnn_model(X, S_design_null, mask, chain_residue_mask, residue_idx, chain_encoding,
-                           None,  # This argument is provided but with below args, is not used
-                           use_input_decoding_order=True, decoding_order=decoding_order).cpu()
+            # conditional_log_probs_null_seq = \
+            #     mpnn_model(X, S_design_null, mask, chain_residue_mask, residue_idx, chain_encoding,
+            #                None,  # This argument is provided but with below args, is not used
+            #                use_input_decoding_order=True, decoding_order=decoding_order).cpu()
+            unconditional_log_probs = \
+                mpnn_model.unconditional_probs(X, mask, residue_idx, chain_encoding).cpu()
             #  Taking the KL divergence would indicate how divergent the interfaces are from the
             #  surface. This should be simultaneously minimized (i.e. lowest evolutionary divergence)
             #  while the aa frequency distribution cross_entropy compared to the fragment profile is
             #  minimized
             # Remove the gaps index from the softmax input -> ... :, :mpnn_null_idx]
+            # asu_conditional_softmax_null_seq = \
+            #     np.exp(conditional_log_probs_null_seq[:, :pose_length, :mpnn_null_idx])
             asu_conditional_softmax_null_seq = \
-                np.exp(conditional_log_probs_null_seq[:, :pose_length, :mpnn_null_idx])
+                np.exp(unconditional_log_probs[:, :pose_length, :mpnn_null_idx])
             # asu_conditional_softmax
             # tensor([[[0.0273, 0.0125, 0.0200,  ..., 0.0073, 0.0102, 0.0052],
             #          [0.0273, 0.0125, 0.0200,  ..., 0.0073, 0.0102, 0.0052],
