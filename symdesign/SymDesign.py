@@ -982,7 +982,7 @@ def main():
         for idx, protocol_name in enumerate(job.modules, 1):
             protocol = getattr(protocols, protocol_name)
 
-            logger.info(f'Starting protocol {idx}: {protocol}')
+            logger.info(f'Starting protocol {idx}: {protocol_name}')
             # Figure out how the job should be set up
             if protocol_name in run_on_pose_directory:  # Single poses
                 if job.multi_processing:

@@ -3482,7 +3482,7 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
         else:
             design_returns = {}
 
-        if collapse_profile.size:
+        if collapse_profile.size and job.dock.proteinmpnn_score:
             per_residue_collapse = np.empty((size, pose_length), dtype=np.float32)
             # per_residue_dock_island_significance = np.zeros_like(per_residue_collapse)
             # per_residue_dock_collapse_significance_by_contact_order_z = np.zeros_like(per_residue_collapse)
@@ -3553,7 +3553,7 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
         else:
             generated_sequences = per_residue_complex_sequence_loss = per_residue_unbound_sequence_loss = None
 
-        if collapse_profile.size:
+        if collapse_profile.size and job.dock.proteinmpnn_score:
             per_residue_dock_islands = sequences_and_scores['collapse_new_positions']
             per_residue_dock_island_significance = sequences_and_scores['collapse_new_position_significance']
             per_residue_dock_collapse_significance_by_contact_order_z = \

@@ -6,20 +6,20 @@ from typing import Any, Iterable
 import pandas as pd
 
 from symdesign import flags, protocols, utils
-from symdesign.protocols import metrics
+from symdesign.protocols import metrics  # , PoseDirectory
 from symdesign.resources.job import job_resources_factory
 import symdesign.utils.path as putils
 
 logger = logging.getLogger(__name__)
 
 
-def poses(pose_directories):
+def poses(pose_directories: Iterable[protocols.protocols.PoseDirectory]) -> list[protocols.protocols.PoseDirectory]:
     job = job_resources_factory.get()
 
     if job.specification_file:  # Figure out poses from a specification file, filters, and weights
         loc_result = [(pose_directory, design) for pose_directory in pose_directories
                       for design in pose_directory.specific_designs]
-        total_df = protocols.load_total_dataframe(pose=True)
+        total_df = protocols.load_total_dataframe(pose_directories, pose=True)
         selected_poses_df = \
             metrics.prioritize_design_indices(total_df.loc[loc_result, :], filter=job.filter, weight=job.weight,
                                               protocol=job.protocol, function=job.weight_function)
@@ -41,7 +41,7 @@ def poses(pose_directories):
         # # convert selected_poses to PoseDirectory objects
         # selected_poses = [pose_directory for pose_directory in pose_directories if pose_dir_name in selected_poses]
     elif job.total:  # Figure out poses from file/directory input, filters, and weights
-        total_df = protocols.load_total_dataframe(pose=True)
+        total_df = protocols.load_total_dataframe(pose_directories, pose=True)
         if job.protocol:  # Todo adapt to protocol column not in Trajectories right now...
             group_df = total_df.groupby(putils.protocol)
             df = pd.concat([group_df.get_group(x) for x in group_df.groups], axis=1,
