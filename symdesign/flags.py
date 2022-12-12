@@ -8,7 +8,7 @@ from typing import Literal
 from psutil import cpu_count
 from typing_extensions import get_args
 
-from symdesign.protocols import metrics
+from symdesign.resources import config
 from symdesign.resources.query.utils import input_string, confirmation_string, bool_d, invalid_string, header_string, \
     format_string
 from symdesign.utils import handle_errors, pretty_format_table, ex_path, path as putils
@@ -713,7 +713,7 @@ total_kwargs = dict(action='store_true',
 weight_args = ('--weight',)
 weight_kwargs = dict(action='store_true', help='Whether to weight selection results using metrics')
 weight_function_args = ('-wf', '--weight-function')
-weight_function_kwargs = dict(type=str.lower, choices=metrics.metric_weight_functions, default='normalize', metavar='',
+weight_function_kwargs = dict(type=str.lower, choices=config.metric_weight_functions, default='normalize', metavar='',
                               help='How to standardize metrics during selection weighting'
                                    '\nChoices=%(choices)s\nDefault=%(default)s')
 # ---------------------------------------------------
@@ -778,7 +778,7 @@ select_sequences_arguments = {
     (f'--{nucleotide}',): dict(action=argparse.BooleanOptionalAction, default=True,
                                help=f'Whether to output codon optimized nucleotide sequences'
                                     f'\n{boolean_positional_prevent_msg(nucleotide)}'),
-    ('-t', '--preferred-tag'): dict(type=str.lower, choices=expression_tags.keys(), default='his_tag', metavar='',
+    ('-t', '--preferred-tag'): dict(type=str.lower, choices=config.expression_tags.keys(), default='his_tag', metavar='',
                                     help='The name of your preferred expression tag'
                                          '\nChoices=%(choices)s\nDefault=%(default)s'),
     (f'--{tag_entities}',): dict(type=str,

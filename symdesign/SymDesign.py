@@ -27,7 +27,7 @@ logger = logging.getLogger(putils.program_name.lower())  # __name__)
 # logger.info('Starting logger')
 # logger.warning('Starting logger')
 # input('WHY LOGGING')
-from symdesign import flags, protocols, utils
+from symdesign import flags, protocols, resources, utils
 from symdesign.protocols import metrics, PoseDirectory
 from symdesign.resources.job import job_resources_factory
 from symdesign.resources.query.pdb import retrieve_pdb_entries_by_advanced_query
@@ -1579,11 +1579,11 @@ def main():
                                                           f'below options.\n\t%s\n{input_string}' %
                                                           '\n\t'.join([f'{i} - {tag}'
                                                                        for i, tag in enumerate(
-                                                                        ProteinExpression.expression_tags, 1)]))
+                                                                        resources.config.expression_tags, 1)]))
                                         if tag_input.isdigit():
                                             tag_input = int(tag_input)
-                                            if tag_input <= len(ProteinExpression.expression_tags):
-                                                tag = list(ProteinExpression.expression_tags.keys())[tag_input - 1]
+                                            if tag_input <= len(resources.config.expression_tags):
+                                                tag = list(resources.config.expression_tags.keys())[tag_input - 1]
                                                 break
                                         print("Input doesn't match available options. Please try again")
                                     while True:
@@ -1597,12 +1597,12 @@ def main():
                                 selected_entity = list(sequences_and_tags.keys())[idx]
                                 if termini == 'n':
                                     new_tag_sequence = \
-                                        ProteinExpression.expression_tags[tag] + 'SG' \
+                                        resources.config.expression_tags[tag] + 'SG' \
                                         + sequences_and_tags[selected_entity]['sequence'][:12]
                                 else:  # termini == 'c'
                                     new_tag_sequence = \
                                         sequences_and_tags[selected_entity]['sequence'][-12:] \
-                                        + 'GS' + ProteinExpression.expression_tags[tag]
+                                        + 'GS' + resources.config.expression_tags[tag]
                                 sequences_and_tags[selected_entity]['tag'] = {'name': tag, 'sequence': new_tag_sequence}
                                 missing_tags[(des_dir, design)][idx] = 0
                                 break
@@ -1647,7 +1647,7 @@ def main():
                     # print('TAG:\n', tag.get('sequence'), '\nSEQUENCE:\n', sequence)
                     design_sequence = ProteinExpression.add_expression_tag(tag.get('sequence'), sequence)
                     if tag.get('sequence') and design_sequence == sequence:  # tag exists and no tag added
-                        tag_sequence = ProteinExpression.expression_tags[tag.get('name')]
+                        tag_sequence = resources.config.expression_tags[tag.get('name')]
                         if tag.get('termini') == 'n':
                             if design_sequence[0] == 'M':  # remove existing Met to append tag to n-term
                                 design_sequence = design_sequence[1:]

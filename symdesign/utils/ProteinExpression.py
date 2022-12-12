@@ -11,6 +11,7 @@ from Bio.SeqRecord import SeqRecord
 from symdesign import utils
 # EnforceMeltingTemperature
 from symdesign.resources import query
+from symdesign.resources.config import expression_tags
 from symdesign.structure.sequence import generate_alignment, read_fasta_file, write_sequences
 from symdesign.structure.utils import protein_letters_alph1
 from symdesign.third_party.DnaChisel.dnachisel import DnaOptimizationProblem, CodonOptimize, reverse_translate, \
@@ -20,8 +21,7 @@ from symdesign.utils import path as putils
 # Globals
 logger = logging.getLogger(__name__)
 uniprot_pdb_d = utils.unpickle(putils.uniprot_pdb_map)
-with open(putils.affinity_tags, 'r') as f:
-    expression_tags = {'_'.join(map(str.lower, row[0].split())): row[1] for row in csv.reader(f)}
+
 ndeI_multicistronic_sequence = \
     'taatgcttaagtcgaacagaaagtaatcgtattgtacacggccgcataatcgaaat' \
     'taatacgactcactataggggaattgtgagcggataacaattccccatcttagtatattagttaagtataagaaggagatatacat'  # ATG
@@ -500,14 +500,14 @@ def select_tags_for_sequence(sequence_id, matching_pdb_tags, preferred=None, n=T
     return final_tag_sequence
 
 
-def add_expression_tag(tag, sequence):
-    """Take a raw sequence and add expression tag by aligning a specified tag by PDB reference
+def add_expression_tag(tag: str, sequence: str) -> str:
+    """Add an expression tag to a sequence by aligning a tag specified with PDB reference sequence to the sequence
 
     Args:
-        tag (str):
-        sequence (str):
+        tag: The tag with additional PDB reference sequence
+        sequence: The sequence of interest
     Returns:
-        (str): The final sequence with the tag added
+        The final sequence with the tag added
     """
     if not tag:
         return sequence
