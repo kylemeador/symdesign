@@ -342,8 +342,19 @@ class JobResources:
         self.save_total = kwargs.get('save_total')
         self.total = kwargs.get('total')
         self.protocol = kwargs.get(putils.protocol)
-        self.filter = kwargs.get('filter')
-        self.weight = kwargs.get('weight')
+        _filter = kwargs.get('filter')
+        _filter_file = kwargs.get('filter_file')
+        if _filter:
+            self.filter = flags.parse_filters(_filter, file=_filter_file)
+        else:
+            self.filter = None
+        # Todo
+        _weight = kwargs.get('weight')
+        _weight_file = kwargs.get('weight_file')
+        if _weight:
+            self.weight = _weight  # flags.parse_weights(_weight, file=_weight_file)
+        else:
+            self.weight = None
         self.weight_function = kwargs.get('weight_function')
         self.number = kwargs.get('number')
         self.designs_per_pose = kwargs.get('designs_per_pose')

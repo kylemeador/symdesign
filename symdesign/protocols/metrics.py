@@ -6,7 +6,7 @@ import operator
 import warnings
 from itertools import repeat
 from json import loads
-from typing import Literal, AnyStr, Any, Sequence, Iterable
+from typing import AnyStr, Any, Sequence, Iterable
 
 import numpy as np
 import pandas as pd
@@ -1192,34 +1192,58 @@ def df_permutation_test(grouped_df: pd.DataFrame, diff_s: pd.Series, group1_size
 #     return total
 
 
-def filter_df_for_index_by_value(df: pd.DataFrame, metrics: dict) -> dict:
-    """Retrieve the indices from a DataFrame which have column values greater_equal/less_equal to an indicated threshold
+def filter_df_for_index_by_value(df: pd.DataFrame, metrics: dict[str, list | dict | str | int | float]) \
+        -> dict[str, list[Any]]:
+    """Retrieve the indices from a DataFrame which have column values passing an indicated operation threshold
 
     Args:
         df: DataFrame to filter indices on
-        metrics: {column: 0.3, ...} OR {column: {'direction': 'min', 'value': 0.3}, ...} to specify a sorting direction
+        metrics: {metric_name: [(operation (Callable), pre_operation (Callable), pre_kwargs (dict), value (Any)),], ...}
+            {metric_name: 0.3, ...} OR
+            {metric_name: {'direction': 'min', 'value': 0.3}, ...} to specify a sorting direction
     Returns:
-        {column: ['0001', '0002', ...], ...}
+        {metric_name: ['0001', '0002', ...], ...}
     """
     filtered_indices = {}
-    for column, value in metrics.items():
-        if isinstance(value, dict):
-            specification = value.get('direction')  # Todo make an ability to use boolean?
-            # todo convert specification options 'greater' '>' 'greater than' to 'max'/'min'
-            value = value.get('value', 0.)
-        else:
-            specification = filter_df.loc['direction', column]
+    print_filters = []
+    for metric_name, filter_ops in metrics.items():
+        if isinstance(filter_ops, list):
+            # Where the metrics = {metric: [(operation, pre_operation, pre_kwargs, value),], ...}
+            for idx, filter_op in enumerate(filter_ops):
+                operation, pre_operation, pre_kwargs, value = filter_op
+                print_filters.append((metric_name, f'{flags.operator_strings[operation]} {value}'))
 
-        if specification == _max:
-            filtered_indices[column] = df[df[column] >= value].index.to_list()
-        elif specification == _min:
-            filtered_indices[column] = df[df[column] <= value].index.to_list()
+                df = df[operation(pre_operation(df[metric_name], **pre_kwargs), value)]
+                filtered_indices[f'{metric_name}{idx}'] = df.index.to_list()
+            # Currently below operations aren't necessary because of how index_intersection works
+            #  indices = operation1(pre_operation(**kwargs)[metric], value)
+            #  AND if more than one argument, only 2 args are possible...
+            #  indices = np.logical_and(operation1(pre_operation(**kwargs)[metric], value), operation2(*args))
+        else:
+            if isinstance(filter_ops, dict):
+                specification = filter_ops.get('direction')  # Todo make an ability to use boolean?
+                # todo convert specification options 'greater' '>' 'greater than' to 'max'/'min'
+                filter_ops = filter_ops.get('value', 0.)
+            else:
+                specification = filter_df.loc['direction', metric_name]
+
+            if specification == 'max':
+                filtered_indices[metric_name] = df[df[metric_name] >= filter_ops].index.to_list()
+                operator_string = '>='
+            elif specification == 'min':
+                filtered_indices[metric_name] = df[df[metric_name] <= filter_ops].index.to_list()
+                operator_string = '<='
+            # Add to the filters
+            print_filters.append((metric_name, f'{operator_string} {filter_ops}'))
+
+    # Report the filtering options
+    logger.info('Starting with filters:\n\t%s' % '\n\t'.join(utils.pretty_format_table(print_filters)))
 
     return filtered_indices
 
 
-def prioritize_design_indices(df: pd.DataFrame | AnyStr, filter: dict | bool = None,
-                              weight: dict | bool = None, protocol: str | list[str] = None, **kwargs) -> pd.DataFrame:
+def prioritize_design_indices(df: pd.DataFrame | AnyStr, filter: dict = None,
+                              weight: dict = None, protocol: str | list[str] = None, **kwargs) -> pd.DataFrame:
     """Return a filtered/sorted DataFrame (both optional) with indices that pass a set of filters and/or are ranked
     according to a feature importance. Both filter and weight instructions are provided or queried from the user
 
@@ -1283,13 +1307,14 @@ def prioritize_design_indices(df: pd.DataFrame | AnyStr, filter: dict | bool = N
     # simple_df = simple_df.droplevel(0, axis=1).droplevel(0, axis=1)  # simplify headers
 
     if filter is not None:
-        if isinstance(filter, dict):
+        if filter and isinstance(filter, dict):
             # These were passed as parsed values
             filters = filter
-        else:
+        else:  # --filter was provided, but as a boolean-esq dict. Query the user for them
             available_filters = simple_df.columns.to_list()
             filters = query_user_for_metrics(available_filters, df=simple_df, mode='filter', level='design')
-        logger.info(f'Using filter parameters:\n%s' % '\n\t'.join(utils.pretty_format_table(filters.items())))
+        # # Todo this formatting isn't correct with new stype. Move to filter_df_for_index_by_value()
+        # logger.info(f'Using filter parameters:\n%s' % '\n\t'.join(utils.pretty_format_table(filters.items())))
 
         # When df is not ranked by percentage
         # _filters = {metric: {'direction': filter_df.loc['direction', metric], 'value': value}
@@ -1298,8 +1323,10 @@ def prioritize_design_indices(df: pd.DataFrame | AnyStr, filter: dict | bool = N
         # Filter the DataFrame to include only those values which are le/ge the specified filter
         filtered_indices = filter_df_for_index_by_value(simple_df, filters)  # **_filters)
         # filtered_indices = {metric: filters_with_idx[metric]['idx'] for metric in filters_with_idx}
-        logger.info('Number of designs passing filters:\n\t%s'
-                    % '\n\t'.join(f'{len(indices):6d} - {metric}' for metric, indices in filtered_indices.items()))
+        logger.info('Number of designs passing filters:\n\t%s' %
+                    '\n\t'.join(utils.pretty_format_table(filtered_indices.items())))
+        # logger.info('Number of designs passing filters:\n\t%s'
+        #             % '\n\t'.join(f'{len(indices):6d} - {metric}' for metric, indices in filtered_indices.items()))
         final_indices = index_intersection(filtered_indices.values())
         logger.info(f'Number of designs passing all filters: {len(final_indices)}')
         if len(final_indices) == 0:
@@ -1309,10 +1336,10 @@ def prioritize_design_indices(df: pd.DataFrame | AnyStr, filter: dict | bool = N
 
     # {column: {'direction': _min, 'value': 0.3, 'idx_slice': ['0001', '0002', ...]}, ...}
     if weight is not None:
-        if isinstance(weight, dict):
+        if weight and isinstance(weight, dict):
             # These were passed as parsed values
             weights = weight
-        else:
+        else:  # --weight was provided, but as a boolean-esq dict. Query the user for them
             available_metrics = simple_df.columns.to_list()
             weights = query_user_for_metrics(available_metrics, df=simple_df, mode='weight', level='design')
 
@@ -1374,10 +1401,10 @@ def query_user_for_metrics(available_metrics, df=None, mode=None, level=None):
         direction = dict(max='higher', min='lower')
         instructions = \
             {'filter': '\nFor each metric, choose values based on supported literature or design goals to eliminate '
-                       'designs that are certain to fail or have sub-optimal features. Ensure your cutoffs aren\'t too '
+                       "designs that are certain to fail or have sub-optimal features. Ensure your cutoffs aren't too "
                        'exclusive. If you end up with no designs, try relaxing your filter values.',
              'weight':
-                 '\nFor each metric, choose a percentage signifying the metric\'s contribution to the total selection '
+                 '\nFor each metric, choose a percentage signifying the metrics contribution to the total selection '
                  'weight. The weight will be used as a linear combination of all weights according to each designs rank'
                  ' within the specified metric category. For instance, typically the total weight should equal 1. When '
                  'choosing 5 metrics, you can assign an equal weight to each (specify 0.2 for each) or you can weight '
@@ -1386,7 +1413,7 @@ def query_user_for_metrics(available_metrics, df=None, mode=None, level=None):
                  'weight. Top percentile is defined as the most advantageous score, so the top percentile of energy is '
                  'lowest, while for hydrogen bonds it would be the most.'}
 
-        print('\n%s' % header_string % 'Select %s %s Metrics' % (level, mode))
+        print('\n%s' % header_string % f'Select {level} {mode} Metrics')
         print('The provided dataframe will be used to select %ss based on the measured metrics from each pose. '
               'To "%s" designs, which metrics would you like to utilize?%s'
               % (level, mode, describe_string if df is not None else ''))
@@ -1394,18 +1421,18 @@ def query_user_for_metrics(available_metrics, df=None, mode=None, level=None):
         print('The available metrics are located in the top row(s) of your DataFrame. Enter your selected metrics as a '
               'comma separated input or alternatively, you can check out the available metrics by entering "metrics".'
               '\nEx: "shape_complementarity, contact_count, etc."')
-        metrics_input = input('%s' % input_string)
+        metrics_input = input(input_string)
         chosen_metrics = set(map(str.lower, map(str.replace, map(str.strip, metrics_input.strip(',').split(',')),
                                                 repeat(' '), repeat('_'))))
         while True:  # unsupported_metrics or 'metrics' in chosen_metrics:
             unsupported_metrics = chosen_metrics.difference(available_metrics)
             if 'metrics' in chosen_metrics:
                 print('You indicated "metrics". Here are Available Metrics\n%s\n' % ', '.join(available_metrics))
-                metrics_input = input('%s' % input_string)
+                metrics_input = input(input_string)
             elif chosen_metrics.intersection(describe):
                 describe_data(df=df) if df is not None else print('Can\'t describe data without providing a DataFrame')
                 # df.describe() if df is not None else print('Can\'t describe data without providing a DataFrame...')
-                metrics_input = input('%s' % input_string)
+                metrics_input = input(input_string)
             elif unsupported_metrics:
                 # TODO catch value error in dict comprehension upon string input
                 metrics_input = input('Metric%s "%s" not found in the DataFrame! Is your spelling correct? Have you '
