@@ -116,8 +116,18 @@ def batch_calculation(size: int, batch_length: int, setup: Callable = None,
                         logger.debug(f'Calculating batch {batch + 1}')
                         function_returns = func(batch_slice, *args, **kwargs, **setup_returns)
                         # Set the returned values in the order they were received to the precalculated return_container
-                        for return_container_key, return_container in return_containers.items():
-                            return_container[batch_slice] = function_returns[return_container_key]
+                        for return_key, return_value in list(function_returns.items()):
+                            try:  # To access the return_container_key in the function
+                                return_containers[return_key][batch_slice] = return_value
+                            except KeyError:  # If it doesn't exist
+                                raise KeyError(f"Couldn't return the data specified by {return_key} to the "
+                                               f"return_container with keys:{', '.join(return_containers.keys())}")
+                        # for return_container_key, return_container in list(return_containers.items()):
+                        #     try:  # To access the return_container_key in the function
+                        #         return_container[batch_slice] = function_returns[return_container_key]
+                        #     except KeyError:  # If it doesn't exist
+                        #         # Remove the data from the return_containers
+                        #         return_containers.pop(return_container_key)
 
                     # Report success
                     logger.debug(f'Successful execution with batch_length of {_batch_length}. '
