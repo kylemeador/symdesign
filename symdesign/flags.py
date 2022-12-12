@@ -287,6 +287,33 @@ operator_strings = {
 }
 
 
+def parse_weights(weights: list[str] = None, file: AnyStr = None) \
+        -> dict[str, list[tuple[Callable, Callable, dict, Any]]]:
+    """
+
+    Args:
+        weights:
+        file:
+
+    Returns:
+
+    """
+    parsed_weights = parse_filters(weights, file=file)
+    # Ensure proper formatting of weight specific parameters
+    for idx, weight in enumerate(parsed_weights):
+        if len(weight) != 1:
+            raise InputError(f"Can't assign more than one weight for every provided metric. "
+                             f"'{weights[idx]}' is invalid")
+        operation, pre_operation, pre_kwargs, value = weight[0]
+        if operation != operator.eq:
+            raise InputError(f"Can't assign a selection weight with the operator '{operator_strings[operation]}'. "
+                             f"'{weights[idx]}' is invalid")
+        if isinstance(value, str):
+            raise InputError(f"Can't assign a numerical weight to the provided weight '{weights[idx]}'")
+
+    return parsed_weights
+
+
 def parse_filters(filters: list[str] = None, file: AnyStr = None) \
         -> dict[str, list[tuple[Callable, Callable, dict, Any]]]:
     """Given a command line specified set of metrics and values, parse into filters to sort Pose DataFrames accordingly
@@ -888,6 +915,7 @@ designs_per_pose_kwargs = dict(type=int, default=1, help='What is the maximum nu
                                                          ' from each pose?\nDefault=%(default)s')
 
 filter_file_args = ('--filter-file',)
+filter_file_kwargs = dict(type=os.path.abspath, help='Whether to filter selection using metrics provided in a file')
 filter_args = ('--filter',)
 filter_kwargs = dict(nargs='*', default=None, help='Whether to filter selection using metrics')
 # filter_kwargs = dict(action='store_true', help='Whether to filter selection using metrics')
@@ -913,7 +941,8 @@ total_kwargs = dict(action='store_true',
                          'for the top sequences from all poses,\nthen chooses one sequence/pose unless '
                          '--allow-multiple-poses is invoked')
 weight_args = ('--weight',)
-weight_kwargs = dict(action='store_true', help='Whether to weight selection results using metrics')
+weight_kwargs = dict(nargs='*', default=None, help='Whether to weight selection results using metrics')
+# weight_kwargs = dict(action='store_true', help='Whether to weight selection results using metrics')
 weight_function_args = ('-wf', '--weight-function')
 weight_function_kwargs = dict(type=str.lower, choices=config.metric_weight_functions, default='normalize', metavar='',
                               help='How to standardize metrics during selection weighting'
