@@ -477,8 +477,9 @@ class StructureDatabase(Database):
             script_out_path: Where should Entity processing commands be written?
             batch_commands: Whether commands should be made for batch submission
         Returns:
-            Any instructions, then booleans for whether designs need to be refined (True) and loop_modelled
+            Any instructions, then booleans for whether designs are already refined (True)
         """
+        # and loop_modelled (True)
         # Todo
         #  Need to move make_loop_file to Pose/Structure (with SequenceProfile superclass)
         self.refined.make_path()
@@ -507,15 +508,16 @@ class StructureDatabase(Database):
         # Assume pre_refine is True until we find it isn't
         pre_refine = True
         if structures_to_refine:  # if files found unrefined, we should proceed
-            logger.info('The following structures are not yet refined and are being set up for refinement'
-                        ' into the Rosetta ScoreFunction for optimized sequence design: '
-                        f'{", ".join(sorted(set(structure.name for structure in structures_to_refine)))}')
-            print('Would you like to refine them now? If you plan on performing sequence design with models '
-                  'containing them, it is highly recommended you perform refinement')
+            logger.critical('The following structures are not yet refined and are being set up for refinement'
+                            ' into the Rosetta ScoreFunction for optimized sequence design:\n'
+                            f'{", ".join(sorted(set(structure.name for structure in structures_to_refine)))}')
+            print('If you plan on performing sequence design using Rosetta, it is highly recommended you perform '
+                  'initial refinement. You can also refine them later using the refine module')
+            print('Would you like to refine them now?')
             if boolean_choice():
                 run_pre_refine = True
             else:
-                print('To confirm, asymmetric units are going to be generated with unrefined coordinates. Confirm '
+                print('To confirm, asymmetric units are going to be generated with input coordinates. Confirm '
                       'with "y" to ensure this is what you want')
                 if boolean_choice():
                     run_pre_refine = False
@@ -564,7 +566,7 @@ class StructureDatabase(Database):
             else:
                 pre_refine = True
 
-        # query user and set up commands to perform loop modelling on missing entities
+        # Query user and set up commands to perform loop modelling on missing entities
         # Assume pre_loop_model is True until we find it isn't
         pre_loop_model = True
         if structures_to_loop_model:
