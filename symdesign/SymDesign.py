@@ -673,20 +673,20 @@ def main():
 
             if args.preprocessed:
                 # Ensure we report to PoseDirectory the results after skipping set up
-                job.initial_refinement = job.initial_loop_model = False
+                job.initial_refinement = job.initial_loop_model = True
             else:
                 preprocess_instructions, initial_refinement, initial_loop_model = \
                     job.structure_db.preprocess_structures_for_design(all_structures,
                                                                       script_out_path=job.sbatch_scripts)
                 #                                                       batch_commands=args.distribute_work)
-                if info_messages:
+                if info_messages and preprocess_instructions:
                     info_messages += ['The following can be run at any time regardless of evolutionary script progress']
                 info_messages += preprocess_instructions
                 job.initial_refinement = initial_refinement
                 job.initial_loop_model = initial_loop_model
 
             # Entity processing commands are needed
-            if load_resources or job.initial_refinement or job.initial_loop_model:
+            if load_resources or not job.initial_refinement or not job.initial_loop_model:
                 if info_messages:
                     logger.critical(sbatch_warning)
                     for message in info_messages:
@@ -707,7 +707,8 @@ def main():
             job.api_db.load_all_data()
         # Set up in series
         for pose in pose_directories:
-            pose.initialize_structure_attributes(pre_refine=not job.initial_refinement, pre_loop_model=not job.initial_loop_model)
+            pose.initialize_structure_attributes(pre_refine=job.initial_refinement,
+                                                 pre_loop_model=job.initial_loop_model)
 
         logger.info(f'{len(pose_directories)} unique poses found in "{job.location}"')
         if not job.debug and not job.skip_logging:
@@ -810,19 +811,19 @@ def main():
 
         if args.preprocessed:
             # Ensure we report to PoseDirectory the results after skipping set up
-            job.initial_refinement = job.initial_loop_model = False
+            job.initial_refinement = job.initial_loop_model = True
         else:
             preprocess_instructions, initial_refinement, initial_loop_model = \
                 job.structure_db.preprocess_structures_for_design(all_structures, script_out_path=job.sbatch_scripts)
             #                                                       batch_commands=args.distribute_work)
-            if info_messages:
+            if info_messages and preprocess_instructions:
                 info_messages += ['The following can be run at any time regardless of evolutionary script progress']
             info_messages += preprocess_instructions
             job.initial_refinement = initial_refinement
             job.initial_loop_model = initial_loop_model
 
         # Entity processing commands are needed
-        if load_resources or job.initial_refinement or job.initial_loop_model:
+        if load_resources or not job.initial_refinement or not job.initial_loop_model:
             if info_messages:
                 logger.critical(sbatch_warning)
                 for message in info_messages:
