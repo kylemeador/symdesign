@@ -64,6 +64,7 @@ increment_chains = 'increment_chains'
 number = 'number'
 nucleotide = 'nucleotide'
 as_objects = 'as_objects'
+allow_multiple_poses = 'allow_multiple_poses'
 
 # Set up JobResources namespaces for different categories of flags
 design_namespace = {
@@ -156,6 +157,7 @@ skip_logging = format_for_cmdline(skip_logging)
 interface_to_alanine = format_for_cmdline(interface_to_alanine)
 increment_chains = format_for_cmdline(increment_chains)
 tag_entities = format_for_cmdline(tag_entities)
+allow_multiple_poses = format_for_cmdline(allow_multiple_poses)
 
 
 # def return_default_flags():
@@ -333,7 +335,7 @@ def parse_filters(filters: list[str] = None, file: AnyStr = None) \
     else:  # Parse input filters as individual filtering directives
         parsed_filters = {}
         for filter_str in filters:
-            # Make an additional string to substitute operations as they are found
+            # Make an additional variable to substitute operations as they are found
             _filter_str = filter_str
             # Find the indices of each operation and save to use as slices
             indices = []
@@ -904,7 +906,7 @@ analysis_arguments = {
 }
 # ---------------------------------------------------
 # Common selection arguments
-allow_multiple_poses_args = ('-amp', '--allow-multiple-poses')
+allow_multiple_poses_args = ('-amp', f'--{allow_multiple_poses}')
 allow_multiple_poses_kwargs = dict(action='store_true',
                                    help='Allow multiple sequences to be selected from the same Pose when using --total'
                                         '\nBy default, --total filters the selected sequences by a single Pose')
@@ -939,7 +941,10 @@ total_args = ('--total',)
 total_kwargs = dict(action='store_true',
                     help='Should sequences be selected based on their ranking in the total\ndesign pool? Searches '
                          'for the top sequences from all poses,\nthen chooses one sequence/pose unless '
-                         '--allow-multiple-poses is invoked')
+                         f'--{allow_multiple_poses} is invoked')
+weight_file_args = ('--weight-file',)
+weight_file_kwargs = dict(type=os.path.abspath,
+                          help='Whether to weight selection results using metrics provided in a file')
 weight_args = ('--weight',)
 weight_kwargs = dict(nargs='*', default=None, help='Whether to weight selection results using metrics')
 # weight_kwargs = dict(action='store_true', help='Whether to weight selection results using metrics')
