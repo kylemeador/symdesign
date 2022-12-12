@@ -33,7 +33,7 @@ from symdesign.structure.sequence import generate_mutations_from_reference, nume
     pssm_as_array, MultipleSequenceAlignment
 from symdesign.structure.utils import chain_id_generator, protein_letters_alph1
 from symdesign import utils
-from symdesign.utils import rmsd_z_score, z_value_from_match_score, match_score_from_z_value, path as putils
+from symdesign.utils import path as putils
 from symdesign.utils.SymEntry import SymEntry, get_rot_matrices, make_rotations_degenerate
 from symdesign.utils.symmetry import generate_cryst1_record, identity_matrix
 

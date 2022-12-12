@@ -79,7 +79,7 @@ class FragmentInfo:
         super().__init__()  # object
         self.cluster_info_path = utils.path.intfrag_cluster_info_dirpath
         self.fragment_length = fragment_length
-        self.fragment_range = utils.parameterize_frag_length(fragment_length)
+        self.fragment_range = parameterize_frag_length(fragment_length)
         self.info = {}
         self.source = source
         self.statistics = {}

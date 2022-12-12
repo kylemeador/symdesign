@@ -12,7 +12,7 @@ import numpy as np
 from sklearn.neighbors._ball_tree import BinaryTree, BallTree
 
 from symdesign import utils, structure
-from . import db, info
+from . import db, info, metrics
 
 # Globals
 logger = logging.getLogger(__name__)
@@ -592,13 +592,9 @@ def find_fragment_overlap(fragments1: Iterable[Fragment], fragments2: Sequence[F
     # reference_rmsds = np.array([ghost_frag.rmsd for ghost_frag in ghost_frags1])[passing_ghost_indices]
 
     # logger.debug('Calculating passing fragment overlaps by RMSD')
-    # all_fragment_match = calculate_match(passing_ghost_coords,
-    #                                      passing_frag_coords,
-    #                                      reference_rmsds)
+    # all_fragment_match = metrics.calculate_match(passing_ghost_coords, passing_frag_coords, reference_rmsds)
     # passing_overlaps_indices = np.flatnonzero(all_fragment_match > min_match_value)
-    all_fragment_z_score = utils.rmsd_z_score(passing_ghost_coords,
-                                              passing_frag_coords,
-                                              reference_rmsds)
+    all_fragment_z_score = metrics.rmsd_z_score(passing_ghost_coords, passing_frag_coords, reference_rmsds)
     passing_overlaps_indices = np.flatnonzero(all_fragment_z_score < min_match_value)
     # logger.debug('Finished calculating fragment overlaps')
     # logger.debug(f'Found {len(passing_overlaps_indices)} overlapping fragments over the {min_match_value} threshold')
@@ -612,7 +608,7 @@ def find_fragment_overlap(fragments1: Iterable[Fragment], fragments2: Sequence[F
     return list(zip([ghost_frags1[idx] for idx in passing_ghost_indices[passing_overlaps_indices].tolist()],
                     [fragments2[idx] for idx in passing_frag_indices[passing_overlaps_indices].tolist()],
                     # all_fragment_match[passing_overlaps_indices].tolist()))
-                    utils.match_score_from_z_value(all_fragment_z_score[passing_overlaps_indices]).tolist()))
+                    metrics.match_score_from_z_value(all_fragment_z_score[passing_overlaps_indices]).tolist()))
     #
     # # Todo keep without euler_lookup?
     # return list(zip([ghost_frags1[idx] for idx in passing_overlaps_indices.tolist()],
