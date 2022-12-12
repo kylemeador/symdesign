@@ -397,6 +397,9 @@ class PoseDirectory:
             # self.source = self.initial_model
             pass
 
+        # Mark that this has been initialized if it has
+        self.pickle_info()
+
     @property
     def designed_sequences(self) -> list[Sequence]:
         """Return the designed sequences for the entire Pose associated with the PoseDirectory"""
@@ -858,10 +861,10 @@ class PoseDirectory:
         if not self.job.construct_pose:  # This is only true when self.job.nanohedra_output is True
             # Don't write anything as we are just querying
             return
-        putils.make_path(self.data)
         # try:
         # Todo make better patch for numpy.ndarray compare value of array is ambiguous
         if self.info.keys() != self._info.keys():  # if the state has changed from the original version
+            putils.make_path(self.data)
             pickle_object(self.info, self.serialized_info, out_path='')
         # except ValueError:
         #     print(self.info)
