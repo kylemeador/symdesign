@@ -22,8 +22,8 @@ from symdesign.utils.path import submodule_guide, submodule_help, force, sym_ent
     number_of_trajectories, refine, structure_background, scout, design_profile, evolutionary_profile, \
     fragment_profile, all_scores, default_analysis_file, select_sequences, program_name, nanohedra, predict_structure, \
     program_command, analysis, select_poses, output_fragments, output_oligomers, protocol, current_energy_function, \
-    ignore_clashes, ignore_pose_clashes, ignore_symmetric_clashes, select_designs, output_structures, rosetta_str, \
-    proteinmpnn, output_trajectory, development, consensus, ca_only, sequences, structures, temperatures, \
+    ignore_clashes, ignore_pose_clashes, ignore_symmetric_clashes, select_designs, output_structures, proteinmpnn, \
+    output_trajectory, development, consensus, ca_only, sequences, structures, temperatures, \
     distribute_work, output_directory, output_surrounding_uc, skip_logging, output_file, multicistronic, \
     generate_fragments, input_, output, output_assembly, expand_asu, check_clashes, rename_chains, optimize_designs, \
     perturb_dof, tag_entities, design
