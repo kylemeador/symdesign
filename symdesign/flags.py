@@ -2,17 +2,18 @@ from __future__ import annotations
 
 import argparse
 import os
+import operator
 import sys
-from typing import Literal
+from typing import Any, AnyStr, Callable, Container, Literal
 
+import pandas as pd
 from psutil import cpu_count
 from typing_extensions import get_args
 
 from symdesign.resources import config
 from symdesign.resources.query.utils import input_string, confirmation_string, bool_d, invalid_string, header_string, \
     format_string
-from symdesign.utils import handle_errors, pretty_format_table, ex_path, path as putils
-from symdesign.utils.ProteinExpression import expression_tags
+from symdesign.utils import ex_path, handle_errors, pretty_format_table, read_json, InputError, path as putils
 from symdesign.utils.path import fragment_dbs, biological_interfaces, default_logging_level
 # These attributes ^ shouldn't be moved here. Below should be with proper handling of '-' vs. '_'
 from symdesign.utils.path import submodule_guide, submodule_help, force, sym_entry, program_output, projects, \
@@ -241,6 +242,205 @@ def query_user_for_flags(mode=interface_design, template=False):
 def load_flags(file):
     with open(file, 'r') as f:
         return {dict(tuple(flag.lstrip('-').split())) for flag in f.readlines()}
+
+
+# Put longer operations first so that they are scanned first, then shorter ones i.e. '>=' then '>'
+def not_contains(__a: Container[object], __b: object) -> bool:
+    return operator.not_(operator.contains(__a, __b))
+
+
+viable_operations = {
+    # '+': operator.add, '-': operator.sub,
+    # '*': operator.mul, '@': operator.matmul,
+    # '/': operator.truediv, '//': operator.floordiv,
+    '!->': not_contains,
+    '->': operator.contains,  # value in metric
+    '>=': operator.ge,  # '=>': operator.ge,
+    '<=': operator.le,  # '=<': operator.le,
+    '!=': operator.ne,  # '=!': operator.ne,
+    '=': operator.eq,
+    '>': operator.gt,
+    '<': operator.lt,
+}
+inverse_operations = {
+    # '+': operator.add, '-': operator.sub,
+    # '*': operator.mul, '@': operator.matmul,
+    # '/': operator.truediv, '//': operator.floordiv,
+    '->': operator.contains,  # value in metric
+    '>=': operator.lt,  # '=>': operator.ge,
+    '<=': operator.gt,  # '=<': operator.le,
+    '!=': operator.eq,  # '=!': operator.ne,
+    '=': operator.ne,
+    '>': operator.le,
+    '<': operator.ge,
+    # '!': operator.not_,
+}
+operator_strings = {
+    not_contains: '!->',
+    operator.contains: '->',
+    operator.ge: '>=',
+    operator.le: '<=',
+    operator.ne: '!=',
+    operator.eq: '=',
+    operator.gt: '>',
+    operator.lt: '<',
+}
+
+
+def parse_filters(filters: list[str] = None, file: AnyStr = None) \
+        -> dict[str, list[tuple[Callable, Callable, dict, Any]]]:
+    """Given a command line specified set of metrics and values, parse into filters to sort Pose DataFrames accordingly
+
+    Args:
+        filters: The command line collected filter arguments as specified in the filters --help
+        file: The path to a file specifying filters in JSON as specified in the filters --help
+    Returns:
+        The parsed filter mapping linking each metric to a specified filtering operation
+    """
+    def null(df, **_kwargs):
+        """Do nothing and return a passed DataFrame"""
+        return df
+
+    if file is not None:
+        parsed_filters = read_json(file)
+    else:  # Parse input filters as individual filtering directives
+        parsed_filters = {}
+        for filter_str in filters:
+            # Make an additional string to substitute operations as they are found
+            _filter_str = filter_str
+            # Find the indices of each operation and save to use as slices
+            indices = []
+            operations_syntax = []
+            for syntax in viable_operations:
+                # if syntax in filter_str:
+                while syntax in _filter_str:
+                    f_index = _filter_str.find(syntax)
+                    # It is important that shorter operations do not pull out longer ones i.e. '>' and '>='
+                    # # Check if equals is the next character and set operation_length
+                    # if filter_str[f_index + 1] == '=':
+                    #     operation_length = 2
+                    # else:
+                    #     operation_length = 1
+                    operation_length = len(syntax)
+                    r_index = f_index + operation_length
+                    # r_index = filter_str.rfind(syntax)
+                    indices.append([f_index, r_index])
+                    operations_syntax.append(syntax)
+                    # Substitute out the found operation for '`'
+                    _filter_str = _filter_str[:f_index] + '`' * operation_length + _filter_str[r_index:]
+
+            # Sort the indices according to the first index number
+            full_indices = []
+            for idx_pair in sorted(indices, key=lambda pair: pair[0]):
+                full_indices.extend(idx_pair)
+
+            # Separate the filter components along the operations
+            unique_components = [filter_str[:full_indices[0]]] \
+                + [filter_str[f_index:r_index] for f_index, r_index in zip(full_indices[:-1], full_indices[1:])] \
+                + [filter_str[full_indices[-1]:]]
+
+            # Set up function to parse values properly
+            def extract_format_value(_value: Any) -> Any:
+                """Values can be of type int, float, or string. Further, strings could be a list of int/float"""
+                try:
+                    formatted_value = int(_value)
+                except ValueError:  # Not simply an integer
+                    try:
+                        formatted_value = float(_value)
+                    except ValueError:  # Not numeric
+                        # This is either a list of numerics or likely a string value
+                        _values = [_component.strip() for _component in _value.split(',')]
+                        if len(_values) > 1:
+                            # We have a list of values
+                            formatted_value = [extract_format_value(_value_) for _value_ in _values]
+                        else:
+                            # This is some type of string value
+                            formatted_value = _values[0]
+                            # if _value[-1] == '%':
+                            #     # This should be treated as a percentage
+                            #     formatted_value = extract_format_value(_value)
+
+                return formatted_value
+
+            # Find the values that are metrics and those that are values, then ensure they are parsed correct
+            metric = metric_specs = metric_idx = None
+            negate_ops = True
+            operations_syntax_iter = iter(operations_syntax)
+            parsed_values = []
+            parsed_operations = []
+            parsed_percents = []
+            for idx, component in enumerate(unique_components):
+                # Value, operation, value, operation, value
+                if idx % 2 == 0:  # Zero or even index which must contain metric/values
+                    # print(idx, 'value', component)
+                    _metric_specs = config.metrics.get(component)
+                    if _metric_specs:  # We found in the list of available program metrics
+                        # print(idx, 'metric_specs')
+                        if metric_idx is None:
+                            metric_specs = _metric_specs
+                            metric = component
+                            metric_idx = idx
+                            # if idx != 0:
+                            # We must negate operations until the metric is found, i.e. metric > 1 is expected, but
+                            # 1 < metric < 10 is allowed. This becomes metric > 1 and metric < 10
+                            negate_ops = False
+                            continue
+                        else:  # We found two metrics...
+                            raise ValueError(f"Can't accept more than one value per filter as of now")
+                    else:
+                        if component[-1] == '%':
+                            # This should be treated as a percentage. Remove and parse
+                            component = component[:-1]
+                            parsed_percents.append(True)
+                        else:
+                            parsed_percents.append(False)
+                        component = extract_format_value(component)
+
+                        parsed_values.append(component)
+                    # # This may be required if section is reworked to allow more than one value per filter
+                    # parsed_values.append(component)
+                else:  # This is an operation
+                    syntax = next(operations_syntax_iter)
+                    # print(idx, 'operation', syntax)
+                    if negate_ops:
+                        operation = inverse_operations[syntax]
+                    else:
+                        operation = viable_operations[syntax]
+                    parsed_operations.append(operation)
+
+            if metric_idx is None:
+                possible_metrics = []
+                for value in parsed_values:
+                    if isinstance(value, str):
+                        possible_metrics.append(value)
+                # Todo find the closest and report to the user!
+                raise InputError(f"Couldn't coerce {'any of' if len(possible_metrics) > 1 else ''} '"
+                                 f"{', '.join(possible_metrics)}' to a viable metric")
+
+            # Format the metric for use by select-* protocols
+            filter_specification = []
+            for value, percent, operation in zip(parsed_values, parsed_percents, parsed_operations):
+                if percent:
+                    # pre_operation = pd.DataFrame.sort_values
+                    pre_operation = pd.DataFrame.rank
+                    pre_kwargs = dict(
+                        # Whether to sort dataframe with ascending, bigger values (higher rank) on top. Default True
+                        # ascending=metric_specs['direction'],
+                        # Will determine how ties are sorted which depends on the directional preference of the filter
+                        # 'min' makes equal values assume lower percent, 'max' higher percent
+                        method=metric_specs['direction'],
+                        # Treat the rank as a percent so that a percentage can be used to filter
+                        pct=True
+                    )
+                else:
+                    pre_operation = null
+                    pre_kwargs = {}
+
+                filter_specification.append((operation, pre_operation, pre_kwargs, value))
+
+            parsed_filters[metric] = filter_specification
+
+    return parsed_filters
 
 
 # ---------------------------------------------------
@@ -687,8 +887,10 @@ designs_per_pose_args = ('--designs-per-pose',)
 designs_per_pose_kwargs = dict(type=int, default=1, help='What is the maximum number of designs that should be selected'
                                                          ' from each pose?\nDefault=%(default)s')
 
+filter_file_args = ('--filter-file',)
 filter_args = ('--filter',)
-filter_kwargs = dict(action='store_true', help='Whether to filter selection using metrics')
+filter_kwargs = dict(nargs='*', default=None, help='Whether to filter selection using metrics')
+# filter_kwargs = dict(action='store_true', help='Whether to filter selection using metrics')
 optimize_species_args = ('-opt', '--optimize-species')
 # Todo choices=DNAChisel. optimization species options
 optimize_species_kwargs = dict(type=str, default='e_coli',
