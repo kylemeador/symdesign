@@ -7147,8 +7147,8 @@ class Pose(SymmetricModel):
         # residue_template = {'energy': {'complex': 0., 'fsp': 0., 'cst': 0.,
         #                                'unbound': [0. for _ in self.entities], 'bound': [0. for _ in self.entities]}}
         pose_length = self.number_of_residues
-        # adjust the energy based on pose specifics
-        pose_energy_multiplier = self.number_of_symmetry_mates  # will be 1 if not symmetric
+        # Adjust the energy based on pose specifics
+        pose_energy_multiplier = self.number_of_symmetry_mates  # Will be 1 if not symmetric
         entity_energy_multiplier = [entity.number_of_symmetry_mates for entity in self.entities]
 
         warn = False
@@ -7159,7 +7159,9 @@ class Pose(SymmetricModel):
                 if not key.startswith('per_res_'):
                     continue
                 # per_res_energysolv_complex_15W or per_res_energysolv_2_bound_415B
-                metadata = key.strip('_').split('_')
+                _, _, metric, entity_or_complex, *_ = metadata = key.strip('_').split('_')
+                # metric = metadata[2]  # energy [or sasa]
+                # entity_or_complex = metadata[3]  # 1,2,3,... or complex
                 # remove chain_id in rosetta_numbering="False"
                 # if we have enough chains, weird chain characters appear "per_res_energy_complex_19_" which mess up
                 # split. Also numbers appear, "per_res_energy_complex_1161" which may indicate chain "1" or residue 1161
@@ -7177,26 +7179,21 @@ class Pose(SymmetricModel):
                     residue_number = residue_number[:-1]
                 if residue_number not in residue_data:
                     residue_data[residue_number] = deepcopy(energy_template)  # deepcopy(residue_template)
-                metric = metadata[2]  # energy [or sasa]
-                if metric == 'energy':
-                    pose_state = metadata[-2]  # un, bound, complex [or fsp (favor_sequence_profile), cst (constraint)]
-                    entity_or_complex = metadata[3]  # 1,2,3,... or complex
-                    # use += because instances of symmetric residues from symmetry related chains are summed
-                    try:  # to convert to int. Will succeed if we have an entity as a string integer, ex: 1,2,3,...
-                        entity = int(entity_or_complex) - zero_offset
-                        residue_data[residue_number][pose_state][entity] += (value / entity_energy_multiplier[entity])
-                    except ValueError:  # complex is the value, use the pose state
-                        residue_data[residue_number][pose_state] += (value / pose_energy_multiplier)
-                elif metric == 'energysolv':
-                    pose_state = metadata[-2]  # unbound, bound, complex
-                    entity_or_complex = metadata[3]  # 1,2,3,... or complex
-                    # use += because instances of symmetric residues from symmetry related chains are summed
-                    try:  # to convert to int. Will succeed if we have an entity as a string integer, ex: 1,2,3,...
-                        entity = int(entity_or_complex) - zero_offset
-                        residue_data[residue_number][f'solv_{pose_state}'][entity] += \
-                            (value / entity_energy_multiplier[entity])
-                    except ValueError:  # complex is the value, use the pose state
-                        residue_data[residue_number][f'solv_{pose_state}'] += (value / pose_energy_multiplier)
+
+                # if metric == 'energy':
+                #     # pose_state could have either fsp (favor_sequence_profile) or cst (constraint) as well
+                #     metric_str = metadata[-2]  # pose_state - un, bound, complex
+                if metric == 'energysolv':
+                    metric_str = f'solv_{metadata[-2]}'  # pose_state - un, bound, complex
+                else:
+                    metric_str = metadata[-2]  # pose_state - un, bound, complex
+
+                # use += because instances of symmetric residues from symmetry related chains are summed
+                try:  # to convert to int. Will succeed if we have an entity as a string integer, ex: 1,2,3,...
+                    entity = int(entity_or_complex) - zero_offset
+                    residue_data[residue_number][metric_str][entity] += (value / entity_energy_multiplier[entity])
+                except ValueError:  # complex is the value, use the pose state
+                    residue_data[residue_number][metric_str] += (value / pose_energy_multiplier)
                 # else:  # sasa or something else old
                 #     pass
             parsed_design_residues[design] = residue_data

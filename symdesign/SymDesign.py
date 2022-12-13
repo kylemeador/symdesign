@@ -1266,17 +1266,18 @@ def main():
                 raise RuntimeError('Missing the representative_pose_directory. It must be initialized to continue')
                 example_trajectory = None
 
-            if job.filter:
+            if job.filter or job.weight:
                 trajectory_df = pd.read_csv(example_trajectory, index_col=0, header=[0])
                 sequence_metrics = set(trajectory_df.columns.get_level_values(-1).to_list())
+            else:
+                sequence_metrics = []
+
+            if job.filter:
                 sequence_filters = metrics.query_user_for_metrics(sequence_metrics, mode='filter', level='sequence')
             else:
                 sequence_filters = None
 
             if job.weight:
-                if not trajectory_df:
-                    trajectory_df = pd.read_csv(example_trajectory, index_col=0, header=[0])
-                    sequence_metrics = set(trajectory_df.columns.get_level_values(-1).to_list())
                 sequence_weights = metrics.query_user_for_metrics(sequence_metrics, mode='weight', level='sequence')
             else:
                 sequence_weights = None

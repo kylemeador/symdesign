@@ -2999,12 +2999,13 @@ class PoseDirectory:
         #     list(filter(re.compile('sasa_hydrophobic_[0-9]+_bound').match, scores_columns)),
         # 'sasa_polar_bound': list(filter(re.compile('sasa_polar_[0-9]+_bound').match, scores_columns)),
         # 'sasa_total_bound': list(filter(re.compile('sasa_total_[0-9]+_bound').match, scores_columns))}
-        scores_df = metrics.columns_to_new_column(scores_df, metrics.summation_pairs)
+        scores_df = metrics.columns_to_new_column(scores_df, summation_pairs)
         scores_df = metrics.columns_to_new_column(scores_df, metrics.delta_pairs, mode='sub')
         # add total_interface_residues for div_pairs and int_comp_similarity
         scores_df['total_interface_residues'] = other_pose_metrics.pop('total_interface_residues')
         scores_df = metrics.columns_to_new_column(scores_df, metrics.division_pairs, mode='truediv')
-        scores_df['interface_composition_similarity'] = scores_df.apply(metrics.interface_composition_similarity, axis=1)
+        scores_df['interface_composition_similarity'] = \
+            scores_df.apply(metrics.interface_composition_similarity, axis=1)
         scores_df.drop(metrics.clean_up_intermediate_columns, axis=1, inplace=True, errors='ignore')
         repacking = scores_df.get('repacking')
         if repacking is not None:
@@ -4272,7 +4273,7 @@ def interface_design_analysis(pose: Pose, design_poses: Iterable[Pose] = None, s
     #     list(filter(re.compile('sasa_hydrophobic_[0-9]+_bound').match, scores_columns)),
     # 'sasa_polar_bound': list(filter(re.compile('sasa_polar_[0-9]+_bound').match, scores_columns)),
     # 'sasa_total_bound': list(filter(re.compile('sasa_total_[0-9]+_bound').match, scores_columns))}
-    scores_df = metrics.columns_to_new_column(scores_df, metrics.summation_pairs)
+    scores_df = metrics.columns_to_new_column(scores_df, summation_pairs)
     scores_df = metrics.columns_to_new_column(scores_df, metrics.delta_pairs, mode='sub')
     # add total_interface_residues for div_pairs and int_comp_similarity
     scores_df['total_interface_residues'] = other_pose_metrics.pop('total_interface_residues')
