@@ -235,6 +235,7 @@ class PoseDirectory:
                 self.path = self.source_path
                 self.project_designs = os.path.dirname(self.path)
                 self.projects = os.path.dirname(self.project_designs)
+            self.log_path: str | Path = os.path.join(self.path, f'{self.name}.log')
             self.start_log()
         else:
             # Save job variables to the state during initialization
