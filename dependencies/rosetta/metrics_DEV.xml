@@ -127,7 +127,7 @@
 		<Add filter_name="R_buns_%%interface%%_unbound_sym"/>
 		<Add filter_name="R_buns_%%interface%%_unbound_sym_ignore"/>
 <!--		<Add mover_name="repack_loop"/> # Unused in P432 for minimization of the unbound state-->
-<!--		<Add filter_name="R_interface_connectivity_%%interface%%"/>-->
+<!--		<Add filter_name="R_entity%%interface%%_interface_connectivity"/>-->
 		<!--		<Add filter_name="R_full_stability_%%interface%%_unbound"/>-->
 		<!--		<Add filter_name="R_int_energy_context_%%interface%%_unbound"/>-->
 <!--		<Add mover_name="run_metrics_unbound"/>-->

@@ -92,11 +92,11 @@
 
 	<FILTERS>
 		# find the average degree of connectivity to residues surrounding specified residues
-		<AverageDegree name="interface_connectivity_%%interface%%" threshold="0" distance_threshold="10.0" task_operations="design_around%%interface%%"/>
+		<AverageDegree name="entity%%interface%%_interface_connectivity" threshold="0" distance_threshold="10.0" task_operations="design_around%%interface%%"/>
 <!--		<ScorePoseSegmentFromResidueSelectorFilter name="int_energy_context_%%interface%%_unbound" in_context="1" residue_selector="interface%%interface%%_sym" scorefxn="2015_nano" confidence="1.0"/>-->
 		<BuriedUnsatHbonds name="buns_%%interface%%_unbound" residue_selector="interface%%interface%%" scorefxn="2015_nano" report_all_heavy_atom_unsats="true" confidence="1.0"/> # use_reporter_behavior="true" only_interface="false", ignore_surface_res="true" NOT relevant for own ddG style measurement
 <!--		<BuriedUnsatHbonds name="buns_hpol_unbound" residue_selector="tot_interface" scorefxn="2015_nano" report_nonheavy_unsats="true" confidence="1.0" ignore_surface_res="true"/>-->
-		<Report name="R_interface_connectivity_%%interface%%" 				filter="interface_connectivity_%%interface%%"/>
+		<Report name="R_entity%%interface%%_interface_connectivity" 		filter="entity%%interface%%_interface_connectivity"/>
 		<Report name="R_buns_%%interface%%_unbound" 						filter="buns_%%interface%%_unbound"/>
 	</FILTERS>
 
@@ -113,7 +113,7 @@
 		<Add mover_name="run_metrics_bound_sum_sasa_total"/>
 		<Add filter_name="R_buns_%%interface%%_unbound"/>
 <!--		<Add mover_name="repack_loop"/>-->
-		<Add filter_name="R_interface_connectivity_%%interface%%"/>
+		<Add filter_name="R_entity%%interface%%_interface_connectivity"/>
 		<Add mover_name="run_metrics_unbound"/>
 	</PROTOCOLS>
 

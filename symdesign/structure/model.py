@@ -5993,28 +5993,28 @@ class Pose(SymmetricModel):
              'minimum_radius',
              'maximum_radius',
              'interface_b_factor_per_residue',
-             'interface_secondary_structure_fragment_topology_#',
-             'interface_secondary_structure_topology_#',
              'interface_secondary_structure_fragment_topology',
              'interface_secondary_structure_fragment_count',
              'interface_secondary_structure_topology',
              'interface_secondary_structure_count',
              'design_dimension',
-             'symmetry_group_#',
-             'entity_#_radius',
-             'entity_#_min_radius',
-             'entity_#_max_radius',
-             'entity_#_number_of_residues',
-             'entity_#_symmetry',
-             'entity_#_name',
-             'entity_#_number_of_residues',
-             'entity_#_radius',
-             'entity_#_min_radius',
-             'entity_#_n_terminal_helix',
-             'entity_#_c_terminal_helix',
-             'entity_#_n_terminal_orientation',
-             'entity_#_c_terminal_orientation',
-             'entity_#_thermophile',
+             'entity#_symmetry_group',
+             'entity#_radius',
+             'entity#_min_radius',
+             'entity#_max_radius',
+             'entity#_number_of_residues',
+             'entity#_symmetry',
+             'entity#_name',
+             'entity#_number_of_residues',
+             'entity#_radius',
+             'entity#_min_radius',
+             'entity#_n_terminal_helix',
+             'entity#_c_terminal_helix',
+             'entity#_n_terminal_orientation',
+             'entity#_c_terminal_orientation',
+             'entity#_thermophile',
+             'entity#_interface_secondary_structure_fragment_topology',
+             'entity#_interface_secondary_structure_topology',
              'entity_radius_ratio_#v#',
              'entity_min_radius_ratio_#v#',
              'entity_max_radius_ratio_#v#',
@@ -6082,9 +6082,9 @@ class Pose(SymmetricModel):
 
         # total_fragment_elements, total_interface_elements = '', ''
         for number, topology in interface_ss_topology.items():
-            pose_metrics[f'interface_secondary_structure_topology_{number}'] = topology
+            pose_metrics[f'entity{number}_interface_secondary_structure_topology'] = topology
             # total_interface_elements += topology
-            pose_metrics[f'interface_secondary_structure_fragment_topology_{number}'] = \
+            pose_metrics[f'entity{number}_interface_secondary_structure_fragment_topology'] = \
                 interface_ss_fragment_topology.get(number, '-')
             # total_fragment_elements += interface_ss_fragment_topology.get(number, '')
 
@@ -6098,8 +6098,8 @@ class Pose(SymmetricModel):
 
         if self.is_symmetric():
             pose_metrics['design_dimension'] = self.dimension
-            for idx, group in enumerate(self.sym_entry.groups, 1):
-                pose_metrics[f'symmetry_group_{idx}'] = group
+            # for idx, group in enumerate(self.sym_entry.groups, 1):
+            #     pose_metrics[f'entity{idx}_symmetry_group'] = group
         else:
             pose_metrics['design_dimension'] = 'asymmetric'
 
@@ -6131,35 +6131,35 @@ class Pose(SymmetricModel):
                 thermophile = 1 if is_pdb_thermophile(entity.name) or is_ukb_thermophilic(entity.uniprot_id) else 0
 
             pose_metrics.update({
-                f'entity_{idx}_symmetry': entity.symmetry if entity.is_oligomeric() else 'asymmetric',
-                f'entity_{idx}_name': entity.name,
-                f'entity_{idx}_number_of_residues': entity.number_of_residues,
-                f'entity_{idx}_radius': entity.distance_from_reference(),  # Todo add reference=
-                f'entity_{idx}_min_radius': min_rad, f'entity_{idx}_max_radius': max_rad,
-                f'entity_{idx}_n_terminal_helix': entity.is_termini_helical(),
-                f'entity_{idx}_c_terminal_helix': entity.is_termini_helical(termini='c'),
-                f'entity_{idx}_n_terminal_orientation': entity.termini_proximity_from_reference(),
-                f'entity_{idx}_c_terminal_orientation': entity.termini_proximity_from_reference(termini='c'),
-                f'entity_{idx}_thermophile': thermophile})
+                f'entity{idx}_symmetry_group': entity.symmetry if entity.is_oligomeric() else 'asymmetric',
+                f'entity{idx}_name': entity.name,
+                f'entity{idx}_number_of_residues': entity.number_of_residues,
+                f'entity{idx}_radius': entity.distance_from_reference(),  # Todo add reference=
+                f'entity{idx}_min_radius': min_rad, f'entity_{idx}_max_radius': max_rad,
+                f'entity{idx}_n_terminal_helix': entity.is_termini_helical(),
+                f'entity{idx}_c_terminal_helix': entity.is_termini_helical(termini='c'),
+                f'entity{idx}_n_terminal_orientation': entity.termini_proximity_from_reference(),
+                f'entity{idx}_c_terminal_orientation': entity.termini_proximity_from_reference(termini='c'),
+                f'entity{idx}_thermophile': thermophile})
 
         pose_metrics['minimum_radius'] = minimum_radius
         pose_metrics['maximum_radius'] = maximum_radius
         pose_metrics['pose_length'] = \
-            sum(pose_metrics[f'entity_{idx + 1}_number_of_residues'] for idx in range(self.number_of_entities))
+            sum(pose_metrics[f'entity{idx}_number_of_residues'] for idx in range(1, self.number_of_entities + 1))
 
         radius_ratio_sum = min_ratio_sum = max_ratio_sum = residue_ratio_sum = 0
         counter = 1
         for counter, (entity_idx1, entity_idx2) in enumerate(combinations(range(1, self.number_of_entities + 1),
                                                                           2), counter):
             radius_ratio = \
-                pose_metrics[f'entity_{entity_idx1}_radius'] / pose_metrics[f'entity_{entity_idx2}_radius']
+                pose_metrics[f'entity{entity_idx1}_radius'] / pose_metrics[f'entity{entity_idx2}_radius']
             min_ratio = \
-                pose_metrics[f'entity_{entity_idx1}_min_radius'] / pose_metrics[f'entity_{entity_idx2}_min_radius']
+                pose_metrics[f'entity{entity_idx1}_min_radius'] / pose_metrics[f'entity{entity_idx2}_min_radius']
             max_ratio = \
-                pose_metrics[f'entity_{entity_idx1}_max_radius'] / pose_metrics[f'entity_{entity_idx2}_max_radius']
+                pose_metrics[f'entity{entity_idx1}_max_radius'] / pose_metrics[f'entity{entity_idx2}_max_radius']
             residue_ratio = \
-                pose_metrics[f'entity_{entity_idx1}_number_of_residues'] \
-                / pose_metrics[f'entity_{entity_idx2}_number_of_residues']
+                pose_metrics[f'entity{entity_idx1}_number_of_residues'] \
+                / pose_metrics[f'entity{entity_idx2}_number_of_residues']
             radius_ratio_sum += abs(1 - radius_ratio)
             min_ratio_sum += abs(1 - min_ratio)
             max_ratio_sum += abs(1 - max_ratio)

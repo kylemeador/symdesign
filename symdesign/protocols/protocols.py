@@ -2369,11 +2369,11 @@ class PoseDirectory:
             source_df = pd.DataFrame.from_dict({putils.pose_source: {putils.protocol: job_key}}, orient='index')
             for idx, entity in enumerate(self.pose.entities, 1):
                 source_df[f'buns_{idx}_unbound'] = 0
-                source_df[f'interface_energy_{idx}_bound'] = 0
-                source_df[f'interface_energy_{idx}_unbound'] = 0
-                source_df[f'solvation_energy_{idx}_bound'] = 0
-                source_df[f'solvation_energy_{idx}_unbound'] = 0
-                source_df[f'interface_connectivity_{idx}'] = 0
+                # source_df[f'interface_energy_{idx}_bound'] = 0
+                # source_df[f'interface_energy_{idx}_unbound'] = 0
+                # source_df[f'solvation_energy_{idx}_bound'] = 0
+                # source_df[f'solvation_energy_{idx}_unbound'] = 0
+                source_df[f'entity{idx}_interface_connectivity'] = 0
             source_df['buns_complex'] = 0
             # source_df['buns_unbound'] = 0
             source_df['contact_count'] = 0
@@ -2493,21 +2493,21 @@ class PoseDirectory:
             # Todo add relevant missing scores such as those specified as 0 below
             # Todo may need to put source_df in scores file alternative
             source_df = pd.DataFrame.from_dict({putils.pose_source: {putils.protocol: job_key}}, orient='index')
-            scores_df = pd.DataFrame.from_dict({pose.name: {putils.protocol: job_key} for pose in design_poses},
-                                               orient='index')
-            scores_df = pd.concat([source_df, scores_df])
             for idx, entity in enumerate(self.pose.entities, 1):
                 source_df[f'buns_{idx}_unbound'] = 0
-                source_df[f'interface_energy_{idx}_bound'] = 0
-                source_df[f'interface_energy_{idx}_unbound'] = 0
-                source_df[f'solvation_energy_{idx}_bound'] = 0
-                source_df[f'solvation_energy_{idx}_unbound'] = 0
-                source_df[f'interface_connectivity_{idx}'] = 0
+                # source_df[f'interface_energy_{idx}_bound'] = 0
+                # source_df[f'interface_energy_{idx}_unbound'] = 0
+                # source_df[f'solvation_energy_{idx}_bound'] = 0
+                # source_df[f'solvation_energy_{idx}_unbound'] = 0
+                source_df[f'entity{idx}_interface_connectivity'] = 0
                 # residue_info = {'energy': {'complex': 0., 'unbound': 0.}, 'type': None, 'hbond': 0}
                 # design_info.update({residue.number: {'energy_delta': 0.,
                 #                                      'type': protein_letters_3to1.get(residue.type),
                 #                                      'hbond': 0} for residue in entity.residues})
-            source_df['buns_complex'] = 0
+            scores_df = pd.DataFrame.from_dict({pose.name: {putils.protocol: job_key} for pose in design_poses},
+                                               orient='index')
+            scores_df = pd.concat([source_df, scores_df])
+            scores_df['buns_complex'] = 0
             # source_df['buns_unbound'] = 0
             scores_df['contact_count'] = 0
             scores_df['favor_residue_energy'] = 0
@@ -2820,13 +2820,13 @@ class PoseDirectory:
         idx = 1
         for idx, entity in enumerate(self.pose.entities, idx):
             pose_c_terminal_residue_number = entity.c_terminal_residue.index + 1
-            scores_df[f'entity_{idx}_number_of_mutations'] = \
+            scores_df[f'entity{idx}_number_of_mutations'] = \
                 pd.Series(
                     {design: len([1 for mutation_idx in mutations if mutation_idx < pose_c_terminal_residue_number])
                      for design, mutations in all_mutations.items()})
-            scores_df[f'entity_{idx}_percent_mutations'] = \
-                scores_df[f'entity_{idx}_number_of_mutations'] / other_pose_metrics[f'entity_{idx}_number_of_residues']
-            is_thermophilic.append(getattr(other_pose_metrics, f'entity_{idx}_thermophile', 0))
+            scores_df[f'entity{idx}_percent_mutations'] = \
+                scores_df[f'entity{idx}_number_of_mutations'] / other_pose_metrics[f'entity{idx}_number_of_residues']
+            is_thermophilic.append(getattr(other_pose_metrics, f'entity{idx}_thermophile', 0))
 
         # Get the average thermophilicity for all entities
         other_pose_metrics['pose_thermophilicity'] = sum(is_thermophilic) / idx
@@ -2993,7 +2993,7 @@ class PoseDirectory:
              # 'interface_solvation_energy_unbound':
              #     list(filter(re.compile('solvation_energy_[0-9]+_unbound').match, scores_columns)),  # Rosetta
              'interface_connectivity':
-                 list(filter(re.compile('interface_connectivity_[0-9]+').match, scores_columns)),  # Rosetta
+                 list(filter(re.compile('entity[0-9]+_interface_connectivity').match, scores_columns)),  # Rosetta
              }
         # 'sasa_hydrophobic_bound':
         #     list(filter(re.compile('sasa_hydrophobic_[0-9]+_bound').match, scores_columns)),
@@ -3677,11 +3677,11 @@ def interface_design_analysis(pose: Pose, design_poses: Iterable[Pose] = None, s
         source_df = pd.DataFrame.from_dict({putils.pose_source: {putils.protocol: job_key}}, orient='index')
         for idx, entity in enumerate(pose.entities, 1):
             source_df[f'buns_{idx}_unbound'] = 0
-            source_df[f'interface_energy_{idx}_bound'] = 0
-            source_df[f'interface_energy_{idx}_unbound'] = 0
-            source_df[f'solvation_energy_{idx}_bound'] = 0
-            source_df[f'solvation_energy_{idx}_unbound'] = 0
-            source_df[f'interface_connectivity_{idx}'] = 0
+            # source_df[f'interface_energy_{idx}_bound'] = 0
+            # source_df[f'interface_energy_{idx}_unbound'] = 0
+            # source_df[f'solvation_energy_{idx}_bound'] = 0
+            # source_df[f'solvation_energy_{idx}_unbound'] = 0
+            source_df[f'entity{idx}_interface_connectivity'] = 0
         source_df['buns_complex'] = 0
         # source_df['buns_unbound'] = 0
         source_df['contact_count'] = 0
@@ -3796,22 +3796,22 @@ def interface_design_analysis(pose: Pose, design_poses: Iterable[Pose] = None, s
         # Todo add relevant missing scores such as those specified as 0 below
         # Todo may need to put source_df in scores file alternative
         source_df = pd.DataFrame.from_dict({putils.pose_source: {putils.protocol: job_key}}, orient='index')
-        scores_df = pd.DataFrame.from_dict({pose.name: {putils.protocol: job_key} for pose in design_poses},
-                                           orient='index')
-        scores_df = pd.concat([source_df, scores_df])
         for idx, entity in enumerate(pose.entities, 1):
             source_df[f'buns_{idx}_unbound'] = 0
-            source_df[f'interface_energy_{idx}_bound'] = 0
-            source_df[f'interface_energy_{idx}_unbound'] = 0
-            source_df[f'solvation_energy_{idx}_bound'] = 0
-            source_df[f'solvation_energy_{idx}_unbound'] = 0
-            source_df[f'interface_connectivity_{idx}'] = 0
+            # source_df[f'interface_energy_{idx}_bound'] = 0
+            # source_df[f'interface_energy_{idx}_unbound'] = 0
+            # source_df[f'solvation_energy_{idx}_bound'] = 0
+            # source_df[f'solvation_energy_{idx}_unbound'] = 0
+            source_df[f'entity{idx}_interface_connectivity'] = 0
             # residue_info = {'energy': {'complex': 0., 'unbound': 0.}, 'type': None, 'hbond': 0}
             # design_info.update({residue.number: {'energy_delta': 0.,
             #                                      'type': protein_letters_3to1.get(residue.type),
             #                                      'hbond': 0} for residue in entity.residues})
-        source_df['buns_complex'] = 0
-        # source_df['buns_unbound'] = 0
+        scores_df = pd.DataFrame.from_dict({pose.name: {putils.protocol: job_key} for pose in design_poses},
+                                           orient='index')
+        scores_df = pd.concat([source_df, scores_df])
+        scores_df['buns_complex'] = 0
+        # scores_df['buns_unbound'] = 0
         scores_df['contact_count'] = 0
         scores_df['favor_residue_energy'] = 0
         scores_df['interface_energy_complex'] = 0
@@ -4143,12 +4143,12 @@ def interface_design_analysis(pose: Pose, design_poses: Iterable[Pose] = None, s
     idx = 1
     for idx, entity in enumerate(pose.entities, idx):
         pose_c_terminal_residue_number = entity.c_terminal_residue.index + 1
-        scores_df[f'entity_{idx}_number_of_mutations'] = \
+        scores_df[f'entity{idx}_number_of_mutations'] = \
             pd.Series({design: len([1 for mutation_idx in mutations if mutation_idx < pose_c_terminal_residue_number])
                        for design, mutations in all_mutations.items()})
-        scores_df[f'entity_{idx}_percent_mutations'] = \
-            scores_df[f'entity_{idx}_number_of_mutations'] / other_pose_metrics[f'entity_{idx}_number_of_residues']
-        is_thermophilic.append(getattr(other_pose_metrics, f'entity_{idx}_thermophile', 0))
+        scores_df[f'entity{idx}_percent_mutations'] = \
+            scores_df[f'entity{idx}_number_of_mutations'] / other_pose_metrics[f'entity{idx}_number_of_residues']
+        is_thermophilic.append(getattr(other_pose_metrics, f'entity{idx}_thermophile', 0))
 
     # Get the average thermophilicity for all entities
     other_pose_metrics['pose_thermophilicity'] = sum(is_thermophilic) / idx
@@ -4265,7 +4265,7 @@ def interface_design_analysis(pose: Pose, design_poses: Iterable[Pose] = None, s
          # 'interface_solvation_energy_unbound':
          #     list(filter(re.compile('solvation_energy_[0-9]+_unbound').match, scores_columns)),  # Rosetta
          'interface_connectivity':
-             list(filter(re.compile('interface_connectivity_[0-9]+').match, scores_columns)),  # Rosetta
+             list(filter(re.compile('entity[0-9]+_interface_connectivity').match, scores_columns)),  # Rosetta
          }
     # 'sasa_hydrophobic_bound':
     #     list(filter(re.compile('sasa_hydrophobic_[0-9]+_bound').match, scores_columns)),

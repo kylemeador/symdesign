@@ -140,72 +140,138 @@ metrics = {
         dict(description='The distance of the design\'s per residue energy from a design with no constraint on'
                          ' amino acid selection',
              direction=_min, function=rank, filter=True),
-    'entity_1_c_terminal_helix':  # TODO make a single metric
+    # 'entity_1_c_terminal_helix':
+    #     dict(description='Whether the entity has a c-terminal helix',
+    #          direction=_max, function=boolean, filter=True),
+    # 'entity_1_c_terminal_orientation':
+    #     dict(description='Whether the entity c-termini is closer to the assembly core or surface (1 is away, -1 is '
+    #                      'towards',
+    #          direction=_max, function=rank, filter=True),
+    # 'entity_1_max_radius':
+    #     dict(description='The furthest point the entity reaches from the assembly core',
+    #          direction=_min, function=rank, filter=True),
+    # 'entity_1_min_radius':
+    #     dict(description='The closest point the entity approaches the assembly core',
+    #          direction=_max, function=rank, filter=True),
+    # 'entity_1_n_terminal_helix':
+    #     dict(description='Whether the entity has a n-terminal helix',
+    #          direction=_max, function=boolean, filter=True),
+    # 'entity_1_n_terminal_orientation':
+    #     dict(description='Whether the entity n-termini is closer to the assembly core or surface (1 is away, -1 is '
+    #                      'towards)',
+    #          direction=_max, function=rank, filter=True),
+    # 'entity_1_name':
+    #     dict(description='The name of the entity',
+    #          direction=None, function=None, filter=None),
+    # 'entity_1_number_of_mutations':
+    #     dict(description='The number of mutations made',
+    #          direction=_min, function=rank, filter=True),
+    # 'entity_1_number_of_residues':
+    #     dict(description='The number of residues',
+    #          direction=_min, function=rank, filter=True),
+    # 'entity_1_percent_mutations':
+    #     dict(description='The percentage of the entity that has been mutated',
+    #          direction=_min, function=rank, filter=True),
+    # 'entity_1_radius':
+    #     dict(description='The center of mass of the entity from the assembly core',
+    #          direction=_min, function=rank, filter=True),
+    # 'entity_1_symmetry':
+    #     dict(description='The symmetry notation of the entity',
+    #          direction=None, function=None, filter=None),
+    # 'entity_1_thermophile':
+    #     dict(description='Whether the entity is a thermophile',
+    #          direction=_max, function=boolean, filter=None),
+    # 'entity_max_radius_ratio_1v2':
+    #     dict(description='The ratio of the maximum radius from a reference of component 1 versus 2',
+    #          direction=None, function=None, filter=None),
+    # 'entity_min_radius_ratio_1v2':
+    #     dict(description='The ratio of the minimum radius from a reference of component 1 versus 2',
+    #          direction=None, function=None, filter=None),
+    # 'entity_number_of_residues_ratio_1v2':
+    #     dict(description='', direction=None, function=None, filter=None),
+    # 'entity_radius_ratio_1v2':
+    #     dict(description='', direction=None, function=None, filter=None),
+    # START entity#_ metrics. These are used with numbers during actual metric acquisition
+    'entity_c_terminal_helix':
         dict(description='Whether the entity has a c-terminal helix',
              direction=_max, function=boolean, filter=True),
-    'entity_1_c_terminal_orientation':  # TODO make a single metric
+    'entity_c_terminal_orientation':
         dict(description='Whether the entity c-termini is closer to the assembly core or surface (1 is away, -1 is '
                          'towards',
              direction=_max, function=rank, filter=True),
-    'entity_1_max_radius':  # TODO make a single metric
+    'entity_max_radius':
         dict(description='The furthest point the entity reaches from the assembly core',
              direction=_min, function=rank, filter=True),
-    'entity_1_min_radius':  # TODO make a single metric
+    'entity_min_radius':
         dict(description='The closest point the entity approaches the assembly core',
              direction=_max, function=rank, filter=True),
-    'entity_1_n_terminal_helix':  # TODO make a single metric
+    'entity_n_terminal_helix':
         dict(description='Whether the entity has a n-terminal helix',
              direction=_max, function=boolean, filter=True),
-    'entity_1_n_terminal_orientation':  # TODO make a single metric
+    'entity_n_terminal_orientation':
         dict(description='Whether the entity n-termini is closer to the assembly core or surface (1 is away, -1 is '
                          'towards)',
              direction=_max, function=rank, filter=True),
-    'entity_1_name':  # TODO make a single metric
+    'entity_name':
         dict(description='The name of the entity',
              direction=None, function=None, filter=None),
-    'entity_1_number_of_mutations':  # TODO make a single metric
+    'entity_number_of_mutations':
         dict(description='The number of mutations made',
              direction=_min, function=rank, filter=True),
-    'entity_1_number_of_residues':  # TODO make a single metric
+    'entity_number_of_residues':
         dict(description='The number of residues',
              direction=_min, function=rank, filter=True),
-    'entity_1_percent_mutations':  # TODO make a single metric
+    'entity_percent_mutations':
         dict(description='The percentage of the entity that has been mutated',
              direction=_min, function=rank, filter=True),
-    'entity_1_radius':  # TODO make a single metric
+    'entity_radius':
         dict(description='The center of mass of the entity from the assembly core',
              direction=_min, function=rank, filter=True),
-    'entity_1_symmetry':  # TODO make a single metric
+    'entity_symmetry_group':
         dict(description='The symmetry notation of the entity',
-             direction=None, function=None, filter=None),
-    'entity_1_thermophile':  # TODO make a single metric
+             direction=None, function=None, filter=True),
+    'entity_thermophile':
         dict(description='Whether the entity is a thermophile',
              direction=_max, function=boolean, filter=None),
+    'entity_max_radius_ratio_v':
+        dict(description='The ratio of the maximum radius from a reference of component 1 versus 2',
+             direction=None, function=None, filter=None),
+    'entity_min_radius_ratio_v':
+        dict(description='The ratio of the minimum radius from a reference of component 1 versus 2',
+             direction=None, function=None, filter=None),
+    'entity_number_of_residues_ratio_v':
+        dict(description='', direction=None, function=None, filter=None),
+    'entity_interface_connectivity':
+        dict(description='How embedded is the entity interface in the rest of the protein?',
+             direction=_max, function=normalize, filter=True),
+    'entity_interface_secondary_structure_fragment_topology':
+        dict(description='The Stride based secondary structure names of each unique element where possible '
+                         'values are - H:Alpha helix, G:3-10 helix, I:PI-helix, E:Extended conformation, '
+                         'B/b:Isolated bridge, T:Turn, C:Coil (none of the above)',
+             direction=None, function=None, filter=None),
+    'entity_interface_secondary_structure_topology':
+        dict(description='The Stride based secondary structure names of each unique element where possible '
+                         'values are - H:Alpha helix, G:3-10 helix, I:PI-helix, E:Extended conformation, '
+                         'B/b:Isolated bridge, T:Turn, C:Coil (none of the above)',
+             direction=None, function=None, filter=None),
+    'entity_radius_ratio_v':
+        dict(description='', direction=None, function=None, filter=None),
+    # END entity#_ metrics
     'entity_max_radius_average_deviation':
         dict(description='In a multi entity assembly, the total deviation of the max radii of each entity '
                          'from one another', direction=_min, function=rank, filter=True),
-    'entity_max_radius_ratio_1v2':  # TODO make a single metric
-        dict(description='The ratio of the maximum radius from a reference of component 1 versus 2',
-             direction=None, function=None, filter=None),
     'entity_min_radius_average_deviation':
         dict(description='In a multi entity assembly, the total deviation of the min radii of each entity from'
                          ' one another',
              direction=_min, function=rank, filter=True),
-    'entity_min_radius_ratio_1v2':  # TODO make a single metric
-        dict(description='The ratio of the minimum radius from a reference of component 1 versus 2',
-             direction=None, function=None, filter=None),
     'entity_number_of_residues_average_deviation':
         dict(description='In a multi entity assembly, the total deviation of the number of residues of each '
                          'entity from one another',
              direction=_min, function=rank, filter=True),
-    'entity_number_of_residues_ratio_1v2':  # TODO make a single metric
-        dict(description='', direction=None, function=None, filter=None),
     'entity_radius_average_deviation':
         dict(description='In a multi entity assembly, the total deviation of the center of mass of each entity'
                          ' from one another',
              direction=_min, function=rank, filter=True),
-    'entity_radius_ratio_1v2':  # TODO make a single metric
-        dict(description='', direction=None, function=None, filter=None),
     'errat_accuracy':
         dict(description='The overall Errat score of the design',
              direction=_max, function=rank, filter=True),
@@ -245,10 +311,10 @@ metrics = {
         dict(description='The similarity to the expected interface composition given interface buried surface '
                          'area. 1 is similar to natural interfaces, 0 is dissimilar',
              direction=_max, function=rank, filter=True),
-    'interface_connectivity_1':  # TODO make a single metric
-        dict(description='How embedded is interface1 in the rest of the protein?',
-             direction=_max, function=normalize, filter=True),
-    # 'interface_connectivity_2':
+    # 'interface_connectivity1':
+    #     dict(description='How embedded is interface1 in the rest of the protein?',
+    #          direction=_max, function=normalize, filter=True),
+    # 'interface_connectivity2':
     #     dict(description='How embedded is interface2 in the rest of the protein?',
     #      direction=_max, function=normalize, filter=True),
     'interface_connectivity':
@@ -269,9 +335,9 @@ metrics = {
     'interface_energy_unbound':
         dict(description='Total interface residue energy summed in the unbound state',
              direction=_min, function=rank, filter=True),
-    'interface_energy_1_unbound':  # TODO make a single metric or remove
-        dict(description='Sum of interface1 residue energy in the unbound state',
-             direction=_min, function=rank, filter=True),
+    # 'interface_energy_1_unbound':
+    #     dict(description='Sum of interface1 residue energy in the unbound state',
+    #          direction=_min, function=rank, filter=True),
     # 'interface_energy_2_unbound':
     #     dict(description='Sum of interface2 residue energy in the unbound state',
     #      direction=_min, function=rank, filter=True),
@@ -295,17 +361,7 @@ metrics = {
                          'values are - H:Alpha helix, G:3-10 helix, I:PI-helix, E:Extended conformation, '
                          'B/b:Isolated bridge, T:Turn, C:Coil (none of the above)',
              direction=None, function=None, filter=None),
-    'interface_secondary_structure_fragment_topology_1':  # TODO make a single metric or remove
-        dict(description='The Stride based secondary structure names of each unique element where possible '
-                         'values are - H:Alpha helix, G:3-10 helix, I:PI-helix, E:Extended conformation, '
-                         'B/b:Isolated bridge, T:Turn, C:Coil (none of the above)',
-             direction=None, function=None, filter=None),
     'interface_secondary_structure_topology':
-        dict(description='The Stride based secondary structure names of each unique element where possible '
-                         'values are - H:Alpha helix, G:3-10 helix, I:PI-helix, E:Extended conformation, '
-                         'B/b:Isolated bridge, T:Turn, C:Coil (none of the above)',
-             direction=None, function=None, filter=None),
-    'interface_secondary_structure_topology_1':  # TODO make a single metric or remove
         dict(description='The Stride based secondary structure names of each unique element where possible '
                          'values are - H:Alpha helix, G:3-10 helix, I:PI-helix, E:Extended conformation, '
                          'B/b:Isolated bridge, T:Turn, C:Coil (none of the above)',
@@ -473,14 +529,6 @@ metrics = {
              direction=_max, function=rank, filter=True),
     # 'symmetry':
     #     dict(description='The specific symmetry type used design (point (0), layer (2), lattice(3))',
-    #      direction=None, function=None, filter=False),
-    'symmetry_group_1':  # TODO make a single metric
-        dict(description='The specific symmetry of group 1 from of Nanohedra symmetry combination materials '
-                         '(SCM)',
-             direction=None, function=None, filter=False),
-    # 'symmetry_group_2':
-    #     dict(description='The specific symmetry of group 1 from of Nanohedra symmetry combination '
-    #                     'materials (SCM)',
     #      direction=None, function=None, filter=False),
     'total_interface_residues':
         dict(description='The total number of interface residues found in the pose (residue CB within 8A)',
