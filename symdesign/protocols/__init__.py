@@ -58,7 +58,10 @@ def load_total_dataframe(pose_directories: Iterable[PoseDirectory], pose: bool =
             df.drop([index for index in df.index.to_list() if pose_name not in index], inplace=True)
 
     # Add pose directory str as MultiIndex
-    df = pd.concat(all_dfs, keys=[str(pose_dir) for pose_dir in pose_directories])
+    try:
+        df = pd.concat(all_dfs, keys=[str(pose_dir) for pose_dir in pose_directories])
+    except ValueError:  # No objects to concatenate
+        raise RuntimeError(f"Didn't find any trajectory information in the provided PoseDirectory instances")
     df.replace({False: 0, True: 1, 'False': 0, 'True': 1}, inplace=True)
 
     return df
