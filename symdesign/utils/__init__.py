@@ -6,6 +6,7 @@ import math
 import multiprocessing as mp
 import os
 import pickle
+import string
 import subprocess
 import time
 from _csv import Dialect, QUOTE_MINIMAL, reader
@@ -16,7 +17,6 @@ from glob import glob
 from itertools import repeat
 from logging import Logger, DEBUG, INFO, WARNING, ERROR, CRITICAL, getLogger, StreamHandler, FileHandler, NullHandler, \
     Formatter, root as root_logger
-from string import digits
 from typing import Any, Callable, Union, Iterable, List, Tuple, AnyStr, Dict, DefaultDict, Sequence, Iterator, \
     Literal, Type
 
@@ -397,14 +397,24 @@ def remove_interior_keys(dictionary: Dict, keys: Iterable, keep: bool = False) -
         return dictionary
 
 
-def digit_keeper() -> DefaultDict:
-    table = defaultdict(type(None))
-    table.update({ord(digit): digit for digit in digits})  # '0123456789'
-
-    return table
+def digit_keeper() -> defaultdict:
+    return defaultdict(type(None), dict(zip(map(ord, string.digits), string.digits)))  # '0123456789'
 
 
-digit_translate_table = digit_keeper()
+def digit_remover() -> defaultdict:
+    non_numeric_chars = string.printable[10:]
+    # 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ!"#$%&\'()*+,-./:;<=>?@[\\]^_`{|}~ \t\n\r\x0b\x0c'
+    keep_chars = dict(zip(map(ord, non_numeric_chars), non_numeric_chars))
+
+    return defaultdict(type(None), keep_chars)
+
+
+keep_digit_table = digit_keeper()
+remove_digit_table = digit_remover()
+# This doesn't work
+# >>> to_number = dict(zip(map(ord, numeric_chars), range(10)))
+# >>> string.printable[4:20].translate(to_number)
+# '\x04\x05\x06\x07\x08\tabcdefghij'
 
 
 def clean_comma_separated_string(string: str) -> list[str]:

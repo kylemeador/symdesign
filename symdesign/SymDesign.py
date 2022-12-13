@@ -1371,7 +1371,7 @@ def main():
                     if tag_specification == '':  # Probably a trailing ',' ...
                         continue
                     else:
-                        tag_specification.translate(utils.digit_translate_table)
+                        tag_specification.translate(utils.keep_digit_table)
 
                     try:  # To convert to an integer
                         tag_index.append(True if int(tag_specification) == 1 else False)

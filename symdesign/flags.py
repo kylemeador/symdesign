@@ -13,7 +13,8 @@ from typing_extensions import get_args
 from symdesign.resources import config
 from symdesign.resources.query.utils import input_string, confirmation_string, bool_d, invalid_string, header_string, \
     format_string
-from symdesign.utils import ex_path, handle_errors, pretty_format_table, read_json, InputError, path as putils
+from symdesign.utils import ex_path, handle_errors, pretty_format_table, read_json, InputError, remove_digit_table, \
+    path as putils
 from symdesign.utils.path import fragment_dbs, biological_interfaces, default_logging_level
 # These attributes ^ shouldn't be moved here. Below should be with proper handling of '-' vs. '_'
 from symdesign.utils.path import submodule_guide, submodule_help, force, sym_entry, program_output, projects, \
@@ -401,10 +402,10 @@ def parse_filters(filters: list[str] = None, file: AnyStr = None) \
             for idx, component in enumerate(unique_components):
                 # Value, operation, value, operation, value
                 if idx % 2 == 0:  # Zero or even index which must contain metric/values
-                    # print(idx, 'value', component)
-                    _metric_specs = config.metrics.get(component)
+                    # Substitute any numerical characters to test if the provided component is a metric
+                    substituted_component = component.translate(remove_digit_table)
+                    _metric_specs = config.metrics.get(substituted_component)
                     if _metric_specs:  # We found in the list of available program metrics
-                        # print(idx, 'metric_specs')
                         if metric_idx is None:
                             metric_specs = _metric_specs
                             metric = component
@@ -416,7 +417,7 @@ def parse_filters(filters: list[str] = None, file: AnyStr = None) \
                             continue
                         else:  # We found two metrics...
                             raise ValueError(f"Can't accept more than one value per filter as of now")
-                    else:
+                    else:  # Either a value or bad metric name
                         if component[-1] == '%':
                             # This should be treated as a percentage. Remove and parse
                             component = component[:-1]
@@ -430,7 +431,6 @@ def parse_filters(filters: list[str] = None, file: AnyStr = None) \
                     # parsed_values.append(component)
                 else:  # This is an operation
                     syntax = next(operations_syntax_iter)
-                    # print(idx, 'operation', syntax)
                     if negate_ops:
                         operation = inverse_operations[syntax]
                     else:
