@@ -288,7 +288,7 @@ def read_pdb_file(file: AnyStr, pdb_lines: list[str] = None, separate_coords: bo
 
     if extension[-1].isdigit():
         # If last character is not a letter, then the file is an assembly, or the extension was provided weird
-        assembly = extension.translate(utils.digit_translate_table)
+        assembly = extension.translate(utils.keep_digit_table)
 
     entity = None
     current_operation = -1

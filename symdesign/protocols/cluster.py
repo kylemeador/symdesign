@@ -227,9 +227,9 @@ def ialign(pdb_file1: AnyStr, pdb_file2: AnyStr, chain1: str = None, chain2: str
     chains = ['-c1', chain1, '-c2', chain2]
 
     temp_pdb_file1 = os.path.join(os.getcwd(), 'temp',
-                                  os.path.basename(pdb_file1.translate(utils.digit_translate_table)))
+                                  os.path.basename(pdb_file1.translate(utils.keep_digit_table)))
     temp_pdb_file2 = os.path.join(os.getcwd(), 'temp',
-                                  os.path.basename(pdb_file2.translate(utils.digit_translate_table)))
+                                  os.path.basename(pdb_file2.translate(utils.keep_digit_table)))
     # Move the desired files to a temporary file location
     os.system(f'scp {pdb_file1} {temp_pdb_file1}')
     os.system(f'scp {pdb_file2} {temp_pdb_file2}')

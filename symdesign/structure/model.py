@@ -7095,7 +7095,7 @@ class Pose(SymmetricModel):
                 # remove chain_id in rosetta_numbering="False"
                 # if we have enough chains, weird chain characters appear "per_res_energy_complex_19_" which mess up
                 # split. Also numbers appear, "per_res_energy_complex_1161" which may indicate chain "1" or residue 1161
-                residue_number = int(metadata[-1].translate(utils.digit_translate_table))
+                residue_number = int(metadata[-1].translate(utils.keep_digit_table))
                 if residue_number > pose_length:
                     if not warn:
                         warn = True
@@ -7163,7 +7163,7 @@ class Pose(SymmetricModel):
                 # remove chain_id in rosetta_numbering="False"
                 # if we have enough chains, weird chain characters appear "per_res_energy_complex_19_" which mess up
                 # split. Also numbers appear, "per_res_energy_complex_1161" which may indicate chain "1" or residue 1161
-                residue_number = int(metadata[-1].translate(utils.digit_translate_table))
+                residue_number = int(metadata[-1].translate(utils.keep_digit_table))
                 if residue_number > pose_length:
                     if not warn:
                         warn = True

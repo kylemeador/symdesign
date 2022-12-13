@@ -351,7 +351,7 @@ def hbond_processing(design_scores: dict, columns: list[str]) -> dict[str, set]:
             if column not in scores:
                 continue
             meta_data = column.split('_')  # ['hbonds', 'res', 'selection', 'complex/interface_number', '[unbound]']
-            parsed_hbonds = set(int(hbond.translate(utils.digit_translate_table))
+            parsed_hbonds = set(int(hbond.translate(utils.keep_digit_table))
                                 for hbond in scores.get(column, '').split(',') if hbond != '')  # check if '' in case no hbonds
             if meta_data[3] == 'complex':
                 complex_bonds = parsed_hbonds
@@ -386,7 +386,7 @@ def dirty_hbond_processing(design_scores: dict) -> dict[str, set]:
             if not column.startswith('hbonds_res_selection'):
                 continue
             meta_data = column.split('_')  # ['hbonds', 'res', 'selection', 'complex/interface_number', '[unbound]']
-            parsed_hbonds = set(int(hbond.translate(utils.digit_translate_table))
+            parsed_hbonds = set(int(hbond.translate(utils.keep_digit_table))
                                 for hbond in value.split(',') if hbond != '')  # check if '' in case no hbonds
             # if meta_data[-1] == 'bound' and offset:  # find offset according to chain
             #     res_offset = offset[meta_data[-2]]
@@ -490,7 +490,7 @@ def incorporate_mutation_info(design_residue_scores: dict,
                 try:  # Fill in with AA from putils.reference_name seq
                     data['type'] = reference_data[residue_number]
                 except KeyError:  # Residue is out of bounds on pose length
-                    # Possibly a virtual residue or string that was processed incorrectly from the digit_translate_table
+                    # Possibly a virtual residue or string that was processed incorrectly from the keep_digit_table
                     if not warn:
                         logger.error(f'Encountered residue number "{residue_number}" which is not within the pose size '
                                      f'"{pose_length}" and will be removed from processing. This is likely an error '
@@ -1227,10 +1227,11 @@ def filter_df_for_index_by_value(df: pd.DataFrame, metrics: dict[str, list | dic
         else:
             if isinstance(filter_ops, dict):
                 specification = filter_ops.get('direction')  # Todo make an ability to use boolean?
-                # todo convert specification options 'greater' '>' 'greater than' to 'max'/'min'
+                # Todo convert specification options 'greater' '>' 'greater than' to 'max'/'min'
                 filter_ops = filter_ops.get('value', 0.)
             else:
-                specification = filter_df.loc['direction', metric_name]
+                substituted_metric_name = metric_name.translate(utils.remove_digit_table)
+                specification = filter_df.loc['direction', substituted_metric_name]
 
             if specification == 'max':
                 filtered_indices[metric_name] = df[df[metric_name] >= filter_ops].index.to_list()
@@ -1398,7 +1399,7 @@ def query_user_for_metrics(available_metrics: Iterable[str], df: pd.DataFrame = 
     """Ask the user for the desired metrics to select indices from a dataframe
 
     Args:
-        available_metrics (Iterable): The columns available in the DataFrame to select indices by
+        available_metrics: The columns available in the DataFrame to select indices by
         df: A DataFrame from which to use metrics (provided as columns)
         mode: The mode in which to query and format metrics information. Either 'filter' or weight'
         level: The hierarchy of selection to use. Could be one of 'poses', 'designs', or 'sequences'
@@ -1449,6 +1450,7 @@ def query_user_for_metrics(available_metrics: Iterable[str], df: pd.DataFrame = 
                                       f'Please input these metrics again. Specify "metrics" to view available metrics'
                                       f'{input_string}')
             elif len(chosen_metrics) > 0:
+                # We have no errors and there are metrics
                 break
             else:
                 print('No metrics were provided... If this is what you want, you can run this module without '
@@ -1465,12 +1467,15 @@ def query_user_for_metrics(available_metrics: Iterable[str], df: pd.DataFrame = 
             print("" if df is None else describe_string)
             metric_values = {}
             for metric in chosen_metrics:
+                # Modify the provided metric of digits to get its configuration info
+                substituted_metric = metric.translate(utils.remove_digit_table)
                 while True:
                     # Todo make ability to use boolean descriptions
                     # Todo make ability to specify direction
                     value = input(f'For "{metric}" what value should be used for {level} {mode}ing? %s{input_string}'
                                   % ('Designs with metrics %s than this value will be included' %
-                                     direction[filter_df.loc['direction', metric]].upper() if mode == "filter" else ""))
+                                     direction[filter_df.loc['direction', substituted_metric]].upper()
+                                     if mode == "filter" else ""))
                     if value in describe:
                         describe_data(df=df) if df is not None \
                             else print("Can't describe data without providing a DataFrame...")
@@ -1512,8 +1517,13 @@ def rank_dataframe_by_metric_weights(df: pd.DataFrame, weights: dict[str, float]
         The sorted Series of values with the best indices first (top) and the worst on the bottom
     """
     if weights:  # Could be None or empty dict
-        weights = {metric: dict(direction=filter_df.loc['direction', metric], value=value)
-                   for metric, value in weights.items()}
+        # weights = {metric: dict(direction=filter_df.loc['direction', metric], value=value)
+        #            for metric, value in weights.items()}
+        weights = {}
+        for metric, value in weights.items():
+            # Modify the provided metric of digits to get its configuration info
+            substituted_metric = metric.translate(utils.remove_digit_table)
+            weights[metric] = dict(direction=filter_df.loc['direction', substituted_metric], value=value)
         # This sorts the wrong direction despite the perception that it sorts correctly
         # sort_direction = dict(max=False, min=True}  # max - ascending=False, min - ascending=True
         # This sorts the correct direction, putting small and negative value (when min is better) with higher rank
