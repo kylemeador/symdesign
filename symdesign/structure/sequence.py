@@ -20,10 +20,9 @@ from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
 
 from . import utils
-from symdesign.protocols.metrics import hydrophobic_collapse_index
 from .fragment import info
 from .fragment.db import alignment_types_literal, alignment_types, fragment_info_type
-from symdesign import utils as sdutils
+from symdesign import metrics, utils as sdutils
 from symdesign.utils import path as putils
 # import dependencies.bmdca as bmdca
 
@@ -785,7 +784,7 @@ class SequenceProfile(ABC):
         try:
             return self._hydrophobic_collapse
         except AttributeError:
-            self._hydrophobic_collapse = hydrophobic_collapse_index(self.sequence, **kwargs)
+            self._hydrophobic_collapse = metrics.hydrophobic_collapse_index(self.sequence, **kwargs)
             return self._hydrophobic_collapse
 
     def get_sequence_probabilities_from_profile(self, dtype: profile_types = None, precomputed: numerical_profile = None)\
@@ -1280,8 +1279,8 @@ class SequenceProfile(ABC):
             for idx, record in enumerate(self.msa.alignment):
                 non_gapped_sequence = str(record.seq).replace('-', '')
                 evolutionary_collapse_np[idx, 1:len(non_gapped_sequence) + 1] = \
-                    hydrophobic_collapse_index(non_gapped_sequence, **kwargs)
-            # Todo this should be possible now hydrophobic_collapse_index(self.msa.array)
+                    metrics.hydrophobic_collapse_index(non_gapped_sequence, **kwargs)
+            # Todo this should be possible now metrics.hydrophobic_collapse_index(self.msa.array)
 
             iterator_np = np.cumsum(self.msa.sequence_indices, axis=1) * self.msa.sequence_indices
             aligned_hci_np = np.take_along_axis(evolutionary_collapse_np, iterator_np, axis=1)

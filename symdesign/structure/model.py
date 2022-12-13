@@ -19,8 +19,7 @@ from sklearn.cluster import KMeans
 from sklearn.neighbors import BallTree
 from sklearn.neighbors._ball_tree import BinaryTree  # This typing implementation supports BallTree or KDTree
 
-from symdesign import flags, resources, utils
-from ..protocols import metrics
+from symdesign import flags, metrics, resources, utils
 from symdesign.resources import query
 from . import fragment
 from .base import Structure, Structures, Residue, StructureBase, atom_or_residue
@@ -6166,13 +6165,13 @@ class Pose(SymmetricModel):
             max_ratio_sum += abs(1 - max_ratio)
             residue_ratio_sum += abs(1 - residue_ratio)
             pose_metrics.update({f'entity_radius_ratio_{entity_idx1}v{entity_idx2}': radius_ratio,
-                            f'entity_min_radius_ratio_{entity_idx1}v{entity_idx2}': min_ratio,
-                            f'entity_max_radius_ratio_{entity_idx1}v{entity_idx2}': max_ratio,
-                            f'entity_number_of_residues_ratio_{entity_idx1}v{entity_idx2}': residue_ratio})
+                                 f'entity_min_radius_ratio_{entity_idx1}v{entity_idx2}': min_ratio,
+                                 f'entity_max_radius_ratio_{entity_idx1}v{entity_idx2}': max_ratio,
+                                 f'entity_number_of_residues_ratio_{entity_idx1}v{entity_idx2}': residue_ratio})
         pose_metrics.update({'entity_radius_average_deviation': radius_ratio_sum/counter,
-                        'entity_min_radius_average_deviation': min_ratio_sum/counter,
-                        'entity_max_radius_average_deviation': max_ratio_sum/counter,
-                        'entity_number_of_residues_average_deviation': residue_ratio_sum/counter})
+                             'entity_min_radius_average_deviation': min_ratio_sum/counter,
+                             'entity_max_radius_average_deviation': max_ratio_sum/counter,
+                             'entity_number_of_residues_average_deviation': residue_ratio_sum/counter})
         return pose_metrics
 
     def get_per_residue_interface_metrics(self) -> dict[str, list[float]]:

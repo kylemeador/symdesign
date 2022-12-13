@@ -27,7 +27,7 @@ import sklearn as skl
 from cycler import cycler
 from scipy.spatial.distance import pdist, cdist
 
-from symdesign import flags, resources
+from symdesign import flags, metrics, resources
 from . import metrics
 from symdesign.structure.base import Structure
 from symdesign.structure.fragment.db import FragmentDatabase, fragment_info_type

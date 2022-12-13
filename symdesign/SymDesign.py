@@ -27,8 +27,8 @@ logger = logging.getLogger(putils.program_name.lower())  # __name__)
 # logger.info('Starting logger')
 # logger.warning('Starting logger')
 # input('WHY LOGGING')
-from symdesign import flags, protocols, resources, utils
-from symdesign.protocols import metrics, PoseDirectory
+from symdesign import flags, metrics, protocols, resources, utils
+from symdesign.protocols import PoseDirectory
 from symdesign.resources.job import job_resources_factory
 from symdesign.resources.query.pdb import retrieve_pdb_entries_by_advanced_query
 from symdesign.resources.query.utils import input_string, boolean_choice, validate_input_return_response_value
