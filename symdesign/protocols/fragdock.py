@@ -2157,76 +2157,6 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
     #     full_ext_tx2 = full_ext_tx2[:]
     #     full_ext_tx_sum = full_ext_tx2 - full_ext_tx1
 
-    # Save all pose transformation information
-    perturbation_identifier = '-p_'
-
-    def create_pose_id(_idx: int) -> str:
-        """Create a PoseID from the sampling conditions
-
-        Args:
-            _idx: The current sampling index
-        Returns:
-            The PoseID with format building_blocks-degeneracy-rotation-transform-perturb if perturbation used
-                Ex: '****_#-****_#-d_#_#-r_#_#-t_#-p_#' OR '****_#-****_#-d_#_#-r_#_#-t_#' (no perturbation)
-        """
-        transform_idx, perturb_idx = divmod(_idx, total_perturbation_size)
-        if total_perturbation_size > 1:
-            perturb_str = f'-p_{perturb_idx + 1}'  # f'{perturbation_identifier}{perturb_idx + 1}'
-        else:
-            perturb_str = ''
-
-        _pose_id = f'd_{"_".join(map(str, degen_counts[transform_idx]))}' \
-                   f'-r_{"_".join(map(str, rot_counts[transform_idx]))}' \
-                   f'-t_{tx_counts[transform_idx]}'  # translation idx
-
-        # return f'{building_blocks}-{_pose_id}{perturb_str}'
-        return f'{project}-{_pose_id}{perturb_str}'
-
-    # Todo move after job.dock.score tabulation
-    pose_transformations = {}
-    for idx in range(number_of_transforms):
-        external_translation1_x, external_translation1_y, external_translation1_z = _full_ext_tx1[idx]
-        external_translation2_x, external_translation2_y, external_translation2_z = _full_ext_tx2[idx]
-        pose_transformations[create_pose_id(idx)] = \
-            dict(rotation1=rotation_degrees1[idx],
-                 internal_translation1=z_heights1[idx],
-                 setting_matrix1=set_mat1_number,
-                 external_translation1_x=external_translation1_x,
-                 external_translation1_y=external_translation1_y,
-                 external_translation1_z=external_translation1_z,
-                 rotation2=rotation_degrees2[idx],
-                 internal_translation2=z_heights2[idx],
-                 setting_matrix2=set_mat2_number,
-                 external_translation2_x=external_translation2_x,
-                 external_translation2_y=external_translation2_y,
-                 external_translation2_z=external_translation2_z)
-
-    # Capture all the pose_ids from the transformation dictionary
-    pose_ids = list(pose_transformations.keys())
-    # Cluster by perturbation if perturb_dof:
-    if total_perturbation_size > 1:
-        cluster_type_str = 'ByPerturbation'
-        seed_transforms = utils.remove_duplicates([pose_id.split(perturbation_identifier)[0] for pose_id in pose_ids])
-        cluster_map = {seed_transform: pose_ids[idx * total_perturbation_size:
-                                                (idx+1) * total_perturbation_size]
-                       for idx, seed_transform in enumerate(seed_transforms)}
-        # for pose_id in pose_ids:
-        #     seed_transform, *perturbation = pose_id.split(perturbation_identifier)
-        #     clustered_transformations[seed_transform].append(pose_id)
-
-        # Set the number of poses to cluster equal to the sqrt of the serach area
-        job.cluster.number = math.sqrt(total_perturbation_size)
-    else:
-        cluster_type_str = 'ByTransformation'
-        cluster_map = protocols.cluster.cluster_by_transformations(*create_transformation_group(), values=pose_ids)
-
-    # cluster_output_file
-    job.cluster.map = utils.pickle_object(cluster_map,
-                                          name=putils.default_clustered_pose_file.format('', cluster_type_str),
-                                          out_path=project_dir)
-    logger.info(f'Found {len(cluster_map)} unique clusters from {len(pose_ids)} pose inputs. '
-                f'Wrote cluster map to {job.cluster.map}')
-
     def add_fragments_to_pose(overlap_ghosts: list[int] = None, overlap_surf: list[int] = None,
                               sorted_z_scores: np.ndarray = None):
         """Add observed fragments to the Pose or generate new observations given the Pose state
@@ -2271,24 +2201,15 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
             pose.fragment_queries = {entity_tuple: frag_match_info}
             pose.fragment_metrics = {entity_tuple: fragment_metrics}
 
-    # Should interface metrics be performed to inform on docking success?
-    interface_metrics = {}
-    # # Todo use this to control the output of this section
-    # match job.dock.score:
-    #     case 'proteinmpnn':
-    #         check_dock_for_designability()
-    #     case 'nanohedra':
-    #         # Todo make the below function
-    #         check_dock_for_nanohedra()
-    # # Todo use this to control the output of this section
-
     proteinmpnn_used = measure_evolution = measure_alignment = False
-    if job.dock_only:  # Only get pose outputs, no sequences or metrics
-        design_ids = pose_ids
-        # logger.info(f'Total {building_blocks} dock trajectory took {time.time() - frag_dock_time_start:.2f}s')
-        # terminate()  # End of docking run
-        # return pose_paths
-    elif job.dock.proteinmpnn_score or job.design.sequences:  # Initialize proteinmpnn for dock/design
+    # if job.dock_only:  # Only get pose outputs, no sequences or metrics
+    #     pass
+    #     # design_ids = pose_ids
+    #     # logger.info(f'Total {building_blocks} dock trajectory took {time.time() - frag_dock_time_start:.2f}s')
+    #     # terminate()  # End of docking run
+    #     # return pose_paths
+    # elif job.dock.proteinmpnn_score or job.design.sequences:  # Initialize proteinmpnn for dock/design
+    if job.dock.proteinmpnn_score or job.design.sequences:  # Initialize proteinmpnn for dock/design
         proteinmpnn_used = True
         # Load profiles of interest into the analysis
         profile_background = {}
@@ -3455,6 +3376,10 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
         proteinmpnn_kwargs = dict(pose_length=pose_length,
                                   temperatures=job.design.temperatures)
         number_of_temperatures = len(job.design.temperatures)
+        if number_of_temperatures > 1:
+            logger.error(f"At this time, can't calculate more than one design sequence for nanohedra. Using the first")
+            number_of_temperatures = 1
+            job.design.temperatures = job.design.temperatures[0]
         # probabilities = np.empty((size, number_of_residues, mpnn_alphabet_length, dtype=np.float32))
         if job.dock.proteinmpnn_score:
             # Set up ProteinMPNN output data structures
@@ -3581,16 +3506,6 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
         #     per_residue_unbound_sequence_loss = per_residue_unbound_sequence_loss[:, :pose_length]
         #     # probabilities = probabilities[:, :pose_length]
         #     # sequences = sequences[:, :pose_length]
-        # Create design_ids for each of the pose_ids plus the identified sequence
-        design_ids = [f'{pose_id}-design{design_idx:04d}' for pose_id in pose_ids
-                      for design_idx in range(1, 1 + number_of_temperatures)]
-        # pose_ids, design_ids = list(zip(*[(pose_id, f'{pose_id}-design{design_idx:04d}') for pose_id in pose_ids
-        #                                   for design_idx in range(1, 1 + number_of_temperatures)]))
-        design_id_iterator = iter(design_ids)
-        for pose_id in pose_ids:
-            _pose_transformation = pose_transformations.pop(pose_id)
-            for design_idx in range(1, 1 + number_of_temperatures):
-                pose_transformations[next(design_id_iterator)] = _pose_transformation
         # sequences = numeric_to_sequence(generated_sequences)
         # # Format the sequences from design with shape (size, number_of_temperatures, pose_length)
         # # to (size * number_of_temperatures, pose_length)
@@ -3598,42 +3513,83 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
         # # per_residue_complex_sequence_loss = per_residue_complex_sequence_loss.reshape(-1, pose_length)
         # # per_residue_unbound_sequence_loss = per_residue_unbound_sequence_loss.reshape(-1, pose_length)
         # sequences = sequences.reshape(-1, pose_length)
-    else:
-        design_ids = pose_ids
-
-    # Sort cluster members by the highest metric and take some highest number of members
-    # Todo filter by score for the best
-    #  Collect scores according to job.dock.score
-    #
-    filter = False
-    if filter:
-        if job.dock.score:
-            metric = sequences_and_scores.get(job.dock.score)
-            if metric is None:
-                raise ValueError(f"The metric {job.dock.score} wasn't collected and therefore, can't be selected")
-
-            # The use of perturbation is inherently handled. Don't need check
-            # if job.dock.perturb_dof:
-            number_of_chosen_hits = math.sqrt(total_perturbation_size)
-            number_of_transform_seeds = int(number_of_transforms // total_perturbation_size)
-            perturb_passing_indices = []
-            for idx in range(number_of_transform_seeds):
-                # Slice the chosen metric along the local perturbation
-                perturb_metric = metric[idx * total_perturbation_size: (idx+1) * total_perturbation_size]
-                # Sort the slice and take the top number of hits
-                top_candidate_indices = perturb_metric.argsort()[:number_of_chosen_hits]
-                # perturb_metric[top_candidate_indices]
-                # Scale the selected indices into the transformation indices reference
-                perturb_passing_indices.extend((top_candidate_indices + idx*total_perturbation_size).tolist())
-
-            remove_non_viable_indices(perturb_passing_indices)
-        else:  # Output all
-            design_ids = pose_ids
+    # else:
+    #     pass
+    #     # design_ids = pose_ids
 
     # Create a Models instance to collect each model
     if job.write_trajectory:
         raise NotImplementedError('Make iterative saving more reliable. See output_pose()')
         trajectory_models = Models()
+
+    # Save all pose transformation information
+    perturbation_identifier = '-p_'
+
+    def create_pose_id(_idx: int) -> str:
+        """Create a PoseID from the sampling conditions
+
+        Args:
+            _idx: The current sampling index
+        Returns:
+            The PoseID with format building_blocks-degeneracy-rotation-transform-perturb if perturbation used
+                Ex: '****_#-****_#-d_#_#-r_#_#-t_#-p_#' OR '****_#-****_#-d_#_#-r_#_#-t_#' (no perturbation)
+        """
+        transform_idx, perturb_idx = divmod(_idx, total_perturbation_size)
+        if total_perturbation_size > 1:
+            perturb_str = f'-p_{perturb_idx + 1}'  # f'{perturbation_identifier}{perturb_idx + 1}'
+        else:
+            perturb_str = ''
+
+        _pose_id = f'd_{"_".join(map(str, degen_counts[transform_idx]))}' \
+                   f'-r_{"_".join(map(str, rot_counts[transform_idx]))}' \
+                   f'-t_{tx_counts[transform_idx]}'  # translation idx
+
+        # return f'{building_blocks}-{_pose_id}{perturb_str}'
+        return f'{project}-{_pose_id}{perturb_str}'
+
+    pose_transformations = {}
+    for idx in range(number_of_transforms):
+        external_translation1_x, external_translation1_y, external_translation1_z = _full_ext_tx1[idx]
+        external_translation2_x, external_translation2_y, external_translation2_z = _full_ext_tx2[idx]
+        pose_transformations[create_pose_id(idx)] = \
+            dict(rotation1=rotation_degrees1[idx],
+                 internal_translation1=z_heights1[idx],
+                 setting_matrix1=set_mat1_number,
+                 external_translation1_x=external_translation1_x,
+                 external_translation1_y=external_translation1_y,
+                 external_translation1_z=external_translation1_z,
+                 rotation2=rotation_degrees2[idx],
+                 internal_translation2=z_heights2[idx],
+                 setting_matrix2=set_mat2_number,
+                 external_translation2_x=external_translation2_x,
+                 external_translation2_y=external_translation2_y,
+                 external_translation2_z=external_translation2_z)
+
+    # Capture all the pose_ids from the transformation dictionary
+    pose_ids = list(pose_transformations.keys())
+    # Cluster by perturbation if perturb_dof:
+    if total_perturbation_size > 1:
+        cluster_type_str = 'ByPerturbation'
+        seed_transforms = utils.remove_duplicates([pose_id.split(perturbation_identifier)[0] for pose_id in pose_ids])
+        cluster_map = {seed_transform: pose_ids[idx * total_perturbation_size:
+                                                (idx+1) * total_perturbation_size]
+                       for idx, seed_transform in enumerate(seed_transforms)}
+        # for pose_id in pose_ids:
+        #     seed_transform, *perturbation = pose_id.split(perturbation_identifier)
+        #     clustered_transformations[seed_transform].append(pose_id)
+
+        # Set the number of poses to cluster equal to the sqrt of the serach area
+        job.cluster.number = math.sqrt(total_perturbation_size)
+    else:
+        cluster_type_str = 'ByTransformation'
+        cluster_map = protocols.cluster.cluster_by_transformations(*create_transformation_group(), values=pose_ids)
+
+    # cluster_output_file
+    job.cluster.map = utils.pickle_object(cluster_map,
+                                          name=putils.default_clustered_pose_file.format('', cluster_type_str),
+                                          out_path=project_dir)
+    logger.info(f'Found {len(cluster_map)} unique clusters from {len(pose_ids)} pose inputs. '
+                f'Wrote cluster map to {job.cluster.map}')
 
     # Define functions for outputting docked poses
     def output_pose(pose_name: AnyStr, uc_dimensions: np.ndarray = None):
@@ -3713,7 +3669,31 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
             trajectory_models.write(out_path=os.path.join(project_dir, 'trajectory_oligomeric_models.pdb'),
                                     oligomer=True)
 
+    # Should interface metrics be performed to inform on docking success?
     def nanohedra_metrics():
+        # This section shouldn't be possible but is kept for the usefulness of this method for transferring data
+        # to a reference frame where design_ids are used
+        if number_of_temperatures > 1:
+            # Create design_ids for each of the pose_ids plus the identified sequence
+            design_ids = [f'{pose_id}-design{design_idx:04d}' for pose_id in pose_ids
+                          for design_idx in range(1, 1 + number_of_temperatures)]
+            # pose_ids, design_ids = list(zip(*[(pose_id, f'{pose_id}-design{design_idx:04d}') for pose_id in pose_ids
+            #                                   for design_idx in range(1, 1 + number_of_temperatures)]))
+            design_id_iterator = iter(design_ids)
+            for pose_id in pose_ids:
+                _pose_transformation = pose_transformations.pop(pose_id)
+                for design_idx in range(1, 1 + number_of_temperatures):
+                    pose_transformations[next(design_id_iterator)] = _pose_transformation
+
+        interface_metrics = {}
+        # # Todo use this to control the output of this section
+        # match job.dock.score:
+        #     case 'proteinmpnn':
+        #         check_dock_for_designability()
+        #     case 'nanohedra':
+        #         # Todo make the below function
+        #         check_dock_for_nanohedra()
+        # # Todo use this to control the output of this section
         # Get metrics for each Pose
         # Set up data structures
         idx_slice = pd.IndexSlice
@@ -3725,7 +3705,7 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
         nan_blank_data = list(repeat(np.nan, pose_length))
         project_str = f'{project}-'
         # Todo fix all the design_ids -> pose_ids
-        for idx, design_id in enumerate(design_ids):
+        for idx, pose_id in enumerate(pose_ids):
             # Add the next set of coordinates
             update_pose_coords(idx)
 
@@ -3739,7 +3719,7 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
             #                           all_passing_z_scores[idx])
 
             if job.output:
-                output_pose(design_id.replace(project_str, ''))
+                output_pose(pose_id.replace(project_str, ''))
                 # pose_paths.append(output_pose(design_id))
 
             # Reset the fragment_map and fragment_profile for each Entity before calculate_fragment_profile
@@ -3763,7 +3743,7 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
                     pass
 
             # Calculate pose metrics
-            interface_metrics[design_id] = pose.interface_metrics()
+            interface_metrics[pose_id] = pose.interface_metrics()
 
             # if job.design.sequences:
             if proteinmpnn_used:
@@ -3806,14 +3786,14 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
 
                     for temp_idx, design_idx in enumerate(range(idx * number_of_temperatures,
                                                                 (idx+1) * number_of_temperatures)):
-                        design_id = design_ids[design_idx]
+                        # pose_id = design_ids[design_idx]
                         if job.design.structures:
                             # Todo use the template protocol from protocols.py
                             #  if job.design.alphafold:
                             #      pose.predict_structure()
                             #  else:
                             #      pose.refine()
-                            interface_local_density[design_id] = pose.local_density_interface()
+                            interface_local_density[pose_id] = pose.local_density_interface()
                             per_res_interface_metrics = pose.get_per_residue_interface_metrics()
                         else:
                             per_res_interface_metrics = {}
@@ -3918,7 +3898,7 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
                         else:
                             per_residue_fragment_profile_scores = nan_blank_data
 
-                        per_residue_data[design_id] = {
+                        per_residue_data[pose_id] = {
                             **per_res_interface_metrics,
                             **design_dock_params,
                             'designed_residues_total': dock_per_residue_design_indices,
@@ -3943,7 +3923,8 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
                 else:
                     for temp_idx, design_idx in enumerate(range(idx * number_of_temperatures,
                                                                 (idx+1) * number_of_temperatures)):
-                        per_residue_data[design_ids[design_idx]] = design_dock_params
+                        # per_residue_data[design_ids[design_idx]] = design_dock_params
+                        per_residue_data[pose_id] = design_dock_params
 
         # Todo get the keys right here
         # all_pose_divergence_df = pd.DataFrame()
@@ -3964,15 +3945,15 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
                 # Format the sequences from design with shape (size, number_of_temperatures, pose_length)
                 # to (size * number_of_temperatures, pose_length)
                 sequences = sequences.reshape(-1, pose_length)
-                per_residue_sequence_df = pd.DataFrame(sequences, index=design_ids,
+                per_residue_sequence_df = pd.DataFrame(sequences, index=pose_ids,
                                                        columns=pd.MultiIndex.from_product([residue_numbers, ['type']]))
                 per_residue_sequence_df.loc[putils.pose_source, :] = list(pose.sequence)
                 # per_residue_sequence_df.append(pd.DataFrame(list(pose.sequence), columns=[putils.pose_source]).T)
-                pose_sequences = dict(zip(design_ids, [''.join(sequence) for sequence in sequences.tolist()]))
+                pose_sequences = dict(zip(pose_ids, [''.join(sequence) for sequence in sequences.tolist()]))
                 # Todo This is pretty much already done!
                 #  pose_alignment = MultipleSequenceAlignment.from_array(sequences)
                 # Todo make this capability
-                #  pose_sequences = dict(zip(design_ids, pose_alignment.tolist()]))
+                #  pose_sequences = dict(zip(pose_ids, pose_alignment.tolist()]))
                 pose_alignment = MultipleSequenceAlignment.from_dictionary(pose_sequences)
                 # Perform a frequency extraction for each background profile
                 background_frequencies = {profile: pose_alignment.get_probabilities_from_profile(background)
@@ -3993,7 +3974,7 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
                     scores_df['collapse_violation_design_residues'] = collapse_violation
 
                 per_residue_background_frequencies = \
-                    pd.concat([pd.DataFrame(background, index=design_ids,
+                    pd.concat([pd.DataFrame(background, index=pose_ids,
                                             columns=pd.MultiIndex.from_product([residue_numbers, [f'observed_{profile}']]))
                                for profile, background in background_frequencies.items()], axis=1)
 
@@ -4023,8 +4004,8 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
                 #     pose.get_folding_metrics(hydrophobicity='standard')
                 folding_and_collapse = metrics.collapse_per_residue(all_sequences_by_entity, contact_order_per_res_z,
                                                                     reference_collapse)
-                per_residue_collapse_df = pd.concat({design_id: pd.DataFrame(data, index=residue_numbers)
-                                                     for design_id, data in zip(design_ids, folding_and_collapse)},
+                per_residue_collapse_df = pd.concat({pose_id: pd.DataFrame(data, index=residue_numbers)
+                                                     for pose_id, data in zip(pose_ids, folding_and_collapse)},
                                                     ).unstack().swaplevel(0, 1, axis=1)
                 # Calculate mutational content
                 all_mutations = \
@@ -4255,6 +4236,7 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
         if save:
             putils.make_path(job.all_scores)
             trajectory_metrics_csv = os.path.join(job.all_scores, f'{building_blocks}_docked_poses_Trajectories.csv')
+            job.dataframe = trajectory_metrics_csv
             pose_df.to_csv(trajectory_metrics_csv)
             logger.info(f'Wrote trajectory metrics to {trajectory_metrics_csv}')
             if job.design.sequences:
@@ -4264,13 +4246,44 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
 
     # Collect Nanohedra specific metrics over each pose
     nanohedra_metrics()
+
+    # Sort cluster members by the highest metric and take some highest number of members
+    # Todo filter by score for the best
+    #  Collect scores according to job.dock.score
+    #
+    filter = False
+    if filter:
+        if job.dock.score:
+            metric = sequences_and_scores.get(job.dock.score)
+            if metric is None:
+                raise ValueError(f"The metric {job.dock.score} wasn't collected and therefore, can't be selected")
+
+            # The use of perturbation is inherently handled. Don't need check
+            # if job.dock.perturb_dof:
+            number_of_chosen_hits = math.sqrt(total_perturbation_size)
+            number_of_transform_seeds = int(number_of_transforms // total_perturbation_size)
+            perturb_passing_indices = []
+            for idx in range(number_of_transform_seeds):
+                # Slice the chosen metric along the local perturbation
+                perturb_metric = metric[idx * total_perturbation_size: (idx+1) * total_perturbation_size]
+                # Sort the slice and take the top number of hits
+                top_candidate_indices = perturb_metric.argsort()[:number_of_chosen_hits]
+                # perturb_metric[top_candidate_indices]
+                # Scale the selected indices into the transformation indices reference
+                perturb_passing_indices.extend((top_candidate_indices + idx*total_perturbation_size).tolist())
+
+            remove_non_viable_indices(perturb_passing_indices)
+        else:  # Output all
+            pass
+            # design_ids = pose_ids
+
     # Finalize docking run
     terminate()
     logger.info(f'Total {building_blocks} dock trajectory took {time.time() - frag_dock_time_start:.2f}s')
 
     return [protocols.PoseDirectory.from_pose_id(pose_id, root=program_root, entity_names=entity_names,
                                                  pose_transformation=create_specific_transformation(idx))
-            for idx, pose_id in enumerate(design_ids)]
+            for idx, pose_id in enumerate(pose_ids)]
     # return [protocols.PoseDirectory.from_file(file, entity_names=entity_names,
     #                                           pose_transformation=create_specific_transformation(idx))
     #         for idx, file in enumerate(pose_paths)]
