@@ -4020,13 +4020,13 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
                 idx = 1
                 for idx, entity in enumerate(pose.entities, idx):
                     c_terminal_residue_index_in_pose = entity.c_terminal_residue.index
-                    scores_df[f'entity_{idx}_number_of_mutations'] = \
+                    scores_df[f'entity{idx}_number_of_mutations'] = \
                         pd.Series({design: len([1 for mutation_idx in mutations
                                                 if mutation_idx < c_terminal_residue_index_in_pose])
                                    for design, mutations in all_mutations.items()})
-                    scores_df[f'entity_{idx}_percent_mutations'] = \
-                        scores_df[f'entity_{idx}_number_of_mutations'] \
-                        / scores_df[f'entity_{idx}_number_of_residues']
+                    scores_df[f'entity{idx}_percent_mutations'] = \
+                        scores_df[f'entity{idx}_number_of_mutations'] \
+                        / scores_df[f'entity{idx}_number_of_residues']
                 per_residue_df = per_residue_df.join([per_residue_sequence_df, per_residue_background_frequencies,
                                                       per_residue_collapse_df])
             # else:
@@ -4186,7 +4186,7 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
             #      # 'interface_solvation_energy_unbound':
             #      #     list(filter(re_compile('solvation_energy_[0-9]+_unbound').match, scores_columns)),  # Rosetta
             #      'interface_connectivity':
-            #          list(filter(re.compile('interface_connectivity_[0-9]+').match, scores_columns)),  # Rosetta
+            #          list(filter(re.compile('interface_connectivity[0-9]+').match, scores_columns)),  # Rosetta
             #      }
             # 'sasa_hydrophobic_bound':
             #     list(filter(re_compile('sasa_hydrophobic_[0-9]+_bound').match, scores_columns)),
@@ -4208,7 +4208,7 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
 
         # Get the average thermophilicity for all entities
         scores_df['pose_thermophilicity'] = \
-            scores_df.loc[:, [f'entity_{idx}_thermophile' for idx in range(1, pose.number_of_entities)]
+            scores_df.loc[:, [f'entity{idx}_thermophile' for idx in range(1, pose.number_of_entities)]
                           ].sum(axis=1) / pose.number_of_entities
 
         scores_columns = scores_df.columns.to_list()

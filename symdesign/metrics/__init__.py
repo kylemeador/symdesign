@@ -56,7 +56,7 @@ nanohedra_metrics = ['multiple_fragment_ratio', 'nanohedra_score', 'nanohedra_sc
 # These metrics are necessary for all calculations performed during the analysis script. If missing, something will fail
 necessary_metrics = {'buns_complex', 'buns_1_unbound', 'contact_count', 'coordinate_constraint',
                      'favor_residue_energy', 'hbonds_res_selection_complex', 'hbonds_res_selection_1_bound',
-                     'interface_connectivity_1',
+                     # 'interface_connectivity1',
                      'interface_separation',
                      # 'interface_energy_1_bound', 'interface_energy_1_unbound',  'interface_energy_complex',
                      'interaction_energy_complex', putils.protocol, 'rosetta_reference_energy', 'shape_complementarity',
@@ -65,7 +65,7 @@ necessary_metrics = {'buns_complex', 'buns_1_unbound', 'contact_count', 'coordin
                      # 'solvation_energy_complex', 'solvation_energy_1_bound', 'solvation_energy_1_unbound'
                      }
 #                      'buns_2_unbound',
-#                      'hbonds_res_selection_2_bound', 'interface_connectivity_2',
+#                      'hbonds_res_selection_2_bound', 'interface_connectivity2',
 #                      'interface_energy_2_bound', 'interface_energy_2_unbound',
 #                      'sasa_hydrophobic_2_bound', 'sasa_polar_2_bound', 'sasa_total_2_bound',
 #                      'solvation_energy_2_bound', 'solvation_energy_2_unbound',
@@ -81,8 +81,8 @@ final_metrics = {'buried_unsatisfied_hbonds', 'contact_count', 'core', 'coordina
                  'divergence_design_per_residue', 'divergence_evolution_per_residue', 'divergence_fragment_per_residue',
                  'divergence_interface_per_residue', 'pose_thermophilicity', 'favor_residue_energy',
                  'interface_area_hydrophobic', 'interface_area_polar', 'interface_area_total',
-                 'interface_composition_similarity', 'interface_connectivity_1', 'interface_connectivity_2',
-                 'interface_energy_1_unbound', 'interface_energy_2_unbound',
+                 'interface_composition_similarity', 'interface_connectivity1', 'interface_connectivity2',
+                 # 'interface_energy_1_unbound', 'interface_energy_2_unbound',
                  'interface_energy_complex', 'interface_energy', 'interface_energy_unbound',
                  'int_separation',
                  'interaction_energy_complex', 'interface_b_factor_per_res', 'multiple_fragment_ratio',
@@ -134,12 +134,12 @@ columns_to_rename = {'shape_complementarity_median_dist': 'interface_separation'
                      # 'solvation_total_energy_2_bound': 'solvation_energy_2_bound',
                      # 'solvation_total_energy_1_unbound': 'solvation_energy_1_unbound',
                      # 'solvation_total_energy_2_unbound': 'solvation_energy_2_unbound',
-                     # 'R_int_connectivity_1': 'interface_connectivity_1',
-                     # 'R_int_connectivity_2': 'interface_connectivity_2',
+                     # 'R_int_connectivity_1': 'interface_connectivity1',
+                     # 'R_int_connectivity_2': 'interface_connectivity2',
                      }
 #                      'total_score': 'REU', 'decoy': 'design', 'symmetry_switch': 'symmetry',
 # Todo clean up these columns for master branch...
-clean_up_intermediate_columns = ['int_energy_no_intra_residue_score',  # 'interface_energy_bound', Todo make _3_..., _4_
+clean_up_intermediate_columns = ['int_energy_no_intra_residue_score',
                                  'sasa_hydrophobic_complex', 'sasa_polar_complex', 'sasa_total_complex',
                                  'sasa_hydrophobic_bound', 'sasa_hydrophobic_1_bound', 'sasa_hydrophobic_2_bound',
                                  'sasa_polar_bound', 'sasa_polar_1_bound', 'sasa_polar_2_bound',
@@ -193,8 +193,10 @@ delta_pairs = {'buried_unsatisfied_hbonds': ('buns_complex', 'buns_unbound'),  #
                'interface_energy': ('interface_energy_complex', 'interface_energy_unbound'),  # Rosetta
                # 'interface_energy_no_intra_residue_score': ('interface_energy_complex', 'interface_energy_bound'),
                'interface_bound_activation_energy': ('interface_energy_bound', 'interface_energy_unbound'),  # Rosetta
-               'interface_solvation_energy': ('interface_solvation_energy_unbound', 'interface_solvation_energy_complex'),  # Rosetta
-               'interface_solvation_energy_activation': ('interface_solvation_energy_unbound', 'interface_solvation_energy_bound'),  # Rosetta
+               'interface_solvation_energy':
+                   ('interface_solvation_energy_unbound', 'interface_solvation_energy_complex'),  # Rosetta
+               'interface_solvation_energy_activation':
+                   ('interface_solvation_energy_unbound', 'interface_solvation_energy_bound'),  # Rosetta
                # 'interface_area_hydrophobic': ('sasa_hydrophobic_bound', 'sasa_hydrophobic_complex'),
                # 'interface_area_polar': ('sasa_polar_bound', 'sasa_polar_complex'),
                # 'interface_area_total': ('sasa_total_bound', 'sasa_total_complex')
