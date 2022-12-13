@@ -5,8 +5,7 @@ from typing import Any, Iterable
 
 import pandas as pd
 
-from symdesign import flags, protocols, utils
-from symdesign.protocols import metrics  # , PoseDirectory
+from symdesign import flags, metrics, protocols, utils
 from symdesign.resources.job import job_resources_factory
 import symdesign.utils.path as putils
 

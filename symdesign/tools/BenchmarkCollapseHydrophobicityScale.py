@@ -3,7 +3,7 @@ from typing import Sequence
 import matplotlib.pyplot as plt
 from matplotlib.ticker import MultipleLocator
 
-from symdesign.protocols import metrics
+from symdesign import metrics
 
 # logger = logging.getLogger(__name__)
 # logger.setLevel(10)

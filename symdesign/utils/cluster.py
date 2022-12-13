@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 import sklearn
 
-from symdesign.protocols import metrics
+from symdesign import metrics
 
 # Globals
 logger = logging.getLogger(__name__)
