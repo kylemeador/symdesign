@@ -217,14 +217,6 @@ class JobResources:
         # putils.make_path(self.pdb_entity_api)
         # putils.make_path(self.pdb_assembly_api)
         putils.make_path(self.uniprot_api)
-        # Set the module for the current job. This will always be a '-' separated string when more than one name
-        self.module: str = kwargs.get(flags.module)
-        # Ensure that the protocol is viable
-        if self.module == flags.protocol:
-            self.modules: list[str] = kwargs.get(flags.modules)
-            self.check_protocol_module_arguments()
-        else:
-            self.modules = [self.module]
 
         self.api_db = wrapapi.api_database_factory.get(source=self.data)
         self.structure_db = structure_db.structure_database_factory.get(source=self.data)
@@ -387,9 +379,6 @@ class JobResources:
         self.write_oligomers: bool = kwargs.get(putils.output_oligomers)
         self.write_structures: bool = kwargs.get(putils.output_structures)
         self.write_trajectory: bool = kwargs.get(putils.output_trajectory)
-        # When we are performing expand-asu, make sure we set output_assembly to True
-        if self.module == flags.expand_asu:
-            self.output_assembly = True
 
         self.skip_logging: bool = kwargs.get(putils.skip_logging)
         self.merge: bool = kwargs.get('merge')
@@ -411,6 +400,18 @@ class JobResources:
 
         # Prediction flags
         self.predict = Predict.from_flags(**kwargs)
+
+        # Set the module for the current job. This will always be a '-' separated string when more than one name
+        self.module: str = kwargs.get(flags.module)
+        # Ensure that the protocol is viable
+        if self.module == flags.protocol:
+            self.modules: list[str] = kwargs.get(flags.modules)
+            self.check_protocol_module_arguments()
+        else:
+            self.modules = [self.module]
+        # When we are performing expand-asu, make sure we set output_assembly to True
+        if self.module == flags.expand_asu:
+            self.output_assembly = True
 
         # Clustering flags
         # Todo this is pretty sloppy. I should modify this DataClass mechanism...
@@ -461,16 +462,32 @@ class JobResources:
         ]
         disallowed_modules = [
             # 'custom_script',
-            flags.select_sequences,
             flags.select_designs,  # As alias for select_sequences with --skip-sequence-generation
+            flags.select_sequences,
         ]
+        select_modules = (
+            flags.select_poses,
+            flags.select_designs,
+            flags.select_sequences,
+        )
         problematic_modules = []
         not_recognized_modules = []
+        nanohedra_prior = False
         for idx, module in enumerate(self.modules):
             if module in allowed_modules:
-                if idx > 0 and module == flags.nanohedra:
-                    raise InputError(f"For {flags.protocol} module, {flags.nanohedra} can currently only be run as "
-                                     f"module position #1")
+                if module == flags.nanohedra:
+                    if idx > 0:
+                        raise InputError(f"For {flags.protocol} module, {flags.nanohedra} can currently only be run as "
+                                         f"module position #1")
+                    nanohedra_prior = True
+                # We only allow select-poses after nanohedra
+                if module in select_modules and module not in disallowed_modules:
+                    if nanohedra_prior:
+                        if self.total:
+                            logger.error("Using selection flag --total as input after nanohedra isn't allowed. "
+                                         "Changing to --dataframe")
+                            self.total = False
+                            # raise InputError('Using selection flag --total as input after nanohedra is not allowed')
                 # Convert the command-line name to python acceptable
                 self.modules[idx] = flags.format_from_cmdline(module)
             elif module in disallowed_modules:
