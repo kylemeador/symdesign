@@ -348,11 +348,10 @@ class JobResources:
             self.filter = flags.parse_filters(_filter, file=_filter_file)
         else:
             self.filter = None
-        # Todo
         _weight = kwargs.get('weight')
         _weight_file = kwargs.get('weight_file')
         if _weight:
-            self.weight = _weight  # flags.parse_weights(_weight, file=_weight_file)
+            self.weight = flags.parse_weights(_weight, file=_weight_file)
         else:
             self.weight = None
         self.weight_function = kwargs.get('weight_function')

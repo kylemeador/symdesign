@@ -15,7 +15,7 @@ import torch
 from symdesign.resources import config
 from symdesign.resources.query.utils import input_string, validate_type, verify_choice, header_string
 from symdesign.structure.utils import protein_letters_literal, alphabet_types, create_translation_tables, DesignError
-from symdesign import utils
+from symdesign import utils, flags
 from symdesign.utils import path as putils
 
 logger = logging.getLogger(__name__)
@@ -1212,8 +1212,12 @@ def filter_df_for_index_by_value(df: pd.DataFrame, metrics: dict[str, list | dic
                 operation, pre_operation, pre_kwargs, value = filter_op
                 print_filters.append((metric_name, f'{flags.operator_strings[operation]} {value}'))
 
-                df = df[operation(pre_operation(df[metric_name], **pre_kwargs), value)]
-                filtered_indices[f'{metric_name}{idx}'] = df.index.to_list()
+                try:
+                    filtered_df = df[operation(pre_operation(df[metric_name], **pre_kwargs), value)]
+                except KeyError:  # metric_name is missing from df
+                    logger.error(f"The metric {metric_name} wasn't available in the DataFrame")
+                    filtered_df = df
+                filtered_indices[f'{metric_name}{idx}'] = filtered_df.index.to_list()
             # Currently below operations aren't necessary because of how index_intersection works
             #  indices = operation1(pre_operation(**kwargs)[metric], value)
             #  AND if more than one argument, only 2 args are possible...
@@ -1323,7 +1327,8 @@ def prioritize_design_indices(df: pd.DataFrame | AnyStr, filter: dict = None,
         filtered_indices = filter_df_for_index_by_value(simple_df, filters)  # **_filters)
         # filtered_indices = {metric: filters_with_idx[metric]['idx'] for metric in filters_with_idx}
         logger.info('Number of designs passing filters:\n\t%s' %
-                    '\n\t'.join(utils.pretty_format_table(filtered_indices.items())))
+                    '\n\t'.join(utils.pretty_format_table((metric, len(indices))
+                                                          for metric, indices in filtered_indices.items())))
         # logger.info('Number of designs passing filters:\n\t%s'
         #             % '\n\t'.join(f'{len(indices):6d} - {metric}' for metric, indices in filtered_indices.items()))
         final_indices = index_intersection(filtered_indices.values())
@@ -1342,7 +1347,7 @@ def prioritize_design_indices(df: pd.DataFrame | AnyStr, filter: dict = None,
             available_metrics = simple_df.columns.to_list()
             weights = query_user_for_metrics(available_metrics, df=simple_df, mode='weight', level='design')
 
-        logger.info(f'Using weighting parameters:\n%s' % '\n\t'.join(utils.pretty_format_table(weights.items())))
+        logger.info(f'Using weighting parameters:\n\t%s' % '\n\t'.join(utils.pretty_format_table(weights.items())))
         design_ranking_s = rank_dataframe_by_metric_weights(simple_df, weights=weights, **kwargs)
         design_ranking_s.name = 'selection_weight'
         final_df = pd.merge(design_ranking_s, simple_df, left_index=True, right_index=True)
@@ -1358,7 +1363,7 @@ def prioritize_design_indices(df: pd.DataFrame | AnyStr, filter: dict = None,
     return final_df
 
 
-describe_string = '\nTo see a describtion of the data, enter "describe"\n'
+describe_string = '\nTo see a description of the data, enter "describe"\n'
 describe = ['describe', 'desc', 'DESCRIBE', 'DESC', 'Describe', 'Desc']
 
 
@@ -1367,7 +1372,7 @@ def describe_data(df=None):
     print('The available metrics are located in the top row(s) of your DataFrame. Enter your selected metrics as a '
           'comma separated input. To see descriptions for only certain metrics, enter them here. '
           'Otherwise, hit "Enter"')
-    metrics_input = input('%s' % input_string)
+    metrics_input = input(input_string)
     chosen_metrics = set(map(str.lower, map(str.replace, map(str.strip, metrics_input.strip(',').split(',')),
                                             repeat(' '), repeat('_'))))
     # metrics = input('To see descriptions for only certain metrics, enter them here. Otherwise, hit "Enter"%s'
@@ -1378,7 +1383,7 @@ def describe_data(df=None):
     else:
         columns_of_interest = [idx for idx, column in enumerate(df.columns.get_level_values(-1).to_list())
                                if column in chosen_metrics]
-    # format rows/columns for data display, then revert
+    # Format rows/columns for data display, then revert
     max_columns, min_columns = pd.get_option('display.max_columns'), pd.get_option('display.max_rows')
     pd.set_option('display.max_columns', None), pd.set_option('display.max_rows', None)
     print(df.iloc[:, columns_of_interest].describe())
@@ -1386,15 +1391,17 @@ def describe_data(df=None):
 
 
 @utils.handle_errors(errors=(KeyboardInterrupt,))
-def query_user_for_metrics(available_metrics, df=None, mode=None, level=None):
+def query_user_for_metrics(available_metrics: Iterable[str], df: pd.DataFrame = None, mode: str = None,
+                           level: str = None) -> dict[str, float]:
     """Ask the user for the desired metrics to select indices from a dataframe
 
     Args:
         available_metrics (Iterable): The columns available in the DataFrame to select indices by
-    Keyword Args:
-        mode=None (str): The mode in which to query and format metrics information
+        df: A DataFrame from which to use metrics (provided as columns)
+        mode: The mode in which to query and format metrics information. Either 'filter' or weight'
+        level: The hierarchy of selection to use. Could be one of 'poses', 'designs', or 'sequences'
     Returns:
-        (dict)
+        The mapping of metric name to value
     """
     try:
         direction = dict(max='higher', min='lower')
@@ -1413,9 +1420,9 @@ def query_user_for_metrics(available_metrics, df=None, mode=None, level=None):
                  'lowest, while for hydrogen bonds it would be the most.'}
 
         print('\n%s' % header_string % f'Select {level} {mode} Metrics')
-        print('The provided dataframe will be used to select %ss based on the measured metrics from each pose. '
-              'To "%s" designs, which metrics would you like to utilize?%s'
-              % (level, mode, describe_string if df is not None else ''))
+        print(f'The provided dataframe will be used to select {level}s based on the measured metrics from each pose. '
+              f'To "{mode}" designs, which metrics would you like to utilize?'
+              f'{"" if df is None else describe_string}')
 
         print('The available metrics are located in the top row(s) of your DataFrame. Enter your selected metrics as a '
               'comma separated input or alternatively, you can check out the available metrics by entering "metrics".'
@@ -1429,21 +1436,21 @@ def query_user_for_metrics(available_metrics, df=None, mode=None, level=None):
                 print('You indicated "metrics". Here are Available Metrics\n%s\n' % ', '.join(available_metrics))
                 metrics_input = input(input_string)
             elif chosen_metrics.intersection(describe):
-                describe_data(df=df) if df is not None else print('Can\'t describe data without providing a DataFrame')
+                describe_data(df=df) if df is not None else print("Can't describe data without providing a DataFrame")
                 # df.describe() if df is not None else print('Can\'t describe data without providing a DataFrame...')
                 metrics_input = input(input_string)
             elif unsupported_metrics:
                 # TODO catch value error in dict comprehension upon string input
-                metrics_input = input('Metric%s "%s" not found in the DataFrame! Is your spelling correct? Have you '
-                                      'used the correct underscores? Please input these metrics again. Specify '
-                                      '"metrics" to view available metrics%s'
-                                      % ('s' if len(unsupported_metrics) > 1 else '', ', '.join(unsupported_metrics),
-                                         input_string))
+                metrics_input = input(f'Metric{"s" if len(unsupported_metrics) > 1 else ""} '
+                                      f'"{", ".join(unsupported_metrics)}" not found in the DataFrame!'
+                                      '\nIs your spelling correct? Have you used the correct underscores? '
+                                      f'Please input these metrics again. Specify "metrics" to view available metrics'
+                                      f'{input_string}')
             elif len(chosen_metrics) > 0:
                 break
             else:
                 print('No metrics were provided... If this is what you want, you can run this module without '
-                      'the %s flag' % '-f/--filter' if mode == 'filter' else '-w/--weight')
+                      f'the {"-f/--filter" if mode == "filter" else "-w/--weight"} flag')
                 if verify_choice():
                     break
             fixed_metrics = list(map(str.lower, map(str.replace, map(str.strip, metrics_input.strip(',').split(',')),
@@ -1453,19 +1460,18 @@ def query_user_for_metrics(available_metrics, df=None, mode=None, level=None):
 
         print(instructions[mode])
         while True:  # not correct:  # correct = False
-            print('%s' % (describe_string if df is not None else ''))
+            print("" if df is None else describe_string)
             metric_values = {}
             for metric in chosen_metrics:
                 while True:
                     # Todo make ability to use boolean descriptions
                     # Todo make ability to specify direction
-                    value = input('For "%s" what value should be used for %s %sing?%s%s'
-                                  % (metric, level, mode, ' Designs with metrics %s than this value will be included'
-                                                          % direction[filter_df.loc['direction', metric]].upper()
-                                                          if mode == 'filter' else '', input_string))
+                    value = input(f'For "{metric}" what value should be used for {level} {mode}ing? %s{input_string}'
+                                  % ('Designs with metrics %s than this value will be included' %
+                                     direction[filter_df.loc['direction', metric]].upper() if mode == "filter" else ""))
                     if value in describe:
                         describe_data(df=df) if df is not None \
-                            else print('Can\'t describe data without providing a DataFrame...')
+                            else print("Can't describe data without providing a DataFrame...")
                     elif validate_type(value, dtype=float):
                         metric_values[metric] = float(value)
                         break
@@ -1480,7 +1486,7 @@ def query_user_for_metrics(available_metrics, df=None, mode=None, level=None):
                 print('You selected:\n\t%s' % '\n\t'.join(utils.pretty_format_table(metric_values.items())))
             else:
                 # print('No metrics were provided, skipping value input')
-                metric_values = None
+                # metric_values = None
                 break
 
             if verify_choice():
@@ -1503,7 +1509,7 @@ def rank_dataframe_by_metric_weights(df: pd.DataFrame, weights: dict[str, float]
     Returns:
         The sorted Series of values with the best indices first (top) and the worst on the bottom
     """
-    if weights:
+    if weights:  # Could be None or empty dict
         weights = {metric: dict(direction=filter_df.loc['direction', metric], value=value)
                    for metric, value in weights.items()}
         # This sorts the wrong direction despite the perception that it sorts correctly
@@ -1529,7 +1535,7 @@ def rank_dataframe_by_metric_weights(df: pd.DataFrame, weights: dict[str, float]
             raise ValueError(f"The value {function} isn't a viable choice for metric weighting 'function'")
 
         return df.sum(axis=1).sort_values(ascending=False)
-    else:  # just sort by lowest energy
+    else:  # Just sort by lowest energy
         return df['interface_energy'].sort_values('interface_energy', ascending=True)
 
 
