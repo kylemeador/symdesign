@@ -2581,9 +2581,9 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
             # Use the sequence as an unknown token then guess the probabilities given the remaining
             # information, i.e. the sequence and the backbone
             S_design_null[residue_mask.type(torch.bool)] = mpnn_null_idx
-            chain_residue_mask = chain_mask * residue_mask
+            chain_residue_mask = chain_mask * residue_mask * mask
 
-            decoding_order = ml.create_decoding_order(randn, chain_mask, tied_pos=tied_pos, to_device=device)
+            decoding_order = ml.create_decoding_order(randn, chain_residue_mask, tied_pos=tied_pos, to_device=device)
             # See if the pose is useful to design based on constraints of collapse
 
             # Measure the conditional amino acid probabilities at each residue to see
@@ -3069,9 +3069,9 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
             # Use the sequence as an unknown token then guess the probabilities given the remaining
             # information, i.e. the sequence and the backbone
             S_design_null[residue_mask.type(torch.bool)] = mpnn_null_idx
-            chain_residue_mask = chain_mask * residue_mask
+            chain_residue_mask = chain_mask * residue_mask * mask
 
-            decoding_order = ml.create_decoding_order(randn, chain_mask, tied_pos=tied_pos, to_device=device)
+            decoding_order = ml.create_decoding_order(randn, chain_residue_mask, tied_pos=tied_pos, to_device=device)
             # See if the pose is useful to design based on constraints of collapse
 
             # Measure the conditional amino acid probabilities at each residue to see
