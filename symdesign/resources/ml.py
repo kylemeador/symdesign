@@ -122,6 +122,9 @@ def batch_calculation(size: int, batch_length: int, setup: Callable = None,
                             except KeyError:  # If it doesn't exist
                                 raise KeyError(f"Couldn't return the data specified by {return_key} to the "
                                                f"return_container with keys:{', '.join(return_containers.keys())}")
+                            except ValueError as error:  # Arrays are incorrectly sized
+                                raise ValueError(f"Couldn't return the data specified by {return_key} from "
+                                                 f"{func.__name__} due to: {error}")
                         # for return_container_key, return_container in list(return_containers.items()):
                         #     try:  # To access the return_container_key in the function
                         #         return_container[batch_slice] = function_returns[return_container_key]
@@ -591,8 +594,9 @@ def proteinmpnn_batch_design(batch_slice: slice, proteinmpnn: ProteinMPNN,
                                                   mask, chain_M_pos=residue_mask, temperature=temperature,
                                                   bias_by_res=bias_by_res, tied_pos=tied_pos, **batch_parameters)
         logger.info(f'Sample calculation took {time.time() - sample_start_time:8f}s')
-        S_sample = sample_dict['S']
+
         # Format outputs
+        S_sample = sample_dict['S']
         _batch_sequences = S_sample.cpu()[:, :pose_length]
         batch_sequences.append(_batch_sequences)
         decoding_order = sample_dict['decoding_order']
@@ -653,8 +657,8 @@ def proteinmpnn_batch_design(batch_slice: slice, proteinmpnn: ProteinMPNN,
         unbound_sequence_loss = np.empty_like(complex_sequence_loss)
 
     return {'sequences': sequences,
-            'complex_sequence_loss': complex_sequence_loss,
-            'unbound_sequence_loss': unbound_sequence_loss,
+            'proteinmpnn_loss_complex': complex_sequence_loss,
+            'proteinmpnn_loss_unbound': unbound_sequence_loss,
             'design_indices': _residue_indices_of_interest}
 
 
