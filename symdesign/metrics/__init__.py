@@ -1243,7 +1243,7 @@ def filter_df_for_index_by_value(df: pd.DataFrame, metrics: dict[str, list | dic
             print_filters.append((metric_name, f'{operator_string} {filter_ops}'))
 
     # Report the filtering options
-    logger.info('Starting with filters:\n\t%s' % '\n\t'.join(utils.pretty_format_table(print_filters)))
+    logger.info('Applied filters:\n\t%s' % '\n\t'.join(utils.pretty_format_table(print_filters)))
 
     return filtered_indices
 
@@ -1330,8 +1330,8 @@ def prioritize_design_indices(df: pd.DataFrame | AnyStr, filter: dict = None,
         filtered_indices = filter_df_for_index_by_value(simple_df, filters)  # **_filters)
         # filtered_indices = {metric: filters_with_idx[metric]['idx'] for metric in filters_with_idx}
         logger.info('Number of designs passing filters:\n\t%s' %
-                    '\n\t'.join(utils.pretty_format_table((metric, len(indices))
-                                                          for metric, indices in filtered_indices.items())))
+                    '\n\t'.join(utils.pretty_format_table([(metric, len(indices))
+                                                          for metric, indices in filtered_indices.items()])))
         # logger.info('Number of designs passing filters:\n\t%s'
         #             % '\n\t'.join(f'{len(indices):6d} - {metric}' for metric, indices in filtered_indices.items()))
         final_indices = index_intersection(filtered_indices.values())
@@ -1351,7 +1351,7 @@ def prioritize_design_indices(df: pd.DataFrame | AnyStr, filter: dict = None,
             weights = query_user_for_metrics(available_metrics, df=simple_df, mode='weight', level='design')
 
         logger.info(f'Using weighting parameters:\n\t%s' % '\n\t'.join(utils.pretty_format_table(weights.items())))
-        design_ranking_s = rank_dataframe_by_metric_weights(simple_df, weights=weights, **kwargs)
+        design_ranking_s = pareto_optimize_trajectories(simple_df, weights=weights, **kwargs)
         design_ranking_s.name = 'selection_weight'
         final_df = pd.merge(design_ranking_s, simple_df, left_index=True, right_index=True)
         final_df = pd.concat([final_df], keys=[('pose', 'metric')], axis=1)
@@ -1504,51 +1504,81 @@ def query_user_for_metrics(available_metrics: Iterable[str], df: pd.DataFrame = 
     return metric_values
 
 
-def rank_dataframe_by_metric_weights(df: pd.DataFrame, weights: dict[str, float] = None,
-                                     function: config.weight_functions_literal = 'rank', **kwargs) -> pd.Series:
+def pareto_optimize_trajectories(df: pd.DataFrame, weights: dict[str, float] = None,
+                                 function: config.weight_functions_literal = 'rank',
+                                 default_sort: str = 'interface_energy', **kwargs) -> pd.Series:
     """From a provided DataFrame with individual design trajectories, select trajectories based on provided metric and
     weighting parameters
 
     Args:
         df: The designs x metrics DataFrame (single index metrics column) to select trajectories from
-        weights: {'metric': value, ...}. If not provided, sorts by interface_energy
+        weights: {'metric': value, ...}. If not provided, sorts by default_sort
         function: The function to use for weighting. Either 'rank' or 'normalize' is possible
+        default_sort: The metric to sort the dataframe by default if no weights are provided
     Returns:
         The sorted Series of values with the best indices first (top) and the worst on the bottom
     """
     if weights:  # Could be None or empty dict
         # weights = {metric: dict(direction=filter_df.loc['direction', metric], value=value)
         #            for metric, value in weights.items()}
-        weights = {}
-        for metric, value in weights.items():
+        coefficients = {}
+        print_weights = []
+        for metric_name, weight_ops in weights.items():
             # Modify the provided metric of digits to get its configuration info
-            substituted_metric = metric.translate(utils.remove_digit_table)
-            weights[metric] = dict(direction=filter_df.loc['direction', substituted_metric], value=value)
+            substituted_metric = metric_name.translate(utils.remove_digit_table)
+            direction = filter_df.loc['direction', substituted_metric]
+            if isinstance(weight_ops, list):
+                # Where the metrics = {metric: [(operation, pre_operation, pre_kwargs, value),], ...}
+                # Currently can only have one weight per metric
+                for idx, weight_op in enumerate(weight_ops):
+                    operation, pre_operation, pre_kwargs, value = weight_op
+                    coefficients[metric_name] = dict(direction=direction, value=value)
+            else:
+                coefficients[metric_name] = dict(direction=direction, value=weight_ops)
+            print_weights.append((metric_name, f'= {value}'))
         # This sorts the wrong direction despite the perception that it sorts correctly
         # sort_direction = dict(max=False, min=True}  # max - ascending=False, min - ascending=True
         # This sorts the correct direction, putting small and negative value (when min is better) with higher rank
         sort_direction = dict(max=True, min=False)  # max - ascending=False, min - ascending=True
+        metric_df = {}
         if function == 'rank':
-            df = pd.concat({metric: df[metric].rank(ascending=sort_direction[parameters['direction']],
-                                                    method=parameters['direction'], pct=True) * parameters['value']
-                            for metric, parameters in weights.items()}, axis=1)
+            for metric_name, parameters in coefficients.items():
+                direction = parameters['direction']
+                try:
+                    metric_series = \
+                        df[metric_name].rank(ascending=sort_direction[direction], method=direction, pct=True) \
+                        * parameters['value']
+                except KeyError:  # metric_name is missing from df
+                    logger.error(f"The metric {metric_name} wasn't available in the DataFrame")
+                    continue
+                metric_df[metric_name] = metric_series
+            # df = pd.concat({metric: df[metric].rank(ascending=sort_direction[parameters['direction']],
+            #                                         method=parameters['direction'], pct=True) * parameters['value']
+            #                 for metric, parameters in weights.items()}, axis=1)
         elif function == 'normalize':  # Get the MinMax normalization (df - df.min()) / (df.max() - df.min())
-            normalized_metric_df = {}
-            for metric, parameters in weights.items():
-                metric_s = df[metric]
+            for metric_name, parameters in coefficients.items():
+                metric_s = df[metric_name]
                 if parameters['direction'] == 'max':
-                    metric_min, metric_max = metric_s.min(), metric_s.max()
+                    metric_min = metric_s.min()
+                    metric_max = metric_s.max()
                 else:  # parameters['direction'] == 'min':
-                    metric_min, metric_max = metric_s.max(), metric_s.min()
-                normalized_metric_df[metric] = \
+                    metric_min = metric_s.max()
+                    metric_max = metric_s.min()
+                metric_df[metric_name] = \
                     ((metric_s - metric_min) / (metric_max - metric_min)) * parameters['value']
-            df = pd.concat(normalized_metric_df, axis=1)
         else:
             raise ValueError(f"The value {function} isn't a viable choice for metric weighting 'function'")
 
-        return df.sum(axis=1).sort_values(ascending=False)
-    else:  # Just sort by lowest energy
-        return df['interface_energy'].sort_values('interface_energy', ascending=True)
+        if metric_df:
+            logger.info('Applied weights:\n\t%s' % '\n\t'.join(utils.pretty_format_table(print_weights)))
+            weighted_df = pd.concat(metric_df, axis=1)
+            return weighted_df.sum(axis=1).sort_values(ascending=False)
+    # else:
+    if default_sort in df.columns:
+        # Just sort by the default (lowest energy)
+        return df[default_sort].sort_values(default_sort, ascending=True)
+    else:
+        raise KeyError(f"There wasn't a metric named {default_sort} which was specified as the default")
 
 
 def window_function(data: Sequence[int | float], windows: Iterable[int] = None, lower: int = None,
