@@ -269,11 +269,11 @@ inverse_operations = {
     # '+': operator.add, '-': operator.sub,
     # '*': operator.mul, '@': operator.matmul,
     # '/': operator.truediv, '//': operator.floordiv,
-    '->': operator.contains,  # value in metric
+    # '->': operator.contains,  # value in metric
     '>=': operator.lt,  # '=>': operator.ge,
     '<=': operator.gt,  # '=<': operator.le,
-    '!=': operator.eq,  # '=!': operator.ne,
-    '=': operator.ne,
+    # '!=': operator.eq,  # '=!': operator.ne,
+    # '=': operator.ne,
     '>': operator.le,
     '<': operator.ge,
     # '!': operator.not_,
@@ -303,7 +303,7 @@ def parse_weights(weights: list[str] = None, file: AnyStr = None) \
     """
     parsed_weights = parse_filters(weights, file=file)
     # Ensure proper formatting of weight specific parameters
-    for idx, weight in enumerate(parsed_weights):
+    for idx, (metric_name, weight) in enumerate(parsed_weights.items()):
         if len(weight) != 1:
             raise InputError(f"Can't assign more than one weight for every provided metric. "
                              f"'{weights[idx]}' is invalid")
@@ -394,7 +394,7 @@ def parse_filters(filters: list[str] = None, file: AnyStr = None) \
 
             # Find the values that are metrics and those that are values, then ensure they are parsed correct
             metric = metric_specs = metric_idx = None
-            negate_ops = True
+            invert_ops = True
             operations_syntax_iter = iter(operations_syntax)
             parsed_values = []
             parsed_operations = []
@@ -413,7 +413,7 @@ def parse_filters(filters: list[str] = None, file: AnyStr = None) \
                             # if idx != 0:
                             # We must negate operations until the metric is found, i.e. metric > 1 is expected, but
                             # 1 < metric < 10 is allowed. This becomes metric > 1 and metric < 10
-                            negate_ops = False
+                            invert_ops = False
                             continue
                         else:  # We found two metrics...
                             raise ValueError(f"Can't accept more than one value per filter as of now")
@@ -431,8 +431,8 @@ def parse_filters(filters: list[str] = None, file: AnyStr = None) \
                     # parsed_values.append(component)
                 else:  # This is an operation
                     syntax = next(operations_syntax_iter)
-                    if negate_ops:
-                        operation = inverse_operations[syntax]
+                    if invert_ops:
+                        operation = inverse_operations.get(syntax, viable_operations[syntax])
                     else:
                         operation = viable_operations[syntax]
                     parsed_operations.append(operation)
