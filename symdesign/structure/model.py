@@ -5672,12 +5672,13 @@ class Pose(SymmetricModel):
         Args:
             method: Whether to design using ProteinMPNN or Rosetta
             number: The number of sequences to design
-            temperatures: The temperature to perform design at
+            temperatures: The temperatures to perform design at
             interface: Whether to design the interface only
             measure_unbound: Whether the protein should be designed with concern for the unbound state
             ca_only: Whether a minimal CA variant of the protein should be used for design calculations
         Keyword Args:
-            model_name: str = 'v_48_020' - The name of the model to use from ProteinMPNN. v_X_Y where X is neighbor distance, and Y is noise
+            model_name: str = 'v_48_020' - The name of the model to use from ProteinMPNN.
+                v_X_Y where X is neighbor distance, and Y is noise
             backbone_noise: float = 0.0 - The amount of backbone noise to add to the pose during design
             pssm_log_odds_flag: bool = False - Whether to use log_odds mask to limit the residues designed
             pssm_bias_flag: bool = False - Whether to use bias to modulate the residue probabilites designed
@@ -5688,7 +5689,7 @@ class Pose(SymmetricModel):
         Returns:
             A mapping of the design output type to the output.
                 For proteinmpnn, this is the string mapped to the corresponding returned sequences,
-                complex_sequence_loss, and unbound_sequence_loss. For each data return the return varies such as:
+                sequence_loss_complex, and sequence_loss_unbound. For each data return the return varies such as:
                  [temp1/repeat1, temp1/repeat2, ..., tempN/repeat1, ...] where designs are sorted by temperature
 
                 For rosetta
@@ -5752,7 +5753,7 @@ class Pose(SymmetricModel):
             generated_sequences = np.empty((size, len(temperatures), pose_length), dtype=np.int64)
             per_residue_complex_sequence_loss = np.empty_like(generated_sequences, dtype=np.float32)
             per_residue_unbound_sequence_loss = np.empty_like(per_residue_complex_sequence_loss)
-            # design_indices = np.empty_like(generated_sequences, dtype=bool)
+            design_indices = np.zeros((size, pose_length), dtype=bool)
 
             @resources.ml.batch_calculation(size=size, batch_length=batch_length,
                                             setup=resources.ml.setup_pose_batch_for_proteinmpnn,
@@ -5766,12 +5767,11 @@ class Pose(SymmetricModel):
                 _proteinmpnn_batch_design(proteinmpnn_model, temperatures=temperatures, pose_length=pose_length,
                                           setup_args=(device,),
                                           setup_kwargs=parameters,
-                                          return_containers={'sequences': generated_sequences,
-                                                             'complex_sequence_loss': per_residue_complex_sequence_loss,
-                                                             'unbound_sequence_loss': per_residue_unbound_sequence_loss,
-                                                             # 'design_indices': design_indices
-                                                             }
-                                          )
+                                          return_containers={
+                                              'sequences': generated_sequences,
+                                              'proteinmpnn_loss_complex': per_residue_complex_sequence_loss,
+                                              'proteinmpnn_loss_unbound': per_residue_unbound_sequence_loss,
+                                              'design_indices': design_indices})
 
             sequences_and_scores['sequences'] = numeric_to_sequence(sequences_and_scores['sequences'])
             # Format returns to have shape (temperaturesxsize, pose_length) where the temperatures vary slower
@@ -6135,7 +6135,8 @@ class Pose(SymmetricModel):
                 f'entity{idx}_name': entity.name,
                 f'entity{idx}_number_of_residues': entity.number_of_residues,
                 f'entity{idx}_radius': entity.distance_from_reference(),  # Todo add reference=
-                f'entity{idx}_min_radius': min_rad, f'entity_{idx}_max_radius': max_rad,
+                f'entity{idx}_min_radius': min_rad,
+                f'entity{idx}_max_radius': max_rad,
                 f'entity{idx}_n_terminal_helix': entity.is_termini_helical(),
                 f'entity{idx}_c_terminal_helix': entity.is_termini_helical(termini='c'),
                 f'entity{idx}_n_terminal_orientation': entity.termini_proximity_from_reference(),
