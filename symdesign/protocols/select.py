@@ -1,7 +1,7 @@
 import logging
 import os
 from itertools import repeat
-from typing import Any, Iterable
+from typing import Any, Iterable, Sequence
 
 import pandas as pd
 
@@ -147,7 +147,18 @@ def poses(pose_directories: Iterable[protocols.protocols.PoseDirectory]) -> list
         else:
             raise FileNotFoundError(f'No --{flags.cluster_map} "{job.cluster.map}" file was found')
 
-        final_poses = select_from_cluster_map(selected_poses, cluster_map, number=job.cluster.number)
+        # Make the selected_poses into strings
+        selected_pose_strs = list(map(str, selected_poses))
+        # Check if the cluster map is stored as PoseDirectories or strings and convert
+        representative_representative = next(iter(cluster_map))
+        if not isinstance(representative_representative, protocols.PoseDirectory):
+            # Make the cluster map based on strings
+            for representative in list(cluster_map.keys()):
+                # Remove old entry and convert all arguments to pose_id strings, saving as pose_id strings
+                cluster_map[str(representative)] = [str(member) for member in cluster_map.pop(representative)]
+
+        final_pose_indices = select_from_cluster_map(selected_pose_strs, cluster_map, number=job.cluster.number)
+        final_poses = [selected_poses[idx] for idx in final_pose_indices]
         logger.info(f'Selected {len(final_poses)} poses after clustering')
     else:  # Try to generate the cluster_map?
         # raise utils.InputError(f'No --{flags.cluster_map} was provided. To cluster poses, specify:'
@@ -187,16 +198,17 @@ def poses(pose_directories: Iterable[protocols.protocols.PoseDirectory]) -> list
     return final_poses
 
 
-def select_from_cluster_map(selected_members: Iterable[Any], cluster_map: dict[Any, list[Any]], number: int = 1) \
-        -> list[Any]:
-    """
+def select_from_cluster_map(selected_members: Sequence[Any], cluster_map: dict[Any, list[Any]], number: int = 1) \
+        -> list[int]:
+    """From a mapping of cluster representatives to their members, select members based on their ranking in the
+    selected_members sequence
 
     Args:
-        cluster_map: A mapping of cluster representatives to their members
         selected_members: A sorted list of members that are members of the cluster_map
+        cluster_map: A mapping of cluster representatives to their members
         number: The number of members to select
     Returns:
-        The selected_members, trimmed and retrieved according to cluster_map membership
+        The indices of selected_members, trimmed and retrieved according to cluster_map membership
     """
     membership_representative_map = protocols.cluster.invert_cluster_map(cluster_map)
     representative_found: dict[Any, list[Any]] = {}
@@ -206,22 +218,22 @@ def select_from_cluster_map(selected_members: Iterable[Any], cluster_map: dict[A
         if cluster_representative:
             if cluster_representative not in representative_found:
                 # Include. This representative hasn't been identified
-                representative_found[cluster_representative] = [member]
+                representative_found[cluster_representative] = [idx]  # [member]
             else:
                 # This cluster has already been found, and it was identified again. Report and only
                 # include the highest ranked pose in the output as it provides info on all occurrences
-                representative_found[cluster_representative].append(member)
+                representative_found[cluster_representative].append(idx)  # member)
         else:
-            not_found.append(member)
+            not_found.append(idx)  # member)
 
-    final_members = []
-    for members in representative_found.values():
-        final_members.extend(members[:number])
+    final_member_indices = []
+    for member_indices in representative_found.values():
+        final_member_indices.extend(member_indices[:number])
 
     if not_found:
         logger.warning(f"Couldn't locate the following members:\n\t%s\nAdding all of these to your selection..." %
-                       '\n\t'.join(not_found))
+                       '\n\t'.join(map(str, [selected_members[idx] for idx in not_found])))
         # 'Was {flags.cluster_poses} only run on a subset of the poses that were selected?
-        final_members.extend(not_found)
+        final_member_indices.extend(not_found)
 
-    return final_members
+    return final_member_indices
