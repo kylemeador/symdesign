@@ -7,6 +7,7 @@ import os
 import pickle
 import re
 import shutil
+import warnings
 from collections.abc import Sequence
 from copy import copy
 from glob import glob
@@ -18,6 +19,7 @@ from typing import Callable, Any, Iterable, AnyStr, Type
 
 # from matplotlib.axes import Axes
 import matplotlib.pyplot as plt
+import torch
 from matplotlib.ticker import MultipleLocator
 # from mpl_toolkits.mplot3d import Axes3D
 import numpy as np
@@ -33,7 +35,8 @@ from symdesign.structure import fragment
 from symdesign.structure.base import Structure
 from symdesign.structure.model import Pose, MultiModel, Models, Model, Entity, transformation_mapping
 from symdesign.structure.sequence import generate_mutations_from_reference, sequence_difference, \
-    MultipleSequenceAlignment, pssm_as_array, concatenate_profile, write_pssm_file, read_fasta_file, write_sequences
+    MultipleSequenceAlignment, pssm_as_array, concatenate_profile, write_pssm_file, read_fasta_file, write_sequences, \
+    numeric_to_sequence
 from symdesign.structure.utils import protein_letters_3to1, protein_letters_1to3, DesignError, ClashError, SymmetryError
 from symdesign.utils import large_color_array, starttime, start_log, unpickle, pickle_object, write_shell_script, \
     all_vs_all, sym, condensed_to_square, rosetta, InputError, path as putils
@@ -53,6 +56,7 @@ symmetry_protocols = {0: 'make_point_group', 2: 'make_layer', 3: 'make_lattice'}
 null_cmd = ['echo']
 warn_missing_symmetry = \
     f'Cannot %s without providing symmetry! Provide symmetry with "--symmetry" or "--{putils.sym_entry}"'
+
 
 # Decorator static methods: These must be declared above their usage, but made static after each declaration
 def close_logs(func: Callable):
@@ -538,9 +542,9 @@ class PoseProtocol:
             favor_fragments = evo_fill = False
 
         if self.job.generate_fragments:
-            # Todo
-            self.pose.generate_fragments()
-            # self.pose.generate_interface_fragments()
+            # Todo this is working but the information isn't really used... Need to get oligomeric type frags
+            # self.pose.generate_fragments()
+            self.pose.generate_interface_fragments()
             self.fragment_observations = self.pose.get_fragment_observations()
             self.info['fragment_source'] = self.job.fragment_db.source
             if self.job.write_fragments:
@@ -2391,14 +2395,31 @@ class PoseDirectory(PoseProtocol):
                                        interface=interface,
                                        ca_only=self.job.design.ca_only
                                        )
+        # Add protocol (job info) and temperature to sequences_and_scores
+        sequences_and_scores[putils.protocol] = \
+            repeat(self.protocol, len(self.job.design.number_of_trajectories * self.job.design.temperatures))
+        sequences_and_scores['temperature'] = [temperature for temperature in self.job.design.temperatures
+                                               for _ in range(self.job.design.number_of_trajectories)]
+
         design_names = [f'{self.name}_{self.protocol}{seq_idx:04d}'
                         for seq_idx in range(1, 1 + len(sequences_and_scores['sequences']))]
         putils.make_path(self.designs)
         self.output_proteinmpnn_scores(design_names, sequences_and_scores)
         putils.make_path(self.data)
         write_sequences(sequences_and_scores['sequences'], names=design_names, file_name=self.designed_sequences_file)
-        if self.job.design.structures:
-            self._predict_structure()
+        # if self.job.design.structures:
+        #     self._predict_structure()
+        #     # Todo include ???
+        #     # # ANALYSIS: each output from the Design process based on score, Analyze Sequence Variation
+        #     # if not self.job.distribute_work:
+        #     #     pose_s = self._interface_design_analysis()
+        #     #     out_path = os.path.join(self.job.all_scores, putils.default_analysis_file.format(starttime, 'All'))
+        #     #     if os.path.exists(out_path):
+        #     #         header = False
+        #     #     else:
+        #     #         header = True
+        #     #     pose_s.to_csv(out_path, mode='a', header=header)
+        self.proteinmpnn_analysis(design_names, sequences_and_scores)
 
     def output_proteinmpnn_scores(self, design_ids: Sequence[str], sequences_and_scores: dict[str, np.ndarray | list]):
         """Given the results of a ProteinMPNN design trajectory, format the sequences and scores for the PoseDirectory
@@ -2407,20 +2428,20 @@ class PoseDirectory(PoseProtocol):
             design_ids: The associated design identifier for each corresponding entry in sequences_and_scores
             sequences_and_scores: The mapping of ProteinMPNN score type to it's corresponding data
         """
-        # Convert each numpy array into a list for output
-        for score_type, data in sequences_and_scores.items():
-            # if isinstance(data, np.ndarray):
-            sequences_and_scores[score_type] = data.tolist()
+        # # Convert each numpy array into a list for output
+        # for score_type, data in sequences_and_scores.items():
+        #     # if isinstance(data, np.ndarray):
+        #     sequences_and_scores[score_type] = data.tolist()
 
-        # trajectories_temperatures_ids = [f'temp{temperature}' for idx in self.job.design.number_of_trajectories
-        #                                  for temperature in self.job.design.temperatures]
-        # trajectories_temperatures_ids = [{'temperature': temperature} for idx in self.job.design.number_of_trajectories
-        #                                  for temperature in self.job.design.temperatures]
-        protocol = 'proteinmpnn'
-        sequences_and_scores[putils.protocol] = \
-            repeat(protocol, len(self.job.design.number_of_trajectories * self.job.design.temperatures))
-        sequences_and_scores['temperature'] = [temperature for temperature in self.job.design.temperatures
-                                               for _ in range(self.job.design.number_of_trajectories)]
+        # # trajectories_temperatures_ids = [f'temp{temperature}' for idx in self.job.design.number_of_trajectories
+        # #                                  for temperature in self.job.design.temperatures]
+        # # trajectories_temperatures_ids = [{'temperature': temperature} for idx in self.job.design.number_of_trajectories
+        # #                                  for temperature in self.job.design.temperatures]
+        # protocol = 'proteinmpnn'
+        # sequences_and_scores[putils.protocol] = \
+        #     repeat(protocol, len(self.job.design.number_of_trajectories * self.job.design.temperatures))
+        # sequences_and_scores['temperature'] = [temperature for temperature in self.job.design.temperatures
+        #                                        for _ in range(self.job.design.number_of_trajectories)]
 
         def write_per_residue_scores(_design_ids: Sequence[str], scores: dict[str, list]) -> AnyStr:
             """"""
@@ -2429,6 +2450,9 @@ class PoseDirectory(PoseProtocol):
             # For each score type unpack the data
             for score_type, score in scores.items():
                 # For each score's data, update the dictionary of the corresponding design_id
+                if isinstance(score, np.ndarray):
+                    # Convert each numpy array into a list for output
+                    score = score.tolist()
                 for design_id, design_score in zip(_design_ids, score):
                     design_scores[design_id].update({score_type: design_score})
 
@@ -2443,6 +2467,547 @@ class PoseDirectory(PoseProtocol):
             return self.scores_file
 
         write_per_residue_scores(design_ids, sequences_and_scores)
+
+    def proteinmpnn_analysis(self, design_ids: Iterable[str], sequences_and_scores: dict[str, np.array],
+                             design_poses: Iterable[Pose] = None) -> pd.Series:
+        """
+
+        Args:
+            design_ids: The associated design identifier for each corresponding entry in sequences_and_scores
+            sequences_and_scores: The mapping of ProteinMPNN score type to it's corresponding data
+            design_poses:
+        Returns:
+
+        """
+        design_temperatures = sequences_and_scores['temperatures']
+        generated_sequences = sequences_and_scores['sequences']
+        per_residue_design_indices = sequences_and_scores['design_indices']
+        per_residue_complex_sequence_loss = sequences_and_scores['proteinmpnn_loss_complex']
+        per_residue_unbound_sequence_loss = sequences_and_scores['proteinmpnn_loss_unbound']
+        profile_background = {}
+        if self.job.design.evolution_constraint:
+            # Add Entity information to the Pose
+            measure_evolution = measure_alignment = True
+            warn = False
+            for entity in self.pose.entities:
+                # entity.sequence_file = job.api_db.sequences.retrieve_file(name=entity.name)
+                # if not entity.sequence_file:
+                #     entity.write_sequence_to_fasta('reference', out_dir=job.sequences)
+                #     # entity.add_evolutionary_profile(out_dir=job.api_db.hhblits_profiles.location)
+                # else:
+                profile = self.job.api_db.hhblits_profiles.retrieve_data(name=entity.name)
+                if not profile:
+                    measure_evolution = False
+                    warn = True
+                else:
+                    entity.evolutionary_profile = profile
+
+                if not entity.verify_evolutionary_profile():
+                    entity.fit_evolutionary_profile_to_structure()
+
+                try:  # To fetch the multiple sequence alignment for further processing
+                    msa = self.job.api_db.alignments.retrieve_data(name=entity.name)
+                    if not msa:
+                        measure_evolution = False
+                        warn = True
+                    else:
+                        entity.msa = msa
+                except ValueError as error:  # When the Entity reference sequence and alignment are different lengths
+                    # raise error
+                    logger.info(f'Entity reference sequence and provided alignment are different lengths: {error}')
+                    warn = True
+
+            if warn:
+                if not measure_evolution and not measure_alignment:
+                    logger.info(f'Metrics relying on an evolutionary profile are not being collected as '
+                                f'there was no profile found. These include: '
+                                f'{", ".join(metrics.profile_dependent_metrics)}')
+                    logger.info(f'Metrics relying on multiple sequence alignment data are not being collected as '
+                                f'there were none found. These include: '
+                                f'{", ".join(metrics.multiple_sequence_alignment_dependent_metrics)}')
+                elif not measure_alignment:
+                    logger.info(f'Metrics relying on a multiple sequence alignment are not being collected as '
+                                f'there was no MSA found. These include: '
+                                f'{", ".join(metrics.multiple_sequence_alignment_dependent_metrics)}')
+                else:
+                    logger.info(f'Metrics relying on an evolutionary profile are not being collected as '
+                                f'there was no profile found. These include: '
+                                f'{", ".join(metrics.profile_dependent_metrics)}')
+
+            if measure_evolution:
+                self.pose.evolutionary_profile = \
+                    concatenate_profile([entity.evolutionary_profile for entity in self.pose.entities])
+            else:
+                self.log.info('No evolution information')
+                self.pose.evolutionary_profile = self.pose.create_null_profile()
+
+            if self.pose.evolutionary_profile:
+                profile_background['evolution'] = evolutionary_profile_array = pssm_as_array(self.pose.evolutionary_profile)
+                torch_log_evolutionary_profile = torch.from_numpy(np.log(evolutionary_profile_array))
+        else:
+            measure_evolution = measure_alignment = False
+
+        # Calculate metrics on input Pose before any manipulation
+        pose_length = self.pose.number_of_residues
+        residue_numbers = list(range(1, pose_length + 1))
+        entity_tuple = tuple(self.pose.entities)
+        # model_tuple = tuple(models)
+        number_of_temperatures = len(self.job.design.temperatures)
+        interface_metrics = {}
+        per_residue_data = {}
+        interface_local_density = {}
+        fragment_profile_frequencies = []
+        nan_blank_data = list(repeat(np.nan, pose_length))
+
+        # Load fragment_profile into the analysis
+        self.pose.calculate_fragment_profile()
+        # if self.job.design.sequences:
+        # This could be an empty array if no fragments were found
+        fragment_profile_array = self.pose.fragment_profile.as_array()
+
+        pose_interface_metrics = self.pose.interface_metrics()
+
+        for idx, design_id in enumerate(design_ids):
+            # # Add the next set of coordinates
+            # update_pose_coords(idx)
+            #
+            # # if total_perturbation_size > 1:
+            # add_fragments_to_pose()  # <- here generating fresh
+            # # else:
+            # #     # Here, loading fragments. No self-symmetric interactions will be generated!
+            # #     # where idx is the actual transform idx
+            # #     add_fragments_to_pose(all_passing_ghost_indices[idx],
+            # #                           all_passing_surf_indices[idx],
+            # #                           all_passing_z_scores[idx])
+
+            # if self.job.output:
+            #     output_pose(pose_id.replace(project_str, ''))
+            #     # pose_paths.append(output_pose(design_id))
+
+            # # Reset the fragment_map and fragment_profile for each Entity before calculate_fragment_profile
+            # for entity in self.pose.entities:
+            #     entity._fragment_profile = {}
+            #     entity.fragment_map = {}
+            #     # entity.alpha.clear()
+
+            # # Load fragment_profile into the analysis
+            # self.pose.calculate_fragment_profile()
+            # if self.job.design.sequences:
+            #     # This could be an empty array if no fragments were found
+            #     fragment_profile_array = self.pose.fragment_profile.as_array()
+
+            # # Remove saved pose attributes from the prior iteration calculations
+            # self.pose.ss_index_array.clear(), self.pose.ss_type_array.clear()
+            # self.pose.fragment_metrics.clear(), self.pose.fragment_pairs.clear()
+            # for attribute in ['_design_residues', '_interface_residues']:  # _assembly_minimally_contacting
+            #     try:
+            #         delattr(self.pose, attribute)
+            #     except AttributeError:
+            #         pass
+
+            # Calculate pose metrics
+            interface_metrics[design_id] = pose_interface_metrics
+
+            # if self.job.design.sequences:
+            dock_per_residue_design_indices = per_residue_design_indices[idx]
+            designed_sequences = generated_sequences[idx]
+            dock_per_residue_complex_sequence_loss = per_residue_complex_sequence_loss[idx]
+            dock_per_residue_unbound_sequence_loss = per_residue_unbound_sequence_loss[idx]
+
+            for temp_idx, design_idx in enumerate(range(idx * number_of_temperatures,
+                                                        (idx+1) * number_of_temperatures)):
+                # pose_id = design_ids[design_idx]
+                if self.job.design.structures:
+                    # Todo use the template protocol from protocols.py
+                    #  if self.job.design.alphafold:
+                    #      self.pose.predict_structure()
+                    #  else:
+                    #      self.pose.refine()
+                    interface_local_density[design_id] = self.pose.local_density_interface()
+                    per_res_interface_metrics = self.pose.get_per_residue_interface_metrics()
+                else:
+                    per_res_interface_metrics = {}
+                # For each Pose, save each sequence design data such as energy # probabilites
+                # all_probabilities[design_id] = probabilities[idx]
+                # Todo process the all_probabilities to a DataFrame?
+                #  The probabilities are the actual probabilities at each residue for each AA
+                #  These differ from the log_probabilities in that those are scaled by the log()
+                #  and therefore are negative. The use of probabilities is how I have calculated divergence.
+                #  Perhaps I should transition to take the log of probabilities and calculate the loss.
+                # all_probabilities is
+                # {'2gtr-3m6n-DEGEN_1_1-ROT_13_10-TX_1-PT_1':
+                #  array([[1.55571969e-02, 6.64833433e-09, 3.03523801e-03, ...,
+                #          2.94689467e-10, 8.92133514e-08, 6.75683381e-12],
+                #         [9.43517406e-03, 2.54900701e-09, 4.43358254e-03, ...,
+                #          2.19431431e-10, 8.18614296e-08, 4.94338381e-12],
+                #         [1.50658926e-02, 1.43449803e-08, 3.27082584e-04, ...,
+                #          1.70684064e-10, 8.77646258e-08, 6.67974660e-12],
+                #         ...,
+                #         [1.23516358e-07, 2.98688293e-13, 3.48888407e-09, ...,
+                #          1.17041141e-14, 4.72279464e-12, 5.79130243e-16],
+                #         [9.99999285e-01, 2.18584519e-19, 3.87702094e-16, ...,
+                #          7.12933229e-07, 5.22657113e-13, 3.19411591e-17],
+                #         [2.11755684e-23, 2.32944583e-23, 3.86148234e-23, ...,
+                #          1.16764793e-22, 1.62743156e-23, 7.65081924e-23]]),
+                #  '2gtr-3m6n-DEGEN_1_1-ROT_13_10-TX_1-PT_2':
+                #  array([[1.72123183e-02, 7.31348226e-09, 3.28084361e-03, ...,
+                #          3.16341731e-10, 9.09206364e-08, 7.41259137e-12],
+                #         [6.17256807e-03, 1.86070248e-09, 2.70802877e-03, ...,
+                #          1.61229460e-10, 5.94660143e-08, 3.73394328e-12],
+                #         [1.28052337e-02, 1.10993081e-08, 3.89973022e-04, ...,
+                #          2.21829027e-10, 1.03226760e-07, 8.43660298e-12],
+                #         ...,
+                #         [1.31807008e-06, 2.47859654e-12, 2.27575967e-08, ...,
+                #          5.34223104e-14, 2.06900348e-11, 3.35126595e-15],
+                #         [9.99999821e-01, 1.26853575e-19, 2.05691231e-16, ...,
+                #          2.02439509e-07, 5.02121131e-13, 1.38719620e-17],
+                #         [2.01858383e-23, 2.29340987e-23, 3.59583879e-23, ...,
+                #          1.13548109e-22, 1.60868618e-23, 7.25537526e-23]])}
+
+                # Calculate sequence statistics
+                # Todo get the below mechanism clean
+                # Before calculation, we must set this (v) to get the correct values from the profile
+                self.pose._sequence_numeric = designed_sequences[temp_idx]
+                # Todo these are not Softmax probabilities
+                try:
+                    fragment_profile_frequencies.append(
+                        self.pose.get_sequence_probabilities_from_profile(precomputed=fragment_profile_array))
+                except IndexError as error:  # We are missing fragments for this Pose
+                    logger.warning(f"We didn't find any fragment information... due to: {error}")
+                    #                "\nSetting the self.pose.fragment_profile = None")
+                    # raise IndexError(f'With new updates to calculate_fragment_profile this code should be '
+                    #                  f'unreachable. Original error:\n{error}')
+                    # self.pose.fragment_profile = None
+
+                # observed, divergence = \
+                #     calculate_sequence_observations_and_divergence(pose_alignment,
+                #                                                    profile_background,
+                #                                                    interface_indexer)
+                # # Get pose sequence divergence
+                # divergence_s = pd.Series({f'{divergence_type}_per_residue': _divergence.mean()
+                #                           for divergence_type, _divergence in divergence.items()},
+                #                          name=design_id)
+                # all_pose_divergence.append(divergence_s)
+                # Todo extract the observed values out of the observed dictionary
+                #  Each Pose only has one trajectory, so measurement of divergence is pointless (no distribution)
+                # observed_dfs = []
+                # # Todo must ensure the observed_values is the length of the design_ids
+                # # for profile, observed_values in observed.items():
+                # #     scores_df[f'observed_{profile}'] = observed_values.mean(axis=1)
+                # #     observed_dfs.append(pd.DataFrame(data=observed_values, index=design_id,
+                # #                                      columns=pd.MultiIndex.from_product([residue_numbers,
+                # #                                                                          [f'observed_{profile}']]))
+                # #                         )
+                # # Add observation information into the residue_df
+                # residue_df = pd.concat([residue_df] + observed_dfs, axis=1)
+                # Todo get divergence?
+                # Get the negative log likelihood of the .evolutionary_ and .fragment_profile
+                torch_numeric = torch.from_numpy(self.pose.sequence_numeric)
+                # if self.pose.evolutionary_profile:
+                if measure_evolution:
+                    per_residue_evolutionary_profile_scores = \
+                        resources.ml.sequence_nllloss(torch_numeric, torch_log_evolutionary_profile)
+                    self.pose.calculate_profile()
+                    design_profile_array = np.log(pssm_as_array(self.pose.profile))
+                    per_residue_design_profile_scores = \
+                        resources.ml.sequence_nllloss(torch_numeric, torch.from_numpy(design_profile_array))
+                else:
+                    per_residue_evolutionary_profile_scores = per_residue_design_profile_scores = nan_blank_data
+
+                if self.pose.fragment_profile:
+                    with warnings.catch_warnings():
+                        # np.log causes -inf at 0, thus we correct these to a very large number
+                        warnings.simplefilter('ignore', category=RuntimeWarning)
+                        corrected_frag_array = np.nan_to_num(np.log(fragment_profile_array), copy=False,
+                                                             nan=np.nan, neginf=metrics.zero_probability_frag_value)
+                    per_residue_fragment_profile_scores = \
+                        resources.ml.sequence_nllloss(torch_numeric, torch.from_numpy(corrected_frag_array))
+                    # Find the non-zero sites in the profile
+                    # interface_indexer = [residue.index for residue in self.pose.interface_residues]
+                    # interface_observed_from_fragment_profile = fragment_profile_frequencies[idx][interface_indexer]
+                else:
+                    per_residue_fragment_profile_scores = nan_blank_data
+
+                per_residue_data[design_id] = {
+                    **per_res_interface_metrics,
+                    # **design_dock_params,
+                    'designed_residues_total': dock_per_residue_design_indices,
+                    'proteinmpnn_loss_complex': dock_per_residue_complex_sequence_loss[temp_idx],
+                    'proteinmpnn_loss_unbound': dock_per_residue_unbound_sequence_loss[temp_idx],
+                    # 'proteinmpnn_v_design_probability_cross_entropy_loss': dock_per_residue_design_cross_entropy,
+                    # 'proteinmpnn_v_evolution_probability_cross_entropy_loss': dock_per_residue_evolution_cross_entropy,
+                    # 'proteinmpnn_v_fragment_probability_cross_entropy_loss': dock_per_residue_fragment_cross_entropy,
+                    # 'collapse_profile_z': dock_per_residue_batch_collapse_z,
+                    'proteinmpnn_loss_design': per_residue_design_profile_scores,
+                    'proteinmpnn_loss_evolution': per_residue_evolutionary_profile_scores,
+                    'proteinmpnn_loss_fragment': per_residue_fragment_profile_scores,
+                    # 'bound': 0.,  # copy(entity_energies),
+                    # copy(entity_energies),
+                    # 'solv_complex': 0., 'solv_bound': 0.,
+                    # copy(entity_energies),
+                    # 'solv_unbound': 0.,  # copy(entity_energies),
+                    # 'fsp': 0., 'cst': 0.,
+                    # 'type': protein_letters_3to1.get(residue.type),
+                    # 'hbond': 0
+                }
+        # else:
+        #     for temp_idx, design_idx in enumerate(range(idx * number_of_temperatures,
+        #                                                 (idx+1) * number_of_temperatures)):
+        #         # per_residue_data[design_ids[design_idx]] = design_dock_params
+        #         per_residue_data[pose_id] = design_dock_params
+
+        # Todo get the keys right here
+        # all_pose_divergence_df = pd.DataFrame()
+        # all_pose_divergence_df = pd.concat(all_pose_divergence, keys=[('sequence', 'pose')], axis=1)
+
+        # Initialize the main scoring DataFrame
+        scores_df = pd.DataFrame.from_dict(interface_metrics, orient='index')
+        # scores_df = pd.concat([pd.DataFrame.from_dict(pose_transformations, orient='index'), interface_metrics_df],
+        #                       axis=1)
+
+        # Collect sequence metrics on every designed Pose
+        # if self.job.dock.proteinmpnn_score:
+        # Construct per_residue_df
+        per_residue_df = pd.concat({design_id: pd.DataFrame(data, index=residue_numbers)
+                                    for design_id, data in per_residue_data.items()}).unstack().swaplevel(0, 1,
+                                                                                                          axis=1)
+        # if self.job.design.sequences:
+        sequences = numeric_to_sequence(generated_sequences)
+        # Format the sequences from design with shape (size, number_of_temperatures, pose_length)
+        # to (size * number_of_temperatures, pose_length)
+        sequences = sequences.reshape(-1, pose_length)
+        per_residue_sequence_df = pd.DataFrame(sequences, index=design_ids,
+                                               columns=pd.MultiIndex.from_product([residue_numbers, ['type']]))
+        per_residue_sequence_df.loc[putils.pose_source, :] = list(self.pose.sequence)
+        # per_residue_sequence_df.append(pd.DataFrame(list(self.pose.sequence), columns=[putils.pose_source]).T)
+        pose_sequences = dict(zip(design_ids, [''.join(sequence) for sequence in sequences.tolist()]))
+        # Todo This is pretty much already done!
+        #  pose_alignment = MultipleSequenceAlignment.from_array(sequences)
+        # Todo make this capability
+        #  pose_sequences = dict(zip(pose_ids, pose_alignment.tolist()]))
+        pose_alignment = MultipleSequenceAlignment.from_dictionary(pose_sequences)
+        # Perform a frequency extraction for each background profile
+        background_frequencies = {profile: pose_alignment.get_probabilities_from_profile(background)
+                                  for profile, background in profile_background.items()}
+
+        interface_observed_from_fragment_profile = np.array(fragment_profile_frequencies)
+        background_frequencies.update({'fragment': interface_observed_from_fragment_profile})
+
+        # Get profile mean observed
+        # Todo
+        #  Ensure that the interface residues are selected, not only by those that are 0 as interface can be 0!
+        #  This could be transitioned to during design to ease the selection of thes
+        interface_observed_from_fragment_profile[interface_observed_from_fragment_profile == 0] = np.nan
+        # Todo RuntimeWarning: Mean of empty slice
+        scores_df['observed_fragment_mean_probability'] = np.nanmean(interface_observed_from_fragment_profile, axis=1)
+        scores_df['observed_evolution_mean_probability'] = background_frequencies['evolution'].mean(axis=1)
+        # if collapse_profile.size and self.job.dock.proteinmpnn_score:
+        #     scores_df['collapse_violation_design_residues'] = collapse_violation
+
+        per_residue_background_frequencies = \
+            pd.concat([pd.DataFrame(background, index=design_ids,
+                                    columns=pd.MultiIndex.from_product([residue_numbers, [f'observed_{profile}']]))
+                       for profile, background in background_frequencies.items()], axis=1)
+
+        # Can't use below as each pose is different
+        # index_residues = list(self.pose.interface_design_residue_numbers)
+        # residue_df = pd.merge(residue_df.loc[:, idx_slice[index_residues, :]],
+        #                       per_residue_df.loc[:, idx_slice[index_residues, :]],
+        #                       left_index=True, right_index=True)
+
+        # Process mutational frequencies, H-bond, and Residue energy metrics to dataframe
+        # residue_info = process_residue_info(residue_info)  # Only useful in Rosetta
+        # residue_info = incorporate_mutation_info(residue_info, all_mutations)
+        # residue_df = pd.concat({design: pd.DataFrame(info) for design, info in residue_info.items()}).unstack()
+
+        # Calculate hydrophobic collapse for each design
+        # Separate sequences by entity
+        all_sequences_split = []
+        for entity in self.pose.entities:
+            entity_slice = slice(entity.n_terminal_residue.index, 1 + entity.c_terminal_residue.index)
+            all_sequences_split.append(sequences[:, entity_slice].tolist())
+
+        all_sequences_by_entity = list(zip(*all_sequences_split))
+        # Todo, should the reference pose be used? -> + [entity.sequence for entity in self.pose.entities]
+        #  Include the pose as the pose_source in the measured designs
+        # Data contact_order_per_res_z, reference_collapse, collapse_profile come from self.pose.get_folding_metrics()
+        contact_order_per_res_z, reference_collapse, collapse_profile = \
+            self.pose.get_folding_metrics(hydrophobicity='expanded')
+        folding_and_collapse = metrics.collapse_per_residue(all_sequences_by_entity, contact_order_per_res_z,
+                                                            reference_collapse)
+        per_residue_collapse_df = pd.concat({pose_id: pd.DataFrame(data, index=residue_numbers)
+                                             for pose_id, data in zip(design_ids, folding_and_collapse)},
+                                            ).unstack().swaplevel(0, 1, axis=1)
+        # Calculate mutational content
+        all_mutations = \
+            generate_mutations_from_reference(self.pose.sequence, pose_sequences, zero_index=True, return_to=True)
+        all_mutations.pop('reference', None)  # Throw the reference away for now
+        # s = pd.Series({design: len(mutations) for design, mutations in all_mutations.items()})
+        scores_df['number_of_mutations'] = \
+            pd.Series({design: len(mutations) for design, mutations in all_mutations.items()})
+        scores_df['percent_mutations'] = \
+            scores_df['number_of_mutations'] / scores_df['pose_length']
+
+        idx = 1
+        for idx, entity in enumerate(self.pose.entities, idx):
+            c_terminal_residue_index_in_pose = entity.c_terminal_residue.index
+            scores_df[f'entity{idx}_number_of_mutations'] = \
+                pd.Series({design: len([1 for mutation_idx in mutations
+                                        if mutation_idx < c_terminal_residue_index_in_pose])
+                           for design, mutations in all_mutations.items()})
+            scores_df[f'entity{idx}_percent_mutations'] = \
+                scores_df[f'entity{idx}_number_of_mutations'] \
+                / scores_df[f'entity{idx}_number_of_residues']
+        per_residue_df = per_residue_df.join([per_residue_sequence_df, per_residue_background_frequencies,
+                                              per_residue_collapse_df])
+        if self.job.design.structures:
+            scores_df['interface_local_density'] = pd.Series(interface_local_density)
+            # Make buried surface area (bsa) columns, and residue classification
+            per_residue_df = metrics.calculate_residue_surface_area(per_residue_df)  # .loc[:, idx_slice[index_residues, :]])
+
+        # Calculate new metrics from combinations of other metrics
+        # Add design residue information to scores_df such as how many core, rim, and support residues were measured
+        summed_scores_df = metrics.sum_per_residue_metrics(per_residue_df)  # .loc[:, idx_slice[index_residues, :]])
+        scores_df = scores_df.join(summed_scores_df)
+
+        # # scores_df['interface_area_polar'] = per_residue_df.loc[:, idx_slice[:, 'bsa_polar']].sum(axis=1)
+        # # scores_df['interface_area_hydrophobic'] = per_residue_df.loc[:, idx_slice[:, 'bsa_hydrophobic']].sum(axis=1)
+        # # scores_df['interface_area_total'] = \
+        # #     residue_df.loc[not_pose_source_indices, idx_slice[index_residues, 'bsa_total']].sum(axis=1)
+        # if self.job.design.structures:
+        #     scores_df['interface_area_total'] = bsa_assembly_df = \
+        #         scores_df['interface_area_polar'] + scores_df['interface_area_hydrophobic']
+        #     # Find the proportion of the residue surface area that is solvent accessible versus buried in the interface
+        #     scores_df['interface_area_to_residue_surface_ratio'] = \
+        #         (bsa_assembly_df / (bsa_assembly_df+scores_df['sasa_total_complex']))
+        #     #      / scores_df['total_interface_residues']
+        #
+        #     # Make scores_df errat_deviation that takes into account the pose_source sequence errat_deviation
+        #     # This overwrites the metrics.sum_per_residue_metrics() value
+        #     # Include in errat_deviation if errat score is < 2 std devs and isn't 0 to begin with
+        #     source_errat_inclusion_boolean = \
+        #         np.logical_and(pose_source_errat_s < metrics.errat_2_sigma, pose_source_errat_s != 0.)
+        #     errat_df = per_residue_df.loc[:, idx_slice[:, 'errat_deviation']].droplevel(-1, axis=1)
+        #     # find where designs deviate above wild-type errat scores
+        #     errat_sig_df = errat_df.sub(pose_source_errat_s, axis=1) > metrics.errat_1_sigma
+        #     # axis=1 Series is column oriented ^
+        #     # then select only those residues which are expressly important by the inclusion boolean
+        #     scores_df['errat_deviation'] = (errat_sig_df.loc[:, source_errat_inclusion_boolean] * 1).sum(axis=1)
+
+        # Drop unused particular scores_df columns that have been summed
+        scores_drop_columns = ['hydrophobic_collapse', 'sasa_relative_bound', 'sasa_relative_complex']
+        scores_df = scores_df.drop(scores_drop_columns, errors='ignore', axis=1)
+        scores_df = scores_df.rename(columns={'type': 'sequence'})
+        #                                       'evolution': 'proteinmpnn_loss_evolution',
+        #                                       'fragment': 'proteinmpnn_loss_fragment',
+        #                                       'designed': 'designed_residues_total'})
+        designed_df = per_residue_df.loc[:, idx_slice[:, 'designed_residues_total']].droplevel(1, axis=1)
+
+        # if self.job.design.sequences:
+        # scores_df['collapse_new_positions'] /= scores_df['pose_length']
+        # scores_df['collapse_new_position_significance'] /= scores_df['pose_length']
+        scores_df['collapse_significance_by_contact_order_z_mean'] = \
+            scores_df['collapse_significance_by_contact_order_z'] / \
+            (per_residue_df.loc[:, idx_slice[:, 'collapse_significance_by_contact_order_z']] != 0).sum(axis=1)
+        if measure_alignment:
+            collapse_increased_df = per_residue_df.loc[:, idx_slice[:, 'collapse_increased_z']]
+            total_increased_collapse = (collapse_increased_df != 0).sum(axis=1)
+            # scores_df['collapse_increase_significance_by_contact_order_z_mean'] = \
+            #     scores_df['collapse_increase_significance_by_contact_order_z'] / total_increased_collapse
+            # scores_df['collapse_increased_z'] /= scores_df['pose_length']
+            scores_df['collapse_increased_z_mean'] = \
+                collapse_increased_df.sum(axis=1) / total_increased_collapse
+            scores_df['collapse_variance'] = \
+                scores_df['collapse_deviation_magnitude'] / scores_df['pose_length']
+            scores_df['collapse_sequential_peaks_z_mean'] = \
+                scores_df['collapse_sequential_peaks_z'] / total_increased_collapse
+            scores_df['collapse_sequential_z_mean'] = \
+                scores_df['collapse_sequential_z'] / total_increased_collapse
+
+        scores_df[putils.protocol] = 'proteinmpnn'
+        scores_df['proteinmpnn_loss_design_per_residue'] = \
+            scores_df['proteinmpnn_loss_design'] / scores_df['pose_length']
+        # The per residue average loss compared to the design profile
+        scores_df['proteinmpnn_loss_evolution_per_residue'] = \
+            scores_df['proteinmpnn_loss_evolution'] / scores_df['pose_length']
+        # The per residue average loss compared to the evolution profile
+        scores_df['proteinmpnn_loss_fragment_per_residue'] = \
+            scores_df['proteinmpnn_loss_fragment'] / scores_df['number_fragment_residues_total']
+        # The per residue average loss compared to the fragment profile
+        scores_df['proteinmpnn_score_complex'] = \
+            scores_df['proteinmpnn_loss_complex'] / scores_df['pose_length']
+        scores_df['proteinmpnn_score_unbound'] = \
+            scores_df['proteinmpnn_loss_unbound'] / scores_df['pose_length']
+        scores_df['proteinmpnn_score_delta'] = \
+            scores_df['proteinmpnn_score_complex'] - scores_df['proteinmpnn_score_unbound']
+        scores_df['proteinmpnn_score_complex_per_designed_residue'] = \
+            (per_residue_df.loc[:, idx_slice[:, 'proteinmpnn_loss_complex']].droplevel(1, axis=1)
+             * designed_df).mean(axis=1)
+        scores_df['proteinmpnn_score_unbound_per_designed_residue'] = \
+            (per_residue_df.loc[:, idx_slice[:, 'proteinmpnn_loss_unbound']].droplevel(1, axis=1)
+             * designed_df).mean(axis=1)
+        scores_df['proteinmpnn_score_delta_per_designed_residue'] = \
+            scores_df['proteinmpnn_score_complex_per_designed_residue'] / \
+            scores_df['proteinmpnn_score_unbound_per_designed_residue']
+
+        # # Drop unused particular per_residue_df columns that have been summed
+        # per_residue_drop_columns = per_residue_energy_states + energy_metric_names + per_residue_sasa_states \
+        #                            + collapse_metrics + residue_classification \
+        #                            + ['errat_deviation', 'hydrophobic_collapse', 'contact_order'] \
+        #                            + ['hbond', 'evolution', 'fragment', 'type'] + ['surface', 'interior']
+        # # Slice each of these columns as the first level residue number needs to be accounted for in MultiIndex
+        # per_residue_df = per_residue_df.drop(
+        #     list(per_residue_df.loc[:, idx_slice[:, per_residue_drop_columns]].columns),
+        #     errors='ignore', axis=1)
+        per_residue_df.sort_index(level=0, axis=1, inplace=True, sort_remaining=False)  # ascending=False
+        scores_df = metrics.columns_to_new_column(scores_df, metrics.delta_pairs, mode='sub')
+        scores_df = metrics.columns_to_new_column(scores_df, metrics.division_pairs, mode='truediv')
+        # if self.job.design.structures:
+        #     scores_df['interface_composition_similarity'] = \
+        #         scores_df.apply(metrics.interface_composition_similarity, axis=1)
+        scores_df.drop(metrics.clean_up_intermediate_columns, axis=1, inplace=True, errors='ignore')
+        # else:  # Get metrics and output
+        #     # Generate placeholder all_mutations which only contains "reference"
+        #     # all_mutations = generate_mutations_from_reference(self.pose.sequence, pose_sequences, return_to=True)
+        #     # per_residue_sequence_df = per_residue_background_frequencies = per_residue_collapse_df = pd.DataFrame()
+        #     # all_pose_divergence_df = pd.DataFrame()
+        #     # residue_df = pd.DataFrame()
+
+        # Get the average thermophilicity for all entities
+        scores_df['pose_thermophilicity'] = \
+            scores_df.loc[:, [f'entity{idx}_thermophile' for idx in range(1, self.pose.number_of_entities)]
+                          ].sum(axis=1) / self.pose.number_of_entities
+
+        scores_columns = scores_df.columns.to_list()
+        logger.debug(f'Metrics present: {scores_columns}')
+
+        # interface_metrics_s = pd.Series(interface_metrics_df)
+        # Concatenate all design information after parsing data sources
+        # interface_metrics_df = pd.concat([interface_metrics_df], keys=[('dock', 'pose')])
+        # scores_df = pd.concat([scores_df], keys=[('dock', 'pose')], axis=1)
+        # Todo incorporate full sequence ProteinMPNN summation into scores_df. Find meaning of probabilities
+        # Todo incorporate residue_df summation into scores_df
+        #  observed_*, solvation_energy, etc.
+        scores_df = pd.concat([scores_df], keys=[('dock', 'pose')], axis=1)
+
+        # CONSTRUCT: Create pose series and format index names
+        pose_df = scores_df.swaplevel(0, 1, axis=1)
+        # pose_df = pd.concat([scores_df, interface_metrics_df, all_pose_divergence_df]).swaplevel(0, 1)
+        # Remove pose specific metrics from pose_df and sort
+        pose_df.sort_index(level=2, axis=1, inplace=True, sort_remaining=False)
+        pose_df.sort_index(level=1, axis=1, inplace=True, sort_remaining=False)
+        pose_df.sort_index(level=0, axis=1, inplace=True, sort_remaining=False)
+        pose_df.name = str(self)
+
+        putils.make_path(self.job.all_scores)
+        # trajectory_metrics_csv = os.path.join(self.job.all_scores, f'{building_blocks}_docked_poses_Trajectories.csv')
+        self.job.dataframe = self.trajectories
+        pose_df.to_csv(self.trajectories)
+        logger.info(f'Wrote trajectory metrics to {self.trajectories}')
+        # if self.job.design.sequences:
+        # residue_metrics_csv = os.path.join(self.job.all_scores, f'{building_blocks}_docked_poses_Residues.csv')
+        per_residue_df.to_csv(self.residues)
+        logger.info(f'Wrote per residue metrics to {self.residues}')
 
     def _interface_design_analysis(self, design_poses: Iterable[Pose] = None) -> pd.Series:
         """Retrieve all score information from a PoseDirectory and write results to .csv file
