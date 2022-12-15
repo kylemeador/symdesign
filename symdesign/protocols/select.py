@@ -406,18 +406,16 @@ def sequences(pose_directories: list[protocols.protocols.PoseDirectory]):
     with open(job.output_file, 'w') as f:
         f.write('%s\n' % '\n'.join(pose_dir.path for pose_dir in list(results.keys())))
 
-    # Format sequences for expression
-
     # Set up mechanism to solve sequence tagging preferences
-    def solve_tags(pose: Pose):
+    def solve_tags(pose: Pose) -> list[bool]:
         if job.tag_entities is None:
-            tag_index = [False for _ in pose.entities]
+            boolean_tags = [False for _ in pose.entities]
         elif job.tag_entities == 'all':
-            tag_index = [True for _ in pose.entities]
+            boolean_tags = [True for _ in pose.entities]
         elif job.tag_entities == 'single':
-            tag_index = [True for _ in pose.entities]
+            boolean_tags = [True for _ in pose.entities]
         else:
-            tag_index = []
+            boolean_tags = []
             for tag_specification in map(str.strip, job.tag_entities.split(',')):
                 # Remove non-numeric stuff
                 if tag_specification == '':  # Probably a trailing ',' ...
@@ -426,30 +424,31 @@ def sequences(pose_directories: list[protocols.protocols.PoseDirectory]):
                     tag_specification.translate(utils.keep_digit_table)
 
                 try:  # To convert to an integer
-                    tag_index.append(True if int(tag_specification) == 1 else False)
+                    boolean_tags.append(True if int(tag_specification) == 1 else False)
                 except ValueError:  # Not an integer False
-                    tag_index.append(False)
+                    boolean_tags.append(False)
 
             # Add any missing arguments to the tagging scheme
-            for _ in range(pose.number_of_entities - len(tag_index)):
-                tag_index.append(False)
+            for _ in range(pose.number_of_entities - len(boolean_tags)):
+                boolean_tags.append(False)
 
-        return tag_index
+        return boolean_tags
 
     if job.multicistronic:
         intergenic_sequence = job.multicistronic_intergenic_sequence
     else:
         intergenic_sequence = ''
 
+    # Format sequences for expression
     missing_tags = {}  # result: [True, True] for result in results
     tag_sequences, final_sequences, inserted_sequences, nucleotide_sequences = {}, {}, {}, {}
     codon_optimization_errors = {}
-    for des_dir, designs in results.items():
+    for des_dir, _designs in results.items():
         des_dir.load_pose()  # source=des_dir.asu_path)
         tag_index = solve_tags(des_dir.pose)
         number_of_tags = sum(tag_index)
         des_dir.pose.rename_chains()  # Do I need to modify chains?
-        for design in designs:
+        for design in _designs:
             file_glob = f'{des_dir.designs}{os.sep}*{design}*'
             file = sorted(glob(file_glob))
             if not file:
