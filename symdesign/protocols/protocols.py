@@ -2122,14 +2122,16 @@ class PoseDirectory:
 
         """
         self.protocol = 'proteinmpnn'
+        self.log.info(f'Starting {self.protocol} design calculation with {self.job.design.number_of_trajectories} '
+                      f'trajectories over the temperatures: {self.job.design.temperatures}')
         sequences_and_scores: dict[str, np.ndarray | list] = \
             self.pose.design_sequences(number=self.job.design.number_of_trajectories,
-                                       ca_only=self.job.design.ca_only,
                                        temperatures=self.job.design.temperatures,
-                                       interface=interface
+                                       interface=interface,
+                                       ca_only=self.job.design.ca_only
                                        )
         design_names = [f'{self.name}_{self.protocol}{seq_idx:04d}'
-                        for seq_idx in range(len(sequences_and_scores['sequences']))]
+                        for seq_idx in range(1, 1 + len(sequences_and_scores['sequences']))]
         putils.make_path(self.designs)
         self.output_proteinmpnn_scores(design_names, sequences_and_scores)
         putils.make_path(self.data)
@@ -2401,7 +2403,7 @@ class PoseDirectory:
                     pass
 
             # Todo these need to be reconciled with taking the rosetta complex and unbound energies
-            proteinmpnn_scores = ['sequences', 'complex_sequence_loss', 'unbound_sequence_loss']
+            proteinmpnn_scores = ['sequences', 'proteinmpnn_loss_complex', 'proteinmpnn_loss_unbound', 'design_indices']
             # Create protocol dataframe
             scores_df = pd.DataFrame.from_dict(all_viable_design_scores, orient='index')
             scores_df = pd.concat([source_df, scores_df])
@@ -2630,8 +2632,8 @@ class PoseDirectory:
         if proteinmpnn_columns:
             for pose in design_poses:
                 per_residue_data[pose.name].update({
-                    'complex_sequence_loss': proteinmpnn_df.loc[pose.name, 'complex_sequence_loss'],
-                    'unbound_sequence_loss': proteinmpnn_df.loc[pose.name, 'unbound_sequence_loss']
+                    'proteinmpnn_loss_complex': proteinmpnn_df.loc[pose.name, 'proteinmpnn_loss_complex'],
+                    'proteinmpnn_loss_unbound': proteinmpnn_df.loc[pose.name, 'proteinmpnn_loss_unbound']
                 })
 
         # Calculate hydrophobic collapse for each design
@@ -2897,12 +2899,12 @@ class PoseDirectory:
         if measure_alignment:
             collapse_increased_df = per_residue_df.loc[:, idx_slice[:, 'collapse_increased_z']]
             total_increased_collapse = (collapse_increased_df != 0).sum(axis=1)
-            scores_df['collapse_increase_significance_by_contact_order_z_mean'] = \
-                scores_df['collapse_increase_significance_by_contact_order_z'] / total_increased_collapse
+            # scores_df['collapse_increase_significance_by_contact_order_z_mean'] = \
+            #     scores_df['collapse_increase_significance_by_contact_order_z'] / total_increased_collapse
             # scores_df['collapse_increased_z'] /= scores_df['pose_length']
             scores_df['collapse_increased_z_mean'] = \
                 collapse_increased_df.sum(axis=1) / total_increased_collapse
-            scores_df['collapse_deviation_magnitude_mean'] = \
+            scores_df['collapse_variance'] = \
                 scores_df['collapse_deviation_magnitude'] / scores_df['pose_length']
             scores_df['collapse_sequential_peaks_z_mean'] = \
                 scores_df['collapse_sequential_peaks_z'] / total_increased_collapse
@@ -4021,12 +4023,12 @@ def interface_design_analysis(pose: Pose, design_poses: Iterable[Pose] = None, s
     #  if measure_alignment:
     #      collapse_increased_df = per_residue_df.loc[:, idx_slice[:, 'collapse_increased_z']]
     #      total_increased_collapse = (collapse_increased_df != 0).sum(axis=1)
-    #      scores_df['collapse_increase_significance_by_contact_order_z_mean'] = \
-    #          scores_df['collapse_increase_significance_by_contact_order_z'] / total_increased_collapse
+    #      # scores_df['collapse_increase_significance_by_contact_order_z_mean'] = \
+    #      #     scores_df['collapse_increase_significance_by_contact_order_z'] / total_increased_collapse
     #      # scores_df['collapse_increased_z'] /= scores_df['pose_length']
     #      scores_df['collapse_increased_z_mean'] = \
     #          collapse_increased_df.sum(axis=1) / total_increased_collapse
-    #      scores_df['collapse_deviation_magnitude_mean'] = \
+    #      scores_df['collapse_variance'] = \
     #          scores_df['collapse_deviation_magnitude'] / scores_df['pose_length']
     #      scores_df['collapse_sequential_peaks_z_mean'] = \
     #          scores_df['collapse_sequential_peaks_z'] / total_increased_collapse

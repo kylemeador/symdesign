@@ -512,6 +512,9 @@ def main():
                 and job.number == sys.maxsize and not args.total:
             # Change default number to a single sequence/pose when not doing a total selection
             job.number = 1
+        elif job.module in flags.cluster_poses and job.number == sys.maxsize:
+            # Change default number to a single pose
+            job.number = 1
     elif job.module == flags.nanohedra:
         initialize = False
         if not job.sym_entry:
@@ -523,10 +526,11 @@ def main():
     # -----------------------------------------------------------------------------------------------------------------
     #  Report options and Set up Databases
     # -----------------------------------------------------------------------------------------------------------------
-    reported_args = job.report_specified_arguments(args)
-    logger.info('Starting with options:\n\t%s' % '\n\t'.join(utils.pretty_format_table(reported_args.items())))
     if job.debug:
         reported_args = job.report_unspecified_arguments(args)
+    else:
+        reported_args = job.report_specified_arguments(args)
+    logger.info('Starting with options:\n\t%s' % '\n\t'.join(utils.pretty_format_table(reported_args.items())))
 
     logger.info(f'Using resources in Database located at "{job.data}"')
     if job.module in [flags.nanohedra, flags.generate_fragments, flags.interface_design, flags.design, flags.analysis]:
@@ -980,9 +984,12 @@ def main():
         # Universal protocol runner
         exceptions = []
         for idx, protocol_name in enumerate(job.modules, 1):
-            protocol = getattr(protocols, protocol_name)
-
             logger.info(f'Starting protocol {idx}: {protocol_name}')
+            # Update this mechanism with each module
+            job.module = protocol_name
+
+            # Fetch the specified protocol
+            protocol = getattr(protocols, protocol_name)
             # Figure out how the job should be set up
             if protocol_name in run_on_pose_directory:  # Single poses
                 if job.multi_processing:
@@ -996,8 +1003,13 @@ def main():
             # Handle any returns that require particular treatment
             if protocol_name in returns_pose_directories:
                 _results = []
-                for result_list in results:
-                    _results.extend(result_list)
+                for result in results:
+                    if isinstance(result, list):  # In the case of nanohedra
+                        for result in results:
+                            _results.extend(result)
+                    else:
+                        _results.extend(results)  # append(result)
+                    break
                 pose_directories = _results
             # elif putils.cluster_poses:  # Returns None
             #    pass

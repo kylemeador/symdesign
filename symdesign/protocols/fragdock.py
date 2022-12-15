@@ -1964,9 +1964,7 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
         # Calculate the vectorized uc_dimensions
         full_uc_dimensions = sym_entry.get_uc_dimensions(full_optimal_ext_dof_shifts)
 
-    # Perform perturbations to the allowed degrees of freedom
-    number_of_transforms = passing_transforms_indices.shape[0]
-    if job.dock.perturb_dof_rot or job.dock.perturb_dof_tx:
+    def perturb_transformations():
         perturb_rotation1, perturb_rotation2, perturb_int_tx1, perturb_int_tx2, perturb_optimal_ext_dof_shifts = \
             [], [], [], [], []
 
@@ -2002,6 +2000,7 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
                                                             rotation_range=rotation_steps)
         # Extract perturbation parameters and set the original transformation parameters to a new variable
         # if sym_entry.is_internal_rot1:
+        nonlocal number_of_transforms, full_rotation1, full_rotation2
         original_rotation1 = full_rotation1
         rotation_perturbations1 = perturbations['rotation1']
         # Compute the length of each perturbation to separate into unique perturbation spaces
@@ -2016,6 +2015,7 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
         # logger.debug(f'rotation_perturbations2[:5]: {rotation_perturbations2[:5]}')
         # blank_parameter = list(repeat([None, None, None], number_of_transforms))
         if sym_entry.is_internal_tx1:
+            nonlocal full_int_tx1
             original_int_tx1 = full_int_tx1
             translation_perturbations1 = perturbations['translation1']
             # logger.debug(f'translation_perturbations1.shape: {translation_perturbations1.shape}')
@@ -2024,6 +2024,7 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
         #     translation_perturbations1 = blank_parameter
 
         if sym_entry.is_internal_tx2:
+            nonlocal full_int_tx2
             original_int_tx2 = full_int_tx2
             translation_perturbations2 = perturbations['translation2']
             # logger.debug(f'translation_perturbations2.shape: {translation_perturbations2.shape}')
@@ -2032,6 +2033,7 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
         #     translation_perturbations2 = blank_parameter
 
         if sym_entry.unit_cell:
+            nonlocal full_optimal_ext_dof_shifts
             ext_dof_perturbations = perturbations['external_translations']
             original_optimal_ext_dof_shifts = full_optimal_ext_dof_shifts
             # original_ext_tx1 = full_ext_tx1
@@ -2118,6 +2120,11 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
             full_ext_tx2 = np.sum(unsqueezed_optimal_ext_dof_shifts * sym_entry.external_dof2, axis=-2)
 
         # total_number_of_perturbations = number_of_transforms * total_perturbation_size
+
+    # Perform perturbations to the allowed degrees of freedom
+    number_of_transforms = passing_transforms_indices.shape[0]
+    if job.dock.perturb_dof_rot or job.dock.perturb_dof_tx:
+        perturb_transformations()
     else:
         # total_number_of_perturbations = number_of_transforms
         total_perturbation_size = 1
@@ -3359,11 +3366,11 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
                 'sequences':
                     np.concatenate(batch_sequences, axis=1).reshape(actual_batch_length, number_of_temps,
                                                                     pose_length),
-                'complex_sequence_loss':
+                'proteinmpnn_loss_complex':
                     np.concatenate(_per_residue_complex_sequence_loss, axis=1).reshape(actual_batch_length,
                                                                                        number_of_temps,
                                                                                        pose_length),
-                'unbound_sequence_loss':
+                'proteinmpnn_loss_unbound':
                     np.concatenate(_per_residue_unbound_sequence_loss, axis=1).reshape(actual_batch_length,
                                                                                        number_of_temps,
                                                                                        pose_length),
@@ -4281,10 +4288,9 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
     terminate()
     logger.info(f'Total {building_blocks} dock trajectory took {time.time() - frag_dock_time_start:.2f}s')
 
+    # return [protocols.PoseDirectory.from_file(file, entity_names=entity_names,
+    #                                           pose_transformation=create_specific_transformation(idx))
     return [protocols.PoseDirectory.from_pose_id(pose_id, root=program_root, entity_names=entity_names,
                                                  pose_transformation=create_specific_transformation(idx))
             for idx, pose_id in enumerate(pose_ids)]
-    # return [protocols.PoseDirectory.from_file(file, entity_names=entity_names,
-    #                                           pose_transformation=create_specific_transformation(idx))
-    #         for idx, file in enumerate(pose_paths)]
     # ------------------ TERMINATE DOCKING ------------------------

@@ -714,7 +714,7 @@ def collapse_per_residue(sequence_groups: Iterable[Iterable[Sequence[str]]],
         #     # collapse_deviation_magnitude_sum = collapse_increase_significance_by_contact_order_z_sum = \
         #     #     collapse_sequential_peaks_z_sum = collapse_sequential_z_sum = collapse_increased_z_sum = 0.
 
-        # The contact order is always positive. Negating inverts z-score to weight high contact order negatively
+        # Negating inverts contact order z-score to weight high contact order negatively
         residue_contact_order_inverted_z = residue_contact_order_z * -1
 
         # With 'collapse_new_position_significance'
@@ -732,7 +732,8 @@ def collapse_per_residue(sequence_groups: Iterable[Iterable[Sequence[str]]],
         folding_and_collapse.append({
             'hydrophobic_collapse': collapse,
             'collapse_deviation_magnitude': collapse_deviation_magnitude,
-            'collapse_increase_significance_by_contact_order_z': residue_contact_order_z * increased_collapse_z,
+            'collapse_increase_significance_by_contact_order_z':
+                residue_contact_order_inverted_z * increased_collapse_z,
             'collapse_increased_z': increased_collapse_z,
             'collapse_new_positions': new_collapse_peak_start,
             'collapse_new_position_significance': new_collapse_peak_start * collapse_significance,

@@ -170,8 +170,7 @@ def batch_calculation(size: int, batch_length: int, setup: Callable = None,
 
 
 def create_decoding_order(randn: torch.Tensor, chain_mask: torch.Tensor, tied_pos: Iterable[Container] = None,
-                          to_device: str = None, **kwargs) \
-        -> torch.Tensor:
+                          to_device: str = None, **kwargs) -> torch.Tensor:
     """
 
     Args:
@@ -185,13 +184,11 @@ def create_decoding_order(randn: torch.Tensor, chain_mask: torch.Tensor, tied_po
     """
     if to_device is None:
         to_device = randn.device
-    # numbers are smaller for places where chain_mask = 0.0 and higher for places where chain_mask = 1.0
+    # Numbers are smaller for places where chain_mask = 0.0 and higher for places where chain_mask = 1.0
     decoding_order = torch.argsort((chain_mask+0.0001) * (torch.abs(randn)))
 
     if tied_pos is not None:
         # Calculate the tied decoding order according to ProteinMPNN.tied_sample()
-        # return decoding_order
-    # else:
         new_decoding_order: list[list[int]] = []
         found_decoding_indices = []
         for t_dec in list(decoding_order[0].cpu().numpy()):

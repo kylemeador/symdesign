@@ -788,7 +788,7 @@ cluster_poses_arguments = {
     ('--mode',): dict(type=str.lower, choices={'ialign', 'rmsd', 'transform'}, default='transform', metavar='',
                       help='Which type of clustering should be performed?\nChoices=%(choices)s\nDefault=%(default)s'),
     number_args + (f'--c-{number}',):
-        dict(type=int, default=1, metavar='int', help='The number of cluster members to return'),
+        dict(type=int, default=sys.maxsize, metavar='int', help='The number of cluster members to return'),
     output_file_args: dict(type=str,
                            help='Name of the output .pkl file containing pose clusters. Will be saved to the'
                                 f' {data.title()} folder of the output.'
@@ -1042,7 +1042,7 @@ parser_multicistronic = {multicistronic: dict(description=multicistronic_help, h
 multicistronic_arguments = {
     **multicistronic_args,
     number_args: dict(type=int, help='The number of protein sequences to concatenate into a '
-                                            'multicistronic expression output'),
+                                     'multicistronic expression output'),
 }
 # ---------------------------------------------------
 # parser_asu = subparsers.add_parser('find_asu', description='From a symmetric assembly, locate an ASU and save the result.')
@@ -1428,13 +1428,13 @@ for parser_name, parser_kwargs in input_parsers.items():
 #             entire_module_suparsers[parser_name].add_argument(*args, **kwargs)
 
 # Separate the provided arguments for modules or overall program arguments to into flags namespaces
-design = {}
+design_defaults = {}
 """Contains all the arguments and their default parameters used in design"""
-dock = {}
+dock_defaults = {}
 """Contains all the arguments and their default parameters used in docking"""
-predict = {}
+predict_defaults = {}
 """Contains all the arguments and their default parameters used in structure prediction"""
-cluster = {}
+cluster_defaults = {}
 """Contains all the arguments and their default parameters used in clustering Poses"""
 for group in parser._action_groups:
     for arg in group._group_actions:
@@ -1443,21 +1443,21 @@ for group in parser._action_groups:
                 for sub_group in sub_parser._action_groups:
                     for arg in sub_group._group_actions:
                         if arg.dest in design_namespace:
-                            design[arg.dest] = arg.default
+                            design_defaults[arg.dest] = arg.default
                         elif arg.dest in dock_namespace:
-                            dock[arg.dest] = arg.default
+                            dock_defaults[arg.dest] = arg.default
                         elif arg.dest in predict_namespace:
-                            predict[arg.dest] = arg.default
+                            predict_defaults[arg.dest] = arg.default
                         elif arg.dest in cluster_namespace:
-                            cluster[arg.dest] = arg.default
+                            cluster_defaults[arg.dest] = arg.default
 
         elif arg.dest in design_namespace:
-            design[arg.dest] = arg.default
+            design_defaults[arg.dest] = arg.default
         elif arg.dest in dock_namespace:
-            dock[arg.dest] = arg.default
+            dock_defaults[arg.dest] = arg.default
         elif arg.dest in predict_namespace:
-            predict[arg.dest] = arg.default
+            predict_defaults[arg.dest] = arg.default
         elif arg.dest in cluster_namespace:
-            cluster[arg.dest] = arg.default
+            cluster_defaults[arg.dest] = arg.default
 
-predict[method] = design[method]  # Also in design...
+predict_defaults[method] = design_defaults[method]  # Also in design...
