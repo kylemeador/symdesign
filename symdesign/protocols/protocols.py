@@ -2481,7 +2481,7 @@ class PoseDirectory(PoseProtocol):
         pose_length = self.pose.number_of_residues
         residue_numbers = [residue.number for residue in self.pose.residues]
 
-        design_temperatures = sequences_and_scores['temperatures']
+        temperature_df = pd.DataFrame(sequences_and_scores['temperatures'], index=design_ids, columns=['temperature'])
         numeric_sequences = sequences_and_scores['numeric_sequences']
         sequences = sequences_and_scores['sequences']
         per_residue_design_indices = sequences_and_scores['design_indices']
@@ -2558,55 +2558,21 @@ class PoseDirectory(PoseProtocol):
         interface_metrics = {}
         per_residue_data = {}
         fragment_profile_frequencies = []
-        # interface_local_density = {}
+        # if self.job.design.structures:
+        #     interface_local_density = {}
 
+        # Todo called in design() Should this be called again? Not used in any other routines
         # # Load fragment_profile into the analysis
         # if self.job.generate_fragments:
         #     self.pose.calculate_fragment_profile()
         # if self.job.design.sequences:
         # This could be an empty array if no fragments were found
         fragment_profile_array = self.pose.fragment_profile.as_array()
-
+        # Calculate pose metrics
         pose_interface_metrics = self.pose.interface_metrics()
 
         for idx, design_id in enumerate(design_ids):
-            # # Add the next set of coordinates
-            # update_pose_coords(idx)
-            #
-            # # if total_perturbation_size > 1:
-            # add_fragments_to_pose()  # <- here generating fresh
-            # # else:
-            # #     # Here, loading fragments. No self-symmetric interactions will be generated!
-            # #     # where idx is the actual transform idx
-            # #     add_fragments_to_pose(all_passing_ghost_indices[idx],
-            # #                           all_passing_surf_indices[idx],
-            # #                           all_passing_z_scores[idx])
-
-            # if self.job.output:
-            #     output_pose(pose_id.replace(project_str, ''))
-            #     # pose_paths.append(output_pose(design_id))
-
-            # # Reset the fragment_map and fragment_profile for each Entity before calculate_fragment_profile
-            # for entity in self.pose.entities:
-            #     entity.fragment_map = {}
-            #     # entity.alpha.clear()
-
-            # # Load fragment_profile into the analysis
-            # self.pose.calculate_fragment_profile()
-            # if self.job.design.sequences:
-            #     # This could be an empty array if no fragments were found
-            #     fragment_profile_array = self.pose.fragment_profile.as_array()
-
-            # # Remove saved pose attributes from the prior iteration calculations
-            # self.pose.ss_index_array.clear(), self.pose.ss_type_array.clear()
-            # self.pose.fragment_metrics.clear(), self.pose.fragment_pairs.clear()
-            # for attribute in ['_design_residues', '_interface_residues']:  # _assembly_minimally_contacting
-            #     try:
-            #         delattr(self.pose, attribute)
-            #     except AttributeError:
-            #         pass
-
-            # Calculate pose metrics
+            # Add pose metrics
             interface_metrics[design_id] = pose_interface_metrics
 
             # if self.job.design.sequences:
@@ -2746,11 +2712,6 @@ class PoseDirectory(PoseProtocol):
                 # 'type': protein_letters_3to1.get(residue.type),
                 # 'hbond': 0
             }
-        # else:
-        #     for temp_idx, design_idx in enumerate(range(idx * number_of_temperatures,
-        #                                                 (idx+1) * number_of_temperatures)):
-        #         # per_residue_data[design_ids[design_idx]] = design_dock_params
-        #         per_residue_data[pose_id] = design_dock_params
 
         # Todo get the keys right here
         # all_pose_divergence_df = pd.DataFrame()
@@ -2758,11 +2719,8 @@ class PoseDirectory(PoseProtocol):
 
         # Initialize the main scoring DataFrame
         scores_df = pd.DataFrame.from_dict(interface_metrics, orient='index')
-        # scores_df = pd.concat([pd.DataFrame.from_dict(pose_transformations, orient='index'), interface_metrics_df],
-        #                       axis=1)
-
+        scores_df = scores_df.join(temperature_df)
         # Collect sequence metrics on every designed Pose
-        # if self.job.dock.proteinmpnn_score:
         # Construct per_residue_df
         per_residue_df = pd.concat({design_id: pd.DataFrame(data, index=residue_numbers)
                                     for design_id, data in per_residue_data.items()}).unstack().swaplevel(0, 1,
@@ -2797,24 +2755,11 @@ class PoseDirectory(PoseProtocol):
         # Todo RuntimeWarning: Mean of empty slice
         scores_df['observed_fragment_mean_probability'] = np.nanmean(interface_observed_from_fragment_profile, axis=1)
         scores_df['observed_evolution_mean_probability'] = background_frequencies['evolution'].mean(axis=1)
-        # if collapse_profile.size and self.job.dock.proteinmpnn_score:
-        #     scores_df['collapse_violation_design_residues'] = collapse_violation
 
         per_residue_background_frequencies = \
             pd.concat([pd.DataFrame(background, index=design_ids,
                                     columns=pd.MultiIndex.from_product([residue_numbers, [f'observed_{profile}']]))
                        for profile, background in background_frequencies.items()], axis=1)
-
-        # Can't use below as each pose is different
-        # index_residues = list(self.pose.interface_design_residue_numbers)
-        # residue_df = pd.merge(residue_df.loc[:, idx_slice[index_residues, :]],
-        #                       per_residue_df.loc[:, idx_slice[index_residues, :]],
-        #                       left_index=True, right_index=True)
-
-        # Process mutational frequencies, H-bond, and Residue energy metrics to dataframe
-        # residue_info = process_residue_info(residue_info)  # Only useful in Rosetta
-        # residue_info = incorporate_mutation_info(residue_info, all_mutations)
-        # residue_df = pd.concat({design: pd.DataFrame(info) for design, info in residue_info.items()}).unstack()
 
         # Calculate hydrophobic collapse for each design
         # Separate sequences by entity
@@ -2866,10 +2811,6 @@ class PoseDirectory(PoseProtocol):
         summed_scores_df = metrics.sum_per_residue_metrics(per_residue_df)  # .loc[:, idx_slice[index_residues, :]])
         scores_df = scores_df.join(summed_scores_df)
 
-        # # scores_df['interface_area_polar'] = per_residue_df.loc[:, idx_slice[:, 'bsa_polar']].sum(axis=1)
-        # # scores_df['interface_area_hydrophobic'] = per_residue_df.loc[:, idx_slice[:, 'bsa_hydrophobic']].sum(axis=1)
-        # # scores_df['interface_area_total'] = \
-        # #     residue_df.loc[not_pose_source_indices, idx_slice[index_residues, 'bsa_total']].sum(axis=1)
         # if self.job.design.structures:
         #     scores_df['interface_area_total'] = bsa_assembly_df = \
         #         scores_df['interface_area_polar'] + scores_df['interface_area_hydrophobic']
