@@ -378,17 +378,17 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
 
     # Calculate the initial match type by finding the predominant surface type
     surf_guide_coords2 = np.array([surf_frag.guide_coords for surf_frag in complete_surf_frags2])
-    surf_residue_numbers2 = np.array([surf_frag.number for surf_frag in complete_surf_frags2])
+    surf_residue_indices2 = np.array([surf_frag.index for surf_frag in complete_surf_frags2])
     surf_i_indices2 = np.array([surf_frag.i_type for surf_frag in complete_surf_frags2])
     fragment_content2 = np.bincount(surf_i_indices2)
     initial_surf_type2 = np.argmax(fragment_content2)
     init_surf_frag_indices2 = \
         [idx for idx, surf_frag in enumerate(complete_surf_frags2) if surf_frag.i_type == initial_surf_type2]
     init_surf_guide_coords2 = surf_guide_coords2[init_surf_frag_indices2]
-    init_surf_residue_numbers2 = surf_residue_numbers2[init_surf_frag_indices2]
+    init_surf_residue_numbers2 = surf_residue_indices2[init_surf_frag_indices2]
     idx = 2
     logger.debug(f'Found surface guide coordinates {idx} with shape {surf_guide_coords2.shape}')
-    logger.debug(f'Found surface residue numbers {idx} with shape {surf_residue_numbers2.shape}')
+    logger.debug(f'Found surface residue numbers {idx} with shape {surf_residue_indices2.shape}')
     logger.debug(f'Found surface indices {idx} with shape {surf_i_indices2.shape}')
     logger.debug(f'Found {init_surf_residue_numbers2.shape[0]} initial surface {idx} fragments with type: {initial_surf_type2}')
 
@@ -408,8 +408,8 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
     initial_surf_type1 = np.argmax(fragment_content1)
     init_surf_frags1 = [surf_frag for surf_frag in surf_frags1 if surf_frag.i_type == initial_surf_type1]
     # init_surf_guide_coords1 = np.array([surf_frag.guide_coords for surf_frag in init_surf_frags1])
-    # init_surf_residue_numbers1 = np.array([surf_frag.number for surf_frag in init_surf_frags1])
-    # surf_frag1_residues = [surf_frag.number for surf_frag in surf_frags1]
+    # init_surf_residue_indices1 = np.array([surf_frag.index for surf_frag in init_surf_frags1])
+    # surf_frag1_indices = [surf_frag.index for surf_frag in surf_frags1]
     idx = 1
     # logger.debug(f'Found surface guide coordinates {idx} with shape {surf_guide_coords1.shape}')
     # logger.debug(f'Found surface residue numbers {idx} with shape {surf_residue_numbers1.shape}')
@@ -420,7 +420,7 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
     # logger.debug('init_surf_guide_coords2: %s' % slice_variable_for_log(init_surf_guide_coords2))
     # logger.debug('init_surf_residue_numbers2: %s' % slice_variable_for_log(init_surf_residue_numbers2))
     # logger.debug('init_surf_guide_coords1: %s' % slice_variable_for_log(init_surf_guide_coords1))
-    # logger.debug('init_surf_residue_numbers1: %s' % slice_variable_for_log(init_surf_residue_numbers1))
+    # logger.debug('init_surf_residue_indices1: %s' % slice_variable_for_log(init_surf_residue_indices1))
 
     logger.info(f'Retrieved oligomer{idx}-{model1.name} surface fragments and guide coordinates took '
                 f'{time.time() - get_complete_surf_frags1_time_start:8f}s')
@@ -437,7 +437,7 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
 
     ghost_guide_coords1 = np.array([ghost_frag.guide_coords for ghost_frag in complete_ghost_frags1])
     ghost_rmsds1 = np.array([ghost_frag.rmsd for ghost_frag in complete_ghost_frags1])
-    ghost_residue_numbers1 = np.array([ghost_frag.number for ghost_frag in complete_ghost_frags1])
+    ghost_residue_indices1 = np.array([ghost_frag.index for ghost_frag in complete_ghost_frags1])
     ghost_j_indices1 = np.array([ghost_frag.j_type for ghost_frag in complete_ghost_frags1])
 
     # Whether to use the overlap potential on the same component to filter ghost fragments
@@ -576,11 +576,11 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
             [idx for idx, ghost_frag in enumerate(complete_ghost_frags1) if ghost_frag.j_type == initial_surf_type2]
         init_ghost_guide_coords1: np.ndarray = ghost_guide_coords1[init_ghost_frag_indices1]
         init_ghost_rmsds1: np.ndarray = ghost_rmsds1[init_ghost_frag_indices1]
-        # init_ghost_residue_numbers1: np.ndarray = ghost_residue_numbers1[init_ghost_frag_indices1]
+        # init_ghost_residue_numbers1: np.ndarray = ghost_residue_indices1[init_ghost_frag_indices1]
 
     idx = 1
     logger.debug(f'Found ghost guide coordinates {idx} with shape: {ghost_guide_coords1.shape}')
-    logger.debug(f'Found ghost residue numbers {idx} with shape: {ghost_residue_numbers1.shape}')
+    logger.debug(f'Found ghost residue numbers {idx} with shape: {ghost_residue_indices1.shape}')
     logger.debug(f'Found ghost indices {idx} with shape: {ghost_j_indices1.shape}')
     logger.debug(f'Found ghost rmsds {idx} with shape: {ghost_rmsds1.shape}')
     logger.debug(f'Found {init_ghost_guide_coords1.shape[0]} initial ghost {idx} fragments with type:'
@@ -601,7 +601,7 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
             f.write('%s\n' % '\n'.join(map(str, ghost_j_indices1.tolist())))
         guide_file_ghost_res_num = os.path.join(project_dir, f'{model1.name}_ghost_coords_residue_number.txt')
         with open(guide_file_ghost_res_num, 'w') as f:
-            f.write('%s\n' % '\n'.join(map(str, ghost_residue_numbers1.tolist())))
+            f.write('%s\n' % '\n'.join(map(str, ghost_residue_indices1.tolist())))
 
         guide_file_surf = os.path.join(project_dir, f'{model2.name}_surf_coords.txt')
         with open(guide_file_surf, 'w') as f:
@@ -612,7 +612,7 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
             f.write('%s\n' % '\n'.join(map(str, surf_i_indices2.tolist())))
         guide_file_surf_res_num = os.path.join(project_dir, f'{model2.name}_surf_coords_residue_number.txt')
         with open(guide_file_surf_res_num, 'w') as f:
-            f.write('%s\n' % '\n'.join(map(str, surf_residue_numbers2.tolist())))
+            f.write('%s\n' % '\n'.join(map(str, surf_residue_indices2.tolist())))
 
         start_slice = 0
         visualize_number = 15
@@ -664,8 +664,8 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
         complete_ghost_frags2.extend(frag.get_ghost_fragments(clash_tree=bb_cb_tree2))
     init_ghost_frags2 = [ghost_frag for ghost_frag in complete_ghost_frags2 if ghost_frag.j_type == initial_surf_type1]
     init_ghost_guide_coords2 = np.array([ghost_frag.guide_coords for ghost_frag in init_ghost_frags2])
-    # init_ghost_residue_numbers2 = np.array([ghost_frag.number for ghost_frag in init_ghost_frags2])
-    # ghost_frag2_residues = [ghost_frag.number for ghost_frag in complete_ghost_frags2]
+    # init_ghost_residue_numbers2 = np.array([ghost_frag.index for ghost_frag in init_ghost_frags2])
+    # ghost_frag2_residues = [ghost_frag.index for ghost_frag in complete_ghost_frags2]
 
     idx = 2
     # logger.debug(f'Found ghost guide coordinates {idx} with shape {ghost_guide_coords2.shape}')
@@ -677,8 +677,8 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
     # logger.debug('init_ghost_residue_numbers2: %s' % slice_variable_for_log(init_ghost_residue_numbers2))
     # Prepare precomputed arrays for fast pair lookup
     # ghost1_residue_array = np.repeat(init_ghost_residue_numbers1, len(init_surf_residue_numbers2))
-    # ghost2_residue_array = np.repeat(init_ghost_residue_numbers2, len(init_surf_residue_numbers1))
-    # surface1_residue_array = np.tile(init_surf_residue_numbers1, len(init_ghost_residue_numbers2))
+    # ghost2_residue_array = np.repeat(init_ghost_residue_numbers2, len(init_surf_residue_indices1))
+    # surface1_residue_array = np.tile(init_surf_residue_indices1, len(init_ghost_residue_numbers2))
     # surface2_residue_array = np.tile(init_surf_residue_numbers2, len(init_ghost_residue_numbers1))
 
     logger.info(f'Retrieved oligomer{idx}-{model2.name} ghost fragments and guide coordinates '
@@ -1045,7 +1045,7 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
             # # logger.debug(f'Euler indices reverse, index 0: {euler_matched_ghost_indices_rev2[:10]}')
             # reverse_ghosts_numbers2 = init_ghost_residue_numbers2[euler_matched_ghost_indices_rev2]
             # # logger.debug(f'Euler indices reverse, index 1: {euler_matched_surf_indices_rev1[:10]}')
-            # reverse_surface_numbers1 = init_surf_residue_numbers1[euler_matched_surf_indices_rev1]
+            # reverse_surface_numbers1 = init_surf_residue_indices1[euler_matched_surf_indices_rev1]
 
             # Make an index indicating where the forward and reverse euler lookups have the same residue pairs
             # Important! This method only pulls out initial fragment matches that go both ways, i.e. component1
@@ -1584,8 +1584,8 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
         model2_query = model1_cb_balltree.query_radius(inverse_transformed_model2_tiled_cb_coords[idx], cb_distance)
         # model1_cb_balltree_time = time.time() - int_frags_time_start
 
-        contacting_residue_pairs = [(model1_coords_indexed_residues[model1_cb_indices[model1_idx]].number,
-                                     model2_coords_indexed_residues[model2_cb_indices[model2_idx]].number)
+        contacting_residue_pairs = [(model1_coords_indexed_residues[model1_cb_indices[model1_idx]].index,
+                                     model2_coords_indexed_residues[model2_cb_indices[model2_idx]].index)
                                     for model2_idx, model1_contacts in enumerate(model2_query)
                                     for model1_idx in model1_contacts]
         try:
@@ -1599,12 +1599,12 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
         # Since *_residue_numbers1/2 are the same index as the complete fragment arrays, these interface indices are the
         # same index as the complete guide coords and rmsds as well
         # Both residue numbers are one-indexed vv
-        # Todo make ghost_residue_numbers1 unique -> unique_ghost_residue_numbers1
+        # Todo make ghost_residue_indices1 unique -> unique_ghost_residue_numbers1
         #  index selected numbers against per_residue_ghost_indices 2d (number surface frag residues,
         ghost_indices_in_interface1 = \
-            np.flatnonzero(np.isin(ghost_residue_numbers1, interface_residue_numbers1))
+            np.flatnonzero(np.isin(ghost_residue_indices1, interface_residue_numbers1))
         surf_indices_in_interface2 = \
-            np.flatnonzero(np.isin(surf_residue_numbers2, interface_residue_numbers2, assume_unique=True))
+            np.flatnonzero(np.isin(surf_residue_indices2, interface_residue_numbers2, assume_unique=True))
 
         # is_in_index_time = time.time() - is_in_index_start
         all_fragment_match_time_start = time.time()
@@ -1758,7 +1758,6 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
                               sym_entry=sym_entry, surrounding_uc=job.output_surrounding_uc,
                               fragment_db=job.fragment_db, ignore_clashes=True, rename_chains=True)
 
-    # residue_numbers = [residue.number for residue in pose.residues]
     # entity_energies = tuple(0. for _ in pose.entities)
     # pose_source_residue_info = \
     #     {residue.number: {'complex': 0.,
@@ -2124,7 +2123,8 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
 
     # Calculate metrics on input Pose before any manipulation
     pose_length = pose.number_of_residues
-    residue_numbers = list(range(1, pose_length + 1))
+    # residue_indices = list(range(1, pose_length + 1))
+    residue_numbers = [residue.number for residue in pose.residues]
     entity_tuple = tuple(pose.entities)
     # model_tuple = tuple(models)
 

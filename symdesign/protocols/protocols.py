@@ -34,8 +34,7 @@ from symdesign.structure import fragment
 from symdesign.structure.base import Structure
 from symdesign.structure.model import Pose, MultiModel, Models, Model, Entity, transformation_mapping
 from symdesign.structure.sequence import generate_mutations_from_reference, sequence_difference, \
-    MultipleSequenceAlignment, pssm_as_array, concatenate_profile, write_pssm_file, read_fasta_file, write_sequences, \
-    numeric_to_sequence
+    MultipleSequenceAlignment, pssm_as_array, concatenate_profile, write_pssm_file, read_fasta_file, write_sequences
 from symdesign.structure.utils import protein_letters_3to1, protein_letters_1to3, DesignError, ClashError, SymmetryError
 from symdesign.utils import large_color_array, starttime, start_log, unpickle, pickle_object, write_shell_script, \
     all_vs_all, sym, condensed_to_square, rosetta, InputError, path as putils
@@ -2480,9 +2479,7 @@ class PoseDirectory(PoseProtocol):
         """
         # Calculate metrics on input Pose before any manipulation
         pose_length = self.pose.number_of_residues
-        residue_numbers = list(range(1, pose_length + 1))
-        entity_tuple = tuple(self.pose.entities)
-        # model_tuple = tuple(models)
+        residue_numbers = [residue.number for residue in self.pose.residues]
 
         design_temperatures = sequences_and_scores['temperatures']
         numeric_sequences = sequences_and_scores['numeric_sequences']
@@ -3030,7 +3027,8 @@ class PoseDirectory(PoseProtocol):
         other_pose_metrics = self.pose.interface_metrics()
         # CAUTION: Assumes each structure is the same length
         pose_length = self.pose.number_of_residues
-        residue_numbers = list(range(1, pose_length + 1))
+        # residue_indices = list(range(1, pose_length + 1))
+        residue_numbers = [residue.number for residue in self.pose.residues]
 
         # Find all designs files
         # Todo fold these into Model(s) and attack metrics from Pose objects?
@@ -4015,7 +4013,7 @@ class PoseDirectory(PoseProtocol):
             contact_ax = collapse_ax.twinx()
             contact_ax.plot(pose_source_contact_order_s, label='Contact Order',
                             color='#fbc0cb', lw=1, linestyle='-')  # pink
-            # contact_ax.scatter(residue_indices, pose_source_contact_order_s, color='#fbc0cb', marker='o')  # pink
+            # contact_ax.scatter(residue_numbers, pose_source_contact_order_s, color='#fbc0cb', marker='o')  # pink
             # wt_contact_order_concatenated_min_s = pose_source_contact_order_s.min()
             # wt_contact_order_concatenated_max_s = pose_source_contact_order_s.max()
             # wt_contact_order_range = wt_contact_order_concatenated_max_s - wt_contact_order_concatenated_min_s
@@ -4215,7 +4213,8 @@ def interface_design_analysis(pose: Pose, design_poses: Iterable[Pose] = None, s
 
     # Assumes each structure is the same length
     pose_length = pose.number_of_residues
-    residue_indices = list(range(1, pose_length + 1))
+    # residue_indices = list(range(1, pose_length + 1))
+    residue_numbers = [residue.number for residue in self.pose.residues]
     pose_sequences = {putils.pose_source: pose.sequence}
     # Todo implement reference sequence from included file(s) or as with pose.sequence below
     pose_sequences.update({putils.reference_name: pose.sequence})
@@ -4465,7 +4464,7 @@ def interface_design_analysis(pose: Pose, design_poses: Iterable[Pose] = None, s
 
     per_residue_data = {putils.pose_source: pose.get_per_residue_interface_metrics()}
     pose_source_contact_order_s = \
-        pd.Series(np.concatenate(source_contact_order), index=residue_indices, name='contact_order')
+        pd.Series(np.concatenate(source_contact_order), index=residue_numbers, name='contact_order')
     per_residue_data[putils.pose_source]['contact_order'] = pose_source_contact_order_s
 
     number_of_entities = pose.number_of_entities
@@ -4481,7 +4480,7 @@ def interface_design_analysis(pose: Pose, design_poses: Iterable[Pose] = None, s
             _, oligomeric_errat = entity_oligomer.errat(out_path=os.path.devnull)
             source_errat.append(oligomeric_errat[:entity.number_of_residues])
         # atomic_deviation[putils.pose_source] = sum(source_errat_accuracy) / float(number_of_entities)
-        pose_source_errat_s = pd.Series(np.concatenate(source_errat), index=residue_indices)
+        pose_source_errat_s = pd.Series(np.concatenate(source_errat), index=residue_numbers)
     else:
         pose_assembly_minimally_contacting = pose.assembly_minimally_contacting
         # atomic_deviation[putils.pose_source], pose_per_residue_errat = \
@@ -4599,7 +4598,7 @@ def interface_design_analysis(pose: Pose, design_poses: Iterable[Pose] = None, s
                                          for design_id, data in zip(viable_designs, folding_and_collapse)},
                                         ).unstack().swaplevel(0, 1, axis=1)
     # Convert per_residue_data into a dataframe matching residue_df orientation
-    per_residue_df = pd.concat({name: pd.DataFrame(data, index=residue_indices)
+    per_residue_df = pd.concat({name: pd.DataFrame(data, index=residue_numbers)
                                 for name, data in per_residue_data.items()}).unstack().swaplevel(0, 1, axis=1)
     # Fill in contact order for each design
     per_residue_df.fillna(per_residue_df.loc[putils.pose_source, idx_slice[:, 'contact_order']], inplace=True)
@@ -4652,7 +4651,7 @@ def interface_design_analysis(pose: Pose, design_poses: Iterable[Pose] = None, s
         for profile, observed_values in observed.items():
             scores_df[f'observed_{profile}'] = observed_values.mean(axis=1)
             observed_dfs.append(pd.DataFrame(data=observed_values, index=pose_sequences,  # design_obs_freqs.keys()
-                                             columns=pd.MultiIndex.from_product([residue_indices,
+                                             columns=pd.MultiIndex.from_product([residue_numbers,
                                                                                  [f'observed_{profile}']]))
                                 )
         # Add observation information into the residue_df
@@ -4750,7 +4749,7 @@ def interface_design_analysis(pose: Pose, design_poses: Iterable[Pose] = None, s
     if dca_succeed:
         # concatenate along columns, adding residue index to column, design name to row
         dca_concatenated_df = pd.DataFrame(np.concatenate(dca_design_residues_concat, axis=1),
-                                           index=list(pose_sequences.keys()), columns=residue_indices)
+                                           index=list(pose_sequences.keys()), columns=residue_numbers)
         # get all design names                                    ^
         # dca_concatenated_df.columns = pd.MultiIndex.from_product([dca_concatenated_df.columns, ['dca_energy']])
         dca_concatenated_df = pd.concat([dca_concatenated_df], keys=['dca_energy'], axis=1).swaplevel(0, 1, axis=1)
@@ -5144,7 +5143,7 @@ def interface_design_analysis(pose: Pose, design_poses: Iterable[Pose] = None, s
         contact_ax = collapse_ax.twinx()
         contact_ax.plot(pose_source_contact_order_s, label='Contact Order',
                         color='#fbc0cb', lw=1, linestyle='-')  # pink
-        # contact_ax.scatter(residue_indices, pose_source_contact_order_s, color='#fbc0cb', marker='o')  # pink
+        # contact_ax.scatter(residue_numbers, pose_source_contact_order_s, color='#fbc0cb', marker='o')  # pink
         # wt_contact_order_concatenated_min_s = pose_source_contact_order_s.min()
         # wt_contact_order_concatenated_max_s = pose_source_contact_order_s.max()
         # wt_contact_order_range = wt_contact_order_concatenated_max_s - wt_contact_order_concatenated_min_s
