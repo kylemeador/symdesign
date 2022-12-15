@@ -884,7 +884,7 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
         positive_indices = slice(None)
 
     # Initialize the OptimalTx object
-    logger.debug(f'zshift1 = {zshift1}, zshift2 = {zshift2}, max_z_value={initial_z_value:2f}')
+    logger.debug(f'zshift1={zshift1}, zshift2={zshift2}, max_z_value={initial_z_value:2f}')
     optimal_tx = resources.OptimalTx.from_dof(sym_entry.external_dof, zshift1=zshift1, zshift2=zshift2,
                                               max_z_value=initial_z_value)
 
@@ -1136,8 +1136,8 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
                 # For a single DOF, multiplication won't matter as only one matrix element will be available
                 #
                 # Must find positive indices before external_dof1 multiplication in case negatives there
-                positive_indices = np.flatnonzero(np.all(transform_passing_shifts[:, :sym_entry.number_dof_external] >= 0,
-                                                         axis=1))
+                positive_indices = \
+                    np.flatnonzero(np.all(transform_passing_shifts[:, :sym_entry.number_dof_external] >= 0, axis=1))
                 number_passing_shifts = positive_indices.shape[0]
                 optimal_ext_dof_shifts = np.zeros((number_passing_shifts, 3), dtype=float)
                 optimal_ext_dof_shifts[:, :sym_entry.number_dof_external] = \
