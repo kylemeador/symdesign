@@ -2398,8 +2398,8 @@ class PoseDirectory(PoseProtocol):
         # Add protocol (job info) and temperature to sequences_and_scores
         sequences_and_scores[putils.protocol] = \
             repeat(self.protocol, len(self.job.design.number_of_trajectories * self.job.design.temperatures))
-        sequences_and_scores['temperature'] = [temperature for temperature in self.job.design.temperatures
-                                               for _ in range(self.job.design.number_of_trajectories)]
+        sequences_and_scores['temperatures'] = [temperature for temperature in self.job.design.temperatures
+                                                for _ in range(self.job.design.number_of_trajectories)]
 
         design_names = [f'{self.name}_{self.protocol}{seq_idx:04d}'
                         for seq_idx in range(1, 1 + len(sequences_and_scores['sequences']))]
@@ -2435,13 +2435,13 @@ class PoseDirectory(PoseProtocol):
 
         # # trajectories_temperatures_ids = [f'temp{temperature}' for idx in self.job.design.number_of_trajectories
         # #                                  for temperature in self.job.design.temperatures]
-        # # trajectories_temperatures_ids = [{'temperature': temperature} for idx in self.job.design.number_of_trajectories
+        # # trajectories_temperatures_ids = [{'temperatures': temperature} for idx in self.job.design.number_of_trajectories
         # #                                  for temperature in self.job.design.temperatures]
         # protocol = 'proteinmpnn'
         # sequences_and_scores[putils.protocol] = \
         #     repeat(protocol, len(self.job.design.number_of_trajectories * self.job.design.temperatures))
-        # sequences_and_scores['temperature'] = [temperature for temperature in self.job.design.temperatures
-        #                                        for _ in range(self.job.design.number_of_trajectories)]
+        # sequences_and_scores['temperatures'] = [temperature for temperature in self.job.design.temperatures
+        #                                         for _ in range(self.job.design.number_of_trajectories)]
 
         def write_per_residue_scores(_design_ids: Sequence[str], scores: dict[str, list]) -> AnyStr:
             """"""
@@ -2559,8 +2559,9 @@ class PoseDirectory(PoseProtocol):
         fragment_profile_frequencies = []
         nan_blank_data = list(repeat(np.nan, pose_length))
 
-        # Load fragment_profile into the analysis
-        self.pose.calculate_fragment_profile()
+        # # Load fragment_profile into the analysis
+        # if self.job.generate_fragments:
+        #     self.pose.calculate_fragment_profile()
         # if self.job.design.sequences:
         # This could be an empty array if no fragments were found
         fragment_profile_array = self.pose.fragment_profile.as_array()

@@ -729,14 +729,14 @@ def main():
                             f'{representative_pose_directory.log_path}')
 
     elif job.module == flags.nanohedra:
+        # Todo make current with sql ambitions
         logger.info(f'Setting up inputs for {job.module.title()} docking')
         job.sym_entry.log_parameters()
-        # Todo make current with sql ambitions
-        # Make master output directory. sym_entry is required, so this won't fail v
-        if args.output_directory is None:
-            # job.output_directory = os.path.join(job.projects, f'NanohedraEntry{sym_entry.entry_number}_BUILDING-BLOCKS_Poses')
-            job.output_directory = job.projects
-            os.makedirs(job.output_directory, exist_ok=True)
+        # # Make master output directory. sym_entry is required, so this won't fail v
+        # if args.output_directory is None:
+        #     # job.output_directory = os.path.join(job.projects, f'NanohedraEntry{sym_entry.entry_number}_BUILDING-BLOCKS_Poses')
+        #     job.output_directory = job.projects
+        #     putils.make_path(job.output_directory)
         # Transform input entities to canonical orientation and return their ASU
         all_structures = []
         # Set up variables for the correct parsing of provided file paths
