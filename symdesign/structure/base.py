@@ -3122,7 +3122,7 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
 
         if residue_numbers is None:
             if start is not None and end is not None:
-                residue_numbers = list(range(start, end+1))
+                residue_numbers = list(range(start, end + 1))
             else:
                 raise ValueError(f'{self.get_coords_subset.__name__}:'
                                  f' Must provide either residue_numbers or start and end')
