@@ -24,10 +24,10 @@ from symdesign.utils.path import submodule_guide, submodule_help, force, sym_ent
     fragment_profile, all_scores, default_analysis_file, select_sequences, program_name, nanohedra, predict_structure, \
     program_command, analysis, select_poses, output_fragments, output_oligomers, protocol, current_energy_function, \
     ignore_clashes, ignore_pose_clashes, ignore_symmetric_clashes, select_designs, output_structures, proteinmpnn, \
-    output_trajectory, development, consensus, ca_only, sequences, structures, temperatures, \
-    distribute_work, output_directory, output_surrounding_uc, skip_logging, output_file, multicistronic, \
-    generate_fragments, input_, output, output_assembly, expand_asu, check_clashes, rename_chains, optimize_designs, \
-    perturb_dof, tag_entities, design
+    output_trajectory, development, profile, consensus, ca_only, sequences, structures, temperatures, optimize_species,\
+    distribute_work, output_directory, output_surrounding_uc, skip_logging, output_file, avoid_tagging_helices, \
+    multicistronic, multicistronic_intergenic_sequence, generate_fragments, input_, output, output_assembly, \
+    preferred_tag, expand_asu, check_clashes, rename_chains, optimize_designs, perturb_dof, tag_entities, design
 
 design_programs_literal = Literal['proteinmpnn', 'rosetta']
 design_programs: tuple[design_programs_literal] = get_args(design_programs_literal)
@@ -583,6 +583,8 @@ options_arguments = {
                      help='If commands should be run as MPI parallel processes, how many '
                           'processes\nshould be invoked for each job?\nDefault=%(default)s'),
     ('-M', f'--{multi_processing}'): dict(action='store_true', help='Should job be run with multiple processors?'),
+    (f'--{profile}',): dict(action='store_true',
+                            help='memory_profiler.profile() a module. Must be run with --development'),
     setup_args: setup_kwargs,
     # Todo move to only design protocols...
     (f'--{sequences}',): dict(action=argparse.BooleanOptionalAction, default=True,  # action='store_true',
