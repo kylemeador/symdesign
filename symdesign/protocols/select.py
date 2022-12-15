@@ -398,10 +398,19 @@ def designs(pose_directories: Iterable[protocols.protocols.PoseDirectory]) \
 
 # def sequences(results: dict[protocols.protocols.PoseDirectory, ]):
 def sequences(pose_directories: list[protocols.protocols.PoseDirectory]):
+    """Perform design selection followed by sequence formatting on those designs
+
+    Args:
+        pose_directories:
+
+    Returns:
+
+    """
     job = job_resources_factory.get()
     results = designs(pose_directories)
 
     job.output_file = os.path.join(job.output_directory, f'{job.prefix}SelectedDesigns{job.suffix}.paths')
+    # Todo move this to be in terminate(results=results.keys()) -> success
     # pose_directories = list(results.keys())
     with open(job.output_file, 'w') as f:
         f.write('%s\n' % '\n'.join(pose_dir.path for pose_dir in list(results.keys())))

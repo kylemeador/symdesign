@@ -33,6 +33,7 @@ collapse_metrics = ['collapse_new_positions', 'collapse_new_position_significanc
                     'collapse_significance_by_contact_order_z', 'collapse_increase_significance_by_contact_order_z',
                     'collapse_increased_z', 'collapse_deviation_magnitude', 'collapse_sequential_peaks_z',
                     'collapse_sequential_z']
+zero_probability_frag_value = -20
 # Only slice the final 3 values
 sasa_metrics_rename_mapping = dict(zip(per_residue_intermediate_states, sasa_metric_names))
 # Based on bsa_total values for highest deviating surface residue of one design from multiple measurements
