@@ -6435,7 +6435,7 @@ class Pose(SymmetricModel):
             entity1: First Entity to measure interface between
             entity2: Second Entity to measure interface between
         Keyword Args:
-            distance: (float) = 8. - The distance to measure Residues across an interface
+            distance: float = 8. - The distance to measure Residues across an interface
         Sets:
             self.interface_residues_by_entity_pair (dict[tuple[Entity, Entity], tuple[list[Residue], list[Residue]]]):
                 The Entity1/Entity2 interface mapped to the interface Residues
@@ -6473,7 +6473,7 @@ class Pose(SymmetricModel):
         Args:
             entity1: First Entity to measure interface between
             entity2: Second Entity to measure interface between
-            distance: The distance to measure contacts between atoms. Default = CB radius + 2.8 H2O probe Was 3.28
+            distance: The distance to measure contacts between atoms. Default = CB radius + 2.8 H2O probe. Was 3.28
         Returns:
             The Atom indices for the interface
         """
@@ -6544,12 +6544,14 @@ class Pose(SymmetricModel):
 
         return interface_counts.mean()
 
-    def query_interface_for_fragments(self, entity1: Entity = None, entity2: Entity = None):
+    def query_interface_for_fragments(self, entity1: Entity = None, entity2: Entity = None,
+                                      oligomeric_interfaces: bool = False):
         """For all found interface residues in an Entity/Entity interface, search for corresponding fragment pairs
 
         Args:
             entity1: The first Entity to measure for interface fragments
             entity2: The second Entity to measure for interface fragments
+            oligomeric_interfaces: Whether to query oligomeric interfaces
         Sets:
             self.fragment_queries (dict[tuple[Entity, Entity], list[fragment_info_type]])
         """
@@ -6572,7 +6574,7 @@ class Pose(SymmetricModel):
             entity1.get_fragment_residues(residues=entity1_residues, fragment_db=self.fragment_db)
         if not entity2_residues:  # entity1 == entity2 and not entity2_residues:
             # entity1_residues = set(entity1_residues + entity2_residues)
-            entity2_residues = entity1_residues
+            # entity2_residues = entity1_residues
             frag_residues2 = frag_residues1.copy()
             # residue_numbers2 = residue_numbers1
         else:
@@ -6600,8 +6602,8 @@ class Pose(SymmetricModel):
         if self.is_symmetric():
             # Even if entity1 == entity2, only need to expand the entity2 fragments due to surface/ghost frag mechanics
             if entity1 == entity2:
-                # We don't want interactions with the intra-oligomeric contacts
-                if entity1.is_oligomeric():  # Remove oligomeric protomers (contains asu)
+                # If querying nascent interfaces, we don't want interactions with the intra-oligomeric contacts
+                if entity1.is_oligomeric() and not oligomeric_interfaces:  # Remove oligomeric protomers (contains asu)
                     skip_models = self.oligomeric_model_indices.get(entity1)
                     self.log.info(f'Skipping oligomeric models: {", ".join(map(str, skip_models))}')
                 else:  # Probably a C1
@@ -6660,16 +6662,19 @@ class Pose(SymmetricModel):
     def center_residue_indices(self, indices: Iterable[int]):
         self._center_residue_indices = list(indices)
 
-    def score_interface(self, entity1: Chain = None, entity2: Chain = None) -> dict:
+    def score_interface(self, entity1: Chain = None, entity2: Chain = None, **kwargs) -> dict:
         """Generate the fragment metrics for a specified interface between two entities
 
+        Keyword Args:
+            distance: float = 8. - The distance to measure Residues across an interface
+            oligomeric_interfaces: bool = False - Whether to query oligomeric interfaces
         Returns:
             Fragment metrics as key (metric type) value (measurement) pairs
         """
         # Check for either orientation as the final interface score will be the same
         if (entity1, entity2) not in self.fragment_queries or (entity2, entity1) not in self.fragment_queries:
-            self.find_interface_residues(entity1=entity1, entity2=entity2)
-            self.query_interface_for_fragments(entity1=entity1, entity2=entity2)
+            self.find_interface_residues(entity1=entity1, entity2=entity2, **kwargs)
+            self.query_interface_for_fragments(entity1=entity1, entity2=entity2, **kwargs)
 
         return self.get_fragment_metrics(by_entity=True, entity1=entity1, entity2=entity2)
 
@@ -6677,10 +6682,10 @@ class Pose(SymmetricModel):
         """Locate the interface residues for the designable entities and split into two interfaces
 
         Keyword Args:
-            distance: (float) = 8. - The distance to measure Residues across an interface
+            distance: float = 8. - The distance to measure Residues across an interface
         Sets:
             self.split_interface_residues (dict[int, list[tuple[Residue, Entity]]]): Residue/Entity id of each residue
-                at the interface identified by interface id as split by topology
+            at the interface identified by interface id as split by topology
         """
         if self.split_interface_residues:
             # Todo this needs to be removed if they have been set and modified. reset_state()
@@ -6700,7 +6705,7 @@ class Pose(SymmetricModel):
 
         Sets:
             self.split_interface_residues (dict[int, list[tuple[Residue, Entity]]]): Residue/Entity id of each residue
-                at the interface identified by interface id as split by topology
+            at the interface identified by interface id as split by topology
         """
         first_side, second_side = 0, 1
         interface = {first_side: {}, second_side: {}, 'self': [False, False]}  # assume no symmetric contacts to start
@@ -7209,7 +7214,8 @@ class Pose(SymmetricModel):
         """Generate fragments between the Pose interface(s). Finds interface(s) if not already available
 
         Keyword Args:
-            distance: (float) = 8. - The distance to measure Residues across an interface
+            distance: float = 8. - The distance to measure Residues across an interface
+            oligomeric_interfaces: bool = False - Whether to query oligomeric interfaces
         """
         if not self.interface_residues_by_entity_pair:
             self.find_and_split_interface(**kwargs)
@@ -7218,15 +7224,15 @@ class Pose(SymmetricModel):
         for entity_pair in combinations_with_replacement(self.active_entities, 2):
             self.log.debug(f'Querying Entity pair: {", ".join(entity.name for entity in entity_pair)} '
                            f'for interface fragments')
-            self.query_interface_for_fragments(*entity_pair)
+            self.query_interface_for_fragments(*entity_pair, **kwargs)
 
     def generate_fragments(self, **kwargs):
         """Generate fragments pairs between every possible Residue instance in the Pose
 
         Keyword Args:
-            distance: (float) = 8. - The distance to measure Residues across an interface
+            distance: float = 8. - The distance to measure Residues across an interface
         """
-        self.generate_interface_fragments(**kwargs)
+        self.generate_interface_fragments(oligomeric_interfaces=True, **kwargs)
         if not self.interface_residues_by_entity_pair:
             self.find_and_split_interface(**kwargs)
 
