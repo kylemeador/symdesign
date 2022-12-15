@@ -12,15 +12,17 @@ from symdesign import utils
 
 logger = logging.getLogger(__name__)
 source_literal = Literal['size', 'rmsd', 'rep', 'mapped', 'paired']
-weighted_counts_keys = Literal[protein_letters_literal, 'stats']
+old_weighted_counts_keys = Literal[protein_letters_literal, 'stats']
+old_aa_weighted_counts_type: dict[old_weighted_counts_keys, int | tuple[int, int]]
 # Todo add 'weight' instead of 'stats' (0, 1) during creation
-aa_weighted_counts_type: dict[weighted_counts_keys, int | tuple[int, int]]
+weighted_counts_keys = Literal[protein_letters_literal, 'weight']
+aa_weighted_counts_type: dict[weighted_counts_keys, int | float]
 
 
 class ClusterInfo:
     def __init__(self, infofile_path: AnyStr = None, name: str = None, size: int = None, rmsd: float = None,
                  # representative_filename: str = None, Todo
-                 rep: str = None, mapped: aa_weighted_counts_type = None, paired: aa_weighted_counts_type = None):
+                 rep: str = None, mapped: old_aa_weighted_counts_type = None, paired: old_aa_weighted_counts_type = None):
         self.central_residue_pair_freqs = []
         if infofile_path is not None:
             with open(infofile_path, 'r') as f:
@@ -48,7 +50,7 @@ class ClusterInfo:
             self.size = size
             self.rmsd = rmsd
             self.representative_filename = rep  # representative_filename
-            # This is a temporary fix to separate these items
+            # This is a temporary fix to separate 'stats' into 'counts' and 'weights' these items
             # Todo remove once making of fragment_database reflects correct usage
             for type_idx, fragment_type in enumerate((mapped, paired)):
                 for index, frequencies in fragment_type.items():
@@ -185,7 +187,8 @@ class FragmentInfo:
         else:
             if ids is None:  # Load all data
                 identified_files = [(os.path.splitext(os.path.basename(cluster_file))[0], cluster_file)
-                                    for cluster_file in utils.get_file_paths_recursively(self.location, extension='.pkl')]
+                                    for cluster_file in utils.get_file_paths_recursively(self.location,
+                                                                                         extension='.pkl')]
             else:
                 identified_files = \
                     [(_id, os.path.join(self.location, c_id1, f'{c_id1}_{c_id2}', _id, f'{_id}.pkl'))

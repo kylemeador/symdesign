@@ -2437,8 +2437,7 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
                 add_fragments_to_pose()  # <- here generating fragments fresh
                 # Reset the fragment_profile and fragment_map for each Entity before calculate_fragment_profile
                 for entity in pose.entities:
-                    entity._fragment_profile = {}
-                    entity.fragment_map = {}
+                    entity.fragment_map = None
                     # entity.alpha.clear()
 
                 # Load fragment_profile into the analysis
@@ -2944,8 +2943,7 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
                 add_fragments_to_pose()  # <- here generating fragments fresh
                 # Reset the fragment_profile and fragment_map for each Entity before calculate_fragment_profile
                 for entity in pose.entities:
-                    entity._fragment_profile = {}
-                    entity.fragment_map = {}
+                    entity.fragment_map = None
                     # entity.alpha.clear()
 
                 # Load fragment_profile into the analysis
@@ -3754,8 +3752,7 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
 
                 # Reset the fragment_map and fragment_profile for each Entity before calculate_fragment_profile
                 for entity in pose.entities:
-                    entity._fragment_profile = {}
-                    entity.fragment_map = {}
+                    entity.fragment_map = None
                     # entity.alpha.clear()
 
                 # Load fragment_profile into the analysis
