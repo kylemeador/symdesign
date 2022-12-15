@@ -39,7 +39,7 @@ modules = 'modules'
 score = 'score'
 module = 'module'
 method = 'method'
-dock_only = 'dock_only'
+# dock_only = 'dock_only'
 rotation_step1 = 'rotation_step1'
 rotation_step2 = 'rotation_step2'
 min_matched = 'min_matched'
@@ -123,7 +123,7 @@ specification_file = format_for_cmdline(putils.specification_file)
 pose_file = format_for_cmdline(pose_file_)
 specific_protocol = format_for_cmdline(specific_protocol)
 sym_entry = format_for_cmdline(sym_entry)
-dock_only = format_for_cmdline(dock_only)
+# dock_only = format_for_cmdline(dock_only)
 rotation_step1 = format_for_cmdline(rotation_step1)
 rotation_step2 = format_for_cmdline(rotation_step2)
 min_matched = format_for_cmdline(min_matched)
@@ -590,12 +590,6 @@ options_arguments = {
     (f'--{profile}',): dict(action='store_true',
                             help='memory_profiler.profile() a module. Must be run with --development'),
     setup_args: setup_kwargs,
-    # Todo move to only design protocols...
-    (f'--{sequences}',): dict(action=argparse.BooleanOptionalAction, default=True,  # action='store_true',
-                              help='For the protocol, create new sequences for each pose?\n'
-                                   f'{boolean_positional_prevent_msg(sequences)}'),
-    (f'--{structures}',): dict(action='store_true',
-                               help='Whether the structure of each new sequence should be calculated'),
     (f'--{skip_logging}',): dict(action='store_true',
                                  help='Skip logging output to files and direct all logging to stream?'),
     sym_entry_args: sym_entry_kwargs,
@@ -703,8 +697,8 @@ nanohedra_arguments = {
     (f'--{contiguous_ghosts}',): dict(action=argparse.BooleanOptionalAction, default=False,
                                       help='Whether to prioritize docking with ghost fragments that form continuous'
                                            '\nsegments on a single component'),
-    (f'--{dock_only}',): dict(action=argparse.BooleanOptionalAction, default=False,
-                              help='Whether docking should be performed without sequence design'),
+    # (f'--{dock_only}',): dict(action=argparse.BooleanOptionalAction, default=False,
+    #                           help='Whether docking should be performed without sequence design'),
     evolution_constraint_args: evolution_constraint_kwargs,
     ('-iz', f'--{initial_z_value}'): dict(type=float, default=1.,
                                           help='The acceptable standard deviation z score for initial fragment overlap '
@@ -716,7 +710,7 @@ nanohedra_arguments = {
     (f'--{min_matched}',): dict(type=int, default=3,
                                 help='How many high quality fragment pairs should be present before a pose is '
                                      'identified?\nDefault=%(default)s'),
-    (f'--{score}',): dict(type=str, default='nanohedra', choices={'nanohedra', 'proteinmpnn'},
+    (f'--{score}',): dict(type=str, choices={'nanohedra', 'proteinmpnn'},  # default='nanohedra'
                           help='Which metric should be used to rank output poses?\nDefault=%(default)s'),
     (f'--{only_write_frag_info}',): dict(action=argparse.BooleanOptionalAction, default=False,
                                          help='Used to write fragment information to a directory for C1 based docking'),
@@ -801,6 +795,14 @@ cluster_poses_arguments = {
                                 f'\nDefault={default_clustered_pose_file.format("TIMESTAMP", "LOCATION")}')
 }
 # ---------------------------------------------------
+# Todo add to design protocols...
+sequences_args = (f'--{sequences}',)
+sequences_kwargs = dict(action=argparse.BooleanOptionalAction, default=True,  # action='store_true',
+                        help='For the protocol, create new sequences for each pose?\n'
+                             f'{boolean_positional_prevent_msg(sequences)}'),
+structures_args = (f'--{structures}',)
+structures_kwargs = dict(action='store_true',
+                         help='Whether the structure of each new sequence should be calculated'),
 design_method_args = ('-m', f'--{method}', f'--design-{method}')
 design_method_kwargs = dict(type=str.lower, default=proteinmpnn, choices=design_programs, metavar='',
                             help='Which design method should be used?\nChoices=%(choices)s\nDefault=%(default)s')

@@ -304,9 +304,9 @@ class JobResources:
             self.design.scout = False
             self.design.term_constraint = False
 
-        self.dock_only: bool = kwargs.get('dock_only')
-        if self.dock_only:
-            self.design.sequences = self.design.structures = False
+        # self.dock_only: bool = kwargs.get('dock_only')
+        # if self.dock_only:
+        #     self.design.sequences = self.design.structures = False
         self.only_write_frag_info: bool = kwargs.get('only_write_frag_info')
         # else:
         #     self.ignore_pose_clashes: bool = kwargs.get(ignore_pose_clashes, False)
