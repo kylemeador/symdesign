@@ -231,6 +231,9 @@ class JobResources:
         """Whether to reissue commands, only if distribute_work=False"""
         self.cores: int = kwargs.get('cores', 0)
         self.development: bool = kwargs.get(putils.development)
+        self.profile: bool = kwargs.get(putils.profile)
+        if self.profile and not self.development:
+            logger.warning(f"--profile flag was set but --development wasn't")
         self.distribute_work: bool = kwargs.get(putils.distribute_work)
         self.mpi: int = kwargs.get('mpi', 0)
         self.multi_processing: int = kwargs.get(putils.multi_processing)

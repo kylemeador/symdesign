@@ -16,6 +16,11 @@ from subprocess import list2cmdline
 from typing import Any, AnyStr
 
 import pandas as pd
+try:
+    from memory_profiler import profile
+    profile_error = None
+except ImportError as profile_error:
+    profile = None
 
 import symdesign.utils.path as putils
 # logging.config.fileConfig(putils.logging_cfg_file)
@@ -1222,12 +1227,9 @@ def main():
                 if job.profile:
                     if profile:
 
-                        # @profile  # Run the profile decorator from memory_profiler
-                        # def run_single_protocol():
-                        #     protocol(pose_directories[0]))
-
-                        # run_single_protocol()
-                        profile(protocol(pose_directories[0]))
+                        # Run the profile decorator from memory_profiler
+                        # Todo insert into the bottom most decorator slot
+                        profile(protocol)(pose_directories[0])
                     else:
                         logger.critical(f"The module memory_profiler isn't installed {profile_error}")
                     exit('Done profiling')
