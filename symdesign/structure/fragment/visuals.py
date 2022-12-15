@@ -11,21 +11,19 @@ idx_slice = pd.IndexSlice
 
 
 def write_fragment_pairs_as_accumulating_states(ghost_frags: list[structure.fragment.GhostFragment],
-                                                filename: AnyStr = os.getcwd()):
-    """
+                                                file_name: AnyStr = os.getcwd()) -> AnyStr:
+    """Write GhostFragments as an MultiModel Structure trajectory where each successive Model has one more Fragment
 
     Args:
-        ghost_frags:
-        filename: The desired filename
-
+        ghost_frags: An iterable of GhostFragments
+        file_name: The desired filename
     Returns:
-
+        The file_name
     """
-    # os.path.join(filename, f'{i}_{j}_{k}_fragment_match_{match_count}.pdb')
-    if '.pdb' not in filename:
-        filename += '.pdb'
+    if '.pdb' not in file_name:
+        file_name += '.pdb'
 
-    with open(filename, 'w') as f:
+    with open(file_name, 'w') as f:
         atom_iterator = 0
         residue_iterator = 1
         chain_generator = structure.utils.chain_id_generator()
@@ -57,18 +55,53 @@ def write_fragment_pairs_as_accumulating_states(ghost_frags: list[structure.frag
             trnsfmd_fragment = frag_model.get_transformed_copy(*ghost_frag.transformation)
             # Iterate only the paired chain with new chainID
             trnsfmd_fragment.chain(frag_paired_chain).chain_id = next(chain_generator)
-            mapped_chain = trnsfmd_fragment.chain(tuple(set(frag_model.chain_ids)
-                                                        .difference({frag_paired_chain, '9'}))[0])\
-                .chain_id = mapped_chain_id
+            # Set the mapped chain to the single mapped_chain_id
+            trnsfmd_fragment.chain(tuple(set(frag_model.chain_ids).difference({frag_paired_chain, '9'})
+                                         )[0]).chain_id = mapped_chain_id
             trnsfmd_fragment.renumber_residues(at=residue_iterator)
             fragment_lines.append(trnsfmd_fragment.get_atom_record(atom_offset=atom_iterator))
             # trnsfmd_fragment.write(file_handle=f)
             f.write('%s\n' % '\n'.join(fragment_lines))
             atom_iterator += frag_model.number_of_atoms
             residue_iterator += frag_model.number_of_residues
-            # write_frag_match_info_file(ghost_frag=ghost_frag, matched_frag=surface_frag,
-            #                            overlap_error=z_value_from_match_score(match_score),
-            #                            match_number=match_count, out_path=out_path)
+            f.write('ENDMDL\n')
+
+
+def write_fragments_as_multimodel(ghost_frags: list[structure.fragment.GhostFragment],
+                                  file_name: AnyStr = os.getcwd()) -> AnyStr:
+    """Write GhostFragments as one MultiModel Structure
+
+    Args:
+        ghost_frags: An iterable of GhostFragments
+        file_name: The desired filename
+    Returns:
+        The file_name
+    """
+    if '.pdb' not in file_name:
+        file_name += '.pdb'
+
+    with open(file_name, 'w') as f:
+        atom_iterator = 0
+        residue_iterator = 1
+        chain_generator = structure.utils.chain_id_generator()
+        mapped_chain_id = next(chain_generator)
+        paired_chain_id = next(chain_generator)
+        model_number = 1
+
+        # Write all models
+        for model_number, ghost_frag in enumerate(ghost_frags, model_number):
+            f.write(f'MODEL    {model_number:>4d}\n')
+            frag_model, frag_paired_chain = ghost_frag.fragment_db.paired_frags[ghost_frag.ijk]
+            trnsfmd_fragment = frag_model.get_transformed_copy(*ghost_frag.transformation)
+            # Set the paired chain to the single paired chainID
+            trnsfmd_fragment.chain(frag_paired_chain).chain_id = paired_chain_id
+            # Set the mapped chain to the single mapped chainID
+            trnsfmd_fragment.chain(tuple(set(frag_model.chain_ids).difference({frag_paired_chain, '9'})
+                                         )[0]).chain_id = mapped_chain_id
+            trnsfmd_fragment.renumber_residues(at=residue_iterator)
+            trnsfmd_fragment.write(file_handle=f, atom_offset=atom_iterator)
+            atom_iterator += frag_model.number_of_atoms
+            residue_iterator += frag_model.number_of_residues
             f.write('ENDMDL\n')
 
 

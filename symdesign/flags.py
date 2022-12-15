@@ -1056,7 +1056,7 @@ parser_check_clashes = {check_clashes: dict(description=check_clashes_help, help
 expand_asu_help = 'For given poses, expand the asymmetric unit to a symmetric assembly and write the result'
 parser_expand_asu = {expand_asu: dict(description=expand_asu_help, help=expand_asu_help)}
 # ---------------------------------------------------
-generate_fragments_help = 'Generate fragment overlap for poses of interest'
+generate_fragments_help = 'Generate fragment overlap for poses of interest and write fragments'
 parser_generate_fragments = \
     {generate_fragments: dict(description=generate_fragments_help, help=generate_fragments_help)}
 # ---------------------------------------------------
