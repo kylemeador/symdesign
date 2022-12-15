@@ -14,7 +14,7 @@ from symdesign.resources import config
 from symdesign.resources.query.utils import input_string, confirmation_string, bool_d, invalid_string, header_string, \
     format_string
 from symdesign.utils import ex_path, handle_errors, pretty_format_table, read_json, InputError, remove_digit_table, \
-    path as putils
+    ProteinExpression, path as putils
 from symdesign.utils.path import fragment_dbs, biological_interfaces, default_logging_level
 # These attributes ^ shouldn't be moved here. Below should be with proper handling of '-' vs. '_'
 from symdesign.utils.path import submodule_guide, submodule_help, force, sym_entry, program_output, projects, \
@@ -158,6 +158,10 @@ skip_logging = format_for_cmdline(skip_logging)
 interface_to_alanine = format_for_cmdline(interface_to_alanine)
 increment_chains = format_for_cmdline(increment_chains)
 tag_entities = format_for_cmdline(tag_entities)
+optimize_species = format_for_cmdline(optimize_species)
+avoid_tagging_helices = format_for_cmdline(avoid_tagging_helices)
+preferred_tag = format_for_cmdline(preferred_tag)
+multicistronic_intergenic_sequence = format_for_cmdline(multicistronic_intergenic_sequence)
 allow_multiple_poses = format_for_cmdline(allow_multiple_poses)
 
 
@@ -923,7 +927,7 @@ filter_file_kwargs = dict(type=os.path.abspath, help='Whether to filter selectio
 filter_args = ('--filter',)
 filter_kwargs = dict(nargs='*', default=None, help='Whether to filter selection using metrics')
 # filter_kwargs = dict(action='store_true', help='Whether to filter selection using metrics')
-optimize_species_args = ('-opt', '--optimize-species')
+optimize_species_args = ('-opt', f'--{optimize_species}')
 # Todo choices=DNAChisel. optimization species options
 optimize_species_kwargs = dict(type=str, default='e_coli',
                                help='The organism where expression will occur and nucleotide usage should be '
@@ -987,9 +991,10 @@ select_poses_arguments = {
     #                                   '\nChoices=%(choices)s\nDefault=%(default)s'),
 }
 # ---------------------------------------------------
-intergenic_sequence_args = ('-ms', '--multicistronic-intergenic-sequence')
-intergenic_sequence_kwargs = dict(type=str, help='The sequence to use in the intergenic region of a multicistronic '
-                                                 'expression output')
+intergenic_sequence_args = ('-ms', f'--{multicistronic_intergenic_sequence}')
+intergenic_sequence_kwargs = dict(type=str, default=ProteinExpression.default_multicistronic_sequence,
+                                  help='The sequence to use in the intergenic region of a multicistronic expression '
+                                       'output')
 select_sequences_help = 'From the provided poses, generate nucleotide/protein sequences based on specified selection\n'\
                         'criteria and prioritized metrics. Generation of output sequences can take multiple forms\n' \
                         'depending on downstream needs. By default, disordered region insertion,\ntagging for ' \
@@ -1001,13 +1006,16 @@ multicistronic_args = {
 }
 _select_designs_arguments = {
     allow_multiple_poses_args: allow_multiple_poses_kwargs,
-    designs_per_pose_args: designs_per_pose_kwargs
+    designs_per_pose_args: designs_per_pose_kwargs,
+    output_directory_args:
+        dict(type=os.path.abspath, default=None,
+             help=f'Where should the output be written?\nDefault={ex_path(os.getcwd(), "SelectedDesigns")}'),
 }
 parser_select_sequences = {select_sequences: dict(description=select_sequences_help, help=select_sequences_help)}
 select_sequences_arguments = {
     **select_arguments,
     **_select_designs_arguments,
-    ('-ath', '--avoid-tagging-helices'):
+    ('-ath', f'--{avoid_tagging_helices}'):
         dict(action='store_true', help='Should tags be avoided at termini with helices?'),
     ('-m', f'--{multicistronic}'):
         dict(action='store_true',
@@ -1016,9 +1024,9 @@ select_sequences_arguments = {
     (f'--{nucleotide}',): dict(action=argparse.BooleanOptionalAction, default=True,
                                help=f'Whether to output codon optimized nucleotide sequences'
                                     f'\n{boolean_positional_prevent_msg(nucleotide)}'),
-    ('-t', '--preferred-tag'): dict(type=str.lower, choices=config.expression_tags.keys(), default='his_tag', metavar='',
-                                    help='The name of your preferred expression tag'
-                                         '\nChoices=%(choices)s\nDefault=%(default)s'),
+    ('-t', f'--{preferred_tag}'): dict(type=str.lower, choices=config.expression_tags.keys(), default='his_tag', metavar='',
+                                       help='The name of your preferred expression tag'
+                                            '\nChoices=%(choices)s\nDefault=%(default)s'),
     (f'--{tag_entities}',): dict(type=str,
                                  help='If there are specific entities in the designs you want to tag,\nindicate how '
                                       'tagging should occur. Viable options include:\n\t"single" - a single entity\n\t'

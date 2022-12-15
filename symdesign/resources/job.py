@@ -154,6 +154,7 @@ class JobResources:
     """The intention of JobResources is to serve as a singular source of design info which is common across all
     jobs. This includes common paths, databases, and design flags which should only be set once in program operation,
     then shared across all member designs"""
+    _output_directory: AnyStr | None
     reduce_memory: bool = False
 
     def __init__(self, program_root: AnyStr = None, arguments: argparse.Namespace = None, **kwargs):
@@ -364,6 +365,15 @@ class JobResources:
         self.dataframe = kwargs.get('dataframe')
         self.metric = kwargs.get('metric')
 
+        # Sequence flags
+        self.avoid_tagging_helices = kwargs.get(putils.avoid_tagging_helices)
+        self.csv = kwargs.get('csv')
+        self.nucleotide = kwargs.get(flags.nucleotide)
+        self.optimize_species = kwargs.get(putils.optimize_species)
+        self.preferred_tag = kwargs.get(putils.preferred_tag)
+        self.multicistronic = kwargs.get(putils.multicistronic)
+        self.multicistronic_intergenic_sequence = kwargs.get(putils.multicistronic_intergenic_sequence)
+
         # Output flags
         prefix = kwargs.get('prefix')
         if prefix:
@@ -378,9 +388,9 @@ class JobResources:
             self.suffix = ''
 
         self.overwrite: bool = kwargs.get('overwrite')
-        self.output_directory: AnyStr | None = kwargs.get(putils.output_directory)
-        self.output_to_directory: bool = True if self.output_directory else False
-        """Set so it is known that output is not typical SymDesignOutput directory structure"""
+        output_directory = kwargs.get(putils.output_directory)
+        if output_directory:
+            self.output_directory = output_directory
         self.output_assembly: bool = kwargs.get(putils.output_assembly)
         self.output_surrounding_uc: bool = kwargs.get(putils.output_surrounding_uc)
         self.write_fragments: bool = kwargs.get(putils.output_fragments)
@@ -432,6 +442,34 @@ class JobResources:
             # """The path to a file containing the currently loaded mapping from cluster representatives to members"""
         else:
             self.cluster = False
+
+        if self.module in [flags.select_designs, flags.select_sequences]:
+            if self.prefix == '':
+                # self.location must be set...
+                self.prefix = f'{os.path.basename(os.path.splitext(self.location)[0])}_'
+            if not self.output_to_directory:
+                self.output_directory = \
+                    os.path.join(os.path.dirname(self.program_root), f'{self.prefix}SelectedDesigns{self.suffix}')
+
+    @property
+    def output_to_directory(self) -> bool:
+        """Set so it is known that output is not typical SymDesignOutput directory structure"""
+        # self.output_to_directory: bool = True if self.output_directory else False
+        return True if self.output_directory else False
+
+    @property
+    def output_directory(self) -> AnyStr:
+        """Where to output the Job"""
+        try:
+            return self._output_directory
+        except AttributeError:
+            self._output_directory = None
+            return self._output_directory
+
+    @output_directory.setter
+    def output_directory(self, output_directory: str):
+        """Where to output the Job"""
+        self._output_directory = f'{self.prefix}{output_directory}{self.suffix}'
 
     @property
     def construct_pose(self):
