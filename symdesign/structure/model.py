@@ -7231,8 +7231,10 @@ class Pose(SymmetricModel):
             self.find_and_split_interface(**kwargs)
 
         for entity in self.active_entities:
-            self.log.debug(f'Querying Entity: {entity} for internal fragments')
-            ghostfrag_surfacefrag_pairs = entity.find_fragments()
+            self.log.info(f'Querying Entity: {entity} for internal fragments')
+            search_start_time = time.time()
+            ghostfrag_surfacefrag_pairs = entity.find_fragments(**kwargs)
+            self.log.info(f'Internal fragment search took {time.time() - search_start_time:8f}s')
             self.fragment_queries[(entity, entity)] = get_matching_fragment_pairs_info(ghostfrag_surfacefrag_pairs)
             # Add newly found fragment pairs to the existing fragment observations
             self.fragment_pairs.extend(ghostfrag_surfacefrag_pairs)

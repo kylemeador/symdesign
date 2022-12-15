@@ -1171,13 +1171,14 @@ class ContainsAtomsMixin(StructureBase, ABC):
         """
         parent_coords = self._coords.coords
         atom_indices = self.atom_indices
+        # coords = self.coords
         coords = parent_coords[atom_indices]
-        coords_balltree = BallTree(coords)
-        # Create a mask for the coordinates in the ContainsAtomsMixin
-        not_self_coords_mask = np.ones_like(parent_coords, dtype=bool)
-        not_self_coords_mask[atom_indices] = False
-        not_self_coords = parent_coords[not_self_coords_mask]
-        query = coords_balltree.query_radius(not_self_coords, distance)
+        # Create a modified self_coords for the coordinates in the ContainsAtomsMixin
+        modified_self_coords = parent_coords.copy()
+        modified_self_coords[atom_indices] = parent_coords.max(axis=0) + [1000, 1000, 1000]  # [-1000, 1000, 3000]
+        modified_coords_balltree = BallTree(modified_self_coords)
+        # Query for neighbors of the self coordinates but excluding the self indices
+        query = modified_coords_balltree.query_radius(coords, distance)
 
         return np.unique(np.concatenate(query)).tolist()
         # return np.unique(np.concatenate(query))
@@ -4671,12 +4672,19 @@ class Structure(ContainsAtomsMixin):  # Todo Polymer?
         self.log.info(f'Found {len(frag_residues)} fragments on {self.name}')
         # backbone_and_cb_coords = self.backbone_and_cb_coords
         # coords_indexed_residues = self.coords_indexed_residues
+        frag_residue_indices = [residue.index for residue in frag_residues]
         all_fragment_pairs = []
         for frag_residue in frag_residues:
             # frag_neighbors = frag_residue.get_residue_neighbors(**kwargs)
-            frag_neighbors = self.get_residues_by_atom_indices(frag_residue.neighboring_atom_indices(**kwargs))
-            all_fragment_pairs.extend(fragment.find_fragment_overlap([frag_residue], frag_neighbors), **kwargs)
-            #                                                          clash_coords=backbone_and_cb_coords))
+            neighbors = self.get_residues_by_atom_indices(frag_residue.neighboring_atom_indices(**kwargs))
+            # THIS GETS NON-SELF FRAGMENTS TOO
+            # frag_neighbors = [residue for residue in neighbors if residue.frag_type]
+            # if not frag_neighbors:
+            #     continue
+            frag_neighbors = [residue for residue in neighbors if residue.index in frag_residue_indices]
+            if not frag_neighbors:
+                continue
+            all_fragment_pairs.extend(fragment.find_fragment_overlap([frag_residue], frag_neighbors, **kwargs))
 
         self.log.debug(f'Took {time.time() - fragment_time_start:.8f}s')
         return all_fragment_pairs
