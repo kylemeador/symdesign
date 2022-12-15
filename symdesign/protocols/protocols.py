@@ -54,6 +54,30 @@ null_cmd = ['echo']
 warn_missing_symmetry = \
     f'Cannot %s without providing symmetry! Provide symmetry with "--symmetry" or "--{putils.sym_entry}"'
 
+# Decorator static methods: These must be declared above their usage, but made static after each declaration
+def close_logs(func: Callable):
+    """Wrap a function/method to close the functions first arguments .log attribute FileHandlers after use"""
+    @functools.wraps(func)
+    def wrapped(self, *args, **kwargs):
+        func_return = func(self, *args, **kwargs)
+        # adapted from https://stackoverflow.com/questions/15435652/python-does-not-release-filehandles-to-logfile
+        for handler in self.log.handlers:
+            handler.close()
+        return func_return
+    return wrapped
+
+
+def remove_structure_memory(func):
+    """Decorator to remove large memory attributes from the instance after processing is complete"""
+    @functools.wraps(func)
+    def wrapped(self, *args, **kwargs):
+        func_return = func(self, *args, **kwargs)
+        if self.job.reduce_memory:
+            self.pose = None
+            self.entities.clear()
+        return func_return
+    return wrapped
+
 
 def handle_design_errors(errors: tuple[Type[Exception], ...] = (Exception,)) -> Callable:
     """Wrap a function/method with try: except errors: and log exceptions to the functions first argument .log attribute
@@ -77,30 +101,7 @@ def handle_design_errors(errors: tuple[Type[Exception], ...] = (Exception,)) -> 
     return wrapper
 
 
-def close_logs(func: Callable):
-    """Wrap a function/method to close the functions first arguments .log attribute FileHandlers after use"""
-    @functools.wraps(func)
-    def wrapped(self, *args, **kwargs):
-        func_return = func(self, *args, **kwargs)
-        # adapted from https://stackoverflow.com/questions/15435652/python-does-not-release-filehandles-to-logfile
-        for handler in self.log.handlers:
-            handler.close()
-        return func_return
-    return wrapped
-
-
 class PoseProtocol:
-    # Decorator static methods: These must be declared above their usage, but made static after each declaration
-    def remove_structure_memory(func):
-        """Decorator to remove large memory attributes from the instance after processing is complete"""
-        @functools.wraps(func)
-        def wrapped(self, *args, **kwargs):
-            func_return = func(self, *args, **kwargs)
-            if self.job.reduce_memory:
-                self.pose = None
-                self.entities.clear()
-            return func_return
-        return wrapped
 
     @close_logs
     @remove_structure_memory
@@ -879,7 +880,7 @@ class PoseProtocol:
 
     # handle_design_errors = staticmethod(handle_design_errors)
     # close_logs = staticmethod(close_logs)
-    remove_structure_memory = staticmethod(remove_structure_memory)
+    # remove_structure_memory = staticmethod(remove_structure_memory)
 
 
 # class PoseDirectory:
@@ -2066,6 +2067,9 @@ class PoseDirectory(PoseProtocol):
             pre_threaded_file = os.path.join(self.data, f'{sequence_id}.pdb')
             design_files.append(self.pose.write(out_path=pre_threaded_file))
 
+        # Ensure that mutations to the Pose are wiped. We can reload if continuing to use
+        remove_structure_memory()  # self.pose = None
+
         design_files_file = os.path.join(self.scripts, f'files_{self.protocol}.txt')
         putils.make_path(self.scripts)
 
@@ -2225,6 +2229,8 @@ class PoseDirectory(PoseProtocol):
 
         # ANALYSIS: each output from the Design process based on score, Analyze Sequence Variation
         if not self.job.distribute_work:
+            # Ensure that mutations to the Pose are wiped. We can reload if continuing to use
+            remove_structure_memory()  # self.pose = None
             pose_s = self._interface_design_analysis()
             out_path = os.path.join(self.job.all_scores, putils.default_analysis_file.format(starttime, 'All'))
             if os.path.exists(out_path):
