@@ -2575,25 +2575,11 @@ class PoseDirectory(PoseProtocol):
             # Add pose metrics
             interface_metrics[design_id] = pose_interface_metrics
 
-            # if self.job.design.sequences:
-            # _per_residue_design_indices = per_residue_design_indices[idx]
-            # _numeric_sequence = numeric_sequences[idx]
-            # _per_residue_complex_sequence_loss = per_residue_complex_sequence_loss[idx]
-            # _per_residue_unbound_sequence_loss = per_residue_unbound_sequence_loss[idx]
-
-            # for temp_idx, design_idx in enumerate(range(idx * number_of_temperatures,
-            #                                             (idx+1) * number_of_temperatures)):
-            # pose_id = design_ids[design_idx]
-                if self.job.design.structures:
-                    # Todo use the template protocol from protocols.py
-                    #  if self.job.design.alphafold:
-                    #      self.pose.predict_structure()
-                    #  else:
-                    #      self.pose.refine()
-                    interface_local_density[design_id] = self.pose.local_density_interface()
-                    per_res_interface_metrics = self.pose.get_per_residue_interface_metrics()
-                else:
-                    per_res_interface_metrics = {}
+            # if self.job.design.structures:
+            #     interface_local_density[design_id] = self.pose.local_density_interface()
+            #     per_res_interface_metrics = self.pose.get_per_residue_interface_metrics()
+            # else:
+            #     per_res_interface_metrics = {}
             # For each Pose, save each sequence design data such as energy # probabilites
             # all_probabilities[design_id] = probabilities[idx]
             # Todo process the all_probabilities to a DataFrame?
@@ -2801,10 +2787,10 @@ class PoseDirectory(PoseProtocol):
                 / scores_df[f'entity{idx}_number_of_residues']
         per_residue_df = per_residue_df.join([per_residue_background_frequencies, per_residue_collapse_df])
         #                                       per_residue_sequence_df
-        # if self.job.design.structures:
-        #     scores_df['interface_local_density'] = pd.Series(interface_local_density)
-        #     # Make buried surface area (bsa) columns, and residue classification
-        #     per_residue_df = metrics.calculate_residue_surface_area(per_residue_df)  # .loc[:, idx_slice[index_residues, :]])
+        #  if self.job.design.structures:
+        #      scores_df['interface_local_density'] = pd.Series(interface_local_density)
+        #      # Make buried surface area (bsa) columns, and residue classification
+        #      per_residue_df = metrics.calculate_residue_surface_area(per_residue_df)  # .loc[:, idx_slice[index_residues, :]])
 
         # Calculate new metrics from combinations of other metrics
         # Add design residue information to scores_df such as how many core, rim, and support residues were measured
@@ -3513,11 +3499,11 @@ class PoseDirectory(PoseProtocol):
         # scores_df['interface_local_density'] = \
         #     per_residue_df.loc[:, idx_slice[self.interface_residue_numbers, 'local_density']].mean(axis=1)
 
-        if self.job.design.structures:
-            scores_df['interface_local_density'] = pd.Series(interface_local_density)
-            # Make buried surface area (bsa) columns, and residue classification
-            per_residue_df = metrics.calculate_residue_surface_area(per_residue_df)
-            #                                                                     .loc[:, idx_slice[index_residues, :]])
+        # if self.job.design.structures:
+        #     scores_df['interface_local_density'] = pd.Series(interface_local_density)
+        #     # Make buried surface area (bsa) columns, and residue classification
+        #     per_residue_df = metrics.calculate_residue_surface_area(per_residue_df)
+        #     #                                                                     .loc[:, idx_slice[index_residues, :]])
 
         # Calculate new metrics from combinations of other metrics
         # Add design residue information to scores_df such as how many core, rim, and support residues were measured
@@ -3544,29 +3530,29 @@ class PoseDirectory(PoseProtocol):
             scores_df['collapse_sequential_z_mean'] = \
                 scores_df['collapse_sequential_z'] / total_increased_collapse
 
-        if self.job.design.structures:
-            scores_df['interface_area_total'] = bsa_assembly_df = \
-                scores_df['interface_area_polar'] + scores_df['interface_area_hydrophobic']
-            # Find the proportion of the residue surface area that is solvent accessible versus buried in the interface
-            scores_df['interface_area_to_residue_surface_ratio'] = \
-                (bsa_assembly_df / (bsa_assembly_df+scores_df['sasa_total_complex']))  # / scores_df['total_interface_residues']
-
-            # scores_df['interface_area_polar'] = per_residue_df.loc[:, idx_slice[index_residues, 'bsa_polar']].sum(axis=1)
-            # scores_df['interface_area_hydrophobic'] = \
-            #     per_residue_df.loc[:, idx_slice[index_residues, 'bsa_hydrophobic']].sum(axis=1)
-            # # scores_df['interface_area_total'] = \
-            # #     per_residue_df.loc[not_pose_source_indices, idx_slice[index_residues, 'bsa_total']].sum(axis=1)
-            # scores_df['interface_area_total'] = scores_df['interface_area_polar'] + scores_df['interface_area_hydrophobic']
-            #
-            # Make scores_df errat_deviation that takes into account the pose_source sequence errat_deviation
-            # This overwrites the metrics.sum_per_residue_metrics() value
-            # Include in errat_deviation if errat score is < 2 std devs and isn't 0 to begin with
-            source_errat_inclusion_boolean = np.logical_and(pose_source_errat_s < metrics.errat_2_sigma, pose_source_errat_s != 0.)
-            errat_df = per_residue_df.loc[:, idx_slice[:, 'errat_deviation']].droplevel(-1, axis=1)
-            # find where designs deviate above wild-type errat scores
-            errat_sig_df = errat_df.sub(pose_source_errat_s, axis=1) > metrics.errat_1_sigma  # axis=1 Series is column oriented
-            # then select only those residues which are expressly important by the inclusion boolean
-            scores_df['errat_deviation'] = (errat_sig_df.loc[:, source_errat_inclusion_boolean] * 1).sum(axis=1)
+        # if self.job.design.structures:
+        #     scores_df['interface_area_total'] = bsa_assembly_df = \
+        #         scores_df['interface_area_polar'] + scores_df['interface_area_hydrophobic']
+        #     # Find the proportion of the residue surface area that is solvent accessible versus buried in the interface
+        #     scores_df['interface_area_to_residue_surface_ratio'] = \
+        #         (bsa_assembly_df / (bsa_assembly_df+scores_df['sasa_total_complex']))  # / scores_df['total_interface_residues']
+        #
+        #     # scores_df['interface_area_polar'] = per_residue_df.loc[:, idx_slice[index_residues, 'bsa_polar']].sum(axis=1)
+        #     # scores_df['interface_area_hydrophobic'] = \
+        #     #     per_residue_df.loc[:, idx_slice[index_residues, 'bsa_hydrophobic']].sum(axis=1)
+        #     # # scores_df['interface_area_total'] = \
+        #     # #     per_residue_df.loc[not_pose_source_indices, idx_slice[index_residues, 'bsa_total']].sum(axis=1)
+        #     # scores_df['interface_area_total'] = scores_df['interface_area_polar'] + scores_df['interface_area_hydrophobic']
+        #     #
+        #     # Make scores_df errat_deviation that takes into account the pose_source sequence errat_deviation
+        #     # This overwrites the metrics.sum_per_residue_metrics() value
+        #     # Include in errat_deviation if errat score is < 2 std devs and isn't 0 to begin with
+        #     source_errat_inclusion_boolean = np.logical_and(pose_source_errat_s < metrics.errat_2_sigma, pose_source_errat_s != 0.)
+        #     errat_df = per_residue_df.loc[:, idx_slice[:, 'errat_deviation']].droplevel(-1, axis=1)
+        #     # find where designs deviate above wild-type errat scores
+        #     errat_sig_df = errat_df.sub(pose_source_errat_s, axis=1) > metrics.errat_1_sigma  # axis=1 Series is column oriented
+        #     # then select only those residues which are expressly important by the inclusion boolean
+        #     scores_df['errat_deviation'] = (errat_sig_df.loc[:, source_errat_inclusion_boolean] * 1).sum(axis=1)
 
         scores_drop_columns = ['hydrophobic_collapse', 'sasa_relative_bound', 'sasa_relative_complex']
         scores_df = scores_df.drop(scores_drop_columns, errors='ignore', axis=1)
