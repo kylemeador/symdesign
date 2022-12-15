@@ -72,7 +72,6 @@ def handle_design_errors(errors: tuple[Type[Exception], ...] = (Exception,)) -> 
                 return func(self, *args, **kwargs)
             except errors as error:
                 self.log.error(error)  # Allows exception reporting using self.log
-                # self.info['error'] = error  # Todo? include the error code in the design state
                 return error
         return wrapped
     return wrapper
@@ -91,10 +90,800 @@ def close_logs(func: Callable):
 
 
 class PoseProtocol:
-    pass  # Todo. Put in methods that are useful on a pose, not necessarily attributes, not path resources
+    # Decorator static methods: These must be declared above their usage, but made static after each declaration
+    def remove_structure_memory(func):
+        """Decorator to remove large memory attributes from the instance after processing is complete"""
+        @functools.wraps(func)
+        def wrapped(self, *args, **kwargs):
+            func_return = func(self, *args, **kwargs)
+            if self.job.reduce_memory:
+                self.pose = None
+                self.entities.clear()
+            return func_return
+        return wrapped
+
+    @close_logs
+    @remove_structure_memory
+    @handle_design_errors(errors=(DesignError,))
+    def predict_structure(self: PoseDirectory):
+        """From a sequence input, predict the structure using one of various structure prediction pipelines"""
+        self._predict_structure()
+
+    @close_logs
+    @remove_structure_memory
+    @handle_design_errors(errors=(DesignError,))
+    def custom_rosetta_script(self: PoseDirectory, script, file_list=None, native=None, suffix=None,
+                              score_only=None, variables=None, **kwargs):
+        """Generate a custom script to dispatch to the design using a variety of parameters"""
+        raise DesignError('This module is outdated, please update it to use')  # Todo reflect modern metrics collection
+        cmd = copy(rosetta.script_cmd)
+        script_name = os.path.splitext(os.path.basename(script))[0]
+        # if self.interface_residue_numbers is False or self.interface_design_residue_numbers is False:
+        self.identify_interface()
+        # else:  # We only need to load pose as we already calculated interface
+        #     self.load_pose()
+
+        if not os.path.exists(self.flags) or self.job.force:
+            self.prepare_rosetta_flags(out_dir=self.scripts)
+            self.log.debug(f'Pose flags written to: {self.flags}')
+
+        cmd += ['-symmetry_definition', 'CRYST1'] if self.design_dimension > 0 else []
+
+        if file_list:
+            pdb_input = os.path.join(self.scripts, 'design_files.txt')
+            generate_files_cmd = ['python', putils.list_pdb_files, '-d', self.designs, '-o', pdb_input]
+        else:
+            pdb_input = self.refined_pdb
+            generate_files_cmd = []  # empty command
+
+        if native:
+            native = getattr(self, native, 'refined_pdb')
+        else:
+            native = self.refined_pdb
+
+        # if isinstance(suffix, str):
+        #     suffix = ['-out:suffix', '_%s' % suffix]
+        # if isinstance(suffix, bool):
+        if suffix:
+            suffix = ['-out:suffix', f'_{script_name}']
+        else:
+            suffix = []
+
+        if score_only:
+            score = ['-out:file:score_only', self.scores_file]
+        else:
+            score = []
+
+        if self.job.design.number_of_trajectories:
+            trajectories = ['-nstruct', str(self.job.design.number_of_trajectories)]
+        else:
+            trajectories = ['-no_nstruct_label true']
+
+        if variables:
+            for idx, var_val in enumerate(variables):
+                variable, value = var_val.split('=')
+                variables[idx] = '%s=%s' % (variable, getattr(self.pose, value, ''))
+            variables = ['-parser:script_vars'] + variables
+        else:
+            variables = []
+
+        cmd += [f'@{flags_file}', f'-in:file:{"l" if file_list else "s"}', pdb_input, '-in:file:native', native] \
+            + score + suffix + trajectories + ['-parser:protocol', script] + variables
+        if self.job.mpi > 0:
+            cmd = rosetta.run_cmds[putils.rosetta_extras] + [str(self.job.mpi)] + cmd
+
+        if self.job.distribute_work:
+            write_shell_script(list2cmdline(generate_files_cmd), name=script_name, out_path=self.scripts,
+                               additional=[list2cmdline(cmd)])
+        else:
+            raise NotImplementedError('Need to implement this feature')
+
+        # Todo  + [list2cmdline(analysis_cmd)])
+        #  analysis_cmd = ['python', putils.program_exe, putils.analysis, '--single', self.path, '--no-output',
+        #                 f'--{flags.output_file}', os.path.join(self.job.all_scores, putils.default_analysis_file
+        #                                                        .format(starttime, self.protocol))]
+
+        # ANALYSIS: each output from the Design process based on score, Analyze Sequence Variation
+        if not self.job.distribute_work:
+            pose_s = self._interface_design_analysis()
+            out_path = os.path.join(self.job.all_scores, putils.default_analysis_file.format(starttime, 'All'))
+            if os.path.exists(out_path):
+                header = False
+            else:
+                header = True
+            pose_s.to_csv(out_path, mode='a', header=header)
+
+    @close_logs
+    @remove_structure_memory
+    @handle_design_errors(errors=(DesignError,))
+    def interface_metrics(self: PoseDirectory):
+        """Generate a script capable of running Rosetta interface metrics analysis on the bound and unbound states"""
+        # metrics_flags = 'repack=yes'
+        self.protocol = putils.interface_metrics
+        main_cmd = copy(rosetta.script_cmd)
+        # if self.interface_residue_numbers is False or self.interface_design_residue_numbers is False:
+        self.identify_interface()
+        # else:  # We only need to load pose as we already calculated interface
+        #     self.load_pose()
+
+        # interface_secondary_structure
+        if not os.path.exists(self.flags) or self.job.force:
+            self.prepare_rosetta_flags(out_dir=self.scripts)
+            self.log.debug(f'Pose flags written to: {self.flags}')
+
+        design_files = \
+            os.path.join(self.scripts, f'design_files'
+                                       f'{f"_{self.job.specific_protocol}" if self.job.specific_protocol else ""}.txt')
+        generate_files_cmd = ['python', putils.list_pdb_files, '-d', self.designs, '-o', design_files] + \
+            (['-s', self.job.specific_protocol] if self.job.specific_protocol else [])
+        main_cmd += [f'@{self.flags}', '-in:file:l', design_files,
+                     # TODO out:file:score_only file is not respected if out:path:score_file given
+                     #  -run:score_only true?
+                     '-out:file:score_only', self.scores_file, '-no_nstruct_label', 'true', '-parser:protocol']
+        #              '-in:file:native', self.refined_pdb,
+        if self.job.mpi > 0:
+            main_cmd = rosetta.run_cmds[putils.rosetta_extras] + [str(self.job.mpi)] + main_cmd
+
+        metric_cmd_bound = main_cmd + (['-symmetry_definition', 'CRYST1'] if self.design_dimension > 0 else []) + \
+            [os.path.join(putils.rosetta_scripts_dir, f'{self.protocol}{"_DEV" if self.job.development else ""}.xml')]
+        entity_cmd = main_cmd + [os.path.join(putils.rosetta_scripts_dir,
+                                              f'metrics_entity{"_DEV" if self.job.development else ""}.xml')]
+        metric_cmds = [metric_cmd_bound]
+        metric_cmds.extend(self.generate_entity_metrics(entity_cmd))
+
+        # Create executable to gather interface Metrics on all Designs
+        if self.job.distribute_work:
+            analysis_cmd = ['python', putils.program_exe, putils.analysis, '--single', self.path, '--no-output',
+                            f'--{flags.output_file}', os.path.join(self.job.all_scores, putils.default_analysis_file
+                                                                   .format(starttime, self.protocol))]
+            write_shell_script(list2cmdline(generate_files_cmd), name=putils.interface_metrics, out_path=self.scripts,
+                               additional=[list2cmdline(command) for command in metric_cmds] +
+                                          [list2cmdline(analysis_cmd)])
+        else:
+            list_all_files_process = Popen(generate_files_cmd)
+            list_all_files_process.communicate()
+            for metric_cmd in metric_cmds:
+                metrics_process = Popen(metric_cmd)
+                metrics_process.communicate()  # wait for command to complete
+
+        # ANALYSIS: each output from the Design process based on score, Analyze Sequence Variation
+        if not self.job.distribute_work:
+            pose_s = self._interface_design_analysis()
+            out_path = os.path.join(self.job.all_scores, putils.default_analysis_file.format(starttime, 'All'))
+            if os.path.exists(out_path):
+                header = False
+            else:
+                header = True
+            pose_s.to_csv(out_path, mode='a', header=header)
+
+    @close_logs
+    @remove_structure_memory
+    @handle_design_errors(errors=(DesignError,))
+    def check_unmodelled_clashes(self: PoseDirectory, clashing_threshold: float = 0.75):
+        """Given a multimodel file, measure the number of clashes is less than a percentage threshold"""
+        raise DesignError('This module is not working correctly at the moment')
+        models = [Models.from_PDB(self.job.structure_db.full_models.retrieve_data(name=entity), log=self.log)
+                  for entity in self.entity_names]
+        # models = [Models.from_file(self.job.structure_db.full_models.retrieve_data(name=entity))
+        #           for entity in self.entity_names]
+
+        # for each model, transform to the correct space
+        models = self.transform_structures_to_pose(models)
+        multimodel = MultiModel.from_models(models, independent=True, log=self.log)
+
+        clashes = 0
+        prior_clashes = 0
+        for idx, state in enumerate(multimodel, 1):
+            clashes += (1 if state.is_clash() else 0)
+            state.write(out_path=os.path.join(self.path, f'state_{idx}.pdb'))
+            print(f'State {idx} - Clashes: {"YES" if clashes > prior_clashes else "NO"}')
+            prior_clashes = clashes
+
+        if clashes / float(len(multimodel)) > clashing_threshold:
+            raise DesignError(f'The frequency of clashes ({clashes / float(len(multimodel))}) exceeds the clashing '
+                              f'threshold ({clashing_threshold})')
+
+    @close_logs
+    @remove_structure_memory
+    @handle_design_errors(errors=(DesignError,))
+    def check_clashes(self: PoseDirectory):
+        """Check for clashes in the input and in the symmetric assembly if symmetric"""
+        self.load_pose()
+
+    @close_logs
+    @remove_structure_memory
+    @handle_design_errors(errors=(DesignError,))
+    def rename_chains(self: PoseDirectory):
+        """Standardize the chain names in incremental order found in the design source file"""
+        model = Model.from_file(self.source, log=self.log)
+        model.rename_chains()
+        model.write(out_path=self.asu_path)
+
+    @close_logs
+    @remove_structure_memory
+    @handle_design_errors(errors=(DesignError, RuntimeError))  # Remove RuntimeError from .orient()
+    def orient(self: PoseDirectory, to_pose_directory: bool = True):
+        """Orient the Pose with the prescribed symmetry at the origin and symmetry axes in canonical orientations
+        self.symmetry is used to specify the orientation
+        """
+        if self.initial_model:
+            model = self.initial_model
+        else:
+            model = Model.from_file(self.source, log=self.log)
+
+        if self.design_symmetry:
+            if to_pose_directory:
+                out_path = self.assembly_path
+            else:
+                out_path = os.path.join(self.job.orient_dir, f'{model.name}.pdb')
+
+            model.orient(symmetry=self.design_symmetry)
+
+            orient_file = model.write(out_path=out_path)
+            self.log.info(f'The oriented file was saved to {orient_file}')
+            for entity in model.entities:
+                entity.remove_mate_chains()
+                self.entity_names.append(entity.name)
+
+            # Load the pose and save the asu
+            self.initial_model = model
+            self.load_pose()  # entities=model.entities)
+        else:
+            raise SymmetryError(warn_missing_symmetry % self.orient.__name__)
+
+    @close_logs
+    @remove_structure_memory
+    @handle_design_errors(errors=(DesignError,))
+    def refine(self: PoseDirectory):
+        """Refine the source Pose"""
+        self._refine()
+
+    @close_logs
+    @remove_structure_memory
+    @handle_design_errors(errors=(DesignError,))
+    def find_asu(self: PoseDirectory):
+        """From a PDB with multiple Chains from multiple Entities, return the minimal configuration of Entities.
+        ASU will only be a true ASU if the starting PDB contains a symmetric system, otherwise all manipulations find
+        the minimal unit of Entities that are in contact
+        """
+        # Check if the symmetry is known, otherwise this wouldn't work without the old, "symmetry-less", protocol
+        if self.is_symmetric():
+            if os.path.exists(self.assembly_path):
+                self.load_pose(source=self.assembly_path)
+            else:
+                self.load_pose()
+        else:
+            raise NotImplementedError('Not sure if asu format matches pose.get_contacting_asu standard with no symmetry'
+                                      '. This might cause issues')
+            # Todo ensure asu format matches pose.get_contacting_asu standard
+            # pdb = Model.from_file(self.source, log=self.log)
+            # asu = pdb.return_asu()
+            self.load_pose()
+            # asu.update_attributes_from_pdb(pdb)
+
+        # Save the Pose.asu
+        self.save_asu()
+
+    @close_logs
+    @remove_structure_memory
+    @handle_design_errors(errors=(DesignError,))
+    def expand_asu(self: PoseDirectory):
+        """For the design info given by a PoseDirectory source, initialize the Pose with self.source file,
+        self.symmetry, and self.log objects then expand the design given the provided symmetry operators and write to a
+        file
+
+        Reports on clash testing
+        """
+        if self.is_symmetric():
+            self.load_pose()
+        else:
+            raise SymmetryError(warn_missing_symmetry % self.expand_asu.__name__)
+        self.pickle_info()  # Todo remove once PoseDirectory state can be returned to the SymDesign dispatch w/ MP
+
+    @close_logs
+    @remove_structure_memory
+    @handle_design_errors(errors=(DesignError,))
+    def generate_fragments(self: PoseDirectory):
+        """For the design info given by a PoseDirectory source, initialize the Pose then generate interfacial fragment
+        information between Entities. Aware of symmetry and design_selectors in fragment generation file
+        """
+        # if self.interface_residue_numbers is False or self.interface_design_residue_numbers is False:
+        self.identify_interface()
+        # else:  # We only need to load pose as we already calculated interface
+        #     self.load_pose()
+
+        putils.make_path(self.frags, condition=self.job.write_fragments)
+        self.pose.generate_fragments()
+        if self.job.write_fragments:
+            # Write trajectory if specified
+            if self.job.write_trajectory:
+                # Create a Models instance to collect each model
+                trajectory_models = Models()
+
+                if self.sym_entry.unit_cell:
+                    logger.warning('No unit cell dimensions applicable to the trajectory file.')
+
+                trajectory_models.write(out_path=os.path.join(self.frags, 'all_frags.pdb'),
+                                        oligomer=True)
+
+                ghost_frags = [ghost_frag for ghost_frag, _, _ in self.pose.fragment_pairs]
+                fragment.visuals.write_fragments_as_multimodel(ghost_frags, os.path.join(self.frags, 'all_frags.pdb'))
+                # for frag_idx, (ghost_frag, frag, match) in enumerate(self.pose.fragment_pairs):
+                #     continue
+            else:
+                self.pose.write_fragment_pairs(out_path=self.frags)
+
+        self.fragment_observations = self.pose.get_fragment_observations()
+        self.info['fragment_source'] = self.job.fragment_db.source
+        self.pickle_info()  # Todo remove once PoseDirectory state can be returned to the SymDesign dispatch w/ MP
+
+    @close_logs
+    @remove_structure_memory
+    @handle_design_errors(errors=(DesignError,))
+    def interface_design(self: PoseDirectory):
+        """For the design info given by a PoseDirectory source, initialize the Pose then prepare all parameters for
+        interfacial redesign between Pose Entities. Aware of symmetry, design_selectors, fragments, and
+        evolutionary information in interface design
+        """
+        # if self.job.command_only and not self.job.distribute_work:  # Just reissue the commands
+        #     pass
+        # else:
+        # if self.interface_residue_numbers is False or self.interface_design_residue_numbers is False:
+        self.identify_interface()
+        # else:  # We only need to load pose as we already calculated interface
+        #     self.load_pose()
+
+        putils.make_path(self.data)  # Todo consolidate this check with pickle_info()
+        # Create all files which store the evolutionary_profile and/or fragment_profile -> design_profile
+        if self.job.design.method == putils.rosetta_str:
+            favor_fragments = evo_fill = True
+        else:
+            favor_fragments = evo_fill = False
+
+        if self.job.generate_fragments:
+            self.pose.generate_interface_fragments()
+            self.fragment_observations = self.pose.get_fragment_observations()
+            self.info['fragment_source'] = self.job.fragment_db.source
+            if self.job.write_fragments:
+                self.pose.write_fragment_pairs(out_path=self.frags)
+            self.pose.calculate_fragment_profile(evo_fill=evo_fill)
+        elif isinstance(self.fragment_observations, list):
+            raise NotImplementedError(f"Can't put fragment observations taken away from the pose onto the pose due to "
+                                      f"entities")
+            self.pose.fragment_pairs = self.fragment_observations
+            self.pose.calculate_fragment_profile(evo_fill=evo_fill)
+
+        # elif os.path.exists(self.frag_file):
+        #     self.retrieve_fragment_info_from_file()
+
+        if self.job.design.evolution_constraint:
+            for entity in self.pose.entities:
+                if entity not in self.pose.active_entities:  # We shouldn't design, add a null profile instead
+                    entity.add_profile(null=True)
+                else:  # Add a real profile
+                    # entity.add_profile(evolution=self.job.design.evolution_constraint,
+                    #                    fragments=self.job.generate_fragments,
+                    #                    out_dir=self.job.api_db.hhblits_profiles.location)
+                    entity.sequence_file = self.job.api_db.sequences.retrieve_file(name=entity.name)
+                    entity.evolutionary_profile = self.job.api_db.hhblits_profiles.retrieve_data(name=entity.name)
+                    if not entity.evolutionary_profile:
+                        entity.add_evolutionary_profile(out_dir=self.job.api_db.hhblits_profiles.location)
+                    else:  # ensure the file is attached as well
+                        entity.pssm_file = self.job.api_db.hhblits_profiles.retrieve_file(name=entity.name)
+
+                    if not entity.pssm_file:  # still no file found. this is likely broken
+                        raise DesignError(f'{entity.name} has no profile generated. To proceed with this design/'
+                                          f'protocol you must generate the profile!')
+
+                    if not entity.verify_evolutionary_profile():
+                        entity.fit_evolutionary_profile_to_structure()
+
+                    if not entity.sequence_file:
+                        entity.write_sequence_to_fasta('reference', out_dir=self.job.api_db.sequences.location)
+
+            self.pose.evolutionary_profile = \
+                concatenate_profile([entity.evolutionary_profile for entity in self.pose.entities])
+
+        # self.pose.combine_sequence_profiles()
+        # I could also add the combined profile here instead of at each Entity
+        self.pose.add_profile(evolution=self.job.design.evolution_constraint,
+                              fragments=self.job.generate_fragments, favor_fragments=favor_fragments,
+                              out_dir=self.job.api_db.hhblits_profiles.location)
+
+        # -------------------------------------------------------------------------
+        # Todo self.solve_consensus()
+        # -------------------------------------------------------------------------
+
+        if not self.pre_refine and not os.path.exists(self.refined_pdb):
+            self._refine(metrics=False)
+
+        putils.make_path(self.designs)
+        # putils.make_path(self.data)  # Used above
+        match self.job.design.method:
+            case putils.rosetta_str:
+                # Write generated files
+                self.pose.pssm_file = \
+                    write_pssm_file(self.pose.evolutionary_profile, file_name=self.evolutionary_profile_file)
+                write_pssm_file(self.pose.profile, file_name=self.design_profile_file)
+                self.pose.fragment_profile.write(file_name=self.fragment_profile_file)
+                self.rosetta_interface_design()  # Sets self.protocol
+            case putils.proteinmpnn:
+                self.proteinmpnn_design(interface=True)  # Sets self.protocol
+            case other:
+                raise ValueError(f"The method '{self.job.design.method}' isn't available")
+        self.pickle_info()  # Todo remove once PoseDirectory state can be returned to the SymDesign dispatch w/ MP
+
+    @close_logs
+    @remove_structure_memory
+    @handle_design_errors(errors=(DesignError,))
+    def design(self: PoseDirectory):
+        """For the design info given by a PoseDirectory source, initialize the Pose then prepare all parameters for
+        sequence design. Aware of symmetry, design_selectors, fragments, and evolutionary information
+        """
+        # if self.job.command_only and not self.job.distribute_work:  # Just reissue the commands
+        #     pass
+        # else:
+        # if self.interface_residue_numbers is False or self.interface_design_residue_numbers is False:
+        #     self.identify_interface()
+        # else:  # We only need to load pose as we already calculated interface
+        self.load_pose()
+
+        putils.make_path(self.data)  # Todo consolidate this check with pickle_info()
+        # Create all files which store the evolutionary_profile and/or fragment_profile -> design_profile
+        if self.job.design.method == putils.rosetta_str:
+            raise NotImplementedError(f"Can't perform design using Rosetta just yet. Try {flags.interface_design}...")
+            favor_fragments = evo_fill = True
+        else:
+            favor_fragments = evo_fill = False
+
+        if self.job.generate_fragments:
+            # Todo
+            self.pose.generate_fragments()
+            # self.pose.generate_interface_fragments()
+            self.fragment_observations = self.pose.get_fragment_observations()
+            self.info['fragment_source'] = self.job.fragment_db.source
+            if self.job.write_fragments:
+                self.pose.write_fragment_pairs(out_path=self.frags)
+            self.pose.calculate_fragment_profile(evo_fill=evo_fill)
+        elif isinstance(self.fragment_observations, list):
+            raise NotImplementedError(f"Can't put fragment observations taken away from the pose onto the pose due to "
+                                      f"entities")
+            self.pose.fragment_pairs = self.fragment_observations
+            self.pose.calculate_fragment_profile(evo_fill=evo_fill)
+
+        # elif os.path.exists(self.frag_file):
+        #     self.retrieve_fragment_info_from_file()
+
+        if self.job.design.evolution_constraint:
+            for entity in self.pose.entities:
+                if entity not in self.pose.active_entities:  # We shouldn't design, add a null profile instead
+                    entity.add_profile(null=True)
+                else:  # Add a real profile
+                    # entity.add_profile(evolution=self.job.design.evolution_constraint,
+                    #                    fragments=self.job.generate_fragments,
+                    #                    out_dir=self.job.api_db.hhblits_profiles.location)
+                    entity.sequence_file = self.job.api_db.sequences.retrieve_file(name=entity.name)
+                    entity.evolutionary_profile = self.job.api_db.hhblits_profiles.retrieve_data(name=entity.name)
+                    if not entity.evolutionary_profile:
+                        entity.add_evolutionary_profile(out_dir=self.job.api_db.hhblits_profiles.location)
+                    else:  # ensure the file is attached as well
+                        entity.pssm_file = self.job.api_db.hhblits_profiles.retrieve_file(name=entity.name)
+
+                    if not entity.pssm_file:  # still no file found. this is likely broken
+                        raise DesignError(f'{entity.name} has no profile generated. To proceed with this design/'
+                                          f'protocol you must generate the profile!')
+
+                    if not entity.verify_evolutionary_profile():
+                        entity.fit_evolutionary_profile_to_structure()
+
+                    if not entity.sequence_file:
+                        entity.write_sequence_to_fasta('reference', out_dir=self.job.api_db.sequences.location)
+
+            self.pose.evolutionary_profile = \
+                concatenate_profile([entity.evolutionary_profile for entity in self.pose.entities])
+
+        # self.pose.combine_sequence_profiles()
+        # I could also add the combined profile here instead of at each Entity
+        self.pose.add_profile(evolution=self.job.design.evolution_constraint,
+                              fragments=self.job.generate_fragments, favor_fragments=favor_fragments,
+                              out_dir=self.job.api_db.hhblits_profiles.location)
+
+        # -------------------------------------------------------------------------
+        # Todo self.solve_consensus()
+        # -------------------------------------------------------------------------
+
+        if not self.pre_refine and not os.path.exists(self.refined_pdb):
+            self._refine(metrics=False)
+
+        putils.make_path(self.designs)
+        # putils.make_path(self.data)  # Used above
+        match self.job.design.method:
+            case putils.rosetta_str:
+                # Write generated files
+                self.pose.pssm_file = \
+                    write_pssm_file(self.pose.evolutionary_profile, file_name=self.evolutionary_profile_file)
+                write_pssm_file(self.pose.profile, file_name=self.design_profile_file)
+                self.pose.fragment_profile.write(file_name=self.fragment_profile_file)
+                self.rosetta_design()  # Sets self.protocol
+            case putils.proteinmpnn:
+                self.proteinmpnn_design()  # Sets self.protocol
+            case other:
+                raise ValueError(f"The method '{self.job.design.method}' isn't available")
+        self.pickle_info()  # Todo remove once PoseDirectory state can be returned to the SymDesign dispatch w/ MP
+
+    @close_logs
+    @remove_structure_memory
+    @handle_design_errors(errors=(DesignError,))
+    def optimize_designs(self: PoseDirectory, threshold: float = 0.):
+        """To touch up and optimize a design, provide a list of optional directives to view mutational landscape around
+        certain residues in the design as well as perform wild-type amino acid reversion to mutated residues
+
+        Args:
+            # residue_directives=None (dict[Residue | int, str]):
+            #     {Residue object: 'mutational_directive', ...}
+            # design_file=None (str): The name of a particular design file present in the designs output
+            threshold: The threshold above which background amino acid frequencies are allowed for mutation
+        """
+        # Todo Notes for PROSS implementation
+        #  I need to use a mover like FilterScan to measure all the energies for a particular residue and it's possible
+        #  mutational space. Using these measurements, I then need to choose only those ones which make a particular
+        #  energetic contribution to the structure and test these out using a FastDesign protocol where each is tried.
+        #  This will likely utilize a resfile as in PROSS implementation and here as creating a PSSM could work but is a
+        #  bit convoluted. I think finding the energy threshold to use as a filter cut off is going to be a bit
+        #  heuristic as the REF2015 scorefunction wasn't used in PROSS publication.
+        if self._lock_optimize_designs:
+            self.log.critical('Need to resolve the differences between multiple specified_designs and a single '
+                              'specified_design. Only using the first design')
+            specific_design = self.specific_designs_file_paths[0]
+            # raise NotImplemented('Need to resolve the differences between multiple specified_designs and a single '
+            #                      'specified_design')
+        else:
+            raise RuntimeError('IMPOSSIBLE')
+            specific_design = self.specific_design_path
+
+        self.identify_interface()  # self.load_pose()
+        # for design_path in self.specific_designs_file_paths
+        #     self.load_pose(source=design_path)
+        #     self.identify_interface()
+
+        # format all amino acids in self.interface_design_residue_numbers with frequencies above the threshold to a set
+        # Todo, make threshold and return set of strings a property of a profile object
+        # Locate the desired background profile from the pose
+        background_profile = getattr(self.pose, self.job.background_profile)
+        raise NotImplementedError("background_profile doesn't account for residue.index versus residue.number")
+        background = {residue: {protein_letters_1to3.get(aa) for aa in protein_letters_1to3
+                                if background_profile[residue.number].get(aa, -1) > threshold}
+                      for residue in self.pose.interface_residues}
+        # include the wild-type residue from PoseDirectory Pose source and the residue identity of the selected design
+        wt = {residue: {background_profile[residue.number].get('type'), protein_letters_3to1[residue.type]}
+              for residue in background}
+        directives = dict(zip(background.keys(), repeat(None)))
+        # directives.update({self.pose.residue(residue_number): directive
+        #                    for residue_number, directive in self.directives.items()})
+        # Todo make self.directives iterable list[dict[int, str]]
+        directives.update({residue: self.directives[residue.number]
+                           for residue in self.pose.get_residues(self.directives.keys())})
+
+        res_file = self.pose.make_resfile(directives, out_path=self.data, include=wt, background=background)
+
+        self.protocol = protocol_xml1 = putils.optimize_designs
+        # nstruct_instruct = ['-no_nstruct_label', 'true']
+        nstruct_instruct = ['-nstruct', str(self.job.design.number_of_trajectories)]
+        design_list_file = os.path.join(self.scripts, f'design_files_{self.protocol}.txt')
+        generate_files_cmd = \
+            ['python', putils.list_pdb_files, '-d', self.designs, '-o', design_list_file, '-s', '_' + self.protocol]
+
+        main_cmd = copy(rosetta.script_cmd)
+        main_cmd += ['-symmetry_definition', 'CRYST1'] if self.design_dimension > 0 else []
+        if not os.path.exists(self.flags) or self.job.force:
+            self.prepare_rosetta_flags(out_dir=self.scripts)
+            self.log.debug(f'Pose flags written to: {self.flags}')
+
+        # DESIGN: Prepare command and flags file
+        # Todo must set up a blank -in:file:pssm in case the evolutionary matrix is not used. Design will fail!!
+        profile_cmd = ['-in:file:pssm', self.evolutionary_profile_file] \
+            if os.path.exists(self.evolutionary_profile_file) else []
+        design_cmd = main_cmd + profile_cmd \
+            + ['-in:file:s', specific_design if specific_design else self.refined_pdb,
+               f'@{self.flags}', '-out:suffix', f'_{self.protocol}', '-packing:resfile', res_file,
+               '-parser:protocol', os.path.join(putils.rosetta_scripts_dir, f'{protocol_xml1}.xml')] + nstruct_instruct
+
+        # metrics_pdb = ['-in:file:l', design_list_file]  # self.pdb_list]
+        # METRICS: Can remove if SimpleMetrics adopts pose metric caching and restoration
+        # Assumes all entity chains are renamed from A to Z for entities (1 to n)
+        # metric_cmd = main_cmd + ['-in:file:s', self.specific_design if self.specific_design else self.refined_pdb] + \
+        entity_cmd = main_cmd + ['-in:file:l', design_list_file] + \
+            [f'@{self.flags}', '-out:file:score_only', self.scores_file, '-no_nstruct_label', 'true',
+             '-parser:protocol', os.path.join(putils.rosetta_scripts_dir, 'metrics_entity.xml')]
+
+        if self.job.mpi > 0:
+            design_cmd = rosetta.run_cmds[putils.rosetta_extras] + [str(self.job.mpi)] + design_cmd
+            entity_cmd = rosetta.run_cmds[putils.rosetta_extras] + [str(self.job.mpi)] + entity_cmd
+
+        self.log.info(f'{self.optimize_designs.__name__} command: {list2cmdline(design_cmd)}')
+        metric_cmds = []
+        metric_cmds.extend(self.generate_entity_metrics(entity_cmd))
+
+        # Create executable/Run FastDesign on Refined ASU with RosettaScripts. Then, gather Metrics
+        if self.job.distribute_work:
+            analysis_cmd = ['python', putils.program_exe, putils.analysis, '--single', self.path, '--no-output',
+                            f'--{flags.output_file}', os.path.join(self.job.all_scores, putils.default_analysis_file
+                                                                   .format(starttime, self.protocol))]
+            write_shell_script(list2cmdline(design_cmd), name=self.protocol, out_path=self.scripts,
+                               additional=[list2cmdline(generate_files_cmd)] +
+                                          [list2cmdline(command) for command in metric_cmds] +
+                                          [list2cmdline(analysis_cmd)])
+        else:
+            design_process = Popen(design_cmd)
+            design_process.communicate()  # wait for command to complete
+            list_all_files_process = Popen(generate_files_cmd)
+            list_all_files_process.communicate()
+            for metric_cmd in metric_cmds:
+                metrics_process = Popen(metric_cmd)
+                metrics_process.communicate()
+
+        # ANALYSIS: each output from the Design process based on score, Analyze Sequence Variation
+        if not self.job.distribute_work:
+            pose_s = self._interface_design_analysis()
+            out_path = os.path.join(self.job.all_scores, putils.default_analysis_file.format(starttime, 'All'))
+            if os.path.exists(out_path):
+                header = False
+            else:
+                header = True
+            pose_s.to_csv(out_path, mode='a', header=header)
+
+    @close_logs
+    @remove_structure_memory
+    @handle_design_errors(errors=(DesignError,))
+    def interface_design_analysis(self: PoseDirectory, design_poses: Iterable[Pose] = None) -> pd.Series:
+        """Retrieve all score information from a PoseDirectory and write results to .csv file
+
+        Args:
+            design_poses: The subsequent designs to perform analysis on
+        Returns:
+            Series containing summary metrics for all designs in the design directory
+        """
+        return self._interface_design_analysis(design_poses=design_poses)
+
+    @close_logs
+    # @remove_structure_memory  # structures not used in this protocol
+    @handle_design_errors(errors=(DesignError,))
+    def select_sequences(self: PoseDirectory, filters: dict = None, weights: dict = None, number: int = 1, protocols: list[str] = None,
+                         **kwargs) -> list[str]:
+        """Select sequences for further characterization. If weights, then user can prioritize by metrics, otherwise
+        sequence with the most neighbors as calculated by sequence distance will be selected. If there is a tie, the
+        sequence with the lowest weight will be selected
+
+        Args:
+            filters: The filters to use in sequence selection
+            weights: The weights to use in sequence selection
+            number: The number of sequences to consider for each design
+            protocols: Whether particular design protocol(s) should be chosen
+        Returns:
+            The selected designs for the Pose trajectories
+        """
+        # Load relevant data from the design directory
+        trajectory_df = pd.read_csv(self.trajectories, index_col=0, header=[0])
+        trajectory_df.dropna(inplace=True)
+        if protocols:
+            designs = []
+            for protocol in protocols:
+                designs.extend(trajectory_df[trajectory_df['protocol'] == protocol].index.to_list())
+
+            if not designs:
+                raise DesignError(f'No designs found for protocols {protocols}!')
+        else:
+            designs = trajectory_df.index.to_list()
+
+        self.log.info(f'Number of starting trajectories = {len(trajectory_df)}')
+        df = trajectory_df.loc[designs, :]
+
+        if filters:
+            self.log.info(f'Using filter parameters: {filters}')
+            # Filter the DataFrame to include only those values which are le/ge the specified filter
+            filtered_designs = metrics.index_intersection(
+                metrics.filter_df_for_index_by_value(df, filters).values())
+            df = df.loc[filtered_designs, :]
+
+        if weights:
+            # No filtering of protocol/indices to use as poses should have similar protocol scores coming in
+            self.log.info(f'Using weighting parameters: {weights}')
+            designs = metrics.pareto_optimize_trajectories(df, weights=weights, **kwargs).index.to_list()
+        else:
+            # sequences_pickle = glob(os.path.join(self.job.all_scores, '%s_Sequences.pkl' % str(self)))
+            # assert len(sequences_pickle) == 1, 'Couldn\'t find files for %s' % \
+            #                                     os.path.join(self.job.all_scores, '%s_Sequences.pkl' % str(self))
+            #
+            # chain_sequences = SDUtils.unpickle(sequences_pickle[0])
+            # {chain: {name: sequence, ...}, ...}
+            # designed_sequences_by_entity: list[dict[str, str]] = unpickle(self.designed_sequences)
+            # designed_sequences_by_entity: list[dict[str, str]] = self.designed_sequences
+            # entity_sequences = list(zip(*[list(designed_sequences.values())
+            #                               for designed_sequences in designed_sequences_by_entity]))
+            # concatenated_sequences = [''.join(entity_sequence) for entity_sequence in entity_sequences]
+            pose_sequences = self.designed_sequences
+            self.log.debug(f'The final concatenated sequences are:\n{pose_sequences}')
+
+            # pairwise_sequence_diff_np = SDUtils.all_vs_all(concatenated_sequences, sequence_difference)
+            # Using concatenated sequences makes the values very similar and inflated as most residues are the same
+            # doing min/max normalization to see variation
+            pairwise_sequence_diff_l = [sequence_difference(*seq_pair)
+                                        for seq_pair in combinations(pose_sequences, 2)]
+            pairwise_sequence_diff_np = np.array(pairwise_sequence_diff_l)
+            _min = min(pairwise_sequence_diff_l)
+            # _max = max(pairwise_sequence_diff_l)
+            pairwise_sequence_diff_np = np.subtract(pairwise_sequence_diff_np, _min)
+            # self.log.info(pairwise_sequence_diff_l)
+
+            # PCA analysis of distances
+            pairwise_sequence_diff_mat = np.zeros((len(designs), len(designs)))
+            for k, dist in enumerate(pairwise_sequence_diff_np):
+                i, j = condensed_to_square(k, len(designs))
+                pairwise_sequence_diff_mat[i, j] = dist
+            pairwise_sequence_diff_mat = sym(pairwise_sequence_diff_mat)
+
+            pairwise_sequence_diff_mat = skl.preprocessing.StandardScaler().fit_transform(pairwise_sequence_diff_mat)
+            seq_pca = skl.decomposition.PCA(variance)
+            seq_pc_np = seq_pca.fit_transform(pairwise_sequence_diff_mat)
+            seq_pca_distance_vector = pdist(seq_pc_np)
+            # epsilon = math.sqrt(seq_pca_distance_vector.mean()) * 0.5
+            epsilon = seq_pca_distance_vector.mean() * 0.5
+            self.log.info(f'Finding maximum neighbors within distance of {epsilon}')
+
+            # self.log.info(pairwise_sequence_diff_np)
+            # epsilon = pairwise_sequence_diff_mat.mean() * 0.5
+            # epsilon = math.sqrt(seq_pc_np.myean()) * 0.5
+            # epsilon = math.sqrt(pairwise_sequence_diff_np.mean()) * 0.5
+
+            # Find the nearest neighbors for the pairwise-distance matrix using the X*X^T (PCA) matrix, linear transform
+            seq_neighbors = skl.neighbors.BallTree(seq_pc_np)
+            seq_neighbor_counts = seq_neighbors.query_radius(seq_pc_np, epsilon, count_only=True)  # sort_results=True)
+            top_count, top_idx = 0, None
+            for count in seq_neighbor_counts:  # idx, enumerate()
+                if count > top_count:
+                    top_count = count
+
+            sorted_seqs = sorted(seq_neighbor_counts, reverse=True)
+            top_neighbor_counts = sorted(set(sorted_seqs[:number]), reverse=True)
+
+            # Find only the designs which match the top x (number) of neighbor counts
+            final_designs = {designs[idx]: num_neighbors for num_neighbors in top_neighbor_counts
+                             for idx, count in enumerate(seq_neighbor_counts) if count == num_neighbors}
+            self.log.info('The final sequence(s) and file(s):\nNeighbors\tDesign\n%s'
+                          # % '\n'.join('%d %s' % (top_neighbor_counts.index(neighbors) + SDUtils.zero_offset,
+                          % '\n'.join(f'\t{neighbors}\t{os.path.join(self.designs, design)}'
+                                      for design, neighbors in final_designs.items()))
+
+            # self.log.info('Corresponding PDB file(s):\n%s' % '\n'.join('%d %s' % (i, os.path.join(self.designs, seq))
+            #                                                         for i, seq in enumerate(final_designs, 1)))
+
+            # Compute the highest density cluster using DBSCAN algorithm
+            # seq_cluster = DBSCAN(eps=epsilon)
+            # seq_cluster.fit(pairwise_sequence_diff_np)
+            #
+            # seq_pc_df = pd.DataFrame(seq_pc, index=designs, columns=['pc' + str(x + SDUtils.zero_offset)
+            #                                                          for x in range(len(seq_pca.components_))])
+            # seq_pc_df = pd.merge(protocol_s, seq_pc_df, left_index=True, right_index=True)
+
+            # If final designs contains more sequences than specified, find the one with the lowest energy
+            if len(final_designs) > number:
+                energy_s = df.loc[final_designs.keys(), 'interface_energy']
+                energy_s.sort_values(inplace=True)
+                designs = energy_s.index.to_list()
+            else:
+                designs = list(final_designs.keys())
+
+        designs = designs[:number]
+        self.log.info(f'Final ranking of trajectories:\n{", ".join(design for design in designs)}')
+        return designs
+
+    # handle_design_errors = staticmethod(handle_design_errors)
+    # close_logs = staticmethod(close_logs)
+    remove_structure_memory = staticmethod(remove_structure_memory)
 
 
-class PoseDirectory:
+# class PoseDirectory:
+class PoseDirectory(PoseProtocol):
     _design_selector: dict[str, dict[str, dict[str, set[int] | set[str]]]] | dict
     _designed_sequences: list[Sequence]
     _entity_names: list[str]
@@ -412,49 +1201,6 @@ class PoseDirectory:
             self._designed_sequences = [seq_record.seq for seq_record in read_fasta_file(self.designed_sequences_file)]
             return self._designed_sequences
 
-    # Decorator static methods: These must be declared above their usage, but made static after each declaration
-    def remove_structure_memory(func):
-        """Decorator to remove large memory attributes from the instance after processing is complete"""
-        @functools.wraps(func)
-        def wrapped(self, *args, **kwargs):
-            func_return = func(self, *args, **kwargs)
-            if self.job.reduce_memory:
-                self.pose = None
-                self.entities.clear()
-            return func_return
-        return wrapped
-    #
-    # def handle_design_errors(errors: tuple = (Exception,)) -> Callable:
-    #     """Decorator to wrap a method with try: ... except errors: and log errors to the PoseDirectory
-    #
-    #     Args:
-    #         errors: A tuple of exceptions to monitor. Must be a tuple even if single exception
-    #     Returns:
-    #         Function return upon proper execution, else is error if exception raised, else None
-    #     """
-    #     def wrapper(func: Callable) -> Any:
-    #         @functools.wraps(func)
-    #         def wrapped(self, *args, **kwargs):
-    #             try:
-    #                 return func(self, *args, **kwargs)
-    #             except errors as error:
-    #                 self.log.error(error)  # Allows exception reporting using self.log
-    #                 # self.info['error'] = error
-    #                 return error
-    #         return wrapped
-    #     return wrapper
-    #
-    # def close_logs(func):
-    #     """Decorator to close the instance log file after use in an instance method (protocol)"""
-    #     @functools.wraps(func)
-    #     def wrapped(self, *args, **kwargs):
-    #         func_return = func(self, *args, **kwargs)
-    #         # adapted from https://stackoverflow.com/questions/15435652/python-does-not-release-filehandles-to-logfile
-    #         for handler in self.log.handlers:
-    #             handler.close()
-    #         return func_return
-    #     return wrapped
-
     # SymEntry object attributes
     @property
     def sym_entry(self) -> SymEntry | None:
@@ -719,8 +1465,8 @@ class PoseDirectory:
             self.log = start_log(name=f'pose.{self}', handler=handler, level=level, location=self.log_path,
                                  no_log_name=no_log_name, propagate=True)  # Pass messages to "pose" logger
 
-    @handle_design_errors(errors=(FileNotFoundError, ValueError))
     @close_logs
+    # @handle_design_errors(errors=(FileNotFoundError,))
     def initialize_structure_attributes(self, pre_refine: bool = None, pre_loop_model: bool = None):
         """Prepare output Directory and File locations. Each PoseDirectory always includes this format
 
@@ -1280,13 +2026,6 @@ class PoseDirectory:
 
         return entity_metric_commands
 
-    @handle_design_errors(errors=(DesignError,))
-    @close_logs
-    @remove_structure_memory
-    def predict_structure(self):
-        """From a sequence input, predict the structure using one of various structure prediction pipelines"""
-        self._predict_structure()
-
     def _predict_structure(self):
         match self.job.predict.method:
             case 'thread':
@@ -1485,155 +2224,6 @@ class PoseDirectory:
                     metrics_process.communicate()
 
         # ANALYSIS: each output from the Design process based on score, Analyze Sequence Variation
-        # return
-        # # Todo this isn't working right now with mutations to structure
-        if not self.job.distribute_work:
-            pose_s = self._interface_design_analysis()
-            out_path = os.path.join(self.job.all_scores, putils.default_analysis_file.format(starttime, 'All'))
-            if os.path.exists(out_path):
-                header = False
-            else:
-                header = True
-            pose_s.to_csv(out_path, mode='a', header=header)
-
-    @handle_design_errors(errors=(DesignError,))
-    @close_logs
-    @remove_structure_memory
-    def custom_rosetta_script(self, script, file_list=None, native=None, suffix=None,
-                              score_only=None, variables=None, **kwargs):
-        """Generate a custom script to dispatch to the design using a variety of parameters"""
-        raise DesignError('This module is outdated, please update it to use')  # Todo reflect modern metrics collection
-        cmd = copy(rosetta.script_cmd)
-        script_name = os.path.splitext(os.path.basename(script))[0]
-        # if self.interface_residue_numbers is False or self.interface_design_residue_numbers is False:
-        self.identify_interface()
-        # else:  # We only need to load pose as we already calculated interface
-        #     self.load_pose()
-
-        if not os.path.exists(self.flags) or self.job.force:
-            self.prepare_rosetta_flags(out_dir=self.scripts)
-            self.log.debug(f'Pose flags written to: {self.flags}')
-
-        cmd += ['-symmetry_definition', 'CRYST1'] if self.design_dimension > 0 else []
-
-        if file_list:
-            pdb_input = os.path.join(self.scripts, 'design_files.txt')
-            generate_files_cmd = ['python', putils.list_pdb_files, '-d', self.designs, '-o', pdb_input]
-        else:
-            pdb_input = self.refined_pdb
-            generate_files_cmd = []  # empty command
-
-        if native:
-            native = getattr(self, native, 'refined_pdb')
-        else:
-            native = self.refined_pdb
-
-        # if isinstance(suffix, str):
-        #     suffix = ['-out:suffix', '_%s' % suffix]
-        # if isinstance(suffix, bool):
-        if suffix:
-            suffix = ['-out:suffix', f'_{script_name}']
-        else:
-            suffix = []
-
-        if score_only:
-            score = ['-out:file:score_only', self.scores_file]
-        else:
-            score = []
-
-        if self.job.design.number_of_trajectories:
-            trajectories = ['-nstruct', str(self.job.design.number_of_trajectories)]
-        else:
-            trajectories = ['-no_nstruct_label true']
-
-        if variables:
-            for idx, var_val in enumerate(variables):
-                variable, value = var_val.split('=')
-                variables[idx] = '%s=%s' % (variable, getattr(self.pose, value, ''))
-            variables = ['-parser:script_vars'] + variables
-        else:
-            variables = []
-
-        cmd += [f'@{flags_file}', f'-in:file:{"l" if file_list else "s"}', pdb_input, '-in:file:native', native] \
-            + score + suffix + trajectories + ['-parser:protocol', script] + variables
-        if self.job.mpi > 0:
-            cmd = rosetta.run_cmds[putils.rosetta_extras] + [str(self.job.mpi)] + cmd
-
-        if self.job.distribute_work:
-            write_shell_script(list2cmdline(generate_files_cmd), name=script_name, out_path=self.scripts,
-                               additional=[list2cmdline(cmd)])
-        else:
-            raise NotImplementedError('Need to implement this feature')
-
-        # Todo  + [list2cmdline(analysis_cmd)])
-        #  analysis_cmd = ['python', putils.program_exe, putils.analysis, '--single', self.path, '--no-output',
-        #                 f'--{flags.output_file}', os.path.join(self.job.all_scores, putils.default_analysis_file
-        #                                                        .format(starttime, self.protocol))]
-
-        # ANALYSIS: each output from the Design process based on score, Analyze Sequence Variation
-        if not self.job.distribute_work:
-            pose_s = self._interface_design_analysis()
-            out_path = os.path.join(self.job.all_scores, putils.default_analysis_file.format(starttime, 'All'))
-            if os.path.exists(out_path):
-                header = False
-            else:
-                header = True
-            pose_s.to_csv(out_path, mode='a', header=header)
-
-    @handle_design_errors(errors=(DesignError,))
-    @close_logs
-    @remove_structure_memory
-    def interface_metrics(self):
-        """Generate a script capable of running Rosetta interface metrics analysis on the bound and unbound states"""
-        # metrics_flags = 'repack=yes'
-        self.protocol = putils.interface_metrics
-        main_cmd = copy(rosetta.script_cmd)
-        # if self.interface_residue_numbers is False or self.interface_design_residue_numbers is False:
-        self.identify_interface()
-        # else:  # We only need to load pose as we already calculated interface
-        #     self.load_pose()
-
-        # interface_secondary_structure
-        if not os.path.exists(self.flags) or self.job.force:
-            self.prepare_rosetta_flags(out_dir=self.scripts)
-            self.log.debug(f'Pose flags written to: {self.flags}')
-
-        design_files = \
-            os.path.join(self.scripts, f'design_files'
-                                       f'{f"_{self.job.specific_protocol}" if self.job.specific_protocol else ""}.txt')
-        generate_files_cmd = ['python', putils.list_pdb_files, '-d', self.designs, '-o', design_files] + \
-            (['-s', self.job.specific_protocol] if self.job.specific_protocol else [])
-        main_cmd += [f'@{self.flags}', '-in:file:l', design_files,
-                     # TODO out:file:score_only file is not respected if out:path:score_file given
-                     #  -run:score_only true?
-                     '-out:file:score_only', self.scores_file, '-no_nstruct_label', 'true', '-parser:protocol']
-        #              '-in:file:native', self.refined_pdb,
-        if self.job.mpi > 0:
-            main_cmd = rosetta.run_cmds[putils.rosetta_extras] + [str(self.job.mpi)] + main_cmd
-
-        metric_cmd_bound = main_cmd + (['-symmetry_definition', 'CRYST1'] if self.design_dimension > 0 else []) + \
-            [os.path.join(putils.rosetta_scripts_dir, f'{self.protocol}{"_DEV" if self.job.development else ""}.xml')]
-        entity_cmd = main_cmd + [os.path.join(putils.rosetta_scripts_dir,
-                                              f'metrics_entity{"_DEV" if self.job.development else ""}.xml')]
-        metric_cmds = [metric_cmd_bound]
-        metric_cmds.extend(self.generate_entity_metrics(entity_cmd))
-
-        # Create executable to gather interface Metrics on all Designs
-        if self.job.distribute_work:
-            analysis_cmd = ['python', putils.program_exe, putils.analysis, '--single', self.path, '--no-output',
-                            f'--{flags.output_file}', os.path.join(self.job.all_scores, putils.default_analysis_file
-                                                                   .format(starttime, self.protocol))]
-            write_shell_script(list2cmdline(generate_files_cmd), name=putils.interface_metrics, out_path=self.scripts,
-                               additional=[list2cmdline(command) for command in metric_cmds] +
-                                          [list2cmdline(analysis_cmd)])
-        else:
-            list_all_files_process = Popen(generate_files_cmd)
-            list_all_files_process.communicate()
-            for metric_cmd in metric_cmds:
-                metrics_process = Popen(metric_cmd)
-                metrics_process.communicate()  # wait for command to complete
-
-        # ANALYSIS: each output from the Design process based on score, Analyze Sequence Variation
         if not self.job.distribute_work:
             pose_s = self._interface_design_analysis()
             out_path = os.path.join(self.job.all_scores, putils.default_analysis_file.format(starttime, 'All'))
@@ -1644,341 +2234,6 @@ class PoseDirectory:
             pose_s.to_csv(out_path, mode='a', header=header)
 
     # Below are protocols for various design applications
-    @handle_design_errors(errors=(DesignError,))
-    @close_logs
-    @remove_structure_memory
-    def check_unmodelled_clashes(self, clashing_threshold: float = 0.75):
-        """Given a multimodel file, measure the number of clashes is less than a percentage threshold"""
-        raise DesignError('This module is not working correctly at the moment')
-        models = [Models.from_PDB(self.job.structure_db.full_models.retrieve_data(name=entity), log=self.log)
-                  for entity in self.entity_names]
-        # models = [Models.from_file(self.job.structure_db.full_models.retrieve_data(name=entity))
-        #           for entity in self.entity_names]
-
-        # for each model, transform to the correct space
-        models = self.transform_structures_to_pose(models)
-        multimodel = MultiModel.from_models(models, independent=True, log=self.log)
-
-        clashes = 0
-        prior_clashes = 0
-        for idx, state in enumerate(multimodel, 1):
-            clashes += (1 if state.is_clash() else 0)
-            state.write(out_path=os.path.join(self.path, f'state_{idx}.pdb'))
-            print(f'State {idx} - Clashes: {"YES" if clashes > prior_clashes else "NO"}')
-            prior_clashes = clashes
-
-        if clashes/float(len(multimodel)) > clashing_threshold:
-            raise DesignError(f'The frequency of clashes ({clashes/float(len(multimodel))}) exceeds the clashing '
-                              f'threshold ({clashing_threshold})')
-
-    @handle_design_errors(errors=(DesignError,))
-    @close_logs
-    @remove_structure_memory
-    def check_clashes(self):
-        """Check for clashes in the input and in the symmetric assembly if symmetric"""
-        self.load_pose()
-
-    @handle_design_errors(errors=(DesignError,))
-    @close_logs
-    @remove_structure_memory
-    def rename_chains(self):
-        """Standardize the chain names in incremental order found in the design source file"""
-        model = Model.from_file(self.source, log=self.log)
-        model.rename_chains()
-        model.write(out_path=self.asu_path)
-
-    @handle_design_errors(errors=(DesignError, ValueError, RuntimeError))
-    @close_logs
-    @remove_structure_memory
-    def orient(self, to_pose_directory: bool = True):
-        """Orient the Pose with the prescribed symmetry at the origin and symmetry axes in canonical orientations
-        self.symmetry is used to specify the orientation
-        """
-        if self.initial_model:
-            model = self.initial_model
-        else:
-            model = Model.from_file(self.source, log=self.log)
-
-        if self.design_symmetry:
-            if to_pose_directory:
-                out_path = self.assembly_path
-            else:
-                out_path = os.path.join(self.job.orient_dir, f'{model.name}.pdb')
-
-            model.orient(symmetry=self.design_symmetry)
-
-            orient_file = model.write(out_path=out_path)
-            self.log.info(f'The oriented file was saved to {orient_file}')
-            for entity in model.entities:
-                entity.remove_mate_chains()
-                self.entity_names.append(entity.name)
-
-            # Load the pose and save the asu
-            self.initial_model = model
-            self.load_pose()  # entities=model.entities)
-        else:
-            raise SymmetryError(warn_missing_symmetry % self.orient.__name__)
-
-    @handle_design_errors(errors=(DesignError,))
-    @close_logs
-    @remove_structure_memory
-    def refine(self):
-        """Refine the source Pose"""
-        self._refine()
-
-    @handle_design_errors(errors=(DesignError, FileNotFoundError))
-    @close_logs
-    @remove_structure_memory
-    def find_asu(self):
-        """From a PDB with multiple Chains from multiple Entities, return the minimal configuration of Entities.
-        ASU will only be a true ASU if the starting PDB contains a symmetric system, otherwise all manipulations find
-        the minimal unit of Entities that are in contact
-        """
-        # Check if the symmetry is known, otherwise this wouldn't work without the old, "symmetry-less", protocol
-        if self.is_symmetric():
-            if os.path.exists(self.assembly_path):
-                self.load_pose(source=self.assembly_path)
-            else:
-                self.load_pose()
-        else:
-            raise NotImplementedError('Not sure if asu format matches pose.get_contacting_asu standard with no symmetry'
-                                      '. This might cause issues')
-            # Todo ensure asu format matches pose.get_contacting_asu standard
-            # pdb = Model.from_file(self.source, log=self.log)
-            # asu = pdb.return_asu()
-            self.load_pose()
-            # asu.update_attributes_from_pdb(pdb)
-
-        # Save the Pose.asu
-        self.save_asu()
-
-    @handle_design_errors(errors=(DesignError,))
-    @close_logs
-    @remove_structure_memory
-    def expand_asu(self):
-        """For the design info given by a PoseDirectory source, initialize the Pose with self.source file,
-        self.symmetry, and self.log objects then expand the design given the provided symmetry operators and write to a
-        file
-
-        Reports on clash testing
-        """
-        if self.is_symmetric():
-            self.load_pose()
-        else:
-            raise SymmetryError(warn_missing_symmetry % self.expand_asu.__name__)
-        self.pickle_info()  # Todo remove once PoseDirectory state can be returned to the SymDesign dispatch w/ MP
-
-    @handle_design_errors(errors=(DesignError,))
-    @close_logs
-    @remove_structure_memory
-    def generate_interface_fragments(self):
-        """For the design info given by a PoseDirectory source, initialize the Pose then generate interfacial fragment
-        information between Entities. Aware of symmetry and design_selectors in fragment generation file
-        """
-        # if self.interface_residue_numbers is False or self.interface_design_residue_numbers is False:
-        self.identify_interface()
-        # else:  # We only need to load pose as we already calculated interface
-        #     self.load_pose()
-
-        putils.make_path(self.frags, condition=self.job.write_fragments)
-        self.pose.generate_interface_fragments()
-        if self.job.write_fragments:
-            self.pose.write_fragment_pairs(out_path=self.frags)
-        self.fragment_observations = self.pose.get_fragment_observations()
-        self.info['fragment_source'] = self.job.fragment_db.source
-        self.pickle_info()  # Todo remove once PoseDirectory state can be returned to the SymDesign dispatch w/ MP
-
-    @handle_design_errors(errors=(DesignError,))
-    @close_logs
-    @remove_structure_memory
-    def interface_design(self):
-        """For the design info given by a PoseDirectory source, initialize the Pose then prepare all parameters for
-        interfacial redesign between Pose Entities. Aware of symmetry, design_selectors, fragments, and
-        evolutionary information in interface design
-        """
-        # if self.job.command_only and not self.job.distribute_work:  # Just reissue the commands
-        #     pass
-        # else:
-        # if self.interface_residue_numbers is False or self.interface_design_residue_numbers is False:
-        self.identify_interface()
-        # else:  # We only need to load pose as we already calculated interface
-        #     self.load_pose()
-
-        putils.make_path(self.data)  # Todo consolidate this check with pickle_info()
-        # Create all files which store the evolutionary_profile and/or fragment_profile -> design_profile
-        if self.job.design.method == putils.rosetta_str:
-            favor_fragments = evo_fill = True
-        else:
-            favor_fragments = evo_fill = False
-
-        if self.job.generate_fragments:
-            self.pose.generate_interface_fragments()
-            self.fragment_observations = self.pose.get_fragment_observations()
-            self.info['fragment_source'] = self.job.fragment_db.source
-            if self.job.write_fragments:
-                self.pose.write_fragment_pairs(out_path=self.frags)
-            self.pose.calculate_fragment_profile(evo_fill=evo_fill)
-        elif isinstance(self.fragment_observations, list):
-            raise NotImplementedError(f"Can't put fragment observations taken away from the pose onto the pose due to "
-                                      f"entities")
-            self.pose.fragment_pairs = self.fragment_observations
-            self.pose.calculate_fragment_profile(evo_fill=evo_fill)
-
-        # elif os.path.exists(self.frag_file):
-        #     self.retrieve_fragment_info_from_file()
-
-        if self.job.design.evolution_constraint:
-            for entity in self.pose.entities:
-                if entity not in self.pose.active_entities:  # We shouldn't design, add a null profile instead
-                    entity.add_profile(null=True)
-                else:  # Add a real profile
-                    # entity.add_profile(evolution=self.job.design.evolution_constraint,
-                    #                    fragments=self.job.generate_fragments,
-                    #                    out_dir=self.job.api_db.hhblits_profiles.location)
-                    entity.sequence_file = self.job.api_db.sequences.retrieve_file(name=entity.name)
-                    entity.evolutionary_profile = self.job.api_db.hhblits_profiles.retrieve_data(name=entity.name)
-                    if not entity.evolutionary_profile:
-                        entity.add_evolutionary_profile(out_dir=self.job.api_db.hhblits_profiles.location)
-                    else:  # ensure the file is attached as well
-                        entity.pssm_file = self.job.api_db.hhblits_profiles.retrieve_file(name=entity.name)
-
-                    if not entity.pssm_file:  # still no file found. this is likely broken
-                        raise DesignError(f'{entity.name} has no profile generated. To proceed with this design/'
-                                          f'protocol you must generate the profile!')
-
-                    if not entity.verify_evolutionary_profile():
-                        entity.fit_evolutionary_profile_to_structure()
-
-                    if not entity.sequence_file:
-                        entity.write_sequence_to_fasta('reference', out_dir=self.job.api_db.sequences.location)
-
-            self.pose.evolutionary_profile = \
-                concatenate_profile([entity.evolutionary_profile for entity in self.pose.entities])
-
-        # self.pose.combine_sequence_profiles()
-        # I could also add the combined profile here instead of at each Entity
-        self.pose.add_profile(evolution=self.job.design.evolution_constraint,
-                              fragments=self.job.generate_fragments, favor_fragments=favor_fragments,
-                              out_dir=self.job.api_db.hhblits_profiles.location)
-
-        # -------------------------------------------------------------------------
-        # Todo self.solve_consensus()
-        # -------------------------------------------------------------------------
-
-        if not self.pre_refine and not os.path.exists(self.refined_pdb):
-            self._refine(metrics=False)
-
-        putils.make_path(self.designs)
-        # putils.make_path(self.data)  # Used above
-        match self.job.design.method:
-            case putils.rosetta_str:
-                # Write generated files
-                self.pose.pssm_file = \
-                    write_pssm_file(self.pose.evolutionary_profile, file_name=self.evolutionary_profile_file)
-                write_pssm_file(self.pose.profile, file_name=self.design_profile_file)
-                self.pose.fragment_profile.write(file_name=self.fragment_profile_file)
-                self.rosetta_interface_design()  # Sets self.protocol
-            case putils.proteinmpnn:
-                self.proteinmpnn_design(interface=True)  # Sets self.protocol
-            case other:
-                raise ValueError(f"The method '{self.job.design.method}' isn't available")
-        self.pickle_info()  # Todo remove once PoseDirectory state can be returned to the SymDesign dispatch w/ MP
-
-    @handle_design_errors(errors=(DesignError,))
-    @close_logs
-    @remove_structure_memory
-    def design(self):
-        """For the design info given by a PoseDirectory source, initialize the Pose then prepare all parameters for
-        sequence design. Aware of symmetry, design_selectors, fragments, and evolutionary information
-        """
-        # if self.job.command_only and not self.job.distribute_work:  # Just reissue the commands
-        #     pass
-        # else:
-        # if self.interface_residue_numbers is False or self.interface_design_residue_numbers is False:
-        #     self.identify_interface()
-        # else:  # We only need to load pose as we already calculated interface
-        self.load_pose()
-
-        putils.make_path(self.data)  # Todo consolidate this check with pickle_info()
-        # Create all files which store the evolutionary_profile and/or fragment_profile -> design_profile
-        if self.job.design.method == putils.rosetta_str:
-            raise NotImplementedError(f"Can't perform design using Rosetta just yet. Try {flags.interface_design}...")
-            favor_fragments = evo_fill = True
-        else:
-            favor_fragments = evo_fill = False
-
-        if self.job.generate_fragments:
-            self.pose.generate_fragments()
-            self.fragment_observations = self.pose.get_fragment_observations()
-            self.info['fragment_source'] = self.job.fragment_db.source
-            if self.job.write_fragments:
-                self.pose.write_fragment_pairs(out_path=self.frags)
-            self.pose.calculate_fragment_profile(evo_fill=evo_fill)
-        elif isinstance(self.fragment_observations, list):
-            raise NotImplementedError(f"Can't put fragment observations taken away from the pose onto the pose due to "
-                                      f"entities")
-            self.pose.fragment_pairs = self.fragment_observations
-            self.pose.calculate_fragment_profile(evo_fill=evo_fill)
-
-        # elif os.path.exists(self.frag_file):
-        #     self.retrieve_fragment_info_from_file()
-
-        if self.job.design.evolution_constraint:
-            for entity in self.pose.entities:
-                if entity not in self.pose.active_entities:  # We shouldn't design, add a null profile instead
-                    entity.add_profile(null=True)
-                else:  # Add a real profile
-                    # entity.add_profile(evolution=self.job.design.evolution_constraint,
-                    #                    fragments=self.job.generate_fragments,
-                    #                    out_dir=self.job.api_db.hhblits_profiles.location)
-                    entity.sequence_file = self.job.api_db.sequences.retrieve_file(name=entity.name)
-                    entity.evolutionary_profile = self.job.api_db.hhblits_profiles.retrieve_data(name=entity.name)
-                    if not entity.evolutionary_profile:
-                        entity.add_evolutionary_profile(out_dir=self.job.api_db.hhblits_profiles.location)
-                    else:  # ensure the file is attached as well
-                        entity.pssm_file = self.job.api_db.hhblits_profiles.retrieve_file(name=entity.name)
-
-                    if not entity.pssm_file:  # still no file found. this is likely broken
-                        raise DesignError(f'{entity.name} has no profile generated. To proceed with this design/'
-                                          f'protocol you must generate the profile!')
-
-                    if not entity.verify_evolutionary_profile():
-                        entity.fit_evolutionary_profile_to_structure()
-
-                    if not entity.sequence_file:
-                        entity.write_sequence_to_fasta('reference', out_dir=self.job.api_db.sequences.location)
-
-            self.pose.evolutionary_profile = \
-                concatenate_profile([entity.evolutionary_profile for entity in self.pose.entities])
-
-        # self.pose.combine_sequence_profiles()
-        # I could also add the combined profile here instead of at each Entity
-        self.pose.add_profile(evolution=self.job.design.evolution_constraint,
-                              fragments=self.job.generate_fragments, favor_fragments=favor_fragments,
-                              out_dir=self.job.api_db.hhblits_profiles.location)
-
-        # -------------------------------------------------------------------------
-        # Todo self.solve_consensus()
-        # -------------------------------------------------------------------------
-
-        if not self.pre_refine and not os.path.exists(self.refined_pdb):
-            self._refine(metrics=False)
-
-        putils.make_path(self.designs)
-        # putils.make_path(self.data)  # Used above
-        match self.job.design.method:
-            case putils.rosetta_str:
-                # Write generated files
-                self.pose.pssm_file = \
-                    write_pssm_file(self.pose.evolutionary_profile, file_name=self.evolutionary_profile_file)
-                write_pssm_file(self.pose.profile, file_name=self.design_profile_file)
-                self.pose.fragment_profile.write(file_name=self.fragment_profile_file)
-                self.rosetta_design()  # Sets self.protocol
-            case putils.proteinmpnn:
-                self.proteinmpnn_design()  # Sets self.protocol
-            case other:
-                raise ValueError(f"The method '{self.job.design.method}' isn't available")
-        self.pickle_info()  # Todo remove once PoseDirectory state can be returned to the SymDesign dispatch w/ MP
 
     def rosetta_interface_design(self):
         """For the basic process of sequence design between two halves of an interface, write the necessary files for
@@ -2182,140 +2437,6 @@ class PoseDirectory:
             return self.scores_file
 
         write_per_residue_scores(design_ids, sequences_and_scores)
-
-    @handle_design_errors(errors=(DesignError,))
-    @close_logs
-    @remove_structure_memory
-    def optimize_designs(self, threshold: float = 0.):
-        """To touch up and optimize a design, provide a list of optional directives to view mutational landscape around
-        certain residues in the design as well as perform wild-type amino acid reversion to mutated residues
-
-        Args:
-            # residue_directives=None (dict[Residue | int, str]):
-            #     {Residue object: 'mutational_directive', ...}
-            # design_file=None (str): The name of a particular design file present in the designs output
-            threshold: The threshold above which background amino acid frequencies are allowed for mutation
-        """
-        # Todo Notes for PROSS implementation
-        #  I need to use a mover like FilterScan to measure all the energies for a particular residue and it's possible
-        #  mutational space. Using these measurements, I then need to choose only those ones which make a particular
-        #  energetic contribution to the structure and test these out using a FastDesign protocol where each is tried.
-        #  This will likely utilize a resfile as in PROSS implementation and here as creating a PSSM could work but is a
-        #  bit convoluted. I think finding the energy threshold to use as a filter cut off is going to be a bit
-        #  heuristic as the REF2015 scorefunction wasn't used in PROSS publication.
-        if self._lock_optimize_designs:
-            self.log.critical('Need to resolve the differences between multiple specified_designs and a single '
-                              'specified_design. Only using the first design')
-            specific_design = self.specific_designs_file_paths[0]
-            # raise NotImplemented('Need to resolve the differences between multiple specified_designs and a single '
-            #                      'specified_design')
-        else:
-            raise RuntimeError('IMPOSSIBLE')
-            specific_design = self.specific_design_path
-
-        self.identify_interface()  # self.load_pose()
-        # for design_path in self.specific_designs_file_paths
-        #     self.load_pose(source=design_path)
-        #     self.identify_interface()
-
-        # format all amino acids in self.interface_design_residue_numbers with frequencies above the threshold to a set
-        # Todo, make threshold and return set of strings a property of a profile object
-        # Locate the desired background profile from the pose
-        background_profile = getattr(self.pose, self.job.background_profile)
-        raise NotImplementedError("background_profile doesn't account for residue.index versus residue.number")
-        background = {residue: {protein_letters_1to3.get(aa) for aa in protein_letters_1to3
-                                if background_profile[residue.number].get(aa, -1) > threshold}
-                      for residue in self.pose.interface_residues}
-        # include the wild-type residue from PoseDirectory Pose source and the residue identity of the selected design
-        wt = {residue: {background_profile[residue.number].get('type'), protein_letters_3to1[residue.type]}
-              for residue in background}
-        directives = dict(zip(background.keys(), repeat(None)))
-        # directives.update({self.pose.residue(residue_number): directive
-        #                    for residue_number, directive in self.directives.items()})
-        # Todo make self.directives iterable list[dict[int, str]]
-        directives.update({residue: self.directives[residue.number]
-                           for residue in self.pose.get_residues(self.directives.keys())})
-
-        res_file = self.pose.make_resfile(directives, out_path=self.data, include=wt, background=background)
-
-        self.protocol = protocol_xml1 = putils.optimize_designs
-        # nstruct_instruct = ['-no_nstruct_label', 'true']
-        nstruct_instruct = ['-nstruct', str(self.job.design.number_of_trajectories)]
-        design_list_file = os.path.join(self.scripts, f'design_files_{self.protocol}.txt')
-        generate_files_cmd = \
-            ['python', putils.list_pdb_files, '-d', self.designs, '-o', design_list_file, '-s', '_' + self.protocol]
-
-        main_cmd = copy(rosetta.script_cmd)
-        main_cmd += ['-symmetry_definition', 'CRYST1'] if self.design_dimension > 0 else []
-        if not os.path.exists(self.flags) or self.job.force:
-            self.prepare_rosetta_flags(out_dir=self.scripts)
-            self.log.debug(f'Pose flags written to: {self.flags}')
-
-        # DESIGN: Prepare command and flags file
-        # Todo must set up a blank -in:file:pssm in case the evolutionary matrix is not used. Design will fail!!
-        profile_cmd = ['-in:file:pssm', self.evolutionary_profile_file] \
-            if os.path.exists(self.evolutionary_profile_file) else []
-        design_cmd = main_cmd + profile_cmd \
-            + ['-in:file:s', specific_design if specific_design else self.refined_pdb,
-               f'@{self.flags}', '-out:suffix', f'_{self.protocol}', '-packing:resfile', res_file,
-               '-parser:protocol', os.path.join(putils.rosetta_scripts_dir, f'{protocol_xml1}.xml')] + nstruct_instruct
-
-        # metrics_pdb = ['-in:file:l', design_list_file]  # self.pdb_list]
-        # METRICS: Can remove if SimpleMetrics adopts pose metric caching and restoration
-        # Assumes all entity chains are renamed from A to Z for entities (1 to n)
-        # metric_cmd = main_cmd + ['-in:file:s', self.specific_design if self.specific_design else self.refined_pdb] + \
-        entity_cmd = main_cmd + ['-in:file:l', design_list_file] + \
-            [f'@{self.flags}', '-out:file:score_only', self.scores_file, '-no_nstruct_label', 'true',
-             '-parser:protocol', os.path.join(putils.rosetta_scripts_dir, 'metrics_entity.xml')]
-
-        if self.job.mpi > 0:
-            design_cmd = rosetta.run_cmds[putils.rosetta_extras] + [str(self.job.mpi)] + design_cmd
-            entity_cmd = rosetta.run_cmds[putils.rosetta_extras] + [str(self.job.mpi)] + entity_cmd
-
-        self.log.info(f'{self.optimize_designs.__name__} command: {list2cmdline(design_cmd)}')
-        metric_cmds = []
-        metric_cmds.extend(self.generate_entity_metrics(entity_cmd))
-
-        # Create executable/Run FastDesign on Refined ASU with RosettaScripts. Then, gather Metrics
-        if self.job.distribute_work:
-            analysis_cmd = ['python', putils.program_exe, putils.analysis, '--single', self.path, '--no-output',
-                            f'--{flags.output_file}', os.path.join(self.job.all_scores, putils.default_analysis_file
-                                                                   .format(starttime, self.protocol))]
-            write_shell_script(list2cmdline(design_cmd), name=self.protocol, out_path=self.scripts,
-                               additional=[list2cmdline(generate_files_cmd)] +
-                                          [list2cmdline(command) for command in metric_cmds] +
-                                          [list2cmdline(analysis_cmd)])
-        else:
-            design_process = Popen(design_cmd)
-            design_process.communicate()  # wait for command to complete
-            list_all_files_process = Popen(generate_files_cmd)
-            list_all_files_process.communicate()
-            for metric_cmd in metric_cmds:
-                metrics_process = Popen(metric_cmd)
-                metrics_process.communicate()
-
-        # ANALYSIS: each output from the Design process based on score, Analyze Sequence Variation
-        if not self.job.distribute_work:
-            pose_s = self._interface_design_analysis()
-            out_path = os.path.join(self.job.all_scores, putils.default_analysis_file.format(starttime, 'All'))
-            if os.path.exists(out_path):
-                header = False
-            else:
-                header = True
-            pose_s.to_csv(out_path, mode='a', header=header)
-
-    @handle_design_errors(errors=(DesignError,))
-    @close_logs
-    @remove_structure_memory
-    def interface_design_analysis(self, design_poses: Iterable[Pose] = None) -> pd.Series:
-        """Retrieve all score information from a PoseDirectory and write results to .csv file
-
-        Args:
-            design_poses: The subsequent designs to perform analysis on
-        Returns:
-            Series containing summary metrics for all designs in the design directory
-        """
-        return self._interface_design_analysis(design_poses=design_poses)
 
     def _interface_design_analysis(self, design_poses: Iterable[Pose] = None) -> pd.Series:
         """Retrieve all score information from a PoseDirectory and write results to .csv file
@@ -3466,141 +3587,6 @@ class PoseDirectory:
 
         return pose_s
 
-    @handle_design_errors(errors=(DesignError,))
-    @close_logs
-    # @remove_structure_memory  # structures not used in this protocol
-    def select_sequences(self, filters: dict = None, weights: dict = None, number: int = 1, protocols: list[str] = None,
-                         **kwargs) -> list[str]:
-        """Select sequences for further characterization. If weights, then user can prioritize by metrics, otherwise
-        sequence with the most neighbors as calculated by sequence distance will be selected. If there is a tie, the
-        sequence with the lowest weight will be selected
-
-        Args:
-            filters: The filters to use in sequence selection
-            weights: The weights to use in sequence selection
-            number: The number of sequences to consider for each design
-            protocols: Whether particular design protocol(s) should be chosen
-        Returns:
-            The selected designs for the Pose trajectories
-        """
-        # Load relevant data from the design directory
-        trajectory_df = pd.read_csv(self.trajectories, index_col=0, header=[0])
-        trajectory_df.dropna(inplace=True)
-        if protocols:
-            designs = []
-            for protocol in protocols:
-                designs.extend(trajectory_df[trajectory_df['protocol'] == protocol].index.to_list())
-
-            if not designs:
-                raise DesignError(f'No designs found for protocols {protocols}!')
-        else:
-            designs = trajectory_df.index.to_list()
-
-        self.log.info(f'Number of starting trajectories = {len(trajectory_df)}')
-        df = trajectory_df.loc[designs, :]
-
-        if filters:
-            self.log.info(f'Using filter parameters: {filters}')
-            # Filter the DataFrame to include only those values which are le/ge the specified filter
-            filtered_designs = metrics.index_intersection(metrics.filter_df_for_index_by_value(df, filters).values())
-            df = df.loc[filtered_designs, :]
-
-        if weights:
-            # No filtering of protocol/indices to use as poses should have similar protocol scores coming in
-            self.log.info(f'Using weighting parameters: {weights}')
-            designs = metrics.rank_dataframe_by_metric_weights(df, weights=weights, **kwargs).index.to_list()
-        else:
-            # sequences_pickle = glob(os.path.join(self.job.all_scores, '%s_Sequences.pkl' % str(self)))
-            # assert len(sequences_pickle) == 1, 'Couldn\'t find files for %s' % \
-            #                                     os.path.join(self.job.all_scores, '%s_Sequences.pkl' % str(self))
-            #
-            # chain_sequences = SDUtils.unpickle(sequences_pickle[0])
-            # {chain: {name: sequence, ...}, ...}
-            # designed_sequences_by_entity: list[dict[str, str]] = unpickle(self.designed_sequences)
-            # designed_sequences_by_entity: list[dict[str, str]] = self.designed_sequences
-            # entity_sequences = list(zip(*[list(designed_sequences.values())
-            #                               for designed_sequences in designed_sequences_by_entity]))
-            # concatenated_sequences = [''.join(entity_sequence) for entity_sequence in entity_sequences]
-            pose_sequences = self.designed_sequences
-            self.log.debug(f'The final concatenated sequences are:\n{pose_sequences}')
-
-            # pairwise_sequence_diff_np = SDUtils.all_vs_all(concatenated_sequences, sequence_difference)
-            # Using concatenated sequences makes the values very similar and inflated as most residues are the same
-            # doing min/max normalization to see variation
-            pairwise_sequence_diff_l = [sequence_difference(*seq_pair)
-                                        for seq_pair in combinations(pose_sequences, 2)]
-            pairwise_sequence_diff_np = np.array(pairwise_sequence_diff_l)
-            _min = min(pairwise_sequence_diff_l)
-            # _max = max(pairwise_sequence_diff_l)
-            pairwise_sequence_diff_np = np.subtract(pairwise_sequence_diff_np, _min)
-            # self.log.info(pairwise_sequence_diff_l)
-
-            # PCA analysis of distances
-            pairwise_sequence_diff_mat = np.zeros((len(designs), len(designs)))
-            for k, dist in enumerate(pairwise_sequence_diff_np):
-                i, j = condensed_to_square(k, len(designs))
-                pairwise_sequence_diff_mat[i, j] = dist
-            pairwise_sequence_diff_mat = sym(pairwise_sequence_diff_mat)
-
-            pairwise_sequence_diff_mat = skl.preprocessing.StandardScaler().fit_transform(pairwise_sequence_diff_mat)
-            seq_pca = skl.decomposition.PCA(variance)
-            seq_pc_np = seq_pca.fit_transform(pairwise_sequence_diff_mat)
-            seq_pca_distance_vector = pdist(seq_pc_np)
-            # epsilon = math.sqrt(seq_pca_distance_vector.mean()) * 0.5
-            epsilon = seq_pca_distance_vector.mean() * 0.5
-            self.log.info(f'Finding maximum neighbors within distance of {epsilon}')
-
-            # self.log.info(pairwise_sequence_diff_np)
-            # epsilon = pairwise_sequence_diff_mat.mean() * 0.5
-            # epsilon = math.sqrt(seq_pc_np.myean()) * 0.5
-            # epsilon = math.sqrt(pairwise_sequence_diff_np.mean()) * 0.5
-
-            # Find the nearest neighbors for the pairwise-distance matrix using the X*X^T (PCA) matrix, linear transform
-            seq_neighbors = skl.neighbors.BallTree(seq_pc_np)
-            seq_neighbor_counts = seq_neighbors.query_radius(seq_pc_np, epsilon, count_only=True)  # sort_results=True)
-            top_count, top_idx = 0, None
-            for count in seq_neighbor_counts:  # idx, enumerate()
-                if count > top_count:
-                    top_count = count
-
-            sorted_seqs = sorted(seq_neighbor_counts, reverse=True)
-            top_neighbor_counts = sorted(set(sorted_seqs[:number]), reverse=True)
-
-            # Find only the designs which match the top x (number) of neighbor counts
-            final_designs = {designs[idx]: num_neighbors for num_neighbors in top_neighbor_counts
-                             for idx, count in enumerate(seq_neighbor_counts) if count == num_neighbors}
-            self.log.info('The final sequence(s) and file(s):\nNeighbors\tDesign\n%s'
-                          # % '\n'.join('%d %s' % (top_neighbor_counts.index(neighbors) + SDUtils.zero_offset,
-                          % '\n'.join(f'\t{neighbors}\t{os.path.join(self.designs, design)}'
-                                      for design, neighbors in final_designs.items()))
-
-            # self.log.info('Corresponding PDB file(s):\n%s' % '\n'.join('%d %s' % (i, os.path.join(self.designs, seq))
-            #                                                         for i, seq in enumerate(final_designs, 1)))
-
-            # Compute the highest density cluster using DBSCAN algorithm
-            # seq_cluster = DBSCAN(eps=epsilon)
-            # seq_cluster.fit(pairwise_sequence_diff_np)
-            #
-            # seq_pc_df = pd.DataFrame(seq_pc, index=designs, columns=['pc' + str(x + SDUtils.zero_offset)
-            #                                                          for x in range(len(seq_pca.components_))])
-            # seq_pc_df = pd.merge(protocol_s, seq_pc_df, left_index=True, right_index=True)
-
-            # If final designs contains more sequences than specified, find the one with the lowest energy
-            if len(final_designs) > number:
-                energy_s = df.loc[final_designs.keys(), 'interface_energy']
-                energy_s.sort_values(inplace=True)
-                designs = energy_s.index.to_list()
-            else:
-                designs = list(final_designs.keys())
-
-        designs = designs[:number]
-        self.log.info(f'Final ranking of trajectories:\n{", ".join(design for design in designs)}')
-        return designs
-
-    # handle_design_errors = staticmethod(handle_design_errors)
-    # close_logs = staticmethod(close_logs)
-    remove_structure_memory = staticmethod(remove_structure_memory)
-
     def __key(self) -> str:
         return self.name
 
@@ -3622,9 +3608,9 @@ class PoseDirectory:
             return self.path.replace(f'{self.projects}{os.sep}', '').replace(os.sep, '-')
 
 
-# @handle_design_errors(errors=(DesignError,))
 # @close_logs
 # @remove_structure_memory
+# @handle_design_errors(errors=(DesignError,))
 def interface_design_analysis(pose: Pose, design_poses: Iterable[Pose] = None, scores_file: AnyStr = None, **kwargs) \
         -> pd.Series:
     """Retrieve all score information from a PoseDirectory and write results to .csv file
