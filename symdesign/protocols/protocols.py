@@ -42,7 +42,7 @@ from symdesign.utils.nanohedra.general import get_components_from_nanohedra_dock
 
 # Globals
 logger = logging.getLogger(__name__)
-# pose_logger = start_log(name='pose', handler_level=3, propagate=True)
+pose_logger = start_log(name='pose', handler_level=3, propagate=True)
 zero_offset = 1
 idx_slice = pd.IndexSlice
 cst_value = round(0.2 * rosetta.reference_average_residue_weight, 2)
@@ -717,7 +717,7 @@ class PoseDirectory:
             if self.job.force:
                 os.system(f'rm {self.log_path}')
             self.log = start_log(name=f'pose.{self}', handler=handler, level=level, location=self.log_path,
-                                 no_log_name=no_log_name)  # propagate=propagate,
+                                 no_log_name=no_log_name, propagate=True)  # Pass messages to "pose" logger
 
     @handle_design_errors(errors=(FileNotFoundError, ValueError))
     @close_logs
