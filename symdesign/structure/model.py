@@ -5688,7 +5688,7 @@ class Pose(SymmetricModel):
             decode_core_first: bool = False - Whether to decode identified fragments (constituting the protein core) first
         Returns:
             A mapping of the design score type to the output data.
-                For proteinmpnn, this is the score string mapped to the corresponding 'sequences',
+                For proteinmpnn, this is the score string mapped to the corresponding 'sequences', 'numeric_sequences',
                 'proteinmpnn_loss_complex', 'proteinmpnn_loss_unbound', and 'design_indices'. For each data return, the
                 return varies such as: [temp1/repeat1, temp1/repeat2, ..., tempN/repeat1, ...]
                 where designs are sorted by temperature
@@ -5774,8 +5774,10 @@ class Pose(SymmetricModel):
                                               'proteinmpnn_loss_unbound': per_residue_unbound_sequence_loss,
                                               'design_indices': design_indices})
 
-            sequences_and_scores['sequences'] = numeric_to_sequence(sequences_and_scores['sequences'])
-            # Format returns to have shape (temperaturesxsize, pose_length) where the temperatures vary slower
+            sequences_and_scores['numeric_sequences'] = sequences_and_scores.pop('sequences')
+            sequences_and_scores['sequences'] = numeric_to_sequence(sequences_and_scores['numeric_sequences'])
+
+            # Format returns to have shape (temperatures*size, pose_length) where the temperatures vary slower
             # Ex: [temp1/pose1, temp1/pose2, ..., tempN/pose1, ...] This groups the designs by temperature first
             for data_type, data in sequences_and_scores.items():
                 if data_type == 'design_indices':
