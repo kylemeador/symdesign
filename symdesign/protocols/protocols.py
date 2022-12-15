@@ -30,7 +30,6 @@ from cycler import cycler
 from scipy.spatial.distance import pdist, cdist
 
 from symdesign import flags, metrics, resources
-from . import metrics
 from symdesign.structure import fragment
 from symdesign.structure.base import Structure
 from symdesign.structure.model import Pose, MultiModel, Models, Model, Entity, transformation_mapping
