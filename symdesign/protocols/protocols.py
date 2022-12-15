@@ -3111,7 +3111,10 @@ class PoseDirectory(PoseProtocol):
                     proteinmpnn_columns.append(column)
 
             if proteinmpnn_columns:
+                proteinmpnn_design_performed = True
                 proteinmpnn_df = scores_df.loc[:, proteinmpnn_columns]
+            else:
+                proteinmpnn_design_performed = False
 
             # Check proper input
             metric_set = metrics.necessary_metrics.difference(set(scores_df.columns))
@@ -3120,10 +3123,10 @@ class PoseDirectory(PoseProtocol):
                 raise DesignError(f'Missing required metrics: "{", ".join(metric_set)}"')
 
             # Remove unnecessary (old scores) as well as Rosetta pose score terms besides ref (has been renamed above)
-            # TODO learn know how to produce score terms in output score file. Not in FastRelax...
+            # Todo learn know how to produce Rosetta score terms in output score file. Not in FastRelax...
             remove_columns = metrics.rosetta_terms + metrics.unnecessary \
                 + per_res_columns + hbonds_columns + proteinmpnn_columns
-            # TODO remove dirty when columns are correct (after P432)
+            # Todo remove dirty when columns are correct (after P432)
             #  and column tabulation precedes residue/hbond_processing
             interface_hbonds = metrics.dirty_hbond_processing(all_viable_design_scores)
             # can't use hbond_processing (clean) in the case there is a design without metrics... columns not found!
@@ -4152,9 +4155,9 @@ class PoseDirectory(PoseProtocol):
         pose_s = pd.concat([interface_metrics_s, stat_s, divergence_s] + sim_series).swaplevel(0, 1)
         # Remove pose specific metrics from pose_s, sort, and name protocol_mean_df
         pose_s.drop([putils.protocol], level=2, inplace=True, errors='ignore')
-        pose_s.sort_index(level=2, inplace=True, sort_remaining=False)  # ascending=True, sort_remaining=True)
-        pose_s.sort_index(level=1, inplace=True, sort_remaining=False)  # ascending=True, sort_remaining=True)
-        pose_s.sort_index(level=0, inplace=True, sort_remaining=False)  # ascending=False
+        pose_s.sort_index(level=2, inplace=True, sort_remaining=False)
+        pose_s.sort_index(level=1, inplace=True, sort_remaining=False)
+        pose_s.sort_index(level=0, inplace=True, sort_remaining=False)
         pose_s.name = str(self)
 
         return pose_s

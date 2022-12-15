@@ -40,7 +40,6 @@ from symdesign.utils.symmetry import generate_cryst1_record, identity_matrix
 logger = logging.getLogger(__name__)
 # logger = start_log(name=__name__, format_log=False)
 zero_offset = 1
-zero_probability_frag_value = -20
 
 
 # TODO decrease amount of work by saving each index array and reusing...
@@ -2173,6 +2172,34 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
             pose.fragment_queries = {entity_tuple: frag_match_info}
             pose.fragment_metrics = {entity_tuple: fragment_metrics}
 
+    # Sort cluster members by the highest metric and take some highest number of members
+    # Todo filter by score for the best then repeat perterbation
+    #  Collect scores according to job.dock.score
+
+    if job.dock.score:
+        metric = sequences_and_scores.get(job.dock.score)
+        if metric is None:
+            raise ValueError(f"The metric {job.dock.score} wasn't collected and therefore, can't be selected")
+
+        # The use of perturbation is inherently handled. Don't need check
+        # if job.dock.perturb_dof:
+        number_of_chosen_hits = math.sqrt(total_perturbation_size)
+        number_of_transform_seeds = int(number_of_transforms // total_perturbation_size)
+        perturb_passing_indices = []
+        for idx in range(number_of_transform_seeds):
+            # Slice the chosen metric along the local perturbation
+            perturb_metric = metric[idx * total_perturbation_size: (idx + 1) * total_perturbation_size]
+            # Sort the slice and take the top number of hits
+            top_candidate_indices = perturb_metric.argsort()[:number_of_chosen_hits]
+            # perturb_metric[top_candidate_indices]
+            # Scale the selected indices into the transformation indices reference
+            perturb_passing_indices.extend((top_candidate_indices + idx * total_perturbation_size).tolist())
+
+        remove_non_viable_indices(perturb_passing_indices)
+    else:  # Output all
+        pass
+        # design_ids = pose_ids
+
     proteinmpnn_used = measure_evolution = measure_alignment = False
     # if job.dock_only:  # Only get pose outputs, no sequences or metrics
     #     pass
@@ -2246,7 +2273,7 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
                 profile_background['evolution'] = evolutionary_profile_array = pssm_as_array(pose.evolutionary_profile)
                 batch_evolutionary_profile = torch.from_numpy(np.tile(evolutionary_profile_array,
                                                                       (batch_length, 1, 1)))
-                torch_log_evolutionary_profile = torch.from_numpy(np.log(evolutionary_profile_array))
+                # torch_log_evolutionary_profile = torch.from_numpy(np.log(evolutionary_profile_array))
             # else:
             #     pose.log.info('No evolution information')
 
@@ -4226,8 +4253,17 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
             per_residue_df.to_csv(residue_metrics_csv)
             logger.info(f'Wrote per residue metrics to {residue_metrics_csv}')
 
-    # Collect Nanohedra specific metrics over each pose
-    nanohedra_metrics()
+        # Todo
+        # if job.dock.metrics:
+        # Format Nanohedra specific metrics for each pose
+        nanohedra_metrics()
+        # else:
+        #     for idx, pose_id in enumerate(pose_ids):
+        #         # Add the next set of coordinates
+        #         update_pose_coords(idx)
+        #         add_fragments_to_pose()  # <- here generating fresh
+        #         if job.output:
+        #             output_pose(pose_id.replace(project_str, ''))
 
         # Write trajectory if specified
         if job.write_trajectory:

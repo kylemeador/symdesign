@@ -71,7 +71,7 @@ interface_metrics = \
     f' {flags.interface_metrics} protocol describes the interface with a few key metrics that are collected from Rosetta ' \
     f'Filters and SimpleMetrics. These include necessary energetic measurements of the interface in the complexed, ' \
     f'the complexed atomic configuration yet removed from the bound complex, and an unbound state with atoms repacked' \
-    f' as they adopt to a solvated state. If interface_metrics are not performed on your designs, or a pose is simply' \
+    f' as they adopt to a solvated state. If {flags.interface_metrics} are not performed on your designs, or a pose is simply' \
     f' loaded for analysis, then there will be missing metrics. These include {", ".join(rosetta_required_metrics)},' \
     f' which are currently generated outside the {program_name} program environment. Many metrics such as surface' \
     f' area, secondary structure, and fragment descriptions, various entity sequence based metrics and parameters are' \
