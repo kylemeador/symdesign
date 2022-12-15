@@ -27,15 +27,12 @@ logger = logging.getLogger(putils.program_name.lower())  # __name__)
 # logger.info('Starting logger')
 # logger.warning('Starting logger')
 # input('WHY LOGGING')
-from symdesign import flags, metrics, protocols, resources, utils
+from symdesign import flags, protocols, utils
 from symdesign.protocols import PoseDirectory
 from symdesign.resources.job import job_resources_factory
 from symdesign.resources.query.pdb import retrieve_pdb_entries_by_advanced_query
-from symdesign.resources.query.utils import input_string, boolean_choice, validate_input_return_response_value
+from symdesign.resources.query.utils import validate_input_return_response_value
 from symdesign.structure.fragment.db import fragment_factory, euler_factory
-from symdesign.structure.model import Model
-from symdesign.structure.sequence import generate_mutations, find_orf_offset, write_sequences
-from symdesign.third_party.DnaChisel.dnachisel.DnaOptimizationProblem.NoSolutionError import NoSolutionError
 from symdesign.utils import guide, nanohedra, ProteinExpression
 
 # def format_additional_flags(flags):
@@ -1024,845 +1021,226 @@ def main():
         #     terminate_kwargs.update(**terminate_options.get(protocol_name, {}))
         #
         # terminate(results=results, **terminate_kwargs, exceptions=exceptions)
-        terminate(results=results, exceptions=exceptions)
-    # ---------------------------------------------------
-    if job.module == flags.orient:
-        if args.multi_processing:
-            results = utils.mp_map(PoseDirectory.orient, pose_directories, processes=job.cores)
-        else:
-            for design_dir in pose_directories:
-                results.append(design_dir.orient())  # to_pose_directory=args.to_pose_directory))
+        # terminate(results=results, exceptions=exceptions)
+    # -----------------------------------------------------------------------------------------------------------------
+    #  Run a single submodule
+    # -----------------------------------------------------------------------------------------------------------------
+    else:
+        if job.module == 'find_transforms':
+            # if args.multi_processing:
+            #     results = SDUtils.mp_map(PoseDirectory.find_transforms, pose_directories, processes=job.cores)
+            # else:
+            stacked_transforms = [pose_directory.pose.entity_transformations for pose_directory in pose_directories]
+            trans1_rot1, trans1_tx1, trans1_rot2, trans1_tx2 = zip(*[transform[0].values()
+                                                                     for transform in stacked_transforms])
+            trans2_rot1, trans2_tx1, trans2_rot2, trans2_tx2 = zip(*[transform[1].values()
+                                                                     for transform in stacked_transforms])
+            # Create the full dictionaries
+            transformation1 = dict(rotation=trans1_rot1, translation=trans1_tx1,
+                                   rotation2=trans1_rot2, translation2=trans1_tx2)
+            transformation2 = dict(rotation=trans2_rot1, translation=trans2_tx1,
+                                   rotation2=trans2_rot2, translation2=trans2_tx2)
+            file1 = utils.pickle_object(transformation1, name='transformations1', out_path=os.getcwd())
+            file2 = utils.pickle_object(transformation2, name='transformations2', out_path=os.getcwd())
+            logger.info(f'Wrote transformation1 parameters to {file1}')
+            logger.info(f'Wrote transformation2 parameters to {file2}')
 
-        terminate(results=results)
-    # ---------------------------------------------------
-    # elif job.module == 'find_asu':
-    #     if args.multi_processing:
-    #         results = utils.mp_map(PoseDirectory.find_asu, pose_directories, processes=job.cores)
-    #     else:
-    #         for design_dir in pose_directories:
-    #             results.append(design_dir.find_asu())
-    #
-    #     terminate(results=results)
-    # ---------------------------------------------------
-    elif job.module == 'find_transforms':
-        # if args.multi_processing:
-        #     results = SDUtils.mp_map(PoseDirectory.find_transforms, pose_directories, processes=job.cores)
-        # else:
-        stacked_transforms = [pose_directory.pose.entity_transformations for pose_directory in pose_directories]
-        trans1_rot1, trans1_tx1, trans1_rot2, trans1_tx2 = zip(*[transform[0].values()
-                                                                 for transform in stacked_transforms])
-        trans2_rot1, trans2_tx1, trans2_rot2, trans2_tx2 = zip(*[transform[1].values()
-                                                                 for transform in stacked_transforms])
-        # Create the full dictionaries
-        transformation1 = dict(rotation=trans1_rot1, translation=trans1_tx1,
-                               rotation2=trans1_rot2, translation2=trans1_tx2)
-        transformation2 = dict(rotation=trans2_rot1, translation=trans2_tx1,
-                               rotation2=trans2_rot2, translation2=trans2_tx2)
-        file1 = utils.pickle_object(transformation1, name='transformations1', out_path=os.getcwd())
-        file2 = utils.pickle_object(transformation2, name='transformations2', out_path=os.getcwd())
-        logger.info(f'Wrote transformation1 parameters to {file1}')
-        logger.info(f'Wrote transformation2 parameters to {file2}')
+            terminate(results=results)
+        # ---------------------------------------------------
+        # Todo
+        # elif job.module == 'status':  # -n number, -s stage, -u update
+        #     if args.update:
+        #         for design in pose_directories:
+        #             update_status(design.serialized_info, args.stage, mode=args.update)
+        #     else:
+        #         if args.number_of_trajectories:
+        #             logger.info('Checking for %d files based on --number_of_trajectories flag' % args.number_of_trajectories)
+        #         if args.stage:
+        #             status(pose_directories, args.stage, number=args.number_of_trajectories)
+        #         else:
+        #             for stage in putils.stage_f:
+        #                 s = status(pose_directories, stage, number=args.number_of_trajectories)
+        #                 if s:
+        #                     logger.info('For "%s" stage, default settings should generate %d files'
+        #                                 % (stage, putils.stage_f[stage]['len']))
+        # # ---------------------------------------------------
+        # Todo
+        # elif job.module == 'find_asu':
+        #     # Fetch the specified protocol
+        #     protocol = getattr(protocols, job.module)
+        #     if args.multi_processing:
+        #         results = utils.mp_map(protocol, pose_directories, processes=job.cores)
+        #     else:
+        #         for pose_dir in pose_directories:
+        #             results.append(protocol(pose_dir))
+        #
+        #     terminate(results=results)
+        # # ---------------------------------------------------
+        # Todo
+        # elif job.module == 'check_unmodelled_clashes':
+        #     # Fetch the specified protocol
+        #     protocol = getattr(protocols, job.module)
+        #     if args.multi_processing:
+        #         results = utils.mp_map(protocol, pose_directories, processes=job.cores)
+        #     else:
+        #         for pose_dir in pose_directories:
+        #             results.append(protocol(pose_dir))
+        #
+        #     terminate(results=results)
+        # # ---------------------------------------------------
+        # Todo
+        # elif job.module == 'custom_script':
+        #     # Start pose processing and preparation for Rosetta
+        #     if args.multi_processing:
+        #         zipped_args = zip(pose_directories, repeat(args.script), repeat(args.force), repeat(args.file_list),
+        #                           repeat(args.native), repeat(job.suffix), repeat(args.score_only),
+        #                           repeat(args.variables))
+        #         results = utils.mp_starmap(PoseDirectory.custom_rosetta_script, zipped_args, processes=job.cores)
+        #     else:
+        #         for design in pose_directories:
+        #             results.append(design.custom_rosetta_script(args.script, force=args.force,
+        #                                                         file_list=args.file_list, native=args.native,
+        #                                                         suffix=job.suffix, score_only=args.score_only,
+        #                                                         variables=args.variables))
+        #
+        #     terminate(results=results)
+        # ---------------------------------------------------
+        elif job.module == flags.cluster_poses:
+            protocols.cluster.cluster_poses(pose_directories)
+            terminate(output=False)
+        # ---------------------------------------------------
+        elif job.module == flags.select_poses:
+            # Need to initialize pose_directories, design_source to terminate()
+            pose_directories = results = protocols.select.poses(pose_directories)
+            design_source = job.program_root
+            # Write out the chosen poses to a pose.paths file
+            terminate(results=results)
+        # ---------------------------------------------------
+        elif job.module == flags.select_designs:
+            # Need to initialize pose_directories, design_source to terminate()
+            pose_directories = results = protocols.select.designs(pose_directories)
+            design_source = job.program_root
+            # Write out the chosen poses to a pose.paths file
+            terminate(results=results)
+        # ---------------------------------------------------
+        elif job.module == flags.select_sequences:
+            # Need to initialize pose_directories, design_source to terminate()
+            pose_directories = results = protocols.select.sequences(pose_directories)
+            design_source = job.program_root
+            # Write out the chosen poses to a pose.paths file
+            terminate(results=results)
+        # ---------------------------------------------------
+        elif job.module == 'visualize':
+            import visualization.VisualizeUtils as VSUtils
+            from pymol import cmd
 
-        terminate(results=results)
-    # ---------------------------------------------------
-    elif job.module == flags.expand_asu:
-        if args.multi_processing:
-            results = utils.mp_map(PoseDirectory.expand_asu, pose_directories, processes=job.cores)
-        else:
-            for design_dir in pose_directories:
-                results.append(design_dir.expand_asu())
+            # if 'escher' in sys.argv[1]:
+            if not args.directory:
+                exit(f'A directory with the desired designs must be specified using -d/--{flags.directory}')
 
-        terminate(results=results)
-    # ---------------------------------------------------
-    elif job.module == flags.rename_chains:
-        if args.multi_processing:
-            results = utils.mp_map(PoseDirectory.rename_chains, pose_directories, processes=job.cores)
-        else:
-            for design_dir in pose_directories:
-                results.append(design_dir.rename_chains())
+            if ':' in args.directory:  # args.file  Todo job.location
+                print('Starting the data transfer from remote source now...')
+                os.system(f'scp -r {args.directory} .')
+                file_dir = os.path.basename(args.directory)
+            else:  # assume the files are local
+                file_dir = args.directory
+            # files = VSUtils.get_all_file_paths(file_dir, extension='.pdb', sort=not args.order)
 
-        terminate(results=results)
-    # ---------------------------------------------------
-    # elif job.module == 'check_unmodelled_clashes':  # Todo
-    #     if args.multi_processing:
-    #         results = SDUtils.mp_map(PoseDirectory.check_unmodelled_clashes, pose_directories,
-    #                                  processes=job.cores)
-    #     else:
-    #         for design_dir in pose_directories:
-    #             results.append(design_dir.check_unmodelled_clashes())
-    #
-    #     terminate(results=results)
-    # ---------------------------------------------------
-    elif job.module == flags.check_clashes:
-        if args.multi_processing:
-            results = utils.mp_map(PoseDirectory.check_clashes, pose_directories, processes=job.cores)
-        else:
-            for design_dir in pose_directories:
-                results.append(design_dir.check_clashes())
+            if args.order == 'alphabetical':
+                files = VSUtils.get_all_file_paths(file_dir, extension='.pdb')  # sort=True)
+            else:  # if args.order == 'none':
+                files = VSUtils.get_all_file_paths(file_dir, extension='.pdb', sort=False)
 
-        terminate(results=results)
-    # ---------------------------------------------------
-    elif job.module == flags.generate_fragments:
-        # job.write_fragments = True
-        if args.multi_processing:
-            results = utils.mp_map(PoseDirectory.generate_interface_fragments, pose_directories,
-                                   processes=job.cores)
-        else:
-            for design in pose_directories:
-                results.append(design.generate_interface_fragments())
-
-        terminate(results=results)
-    # ---------------------------------------------------
-    elif job.module == flags.nanohedra:
-        if args.multi_processing:
-            results = utils.mp_map(protocols.fragdock.fragment_dock, pose_directories, processes=job.cores)
-        else:
-            for pair in pose_directories:
-                results.append(protocols.fragdock.fragment_dock(pair))
-        terminate(results=results, output=False)
-    # ---------------------------------------------------
-    elif job.module == flags.interface_metrics:
-        # Start pose processing and preparation for Rosetta
-        if args.multi_processing:
-            results = utils.mp_map(PoseDirectory.interface_metrics, pose_directories, processes=job.cores)
-        else:
-            for design in pose_directories:
-                results.append(design.interface_metrics())
-
-        terminate(results=results)
-    # ---------------------------------------------------
-    elif job.module == flags.optimize_designs:
-        # Start pose processing and preparation for Rosetta
-        if args.multi_processing:
-            results = utils.mp_map(PoseDirectory.optimize_designs, pose_directories, processes=job.cores)
-        else:
-            for design in pose_directories:
-                results.append(design.optimize_designs())
-
-        terminate(results=results)
-    # ---------------------------------------------------
-    # elif job.module == 'custom_script':
-    #     # Start pose processing and preparation for Rosetta
-    #     if args.multi_processing:
-    #         zipped_args = zip(pose_directories, repeat(args.script), repeat(args.force), repeat(args.file_list),
-    #                           repeat(args.native), repeat(job.suffix), repeat(args.score_only),
-    #                           repeat(args.variables))
-    #         results = utils.mp_starmap(PoseDirectory.custom_rosetta_script, zipped_args, processes=job.cores)
-    #     else:
-    #         for design in pose_directories:
-    #             results.append(design.custom_rosetta_script(args.script, force=args.force,
-    #                                                         file_list=args.file_list, native=args.native,
-    #                                                         suffix=job.suffix, score_only=args.score_only,
-    #                                                         variables=args.variables))
-    #
-    #     terminate(results=results)
-    # ---------------------------------------------------
-    elif job.module == flags.refine:
-        if args.multi_processing:
-            results = utils.mp_map(PoseDirectory.refine, pose_directories, processes=job.cores)
-        else:
-            for design in pose_directories:
-                results.append(design.refine())
-
-        terminate(results=results)
-    # ---------------------------------------------------
-    elif job.module == flags.interface_design:
-        if args.multi_processing:
-            results = utils.mp_map(PoseDirectory.interface_design, pose_directories, processes=job.cores)
-        else:
-            for design in pose_directories:
-                results.append(design.interface_design())
-
-        terminate(results=results)
-    # ---------------------------------------------------
-    elif job.module == flags.design:
-        if args.multi_processing:
-            results = utils.mp_map(PoseDirectory.design, pose_directories, processes=job.cores)
-        else:
-            for design in pose_directories:
-                results.append(design.design())
-
-        terminate(results=results)
-    # ---------------------------------------------------
-    elif job.module == flags.analysis:
-        # Start pose analysis of all designed files
-        if args.multi_processing:
-            # zipped_args = zip(pose_directories, repeat(args.save), repeat(args.figures))
-            # results = utils.mp_starmap(PoseDirectory.interface_design_analysis, zipped_args, processes=job.cores)
-            results = utils.mp_map(PoseDirectory.interface_design_analysis, pose_directories, processes=job.cores)
-        else:
-            # @profile  # memory_profiler
-            # def run_single_analysis():
-            for design in pose_directories:
-                results.append(design.interface_design_analysis())
-            # run_single_analysis()
-        terminate(results=results)  # , output_analysis=args.output)
-    # ---------------------------------------------------
-    elif job.module == flags.cluster_poses:
-        protocols.cluster.cluster_poses(pose_directories)
-        terminate(output=False)
-    # ---------------------------------------------------
-    elif job.module == flags.select_poses:
-        # Need to initialize pose_directories, design_source to terminate()
-        pose_directories = protocols.select.poses(pose_directories)
-        design_source = job.program_root
-        # Write out the chosen poses to a pose.paths file
-        terminate(results=pose_directories)
-    # ---------------------------------------------------
-    elif job.module in [flags.select_designs, flags.select_sequences]:
-        program_root = job.program_root
-        if job.specification_file:
-            loc_result = [(pose_directory, design) for pose_directory in pose_directories
-                          for design in pose_directory.specific_designs]
-            total_df = protocols.load_total_dataframe(pose_directories)
-            selected_poses_df = \
-                metrics.prioritize_design_indices(total_df.loc[loc_result, :], filter=job.filter, weight=job.weight,
-                                                  protocol=job.protocol, function=job.weight_function)
-            # Specify the result order according to any filtering, weighting, and number
-            results = {}
-            for pose_directory, design in selected_poses_df.index.to_list()[:job.number]:
-                if pose_directory in results:
-                    results[pose_directory].add(design)
-                else:
-                    results[pose_directory] = {design}
-
-            save_poses_df = selected_poses_df.droplevel(0)  # .droplevel(0, axis=1).droplevel(0, axis=1)
-            # convert to PoseDirectory objects
-            # results = {pose_directory: results[str(pose_directory)] for pose_directory in pose_directories
-            #            if str(pose_directory) in results}
-        elif job.total:
-            total_df = protocols.load_total_dataframe(pose_directories)
-            if job.protocol:
-                group_df = total_df.groupby('protocol')
-                df = pd.concat([group_df.get_group(x) for x in group_df.groups], axis=1,
-                               keys=list(zip(group_df.groups, repeat('mean'))))
-            else:
-                df = pd.concat([total_df], axis=1, keys=['pose', 'metric'])
-            # Figure out designs from dataframe, filters, and weights
-            selected_poses_df = metrics.prioritize_design_indices(df, filter=job.filter, weight=job.weight,
-                                                                  protocol=job.protocol, function=job.weight_function)
-            selected_designs = selected_poses_df.index.to_list()
-            job.number = \
-                len(selected_designs) if len(selected_designs) < job.number else job.number
-            if job.allow_multiple_poses:
-                logger.info(f'Choosing {job.number} designs, from the top ranked designs regardless of pose')
-                loc_result = selected_designs[:job.number]
-                results = {pose_dir: design for pose_dir, design in loc_result}
-            else:  # elif job.designs_per_pose:
-                logger.info(f'Choosing up to {job.number} designs, with {job.designs_per_pose} designs per pose')
-                number_chosen = 0
-                selected_poses = {}
-                for pose_directory, design in selected_designs:
-                    designs = selected_poses.get(pose_directory, None)
-                    if designs:
-                        if len(designs) >= job.designs_per_pose:
-                            # We already have too many, continue with search. No need to check as no addition
-                            continue
-                        selected_poses[pose_directory].add(design)
-                    else:
-                        selected_poses[pose_directory] = {design}
-                    number_chosen += 1
-                    if number_chosen == job.number:
-                        break
-
-                results = selected_poses
-                loc_result = [(pose_dir, design) for pose_dir, designs in selected_poses.items() for design in designs]
-
-            # Include only the found index names to the saved dataframe
-            save_poses_df = selected_poses_df.loc[loc_result, :]  # .droplevel(0).droplevel(0, axis=1).droplevel(0, axis=1)
-            # convert to PoseDirectory objects
-            # results = {pose_directory: results[str(pose_directory)] for pose_directory in pose_directories
-            #            if str(pose_directory) in results}
-        else:  # Select designed sequences from each pose provided (PoseDirectory)
-            trajectory_df = sequence_metrics = None  # Used to get the column headers
-            try:
-                example_trajectory = representative_pose_directory.trajectories
-            except AttributeError:
-                raise RuntimeError('Missing the representative_pose_directory. It must be initialized to continue')
-                example_trajectory = None
-
-            if job.filter or job.weight:
-                trajectory_df = pd.read_csv(example_trajectory, index_col=0, header=[0])
-                sequence_metrics = set(trajectory_df.columns.get_level_values(-1).to_list())
-            else:
-                sequence_metrics = []
-
-            if job.filter:
-                sequence_filters = metrics.query_user_for_metrics(sequence_metrics, mode='filter', level='sequence')
-            else:
-                sequence_filters = None
-
-            if job.weight:
-                sequence_weights = metrics.query_user_for_metrics(sequence_metrics, mode='weight', level='sequence')
-            else:
-                sequence_weights = None
-
-            if job.multi_processing:
-                # sequence_weights = {'buns_per_ang': 0.2, 'observed_evolution': 0.3, 'shape_complementarity': 0.25,
-                #                     'int_energy_res_summary_delta': 0.25}
-                zipped_args = zip(pose_directories, repeat(sequence_filters), repeat(sequence_weights),
-                                  repeat(job.designs_per_pose), repeat(job.protocol))
-                # result_mp = zip(*SDUtils.mp_starmap(Ams.select_sequences, zipped_args, processes=job.cores))
-                result_mp = utils.mp_starmap(PoseDirectory.select_sequences, zipped_args, processes=job.cores)
-                # results - contains tuple of (PoseDirectory, design index) for each sequence
-                # could simply return the design index then zip with the directory
-                results = {pose_dir: designs for pose_dir, designs in zip(pose_directories, result_mp)}
-            else:
-                results = {pose_dir: pose_dir.select_sequences(filters=sequence_filters, weights=sequence_weights,
-                                                               number=job.designs_per_pose, protocols=job.protocol)
-                           for pose_dir in pose_directories}
-            # Todo there is no sort here so the number isn't really doing anything
-            results = {pose_dir: designs for pose_dir, designs in list(results.items())[:job.number]}
-            loc_result = [(pose_dir, design) for pose_dir, designs in results.items() for design in designs]
-            total_df = protocols.load_total_dataframe(pose_directories)
-            save_poses_df = total_df.loc[loc_result, :].droplevel(0).droplevel(0, axis=1).droplevel(0, axis=1)
-
-        # Format selected sequences for output
-        if job.prefix == '':
-            job.prefix = f'{os.path.basename(os.path.splitext(job.location)[0])}_'
-
-        outdir = os.path.join(os.path.dirname(program_root), f'{job.prefix}SelectedDesigns{job.suffix}')
-        putils.make_path(outdir)
-
-        if job.total and job.save_total:
-            total_df_filename = os.path.join(outdir, 'TotalPosesTrajectoryMetrics.csv')
-            total_df.to_csv(total_df_filename)
-            logger.info(f'Total Pose/Designs DataFrame was written to: {total_df}')
-
-        logger.info(f'{len(save_poses_df)} poses were selected')
-        # if save_poses_df is not None:  # Todo make work if DataFrame is empty...
-        if job.filter or job.weight:
-            new_dataframe = os.path.join(outdir, f'{utils.starttime}-{"Filtered" if job.filter else ""}'
-                                                 f'{"Weighted" if job.weight else ""}DesignMetrics.csv')
-        else:
-            new_dataframe = os.path.join(outdir, f'{utils.starttime}-DesignMetrics.csv')
-        save_poses_df.to_csv(new_dataframe)
-        logger.info(f'New DataFrame with selected designs was written to: {new_dataframe}')
-
-        logger.info(f'Relevant design files are being copied to the new directory: {outdir}')
-        # Create new output of designed PDB's  # TODO attach the state to these files somehow for further SymDesign use
-        exceptions = []
-        for pose_dir, designs in results.items():
-            for design in designs:
-                file_path = os.path.join(pose_dir.designs, f'*{design}*')
-                file = sorted(glob(file_path))
-                if not file:  # add to exceptions
-                    exceptions.append((pose_dir, f'No file found for "{file_path}"'))
-                    continue
-                out_path = os.path.join(outdir, f'{pose_dir}_design_{design}.pdb')
-                if not os.path.exists(out_path):
-                    shutil.copy(file[0], out_path)  # [i])))
-                    # shutil.copy(des_dir.trajectories, os.path.join(outdir_traj, os.path.basename(des_dir.trajectories)))
-                    # shutil.copy(des_dir.residues, os.path.join(outdir_res, os.path.basename(des_dir.residues)))
-            # try:
-            #     # Create symbolic links to the output PDB's
-            #     os.symlink(file[0], os.path.join(outdir, '%s_design_%s.pdb' % (str(des_dir), design)))  # [i])))
-            #     os.symlink(des_dir.trajectories, os.path.join(outdir_traj, os.path.basename(des_dir.trajectories)))
-            #     os.symlink(des_dir.residues, os.path.join(outdir_res, os.path.basename(des_dir.residues)))
-            # except FileExistsError:
-            #     pass
-
-        # Check if sequences should be generated. This is True when the job.module == flags.select_sequences
-        if job.module == flags.select_designs:
-            terminate(exceptions=exceptions, output=False)
-        else:
-            # Format sequences for expression
-            job.output_file = os.path.join(outdir, f'{job.prefix}SelectedDesigns{job.suffix}.paths')
-            # pose_directories = list(results.keys())
-            with open(job.output_file, 'w') as f:
-                f.write('%s\n' % '\n'.join(pose_dir.path for pose_dir in list(results.keys())))
-
-        # Set up mechanism to solve sequence tagging preferences
-        def solve_tags(pose: Pose):
-            if job.tag_entities is None:
-                tag_index = [False for _ in pose.entities]
-            elif job.tag_entities == 'all':
-                tag_index = [True for _ in pose.entities]
-            elif job.tag_entities == 'single':
-                tag_index = [True for _ in pose.entities]
-            else:
-                tag_index = []
-                for tag_specification in map(str.strip, job.tag_entities.split(',')):
-                    # Remove non-numeric stuff
-                    if tag_specification == '':  # Probably a trailing ',' ...
-                        continue
-                    else:
-                        tag_specification.translate(utils.keep_digit_table)
-
-                    try:  # To convert to an integer
-                        tag_index.append(True if int(tag_specification) == 1 else False)
-                    except ValueError:  # Not an integer False
-                        tag_index.append(False)
-
-                # Add any missing arguments to the tagging scheme
-                for _ in range(pose.number_of_entities - len(tag_index)):
-                    tag_index.append(False)
-
-            return tag_index
-
-        if args.multicistronic or args.multicistronic_intergenic_sequence:
-            args.multicistronic = True
-            if args.multicistronic_intergenic_sequence:
-                intergenic_sequence = args.multicistronic_intergenic_sequence
-            else:
-                intergenic_sequence = ProteinExpression.default_multicistronic_sequence
-        else:
-            intergenic_sequence = ''
-
-        missing_tags = {}  # result: [True, True] for result in results
-        tag_sequences, final_sequences, inserted_sequences, nucleotide_sequences = {}, {}, {}, {}
-        codon_optimization_errors = {}
-        # for des_dir, design in results:
-        for des_dir, designs in results.items():
-            des_dir.load_pose()  # source=des_dir.asu_path)
-            tag_index = solve_tags(des_dir.pose)
-            number_of_tags = sum(tag_index)
-            des_dir.pose.rename_chains()  # Do I need to modify chains?
-            for design in designs:
-                file_glob = f'{des_dir.designs}{os.sep}*{design}*'
-                file = sorted(glob(file_glob))
-                if not file:
-                    logger.error(f'No file found for {file_glob}')
-                    continue
-                design_pose = Model.from_file(file[0], log=des_dir.log, entity_names=des_dir.entity_names)
-                designed_atom_sequences = [entity.sequence for entity in design_pose.entities]
-
-                missing_tags[(des_dir, design)] = [1 for _ in des_dir.pose.entities]
-                prior_offset = 0
-                # all_missing_residues = {}
-                # mutations = []
-                # referenced_design_sequences = {}
-                sequences_and_tags = {}
-                entity_termini_availability, entity_helical_termini = {}, {}
-                for idx, (source_entity, design_entity) in enumerate(zip(des_dir.pose.entities, design_pose.entities)):
-                    # source_entity.retrieve_info_from_api()
-                    # source_entity.reference_sequence
-                    sequence_id = f'{des_dir}_{source_entity.name}'
-                    # design_string = '%s_design_%s_%s' % (des_dir, design, source_entity.name)  # [i])), pdb_code)
-                    design_string = f'{design}_{source_entity.name}'
-                    termini_availability = des_dir.pose.get_termini_accessibility(source_entity)
-                    logger.debug(f'Design {sequence_id} has the following termini accessible for tags: '
-                                 f'{termini_availability}')
-                    if args.avoid_tagging_helices:
-                        termini_helix_availability = \
-                            des_dir.pose.get_termini_accessibility(source_entity, report_if_helix=True)
-                        logger.debug(f'Design {sequence_id} has the following helical termini available: '
-                                     f'{termini_helix_availability}')
-                        termini_availability = {'n': termini_availability['n'] and not termini_helix_availability['n'],
-                                                'c': termini_availability['c'] and not termini_helix_availability['c']}
-                        entity_helical_termini[design_string] = termini_helix_availability
-                    logger.debug(f'The termini {termini_availability} are available for tagging')
-                    entity_termini_availability[design_string] = termini_availability
-                    true_termini = [term for term, is_true in termini_availability.items() if is_true]
-
-                    # Find sequence specified attributes required for expression formatting
-                    # disorder = generate_mutations(source_entity.sequence, source_entity.reference_sequence,
-                    #                               only_gaps=True)
-                    # disorder = source_entity.disorder
-                    source_offset = source_entity.offset_index
-                    indexed_disordered_residues = {res_number + source_offset + prior_offset: mutation
-                                                   for res_number, mutation in source_entity.disorder.items()}
-                    # Todo, moved below indexed_disordered_residues on 7/26, ensure correct!
-                    prior_offset += len(indexed_disordered_residues)
-                    # generate the source TO design mutations before any disorder handling
-                    mutations = generate_mutations(source_entity.sequence, design_entity.sequence, offset=False)
-                    # Insert the disordered residues into the design pose
-                    for residue_number, mutation in indexed_disordered_residues.items():
-                        logger.debug(f'Inserting {mutation["from"]} into position {residue_number} on chain '
-                                     f'{source_entity.chain_id}')
-                        design_pose.insert_residue_type(mutation['from'], at=residue_number,
-                                                        chain=source_entity.chain_id)
-                        # adjust mutations to account for insertion
-                        for mutation_index in sorted(mutations.keys(), reverse=True):
-                            if mutation_index < residue_number:
-                                break
-                            else:  # mutation should be incremented by one
-                                mutations[mutation_index + 1] = mutations.pop(mutation_index)
-
-                    # Check for expression tag addition to the designed sequences after disorder addition
-                    inserted_design_sequence = design_entity.sequence
-                    selected_tag = {}
-                    available_tags = ProteinExpression.find_expression_tags(inserted_design_sequence)
-                    if available_tags:  # look for existing tag to remove from sequence and save identity
-                        tag_names, tag_termini, existing_tag_sequences = \
-                            zip(*[(tag['name'], tag['termini'], tag['sequence']) for tag in available_tags])
-                        try:
-                            preferred_tag_index = tag_names.index(args.preferred_tag)
-                            if tag_termini[preferred_tag_index] in true_termini:
-                                selected_tag = available_tags[preferred_tag_index]
-                        except ValueError:
-                            pass
-                        pretag_sequence = ProteinExpression.remove_expression_tags(inserted_design_sequence,
-                                                                                   existing_tag_sequences)
-                    else:
-                        pretag_sequence = inserted_design_sequence
-                    logger.debug(f'The pretag sequence is:\n{pretag_sequence}')
-
-                    # Find the open reading frame offset using the structure sequence after insertion
-                    offset = find_orf_offset(pretag_sequence, mutations)
-                    formatted_design_sequence = pretag_sequence[offset:]
-                    logger.debug(f'The open reading frame offset is {offset}')
-                    logger.debug(f'The formatted_design sequence is:\n{formatted_design_sequence}')
-
-                    if number_of_tags == 0:  # Don't solve tags
-                        sequences_and_tags[design_string] = {'sequence': formatted_design_sequence, 'tag': {}}
-                        continue
-
-                    if not selected_tag:  # find compatible tags from matching PDB observations
-                        uniprot_id = source_entity.uniprot_id
-                        uniprot_id_matching_tags = tag_sequences.get(uniprot_id, None)
-                        if not uniprot_id_matching_tags:
-                            uniprot_id_matching_tags = \
-                                ProteinExpression.find_matching_expression_tags(uniprot_id=uniprot_id)
-                            tag_sequences[uniprot_id] = uniprot_id_matching_tags
-
-                        if uniprot_id_matching_tags:
-                            tag_names, tag_termini, _ = \
-                                zip(*[(tag['name'], tag['termini'], tag['sequence'])
-                                      for tag in uniprot_id_matching_tags])
-                        else:
-                            tag_names, tag_termini, _ = [], [], []
-
-                        iteration = 0
-                        while iteration < len(tag_names):
-                            try:
-                                preferred_tag_index_2 = tag_names[iteration:].index(args.preferred_tag)
-                                if tag_termini[preferred_tag_index_2] in true_termini:
-                                    selected_tag = uniprot_id_matching_tags[preferred_tag_index_2]
-                                    break
-                            except ValueError:
-                                selected_tag = \
-                                    ProteinExpression.select_tags_for_sequence(sequence_id,
-                                                                               uniprot_id_matching_tags,
-                                                                               preferred=args.preferred_tag,
-                                                                               **termini_availability)
-                                break
-                            iteration += 1
-
-                    if selected_tag.get('name'):
-                        missing_tags[(des_dir, design)][idx] = 0
-                        logger.debug(f'The pre-existing, identified tag is:\n{selected_tag}')
-                    sequences_and_tags[design_string] = {'sequence': formatted_design_sequence, 'tag': selected_tag}
-
-                # After selecting all tags, consider tagging the design as a whole
-                if number_of_tags > 0:
-                    number_of_found_tags = len(des_dir.pose.entities) - sum(missing_tags[(des_dir, design)])
-                    if number_of_tags > number_of_found_tags:
-                        print(f'There were {number_of_tags} requested tags for design {des_dir} and '
-                              f'{number_of_found_tags} were found')
-                        current_tag_options = \
-                            '\n\t'.join([f'{i} - {entity_name}\n'
-                                         f'\tAvailable Termini: {entity_termini_availability[entity_name]}'
-                                         f'\n\t\t   TAGS: {tag_options["tag"]}'
-                                         for i, (entity_name, tag_options) in enumerate(sequences_and_tags.items(), 1)])
-                        print(f'Current Tag Options:\n\t{current_tag_options}')
-                        if args.avoid_tagging_helices:
-                            print('Helical Termini:\n\t%s'
-                                  % '\n\t'.join(f'{entity_name}\t{availability}'
-                                                for entity_name, availability in entity_helical_termini.items()))
-                        satisfied = input('If this is acceptable, enter "continue", otherwise, '
-                                          f'you can modify the tagging options with any other input.{input_string}')
-                        if satisfied == 'continue':
-                            number_of_found_tags = number_of_tags
-
-                        iteration_idx = 0
-                        while number_of_tags != number_of_found_tags:
-                            if iteration_idx == len(missing_tags[(des_dir, design)]):
-                                print(f'You have seen all options, but the number of requested tags ({number_of_tags}) '
-                                      f"doesn't equal the number selected ({number_of_found_tags})")
-                                satisfied = input('If you are satisfied with this, enter "continue", otherwise enter '
-                                                  'anything and you can view all remaining options starting from the '
-                                                  f'first entity{input_string}')
-                                if satisfied == 'continue':
-                                    break
-                                else:
-                                    iteration_idx = 0
-                            for idx, entity_missing_tag in enumerate(missing_tags[(des_dir, design)][iteration_idx:]):
-                                sequence_id = f'{des_dir}_{des_dir.pose.entities[idx].name}'
-                                if entity_missing_tag and tag_index[idx]:  # isn't tagged but could be
-                                    print(f'Entity {sequence_id} is missing a tag. Would you like to tag this entity?')
-                                    if not boolean_choice():
-                                        continue
-                                else:
-                                    continue
-                                if args.preferred_tag:
-                                    tag = args.preferred_tag
-                                    while True:
-                                        termini = input('Your preferred tag will be added to one of the termini. Which '
-                                                        f'termini would you prefer? [n/c]{input_string}')
-                                        if termini.lower() in ['n', 'c']:
-                                            break
-                                        else:
-                                            print(f'"{termini}" is an invalid input. One of "n" or "c" is required')
-                                else:
-                                    while True:
-                                        tag_input = input('What tag would you like to use? Enter the number of the '
-                                                          f'below options.\n\t%s\n{input_string}' %
-                                                          '\n\t'.join([f'{i} - {tag}'
-                                                                       for i, tag in enumerate(
-                                                                        resources.config.expression_tags, 1)]))
-                                        if tag_input.isdigit():
-                                            tag_input = int(tag_input)
-                                            if tag_input <= len(resources.config.expression_tags):
-                                                tag = list(resources.config.expression_tags.keys())[tag_input - 1]
-                                                break
-                                        print("Input doesn't match available options. Please try again")
-                                    while True:
-                                        termini = input('Your tag will be added to one of the termini. Which termini '
-                                                        f'would you prefer? [n/c]{input_string}')
-                                        if termini.lower() in ['n', 'c']:
-                                            break
-                                        else:
-                                            print(f'"{termini}" is an invalid input. One of "n" or "c" is required')
-
-                                selected_entity = list(sequences_and_tags.keys())[idx]
-                                if termini == 'n':
-                                    new_tag_sequence = \
-                                        resources.config.expression_tags[tag] + 'SG' \
-                                        + sequences_and_tags[selected_entity]['sequence'][:12]
-                                else:  # termini == 'c'
-                                    new_tag_sequence = \
-                                        sequences_and_tags[selected_entity]['sequence'][-12:] \
-                                        + 'GS' + resources.config.expression_tags[tag]
-                                sequences_and_tags[selected_entity]['tag'] = {'name': tag, 'sequence': new_tag_sequence}
-                                missing_tags[(des_dir, design)][idx] = 0
-                                break
-
-                            iteration_idx += 1
-                            number_of_found_tags = len(des_dir.pose.entities) - sum(missing_tags[(des_dir, design)])
-
-                    elif number_of_tags < number_of_found_tags:  # when more than the requested number of tags were id'd
-                        print(f'There were only {number_of_tags} requested tags for design {des_dir} and '
-                              f'{number_of_found_tags} were found')
-                        while number_of_tags != number_of_found_tags:
-                            tag_input = input(f'Which tag would you like to remove? Enter the number of the currently '
-                                              f'configured tag option that you would like to remove. If you would like '
-                                              f'to keep all, specify "keep"\n\t%s\n{input_string}'
-                                              % '\n\t'.join([f'{i} - {entity_name}\n\t\t{tag_options["tag"]}'
-                                                             for i, (entity_name, tag_options)
-                                                             in enumerate(sequences_and_tags.items(), 1)]))
-                            if tag_input == 'keep':
-                                break
-                            elif tag_input.isdigit():
-                                tag_input = int(tag_input)
-                                if tag_input <= len(sequences_and_tags):
-                                    missing_tags[(des_dir, design)][tag_input - 1] = 1
-                                    selected_entity = list(sequences_and_tags.keys())[tag_input - 1]
-                                    sequences_and_tags[selected_entity]['tag'] = \
-                                        {'name': None, 'termini': None, 'sequence': None}
-                                    # tag = list(ProteinExpression.expression_tags.keys())[tag_input - 1]
-                                    break
-                                else:
-                                    print("Input doesn't match an integer from the available options. Please try again")
-                            else:
-                                print(f'"{tag_input}" is an invalid input. Try again')
-                            number_of_found_tags = len(des_dir.pose.entities) - sum(missing_tags[(des_dir, design)])
-
-                # Apply all tags to the sequences
-                from symdesign.structure.utils import protein_letters_alph1
-                # Todo indicate the linkers that will be used!
-                #  Request a new one if not ideal!
-                cistronic_sequence = ''
-                for idx, (design_string, sequence_tag) in enumerate(sequences_and_tags.items()):
-                    tag, sequence = sequence_tag['tag'], sequence_tag['sequence']
-                    # print('TAG:\n', tag.get('sequence'), '\nSEQUENCE:\n', sequence)
-                    design_sequence = ProteinExpression.add_expression_tag(tag.get('sequence'), sequence)
-                    if tag.get('sequence') and design_sequence == sequence:  # tag exists and no tag added
-                        tag_sequence = resources.config.expression_tags[tag.get('name')]
-                        if tag.get('termini') == 'n':
-                            if design_sequence[0] == 'M':  # remove existing Met to append tag to n-term
-                                design_sequence = design_sequence[1:]
-                            design_sequence = tag_sequence + 'SG' + design_sequence
-                        else:  # termini == 'c'
-                            design_sequence = design_sequence + 'GS' + tag_sequence
-
-                    # If no MET start site, include one
-                    if design_sequence[0] != 'M':
-                        design_sequence = f'M{design_sequence}'
-
-                    # If there is an unrecognized amino acid, modify
-                    if 'X' in design_sequence:
-                        logger.critical(f'An unrecognized amino acid was specified in the sequence {design_string}. '
-                                        'This requires manual intervention!')
-                        # idx = 0
-                        seq_length = len(design_sequence)
-                        while True:
-                            idx = design_sequence.find('X')
-                            if idx == -1:  # Todo clean
-                                break
-                            idx_range = (idx - 6 if idx - 6 > 0 else 0,
-                                         idx + 6 if idx + 6 < seq_length else seq_length)
-                            while True:
-                                new_amino_acid = input('What amino acid should be swapped for "X" in this sequence '
-                                                       f'context?\n\t{idx_range[0] + 1}'
-                                                       f'{" " * (len(range(*idx_range))-(len(str(idx_range[0]))+1))}'
-                                                       f'{idx_range[1] + 1}'
-                                                       f'\n\t{design_sequence[idx_range[0]:idx_range[1]]}'
-                                                       f'{input_string}').upper()
-                                if new_amino_acid in protein_letters_alph1:
-                                    design_sequence = design_sequence[:idx] + new_amino_acid + design_sequence[idx + 1:]
-                                    break
-                                else:
-                                    print(f"{new_amino_acid} doesn't match a single letter canonical amino acid. "
-                                          "Please try again")
-
-                    # For a final manual check of sequence generation, find sequence additions compared to the design
-                    # model and save to view where additions lie on sequence. Cross these additions with design
-                    # structure to check if insertions are compatible
-                    all_insertions = {residue: {'to': aa} for residue, aa in enumerate(design_sequence, 1)}
-                    all_insertions.update(generate_mutations(design_sequence, designed_atom_sequences[idx],
-                                                             blanks=True))
-                    # Reduce to sequence only
-                    inserted_sequences[design_string] = \
-                        f'{"".join([res["to"] for res in all_insertions.values()])}\n{design_sequence}'
-                    logger.info(f'Formatted sequence comparison:\n{inserted_sequences[design_string]}')
-                    final_sequences[design_string] = design_sequence
-                    if args.nucleotide:
-                        try:
-                            nucleotide_sequence = \
-                                ProteinExpression.optimize_protein_sequence(design_sequence,
-                                                                            species=args.optimize_species)
-                        except NoSolutionError:  # add the protein sequence?
-                            logger.warning(f'Optimization of {design_string} was not successful!')
-                            codon_optimization_errors[design_string] = design_sequence
+            print(f'FILES:\n {files[:4]}')
+            if args.order == 'paths':  # TODO FIX janky paths handling below
+                # for design in pose_directories:
+                with open(args.file[0], 'r') as f:
+                    paths = \
+                        map(str.replace, map(str.strip, f.readlines()),
+                            repeat('/yeates1/kmeador/Nanohedra_T33/SymDesignOutput/Projects/'
+                                   'NanohedraEntry54DockedPoses_Designs/'), repeat(''))
+                    paths = list(paths)
+                ordered_files = []
+                for path in paths:
+                    for file in files:
+                        if path in file:
+                            ordered_files.append(file)
                             break
+                files = ordered_files
+                # raise NotImplementedError('--order choice "paths" hasn\'t been set up quite yet... Use another method')
+                # ordered_files = []
+                # for index in df.index:
+                #     for file in files:
+                #         if index in file:
+                #             ordered_files.append(file)
+                #             break
+                # files = ordered_files
+            elif args.order == 'dataframe':
+                if not job.dataframe:
+                    df_glob = sorted(glob(os.path.join(file_dir, 'TrajectoryMetrics.csv')))
+                    try:
+                        job.dataframe = df_glob[0]
+                    except IndexError:
+                        raise IndexError(f"There was no --{flags.dataframe} specified and one couldn't be located in "
+                                         f'{job.location}. Initialize again with the path to the relevant dataframe')
 
-                        if args.multicistronic:
-                            if idx > 0:
-                                cistronic_sequence += intergenic_sequence
-                            cistronic_sequence += nucleotide_sequence
-                        else:
-                            nucleotide_sequences[design_string] = nucleotide_sequence
-                if args.multicistronic:
-                    nucleotide_sequences[str(des_dir)] = cistronic_sequence
+                df = pd.read_csv(job.dataframe, index_col=0, header=[0])
+                print('INDICES:\n %s' % df.index.to_list()[:4])
+                ordered_files = []
+                for index in df.index:
+                    for file in files:
+                        # if index in file:
+                        if os.path.splitext(os.path.basename(file))[0] in index:
+                            ordered_files.append(file)
+                            break
+                # print('ORDERED FILES (%d):\n %s' % (len(ordered_files), ordered_files))
+                files = ordered_files
 
-        # Report Errors
-        if codon_optimization_errors:
-            # Todo utilize errors
-            error_file = \
-                write_sequences(codon_optimization_errors, csv=args.csv,
-                                file_name=os.path.join(outdir, f'{job.prefix}OptimizationErrorProteinSequences'
-                                                               f'{job.suffix}'))
-        # Write output sequences to fasta file
-        seq_file = write_sequences(final_sequences, csv=args.csv,
-                                   file_name=os.path.join(outdir, f'{job.prefix}SelectedSequences{job.suffix}'))
-        logger.info(f'Final Design protein sequences written to: {seq_file}')
-        seq_comparison_file = \
-            write_sequences(inserted_sequences, csv=args.csv,
-                            file_name=os.path.join(outdir,
-                                                   f'{job.prefix}SelectedSequencesExpressionAdditions'
-                                                   f'{job.suffix}'))
-        logger.info(f'Final Expression sequence comparison to Design sequence written to: {seq_comparison_file}')
-        # check for protein or nucleotide output
-        if args.nucleotide:
-            nucleotide_sequence_file = \
-                write_sequences(nucleotide_sequences, csv=args.csv,
-                                file_name=os.path.join(outdir, f'{job.prefix}SelectedSequencesNucleotide'
-                                                               f'{job.suffix}'))
-            logger.info(f'Final Design nucleotide sequences written to: {nucleotide_sequence_file}')
-    # # ---------------------------------------------------
-    # elif job.module == 'status':  # -n number, -s stage, -u update
-    #     if args.update:
-    #         for design in pose_directories:
-    #             update_status(design.serialized_info, args.stage, mode=args.update)
-    #     else:
-    #         if args.number_of_trajectories:
-    #             logger.info('Checking for %d files based on --number_of_trajectories flag' % args.number_of_trajectories)
-    #         if args.stage:
-    #             status(pose_directories, args.stage, number=args.number_of_trajectories)
-    #         else:
-    #             for stage in putils.stage_f:
-    #                 s = status(pose_directories, stage, number=args.number_of_trajectories)
-    #                 if s:
-    #                     logger.info('For "%s" stage, default settings should generate %d files'
-    #                                 % (stage, putils.stage_f[stage]['len']))
-    # ---------------------------------------------------
-    elif job.module == 'visualize':
-        import visualization.VisualizeUtils as VSUtils
-        from pymol import cmd
+            if not files:
+                exit(f'No .pdb files found at "{job.location}". Are you sure this is correct?')
 
-        # if 'escher' in sys.argv[1]:
-        if not args.directory:
-            exit(f'A directory with the desired designs must be specified using -d/--{flags.directory}')
+            # if len(sys.argv) > 2:
+            #     low, high = map(float, sys.argv[2].split('-'))
+            #     low_range, high_range = int((low / 100) * len(files)), int((high / 100) * len(files))
+            #     if low_range < 0 or high_range > len(files):
+            #         raise ValueError('The input range is outside of the acceptable bounds [0-100]')
+            #     print('Selecting Designs within range: %d-%d' % (low_range if low_range else 1, high_range))
+            # else:
+            print(low_range, high_range)
+            print(all_poses)
+            for idx, file in enumerate(files[low_range:high_range], low_range + 1):
+                if args.name == 'original':
+                    cmd.load(file)
+                else:  # if args.name == 'numerical':
+                    cmd.load(file, object=idx)
 
-        if ':' in args.directory:  # args.file  Todo job.location
-            print('Starting the data transfer from remote source now...')
-            os.system(f'scp -r {args.directory} .')
-            file_dir = os.path.basename(args.directory)
-        else:  # assume the files are local
-            file_dir = args.directory
-        # files = VSUtils.get_all_file_paths(file_dir, extension='.pdb', sort=not args.order)
+            print('\nTo expand all designs to the proper symmetry, issue:\nPyMOL> expand name=all, symmetry=T'
+                  '\nYou should replace "T" with whatever symmetry your design is in\n')
+        else:  # Fetch the specified protocol
+            protocol = getattr(protocols, flags.format_from_cmdline(job.module))
+            if job.development:
+                if job.profile:
+                    if profile:
 
-        if args.order == 'alphabetical':
-            files = VSUtils.get_all_file_paths(file_dir, extension='.pdb')  # sort=True)
-        else:  # if args.order == 'none':
-            files = VSUtils.get_all_file_paths(file_dir, extension='.pdb', sort=False)
+                        # @profile  # Run the profile decorator from memory_profiler
+                        # def run_single_protocol():
+                        #     protocol(pose_directories[0]))
 
-        print(f'FILES:\n {files[:4]}')
-        if args.order == 'paths':  # TODO FIX janky paths handling below
-            # for design in pose_directories:
-            with open(args.file[0], 'r') as f:
-                paths = \
-                    map(str.replace, map(str.strip, f.readlines()),
-                        repeat('/yeates1/kmeador/Nanohedra_T33/SymDesignOutput/Projects/'
-                               'NanohedraEntry54DockedPoses_Designs/'), repeat(''))
-                paths = list(paths)
-            ordered_files = []
-            for path in paths:
-                for file in files:
-                    if path in file:
-                        ordered_files.append(file)
-                        break
-            files = ordered_files
-            # raise NotImplementedError('--order choice "paths" hasn\'t been set up quite yet... Use another method')
-            # ordered_files = []
-            # for index in df.index:
-            #     for file in files:
-            #         if index in file:
-            #             ordered_files.append(file)
-            #             break
-            # files = ordered_files
-        elif args.order == 'dataframe':
-            if not job.dataframe:
-                df_glob = sorted(glob(os.path.join(file_dir, 'TrajectoryMetrics.csv')))
-                try:
-                    job.dataframe = df_glob[0]
-                except IndexError:
-                    raise IndexError(f"There was no --{flags.dataframe} specified and one couldn't be located in "
-                                     f'{job.location}. Initialize again with the path to the relevant dataframe')
+                        # run_single_protocol()
+                        profile(protocol(pose_directories[0]))
+                    else:
+                        logger.critical(f"The module memory_profiler isn't installed {profile_error}")
+                    exit('Done profiling')
 
-            df = pd.read_csv(job.dataframe, index_col=0, header=[0])
-            print('INDICES:\n %s' % df.index.to_list()[:4])
-            ordered_files = []
-            for index in df.index:
-                for file in files:
-                    # if index in file:
-                    if os.path.splitext(os.path.basename(file))[0] in index:
-                        ordered_files.append(file)
-                        break
-            # print('ORDERED FILES (%d):\n %s' % (len(ordered_files), ordered_files))
-            files = ordered_files
-
-        if not files:
-            exit(f'No .pdb files found at "{job.location}". Are you sure this is correct?')
-
-        # if len(sys.argv) > 2:
-        #     low, high = map(float, sys.argv[2].split('-'))
-        #     low_range, high_range = int((low / 100) * len(files)), int((high / 100) * len(files))
-        #     if low_range < 0 or high_range > len(files):
-        #         raise ValueError('The input range is outside of the acceptable bounds [0-100]')
-        #     print('Selecting Designs within range: %d-%d' % (low_range if low_range else 1, high_range))
-        # else:
-        print(low_range, high_range)
-        print(all_poses)
-        for idx, file in enumerate(files[low_range:high_range], low_range + 1):
-            if args.name == 'original':
-                cmd.load(file)
-            else:  # if args.name == 'numerical':
-                cmd.load(file, object=idx)
-
-        print('\nTo expand all designs to the proper symmetry, issue:\nPyMOL> expand name=all, symmetry=T'
-              '\nYou should replace "T" with whatever symmetry your design is in\n')
+            if args.multi_processing:
+                results = utils.mp_map(protocol, pose_directories, processes=job.cores)
+            else:
+                for pose_dir in pose_directories:
+                    results.append(protocol(pose_dir))
+    # -----------------------------------------------------------------------------------------------------------------
+    #  Finally, run terminate(). This formats output parameters and reports on exceptions
+    # -----------------------------------------------------------------------------------------------------------------
+    terminate(results=results, exceptions=exceptions)
 
 
 if __name__ == '__main__':
