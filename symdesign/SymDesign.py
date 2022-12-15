@@ -538,6 +538,9 @@ def main():
             job.fragment_db = fragment_factory(source=args.fragment_database)
             # Initialize EulerLookup class
             euler_factory()
+            if job.module == flags.generate_fragments and job.fragment_db.source == putils.biological_interfaces:
+                logger.warning(f'The FragmentDatabase {job.fragment_db.source} has only been created with '
+                               'biological homo-oligomers. Use fragment information with caution')
     # -----------------------------------------------------------------------------------------------------------------
     #  Grab all Poses (PoseDirectory instance) from either database, directory, project, single, or file
     # -----------------------------------------------------------------------------------------------------------------

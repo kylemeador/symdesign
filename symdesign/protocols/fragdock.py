@@ -611,8 +611,6 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
         with open(guide_file_surf_res_num, 'w') as f:
             f.write('%s\n' % '\n'.join(map(str, surf_residue_numbers2.tolist())))
 
-        # write_fragment_pairs_as_accumulating_states(complete_ghost_frags1[:50],
-        # input([len(frags) for frags in ghost_frags_by_residue1])
         start_slice = 0
         visualize_number = 15
         indices_of_interest = [0, 3, 5, 10]
@@ -626,10 +624,7 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
                     ghost_frags_by_residue1[idx][start_slice:number_of_fragments:step_size],
                     os.path.join(project_dir, f'{model1.name}_{residue_number}_paired_frags_'
                                               f'{start_slice}:{number_of_fragments}:{visualize_number}.pdb'))
-        # write_fragment_pairs_as_accumulating_states(ghost_frags_by_residue1[3][20:40],
-        #                                             os.path.join(project_dir, f'{model1.name}_frags4_{20}:{40}.pdb'))
-        # write_fragment_pairs_as_accumulating_states(ghost_frags_by_residue1[5][20:40],
-        #                                             os.path.join(project_dir, f'{model1.name}_frags6_{20}:{40}.pdb'))
+
         raise RuntimeError(f'Suspending operation of {model1.name}/{model2.name} after write')
 
     ij_type_match_lookup_table = compute_ij_type_lookup(ghost_j_indices1, surf_i_indices2)

@@ -29,8 +29,8 @@ from scipy.spatial.distance import pdist, cdist
 
 from symdesign import flags, metrics, resources
 from . import metrics
+from symdesign.structure import fragment
 from symdesign.structure.base import Structure
-from symdesign.structure.fragment.db import FragmentDatabase, fragment_info_type
 from symdesign.structure.model import Pose, MultiModel, Models, Model, Entity, transformation_mapping
 from symdesign.structure.sequence import generate_mutations_from_reference, sequence_difference, \
     MultipleSequenceAlignment, pssm_as_array, concatenate_profile, write_pssm_file, read_fasta_file, write_sequences
@@ -98,14 +98,14 @@ class PoseDirectory:
     _design_selector: dict[str, dict[str, dict[str, set[int] | set[str]]]] | dict
     _designed_sequences: list[Sequence]
     _entity_names: list[str]
-    _fragment_observations: list[fragment_info_type]
+    _fragment_observations: list[fragment.db.fragment_info_type]
     _pose_transformation: list[transformation_mapping]
     _pre_refine: bool
     _pre_loop_model: bool
     _symmetry_definition_files: list[AnyStr]
     directives: list[dict[int, str]]
     entities: list[Entity]
-    fragment_db: FragmentDatabase
+    fragment_db: fragment.db.FragmentDatabase
     fragment_observations: list[dict] | None
     frag_file: str | Path
     initial_model: Model | None
