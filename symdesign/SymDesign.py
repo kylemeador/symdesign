@@ -218,17 +218,23 @@ def main():
                     logger.info(f'Analysis of all Trajectories and Residues written to {job.all_scores}')
 
             # Set up sbatch scripts for processed Poses
-            design_stage = putils.scout if job.design.scout \
-                else (putils.hbnet_design_profile if job.design.hbnet
-                      else (putils.structure_background if job.design.structure_background
-                            else putils.interface_design))
-            module_files = {flags.interface_design: design_stage,
-                            flags.nanohedra: flags.nanohedra,
-                            flags.refine: flags.refine,
-                            flags.interface_metrics: putils.interface_metrics,
-                            flags.optimize_designs: putils.optimize_designs
-                            # custom_script: os.path.splitext(os.path.basename(getattr(args, 'script', 'c/custom')))[0],
-                            }
+            if job.module == flags.interface_design:
+                design_stage = putils.scout if job.design.scout \
+                    else (putils.hbnet_design_profile if job.design.hbnet
+                          else (putils.structure_background if job.design.structure_background
+                                else putils.interface_design))
+            else:
+                design_stage = flags.design
+
+            module_files = {
+                flags.design: design_stage,
+                flags.interface_design: design_stage,
+                flags.nanohedra: flags.nanohedra,
+                flags.refine: flags.refine,
+                flags.interface_metrics: putils.interface_metrics,
+                flags.optimize_designs: putils.optimize_designs
+                # custom_script: os.path.splitext(os.path.basename(getattr(args, 'script', 'c/custom')))[0],
+                }
             stage = module_files.get(job.module)
             if stage and job.distribute_work:
                 if len(success) == 0:
@@ -924,7 +930,7 @@ def main():
         pass
 
     # -----------------------------------------------------------------------------------------------------------------
-    # Set up Job specific details and resources
+    #  Set up Job specific details and resources
     # -----------------------------------------------------------------------------------------------------------------
     # Format computational requirements
     distribute_modules = [
@@ -952,13 +958,12 @@ def main():
 
     job.calculate_memory_requirements(len(pose_directories))
     # -----------------------------------------------------------------------------------------------------------------
-    # Parse SubModule specific commands and performs the protocol specified.
-    # Finally, run terminate(). This formats output parameters and reports on exceptions
+    #  Parse SubModule specific commands and performs the protocol specified.
     # -----------------------------------------------------------------------------------------------------------------
-    results, success = [], []
-    # exceptions = []
+    results = []
+    exceptions = []
     # ---------------------------------------------------
-    if args.module == flags.protocol:
+    if args.module == flags.protocol:  # Use args.module as job.module is set as first in protocol
         run_on_pose_directory = (
             putils.orient,
             putils.expand_asu,
@@ -984,7 +989,6 @@ def main():
         # )
         # terminate_kwargs = {}
         # Universal protocol runner
-        exceptions = []
         for idx, protocol_name in enumerate(job.modules, 1):
             logger.info(f'Starting protocol {idx}: {protocol_name}')
             # Update this mechanism with each module
@@ -995,24 +999,26 @@ def main():
             # Figure out how the job should be set up
             if protocol_name in run_on_pose_directory:  # Single poses
                 if job.multi_processing:
-                    results = utils.mp_map(protocol, pose_directories, processes=job.cores)
+                    _results = utils.mp_map(protocol, pose_directories, processes=job.cores)
                 else:
+                    _results = []
                     for pose_dir in pose_directories:
-                        results.append(protocol(pose_dir))
+                        _results.append(protocol(pose_dir))
             else:  # Collection of poses
-                results = protocol(pose_directories)
+                _results = protocol(pose_directories)
 
             # Handle any returns that require particular treatment
             if protocol_name in returns_pose_directories:
-                _results = []
-                for result in results:
-                    if isinstance(result, list):  # In the case of nanohedra
-                        for result in results:
-                            _results.extend(result)
+                results = []
+                if _results:  # Not an empty list
+                    if isinstance(_results[0], list):  # In the case of nanohedra
+                        for result in _results:
+                            results.extend(result)
                     else:
-                        _results.extend(results)  # append(result)
-                    break
-                pose_directories = _results
+                        results.extend(_results)  # append(result)
+                pose_directories = results
+            else:
+                results = _results
             # elif putils.cluster_poses:  # Returns None
             #    pass
 
