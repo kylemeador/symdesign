@@ -1593,8 +1593,8 @@ class Entity(Chain, ContainsChainsMixin):
         try:
             subunit_number = utils.symmetry.valid_subunit_number[symmetry]
         except KeyError:
-            self.log.error(f'{self.orient.__name__}: Symmetry {symmetry} is not a valid symmetry. '
-                           f'Please try one of: {", ".join(utils.symmetry.valid_symmetries)}')
+            SymmetryError(f'{self.orient.__name__}: Symmetry {symmetry} is not a valid symmetry. '
+                          f'Please try one of: {", ".join(utils.symmetry.valid_symmetries)}')
             return
 
         # if not log:
@@ -1613,10 +1613,10 @@ class Entity(Chain, ContainsChainsMixin):
             return
         elif number_of_subunits > 1:
             if number_of_subunits != subunit_number:
-                raise ValueError(f'{file_name} could not be oriented: It has {number_of_subunits} subunits '
-                                 f'while a multiple of {subunit_number} are expected for {symmetry} symmetry')
+                raise SymmetryError(f'{file_name} could not be oriented: It has {number_of_subunits} subunits '
+                                    f'while a multiple of {subunit_number} are expected for {symmetry} symmetry')
         else:
-            raise ValueError(f'{self.name}: Cannot orient a Structure with only a single chain. No symmetry present!')
+            raise SymmetryError(f'{self.name}: Cannot orient a Structure with only a single chain. No symmetry present')
 
         orient_input = Path(putils.orient_dir, 'input.pdb')
         orient_output = Path(putils.orient_dir, 'output.pdb')
@@ -1639,7 +1639,7 @@ class Entity(Chain, ContainsChainsMixin):
         if not orient_output.exists() or orient_output.stat().st_size == 0:
             log_file = getattr(self.log.handlers[0], 'baseFilename', None)
             log_message = f'. Check {log_file} for more information' if log_file else ''
-            raise RuntimeError(f'orient_oligomer could not orient {file_name}{log_message}')
+            raise RuntimeError(f'{putils.orient_exe_path} could not orient {file_name}{log_message}')
 
         oriented_pdb = Entity.from_file(str(orient_output), name=self.name, log=self.log)
         orient_fixed_struct = oriented_pdb.chains[0]
@@ -2640,8 +2640,8 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
         try:
             subunit_number = utils.symmetry.valid_subunit_number[symmetry]
         except KeyError:
-            self.log.error(f'{self.orient.__name__}: Symmetry {symmetry} is not a valid symmetry. '
-                           f'Please try one of: {", ".join(utils.symmetry.valid_symmetries)}')
+            SymmetryError(f'{self.orient.__name__}: Symmetry {symmetry} is not a valid symmetry. '
+                          f'Please try one of: {", ".join(utils.symmetry.valid_symmetries)}')
             return
 
         # if not log:
@@ -2664,10 +2664,10 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
                 if number_of_subunits in utils.symmetry.multicomponent_valid_subunit_number.get(symmetry):
                     multicomponent = True
                 else:
-                    raise ValueError(f'{file_name} could not be oriented: It has {number_of_subunits} subunits '
-                                     f'while a multiple of {subunit_number} are expected for {symmetry} symmetry')
+                    raise SymmetryError(f'{file_name} could not be oriented: It has {number_of_subunits} subunits '
+                                        f'while a multiple of {subunit_number} are expected for {symmetry} symmetry')
         else:
-            raise ValueError(f'{self.name}: Cannot orient a Structure with only a single chain. No symmetry present!')
+            raise SymmetryError(f'{self.name}: Cannot orient a Structure with only a single chain. No symmetry present')
 
         orient_input = Path(putils.orient_dir, 'input.pdb')
         orient_output = Path(putils.orient_dir, 'output.pdb')
@@ -2693,7 +2693,7 @@ class Model(SequenceProfile, Structure, ContainsChainsMixin):
         if not orient_output.exists() or orient_output.stat().st_size == 0:
             log_file = getattr(self.log.handlers[0], 'baseFilename', None)
             log_message = f'. Check {log_file} for more information' if log_file else ''
-            raise RuntimeError(f'orient_oligomer could not orient {file_name}{log_message}')
+            raise RuntimeError(f'{putils.orient_exe_path} could not orient {file_name}{log_message}')
 
         oriented_pdb = Model.from_file(str(orient_output), name=self.name, entities=False, log=self.log)
         orient_fixed_struct = oriented_pdb.chains[0]
