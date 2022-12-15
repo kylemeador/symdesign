@@ -951,6 +951,19 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
         rotations_to_perform1 = rotation_matrices1.shape[0]
         rotations_to_perform2 = rotation_matrices2.shape[0]
 
+    # Todo multiprocessing
+    def initial_euler_search():
+        pass
+
+    if job.multi_processing:
+        rotation_pairs = None
+        results = utils.mp_map(initial_euler_search, rotation_pairs, processes=job.cores)
+    else:
+        pass
+        # results = []
+        # for rot_pair in rotation_pairs:
+        #     results.append(initial_euler_search(rot_pair))
+
     # Todo resolve. Below uses eulerints
     # Get rotated oligomer1 ghost fragment, oligomer2 surface fragment guide coodinate pairs in the same Euler space
     for idx1 in range(rotations_to_perform1):
