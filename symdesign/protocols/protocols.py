@@ -2479,7 +2479,8 @@ class PoseDirectory(PoseProtocol):
 
         """
         design_temperatures = sequences_and_scores['temperatures']
-        generated_sequences = sequences_and_scores['sequences']
+        numeric_sequences = sequences_and_scores['numeric_sequences']
+        sequences = sequences_and_scores['sequences']
         per_residue_design_indices = sequences_and_scores['design_indices']
         per_residue_complex_sequence_loss = sequences_and_scores['proteinmpnn_loss_complex']
         per_residue_unbound_sequence_loss = sequences_and_scores['proteinmpnn_loss_unbound']
