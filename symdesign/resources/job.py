@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import copy
 import logging
 import inspect
 import os
@@ -124,7 +125,7 @@ def from_flags(cls, **kwargs):
 nonetype_map = {'NoneType': None}
 Design = make_dataclass('Design',
                         [(flag, eval(type(default).__name__, nonetype_map), field(default=default))
-                         for flag, default in flags.design.items()],
+                         for flag, default in flags.design_defaults.items()],
                         namespace={'from_flags': classmethod(from_flags)})
 #                         frozen=True)
 #  self.design = DesignFlags(*[kwargs.get(argument_name) for argument_name in design_args.keys()])
@@ -132,19 +133,19 @@ Design = make_dataclass('Design',
 #  self.design = types.SimpleNamespace(**{flag: kwargs.get(flag, default) for flag, default in flags.design})
 Dock = make_dataclass('Dock',
                       [(flag, eval(type(default).__name__, nonetype_map), field(default=default))
-                       for flag, default in flags.dock.items()],
+                       for flag, default in flags.dock_defaults.items()],
                       namespace={'from_flags': classmethod(from_flags)})
 #                       frozen=True)
 
 Predict = make_dataclass('Predict',
                          [(flag, eval(type(default).__name__, nonetype_map), field(default=default))
-                          for flag, default in flags.predict.items()],
+                          for flag, default in flags.predict_defaults.items()],
                          namespace={'from_flags': classmethod(from_flags)})
 #                          frozen=True)
 
 Cluster = make_dataclass('Cluster',
                          [(flag, eval(type(default).__name__, nonetype_map), field(default=default))
-                          for flag, default in flags.cluster.items()],
+                          for flag, default in flags.cluster_defaults.items()],
                          namespace={'from_flags': classmethod(from_flags)})
 #                          frozen=True)
 
@@ -172,7 +173,7 @@ class JobResources:
 
         # Format argparse.Namespace arguments
         if arguments is not None:
-            kwargs.update(vars(arguments))
+            kwargs.update(copy.deepcopy(vars(arguments)))
 
         # Input location and parameters
         self.location = None
@@ -455,6 +456,7 @@ class JobResources:
             flags.interface_metrics,
             flags.optimize_designs,
             flags.refine,
+            flags.design,
             flags.interface_design,
             flags.analysis,
             flags.cluster_poses,
@@ -498,7 +500,7 @@ class JobResources:
         if not_recognized_modules:
             raise InputError(f'For {flags.protocol} module, the --{flags.modules} '
                              f'{", ".join(not_recognized_modules)} are not recognized modules. See'
-                             f'\n{putils.symdesign_help}\nfor available module names')
+                             f'"{putils.program_help}" for the available module names')
 
         if problematic_modules:
             raise InputError(f'For {flags.protocol} module, the --{flags.modules} '

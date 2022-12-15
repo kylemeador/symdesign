@@ -81,14 +81,20 @@ metrics = {
     'collapse_deviation_magnitude':
         dict(description='The total deviation in the hydrophobic collapse. Either more or less collapse prone',
              direction=_min, function=rank, filter=True),
+    'collapse_variance':
+        dict(description='The average/expected deviation of the hydrophobic collapse from a reference collapse',
+             direction=_min, function=rank, filter=True),
     'collapse_increase_significance_by_contact_order_z':
-        dict(description='Summation of positions with increased collapse from reference scaled by contact order z score'
-                         '. More negative is more isolated collapse, while positive indicates collapse occurs in '
-                         'higher contact order sites',
+        dict(description='Summation of positions with increased collapse from reference scaled by the inverse contact '
+                         'order z-score. Where positive is more isolated collapse, and negative indicates collapse '
+                         'occurs in higher contact order sites. More significant collapse is more positive',
              direction=_min, function=rank, filter=True),
     'collapse_increased_z':
         dict(description='The sum of all sequence regions z-scores experiencing increased collapse. Measures the '
                          'normalized magnitude of additional hydrophobic collapse',
+             direction=_min, function=rank, filter=True),
+    'collapse_increased_z_mean':
+        dict(description='Mean of the collapse_increased_z per-position experiencing increased collapse',
              direction=_min, function=rank, filter=True),
     'collapse_new_position_significance':
         dict(description='The magnitude of the collapse_significance_by_contact_order_z (abs(deviation)) for identified'
@@ -100,16 +106,26 @@ metrics = {
     'collapse_sequential_peaks_z':
         dict(description='Summation of the collapse z-score for each residue scaled sequentially by the number of '
                          'previously observed collapsable locations',
-             direction=_max, function=rank, filter=True),
+             direction=_min, function=rank, filter=True),
+    'collapse_sequential_peaks_z_mean':
+        dict(description='Mean of the collapse_sequential_peaks_z per-position experiencing increased collapse',
+             direction=_min, function=rank, filter=True),
     'collapse_sequential_z':
         dict(description='Summation of the collapse z-score for each residue scaled by the proximity to sequence start',
-             direction=_max, function=rank, filter=True),
+             direction=_min, function=rank, filter=True),
+    'collapse_sequential_z_mean':
+        dict(description='Mean of the collapse_sequential_z per-position experiencing increased collapse',
+             direction=_min, function=rank, filter=True),
     'collapse_significance_by_contact_order_z':
-        dict(description='Summed significance values taking product of collapsing and contact order per residue.'
-                         ' Positive values indicate collapse in areas with low contact order. Negative, collapse in '
-                         'high contact order. A protein fold relying on high contact order may not need as much '
-                         'collapse, while without high contact order, the segment should rely on itself to fold',
-             direction=_max, function=rank, filter=True),
+        dict(description='Summed significance. Takes the product of collapse z-score at collapsing positions and '
+                         'contact order per residue. Resulting values are positive when collapse occurs in areas with '
+                         'low contact order, and negative when collapse occurs in high contact order positions. A '
+                         'protein fold with high contact order may tolerate collapse differently than low contact order'
+                         ", where the segment would rely on it's collapse to fold",
+             direction=_min, function=rank, filter=True),
+    'collapse_significance_by_contact_order_z_mean':
+        dict(description='Mean of the collapse_significance_by_contact_order_z per-position experiencing collapse',
+             direction=_min, function=rank, filter=True),
     'core':
         dict(description='The number of "core" residues as classified by E. Levy 2010',
              direction=_max, function=rank, filter=True),
@@ -119,6 +135,9 @@ metrics = {
     'design_dimension':
         dict(description='The underlying dimension of the design. 0 - point, 2 - layer, 3 - space group',
              direction=_min, function=normalize, filter=True),
+    'designed_residues_total':
+        dict(description='The number of residues selected for sequence design',
+             direction=max, function=normalize, filter=True),
     'divergence_design_per_residue':
         dict(description='The Jensen-Shannon divergence of interface residues from the position specific '
                          'design profile values. Includes fragment & evolution if both are True, otherwise '
@@ -411,16 +430,28 @@ metrics = {
         dict(description='Number of unique design trajectories contributing to statistics',
              direction=_max, function=rank, filter=True),
     'observed_design':
-        dict(description='Percent of observed residues in combined profile. 1 is 100%',
+        dict(description='Percent of designed residues found in the combined profile. 1 is 100%',
+             direction=_max, function=rank, filter=True),
+    'observed_design_mean_probability':
+        dict(description='The mean probability of the designed residues in the design profile. 1 is 100%',
              direction=_max, function=rank, filter=True),
     'observed_evolution':
-        dict(description='Percent of observed residues in evolutionary profile. 1 is 100%',
+        dict(description='Percent of designed residues found in the evolutionary profile. 1 is 100%',
+             direction=_max, function=rank, filter=True),
+    'observed_evolution_mean_probability':
+        dict(description='The mean probability of the designed residues in the evolutionary profile. 1 is 100%',
              direction=_max, function=rank, filter=True),
     'observed_fragment':
-        dict(description='Percent of observed residues in the fragment profile. 1 is 100%',
+        dict(description='Percent of designed residues found in the fragment profile. 1 is 100%',
+             direction=_max, function=rank, filter=True),
+    'observed_fragment_mean_probability':
+        dict(description='The mean probability of the designed residues in the fragment profile. 1 is 100%',
              direction=_max, function=rank, filter=True),
     'observed_interface':
-        dict(description='Percent of observed residues in fragment profile. 1 is 100%',
+        dict(description='Percent of designed residues found in the interface fragment library. 1 is 100%',
+             direction=_max, function=rank, filter=True),
+    'observed_interface_mean_probability':
+        dict(description='The mean probability of the interface residues in the interface fragment library. 1 is 100%',
              direction=_max, function=rank, filter=True),
     'percent_core':
         dict(description='The percentage of residues which are "core" according to Levy, E. 2010',
@@ -461,6 +492,70 @@ metrics = {
     'pose_thermophilicity':
         dict(description='The extent to which the entities in the pose are thermophilic',
              direction=_max, function=rank, filter=True),
+    'proteinmpnn_v_design_probability_cross_entropy_loss':
+        dict(description='The total loss between the ProteinMPNN probabilities and the design profile probabilities',
+             direction=max, function=normalize, filter=True),
+    'proteinmpnn_v_design_probability_cross_entropy_score':
+        dict(description='The per-designed residue cross entropy loss between the ProteinMPNN probabilities and the '
+                         'design profile probabilities',
+             direction=max, function=normalize, filter=True),
+    'proteinmpnn_v_evolution_probability_cross_entropy_loss':
+        dict(description='The total loss between the ProteinMPNN probabilities and the evolution profile probabilities',
+             direction=max, function=normalize, filter=True),
+    'proteinmpnn_v_evolution_probability_cross_entropy_score':
+        dict(description='The per-designed residue cross entropy loss between the ProteinMPNN probabilities and the '
+                         'evolution profile probabilities',
+             direction=max, function=normalize, filter=True),
+    'proteinmpnn_v_fragment_probability_cross_entropy_loss':
+        dict(description='The total loss between the ProteinMPNN probabilities and the fragment profile probabilities',
+             direction=max, function=normalize, filter=True),
+    'proteinmpnn_v_fragment_probability_cross_entropy_score':
+        dict(description='The per-designed residue cross entropy loss between the ProteinMPNN probabilities and the '
+                         'fragment profile probabilities',
+             direction=max, function=normalize, filter=True),
+    'proteinmpnn_score_delta': dict(description='The per-residue average complex-unbound ProteinMPNN score',
+                                    direction=max, function=normalize, filter=True),
+    'proteinmpnn_score_complex': dict(description='The per-residue average complexed ProteinMPNN score',
+                                      direction=max, function=normalize, filter=True),
+    'proteinmpnn_score_unbound': dict(description='The per-residue average unbound ProteinMPNN score',
+                                      direction=max, function=normalize, filter=True),
+    'proteinmpnn_score_delta_per_designed_residue':
+        dict(description='The difference between the average complexed and unbound proteinmpnn score for designed '
+                         'residues',
+             direction=max, function=normalize, filter=True),
+    'proteinmpnn_score_complex_per_designed_residue':
+        dict(description='The average complexed proteinmpnn score for designed residues',
+             direction=max, function=normalize, filter=True),
+    'proteinmpnn_score_unbound_per_designed_residue':
+        dict(description='The average unbound proteinmpnn score for designed residues',
+             direction=max, function=normalize, filter=True),
+    'proteinmpnn_loss_complex':
+        dict(description='The magnitude of information missing from the sequence in the complexed state',
+             direction=_min, function=normalize, filter=True),
+    'proteinmpnn_loss_unbound':
+        dict(description='The magnitude of information missing from the sequence in the unbound state',
+             direction=_min, function=normalize, filter=True),
+    'proteinmpnn_loss_design':
+        dict(description='The magnitude of information missing from the sequence compared to the design profile',
+             direction=_min, function=normalize, filter=True),
+    'proteinmpnn_loss_design_per_residue':
+        dict(description='The magnitude of information missing from the sequence compared to the design profile on a '
+                         'per-residue basis',
+             direction=_min, function=normalize, filter=True),
+    'proteinmpnn_loss_evolution':
+        dict(description='The magnitude of information missing from the sequence compared to the evolution profile',
+             direction=_min, function=normalize, filter=True),
+    'proteinmpnn_loss_evolution_per_residue':
+        dict(description='The magnitude of information missing from the sequence compared to the evolution profile on a'
+                         ' per-residue basis',
+             direction=_min, function=normalize, filter=True),
+    'proteinmpnn_loss_fragment':
+        dict(description='The magnitude of information missing from the sequence compared to the fragment profile',
+             direction=_min, function=normalize, filter=True),
+    'proteinmpnn_loss_fragment_per_residue':
+        dict(description='The magnitude of information missing from the sequence compared to the fragment profile on a '
+                         'per-residue basis. Only counts residues with fragment information',
+             direction=_min, function=normalize, filter=True),
     putils.protocol:
         dict(description='Protocols utilized to search sequence space given fragment and/or evolutionary '
                          'constraint information',
@@ -496,6 +591,9 @@ metrics = {
         dict(description='Rosetta Energy Term - A metric for the unfolded energy of the protein along with '
                          'sequence fitting corrections',
              direction=_max, function=rank, filter=True),
+    'sequence':
+        dict(description='The amino acid sequence of the design',
+             direction=None, function=None, filter=False),
     'shape_complementarity':
         dict(description='Measure of fit between two surfaces from Lawrence and Colman 1993',
              direction=_max, function=normalize, filter=True),

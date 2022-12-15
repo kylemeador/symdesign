@@ -70,8 +70,8 @@ def get_matching_fragment_pairs_info(ghostfrag_frag_pairs:
     fragment_matches = [dict(zip(info_tuple, (ghost_frag.index, surf_frag.index, match_score, ghost_frag.ijk)))
                         for ghost_frag, surf_frag, match_score in ghostfrag_frag_pairs]
 
-    logger.debug(f'Fragments for Entity1 found at residues: {[fragment["mapped"] + 1 for fragment in fragment_matches]}')
-    logger.debug(f'Fragments for Entity2 found at residues: {[fragment["paired"] + 1 for fragment in fragment_matches]}')
+    logger.debug(f'Fragments for Entity1 found at indices: {[fragment["mapped"] for fragment in fragment_matches]}')
+    logger.debug(f'Fragments for Entity2 found at indices: {[fragment["paired"] for fragment in fragment_matches]}')
 
     return fragment_matches
 
@@ -5484,7 +5484,7 @@ class Pose(SymmetricModel):
             bias_profile_by_probabilities: Whether to produce bias by profile probabilities as opposed to profile lods
             interface: Whether to design the interface only
         Keyword Args:
-            distance: (float) = 8. - The distance to measure Residues across an interface
+            distance: float = 8. - The distance to measure Residues across an interface
         Returns:
             A mapping of the ProteinMPNN parameter names to their data, typically arrays
         """
@@ -5581,10 +5581,10 @@ class Pose(SymmetricModel):
                     chain_encoding[chain_start:chain_start+chain_number_of_residues] = model_chain_number+idx
                     residue_idx[chain_start:chain_start+chain_number_of_residues] += 100 * (model_chain_number+idx)
 
-            self.log.debug(f'Tiled chain_encoding chain_break: '
-                           f'{chain_encoding[number_of_residues-5: number_of_residues+5]}')
-            self.log.debug(f'Tiled residue_idx chain_break: '
-                           f'{residue_idx[number_of_residues-5: number_of_residues+5]}')
+            # self.log.debug(f'Tiled chain_encoding chain_break: '
+            #                f'{chain_encoding[number_of_residues-5: number_of_residues+5]}')
+            # self.log.debug(f'Tiled residue_idx chain_break: '
+            #                f'{residue_idx[number_of_residues-5: number_of_residues+5]}')
 
             pssm_coef = np.tile(pssm_coef, number_of_symmetry_mates)  # (number_of_sym_residues,)
             # Below have shape (number_of_sym_residues, alphabet_length)
@@ -5687,10 +5687,11 @@ class Pose(SymmetricModel):
                 Only used with pssm_bias_flag
             decode_core_first: bool = False - Whether to decode identified fragments (constituting the protein core) first
         Returns:
-            A mapping of the design output type to the output.
-                For proteinmpnn, this is the string mapped to the corresponding returned sequences,
-                sequence_loss_complex, and sequence_loss_unbound. For each data return the return varies such as:
-                 [temp1/repeat1, temp1/repeat2, ..., tempN/repeat1, ...] where designs are sorted by temperature
+            A mapping of the design score type to the output data.
+                For proteinmpnn, this is the score string mapped to the corresponding 'sequences',
+                'proteinmpnn_loss_complex', 'proteinmpnn_loss_unbound', and 'design_indices'. For each data return, the
+                return varies such as: [temp1/repeat1, temp1/repeat2, ..., tempN/repeat1, ...]
+                where designs are sorted by temperature
 
                 For rosetta
         """
@@ -5777,8 +5778,11 @@ class Pose(SymmetricModel):
             # Format returns to have shape (temperaturesxsize, pose_length) where the temperatures vary slower
             # Ex: [temp1/pose1, temp1/pose2, ..., tempN/pose1, ...] This groups the designs by temperature first
             for data_type, data in sequences_and_scores.items():
+                if data_type == 'design_indices':
+                    continue  # These don't vary by temperature
                 sequences_and_scores[data_type] = np.concatenate(data, axis=1).reshape(-1, pose_length)
-            self.log.critical(f'Pose: Found sequences with shape {sequences_and_scores["sequences"].shape}')
+
+            self.log.debug(f'Found sequences with shape {sequences_and_scores["sequences"].shape}')
         else:
             raise ValueError(f"The method '{method}' isn't a viable design protocol")
 
@@ -6864,9 +6868,9 @@ class Pose(SymmetricModel):
         """
         #   keep_extras: bool = True - Whether to keep values for all that are missing data
         for query_pair, fragment_info in self.fragment_queries.items():
-            self.log.debug(f'Query Pair: {query_pair[0].name}, {query_pair[1].name}'
-                           f'\n\tFragment Info:{fragment_info}')
             if fragment_info:
+                self.log.debug(f'Query Pair: {query_pair[0].name}, {query_pair[1].name}'
+                               f'\n\tFragment Info:{fragment_info}')
                 for alignment_type, entity in zip(alignment_types, query_pair):
                     entity.add_fragments_to_profile(fragments=fragment_info,
                                                     alignment_type=alignment_type)

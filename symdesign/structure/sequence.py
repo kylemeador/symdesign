@@ -1901,7 +1901,7 @@ def populate_design_dictionary(n: int, alphabet: Sequence, zero_index: bool = Fa
     elif dtype == 'float':
         dtype = float
 
-    return {residue: {character: dtype() for character in alphabet} for residue in range(offset, n + offset)}
+    return {entry: dict.fromkeys(alphabet, dtype()) for entry in range(offset, n + offset)}
 
 
 def get_lod(frequencies: dict[utils.protein_letters_literal, float],
