@@ -528,10 +528,7 @@ def main():
     # -----------------------------------------------------------------------------------------------------------------
     #  Report options and Set up Databases
     # -----------------------------------------------------------------------------------------------------------------
-    if job.debug:
-        reported_args = job.report_unspecified_arguments(args)
-    else:
-        reported_args = job.report_specified_arguments(args)
+    reported_args = job.report_specified_arguments(args)
     logger.info('Starting with options:\n\t%s' % '\n\t'.join(utils.pretty_format_table(reported_args.items())))
 
     logger.info(f'Using resources in Database located at "{job.data}"')
