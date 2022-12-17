@@ -2896,21 +2896,13 @@ class PoseDirectory(PoseProtocol):
         #     # all_pose_divergence_df = pd.DataFrame()
         #     # residue_df = pd.DataFrame()
 
-        # Get the average thermophilicity for all entities
-        scores_df['pose_thermophilicity'] = \
-            scores_df.loc[:, [f'entity{idx}_thermophile' for idx in range(1, self.pose.number_of_entities)]
-                          ].sum(axis=1) / self.pose.number_of_entities
-
         scores_columns = scores_df.columns.to_list()
         logger.debug(f'Metrics present: {scores_columns}')
 
-        # interface_metrics_s = pd.Series(interface_metrics_df)
         # Concatenate all design information after parsing data sources
         # interface_metrics_df = pd.concat([interface_metrics_df], keys=[('dock', 'pose')])
         # scores_df = pd.concat([scores_df], keys=[('dock', 'pose')], axis=1)
         # Todo incorporate full sequence ProteinMPNN summation into scores_df. Find meaning of probabilities
-        # Todo incorporate residue_df summation into scores_df
-        #  observed_*, solvation_energy, etc.
         scores_df = pd.concat([scores_df], keys=[('dock', 'pose')], axis=1)
 
         # CONSTRUCT: Create pose series and format index names
@@ -3018,8 +3010,6 @@ class PoseDirectory(PoseProtocol):
                 except KeyError:  # structure wasn't scored, we will remove this later
                     pass
 
-            # Todo these need to be reconciled with taking the rosetta complex and unbound energies
-            proteinmpnn_scores = ['sequences', 'proteinmpnn_loss_complex', 'proteinmpnn_loss_unbound', 'design_indices']
             # Create protocol dataframe
             scores_df = pd.DataFrame.from_dict(all_viable_design_scores, orient='index')
             scores_df = pd.concat([source_df, scores_df])
@@ -3027,6 +3017,7 @@ class PoseDirectory(PoseProtocol):
             per_res_columns = []
             # hbonds_columns = []
             proteinmpnn_columns = []
+            proteinmpnn_scores = metrics.proteinmpnn_scores
             for column in scores_df.columns.to_list():
                 if 'res_' in column:  # if column.startswith('per_res_'):
                     per_res_columns.append(column)
@@ -3431,7 +3422,6 @@ class PoseDirectory(PoseProtocol):
         scores_df['percent_mutations'] = \
             scores_df['number_of_mutations'] / other_pose_metrics['pose_length']
         # residue_indices_per_entity = self.pose.residue_indices_per_entity
-        is_thermophilic = []
         idx = 1
         for idx, entity in enumerate(self.pose.entities, idx):
             pose_c_terminal_residue_number = entity.c_terminal_residue.index + 1
@@ -3441,10 +3431,6 @@ class PoseDirectory(PoseProtocol):
                      for design, mutations in all_mutations.items()})
             scores_df[f'entity{idx}_percent_mutations'] = \
                 scores_df[f'entity{idx}_number_of_mutations'] / other_pose_metrics[f'entity{idx}_number_of_residues']
-            is_thermophilic.append(getattr(other_pose_metrics, f'entity{idx}_thermophile', 0))
-
-        # Get the average thermophilicity for all entities
-        other_pose_metrics['pose_thermophilicity'] = sum(is_thermophilic) / idx
 
         # entity_alignment = multi_chain_alignment(entity_sequences)
         # INSTEAD OF USING BELOW, split Pose.MultipleSequenceAlignment at entity.chain_break...

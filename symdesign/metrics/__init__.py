@@ -6,7 +6,7 @@ import operator
 import warnings
 from itertools import repeat
 from json import loads
-from typing import AnyStr, Any, Sequence, Iterable
+from typing import AnyStr, Any, Sequence, Iterable, Mapping
 
 import numpy as np
 import pandas as pd
@@ -20,8 +20,9 @@ from symdesign.utils import path as putils
 
 logger = logging.getLogger(__name__)
 residue_classification = ['core', 'rim', 'support']  # 'hot_spot'
-per_residue_energy_states = ['complex', 'bound', 'unbound', 'solv_complex', 'solv_bound', 'solv_unbound']
+per_residue_energy_states = ['complex', 'bound', 'unbound', 'energy_delta', 'solv_complex', 'solv_bound', 'solv_unbound']
 energy_metric_names = ['interface_energy_complex', 'interface_energy_bound', 'interface_energy_unbound',
+                       'interface_energy',
                        'interface_solvation_energy_complex', 'interface_solvation_energy_bound',
                        'interface_solvation_energy_unbound']
 per_residue_sasa_states = ['sasa_hydrophobic_bound', 'sasa_polar_bound', 'sasa_hydrophobic_complex',
@@ -34,12 +35,14 @@ collapse_metrics = ['collapse_new_positions', 'collapse_new_position_significanc
                     'collapse_increased_z', 'collapse_deviation_magnitude', 'collapse_sequential_peaks_z',
                     'collapse_sequential_z']
 zero_probability_frag_value = -20
+proteinmpnn_scores = ['sequences', 'proteinmpnn_loss_complex', 'proteinmpnn_loss_unbound', 'design_indices']
 # Only slice the final 3 values
 sasa_metrics_rename_mapping = dict(zip(per_residue_intermediate_states, sasa_metric_names))
 # Based on bsa_total values for highest deviating surface residue of one design from multiple measurements
 # Ex: 0.45, 0.22, 0.04, 0.19, 0.01, 0.2, 0.04, 0.19, 0.01, 0.19, 0.01, 0.21, 0.06, 0.17, 0.01, 0.21, -0.04, 0.22
 bsa_tolerance = 0.25
 energy_metrics_rename_mapping = dict(zip(per_residue_energy_states, energy_metric_names))
+other_metrics_rename_mapping = dict(hbond='number_of_hbonds')
 errat_1_sigma, errat_2_sigma, errat_3_sigma = 5.76, 11.52, 17.28  # These are approximate magnitude of deviation
 collapse_thresholds = {
     'standard': 0.43,
@@ -74,8 +77,9 @@ necessary_metrics = {'buns_complex', 'buns1_unbound', 'contact_count', 'coordina
 #                    'rmsd'
 #                      'buns_asu_hpol', 'buns_nano_hpol', 'buns_asu', 'buns_nano', 'buns_total',
 #                      'fsp_total_stability', 'full_stability_complex',
-#                      'number_hbonds', 'total_interface_residues',
-#                      'average_fragment_z_score', 'nanohedra_score', 'number_of_fragments', 'interface_b_factor_per_res',
+#                      'number_of_hbonds', 'total_interface_residues',
+#                      'average_fragment_z_score', 'nanohedra_score', 'number_of_fragments',
+#                      'interface_b_factor_per_res',
 rosetta_required_metrics = []
 # unused, just a placeholder for the metrics in population
 final_metrics = {'buried_unsatisfied_hbonds', 'contact_count', 'core', 'coordinate_constraint',
@@ -87,7 +91,7 @@ final_metrics = {'buried_unsatisfied_hbonds', 'contact_count', 'core', 'coordina
                  'interface_energy_complex', 'interface_energy', 'interface_energy_unbound',
                  'int_separation',
                  'interaction_energy_complex', 'interface_b_factor_per_res', 'multiple_fragment_ratio',
-                 'number_hbonds', 'nanohedra_score', 'nanohedra_score_center',
+                 'number_of_hbonds', 'nanohedra_score', 'nanohedra_score_center',
                  'nanohedra_score_per_res', 'nanohedra_score_center_per_res_center',
                  'number_fragment_residues_total', 'number_fragment_residues_central', 'number_of_fragments',
                  'observations', 'observed_design', 'observed_evolution', 'observed_fragment', 'observed_interface',
@@ -190,31 +194,35 @@ unnecessary = ['int_area_asu_hydrophobic', 'int_area_asu_polar', 'int_area_asu_t
 #                      'int_energy_context_A_oligomer', 'int_energy_context_B_oligomer', 'int_energy_context_complex']
 
 # subtract columns using tuple [0] - [1] to make delta column
-delta_pairs = {'buried_unsatisfied_hbonds': ('buns_complex', 'buns_unbound'),  # Rosetta
-               'interface_energy': ('interface_energy_complex', 'interface_energy_unbound'),  # Rosetta
-               # 'interface_energy_no_intra_residue_score': ('interface_energy_complex', 'interface_energy_bound'),
-               'interface_bound_activation_energy': ('interface_energy_bound', 'interface_energy_unbound'),  # Rosetta
-               'interface_solvation_energy':
-                   ('interface_solvation_energy_unbound', 'interface_solvation_energy_complex'),  # Rosetta
-               'interface_solvation_energy_activation':
-                   ('interface_solvation_energy_unbound', 'interface_solvation_energy_bound'),  # Rosetta
-               # 'interface_area_hydrophobic': ('sasa_hydrophobic_bound', 'sasa_hydrophobic_complex'),
-               # 'interface_area_polar': ('sasa_polar_bound', 'sasa_polar_complex'),
-               # 'interface_area_total': ('sasa_total_bound', 'sasa_total_complex')
-               }
-#                'int_energy_context_delta': ('int_energy_context_complex', 'int_energy_context_oligomer'),
-#                'full_stability_delta': ('full_stability_complex', 'full_stability_oligomer')}
-#                'number_hbonds': ('hbonds_res_selection_complex', 'hbonds_oligomer')}
+delta_pairs = {
+    'buried_unsatisfied_hbonds': ('buns_complex', 'buns_unbound'),  # Rosetta
+    # Replace by Residues summation
+    # 'interface_energy': ('interface_energy_complex', 'interface_energy_unbound'),  # Rosetta
+    # 'interface_energy_no_intra_residue_score': ('interface_energy_complex', 'interface_energy_bound'),
+    'interface_bound_activation_energy': ('interface_energy_bound', 'interface_energy_unbound'),  # Rosetta
+    'interface_solvation_energy':
+        ('interface_solvation_energy_unbound', 'interface_solvation_energy_complex'),  # Rosetta
+    'interface_solvation_energy_activation':
+        ('interface_solvation_energy_unbound', 'interface_solvation_energy_bound'),  # Rosetta
+    # 'interface_area_hydrophobic': ('sasa_hydrophobic_bound', 'sasa_hydrophobic_complex'),
+    # 'interface_area_polar': ('sasa_polar_bound', 'sasa_polar_complex'),
+    # 'interface_area_total': ('sasa_total_bound', 'sasa_total_complex')
+}
+#     'int_energy_context_delta': ('int_energy_context_complex', 'int_energy_context_oligomer'),
+#     'full_stability_delta': ('full_stability_complex', 'full_stability_oligomer')}
+#     'number_of_hbonds': ('hbonds_res_selection_complex', 'hbonds_oligomer')}
 
 
 # divide columns using tuple [0] / [1] to make divide column
-division_pairs = {'percent_interface_area_hydrophobic': ('interface_area_hydrophobic', 'interface_area_total'),
-                  'percent_interface_area_polar': ('interface_area_polar', 'interface_area_total'),
-                  'percent_core': ('core', 'total_interface_residues'),
-                  'percent_rim': ('rim', 'total_interface_residues'),
-                  'percent_support': ('support', 'total_interface_residues'),
-                  'buried_unsatisfied_hbond_density': ('buried_unsatisfied_hbonds', 'interface_area_total'),  # Rosetta
-                  'interface_energy_density': ('interface_energy', 'interface_area_total')}  # Rosetta
+division_pairs = {
+    'buried_unsatisfied_hbond_density': ('buried_unsatisfied_hbonds', 'interface_area_total'),  # Rosetta
+    'interface_energy_density': ('interface_energy', 'interface_area_total'),
+    'percent_interface_area_hydrophobic': ('interface_area_hydrophobic', 'interface_area_total'),
+    'percent_interface_area_polar': ('interface_area_polar', 'interface_area_total'),
+    'percent_core': ('core', 'total_interface_residues'),
+    'percent_rim': ('rim', 'total_interface_residues'),
+    'percent_support': ('support', 'total_interface_residues'),
+}  # Rosetta
 
 # All Rosetta based score terms ref is most useful to keep for whole pose to give "unfolded ground state"
 rosetta_terms = ['lk_ball_wtd', 'omega', 'p_aa_pp', 'pro_close', 'rama_prepro', 'yhh_planarity', 'dslf_fa13',
@@ -230,7 +238,7 @@ protocols_of_interest = {putils.design_profile, putils.structure_background, put
 protocol_column_types = ['mean', 'sequence_design']  # 'stats',
 # Specific columns of interest to distinguish between design trajectories
 significance_columns = ['buried_unsatisfied_hbonds',
-                        'contact_count', 'interface_energy', 'interface_area_total', 'number_hbonds',
+                        'contact_count', 'interface_energy', 'interface_area_total', 'number_of_hbonds',
                         'percent_interface_area_hydrophobic', 'shape_complementarity', 'interface_solvation_energy']
 # sequence_columns = ['divergence_evolution_per_residue', 'divergence_fragment_per_residue',
 #                     'observed_evolution', 'observed_fragment']
@@ -238,6 +246,7 @@ multiple_sequence_alignment_dependent_metrics = \
     ['collapse_increase_significance_by_contact_order_z', 'collapse_increased_z', 'collapse_deviation_magnitude',
      'collapse_sequential_peaks_z', 'collapse_sequential_z']
 profile_dependent_metrics = ['divergence_evolution_per_residue', 'observed_evolution']
+all_evolutionary_metrics = multiple_sequence_alignment_dependent_metrics + profile_dependent_metrics
 frag_profile_dependent_metrics = ['divergence_fragment_per_residue', 'observed_fragment']
 # per_res_keys = ['jsd', 'des_jsd', 'int_jsd', 'frag_jsd']
 
@@ -427,13 +436,13 @@ def hot_spot(residue_dict, energy=-1.5):  # UNUSED
     return residue_dict
 
 
-def interface_composition_similarity(series):
+def interface_composition_similarity(series: Mapping) -> float:
     """Calculate the composition difference for pose residue classification
 
     Args:
-        series (union[pandas.Series, dict]): Container with 'interface_area_total', 'core', 'rim', and 'support' keys
+        series: Mapping from 'interface_area_total', 'core', 'rim', and 'support' to values
     Returns:
-        (float): Average similarity for expected residue classification given the observed classification
+        Average similarity for expected residue classification given the observed classification
     """
     # Calculate modelled number of residues according to buried surface area (Levy, E 2010)
     def core_res_fn(bsa):
@@ -451,15 +460,16 @@ def interface_composition_similarity(series):
     if int_area <= 250:
         return np.nan
 
-    class_ratio_diff_d = {}
+    class_ratio_differences = []
     for residue_class, function in classification_fxn_d.items():
         expected = function(int_area)
-        class_ratio_diff_d[residue_class] = (1 - (abs(series[residue_class] - expected) / expected))
-        if class_ratio_diff_d[residue_class] < 0:
-            # above calculation fails to bound between 0 and 1 with large obs values due to proportion > 1
-            class_ratio_diff_d[residue_class] = 0
+        class_ratio_difference = (1 - (abs(series[residue_class] - expected) / expected))
+        if class_ratio_difference < 0:
+            # Above calculation fails to bound between 0 and 1 with large obs values due to proportion > 1
+            class_ratio_difference = 0
+        class_ratio_differences.append(class_ratio_difference)
 
-    return sum(class_ratio_diff_d.values()) / len(class_ratio_diff_d)
+    return sum(class_ratio_differences) / len(class_ratio_differences)
 
 
 def incorporate_mutation_info(design_residue_scores: dict,
@@ -572,14 +582,15 @@ def collapse_per_residue(sequence_groups: Iterable[Iterable[Sequence[str]]],
     Returns:
         The mapping of collapse metric to per-residue values for the concatenated sequence in each sequence_groups.
             These include:
-            {'collapse_new_positions',
-             'collapse_new_position_significance',
-             'collapse_significance_by_contact_order_z',
-             'collapse_increase_significance_by_contact_order_z',
-             'increased_collapse_z',
+            {'hydrophobic_collapse',
              'collapse_deviation_magnitude',
+             'collapse_increase_significance_by_contact_order_z',
+             'collapse_increased_z',
+             'collapse_new_positions',
+             'collapse_new_position_significance',
              'collapse_sequential_peaks_z',
              'collapse_sequential_z',
+             'collapse_significance_by_contact_order_z',
              }
     """
     #    collapse_profile: The per-residue hydrophobic collapse values measured from a reference SequenceProfile
@@ -846,34 +857,21 @@ def calculate_residue_surface_area(per_residue_df: pd.DataFrame) -> pd.DataFrame
     return per_residue_df
 
 
-def sum_per_residue_metrics(per_residue_df: pd.DataFrame) -> pd.DataFrame:
-    """From a DataFrame with per residue values, tabulate all values across each residue.
+def sum_per_residue_metrics(df: pd.DataFrame) -> pd.DataFrame:
+    """From a DataFrame with per-residue values (i.e. a metric in level -1), tabulate all values across each residue
 
     Renames specific values relating to interfacial energy and solvation energy
 
     Args:
-        per_residue_df: The DataFrame with MultiIndex columns where level0=residue_number, level1=metric
+        df: The DataFrame with MultiIndex columns where level -1 = metric
     Returns:
         A new DataFrame with the summation of each metric from all residue_numbers in the per_residue columns
     """
     # Group by the columns according to the metrics (level=-1). Upper level(s) are residue identifiers
-    summed_scores_df = per_residue_df.groupby(axis=1, level=-1).sum()
-    # print('after grouby sum', summed_scores_df)
-    # per_residue_df_columns = per_residue_df.columns
-    # present_per_residue_energies = \
-    #     [state for state in per_residue_energy_states if state in per_residue_df_columns]
-    # summed_energies = \
-    #     {energy_state: per_residue_df.loc[:, idx_slice[:, energy_state]].sum(axis=1)
-    #      for energy_state in present_per_residue_energies}
-    # present_per_residue_classification = \
-    #     [classifier for classifier in residue_classification if classifier in residue_classification]
-    # summed_residue_classification = \
-    #     {residue_class: per_residue_df.loc[:, idx_slice[:, residue_class]].sum(axis=1)
-    #      for residue_class in present_per_residue_classification}
-    #
-    # summed_scores_df = pd.DataFrame({**summed_energies, **summed_residue_classification})
+    summed_df = df.groupby(axis=1, level=-1).sum()
+    # logger.debug('After grouby sum: {summed_df}')
 
-    return summed_scores_df.rename(columns={**energy_metrics_rename_mapping, **sasa_metrics_rename_mapping})
+    return summed_df.rename(columns={**energy_metrics_rename_mapping, **sasa_metrics_rename_mapping})
 
 
 def calculate_sequence_observations_and_divergence(alignment: 'structure.sequence.MultipleSequenceAlignment',
@@ -916,7 +914,7 @@ def calculate_sequence_observations_and_divergence(alignment: 'structure.sequenc
     # Calculate Jensen Shannon Divergence using different SSM occurrence data and design mutations
     #                                              both mut_freq and profile_background[profile] are one-indexed
     divergence = {f'divergence_{profile}':
-                  # position_specific_jsd(pose_alignment.frequencies, background)[interface_indexer]
+                  # position_specific_jsd(pose_alignment.frequencies, background)
                   position_specific_divergence(alignment.frequencies, background)[select_indices]
                   for profile, background in backgrounds.items()}
 

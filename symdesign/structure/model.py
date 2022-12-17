@@ -5992,10 +5992,11 @@ class Pose(SymmetricModel):
              'percent_fragment_strand',
              'percent_fragment_coil',
              'number_of_fragments',
-             'total_interface_residues',
              'percent_residues_fragment_interface_total',
              'percent_residues_fragment_interface_center'
+             'total_interface_residues',
              'pose_length',
+             'pose_thermophilicity',
              'minimum_radius',
              'maximum_radius',
              'interface_b_factor_per_residue',
@@ -6004,16 +6005,12 @@ class Pose(SymmetricModel):
              'interface_secondary_structure_topology',
              'interface_secondary_structure_count',
              'design_dimension',
-             'entity#_symmetry_group',
-             'entity#_radius',
-             'entity#_min_radius',
              'entity#_max_radius',
-             'entity#_number_of_residues',
-             'entity#_symmetry',
+             'entity#_min_radius',
              'entity#_name',
              'entity#_number_of_residues',
              'entity#_radius',
-             'entity#_min_radius',
+             'entity#_symmetry_group',
              'entity#_n_terminal_helix',
              'entity#_c_terminal_helix',
              'entity#_n_terminal_orientation',
@@ -6118,8 +6115,10 @@ class Pose(SymmetricModel):
             is_pdb_thermophile = query.pdb.is_entity_thermophilic
 
         # total_residue_counts = []
+        idx = 1
+        is_thermophilic = []
         minimum_radius, maximum_radius = float('inf'), 0
-        for idx, entity in enumerate(self.entities, 1):
+        for idx, entity in enumerate(self.entities, idx):
             if self.dimension and self.dimension > 0:
                 raise NotImplementedError('Need to add keyword reference= to Structure.distance_from_reference() call')
             min_rad = entity.distance_from_reference(measure='min')  # Todo add reference=
@@ -6135,6 +6134,7 @@ class Pose(SymmetricModel):
                 thermophile = 1 if entity.thermophilic else 0
             else:
                 thermophile = 1 if is_pdb_thermophile(entity.name) or is_ukb_thermophilic(entity.uniprot_id) else 0
+            is_thermophilic.append(thermophile)
 
             pose_metrics.update({
                 f'entity{idx}_symmetry_group': entity.symmetry if entity.is_oligomeric() else 'asymmetric',
@@ -6148,6 +6148,9 @@ class Pose(SymmetricModel):
                 f'entity{idx}_n_terminal_orientation': entity.termini_proximity_from_reference(),
                 f'entity{idx}_c_terminal_orientation': entity.termini_proximity_from_reference(termini='c'),
                 f'entity{idx}_thermophile': thermophile})
+
+        # Get the average thermophilicity for all entities
+        pose_metrics['pose_thermophilicity'] = sum(is_thermophilic) / idx
 
         pose_metrics['minimum_radius'] = minimum_radius
         pose_metrics['maximum_radius'] = maximum_radius
