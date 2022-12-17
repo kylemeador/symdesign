@@ -384,12 +384,12 @@ def designs(pose_directories: Iterable[protocols.protocols.PoseDirectory]) \
             if not os.path.exists(out_path):
                 shutil.copy(file[0], out_path)  # [i])))
                 # shutil.copy(des_dir.trajectories, os.path.join(outdir_traj, os.path.basename(des_dir.trajectories)))
-                # shutil.copy(des_dir.residues, os.path.join(outdir_res, os.path.basename(des_dir.residues)))
+                # shutil.copy(des_dir.residues_file, os.path.join(outdir_res, os.path.basename(des_dir.residues_file)))
         # try:
         #     # Create symbolic links to the output PDB's
         #     os.symlink(file[0], os.path.join(job.output_directory, '%s_design_%s.pdb' % (str(des_dir), design)))  # [i])))
         #     os.symlink(des_dir.trajectories, os.path.join(outdir_traj, os.path.basename(des_dir.trajectories)))
-        #     os.symlink(des_dir.residues, os.path.join(outdir_res, os.path.basename(des_dir.residues)))
+        #     os.symlink(des_dir.residues_file, os.path.join(outdir_res, os.path.basename(des_dir.residues_file)))
         # except FileExistsError:
         #     pass
 
