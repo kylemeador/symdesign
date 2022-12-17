@@ -3570,9 +3570,8 @@ class PoseDirectory(PoseProtocol):
             residue_energy_pc = res_pca.fit_transform(residue_energy_np)
 
             seq_pca = skl.decomposition.PCA(variance)
-            designed_sequence_modifications = [''.join(info['type'] for residue_number, info in residues_info.items()
-                                                       if residue_number in index_residues)
-                                               for design, residues_info in residue_info.items()]
+            designed_sequence_modifications = \
+                residue_df.loc[:, idx_slice[interface_residue_indices, 'type']].sum(axis=1).to_list()
             pairwise_sequence_diff_np = scaler.fit_transform(all_vs_all(designed_sequence_modifications,
                                                                         sequence_difference))
             seq_pc = seq_pca.fit_transform(pairwise_sequence_diff_np)
