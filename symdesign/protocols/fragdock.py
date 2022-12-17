@@ -1801,8 +1801,8 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
     #         _, oligomeric_errat = entity_oligomer.errat(out_path=os.devnull)
     #         source_errat.append(oligomeric_errat[:entity.number_of_residues])
     #
-    #     pose_source_contact_order_s = pd.Series(np.concatenate(source_contact_order), index=residue_numbers)
-    #     pose_source_errat_s = pd.Series(np.concatenate(source_errat), index=residue_numbers)
+    #     pose_source_contact_order_s = pd.Series(np.concatenate(source_contact_order), index=residue_indices)
+    #     pose_source_errat_s = pd.Series(np.concatenate(source_errat), index=residue_indices)
     #
     #     per_residue_data = {putils.pose_source: {
     #         # 'type': list(pose.sequence),
@@ -2136,8 +2136,8 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
 
     # Calculate metrics on input Pose before any manipulation
     pose_length = pose.number_of_residues
-    # residue_indices = list(range(1, pose_length + 1))
-    residue_numbers = [residue.number for residue in pose.residues]
+    residue_indices = list(range(1, pose_length + 1))
+    # residue_numbers = [residue.number for residue in pose.residues]
     entity_tuple = tuple(pose.entities)
     # model_tuple = tuple(models)
 
@@ -3902,7 +3902,7 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
                     #         # observed, divergence = \
                     #         #     calculate_sequence_observations_and_divergence(pose_alignment,
                     #         #                                                    profile_background,
-                    #         #                                                    interface_indexer)
+                    #         #                                                    interface_residue_indices)
                     #         # # Get pose sequence divergence
                     #         # divergence_s = pd.Series({f'{divergence_type}_per_residue': _divergence.mean()
                     #         #                           for divergence_type, _divergence in divergence.items()},
@@ -3915,7 +3915,7 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
                     #         # # for profile, observed_values in observed.items():
                     #         # #     scores_df[f'observed_{profile}'] = observed_values.mean(axis=1)
                     #         # #     observed_dfs.append(pd.DataFrame(data=observed_values, index=design_id,
-                    #         # #                                      columns=pd.MultiIndex.from_product([residue_numbers,
+                    #         # #                                      columns=pd.MultiIndex.from_product([residue_indices,
                     #         # #                                                                          [f'observed_{profile}']]))
                     #         # #                         )
                     #         # # Add observation information into the residue_df
@@ -3943,8 +3943,8 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
                     #             per_residue_fragment_profile_scores = \
                     #                 ml.sequence_nllloss(torch_numeric, torch.from_numpy(corrected_frag_array))
                     #             # Find the non-zero sites in the profile
-                    #             # interface_indexer = [residue.index for residue in pose.interface_residues]
-                    #             # interface_observed_from_fragment_profile = fragment_profile_frequencies[idx][interface_indexer]
+                    #             # interface_residue_indices = [residue.index for residue in pose.interface_residues]
+                    #             # interface_observed_from_fragment_profile = fragment_profile_frequencies[idx][interface_residue_indices]
                     #         else:
                     #             per_residue_fragment_profile_scores = nan_blank_data
                     #
@@ -3988,7 +3988,7 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
             # Collect sequence metrics on every designed Pose
             if job.dock.proteinmpnn_score:
                 # Construct per_residue_df
-                per_residue_df = pd.concat({design_id: pd.DataFrame(data, index=residue_numbers)
+                per_residue_df = pd.concat({design_id: pd.DataFrame(data, index=residue_indices)
                                             for design_id, data in per_residue_data.items()}).unstack().swaplevel(0, 1, axis=1)
                 # if job.design.sequences:
                 #     sequences = numeric_to_sequence(generated_sequences)
@@ -3996,7 +3996,7 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
                 #     # to (size * number_of_temperatures, pose_length)
                 #     sequences = sequences.reshape(-1, pose_length)
                 #     per_residue_sequence_df = pd.DataFrame(sequences, index=pose_ids,
-                #                                            columns=pd.MultiIndex.from_product([residue_numbers, ['type']]))
+                #                                            columns=pd.MultiIndex.from_product([residue_indices, ['type']]))
                 #     per_residue_sequence_df.loc[putils.pose_source, :] = list(pose.sequence)
                 #     # per_residue_sequence_df.append(pd.DataFrame(list(pose.sequence), columns=[putils.pose_source]).T)
                 #     pose_sequences = dict(zip(pose_ids, [''.join(sequence) for sequence in sequences.tolist()]))
@@ -4025,7 +4025,7 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
                 #
                 #     per_residue_background_frequencies = \
                 #         pd.concat([pd.DataFrame(background, index=pose_ids,
-                #                                 columns=pd.MultiIndex.from_product([residue_numbers, [f'observed_{profile}']]))
+                #                                 columns=pd.MultiIndex.from_product([residue_indices, [f'observed_{profile}']]))
                 #                    for profile, background in background_frequencies.items()], axis=1)
                 #
                 #     # Can't use below as each pose is different
@@ -4054,7 +4054,7 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
                 #     #     pose.get_folding_metrics(hydrophobicity='expanded')
                 #     folding_and_collapse = metrics.collapse_per_residue(all_sequences_by_entity, contact_order_per_res_z,
                 #                                                         reference_collapse)
-                #     per_residue_collapse_df = pd.concat({pose_id: pd.DataFrame(data, index=residue_numbers)
+                #     per_residue_collapse_df = pd.concat({pose_id: pd.DataFrame(data, index=residue_indices)
                 #                                          for pose_id, data in zip(pose_ids, folding_and_collapse)},
                 #                                         ).unstack().swaplevel(0, 1, axis=1)
                 #     # Calculate mutational content
