@@ -102,17 +102,17 @@
 		<InteractionEnergyMetric name="S_M_interaction_energy" custom_type="" force_rescore="false"  residue_selector="interface1" residue_selector2="interface2_sc" scorefxn="2015_nano"/>
 		# used to specify certain score terms to calculate on. include_rama_prepro_and_proclose="false". JD2 reports options invalid "scoretypes_only="" scoretypes_skip="""
 		# find the per residue energy of residues in a residue_selector
-		<PerResidueEnergyMetric name="S_M_int_energy_per_res" custom_type="per" output_as_pdb_nums="true" residue_selector="tot_interface_and_neighbor_sym" use_native="false" scoretype="total_score" scorefxn="2015_nano"/>
-		<PerResidueEnergyMetric name="S_M_int_energy_cst_per_res" custom_type="per" output_as_pdb_nums="true" residue_selector="tot_interface_and_neighbor_sym" use_native="false" scoretype="coordinate_constraint" scorefxn="2015_nano_cst"/>
-		<PerResidueEnergyMetric name="S_M_int_energy_fsp_per_res" custom_type="per" output_as_pdb_nums="true" residue_selector="tot_interface_and_neighbor_sym" use_native="false" scoretype="res_type_constraint" scorefxn="2015_nano_cst_fsp"/>
+		<PerResidueEnergyMetric name="S_M_int_energy_per_res" custom_type="" output_as_pdb_nums="true" residue_selector="tot_interface_and_neighbor_sym" use_native="false" scoretype="total_score" scorefxn="2015_nano"/>
+		<PerResidueEnergyMetric name="S_M_int_energy_cst_per_res" custom_type="" output_as_pdb_nums="true" residue_selector="tot_interface_and_neighbor_sym" use_native="false" scoretype="coordinate_constraint" scorefxn="2015_nano_cst"/>
+		<PerResidueEnergyMetric name="S_M_int_energy_fsp_per_res" custom_type="" output_as_pdb_nums="true" residue_selector="tot_interface_and_neighbor_sym" use_native="false" scoretype="res_type_constraint" scorefxn="2015_nano_cst_fsp"/>
  		<InteractionEnergyMetric name="M_interaction_energy" custom_type="" force_rescore="false"  residue_selector="interface1" residue_selector2="interface2_sc" scorefxn="2015"/>
-		<PerResidueEnergyMetric name="M_int_energy_per_res" custom_type="per" output_as_pdb_nums="true" residue_selector="tot_interface_and_neighbor_sym" use_native="false" scoretype="total_score" scorefxn="2015"/>
-		<PerResidueEnergyMetric name="M_int_energy_cst_per_res" custom_type="per" output_as_pdb_nums="true" residue_selector="tot_interface_and_neighbor_sym" use_native="false" scoretype="coordinate_constraint" scorefxn="2015_cst"/>
-		<PerResidueEnergyMetric name="M_int_energy_fsp_per_res" custom_type="per" output_as_pdb_nums="true" residue_selector="tot_interface_and_neighbor_sym" use_native="false" scoretype="res_type_constraint" scorefxn="2015_cst"/>
+		<PerResidueEnergyMetric name="M_int_energy_per_res" custom_type="" output_as_pdb_nums="true" residue_selector="tot_interface_and_neighbor_sym" use_native="false" scoretype="total_score" scorefxn="2015"/>
+		<PerResidueEnergyMetric name="M_int_energy_cst_per_res" custom_type="" output_as_pdb_nums="true" residue_selector="tot_interface_and_neighbor_sym" use_native="false" scoretype="coordinate_constraint" scorefxn="2015_cst"/>
+		<PerResidueEnergyMetric name="M_int_energy_fsp_per_res" custom_type="" output_as_pdb_nums="true" residue_selector="tot_interface_and_neighbor_sym" use_native="false" scoretype="res_type_constraint" scorefxn="2015_cst"/>
 		# sasa is now measured with freesasa
-<!--		<PerResidueSasaMetric name="M_sasa_hydrophobic_per_res" custom_type="per" output_as_pdb_nums="true" residue_selector="tot_interface" mode="hydrophobic_sasa"/>-->
-<!--		<PerResidueSasaMetric name="M_sasa_polar_per_res" custom_type="per" output_as_pdb_nums="true" residue_selector="tot_interface" mode="polar_sasa"/>-->
-<!--		<PerResidueSasaMetric name="M_sasa_per_res" custom_type="per" output_as_pdb_nums="true" residue_selector="tot_interface" mode="all_sasa"/>-->
+<!--		<PerResidueSasaMetric name="M_sasa_hydrophobic_per_res" custom_type="" output_as_pdb_nums="true" residue_selector="tot_interface" mode="hydrophobic_sasa"/>-->
+<!--		<PerResidueSasaMetric name="M_sasa_polar_per_res" custom_type="" output_as_pdb_nums="true" residue_selector="tot_interface" mode="polar_sasa"/>-->
+<!--		<PerResidueSasaMetric name="M_sasa_per_res" custom_type="" output_as_pdb_nums="true" residue_selector="tot_interface" mode="all_sasa"/>-->
 		# summarize the energy metrics from above
 		<ResidueSummaryMetric name="S_M_int_energy_total" custom_type="interface_energy" metric="S_M_int_energy_per_res" action="sum" use_cached_data="true" cache_suffix="_complex"/> # cache_prefix="" MISSING FROM 20.47 bundle
 		<ResidueSummaryMetric name="M_int_energy_total" custom_type="interface_energy" metric="M_int_energy_per_res" action="sum" use_cached_data="true" cache_suffix="_complex"/> # cache_prefix="" MISSING FROM 20.47 bundle

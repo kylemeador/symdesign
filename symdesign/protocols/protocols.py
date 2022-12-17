@@ -3024,13 +3024,14 @@ class PoseDirectory(PoseProtocol):
             scores_df = pd.DataFrame.from_dict(all_viable_design_scores, orient='index')
             scores_df = pd.concat([source_df, scores_df])
             # Gather all columns into specific types for processing and formatting
-            per_res_columns, hbonds_columns = [], []
+            per_res_columns = []
+            # hbonds_columns = []
             proteinmpnn_columns = []
             for column in scores_df.columns.to_list():
-                if column.startswith('per_res_'):
+                if 'res_' in column:  # if column.startswith('per_res_'):
                     per_res_columns.append(column)
-                elif column.startswith('hbonds_res_selection'):
-                    hbonds_columns.append(column)
+                # elif column.startswith('hbonds_res_selection'):
+                #     hbonds_columns.append(column)
                 elif column in proteinmpnn_scores:
                     proteinmpnn_columns.append(column)
 
@@ -3048,21 +3049,14 @@ class PoseDirectory(PoseProtocol):
 
             # Remove unnecessary (old scores) as well as Rosetta pose score terms besides ref (has been renamed above)
             # Todo learn know how to produce Rosetta score terms in output score file. Not in FastRelax...
-            remove_columns = metrics.rosetta_terms + metrics.unnecessary \
-                + per_res_columns + hbonds_columns + proteinmpnn_columns
+            remove_columns = metrics.rosetta_terms + metrics.unnecessary + per_res_columns + proteinmpnn_columns
             # Todo remove dirty when columns are correct (after P432)
             #  and column tabulation precedes residue/hbond_processing
-            interface_hbonds = metrics.dirty_hbond_processing(all_viable_design_scores)
-            # can't use hbond_processing (clean) in the case there is a design without metrics... columns not found!
-            # interface_hbonds = hbond_processing(all_viable_design_scores, hbonds_columns)
-            number_hbonds_s = \
-                pd.Series({design: len(hbonds) for design, hbonds in interface_hbonds.items()}, name='number_hbonds')
-            # number_hbonds_s = pd.Series({design: len(hbonds) for design, hbonds in interface_hbonds.items()})  #, name='number_hbonds')
-            # scores_df = pd.merge(scores_df, number_hbonds_s, left_index=True, right_index=True)
-            scores_df.loc[number_hbonds_s.index, 'number_hbonds'] = number_hbonds_s
-            # scores_df = scores_df.assign(number_hbonds=number_hbonds_s)
             # residue_info = {'energy': {'complex': 0., 'unbound': 0.}, 'type': None, 'hbond': 0}
-            residue_info.update(self.pose.rosetta_residue_processing(all_viable_design_scores))
+            residue_info.update(self.pose.rosetta_residue_processing(structure_design_scores))
+            interface_hbonds = metrics.dirty_hbond_processing(structure_design_scores)
+            # Can't use hbond_processing (clean) in the case there is a design without metrics... columns not found!
+            # interface_hbonds = hbond_processing(structure_design_scores, hbonds_columns)
             residue_info = metrics.process_residue_info(residue_info, hbonds=interface_hbonds)
             residue_info = metrics.incorporate_mutation_info(residue_info, all_mutations)
             # can't use residue_processing (clean) in the case there is a design without metrics... columns not found!
@@ -3604,7 +3598,7 @@ class PoseDirectory(PoseProtocol):
         #                                                       solvation_unbound_df.columns]
         #                                       for column in columns], axis=1)
         summation_pairs = \
-            {'buns_unbound': list(filter(re.compile('buns_[0-9]+_unbound$').match, scores_columns)),  # Rosetta
+            {'buns_unbound': list(filter(re.compile('buns[0-9]+_unbound$').match, scores_columns)),  # Rosetta
              # 'interface_energy_bound':
              #     list(filter(re.compile('interface_energy_[0-9]+_bound').match, scores_columns)),  # Rosetta
              # 'interface_energy_unbound':

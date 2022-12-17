@@ -45,12 +45,12 @@
 		# gather the residues involved in a residue selector
 		<SelectedResiduesMetric name="M_int_hbonds_res_selector" custom_type="hbonds_res" rosetta_numbering="false" residue_selector="hbond_residues"/>
 		# find the per residue energy of residues in a residue_selector
-		<PerResidueEnergyMetric name="S_M_int_energy_per_res" custom_type="per" output_as_pdb_nums="true" residue_selector="entity_interface_residues" use_native="false" scoretype="total_score" scorefxn="2015_nano"/>
-		<PerResidueEnergyMetric name="M_int_energy_per_res" custom_type="per" output_as_pdb_nums="true" residue_selector="entity_interface_residues_sym" use_native="false" scoretype="total_score" scorefxn="2015"/>
+		<PerResidueEnergyMetric name="S_M_int_energy_per_res" custom_type="" output_as_pdb_nums="true" residue_selector="entity_interface_residues" use_native="false" scoretype="total_score" scorefxn="2015_nano"/>
+		<PerResidueEnergyMetric name="M_int_energy_per_res" custom_type="" output_as_pdb_nums="true" residue_selector="entity_interface_residues_sym" use_native="false" scoretype="total_score" scorefxn="2015"/>
 		# gather the per residue SASA of a residue selection
-		<PerResidueSasaMetric name="M_sasa_hydrophobic_per_res" custom_type="per" output_as_pdb_nums="true" residue_selector="entity_interface_residues" mode="hydrophobic_sasa"/>
-		<PerResidueSasaMetric name="M_sasa_polar_per_res" custom_type="per" output_as_pdb_nums="true" residue_selector="entity_interface_residues" mode="polar_sasa"/>
-		<PerResidueSasaMetric name="M_sasa_total_per_res" custom_type="per" output_as_pdb_nums="true" residue_selector="entity_interface_residues" mode="all_sasa"/>
+		<PerResidueSasaMetric name="M_sasa_hydrophobic_per_res" custom_type="" output_as_pdb_nums="true" residue_selector="entity_interface_residues" mode="hydrophobic_sasa"/>
+		<PerResidueSasaMetric name="M_sasa_polar_per_res" custom_type="" output_as_pdb_nums="true" residue_selector="entity_interface_residues" mode="polar_sasa"/>
+		<PerResidueSasaMetric name="M_sasa_total_per_res" custom_type="" output_as_pdb_nums="true" residue_selector="entity_interface_residues" mode="all_sasa"/>
 		# summarize the energy metrics from above
 		<ResidueSummaryMetric name="S_M_int_energy_total" custom_type="interface_energy" metric="S_M_int_energy_per_res" action="sum"/>
 		<ResidueSummaryMetric name="M_int_energy_total" custom_type="interface_energy" metric="M_int_energy_per_res" action="sum"/>
@@ -80,18 +80,18 @@
 		<ReadPoseExtraScoreFilter name="read_repacking" term_name="repacking" threshold="-0.5"/>
 		# find the average degree of connectivity to residues surrounding specified residues
 		<AverageDegree name="entity%%entity%%_interface_connectivity" threshold="0" distance_threshold="10.0" task_operations="no_interface_no_pack,interface_and_neighbors_pack"/>
-<!--		<BuriedUnsatHbonds name="S_buns_%%entity%%_unbound" residue_selector="entity_interface_residues" scorefxn="2015_nano" report_all_heavy_atom_unsats="true" confidence="1.0"/> # use_reporter_behavior="true" only_interface="false", ignore_surface_res="true" NOT relevant for own ddG style measurement-->
-		<BuriedUnsatHbonds name="buns_%%entity%%_unbound" residue_selector="entity_interface_residues" scorefxn="2015" report_all_heavy_atom_unsats="true" confidence="1.0"/> # use_reporter_behavior="true" only_interface="false", ignore_surface_res="true" NOT relevant for own ddG style measurement,  use_vsasa="1" residue_surface_cutoff="20"
-		<BuriedUnsatHbonds name="buns_%%entity%%_unbound_ignore" residue_selector="entity_interface_residues" scorefxn="2015" ignore_surface_res="true" report_all_heavy_atom_unsats="true" confidence="1.0"/> # use_reporter_behavior="true" only_interface="false", ignore_surface_res="true" NOT relevant for own ddG style measurement
-		<BuriedUnsatHbonds name="buns_%%entity%%_unbound_sym" residue_selector="entity_interface_residues_sym" scorefxn="2015" report_all_heavy_atom_unsats="true" confidence="1.0"/> # use_reporter_behavior="true" only_interface="false", ignore_surface_res="true" NOT relevant for own ddG style measurement
-		<BuriedUnsatHbonds name="buns_%%entity%%_unbound_sym_ignore" residue_selector="entity_interface_residues_sym" scorefxn="2015" ignore_surface_res="true" report_all_heavy_atom_unsats="true" confidence="1.0"/> # use_reporter_behavior="true" only_interface="false", ignore_surface_res="true" NOT relevant for own ddG style measurement
+<!--		<BuriedUnsatHbonds name="S_buns%%entity%%_unbound" residue_selector="entity_interface_residues" scorefxn="2015_nano" report_all_heavy_atom_unsats="true" confidence="1.0"/> # use_reporter_behavior="true" only_interface="false", ignore_surface_res="true" NOT relevant for own ddG style measurement-->
+		<BuriedUnsatHbonds name="buns%%entity%%_unbound" residue_selector="entity_interface_residues" scorefxn="2015" report_all_heavy_atom_unsats="true" confidence="1.0"/> # use_reporter_behavior="true" only_interface="false", ignore_surface_res="true" NOT relevant for own ddG style measurement,  use_vsasa="1" residue_surface_cutoff="20"
+		<BuriedUnsatHbonds name="buns%%entity%%_unbound_ignore" residue_selector="entity_interface_residues" scorefxn="2015" ignore_surface_res="true" report_all_heavy_atom_unsats="true" confidence="1.0"/> # use_reporter_behavior="true" only_interface="false", ignore_surface_res="true" NOT relevant for own ddG style measurement
+		<BuriedUnsatHbonds name="buns%%entity%%_unbound_sym" residue_selector="entity_interface_residues_sym" scorefxn="2015" report_all_heavy_atom_unsats="true" confidence="1.0"/> # use_reporter_behavior="true" only_interface="false", ignore_surface_res="true" NOT relevant for own ddG style measurement
+		<BuriedUnsatHbonds name="buns%%entity%%_unbound_sym_ignore" residue_selector="entity_interface_residues_sym" scorefxn="2015" ignore_surface_res="true" report_all_heavy_atom_unsats="true" confidence="1.0"/> # use_reporter_behavior="true" only_interface="false", ignore_surface_res="true" NOT relevant for own ddG style measurement
 <!--		<BuriedUnsatHbonds name="S_buns_hpol_unbound" residue_selector="tot_interface" scorefxn="2015_nano" report_nonheavy_unsats="true" confidence="1.0" ignore_surface_res="true"/>-->
 <!--		<BuriedUnsatHbonds name="buns_hpol_unbound" residue_selector="tot_interface" scorefxn="2015" report_nonheavy_unsats="true" confidence="1.0" ignore_surface_res="true"/>-->
 		<Report name="R_entity%%entity%%_interface_connectivity" 		filter="entity%%entity%%_interface_connectivity"/>
-		<Report name="R_buns_%%entity%%_unbound" 						filter="buns_%%entity%%_unbound"/>
-		<Report name="R_buns_%%entity%%_unbound_ignore" 				filter="buns_%%entity%%_unbound_ignore"/>
-		<Report name="R_buns_%%entity%%_unbound_sym" 					filter="buns_%%entity%%_unbound_sym"/>
-		<Report name="R_buns_%%entity%%_unbound_sym_ignore" 			filter="buns_%%entity%%_unbound_sym_ignore"/>
+		<Report name="R_buns%%entity%%_unbound" 						filter="buns%%entity%%_unbound"/>
+		<Report name="R_buns%%entity%%_unbound_ignore" 					filter="buns%%entity%%_unbound_ignore"/>
+		<Report name="R_buns%%entity%%_unbound_sym" 					filter="buns%%entity%%_unbound_sym"/>
+		<Report name="R_buns%%entity%%_unbound_sym_ignore" 				filter="buns%%entity%%_unbound_sym_ignore"/>
 	</FILTERS>
 
 	<MOVERS>
@@ -139,10 +139,10 @@
 			<Add mover_name="run_metrics_bound_sum_sasa_hydrophobic"/>
 			<Add mover_name="run_metrics_bound_sum_sasa_polar"/>
 			<Add mover_name="run_metrics_bound_sum_sasa_total"/>
-			<Add filter_name="R_buns_%%entity%%_unbound"/>
-			<Add filter_name="R_buns_%%entity%%_unbound_ignore"/>
-			<Add filter_name="R_buns_%%entity%%_unbound_sym"/>
-			<Add filter_name="R_buns_%%entity%%_unbound_sym_ignore"/>
+			<Add filter_name="R_buns%%entity%%_unbound"/>
+			<Add filter_name="R_buns%%entity%%_unbound_ignore"/>
+			<Add filter_name="R_buns%%entity%%_unbound_sym"/>
+			<Add filter_name="R_buns%%entity%%_unbound_sym_ignore"/>
 			<Add mover_name="repack_interface"/> # Unused in P432 for minimization of the unbound state
 			<Add filter_name="R_entity%%entity%%_interface_connectivity"/>
 			<Add mover_name="S_run_metrics_unbound"/>
@@ -155,10 +155,10 @@
 			<Add mover_name="run_metrics_bound_sum_sasa_hydrophobic"/>
 			<Add mover_name="run_metrics_bound_sum_sasa_polar"/>
 			<Add mover_name="run_metrics_bound_sum_sasa_total"/>
-			<Add filter_name="R_buns_%%entity%%_unbound"/>
-			<Add filter_name="R_buns_%%entity%%_unbound_ignore"/>
-			<Add filter_name="R_buns_%%entity%%_unbound_sym"/>
-			<Add filter_name="R_buns_%%entity%%_unbound_sym_ignore"/>
+			<Add filter_name="R_buns%%entity%%_unbound"/>
+			<Add filter_name="R_buns%%entity%%_unbound_ignore"/>
+			<Add filter_name="R_buns%%entity%%_unbound_sym"/>
+			<Add filter_name="R_buns%%entity%%_unbound_sym_ignore"/>
 			<Add mover_name="repack_interface"/> # Unused in P432 for minimization of the unbound state
 			<Add filter_name="R_entity%%entity%%_interface_connectivity"/>
 			<Add mover_name="run_metrics_unbound"/>
