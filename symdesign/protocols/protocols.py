@@ -3102,7 +3102,6 @@ class PoseDirectory(PoseProtocol):
             viable_designs = [pose.name for pose in design_poses]
 
         scores_df.drop(remove_columns, axis=1, inplace=True, errors='ignore')
-        other_pose_metrics['observations'] = len(viable_designs)
 
         entity_sequences = []
         for entity in self.pose.entities:
@@ -3185,7 +3184,9 @@ class PoseDirectory(PoseProtocol):
         per_residue_data[putils.pose_source]['errat_deviation'] = pose_source_errat
 
         # Compute structural measurements for all designs
+        # interface_metrics = {}
         for pose in design_poses:  # Takes 1-2 seconds for Structure -> assembly -> errat
+            # interface_metrics[pose.name] = other_pose_metrics
             # Must find interface residues before measure local_density
             pose.find_and_split_interface()
             per_residue_data[pose.name] = pose.per_residue_interface_surface_area()
@@ -3519,22 +3520,20 @@ class PoseDirectory(PoseProtocol):
             if stat != mean:
                 protocol_stats[idx] = protocol_stats[idx].rename(index={protocol: f'{protocol}_{stat}'
                                                                         for protocol in unique_design_protocols})
-        # trajectory_df = pd.concat([trajectory_df, pd.concat(pose_stats, axis=1).T] + protocol_stats)
-        # remove std rows if there is no stdev
-        number_of_trajectories = len(trajectory_df) + len(protocol_groups) + 1  # 1 for the mean
+        # Remove std rows if there is no stdev
+        # number_of_trajectories = len(trajectory_df) + len(protocol_groups) + 1  # 1 for the mean
         final_trajectory_indices = trajectory_df.index.to_list() + unique_protocols + [mean]
         trajectory_df = pd.concat([trajectory_df]
                                   + [df.dropna(how='all', axis=0) for df in protocol_stats]  # v don't add if nothing
                                   + [pd.to_numeric(s).to_frame().T for s in pose_stats if not all(s.isna())])
-        # this concat ^ puts back putils.pose_source, refine, consensus designs since protocol_stats is calculated on scores_df
-        # add all docking and pose information to each trajectory, dropping the pose observations
-        interface_metrics_s = pd.Series(other_pose_metrics)
-        # Todo transpose may cause issues. Can this be created with a join and fill? merge?
-        pose_metrics_df = pd.concat([interface_metrics_s] * number_of_trajectories, axis=1).T
-        trajectory_df = pd.concat([trajectory_df,
-                                   pose_metrics_df.rename(index=dict(zip(range(number_of_trajectories),
-                                                                         final_trajectory_indices)))
-                                  .drop(['observations'], axis=1)], axis=1)
+        # This concat ^ puts back putils.pose_source, refine, consensus designs since protocol_stats is calculated on scores_df
+        # Add all pose information to each trajectory
+        # interface_metrics_s = pd.Series(other_pose_metrics)
+        # # Todo transpose may cause issues. Can this be created with a join and fill? merge?
+        # pose_metrics_df = pd.concat([interface_metrics_s] * number_of_trajectories, axis=1).T
+        pose_metrics_df = pd.DataFrame.from_dict({idx: other_pose_metrics for idx in final_trajectory_indices},
+                                                 orient='index')
+        trajectory_df = pd.concat([trajectory_df, pose_metrics_df], axis=1)
         trajectory_df = trajectory_df.fillna({'observations': 1})
 
         # Calculate protocol significance
@@ -3917,7 +3916,8 @@ class PoseDirectory(PoseProtocol):
             fig.savefig(os.path.join(self.data, 'DesignMetricsPerResidues.png'))  # Todo PoseDirectory(.path)
 
         # After parsing data sources
-        interface_metrics_s = pd.concat([interface_metrics_s], keys=[('dock', 'pose')])
+        other_pose_metrics['observations'] = len(viable_designs)
+        interface_metrics_s = pd.concat([pd.Series(other_pose_metrics)], keys=[('dock', 'pose')])
 
         # CONSTRUCT: Create pose series and format index names
         pose_s = pd.concat([interface_metrics_s, stat_s, divergence_s] + sim_series).swaplevel(0, 1)
