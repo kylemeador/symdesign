@@ -2921,36 +2921,52 @@ class PoseDirectory(PoseProtocol):
                               'type': protein_letters_3to1.get(residue.type), 'hbond': 0}
              for entity in self.pose.entities for residue in entity.residues}
         residue_info = {putils.pose_source: pose_source_residue_info}
+
+        # Take metrics for the pose_source
         job_key = 'no_energy'
-        stat_s, sim_series = pd.Series(dtype=float), []
+        # Get the scores from the score file on design trajectory metrics
+        empty_source = dict(
+            buns_complex=0,
+            # buns_unbound=0,
+            contact_count=0,
+            favor_residue_energy=0,
+            interaction_energy_complex=0,
+            interaction_energy_per_residue=0,
+            interface_separation=0,
+            number_of_hbonds=0,
+            rmsd_complex=0,  # Todo calculate this here instead of Rosetta using superposition3d
+            rosetta_reference_energy=0,
+            shape_complementarity=0,
+        )
+        empty_source[putils.protocol] = job_key
+        for idx, entity in enumerate(self.pose.entities, 1):
+            empty_source[f'buns{idx}_unbound'] = 0
+            empty_source[f'entity{idx}_interface_connectivity'] = 0
+
+        source_df = pd.DataFrame(empty_source, index=putils.pose_source)
+
         if os.path.exists(self.scores_file):  # Rosetta scores file is present  # Todo PoseDirectory(.path)
             self.log.debug(f'Found design scores in file: {self.scores_file}')  # Todo PoseDirectory(.path)
             design_was_performed = True
-            # Get the scores from the score file on design trajectory metrics
-            source_df = pd.DataFrame.from_dict({putils.pose_source: {putils.protocol: job_key}}, orient='index')
-            for idx, entity in enumerate(self.pose.entities, 1):
-                source_df[f'buns_{idx}_unbound'] = 0
-                # source_df[f'interface_energy_{idx}_bound'] = 0
-                # source_df[f'interface_energy_{idx}_unbound'] = 0
-                # source_df[f'solvation_energy_{idx}_bound'] = 0
-                # source_df[f'solvation_energy_{idx}_unbound'] = 0
-                source_df[f'entity{idx}_interface_connectivity'] = 0
-            source_df['buns_complex'] = 0
-            # source_df['buns_unbound'] = 0
-            source_df['contact_count'] = 0
-            source_df['favor_residue_energy'] = 0
-            # Used in sum_per_residue_df
-            # source_df['interface_energy_complex'] = 0
-            source_df['interaction_energy_complex'] = 0
-            source_df['interaction_energy_per_residue'] = \
-                source_df['interaction_energy_complex'] / len(self.pose.interface_residues)
-            source_df['interface_separation'] = 0
-            source_df['number_hbonds'] = 0
-            source_df['rmsd_complex'] = 0  # Todo calculate this here instead of Rosetta using superposition3d
-            source_df['rosetta_reference_energy'] = 0
-            source_df['shape_complementarity'] = 0
-            source_df['solvation_energy'] = 0
-            source_df['solvation_energy_complex'] = 0
+            # # Get the scores from the score file on design trajectory metrics
+            # source_df = pd.DataFrame.from_dict({putils.pose_source: {putils.protocol: job_key}}, orient='index')
+            # for idx, entity in enumerate(self.pose.entities, 1):
+            #     source_df[f'buns{idx}_unbound'] = 0
+            #     source_df[f'entity{idx}_interface_connectivity'] = 0
+            # source_df['buns_complex'] = 0
+            # # source_df['buns_unbound'] = 0
+            # source_df['contact_count'] = 0
+            # source_df['favor_residue_energy'] = 0
+            # # Used in sum_per_residue_df
+            # # source_df['interface_energy_complex'] = 0
+            # source_df['interaction_energy_complex'] = 0
+            # source_df['interaction_energy_per_residue'] = \
+            #     source_df['interaction_energy_complex'] / len(self.pose.interface_residues)
+            # source_df['interface_separation'] = 0
+            # source_df['number_of_hbonds'] = 0
+            # source_df['rmsd_complex'] = 0
+            # source_df['rosetta_reference_energy'] = 0
+            # source_df['shape_complementarity'] = 0
             design_scores = metrics.read_scores(self.scores_file)  # Todo PoseDirectory(.path)
             self.log.debug(f'All designs with scores: {", ".join(design_scores.keys())}')
             # Find designs with scores and structures
@@ -3050,36 +3066,32 @@ class PoseDirectory(PoseProtocol):
             design_was_performed = False
             # Todo add relevant missing scores such as those specified as 0 below
             # Todo may need to put source_df in scores file alternative
-            source_df = pd.DataFrame.from_dict({putils.pose_source: {putils.protocol: job_key}}, orient='index')
-            for idx, entity in enumerate(self.pose.entities, 1):
-                source_df[f'buns_{idx}_unbound'] = 0
-                # source_df[f'interface_energy_{idx}_bound'] = 0
-                # source_df[f'interface_energy_{idx}_unbound'] = 0
-                # source_df[f'solvation_energy_{idx}_bound'] = 0
-                # source_df[f'solvation_energy_{idx}_unbound'] = 0
-                source_df[f'entity{idx}_interface_connectivity'] = 0
-                # residue_info = {'energy': {'complex': 0., 'unbound': 0.}, 'type': None, 'hbond': 0}
-                # design_info.update({residue.number: {'energy_delta': 0.,
-                #                                      'type': protein_letters_3to1.get(residue.type),
-                #                                      'hbond': 0} for residue in entity.residues})
+            # source_df = pd.DataFrame.from_dict({putils.pose_source: {putils.protocol: job_key}}, orient='index')
+            # for idx, entity in enumerate(self.pose.entities, 1):
+            #     source_df[f'buns{idx}_unbound'] = 0
+            #     source_df[f'entity{idx}_interface_connectivity'] = 0
+            #     # residue_info = {'energy': {'complex': 0., 'unbound': 0.}, 'type': None, 'hbond': 0}
+            #     # design_info.update({residue.number: {'energy_delta': 0.,
+            #     #                                      'type': protein_letters_3to1.get(residue.type),
+            #     #                                      'hbond': 0} for residue in entity.residues})
+            # source_df['buns_complex'] = 0
+            # # source_df['buns_unbound'] = 0
+            # source_df['contact_count'] = 0
+            # source_df['favor_residue_energy'] = 0
+            # # source_df['interface_energy_complex'] = 0
+            # source_df['interaction_energy_complex'] = 0
+            # source_df['interaction_energy_per_residue'] = \
+            #     source_df['interaction_energy_complex'] / len(self.pose.interface_residues)
+            # source_df['interface_separation'] = 0
+            # source_df['number_of_hbonds'] = 0
+            # source_df['rmsd_complex'] = 0
+            # source_df['rosetta_reference_energy'] = 0
+            # source_df['shape_complementarity'] = 0
             scores_df = pd.DataFrame.from_dict({pose.name: {putils.protocol: job_key} for pose in design_poses},
                                                orient='index')
-            scores_df = pd.concat([source_df, scores_df])
-            scores_df['buns_complex'] = 0
-            # source_df['buns_unbound'] = 0
-            scores_df['contact_count'] = 0
-            scores_df['favor_residue_energy'] = 0
-            scores_df['interface_energy_complex'] = 0
-            scores_df['interaction_energy_complex'] = 0
-            scores_df['interaction_energy_per_residue'] = \
-                scores_df['interaction_energy_complex'] / len(self.pose.interface_residues)
-            scores_df['interface_separation'] = 0
-            scores_df['number_hbonds'] = 0
-            scores_df['rmsd_complex'] = 0  # Todo calculate this here instead of Rosetta using superposition3d
-            scores_df['rosetta_reference_energy'] = 0
-            scores_df['shape_complementarity'] = 0
-            scores_df['solvation_energy'] = 0
-            scores_df['solvation_energy_complex'] = 0
+            # Fill in all the missing values with that of the default pose_source
+            scores_df = pd.concat([source_df, scores_df]).fillna(method='ffill')
+
             remove_columns = metrics.rosetta_terms + metrics.unnecessary
             residue_info.update({struct_name: pose_source_residue_info for struct_name in scores_df.index.to_list()})
             # Todo generate energy scores internally which matches output from residue_processing
