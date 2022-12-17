@@ -1072,7 +1072,7 @@ class Atoms:
 
         Args:
             at: The index to perform the insert at
-            new_atoms: The residues to include into Residues
+            new_atoms: The Atom instances to include into Atoms
         """
         self.atoms = np.concatenate((self.atoms[:at],
                                      new_atoms if isinstance(new_atoms, Iterable) else [new_atoms],
@@ -2507,7 +2507,7 @@ class Residues:
 
         Args:
             at: The index to perform the insert at
-            new_residues: The residues to include into Residues
+            new_residues: The Residue instances to include into Residues
         """
         self.residues = np.concatenate((self.residues[:at],
                                         new_residues if isinstance(new_residues, Iterable) else [new_residues],

@@ -6184,7 +6184,7 @@ class Pose(SymmetricModel):
                              'entity_number_of_residues_average_deviation': residue_ratio_sum/counter})
         return pose_metrics
 
-    def get_per_residue_interface_metrics(self) -> dict[str, list[float]]:
+    def per_residue_interface_surface_area(self) -> dict[str, list[float]]:
         """Return the per Residue metrics for every Residue in the Pose
 
         Metrics include sasa_hydrophobic_complex, sasa_polar_complex, sasa_relative_complex, sasa_hydrophobic_bound,
@@ -6209,7 +6209,8 @@ class Pose(SymmetricModel):
         per_residue_data['sasa_relative_complex'] = [residue.relative_sasa for residue in assembly_asu_residues]
         per_residue_sasa_unbound_apolar, per_residue_sasa_unbound_polar, per_residue_sasa_unbound_relative = [], [], []
         for entity in self.entities:
-            # entity.oligomer.get_sasa()  # Todo when Entity.oligomer works
+            # Todo when Entity.oligomer works
+            #  entity.oligomer.get_sasa()
             entity_oligomer = Model.from_chains(entity.chains, log=self.log, entities=False)
             entity_oligomer.get_sasa()
             oligomer_asu_residues = entity_oligomer.residues[:entity.number_of_residues]
@@ -6539,10 +6540,11 @@ class Pose(SymmetricModel):
             self.log.warning(f'No interface atoms located during {self.local_density_interface.__name__}')
             return 0.
 
+        interface_indices = list(set(interface_indices1).union(interface_indices2))
         if self.is_symmetric():
-            interface_coords = self.symmetric_coords[list(set(interface_indices1).union(interface_indices2))]
+            interface_coords = self.symmetric_coords[interface_indices]
         else:
-            interface_coords = self.coords[list(set(interface_indices1).union(interface_indices2))]
+            interface_coords = self.coords[interface_indices]
 
         interface_tree = BallTree(interface_coords)
         interface_counts = interface_tree.query_radius(interface_coords, distance, count_only=True)

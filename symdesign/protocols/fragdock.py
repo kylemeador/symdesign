@@ -3844,7 +3844,7 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
                     #             #  else:
                     #             #      pose.refine()
                     #             interface_local_density[pose_id] = pose.local_density_interface()
-                    #             per_res_interface_metrics = pose.get_per_residue_interface_metrics()
+                    #             per_res_interface_metrics = pose.per_residue_interface_surface_area()
                     #         else:
                     #             per_res_interface_metrics = {}
                     #         # For each Pose, save each sequence design data such as energy # probabilites
