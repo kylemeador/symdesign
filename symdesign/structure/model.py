@@ -7240,8 +7240,6 @@ class Pose(SymmetricModel):
             distance: float = 8. - The distance to measure Residues across an interface
         """
         self.generate_interface_fragments(oligomeric_interfaces=True, **kwargs)
-        if not self.interface_residues_by_entity_pair:
-            self.find_and_split_interface(**kwargs)
 
         for entity in self.active_entities:
             self.log.info(f'Querying Entity: {entity} for internal fragments')
