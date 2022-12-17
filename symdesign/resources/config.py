@@ -23,6 +23,9 @@ metrics = {
     # 'buns_total':
     #     dict(description='Total buried unsaturated H-bonds in the design',
     #      direction=_min, function=rank, filter=True),
+    'buns_unbound':
+        dict(description='Total buried unsaturated H-bonds in the design',
+             direction=_min, function=rank, filter=True),
     'buried_unsatisfied_hbond_density':
         dict(description='Buried Unsaturated Hbonds per Angstrom^2 of interface',
              direction=_min, function=normalize, filter=True),
@@ -417,7 +420,7 @@ metrics = {
     'number_fragment_residues_center':
         dict(description='The number of interface residues that belong to a central fragment residue',
              direction=_max, function=rank, filter=None),
-    'number_hbonds':
+    'number_of_hbonds':
         dict(description='The number of residues making H-bonds in the total interface. Residues may make '
                          'more than one H-bond', direction=_max, function=rank, filter=True),
     'number_of_fragments':

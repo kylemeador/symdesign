@@ -4227,11 +4227,6 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
             #     # all_pose_divergence_df = pd.DataFrame()
             #     # residue_df = pd.DataFrame()
 
-            # Get the average thermophilicity for all entities
-            scores_df['pose_thermophilicity'] = \
-                scores_df.loc[:, [f'entity{idx}_thermophile' for idx in range(1, pose.number_of_entities)]
-                              ].sum(axis=1) / pose.number_of_entities
-
             scores_columns = scores_df.columns.to_list()
             logger.debug(f'Metrics present: {scores_columns}')
 
@@ -4240,8 +4235,6 @@ def fragment_dock(models: Iterable[Structure | AnyStr], **kwargs) -> list[protoc
             # interface_metrics_df = pd.concat([interface_metrics_df], keys=[('dock', 'pose')])
             # scores_df = pd.concat([scores_df], keys=[('dock', 'pose')], axis=1)
             # Todo incorporate full sequence ProteinMPNN summation into scores_df. Find meaning of probabilities
-            # Todo incorporate residue_df summation into scores_df
-            #  observed_*, solvation_energy, etc.
             scores_df = pd.concat([scores_df], keys=[('dock', 'pose')], axis=1)
 
             # CONSTRUCT: Create pose series and format index names
