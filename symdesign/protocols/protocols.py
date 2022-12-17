@@ -460,32 +460,7 @@ class PoseProtocol:
         #     self.retrieve_fragment_info_from_file()
 
         if self.job.design.evolution_constraint:
-            for entity in self.pose.entities:
-                if entity not in self.pose.active_entities:  # We shouldn't design, add a null profile instead
-                    entity.add_profile(null=True)
-                else:  # Add a real profile
-                    # entity.add_profile(evolution=self.job.design.evolution_constraint,
-                    #                    fragments=self.job.generate_fragments,
-                    #                    out_dir=self.job.api_db.hhblits_profiles.location)
-                    entity.sequence_file = self.job.api_db.sequences.retrieve_file(name=entity.name)
-                    entity.evolutionary_profile = self.job.api_db.hhblits_profiles.retrieve_data(name=entity.name)
-                    if not entity.evolutionary_profile:
-                        entity.add_evolutionary_profile(out_dir=self.job.api_db.hhblits_profiles.location)
-                    else:  # ensure the file is attached as well
-                        entity.pssm_file = self.job.api_db.hhblits_profiles.retrieve_file(name=entity.name)
-
-                    if not entity.pssm_file:  # still no file found. this is likely broken
-                        raise DesignError(f'{entity.name} has no profile generated. To proceed with this design/'
-                                          f'protocol you must generate the profile!')
-
-                    if not entity.verify_evolutionary_profile():
-                        entity.fit_evolutionary_profile_to_structure()
-
-                    if not entity.sequence_file:
-                        entity.write_sequence_to_fasta('reference', out_dir=self.job.api_db.sequences.location)
-
-            self.pose.evolutionary_profile = \
-                concatenate_profile([entity.evolutionary_profile for entity in self.pose.entities])
+            self._generate_evolutionary_profile()
 
         # self.pose.combine_sequence_profiles()
         # I could also add the combined profile here instead of at each Entity
@@ -558,32 +533,7 @@ class PoseProtocol:
         #     self.retrieve_fragment_info_from_file()
 
         if self.job.design.evolution_constraint:
-            for entity in self.pose.entities:
-                if entity not in self.pose.active_entities:  # We shouldn't design, add a null profile instead
-                    entity.add_profile(null=True)
-                else:  # Add a real profile
-                    # entity.add_profile(evolution=self.job.design.evolution_constraint,
-                    #                    fragments=self.job.generate_fragments,
-                    #                    out_dir=self.job.api_db.hhblits_profiles.location)
-                    entity.sequence_file = self.job.api_db.sequences.retrieve_file(name=entity.name)
-                    entity.evolutionary_profile = self.job.api_db.hhblits_profiles.retrieve_data(name=entity.name)
-                    if not entity.evolutionary_profile:
-                        entity.add_evolutionary_profile(out_dir=self.job.api_db.hhblits_profiles.location)
-                    else:  # ensure the file is attached as well
-                        entity.pssm_file = self.job.api_db.hhblits_profiles.retrieve_file(name=entity.name)
-
-                    if not entity.pssm_file:  # still no file found. this is likely broken
-                        raise DesignError(f'{entity.name} has no profile generated. To proceed with this design/'
-                                          f'protocol you must generate the profile!')
-
-                    if not entity.verify_evolutionary_profile():
-                        entity.fit_evolutionary_profile_to_structure()
-
-                    if not entity.sequence_file:
-                        entity.write_sequence_to_fasta('reference', out_dir=self.job.api_db.sequences.location)
-
-            self.pose.evolutionary_profile = \
-                concatenate_profile([entity.evolutionary_profile for entity in self.pose.entities])
+            self._generate_evolutionary_profile()
 
         # self.pose.combine_sequence_profiles()
         # I could also add the combined profile here instead of at each Entity
@@ -902,6 +852,8 @@ class PoseDirectory(PoseProtocol):
     frag_file: str | Path
     initial_model: Model | None
     initialized: bool
+    measure_evolution: bool
+    measure_alignment: bool
     name: str
     pose: Pose | None
     # pose_id: str
@@ -967,6 +919,7 @@ class PoseDirectory(PoseProtocol):
         """The name of the currently utilized protocol for file naming and metric results"""
 
         # Design attributes
+        self.measure_evolution = self.measure_alignment = False
         # self.background_profile: str = kwargs.get('background_profile', putils.design_profile)
         # """The type of position specific profile (per-residue amino acid frequencies) to utilize as the design
         # background profile.
@@ -2466,6 +2419,79 @@ class PoseDirectory(PoseProtocol):
 
         write_per_residue_scores(design_ids, sequences_and_scores)
 
+    def _generate_evolutionary_profile(self, warn_metrics: bool = False):
+        """Add evolutionary profile information for each Entity to the Pose
+
+        Args:
+            warn_metrics: Whether to warn the user about missing files for metric collection
+        """
+        # Assume True given this function call and set False if not possible for one of the Entities
+        self.measure_evolution = self.measure_alignment = True
+        warn = False
+        for entity in self.pose.entities:
+            if entity not in self.pose.active_entities:  # We shouldn't design, add a null profile instead
+                entity.add_profile(null=True)
+                continue
+
+            if entity.evolutionary_profile:
+                continue
+
+            profile = self.job.api_db.hhblits_profiles.retrieve_data(name=entity.name)
+            if not profile:
+                # # We can try and add... This would be better at the program level due to memory issues
+                # entity.add_evolutionary_profile(out_dir=self.job.api_db.hhblits_profiles.location)
+                # if not entity.pssm_file:
+                #     # Still no file found. this is likely broken
+                #     # raise DesignError(f'{entity.name} has no profile generated. To proceed with this design/'
+                #     #                   f'protocol you must generate the profile!')
+                #     pass
+                self.measure_evolution = False
+                warn = True
+                entity.evolutionary_profile = entity.create_null_profile()
+            else:
+                entity.evolutionary_profile = profile
+                # Ensure the file is attached as well
+                entity.pssm_file = self.job.api_db.hhblits_profiles.retrieve_file(name=entity.name)
+
+            if not entity.verify_evolutionary_profile():
+                entity.fit_evolutionary_profile_to_structure()
+            if not entity.sequence_file:
+                entity.write_sequence_to_fasta('reference', out_dir=self.job.api_db.sequences.location)
+
+            if entity.msa:
+                continue
+
+            try:  # To fetch the multiple sequence alignment for further processing
+                msa = self.job.api_db.alignments.retrieve_data(name=entity.name)
+                if not msa:
+                    self.measure_alignment = False
+                    warn = True
+                else:
+                    entity.msa = msa
+            except ValueError as error:  # When the Entity reference sequence and alignment are different lengths
+                # raise error
+                self.log.info(f'Entity reference sequence and provided alignment are different lengths: {error}')
+                warn = True
+
+        if warn_metrics and warn:
+            if not self.measure_evolution and not self.measure_alignment:
+                self.log.info("Metrics relying on evolution aren't being collected as the required files weren't "
+                              f'found. These include: {", ".join(metrics.all_evolutionary_metrics)}')
+            elif not self.measure_alignment:
+                self.log.info('Metrics relying on a multiple sequence alignment including: '
+                              f'{", ".join(metrics.multiple_sequence_alignment_dependent_metrics)}'
+                              "are being calculated with the reference sequence as there was no MSA found")
+            else:
+                self.log.info("Metrics relying on an evolutionary profile aren't being collected as "
+                              'there was no profile found. These include: '
+                              f'{", ".join(metrics.profile_dependent_metrics)}')
+
+        # if self.measure_evolution:
+        self.pose.evolutionary_profile = \
+            concatenate_profile([entity.evolutionary_profile for entity in self.pose.entities])
+        # else:
+        #     self.pose.evolutionary_profile = self.pose.create_null_profile()
+
     def proteinmpnn_analysis(self, design_ids: Sequence[str], sequences_and_scores: dict[str, np.array],
                              design_poses: Iterable[Pose] = None) -> pd.Series:
         """
@@ -2492,67 +2518,12 @@ class PoseDirectory(PoseProtocol):
         # Make requisite profiles
         profile_background = {}
         if self.job.design.evolution_constraint:
-            # Add Entity information to the Pose
-            measure_evolution = measure_alignment = True
-            warn = False
-            for entity in self.pose.entities:
-                # entity.sequence_file = job.api_db.sequences.retrieve_file(name=entity.name)
-                # if not entity.sequence_file:
-                #     entity.write_sequence_to_fasta('reference', out_dir=job.sequences)
-                #     # entity.add_evolutionary_profile(out_dir=job.api_db.hhblits_profiles.location)
-                # else:
-                profile = self.job.api_db.hhblits_profiles.retrieve_data(name=entity.name)
-                if not profile:
-                    measure_evolution = False
-                    warn = True
-                else:
-                    entity.evolutionary_profile = profile
-
-                if not entity.verify_evolutionary_profile():
-                    entity.fit_evolutionary_profile_to_structure()
-
-                try:  # To fetch the multiple sequence alignment for further processing
-                    msa = self.job.api_db.alignments.retrieve_data(name=entity.name)
-                    if not msa:
-                        measure_evolution = False
-                        warn = True
-                    else:
-                        entity.msa = msa
-                except ValueError as error:  # When the Entity reference sequence and alignment are different lengths
-                    # raise error
-                    logger.info(f'Entity reference sequence and provided alignment are different lengths: {error}')
-                    warn = True
-
-            if warn:
-                if not measure_evolution and not measure_alignment:
-                    logger.info(f'Metrics relying on an evolutionary profile are not being collected as '
-                                f'there was no profile found. These include: '
-                                f'{", ".join(metrics.profile_dependent_metrics)}')
-                    logger.info(f'Metrics relying on multiple sequence alignment data are not being collected as '
-                                f'there were none found. These include: '
-                                f'{", ".join(metrics.multiple_sequence_alignment_dependent_metrics)}')
-                elif not measure_alignment:
-                    logger.info(f'Metrics relying on a multiple sequence alignment are not being collected as '
-                                f'there was no MSA found. These include: '
-                                f'{", ".join(metrics.multiple_sequence_alignment_dependent_metrics)}')
-                else:
-                    logger.info(f'Metrics relying on an evolutionary profile are not being collected as '
-                                f'there was no profile found. These include: '
-                                f'{", ".join(metrics.profile_dependent_metrics)}')
-
-            if measure_evolution:
-                self.pose.evolutionary_profile = \
-                    concatenate_profile([entity.evolutionary_profile for entity in self.pose.entities])
-            else:
-                self.log.info('No evolution information')
-                self.pose.evolutionary_profile = self.pose.create_null_profile()
-
-            if self.pose.evolutionary_profile:
-                profile_background['evolution'] = evolutionary_profile_array = pssm_as_array(self.pose.evolutionary_profile)
-                torch_log_evolutionary_profile = torch.from_numpy(np.log(evolutionary_profile_array))
+            self._generate_evolutionary_profile(warn_metrics=True)
+            # if self.pose.evolutionary_profile:
+            profile_background['evolution'] = evolutionary_profile_array = pssm_as_array(self.pose.evolutionary_profile)
+            torch_log_evolutionary_profile = torch.from_numpy(np.log(evolutionary_profile_array))
         else:
-            measure_evolution = measure_alignment = False
-            torch_log_evolutionary_profile = torch(nan_blank_data)
+            torch_log_evolutionary_profile = torch.tensor(nan_blank_data)
 
         # number_of_temperatures = len(self.job.design.temperatures)
         interface_metrics = {}
@@ -2657,7 +2628,7 @@ class PoseDirectory(PoseProtocol):
             # Get the negative log likelihood of the .evolutionary_ and .fragment_profile
             torch_numeric = torch.from_numpy(self.pose.sequence_numeric)
             # if self.pose.evolutionary_profile:
-            if measure_evolution:
+            if self.measure_evolution:
                 per_residue_evolutionary_profile_scores = \
                     resources.ml.sequence_nllloss(torch_numeric, torch_log_evolutionary_profile)
                 self.pose.calculate_profile()
@@ -3240,64 +3211,22 @@ class PoseDirectory(PoseProtocol):
                     'proteinmpnn_loss_unbound': proteinmpnn_df.loc[pose.name, 'proteinmpnn_loss_unbound']
                 })
 
+        # Load profiles of interest into the analysis
+        if self.job.design.evolution_constraint:
+            self._generate_evolutionary_profile(warn_metrics=True)
+
+        # self._generate_fragments() was already called
+        self.pose.add_profile(evolution=self.job.design.evolution_constraint,
+                              fragments=self.job.generate_fragments)
+
+        profile_background = {'design': pssm_as_array(self.pose.profile),
+                              'evolution': pssm_as_array(self.pose.evolutionary_profile),
+                              'fragment': self.pose.fragment_profile.as_array()}
+        if self.job.fragment_db is not None:
+            interface_bkgd = np.array(list(self.job.fragment_db.aa_frequencies.values()))
+            profile_background['interface'] = np.tile(interface_bkgd, (self.pose.number_of_residues, 1))
+
         # Calculate hydrophobic collapse for each design
-        # warn = True
-        # # Add Entity information to the Pose
-        # for idx, entity in enumerate(self.pose.entities):
-        #     try:  # To fetch the multiple sequence alignment for further processing
-        #         entity.msa = self.job.api_db.alignments.retrieve_data(name=entity.name)
-        #     except ValueError:  # When the Entity reference sequence and alignment are different lengths
-        #         if not warn:
-        #             self.log.info(f'Metrics relying on a multiple sequence alignment are not being collected as '
-        #                           f'there is no MSA found. These include: '
-        #                           f'{", ".join(metrics.multiple_sequence_alignment_dependent_metrics)}')
-        #             warn = False
-        measure_evolution = measure_alignment = True
-        warn = False
-        # Add Entity information to the Pose
-        for idx, entity in enumerate(self.pose.entities):
-            # entity.sequence_file = job.api_db.sequences.retrieve_file(name=entity.name)
-            # if not entity.sequence_file:
-            #     entity.write_sequence_to_fasta('reference', out_dir=job.sequences)
-            #     # entity.add_evolutionary_profile(out_dir=job.api_db.hhblits_profiles.location)
-            # else:
-            profile = self.job.api_db.hhblits_profiles.retrieve_data(name=entity.name)
-            if not profile:
-                measure_evolution = False
-                warn = True
-            else:
-                entity.evolutionary_profile = profile
-
-            if not entity.verify_evolutionary_profile():
-                entity.fit_evolutionary_profile_to_structure()
-
-            try:  # To fetch the multiple sequence alignment for further processing
-                msa = self.job.api_db.alignments.retrieve_data(name=entity.name)
-                if not msa:
-                    measure_alignment = False
-                    warn = True
-                else:
-                    entity.msa = msa
-            except ValueError as error:  # When the Entity reference sequence and alignment are different lengths
-                self.pose.log.info(f'Entity reference sequence and provided alignment are different lengths: {error}')
-                warn = True
-
-        if warn:
-            if not measure_evolution and not measure_alignment:
-                self.pose.log.info(f'Metrics relying on an evolutionary profile are not being collected as '
-                                   f'there was no profile found. These include: '
-                                   f'{", ".join(metrics.profile_dependent_metrics)}')
-                self.pose.log.info(f'Metrics relying on multiple sequence alignment data are not being collected as'
-                                   f' there were none found. These include: '
-                                   f'{", ".join(metrics.multiple_sequence_alignment_dependent_metrics)}')
-            elif not measure_alignment:
-                self.pose.log.info(f'Metrics relying on a multiple sequence alignment are not being collected as '
-                                   f'there was no MSA found. These include: '
-                                   f'{", ".join(metrics.multiple_sequence_alignment_dependent_metrics)}')
-            else:
-                self.pose.log.info(f'Metrics relying on an evolutionary profile are not being collected as '
-                                   f'there was no profile found. These include: '
-                                   f'{", ".join(metrics.profile_dependent_metrics)}')
         # Include the pose_source in the measured designs
         contact_order_per_res_z, reference_collapse, collapse_profile = self.pose.get_folding_metrics()
         collapse_significance_threshold = metrics.collapse_thresholds['standard']
@@ -3335,28 +3264,6 @@ class PoseDirectory(PoseProtocol):
 
         # Load profiles of interest into the analysis
         if measure_evolution:
-            pose.evolutionary_profile = concatenate_profile([entity.evolutionary_profile for entity in pose.entities])
-
-        # pose.generate_interface_fragments() was already called
-        pose.calculate_fragment_profile()
-        pose.add_profile(evolution=self.job.design.evolution_constraint,
-                         fragments=self.job.generate_fragments)
-
-        profile_background = {'design': pssm_as_array(self.pose.profile),
-                              'evolution': pssm_as_array(self.pose.evolutionary_profile),
-                              'fragment': self.pose.fragment_profile.as_array()}
-        # if self.pose.profile:
-        # else:
-        #     self.log.info('Pose has no profile information')
-        # if self.pose.evolutionary_profile:
-        # else:
-        #     self.log.info('No evolution information')
-        # if self.pose.fragment_profile:
-        # else:
-        #     self.log.info('No fragment information')
-        if self.job.fragment_db is not None:
-            interface_bkgd = np.array(list(self.job.fragment_db.aa_frequencies.values()))
-            profile_background['interface'] = np.tile(interface_bkgd, (self.pose.number_of_residues, 1))
 
         if not profile_background:
             divergence_s = pd.Series(dtype=float)
