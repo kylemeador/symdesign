@@ -390,35 +390,8 @@ class PoseProtocol:
         """For the design info given by a PoseDirectory source, initialize the Pose then generate interfacial fragment
         information between Entities. Aware of symmetry and design_selectors in fragment generation file
         """
-        # if self.interface_residue_numbers is False or self.interface_design_residue_numbers is False:
-        self.identify_interface()
-        # else:  # We only need to load pose as we already calculated interface
-        #     self.load_pose()
-
-        putils.make_path(self.frags, condition=self.job.write_fragments)
-        self.pose.generate_fragments()
-        if self.job.write_fragments:
-            # Write trajectory if specified
-            if self.job.write_trajectory:
-                # Create a Models instance to collect each model
-                trajectory_models = Models()
-
-                if self.sym_entry.unit_cell:
-                    logger.warning('No unit cell dimensions applicable to the trajectory file.')
-
-                trajectory_models.write(out_path=os.path.join(self.frags, 'all_frags.pdb'),
-                                        oligomer=True)
-
-                ghost_frags = [ghost_frag for ghost_frag, _, _ in self.pose.fragment_pairs]
-                fragment.visuals.write_fragments_as_multimodel(ghost_frags, os.path.join(self.frags, 'all_frags.pdb'))
-                # for frag_idx, (ghost_frag, frag, match) in enumerate(self.pose.fragment_pairs):
-                #     continue
-            else:
-                self.pose.write_fragment_pairs(out_path=self.frags)
-
-        self.fragment_observations = self.pose.get_fragment_observations()
-        self.info['fragment_source'] = self.job.fragment_db.source
-        self.pickle_info()  # Todo remove once PoseDirectory state can be returned to the SymDesign dispatch w/ MP
+        self.load_pose()
+        self._generate_fragments()
 
     @close_logs
     @remove_structure_memory
@@ -444,11 +417,7 @@ class PoseProtocol:
             favor_fragments = evo_fill = False
 
         if self.job.generate_fragments:
-            self.pose.generate_interface_fragments()
-            self.fragment_observations = self.pose.get_fragment_observations()
-            self.info['fragment_source'] = self.job.fragment_db.source
-            if self.job.write_fragments:
-                self.pose.write_fragment_pairs(out_path=self.frags)
+            self._generate_fragments(interface=True)
             self.pose.calculate_fragment_profile(evo_fill=evo_fill)
         elif isinstance(self.fragment_observations, list):
             raise NotImplementedError(f"Can't put fragment observations taken away from the pose onto the pose due to "
@@ -514,13 +483,9 @@ class PoseProtocol:
             favor_fragments = evo_fill = False
 
         if self.job.generate_fragments:
-            # Todo this is working but the information isn't really used... Need to get oligomeric type frags
-            # self.pose.generate_fragments()
-            self.pose.generate_interface_fragments()
-            self.fragment_observations = self.pose.get_fragment_observations()
-            self.info['fragment_source'] = self.job.fragment_db.source
-            if self.job.write_fragments:
-                self.pose.write_fragment_pairs(out_path=self.frags)
+            # Todo this is working but the information isn't really used...
+            #  ALSO Need to get oligomeric type frags
+            self._generate_fragments(interface=True)
             self.pose.calculate_fragment_profile(evo_fill=evo_fill)
         elif isinstance(self.fragment_observations, list):
             raise NotImplementedError(f"Can't put fragment observations taken away from the pose onto the pose due to "
@@ -1840,6 +1805,42 @@ class PoseDirectory(PoseProtocol):
                                  'would like to generate the Assembly anyway, re-submit the command with '
                                  f'--{flags.ignore_symmetric_clashes}')
 
+    def _generate_fragments(self, interface: bool = False):
+        """For the design info given by a PoseDirectory source, initialize the Pose then generate interfacial fragment
+        information between Entities. Aware of symmetry and design_selectors in fragment generation file
+
+        Args:
+            interface: Whether to perform fragment generation on the interface
+        """
+        if interface:
+            self.pose.generate_interface_fragments()
+        else:
+            self.pose.generate_fragments()
+
+        if self.job.write_fragments:
+            putils.make_path(self.frags)
+            # Write trajectory if specified
+            if self.job.write_trajectory:
+                # Create a Models instance to collect each model
+                trajectory_models = Models()
+
+                if self.sym_entry.unit_cell:
+                    logger.warning('No unit cell dimensions applicable to the trajectory file.')
+
+                trajectory_models.write(out_path=os.path.join(self.frags, 'all_frags.pdb'),
+                                        oligomer=True)
+
+                ghost_frags = [ghost_frag for ghost_frag, _, _ in self.pose.fragment_pairs]
+                fragment.visuals.write_fragments_as_multimodel(ghost_frags, os.path.join(self.frags, 'all_frags.pdb'))
+                # for frag_idx, (ghost_frag, frag, match) in enumerate(self.pose.fragment_pairs):
+                #     continue
+            else:
+                self.pose.write_fragment_pairs(out_path=self.frags)
+
+        self.fragment_observations = self.pose.get_fragment_observations()
+        self.info['fragment_source'] = self.job.fragment_db.source
+        self.pickle_info()  # Todo remove once PoseDirectory state can be returned to the SymDesign dispatch w/ MP
+
     def prepare_rosetta_flags(self, symmetry_protocol: str = None, sym_def_file: str = None, pdb_out_path: str = None,
                               out_dir: AnyStr = os.getcwd()) -> str:
         """Prepare a protocol specific Rosetta flags file with program specific variables
@@ -2888,9 +2889,8 @@ class PoseDirectory(PoseProtocol):
         #     self.load_pose()
 
         if self.job.generate_fragments and not self.pose.fragment_queries:
-            self.pose.generate_interface_fragments()
-            if self.job.write_fragments:
-                self.pose.write_fragment_pairs(out_path=self.frags)  # Todo PoseDirectory(.path)
+            self._generate_fragments(interface=True)
+            self.pose.calculate_fragment_profile()
 
         # Gather miscellaneous pose specific metrics
         other_pose_metrics = self.pose.interface_metrics()
@@ -3745,7 +3745,7 @@ class PoseDirectory(PoseProtocol):
             write_sequences(pose_sequences, file_name=self.designed_sequences_file)
 
         # Create figures
-        if self.job.figures:  # for plotting collapse profile, errat data, contact order
+        if self.job.figures:  # For plotting collapse profile, errat data, contact order
             # Plot: Format the collapse data with residues as index and each design as column
             # collapse_graph_df = pd.DataFrame(per_residue_data['hydrophobic_collapse'])
             collapse_graph_df = residue_df.loc[:, idx_slice[:, 'hydrophobic_collapse']].droplevel(-1, axis=1)
@@ -3854,7 +3854,7 @@ class PoseDirectory(PoseProtocol):
             # errat_graph_df = residue_df.loc[:, idx_slice[:, 'errat_deviation']].droplevel(-1, axis=1)
             # errat_graph_df = errat_df
             # wt_errat_concatenated_s = pd.Series(np.concatenate(list(source_errat.values())), name='clean_asu')
-            # errat_graph_df[putils.pose_source] = pose_source_errat_s
+            # errat_graph_df[putils.pose_source] = pose_source_errat
             # errat_graph_df.columns += 1  # offset index to residue numbering
             errat_df.sort_index(axis=0, inplace=True)
             # errat_ax = errat_graph_df.plot.line(legend=False, ax=errat_ax, figsize=figure_aspect_ratio)
