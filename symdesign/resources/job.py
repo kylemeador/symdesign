@@ -653,7 +653,6 @@ class JobResources:
             entity.sequence_file = self.api_db.sequences.retrieve_file(name=entity.name)
             if not entity.sequence_file:
                 entity.write_sequence_to_fasta('reference', out_dir=self.sequences)
-                # entity.add_evolutionary_profile(out_dir=self.api_db.hhblits_profiles.location)
             else:
                 entity.evolutionary_profile = self.api_db.hhblits_profiles.retrieve_data(name=entity.name)
                 # entity.h_fields = self.api_db.bmdca_fields.retrieve_data(name=entity.name)
